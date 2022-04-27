@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "lib": [
+      "es6",
+      "dom"
+    ],
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "strictNullChecks": true,
+    "allowJs": true,
+    "esModuleInterop": true,
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "removeComments": true,
+    "downlevelIteration": true,
+    "allowSyntheticDefaultImports": true,
+    "outDir": "./dist/",
+    "jsx": "react",
+    "baseUrl": "./src",
+    "target": "es5",
+    "paths": {
+      "@assets/*": [
+        "./assets/*"
+      ],
+      "@components/*": [
+        "./components/*"
+      ],
+      "@services/*": [
+        "./services/*"
+      ],
+      "@hooks/*": [
+        "./hooks/*"
+      ],
+    },
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "serverDist"
+  ],
+}

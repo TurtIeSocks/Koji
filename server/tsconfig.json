@@ -1,0 +1,29 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "lib": [
+      "es6",
+      "ESNext",
+    ],
+    "strict": true,
+    "sourceMap": true,
+    "target": "es2020",
+    "baseUrl": "./src",
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@tsTypes/*": [
+        "./tsTypes/*"
+      ],
+      "@services/*": [
+        "./services/*"
+      ],
+    },
+  },
+  "exclude": [
+    "prisma",
+    "node_modules",
+    "dist",
+  ],
+}

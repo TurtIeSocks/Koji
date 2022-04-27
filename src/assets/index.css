@@ -1,0 +1,15 @@
+.leaflet-control-container .leaflet-top,
+.leaflet-control-container .leaflet-bottom {
+  transform: translate3d(0px, 0px, 0px);
+}
+
+.leaflet-container {
+  position: absolute;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  margin: auto;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}

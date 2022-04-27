@@ -1,0 +1,10 @@
+{
+  "New TS React Component": {
+		"scope": "typescriptreact",
+		"prefix": "tsnr",
+		"body": [
+			"import React from 'react'\n\nexport interface ${1:Component}Props {\n\t${2:prop}: ${3:string}\n}\n\nexport default function ${1:ComponentName}({ prop }: ${1:Component}Props) {\n\treturn (\n\t\t<div>\n\t\t\t{prop}\n\t\t</div>\n\t)\n}"
+		],
+		"description": "Base TS React Component"
+	}
+}
