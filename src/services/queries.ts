@@ -12,8 +12,8 @@ export const instances = gql`
 `
 
 export const gyms = gql`
-  query GetGyms {
-    gyms {
+  query GetGyms($bounds: Bounds!) {
+    gyms(bounds: $bounds) {
       id
       name
       lat
@@ -23,8 +23,8 @@ export const gyms = gql`
 `
 
 export const spawnpoints = gql`
-  query GetSpawnpoints {
-    spawnpoints {
+  query GetSpawnpoints($bounds: Bounds!) {
+    spawnpoints(bounds: $bounds) {
       id
       lat
       lon
@@ -36,8 +36,8 @@ export const spawnpoints = gql`
 `
 
 export const pokestops = gql`
-  query GetPokestops {
-    pokestops {
+  query GetPokestops($bounds: Bounds!) {
+    pokestops(bounds: $bounds) {
       id
       name
       lat

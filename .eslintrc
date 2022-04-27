@@ -2,7 +2,9 @@
   "root": true,
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
-    "project": ["./tsconfig.json"]
+    "project": [
+      "./tsconfig.json"
+    ]
   },
   "plugins": [
     "react",
@@ -25,6 +27,7 @@
   ],
   "rules": {
     "semi": "off",
+    "@typescript-eslint/naming-convention": 0,
     "react/require-default-props": 0,
     "@typescript-eslint/semi": 0,
     "react/jsx-one-expression-per-line": 0,
@@ -57,7 +60,7 @@
             ".tsx"
           ]
         }
-      }  
+      }
     }
   }
 }
