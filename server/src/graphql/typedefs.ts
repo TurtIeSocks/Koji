@@ -4,6 +4,13 @@ export default gql`
   scalar JSON
   scalar BigInt
 
+  input Bounds {
+    minLat: Float!
+    maxLat: Float!
+    minLon: Float!
+    maxLon: Float!
+  }
+
   type Poi {
     id: ID!
     name: String
@@ -31,9 +38,9 @@ export default gql`
   }
 
   type Query {
-    gyms: [Poi]
+    gyms(bounds: Bounds): [Poi]
     instances: [Instance]
-    pokestops: [Poi]
-    spawnpoints: [Spawnpoint]
+    pokestops(bounds: Bounds): [Poi]
+    spawnpoints(bounds: Bounds): [Spawnpoint]
   }
 `
