@@ -1,42 +1,49 @@
 /* eslint-disable no-console */
 import express from 'express'
 import path from 'path'
-import { ApolloServer } from 'apollo-server-express'
+import compression from 'compression'
 import dotenv from 'dotenv'
-
-import typeDefs from './graphql/typeDefs'
-import resolvers from './graphql/resolvers'
-import context from './graphql/context'
+import { PrismaClient } from "@prisma/client"
 
 dotenv.config()
 
 const app = express()
+const prisma = new PrismaClient()
 const port = process.env.PORT || 3001
 
-app.use(express.static(path.join(__dirname, '../../dist')))
+app.use(compression())
 
-const server = new ApolloServer({
-  typeDefs,
-  resolvers,
-  introspection: process.env.NODE_ENV?.includes('develop'),
-  context: ({ req }) => ({ req, ...context }),
-  formatError: (e) => {
-    console.log(e)
-    return e
-  },
-})
+app.use(express.static(path.join(__dirname, '../../dist')))
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(path.join(__dirname, '../../dist/index.html')))
 })
 
-server.start().then(() =>
-  server.applyMiddleware({
-    app,
-    path: '/graphql',
-    bodyParserConfig: { limit: '20mb' },
-  }),
-)
+app.get('/api', async (req, res) => {
+  const spawnpoints = prisma.spawnpoint
+    .findMany()
+    .then((r) => r.map((i) => ({ ...i, id: i.id.toString() })))
+  const pokestops = prisma.pokestop.findMany({
+    select: {
+      id: true,
+      lat: true,
+      lon: true,
+      updated: true,
+    },
+    where: { deleted: 0 },
+  })
+  const gyms = prisma.gym.findMany({
+    select: {
+      id: true,
+      lat: true,
+      lon: true,
+      updated: true,
+    },
+    where: { deleted: 0 },
+  })
+  const results = await Promise.all([spawnpoints, pokestops, gyms])
+  res.status(200).json({ spawnpoints: results[0], pokestops: results[1], gyms: results[2] })
+})
 
 app.listen(port, () => {
   console.log(`Server now listening on port: ${port}`)

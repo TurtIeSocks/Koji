@@ -1,17 +1,28 @@
 import React from 'react'
 import { useMap } from 'react-leaflet'
+import PixiOverlay from 'react-leaflet-pixi-overlay'
 
 import { useStore } from '@hooks/useStore'
-
-import Tools from './Tools'
-import Spawnpoints from './Spawnpoints'
-import Gyms from './Gym'
-import Pokestops from './Pokestop'
+import { buildMarkers } from '@services/utils'
+import { Data } from '@assets/types'
 
 export default function Interface() {
   const setLocation = useStore((s) => s.setLocation)
   const setZoom = useStore((s) => s.setZoom)
   const map = useMap()
+  const [data, setData] = React.useState<Data>({
+    gyms: [],
+    pokestops: [],
+    spawnpoints: [],
+  })
+
+  React.useEffect(() => {
+    fetch('/api')
+      .then((res) => res.json())
+      .then((incoming) => {
+        setData(incoming)
+      })
+  }, [])
 
   const onMove = React.useCallback(() => {
     setLocation(Object.values(map.getCenter()) as [number, number])
@@ -26,11 +37,6 @@ export default function Interface() {
   }, [map, onMove])
 
   return (
-    <>
-      <Spawnpoints />
-      <Tools />
-      <Gyms />
-      <Pokestops />
-    </>
+    <PixiOverlay markers={React.useMemo(() => buildMarkers(data), [data])} />
   )
 }

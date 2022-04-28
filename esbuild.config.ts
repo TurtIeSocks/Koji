@@ -45,7 +45,7 @@ build({
   minify: isRelease || !isDevelopment,
   metafile: true,
   logLevel: isDevelopment ? 'info' : 'error',
-  target: ['safari11', 'chrome64', 'firefox58', 'edge88'],
+  target: ['safari11.1', 'chrome64', 'firefox62', 'edge88'],
   watch: isDevelopment
     ? {
         onRebuild(error) {
