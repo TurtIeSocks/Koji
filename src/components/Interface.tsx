@@ -5,8 +5,10 @@ import { useStore } from '@hooks/useStore'
 
 import Tools from './Tools'
 import Spawnpoints from './Spawnpoints'
+import Gyms from './Gym'
+import Pokestops from './Pokestop'
 
-export default function Movement() {
+export default function Interface() {
   const setLocation = useStore((s) => s.setLocation)
   const setZoom = useStore((s) => s.setZoom)
   const map = useMap()
@@ -27,6 +29,8 @@ export default function Movement() {
     <>
       <Spawnpoints />
       <Tools />
+      <Gyms />
+      <Pokestops />
     </>
   )
 }

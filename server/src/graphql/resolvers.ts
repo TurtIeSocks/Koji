@@ -17,6 +17,12 @@ export default {
   Query: {
     gyms: async (_parent: unknown, { bounds }: Bounds, { prisma }: Context) => {
       const results = await prisma.gym.findMany({
+        select: {
+          id: true,
+          lat: true,
+          lon: true,
+          updated: true,
+        },
         where: {
           lat: {
             gt: bounds.minLat,
@@ -26,6 +32,7 @@ export default {
             gt: bounds.minLon,
             lt: bounds.maxLon,
           },
+          deleted: 0,
         }
       })
       return results
@@ -39,6 +46,12 @@ export default {
     },
     pokestops: async (_parent: unknown, { bounds }: Bounds, { prisma }: Context) => {
       const results = await prisma.pokestop.findMany({
+        select: {
+          id: true,
+          lat: true,
+          lon: true,
+          updated: true,
+        },
         where: {
           lat: {
             gt: bounds.minLat,
@@ -48,6 +61,7 @@ export default {
             gt: bounds.minLon,
             lt: bounds.maxLon,
           },
+          deleted: 0,
         }
       })
       return results
