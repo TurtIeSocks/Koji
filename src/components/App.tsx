@@ -4,7 +4,7 @@ import { ApolloProvider } from '@apollo/client'
 import client from '@services/Apollo'
 
 import { useStore } from '@hooks/useStore'
-import Movement from './OnMove'
+import Interface from './Interface'
 
 export default function App() {
   const location = useStore((s) => s.location)
@@ -20,7 +20,7 @@ export default function App() {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png"
         />
-        <Movement />
+        <Interface />
       </MapContainer>
     </ApolloProvider>
   )

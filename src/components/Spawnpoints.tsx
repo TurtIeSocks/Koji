@@ -1,5 +1,5 @@
 import React from 'react'
-import { Circle, useMap, Popup } from 'react-leaflet'
+import { useMap, Popup, CircleMarker } from 'react-leaflet'
 import { useQuery } from '@apollo/client'
 import { spawnpoint as Spawnpoint } from '@prisma/client'
 
@@ -20,13 +20,24 @@ function PopupContent({ point }: { point: Spawnpoint }) {
     </div>
   )
 }
+
 const Memoized = React.memo(
   ({ point }: { point: Spawnpoint }) => (
-    <Circle center={[point.lat, point.lon]} radius={2}>
+    <CircleMarker
+      center={[point.lat, point.lon]}
+      radius={3}
+      pathOptions={{
+        fillColor: point.despawn_sec ? 'deeppink' : 'dodgerblue',
+        fillOpacity: 1,
+        opacity: 1,
+        color: 'black',
+        weight: 1,
+      }}
+    >
       <Popup>
         <PopupContent point={point} />
       </Popup>
-    </Circle>
+    </CircleMarker>
   ),
   (prev: { point: Spawnpoint }, next: { point: Spawnpoint }) =>
     prev.point.despawn_sec === next.point.despawn_sec,
