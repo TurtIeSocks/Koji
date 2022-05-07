@@ -56,7 +56,11 @@ build({
     : false,
   sourcemap: isRelease || isDevelopment,
   define: {
-    inject: JSON.stringify({ ...env.parsed, DEVELOPMENT: isDevelopment }),
+    inject: JSON.stringify({
+      START_LAT: +(env.parsed?.START_LAT || '0'),
+      START_LON: +(env.parsed?.START_LON || '0'),
+      DEVELOPMENT: isDevelopment,
+    }),
   },
   plugins,
 })

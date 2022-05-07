@@ -58,3 +58,17 @@ export function buildMarkers(data: Data): MarkersPropsPixiOverlay {
   }
   return markers
 }
+
+export async function getData() {
+  const [pokestops, gyms, spawnpoints] = await Promise.all([
+    fetch('/pokestops'),
+    fetch('/gyms'),
+    fetch('/spawnpoints'),
+  ])
+  const [pokestopsData, gymsData, spawnpointsData] = await Promise.all([
+    pokestops.json(),
+    gyms.json(),
+    spawnpoints.json(),
+  ])
+  return { pokestops: pokestopsData, gyms: gymsData, spawnpoints: spawnpointsData }
+}
