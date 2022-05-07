@@ -3,7 +3,7 @@ import { useMap } from 'react-leaflet'
 import PixiOverlay from 'react-leaflet-pixi-overlay'
 
 import { useStore } from '@hooks/useStore'
-import { buildMarkers } from '@services/utils'
+import { buildMarkers, getData } from '@services/utils'
 import { Data } from '@assets/types'
 
 export default function Interface() {
@@ -17,11 +17,9 @@ export default function Interface() {
   })
 
   React.useEffect(() => {
-    fetch('/api')
-      .then((res) => res.json())
-      .then((incoming) => {
-        setData(incoming)
-      })
+    getData().then((incoming) => {
+      setData(incoming)
+    })
   }, [])
 
   const onMove = React.useCallback(() => {
