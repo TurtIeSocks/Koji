@@ -7,8 +7,8 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: mysql://user:password@host:3306/database_name
-      ALL_SPAWNPOINTS: true
+      ALL_SPAWNPOINTS: "true"
       START_LAT: 0
       START_LON: 0
     ports:
-      - "9090:8080"
+      - "9095:8080"
