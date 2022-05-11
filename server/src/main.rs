@@ -11,6 +11,8 @@ pub type DbPool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
 mod handlers;
 mod models;
 mod schema;
+mod marker_gen;
+mod queries;
 
 #[actix_web::main] // or #[tokio::main]
 async fn main() -> std::io::Result<()> {
@@ -29,7 +31,9 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(pool.clone()))
             .wrap(middleware::Logger::default())
+            // .wrap(middleware::Compress::default())
             .service(handlers::spawnpoints)
+            .service(handlers::all_spawnpoints)
             .service(handlers::gyms)
             .service(handlers::pokestops)
             .service(
