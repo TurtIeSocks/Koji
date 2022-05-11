@@ -1,0 +1,14 @@
+version: '3.7'
+services:
+  rdm-tools-2:
+    image: ghcr.io/turtiesocks/rdm-tools-2.0:main
+    container_name: rdm-tools-2
+    command: sh -c "yarn build && rdm-tools-2"
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mysql://user:password@host:3306/database_name
+      ALL_SPAWNPOINTS: true
+      START_LAT: 0
+      START_LON: 0
+    ports:
+      - "9090:8080"

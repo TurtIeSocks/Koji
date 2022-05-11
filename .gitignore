@@ -127,3 +127,4 @@ dist
 .pnp.*
 
 server/target
+docker-compose.yml

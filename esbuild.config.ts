@@ -7,7 +7,7 @@ import { build } from 'esbuild'
 import { htmlPlugin } from '@craftamap/esbuild-plugin-html'
 import { eslintPlugin } from 'esbuild-plugin-eslinter'
 
-const env = fs.existsSync(`${__dirname}/.env`) ? config() : { parsed: {} }
+const env = fs.existsSync(`${__dirname}/.env`) ? config() : { parsed: process.env }
 const isDevelopment = Boolean(process.argv.includes('--dev'))
 const isRelease = Boolean(process.argv.includes('--release'))
 
