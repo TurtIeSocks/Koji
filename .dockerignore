@@ -1,4 +1,8 @@
 node_modules/
 dist/
-server/dist
 .env
+target/
+.github/
+.vscode/
+docker-compose.yml
+.env.example

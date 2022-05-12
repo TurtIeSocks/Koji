@@ -3,7 +3,7 @@ import { useMap } from 'react-leaflet'
 import PixiOverlay from 'react-leaflet-pixi-overlay'
 
 import { useStore } from '@hooks/useStore'
-import { getMarkers, getSpawnpoints } from '@services/utils'
+import { getMarkers } from '@services/utils'
 import { PixiMarker } from '@assets/types'
 
 const ICON_HASH = {
@@ -21,31 +21,20 @@ export default function Markers() {
   const setZoom = useStore((s) => s.setZoom)
   const map = useMap()
   const [markers, setMarkers] = React.useState<PixiMarker[]>([])
-  const [points, setPoints] = React.useState<PixiMarker[]>([])
 
   React.useEffect(() => {
-    getMarkers(map).then((incoming) => {
-      if (inject.ALL_SPAWNPOINTS) {
-        setMarkers([
-          ...incoming.gyms,
-          ...incoming.pokestops,
-          ...incoming.spawnpoints,
-        ])
-      } else {
-        setMarkers([...incoming.gyms, ...incoming.pokestops])
-        setPoints(incoming.spawnpoints)
-      }
+    getMarkers().then((incoming) => {
+      setMarkers([
+        ...incoming.gyms,
+        ...incoming.pokestops,
+        ...incoming.spawnpoints,
+      ])
     })
   }, [])
 
   const onMove = React.useCallback(() => {
     setLocation(Object.values(map.getCenter()) as [number, number])
     setZoom(map.getZoom())
-    if (!inject.ALL_SPAWNPOINTS) {
-      getSpawnpoints(map).then((incoming) => {
-        setPoints(incoming)
-      })
-    }
   }, [map])
 
   React.useEffect(() => {
@@ -59,14 +48,6 @@ export default function Markers() {
     () => markers.map((i) => ({ ...i, customIcon: ICON_HASH[i.iconId] })),
     [markers],
   )
-  const spawnMarkers = React.useMemo(
-    () => points.map((i) => ({ ...i, customIcon: ICON_HASH[i.iconId] })),
-    [points],
-  )
 
-  return inject.ALL_SPAWNPOINTS ? (
-    <PixiOverlay markers={initialMarkers} />
-  ) : (
-    <PixiOverlay markers={[...initialMarkers, ...spawnMarkers]} />
-  )
+  return <PixiOverlay markers={initialMarkers} />
 }

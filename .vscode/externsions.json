@@ -5,7 +5,6 @@
     "ms-vscode.vscode-typescript-next",
     "leizongmin.node-module-intellisense",
     "eg2.vscode-npm-script",
-    "2gua.rainbow-brackets",
-    "prisma.prisma"
+    "matklad.rust-analyzer"
   ]
 }

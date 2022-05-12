@@ -15,8 +15,7 @@
   },
   "globals": {
     "window": true,
-    "document": true,
-    "inject": true
+    "document": true
   },
   "extends": [
     "airbnb",
