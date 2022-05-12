@@ -22,13 +22,16 @@ export async function getSpawnpoints(map: Map): Promise<PixiMarker[]> {
   return spawnpoints.json()
 }
 
-export async function getMarkers(map: Map): Promise<Data> {
+export async function getMarkers(): Promise<Data> {
   const [pokestops, gyms, spawnpoints] = await Promise.all([
     fetch('/pokestops').then((res) => res.json()),
     fetch('/gyms').then((res) => res.json()),
-    inject.ALL_SPAWNPOINTS
-      ? fetch('/all_spawnpoints').then((res) => res.json())
-      : getSpawnpoints(map),
+    fetch('/all_spawnpoints').then((res) => res.json()),
   ])
   return { spawnpoints, gyms, pokestops }
+}
+
+export async function getConfig(): Promise<[number, number, string]> {
+  const config = await fetch('/config')
+  return config.json()
 }

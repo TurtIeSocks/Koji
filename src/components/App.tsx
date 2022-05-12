@@ -2,19 +2,44 @@ import React from 'react'
 import { MapContainer, TileLayer } from 'react-leaflet'
 
 import { useStore } from '@hooks/useStore'
+import { getConfig } from '@services/utils'
+
 import Markers from './Markers'
 
+const cached: { location: [number, number], zoom: number } = JSON.parse(
+  localStorage.getItem('local') || '{ state: { location: [0, 0], 18 } }',
+).state
+
 export default function App() {
-  const location = useStore((s) => s.location)
-  const zoom = useStore((s) => s.zoom)
+  const setLocation = useStore((s) => s.setLocation)
+  const tileServer = useStore((s) => s.tileServer)
+  const setTileServer = useStore((s) => s.setTileServer)
+
+  const [fetched, setFetched] = React.useState<boolean>(false)
+  const [initial, setInitial] = React.useState<[number, number]>(cached.location)
+
+  React.useEffect(() => {
+    getConfig().then((res) => {
+      const [lat, lon, tileUrl] = res
+      if (cached.location[0] === 0 && cached.location[1] === 0) {
+        setInitial([lat, lon])
+        setLocation([lat, lon])
+      }
+      if (tileUrl) {
+        setTileServer(tileUrl)
+      }
+      setFetched(true)
+    })
+  }, [])
 
   return (
-    <MapContainer center={location} zoom={zoom}>
+    <MapContainer key={initial.join('')} center={initial} zoom={cached.zoom}>
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png"
+        key={tileServer}
+        attribution="RDM Tools 2.0 - TurtleSocks"
+        url={tileServer}
       />
-      <Markers />
+      {fetched && <Markers />}
     </MapContainer>
   )
 }

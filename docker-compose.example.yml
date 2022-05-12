@@ -7,8 +7,8 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: mysql://user:password@host:3306/database_name
-      ALL_SPAWNPOINTS: "true"
       START_LAT: 0
       START_LON: 0
+      TILE_SERVER: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}"
     ports:
       - "9095:8080"

@@ -32,6 +32,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(pool.clone()))
             .wrap(middleware::Logger::default())
             // .wrap(middleware::Compress::default())
+            .service(handlers::config)
             .service(handlers::spawnpoints)
             .service(handlers::all_spawnpoints)
             .service(handlers::gyms)

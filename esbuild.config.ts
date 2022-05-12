@@ -2,12 +2,10 @@
 /* eslint-disable import/no-extraneous-dependencies */
 import path from 'path'
 import fs from 'fs'
-import { config } from 'dotenv'
 import { build } from 'esbuild'
 import { htmlPlugin } from '@craftamap/esbuild-plugin-html'
 import { eslintPlugin } from 'esbuild-plugin-eslinter'
 
-const env = fs.existsSync(`${__dirname}/.env`) ? config() : { parsed: process.env }
 const isDevelopment = Boolean(process.argv.includes('--dev'))
 const isRelease = Boolean(process.argv.includes('--release'))
 
@@ -55,14 +53,6 @@ build({
       }
     : false,
   sourcemap: isRelease || isDevelopment,
-  define: {
-    inject: JSON.stringify({
-      START_LAT: +(env.parsed?.START_LAT || '0'),
-      START_LON: +(env.parsed?.START_LON || '0'),
-      DEVELOPMENT: isDevelopment,
-      ALL_SPAWNPOINTS: JSON.parse(env.parsed?.ALL_SPAWNPOINTS || 'false'),
-    }),
-  },
   plugins,
 })
   .catch((e) => console.error(e))
