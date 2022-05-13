@@ -12,9 +12,7 @@ const cached: { location: [number, number], zoom: number } = JSON.parse(
 
 export default function App() {
   const setLocation = useStore((s) => s.setLocation)
-  const tileServer = useStore((s) => s.tileServer)
-  const setTileServer = useStore((s) => s.setTileServer)
-
+  const [tileServer, setTileServer] = React.useState('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png')
   const [fetched, setFetched] = React.useState<boolean>(false)
   const [initial, setInitial] = React.useState<[number, number]>(cached.location)
 
