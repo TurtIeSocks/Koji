@@ -1,5 +1,7 @@
 name: Docker
-on: [push, release]
+on:
+  push:
+    branches: [main]
 
 env:
   REGISTRY: ghcr.io

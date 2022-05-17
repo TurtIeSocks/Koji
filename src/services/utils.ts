@@ -27,11 +27,12 @@ export async function getMarkers(): Promise<Data> {
     fetch('/pokestops').then((res) => res.json()),
     fetch('/gyms').then((res) => res.json()),
     fetch('/all_spawnpoints').then((res) => res.json()),
+    fetch('/instances').then((res) => res.json()),
   ])
   return { spawnpoints, gyms, pokestops }
 }
 
-export async function getConfig(): Promise<[number, number, string]> {
-  const config = await fetch('/config')
-  return config.json()
+export async function getData<T>(url: string): Promise<T> {
+  const instances = await fetch(url)
+  return instances.json()
 }

@@ -8,6 +8,7 @@ actix-web = "4"
 actix-files = "0.6.0"
 chrono = { version = "0.4.19", features = ["serde"] }
 diesel = { version = "1.4.4", features = ["mysql", "r2d2", "chrono"] }
+diesel-derive-enum = { version = "1", features = ["mysql"] }
 dotenv = "0.15.0"
 env_logger = "0.9.0"
 serde = { version = "1.0.136", features = ["derive"] }

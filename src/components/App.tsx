@@ -2,7 +2,7 @@ import React from 'react'
 import { MapContainer, TileLayer } from 'react-leaflet'
 
 import { useStore } from '@hooks/useStore'
-import { getConfig } from '@services/utils'
+import { getData } from '@services/utils'
 
 import Markers from './Markers'
 import Interface from './Interface'
@@ -22,7 +22,7 @@ export default function App() {
   )
 
   React.useEffect(() => {
-    getConfig().then((res) => {
+    getData<[number, number, string]>('/config').then((res) => {
       const [lat, lon, tileUrl] = res
       if (cached.location[0] === 0 && cached.location[1] === 0) {
         setInitial([lat, lon])
@@ -48,7 +48,7 @@ export default function App() {
         url={tileServer}
       />
       {fetched && <Markers />}
-      <Interface />
+      {fetched && <Interface />}
     </MapContainer>
   )
 }

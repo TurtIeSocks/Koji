@@ -4,7 +4,7 @@ use actix_web::{get, post, web, Error, HttpResponse};
 
 use crate::marker_gen::{build_gyms, build_pokestops, build_spawnpoints};
 use crate::models::Body;
-use crate::queries::{find_all_gyms, find_all_pokestops, find_all_spawnpoints, find_spawnpoints};
+use crate::queries;
 
 #[get("/config")]
 async fn config() -> Result<HttpResponse, Error> {
@@ -25,7 +25,7 @@ async fn config() -> Result<HttpResponse, Error> {
 async fn all_spawnpoints(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
     let all_spawnpoints = web::block(move || {
         let conn = pool.get()?;
-        find_all_spawnpoints(&conn)
+        queries::find_all_spawnpoints(&conn)
     })
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -40,7 +40,7 @@ async fn spawnpoints(
 ) -> Result<HttpResponse, Error> {
     let spawnpoints = web::block(move || {
         let conn = pool.get()?;
-        find_spawnpoints(&conn, &payload)
+        queries::find_spawnpoints(&conn, &payload)
     })
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -52,7 +52,7 @@ async fn spawnpoints(
 async fn gyms(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
     let gyms = web::block(move || {
         let conn = pool.get()?;
-        find_all_gyms(&conn)
+        queries::find_all_gyms(&conn)
     })
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -64,10 +64,21 @@ async fn gyms(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
 async fn pokestops(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
     let pokestops = web::block(move || {
         let conn = pool.get()?;
-        find_all_pokestops(&conn)
+        queries::find_all_pokestops(&conn)
     })
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)?;
     let markers = build_pokestops(&pokestops);
     Ok(HttpResponse::Ok().json(markers))
+}
+
+#[get("/instances")]
+async fn instances(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
+    let instances = web::block(move || {
+        let conn = pool.get()?;
+        queries::find_all_instances(&conn)
+    })
+    .await?
+    .map_err(actix_web::error::ErrorInternalServerError)?;
+    Ok(HttpResponse::Ok().json(instances))
 }

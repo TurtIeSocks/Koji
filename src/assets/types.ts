@@ -64,3 +64,9 @@ export interface PixiMarker {
   iconId: 'pokestop' | 'gym' | 'spawnpoint_true' | 'spawnpoint_false'
   position: [number, number]
 }
+
+export interface Instance {
+  name: string
+  type_: string
+  data: string
+}
