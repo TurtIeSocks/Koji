@@ -1,4 +1,4 @@
-use crate::models::{Body, Gym, Pokestop, Spawnpoint};
+use crate::models::{Body, Gym, Instance, Pokestop, Spawnpoint};
 use diesel::prelude::*;
 
 type DbError = Box<dyn std::error::Error + Send + Sync>;
@@ -36,5 +36,12 @@ pub fn find_all_gyms(conn: &MysqlConnection) -> Result<Vec<Gym>, DbError> {
     use crate::schema::gym::dsl::*;
 
     let items = gym.select((id, lat, lon)).load::<Gym>(conn)?;
+    Ok(items)
+}
+
+pub fn find_all_instances(conn: &MysqlConnection) -> Result<Vec<Instance>, DbError> {
+    use crate::schema::instance::dsl::*;
+
+    let items = instance.load::<Instance>(conn)?;
     Ok(items)
 }
