@@ -1,10 +1,9 @@
 use super::DbPool;
 
-use actix_web::{get, post, web, Error, HttpResponse};
-
 use crate::marker_gen::{build_gyms, build_pokestops, build_spawnpoints};
-use crate::models::Body;
+use crate::models::{InstanceData, InstanceName, MapBounds};
 use crate::queries;
+use actix_web::{get, post, web, Error, HttpResponse};
 
 #[get("/config")]
 async fn config() -> Result<HttpResponse, Error> {
@@ -36,7 +35,7 @@ async fn all_spawnpoints(pool: web::Data<DbPool>) -> Result<HttpResponse, Error>
 #[post("/spawnpoints")]
 async fn spawnpoints(
     pool: web::Data<DbPool>,
-    payload: web::Json<Body>,
+    payload: web::Json<MapBounds>,
 ) -> Result<HttpResponse, Error> {
     let spawnpoints = web::block(move || {
         let conn = pool.get()?;
@@ -81,4 +80,30 @@ async fn instances(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)?;
     Ok(HttpResponse::Ok().json(instances))
+}
+
+#[post("/quest_generation")]
+async fn quest_generation(
+    pool: web::Data<DbPool>,
+    payload: web::Json<InstanceName>,
+) -> Result<HttpResponse, Error> {
+    let instance_route = web::block(move || {
+        let conn = pool.get()?;
+
+        let instance = queries::get_instance_route(&conn, payload.name.to_string())?;
+
+        let data: InstanceData =
+            serde_json::from_str(instance.data.as_str()).expect("JSON was not well-formatted");
+
+        let mut string: String = "".to_string();
+        for i in data.area[0].iter() {
+            string = string + &i.lat.to_string() + " " + &i.lon.to_string() + ",";
+        };
+        string = string.trim_end_matches(",").to_string();
+        
+        queries::get_pokestops_in_area(&conn, string)
+    })
+    .await?
+    .map_err(actix_web::error::ErrorInternalServerError)?;
+    Ok(HttpResponse::Ok().json(instance_route))
 }

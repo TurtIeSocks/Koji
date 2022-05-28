@@ -42,6 +42,7 @@ async fn main() -> std::io::Result<()> {
             .service(handlers::gyms)
             .service(handlers::pokestops)
             .service(handlers::instances)
+            .service(handlers::quest_generation)
             .service(
                 Files::new("/", serve_from.to_string())
                     .index_file("index.html")

@@ -1,12 +1,18 @@
 use serde::{Deserialize, Serialize};
 use crate::sql_types::{InstanceType};
+use crate::schema::pokestop;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Body {
+pub struct MapBounds {
     pub min_lat: f64,
     pub min_lon: f64,
     pub max_lat: f64,
     pub max_lon: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct InstanceName {
+    pub name: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Queryable)]
@@ -35,7 +41,26 @@ pub struct Instance {
     pub data: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Queryable)]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LatLon {
+    pub lat: f64,
+    pub lon: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct InstanceData {
+    pub area: Vec<Vec<LatLon>>,
+    pub delay_logout: u32,
+    pub is_event: bool,
+    pub max_level: u8,
+    pub min_level: u8,
+    pub quest_mode: String,
+    pub spin_limit: u16,
+    pub timezone_offset: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Queryable, QueryableByName)]
+#[table_name = "pokestop"]
 pub struct Pokestop {
     pub id: String,
     pub lat: f64,

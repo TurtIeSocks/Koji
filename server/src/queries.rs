@@ -1,11 +1,12 @@
-use crate::models::{Body, Gym, Instance, Pokestop, Spawnpoint};
+use crate::models::{Gym, Instance, MapBounds, Pokestop, Spawnpoint};
 use diesel::prelude::*;
+use diesel::{sql_query};
 
 type DbError = Box<dyn std::error::Error + Send + Sync>;
 
 pub fn find_spawnpoints(
     conn: &MysqlConnection,
-    payload: &Body,
+    payload: &MapBounds,
 ) -> Result<Vec<Spawnpoint>, DbError> {
     use crate::schema::spawnpoint::dsl::*;
 
@@ -43,5 +44,26 @@ pub fn find_all_instances(conn: &MysqlConnection) -> Result<Vec<Instance>, DbErr
     use crate::schema::instance::dsl::*;
 
     let items = instance.load::<Instance>(conn)?;
+    Ok(items)
+}
+
+pub fn get_instance_route(
+    conn: &MysqlConnection,
+    instance_name: String,
+) -> Result<Instance, DbError> {
+    use crate::schema::instance::dsl::*;
+
+    let items = instance
+        .filter(name.eq(instance_name))
+        .first::<Instance>(conn)?;
+    Ok(items)
+}
+
+pub fn get_pokestops_in_area(conn: &MysqlConnection, area: String) -> Result<Vec<Pokestop>, DbError> {
+    let formatted = format!("SELECT * FROM pokestop WHERE ST_CONTAINS(ST_GeomFromText(\"POLYGON(({:}))\"), POINT(lat, lon))", area);
+    println!("{}", formatted);
+    let items = sql_query(formatted)
+        .load::<Pokestop>(conn)
+        .expect("Error loading pokestops");
     Ok(items)
 }
