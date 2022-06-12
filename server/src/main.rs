@@ -8,10 +8,12 @@ use diesel::r2d2::{self, ConnectionManager};
 
 pub type DbPool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
 
+mod earth_distance;
 mod handlers;
 mod marker_gen;
 mod models;
 mod queries;
+mod routing;
 mod schema;
 mod sql_types;
 
@@ -42,6 +44,7 @@ async fn main() -> std::io::Result<()> {
             .service(handlers::gyms)
             .service(handlers::pokestops)
             .service(handlers::instances)
+            .service(handlers::specific_pokestops)
             .service(handlers::quest_generation)
             .service(
                 Files::new("/", serve_from.to_string())

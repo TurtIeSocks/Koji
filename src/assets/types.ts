@@ -3,6 +3,9 @@
 import L from 'leaflet'
 
 declare module 'leaflet' {
+  // function pixiOverlay(drawCallback: fn, pixiContainer: PIXI.Container) {
+
+  // }
   namespace Control {
     class Locate extends Control {
       constructor(locateOptions?: LocateOptions)
@@ -69,4 +72,24 @@ export interface Instance {
   name: string
   type_: string
   data: string
+}
+
+export interface Point {
+  type: 'Point'
+  coordinates: [number, number]
+}
+export interface Line {
+  type: 'LineString'
+  coordinates: [number, number][]
+}
+
+export interface GeoJSON {
+  type: string
+  features: {
+    type: string
+    geometry: Point | Line
+    properties: {
+      [key: string]: string | number
+    }
+  }[]
 }

@@ -1,10 +1,11 @@
 import React from 'react'
 import { useMap } from 'react-leaflet'
-import PixiOverlay from 'react-leaflet-pixi-overlay'
+// import PixiOverlay from 'react-leaflet-pixi-overlay'
 
 import { useStore } from '@hooks/useStore'
-import { getMarkers } from '@services/utils'
+import { getMarkers, getSpecificStops } from '@services/utils'
 import { PixiMarker } from '@assets/types'
+import usePixi from '@hooks/usePixi'
 
 const ICON_HASH = {
   pokestop:
@@ -23,12 +24,15 @@ export default function Markers() {
   const [markers, setMarkers] = React.useState<PixiMarker[]>([])
 
   React.useEffect(() => {
-    getMarkers().then((incoming) => {
-      setMarkers([
-        ...incoming.gyms,
-        ...incoming.pokestops,
-        ...incoming.spawnpoints,
-      ])
+    // getMarkers().then((incoming) => {
+    //   setMarkers([
+    //     // ...incoming.gyms,
+    //     ...incoming.pokestops,
+    //     // ...incoming.spawnpoints,
+    //   ])
+    // })
+    getSpecificStops().then((incoming) => {
+      setMarkers(incoming)
     })
   }, [])
 
@@ -49,5 +53,7 @@ export default function Markers() {
     [markers],
   )
 
-  return <PixiOverlay markers={initialMarkers} />
+  usePixi({ markers: initialMarkers })
+  return null
+  // return <PixiOverlay markers={initialMarkers} />
 }

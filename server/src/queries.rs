@@ -29,7 +29,7 @@ pub fn find_all_spawnpoints(conn: &MysqlConnection) -> Result<Vec<Spawnpoint>, D
 pub fn find_all_pokestops(conn: &MysqlConnection) -> Result<Vec<Pokestop>, DbError> {
     use crate::schema::pokestop::dsl::*;
 
-    let items = pokestop.select((id, lat, lon)).load::<Pokestop>(conn)?;
+    let items = pokestop.select((id, lat, lon, name)).load::<Pokestop>(conn)?;
     Ok(items)
 }
 
@@ -49,7 +49,7 @@ pub fn find_all_instances(conn: &MysqlConnection) -> Result<Vec<Instance>, DbErr
 
 pub fn get_instance_route(
     conn: &MysqlConnection,
-    instance_name: String,
+    instance_name: &String,
 ) -> Result<Instance, DbError> {
     use crate::schema::instance::dsl::*;
 
@@ -61,7 +61,6 @@ pub fn get_instance_route(
 
 pub fn get_pokestops_in_area(conn: &MysqlConnection, area: String) -> Result<Vec<Pokestop>, DbError> {
     let formatted = format!("SELECT * FROM pokestop WHERE ST_CONTAINS(ST_GeomFromText(\"POLYGON(({:}))\"), POINT(lat, lon))", area);
-    println!("{}", formatted);
     let items = sql_query(formatted)
         .load::<Pokestop>(conn)
         .expect("Error loading pokestops");
