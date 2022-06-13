@@ -1,50 +1,50 @@
-import { GeoJSON as GeoJSONType } from '@assets/types'
-import { getData, getGeojson } from '@services/utils'
-import React, { useEffect } from 'react'
-import {
-  useMap,
-  ZoomControl,
-  Circle,
-  GeoJSON,
-  GeoJSONProps,
-} from 'react-leaflet'
+import React from 'react'
+import { renderToString } from 'react-dom/server'
+import { useMap, ZoomControl } from 'react-leaflet'
+import L from 'leaflet'
+import { Search } from '@mui/icons-material'
+
+import { useStatic } from '@hooks/useStore'
 
 import Locate from './Locate'
+import SelectInstance from './dialogs/Instance'
 
 export default function Interface() {
-  // const [instances, setInstances] = React.useState<Instance[]>([])
-  const [geojson, setGeojson] = React.useState<GeoJSONType>({
-    type: 'FeatureCollection',
-    features: [],
-  })
+  const setOpen = useStatic(s => s.setOpen)
+
   const map = useMap()
 
-  useEffect(() => {
-    // getData<Instance[]>('/instances').then((res) => setInstances(res))
-    // getData<GeoJSONType>('/solution.geojson').then((res) => setGeojson(res))
-    getGeojson().then((res) => setGeojson(res))
+  const CustomControlSearch = L.Control.extend({
+    options: {
+      position: 'topright',
+    },
+    onAdd: () => {
+      const container = L.DomUtil.create(
+        'div',
+        'leaflet-bar leaflet-control leaflet-control-custom',
+      )
+      container.innerHTML = renderToString(
+        <a href="#">
+          <Search sx={{ p: 20 }} />
+        </a>,
+      )
+
+      container.onclick = () => {
+        setOpen('instance')
+      }
+      return container
+    },
+  })
+
+  React.useEffect(() => {
+    map.addControl(new CustomControlSearch())
   }, [])
 
   return (
     <>
-      <GeoJSON
-        key={JSON.stringify(geojson)}
-        data={geojson as GeoJSONProps['data']}
-      />
-      {geojson.features.map((feature) =>
-        feature.geometry.type === 'Point' ? (
-          <Circle
-            key={feature.properties.id}
-            center={feature.geometry.coordinates.slice().reverse() as [number, number]}
-            radius={80}
-            color="blue"
-            fillColor="blue"
-            fillOpacity={0.5}
-          />
-        ) : null,
-      )}
       <Locate map={map} />
       <ZoomControl position="bottomright" />
+      <SelectInstance setOpen={setOpen} />
     </>
   )
 }

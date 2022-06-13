@@ -1,6 +1,7 @@
 import { Map } from 'leaflet'
 
 import { Data, PixiMarker, GeoJSON, Point, Line } from '@assets/types'
+import { UseStore } from '@hooks/useStore'
 
 export function getMapBounds(map: Map) {
   const mapBounds = map.getBounds()
@@ -27,19 +28,18 @@ export async function getMarkers(): Promise<Data> {
     fetch('/pokestops').then((res) => res.json()),
     fetch('/gyms').then((res) => res.json()),
     fetch('/all_spawnpoints').then((res) => res.json()),
-    // fetch('/instances').then((res) => res.json()),
   ])
   return { pokestops, gyms, spawnpoints }
 }
 
-export async function getSpecificStops(): Promise<PixiMarker[]> {
+export async function getSpecificStops(name = ''): Promise<PixiMarker[]> {
   const markers = await fetch('/specific_pokestops', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      name: 'Q19 Downtown + Southie',
+      name,
       radius: 0.0,
       generations: 0,
     }),
@@ -47,17 +47,15 @@ export async function getSpecificStops(): Promise<PixiMarker[]> {
   return markers
 }
 
-export async function getGeojson(): Promise<GeoJSON> {
+export async function getGeojson(
+  instanceForm: UseStore['instanceForm'],
+): Promise<GeoJSON> {
   const points: [number, number][] = await fetch('/quest_generation', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      name: 'Q19 Downtown + Southie',
-      radius: 0.06,
-      generations: 100,
-    }),
+    body: JSON.stringify(instanceForm || {}),
   }).then((res) => res.json())
 
   const geoJson: GeoJSON = {
@@ -98,6 +96,15 @@ export async function getGeojson(): Promise<GeoJSON> {
 }
 
 export async function getData<T>(url: string): Promise<T> {
-  const instances = await fetch(url)
-  return instances.json()
+  try {
+    const data = await fetch(url)
+    if (!data.ok) {
+      throw new Error('Failed to fetch data')
+    }
+    return await data.json()
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error(e)
+    return {} as T
+  }
 }

@@ -20,9 +20,12 @@ const ICON_HASH = {
 export default function Markers() {
   const setLocation = useStore((s) => s.setLocation)
   const setZoom = useStore((s) => s.setZoom)
-  const map = useMap()
-  const [markers, setMarkers] = React.useState<PixiMarker[]>([])
+  const instanceForm = useStore((s) => s.instanceForm)
 
+  const map = useMap()
+
+  const [markers, setMarkers] = React.useState<PixiMarker[]>([])
+  
   React.useEffect(() => {
     // getMarkers().then((incoming) => {
     //   setMarkers([
@@ -31,10 +34,12 @@ export default function Markers() {
     //     // ...incoming.spawnpoints,
     //   ])
     // })
-    getSpecificStops().then((incoming) => {
-      setMarkers(incoming)
-    })
-  }, [])
+    if (instanceForm.name) {
+      getSpecificStops(instanceForm.name).then((incoming) => {
+        setMarkers(incoming)
+      })  
+    }
+  }, [instanceForm.name])
 
   const onMove = React.useCallback(() => {
     setLocation(Object.values(map.getCenter()) as [number, number])

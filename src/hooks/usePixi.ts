@@ -1,7 +1,7 @@
 /* eslint-disable no-param-reassign */
 /* eslint-disable no-console */
 import { useEffect, useState } from 'react'
-import L, { Map, Path, Popup } from 'leaflet'
+import L, { Map, Path } from 'leaflet'
 import * as PIXI from 'pixi.js'
 import 'leaflet-pixi-overlay'
 import { useMap } from 'react-leaflet'
