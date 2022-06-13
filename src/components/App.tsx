@@ -6,10 +6,10 @@ import { getData } from '@services/utils'
 
 import Markers from './Markers'
 import Interface from './Interface'
-import GeoJsonComponent from './GeoJson'
+import GeoJsonComponent from './RouteShapes'
 
 const cached: { location: [number, number]; zoom: number } = JSON.parse(
-  localStorage.getItem('local') || '{ state: { location: [0, 0], 18 } }',
+  localStorage.getItem('local') || '{ state: { location: [0, 0], zoom: 18 } }',
 ).state
 
 export default function App() {
@@ -39,8 +39,8 @@ export default function App() {
   return (
     <MapContainer
       key={initial.join('')}
-      center={initial}
-      zoom={cached.zoom}
+      center={initial || [0, 0]}
+      zoom={cached.zoom || 0}
       zoomControl={false}
     >
       <TileLayer
