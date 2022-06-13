@@ -120,9 +120,10 @@ async fn quest_generation(
     pool: web::Data<DbPool>,
     payload: web::Json<InstanceName>,
 ) -> Result<HttpResponse, Error> {
+    let name = payload.name.clone();
     let radius = payload.radius.clone();
     let generations = payload.generations.clone();
-    let name = payload.name.clone();
+    println!("Name: {}, Radius: {}, Generations: {}", name, radius, generations);
 
     let instance_stops = web::block(move || {
         let conn = pool.get()?;

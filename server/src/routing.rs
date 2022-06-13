@@ -1,12 +1,15 @@
 use std::cmp::Ordering::Less;
 use std::sync::Arc;
-use vrp_pragmatic::core::models::Problem as CoreProblem;
-use vrp_pragmatic::core::models::Solution as CoreSolution;
-use vrp_pragmatic::core::solver::{create_default_config_builder, get_default_telemetry_mode, Solver};
-use vrp_pragmatic::core::utils::Environment;
 use vrp_pragmatic::checker::CheckerContext;
-use vrp_pragmatic::format::problem::Fleet;
-use vrp_pragmatic::format::problem::*;
+use vrp_pragmatic::core::models::{Problem as CoreProblem, Solution as CoreSolution};
+use vrp_pragmatic::core::solver::{
+    create_default_config_builder, get_default_telemetry_mode, Solver,
+};
+use vrp_pragmatic::core::utils::Environment;
+use vrp_pragmatic::format::problem::{
+    Fleet, Job, JobPlace, JobTask, Matrix, MatrixProfile, Plan, PragmaticProblem, Problem,
+    ShiftStart, VehicleCosts, VehicleProfile, VehicleReload, VehicleShift, VehicleType,
+};
 use vrp_pragmatic::format::solution::{create_solution, Solution};
 use vrp_pragmatic::format::{CoordIndex, Location};
 
@@ -21,74 +24,37 @@ impl ToLocation for (f64, f64) {
     }
 }
 
-fn create_job_place(location: (f64, f64), tag: Option<String>) -> JobPlace {
-    JobPlace {
-        times: None,
-        location: location.to_loc(),
-        duration: 1.,
-        tag,
-    }
-}
-
-fn create_job(id: &str) -> Job {
-    Job {
-        id: id.to_string(),
-        pickups: None,
-        deliveries: None,
-        replacements: None,
-        services: None,
-        skills: None,
-        value: None,
-        group: None,
-        compatibility: None,
-    }
-}
-
-fn create_multi_job(id: &str, services: Vec<[f64; 2]>) -> Job {
-    let create_tasks = |tasks: Vec<[f64; 2]>, prefix: &str| {
-        let tasks = tasks
-            .into_iter()
-            .enumerate()
-            .map(|(i, location)| JobTask {
-                places: vec![JobPlace {
-                    duration: 0.0,
-                    ..create_job_place(
-                        (location[0], location[1]),
-                        Some(format!("{}{}", prefix, i + 1)),
-                    )
-                }],
-                demand: None,
-                order: None,
-            })
-            .collect::<Vec<_>>();
-
-        if tasks.is_empty() {
-            None
-        } else {
-            Some(tasks)
-        }
-    };
-
-    Job {
-        services: create_tasks(services, "s"),
-        ..create_job(id)
-    }
-}
-
-fn create_empty_plan() -> Plan {
-    Plan {
-        jobs: vec![],
-        relations: None,
-        areas: None,
-        clustering: None,
-    }
-}
-
 fn create_problem(services: Vec<[f64; 2]>) -> Problem {
     Problem {
         plan: Plan {
-            jobs: vec![create_multi_job("multi", services.clone())],
-            ..create_empty_plan()
+            jobs: services
+                .clone()
+                .into_iter()
+                .enumerate()
+                .map(|(i, lat_lon)| Job {
+                    services: Some(vec![JobTask {
+                        places: vec![JobPlace {
+                            times: None,
+                            location: (lat_lon[0], lat_lon[1]).to_loc(),
+                            duration: 1.,
+                            tag: None,
+                        }],
+                        demand: None,
+                        order: None,
+                    }]),
+                    id: format!("{}", i).to_string(),
+                    pickups: None,
+                    deliveries: None,
+                    replacements: None,
+                    skills: None,
+                    value: None,
+                    group: None,
+                    compatibility: None,
+                })
+                .collect::<Vec<_>>(),
+            relations: None,
+            areas: None,
+            clustering: None,
         },
         objectives: None,
         fleet: Fleet {
