@@ -1,7 +1,7 @@
 import { Map } from 'leaflet'
 import distance from '@turf/distance'
 
-import { Data, PixiMarker, GeoJSON, Point } from '@assets/types'
+import { Data, PixiMarker } from '@assets/types'
 import { UseStore } from '@hooks/useStore'
 
 export function getMapBounds(map: Map) {
@@ -50,31 +50,14 @@ export async function getSpecificStops(name = ''): Promise<PixiMarker[]> {
 
 export async function getGeojson(
   instanceForm: UseStore['instanceForm'],
-): Promise<GeoJSON> {
-  const points: [number, number][] = await fetch('/quest_generation', {
+): Promise<[number, number][]> {
+  return fetch('/quest_generation', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(instanceForm || {}),
   }).then((res) => res.json())
-
-  const geoJson: GeoJSON = {
-    type: 'FeatureCollection',
-    features: [
-      ...points.map((point, i) => ({
-        type: 'Feature',
-        properties: {
-          id: i,
-        },
-        geometry: {
-          type: 'Point',
-          coordinates: [point[1], point[0]] as [number, number],
-        } as Point,
-      })),
-    ],
-  }
-  return geoJson
 }
 
 export async function getData<T>(url: string): Promise<T> {

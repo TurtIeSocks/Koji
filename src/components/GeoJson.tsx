@@ -1,17 +1,13 @@
-import { GeoJSON as GeoJSONType } from '@assets/types'
 import { useStatic, useStore } from '@hooks/useStore'
 import { getColor, getGeojson } from '@services/utils'
 import React, { Fragment, useEffect } from 'react'
-import { Circle, GeoJSON, GeoJSONProps, Polyline } from 'react-leaflet'
+import { Circle, Polyline } from 'react-leaflet'
 
 export default function GeoJsonComponent() {
   const instanceForm = useStore((s) => s.instanceForm)
   const open = useStatic((s) => s.open)
 
-  const [geojson, setGeojson] = React.useState<GeoJSONType>({
-    type: 'FeatureCollection',
-    features: [],
-  })
+  const [points, setGeojson] = React.useState<[number, number][]>([])
 
   useEffect(() => {
     if (
@@ -26,32 +22,16 @@ export default function GeoJsonComponent() {
 
   return (
     <>
-      <GeoJSON
-        key={JSON.stringify(geojson)}
-        data={geojson as GeoJSONProps['data']}
-      />
-      {geojson.features.map((feature, i) => {
-        const isEnd = i === geojson.features.length - 1
-        const reversed = feature.geometry.coordinates.slice().reverse() as [
-          number,
-          number,
-        ]
-        const nextReversed = isEnd
-          ? reversed
-          : (geojson.features[i + 1].geometry.coordinates.slice().reverse() as [
-              number,
-              number,
-            ])
-        const color = getColor(reversed, nextReversed)
-        return feature.geometry.type === 'Point' ? (
-          <Fragment key={feature.properties.id}>
+      {points.map((point, i) => {
+        if (point.length !== 2) return null
+        const isEnd = i === points.length - 1
+        const next = isEnd ? point : points[i + 1]
+        const color = point && next ? getColor(point, next) : 'black'
+
+        return (
+          <Fragment key={`${point}-${next}-${isEnd}`}>
             <Circle
-              center={
-                feature.geometry.coordinates.slice().reverse() as [
-                  number,
-                  number,
-                ]
-              }
+              center={point}
               radius={80}
               color="blue"
               fillColor="blue"
@@ -59,20 +39,11 @@ export default function GeoJsonComponent() {
               opacity={0.25}
             />
             <Polyline
-              positions={[
-                feature.geometry.coordinates.slice().reverse() as [
-                  number,
-                  number,
-                ],
-                (geojson.features[i + 1]?.geometry?.coordinates
-                  ?.slice()
-                  .reverse() as [number, number]) ||
-                  feature.geometry.coordinates.slice().reverse(),
-              ]}
+              positions={[point, next]}
               pathOptions={{ color, opacity: 80 }}
             />
           </Fragment>
-        ) : null
+        )
       })}
     </>
   )
