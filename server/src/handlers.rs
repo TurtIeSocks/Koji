@@ -1,14 +1,14 @@
 use super::DbPool;
 
-use crate::earth_distance::EarthDistance;
+// use crate::earth_distance::EarthDistance;
 use crate::marker_gen::{build_gyms, build_pokestops, build_spawnpoints};
 use crate::models::{InstanceData, InstanceName, MapBounds};
 use crate::queries;
 use crate::routing::solve;
 
 use actix_web::{get, post, web, Error, HttpResponse};
-use ndarray::Array2;
-use petal_clustering::{Fit, Optics};
+// use ndarray::Array2;
+// use petal_clustering::{Fit, Optics};
 
 #[get("/config")]
 async fn config() -> Result<HttpResponse, Error> {
@@ -123,7 +123,10 @@ async fn quest_generation(
     let name = payload.name.clone();
     let radius = payload.radius.clone();
     let generations = payload.generations.clone();
-    println!("Name: {}, Radius: {}, Generations: {}", name, radius, generations);
+    println!(
+        "Name: {}, Radius: {}, Generations: {}",
+        name, radius, generations
+    );
 
     let instance_stops = web::block(move || {
         let conn = pool.get()?;
@@ -146,38 +149,38 @@ async fn quest_generation(
 
     println!("{}", instance_stops.len());
 
-    let mut data = Vec::new();
+    // let mut data = Vec::new();
 
     let lat_lon_array: Vec<[f64; 2]> = instance_stops.iter().map(|p| [p.lat, p.lon]).collect();
 
-    let ncols = lat_lon_array.first().map_or(0, |row| row.len());
-    let mut nrows = 0;
+    // let ncols = lat_lon_array.first().map_or(0, |row| row.len());
+    // let mut nrows = 0;
 
-    for i in 0..lat_lon_array.len() {
-        data.extend_from_slice(&lat_lon_array[i]);
-        nrows += 1;
-    }
+    // for i in 0..lat_lon_array.len() {
+    //     data.extend_from_slice(&lat_lon_array[i]);
+    //     nrows += 1;
+    // }
 
-    let array = Array2::from_shape_vec((nrows, ncols), data).unwrap();
+    // let array = Array2::from_shape_vec((nrows, ncols), data).unwrap();
 
-    let clustering =
-        Optics::<f64, EarthDistance>::new(radius, 1, EarthDistance::default()).fit(&array);
+    // let clustering =
+    //     Optics::<f64, EarthDistance>::new(radius, 1, EarthDistance::default()).fit(&array);
 
-    let mut services = Vec::<[f64; 2]>::new();
+    // let mut services = Vec::<[f64; 2]>::new();
 
-    println!("Clustering\n{:?}\n", clustering.0.len());
-    for i in clustering.0.iter() {
-        let mut sum = [0.0, 0.0];
+    // println!("Clustering\n{:?}\n", clustering.0.len());
+    // for i in clustering.0.iter() {
+    //     let mut sum = [0.0, 0.0];
 
-        let mut count = 0.0;
-        for j in i.1.iter() {
-            count += 1.0;
-            sum[0] += lat_lon_array[*j][0];
-            sum[1] += lat_lon_array[*j][1];
-        }
-        services.push([sum[0] / count, sum[1] / count]);
-    }
-    let solution = solve(services, generations);
+    //     let mut count = 0.0;
+    //     for j in i.1.iter() {
+    //         count += 1.0;
+    //         sum[0] += lat_lon_array[*j][0];
+    //         sum[1] += lat_lon_array[*j][1];
+    //     }
+    //     services.push([sum[0] / count, sum[1] / count]);
+    // }
+    let solution = solve(lat_lon_array, generations, radius * 1000.);
 
     let locations: Vec<(f64, f64)> = solution.tours[0]
         .stops

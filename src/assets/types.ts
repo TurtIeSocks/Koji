@@ -87,7 +87,7 @@ export interface GeoJSON {
   type: string
   features: {
     type: string
-    geometry: Point | Line
+    geometry: Point
     properties: {
       [key: string]: string | number
     }

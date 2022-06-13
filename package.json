@@ -16,6 +16,7 @@
     "@emotion/styled": "^11.9.3",
     "@mui/icons-material": "^5.8.3",
     "@mui/material": "^5.8.3",
+    "@turf/distance": "^6.5.0",
     "leaflet": "^1.8.0",
     "leaflet-pixi-overlay": "^1.8.2",
     "leaflet.locatecontrol": "^0.76.1",

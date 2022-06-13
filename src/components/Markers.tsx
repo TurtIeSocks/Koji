@@ -1,11 +1,11 @@
 import React from 'react'
-import { useMap } from 'react-leaflet'
+import { Circle, useMap } from 'react-leaflet'
 // import PixiOverlay from 'react-leaflet-pixi-overlay'
 
 import { useStore } from '@hooks/useStore'
 import { getMarkers, getSpecificStops } from '@services/utils'
 import { PixiMarker } from '@assets/types'
-import usePixi from '@hooks/usePixi'
+// import usePixi from '@hooks/usePixi'
 
 const ICON_HASH = {
   pokestop:
@@ -25,7 +25,7 @@ export default function Markers() {
   const map = useMap()
 
   const [markers, setMarkers] = React.useState<PixiMarker[]>([])
-  
+
   React.useEffect(() => {
     // getMarkers().then((incoming) => {
     //   setMarkers([
@@ -37,7 +37,7 @@ export default function Markers() {
     if (instanceForm.name) {
       getSpecificStops(instanceForm.name).then((incoming) => {
         setMarkers(incoming)
-      })  
+      })
     }
   }, [instanceForm.name])
 
@@ -58,7 +58,17 @@ export default function Markers() {
     [markers],
   )
 
-  usePixi({ markers: initialMarkers })
-  return null
-  // return <PixiOverlay markers={initialMarkers} />
+  // usePixi({ markers: initialMarkers })
+  return (
+    <>
+      {initialMarkers.map((i) => (
+        <Circle
+          key={i.id}
+          center={i.position}
+          radius={5}
+          pathOptions={{ fillOpacity: 100, fillColor: 'green', color: 'green' }}
+        />
+      ))}
+    </>
+  )
 }

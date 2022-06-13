@@ -1,6 +1,7 @@
 import { Map } from 'leaflet'
+import distance from '@turf/distance'
 
-import { Data, PixiMarker, GeoJSON, Point, Line } from '@assets/types'
+import { Data, PixiMarker, GeoJSON, Point } from '@assets/types'
 import { UseStore } from '@hooks/useStore'
 
 export function getMapBounds(map: Map) {
@@ -71,25 +72,6 @@ export async function getGeojson(
           coordinates: [point[1], point[0]] as [number, number],
         } as Point,
       })),
-      {
-        type: 'Feature',
-        properties: {
-          id: 0,
-          stroke: '#e6194b',
-          distance: '74236',
-          vehicle_id: 'vehicle_0',
-          tour_idx: '0',
-          arrival: '2022-05-29T18:05:04Z',
-          'stroke-width': '4',
-          departure: '2022-05-29T00:00:10Z',
-          shift_idx: '0',
-          activities: '430',
-        },
-        geometry: {
-          type: 'LineString',
-          coordinates: points.map((point) => [point[1], point[0]]),
-        } as Line,
-      },
     ],
   }
   return geoJson
@@ -106,5 +88,19 @@ export async function getData<T>(url: string): Promise<T> {
     // eslint-disable-next-line no-console
     console.error(e)
     return {} as T
+  }
+}
+
+export function getColor(start: [number, number], end: [number, number]) {
+  const dis = distance(start, end, { units: 'meters' })
+  switch (true) {
+    case dis <= 500:
+      return 'green'
+    case dis <= 1000:
+      return 'yellow'
+    case dis <= 1500:
+      return 'orange'
+    default:
+      return 'red'
   }
 }
