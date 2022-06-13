@@ -6,6 +6,8 @@ export interface UseStore {
   setLocation: (location: UseStore['location']) => void
   zoom: number
   setZoom: (zoom: UseStore['zoom']) => void
+  instanceForm: { name: string; radius: number; generations: number }
+  setInstanceForm: (instanceForm: UseStore['instanceForm']) => void
 }
 
 export const useStore = create(
@@ -15,9 +17,21 @@ export const useStore = create(
       setLocation: (location) => set({ location }),
       zoom: 18,
       setZoom: (zoom) => set({ zoom }),
+      instanceForm: { name: '', radius: 0.08, generations: 100 },
+      setInstanceForm: (instanceForm) => set({ instanceForm }),
     }),
     {
       name: 'local',
     },
   ),
 )
+
+export interface UseStatic {
+  open: string
+  setOpen: (open: UseStatic['open']) => void
+}
+
+export const useStatic = create<UseStatic>((set) => ({
+  open: '',
+  setOpen: (open) => set({ open }),
+}))

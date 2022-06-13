@@ -128,3 +128,6 @@ dist
 
 server/target
 docker-compose.yml
+
+# VRP
+vrp_tests/**

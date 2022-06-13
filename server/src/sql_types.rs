@@ -1,3 +1,5 @@
+#![allow(non_camel_case_types)]
+
 use diesel_derive_enum::DbEnum;
 use serde::{Deserialize, Serialize};
 

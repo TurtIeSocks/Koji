@@ -1,10 +1,11 @@
 import React from 'react'
-import { useMap } from 'react-leaflet'
-import PixiOverlay from 'react-leaflet-pixi-overlay'
+import { Circle, useMap } from 'react-leaflet'
+// import PixiOverlay from 'react-leaflet-pixi-overlay'
 
 import { useStore } from '@hooks/useStore'
-import { getMarkers } from '@services/utils'
+import { getMarkers, getSpecificStops } from '@services/utils'
 import { PixiMarker } from '@assets/types'
+// import usePixi from '@hooks/usePixi'
 
 const ICON_HASH = {
   pokestop:
@@ -19,18 +20,26 @@ const ICON_HASH = {
 export default function Markers() {
   const setLocation = useStore((s) => s.setLocation)
   const setZoom = useStore((s) => s.setZoom)
+  const instanceForm = useStore((s) => s.instanceForm)
+
   const map = useMap()
+
   const [markers, setMarkers] = React.useState<PixiMarker[]>([])
 
   React.useEffect(() => {
-    getMarkers().then((incoming) => {
-      setMarkers([
-        ...incoming.gyms,
-        ...incoming.pokestops,
-        ...incoming.spawnpoints,
-      ])
-    })
-  }, [])
+    // getMarkers().then((incoming) => {
+    //   setMarkers([
+    //     // ...incoming.gyms,
+    //     ...incoming.pokestops,
+    //     // ...incoming.spawnpoints,
+    //   ])
+    // })
+    if (instanceForm.name) {
+      getSpecificStops(instanceForm.name).then((incoming) => {
+        setMarkers(incoming)
+      })
+    }
+  }, [instanceForm.name])
 
   const onMove = React.useCallback(() => {
     setLocation(Object.values(map.getCenter()) as [number, number])
@@ -49,5 +58,17 @@ export default function Markers() {
     [markers],
   )
 
-  return <PixiOverlay markers={initialMarkers} />
+  // usePixi({ markers: initialMarkers })
+  return (
+    <>
+      {initialMarkers.map((i) => (
+        <Circle
+          key={i.id}
+          center={i.position}
+          radius={5}
+          pathOptions={{ fillOpacity: 100, fillColor: 'green', color: 'green' }}
+        />
+      ))}
+    </>
+  )
 }

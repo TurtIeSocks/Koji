@@ -26,6 +26,8 @@
   ],
   "rules": {
     "semi": "off",
+    "jsx-a11y/anchor-is-valid": "off",
+    "no-underscore-dangle": "off",
     "@typescript-eslint/naming-convention": 0,
     "react/require-default-props": 0,
     "@typescript-eslint/semi": 0,

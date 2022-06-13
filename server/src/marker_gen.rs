@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use serde::{Deserialize, Serialize};
 
 use crate::models::{Gym, Pokestop, Spawnpoint};

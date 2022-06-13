@@ -6,6 +6,7 @@ import { getData } from '@services/utils'
 
 import Markers from './Markers'
 import Interface from './Interface'
+import GeoJsonComponent from './GeoJson'
 
 const cached: { location: [number, number]; zoom: number } = JSON.parse(
   localStorage.getItem('local') || '{ state: { location: [0, 0], 18 } }',
@@ -49,6 +50,7 @@ export default function App() {
       />
       {fetched && <Markers />}
       {fetched && <Interface />}
+      {fetched && <GeoJsonComponent />}
     </MapContainer>
   )
 }
