@@ -17,7 +17,6 @@ export default defineConfig(({ mode }) => ({
       },
     }),
   ],
-  envDir: resolve(__dirname, '../'),
   publicDir: 'public',
   resolve: {
     alias: {
@@ -32,7 +31,7 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     target: ['safari11.1', 'chrome64', 'firefox66', 'edge88'],
-    outDir: resolve(__dirname, '../dist/client'),
+    outDir: resolve(__dirname, './dist'),
     sourcemap: mode === 'development',
     minify: mode === 'development' ? false : 'esbuild',
     input: {
