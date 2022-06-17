@@ -3,7 +3,7 @@ import { Circle, useMap } from 'react-leaflet'
 // import PixiOverlay from 'react-leaflet-pixi-overlay'
 
 import { useStore } from '@hooks/useStore'
-import { getMarkers, getSpecificStops } from '@services/utils'
+import { getSpecificStops } from '@services/utils'
 import { PixiMarker } from '@assets/types'
 // import usePixi from '@hooks/usePixi'
 
