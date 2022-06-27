@@ -12,7 +12,7 @@ export function getMapBounds(map: Map) {
 }
 
 export async function getSpawnpoints(map: Map): Promise<PixiMarker[]> {
-  const spawnpoints = await fetch('/spawnpoints', {
+  const spawnpoints = await fetch('/api/spawnpoints', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -26,15 +26,15 @@ export async function getSpawnpoints(map: Map): Promise<PixiMarker[]> {
 
 export async function getMarkers(): Promise<Data> {
   const [pokestops, gyms, spawnpoints] = await Promise.all([
-    fetch('/pokestops').then((res) => res.json()),
-    fetch('/gyms').then((res) => res.json()),
-    fetch('/all_spawnpoints').then((res) => res.json()),
+    fetch('/api/pokestops').then((res) => res.json()),
+    fetch('/api/gyms').then((res) => res.json()),
+    fetch('/api/all_spawnpoints').then((res) => res.json()),
   ])
   return { pokestops, gyms, spawnpoints }
 }
 
 export async function getSpecificStops(name = ''): Promise<PixiMarker[]> {
-  const markers = await fetch('/specific_pokestops', {
+  const markers = await fetch('/api/specific_pokestops', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -51,7 +51,7 @@ export async function getSpecificStops(name = ''): Promise<PixiMarker[]> {
 export async function getGeojson(
   instanceForm: UseStore['instanceForm'],
 ): Promise<[number, number][]> {
-  return fetch('/quest_generation', {
+  return fetch('/api/quest_generation', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

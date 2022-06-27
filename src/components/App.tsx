@@ -23,7 +23,7 @@ export default function App() {
   )
 
   React.useEffect(() => {
-    getData<[number, number, string]>('/config').then((res) => {
+    getData<[number, number, string]>('/api/config').then((res) => {
       const [lat, lon, tileUrl] = res
       if (cached.location[0] === 0 && cached.location[1] === 0) {
         setInitial([lat, lon])

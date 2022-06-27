@@ -10,7 +10,7 @@ use actix_web::{get, post, web, Error, HttpResponse};
 // use ndarray::Array2;
 // use petal_clustering::{Fit, Optics};
 
-#[get("/config")]
+#[get("/api/config")]
 async fn config() -> Result<HttpResponse, Error> {
     let start_lat: f64 = std::env::var("START_LAT")
         .unwrap_or("0.0".to_string())
@@ -25,7 +25,7 @@ async fn config() -> Result<HttpResponse, Error> {
     Ok(HttpResponse::Ok().json(return_value))
 }
 
-#[get("/all_spawnpoints")]
+#[get("/api/all_spawnpoints")]
 async fn all_spawnpoints(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
     let all_spawnpoints = web::block(move || {
         let conn = pool.get()?;
@@ -37,7 +37,7 @@ async fn all_spawnpoints(pool: web::Data<DbPool>) -> Result<HttpResponse, Error>
     Ok(HttpResponse::Ok().json(markers))
 }
 
-#[post("/spawnpoints")]
+#[post("/api/spawnpoints")]
 async fn spawnpoints(
     pool: web::Data<DbPool>,
     payload: web::Json<MapBounds>,
@@ -52,7 +52,7 @@ async fn spawnpoints(
     Ok(HttpResponse::Ok().json(markers))
 }
 
-#[get("/gyms")]
+#[get("/api/gyms")]
 async fn gyms(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
     let gyms = web::block(move || {
         let conn = pool.get()?;
@@ -64,7 +64,7 @@ async fn gyms(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
     Ok(HttpResponse::Ok().json(markers))
 }
 
-#[get("/pokestops")]
+#[get("/api/pokestops")]
 async fn pokestops(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
     let pokestops = web::block(move || {
         let conn = pool.get()?;
@@ -76,7 +76,7 @@ async fn pokestops(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
     Ok(HttpResponse::Ok().json(markers))
 }
 
-#[get("/instances")]
+#[get("/api/instances")]
 async fn instances(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
     let instances = web::block(move || {
         let conn = pool.get()?;
@@ -87,7 +87,7 @@ async fn instances(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
     Ok(HttpResponse::Ok().json(instances))
 }
 
-#[post("/specific_pokestops")]
+#[post("/api/specific_pokestops")]
 async fn specific_pokestops(
     pool: web::Data<DbPool>,
     payload: web::Json<InstanceName>,
@@ -115,7 +115,7 @@ async fn specific_pokestops(
     Ok(HttpResponse::Ok().json(markers))
 }
 
-#[post("/quest_generation")]
+#[post("/api/quest_generation")]
 async fn quest_generation(
     pool: web::Data<DbPool>,
     payload: web::Json<InstanceName>,

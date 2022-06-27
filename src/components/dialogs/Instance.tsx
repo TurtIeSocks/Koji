@@ -33,7 +33,7 @@ export default function SelectInstance({ setOpen }: Props) {
   }
 
   React.useEffect(() => {
-    getData<Instance[]>('/instances').then((r) =>
+    getData<Instance[]>('/api/instances').then((r) =>
       setInstances(r.filter((i) => i.type_ === 'auto_quest')),
     )
   }, [])
