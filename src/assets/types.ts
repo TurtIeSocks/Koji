@@ -3,9 +3,6 @@
 import L from 'leaflet'
 
 declare module 'leaflet' {
-  // function pixiOverlay(drawCallback: fn, pixiContainer: PIXI.Container) {
-
-  // }
   namespace Control {
     class Locate extends Control {
       constructor(locateOptions?: LocateOptions)
@@ -54,6 +51,7 @@ declare module 'leaflet' {
      */
     function locate(options?: Control.LocateOptions): Control.Locate
   }
+  // function pixiOverlay(drawCallback: fn, pixiContainer: PIXI.Container) {}
 }
 
 export interface Data {

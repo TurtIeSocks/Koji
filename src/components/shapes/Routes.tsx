@@ -1,22 +1,18 @@
-import { useStatic, useStore } from '@hooks/useStore'
-import { getColor, getGeojson } from '@services/utils'
-import React, { Fragment, useEffect } from 'react'
+import * as React from 'react'
 import { Circle, Polyline } from 'react-leaflet'
 
-export default function GeoJsonComponent() {
+import { useStatic, useStore } from '@hooks/useStore'
+import { getColor } from '@services/utils'
+
+export default function Routes() {
   const instanceForm = useStore((s) => s.instanceForm)
   const open = useStatic((s) => s.open)
 
-  const [points, setGeojson] = React.useState<[number, number][]>([])
+  const [points, setPoints] = React.useState<[number, number][]>([])
 
-  useEffect(() => {
-    if (
-      instanceForm.name &&
-      instanceForm.radius &&
-      instanceForm.generations &&
-      !open
-    ) {
-      getGeojson(instanceForm).then((res) => setGeojson(res))
+  React.useEffect(() => {
+    if (instanceForm.name && instanceForm.radius && !open) {
+      // getBootstrap(instanceForm).then((res) => setGeojson(res))
     }
   }, [open, instanceForm.name, instanceForm.radius, instanceForm.generations])
 
@@ -29,7 +25,7 @@ export default function GeoJsonComponent() {
         const color = point && next ? getColor(point, next) : 'black'
 
         return (
-          <Fragment key={`${point}-${next}-${isEnd}`}>
+          <React.Fragment key={`${point}-${next}-${isEnd}`}>
             <Circle
               center={point}
               radius={80}
@@ -42,7 +38,7 @@ export default function GeoJsonComponent() {
               positions={[point, next]}
               pathOptions={{ color, opacity: 80 }}
             />
-          </Fragment>
+          </React.Fragment>
         )
       })}
     </>

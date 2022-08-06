@@ -17,7 +17,6 @@ export default defineConfig(({ mode }) => ({
       typescript: true,
       eslint: {
         lintCommand: 'eslint "./src/**/*.{ts,tsx}"',
-        
       },
     }),
   ],
