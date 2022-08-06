@@ -11,9 +11,13 @@ export default defineConfig(({ mode }) => ({
       jsxRuntime: 'classic',
     }),
     checker({
+      overlay: {
+        initialIsOpen: false,
+      },
       typescript: true,
       eslint: {
         lintCommand: 'eslint "./src/**/*.{ts,tsx}"',
+        
       },
     }),
   ],
@@ -42,12 +46,13 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     host: '0.0.0.0',
+    open: true,
     port: 8081,
     fs: {
       strict: false,
     },
     proxy: {
-      '/': {
+      '/api': {
         target: `http://localhost:8080`,
         changeOrigin: true,
         secure: false,

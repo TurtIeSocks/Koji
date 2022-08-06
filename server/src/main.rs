@@ -8,16 +8,13 @@ use diesel::r2d2::{self, ConnectionManager};
 
 pub type DbPool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
 
-mod earth_distance;
-mod handlers;
-mod marker_gen;
+mod utils;
 mod models;
 mod queries;
-mod routing;
-mod schema;
-mod sql_types;
+mod routes;
+mod db;
 
-#[actix_web::main] // or #[tokio::main]
+#[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
 
@@ -38,14 +35,15 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(pool.clone()))
             .wrap(middleware::Logger::new("%s | %r - %b bytes in %D ms (%a)"))
-            .service(handlers::config)
-            .service(handlers::spawnpoints)
-            .service(handlers::all_spawnpoints)
-            .service(handlers::gyms)
-            .service(handlers::pokestops)
-            .service(handlers::instances)
-            .service(handlers::specific_pokestops)
-            .service(handlers::quest_generation)
+            .service(routes::config::config)
+            .service(routes::gym::all)
+            .service(routes::instance::all)
+            .service(routes::pokestop::all)
+            .service(routes::pokestop::area)
+            .service(routes::pokestop::route)
+            .service(routes::spawnpoint::all)
+            .service(routes::spawnpoint::bound)
+            .service(routes::spawnpoint::bootstrap)
             .service(
                 Files::new("/", serve_from.to_string())
                     .index_file("index.html")
