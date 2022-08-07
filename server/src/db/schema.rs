@@ -54,7 +54,7 @@ table! {
 
 table! {
     use diesel::sql_types::*;
-    use crate::sql_types::*;
+    use crate::db::sql_types::*;
 
     instance (name) {
         name -> Varchar,

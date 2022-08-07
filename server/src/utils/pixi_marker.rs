@@ -1,17 +1,11 @@
 #![allow(non_snake_case)]
 
-use serde::{Deserialize, Serialize};
+use crate::models::{
+    other::PixiMarker,
+    scanner::{Gym, Pokestop, Spawnpoint},
+};
 
-use crate::models::{Gym, Pokestop, Spawnpoint};
-
-#[derive(Debug, Serialize, Deserialize, Queryable)]
-pub struct PixiMarker {
-    id: String,
-    iconId: String,
-    position: (f64, f64),
-}
-
-pub fn build_spawnpoints(incoming: &Vec<Spawnpoint>) -> Vec<PixiMarker> {
+pub fn pixi_spawnpoints(incoming: &Vec<Spawnpoint>) -> Vec<PixiMarker> {
     let mut items = Vec::new();
     for i in incoming {
         let icon_id = if i.despawn_sec.is_some() {
@@ -28,7 +22,7 @@ pub fn build_spawnpoints(incoming: &Vec<Spawnpoint>) -> Vec<PixiMarker> {
     return items;
 }
 
-pub fn build_pokestops(incoming: &Vec<Pokestop>) -> Vec<PixiMarker> {
+pub fn pixi_pokestops(incoming: &Vec<Pokestop>) -> Vec<PixiMarker> {
     let mut items = Vec::new();
     for i in incoming {
         items.push(PixiMarker {
@@ -40,7 +34,7 @@ pub fn build_pokestops(incoming: &Vec<Pokestop>) -> Vec<PixiMarker> {
     return items;
 }
 
-pub fn build_gyms(incoming: &Vec<Gym>) -> Vec<PixiMarker> {
+pub fn pixi_gyms(incoming: &Vec<Gym>) -> Vec<PixiMarker> {
     let mut items = Vec::new();
     for i in incoming {
         items.push(PixiMarker {

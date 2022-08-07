@@ -29,9 +29,14 @@ export const useStore = create(
 export interface UseStatic {
   open: string
   setOpen: (open: UseStatic['open']) => void
+  handleClose: () => void
 }
 
 export const useStatic = create<UseStatic>((set) => ({
   open: '',
   setOpen: (open) => set({ open }),
+  handleClose: () => {
+    window.location.hash = ''
+    set({ open: '' })
+  },
 }))

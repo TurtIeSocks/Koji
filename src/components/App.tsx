@@ -1,12 +1,13 @@
-import React from 'react'
+import * as React from 'react'
 import { MapContainer, TileLayer } from 'react-leaflet'
 
 import { useStore } from '@hooks/useStore'
-import { getData } from '@services/utils'
+import { getData } from '@services/fetches'
 
-import Markers from './Markers'
-import Interface from './Interface'
-import GeoJsonComponent from './RouteShapes'
+import Markers from './markers/Pixi'
+import Interface from './interface'
+import Routes from './shapes/Routes'
+import QuestPolygon from './shapes/QuestPolygon'
 
 const cached: { location: [number, number]; zoom: number } = JSON.parse(
   localStorage.getItem('local') || '{ state: { location: [0, 0], zoom: 18 } }',
@@ -50,7 +51,8 @@ export default function App() {
       />
       {fetched && <Markers />}
       {fetched && <Interface />}
-      {fetched && <GeoJsonComponent />}
+      {fetched && <Routes />}
+      {fetched && <QuestPolygon />}
     </MapContainer>
   )
 }

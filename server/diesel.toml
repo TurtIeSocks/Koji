@@ -2,6 +2,6 @@
 # see diesel.rs/guides/configuring-diesel-cli
 
 [print_schema]
-file = "src/schema.rs"
-import_types = ["diesel::sql_types::*", "crate::sql_types::*"]
+file = "src/db/schema.rs"
+import_types = ["diesel::sql_types::*", "crate::db::sql_types::*"]
 filter = { only_tables = ["spawnpoint", "pokestop", "gym", "instance", "device"] }

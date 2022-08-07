@@ -12,17 +12,14 @@ import {
 } from '@mui/material'
 
 import { Instance } from '@assets/types'
-import { getData } from '@services/utils'
-import { useStatic, UseStatic, useStore } from '@hooks/useStore'
+import { getData } from '@services/fetches'
+import { useStatic, useStore } from '@hooks/useStore'
 
-interface Props {
-  setOpen: UseStatic['setOpen']
-}
-
-export default function SelectInstance({ setOpen }: Props) {
+export default function SelectInstance() {
   const instanceForm = useStore((s) => s.instanceForm)
   const setInstanceForm = useStore((s) => s.setInstanceForm)
   const open = useStatic((s) => s.open)
+  const handleClose = useStatic((s) => s.handleClose)
 
   const [instances, setInstances] = React.useState<Instance[]>([])
 
@@ -33,13 +30,13 @@ export default function SelectInstance({ setOpen }: Props) {
   }
 
   React.useEffect(() => {
-    getData<Instance[]>('/api/instances').then((r) =>
+    getData<Instance[]>('/api/instance/all').then((r) =>
       setInstances(r.filter((i) => i.type_ === 'auto_quest')),
     )
   }, [])
 
   return (
-    <Dialog open={open === 'instance'}>
+    <Dialog open={open === 'instance'} onClose={() => handleClose()}>
       <DialogTitle>Select Instance</DialogTitle>
       <DialogContent>
         <Grid
@@ -86,7 +83,7 @@ export default function SelectInstance({ setOpen }: Props) {
         </Grid>
       </DialogContent>
       <DialogActions>
-        <Button onClick={() => setOpen('')}>Close</Button>
+        <Button onClick={() => handleClose()}>Close</Button>
       </DialogActions>
     </Dialog>
   )
