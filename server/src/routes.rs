@@ -7,6 +7,6 @@ use actix_web::{get, post, web, Error, HttpResponse};
 
 pub mod gym;
 pub mod instance;
+pub mod other;
 pub mod pokestop;
 pub mod spawnpoint;
-pub mod config;

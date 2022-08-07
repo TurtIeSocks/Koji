@@ -27,10 +27,11 @@ export default function useButtons(map: L.Map) {
       return container
     },
   })
+  const [InstanceButton] = React.useState(new InstanceSelect())
 
   React.useEffect(() => {
     polygonLayer.addTo(map)
     circleLayer.addTo(map)
-    map.addControl(new InstanceSelect())
+    map.addControl(InstanceButton)
   }, [])
 }

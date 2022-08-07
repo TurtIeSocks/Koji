@@ -1,10 +1,26 @@
 import type { Data, PixiMarker } from '@assets/types'
+import type { UseStore } from '@hooks/useStore'
 
 import { getMapBounds } from './utils'
 
-export async function getData<T>(url: string): Promise<T> {
+export async function getData<T>(
+  url: string,
+  instance?: UseStore['instanceForm'],
+): Promise<T> {
   try {
-    const data = await fetch(url)
+    const data = instance
+      ? await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: instance.name || '',
+            radius: instance.radius || 0.0,
+            generations: instance.generations || 0,
+          }),
+        })
+      : await fetch(url)
     if (!data.ok) {
       throw new Error('Failed to fetch data')
     }

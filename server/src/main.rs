@@ -8,11 +8,11 @@ use diesel::r2d2::{self, ConnectionManager};
 
 pub type DbPool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
 
-mod utils;
+mod db;
 mod models;
 mod queries;
 mod routes;
-mod db;
+mod utils;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -35,15 +35,16 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(pool.clone()))
             .wrap(middleware::Logger::new("%s | %r - %b bytes in %D ms (%a)"))
-            .service(routes::config::config)
+            .service(routes::other::config)
+            .service(routes::other::bootstrap)
             .service(routes::gym::all)
             .service(routes::instance::all)
+            .service(routes::instance::area)
             .service(routes::pokestop::all)
             .service(routes::pokestop::area)
             .service(routes::pokestop::route)
             .service(routes::spawnpoint::all)
             .service(routes::spawnpoint::bound)
-            .service(routes::spawnpoint::bootstrap)
             .service(
                 Files::new("/", serve_from.to_string())
                     .index_file("index.html")

@@ -1,5 +1,5 @@
 import React from 'react'
-// import 'leaflet.locatecontrol'
+import 'leaflet.locatecontrol'
 import * as L from 'leaflet'
 
 interface Props {

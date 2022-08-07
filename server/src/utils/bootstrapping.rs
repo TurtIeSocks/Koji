@@ -1,203 +1,91 @@
-use crate::models::{GeoJsonPoint, GeoJsonPolygon, GeometryPoint, GeometryPolygon, LatLon};
+use crate::models::scanner::LatLon;
+use geo::{
+    Contains, Extremes, HaversineDestination, HaversineDistance, LineString, Point, Polygon,
+};
 
-fn destination(latlng: &LatLon, heading: f64, dis: f64) -> LatLon {
-    const RAD: f64 = std::f64::consts::PI / 180.0;
-    const RAD_INV: f64 = 180.0 / std::f64::consts::PI;
-    const R: f64 = 6378137.0;
-
-    let new_heading = (heading + 360.0) % 360.0;
-    let r_heading = new_heading * RAD;
-    let lon_1 = latlng.lon * RAD;
-    let lat_1 = latlng.lat * RAD;
-    let sin_lat_1 = lat_1.sin();
-    let cos_lat_1 = lat_1.cos();
-
-    let cos_dist_r = (dis / R).cos();
-    let sin_dist_r = (dis / R).sin();
-    let lat_2 = (sin_lat_1 * cos_dist_r + cos_lat_1 * sin_dist_r * r_heading).asin();
-    let lon_2 = lon_1
-        + (r_heading * sin_dist_r * cos_lat_1).atan2((cos_dist_r - sin_lat_1 * lat_2.sin()).cos());
-    let mut lon_2 = lon_2 * RAD_INV;
-    lon_2 = if lon_2 > 180.0 {
-        lon_2 - 360.0
-    } else if lon_2 < -180.0 {
-        lon_2 + 360.0
-    } else {
-        lon_2
-    };
-    LatLon {
-        lat: lat_2 * RAD_INV,
-        lon: lon_2,
-    }
+fn dot(u: &Point, v: &Point) -> f64 {
+    u.x() * v.x() + u.y() * v.y()
 }
 
-fn in_ring(point: [f64; 2], mut ring: Vec<[f64; 2]>, ignore_boundary: bool) -> bool {
-    let mut is_inside = false;
-    if ring[0][0] == ring[ring.len() - 1][0] && ring[0][1] == ring[ring.len() - 1][1] {
-        ring.splice(0..ring.len() - 1, None);
+fn distance_to_segment(p: Point, a: Point, b: Point) -> f64 {
+    let v = Point::new(b.x() - a.x(), b.y() - a.y());
+    let w = Point::new(p.x() - a.x(), p.y() - a.y());
+    let c1 = dot(&w, &v);
+    if c1 <= 0.0 {
+        return p.haversine_distance(&a);
     }
-    for i in 0..ring.len() {
-        let xi = ring[i][0];
-        let yi = ring[i][1];
-        let xj = ring[(i + 1) % ring.len()][0];
-        let yj = ring[(i + 1) % ring.len()][1];
-        let on_boundary = point[1] * (xi - xj) + yi * (xj - point[0]) + yj * (point[0] - xi) == 0.
-            && (xi - point[0]) * (xj - point[0]) <= 0.
-            && (yi - point[1]) * (yj - point[1]) <= 0.;
-        if on_boundary {
-            return !ignore_boundary;
-        }
-        let intersect = (yi > point[1]) != (yj > point[1])
-            && point[0] < ((xj - xi) * (point[1] - yi)) / (yj - yi) + xi;
-        if intersect {
-            is_inside = !is_inside;
-        }
+    let c2 = dot(&v, &v);
+    if c2 <= c1 {
+        return p.haversine_distance(&b);
     }
-    is_inside
+    let b2 = c1 / c2;
+    let pb = Point::new(a.x() + b2 * v.x(), a.y() + b2 * v.y());
+    return p.haversine_distance(&pb);
 }
 
-fn in_polygon(point: [f64; 2], polygon: Vec<[f64; 2]>, ignore_boundary: bool) -> bool {
-    let mut is_inside = false;
-    let multi = [polygon];
-    if in_ring(point, multi[0].clone(), ignor.lo, k9e_boundary) {
-        let mut in_hole = false;
-        for k in 1..multi.len() {
-            if in_ring(point, multi[k].clone(), !ignore_boundary) {
-                in_hole = true;
-            }
-        }
-        if !in_hole {
-            is_inside = true;
-        }
-    }
-    println!("In: {:?}", is_inside);
-    is_inside
-}
-
-fn degrees_to_radians(degrees: f64) -> f64 {
-    degrees * (std::f64::consts::PI / 180.0)
-}
-
-fn distance(lat1: f64, lon1: f64, lat2: f64, lon2: f64, m: bool) -> f64 {
-    let earth_radius: f64 = if m { 6371000. } else { 6371. };
-
-    let d_lat = degrees_to_radians(lat2 - lat1);
-    let d_lon = degrees_to_radians(lon2 - lon1);
-
-    let r_lat1 = degrees_to_radians(lat1);
-    let r_lat2 = degrees_to_radians(lat2);
-
-    let a = ((d_lat / 2.).sin().powi(2)
-        + ((d_lon / 2.).sin().powi(2)) * (r_lat1.cos()) * (r_lat2.cos()))
-    .sqrt();
-
-    let c = 2. * ((a.sqrt()).atan2((1. - a).sqrt()));
-
-    earth_radius * c
-}
-
-fn to_geojson(polygon: &Vec<LatLon>) -> GeoJsonPolygon {
-    let mut coords = Vec::new();
-    for latlng in polygon {
-        coords.push([latlng.lon, latlng.lat]);
-    }
-    GeoJsonPolygon {
-        type_: "Polygon".to_string(),
-        geometry: GeometryPolygon {
-            type_: "Polygon".to_string(),
-            coordinates: coords,
-        },
-    }
-}
-
-fn to_line(polygon: GeoJsonPolygon) -> GeoJsonPolygon {
-    GeoJsonPolygon {
-        type_: "Feature".to_string(),
-        geometry: GeometryPolygon {
-            type_: "LineString".to_string(),
-            coordinates: polygon.geometry.coordinates,
-        },
-    }
-}
-
-fn find_float_min_max(list: Vec<f64>, min: bool) -> f64 {
-    let mut result: f64 = list[0];
-    for next_num in list.clone() {
-        if min {
-            result = result.min(next_num);
+fn point_line_distance(input: Vec<Point>, point: Point) -> f64 {
+    let mut distance: f64 = std::f64::MAX;
+    for (i, line) in input.iter().enumerate() {
+        let next = if i == input.len() - 1 {
+            input[0]
         } else {
-            result = result.max(next_num);
-        }
+            input[i + 1]
+        };
+        distance = distance.min(distance_to_segment(point, *line, next));
     }
-    result
+    distance
 }
 
-fn point_distance(point: &GeoJsonPoint, line: &GeoJsonPolygon) -> f64 {
-    let point_coords = point.geometry.coordinates.clone();
-    let mut min_dist: f64 = std::f64::MAX;
-    min_dist
-}
-
-pub fn generate_circles(input: Vec<LatLon>) -> Vec<[f64; 2]> {
+pub fn generate_circles(input: Vec<LatLon>, circle_size: f64) -> Vec<[f64; 2]> {
+    let mut polygon = Vec::<(f64, f64)>::new();
+    for p in input.iter() {
+        polygon.push((p.lon, p.lat))
+    }
+    let line = LineString::from(polygon);
+    let polygon = Polygon::<f64>::new(line, vec![]);
     let x_mod: f64 = 0.75_f64.sqrt();
     let y_mod: f64 = 0.568_f64.sqrt();
-    let mut circles: Vec<[f64; 2]> = Vec::new();
-    let poly = to_geojson(&input);
-    let line = to_line(poly.clone());
-    let all_lat: Vec<f64> = input.iter().map(|lat_lon| lat_lon.lat).collect();
-    let all_lon: Vec<f64> = input.iter().map(|lat_lon| lat_lon.lon).collect();
+    let mut circles: Vec<Point> = Vec::new();
 
-    let max = LatLon {
-        lat: find_float_min_max(all_lat.clone(), false),
-        lon: find_float_min_max(all_lon.clone(), false),
-    };
-    let min = LatLon {
-        lat: find_float_min_max(all_lat, true),
-        lon: find_float_min_max(all_lon, true),
-    };
-    let start = destination(&max, 90., 120.);
-    let end = destination(&destination(&min, 270., 70. * 1.5), 180., 70.);
+    let extremes = polygon.extremes().unwrap();
+    let max = Point::new(extremes.x_max.coord.x, extremes.y_max.coord.y);
+    let min = Point::new(extremes.x_min.coord.x, extremes.y_min.coord.y);
 
-    let mut row = 0.;
-    let mut heading = 270.;
-    let mut current = max.clone();
+    let start = max.haversine_destination(90., circle_size * 1.5);
+    let end = min
+        .haversine_destination(270., circle_size * 1.5)
+        .haversine_destination(180., circle_size);
 
-    while current.lat > end.lat {
-        while (heading == 270. && current.lon > end.lon)
-            || (heading == 90. && current.lon < start.lon)
+    let mut row = 0;
+    let mut bearing = 270.;
+    let mut current = max;
+
+    while current.y() > end.y() {
+        while (bearing == 270. && current.x() > end.x())
+            || (bearing == 90. && current.x() < start.x())
         {
-            let point = GeoJsonPoint {
-                type_: "Feature".to_string(),
-                geometry: GeometryPoint {
-                    type_: "Point".to_string(),
-                    coordinates: [current.lon, current.lat],
-                },
-            };
-            let point_distance = point_distance(&point, &line);
-
-            // println!("{:?}", point_distance);
-            if point_distance < 70.
-                || point_distance == 0.
-                || in_polygon(
-                    [point.geometry.coordinates[0], point.geometry.coordinates[1]],
-                    poly.geometry.coordinates.clone(),
-                    true,
-                )
-            {
-                circles.push([current.lat, current.lon]);
+            let point_distance = point_line_distance(
+                input
+                    .iter()
+                    .map(|lat_lon| Point::new(lat_lon.lon, lat_lon.lat))
+                    .collect(),
+                current,
+            );
+            if point_distance <= circle_size || point_distance == 0. || polygon.contains(&current) {
+                circles.push(current);
             }
-            current = destination(&current, heading, x_mod * 70. * 2.)
+            current = current.haversine_destination(bearing, x_mod * circle_size * 2.)
         }
-        current = destination(&current, 180., y_mod * 70. * 2.);
+        current = current.haversine_destination(180., y_mod * circle_size * 2.);
 
-        if row % 2. == 1. {
-            heading = 270.;
+        if row % 2 == 1 {
+            bearing = 270.;
         } else {
-            heading = 90.;
+            bearing = 90.;
         }
-        current = destination(&current, heading, x_mod * 70. * 3.);
+        current = current.haversine_destination(bearing, x_mod * circle_size * 3.);
 
-        row += 1.;
+        row += 1;
     }
-    circles
+    circles.iter().map(|p| [p.y(), p.x()]).collect()
 }
