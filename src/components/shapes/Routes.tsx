@@ -13,7 +13,7 @@ export default function Routes() {
 
   React.useEffect(() => {
     getData<[number, number][]>('/api/bootstrap', instanceForm).then((res) =>
-      setPoints(res),
+      setPoints(res || []),
     )
   }, [open, instanceForm.name, instanceForm.radius])
 
