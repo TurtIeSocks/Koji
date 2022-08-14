@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "rdm-tools-2.0",
+  "name": "koji",
   "version": "0.1.0",
   "description": "Tool to make RDM routes",
   "main": "server/dist/index.js",

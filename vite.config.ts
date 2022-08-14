@@ -14,7 +14,9 @@ export default defineConfig(({ mode }) => ({
       overlay: {
         initialIsOpen: false,
       },
-      typescript: true,
+      typescript: {
+        tsconfigPath: resolve(__dirname, 'tsconfig.json'),
+      },
       eslint: {
         lintCommand: 'eslint "./src/**/*.{ts,tsx}"',
       },

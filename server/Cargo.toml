@@ -1,5 +1,5 @@
 [package]
-name = "rdm-tools-2"
+name = "koji"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,6 +7,7 @@ edition = "2021"
 actix-web = "4"
 actix-files = "0.6.0"
 chrono = { version = "0.4.19", features = ["serde"] }
+cxx = "1.0.73"
 diesel = { version = "1.4.4", features = ["mysql", "r2d2", "chrono"] }
 diesel-derive-enum = { version = "1", features = ["mysql"] }
 dotenv = "0.15.0"
@@ -19,3 +20,6 @@ petal-neighbors = "0.8.0"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0"
 vrp-pragmatic = "1.18.1"
+
+[build-dependencies]
+cxx-build = "1.0.73"
