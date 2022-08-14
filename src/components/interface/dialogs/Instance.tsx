@@ -11,7 +11,6 @@ import {
   TextField,
 } from '@mui/material'
 
-import { Instance } from '@assets/types'
 import { getData } from '@services/fetches'
 import { useStatic, useStore } from '@hooks/useStore'
 
@@ -21,7 +20,7 @@ export default function SelectInstance() {
   const open = useStatic((s) => s.open)
   const handleClose = useStatic((s) => s.handleClose)
 
-  const [instances, setInstances] = React.useState<Instance[]>([])
+  const [instances, setInstances] = React.useState<string[]>([])
 
   const onChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -30,9 +29,7 @@ export default function SelectInstance() {
   }
 
   React.useEffect(() => {
-    getData<Instance[]>('/api/instance/all').then((r) =>
-      setInstances(r.filter((i) => i.type_ === 'auto_quest')),
-    )
+    getData<string[]>('/api/instance/quest').then((r) => setInstances(r))
   }, [])
 
   return (
@@ -54,8 +51,8 @@ export default function SelectInstance() {
               }}
             >
               {instances.map((instance) => (
-                <MenuItem key={instance.name} value={instance.name}>
-                  {instance.name}
+                <MenuItem key={instance} value={instance}>
+                  {instance}
                 </MenuItem>
               ))}
             </Select>

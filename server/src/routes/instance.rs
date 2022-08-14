@@ -10,7 +10,20 @@ async fn all(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
     })
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)?;
-    Ok(HttpResponse::Ok().json(instances))
+    let filtered: Vec<String> = instances.iter().map(|i| i.name.clone()).collect();
+    Ok(HttpResponse::Ok().json(filtered))
+}
+
+#[get("/api/instance/quest")]
+async fn quest(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
+    let instances = web::block(move || {
+        let conn = pool.get()?;
+        query_quest_instances(&conn)
+    })
+    .await?
+    .map_err(actix_web::error::ErrorInternalServerError)?;
+    let filtered: Vec<String> = instances.iter().map(|i| i.name.clone()).collect();
+    Ok(HttpResponse::Ok().json(filtered))
 }
 
 #[post("/api/instance/area")]
