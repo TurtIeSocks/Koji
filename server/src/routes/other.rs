@@ -24,6 +24,9 @@ async fn bootstrap(
     payload: web::Json<RouteGeneration>,
 ) -> Result<HttpResponse, Error> {
     let bs_name = payload.name.clone();
+    if bs_name.len() == 0 {
+        return Ok(HttpResponse::Ok().json(""));
+    }
     let instance = web::block(move || {
         let conn = pool.get()?;
 
