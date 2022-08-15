@@ -1,16 +1,15 @@
 import * as React from 'react'
 import { Polygon } from 'react-leaflet'
 
-import { useStatic, useStore } from '@hooks/useStore'
+import { useStore } from '@hooks/useStore'
 import { getData } from '@services/fetches'
 
 export default function QuestPolygon() {
-  const instanceForm = useStore((s) => s.instanceForm)
-  const open = useStatic((s) => s.open)
+  const instanceForm = useStore((s) => s.apiSettings)
   const [points, setPoints] = React.useState<{ lat: number; lng: number }[]>([])
 
   React.useEffect(() => {
-    if (instanceForm.name && !open) {
+    if (instanceForm.instance) {
       getData<[{ lat: number; lon: number }[]]>(
         '/api/instance/area',
         instanceForm,
@@ -20,7 +19,7 @@ export default function QuestPolygon() {
         }
       })
     }
-  }, [open, instanceForm.name, instanceForm.radius, instanceForm.generations])
+  }, [instanceForm.instance])
 
   return <Polygon positions={points} />
 }

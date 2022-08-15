@@ -24,7 +24,7 @@ async fn area(
 ) -> Result<HttpResponse, Error> {
     let stops = web::block(move || {
         let conn = pool.get()?;
-        let instance = query_instance_route(&conn, &payload.name)?;
+        let instance = query_instance_route(&conn, &payload.instance)?;
         let data: InstanceData =
             serde_json::from_str(instance.data.as_str()).expect("JSON was not well-formatted");
 
@@ -48,9 +48,10 @@ async fn route(
     pool: web::Data<DbPool>,
     payload: web::Json<RouteGeneration>,
 ) -> Result<HttpResponse, Error> {
-    let name = payload.name.clone();
+    let name = payload.instance.clone();
     let radius = payload.radius.clone();
     let generations = payload.generations.clone();
+    let mode = payload.mode.clone();
     println!(
         "Name: {}, Radius: {}, Generations: {}",
         name, radius, generations
@@ -80,6 +81,9 @@ async fn route(
     let lat_lon_array: Vec<[f64; 2]> = instance_stops.iter().map(|p| [p.lat, p.lon]).collect();
     let clusters = cpp_cluster(lat_lon_array, 98650. / radius);
 
+    if mode == "cluster" {
+        return Ok(HttpResponse::Ok().json(clusters));
+    }
     let clusters = solve(clusters, generations, radius * 1000.);
 
     let clusters: Vec<(f64, f64)> = clusters.tours[0]

@@ -1,12 +1,11 @@
 import React from 'react'
 import 'leaflet.locatecontrol'
 import * as L from 'leaflet'
+import { useMap } from 'react-leaflet'
 
-interface Props {
-  map: L.Map
-}
+export default function Locate() {
+  const map = useMap()
 
-export default function Locate({ map }: Props) {
   const [lc] = React.useState(
     L.control.locate({
       position: 'bottomright',

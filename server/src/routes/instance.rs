@@ -27,7 +27,7 @@ async fn area(
     let instance = web::block(move || {
         let conn = pool.get()?;
 
-        query_instance_route(&conn, &payload.name)
+        query_instance_route(&conn, &payload.instance)
     })
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)?;

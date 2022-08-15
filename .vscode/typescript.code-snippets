@@ -1,9 +1,17 @@
 {
-  "New TS React Component": {
+	"New TS React Component": {
 		"scope": "typescriptreact",
 		"prefix": "tsnr",
 		"body": [
-			"import React from 'react'\n\nexport interface ${1:Component}Props {\n\t${2:prop}: ${3:string}\n}\n\nexport default function ${1:ComponentName}({ prop }: ${1:Component}Props) {\n\treturn (\n\t\t<div>\n\t\t\t{prop}\n\t\t</div>\n\t)\n}"
+			"import * as React from 'react'\n\ninterface Props {\n\t${2:prop}: ${3:string}\n}\n\nexport default function ${1:ComponentName}({ prop }: Props) {\n\treturn (\n\t\t<div>\n\t\t\t{prop}\n\t\t</div>\n\t)\n}"
+		],
+		"description": "Base TS React Component"
+	},
+	"New TS React Component- No Props": {
+		"scope": "typescriptreact",
+		"prefix": "tsnrnp",
+		"body": [
+			"import * as React from 'react'\nimport { Grid } from '@mui/material'\n\nexport default function ${1:ComponentName}() {\n\treturn (\n\t\t<Grid container>\n\t\t\t<Grid item xs={12}>\n\t\t\t\tBody\n\t\t\t</Grid>\n\t\t</Grid>\n\t)\n}"
 		],
 		"description": "Base TS React Component"
 	}
