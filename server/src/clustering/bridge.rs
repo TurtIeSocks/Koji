@@ -8,7 +8,7 @@ mod ffi {
     unsafe extern "C++" {
         include!("koji/src/clustering/main.h");
 
-        fn concat(elements: Vec<CppPoint>) -> Vec<CppPoint>;
+        fn clustering(elements: Vec<CppPoint>) -> Vec<CppPoint>;
     }
 }
 
@@ -22,7 +22,7 @@ pub fn cpp_cluster(points: Vec<[f64; 2]>, radius: f64) -> Vec<[f64; 2]> {
         .map(|point| shared(point[1], point[0]))
         .collect();
 
-    let output_points = ffi::concat(elements);
+    let output_points = ffi::clustering(elements);
     let mut points = Vec::<[f64; 2]>::new();
     println!("Clusters: {}", output_points.len());
     for coord in output_points {

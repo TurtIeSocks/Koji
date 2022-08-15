@@ -1,8 +1,9 @@
-node_modules/
-dist/
+node_modules
+dist
 .env
-target/
-.github/
-.vscode/
+target
+.github
+.vscode
 docker-compose.yml
 .env.example
+vrp_tests

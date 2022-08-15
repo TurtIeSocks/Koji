@@ -6,7 +6,7 @@
 #include <iterator>
 #include <vector>
 
-rust::Vec<CppPoint> concat(rust::Vec<CppPoint> r)
+rust::Vec<CppPoint> clustering(rust::Vec<CppPoint> r)
 {
   // Copy into Cpp Vector
   std::vector<Point> P;

@@ -76,6 +76,7 @@ fn create_problem(services: Vec<[f64; 2]>, _distance: f64) -> Problem {
         },
         objectives: None,
         fleet: Fleet {
+            resources: None,
             profiles: vec![MatrixProfile {
                 name: "normal_car".to_string(),
                 speed: None,

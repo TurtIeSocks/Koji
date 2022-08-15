@@ -2,5 +2,4 @@
 #include "koji/src/clustering/bridge.rs.h"
 #include "rust/cxx.h"
 
-rust::Vec<CppPoint> concat(rust::Vec<CppPoint> r);
-
+rust::Vec<CppPoint> clustering(rust::Vec<CppPoint> r);
