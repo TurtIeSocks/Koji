@@ -12,19 +12,20 @@ export default function Routes() {
   const [points, setPoints] = React.useState<[number, number][]>([])
 
   React.useEffect(() => {
-    getData<[number, number][]>('/api/bootstrap', instanceForm).then((res) =>
-      setPoints(res || []),
-    )
-  }, [open, instanceForm.name, instanceForm.radius])
+    if (instanceForm.name) {
+      getData<[number, number][]>('/api/pokestop/route', instanceForm).then(
+        (res) => setPoints(Array.isArray(res) ? res : []),
+      )
+    }
+  }, [open, instanceForm.name, instanceForm.radius, instanceForm.generations])
 
   return (
     <>
       {points.map((point, i) => {
-        if (point.length !== 2) return null
+        if (point.length !== 2 || !point[0] || !point[1]) return null
         const isEnd = i === points.length - 1
         const next = isEnd ? points[0] : points[i + 1]
         const color = point && next ? getColor(point, next) : 'black'
-
         return (
           <React.Fragment key={`${point}-${next}-${isEnd}`}>
             <Circle

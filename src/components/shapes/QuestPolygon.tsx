@@ -15,7 +15,9 @@ export default function QuestPolygon() {
         '/api/instance/area',
         instanceForm,
       ).then((data) => {
-        setPoints(data[0].map((p) => ({ lat: p.lat, lng: p.lon })))
+        if (data?.[0]) {
+          setPoints(data[0].map((p) => ({ lat: p.lat, lng: p.lon })))
+        }
       })
     }
   }, [open, instanceForm.name, instanceForm.radius, instanceForm.generations])

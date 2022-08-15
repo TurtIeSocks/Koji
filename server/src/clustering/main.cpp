@@ -8,13 +8,6 @@
 
 rust::Vec<CppPoint> concat(rust::Vec<CppPoint> r)
 {
-  // Test Rust input
-  std::cout << "C++ Print:" << std::endl;
-  for (auto coord : r)
-  {
-    std::cout << coord.x << ", " << coord.y << std::endl;
-  }
-
   // Copy into Cpp Vector
   std::vector<Point> P;
   for (auto coord : r)

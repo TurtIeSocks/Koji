@@ -12,16 +12,21 @@ mod ffi {
     }
 }
 
-pub fn cpp_cluster(points: Vec<[f64; 2]>) -> Vec<[f64; 2]> {
-    let shared = |x, y| ffi::CppPoint { x, y };
-    let elements = points.iter().map(|point| shared(point[0], point[1])).collect();
+pub fn cpp_cluster(points: Vec<[f64; 2]>, radius: f64) -> Vec<[f64; 2]> {
+    let shared = |x, y| ffi::CppPoint {
+        x: x * radius,
+        y: y * radius,
+    };
+    let elements = points
+        .iter()
+        .map(|point| shared(point[1], point[0]))
+        .collect();
 
     let output_points = ffi::concat(elements);
-    println!("Rust Print:");
     let mut points = Vec::<[f64; 2]>::new();
+    println!("Clusters: {}", output_points.len());
     for coord in output_points {
-        // println!("{}", coord);
-        points.push([coord.x, coord.y]);
+        points.push([coord.y / radius, coord.x / radius]);
     }
     points
 }

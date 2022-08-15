@@ -25,11 +25,11 @@ export default function SelectInstance() {
   const onChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
-    setInstanceForm({ ...instanceForm, [e.target.name]: +e.target.value })
+    setInstanceForm({ ...instanceForm, [e.target.name]: +e.target.value || '' })
   }
 
   React.useEffect(() => {
-    getData<string[]>('/api/instance/quest').then((r) => setInstances(r))
+    getData<string[]>('/api/instance/quest').then((r) => setInstances(r || []))
   }, [])
 
   return (

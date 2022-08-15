@@ -17,7 +17,7 @@ export const useStore = create(
       setLocation: (location) => set({ location }),
       zoom: 18,
       setZoom: (zoom) => set({ zoom }),
-      instanceForm: { name: '', radius: 0.08, generations: 100 },
+      instanceForm: { name: '', radius: 70, generations: 100 },
       setInstanceForm: (instanceForm) => set({ instanceForm }),
     }),
     {

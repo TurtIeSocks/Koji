@@ -75,17 +75,17 @@ async fn route(
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    println!("{}", instance_stops.len());
+    println!("Pokestops: {}", instance_stops.len());
 
     let lat_lon_array: Vec<[f64; 2]> = instance_stops.iter().map(|p| [p.lat, p.lon]).collect();
-    let clusters = cpp_cluster(lat_lon_array);
+    let clusters = cpp_cluster(lat_lon_array, 98650. / radius);
 
-    let solution = solve(clusters, generations, radius * 1000.);
+    let clusters = solve(clusters, generations, radius * 1000.);
 
-    let locations: Vec<(f64, f64)> = solution.tours[0]
+    let clusters: Vec<(f64, f64)> = clusters.tours[0]
         .stops
         .iter()
         .map(|p| p.clone().to_point().location.to_lat_lng())
         .collect();
-    Ok(HttpResponse::Ok().json(locations))
+    Ok(HttpResponse::Ok().json(clusters))
 }

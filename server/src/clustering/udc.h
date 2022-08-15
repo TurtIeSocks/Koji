@@ -15,7 +15,6 @@ class FASTCOVER_PP
     std::list<Point> &diskCenters;
 
     const double sqrt2 = std::sqrt(2);
-    // const double sqrt2 = std::sqrt(0.0000005);
     const double additiveFactor = sqrt2 / 2;
     const double sqrt2TimesOnePointFiveMinusOne = (sqrt2 * 1.5) - 1;
     const double sqrt2TimesZeroPointFivePlusOne = (sqrt2 * 0.5) - 1;

@@ -19,9 +19,9 @@ export default function Markers() {
   React.useEffect(() => {
     getMarkers().then((incoming) => {
       setMarkers([
-        ...incoming.gyms,
+        // ...incoming.gyms,
         ...incoming.pokestops,
-        ...incoming.spawnpoints,
+        // ...incoming.spawnpoints,
       ])
     })
     // if (instanceForm.name) {
