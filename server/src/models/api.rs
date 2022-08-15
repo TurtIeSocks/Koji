@@ -10,7 +10,8 @@ pub struct MapBounds {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RouteGeneration {
-    pub name: String,
+    pub instance: String,
     pub radius: f64,
     pub generations: usize,
+    pub mode: String,
 }

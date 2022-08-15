@@ -8,13 +8,6 @@ export function getMapBounds() {
   return { min_lat, max_lat, min_lon, max_lon }
 }
 
-export function getButtonHtml(hash: string, icon: string) {
-  return `
-<a href="#${hash}" style="display: flex; align-items: center; justify-content: center;">
-  <span class="material-icons">${icon}</span>
-</a>`
-}
-
 export function getColor(start: [number, number], end: [number, number]) {
   const dis = distance(start, end, { units: 'meters' })
   switch (true) {

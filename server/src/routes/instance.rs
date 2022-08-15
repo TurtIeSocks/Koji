@@ -2,23 +2,16 @@ use super::*;
 use crate::models::{api::RouteGeneration, scanner::InstanceData};
 use crate::queries::instance::*;
 
-#[get("/api/instance/all")]
-async fn all(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
-    let instances = web::block(move || {
-        let conn = pool.get()?;
-        query_all_instances(&conn)
-    })
-    .await?
-    .map_err(actix_web::error::ErrorInternalServerError)?;
-    let filtered: Vec<String> = instances.iter().map(|i| i.name.clone()).collect();
-    Ok(HttpResponse::Ok().json(filtered))
-}
+#[get("/api/instance/type/{instance_type}")]
+async fn all(
+    pool: web::Data<DbPool>,
+    instance_type: actix_web::web::Path<String>,
+) -> Result<HttpResponse, Error> {
+    println!("[INSTANCE] Type: {:?}", instance_type.as_str());
 
-#[get("/api/instance/quest")]
-async fn quest(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
     let instances = web::block(move || {
         let conn = pool.get()?;
-        query_quest_instances(&conn)
+        query_all_instances(&conn, instance_type.as_str().to_string())
     })
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -34,7 +27,7 @@ async fn area(
     let instance = web::block(move || {
         let conn = pool.get()?;
 
-        query_instance_route(&conn, &payload.name)
+        query_instance_route(&conn, &payload.instance)
     })
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)?;

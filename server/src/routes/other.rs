@@ -23,7 +23,7 @@ async fn bootstrap(
     pool: web::Data<DbPool>,
     payload: web::Json<RouteGeneration>,
 ) -> Result<HttpResponse, Error> {
-    let bs_name = payload.name.clone();
+    let bs_name = payload.instance.clone();
     if bs_name.len() == 0 {
         return Ok(HttpResponse::Ok().json(""));
     }

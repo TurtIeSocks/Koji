@@ -5,9 +5,9 @@ use vrp_pragmatic::core::solver::{
     create_default_config_builder, get_default_telemetry_mode, Solver,
 };
 use vrp_pragmatic::core::utils::Environment;
-use vrp_pragmatic::format::problem::{
-    Clustering, VicinityServingPolicy, VicinityThresholdPolicy, VicinityVisitPolicy,
-};
+// use vrp_pragmatic::format::problem::{
+//     Clustering, VicinityServingPolicy, VicinityThresholdPolicy, VicinityVisitPolicy,
+// };
 use vrp_pragmatic::format::problem::{
     Fleet, Job, JobPlace, JobTask, Matrix, MatrixProfile, Plan, PragmaticProblem, Problem,
     ShiftStart, VehicleCosts, VehicleProfile, VehicleShift, VehicleType,
@@ -26,26 +26,26 @@ impl ToLocation for (f64, f64) {
     }
 }
 
-fn create_problem(services: Vec<[f64; 2]>, distance: f64) -> Problem {
+fn create_problem(services: Vec<[f64; 2]>, _distance: f64) -> Problem {
     Problem {
         plan: Plan {
-            // clustering: None,
-            clustering: Some(Clustering::Vicinity {
-                profile: VehicleProfile {
-                    matrix: "normal_car".to_string(),
-                    scale: Some(10.),
-                },
-                threshold: VicinityThresholdPolicy {
-                    duration: 500.,
-                    distance,
-                    min_shared_time: None,
-                    smallest_time_window: None,
-                    max_jobs_per_cluster: None,
-                },
-                visiting: VicinityVisitPolicy::Continue,
-                serving: VicinityServingPolicy::Original { parking: 0. },
-                filtering: None,
-            }),
+            clustering: None,
+            // clustering: Some(Clustering::Vicinity {
+            //     profile: VehicleProfile {
+            //         matrix: "normal_car".to_string(),
+            //         scale: Some(10.),
+            //     },
+            //     threshold: VicinityThresholdPolicy {
+            //         duration: 500.,
+            //         distance,
+            //         min_shared_time: None,
+            //         smallest_time_window: None,
+            //         max_jobs_per_cluster: None,
+            //     },
+            //     visiting: VicinityVisitPolicy::Continue,
+            //     serving: VicinityServingPolicy::Original { parking: 0. },
+            //     filtering: None,
+            // }),
             jobs: services
                 .clone()
                 .into_iter()
@@ -76,6 +76,7 @@ fn create_problem(services: Vec<[f64; 2]>, distance: f64) -> Problem {
         },
         objectives: None,
         fleet: Fleet {
+            resources: None,
             profiles: vec![MatrixProfile {
                 name: "normal_car".to_string(),
                 speed: None,

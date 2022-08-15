@@ -2,41 +2,40 @@ import create from 'zustand'
 import { persist } from 'zustand/middleware'
 
 export interface UseStore {
+  drawer: boolean
+  setDrawer: (drawer: boolean) => void
   location: [number, number]
   setLocation: (location: UseStore['location']) => void
   zoom: number
   setZoom: (zoom: UseStore['zoom']) => void
-  instanceForm: { name: string; radius: number; generations: number }
-  setInstanceForm: (instanceForm: UseStore['instanceForm']) => void
+  apiSettings: {
+    instance: string
+    radius: number
+    generations: number
+    mode: 'bootstrap' | 'route' | 'cluster'
+  }
+  setApiSettings: (instanceForm: UseStore['apiSettings']) => void
 }
 
 export const useStore = create(
   persist<UseStore>(
     (set) => ({
+      drawer: false,
+      setDrawer: (drawer) => set({ drawer }),
       location: [0, 0],
       setLocation: (location) => set({ location }),
       zoom: 18,
       setZoom: (zoom) => set({ zoom }),
-      instanceForm: { name: '', radius: 0.08, generations: 100 },
-      setInstanceForm: (instanceForm) => set({ instanceForm }),
+      apiSettings: {
+        instance: '',
+        radius: 70,
+        generations: 100,
+        mode: 'cluster',
+      },
+      setApiSettings: (instanceForm) => set({ apiSettings: instanceForm }),
     }),
     {
       name: 'local',
     },
   ),
 )
-
-export interface UseStatic {
-  open: string
-  setOpen: (open: UseStatic['open']) => void
-  handleClose: () => void
-}
-
-export const useStatic = create<UseStatic>((set) => ({
-  open: '',
-  setOpen: (open) => set({ open }),
-  handleClose: () => {
-    window.location.hash = ''
-    set({ open: '' })
-  },
-}))

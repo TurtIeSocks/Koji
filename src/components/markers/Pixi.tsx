@@ -10,7 +10,7 @@ import usePixi from '@hooks/usePixi'
 export default function Markers() {
   const setLocation = useStore((s) => s.setLocation)
   const setZoom = useStore((s) => s.setZoom)
-  const instanceForm = useStore((s) => s.instanceForm)
+  const instanceForm = useStore((s) => s.apiSettings)
 
   const map = useMap()
 
@@ -24,12 +24,7 @@ export default function Markers() {
         ...incoming.spawnpoints,
       ])
     })
-    // if (instanceForm.name) {
-    //   getSpecificStops(instanceForm.name).then((incoming) => {
-    //     setMarkers(incoming)
-    //   })
-    // }
-  }, [instanceForm.name])
+  }, [instanceForm.instance])
 
   const onMove = React.useCallback(() => {
     setLocation(Object.values(map.getCenter()) as [number, number])
