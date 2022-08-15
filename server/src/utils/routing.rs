@@ -26,7 +26,7 @@ impl ToLocation for (f64, f64) {
     }
 }
 
-fn create_problem(services: Vec<[f64; 2]>, distance: f64) -> Problem {
+fn create_problem(services: Vec<[f64; 2]>, _distance: f64) -> Problem {
     Problem {
         plan: Plan {
             clustering: None,
