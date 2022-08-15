@@ -38,7 +38,6 @@ async fn main() -> std::io::Result<()> {
             .service(routes::other::bootstrap)
             .service(routes::gym::all)
             .service(routes::instance::all)
-            .service(routes::instance::quest)
             .service(routes::instance::area)
             .service(routes::pokestop::all)
             .service(routes::pokestop::area)

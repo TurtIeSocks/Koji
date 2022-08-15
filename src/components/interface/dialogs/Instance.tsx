@@ -29,7 +29,7 @@ export default function SelectInstance() {
   }
 
   React.useEffect(() => {
-    getData<string[]>('/api/instance/quest').then((r) => setInstances(r || []))
+    getData<string[]>('/api/instance/type/auto_quest').then((r) => setInstances(r || []))
   }, [])
 
   return (
