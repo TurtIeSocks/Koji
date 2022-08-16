@@ -2,7 +2,7 @@ use super::*;
 use crate::models::{api::RouteGeneration, scanner::InstanceData};
 use crate::queries::instance::*;
 
-#[get("/api/instance/type/{instance_type}")]
+#[get("/type/{instance_type}")]
 async fn all(
     pool: web::Data<DbPool>,
     instance_type: actix_web::web::Path<String>,
@@ -19,7 +19,7 @@ async fn all(
     Ok(HttpResponse::Ok().json(filtered))
 }
 
-#[post("/api/instance/area")]
+#[post("/area")]
 async fn area(
     pool: web::Data<DbPool>,
     payload: web::Json<RouteGeneration>,

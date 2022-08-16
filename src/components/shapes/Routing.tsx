@@ -14,8 +14,8 @@ export default function Routes() {
     if (apiSettings.instance) {
       getData<[number, number][]>(
         apiSettings.mode === 'bootstrap'
-          ? 'api/bootstrap'
-          : '/api/pokestop/route',
+          ? '/api/calculate/bootstrap'
+          : `/api/calculate/${apiSettings.mode}/pokestop`,
         apiSettings,
       ).then((res) => setPoints(Array.isArray(res) ? res : []))
     }

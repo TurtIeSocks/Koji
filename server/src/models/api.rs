@@ -13,5 +13,4 @@ pub struct RouteGeneration {
     pub instance: String,
     pub radius: f64,
     pub generations: usize,
-    pub mode: String,
 }

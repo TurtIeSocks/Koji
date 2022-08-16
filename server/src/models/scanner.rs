@@ -1,8 +1,9 @@
 use super::*;
-use crate::db::schema::pokestop;
+use crate::db::schema::{gym, pokestop, spawnpoint};
 use crate::db::sql_types::InstanceType;
 
-#[derive(Debug, Serialize, Deserialize, Queryable)]
+#[derive(Debug, Serialize, Deserialize, Queryable, QueryableByName)]
+#[table_name = "gym"]
 pub struct Gym {
     pub id: String,
     pub lat: f64,
@@ -52,7 +53,7 @@ pub struct Pokestop {
     pub id: String,
     pub lat: f64,
     pub lon: f64,
-    pub name: Option<String>,
+    // pub name: Option<String>,
     // pub url: Option<String>,
     // pub last_modified_timestamp: Option<u32>,
     // pub updated: u32,
@@ -65,7 +66,8 @@ pub struct Pokestop {
     // pub ar_scan_eligible: Option<u8>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Queryable)]
+#[derive(Debug, Serialize, Deserialize, Queryable, QueryableByName)]
+#[table_name = "spawnpoint"]
 pub struct Spawnpoint {
     pub id: u64,
     pub lat: f64,
@@ -73,4 +75,22 @@ pub struct Spawnpoint {
     pub updated: u32,
     pub last_seen: u32,
     pub despawn_sec: Option<u16>,
+}
+
+pub struct GenericData {
+    pub id: String,
+    pub lat: f64,
+    pub lon: f64,
+    pub verified: Option<bool>,
+}
+
+impl GenericData {
+    pub fn new(id: String, lat: f64, lon: f64, verified: Option<bool>) -> Self {
+        GenericData {
+            id,
+            lat,
+            lon,
+            verified,
+        }
+    }
 }

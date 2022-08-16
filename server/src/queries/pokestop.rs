@@ -1,21 +1,37 @@
 use super::*;
 use crate::db::schema::pokestop::dsl::*;
-use crate::models::scanner::Pokestop;
+use crate::models::scanner::LatLon;
+use crate::models::{
+    api::MapBounds,
+    scanner::{GenericData, Pokestop},
+};
+use crate::utils::sql_raw::sql_raw;
 
-pub fn query_all_pokestops(conn: &MysqlConnection) -> Result<Vec<Pokestop>, DbError> {
-    let items = pokestop
-        .select((id, lat, lon, name))
-        .load::<Pokestop>(conn)?;
-    Ok(items)
+pub fn return_generic(items: Vec<Pokestop>) -> Vec<GenericData> {
+    items
+        .into_iter()
+        .map(|item| GenericData::new(item.id, item.lat, item.lon, None))
+        .collect()
 }
 
-pub fn query_area_pokestops(
-    conn: &MysqlConnection,
-    area: String,
-) -> Result<Vec<Pokestop>, DbError> {
-    let formatted = format!("SELECT * FROM pokestop WHERE ST_CONTAINS(ST_GeomFromText(\"POLYGON(({:}))\"), POINT(lat, lon))", area);
-    let items = sql_query(formatted)
+pub fn all(conn: &MysqlConnection) -> Result<Vec<GenericData>, DbError> {
+    let items = pokestop.select((id, lat, lon)).load::<Pokestop>(conn)?;
+    Ok(return_generic(items))
+}
+
+pub fn bound(conn: &MysqlConnection, payload: &MapBounds) -> Result<Vec<GenericData>, DbError> {
+    let items = pokestop
+        .filter(lat.lt(payload.max_lat))
+        .filter(lat.gt(payload.min_lat))
+        .filter(lon.lt(payload.max_lon))
+        .filter(lon.gt(payload.min_lon))
+        .load::<Pokestop>(conn)?;
+    Ok(return_generic(items))
+}
+
+pub fn area(conn: &MysqlConnection, area: &Vec<LatLon>) -> Result<Vec<GenericData>, DbError> {
+    let items = sql_query(sql_raw(area, "pokestop"))
         .load::<Pokestop>(conn)
         .expect("Error loading pokestops");
-    Ok(items)
+    Ok(return_generic(items))
 }
