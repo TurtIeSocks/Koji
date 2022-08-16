@@ -10,5 +10,6 @@ services:
       START_LAT: 0
       START_LON: 0
       TILE_SERVER: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}"
+      PORT: 8080
     ports:
       - "9095:8080"

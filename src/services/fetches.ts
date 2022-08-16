@@ -16,7 +16,6 @@ export async function getData<T>(
             instance: instance.instance || '',
             radius: instance.radius || 0.0,
             generations: instance.generations || 0,
-            mode: instance.mode || '',
           }),
         })
       : await fetch(url)
@@ -33,9 +32,9 @@ export async function getData<T>(
 
 export async function getMarkers(): Promise<Data> {
   const [pokestops, gyms, spawnpoints] = await Promise.all([
-    fetch('/api/pokestop/all').then((res) => res.json()),
-    fetch('/api/gym/all').then((res) => res.json()),
-    fetch('/api/spawnpoint/all').then((res) => res.json()),
+    fetch('/api/data/all/pokestop').then((res) => res.json()),
+    fetch('/api/data/all/gym').then((res) => res.json()),
+    fetch('/api/data/all/spawnpoint').then((res) => res.json()),
   ])
   return { pokestops, gyms, spawnpoints }
 }
