@@ -27,7 +27,7 @@ async fn main() -> std::io::Result<()> {
         .expect("Failed to create pool.");
     let port = std::env::var("PORT").unwrap_or("8080".to_string());
     let serve_from = if std::env::var("NODE_ENV") == Ok("development".to_string()) {
-        "../dist"
+        "../client/dist"
     } else {
         "./dist"
     };
@@ -50,9 +50,11 @@ async fn main() -> std::io::Result<()> {
                             .service(routes::raw_data::area),
                     )
                     .service(
-                        web::scope("calculate")
-                            .service(routes::calculate::bootstrap)
-                            .service(routes::calculate::cluster),
+                        web::scope("v1").service(
+                            web::scope("calc")
+                                .service(routes::calculate::bootstrap)
+                                .service(routes::calculate::cluster),
+                        ),
                     ),
             )
             .service(

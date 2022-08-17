@@ -12,7 +12,7 @@ import { getData } from '@services/fetches'
 
 interface Props {
   value: string
-  setValue: (field: keyof UseStore['apiSettings'], value: string) => void
+  setValue: (field: keyof UseStore, value: string) => void
 }
 
 export default function InstanceSelect({ value, setValue }: Props) {

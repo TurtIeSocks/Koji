@@ -4,7 +4,7 @@ import { Box, CssBaseline } from '@mui/material'
 
 import { useStore } from '@hooks/useStore'
 
-import Markers from './markers/Pixi'
+import Markers from './markers'
 import Interface from './interface'
 import Routes from './shapes/Routing'
 import QuestPolygon from './shapes/QuestPolygon'

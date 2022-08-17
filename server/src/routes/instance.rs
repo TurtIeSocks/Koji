@@ -24,10 +24,14 @@ async fn area(
     pool: web::Data<DbPool>,
     payload: web::Json<RouteGeneration>,
 ) -> Result<HttpResponse, Error> {
+    let instance = payload.instance.clone().unwrap_or_else(|| "".to_string());
+    if instance.clone() == "".to_string() {
+        return Ok(HttpResponse::BadRequest().json("No instance provided"));
+    }
     let instance = web::block(move || {
         let conn = pool.get()?;
 
-        query_instance_route(&conn, &payload.instance)
+        query_instance_route(&conn, &instance)
     })
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)?;
