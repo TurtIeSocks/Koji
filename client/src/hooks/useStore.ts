@@ -21,6 +21,11 @@ export interface UseStore {
   showLines: boolean
   showPolygon: boolean
   renderer: 'performance' | 'quality'
+  export: {
+    total: number
+    max: number
+    route: [number, number][]
+  }
   setSettings: <T extends keyof UseStore>(key: T, value: UseStore[T]) => void
 }
 
@@ -46,6 +51,11 @@ export const useStore = create(
       showLines: true,
       showPolygon: true,
       renderer: 'performance',
+      export: {
+        total: 0,
+        max: 0,
+        route: [],
+      },
       setSettings: (key, value) => set({ [key]: value }),
     }),
     {

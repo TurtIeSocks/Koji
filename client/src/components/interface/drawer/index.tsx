@@ -1,6 +1,15 @@
 import React from 'react'
-import { Drawer, Box, List, Divider } from '@mui/material'
-import { ChevronRight } from '@mui/icons-material'
+import {
+  Drawer,
+  Box,
+  List,
+  Divider,
+  ListItemButton,
+  ListItemIcon,
+  ListSubheader,
+  type SxProps,
+} from '@mui/material'
+import { ChevronRight, ContentCopy } from '@mui/icons-material'
 
 import { useStore } from '@hooks/useStore'
 
@@ -9,6 +18,13 @@ import InstanceSelect from './Instance'
 import NumInput from './NumInput'
 import BtnGroup from './BtnGroup'
 import Toggle from './Toggle'
+import Export from './Export'
+
+const subSx: SxProps = {
+  textAlign: 'center',
+  lineHeight: 2,
+  fontWeight: 'bold',
+}
 
 interface Props {
   drawer: boolean
@@ -31,6 +47,8 @@ export default function DrawerIndex({ drawer, setDrawer, drawerWidth }: Props) {
   const showLines = useStore((s) => s.showLines)
   const showPolygon = useStore((s) => s.showPolygon)
   const renderer = useStore((s) => s.renderer)
+
+  const [open, setOpen] = React.useState(false)
 
   const toggleDrawer = (event: React.KeyboardEvent | React.MouseEvent) => {
     if (
@@ -73,21 +91,17 @@ export default function DrawerIndex({ drawer, setDrawer, drawerWidth }: Props) {
       {drawer ? (
         <>
           <DrawerHeader setDrawer={setDrawer}>Kōji</DrawerHeader>
-          <List>
+          <List dense>
             <InstanceSelect value={instance} setValue={setSettings} />
             <Divider sx={{ my: 2 }} />
+            <ListSubheader disableGutters sx={subSx}>
+              Routing Options
+            </ListSubheader>
             <NumInput field="radius" value={radius} setValue={setSettings} />
             <NumInput
               field="generations"
               value={generations}
               setValue={setSettings}
-            />
-            <Divider sx={{ my: 2 }} />
-            <BtnGroup
-              field="mode"
-              value={mode}
-              setValue={setSettings}
-              buttons={['cluster', 'route', 'bootstrap']}
             />
             <BtnGroup
               field="category"
@@ -96,7 +110,16 @@ export default function DrawerIndex({ drawer, setDrawer, drawerWidth }: Props) {
               buttons={['pokestop', 'gym', 'spawnpoint']}
               disabled={mode === 'bootstrap'}
             />
+            <BtnGroup
+              field="mode"
+              value={mode}
+              setValue={setSettings}
+              buttons={['cluster', 'route', 'bootstrap']}
+            />
             <Divider sx={{ my: 2 }} />
+            <ListSubheader disableGutters sx={subSx}>
+              Markers
+            </ListSubheader>
             <Toggle field="pokestop" value={pokestop} setValue={setSettings} />
             <Toggle field="gym" value={gym} setValue={setSettings} />
             <Toggle
@@ -110,7 +133,16 @@ export default function DrawerIndex({ drawer, setDrawer, drawerWidth }: Props) {
               setValue={setSettings}
               buttons={['all', 'bound', 'area']}
             />
+            <BtnGroup
+              field="renderer"
+              value={renderer}
+              setValue={setSettings}
+              buttons={['performance', 'quality']}
+            />
             <Divider sx={{ my: 2 }} />
+            <ListSubheader disableGutters sx={subSx}>
+              Route Shapes
+            </ListSubheader>
             <Toggle
               field="showCircles"
               value={showCircles}
@@ -120,18 +152,21 @@ export default function DrawerIndex({ drawer, setDrawer, drawerWidth }: Props) {
               field="showLines"
               value={showLines}
               setValue={setSettings}
+              disabled={mode === 'cluster'}
             />
             <Toggle
               field="showPolygon"
               value={showPolygon}
               setValue={setSettings}
             />
-            <BtnGroup
-              field="renderer"
-              value={renderer}
-              setValue={setSettings}
-              buttons={['quality', 'performance']}
-            />
+            <Divider sx={{ my: 2 }} />
+            <ListItemButton onClick={() => setOpen(true)}>
+              <ListItemIcon>
+                <ContentCopy />
+              </ListItemIcon>
+              Export
+            </ListItemButton>
+            <Export open={open} setOpen={setOpen} />
           </List>
         </>
       ) : (
