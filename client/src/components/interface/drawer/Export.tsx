@@ -1,3 +1,4 @@
+/* eslint-disable react/no-array-index-key */
 import * as React from 'react'
 import {
   Dialog,
@@ -9,6 +10,7 @@ import {
   List,
   ListItemText,
   IconButton,
+  ListSubheader,
 } from '@mui/material'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import { Clear } from '@mui/icons-material'
@@ -23,6 +25,7 @@ interface Props {
 export default function Export({ open, setOpen }: Props) {
   const exportSettings = useStore((s) => s.export)
 
+  const total = exportSettings.route.flatMap((route) => route).length
   return (
     <Dialog open={open} onClose={() => setOpen(false)}>
       <DialogTitle>
@@ -48,12 +51,17 @@ export default function Export({ open, setOpen }: Props) {
             justifyContent="center"
           >
             <List>
-              {exportSettings.route.map((point) => (
-                <ListItemText
-                  key={point.join('')}
-                  primary={`${point[0]}, ${point[1]}`}
-                  primaryTypographyProps={{ variant: 'caption' }}
-                />
+              {exportSettings.route.map((route, i) => (
+                <React.Fragment key={i}>
+                  <ListSubheader>Device {i + 1}</ListSubheader>
+                  {route.map((point, j) => (
+                    <ListItemText
+                      key={`${i}-${j}-${point.join('')}`}
+                      primary={`${point[0]}, ${point[1]}`}
+                      primaryTypographyProps={{ variant: 'caption' }}
+                    />
+                  ))}
+                </React.Fragment>
               ))}
             </List>
           </Grid2>
@@ -67,7 +75,7 @@ export default function Export({ open, setOpen }: Props) {
           >
             <Grid2>
               <TextField
-                value={exportSettings.route.length || 0}
+                value={total || 0}
                 label="Count"
                 type="number"
                 fullWidth
@@ -86,11 +94,7 @@ export default function Export({ open, setOpen }: Props) {
             </Grid2>
             <Grid2>
               <TextField
-                value={
-                  (exportSettings.total / exportSettings.route.length)?.toFixed(
-                    2,
-                  ) || 0
-                }
+                value={(exportSettings.total / total)?.toFixed(2) || 0}
                 label="Average"
                 type="number"
                 fullWidth
@@ -115,7 +119,9 @@ export default function Export({ open, setOpen }: Props) {
         <Button
           onClick={() =>
             navigator.clipboard.writeText(
-              exportSettings.route.map((p) => p.join(',')).join('\n'),
+              exportSettings.route
+                .map((r) => r.map((p) => p.join(',')).join('\n'))
+                .join('\n\n'),
             )
           }
         >

@@ -17,8 +17,9 @@ export async function getData<T>(
           },
           body: JSON.stringify({
             instance: settings.instance || '',
-            radius: settings.radius || 0.0,
-            generations: settings.generations || 0,
+            radius: settings.radius || 1.0,
+            generations: settings.generations || 1,
+            devices: settings.devices || 1,
           }),
         })
       : await fetch(url)

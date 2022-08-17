@@ -1,5 +1,5 @@
-#include "koji/src/clustering/main.h"
-#include "koji/src/clustering/udc.h"
+#include "koji/src/cpp/clustering/main.h"
+#include "koji/src/cpp/clustering/udc.h"
 #include <algorithm>
 #include <cassert>
 #include <iostream>

@@ -13,4 +13,5 @@ pub struct RouteGeneration {
     pub instance: Option<String>,
     pub radius: Option<f64>,
     pub generations: Option<usize>,
+    pub devices: Option<usize>,
 }

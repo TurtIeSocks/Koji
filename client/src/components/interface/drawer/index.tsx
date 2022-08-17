@@ -47,6 +47,7 @@ export default function DrawerIndex({ drawer, setDrawer, drawerWidth }: Props) {
   const showLines = useStore((s) => s.showLines)
   const showPolygon = useStore((s) => s.showPolygon)
   const renderer = useStore((s) => s.renderer)
+  const devices = useStore((s) => s.devices)
 
   const [open, setOpen] = React.useState(false)
 
@@ -103,6 +104,7 @@ export default function DrawerIndex({ drawer, setDrawer, drawerWidth }: Props) {
               value={generations}
               setValue={setSettings}
             />
+            <NumInput field="devices" value={devices} setValue={setSettings} />
             <BtnGroup
               field="category"
               value={category}
