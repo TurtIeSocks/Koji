@@ -6,7 +6,7 @@ mod ffi {
     }
 
     unsafe extern "C++" {
-        include!("koji/src/clustering/main.h");
+        include!("koji/src/cpp/clustering/main.h");
 
         fn clustering(elements: Vec<CppPoint>) -> Vec<CppPoint>;
     }

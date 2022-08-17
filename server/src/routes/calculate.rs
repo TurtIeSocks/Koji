@@ -1,5 +1,5 @@
 use super::*;
-use crate::clustering::bridge::cpp_cluster;
+use crate::cpp::bridge::cpp_cluster;
 use crate::models::{api::RouteGeneration, scanner::InstanceData};
 use crate::queries::{gym, instance::query_instance_route, pokestop, spawnpoint};
 use crate::utils::bootstrapping::generate_circles;
@@ -27,7 +27,7 @@ async fn bootstrap(
         serde_json::from_str(instance.data.as_str()).expect("JSON was not well-formatted");
 
     let circles = generate_circles(data.area[0].clone(), radius);
-    Ok(HttpResponse::Ok().json(circles))
+    Ok(HttpResponse::Ok().json([circles]))
 }
 
 #[post("/{mode}/{category}")]
@@ -37,13 +37,14 @@ async fn cluster(
     payload: web::Json<RouteGeneration>,
 ) -> Result<HttpResponse, Error> {
     let name = payload.instance.clone().unwrap_or_else(|| "".to_string());
-    let radius = payload.radius.clone().unwrap_or_else(|| 0.0);
-    let generations = payload.generations.clone().unwrap_or_else(|| 0);
+    let radius = payload.radius.clone().unwrap_or_else(|| 1.0);
+    let generations = payload.generations.clone().unwrap_or_else(|| 1);
     let (mode, category) = info.into_inner();
+    let devices = payload.devices.clone().unwrap_or_else(|| 1);
 
     println!(
-        "Name: {}, Radius: {}, Generations: {}, Mode: {}",
-        name, radius, generations, mode,
+        "Name: {}, Radius: {}, Generations: {}, Mode: {}, Devices: {}",
+        name, radius, generations, mode, devices,
     );
 
     if name == "" || radius == 0.0 || generations == 0 {
@@ -74,14 +75,19 @@ async fn cluster(
     let clusters = cpp_cluster(lat_lon_array, 98650. / radius);
 
     if mode.as_str() == "cluster" {
-        return Ok(HttpResponse::Ok().json(clusters));
+        return Ok(HttpResponse::Ok().json([clusters]));
     }
-    let clusters = solve(clusters, generations, radius * 1000.);
-
-    let clusters: Vec<(f64, f64)> = clusters.tours[0]
-        .stops
+    let clusters = solve(clusters, generations, devices);
+    println!("Tours: {}", clusters.tours.len());
+    let clusters: Vec<Vec<(f64, f64)>> = clusters
+        .tours
         .iter()
-        .map(|p| p.clone().to_point().location.to_lat_lng())
+        .map(|p| {
+            p.stops
+                .iter()
+                .map(|x| x.clone().to_point().location.to_lat_lng())
+                .collect()
+        })
         .collect();
     Ok(HttpResponse::Ok().json(clusters))
 }

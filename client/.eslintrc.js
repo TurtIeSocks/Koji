@@ -22,6 +22,7 @@ module.exports = {
     'prettier',
   ],
   rules: {
+    'no-bitwise': 'off',
     semi: 'off',
     'jsx-a11y/anchor-is-valid': 'off',
     'no-underscore-dangle': 'off',

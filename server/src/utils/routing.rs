@@ -5,12 +5,9 @@ use vrp_pragmatic::core::solver::{
     create_default_config_builder, get_default_telemetry_mode, Solver,
 };
 use vrp_pragmatic::core::utils::Environment;
-// use vrp_pragmatic::format::problem::{
-//     Clustering, VicinityServingPolicy, VicinityThresholdPolicy, VicinityVisitPolicy,
-// };
 use vrp_pragmatic::format::problem::{
     Fleet, Job, JobPlace, JobTask, Matrix, MatrixProfile, Plan, PragmaticProblem, Problem,
-    ShiftStart, VehicleCosts, VehicleProfile, VehicleShift, VehicleType,
+    ShiftStart, VehicleCosts, VehicleLimits, VehicleProfile, VehicleShift, VehicleType,
 };
 use vrp_pragmatic::format::solution::{create_solution, Solution};
 use vrp_pragmatic::format::Location;
@@ -26,26 +23,27 @@ impl ToLocation for (f64, f64) {
     }
 }
 
-fn create_problem(services: Vec<[f64; 2]>, _distance: f64) -> Problem {
+fn create_problem(services: Vec<[f64; 2]>, devices: Vec<String>) -> Problem {
+    let tour_size = services.len() / devices.len();
+    let shifts: Vec<VehicleShift> = devices
+        .iter()
+        .enumerate()
+        .map(|(i, _d)| VehicleShift {
+            start: ShiftStart {
+                earliest: format!("2022-05-29T0{}:00:10Z", i),
+                latest: None,
+                location: (services[tour_size * i][0], services[tour_size * i][1]).to_loc(),
+            },
+            end: None,
+            dispatch: None,
+            breaks: None,
+            reloads: None,
+        })
+        .collect();
+
     Problem {
         plan: Plan {
             clustering: None,
-            // clustering: Some(Clustering::Vicinity {
-            //     profile: VehicleProfile {
-            //         matrix: "normal_car".to_string(),
-            //         scale: Some(10.),
-            //     },
-            //     threshold: VicinityThresholdPolicy {
-            //         duration: 500.,
-            //         distance,
-            //         min_shared_time: None,
-            //         smallest_time_window: None,
-            //         max_jobs_per_cluster: None,
-            //     },
-            //     visiting: VicinityVisitPolicy::Continue,
-            //     serving: VicinityServingPolicy::Original { parking: 0. },
-            //     filtering: None,
-            // }),
             jobs: services
                 .clone()
                 .into_iter()
@@ -82,20 +80,10 @@ fn create_problem(services: Vec<[f64; 2]>, _distance: f64) -> Problem {
                 speed: None,
             }],
             vehicles: vec![VehicleType {
-                shifts: vec![VehicleShift {
-                    start: ShiftStart {
-                        earliest: "2022-05-29T00:00:10Z".to_string(),
-                        latest: None,
-                        location: (services[0][0], services[0][1]).to_loc(),
-                    },
-                    end: None,
-                    dispatch: None,
-                    breaks: None,
-                    reloads: None,
-                }],
-                capacity: vec![9000],
-                type_id: "vehicle_0".to_string(),
-                vehicle_ids: vec!["vehicle_0".to_string()],
+                shifts,
+                capacity: vec![1],
+                type_id: "vehicle".to_string(),
+                vehicle_ids: devices.clone(),
                 costs: VehicleCosts {
                     fixed: Some(22.0),
                     distance: 0.0002,
@@ -106,7 +94,12 @@ fn create_problem(services: Vec<[f64; 2]>, _distance: f64) -> Problem {
                     scale: None,
                 },
                 skills: None,
-                limits: None,
+                limits: Some(VehicleLimits {
+                    max_distance: None,
+                    shift_time: None,
+                    tour_size: Some(tour_size + 1),
+                    areas: None,
+                }),
             }],
         },
     }
@@ -150,8 +143,9 @@ fn sort_all_data(solution: Solution) -> Solution {
     solution
 }
 
-pub fn solve(services: Vec<[f64; 2]>, generations: usize, distance: f64) -> Solution {
-    let problem = create_problem(services, distance);
+pub fn solve(services: Vec<[f64; 2]>, generations: usize, devices: usize) -> Solution {
+    let device_strings: Vec<String> = (0..devices).map(|i| format!("device_{}", i)).collect();
+    let problem = create_problem(services, device_strings);
     get_core_solution(problem, None, |problem: Arc<CoreProblem>| {
         let environment = Arc::new(Environment::default());
         let telemetry_mode = get_default_telemetry_mode(environment.logger.clone());
