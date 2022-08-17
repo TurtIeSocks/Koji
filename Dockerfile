@@ -1,10 +1,7 @@
 FROM node:16-alpine as client
-
 WORKDIR /app
-COPY package.json .
-COPY yarn.lock .
+COPY ./client .
 RUN yarn install
-COPY . .
 RUN yarn build
 
 FROM rust:1.60 as server

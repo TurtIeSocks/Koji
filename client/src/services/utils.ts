@@ -1,8 +1,10 @@
-import { useMap } from 'react-leaflet'
 import distance from '@turf/distance'
+import type { Map } from 'leaflet'
 
-export function getMapBounds() {
-  const mapBounds = useMap().getBounds()
+import { capitalize } from '@mui/material'
+
+export function getMapBounds(map: Map) {
+  const mapBounds = map.getBounds()
   const { lat: min_lat, lng: min_lon } = mapBounds.getSouthWest()
   const { lat: max_lat, lng: max_lon } = mapBounds.getNorthEast()
   return { min_lat, max_lat, min_lon, max_lon }
@@ -20,4 +22,10 @@ export function getColor(start: [number, number], end: [number, number]) {
     default:
       return 'red'
   }
+}
+
+export function fromCamelCase(str: string, separator = ' '): string {
+  return capitalize(str)
+    .replace(/([a-z\d])([A-Z])/g, `$1${separator}$2`)
+    .replace(/([A-Z]+)([A-Z][a-z\d]+)/g, `$1${separator}$2`)
 }

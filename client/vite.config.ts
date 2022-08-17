@@ -39,9 +39,7 @@ export default defineConfig(({ mode }) => ({
     outDir: resolve(__dirname, './dist'),
     sourcemap: mode === 'development',
     minify: mode === 'development' ? false : 'esbuild',
-    input: {
-      main: resolve(__dirname, 'index.html'),
-    },
+    input: { main: resolve(__dirname, 'index.html') },
     assetsDir: '',
     emptyOutDir: true,
   },
@@ -54,7 +52,7 @@ export default defineConfig(({ mode }) => ({
     },
     proxy: {
       '/api': {
-        target: `http://localhost:8080`,
+        target: `http://0.0.0.0:8080`,
         changeOrigin: true,
         secure: false,
       },

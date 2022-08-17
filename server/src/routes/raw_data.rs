@@ -59,11 +59,15 @@ async fn area(
     payload: web::Json<RouteGeneration>,
     category: actix_web::web::Path<String>,
 ) -> Result<HttpResponse, Error> {
+    let instance = payload.instance.clone().unwrap_or_else(|| "".to_string());
+    if instance.clone() == "".to_string() {
+        return Ok(HttpResponse::BadRequest().json("No instance provided"));
+    }
     let str = category.into_inner();
     let copy = str.clone();
     let gyms = web::block(move || {
         let conn = pool.get()?;
-        let instance = query_instance_route(&conn, &payload.instance)?;
+        let instance = query_instance_route(&conn, &instance)?;
         let data: InstanceData =
             serde_json::from_str(instance.data.as_str()).expect("JSON was not well-formatted");
         if str == "gym" {

@@ -10,14 +10,15 @@ async fn bootstrap(
     pool: web::Data<DbPool>,
     payload: web::Json<RouteGeneration>,
 ) -> Result<HttpResponse, Error> {
-    let bs_name = payload.instance.clone();
-    if bs_name.len() == 0 {
+    let instance = payload.instance.clone().unwrap_or_else(|| "".to_string());
+    let radius = payload.radius.clone().unwrap_or_else(|| 0.0);
+    if instance == "" || radius == 0.0 {
         return Ok(HttpResponse::Ok().json(""));
     }
     let instance = web::block(move || {
         let conn = pool.get()?;
 
-        query_instance_route(&conn, &bs_name)
+        query_instance_route(&conn, &instance)
     })
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -25,7 +26,7 @@ async fn bootstrap(
     let data: InstanceData =
         serde_json::from_str(instance.data.as_str()).expect("JSON was not well-formatted");
 
-    let circles = generate_circles(data.area[0].clone(), payload.radius);
+    let circles = generate_circles(data.area[0].clone(), radius);
     Ok(HttpResponse::Ok().json(circles))
 }
 
@@ -35,9 +36,9 @@ async fn cluster(
     info: actix_web::web::Path<(String, String)>,
     payload: web::Json<RouteGeneration>,
 ) -> Result<HttpResponse, Error> {
-    let name = payload.instance.clone();
-    let radius = payload.radius.clone();
-    let generations = payload.generations.clone();
+    let name = payload.instance.clone().unwrap_or_else(|| "".to_string());
+    let radius = payload.radius.clone().unwrap_or_else(|| 0.0);
+    let generations = payload.generations.clone().unwrap_or_else(|| 0);
     let (mode, category) = info.into_inner();
 
     println!(
@@ -45,7 +46,7 @@ async fn cluster(
         name, radius, generations, mode,
     );
 
-    if name.len() == 0 {
+    if name == "" || radius == 0.0 || generations == 0 {
         return Ok(HttpResponse::Ok().json(""));
     }
 

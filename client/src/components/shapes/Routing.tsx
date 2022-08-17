@@ -6,22 +6,28 @@ import { getColor } from '@services/utils'
 import { getData } from '@services/fetches'
 
 export default function Routes() {
-  const apiSettings = useStore((s) => s.apiSettings)
+  const instance = useStore((s) => s.instance)
+  const mode = useStore((s) => s.mode)
+  const radius = useStore((s) => s.radius)
+  const category = useStore((s) => s.category)
+  const generations = useStore((s) => s.generations)
+  const showCircles = useStore((s) => s.showCircles)
+  const showLines = useStore((s) => s.showLines)
 
   const [points, setPoints] = React.useState<[number, number][]>([])
 
   React.useEffect(() => {
-    if (apiSettings.instance) {
+    if (instance) {
       getData<[number, number][]>(
-        apiSettings.mode === 'bootstrap'
-          ? '/api/calculate/bootstrap'
-          : `/api/calculate/${apiSettings.mode}/pokestop`,
-        apiSettings,
+        mode === 'bootstrap'
+          ? '/api/v1/calc/bootstrap'
+          : `/api/v1/calc/${mode}/${category}`,
+        { instance, category, radius, generations },
       ).then((res) => setPoints(Array.isArray(res) ? res : []))
     }
-  }, [apiSettings])
+  }, [instance, mode, radius, generations, category])
 
-  return (
+  return showCircles || showLines ? (
     <>
       {points.map((point, i) => {
         if (point.length !== 2 || !point[0] || !point[1]) return null
@@ -30,15 +36,17 @@ export default function Routes() {
         const color = point && next ? getColor(point, next) : 'black'
         return (
           <React.Fragment key={`${point}-${next}-${isEnd}`}>
-            <Circle
-              center={point}
-              radius={apiSettings.radius}
-              color="blue"
-              fillColor="blue"
-              fillOpacity={0.1}
-              opacity={0.25}
-            />
-            {apiSettings.mode !== 'cluster' && (
+            {showCircles && (
+              <Circle
+                center={point}
+                radius={radius || 0}
+                color="blue"
+                fillColor="blue"
+                fillOpacity={0.1}
+                opacity={0.25}
+              />
+            )}
+            {showLines && (
               <Polyline
                 positions={[point, next]}
                 pathOptions={{ color, opacity: 80 }}
@@ -48,5 +56,5 @@ export default function Routes() {
         )
       })}
     </>
-  )
+  ) : null
 }
