@@ -40,7 +40,7 @@
 	},
 	"include": [
 		"src",
-		"vite.config.ts"
+		".eslintrc.js"
 	],
 	"exclude": [
 		"node_modules",

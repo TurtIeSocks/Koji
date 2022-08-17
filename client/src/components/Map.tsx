@@ -22,11 +22,11 @@ export default function Map({ initial, tileServer, zoom }: Props) {
   const setDrawer = useStore((s) => s.setDrawer)
 
   const [drawerWidth, setDrawerWidth] = React.useState<number>(
-    drawer ? 300 : 20,
+    drawer ? 280 : 20,
   )
 
   React.useEffect(() => {
-    setDrawerWidth(drawer ? 300 : 20)
+    setDrawerWidth(drawer ? 280 : 20)
   }, [drawer])
 
   return (

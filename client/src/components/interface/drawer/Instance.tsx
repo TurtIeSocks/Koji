@@ -28,7 +28,7 @@ export default function InstanceSelect({ value, setValue }: Props) {
     <ListItem>
       {instances.length ? (
         <Autocomplete
-          value={value}
+          value={instances.includes(value) ? value : ''}
           size="small"
           onChange={(_e, newValue) => {
             if (newValue) setValue('instance', newValue)

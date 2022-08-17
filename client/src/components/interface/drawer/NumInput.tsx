@@ -25,7 +25,8 @@ export default function NumInput<T extends string>({
         type="number"
         size="small"
         onChange={({ target }) => setValue(field, +target.value || '')}
-        sx={{ width: '50%' }}
+        sx={{ width: '35%' }}
+        inputProps={{ min: 0, max: 9999 }}
       />
     </ListItem>
   )

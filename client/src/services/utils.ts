@@ -1,4 +1,3 @@
-import distance from '@turf/distance'
 import type { Map } from 'leaflet'
 
 import { capitalize } from '@mui/material'
@@ -10,8 +9,7 @@ export function getMapBounds(map: Map) {
   return { min_lat, max_lat, min_lon, max_lon }
 }
 
-export function getColor(start: [number, number], end: [number, number]) {
-  const dis = distance(start, end, { units: 'meters' })
+export function getColor(dis: number) {
   switch (true) {
     case dis <= 500:
       return 'green'

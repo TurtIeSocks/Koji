@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { Circle, Polyline } from 'react-leaflet'
+import distance from '@turf/distance'
 
 import { useStore } from '@hooks/useStore'
 import { getColor } from '@services/utils'
@@ -13,8 +14,8 @@ export default function Routes() {
   const generations = useStore((s) => s.generations)
   const showCircles = useStore((s) => s.showCircles)
   const showLines = useStore((s) => s.showLines)
-
-  const [points, setPoints] = React.useState<[number, number][]>([])
+  const exportSettings = useStore((s) => s.export)
+  const setSettings = useStore((s) => s.setSettings)
 
   React.useEffect(() => {
     if (instance) {
@@ -23,17 +24,31 @@ export default function Routes() {
           ? '/api/v1/calc/bootstrap'
           : `/api/v1/calc/${mode}/${category}`,
         { instance, category, radius, generations },
-      ).then((res) => setPoints(Array.isArray(res) ? res : []))
+      ).then((route) => {
+        let total = 0
+        let max = 0
+        route.forEach((p, i) => {
+          if (p.length !== 2 || !p[0] || !p[1]) return
+          const isEnd = i === route.length - 1
+          const next = isEnd ? route[0] : route[i + 1]
+          const dis = distance(p, next, { units: 'meters' })
+          total += dis
+          if (dis > max) max = dis
+        })
+        setSettings('export', { ...exportSettings, route, total, max })
+      })
     }
   }, [instance, mode, radius, generations, category])
 
   return showCircles || showLines ? (
     <>
-      {points.map((point, i) => {
+      {exportSettings.route.map((point, i) => {
         if (point.length !== 2 || !point[0] || !point[1]) return null
-        const isEnd = i === points.length - 1
-        const next = isEnd ? points[0] : points[i + 1]
-        const color = point && next ? getColor(point, next) : 'black'
+        const isEnd = i === exportSettings.route.length - 1
+        const next = isEnd
+          ? exportSettings.route[0]
+          : exportSettings.route[i + 1]
+        const dis = distance(point, next, { units: 'meters' })
         return (
           <React.Fragment key={`${point}-${next}-${isEnd}`}>
             {showCircles && (
@@ -46,10 +61,10 @@ export default function Routes() {
                 opacity={0.25}
               />
             )}
-            {showLines && (
+            {showLines && mode !== 'cluster' && (
               <Polyline
                 positions={[point, next]}
-                pathOptions={{ color, opacity: 80 }}
+                pathOptions={{ color: getColor(dis), opacity: 80 }}
               />
             )}
           </React.Fragment>
