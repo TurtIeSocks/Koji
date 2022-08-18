@@ -6,8 +6,8 @@ use vrp_pragmatic::core::solver::{
 };
 use vrp_pragmatic::core::utils::Environment;
 use vrp_pragmatic::format::problem::{
-    Fleet, Job, JobPlace, JobTask, Matrix, MatrixProfile, Plan, PragmaticProblem, Problem,
-    ShiftStart, VehicleCosts, VehicleLimits, VehicleProfile, VehicleShift, VehicleType,
+    Fleet, Job, JobPlace, JobTask, Matrix, MatrixProfile, Objective, Plan, PragmaticProblem,
+    Problem, ShiftStart, VehicleCosts, VehicleLimits, VehicleProfile, VehicleShift, VehicleType,
 };
 use vrp_pragmatic::format::solution::{create_solution, Solution};
 use vrp_pragmatic::format::Location;
@@ -72,7 +72,13 @@ fn create_problem(services: Vec<[f64; 2]>, devices: Vec<String>) -> Problem {
             relations: None,
             areas: None,
         },
-        objectives: None,
+        // objectives: None,
+        objectives: Some(vec![vec![
+            Objective::MinimizeDistance,
+            Objective::MinimizeUnassignedJobs { breaks: None },
+            Objective::MinimizeDuration,
+            Objective::MinimizeCost,
+        ]]),
         fleet: Fleet {
             resources: None,
             profiles: vec![MatrixProfile {

@@ -1,3 +1,12 @@
+/*
+  p - pokestop
+  g - gym
+  v - verified spawnpoint
+  u - unverified spawnpoint
+
+  Shortened to reduce fetch sizes
+*/
+
 export const ICON_SVG = {
   p: '<svg xmlns="http://www.w3.org/2000/svg" fill="green" width="15" height="15" viewBox="0 0 24 24"><circle cx="10" cy="10" r="10" /></svg>',
   g: '<svg xmlns="http://www.w3.org/2000/svg" fill="maroon" width="20" height="20" viewBox="0 0 24 24"><circle cx="10" cy="10" r="10" /></svg>',

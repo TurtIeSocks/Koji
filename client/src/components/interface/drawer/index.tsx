@@ -104,7 +104,12 @@ export default function DrawerIndex({ drawer, setDrawer, drawerWidth }: Props) {
               value={generations}
               setValue={setSettings}
             />
-            <NumInput field="devices" value={devices} setValue={setSettings} />
+            <NumInput
+              field="devices"
+              value={devices}
+              setValue={setSettings}
+              disabled={mode !== 'route'}
+            />
             <BtnGroup
               field="category"
               value={category}

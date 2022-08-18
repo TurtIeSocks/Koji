@@ -29,17 +29,19 @@ export default function Routes() {
       ).then((route) => {
         let total = 0
         let max = 0
-        route.forEach((device) => {
-          device.forEach((p, i) => {
-            if (p.length !== 2 || !p[0] || !p[1]) return
-            const isEnd = i === device.length - 1
-            const next = isEnd ? device[0] : device[i + 1]
-            const dis = distance(p, next, { units: 'meters' })
-            total += dis
-            if (dis > max) max = dis
+        if (Array.isArray(route)) {
+          route.forEach((device) => {
+            device.forEach((p, i) => {
+              if (p.length !== 2 || !p[0] || !p[1]) return
+              const isEnd = i === device.length - 1
+              const next = isEnd ? device[0] : device[i + 1]
+              const dis = distance(p, next, { units: 'meters' })
+              total += dis
+              if (dis > max) max = dis
+            })
           })
-        })
-        setSettings('export', { ...exportSettings, route, total, max })
+          setSettings('export', { ...exportSettings, route, total, max })
+        }
       })
     }
   }, [instance, mode, radius, generations, category, devices])

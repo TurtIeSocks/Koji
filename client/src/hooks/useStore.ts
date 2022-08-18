@@ -62,6 +62,10 @@ export const useStore = create(
     }),
     {
       name: 'local',
+      partialize: (state) =>
+        Object.fromEntries(
+          Object.entries(state).filter(([key]) => !['export'].includes(key)),
+        ) as UseStore,
     },
   ),
 )
