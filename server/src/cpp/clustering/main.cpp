@@ -19,7 +19,7 @@ rust::Vec<CppPoint> clustering(rust::Vec<CppPoint> r)
   std::list<Point> C;
   FASTCOVER_PP ob(P, C);
 
-  std::cout << "Time: " << ob.execute() << " seconds" << std::endl;
+  std::cout << "[CLUSTER] Time: " << ob.execute() << " seconds" << std::endl;
 
   // Copy back into Rust Vector
   rust::Vec<CppPoint> result;

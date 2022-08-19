@@ -16,22 +16,9 @@ export interface Instance {
   data: string
 }
 
-export interface Point {
-  type: 'Point'
-  coordinates: [number, number]
-}
-export interface Line {
-  type: 'LineString'
-  coordinates: [number, number][]
-}
-
-export interface GeoJSON {
-  type: string
-  features: {
-    type: string
-    geometry: Line
-    properties: {
-      [key: string]: string | number
-    }
-  }[]
+export interface Config {
+  start_lat: number
+  start_lon: number
+  tile_server: string
+  scanner_type: string
 }

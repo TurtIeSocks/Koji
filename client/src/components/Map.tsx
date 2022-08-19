@@ -2,6 +2,7 @@ import React from 'react'
 import { MapContainer, TileLayer } from 'react-leaflet'
 import { Box, CssBaseline } from '@mui/material'
 
+import { useStatic } from '@hooks/useStatic'
 import { useStore } from '@hooks/useStore'
 
 import Markers from './markers'
@@ -10,16 +11,14 @@ import Routes from './shapes/Routing'
 import QuestPolygon from './shapes/QuestPolygon'
 import DrawerIndex from './interface/drawer'
 import Main from './interface/styled/Main'
+import Drawing from './shapes/Drawing'
 
-interface Props {
-  initial: [number, number]
-  tileServer: string
-  zoom: number
-}
-
-export default function Map({ initial, tileServer, zoom }: Props) {
+export default function Map() {
   const drawer = useStore((s) => s.drawer)
   const setDrawer = useStore((s) => s.setDrawer)
+  const { location, zoom } = useStore.getState()
+
+  const tileServer = useStatic((s) => s.tileServer)
 
   const [drawerWidth, setDrawerWidth] = React.useState<number>(
     drawer ? 280 : 20,
@@ -38,12 +37,7 @@ export default function Map({ initial, tileServer, zoom }: Props) {
         drawerWidth={drawerWidth}
       />
       <Main open={drawer} drawerWidth={drawerWidth}>
-        <MapContainer
-          key={initial.join('')}
-          center={initial || [0, 0]}
-          zoom={zoom || 16}
-          zoomControl={false}
-        >
+        <MapContainer center={location} zoom={zoom} zoomControl={false}>
           <TileLayer
             key={tileServer}
             attribution="Kōji - TurtleSocks"
@@ -53,6 +47,7 @@ export default function Map({ initial, tileServer, zoom }: Props) {
           <Interface />
           <Routes />
           <QuestPolygon />
+          <Drawing />
         </MapContainer>
       </Main>
     </Box>

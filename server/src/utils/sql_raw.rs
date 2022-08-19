@@ -1,9 +1,7 @@
-use crate::models::scanner::LatLon;
-
-pub fn sql_raw(area: &Vec<LatLon>, category: &str) -> String {
+pub fn sql_raw(area: &Vec<[f64; 2]>, category: &str) -> String {
     let mut string: String = "".to_string();
     for i in area.iter() {
-        string = string + &i.lat.to_string() + " " + &i.lon.to_string() + ",";
+        string = string + &i[0].to_string() + " " + &i[1].to_string() + ",";
     }
     string = string.trim_end_matches(",").to_string();
 

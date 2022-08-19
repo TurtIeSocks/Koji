@@ -21,6 +21,8 @@ async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL");
+    let scanner_type = std::env::var("SCANNER_TYPE").unwrap_or("rdm".to_string());
+
     let manager = ConnectionManager::<MysqlConnection>::new(database_url);
     let pool: DbPool = r2d2::Pool::builder()
         .build(manager)
@@ -34,6 +36,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(pool.clone()))
+            .app_data(web::Data::new(scanner_type.clone()))
             .wrap(middleware::Logger::new("%s | %r - %b bytes in %D ms (%a)"))
             .service(
                 web::scope("api")

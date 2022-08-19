@@ -3,8 +3,9 @@ import { Circle, Polyline } from 'react-leaflet'
 import distance from '@turf/distance'
 
 import { useStore } from '@hooks/useStore'
+import { useStatic } from '@hooks/useStatic'
 import { getColor } from '@services/utils'
-import { getData } from '@services/fetches'
+import { getData, getLotsOfData } from '@services/fetches'
 import { COLORS } from '@assets/constants'
 
 export default function Routes() {
@@ -18,9 +19,11 @@ export default function Routes() {
   const exportSettings = useStore((s) => s.export)
   const setSettings = useStore((s) => s.setSettings)
   const devices = useStore((s) => s.devices)
+  const geojson = useStore((s) => s.geojson)
+  const instances = useStatic((s) => s.instances)
 
   React.useEffect(() => {
-    if (instance) {
+    if (instances.includes(instance)) {
       getData<[number, number][][]>(
         mode === 'bootstrap'
           ? '/api/v1/calc/bootstrap'
@@ -43,8 +46,31 @@ export default function Routes() {
           setSettings('export', { ...exportSettings, route, total, max })
         }
       })
+    } else if (geojson.features.length) {
+      getLotsOfData(
+        mode === 'bootstrap'
+          ? '/api/v1/calc/bootstrap'
+          : `/api/v1/calc/${mode}/${category}`,
+        { instance, category, radius, generations, devices, geojson },
+      ).then((route) => {
+        let total = 0
+        let max = 0
+        if (Array.isArray(route)) {
+          route.forEach((device) => {
+            device.forEach((p, i) => {
+              if (p.length !== 2 || !p[0] || !p[1]) return
+              const isEnd = i === device.length - 1
+              const next = isEnd ? device[0] : device[i + 1]
+              const dis = distance(p, next, { units: 'meters' })
+              total += dis
+              if (dis > max) max = dis
+            })
+          })
+          setSettings('export', { ...exportSettings, route, total, max })
+        }
+      })
     }
-  }, [instance, mode, radius, generations, category, devices])
+  }, [instance, mode, radius, generations, category, devices, geojson])
 
   return showCircles || showLines ? (
     <>

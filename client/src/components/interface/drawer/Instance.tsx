@@ -9,6 +9,7 @@ import {
 
 import type { UseStore } from '@hooks/useStore'
 import { getData } from '@services/fetches'
+import { useStatic } from '@hooks/useStatic'
 
 interface Props {
   value: string
@@ -16,22 +17,37 @@ interface Props {
 }
 
 export default function InstanceSelect({ value, setValue }: Props) {
-  const [instances, setInstances] = React.useState<string[]>([])
+  const instances = useStatic((s) => s.instances)
+  const scannerType = useStatic((s) => s.scannerType)
+  const setSettings = useStatic((s) => s.setSettings)
+
+  const [loading, setLoading] = React.useState(false)
+  React.useEffect(() => {
+    if (!instances.length && scannerType === 'rdm') {
+      setLoading(true)
+      getData<string[]>('/api/instance/type/auto_quest').then((r) => {
+        setSettings('instances', Array.isArray(r) ? r : [])
+        setLoading(false)
+      })
+    }
+  }, [])
 
   React.useEffect(() => {
-    getData<string[]>('/api/instance/type/auto_quest').then((r) =>
-      setInstances(r || []),
-    )
-  }, [])
+    if (!instances.includes(value)) {
+      setValue('instance', '')
+    }
+  }, [value])
 
   return (
     <ListItem>
-      {instances.length ? (
+      {loading ? (
+        <CircularProgress color="secondary" size={100} />
+      ) : (
         <Autocomplete
           value={instances.includes(value) ? value : ''}
           size="small"
           onChange={(_e, newValue) => {
-            if (newValue) setValue('instance', newValue)
+            if (typeof newValue === 'string') setValue('instance', newValue)
           }}
           filterOptions={(opts, params) => {
             const filtered = createFilterOptions<string>()(opts, params)
@@ -52,8 +68,6 @@ export default function InstanceSelect({ value, setValue }: Props) {
             <TextField label="Select Instance" {...params} />
           )}
         />
-      ) : (
-        <CircularProgress color="secondary" size={100} />
       )}
     </ListItem>
   )

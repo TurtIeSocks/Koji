@@ -1,6 +1,5 @@
 use super::*;
 use crate::db::schema::gym::dsl::*;
-use crate::models::scanner::LatLon;
 use crate::models::{
     api::MapBounds,
     scanner::{GenericData, Gym},
@@ -30,7 +29,7 @@ pub fn bound(conn: &MysqlConnection, payload: &MapBounds) -> Result<Vec<GenericD
     Ok(return_generic(items))
 }
 
-pub fn area(conn: &MysqlConnection, area: &Vec<LatLon>) -> Result<Vec<GenericData>, DbError> {
+pub fn area(conn: &MysqlConnection, area: &Vec<[f64; 2]>) -> Result<Vec<GenericData>, DbError> {
     let items = sql_query(sql_raw(area, "gym"))
         .load::<Gym>(conn)
         .expect("Error loading gyms");
