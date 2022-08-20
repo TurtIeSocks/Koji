@@ -44,6 +44,7 @@ async fn main() -> std::io::Result<()> {
                     .service(
                         web::scope("instance")
                             .service(routes::instance::all)
+                            .service(routes::instance::instance_type)
                             .service(routes::instance::area),
                     )
                     .service(

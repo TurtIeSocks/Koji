@@ -1,33 +1,42 @@
 import * as React from 'react'
-import { Polygon } from 'react-leaflet'
+import { Polygon, Circle } from 'react-leaflet'
 
+import type { Shape } from '@assets/types'
 import { useStore } from '@hooks/useStore'
-import { getData } from '@services/fetches'
 import { useStatic } from '@hooks/useStatic'
+import { rdmToShapes, rdmToGeojson } from '@services/utils'
 
 export default function QuestPolygon() {
   const instance = useStore((s) => s.instance)
   const showPolygon = useStore((s) => s.showPolygon)
+  const setSettings = useStore((s) => s.setSettings)
 
-  const scannerType = useStatic((s) => s.scannerType)
+  const instances = useStatic((s) => s.instances)
 
-  const [points, setPoints] = React.useState<{ lat: number; lng: number }[]>([])
+  const [localState, setLocalState] = React.useState<Shape[]>([])
 
   React.useEffect(() => {
-    if (instance && scannerType === 'rdm') {
-      getData<[{ lat: number; lon: number }[]]>('/api/instance/area', {
-        instance,
-      }).then((data) => {
-        if (Array.isArray(data)) {
-          setPoints(
-            data?.[0] ? data[0].map((p) => ({ lat: p.lat, lng: p.lon })) : [],
+    setLocalState(rdmToShapes(instance, instances))
+    setSettings('geojson', rdmToGeojson(instance, instances))
+  }, [instance.length, Object.keys(instances).length])
+
+  return showPolygon ? (
+    <>
+      {localState.map((feature) => {
+        if (feature.type === 'circle') {
+          return (
+            <Circle
+              key={feature.id}
+              center={[feature.lat, feature.lng]}
+              radius={feature.radius}
+            />
           )
         }
-      })
-    } else {
-      setPoints([])
-    }
-  }, [instance])
-
-  return showPolygon ? <Polygon positions={points} /> : null
+        if (feature.type === 'polygon') {
+          return <Polygon key={feature.id} positions={feature.positions} />
+        }
+        return null
+      })}
+    </>
+  ) : null
 }

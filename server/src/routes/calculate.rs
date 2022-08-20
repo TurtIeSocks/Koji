@@ -1,5 +1,6 @@
 use super::*;
 use crate::cpp::bridge::cpp_cluster;
+use crate::models::scanner::GenericData;
 use crate::models::{
     api::{CustomError, RouteGeneration},
     scanner::InstanceData,
@@ -130,12 +131,16 @@ async fn cluster(
             } else {
                 area
             };
-            if category == "gym" {
-                gym::area(&conn, &area)
-            } else if category == "pokestop" {
-                pokestop::area(&conn, &area)
+            if area.len() > 1 {
+                if category == "gym" {
+                    gym::area(&conn, &area)
+                } else if category == "pokestop" {
+                    pokestop::area(&conn, &area)
+                } else {
+                    spawnpoint::area(&conn, &area)
+                }
             } else {
-                spawnpoint::area(&conn, &area)
+                Ok(Vec::<GenericData>::new())
             }
         })
         .await?

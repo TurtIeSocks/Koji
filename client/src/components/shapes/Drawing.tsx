@@ -23,6 +23,16 @@ export default function Drawing() {
     }
   }
 
+  React.useEffect(() => {
+    if (ref) {
+      ref.clearLayers()
+      new L.GeoJSON(geojson).eachLayer((layer) => {
+        if (ref) ref.addLayer(layer)
+      })
+      setRef(ref)
+    }
+  }, [geojson.features.length])
+
   return (
     <FeatureGroup
       ref={(newRef) => {

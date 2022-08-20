@@ -22,3 +22,19 @@ export interface Config {
   tile_server: string
   scanner_type: string
 }
+
+export interface Circle {
+  id: string
+  lat: number
+  lng: number
+  radius: number
+  type: 'circle'
+}
+
+export interface Polygon {
+  id: string
+  positions: [number, number][]
+  type: 'polygon'
+}
+
+export type Shape = Circle | Polygon

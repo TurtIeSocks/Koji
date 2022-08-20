@@ -4,16 +4,20 @@ use crate::models::scanner::Instance;
 
 pub fn query_all_instances(
     conn: &MysqlConnection,
-    incoming: String,
+    instance_type: Option<String>,
 ) -> Result<Vec<Instance>, DbError> {
-    let instance_type: std::option::Option<InstanceType> = if incoming == "auto_quest" {
-        Some(InstanceType::auto_quest)
-    } else if incoming == "circle_pokemon" {
-        Some(InstanceType::circle_pokemon)
-    } else if incoming == "circle_raid" {
-        Some(InstanceType::circle_raid)
-    } else {
-        None
+    let instance_type = match instance_type {
+        Some(instance_type) => match instance_type.as_str() {
+            "auto_quest" => Some(InstanceType::auto_quest),
+            "circle_pokemon" => Some(InstanceType::circle_pokemon),
+            "circle_smart_pokemon" => Some(InstanceType::circle_smart_pokemon),
+            "circle_raid" => Some(InstanceType::circle_raid),
+            "circle_smart_raid" => Some(InstanceType::circle_smart_raid),
+            "pokemon_iv" => Some(InstanceType::pokemon_iv),
+            "leveling" => Some(InstanceType::leveling),
+            _ => None,
+        },
+        None => None,
     };
     let items = if instance_type.is_some() {
         instance

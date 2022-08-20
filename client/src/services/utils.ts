@@ -1,6 +1,9 @@
 import type { Map } from 'leaflet'
 import { capitalize } from '@mui/material'
 import type { FeatureCollection } from 'geojson'
+import { UseStore } from '@hooks/useStore'
+import { UseStatic } from '@hooks/useStatic'
+import { Shape } from '@assets/types'
 
 export function getMapBounds(map: Map) {
   const mapBounds = map.getBounds()
@@ -44,4 +47,166 @@ export function convertGeojson(geojson?: FeatureCollection) {
     })
   }
   return flat
+}
+
+export function rdmToGeojson(
+  instance: UseStore['instance'],
+  instances: UseStatic['instances'],
+): FeatureCollection {
+  const geojson: FeatureCollection = {
+    type: 'FeatureCollection',
+    features: [],
+  }
+  instance.forEach((ins) => {
+    const full = instances[ins]
+    if (full) {
+      switch (full.type_) {
+        case 'auto_quest':
+        case 'pokemon_iv':
+          {
+            const { area }: { area: { lat: number; lon: number }[][] } =
+              JSON.parse(full.data)
+            if (area) {
+              area.forEach((poly) => {
+                geojson.features.push({
+                  type: 'Feature',
+                  properties: {
+                    name: ins,
+                    type: 'auto_quest',
+                  },
+                  geometry: {
+                    type: 'Polygon',
+                    coordinates: [poly.map((p) => [p.lon, p.lat])],
+                  },
+                })
+              })
+            }
+          }
+          break
+        case 'circle_pokemon':
+        case 'circle_smart_pokemon':
+        case 'circle_raid':
+        case 'circle_smart_raid':
+          {
+            const { area }: { area: { lat: number; lon: number }[] } =
+              JSON.parse(full.data)
+            if (area) {
+              area.forEach((point) => {
+                geojson.features.push({
+                  type: 'Feature',
+                  properties: {
+                    name: ins,
+                    type: 'circle',
+                  },
+                  geometry: {
+                    type: 'Point',
+                    coordinates: [point.lon, point.lat],
+                  },
+                })
+              })
+            }
+          }
+          break
+        case 'leveling':
+          {
+            const {
+              area,
+              radius,
+            }: { area: { lat: number; lon: number }; radius: number } =
+              JSON.parse(full.data)
+            if (area) {
+              geojson.features.push({
+                type: 'Feature',
+                properties: {
+                  name: ins,
+                  type: 'leveling',
+                  radius: radius || 10,
+                },
+                geometry: {
+                  type: 'Point',
+                  coordinates: [area.lon, area.lat],
+                },
+              })
+            }
+          }
+          break
+        default:
+          // eslint-disable-next-line no-console
+          console.log('Unknown type:', full.type_)
+      }
+    }
+  })
+  return geojson
+}
+
+export function rdmToShapes(
+  instance: UseStore['instance'],
+  instances: UseStatic['instances'],
+): Shape[] {
+  const shapes: Shape[] = []
+  instance.forEach((ins) => {
+    const full = instances[ins]
+    if (full) {
+      switch (full.type_) {
+        case 'auto_quest':
+        case 'pokemon_iv':
+          {
+            const { area }: { area: { lat: number; lon: number }[][] } =
+              JSON.parse(full.data)
+            if (area) {
+              area.forEach((poly, i) => {
+                shapes.push({
+                  id: `${ins}-${i}`,
+                  type: 'polygon',
+                  positions: poly.map((p) => [p.lat, p.lon]),
+                })
+              })
+            }
+          }
+          break
+        case 'circle_pokemon':
+        case 'circle_smart_pokemon':
+        case 'circle_raid':
+        case 'circle_smart_raid':
+          {
+            const { area }: { area: { lat: number; lon: number }[] } =
+              JSON.parse(full.data)
+            if (area) {
+              area.forEach((point, i) => {
+                shapes.push({
+                  id: `${ins}-${i}`,
+                  lat: point.lat,
+                  lng: point.lon,
+                  radius: 10,
+                  type: 'circle',
+                })
+              })
+            }
+          }
+          break
+        case 'leveling':
+          {
+            const {
+              area,
+              radius,
+            }: { area: { lat: number; lon: number }; radius: number } =
+              JSON.parse(full.data)
+            if (area) {
+              shapes.push({
+                lat: area.lat,
+                lng: area.lon,
+                radius,
+                id: ins,
+                type: 'circle',
+              })
+            }
+          }
+          break
+        default:
+          // eslint-disable-next-line no-console
+          console.log('Unknown type:', full.type_)
+      }
+    }
+  })
+  return shapes
 }

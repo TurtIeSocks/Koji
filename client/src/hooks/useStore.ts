@@ -15,7 +15,7 @@ export interface UseStore {
   pokestop: boolean
   data: 'all' | 'area' | 'bound'
   mode: 'bootstrap' | 'route' | 'cluster'
-  instance: string
+  instance: string[]
   radius: number | ''
   generations: number | ''
   showCircles: boolean
@@ -47,7 +47,7 @@ export const useStore = create(
       pokestop: true,
       mode: 'cluster',
       data: 'all',
-      instance: '',
+      instance: [],
       radius: 70,
       generations: 100,
       showCircles: true,
