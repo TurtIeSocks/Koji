@@ -28,9 +28,10 @@ export default function BtnGroup<T extends keyof UseStore, K extends string>({
         exclusive
         onChange={(_e, v) => setValue(field, v)}
         sx={{ mx: 'auto' }}
+        disabled={disabled}
       >
         {buttons.map((m) => (
-          <ToggleButton key={m} value={m}>
+          <ToggleButton key={m} value={m} disabled={disabled}>
             {fromCamelCase(m)}
           </ToggleButton>
         ))}

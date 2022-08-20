@@ -24,6 +24,7 @@ export default function Toggle<T extends keyof UseStore>({
         edge="end"
         onChange={(_e, v) => setValue(field, v)}
         checked={value}
+        disabled={disabled}
       />
     </ListItem>
   )
