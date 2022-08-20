@@ -9,14 +9,13 @@ import usePixi from '@hooks/usePixi'
 
 export default function Markers() {
   const location = useStore((s) => s.location)
-  const setLocation = useStore((s) => s.setLocation)
-  const setZoom = useStore((s) => s.setZoom)
   const data = useStore((s) => s.data)
   const instance = useStore((s) => s.instance)
   const pokestop = useStore((s) => s.pokestop)
   const spawnpoint = useStore((s) => s.spawnpoint)
   const gym = useStore((s) => s.gym)
   const nativeLeaflet = useStore((s) => s.nativeLeaflet)
+  const setStore = useStore((s) => s.setStore)
 
   const map = useMap()
 
@@ -37,8 +36,8 @@ export default function Markers() {
   ])
 
   const onMove = React.useCallback(() => {
-    setLocation(Object.values(map.getCenter()) as [number, number])
-    setZoom(map.getZoom())
+    setStore('location', Object.values(map.getCenter()) as [number, number])
+    setStore('zoom', map.getZoom())
   }, [map])
 
   React.useEffect(() => {

@@ -7,11 +7,11 @@ import InstanceSelect from './Instance'
 
 export default function SettingsTab() {
   const instance = useStore((s) => s.instance)
-  const setSettings = useStore((s) => s.setSettings)
+  const setStore = useStore((s) => s.setStore)
 
   return (
     <List dense>
-      <InstanceSelect value={instance} setValue={setSettings} />
+      <InstanceSelect value={instance} setValue={setStore} />
       <Divider sx={{ my: 2 }} />
     </List>
   )

@@ -1,15 +1,11 @@
 import create from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { FeatureCollection } from 'geojson'
 
 export interface UseStore {
   tab: number
   drawer: boolean
-  setDrawer: (drawer: boolean) => void
   location: [number, number]
-  setLocation: (location: UseStore['location']) => void
   zoom: number
-  setZoom: (zoom: UseStore['zoom']) => void
   category: 'pokestop' | 'gym' | 'spawnpoint'
   spawnpoint: boolean
   gym: boolean
@@ -29,8 +25,7 @@ export interface UseStore {
     max: number
     route: [number, number][][]
   }
-  geojson: FeatureCollection
-  setSettings: <T extends keyof UseStore>(key: T, value: UseStore[T]) => void
+  setStore: <T extends keyof UseStore>(key: T, value: UseStore[T]) => void
 }
 
 export const useStore = create(
@@ -38,11 +33,8 @@ export const useStore = create(
     (set) => ({
       tab: 0,
       drawer: false,
-      setDrawer: (drawer) => set({ drawer }),
       location: [0, 0],
-      setLocation: (location) => set({ location }),
       zoom: 16,
-      setZoom: (zoom) => set({ zoom }),
       category: 'pokestop',
       spawnpoint: true,
       gym: true,
@@ -63,7 +55,7 @@ export const useStore = create(
         route: [],
       },
       geojson: { type: 'FeatureCollection', features: [] },
-      setSettings: (key, value) => set({ [key]: value }),
+      setStore: (key, value) => set({ [key]: value }),
     }),
     {
       name: 'local',

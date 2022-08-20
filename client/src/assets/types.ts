@@ -1,3 +1,6 @@
+import type { UseStore } from '@hooks/useStore'
+import type { UseStatic } from '@hooks/useStatic'
+
 export interface Data {
   gyms: PixiMarker[]
   pokestops: PixiMarker[]
@@ -38,3 +41,5 @@ export interface Polygon {
 }
 
 export type Shape = Circle | Polygon
+
+export type CombinedState = Partial<UseStore> & Partial<UseStatic>

@@ -15,7 +15,6 @@ import Drawing from './shapes/Drawing'
 
 export default function Map() {
   const drawer = useStore((s) => s.drawer)
-  const setDrawer = useStore((s) => s.setDrawer)
   const { location, zoom } = useStore.getState()
 
   const tileServer = useStatic((s) => s.tileServer)
@@ -31,11 +30,7 @@ export default function Map() {
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
-      <DrawerIndex
-        drawer={drawer}
-        setDrawer={setDrawer}
-        drawerWidth={drawerWidth}
-      />
+      <DrawerIndex drawerWidth={drawerWidth} />
       <Main open={drawer} drawerWidth={drawerWidth}>
         <MapContainer center={location} zoom={zoom} zoomControl={false}>
           <TileLayer

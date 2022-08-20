@@ -2,11 +2,12 @@ import * as React from 'react'
 import * as L from 'leaflet'
 import { FeatureGroup } from 'react-leaflet'
 import { EditControl } from 'react-leaflet-draw'
-import { useStore } from '@hooks/useStore'
+import { useStatic } from '@hooks/useStatic'
 
 export default function Drawing() {
-  const geojson = useStore((s) => s.geojson)
-  const setSettings = useStore((s) => s.setSettings)
+  const setStatic = useStatic((s) => s.setStatic)
+  const geojson = useStatic((s) => s.geojson)
+
   const [ref, setRef] = React.useState<L.FeatureGroup | null>(null)
 
   const onFeatureGroupReady = (reactFGref: L.FeatureGroup | null) => {
@@ -19,7 +20,7 @@ export default function Drawing() {
   const handleChange = () => {
     const geo = ref?.toGeoJSON()
     if (geo?.type === 'FeatureCollection') {
-      setSettings('geojson', geo)
+      setStatic('geojson', geo)
     }
   }
 
@@ -33,6 +34,7 @@ export default function Drawing() {
     }
   }, [geojson.features.length])
 
+  console.log(geojson)
   return (
     <FeatureGroup
       ref={(newRef) => {

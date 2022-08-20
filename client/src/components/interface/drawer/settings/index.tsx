@@ -18,7 +18,7 @@ export default function EditTab() {
   const mode = useStore((s) => s.mode)
   const category = useStore((s) => s.category)
   const generations = useStore((s) => s.generations)
-  const setSettings = useStore((s) => s.setSettings)
+  const setStore = useStore((s) => s.setStore)
   const pokestop = useStore((s) => s.pokestop)
   const gym = useStore((s) => s.gym)
   const spawnpoint = useStore((s) => s.spawnpoint)
@@ -34,61 +34,53 @@ export default function EditTab() {
       <ListSubheader disableGutters sx={subSx}>
         Routing
       </ListSubheader>
-      <NumInput field="radius" value={radius} setValue={setSettings} />
-      <NumInput
-        field="generations"
-        value={generations}
-        setValue={setSettings}
-      />
+      <NumInput field="radius" value={radius} setValue={setStore} />
+      <NumInput field="generations" value={generations} setValue={setStore} />
       <NumInput
         field="devices"
         value={devices}
-        setValue={setSettings}
+        setValue={setStore}
         disabled={mode !== 'route'}
       />
       <BtnGroup
         field="category"
         value={category}
-        setValue={setSettings}
+        setValue={setStore}
         buttons={['pokestop', 'gym', 'spawnpoint']}
         disabled={mode === 'bootstrap'}
       />
       <BtnGroup
         field="mode"
         value={mode}
-        setValue={setSettings}
+        setValue={setStore}
         buttons={['cluster', 'route', 'bootstrap']}
       />
       <Divider sx={{ my: 2 }} />
       <ListSubheader disableGutters sx={subSx}>
         Markers
       </ListSubheader>
-      <Toggle field="pokestop" value={pokestop} setValue={setSettings} />
-      <Toggle field="gym" value={gym} setValue={setSettings} />
-      <Toggle field="spawnpoint" value={spawnpoint} setValue={setSettings} />
-      <Toggle
-        field="nativeLeaflet"
-        value={nativeLeaflet}
-        setValue={setSettings}
-      />
+      <Toggle field="pokestop" value={pokestop} setValue={setStore} />
+      <Toggle field="gym" value={gym} setValue={setStore} />
+      <Toggle field="spawnpoint" value={spawnpoint} setValue={setStore} />
+      <Toggle field="nativeLeaflet" value={nativeLeaflet} setValue={setStore} />
       <BtnGroup
         field="data"
         value={data}
-        setValue={setSettings}
+        setValue={setStore}
         buttons={['all', 'bound', 'area']}
       />
       <Divider sx={{ my: 2 }} />
       <ListSubheader disableGutters sx={subSx}>
         Vectors
       </ListSubheader>
-      <Toggle field="showCircles" value={showCircles} setValue={setSettings} />
+      <Toggle field="showCircles" value={showCircles} setValue={setStore} />
       <Toggle
         field="showLines"
         value={showLines}
-        setValue={setSettings}
+        setValue={setStore}
         disabled={mode === 'cluster'}
       />
-      <Toggle field="showPolygon" value={showPolygon} setValue={setSettings} />
+      <Toggle field="showPolygon" value={showPolygon} setValue={setStore} />
     </List>
   )
 }

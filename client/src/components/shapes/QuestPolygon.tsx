@@ -9,15 +9,15 @@ import { rdmToShapes, rdmToGeojson } from '@services/utils'
 export default function QuestPolygon() {
   const instance = useStore((s) => s.instance)
   const showPolygon = useStore((s) => s.showPolygon)
-  const setSettings = useStore((s) => s.setSettings)
 
+  const setStatic = useStatic((s) => s.setStatic)
   const instances = useStatic((s) => s.instances)
 
   const [localState, setLocalState] = React.useState<Shape[]>([])
 
   React.useEffect(() => {
     setLocalState(rdmToShapes(instance, instances))
-    setSettings('geojson', rdmToGeojson(instance, instances))
+    setStatic('geojson', rdmToGeojson(instance, instances))
   }, [instance.length, Object.keys(instances).length])
 
   return showPolygon ? (

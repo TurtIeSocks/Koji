@@ -1,12 +1,13 @@
-import type { Data } from '@assets/types'
-import type { UseStore } from '@hooks/useStore'
 import type { Map } from 'leaflet'
+
+import type { CombinedState, Data } from '@assets/types'
+import type { UseStore } from '@hooks/useStore'
 
 import { getMapBounds, convertGeojson } from './utils'
 
 export async function getData<T>(
   url: string,
-  settings: Partial<UseStore> & { area?: [number, number][] } = {},
+  settings: CombinedState & { area?: [number, number][] } = {},
 ): Promise<T | null> {
   try {
     const data = Object.keys(settings).length
@@ -33,7 +34,7 @@ export async function getData<T>(
 
 export async function getLotsOfData(
   url: string,
-  settings: Partial<UseStore> = {},
+  settings: CombinedState = {},
 ): Promise<[number, number][][]> {
   const flat = convertGeojson(settings.geojson)
   const results = await Promise.all(

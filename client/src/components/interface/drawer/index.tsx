@@ -21,14 +21,13 @@ import SettingsTab from './settings'
 import CreateTab from './create'
 
 interface Props {
-  drawer: boolean
-  setDrawer: (drawer: boolean) => void
   drawerWidth: number
 }
 
-export default function DrawerIndex({ drawer, setDrawer, drawerWidth }: Props) {
-  const setSettings = useStore((s) => s.setSettings)
+export default function DrawerIndex({ drawerWidth }: Props) {
+  const setStore = useStore((s) => s.setStore)
   const tab = useStore((s) => s.tab)
+  const drawer = useStore((s) => s.drawer)
 
   const [open, setOpen] = React.useState(false)
 
@@ -41,13 +40,13 @@ export default function DrawerIndex({ drawer, setDrawer, drawerWidth }: Props) {
     ) {
       return
     }
-    setDrawer(false)
+    setStore('drawer', false)
   }
 
   const handleKeyPress = (e: KeyboardEvent) => {
     if (e.code === 'Escape') {
       e.preventDefault()
-      setDrawer(false)
+      setStore('drawer', false)
     }
   }
 
@@ -72,11 +71,11 @@ export default function DrawerIndex({ drawer, setDrawer, drawerWidth }: Props) {
     >
       {drawer ? (
         <>
-          <DrawerHeader setDrawer={setDrawer}>Kōji</DrawerHeader>
+          <DrawerHeader setStore={setStore}>Kōji</DrawerHeader>
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
             <Tabs
               value={tab}
-              onChange={(_e, newValue) => setSettings('tab', newValue)}
+              onChange={(_e, newValue) => setStore('tab', newValue)}
             >
               {TABS.map((t) => (
                 <Tab
@@ -122,7 +121,7 @@ export default function DrawerIndex({ drawer, setDrawer, drawerWidth }: Props) {
               backgroundColor: '#cfcfcf',
             },
           }}
-          onClick={() => setDrawer(true)}
+          onClick={() => setStore('drawer', true)}
         >
           <ChevronRight fontSize="small" />
         </Box>

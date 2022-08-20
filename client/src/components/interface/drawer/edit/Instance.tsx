@@ -38,18 +38,18 @@ export default function InstanceSelect({ value, setValue }: Props) {
   const instances = useStatic((s) => s.instances)
   const validInstances = useStatic((s) => s.validInstances)
   const scannerType = useStatic((s) => s.scannerType)
-  const setSettings = useStatic((s) => s.setSettings)
+  const setStatic = useStatic((s) => s.setStatic)
 
   const [loading, setLoading] = React.useState(false)
   React.useEffect(() => {
     if (!validInstances.size && scannerType === 'rdm') {
       setLoading(true)
       getData<Instance[]>('/api/instance/all').then((r) => {
-        setSettings(
+        setStatic(
           'instances',
           Array.isArray(r) ? Object.fromEntries(r.map((x) => [x.name, x])) : {},
         )
-        setSettings(
+        setStatic(
           'validInstances',
           Array.isArray(r) ? new Set(r.map((v) => v.name)) : new Set(),
         )

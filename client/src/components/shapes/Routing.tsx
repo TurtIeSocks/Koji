@@ -6,6 +6,7 @@ import { useStore } from '@hooks/useStore'
 import { getColor } from '@services/utils'
 import { getLotsOfData } from '@services/fetches'
 import { COLORS } from '@assets/constants'
+import { useStatic } from '@hooks/useStatic'
 
 export default function Routes() {
   const mode = useStore((s) => s.mode)
@@ -15,9 +16,10 @@ export default function Routes() {
   const showCircles = useStore((s) => s.showCircles)
   const showLines = useStore((s) => s.showLines)
   const exportSettings = useStore((s) => s.export)
-  const setSettings = useStore((s) => s.setSettings)
+  const setStore = useStore((s) => s.setStore)
   const devices = useStore((s) => s.devices)
-  const geojson = useStore((s) => s.geojson)
+
+  const geojson = useStatic((s) => s.geojson)
 
   React.useEffect(() => {
     if (geojson.features.length) {
@@ -40,7 +42,7 @@ export default function Routes() {
               if (dis > max) max = dis
             })
           })
-          setSettings('export', { ...exportSettings, route, total, max })
+          setStore('export', { ...exportSettings, route, total, max })
         }
       })
     }
