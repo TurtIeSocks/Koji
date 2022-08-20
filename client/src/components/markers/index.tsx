@@ -16,7 +16,7 @@ export default function Markers() {
   const pokestop = useStore((s) => s.pokestop)
   const spawnpoint = useStore((s) => s.spawnpoint)
   const gym = useStore((s) => s.gym)
-  const renderer = useStore((s) => s.renderer)
+  const nativeLeaflet = useStore((s) => s.nativeLeaflet)
 
   const map = useMap()
 
@@ -58,9 +58,9 @@ export default function Markers() {
         .map((i) => ({ ...i, customIcon: ICON_SVG[i.iconId] })),
     [markers, pokestop, gym, spawnpoint],
   )
-  usePixi(renderer === 'performance' ? initialMarkers : [])
+  usePixi(nativeLeaflet ? [] : initialMarkers)
 
-  return renderer === 'performance' ? null : (
+  return nativeLeaflet ? (
     <>
       {initialMarkers.map((i) => (
         <Circle
@@ -75,5 +75,5 @@ export default function Markers() {
         />
       ))}
     </>
-  )
+  ) : null
 }

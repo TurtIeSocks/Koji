@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { FeatureCollection } from 'geojson'
 
 export interface UseStore {
+  tab: number
   drawer: boolean
   setDrawer: (drawer: boolean) => void
   location: [number, number]
@@ -21,7 +22,7 @@ export interface UseStore {
   showCircles: boolean
   showLines: boolean
   showPolygon: boolean
-  renderer: 'performance' | 'quality'
+  nativeLeaflet: boolean
   devices: number | ''
   export: {
     total: number
@@ -35,6 +36,7 @@ export interface UseStore {
 export const useStore = create(
   persist<UseStore>(
     (set) => ({
+      tab: 0,
       drawer: false,
       setDrawer: (drawer) => set({ drawer }),
       location: [0, 0],
@@ -53,7 +55,7 @@ export const useStore = create(
       showCircles: true,
       showLines: true,
       showPolygon: true,
-      renderer: 'performance',
+      nativeLeaflet: false,
       devices: 1,
       export: {
         total: 0,

@@ -3,11 +3,10 @@ import { Typography, IconButton, styled } from '@mui/material'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import { ChevronLeft } from '@mui/icons-material'
 
-const DrawerHeaderRaw = styled(Grid2)(({ theme }) => ({
+const DrawerHeaderRaw = styled(Grid2)(() => ({
   display: 'flex',
   alignItems: 'center',
-  padding: theme.spacing(0, 1),
-  ...theme.mixins.toolbar,
+  minHeight: 56,
   justifyContent: 'flex-end',
 }))
 

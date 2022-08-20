@@ -4,23 +4,21 @@ import { ToggleButtonGroup, ToggleButton, ListItem } from '@mui/material'
 import { type UseStore } from '@hooks/useStore'
 import { fromCamelCase } from '@services/utils'
 
-type Inputs = 'mode' | 'category' | 'data' | 'renderer'
-
-interface Props<T extends Inputs> {
+interface Props<T extends keyof UseStore, K extends string> {
   field: T
-  value: UseStore[T]
-  setValue: (field: T, value: UseStore[T]) => void
-  buttons: UseStore[T][]
+  value: K
+  setValue: (field: Props<T, K>['field'], value: Props<T, K>['value']) => void
+  buttons: K[]
   disabled?: boolean
 }
 
-export default function BtnGroup<T extends Inputs>({
+export default function BtnGroup<T extends keyof UseStore, K extends string>({
   field,
   value,
   setValue,
   buttons,
   disabled = false,
-}: Props<T>) {
+}: Props<T, K>) {
   return (
     <ListItem disabled={disabled}>
       <ToggleButtonGroup
@@ -28,9 +26,7 @@ export default function BtnGroup<T extends Inputs>({
         color="primary"
         value={value}
         exclusive
-        onChange={(_e, v: UseStore[T] | null) => {
-          if (v) setValue(field, v)
-        }}
+        onChange={(_e, v) => setValue(field, v)}
         sx={{ mx: 'auto' }}
       >
         {buttons.map((m) => (

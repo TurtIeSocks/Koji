@@ -173,9 +173,9 @@ async fn cluster(
 
     println!(
         "[{}] Returning {} routes and {} clusters\n",
-        mode,
+        mode.to_uppercase(),
         clusters.tours.len(),
         circles.len()
     );
-    Ok(HttpResponse::Ok().json(clusters))
+    Ok(HttpResponse::Ok().json(circles))
 }
