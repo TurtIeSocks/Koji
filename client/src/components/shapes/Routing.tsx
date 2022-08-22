@@ -18,11 +18,12 @@ export default function Routes() {
   const exportSettings = useStore((s) => s.export)
   const setStore = useStore((s) => s.setStore)
   const devices = useStore((s) => s.devices)
+  const tab = useStore((s) => s.tab)
 
   const geojson = useStatic((s) => s.geojson)
 
   React.useEffect(() => {
-    if (geojson.features.length) {
+    if (geojson.features.length && tab === 1) {
       getLotsOfData(
         mode === 'bootstrap'
           ? '/api/v1/calc/bootstrap'
@@ -46,7 +47,7 @@ export default function Routes() {
         }
       })
     }
-  }, [mode, radius, generations, category, devices, geojson])
+  }, [mode, radius, generations, category, devices, geojson, tab])
 
   return showCircles || showLines ? (
     <>

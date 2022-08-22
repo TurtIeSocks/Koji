@@ -18,74 +18,53 @@ import {
   CheckBox,
   IndeterminateCheckBoxOutlined,
 } from '@mui/icons-material'
-import type { UseStore } from '@hooks/useStore'
+
 import { getData } from '@services/fetches'
 import { useStatic } from '@hooks/useStatic'
 import { type Instance } from '@assets/types'
-
-interface Props {
-  value: string[]
-  setValue: (field: keyof UseStore, value: string[]) => void
-}
 
 const icon = <CheckBoxOutlineBlank fontSize="small" color="primary" />
 const checkedIcon = <CheckBox fontSize="small" color="primary" />
 const partialIcon = (
   <IndeterminateCheckBoxOutlined fontSize="small" color="primary" />
 )
+const filterOptions = createFilterOptions({
+  matchFrom: 'any',
+  stringify: (option: string) => option,
+})
 
-export default function InstanceSelect({ value, setValue }: Props) {
+export default function InstanceSelect() {
+  const selected = useStatic((s) => s.selected)
   const instances = useStatic((s) => s.instances)
-  const validInstances = useStatic((s) => s.validInstances)
   const scannerType = useStatic((s) => s.scannerType)
   const setStatic = useStatic((s) => s.setStatic)
+  const setSelected = useStatic((s) => s.setSelected)
 
+  const [inputValue, setInputValue] = React.useState('')
   const [loading, setLoading] = React.useState(false)
+
   React.useEffect(() => {
-    if (!validInstances.size && scannerType === 'rdm') {
+    if (!Object.keys(instances).length && scannerType === 'rdm') {
       setLoading(true)
       getData<Instance[]>('/api/instance/all').then((r) => {
         setStatic(
           'instances',
           Array.isArray(r) ? Object.fromEntries(r.map((x) => [x.name, x])) : {},
         )
-        setStatic(
-          'validInstances',
-          Array.isArray(r) ? new Set(r.map((v) => v.name)) : new Set(),
-        )
         setLoading(false)
       })
     }
   }, [])
 
-  React.useEffect(() => {
-    if (
-      !Array.isArray(value) ||
-      (validInstances.size && value.some((v) => !validInstances.has(v)))
-    ) {
-      setValue('instance', [])
-    }
-  }, [value, validInstances])
-
   return (
     <ListItem>
       <Autocomplete
-        value={
-          Array.isArray(value) ? value.filter((x) => validInstances.has(x)) : []
-        }
+        value={selected}
+        inputValue={inputValue}
         size="small"
-        onChange={(_e, newValue) => {
-          setValue('instance', newValue)
-        }}
-        filterOptions={(opts, params) => {
-          const filtered = createFilterOptions<string>()(opts, params)
-          const { inputValue } = params
-          const isExisting = opts.some((option) => inputValue === option)
-          if (inputValue !== '' && !isExisting) {
-            filtered.push(inputValue)
-          }
-          return filtered
-        }}
+        onChange={(_e, newValue) => setSelected(newValue)}
+        onInputChange={(_e, newValue) => setInputValue(newValue)}
+        filterOptions={filterOptions}
         selectOnFocus
         clearOnBlur
         multiple
@@ -94,19 +73,19 @@ export default function InstanceSelect({ value, setValue }: Props) {
         disableCloseOnSelect
         groupBy={(option) => instances[option]?.type_}
         sx={{ width: '90%', mx: 'auto' }}
-        options={[...validInstances].sort((a, b) =>
+        options={Object.keys(instances).sort((a, b) =>
           instances[a].type_.localeCompare(instances[b].type_),
         )}
         renderTags={(val) => (
           <Typography align="center">{val.length} Selected</Typography>
         )}
-        renderOption={(props, option, { selected }) => (
+        renderOption={(props, option, { selected: s }) => (
           <li {...props}>
             <Checkbox
               icon={icon}
               checkedIcon={checkedIcon}
               style={{ marginRight: 8 }}
-              checked={selected}
+              checked={s}
             />
             {option}
           </li>
@@ -115,32 +94,33 @@ export default function InstanceSelect({ value, setValue }: Props) {
           <TextField label="Select Instance" {...params} />
         )}
         renderGroup={({ key, group, children }) => {
-          const allValues = Object.keys(instances).filter(
-            (k) => instances[k]?.type_ === group,
-          )
-          const allSelected = allValues.every((v) => value.includes(v))
+          const allValues = Array.isArray(children)
+            ? [...selected, ...children.map((x) => x.key)] // vaguely hacky way to select all filtered results
+            : Object.keys(instances).filter(
+                (k) => instances[k]?.type_ === group,
+              )
+          const allSelected = allValues.every((v) => selected.includes(v))
           const partialSelected =
-            allSelected || value.some((v) => allValues.includes(v))
+            allSelected || selected.some((v) => allValues.includes(v))
 
-          return (
+          return group ? (
             <List key={key}>
               <ListItemButton
                 onClick={() => {
-                  if (allSelected || partialSelected) {
-                    setValue(
-                      'instance',
-                      value.filter(
-                        (v) =>
-                          !allValues.includes(v) ||
-                          instances[v].type_ !== group,
-                      ),
-                    )
-                  } else {
-                    setValue('instance', [
-                      ...allValues,
-                      ...value.filter((v) => instances[v].type_ !== group),
-                    ])
-                  }
+                  setSelected(
+                    allSelected || partialSelected
+                      ? selected.filter(
+                          (v) =>
+                            !allValues.includes(v) ||
+                            instances[v].type_ !== group,
+                        )
+                      : [
+                          ...allValues,
+                          ...selected.filter(
+                            (v) => instances[v].type_ !== group,
+                          ),
+                        ],
+                  )
                 }}
               >
                 <ListItemIcon>
@@ -161,7 +141,7 @@ export default function InstanceSelect({ value, setValue }: Props) {
               </ListItemButton>
               {children}
             </List>
-          )
+          ) : null
         }}
       />
     </ListItem>

@@ -1,5 +1,6 @@
 import create from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { FeatureCollection } from 'geojson'
 
 export interface UseStore {
   tab: number
@@ -12,7 +13,6 @@ export interface UseStore {
   pokestop: boolean
   data: 'all' | 'area' | 'bound'
   mode: 'bootstrap' | 'route' | 'cluster'
-  instance: string[]
   radius: number | ''
   generations: number | ''
   showCircles: boolean
@@ -20,11 +20,13 @@ export interface UseStore {
   showPolygon: boolean
   nativeLeaflet: boolean
   devices: number | ''
+  geojson: FeatureCollection
   export: {
     total: number
     max: number
     route: [number, number][][]
   }
+
   setStore: <T extends keyof UseStore>(key: T, value: UseStore[T]) => void
 }
 
@@ -41,7 +43,6 @@ export const useStore = create(
       pokestop: true,
       mode: 'cluster',
       data: 'all',
-      instance: [],
       radius: 70,
       generations: 100,
       showCircles: true,

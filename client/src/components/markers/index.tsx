@@ -2,36 +2,37 @@ import React from 'react'
 import { useMap, Circle } from 'react-leaflet'
 
 import { ICON_SVG, ICON_RADIUS, ICON_COLOR } from '@assets/constants'
-import type { PixiMarker } from '@assets/types'
 import { useStore } from '@hooks/useStore'
 import { getMarkers } from '@services/fetches'
 import usePixi from '@hooks/usePixi'
+import { useStatic } from '@hooks/useStatic'
 
 export default function Markers() {
   const location = useStore((s) => s.location)
   const data = useStore((s) => s.data)
-  const instance = useStore((s) => s.instance)
   const pokestop = useStore((s) => s.pokestop)
   const spawnpoint = useStore((s) => s.spawnpoint)
   const gym = useStore((s) => s.gym)
   const nativeLeaflet = useStore((s) => s.nativeLeaflet)
   const setStore = useStore((s) => s.setStore)
 
+  const selected = useStatic((s) => s.selected)
+  const setStatic = useStatic((s) => s.setStatic)
+  const pokestops = useStatic((s) => s.pokestops)
+  const spawnpoints = useStatic((s) => s.spawnpoints)
+  const gyms = useStatic((s) => s.gyms)
+
   const map = useMap()
 
-  const [markers, setMarkers] = React.useState<PixiMarker[]>([])
-
   React.useEffect(() => {
-    getMarkers(map, data, instance).then((incoming) => {
-      setMarkers([
-        ...incoming.gyms,
-        ...incoming.pokestops,
-        ...incoming.spawnpoints,
-      ])
+    getMarkers(map, data, selected).then((incoming) => {
+      setStatic('pokestops', incoming.pokestops)
+      setStatic('spawnpoints', incoming.spawnpoints)
+      setStatic('gyms', incoming.gyms)
     })
   }, [
     data,
-    data === 'area' ? instance : null,
+    data === 'area' ? selected : null,
     data === 'bound' ? location : null,
   ])
 
@@ -49,14 +50,22 @@ export default function Markers() {
 
   const initialMarkers = React.useMemo(
     () =>
-      markers
+      [...pokestops, ...spawnpoints, ...gyms]
         .filter(
           (x) =>
             ({ v: spawnpoint, u: spawnpoint, g: gym, p: pokestop }[x.iconId]),
         )
         .map((i) => ({ ...i, customIcon: ICON_SVG[i.iconId] })),
-    [markers, pokestop, gym, spawnpoint],
+    [
+      pokestops.length,
+      gyms.length,
+      spawnpoints.length,
+      pokestop,
+      gym,
+      spawnpoint,
+    ],
   )
+
   usePixi(nativeLeaflet ? [] : initialMarkers)
 
   return nativeLeaflet ? (

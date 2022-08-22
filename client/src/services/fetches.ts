@@ -2,6 +2,7 @@ import type { Map } from 'leaflet'
 
 import type { CombinedState, Data } from '@assets/types'
 import type { UseStore } from '@hooks/useStore'
+import type { UseStatic } from '@hooks/useStatic'
 
 import { getMapBounds, convertGeojson } from './utils'
 
@@ -61,7 +62,7 @@ export async function getLotsOfData(
 export async function getMarkers(
   map: Map,
   data: UseStore['data'],
-  instance: UseStore['instance'],
+  instances: UseStatic['selected'],
 ): Promise<Data> {
   const [pokestops, gyms, spawnpoints] = await Promise.all(
     ['pokestop', 'gym', 'spawnpoint'].map((category) =>
@@ -75,7 +76,7 @@ export async function getMarkers(
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify(
-                data === 'bound' ? getMapBounds(map) : { instance },
+                data === 'bound' ? getMapBounds(map) : { instances },
               ),
             },
       ).then((res) => res.json()),

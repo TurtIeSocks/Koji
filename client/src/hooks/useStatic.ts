@@ -1,23 +1,44 @@
 import create from 'zustand'
 import type { FeatureCollection } from 'geojson'
 
-import type { Instance } from '@assets/types'
+import type { Instance, PixiMarker } from '@assets/types'
+import { rdmToGeojson } from '@services/utils'
 
 export interface UseStatic {
+  pokestops: PixiMarker[]
+  gyms: PixiMarker[]
+  spawnpoints: PixiMarker[]
+  getMarkers: () => PixiMarker[]
+  selected: string[]
   instances: { [name: string]: Instance }
-  validInstances: Set<string>
   scannerType: string
   tileServer: string
   geojson: FeatureCollection
   setStatic: <T extends keyof UseStatic>(key: T, value: UseStatic[T]) => void
+  setSelected: (incoming: string[]) => void
 }
 
-export const useStatic = create<UseStatic>((set) => ({
+export const useStatic = create<UseStatic>((set, get) => ({
+  pokestops: [],
+  gyms: [],
+  spawnpoints: [],
+  getMarkers: () => {
+    const { pokestops, gyms, spawnpoints } = get()
+    return [...pokestops, ...gyms, ...spawnpoints]
+  },
+  selected: [],
   instances: {},
-  validInstances: new Set(),
   scannerType: 'rdm',
   geojson: { type: 'FeatureCollection', features: [] },
   tileServer:
     'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
   setStatic: (key, value) => set({ [key]: value }),
+  setSelected: (selected) => {
+    const { geojson, instances } = get()
+    const newGeojson = rdmToGeojson(selected, instances, geojson, false)
+    set({
+      selected,
+      geojson: newGeojson,
+    })
+  },
 }))

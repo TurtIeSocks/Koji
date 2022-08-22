@@ -10,15 +10,16 @@ import {
   Tab,
 } from '@mui/material'
 import { ChevronRight, ContentCopy } from '@mui/icons-material'
-
 import { TABS } from '@assets/constants'
 import { useStore } from '@hooks/useStore'
 
 import DrawerHeader from '../styled/DrawerHeader'
-import Export from './Export'
-import EditTab from './edit'
-import SettingsTab from './settings'
-import CreateTab from './create'
+import ListSubheader from '../styled/Subheader'
+import Export from '../dialogs/Export'
+import GeofenceTab from './geofence'
+import RoutingTab from './routing'
+import BtnGroup from './inputs/BtnGroup'
+import Toggle from './inputs/Toggle'
 
 interface Props {
   drawerWidth: number
@@ -28,6 +29,11 @@ export default function DrawerIndex({ drawerWidth }: Props) {
   const setStore = useStore((s) => s.setStore)
   const tab = useStore((s) => s.tab)
   const drawer = useStore((s) => s.drawer)
+  const pokestop = useStore((s) => s.pokestop)
+  const gym = useStore((s) => s.gym)
+  const spawnpoint = useStore((s) => s.spawnpoint)
+  const data = useStore((s) => s.data)
+  const nativeLeaflet = useStore((s) => s.nativeLeaflet)
 
   const [open, setOpen] = React.useState(false)
 
@@ -87,25 +93,38 @@ export default function DrawerIndex({ drawerWidth }: Props) {
             </Tabs>
           </Box>
           {TABS.map((t, i) => (
-            <Box key={t} hidden={tab !== i}>
+            <List key={t} hidden={tab !== i} dense>
               {{
-                create: <CreateTab />,
-                edit: <EditTab />,
-                settings: <SettingsTab />,
+                geofences: <GeofenceTab />,
+                routing: <RoutingTab />,
               }[t] || null}
-            </Box>
-          ))}
-          {tab !== 2 && (
-            <List dense>
-              <Divider sx={{ my: 2 }} />
-              <ListItemButton onClick={() => setOpen(true)}>
-                <ListItemIcon>
-                  <ContentCopy />
-                </ListItemIcon>
-                Export
-              </ListItemButton>
             </List>
-          )}
+          ))}
+          <List dense>
+            <Divider sx={{ my: 2 }} />
+            <ListSubheader disableGutters>Markers</ListSubheader>
+            <Toggle field="pokestop" value={pokestop} setValue={setStore} />
+            <Toggle field="gym" value={gym} setValue={setStore} />
+            <Toggle field="spawnpoint" value={spawnpoint} setValue={setStore} />
+            <Toggle
+              field="nativeLeaflet"
+              value={nativeLeaflet}
+              setValue={setStore}
+            />
+            <BtnGroup
+              field="data"
+              value={data}
+              setValue={setStore}
+              buttons={['all', 'bound', 'area']}
+            />
+            <Divider sx={{ my: 2 }} />
+            <ListItemButton onClick={() => setOpen(true)}>
+              <ListItemIcon>
+                <ContentCopy />
+              </ListItemIcon>
+              Export
+            </ListItemButton>
+          </List>
           <Export open={open} setOpen={setOpen} />
         </>
       ) : (
