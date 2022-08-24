@@ -1,13 +1,16 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as L from 'leaflet'
 import type { FeatureCollection } from 'geojson'
 
 export type Method = 'on' | 'off'
 
-export type HandlersWithFallback = GeomanHandlers & { fallback: () => void }
+export type Fallback = (input?: any) => void
+
+export type HandlersWithFallback = GeomanHandlers & { fallback: Fallback }
+
+export type ValueOf<T extends keyof GeomanHandlers> = GeomanHandlers[T]
 
 export interface GeomanHandlers {
-  // fallback
-  fallback?: () => void
   // global
   onMapRemove?: L.PM.RemoveEventHandler
   onLayerRemove?: L.PM.RemoveEventHandler
@@ -66,10 +69,12 @@ export interface GeomanHandlers {
 }
 
 export interface GeomanProps extends GeomanHandlers {
+  map: L.Map
   options?: L.PM.ToolbarOptions
   globalOptions?: L.PM.GlobalOptions
   pathOptions?: L.PathOptions
   geojson?: FeatureCollection
+  fallback?: Fallback
   lang?:
     | 'cz'
     | 'da'

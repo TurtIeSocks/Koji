@@ -17,7 +17,7 @@ export default function drawEvents(
     if (handlers.onCreate) {
       handlers.onCreate(e)
     } else {
-      handlers.fallback()
+      handlers.fallback(e)
     }
   })
   map[method]('pm:drawstart', (e) => {
@@ -25,7 +25,7 @@ export default function drawEvents(
     if (handlers.onDrawStart) {
       handlers.onDrawStart(e)
     } else {
-      handlers.fallback()
+      handlers.fallback(e)
     }
   })
   map[method]('pm:drawend', handlers.onDrawEnd ?? handlers.fallback)

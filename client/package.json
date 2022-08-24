@@ -18,7 +18,6 @@
     "@geoman-io/leaflet-geoman-free": "^2.13.0",
     "@mui/icons-material": "^5.8.4",
     "@mui/material": "^5.10.0",
-    "@react-leaflet/core": "^2.0.0",
     "@turf/boolean-point-in-polygon": "^6.5.0",
     "@turf/distance": "^6.5.0",
     "leaflet": "^1.8.0",
