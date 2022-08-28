@@ -29,7 +29,10 @@ export const useStatic = create<UseStatic>((set, get) => ({
   selected: [],
   instances: {},
   scannerType: 'rdm',
-  geojson: { type: 'FeatureCollection', features: [] },
+  geojson: {
+    type: 'FeatureCollection',
+    features: [],
+  },
   tileServer:
     'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
   setStatic: (key, value) => set({ [key]: value }),

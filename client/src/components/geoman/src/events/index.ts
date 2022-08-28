@@ -1,6 +1,0 @@
-export { default as cutEvents } from './cut'
-export { default as dragEvents } from './drag'
-export { default as drawEvents } from './draw'
-export { default as layerEvents } from './layers'
-export { default as removeEvents } from './remove'
-export { default as rotateEvents } from './rotate'

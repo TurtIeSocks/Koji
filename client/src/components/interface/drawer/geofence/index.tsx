@@ -13,10 +13,19 @@ export default function GeofenceTab() {
   const showLines = useStore((s) => s.showLines)
   const showPolygon = useStore((s) => s.showPolygon)
   const mode = useStore((s) => s.mode)
+  const snappable = useStore((s) => s.snappable)
+  const continueDrawing = useStore((s) => s.continueDrawing)
 
   return (
     <>
       <InstanceSelect />
+      <Divider sx={{ my: 2 }} />
+      <Toggle field="snappable" value={snappable} setValue={setStore} />
+      <Toggle
+        field="continueDrawing"
+        value={continueDrawing}
+        setValue={setStore}
+      />
       <Divider sx={{ my: 2 }} />
       <ListSubheader disableGutters>Vectors</ListSubheader>
       <Toggle field="showCircles" value={showCircles} setValue={setStore} />

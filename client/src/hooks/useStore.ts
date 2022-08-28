@@ -26,7 +26,8 @@ export interface UseStore {
     max: number
     route: [number, number][][]
   }
-
+  snappable: boolean
+  continueDrawing: boolean
   setStore: <T extends keyof UseStore>(key: T, value: UseStore[T]) => void
 }
 
@@ -57,6 +58,8 @@ export const useStore = create(
       },
       geojson: { type: 'FeatureCollection', features: [] },
       setStore: (key, value) => set({ [key]: value }),
+      snappable: true,
+      continueDrawing: true,
     }),
     {
       name: 'local',
