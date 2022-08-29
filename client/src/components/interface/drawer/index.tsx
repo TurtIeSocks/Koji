@@ -6,6 +6,7 @@ import {
   Divider,
   ListItemButton,
   ListItemIcon,
+  ListItem,
   Tabs,
   Tab,
 } from '@mui/material'
@@ -15,7 +16,7 @@ import { useStore } from '@hooks/useStore'
 
 import DrawerHeader from '../styled/DrawerHeader'
 import ListSubheader from '../styled/Subheader'
-import Export from '../dialogs/Export'
+import ExportRoute from '../dialogs/ExportRoute'
 import GeofenceTab from './geofence'
 import RoutingTab from './routing'
 import BtnGroup from './inputs/BtnGroup'
@@ -111,12 +112,14 @@ export default function DrawerIndex({ drawerWidth }: Props) {
               value={nativeLeaflet}
               setValue={setStore}
             />
-            <BtnGroup
-              field="data"
-              value={data}
-              setValue={setStore}
-              buttons={['all', 'bound', 'area']}
-            />
+            <ListItem>
+              <BtnGroup
+                field="data"
+                value={data}
+                setValue={setStore}
+                buttons={['all', 'bound', 'area']}
+              />
+            </ListItem>
             <Divider sx={{ my: 2 }} />
             <ListItemButton onClick={() => setOpen(true)}>
               <ListItemIcon>
@@ -125,7 +128,7 @@ export default function DrawerIndex({ drawerWidth }: Props) {
               Export
             </ListItemButton>
           </List>
-          <Export open={open} setOpen={setOpen} />
+          <ExportRoute open={open} setOpen={setOpen} />
         </>
       ) : (
         <Box

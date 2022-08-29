@@ -12,6 +12,7 @@ import Markers from './markers'
 import Interface from './interface'
 import Routes from './shapes/Routing'
 import Drawing from './shapes/Drawing'
+import { PolygonPopup } from './popups/Polygon'
 
 export default function MainUI() {
   const drawer = useStore((s) => s.drawer)
@@ -34,13 +35,14 @@ export default function MainUI() {
         <MapContainer center={location} zoom={zoom} zoomControl={false}>
           <TileLayer
             key={tileServer}
-            attribution="Kōji - TurtleSocks"
+            attribution="<a href='https://github.com/TurtIeSocks/Koji' noreferrer='true' target='_blank'>Kōji - TurtleSocks</a>"
             url={tileServer}
           />
           <Markers />
           <Interface />
           <Routes />
           <Drawing />
+          <PolygonPopup />
         </MapContainer>
       </Main>
     </Box>

@@ -1,5 +1,6 @@
 import React from 'react'
 import { useStore } from '@hooks/useStore'
+import { ListItem } from '@mui/material'
 
 import ListSubheader from '../../styled/Subheader'
 import NumInput from '../inputs/NumInput'
@@ -24,19 +25,23 @@ export default function EditTab() {
         setValue={setStore}
         disabled={mode !== 'route'}
       />
-      <BtnGroup
-        field="category"
-        value={category}
-        setValue={setStore}
-        buttons={['pokestop', 'gym', 'spawnpoint']}
-        disabled={mode === 'bootstrap'}
-      />
-      <BtnGroup
-        field="mode"
-        value={mode}
-        setValue={setStore}
-        buttons={['cluster', 'route', 'bootstrap']}
-      />
+      <ListItem disabled={mode === 'bootstrap'}>
+        <BtnGroup
+          field="category"
+          value={category}
+          setValue={setStore}
+          buttons={['pokestop', 'gym', 'spawnpoint']}
+          disabled={mode === 'bootstrap'}
+        />
+      </ListItem>
+      <ListItem>
+        <BtnGroup
+          field="mode"
+          value={mode}
+          setValue={setStore}
+          buttons={['cluster', 'route', 'bootstrap']}
+        />
+      </ListItem>
     </>
   )
 }

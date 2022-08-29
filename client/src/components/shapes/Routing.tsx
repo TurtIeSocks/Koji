@@ -7,6 +7,7 @@ import { getColor } from '@services/utils'
 import { getLotsOfData } from '@services/fetches'
 import { COLORS } from '@assets/constants'
 import { useStatic } from '@hooks/useStatic'
+import useDeepCompareEffect from 'use-deep-compare-effect'
 
 export default function Routes() {
   const mode = useStore((s) => s.mode)
@@ -21,8 +22,9 @@ export default function Routes() {
   const tab = useStore((s) => s.tab)
 
   const geojson = useStatic((s) => s.geojson)
+  const forceRedraw = useStatic((s) => s.forceRedraw)
 
-  React.useEffect(() => {
+  useDeepCompareEffect(() => {
     if (geojson.features.length && tab === 1) {
       getLotsOfData(
         mode === 'bootstrap'
@@ -62,7 +64,7 @@ export default function Routes() {
           const next = isEnd ? route[0] : route[j + 1]
           const dis = distance(p, next, { units: 'meters' })
           return (
-            <React.Fragment key={`${route}-${next}-${isEnd}`}>
+            <React.Fragment key={`${route}-${next}-${isEnd}-${forceRedraw}`}>
               {showCircles && (
                 <Circle
                   center={p}
@@ -71,12 +73,14 @@ export default function Routes() {
                   fillColor={color}
                   fillOpacity={0.25}
                   opacity={0.5}
+                  snapIgnore
                 />
               )}
               {showLines && mode !== 'cluster' && (
                 <Polyline
                   positions={[p, next || p]}
                   pathOptions={{ color: getColor(dis), opacity: 80 }}
+                  snapIgnore
                 />
               )}
             </React.Fragment>

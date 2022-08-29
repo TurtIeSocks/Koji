@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { ToggleButtonGroup, ToggleButton, ListItem } from '@mui/material'
+import { ToggleButtonGroup, ToggleButton } from '@mui/material'
 
 import { type UseStore } from '@hooks/useStore'
 import { fromCamelCase } from '@services/utils'
@@ -20,22 +20,20 @@ export default function BtnGroup<T extends keyof UseStore, K extends string>({
   disabled = false,
 }: Props<T, K>) {
   return (
-    <ListItem disabled={disabled}>
-      <ToggleButtonGroup
-        size="small"
-        color="primary"
-        value={value}
-        exclusive
-        onChange={(_e, v) => setValue(field, v)}
-        sx={{ mx: 'auto' }}
-        disabled={disabled}
-      >
-        {buttons.map((m) => (
-          <ToggleButton key={m} value={m} disabled={disabled}>
-            {fromCamelCase(m)}
-          </ToggleButton>
-        ))}
-      </ToggleButtonGroup>
-    </ListItem>
+    <ToggleButtonGroup
+      size="small"
+      color="primary"
+      value={value}
+      exclusive
+      onChange={(_e, v) => setValue(field, v)}
+      sx={{ mx: 'auto' }}
+      disabled={disabled}
+    >
+      {buttons.map((m) => (
+        <ToggleButton key={m} value={m} disabled={disabled}>
+          {fromCamelCase(m)}
+        </ToggleButton>
+      ))}
+    </ToggleButtonGroup>
   )
 }

@@ -1,6 +1,6 @@
 import type { Map } from 'leaflet'
 import { capitalize } from '@mui/material'
-import type { FeatureCollection, MultiPolygon } from 'geojson'
+import type { Feature, FeatureCollection, MultiPolygon } from 'geojson'
 import { UseStatic } from '@hooks/useStatic'
 import { Shape } from '@assets/types'
 
@@ -192,7 +192,7 @@ export function rdmToGeojson(
   return onlyShapes ? shapes : geojson
 }
 
-export const safeParse = (value: string) => {
+export function safeParse(value: string) {
   try {
     return JSON.parse(value)
   } catch (e) {
@@ -200,5 +200,46 @@ export const safeParse = (value: string) => {
       return { error: e.message }
     }
     return { error: true }
+  }
+}
+export function geojsonToExport(
+  geojson: Feature,
+  object: true,
+): { lat: number; lon: number }[][]
+export function geojsonToExport(geojson: Feature, object?: false): number[][][]
+export function geojsonToExport(
+  geojson: Feature,
+  object = false,
+): number[][][] | { lat: number; lon: number }[][] {
+  switch (geojson.geometry.type) {
+    case 'Point':
+      return object
+        ? [
+            [
+              {
+                lat: geojson.geometry.coordinates[1],
+                lon: geojson.geometry.coordinates[0],
+              },
+            ],
+          ]
+        : [[[geojson.geometry.coordinates[1], geojson.geometry.coordinates[0]]]]
+    case 'Polygon':
+      return object
+        ? geojson.geometry.coordinates.map((poly) =>
+            poly.map((p) => ({ lat: p[1], lon: p[0] })),
+          )
+        : geojson.geometry.coordinates.map((poly) =>
+            poly.map((p) => [p[1], p[0]]),
+          )
+    case 'MultiPolygon':
+      return object
+        ? geojson.geometry.coordinates.flatMap((poly) =>
+            poly.map((p) => p.map((x) => ({ lat: x[1], lon: x[0] }))),
+          )
+        : geojson.geometry.coordinates.flatMap((poly) =>
+            poly.map((p) => p.map((x) => [x[1], x[0]])),
+          )
+    default:
+      return []
   }
 }

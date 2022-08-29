@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { FeatureGroup } from 'react-leaflet'
+import { FeatureGroup, useMapEvents } from 'react-leaflet'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import * as L from 'leaflet'
 import type { FeatureCollection } from 'geojson'
@@ -15,6 +15,11 @@ export default function Drawing() {
 
   const setStatic = useStatic((s) => s.setStatic)
   const geojson = useStatic((s) => s.geojson)
+  const forceRedraw = useStatic((s) => s.forceRedraw)
+  const map = useMapEvents({
+    click: (e) => setStatic('popupLocation', e.latlng),
+    popupclose: () => setStatic('activeLayer', null),
+  })
 
   const ref = React.useRef<L.FeatureGroup>(null)
 
@@ -44,6 +49,9 @@ export default function Drawing() {
           layer instanceof L.Rectangle ||
           layer instanceof L.Polyline
         ) {
+          if (layer instanceof L.Polygon) {
+            layer.on('click', () => setStatic('activeLayer', layer))
+          }
           newGeo.features.push(layer.toGeoJSON())
         }
       })
@@ -71,6 +79,10 @@ export default function Drawing() {
           new L.Circle(layer.feature.geometry.coordinates.slice().reverse(), {
             radius: radius || layer.feature?.properties.radius,
           }).addTo(ref.current)
+        } else if (layer instanceof L.Polygon) {
+          ref.current?.addLayer(
+            layer.on('click', () => setStatic('activeLayer', layer)),
+          )
         } else {
           ref.current?.addLayer(layer)
         }
@@ -78,13 +90,40 @@ export default function Drawing() {
     })
   }, [geojson, radius])
 
-  console.log(geojson)
+  useDeepCompareEffect(() => {
+    if (ref.current) {
+      ref.current.eachLayer((layer) => {
+        if (ref.current) layer.removeFrom(ref.current as unknown as L.Map)
+      })
+    }
+    L.geoJSON(geojson).eachLayer((layer) => {
+      if (
+        layer instanceof L.Polyline ||
+        layer instanceof L.Polygon ||
+        layer instanceof L.Marker
+      ) {
+        if (layer?.feature?.properties.radius && ref.current) {
+          new L.Circle(layer.feature.geometry.coordinates.slice().reverse(), {
+            radius: radius || layer.feature?.properties.radius,
+          }).addTo(ref.current)
+        } else if (layer instanceof L.Polygon) {
+          ref.current?.addLayer(
+            layer.on('click', () => setStatic('activeLayer', layer)),
+          )
+        } else {
+          ref.current?.addLayer(layer)
+        }
+      }
+    })
+  }, [geojson, radius])
+
   return (
     <FeatureGroup ref={ref}>
       <GeomanControls
         options={{
           position: 'topright',
           drawText: false,
+          drawMarker: false,
           // swap these two when leaflet-geoman PR is merged
           drawCircleMarker: true,
           drawCircle: false,
@@ -103,8 +142,32 @@ export default function Drawing() {
         onEdit={handleChange}
         onMapRemove={handleChange}
         onMapCut={handleChange}
-        onDragEnd={handleChange}
+        onDragEnd={() => {
+          setStatic('forceRedraw', !forceRedraw)
+        }}
         onMarkerDragEnd={handleChange}
+        onButtonClick={({ btnName }) => {
+          setStatic(
+            'cutMode',
+            btnName === 'cutPolygon' && !map.pm.globalCutModeEnabled(),
+          )
+          setStatic(
+            'dragMode',
+            btnName === 'dragMode' && !map.pm.globalDragModeEnabled(),
+          )
+          setStatic(
+            'editMode',
+            btnName === 'editMode' && !map.pm.globalEditModeEnabled(),
+          )
+          setStatic(
+            'removalMode',
+            btnName === 'removalMode' && !map.pm.globalRemovalModeEnabled(),
+          )
+          setStatic(
+            'rotateMode',
+            btnName === 'rotateMode' && !map.pm.globalRotateModeEnabled(),
+          )
+        }}
       />
     </FeatureGroup>
   )
