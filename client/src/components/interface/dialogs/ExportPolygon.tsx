@@ -46,6 +46,9 @@ export default function ExportPolygon({ open, setOpen, feature }: Props) {
           ),
         )
         break
+      case 'text':
+        setCode(array.flatMap((a) => a).join('\n'))
+        break
       default:
         break
     }
@@ -54,14 +57,14 @@ export default function ExportPolygon({ open, setOpen, feature }: Props) {
     <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xl">
       <DialogHeader title="Export Polygon" action={() => setOpen(false)} />
       <DialogContent sx={{ width: '90vw', height: '60vh', overflow: 'auto' }}>
-        <Code code={code} setCode={setCode} />
+        <Code code={code} setCode={setCode} mode={polygonExportMode} />
       </DialogContent>
       <DialogActions>
         <BtnGroup
           field="polygonExportMode"
           value={polygonExportMode}
           setValue={setStore}
-          buttons={['array', 'geojson', 'object']}
+          buttons={['array', 'geojson', 'object', 'text']}
         />
         <Button onClick={() => navigator.clipboard.writeText(code)}>
           Copy to Clipboard

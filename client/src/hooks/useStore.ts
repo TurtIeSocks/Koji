@@ -21,7 +21,7 @@ export interface UseStore {
   nativeLeaflet: boolean
   devices: number | ''
   geojson: FeatureCollection
-  polygonExportMode: 'geojson' | 'array' | 'object'
+  polygonExportMode: 'geojson' | 'array' | 'object' | 'text'
   export: {
     total: number
     max: number
