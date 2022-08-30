@@ -1,26 +1,29 @@
 import * as React from 'react'
-
-import inside from '@turf/boolean-point-in-polygon'
-
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
-import { useStatic } from '@hooks/useStatic'
 import { Button } from '@mui/material'
-import { Popup } from 'react-leaflet'
-import ExportPolygon from '@components/interface/dialogs/ExportPolygon'
+import inside from '@turf/boolean-point-in-polygon'
 import useDeepCompareEffect from 'use-deep-compare-effect'
+import { Popup } from 'react-leaflet'
 
-export function PolygonPopup() {
-  const activeLayer = useStatic((s) => s.activeLayer)
+import { useStatic } from '@hooks/useStatic'
+import ExportPolygon from '@components/interface/dialogs/Polygon'
+
+export default function PolygonPopup() {
   const popupLocation = useStatic((s) => s.popupLocation)
+  const activeLayer = useStatic((s) => s.activeLayer)
 
   const pokestops = useStatic((s) => s.pokestops)
   const gyms = useStatic((s) => s.gyms)
   const spawnpoints = useStatic((s) => s.spawnpoints)
 
-  const [open, setOpen] = React.useState(false)
-  const [activePokestops, setActivePokestops] = React.useState(0)
-  const [activeGyms, setActiveGyms] = React.useState(0)
-  const [activeSpawnpoints, setActiveSpawnpoints] = React.useState(0)
+  const [open, setOpen] = React.useState('')
+  const [activePokestops, setActivePokestops] = React.useState<number | null>(
+    null,
+  )
+  const [activeGyms, setActiveGyms] = React.useState<number | null>(null)
+  const [activeSpawnpoints, setActiveSpawnpoints] = React.useState<
+    number | null
+  >(null)
 
   const feature = activeLayer ? activeLayer.toGeoJSON() : null
 
@@ -60,16 +63,31 @@ export function PolygonPopup() {
   }, [feature || {}, spawnpoints.length])
 
   return feature ? (
-    <Popup autoClose position={popupLocation}>
-      <Grid2 container spacing={2}>
-        <Grid2 xs={12}>Pokestops: {activePokestops.toLocaleString()}</Grid2>
-        <Grid2 xs={12}>Gyms: {activeGyms.toLocaleString()}</Grid2>
-        <Grid2 xs={12}>Spawnpoints: {activeSpawnpoints.toLocaleString()}</Grid2>
-        <Grid2>
-          <Button onClick={() => setOpen(true)}>Export Polygon</Button>
-        </Grid2>
-      </Grid2>
-      <ExportPolygon open={open} setOpen={setOpen} feature={feature} />
+    <Popup position={popupLocation}>
+      {typeof activePokestops === 'number' &&
+      typeof activeGyms === 'number' &&
+      typeof activeSpawnpoints === 'number' ? (
+        <>
+          <Grid2 container spacing={2} minWidth={150}>
+            <Grid2 xs={12}>Pokestops: {activePokestops.toLocaleString()}</Grid2>
+            <Grid2 xs={12}>Gyms: {activeGyms.toLocaleString()}</Grid2>
+            <Grid2 xs={12}>
+              Spawnpoints: {activeSpawnpoints.toLocaleString()}
+            </Grid2>
+            <Grid2>
+              <Button onClick={() => setOpen('export')}>Export Polygon</Button>
+            </Grid2>
+          </Grid2>
+          {open && (
+            <ExportPolygon
+              mode="export"
+              open={open}
+              setOpen={setOpen}
+              feature={feature}
+            />
+          )}
+        </>
+      ) : null}
     </Popup>
   ) : null
 }

@@ -16,8 +16,8 @@ import { useStore } from '@hooks/useStore'
 import DialogHeader from './Header'
 
 interface Props {
-  open: boolean
-  setOpen: (open: boolean) => void
+  open: string
+  setOpen: (open: string) => void
 }
 
 export default function ExportRoute({ open, setOpen }: Props) {
@@ -25,8 +25,8 @@ export default function ExportRoute({ open, setOpen }: Props) {
 
   const total = exportSettings.route.flatMap((route) => route).length
   return (
-    <Dialog open={open} onClose={() => setOpen(false)}>
-      <DialogHeader title="Export Route" action={() => setOpen(false)} />
+    <Dialog open={open === 'export'} onClose={() => setOpen('')}>
+      <DialogHeader title="Export Route" action={() => setOpen('')} />
       <DialogContent>
         <Grid2 container>
           <Grid2
@@ -117,7 +117,7 @@ export default function ExportRoute({ open, setOpen }: Props) {
         >
           Copy to Clipboard
         </Button>
-        <Button onClick={() => setOpen(false)}>Close</Button>
+        <Button onClick={() => setOpen('')}>Close</Button>
       </DialogActions>
     </Dialog>
   )

@@ -2,18 +2,17 @@ import * as React from 'react'
 import ReactCodeMirror from '@uiw/react-codemirror'
 import { json, jsonParseLinter } from '@codemirror/lang-json'
 import { linter } from '@codemirror/lint'
-import { UseStore } from '@hooks/useStore'
 
 interface Props {
   code: string
   setCode: (code: string) => void
-  mode: UseStore['polygonExportMode']
+  textMode: boolean
 }
 
-export function Code({ code, setCode, mode }: Props) {
+export function Code({ code, setCode, textMode }: Props) {
   const extensions = React.useMemo(
-    () => (mode === 'text' ? [json()] : [json(), linter(jsonParseLinter())]),
-    [mode],
+    () => (textMode ? [json()] : [json(), linter(jsonParseLinter())]),
+    [textMode],
   )
 
   return (

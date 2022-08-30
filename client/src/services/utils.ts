@@ -2,7 +2,7 @@ import type { Map } from 'leaflet'
 import { capitalize } from '@mui/material'
 import type { Feature, FeatureCollection, MultiPolygon } from 'geojson'
 import { UseStatic } from '@hooks/useStatic'
-import { Shape } from '@assets/types'
+import { ArrayInput, ObjectInput, Shape } from '@assets/types'
 
 export function getMapBounds(map: Map) {
   const mapBounds = map.getBounds()
@@ -53,7 +53,7 @@ export function toMultiPolygon(
 ): MultiPolygon {
   return {
     type: 'MultiPolygon',
-    coordinates: [area.map((subArea) => subArea.map((p) => [p.lon, p.lat]))],
+    coordinates: area.map((subArea) => [subArea.map((p) => [p.lon, p.lat])]),
   }
 }
 
@@ -241,5 +241,37 @@ export function geojsonToExport(
           )
     default:
       return []
+  }
+}
+
+export function textToFeature(input: string): Feature {
+  return {
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        input.split('\n').map((line) => {
+          const [lat, lon] = line.split(',').map((x) => +x.trim())
+          if (typeof lat !== 'number' || typeof lon !== 'number') {
+            throw new Error('Invalid input')
+          }
+          return [lon, lat]
+        }),
+      ],
+    },
+  }
+}
+
+export function arrayToFeature(input: ObjectInput | ArrayInput): Feature {
+  return {
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'Polygon',
+      coordinates: input.map((line) =>
+        line.map((x) => (Array.isArray(x) ? [x[1], x[0]] : [x.lon, x.lat])),
+      ),
+    },
   }
 }

@@ -12,7 +12,7 @@ import Markers from './markers'
 import Interface from './interface'
 import Routes from './shapes/Routing'
 import Drawing from './shapes/Drawing'
-import { PolygonPopup } from './popups/Polygon'
+import PolygonPopup from './popups/Polygon'
 
 export default function MainUI() {
   const drawer = useStore((s) => s.drawer)

@@ -43,3 +43,7 @@ export interface Polygon {
 export type Shape = Circle | Polygon
 
 export type CombinedState = Partial<UseStore> & Partial<UseStatic>
+
+export type ObjectInput = { lat: number; lon: number }[][]
+
+export type ArrayInput = number[][][]

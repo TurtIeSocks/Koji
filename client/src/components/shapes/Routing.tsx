@@ -51,6 +51,11 @@ export default function Routes() {
     }
   }, [mode, radius, generations, category, devices, geojson, tab])
 
+  if (exportSettings.route[0]?.length > 20000) {
+    throw new Error(
+      `Bro, ${exportSettings.route[0].length.toLocaleString()} is too many circles`,
+    )
+  }
   return showCircles || showLines ? (
     <>
       {exportSettings.route.map((route) => {

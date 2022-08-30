@@ -11,8 +11,10 @@ import {
   Tab,
 } from '@mui/material'
 import { ChevronRight, ContentCopy } from '@mui/icons-material'
+
 import { TABS } from '@assets/constants'
 import { useStore } from '@hooks/useStore'
+import { useStatic } from '@hooks/useStatic'
 
 import DrawerHeader from '../styled/DrawerHeader'
 import ListSubheader from '../styled/Subheader'
@@ -21,6 +23,7 @@ import GeofenceTab from './geofence'
 import RoutingTab from './routing'
 import BtnGroup from './inputs/BtnGroup'
 import Toggle from './inputs/Toggle'
+import PolygonDialog from '../dialogs/Polygon'
 
 interface Props {
   drawerWidth: number
@@ -36,7 +39,9 @@ export default function DrawerIndex({ drawerWidth }: Props) {
   const data = useStore((s) => s.data)
   const nativeLeaflet = useStore((s) => s.nativeLeaflet)
 
-  const [open, setOpen] = React.useState(false)
+  const geojson = useStatic((s) => s.geojson)
+
+  const [open, setOpen] = React.useState('')
 
   const toggleDrawer = (event: React.KeyboardEvent | React.MouseEvent) => {
     if (
@@ -121,14 +126,26 @@ export default function DrawerIndex({ drawerWidth }: Props) {
               />
             </ListItem>
             <Divider sx={{ my: 2 }} />
-            <ListItemButton onClick={() => setOpen(true)}>
+            <ListItemButton onClick={() => setOpen('import')}>
               <ListItemIcon>
                 <ContentCopy />
               </ListItemIcon>
-              Export
+              Import Polygon
+            </ListItemButton>
+            <ListItemButton onClick={() => setOpen('export')}>
+              <ListItemIcon>
+                <ContentCopy />
+              </ListItemIcon>
+              Export Route
             </ListItemButton>
           </List>
           <ExportRoute open={open} setOpen={setOpen} />
+          <PolygonDialog
+            mode="import"
+            open={open}
+            setOpen={setOpen}
+            feature={geojson}
+          />
         </>
       ) : (
         <Box
