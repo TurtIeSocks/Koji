@@ -28,6 +28,8 @@ export const ICON_COLOR = {
   u: 'dodgerblue',
 }
 
+export const TABS = ['geofences', 'routing'] as const
+
 export const COLORS = [
   '#F0F8FF',
   '#FAEBD7',

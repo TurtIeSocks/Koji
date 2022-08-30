@@ -1,64 +1,67 @@
 import create from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { FeatureCollection } from 'geojson'
 
 export interface UseStore {
+  tab: number
   drawer: boolean
-  setDrawer: (drawer: boolean) => void
   location: [number, number]
-  setLocation: (location: UseStore['location']) => void
   zoom: number
-  setZoom: (zoom: UseStore['zoom']) => void
   category: 'pokestop' | 'gym' | 'spawnpoint'
   spawnpoint: boolean
   gym: boolean
   pokestop: boolean
   data: 'all' | 'area' | 'bound'
   mode: 'bootstrap' | 'route' | 'cluster'
-  instance: string
   radius: number | ''
   generations: number | ''
   showCircles: boolean
   showLines: boolean
   showPolygon: boolean
-  renderer: 'performance' | 'quality'
+  nativeLeaflet: boolean
   devices: number | ''
+  geojson: FeatureCollection
+  polygonExportMode: 'geojson' | 'array' | 'object' | 'text'
   export: {
     total: number
     max: number
     route: [number, number][][]
   }
-  setSettings: <T extends keyof UseStore>(key: T, value: UseStore[T]) => void
+  snappable: boolean
+  continueDrawing: boolean
+  setStore: <T extends keyof UseStore>(key: T, value: UseStore[T]) => void
 }
 
 export const useStore = create(
   persist<UseStore>(
     (set) => ({
+      tab: 0,
       drawer: false,
-      setDrawer: (drawer) => set({ drawer }),
       location: [0, 0],
-      setLocation: (location) => set({ location }),
-      zoom: 18,
-      setZoom: (zoom) => set({ zoom }),
+      zoom: 16,
       category: 'pokestop',
       spawnpoint: true,
       gym: true,
       pokestop: true,
       mode: 'cluster',
       data: 'all',
-      instance: '',
       radius: 70,
       generations: 100,
       showCircles: true,
       showLines: true,
       showPolygon: true,
-      renderer: 'performance',
+      nativeLeaflet: false,
       devices: 1,
+      polygonExportMode: 'geojson',
       export: {
         total: 0,
         max: 0,
         route: [],
       },
-      setSettings: (key, value) => set({ [key]: value }),
+      geojson: { type: 'FeatureCollection', features: [] },
+      setStore: (key, value) => set({ [key]: value }),
+      snappable: true,
+      continueDrawing: true,
     }),
     {
       name: 'local',

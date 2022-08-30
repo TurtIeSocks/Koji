@@ -1,3 +1,6 @@
+import type { UseStore } from '@hooks/useStore'
+import type { UseStatic } from '@hooks/useStatic'
+
 export interface Data {
   gyms: PixiMarker[]
   pokestops: PixiMarker[]
@@ -16,22 +19,31 @@ export interface Instance {
   data: string
 }
 
-export interface Point {
-  type: 'Point'
-  coordinates: [number, number]
-}
-export interface Line {
-  type: 'LineString'
-  coordinates: [number, number][]
+export interface Config {
+  start_lat: number
+  start_lon: number
+  tile_server: string
+  scanner_type: string
 }
 
-export interface GeoJSON {
-  type: string
-  features: {
-    type: string
-    geometry: Line
-    properties: {
-      [key: string]: string | number
-    }
-  }[]
+export interface Circle {
+  id: string
+  lat: number
+  lng: number
+  radius: number
+  type: 'circle'
 }
+
+export interface Polygon {
+  id: string
+  positions: [number, number][]
+  type: 'polygon'
+}
+
+export type Shape = Circle | Polygon
+
+export type CombinedState = Partial<UseStore> & Partial<UseStatic>
+
+export type ObjectInput = { lat: number; lon: number }[][]
+
+export type ArrayInput = number[][][]

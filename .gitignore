@@ -130,4 +130,5 @@ server/target
 docker-compose.yml
 
 # VRP
-vrp_tests/**
+vrp_tests
+.DS_Store

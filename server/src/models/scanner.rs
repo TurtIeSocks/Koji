@@ -77,6 +77,7 @@ pub struct Spawnpoint {
     pub despawn_sec: Option<u16>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GenericData {
     pub id: String,
     pub lat: f64,

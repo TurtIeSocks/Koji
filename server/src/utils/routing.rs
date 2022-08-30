@@ -28,16 +28,32 @@ fn create_problem(services: Vec<[f64; 2]>, devices: Vec<String>) -> Problem {
     let shifts: Vec<VehicleShift> = devices
         .iter()
         .enumerate()
-        .map(|(i, _d)| VehicleShift {
-            start: ShiftStart {
-                earliest: format!("2022-05-29T0{}:00:10Z", i),
-                latest: None,
-                location: (services[tour_size * i][0], services[tour_size * i][1]).to_loc(),
-            },
-            end: None,
-            dispatch: None,
-            breaks: None,
-            reloads: None,
+        .map(|(i, _d)| {
+            let hour = i / 60;
+            let minute = i % 60;
+            VehicleShift {
+                start: ShiftStart {
+                    earliest: format!(
+                        "2022-05-29T{}:{}:10Z",
+                        if hour < 10 {
+                            format!("0{}", hour)
+                        } else {
+                            hour.to_string()
+                        },
+                        if minute < 10 {
+                            format!("0{}", minute)
+                        } else {
+                            minute.to_string()
+                        },
+                    ),
+                    latest: None,
+                    location: (services[tour_size * i][0], services[tour_size * i][1]).to_loc(),
+                },
+                end: None,
+                dispatch: None,
+                breaks: None,
+                reloads: None,
+            }
         })
         .collect();
 

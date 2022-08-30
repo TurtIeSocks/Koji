@@ -75,8 +75,10 @@ public:
 
     double execute()
     {
-        assert(!P.empty());
-
+        if (P.empty())
+        {
+            return 0.0;
+        }
         auto start = std::chrono::high_resolution_clock::now();
 
         HashMap H;

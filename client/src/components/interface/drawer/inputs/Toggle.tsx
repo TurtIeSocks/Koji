@@ -4,22 +4,14 @@ import { ListItem, ListItemText, Switch } from '@mui/material'
 import { type UseStore } from '@hooks/useStore'
 import { fromCamelCase } from '@services/utils'
 
-type Inputs =
-  | 'pokestop'
-  | 'spawnpoint'
-  | 'gym'
-  | 'showCircles'
-  | 'showLines'
-  | 'showPolygon'
-
-interface Props<T extends Inputs> {
+interface Props<T extends keyof UseStore> {
   field: T
-  value: UseStore[T]
-  setValue: (field: T, value: UseStore[T]) => void
+  value: boolean
+  setValue: (field: Props<T>['field'], value: Props<T>['value']) => void
   disabled?: boolean
 }
 
-export default function Toggle<T extends Inputs>({
+export default function Toggle<T extends keyof UseStore>({
   field,
   value,
   setValue,
@@ -32,6 +24,7 @@ export default function Toggle<T extends Inputs>({
         edge="end"
         onChange={(_e, v) => setValue(field, v)}
         checked={value}
+        disabled={disabled}
       />
     </ListItem>
   )

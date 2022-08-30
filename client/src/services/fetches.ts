@@ -1,13 +1,15 @@
-import type { Data } from '@assets/types'
-import type { UseStore } from '@hooks/useStore'
 import type { Map } from 'leaflet'
 
-import { getMapBounds } from './utils'
+import type { CombinedState, Data } from '@assets/types'
+import type { UseStore } from '@hooks/useStore'
+import type { UseStatic } from '@hooks/useStatic'
+
+import { getMapBounds, convertGeojson } from './utils'
 
 export async function getData<T>(
   url: string,
-  settings: Partial<UseStore> = {},
-): Promise<T> {
+  settings: CombinedState & { area?: [number, number][] } = {},
+): Promise<T | null> {
   try {
     const data = Object.keys(settings).length
       ? await fetch(url, {
@@ -15,29 +17,52 @@ export async function getData<T>(
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            instance: settings.instance || '',
-            radius: settings.radius || 1.0,
-            generations: settings.generations || 1,
-            devices: settings.devices || 1,
-          }),
+          body: JSON.stringify(settings),
         })
       : await fetch(url)
+    const body = await data.json()
     if (!data.ok) {
-      throw new Error('Failed to fetch data')
+      throw new Error(body.message)
     }
-    return await data.json()
+    return body
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error(e)
-    return {} as T
+    return null
+    // return { error: e instanceof Error ? e.message : 'Unknown Error' }
   }
+}
+
+export async function getLotsOfData(
+  url: string,
+  settings: CombinedState = {},
+): Promise<[number, number][][]> {
+  const flat = convertGeojson(settings.geojson)
+  const results = await Promise.all(
+    flat.map((area) =>
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...settings,
+          devices: Math.max(
+            Math.floor((settings.devices || 1) / flat.length),
+            1,
+          ),
+          area,
+        }),
+      }).then((res) => res.json()),
+    ),
+  )
+  return results.flatMap((r) => r)
 }
 
 export async function getMarkers(
   map: Map,
   data: UseStore['data'],
-  instance: UseStore['instance'],
+  instances: UseStatic['selected'],
 ): Promise<Data> {
   const [pokestops, gyms, spawnpoints] = await Promise.all(
     ['pokestop', 'gym', 'spawnpoint'].map((category) =>
@@ -51,7 +76,7 @@ export async function getMarkers(
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify(
-                data === 'bound' ? getMapBounds(map) : { instance },
+                data === 'bound' ? getMapBounds(map) : { instances },
               ),
             },
       ).then((res) => res.json()),

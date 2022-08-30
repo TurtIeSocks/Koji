@@ -1,39 +1,32 @@
 import * as React from 'react'
 
+import { Config } from '@assets/types'
+import { useStatic } from '@hooks/useStatic'
 import { useStore } from '@hooks/useStore'
 import { getData } from '@services/fetches'
+
 import Map from './Map'
 
-const cached: { location: [number, number]; zoom: number } = JSON.parse(
-  localStorage.getItem('local') || '{ state: { location: [0, 0], zoom: 18 } }',
-).state
-
 export default function App() {
-  const { setLocation } = useStore.getState()
+  const { location, setStore } = useStore.getState()
+  const { setStatic } = useStatic.getState()
 
-  const [tileServer, setTileServer] = React.useState(
-    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
-  )
   const [fetched, setFetched] = React.useState<boolean>(false)
-  const [initial, setInitial] = React.useState<[number, number]>(
-    cached.location,
-  )
 
   React.useEffect(() => {
-    getData<[number, number, string]>('/api/config').then((res) => {
-      const [lat, lon, tileUrl] = res
-      if (cached.location[0] === 0 && cached.location[1] === 0) {
-        setInitial([lat, lon])
-        setLocation([lat, lon])
-      }
-      if (tileUrl) {
-        setTileServer(tileUrl)
+    getData<Config>('/api/config').then((res) => {
+      if (res) {
+        if (location[0] === 0 && location[1] === 0) {
+          setStore('location', [res.start_lat, res.start_lon])
+        }
+        setStatic('scannerType', res.scanner_type)
+        if (res.tile_server) {
+          setStatic('tileServer', res.tile_server)
+        }
       }
       setFetched(true)
     })
   }, [])
 
-  return fetched ? (
-    <Map initial={initial} zoom={cached.zoom} tileServer={tileServer} />
-  ) : null
+  return fetched ? <Map /> : null
 }

@@ -13,20 +13,17 @@ mod ffi {
 }
 
 pub fn cpp_cluster(points: Vec<[f64; 2]>, radius: f64) -> Vec<[f64; 2]> {
-    let shared = |x, y| ffi::CppPoint {
-        x: x * radius,
-        y: y * radius,
-    };
-    let elements = points
+    let points = points
         .iter()
-        .map(|point| shared(point[1], point[0]))
+        .map(|point| ffi::CppPoint {
+            x: point[1] * radius,
+            y: point[0] * radius,
+        })
         .collect();
-
-    let output_points = ffi::clustering(elements);
-    let mut points = Vec::<[f64; 2]>::new();
-    println!("Clusters: {}", output_points.len());
-    for coord in output_points {
-        points.push([coord.y / radius, coord.x / radius]);
-    }
+    let points = ffi::clustering(points);
+    let points: Vec<[f64; 2]> = points
+        .iter()
+        .map(|point| [point.y / radius, point.x / radius])
+        .collect();
     points
 }

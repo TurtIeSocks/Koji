@@ -13,3 +13,7 @@
   left: 0;
   right: 0;
 }
+
+.sr-only {
+  display: none;
+}

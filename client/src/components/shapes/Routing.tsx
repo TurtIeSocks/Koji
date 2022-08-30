@@ -4,11 +4,12 @@ import distance from '@turf/distance'
 
 import { useStore } from '@hooks/useStore'
 import { getColor } from '@services/utils'
-import { getData } from '@services/fetches'
+import { getLotsOfData } from '@services/fetches'
 import { COLORS } from '@assets/constants'
+import { useStatic } from '@hooks/useStatic'
+import useDeepCompareEffect from 'use-deep-compare-effect'
 
 export default function Routes() {
-  const instance = useStore((s) => s.instance)
   const mode = useStore((s) => s.mode)
   const radius = useStore((s) => s.radius)
   const category = useStore((s) => s.category)
@@ -16,16 +17,20 @@ export default function Routes() {
   const showCircles = useStore((s) => s.showCircles)
   const showLines = useStore((s) => s.showLines)
   const exportSettings = useStore((s) => s.export)
-  const setSettings = useStore((s) => s.setSettings)
+  const setStore = useStore((s) => s.setStore)
   const devices = useStore((s) => s.devices)
+  const tab = useStore((s) => s.tab)
 
-  React.useEffect(() => {
-    if (instance) {
-      getData<[number, number][][]>(
+  const geojson = useStatic((s) => s.geojson)
+  const forceRedraw = useStatic((s) => s.forceRedraw)
+
+  useDeepCompareEffect(() => {
+    if (geojson.features.length && tab === 1) {
+      getLotsOfData(
         mode === 'bootstrap'
           ? '/api/v1/calc/bootstrap'
           : `/api/v1/calc/${mode}/${category}`,
-        { instance, category, radius, generations, devices },
+        { category, radius, generations, devices, geojson },
       ).then((route) => {
         let total = 0
         let max = 0
@@ -40,12 +45,17 @@ export default function Routes() {
               if (dis > max) max = dis
             })
           })
-          setSettings('export', { ...exportSettings, route, total, max })
+          setStore('export', { ...exportSettings, route, total, max })
         }
       })
     }
-  }, [instance, mode, radius, generations, category, devices])
+  }, [mode, radius, generations, category, devices, geojson, tab])
 
+  if (exportSettings.route[0]?.length > 20000) {
+    throw new Error(
+      `Bro, ${exportSettings.route[0].length.toLocaleString()} is too many circles`,
+    )
+  }
   return showCircles || showLines ? (
     <>
       {exportSettings.route.map((route) => {
@@ -59,7 +69,7 @@ export default function Routes() {
           const next = isEnd ? route[0] : route[j + 1]
           const dis = distance(p, next, { units: 'meters' })
           return (
-            <React.Fragment key={`${route}-${next}-${isEnd}`}>
+            <React.Fragment key={`${route}-${next}-${isEnd}-${forceRedraw}`}>
               {showCircles && (
                 <Circle
                   center={p}
@@ -68,12 +78,14 @@ export default function Routes() {
                   fillColor={color}
                   fillOpacity={0.25}
                   opacity={0.5}
+                  snapIgnore
                 />
               )}
               {showLines && mode !== 'cluster' && (
                 <Polyline
                   positions={[p, next || p]}
                   pathOptions={{ color: getColor(dis), opacity: 80 }}
+                  snapIgnore
                 />
               )}
             </React.Fragment>

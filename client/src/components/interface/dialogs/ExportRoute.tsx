@@ -2,41 +2,31 @@
 import * as React from 'react'
 import {
   Dialog,
-  DialogTitle,
   DialogContent,
   DialogActions,
   Button,
   TextField,
   List,
   ListItemText,
-  IconButton,
   ListSubheader,
 } from '@mui/material'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
-import { Clear } from '@mui/icons-material'
 
 import { useStore } from '@hooks/useStore'
+import DialogHeader from './Header'
 
 interface Props {
-  open: boolean
-  setOpen: (open: boolean) => void
+  open: string
+  setOpen: (open: string) => void
 }
 
-export default function Export({ open, setOpen }: Props) {
+export default function ExportRoute({ open, setOpen }: Props) {
   const exportSettings = useStore((s) => s.export)
 
   const total = exportSettings.route.flatMap((route) => route).length
   return (
-    <Dialog open={open} onClose={() => setOpen(false)}>
-      <DialogTitle>
-        Export Route
-        <IconButton
-          onClick={() => setOpen(false)}
-          style={{ position: 'absolute', right: 5, top: 5 }}
-        >
-          <Clear />
-        </IconButton>
-      </DialogTitle>
+    <Dialog open={open === 'export'} onClose={() => setOpen('')}>
+      <DialogHeader title="Export Route" action={() => setOpen('')} />
       <DialogContent>
         <Grid2 container>
           <Grid2
@@ -127,7 +117,7 @@ export default function Export({ open, setOpen }: Props) {
         >
           Copy to Clipboard
         </Button>
-        <Button onClick={() => setOpen(false)}>Close</Button>
+        <Button onClick={() => setOpen('')}>Close</Button>
       </DialogActions>
     </Dialog>
   )

@@ -1,4 +1,3 @@
-use crate::models::scanner::LatLon;
 use geo::{
     Contains, Extremes, HaversineDestination, HaversineDistance, LineString, Point, Polygon,
 };
@@ -36,10 +35,10 @@ fn point_line_distance(input: Vec<Point>, point: Point) -> f64 {
     distance
 }
 
-pub fn generate_circles(input: Vec<LatLon>, circle_size: f64) -> Vec<[f64; 2]> {
+pub fn generate_circles(input: Vec<[f64; 2]>, circle_size: f64) -> Vec<[f64; 2]> {
     let mut polygon = Vec::<(f64, f64)>::new();
     for p in input.iter() {
-        polygon.push((p.lon, p.lat))
+        polygon.push((p[1], p[0]))
     }
     let line = LineString::from(polygon);
     let polygon = Polygon::<f64>::new(line, vec![]);
@@ -67,7 +66,7 @@ pub fn generate_circles(input: Vec<LatLon>, circle_size: f64) -> Vec<[f64; 2]> {
             let point_distance = point_line_distance(
                 input
                     .iter()
-                    .map(|lat_lon| Point::new(lat_lon.lon, lat_lon.lat))
+                    .map(|lat_lon| Point::new(lat_lon[1], lat_lon[0]))
                     .collect(),
                 current,
             );
