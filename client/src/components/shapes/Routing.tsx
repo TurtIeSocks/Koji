@@ -51,11 +51,6 @@ export default function Routes() {
     }
   }, [mode, radius, generations, category, devices, geojson, tab])
 
-  if (exportSettings.route[0]?.length > 20000) {
-    throw new Error(
-      `Bro, ${exportSettings.route[0].length.toLocaleString()} is too many circles`,
-    )
-  }
   return showCircles || showLines ? (
     <>
       {exportSettings.route.map((route) => {
@@ -69,7 +64,7 @@ export default function Routes() {
           const next = isEnd ? route[0] : route[j + 1]
           const dis = distance(p, next, { units: 'meters' })
           return (
-            <React.Fragment key={`${route}-${next}-${isEnd}-${forceRedraw}`}>
+            <React.Fragment key={`${next}-${isEnd}-${forceRedraw}`}>
               {showCircles && (
                 <Circle
                   center={p}
@@ -85,7 +80,7 @@ export default function Routes() {
                 <Polyline
                   positions={[p, next || p]}
                   pathOptions={{ color: getColor(dis), opacity: 80 }}
-                  snapIgnore
+                  pmIgnore
                 />
               )}
             </React.Fragment>

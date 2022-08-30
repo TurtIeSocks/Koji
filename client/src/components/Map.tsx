@@ -14,7 +14,7 @@ import Routes from './shapes/Routing'
 import Drawing from './shapes/Drawing'
 import PolygonPopup from './popups/Polygon'
 
-export default function MainUI() {
+export default function Map() {
   const drawer = useStore((s) => s.drawer)
   const { location, zoom } = useStore.getState()
   const tileServer = useStatic((s) => s.tileServer)

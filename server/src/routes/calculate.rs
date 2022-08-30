@@ -68,7 +68,7 @@ async fn bootstrap(
 
     let circles = vec![generate_circles(area, radius)];
 
-    println!("[BOOTSTRAP] Returning {} circles\n", circles.len());
+    println!("[BOOTSTRAP] Returning {} circles\n", circles[0].len());
     Ok(HttpResponse::Ok().json(circles))
 }
 

@@ -96,7 +96,7 @@ export default function ExportPolygon({
           code.startsWith('{') || code.startsWith('[') ? JSON.parse(code) : code
         const geojson: FeatureCollection = (() => {
           if (typeof parsed === 'string') {
-            return featureCollection([textToFeature(parsed)])
+            return featureCollection([textToFeature(parsed.trim())])
           }
           if (Array.isArray(parsed)) {
             return featureCollection([arrayToFeature(parsed)])
