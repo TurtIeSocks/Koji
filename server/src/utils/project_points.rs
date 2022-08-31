@@ -1,4 +1,6 @@
 use crate::cpp::bridge::ffi;
+use crate::utils::cluster_count;
+
 use map_3d::{geodetic2ecef, Ellipsoid};
 
 type Geocentric = (f64, f64, f64);
@@ -45,7 +47,7 @@ fn compute_plane_center(points: &Vec<Geocentric>) -> Topocentric {
     radial_project(dir)
 }
 
-pub fn project_points(input: Vec<[f64; 2]>, radius: f64, min: i64) -> Vec<[f64; 2]> {
+pub fn project_points(input: Vec<[f64; 2]>, radius: f64, min: i32, fast: bool) -> Vec<[f64; 2]> {
     let points = input
         .iter()
         .map(|&[lat, lon]| {
@@ -80,8 +82,11 @@ pub fn project_points(input: Vec<[f64; 2]>, radius: f64, min: i64) -> Vec<[f64; 
         .iter()
         .map(|[x, y]| ffi::CppPoint { x: *x, y: *y })
         .collect();
-    let clusters = ffi::clustering(cpp_points, min);
-    let output: Vec<[f64; 2]> = clusters.iter().map(|point| [point.x, point.y]).collect();
+    let clusters: Vec<[f64; 2]> = ffi::clustering(cpp_points, if fast { 1 } else { 0 })
+        .iter()
+        .map(|point| [point.x, point.y])
+        .collect();
+    let output = cluster_count::count(output, clusters, min);
 
     let mut min = 1. / 0.;
     let mut sum = 0.;

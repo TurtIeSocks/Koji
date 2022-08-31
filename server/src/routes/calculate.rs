@@ -26,6 +26,7 @@ async fn bootstrap(
         devices: _devices,
         data_points: _data_points,
         min_points: _min_points,
+        fast: _fast,
     } = payload.into_inner();
     let instance = instance.unwrap_or("".to_string());
     let radius = radius.unwrap_or(1.0);
@@ -91,6 +92,7 @@ async fn cluster(
         area,
         data_points,
         min_points,
+        fast,
     } = payload.into_inner();
     let instance = instance.unwrap_or("".to_string());
     let radius = radius.unwrap_or(1.0);
@@ -99,6 +101,7 @@ async fn cluster(
     let area = area.unwrap_or(vec![]);
     let data_points = data_points.unwrap_or(vec![]);
     let min_points = min_points.unwrap_or(1);
+    let fast = fast.unwrap_or(false);
 
     println!(
         "\n[{}] Radius: {}, Generations: {}, Devices: {}\nInstance: {}, Using Area: {}, Manual Data Points: {}",
@@ -155,7 +158,7 @@ async fn cluster(
         data_points.len()
     );
 
-    let clusters = project_points(data_to_array(data_points), radius, min_points);
+    let clusters = project_points(data_to_array(data_points), radius, min_points, fast);
     println!("[{}] Clusters: {}", mode.to_uppercase(), clusters.len());
 
     if mode.eq("cluster") {

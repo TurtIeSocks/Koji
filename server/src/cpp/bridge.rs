@@ -8,6 +8,6 @@ pub mod ffi {
     unsafe extern "C++" {
         include!("koji/src/cpp/clustering/main.h");
 
-        fn clustering(elements: Vec<CppPoint>, min: i64) -> Vec<CppPoint>;
+        fn clustering(elements: Vec<CppPoint>, fast: u8) -> Vec<CppPoint>;
     }
 }

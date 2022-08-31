@@ -76,7 +76,7 @@ export default function ExportPolygon({
       case 'text':
         if (mode === 'export') {
           const array = geojsonToExport(feature)
-          setCode(array.flatMap((a) => a).join('\n'))
+          setCode(array.flatMap((a) => a.join('\n')).join('\n\n'))
         }
         break
       default:
@@ -122,7 +122,7 @@ export default function ExportPolygon({
   }, [code])
   return (
     <Dialog
-      open={!!open}
+      open={open === 'polygon'}
       onClose={() => {
         setOpen('')
         setCode('')

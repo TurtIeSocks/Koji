@@ -126,26 +126,26 @@ export default function DrawerIndex({ drawerWidth }: Props) {
               />
             </ListItem>
             <Divider sx={{ my: 2 }} />
-            <ListItemButton onClick={() => setOpen('import')}>
+            <ListItemButton onClick={() => setOpen('polygon')}>
               <ListItemIcon>
                 <ContentCopy />
               </ListItemIcon>
               Import Polygon
             </ListItemButton>
-            <ListItemButton onClick={() => setOpen('export')}>
+            <ListItemButton onClick={() => setOpen('route')}>
               <ListItemIcon>
                 <ContentCopy />
               </ListItemIcon>
               Export Route
             </ListItemButton>
           </List>
-          <ExportRoute open={open} setOpen={setOpen} />
           <PolygonDialog
             mode="import"
             open={open}
             setOpen={setOpen}
             feature={geojson}
           />
+          <ExportRoute open={open} setOpen={setOpen} />
         </>
       ) : (
         <Box

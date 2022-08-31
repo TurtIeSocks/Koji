@@ -75,7 +75,7 @@ export default function PolygonPopup() {
               Spawnpoints: {activeSpawnpoints.toLocaleString()}
             </Grid2>
             <Grid2>
-              <Button onClick={() => setOpen('export')}>Export Polygon</Button>
+              <Button onClick={() => setOpen('polygon')}>Export Polygon</Button>
             </Grid2>
           </Grid2>
           {open && (

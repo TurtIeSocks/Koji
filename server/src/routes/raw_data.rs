@@ -105,6 +105,7 @@ async fn area(
         devices: _devices,
         data_points: _data_points,
         min_points: _min_points,
+        fast: _fast,
     } = payload.into_inner();
     let instance = instance.unwrap_or("".to_string());
     let area = area.unwrap_or(vec![]);

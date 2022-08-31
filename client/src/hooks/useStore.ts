@@ -30,6 +30,7 @@ export interface UseStore {
   }
   snappable: boolean
   continueDrawing: boolean
+  fast: boolean
   setStore: <T extends keyof UseStore>(key: T, value: UseStore[T]) => void
 }
 
@@ -55,6 +56,7 @@ export const useStore = create(
       nativeLeaflet: false,
       devices: 1,
       polygonExportMode: 'geojson',
+      fast: false,
       export: {
         total: 0,
         max: 0,
