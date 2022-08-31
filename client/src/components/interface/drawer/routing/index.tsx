@@ -5,6 +5,7 @@ import { ListItem } from '@mui/material'
 import ListSubheader from '../../styled/Subheader'
 import NumInput from '../inputs/NumInput'
 import BtnGroup from '../inputs/BtnGroup'
+import Toggle from '../inputs/Toggle'
 
 export default function EditTab() {
   const radius = useStore((s) => s.radius)
@@ -13,6 +14,8 @@ export default function EditTab() {
   const generations = useStore((s) => s.generations)
   const setStore = useStore((s) => s.setStore)
   const devices = useStore((s) => s.devices)
+  const min_points = useStore((s) => s.min_points)
+  const fast = useStore((s) => s.fast)
 
   return (
     <>
@@ -25,6 +28,8 @@ export default function EditTab() {
         setValue={setStore}
         disabled={mode !== 'route'}
       />
+      <NumInput field="min_points" value={min_points} setValue={setStore} />
+      <Toggle field="fast" value={fast} setValue={setStore} />
       <ListItem disabled={mode === 'bootstrap'}>
         <BtnGroup
           field="category"

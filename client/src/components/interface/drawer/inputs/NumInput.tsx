@@ -18,7 +18,7 @@ export default function NumInput<T extends string>({
 }: Props<T>) {
   return (
     <ListItem disabled={disabled}>
-      <ListItemText primary={fromCamelCase(field)} />
+      <ListItemText primary={fromCamelCase(field).replace(/_/g, ' ')} />
       <TextField
         name={field}
         value={value}

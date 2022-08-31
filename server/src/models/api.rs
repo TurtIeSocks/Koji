@@ -21,10 +21,12 @@ pub struct MapBounds {
 pub struct RouteGeneration {
     pub instance: Option<String>,
     pub radius: Option<f64>,
+    pub min_points: Option<i32>,
     pub generations: Option<usize>,
     pub devices: Option<usize>,
     pub data_points: Option<Vec<GenericData>>,
     pub area: Option<Vec<[f64; 2]>>,
+    pub fast: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

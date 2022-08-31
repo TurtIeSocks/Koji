@@ -14,6 +14,7 @@ export interface UseStore {
   data: 'all' | 'area' | 'bound'
   mode: 'bootstrap' | 'route' | 'cluster'
   radius: number | ''
+  min_points: number | ''
   generations: number | ''
   showCircles: boolean
   showLines: boolean
@@ -29,6 +30,7 @@ export interface UseStore {
   }
   snappable: boolean
   continueDrawing: boolean
+  fast: boolean
   setStore: <T extends keyof UseStore>(key: T, value: UseStore[T]) => void
 }
 
@@ -47,12 +49,14 @@ export const useStore = create(
       data: 'all',
       radius: 70,
       generations: 100,
+      min_points: 3,
       showCircles: true,
       showLines: true,
       showPolygon: true,
       nativeLeaflet: false,
       devices: 1,
       polygonExportMode: 'geojson',
+      fast: false,
       export: {
         total: 0,
         max: 0,

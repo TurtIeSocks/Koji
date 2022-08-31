@@ -9,8 +9,10 @@ import {
   List,
   ListItemText,
   ListSubheader,
+  IconButton,
 } from '@mui/material'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
+import { ContentCopy } from '@mui/icons-material'
 
 import { useStore } from '@hooks/useStore'
 import DialogHeader from './Header'
@@ -22,10 +24,11 @@ interface Props {
 
 export default function ExportRoute({ open, setOpen }: Props) {
   const exportSettings = useStore((s) => s.export)
+  const mode = useStore((s) => s.mode)
 
   const total = exportSettings.route.flatMap((route) => route).length
   return (
-    <Dialog open={open === 'export'} onClose={() => setOpen('')}>
+    <Dialog open={open === 'route'} onClose={() => setOpen('')}>
       <DialogHeader title="Export Route" action={() => setOpen('')} />
       <DialogContent>
         <Grid2 container>
@@ -43,7 +46,24 @@ export default function ExportRoute({ open, setOpen }: Props) {
             <List>
               {exportSettings.route.map((route, i) => (
                 <React.Fragment key={i}>
-                  <ListSubheader>Device {i + 1}</ListSubheader>
+                  <ListSubheader>
+                    <Grid2 container>
+                      <Grid2 xs={3}>
+                        <IconButton
+                          onClick={() =>
+                            navigator.clipboard.writeText(
+                              route.map((p) => p.join(',')).join('\n'),
+                            )
+                          }
+                        >
+                          <ContentCopy />
+                        </IconButton>
+                      </Grid2>
+                      <Grid2 xs={9}>
+                        {mode === 'cluster' ? 'Area' : 'Device'} {i + 1}
+                      </Grid2>
+                    </Grid2>
+                  </ListSubheader>
                   {route.map((point, j) => (
                     <ListItemText
                       key={`${i}-${j}-${point.join('')}`}

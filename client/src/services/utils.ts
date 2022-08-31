@@ -42,6 +42,16 @@ export function convertGeojson(geojson?: FeatureCollection) {
           ])
           flat.push(stuff)
         })
+      } else if (feature.geometry.type === 'MultiPolygon') {
+        feature.geometry.coordinates.forEach((coordinates) => {
+          coordinates.forEach((coord) => {
+            const stuff: [number, number][] = coord.map(([lng, lat]) => [
+              lat,
+              lng,
+            ])
+            flat.push(stuff)
+          })
+        })
       }
     })
   }
