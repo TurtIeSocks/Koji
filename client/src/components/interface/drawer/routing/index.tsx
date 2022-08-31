@@ -13,6 +13,7 @@ export default function EditTab() {
   const generations = useStore((s) => s.generations)
   const setStore = useStore((s) => s.setStore)
   const devices = useStore((s) => s.devices)
+  const min_points = useStore((s) => s.min_points)
 
   return (
     <>
@@ -25,6 +26,7 @@ export default function EditTab() {
         setValue={setStore}
         disabled={mode !== 'route'}
       />
+      <NumInput field="min_points" value={min_points} setValue={setStore} />
       <ListItem disabled={mode === 'bootstrap'}>
         <BtnGroup
           field="category"

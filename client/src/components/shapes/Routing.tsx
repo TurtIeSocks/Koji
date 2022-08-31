@@ -20,6 +20,7 @@ export default function Routes() {
   const setStore = useStore((s) => s.setStore)
   const devices = useStore((s) => s.devices)
   const tab = useStore((s) => s.tab)
+  const min_points = useStore((s) => s.min_points)
 
   const geojson = useStatic((s) => s.geojson)
   const forceRedraw = useStatic((s) => s.forceRedraw)
@@ -30,7 +31,7 @@ export default function Routes() {
         mode === 'bootstrap'
           ? '/api/v1/calc/bootstrap'
           : `/api/v1/calc/${mode}/${category}`,
-        { category, radius, generations, devices, geojson },
+        { category, radius, generations, devices, geojson, min_points },
       ).then((route) => {
         let total = 0
         let max = 0
@@ -49,7 +50,7 @@ export default function Routes() {
         }
       })
     }
-  }, [mode, radius, generations, category, devices, geojson, tab])
+  }, [mode, radius, generations, min_points, category, devices, geojson, tab])
 
   return showCircles || showLines ? (
     <>

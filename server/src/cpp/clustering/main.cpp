@@ -6,7 +6,7 @@
 #include <iterator>
 #include <vector>
 
-rust::Vec<CppPoint> clustering(rust::Vec<CppPoint> r)
+rust::Vec<CppPoint> clustering(rust::Vec<CppPoint> r, rust::i64 min)
 {
   // Copy into Cpp Vector
   std::vector<Point> P;
@@ -19,7 +19,7 @@ rust::Vec<CppPoint> clustering(rust::Vec<CppPoint> r)
   std::list<Point> C;
   FASTCOVER_PP ob(P, C);
 
-  std::cout << "[CLUSTER] Time: " << ob.execute() << " seconds" << std::endl;
+  std::cout << "[CLUSTER] Time: " << ob.execute(min) << " seconds" << std::endl;
 
   // Copy back into Rust Vector
   rust::Vec<CppPoint> result;

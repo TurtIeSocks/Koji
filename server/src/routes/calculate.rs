@@ -1,5 +1,4 @@
 use super::*;
-use crate::cpp::bridge::cpp_cluster;
 use crate::models::scanner::GenericData;
 use crate::models::{
     api::{CustomError, RouteGeneration},
@@ -7,6 +6,7 @@ use crate::models::{
 };
 use crate::queries::{gym, instance::query_instance_route, pokestop, spawnpoint};
 use crate::utils::bootstrapping::generate_circles;
+use crate::utils::project_points::project_points;
 use crate::utils::routing::solve;
 use crate::utils::to_array::{coord_to_array, data_to_array};
 
@@ -25,6 +25,7 @@ async fn bootstrap(
         generations: _generations,
         devices: _devices,
         data_points: _data_points,
+        min_points: _min_points,
     } = payload.into_inner();
     let instance = instance.unwrap_or("".to_string());
     let radius = radius.unwrap_or(1.0);
@@ -89,6 +90,7 @@ async fn cluster(
         devices,
         area,
         data_points,
+        min_points,
     } = payload.into_inner();
     let instance = instance.unwrap_or("".to_string());
     let radius = radius.unwrap_or(1.0);
@@ -96,6 +98,7 @@ async fn cluster(
     let devices = devices.unwrap_or(1);
     let area = area.unwrap_or(vec![]);
     let data_points = data_points.unwrap_or(vec![]);
+    let min_points = min_points.unwrap_or(1);
 
     println!(
         "\n[{}] Radius: {}, Generations: {}, Devices: {}\nInstance: {}, Using Area: {}, Manual Data Points: {}",
@@ -152,7 +155,7 @@ async fn cluster(
         data_points.len()
     );
 
-    let clusters = cpp_cluster(data_to_array(data_points), 98650. / radius);
+    let clusters = project_points(data_to_array(data_points), radius, min_points);
     println!("[{}] Clusters: {}", mode.to_uppercase(), clusters.len());
 
     if mode.eq("cluster") {

@@ -1,4 +1,7 @@
-// SOURCE: https://github.com/ghoshanirban/UnitDiskCoverAlgorithms/blob/main/FASTCOVER-PP.h
+/*
+ * SOURCE
+ * https://github.com/ghoshanirban/UnitDiskCoverAlgorithms/blob/main/FASTCOVER-PP.h
+ */
 
 #ifndef FASTCOVERPP_H
 #define FASTCOVERPP_H
@@ -42,8 +45,17 @@ class FASTCOVER_PP
     typedef std::pair<int, int> intPair;
     typedef std::pair<BoundingBox, bool> diskInfo;
     typedef std::unordered_map<intPair, diskInfo, boost::hash<intPair>> HashMap;
+    typedef std::unordered_map<intPair, int, boost::hash<intPair>> HashMapPoints;
 
-    inline bool static trytoMergeDisk(HashMap &H, HashMap::iterator &iterToSourceDisk, int vPrime, int hPrime, std::list<Point> &diskCenters)
+    inline bool static tryToMergeDisk(
+        HashMap &H,
+        HashMap::iterator &iterToSourceDisk,
+        intPair sourcePair,
+        int vPrime,
+        int hPrime,
+        std::list<Point> &diskCenters,
+        HashMapPoints &HP,
+        int min)
     {
         auto iterToTargetDisk = H.find(std::make_pair(vPrime, hPrime));
 
@@ -59,7 +71,7 @@ class FASTCOVER_PP
 
             Point lowerLeft(minX, minY), upperRight(maxX, maxY);
 
-            if (CGAL::squared_distance(lowerLeft, upperRight) <= 4)
+            if (CGAL::squared_distance(lowerLeft, upperRight) <= 4 && HP.find(sourcePair)->second + HP.find(std::make_pair(vPrime, hPrime))->second >= min)
             {
                 (*iterToSourceDisk).second.second = false;
                 iterToTargetDisk->second.second = false;
@@ -73,7 +85,7 @@ class FASTCOVER_PP
 public:
     FASTCOVER_PP(std::vector<Point> &P, std::list<Point> &diskCenters) : P(P), diskCenters(diskCenters) {}
 
-    double execute()
+    double execute(int min)
     {
         if (P.empty())
         {
@@ -82,16 +94,22 @@ public:
         auto start = std::chrono::high_resolution_clock::now();
 
         HashMap H;
+        HashMapPoints HP;
 
         for (const Point &p : P)
         {
             int v = floor(p.x() / sqrt2), h = floor(p.y() / sqrt2);
             double verticalTimesSqrtTwo = v * sqrt2, horizontalTimesSqrt2 = h * sqrt2;
-
-            auto it = H.find(std::make_pair(v, h));
+            auto pair = std::make_pair(v, h);
+            auto it = H.find(pair);
+            // int total = HP.find(std::make_pair(v, h))->second || 0;
             if (it != H.end())
             {
                 it->second.first.update(p);
+                if (HP.find(pair) != HP.end())
+                {
+                    HP[pair]++;
+                }
                 continue;
             }
 
@@ -101,6 +119,10 @@ public:
                 if (it != H.end() && (CGAL::squared_distance(p, Point(sqrt2 * (v + 1) + additiveFactor, horizontalTimesSqrt2 + additiveFactor)) <= 1))
                 {
                     it->second.first.update(p);
+                    if (HP.find(pair) != HP.end())
+                    {
+                        HP[pair]++;
+                    }
                     continue;
                 }
             }
@@ -111,6 +133,10 @@ public:
                 if (it != H.end() && (CGAL::squared_distance(p, Point(sqrt2 * (v - 1) + additiveFactor, horizontalTimesSqrt2 + additiveFactor)) <= 1))
                 {
                     it->second.first.update(p);
+                    if (HP.find(pair) != HP.end())
+                    {
+                        HP[pair]++;
+                    }
                     continue;
                 }
             }
@@ -121,6 +147,10 @@ public:
                 if (it != H.end() && (CGAL::squared_distance(p, Point(verticalTimesSqrtTwo + additiveFactor, sqrt2 * (h - 1) + additiveFactor)) <= 1))
                 {
                     it->second.first.update(p);
+                    if (HP.find(pair) != HP.end())
+                    {
+                        HP[pair]++;
+                    }
                     continue;
                 }
             }
@@ -131,56 +161,70 @@ public:
                 if (it != H.end() && (CGAL::squared_distance(p, Point(verticalTimesSqrtTwo + additiveFactor, sqrt2 * (h + 1) + additiveFactor)) <= 1))
                 {
                     it->second.first.update(p);
+                    if (HP.find(pair) != HP.end())
+                    {
+                        HP[pair]++;
+                    }
                     continue;
                 }
             }
-            H[std::make_pair(v, h)] = std::make_pair(BoundingBox(p), true);
+            H[pair] = std::make_pair(BoundingBox(p), true);
+            if (HP.find(pair) == HP.end())
+            {
+                HP[pair] = 1;
+            }
         }
 
         for (auto iter = H.begin(); iter != H.end(); ++iter)
         {
             int v = (*iter).first.first, h = (*iter).first.second;
+
             if (!(*iter).second.second)
-            {
                 continue;
-            }
 
             // Attempt to merge with the S disk
-            if (trytoMergeDisk(H, iter, v, h - 1, diskCenters))
+            if (tryToMergeDisk(H, iter, std::make_pair(v, h), v, h - 1, diskCenters, HP, min))
                 continue;
 
             // Attempt to merge with the N disk
-            if (trytoMergeDisk(H, iter, v, h + 1, diskCenters))
+            if (tryToMergeDisk(H, iter, std::make_pair(v, h), v, h + 1, diskCenters, HP, min))
                 continue;
 
             // Attempt to merge with the E disk
-            if (trytoMergeDisk(H, iter, v + 1, h, diskCenters))
+            if (tryToMergeDisk(H, iter, std::make_pair(v, h), v + 1, h, diskCenters, HP, min))
                 continue;
 
             // Attempt to merge with the W disk
-            if (trytoMergeDisk(H, iter, v - 1, h, diskCenters))
+            if (tryToMergeDisk(H, iter, std::make_pair(v, h), v - 1, h, diskCenters, HP, min))
                 continue;
 
             // Attempt to merge with the SW disk
-            if (trytoMergeDisk(H, iter, v - 1, h - 1, diskCenters))
+            if (tryToMergeDisk(H, iter, std::make_pair(v, h), v - 1, h - 1, diskCenters, HP, min))
                 continue;
 
             // Attempt to merge with the SE disk
-            if (trytoMergeDisk(H, iter, v + 1, h - 1, diskCenters))
+            if (tryToMergeDisk(H, iter, std::make_pair(v, h), v + 1, h - 1, diskCenters, HP, min))
                 continue;
 
             // Attempt to merge with the NE disk
-            if (trytoMergeDisk(H, iter, v + 1, h + 1, diskCenters))
+            if (tryToMergeDisk(H, iter, std::make_pair(v, h), v + 1, h + 1, diskCenters, HP, min))
                 continue;
 
             // Attempt to merge with the NW disk
-            if (trytoMergeDisk(H, iter, v - 1, h + 1, diskCenters))
+            if (tryToMergeDisk(H, iter, std::make_pair(v, h), v - 1, h + 1, diskCenters, HP, min))
                 continue;
         }
 
         for (auto aPair : H)
-            if (aPair.second.second)
+        {
+            int v = aPair.first.first, h = aPair.first.second;
+            int f = HP.find(std::make_pair(v, h))->second;
+
+            if (aPair.second.second && f >= min)
+            {
                 diskCenters.emplace_back(Point(aPair.first.first * sqrt2 + additiveFactor, aPair.first.second * sqrt2 + additiveFactor));
+            }
+        }
 
         auto stop = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> duration = stop - start;
@@ -188,4 +232,4 @@ public:
     }
 };
 
-#endif // FASTCOVERPP_H
+#endif
