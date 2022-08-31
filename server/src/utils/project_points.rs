@@ -109,5 +109,6 @@ pub fn project_points(input: Vec<[f64; 2]>, radius: f64, min: i64) -> Vec<[f64; 
         min
     );
     println!("Average scaling: {:?}", sum / output.len() as f64);
+    println!("Disc scaling: {:?}", adjusted_radius / radius);
     final_output
 }
