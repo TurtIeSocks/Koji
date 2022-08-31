@@ -1,3 +1,8 @@
+/*
+ * AUTHOR: ghoshanirban
+ * SOURCE: https://github.com/ghoshanirban/UnitDiskCoverAlgorithms/blob/main/LL2014.h
+ */
+
 #ifndef LIULU_H
 #define LIULU_H
 

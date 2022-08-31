@@ -1,3 +1,8 @@
+/*
+ * AUTHOR: ghoshanirban
+ * SOURCE: https://github.com/ghoshanirban/UnitDiskCoverAlgorithms/blob/main/FASTCOVER-PP.h
+ */
+
 #ifndef FASTCOVERPP_H
 #define FASTCOVERPP_H
 
