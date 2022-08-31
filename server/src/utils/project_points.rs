@@ -61,8 +61,10 @@ pub fn project_points(input: Vec<[f64; 2]>, radius: f64, min: i64) -> Vec<[f64; 
     );
     let plane_y = normalize((-plane_center.1, plane_center.0, 0.));
     let plane_x = cross_product(plane_z, plane_y);
-    let global_scale = dot_product(plane_center, plane_z) / radius;
-    let offset_x = dot_product(plane_center, plane_x) / radius;
+    let earth_minor = Ellipsoid::default().parameters().1;
+    let adjusted_radius = 0.5 * earth_minor * (2. * radius / earth_minor).sin();
+    let global_scale = dot_product(plane_center, plane_z) / adjusted_radius;
+    let offset_x = dot_product(plane_center, plane_x) / adjusted_radius;
     let output: Vec<[f64; 2]> = points
         .iter()
         .map(|p| {
@@ -91,9 +93,9 @@ pub fn project_points(input: Vec<[f64; 2]>, radius: f64, min: i64) -> Vec<[f64; 
     let mut final_output: Vec<[f64; 2]> = Vec::new();
 
     for p in output.iter() {
-        let x = plane_center.0 + plane_x.0 * p[0] * radius + plane_y.0 * p[1] * radius;
-        let y = plane_center.1 + plane_x.1 * p[0] * radius + plane_y.1 * p[1] * radius;
-        let z = plane_center.2 + plane_x.2 * p[0] * radius + plane_y.2 * p[1] * radius;
+        let x = plane_center.0 + (plane_x.0 * p[0] + plane_y.0 * p[1]) * adjusted_radius;
+        let y = plane_center.1 + (plane_x.1 * p[0] + plane_y.1 * p[1]) * adjusted_radius;
+        let z = plane_center.2 + (plane_x.2 * p[0] + plane_y.2 * p[1]) * adjusted_radius;
         let (lat, lon) = radial_project((x, y, z));
         final_output.push([lat.to_degrees(), lon.to_degrees()]);
         let s = dot_product((x, y, z), plane_z) / euclidean_norm2((x, y, z)).sqrt();
