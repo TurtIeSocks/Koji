@@ -102,7 +102,6 @@ public:
             double verticalTimesSqrtTwo = v * sqrt2, horizontalTimesSqrt2 = h * sqrt2;
             auto pair = std::make_pair(v, h);
             auto it = H.find(pair);
-            // int total = HP.find(std::make_pair(v, h))->second || 0;
             if (it != H.end())
             {
                 it->second.first.update(p);
