@@ -82,5 +82,9 @@ export async function getMarkers(
       ).then((res) => res.json()),
     ),
   )
-  return { pokestops, gyms, spawnpoints }
+  return {
+    pokestops: Array.isArray(pokestops) ? pokestops : [],
+    gyms: Array.isArray(gyms) ? gyms : [],
+    spawnpoints: Array.isArray(spawnpoints) ? spawnpoints : [],
+  }
 }

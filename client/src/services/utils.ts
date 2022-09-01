@@ -3,6 +3,7 @@ import { capitalize } from '@mui/material'
 import type { Feature, FeatureCollection, MultiPolygon } from 'geojson'
 import { UseStatic } from '@hooks/useStatic'
 import { ArrayInput, ObjectInput, Shape } from '@assets/types'
+import { UseStore } from '@hooks/useStore'
 
 export function getMapBounds(map: Map) {
   const mapBounds = map.getBounds()
@@ -71,6 +72,7 @@ export function rdmToGeojson(
   selected: UseStatic['selected'],
   instances: UseStatic['instances'],
   existingGeojson: UseStatic['geojson'],
+  radius: UseStore['radius'],
   onlyShapes: true,
 ): Shape[]
 
@@ -78,6 +80,7 @@ export function rdmToGeojson(
   selected: UseStatic['selected'],
   instances: UseStatic['instances'],
   existingGeojson: UseStatic['geojson'],
+  radius: UseStore['radius'],
   onlyShapes: false,
 ): FeatureCollection
 
@@ -85,6 +88,7 @@ export function rdmToGeojson(
   selected: UseStatic['selected'],
   instances: UseStatic['instances'],
   existingGeojson: UseStatic['geojson'],
+  radius: UseStore['radius'],
   onlyShapes: boolean,
 ): FeatureCollection | Shape[] {
   const geojson: FeatureCollection = {
@@ -140,7 +144,7 @@ export function rdmToGeojson(
                     id: `${ins}-${i}`,
                     lat: point.lat,
                     lng: point.lon,
-                    radius: 10,
+                    radius: radius || 10,
                     type: 'circle',
                   })
                 } else {
@@ -149,6 +153,7 @@ export function rdmToGeojson(
                     properties: {
                       name: ins,
                       type: 'circle',
+                      radius: radius || 70,
                     },
                     geometry: {
                       type: 'Point',
@@ -164,7 +169,7 @@ export function rdmToGeojson(
           {
             const {
               area,
-              radius,
+              radius: lRadius,
             }: { area: { lat: number; lon: number }; radius: number } =
               JSON.parse(full.data)
             if (area) {
@@ -172,7 +177,7 @@ export function rdmToGeojson(
                 shapes.push({
                   lat: area.lat,
                   lng: area.lon,
-                  radius,
+                  radius: lRadius || 1000,
                   id: ins,
                   type: 'circle',
                 })
@@ -182,7 +187,7 @@ export function rdmToGeojson(
                   properties: {
                     name: ins,
                     type: 'leveling',
-                    radius: radius || 10,
+                    radius: lRadius || 1000,
                   },
                   geometry: {
                     type: 'Point',
@@ -263,7 +268,12 @@ export function textToFeature(input: string): Feature {
       coordinates: [
         input.split('\n').map((line) => {
           const [lat, lon] = line.split(',').map((x) => +x.trim())
-          if (typeof lat !== 'number' || typeof lon !== 'number') {
+          if (
+            !lat ||
+            typeof lat !== 'number' ||
+            !lon ||
+            typeof lon !== 'number'
+          ) {
             throw new Error('Invalid input')
           }
           return [lon, lat]

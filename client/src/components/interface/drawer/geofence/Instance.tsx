@@ -22,6 +22,7 @@ import {
 import { getData } from '@services/fetches'
 import { useStatic } from '@hooks/useStatic'
 import { type Instance } from '@assets/types'
+import { useStore } from '@hooks/useStore'
 
 const icon = <CheckBoxOutlineBlank fontSize="small" color="primary" />
 const checkedIcon = <CheckBox fontSize="small" color="primary" />
@@ -39,6 +40,8 @@ export default function InstanceSelect() {
   const scannerType = useStatic((s) => s.scannerType)
   const setStatic = useStatic((s) => s.setStatic)
   const setSelected = useStatic((s) => s.setSelected)
+
+  const radius = useStore((s) => s.radius)
 
   const [inputValue, setInputValue] = React.useState('')
   const [loading, setLoading] = React.useState(false)
@@ -62,7 +65,7 @@ export default function InstanceSelect() {
         value={selected}
         inputValue={inputValue}
         size="small"
-        onChange={(_e, newValue) => setSelected(newValue)}
+        onChange={(_e, newValue) => setSelected(newValue, radius)}
         onInputChange={(_e, newValue) => setInputValue(newValue)}
         filterOptions={filterOptions}
         selectOnFocus
@@ -120,6 +123,7 @@ export default function InstanceSelect() {
                             (v) => instances[v].type_ !== group,
                           ),
                         ],
+                    radius,
                   )
                 }}
               >

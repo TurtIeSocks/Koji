@@ -2,11 +2,22 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "pwa-chrome",
+      "type": "lldb",
       "request": "launch",
-      "name": "Launch Chrome against localhost",
+      "name": "Server",
+      "program": "${workspaceFolder}/server/target/debug/koji",
+      "args": [],
+      "cwd": "${workspaceFolder}/server",
+      "sourceLanguages": [
+        "rust"
+      ]
+    },
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Client",
       "url": "http://localhost:8081",
-      "webRoot": "${workspaceFolder}client//src"
+      "webRoot": "${workspaceFolder}/client/src"
     }
   ]
 }

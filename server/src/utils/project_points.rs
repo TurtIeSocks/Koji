@@ -86,7 +86,11 @@ pub fn project_points(input: Vec<[f64; 2]>, radius: f64, min: i32, fast: bool) -
         .iter()
         .map(|point| [point.x, point.y])
         .collect();
-    let output = cluster_count::count(output, clusters, min);
+    let output = if min > 1 {
+        cluster_count::count(output, clusters, min)
+    } else {
+        clusters
+    };
 
     let mut min = 1. / 0.;
     let mut sum = 0.;

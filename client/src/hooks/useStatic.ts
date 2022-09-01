@@ -4,6 +4,7 @@ import * as L from 'leaflet'
 
 import type { Instance, PixiMarker } from '@assets/types'
 import { rdmToGeojson } from '@services/utils'
+import { UseStore } from './useStore'
 
 export interface UseStatic {
   pokestops: PixiMarker[]
@@ -25,7 +26,7 @@ export interface UseStatic {
   activeLayer: L.Polygon | null
   popupLocation: L.LatLng
   setStatic: <T extends keyof UseStatic>(key: T, value: UseStatic[T]) => void
-  setSelected: (incoming: string[]) => void
+  setSelected: (incoming: string[], radius: UseStore['radius']) => void
 }
 
 export const useStatic = create<UseStatic>((set, get) => ({
@@ -55,9 +56,9 @@ export const useStatic = create<UseStatic>((set, get) => ({
   activeLayer: null,
   popupLocation: new L.LatLng(0, 0),
   setStatic: (key, value) => set({ [key]: value }),
-  setSelected: (selected) => {
+  setSelected: (selected, radius) => {
     const { geojson, instances } = get()
-    const newGeojson = rdmToGeojson(selected, instances, geojson, false)
+    const newGeojson = rdmToGeojson(selected, instances, geojson, radius, false)
     set({
       selected,
       geojson: newGeojson,
