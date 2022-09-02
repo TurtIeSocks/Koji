@@ -28,6 +28,7 @@ export default function Routes() {
 
   useDeepCompareEffect(() => {
     if (geojson.features.length && tab === 1) {
+      setStore('export', { ...exportSettings, route: [[]] })
       getLotsOfData(
         mode === 'bootstrap'
           ? '/api/v1/calc/bootstrap'
