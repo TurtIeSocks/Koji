@@ -37,6 +37,8 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(scanner_type.clone()))
+            // increase max payload size to 10MB
+            .app_data(web::JsonConfig::default().limit(10_485_760))
             .wrap(middleware::Logger::new("%s | %r - %b bytes in %D ms (%a)"))
             .service(
                 web::scope("api")
