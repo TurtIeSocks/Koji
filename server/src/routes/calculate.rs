@@ -29,7 +29,7 @@ async fn bootstrap(
         fast: _fast,
     } = payload.into_inner();
     let instance = instance.unwrap_or("".to_string());
-    let radius = radius.unwrap_or(1.0);
+    let radius = radius.unwrap_or(70.0);
     let area = area.unwrap_or(vec![]);
 
     println!(
@@ -95,8 +95,8 @@ async fn cluster(
         fast,
     } = payload.into_inner();
     let instance = instance.unwrap_or("".to_string());
-    let radius = radius.unwrap_or(1.0);
-    let generations = generations.unwrap_or(1);
+    let radius = radius.unwrap_or(70.0);
+    let generations = generations.unwrap_or(100);
     let devices = devices.unwrap_or(1);
     let area = area.unwrap_or(vec![]);
     let data_points = data_points.unwrap_or(vec![]);
@@ -158,15 +158,15 @@ async fn cluster(
         data_points.len()
     );
 
-    let clusters = project_points(data_to_array(data_points), radius, min_points, fast);
+    let clusters = project_points(data_to_array(data_points), radius - 1., min_points, fast);
     println!("[{}] Clusters: {}", mode.to_uppercase(), clusters.len());
 
     if mode.eq("cluster") {
         return Ok(HttpResponse::Ok().json([clusters]));
     }
 
-    let clusters = solve(clusters, generations, devices);
-    let circles: Vec<Vec<(f64, f64)>> = clusters
+    let circles = solve(clusters, generations, devices);
+    let mapped_circles: Vec<Vec<(f64, f64)>> = circles
         .tours
         .iter()
         .map(|p| {
@@ -178,10 +178,9 @@ async fn cluster(
         .collect();
 
     println!(
-        "[{}] Returning {} routes and {} clusters\n",
+        "[{}] Returning {} routes\n",
         mode.to_uppercase(),
-        clusters.tours.len(),
-        circles.len()
+        circles.tours.len(),
     );
-    Ok(HttpResponse::Ok().json(circles))
+    Ok(HttpResponse::Ok().json(mapped_circles))
 }

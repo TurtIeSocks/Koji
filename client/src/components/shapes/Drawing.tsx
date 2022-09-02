@@ -90,33 +90,6 @@ export default function Drawing() {
     })
   }, [geojson, radius])
 
-  useDeepCompareEffect(() => {
-    if (ref.current) {
-      ref.current.eachLayer((layer) => {
-        if (ref.current) layer.removeFrom(ref.current as unknown as L.Map)
-      })
-    }
-    L.geoJSON(geojson).eachLayer((layer) => {
-      if (
-        layer instanceof L.Polyline ||
-        layer instanceof L.Polygon ||
-        layer instanceof L.Marker
-      ) {
-        if (layer?.feature?.properties.radius && ref.current) {
-          new L.Circle(layer.feature.geometry.coordinates.slice().reverse(), {
-            radius: radius || layer.feature?.properties.radius,
-          }).addTo(ref.current)
-        } else if (layer instanceof L.Polygon) {
-          ref.current?.addLayer(
-            layer.on('click', () => setStatic('activeLayer', layer)),
-          )
-        } else {
-          ref.current?.addLayer(layer)
-        }
-      }
-    })
-  }, [geojson, radius])
-
   return (
     <FeatureGroup ref={ref}>
       <GeomanControls

@@ -64,11 +64,11 @@ fn create_problem(services: Vec<[f64; 2]>, devices: Vec<String>) -> Problem {
                 .clone()
                 .into_iter()
                 .enumerate()
-                .map(|(i, lat_lon)| Job {
+                .map(|(i, [lat, lon])| Job {
                     services: Some(vec![JobTask {
                         places: vec![JobPlace {
                             times: None,
-                            location: (lat_lon[0], lat_lon[1]).to_loc(),
+                            location: (lat, lon).to_loc(),
                             duration: 120.,
                             tag: None,
                         }],
@@ -92,7 +92,7 @@ fn create_problem(services: Vec<[f64; 2]>, devices: Vec<String>) -> Problem {
         objectives: Some(vec![vec![
             Objective::MinimizeDistance,
             Objective::MinimizeUnassignedJobs { breaks: None },
-            Objective::MinimizeDuration,
+            // Objective::MinimizeDuration,
             Objective::MinimizeCost,
         ]]),
         fleet: Fleet {
