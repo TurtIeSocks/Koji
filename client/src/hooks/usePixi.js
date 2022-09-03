@@ -163,7 +163,7 @@ export default function usePixi(markers) {
               markerSpriteAnchor[1],
             )
           } else {
-            markerSprite.anchor.set(0.5, 1)
+            markerSprite.anchor.set(0.5, 0.5)
           }
           const markerCoords = project(position)
           markerSprite.x = markerCoords.x

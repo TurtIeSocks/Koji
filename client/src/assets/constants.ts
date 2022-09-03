@@ -8,10 +8,18 @@
 */
 
 export const ICON_SVG = {
-  p: '<svg xmlns="http://www.w3.org/2000/svg" fill="green" width="15" height="15" viewBox="0 0 24 24"><circle cx="10" cy="10" r="10" /></svg>',
-  g: '<svg xmlns="http://www.w3.org/2000/svg" fill="maroon" width="20" height="20" viewBox="0 0 24 24"><circle cx="10" cy="10" r="10" /></svg>',
-  v: '<svg xmlns="http://www.w3.org/2000/svg" fill="deeppink" width="10" height="10" viewBox="0 0 24 24"><circle cx="10" cy="10" r="10" /></svg>',
-  u: '<svg xmlns="http://www.w3.org/2000/svg" fill="dodgerblue" width="10" height="10" viewBox="0 0 24 24"><circle cx="10" cy="10" r="10" /></svg>',
+  v: `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="-2 -2 24 24">
+        <circle cx="10" cy="10" r="10" fill="deeppink" stroke="black" stroke-width="1" />
+      </svg>`,
+  u: `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="-2 -2 24 24">
+        <circle cx="10" cy="10" r="10" fill="dodgerblue" stroke="black" stroke-width="1" />
+      </svg>`,
+  p: `<svg xmlns="http://www.w3.org/2000/svg" height="20" width="20" viewBox="-2 -2 24 24">
+        <circle cx="10" cy="10" r="10" fill="green" stroke="black" stroke-width="1" />
+      </svg>`,
+  g: `<svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="-2 -2 24 24">
+        <circle cx="10" cy="10" r="10" fill="maroon" stroke="black" stroke-width="1" />
+      </svg>`,
 }
 
 export const ICON_RADIUS = {
