@@ -5,7 +5,7 @@ use crate::queries::instance::*;
 
 #[get("/all")]
 async fn all(
-    pool: web::Data<DbPool>,
+    conn: web::Data<DatabaseConnection>,
     scanner_type: web::Data<String>,
 ) -> Result<HttpResponse, Error> {
     let scanner_type = scanner_type.as_ref();
@@ -18,12 +18,10 @@ async fn all(
         }));
     }
 
-    let instances = web::block(move || {
-        let conn = pool.get()?;
-        query_all_instances(&conn, None)
-    })
-    .await?
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    let instances = web::block(move || async move { query_all_instances(&conn, None).await })
+        .await?
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     println!("[INSTANCE_ALL] Returning {} instances\n", instances.len());
     Ok(HttpResponse::Ok().json(instances))
@@ -31,7 +29,7 @@ async fn all(
 
 #[get("/type/{instance_type}")]
 async fn instance_type(
-    pool: web::Data<DbPool>,
+    conn: web::Data<DatabaseConnection>,
     scanner_type: web::Data<String>,
     instance_type: actix_web::web::Path<String>,
 ) -> Result<HttpResponse, Error> {
@@ -49,12 +47,11 @@ async fn instance_type(
         }));
     }
 
-    let instances = web::block(move || {
-        let conn = pool.get()?;
-        query_all_instances(&conn, Some(instance_type))
-    })
-    .await?
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    let instances =
+        web::block(move || async move { query_all_instances(&conn, Some(instance_type)).await })
+            .await?
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
 
     let instances: Vec<String> = instances.iter().map(|inst| inst.name.clone()).collect();
 
@@ -64,7 +61,7 @@ async fn instance_type(
 
 #[post("/area")]
 async fn area(
-    pool: web::Data<DbPool>,
+    conn: web::Data<DatabaseConnection>,
     payload: web::Json<RouteGeneration>,
     scanner_type: web::Data<String>,
 ) -> Result<HttpResponse, Error> {
@@ -87,12 +84,11 @@ async fn area(
         }));
     }
 
-    let instance_data = web::block(move || {
-        let conn = pool.get()?;
-        query_instance_route(&conn, &instance)
-    })
-    .await?
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    let instance_data =
+        web::block(move || async move { query_instance_route(&conn, &instance).await })
+            .await?
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
 
     let instance_data: InstanceData =
         serde_json::from_str(instance_data.data.as_str()).expect("JSON was not well-formatted");

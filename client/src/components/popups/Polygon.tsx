@@ -31,9 +31,7 @@ export default function PolygonPopup() {
     if (feature) {
       setActivePokestops(
         feature
-          ? pokestops.filter((x) =>
-              inside([x.position[1], x.position[0]], feature),
-            ).length
+          ? pokestops.filter((x) => inside([x.p[1], x.p[0]], feature)).length
           : 0,
       )
     }
@@ -43,8 +41,7 @@ export default function PolygonPopup() {
     if (feature) {
       setActiveGyms(
         feature
-          ? gyms.filter((x) => inside([x.position[1], x.position[0]], feature))
-              .length
+          ? gyms.filter((x) => inside([x.p[1], x.p[0]], feature)).length
           : 0,
       )
     }
@@ -54,9 +51,7 @@ export default function PolygonPopup() {
     if (feature) {
       setActiveSpawnpoints(
         feature
-          ? spawnpoints.filter((x) =>
-              inside([x.position[1], x.position[0]], feature),
-            ).length
+          ? spawnpoints.filter((x) => inside([x.p[1], x.p[0]], feature)).length
           : 0,
       )
     }

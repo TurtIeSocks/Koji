@@ -1,5 +1,5 @@
-use crate::cpp::bridge::ffi;
-use crate::utils::cluster_count;
+// use crate::cpp::bridge::ffi;
+// use crate::utils::cluster_count;
 
 use map_3d::{geodetic2ecef, Ellipsoid};
 
@@ -78,19 +78,19 @@ pub fn project_points(input: Vec<[f64; 2]>, radius: f64, min: i32, fast: bool) -
         })
         .collect();
 
-    let cpp_points = output
-        .iter()
-        .map(|[x, y]| ffi::CppPoint { x: *x, y: *y })
-        .collect();
-    let clusters: Vec<[f64; 2]> = ffi::clustering(cpp_points, if fast { 1 } else { 0 })
-        .iter()
-        .map(|point| [point.x, point.y])
-        .collect();
-    let output = if min > 1 {
-        cluster_count::count(output, clusters, min)
-    } else {
-        clusters
-    };
+    // let cpp_points = output
+    //     .iter()
+    //     .map(|[x, y]| ffi::CppPoint { x: *x, y: *y })
+    //     .collect();
+    // let clusters: Vec<[f64; 2]> = ffi::clustering(cpp_points, if fast { 1 } else { 0 })
+    //     .iter()
+    //     .map(|point| [point.x, point.y])
+    //     .collect();
+    // let output = if min > 1 {
+    //     cluster_count::count(output, clusters, min)
+    // } else {
+    //     clusters
+    // };
 
     let mut min = 1. / 0.;
     let mut sum = 0.;

@@ -74,10 +74,10 @@ export default function InstanceSelect() {
         loading={loading}
         handleHomeEndKeys
         disableCloseOnSelect
-        groupBy={(option) => instances[option]?.type_}
+        groupBy={(option) => instances[option]?.type}
         sx={{ width: '90%', mx: 'auto' }}
         options={Object.keys(instances).sort((a, b) =>
-          instances[a].type_.localeCompare(instances[b].type_),
+          instances[a].type?.localeCompare(instances[b].type),
         )}
         renderTags={(val) => (
           <Typography align="center">{val.length} Selected</Typography>
@@ -99,9 +99,7 @@ export default function InstanceSelect() {
         renderGroup={({ key, group, children }) => {
           const allValues = Array.isArray(children)
             ? [...selected, ...children.map((x) => x.key)] // vaguely hacky way to select all filtered results
-            : Object.keys(instances).filter(
-                (k) => instances[k]?.type_ === group,
-              )
+            : Object.keys(instances).filter((k) => instances[k]?.type === group)
           const allSelected = allValues.every((v) => selected.includes(v))
           const partialSelected =
             allSelected || selected.some((v) => allValues.includes(v))
@@ -115,12 +113,12 @@ export default function InstanceSelect() {
                       ? selected.filter(
                           (v) =>
                             !allValues.includes(v) ||
-                            instances[v].type_ !== group,
+                            instances[v].type !== group,
                         )
                       : [
                           ...allValues,
                           ...selected.filter(
-                            (v) => instances[v].type_ !== group,
+                            (v) => instances[v].type !== group,
                           ),
                         ],
                     radius,

@@ -102,7 +102,7 @@ export function rdmToGeojson(
   selected.forEach((ins) => {
     const full = instances[ins]
     if (full) {
-      switch (full.type_) {
+      switch (full.type) {
         case 'auto_quest':
         case 'pokemon_iv':
           {
@@ -114,7 +114,7 @@ export function rdmToGeojson(
                 properties: {
                   id: ins,
                   name: full.name,
-                  type: full.type_,
+                  type: full.type,
                 },
                 geometry: toMultiPolygon(area),
               })
@@ -200,7 +200,7 @@ export function rdmToGeojson(
           break
         default:
           // eslint-disable-next-line no-console
-          console.log('Unknown type:', full.type_)
+          console.log('Unknown type:', full.type)
       }
     }
   })

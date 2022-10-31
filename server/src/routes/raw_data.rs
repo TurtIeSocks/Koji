@@ -1,6 +1,5 @@
 use super::*;
 use crate::queries::{gym, instance::query_instance_route, pokestop, spawnpoint};
-use crate::utils::pixi_marker::pixi_marker;
 use crate::{
     models::{
         api::{CustomError, MapBounds, RouteGeneration},
@@ -11,7 +10,7 @@ use crate::{
 
 #[get("/all/{category}")]
 async fn all(
-    pool: web::Data<DbPool>,
+    conn: web::Data<DatabaseConnection>,
     scanner_type: web::Data<String>,
     category: actix_web::web::Path<String>,
 ) -> Result<HttpResponse, Error> {
@@ -24,20 +23,17 @@ async fn all(
         scanner_type, category
     );
 
-    let all_data = web::block(move || {
-        let conn = pool.get()?;
-        if category == "gym" {
-            gym::all(&conn)
-        } else if category == "pokestop" {
-            pokestop::all(&conn)
-        } else {
-            spawnpoint::all(&conn)
+    let all_data = web::block(move || async move {
+        match category.as_str() {
+            "gym" => gym::all(&conn).await,
+            "pokestop" => pokestop::all(&conn).await,
+            "spawnpoint" => spawnpoint::all(&conn).await,
+            _ => Err(DbErr::Custom("invalid_category".to_string())),
         }
     })
     .await?
+    .await
     .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    let all_data = pixi_marker(&all_data, &category_copy);
 
     println!(
         "[DATA-ALL] Returning {} {}s\n",
@@ -49,7 +45,7 @@ async fn all(
 
 #[post("/bound/{category}")]
 async fn bound(
-    pool: web::Data<DbPool>,
+    conn: web::Data<DatabaseConnection>,
     scanner_type: web::Data<String>,
     category: actix_web::web::Path<String>,
     payload: web::Json<MapBounds>,
@@ -63,20 +59,17 @@ async fn bound(
         scanner_type, category
     );
 
-    let bound_data = web::block(move || {
-        let conn = pool.get()?;
-        if category == "gym" {
-            gym::bound(&conn, &payload)
-        } else if category == "pokestop" {
-            pokestop::bound(&conn, &payload)
-        } else {
-            spawnpoint::bound(&conn, &payload)
+    let bound_data = web::block(move || async move {
+        match category.as_str() {
+            "gym" => gym::bound(&conn, &payload).await,
+            "pokestop" => pokestop::bound(&conn, &payload).await,
+            "spawnpoint" => spawnpoint::bound(&conn, &payload).await,
+            _ => Err(DbErr::Custom("invalid_category".to_string())),
         }
     })
     .await?
+    .await
     .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    let bound_data = pixi_marker(&bound_data, &category_copy);
 
     println!(
         "[DATA-BOUND] Returning {} {}s\n",
@@ -88,7 +81,7 @@ async fn bound(
 
 #[post("/area/{category}")]
 async fn area(
-    pool: web::Data<DbPool>,
+    conn: web::Data<DatabaseConnection>,
     scanner_type: web::Data<String>,
     category: actix_web::web::Path<String>,
     payload: web::Json<RouteGeneration>,
@@ -129,28 +122,26 @@ async fn area(
         }));
     }
 
-    let area_data = web::block(move || {
-        let conn = pool.get()?;
+    let area_data = web::block(move || async move {
         let area = if area.len() > 0 {
             area
         } else {
-            let data = query_instance_route(&conn, &instance)?;
+            let data = query_instance_route(&conn, &instance).await?;
             let data: InstanceData =
                 serde_json::from_str(data.data.as_str()).expect("JSON was not well-formatted");
             coord_to_array(data.area[0].clone())
         };
         if category == "gym" {
-            gym::area(&conn, &area)
+            gym::area(&conn, &area).await
         } else if category == "pokestop" {
-            pokestop::area(&conn, &area)
+            pokestop::area(&conn, &area).await
         } else {
-            spawnpoint::area(&conn, &area)
+            spawnpoint::area(&conn, &area).await
         }
     })
     .await?
+    .await
     .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    let area_data = pixi_marker(&area_data, &category_copy);
 
     println!(
         "[DATA-AREA] Returning {} {}s\n",

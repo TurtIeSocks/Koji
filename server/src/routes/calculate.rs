@@ -12,7 +12,7 @@ use crate::utils::to_array::{coord_to_array, data_to_array};
 
 #[post("/bootstrap")]
 async fn bootstrap(
-    pool: web::Data<DbPool>,
+    conn: web::Data<DatabaseConnection>,
     scanner_type: web::Data<String>,
     payload: web::Json<RouteGeneration>,
 ) -> Result<HttpResponse, Error> {
@@ -54,12 +54,11 @@ async fn bootstrap(
     let area = if area.len() > 0 {
         area
     } else if !instance.is_empty() && scanner_type.eq("rdm") {
-        let instance = web::block(move || {
-            let conn = pool.get()?;
-            query_instance_route(&conn, &instance)
-        })
-        .await?
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+        let instance =
+            web::block(move || async move { query_instance_route(&conn, &instance).await })
+                .await?
+                .await
+                .map_err(actix_web::error::ErrorInternalServerError)?;
 
         let data: InstanceData =
             serde_json::from_str(instance.data.as_str()).expect("JSON was not well-formatted");
@@ -76,7 +75,7 @@ async fn bootstrap(
 
 #[post("/{mode}/{category}")]
 async fn cluster(
-    pool: web::Data<DbPool>,
+    conn: web::Data<DatabaseConnection>,
     scanner_type: web::Data<String>,
     url: actix_web::web::Path<(String, String)>,
     payload: web::Json<RouteGeneration>,
@@ -122,12 +121,11 @@ async fn cluster(
     let data_points = if data_points.len() > 0 {
         data_points
     } else {
-        web::block(move || {
-            let conn = pool.get()?;
+        web::block(move || async move {
             let instance = if instance.is_empty() {
                 None
             } else {
-                Some(query_instance_route(&conn, &instance)?)
+                Some(query_instance_route(&conn, &instance).await?)
             };
             let area = if instance.is_some() && area.len() == 0 {
                 let instance_data: InstanceData =
@@ -139,17 +137,18 @@ async fn cluster(
             };
             if area.len() > 1 {
                 if category == "gym" {
-                    gym::area(&conn, &area)
+                    gym::area(&conn, &area).await
                 } else if category == "pokestop" {
-                    pokestop::area(&conn, &area)
+                    pokestop::area(&conn, &area).await
                 } else {
-                    spawnpoint::area(&conn, &area)
+                    spawnpoint::area(&conn, &area).await
                 }
             } else {
                 Ok(Vec::<GenericData>::new())
             }
         })
         .await?
+        .await
         .map_err(actix_web::error::ErrorInternalServerError)?
     };
     println!(

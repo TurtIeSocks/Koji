@@ -22,14 +22,14 @@ export const ICON_SVG = {
       </svg>`,
 }
 
-export const ICON_RADIUS = {
+export const ICON_RADIUS: Record<string, number> = {
   p: 15,
   g: 20,
   v: 10,
   u: 10,
 }
 
-export const ICON_COLOR = {
+export const ICON_COLOR: Record<string, string> = {
   p: 'green',
   g: 'maroon',
   v: 'deeppink',

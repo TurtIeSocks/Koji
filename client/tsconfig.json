@@ -4,7 +4,7 @@
 		"noImplicitThis": true,
 		"strictNullChecks": true,
 		"esModuleInterop": true,
-		"module": "ES2020",
+		"module": "ESNext",
 		"moduleResolution": "node",
 		"removeComments": true,
 		"downlevelIteration": true,
@@ -13,14 +13,13 @@
 		"baseUrl": "./src",
 		"rootDir": "./",
 		"lib": [
-			"es6",
 			"ESNext",
 			"dom"
 		],
 		"jsx": "react",
 		"strict": true,
 		"sourceMap": true,
-		"target": "es2020",
+		"target": "ESNext",
 		"skipLibCheck": true,
 		"allowJs": true,
 		"paths": {

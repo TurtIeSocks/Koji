@@ -1,5 +1,4 @@
 /* eslint-disable no-param-reassign */
-/* eslint-disable no-console */
 
 // TODO: CONVERT TO TS
 
@@ -9,6 +8,8 @@ import * as L from 'leaflet'
 import * as PIXI from 'pixi.js'
 import 'leaflet-pixi-overlay'
 import { useMap } from 'react-leaflet'
+
+import { ICON_SVG } from '../assets/constants'
 
 function openPopup(map, data, extraOptions = {}, isPopup = false) {
   const popup = L.popup({ offset: data.offset, ...extraOptions })
@@ -39,11 +40,6 @@ function getEncodedIcon(svg) {
   return `data:image/svg+xml;base64,${base64}`
 }
 
-function getDefaultIcon(color) {
-  const svgIcon = `<svg style="-webkit-filter: drop-shadow( 1px 1px 1px rgba(0, 0, 0, .4));filter: drop-shadow( 1px 1px 1px rgba(0, 0, 0, .4));" xmlns="http://www.w3.org/2000/svg" fill="${color}" width="36" height="36" viewBox="0 0 24 24"><path d="M12 0c-4.198 0-8 3.403-8 7.602 0 6.243 6.377 6.903 8 16.398 1.623-9.495 8-10.155 8-16.398 0-4.199-3.801-7.602-8-7.602zm0 11c-1.657 0-3-1.343-3-3s1.342-3 3-3 3 1.343 3 3-1.343 3-3 3z"/></svg>`
-  return getEncodedIcon(svgIcon)
-}
-
 PIXI.settings.FAIL_IF_MAJOR_PERFORMANCE_CAVEAT = false
 PIXI.utils.skipHello()
 const PIXILoader = PIXI.Loader.shared
@@ -59,9 +55,6 @@ export default function usePixi(markers) {
   if (map.getZoom() === undefined) {
     // this if statement is to avoid getContainer error
     // map must have zoom prop
-    console.error(
-      'no zoom found, add zoom prop to map to avoid getContainer error',
-    )
     return null
   }
 
@@ -73,7 +66,7 @@ export default function usePixi(markers) {
     }
     let loadingAny = false
     for (let i = 0; i < markers.length; i += 1) {
-      const resolvedMarkerId = markers[i].iconId || markers[i].iconColor
+      const resolvedMarkerId = markers[i].i[0]
       // skip if no ID or already cached
       if (
         !PIXILoader.resources[`marker_${resolvedMarkerId}`] &&
@@ -82,9 +75,7 @@ export default function usePixi(markers) {
         loadingAny = true
         PIXILoader.add(
           `marker_${resolvedMarkerId}`,
-          markers[i].customIcon
-            ? getEncodedIcon(markers[i].customIcon || '')
-            : getDefaultIcon(markers[i].iconColor || ''),
+          getEncodedIcon(ICON_SVG[markers[i].i[0]] || ''),
         )
       }
     }
@@ -129,11 +120,9 @@ export default function usePixi(markers) {
       const scale = utils.getScale(16)
       markers.forEach((marker) => {
         const {
-          id,
-          iconColor,
-          iconId,
+          i,
           onClick,
-          position,
+          p,
           popup,
           tooltip,
           tooltipOptions,
@@ -141,7 +130,7 @@ export default function usePixi(markers) {
           markerSpriteAnchor,
           angle,
         } = marker
-        const resolvedIconId = iconId || iconColor
+        const resolvedIconId = i[0]
         if (
           !PIXILoader.resources[`marker_${resolvedIconId}`] ||
           !PIXILoader.resources[`marker_${resolvedIconId}`].texture
@@ -165,7 +154,7 @@ export default function usePixi(markers) {
           } else {
             markerSprite.anchor.set(0.5, 0.5)
           }
-          const markerCoords = project(position)
+          const markerCoords = project(p)
           markerSprite.x = markerCoords.x
           markerSprite.y = markerCoords.y
           if (angle) {
@@ -174,9 +163,9 @@ export default function usePixi(markers) {
           markerSprite.scale.set(1 / scale)
           if (popupOpen) {
             setOpenedPopupData({
-              id,
+              id: i,
               offset: [0, -35],
-              position,
+              position: p,
               content: popup || '',
               onClick,
             })
@@ -194,7 +183,7 @@ export default function usePixi(markers) {
               })
               markerSprite.on('mouseup', () => {
                 if (moveCount < 2 && onClick) {
-                  onClick(id)
+                  onClick(i)
                 }
               })
             })
@@ -206,7 +195,7 @@ export default function usePixi(markers) {
               })
               markerSprite.on('touchend', () => {
                 if (moveCount < 10 && onClick) {
-                  onClick(id)
+                  onClick(i)
                 }
               })
             })
@@ -216,9 +205,9 @@ export default function usePixi(markers) {
           if (tooltip) {
             markerSprite.on('mouseover', () => {
               setOpenedTooltipData({
-                id,
+                id: i,
                 offset: [0, -35],
-                position,
+                position: p,
                 content: tooltip,
                 tooltipOptions: tooltipOptions || {},
               })

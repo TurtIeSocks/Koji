@@ -1,44 +1,47 @@
 use super::*;
-use crate::db::{schema::instance::dsl::*, sql_types::InstanceType};
-use crate::models::scanner::Instance;
+use crate::entities::{instance, sea_orm_active_enums};
+// use crate::db::{schema::instance::dsl::*, sql_types::InstanceType};
+// use crate::models::scanner::Instance;
 
-pub fn query_all_instances(
-    conn: &MysqlConnection,
+pub async fn query_all_instances(
+    conn: &DatabaseConnection,
     instance_type: Option<String>,
-) -> Result<Vec<Instance>, DbError> {
+) -> Result<Vec<instance::Model>, DbErr> {
     let instance_type = match instance_type {
         Some(instance_type) => match instance_type.as_str() {
-            "auto_quest" => Some(InstanceType::auto_quest),
-            "circle_pokemon" => Some(InstanceType::circle_pokemon),
-            "circle_smart_pokemon" => Some(InstanceType::circle_smart_pokemon),
-            "circle_raid" => Some(InstanceType::circle_raid),
-            "circle_smart_raid" => Some(InstanceType::circle_smart_raid),
-            "pokemon_iv" => Some(InstanceType::pokemon_iv),
-            "leveling" => Some(InstanceType::leveling),
+            "auto_quest" => Some(sea_orm_active_enums::Type::AutoQuest),
+            "circle_pokemon" => Some(sea_orm_active_enums::Type::CirclePokemon),
+            "circle_smart_pokemon" => Some(sea_orm_active_enums::Type::CircleSmartPokemon),
+            "circle_raid" => Some(sea_orm_active_enums::Type::CircleRaid),
+            "circle_smart_raid" => Some(sea_orm_active_enums::Type::CircleSmartRaid),
+            "pokemon_iv" => Some(sea_orm_active_enums::Type::PokemonIv),
+            "leveling" => Some(sea_orm_active_enums::Type::Leveling),
             _ => None,
         },
         None => None,
     };
     let items = if instance_type.is_some() {
-        instance
-            .filter(type_.eq(instance_type.unwrap()))
-            .load::<Instance>(conn)
-            .expect("Error loading instances")
+        instance::Entity::find()
+            .filter(instance::Column::Type.eq(instance_type.unwrap()))
+            .all(conn)
+            .await?
     } else {
-        instance
-            .load::<Instance>(conn)
-            .expect("Error loading instances")
+        instance::Entity::find().all(conn).await?
     };
     Ok(items)
 }
 
-pub fn query_instance_route(
-    conn: &MysqlConnection,
+pub async fn query_instance_route(
+    conn: &DatabaseConnection,
     instance_name: &String,
-) -> Result<Instance, DbError> {
-    let items = instance
-        .filter(name.eq(instance_name))
-        .first::<Instance>(conn)
-        .expect("No instance found");
-    Ok(items)
+) -> Result<instance::Model, DbErr> {
+    let items = instance::Entity::find()
+        .filter(instance::Column::Name.contains(instance_name))
+        .one(conn)
+        .await?;
+    if items.is_some() {
+        Ok(items.unwrap())
+    } else {
+        Err(DbErr::Custom("Instance not found".to_string()))
+    }
 }

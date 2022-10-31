@@ -1,6 +1,6 @@
-use diesel::prelude::{ExpressionMethods, MysqlConnection, QueryDsl, RunQueryDsl};
-use diesel::sql_query;
-type DbError = Box<dyn std::error::Error + Send + Sync>;
+use sea_orm::*;
+
+// use sea_orm::{DatabaseConnection, DbErr};
 
 pub mod gym;
 pub mod instance;

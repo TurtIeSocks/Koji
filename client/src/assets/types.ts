@@ -8,14 +8,13 @@ export interface Data {
 }
 
 export interface PixiMarker {
-  id: string
-  iconId: 'p' | 'g' | 'v' | 'u'
-  position: [number, number]
+  i: `${'p' | 'g' | 'v' | 'u'}${number}`
+  p: [number, number]
 }
 
 export interface Instance {
   name: string
-  type_: string
+  type: string
   data: string
 }
 

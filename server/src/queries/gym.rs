@@ -1,37 +1,57 @@
 use super::*;
-use crate::db::schema::gym::dsl::*;
-use crate::models::{
-    api::MapBounds,
-    scanner::{GenericData, Gym},
-};
+use crate::entities::gym;
+
+use crate::models::scanner::LatLon;
+use crate::models::{api::MapBounds, scanner::GenericData};
 use crate::utils::sql_raw::sql_raw;
 
-pub fn return_generic(items: Vec<Gym>) -> Vec<GenericData> {
+pub fn return_generic(items: Vec<LatLon>) -> Vec<GenericData> {
     items
         .into_iter()
-        .map(|item| GenericData::new(item.id, item.lat, item.lon, None))
+        .enumerate()
+        .map(|(i, item)| GenericData::new(format!("g{}", i), item.lat, item.lon))
         .collect()
 }
 
-pub fn all(conn: &MysqlConnection) -> Result<Vec<GenericData>, DbError> {
-    let items = gym.select((id, lat, lon)).load::<Gym>(conn)?;
+pub async fn all(conn: &DatabaseConnection) -> Result<Vec<GenericData>, DbErr> {
+    let items = gym::Entity::find()
+        .select_only()
+        .column(gym::Column::Lat)
+        .column(gym::Column::Lon)
+        .into_model::<LatLon>()
+        .all(conn)
+        .await?;
     Ok(return_generic(items))
 }
 
-pub fn bound(conn: &MysqlConnection, payload: &MapBounds) -> Result<Vec<GenericData>, DbError> {
-    let items = gym
-        .filter(lat.lt(payload.max_lat))
-        .filter(lat.gt(payload.min_lat))
-        .filter(lon.lt(payload.max_lon))
-        .filter(lon.gt(payload.min_lon))
-        .select((id, lat, lon))
-        .load::<Gym>(conn)?;
+pub async fn bound(
+    conn: &DatabaseConnection,
+    payload: &MapBounds,
+) -> Result<Vec<GenericData>, DbErr> {
+    let items = gym::Entity::find()
+        .select_only()
+        .column(gym::Column::Lat)
+        .column(gym::Column::Lon)
+        .filter(gym::Column::Lat.between(payload.min_lat, payload.max_lat))
+        .filter(gym::Column::Lon.between(payload.min_lon, payload.max_lon))
+        .into_model::<LatLon>()
+        .all(conn)
+        .await?;
     Ok(return_generic(items))
 }
 
-pub fn area(conn: &MysqlConnection, area: &Vec<[f64; 2]>) -> Result<Vec<GenericData>, DbError> {
-    let items = sql_query(sql_raw(area, "gym"))
-        .load::<Gym>(conn)
-        .expect("Error loading gyms");
+pub async fn area(
+    conn: &DatabaseConnection,
+    area: &Vec<[f64; 2]>,
+) -> Result<Vec<GenericData>, DbErr> {
+    let items = gym::Entity::find()
+        .from_raw_sql(Statement::from_sql_and_values(
+            DbBackend::MySql,
+            r#"SELECT lat, lon FROM gym $1"#,
+            vec![sql_raw(area).into()],
+        ))
+        .into_model::<LatLon>()
+        .all(conn)
+        .await?;
     Ok(return_generic(items))
 }
