@@ -67,7 +67,8 @@ export async function getMarkers(
   spawnpoints: boolean,
   gyms: boolean,
 ): Promise<Data> {
-  const flat = geojson.features.length ? convertGeojson(geojson) : [[]]
+  const flat =
+    geojson.features.length && data === 'area' ? convertGeojson(geojson) : [[]]
   const stuff = await Promise.all(
     flat.map((area) =>
       Promise.all(
@@ -103,12 +104,14 @@ export async function getMarkers(
     spawnpoints: [],
   }
   stuff.forEach((area) => {
-    if (geojson.features.length) {
+    if (geojson.features.length && data === 'area') {
       returnData.pokestops.push(...area[0])
       returnData.gyms.push(...area[1])
       returnData.spawnpoints.push(...area[2])
     } else {
-      ;[returnData.pokestops, returnData.gyms, returnData.spawnpoints] = area
+      returnData.pokestops = Array.isArray(area[0]) ? area[0] : []
+      returnData.gyms = Array.isArray(area[1]) ? area[1] : []
+      returnData.spawnpoints = Array.isArray(area[2]) ? area[2] : []
     }
   })
   return returnData

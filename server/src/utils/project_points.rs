@@ -68,14 +68,14 @@ pub fn project_points(input: Vec<[f64; 2]>, radius: f64, min: i32, fast: bool) -
     let adjusted_radius = 0.5 * earth_minor * (2. * radius / earth_minor).sin();
     let global_scale = dot_product(plane_center, plane_z) / adjusted_radius;
     let offset_x = dot_product(plane_center, plane_x) / adjusted_radius;
-    let output: Vec<[f64; 2]> = points
+    let output: Vec<Coordinate> = points
         .iter()
         .map(|p| {
             let scale = global_scale / dot_product(*p, plane_z);
-            [
-                dot_product(*p, plane_x) * scale - offset_x,
-                dot_product(*p, plane_y) * scale,
-            ]
+            Coordinate {
+                x: dot_product(*p, plane_x) * scale - offset_x,
+                y: dot_product(*p, plane_y) * scale,
+            }
         })
         .collect();
 
@@ -93,12 +93,7 @@ pub fn project_points(input: Vec<[f64; 2]>, radius: f64, min: i32, fast: bool) -
     //     clusters
     // };
 
-    let coords: Vec<Coordinate> = output
-        .iter()
-        .map(|[x, y]| Coordinate { x: *x, y: *y })
-        .collect();
-
-    let output: Vec<[f64; 2]> = udc(coords).iter().map(|c| [c.x, c.y]).collect();
+    let output = udc(output);
 
     let mut min = 1. / 0.;
     let mut sum = 0.;
