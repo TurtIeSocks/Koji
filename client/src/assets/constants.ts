@@ -20,21 +20,21 @@ export const ICON_SVG = {
   g: `<svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="-2 -2 24 24">
         <circle cx="10" cy="10" r="10" fill="maroon" stroke="black" stroke-width="1" />
       </svg>`,
-}
+} as const
 
-export const ICON_RADIUS: Record<string, number> = {
+export const ICON_RADIUS = {
   p: 15,
   g: 20,
   v: 10,
   u: 10,
-}
+} as const
 
-export const ICON_COLOR: Record<string, string> = {
+export const ICON_COLOR = {
   p: 'green',
   g: 'maroon',
   v: 'deeppink',
   u: 'dodgerblue',
-}
+} as const
 
 export const TABS = ['geofences', 'routing'] as const
 

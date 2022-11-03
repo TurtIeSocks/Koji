@@ -8,7 +8,7 @@ export interface Data {
 }
 
 export interface PixiMarker {
-  i: `${'p' | 'g' | 'v' | 'u'}${number}`
+  i: `${'p' | 'g' | 'v' | 'u'}${number}` & { [0]: 'p' | 'g' | 'v' | 'u' }
   p: [number, number]
 }
 

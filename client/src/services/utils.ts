@@ -103,8 +103,8 @@ export function rdmToGeojson(
     const full = instances[ins]
     if (full) {
       switch (full.type) {
-        case 'auto_quest':
-        case 'pokemon_iv':
+        case 'AutoQuest':
+        case 'PokemonIv':
           {
             const { area }: { area: { lat: number; lon: number }[][] } =
               JSON.parse(full.data)
@@ -130,10 +130,10 @@ export function rdmToGeojson(
             }
           }
           break
-        case 'circle_pokemon':
-        case 'circle_smart_pokemon':
-        case 'circle_raid':
-        case 'circle_smart_raid':
+        case 'CirclePokemon':
+        case 'CircleSmartPokemon':
+        case 'CircleRaid':
+        case 'CircleSmartRaid':
           {
             const { area }: { area: { lat: number; lon: number }[] } =
               JSON.parse(full.data)
@@ -165,7 +165,7 @@ export function rdmToGeojson(
             }
           }
           break
-        case 'leveling':
+        case 'Leveling':
           {
             const {
               area,
