@@ -64,7 +64,11 @@ pub async fn area(
     let items = spawnpoint::Entity::find()
         .from_raw_sql(Statement::from_sql_and_values(
             DbBackend::MySql,
-            r#"SELECT lat, lon, despawn_sec FROM spawnpoint $1"#,
+            format!(
+                "SELECT lat, lon, despawn_sec FROM spawnpoint {}",
+                sql_raw(area)
+            )
+            .as_str(),
             vec![(sql_raw(area)).into()],
         ))
         .into_model::<TrimmedSpawn>()

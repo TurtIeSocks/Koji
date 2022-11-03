@@ -48,8 +48,8 @@ pub async fn area(
     let items = pokestop::Entity::find()
         .from_raw_sql(Statement::from_sql_and_values(
             DbBackend::MySql,
-            r#"SELECT lat, lon FROM pokestop $1"#,
-            vec![sql_raw(area).into()],
+            format!("SELECT lat, lon FROM pokestop {}", sql_raw(area)).as_str(),
+            vec![],
         ))
         .into_model::<LatLon>()
         .all(conn)

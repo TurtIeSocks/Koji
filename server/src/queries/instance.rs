@@ -9,12 +9,19 @@ pub async fn query_all_instances(
 ) -> Result<Vec<instance::Model>, DbErr> {
     let instance_type = match instance_type {
         Some(instance_type) => match instance_type.as_str() {
+            "AutoQuest" => Some(sea_orm_active_enums::Type::AutoQuest),
             "auto_quest" => Some(sea_orm_active_enums::Type::AutoQuest),
+            "CirclePokemon" => Some(sea_orm_active_enums::Type::CirclePokemon),
             "circle_pokemon" => Some(sea_orm_active_enums::Type::CirclePokemon),
+            "CircleSmartPokemon" => Some(sea_orm_active_enums::Type::CircleSmartPokemon),
             "circle_smart_pokemon" => Some(sea_orm_active_enums::Type::CircleSmartPokemon),
+            "CircleRaid" => Some(sea_orm_active_enums::Type::CircleRaid),
             "circle_raid" => Some(sea_orm_active_enums::Type::CircleRaid),
+            "CircleSmartRaid" => Some(sea_orm_active_enums::Type::CircleSmartRaid),
             "circle_smart_raid" => Some(sea_orm_active_enums::Type::CircleSmartRaid),
+            "PokemonIv" => Some(sea_orm_active_enums::Type::PokemonIv),
             "pokemon_iv" => Some(sea_orm_active_enums::Type::PokemonIv),
+            "Leveling" => Some(sea_orm_active_enums::Type::Leveling),
             "leveling" => Some(sea_orm_active_enums::Type::Leveling),
             _ => None,
         },

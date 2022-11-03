@@ -1227,6 +1227,7 @@ dependencies = [
  "futures",
  "geo",
  "map_3d",
+ "rstar",
  "sea-orm",
  "serde",
  "serde_json",

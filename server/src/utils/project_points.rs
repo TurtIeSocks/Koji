@@ -1,6 +1,7 @@
 // use crate::cpp::bridge::ffi;
-// use crate::utils::cluster_count;
+use crate::utils::clustering::udc;
 
+use geo::Coordinate;
 use map_3d::{geodetic2ecef, Ellipsoid};
 
 type Geocentric = (f64, f64, f64);
@@ -91,6 +92,13 @@ pub fn project_points(input: Vec<[f64; 2]>, radius: f64, min: i32, fast: bool) -
     // } else {
     //     clusters
     // };
+
+    let coords: Vec<Coordinate> = output
+        .iter()
+        .map(|[x, y]| Coordinate { x: *x, y: *y })
+        .collect();
+
+    let output: Vec<[f64; 2]> = udc(coords).iter().map(|c| [c.x, c.y]).collect();
 
     let mut min = 1. / 0.;
     let mut sum = 0.;
