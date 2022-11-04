@@ -34,29 +34,6 @@ impl NewAndUpdate for BoundingBox {
     }
 }
 
-trait ToKey {
-    fn to_key(self) -> String;
-}
-
-impl ToKey for Coordinate {
-    fn to_key(self) -> String {
-        format!("{},{}", self.x, self.y)
-    }
-}
-
-trait FromKey {
-    fn from_key(self) -> [f64; 2];
-}
-
-impl FromKey for String {
-    fn from_key(self) -> [f64; 2] {
-        let mut iter = self.split(',');
-        let x = iter.next().unwrap().parse::<f64>().unwrap();
-        let y = iter.next().unwrap().parse::<f64>().unwrap();
-        [x, y]
-    }
-}
-
 trait Midpoint {
     fn midpoint(&self, other: &Coordinate) -> [f64; 2];
 }
@@ -67,64 +44,48 @@ impl Midpoint for Coordinate {
     }
 }
 
+type PointTuple = (i32, i32);
+type PointInfo = (BoundingBox, bool, i32);
+type ClusterMap = HashMap<PointTuple, PointInfo>;
+
 fn try_to_merge(
-    point_map: &HashMap<String, (BoundingBox, bool)>,
-    point: (&String, &(BoundingBox, bool)),
-    v: f64,
-    h: f64,
+    point: (&(i32, i32), &(BoundingBox, bool, i32)),
+    v: i32,
+    h: i32,
     clusters: &mut Vec<[f64; 2]>,
-    point_map_2: &mut HashMap<String, (BoundingBox, bool)>,
+    point_map_2: &mut ClusterMap,
 ) -> bool {
-    let found_cluster = point_map.get(&format!("{},{}", v, h));
+    let found_cluster = point_map_2.get(&(v, h));
     if found_cluster.is_none() {
         return false;
     }
     let found_cluster = found_cluster.unwrap();
 
     if found_cluster.1 {
-        let min_x = if point.1 .0.min_x < found_cluster.0.min_x {
-            point.1 .0.min_x
-        } else {
-            found_cluster.0.min_x
+        let lower_left = Coordinate {
+            x: point.1 .0.min_x.min(found_cluster.0.min_x),
+            y: point.1 .0.min_y.min(found_cluster.0.min_y),
         };
-        let min_y = if point.1 .0.min_y < found_cluster.0.min_y {
-            point.1 .0.min_y
-        } else {
-            found_cluster.0.min_y
+        let upper_right = Coordinate {
+            x: point.1 .0.max_x.max(found_cluster.0.max_x),
+            y: point.1 .0.max_y.max(found_cluster.0.max_y),
         };
-        let max_x = if point.1 .0.max_x > found_cluster.0.max_x {
-            point.1 .0.max_x
-        } else {
-            found_cluster.0.max_x
-        };
-        let max_y = if point.1 .0.max_y > found_cluster.0.max_y {
-            point.1 .0.max_y
-        } else {
-            found_cluster.0.max_y
-        };
-
-        let lower_left = Coordinate { x: min_x, y: min_y };
-        let upper_right = Coordinate { x: max_x, y: max_y };
 
         if lower_left.distance_2(&upper_right) <= 4. {
             clusters.push(lower_left.midpoint(&upper_right));
-            // point_map_2
-            //     .entry(format!("{},{}", v, h))
-            //     .and_modify(|saved| saved.1 = false);
-            // point_map_2
-            //     .entry(point.0.to_string())
-            //     .and_modify(|saved| saved.1 = false);
+            point_map_2
+                .entry((v, h))
+                .and_modify(|saved| saved.1 = false);
+            point_map_2
+                .entry(*point.0)
+                .and_modify(|saved| saved.1 = false);
             return true;
         }
     }
     false
 }
 
-fn update(
-    point_map: &mut HashMap<(i32, i32), (BoundingBox, bool, i32)>,
-    key: (i32, i32),
-    p: &Coordinate,
-) {
+fn update(point_map: &mut ClusterMap, key: PointTuple, p: &Coordinate) {
     point_map.entry(key).and_modify(|saved| {
         saved.0 = saved.0.update(*p);
         saved.2 += 1;
@@ -138,8 +99,7 @@ pub fn udc(points: Vec<Coordinate>, min: i32) -> Vec<[f64; 2]> {
     let sqrt2_x_one_point_five_plus_one: f64 = (sqrt2 * 1.5) + 1.;
 
     let time = Instant::now();
-    let mut point_map: HashMap<(i32, i32), (BoundingBox, bool, i32)> = HashMap::new();
-    // let mut cluster_map: HashMap<(i32, i32), Vec<[f64; 2]>> = HashMap::new();
+    let mut point_map: ClusterMap = HashMap::new();
 
     let mut clusters = Vec::<[f64; 2]>::new();
 
@@ -213,7 +173,39 @@ pub fn udc(points: Vec<Coordinate>, min: i32) -> Vec<[f64; 2]> {
             .or_insert((BoundingBox::new(*p), true, 1));
     }
 
-    for (key, value) in point_map.iter() {
+    let mut point_map_2 = point_map.clone();
+    for point in point_map.iter() {
+        let (v, h) = point.0.clone();
+
+        if !point.1 .1 {
+            continue;
+        }
+        if try_to_merge(point, v, h - 1, &mut clusters, &mut point_map_2) {
+            continue;
+        }
+        if try_to_merge(point, v, h + 1, &mut clusters, &mut point_map_2) {
+            continue;
+        }
+        if try_to_merge(point, v + 1, h, &mut clusters, &mut point_map_2) {
+            continue;
+        }
+        if try_to_merge(point, v - 1, h, &mut clusters, &mut point_map_2) {
+            continue;
+        }
+        if try_to_merge(point, v - 1, h - 1, &mut clusters, &mut point_map_2) {
+            continue;
+        }
+        if try_to_merge(point, v + 1, h - 1, &mut clusters, &mut point_map_2) {
+            continue;
+        }
+        if try_to_merge(point, v + 1, h + 1, &mut clusters, &mut point_map_2) {
+            continue;
+        }
+        if try_to_merge(point, v - 1, h + 1, &mut clusters, &mut point_map_2) {
+            continue;
+        }
+    }
+    for (key, value) in point_map_2.iter() {
         if value.1 && value.2 >= min {
             clusters.push([
                 key.0 as f64 * sqrt2 + additive_factor,
