@@ -93,7 +93,7 @@ pub fn project_points(input: Vec<[f64; 2]>, radius: f64, min: i32, fast: bool) -
     //     clusters
     // };
 
-    let output = udc(output);
+    let output = udc(output, min);
 
     let mut min = 1. / 0.;
     let mut sum = 0.;
