@@ -164,7 +164,10 @@ async fn cluster(
     println!("[{}] Clusters: {}", mode.to_uppercase(), clusters.len());
 
     if mode.eq("cluster") {
-        return Ok(HttpResponse::Ok().json([clusters]));
+        return Ok(HttpResponse::Ok().json([clusters
+            .iter()
+            .map(|[lat, lon]| [*lat as f32, *lon as f32])
+            .collect::<Vec<[f32; 2]>>()]));
     }
 
     let tour = travelling_salesman::simulated_annealing::solve(
