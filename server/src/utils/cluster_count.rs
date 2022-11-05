@@ -1,10 +1,5 @@
-use std::{
-    collections::HashMap,
-    // f64::{INFINITY, NEG_INFINITY},
-    time::Instant,
-};
-
 use geo::Coordinate;
+use std::{collections::HashMap, time::Instant};
 
 trait ToKey {
     fn to_key(self) -> String;

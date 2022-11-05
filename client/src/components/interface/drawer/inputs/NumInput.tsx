@@ -24,9 +24,11 @@ export default function NumInput<T extends string>({
         value={value}
         type="number"
         size="small"
-        onChange={({ target }) => setValue(field, +target.value || '')}
+        onChange={({ target }) =>
+          setValue(field, +target.value === 0 ? 0 : +target.value || '')
+        }
         sx={{ width: '35%' }}
-        inputProps={{ min: 1, max: 9999 }}
+        inputProps={{ min: 0, max: 9999 }}
         disabled={disabled}
       />
     </ListItem>

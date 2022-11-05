@@ -4,11 +4,14 @@ use crate::models::{
     api::{CustomError, RouteGeneration},
     scanner::InstanceData,
 };
+
 use crate::queries::{gym, instance::query_instance_route, pokestop, spawnpoint};
 use crate::utils::bootstrapping::generate_circles;
 use crate::utils::project_points::project_points;
-use crate::utils::routing::solve;
+// use crate::utils::routing::solve;
 use crate::utils::to_array::{coord_to_array, data_to_array};
+use time::Duration;
+use travelling_salesman;
 
 #[post("/bootstrap")]
 async fn bootstrap(
@@ -95,7 +98,7 @@ async fn cluster(
     } = payload.into_inner();
     let instance = instance.unwrap_or("".to_string());
     let radius = radius.unwrap_or(70.0);
-    let generations = generations.unwrap_or(100);
+    let generations = generations.unwrap_or(0);
     let devices = devices.unwrap_or(1);
     let area = area.unwrap_or(vec![]);
     let data_points = data_points.unwrap_or(vec![]);
@@ -164,22 +167,41 @@ async fn cluster(
         return Ok(HttpResponse::Ok().json([clusters]));
     }
 
-    let circles = solve(clusters, generations, devices);
-    let mapped_circles: Vec<Vec<(f64, f64)>> = circles
-        .tours
-        .iter()
-        .map(|p| {
-            p.stops
-                .iter()
-                .map(|x| x.clone().to_point().location.to_lat_lng())
-                .collect()
-        })
-        .collect();
+    let tour = travelling_salesman::simulated_annealing::solve(
+        &clusters
+            .iter()
+            .map(|[x, y]| (*x, *y))
+            .collect::<Vec<(f64, f64)>>()[0..clusters.len()],
+        Duration::seconds(if generations > 0 {
+            generations as i64
+        } else {
+            ((clusters.len() / 100) as i64 + 1) * if fast { 1 } else { 2 }
+        }),
+    );
+
+    let mut final_clusters = Vec::<[f32; 2]>::new();
+
+    for index in tour.route.iter() {
+        let [lat, lon] = clusters[*index];
+        final_clusters.push([lat as f32, lon as f32]);
+    }
+    // let circles = solve(clusters, generations, devices);
+    // let mapped_circles: Vec<Vec<(f64, f64)>> = circles
+    //     .tours
+    //     .iter()
+    //     .map(|p| {
+    //         p.stops
+    //             .iter()
+    //             .map(|x| x.clone().to_point().location.to_lat_lng())
+    //             .collect()
+    //     })
+    //     .collect();
 
     println!(
-        "[{}] Returning {} routes\n",
+        "[{}] Returning {} clusters {} routes\n ",
         mode.to_uppercase(),
-        circles.tours.len(),
+        clusters.len(),
+        (clusters.len() / 100) as i64,
     );
-    Ok(HttpResponse::Ok().json(mapped_circles))
+    Ok(HttpResponse::Ok().json([final_clusters]))
 }

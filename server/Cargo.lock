@@ -194,7 +194,7 @@ dependencies = [
  "serde_urlencoded",
  "smallvec",
  "socket2",
- "time 0.3.13",
+ "time 0.3.16",
  "url",
 ]
 
@@ -508,7 +508,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94d4706de1b0fa5b132270cddffa8585166037822e260a944fe161acd137ca05"
 dependencies = [
  "percent-encoding",
- "time 0.3.13",
+ "time 0.3.16",
  "version_check",
 ]
 
@@ -1231,6 +1231,8 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
+ "time 0.3.16",
+ "travelling_salesman",
  "vrp-pragmatic",
 ]
 
@@ -1341,6 +1343,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5aa361d4faea93603064a027415f07bd8e1d5c88c9fbf68bf56a285428fd79ce"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "metaheuristics"
+version = "1.1.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "589964d07022efb7fc011f8e18626130fd75005056566f4d8647c5f8f6da2de7"
+dependencies = [
+ "rand",
+ "time 0.3.16",
 ]
 
 [[package]]
@@ -1701,7 +1713,7 @@ dependencies = [
  "postgres-protocol",
  "serde",
  "serde_json",
- "time 0.3.13",
+ "time 0.3.16",
  "uuid",
 ]
 
@@ -1998,7 +2010,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
- "time 0.3.13",
+ "time 0.3.16",
  "tracing",
  "url",
  "uuid",
@@ -2029,7 +2041,7 @@ dependencies = [
  "sea-query-derive",
  "sea-query-driver",
  "serde_json",
- "time 0.3.13",
+ "time 0.3.16",
  "uuid",
 ]
 
@@ -2311,7 +2323,7 @@ dependencies = [
  "sqlx-rt",
  "stringprep",
  "thiserror",
- "time 0.3.13",
+ "time 0.3.16",
  "tokio-stream",
  "url",
  "uuid",
@@ -2438,21 +2450,32 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.13"
+version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db76ff9fa4b1458b3c7f077f3ff9887394058460d21e634355b273aaf11eea45"
+checksum = "0fab5c8b9980850e06d92ddbe3ab839c062c801f3927c0fb8abd6fc8e918fbca"
 dependencies = [
  "itoa",
  "libc",
  "num_threads",
+ "serde",
+ "time-core",
  "time-macros",
 ]
 
 [[package]]
-name = "time-macros"
-version = "0.2.4"
+name = "time-core"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42657b1a6f4d817cda8e7a0ace261fe0cc946cf3a80314390b22cc61ae080792"
+checksum = "2e153e1f1acaef8acc537e68b44906d2db6436e2b35ac2c6b42640fff91f00fd"
+
+[[package]]
+name = "time-macros"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65bb801831d812c562ae7d2bfb531f26e66e4e1f6b17307ba4149c5064710e5b"
+dependencies = [
+ "time-core",
+]
 
 [[package]]
 name = "tinyvec"
@@ -2554,6 +2577,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7709595b8878a4965ce5e87ebf880a7d39c9afc6837721b21a5a816a8117d921"
 dependencies = [
  "once_cell",
+]
+
+[[package]]
+name = "travelling_salesman"
+version = "1.1.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2a9a0bfa1e1e7744ae33a103267c964d082d5e132d3877feed413707af50088"
+dependencies = [
+ "metaheuristics",
+ "rand",
+ "time 0.3.16",
 ]
 
 [[package]]
@@ -2683,7 +2717,7 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
- "time 0.3.13",
+ "time 0.3.16",
  "vrp-core",
 ]
 
