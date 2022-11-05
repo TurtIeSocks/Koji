@@ -47,7 +47,30 @@ fn compute_plane_center(points: &Vec<Geocentric>) -> Topocentric {
     radial_project(dir)
 }
 
-pub fn project_points(input: Vec<[f64; 2]>, radius: f64, min: i32, fast: bool) -> Vec<[f64; 2]> {
+fn reverse_project(
+    p: [f64; 2],
+    (plane_center, plane_x, plane_y, plane_z, adjusted_radius): (
+        Geocentric,
+        Geocentric,
+        Geocentric,
+        Geocentric,
+        f64,
+    ),
+) -> Geocentric {
+    let x = plane_center.0 + (plane_x.0 * p[0] + plane_y.0 * p[1]) * adjusted_radius;
+    let y = plane_center.1 + (plane_x.1 * p[0] + plane_y.1 * p[1]) * adjusted_radius;
+    let z = plane_center.2 + (plane_x.2 * p[0] + plane_y.2 * p[1]) * adjusted_radius;
+    let (lat, lon) = radial_project((x, y, z));
+    let s = dot_product((x, y, z), plane_z) / euclidean_norm2((x, y, z)).sqrt();
+    (lat.to_degrees(), lon.to_degrees(), s)
+}
+
+pub fn project_points(
+    input: Vec<[f64; 2]>,
+    radius: f64,
+    min: i32,
+    fast: bool,
+) -> (Vec<[f64; 2]>, [f64; 2]) {
     let points = input
         .iter()
         .map(|&[lat, lon]| {
@@ -78,7 +101,7 @@ pub fn project_points(input: Vec<[f64; 2]>, radius: f64, min: i32, fast: bool) -
         })
         .collect();
 
-    let clusters = udc(output.clone(), min);
+    let (clusters, best) = udc(output.clone(), min);
 
     let output = if fast {
         clusters
@@ -94,14 +117,16 @@ pub fn project_points(input: Vec<[f64; 2]>, radius: f64, min: i32, fast: bool) -
         plane_center_lon.to_degrees()
     );
     let mut final_output: Vec<[f64; 2]> = Vec::new();
-
+    let (best_lat, best_lon, _) = reverse_project(
+        best,
+        (plane_center, plane_x, plane_y, plane_z, adjusted_radius),
+    );
     for p in output.iter() {
-        let x = plane_center.0 + (plane_x.0 * p[0] + plane_y.0 * p[1]) * adjusted_radius;
-        let y = plane_center.1 + (plane_x.1 * p[0] + plane_y.1 * p[1]) * adjusted_radius;
-        let z = plane_center.2 + (plane_x.2 * p[0] + plane_y.2 * p[1]) * adjusted_radius;
-        let (lat, lon) = radial_project((x, y, z));
-        final_output.push([lat.to_degrees(), lon.to_degrees()]);
-        let s = dot_product((x, y, z), plane_z) / euclidean_norm2((x, y, z)).sqrt();
+        let (lat, lon, s) = reverse_project(
+            *p,
+            (plane_center, plane_x, plane_y, plane_z, adjusted_radius),
+        );
+        final_output.push([lat, lon]);
         if s < min {
             min = s;
         }
@@ -113,5 +138,5 @@ pub fn project_points(input: Vec<[f64; 2]>, radius: f64, min: i32, fast: bool) -
     );
     println!("Average scaling: {:?}", sum / output.len() as f64);
     println!("Disc scaling: {:?}", adjusted_radius / radius);
-    final_output
+    (final_output, [best_lat, best_lon])
 }

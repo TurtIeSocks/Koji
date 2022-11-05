@@ -4,6 +4,7 @@ use crate::models::{
     api::{CustomError, RouteGeneration},
     scanner::InstanceData,
 };
+use std::collections::VecDeque;
 
 use crate::queries::{gym, instance::query_instance_route, pokestop, spawnpoint};
 use crate::utils::bootstrapping::generate_circles;
@@ -160,7 +161,8 @@ async fn cluster(
         data_points.len()
     );
 
-    let clusters = project_points(data_to_array(data_points), radius - 1., min_points, fast);
+    let (clusters, biggest) =
+        project_points(data_to_array(data_points), radius - 1., min_points, fast);
     println!("[{}] Clusters: {}", mode.to_uppercase(), clusters.len());
 
     if mode.eq("cluster") {
@@ -170,6 +172,7 @@ async fn cluster(
             .collect::<Vec<[f32; 2]>>()]));
     }
 
+    println!("Routing for {}seconds...", generations);
     let tour = travelling_salesman::simulated_annealing::solve(
         &clusters
             .iter()
@@ -182,12 +185,19 @@ async fn cluster(
         }),
     );
 
-    let mut final_clusters = Vec::<[f32; 2]>::new();
+    let mut final_clusters = VecDeque::<[f32; 2]>::new();
 
-    for index in tour.route.iter() {
+    let mut rotate: usize = 0;
+    for (i, index) in tour.route.iter().enumerate() {
         let [lat, lon] = clusters[*index];
-        final_clusters.push([lat as f32, lon as f32]);
+        if lat == biggest[0] && lon == biggest[1] {
+            rotate = i;
+            println!("Found Best! {}, {} - {}", lat, lon, index);
+        }
+        final_clusters.push_back([lat as f32, lon as f32]);
     }
+    final_clusters.rotate_left(rotate);
+
     // let circles = solve(clusters, generations, devices);
     // let mapped_circles: Vec<Vec<(f64, f64)>> = circles
     //     .tours
