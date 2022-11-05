@@ -85,6 +85,7 @@ async fn cluster(
     payload: web::Json<RouteGeneration>,
 ) -> Result<HttpResponse, Error> {
     let (mode, category) = url.into_inner();
+    let category_2 = category.clone();
     let scanner_type = scanner_type.as_ref();
 
     let RouteGeneration {
@@ -161,8 +162,13 @@ async fn cluster(
         data_points.len()
     );
 
-    let (clusters, biggest) =
-        project_points(data_to_array(data_points), radius - 1., min_points, fast);
+    let (clusters, biggest) = project_points(
+        data_to_array(data_points),
+        radius - 1.,
+        min_points,
+        fast,
+        category_2,
+    );
     println!("[{}] Clusters: {}", mode.to_uppercase(), clusters.len());
 
     if mode.eq("cluster") {

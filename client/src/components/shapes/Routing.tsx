@@ -82,9 +82,9 @@ export default function Routes() {
                 <Circle
                   center={p}
                   radius={radius || 0}
-                  color={color}
-                  fillColor={color}
-                  fillOpacity={0.25}
+                  color={j ? color : 'red'}
+                  fillColor={j ? color : 'red'}
+                  fillOpacity={j ? 0.25 : 0.65}
                   opacity={0.5}
                   snapIgnore
                 />

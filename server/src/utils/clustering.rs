@@ -253,8 +253,8 @@ pub fn udc(points: Vec<Coordinate>, _min: i32) -> (ClusterReturn, [f64; 2]) {
     let mut biggest: i16 = 0;
     let mut best_coord = [0., 0.];
 
-    'count: for point in udc_point_map.iter() {
-        let (v, h) = point.0.clone();
+    'count: for (point, (bb, _check, points)) in udc_point_map.iter() {
+        let (v, h) = point.clone();
 
         for (v, h, _index) in [
             (v, h - 1, "s"),
@@ -276,16 +276,16 @@ pub fn udc(points: Vec<Coordinate>, _min: i32) -> (ClusterReturn, [f64; 2]) {
 
             if found_cluster.1 {
                 let lower_left = Coordinate {
-                    x: point.1 .0.min_x.min(found_cluster.0.min_x),
-                    y: point.1 .0.min_y.min(found_cluster.0.min_y),
+                    x: bb.min_x.min(found_cluster.0.min_x),
+                    y: bb.min_y.min(found_cluster.0.min_y),
                 };
                 let upper_right = Coordinate {
-                    x: point.1 .0.max_x.max(found_cluster.0.max_x),
-                    y: point.1 .0.max_y.max(found_cluster.0.max_y),
+                    x: bb.max_x.max(found_cluster.0.max_x),
+                    y: bb.max_y.max(found_cluster.0.max_y),
                 };
 
                 if lower_left.distance_2(&upper_right) <= 4. {
-                    let new_count = found_cluster.2.len() as i16 + point.1 .2.len() as i16;
+                    let new_count = found_cluster.2.len() as i16 + points.len() as i16;
                     let new_coord = lower_left.midpoint(&upper_right);
                     if new_count > biggest {
                         biggest = new_count;
@@ -296,7 +296,7 @@ pub fn udc(points: Vec<Coordinate>, _min: i32) -> (ClusterReturn, [f64; 2]) {
                         .entry((*v, *h))
                         .and_modify(|saved| saved.1 = false);
                     point_map_2
-                        .entry(*point.0)
+                        .entry(*point)
                         .and_modify(|saved| saved.1 = false);
                     continue 'count;
                 }

@@ -70,6 +70,7 @@ pub fn project_points(
     radius: f64,
     min: i32,
     fast: bool,
+    category: String,
 ) -> (Vec<[f64; 2]>, [f64; 2]) {
     let points = input
         .iter()
@@ -103,7 +104,7 @@ pub fn project_points(
 
     let (clusters, best) = udc(output.clone(), min);
 
-    let output = if fast {
+    let output = if fast || category == "pokestop".to_string() {
         clusters
     } else {
         cluster_count::count(output, clusters, radius, min)
