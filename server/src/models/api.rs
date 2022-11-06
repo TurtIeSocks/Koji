@@ -27,6 +27,7 @@ pub struct RouteGeneration {
     pub data_points: Option<Vec<GenericData>>,
     pub area: Option<Vec<[f64; 2]>>,
     pub fast: Option<bool>,
+    pub return_type: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

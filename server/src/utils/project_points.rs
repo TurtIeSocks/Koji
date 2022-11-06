@@ -1,4 +1,4 @@
-use crate::utils::{cluster_count, clustering::udc};
+use crate::utils::{cluster_count, clustering};
 
 use geo::Coordinate;
 use map_3d::{geodetic2ecef, Ellipsoid};
@@ -102,9 +102,9 @@ pub fn project_points(
         })
         .collect();
 
-    let (clusters, best) = udc(output.clone(), min);
+    let (clusters, best) = clustering::udc(output.clone(), min);
 
-    let output = if fast || category == "pokestop".to_string() {
+    let output = if min < 2 || fast || category == "pokestop".to_string() {
         clusters
     } else {
         cluster_count::count(output, clusters, radius, min)

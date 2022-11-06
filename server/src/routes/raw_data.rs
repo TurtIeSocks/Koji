@@ -99,6 +99,7 @@ async fn area(
         data_points: _data_points,
         min_points: _min_points,
         fast: _fast,
+        return_type: _return_type,
     } = payload.into_inner();
     let instance = instance.unwrap_or("".to_string());
     let area = area.unwrap_or(vec![]);

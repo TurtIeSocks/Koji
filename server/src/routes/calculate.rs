@@ -1,18 +1,21 @@
 use super::*;
-use crate::models::scanner::GenericData;
-use crate::models::{
-    api::{CustomError, RouteGeneration},
-    scanner::InstanceData,
-};
 use std::collections::VecDeque;
-
-use crate::queries::{gym, instance::query_instance_route, pokestop, spawnpoint};
-use crate::utils::bootstrapping::generate_circles;
-use crate::utils::project_points::project_points;
-// use crate::utils::routing::solve;
-use crate::utils::to_array::{coord_to_array, data_to_array};
 use time::Duration;
 use travelling_salesman;
+
+use crate::models::{
+    api::{CustomError, RouteGeneration},
+    scanner::{GenericData, InstanceData},
+};
+use crate::queries::{gym, instance::query_instance_route, pokestop, spawnpoint};
+use crate::utils::{
+    bootstrapping::generate_circles,
+    // convert::text,
+    project_points::project_points,
+    // routing::solve;
+    response,
+    to_array::{coord_to_array, data_to_array},
+};
 
 #[post("/bootstrap")]
 async fn bootstrap(
@@ -26,6 +29,7 @@ async fn bootstrap(
         instance,
         radius,
         area,
+        return_type,
         generations: _generations,
         devices: _devices,
         data_points: _data_points,
@@ -35,6 +39,7 @@ async fn bootstrap(
     let instance = instance.unwrap_or("".to_string());
     let radius = radius.unwrap_or(70.0);
     let area = area.unwrap_or(vec![]);
+    let return_type = return_type.unwrap_or("json".to_string());
 
     println!(
         "\n[BOOTSTRAP] Mode: Bootstrap, Radius: {}\nScanner Type: {}, Instance: {}, Custom Area: {}",
@@ -71,10 +76,16 @@ async fn bootstrap(
         vec![]
     };
 
-    let circles = vec![generate_circles(area, radius)];
+    let circles = generate_circles(area, radius);
 
     println!("[BOOTSTRAP] Returning {} circles\n", circles[0].len());
-    Ok(HttpResponse::Ok().json(circles))
+    Ok(response::send(
+        circles
+            .iter()
+            .map(|[lat, lon]| [*lat as f32, *lon as f32])
+            .collect::<Vec<[f32; 2]>>(),
+        return_type,
+    ))
 }
 
 #[post("/{mode}/{category}")]
@@ -97,6 +108,7 @@ async fn cluster(
         data_points,
         min_points,
         fast,
+        return_type,
     } = payload.into_inner();
     let instance = instance.unwrap_or("".to_string());
     let radius = radius.unwrap_or(70.0);
@@ -106,6 +118,7 @@ async fn cluster(
     let data_points = data_points.unwrap_or(vec![]);
     let min_points = min_points.unwrap_or(1);
     let fast = fast.unwrap_or(false);
+    let return_type = return_type.unwrap_or("json".to_string());
 
     println!(
         "\n[{}] Radius: {}, Generations: {}, Devices: {}\nInstance: {}, Using Area: {}, Manual Data Points: {}",
@@ -172,10 +185,13 @@ async fn cluster(
     println!("[{}] Clusters: {}", mode.to_uppercase(), clusters.len());
 
     if mode.eq("cluster") {
-        return Ok(HttpResponse::Ok().json([clusters
-            .iter()
-            .map(|[lat, lon]| [*lat as f32, *lon as f32])
-            .collect::<Vec<[f32; 2]>>()]));
+        return Ok(response::send(
+            clusters
+                .iter()
+                .map(|[lat, lon]| [*lat as f32, *lon as f32])
+                .collect::<Vec<[f32; 2]>>(),
+            return_type,
+        ));
     }
 
     println!("Routing for {}seconds...", generations);
@@ -222,5 +238,8 @@ async fn cluster(
         clusters.len(),
         (clusters.len() / 100) as i64,
     );
-    Ok(HttpResponse::Ok().json([final_clusters]))
+    Ok(response::send(
+        final_clusters.iter().map(|x| *x).collect::<Vec<[f32; 2]>>(),
+        return_type,
+    ))
 }
