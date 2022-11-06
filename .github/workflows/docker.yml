@@ -1,7 +1,7 @@
 name: Docker
 on:
   push:
-    branches: [main]
+    branches: [push]
 
 env:
   REGISTRY: ghcr.io
@@ -11,33 +11,32 @@ jobs:
   Docker:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
 
-    - name: Set .gitsha
-      if: github.event_name == 'push'
-      run: "echo ${{github.sha}} > .gitsha"
-    - name: Set .gitref
-      if: github.event_name == 'push'
-      run: "echo ${{github.ref}} > .gitref"
+      - name: Set .gitsha
+        if: github.event_name == 'push'
+        run: 'echo ${{github.sha}} > .gitsha'
+      - name: Set .gitref
+        if: github.event_name == 'push'
+        run: 'echo ${{github.ref}} > .gitref'
 
-    - name: Log in to the Container registry
-      uses: docker/login-action@v1
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Extract metadata (tags, labels) for Docker
-      id: meta
-      uses: docker/metadata-action@v3
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v2
-      with:
-        context: .
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
