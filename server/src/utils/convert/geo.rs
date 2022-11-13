@@ -53,6 +53,9 @@ fn get_properties(name: String, enum_type: Type) -> JsonObject {
         Type::CircleRaid | Type::CircleSmartRaid => {
             properties.insert("radius".to_string(), 700.into());
         }
+        Type::ManualQuest => {
+            properties.insert("radius".to_string(), 80.into());
+        }
         _ => {}
     }
     properties

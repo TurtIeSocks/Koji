@@ -171,7 +171,7 @@ async fn cluster(
     );
     println!("[{}] Clusters: {}", mode.to_uppercase(), clusters.len());
 
-    if mode.eq("cluster") {
+    if mode.eq("cluster") || clusters.is_empty() {
         return Ok(response::send(vec![clusters], return_type));
     }
 

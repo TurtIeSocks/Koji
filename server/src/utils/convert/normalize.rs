@@ -71,7 +71,7 @@ where
         if other_area.geofence.is_some() && !other_area.geofence.clone().unwrap().is_empty() {
             let data = arrays::parse_flat_text(other_area.geofence.clone().unwrap().as_str());
             normalized.push(GenericInstance {
-                name: other_area.name.clone(),
+                name: format!("{}_{}", other_area.name, "Fence"),
                 r#type: Type::AutoQuest,
                 data,
             });
@@ -82,7 +82,7 @@ where
             let data =
                 arrays::parse_flat_text(other_area.fort_mode_route.clone().unwrap().as_str());
             normalized.push(GenericInstance {
-                name: other_area.name.clone(),
+                name: format!("{}_{}", other_area.name, "Fort"),
                 r#type: Type::CircleRaid,
                 data,
             });
@@ -93,7 +93,7 @@ where
             let data =
                 arrays::parse_flat_text(other_area.quest_mode_route.clone().unwrap().as_str());
             normalized.push(GenericInstance {
-                name: other_area.name.clone(),
+                name: format!("{}_{}", other_area.name, "Quest"),
                 r#type: Type::ManualQuest,
                 data,
             });
@@ -104,7 +104,7 @@ where
             let data =
                 arrays::parse_flat_text(other_area.pokemon_mode_route.clone().unwrap().as_str());
             normalized.push(GenericInstance {
-                name: other_area.name,
+                name: format!("{}_{}", other_area.name, "Pokemon"),
                 r#type: Type::CirclePokemon,
                 data,
             });
