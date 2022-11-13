@@ -74,7 +74,14 @@ export async function getMarkers(
       enableGyms ? 'gym' : '',
       enableSpawnpoints ? 'spawnpoint' : '',
     ].map(async (category) =>
-      category && (data === 'area' ? geojson.features.length : true)
+      category &&
+      (data === 'area'
+        ? geojson.features.filter(
+            (feature) =>
+              feature.geometry.type === 'Polygon' ||
+              feature.geometry.type === 'MultiPolygon',
+          ).length
+        : true)
         ? fetch(
             `/api/data/${data}/${category}`,
             data === 'all'

@@ -18,6 +18,8 @@ pub enum Type {
     CircleSmartRaid,
     #[sea_orm(string_value = "auto_quest")]
     AutoQuest,
+    #[sea_orm(string_value = "manual_quest")]
+    ManualQuest,
     #[sea_orm(string_value = "pokemon_iv")]
     PokemonIv,
     #[sea_orm(string_value = "leveling")]
