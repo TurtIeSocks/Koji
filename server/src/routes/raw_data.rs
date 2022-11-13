@@ -1,16 +1,14 @@
 use super::*;
-use crate::queries::{gym, instance::query_instance_route, pokestop, spawnpoint};
-use crate::{
-    models::{
-        api::{CustomError, MapBounds, RouteGeneration},
-        scanner::InstanceData,
-    },
-    utils::to_array::coord_to_array,
+use crate::models::{
+    api::{AreaInput, CustomError, MapBounds, RouteGeneration},
+    KojiDb,
 };
+use crate::queries::{area, gym, instance, pokestop, spawnpoint};
+use crate::utils::convert::normalize;
 
 #[get("/all/{category}")]
 async fn all(
-    conn: web::Data<DatabaseConnection>,
+    conn: web::Data<KojiDb>,
     scanner_type: web::Data<String>,
     category: actix_web::web::Path<String>,
 ) -> Result<HttpResponse, Error> {
@@ -25,9 +23,9 @@ async fn all(
 
     let all_data = web::block(move || async move {
         match category.as_str() {
-            "gym" => gym::all(&conn).await,
-            "pokestop" => pokestop::all(&conn).await,
-            "spawnpoint" => spawnpoint::all(&conn).await,
+            "gym" => gym::all(&conn.data_db).await,
+            "pokestop" => pokestop::all(&conn.data_db).await,
+            "spawnpoint" => spawnpoint::all(&conn.data_db).await,
             _ => Err(DbErr::Custom("invalid_category".to_string())),
         }
     })
@@ -45,7 +43,7 @@ async fn all(
 
 #[post("/bound/{category}")]
 async fn bound(
-    conn: web::Data<DatabaseConnection>,
+    conn: web::Data<KojiDb>,
     scanner_type: web::Data<String>,
     category: actix_web::web::Path<String>,
     payload: web::Json<MapBounds>,
@@ -61,9 +59,9 @@ async fn bound(
 
     let bound_data = web::block(move || async move {
         match category.as_str() {
-            "gym" => gym::bound(&conn, &payload).await,
-            "pokestop" => pokestop::bound(&conn, &payload).await,
-            "spawnpoint" => spawnpoint::bound(&conn, &payload).await,
+            "gym" => gym::bound(&conn.data_db, &payload).await,
+            "pokestop" => pokestop::bound(&conn.data_db, &payload).await,
+            "spawnpoint" => spawnpoint::bound(&conn.data_db, &payload).await,
             _ => Err(DbErr::Custom("invalid_category".to_string())),
         }
     })
@@ -80,13 +78,13 @@ async fn bound(
 }
 
 #[post("/area/{category}")]
-async fn area(
-    conn: web::Data<DatabaseConnection>,
+async fn by_area(
+    conn: web::Data<KojiDb>,
     scanner_type: web::Data<String>,
     category: actix_web::web::Path<String>,
     payload: web::Json<RouteGeneration>,
 ) -> Result<HttpResponse, Error> {
-    let scanner_type = scanner_type.as_ref();
+    let scanner_type = scanner_type.as_ref().clone();
     let category = category.into_inner();
     let category_copy = category.clone();
 
@@ -102,42 +100,39 @@ async fn area(
         return_type: _return_type,
     } = payload.into_inner();
     let instance = instance.unwrap_or("".to_string());
-    let area = area.unwrap_or(vec![]);
+    let (area, _return_type) =
+        normalize::area_input(area.unwrap_or(AreaInput::SingleArray(vec![])));
 
     println!(
         "\n[DATA-AREA] Scanner Type: {}, Category: {}, Instance: {}, Custom Area: {}",
         scanner_type,
         category,
         instance,
-        area.len() > 0
+        !area.is_empty(),
     );
 
-    if !scanner_type.eq("rdm") && area.len() == 0 {
-        return Ok(HttpResponse::BadRequest().json(CustomError {
-            message: "no_area_provided_and_invalid_scanner_type".to_string(),
-        }));
-    }
-    if area.len() == 0 && instance.is_empty() {
+    if area.is_empty() && instance.is_empty() {
         return Ok(HttpResponse::BadRequest().json(CustomError {
             message: "no_area_and_empty_instance".to_string(),
         }));
     }
 
     let area_data = web::block(move || async move {
-        let area = if area.len() > 0 {
+        let area = if !area.is_empty() {
             area
+        } else if scanner_type == "rdm" {
+            instance::route::<f64>(&conn.data_db, &instance).await?
+        } else if conn.unown_db.is_some() {
+            area::route::<f64>(&conn.unown_db.as_ref().unwrap(), &instance).await?
         } else {
-            let data = query_instance_route(&conn, &instance).await?;
-            let data: InstanceData =
-                serde_json::from_str(data.data.as_str()).expect("JSON was not well-formatted");
-            coord_to_array(data.area[0].clone())
+            vec![vec![]]
         };
         if category == "gym" {
-            gym::area(&conn, &area).await
+            gym::area(&conn.data_db, area).await
         } else if category == "pokestop" {
-            pokestop::area(&conn, &area).await
+            pokestop::area(&conn.data_db, area).await
         } else {
-            spawnpoint::area(&conn, &area).await
+            spawnpoint::area(&conn.data_db, area).await
         }
     })
     .await?

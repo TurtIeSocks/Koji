@@ -21,8 +21,8 @@ import {
 
 import { getData } from '@services/fetches'
 import { useStatic } from '@hooks/useStatic'
-import { type Instance } from '@assets/types'
 import { useStore } from '@hooks/useStore'
+import type { FeatureCollection } from 'geojson'
 
 const icon = <CheckBoxOutlineBlank fontSize="small" color="primary" />
 const checkedIcon = <CheckBox fontSize="small" color="primary" />
@@ -37,7 +37,6 @@ const filterOptions = createFilterOptions({
 export default function InstanceSelect() {
   const selected = useStatic((s) => s.selected)
   const instances = useStatic((s) => s.instances)
-  const scannerType = useStatic((s) => s.scannerType)
   const setStatic = useStatic((s) => s.setStatic)
   const setSelected = useStatic((s) => s.setSelected)
 
@@ -47,13 +46,19 @@ export default function InstanceSelect() {
   const [loading, setLoading] = React.useState(false)
 
   React.useEffect(() => {
-    if (!Object.keys(instances).length && scannerType === 'rdm') {
+    if (!Object.keys(instances).length) {
       setLoading(true)
-      getData<Instance[]>('/api/instance/all').then((r) => {
-        setStatic(
-          'instances',
-          Array.isArray(r) ? Object.fromEntries(r.map((x) => [x.name, x])) : {},
-        )
+      getData<FeatureCollection>('/api/instance/all').then((resp) => {
+        if (resp) {
+          setStatic(
+            'instances',
+            Object.fromEntries(
+              resp.features
+                .filter((f) => f.properties?.name)
+                .map((f) => [f.properties?.name, f]),
+            ),
+          )
+        }
         setLoading(false)
       })
     }
@@ -74,10 +79,12 @@ export default function InstanceSelect() {
         loading={loading}
         handleHomeEndKeys
         disableCloseOnSelect
-        groupBy={(option) => instances[option]?.type}
+        groupBy={(option) => instances[option]?.properties?.type}
         sx={{ width: '90%', mx: 'auto' }}
         options={Object.keys(instances).sort((a, b) =>
-          instances[a].type?.localeCompare(instances[b].type),
+          instances[a].properties?.type?.localeCompare(
+            instances[b].properties?.type,
+          ),
         )}
         renderTags={(val) => (
           <Typography align="center">{val.length} Selected</Typography>
@@ -102,7 +109,8 @@ export default function InstanceSelect() {
             : Object.keys(instances).filter((k) => instances[k]?.type === group)
           const allSelected = allValues.every((v) => selected.includes(v))
           const partialSelected =
-            allSelected || selected.some((v) => allValues.includes(v))
+            allSelected ||
+            selected.some((v) => instances[v]?.properties?.type === group)
 
           return group ? (
             <List key={key}>
@@ -113,12 +121,12 @@ export default function InstanceSelect() {
                       ? selected.filter(
                           (v) =>
                             !allValues.includes(v) ||
-                            instances[v].type !== group,
+                            instances[v].properties?.type !== group,
                         )
                       : [
                           ...allValues,
                           ...selected.filter(
-                            (v) => instances[v].type !== group,
+                            (v) => instances[v].properties?.type !== group,
                           ),
                         ],
                     radius,

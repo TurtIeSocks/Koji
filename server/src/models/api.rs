@@ -1,5 +1,7 @@
+use geojson::FeatureCollection;
+
 use super::*;
-use crate::models::scanner::GenericData;
+use crate::models::scanner::{GenericData, LatLon};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
@@ -18,6 +20,24 @@ pub struct MapBounds {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum AreaInput {
+    Text(String),
+    SingleArray(Vec<[f64; 2]>),
+    MultiArray(Vec<Vec<[f64; 2]>>),
+    SingleStruct(Vec<LatLon>),
+    MultiStruct(Vec<Vec<LatLon>>),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum ReturnType {
+    Text,
+    SingleArray,
+    MultiArray,
+    SingleStruct,
+    MultiStruct,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RouteGeneration {
     pub instance: Option<String>,
     pub radius: Option<f64>,
@@ -25,7 +45,7 @@ pub struct RouteGeneration {
     pub generations: Option<usize>,
     pub devices: Option<usize>,
     pub data_points: Option<Vec<GenericData>>,
-    pub area: Option<Vec<[f64; 2]>>,
+    pub area: Option<AreaInput>,
     pub fast: Option<bool>,
     pub return_type: Option<String>,
 }

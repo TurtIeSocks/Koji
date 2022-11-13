@@ -1,9 +1,8 @@
 import create from 'zustand'
-import type { FeatureCollection } from 'geojson'
+import type { Feature, FeatureCollection } from 'geojson'
 import * as L from 'leaflet'
 
-import type { Instance, PixiMarker } from '@assets/types'
-import { rdmToGeojson } from '@services/utils'
+import type { PixiMarker } from '@assets/types'
 import { UseStore } from './useStore'
 
 export interface UseStatic {
@@ -12,7 +11,7 @@ export interface UseStatic {
   spawnpoints: PixiMarker[]
   getMarkers: () => PixiMarker[]
   selected: string[]
-  instances: { [name: string]: Instance }
+  instances: { [name: string]: Feature }
   scannerType: string
   tileServer: string
   geojson: FeatureCollection
@@ -56,12 +55,15 @@ export const useStatic = create<UseStatic>((set, get) => ({
   activeLayer: null,
   popupLocation: new L.LatLng(0, 0),
   setStatic: (key, value) => set({ [key]: value }),
-  setSelected: (selected, radius) => {
-    const { geojson, instances } = get()
-    const newGeojson = rdmToGeojson(selected, instances, geojson, radius, false)
+  setSelected: (selected) => {
+    const { instances } = get()
+
     set({
       selected,
-      geojson: newGeojson,
+      geojson: {
+        type: 'FeatureCollection',
+        features: selected.map((name) => instances[name]),
+      },
     })
   },
 }))

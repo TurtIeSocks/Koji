@@ -1,31 +1,68 @@
+use num_traits::Float;
+
+use crate::entities::sea_orm_active_enums::Type;
+
 use super::*;
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
-pub struct LatLon {
-    pub lat: f64,
-    pub lon: f64,
+pub struct LatLon<T = f64>
+where
+    T: Float,
+{
+    pub lat: T,
+    pub lon: T,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
+pub struct TrimmedSpawn<T = f64>
+where
+    T: Float,
+{
+    pub lat: T,
+    pub lon: T,
+    pub despawn_sec: Option<u16>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct InstanceData {
-    pub area: Vec<Vec<LatLon>>,
-    pub delay_logout: u32,
-    pub is_event: bool,
-    pub max_level: u8,
-    pub min_level: u8,
-    pub quest_mode: String,
-    pub spin_limit: u16,
-    pub timezone_offset: i64,
+pub struct SinglePolygonData<T = f64>
+where
+    T: Float,
+{
+    pub area: Vec<LatLon<T>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MultiPolygonData<T = f64>
+where
+    T: Float,
+{
+    pub area: Vec<Vec<LatLon<T>>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct GenericData {
-    pub i: String,
-    pub p: [f64; 2],
+pub struct GenericInstance<T = f32>
+where
+    T: Float,
+{
+    pub name: String,
+    pub r#type: Type,
+    pub data: Vec<Vec<[T; 2]>>,
 }
 
-impl GenericData {
-    pub fn new(i: String, lat: f64, lon: f64) -> Self {
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GenericData<T = f64>
+where
+    T: Float,
+{
+    pub i: String,
+    pub p: [T; 2],
+}
+
+impl<T> GenericData<T>
+where
+    T: Float,
+{
+    pub fn new(i: String, lat: T, lon: T) -> Self {
         GenericData { i, p: [lat, lon] }
     }
 }

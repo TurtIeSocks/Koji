@@ -9,9 +9,10 @@ import { useStatic } from '@hooks/useStatic'
 import { useStore } from '@hooks/useStore'
 
 export default function Drawing() {
-  const radius = useStore((s) => s.radius)
+  // const radius = useStore((s) => s.radius)
   const snappable = useStore((s) => s.snappable)
   const continueDrawing = useStore((s) => s.continueDrawing)
+  const radius = useStore((s) => s.radius)
 
   const setStatic = useStatic((s) => s.setStatic)
   const geojson = useStatic((s) => s.geojson)
@@ -33,6 +34,7 @@ export default function Drawing() {
       layers.forEach((layer) => {
         if (layer instanceof L.Circle || layer instanceof L.CircleMarker) {
           const { lat, lng } = layer.getLatLng()
+
           newGeo.features.push({
             type: 'Feature',
             properties: {
@@ -70,17 +72,23 @@ export default function Drawing() {
       })
     }
     L.geoJSON(geojson).eachLayer((layer) => {
-      if (
-        layer instanceof L.Polyline ||
-        layer instanceof L.Polygon ||
-        layer instanceof L.Marker
-      ) {
-        if (layer?.feature?.properties.radius && ref.current) {
-          new L.Circle(layer.feature.geometry.coordinates.slice().reverse(), {
-            radius: radius || layer.feature?.properties.radius,
-          }).addTo(ref.current)
+      if (ref.current) {
+        if (
+          layer instanceof L.LayerGroup &&
+          layer.feature?.type === 'Feature'
+        ) {
+          if (layer?.feature?.properties.radius && radius) {
+            const {
+              geometry: { coordinates },
+            } = layer.feature
+            for (let i = 0; i < coordinates.length; i++) {
+              L.circle([coordinates[i][1], coordinates[i][0]], {
+                radius,
+              }).addTo(ref.current)
+            }
+          }
         } else if (layer instanceof L.Polygon) {
-          ref.current?.addLayer(
+          ref.current.addLayer(
             layer.on('click', () => setStatic('activeLayer', layer)),
           )
         } else {

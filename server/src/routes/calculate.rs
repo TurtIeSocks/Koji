@@ -4,26 +4,24 @@ use time::Duration;
 use travelling_salesman;
 
 use crate::models::{
-    api::{CustomError, RouteGeneration},
-    scanner::{GenericData, InstanceData},
+    api::{AreaInput, CustomError, RouteGeneration},
+    scanner::GenericData,
+    KojiDb,
 };
-use crate::queries::{gym, instance::query_instance_route, pokestop, spawnpoint};
+use crate::queries::{area, gym, instance, pokestop, spawnpoint};
 use crate::utils::{
-    bootstrapping::generate_circles,
-    // convert::text,
-    project_points::project_points,
-    // routing::solve;
-    response,
-    to_array::{coord_to_array, data_to_array},
+    convert::{arrays, normalize},
+    drawing::{bootstrapping, project_points::project_points},
+    get_return_type, response,
 };
 
 #[post("/bootstrap")]
 async fn bootstrap(
-    conn: web::Data<DatabaseConnection>,
+    conn: web::Data<KojiDb>,
     scanner_type: web::Data<String>,
     payload: web::Json<RouteGeneration>,
 ) -> Result<HttpResponse, Error> {
-    let scanner_type = scanner_type.as_ref();
+    let scanner_type = scanner_type.as_ref().clone();
 
     let RouteGeneration {
         instance,
@@ -38,66 +36,60 @@ async fn bootstrap(
     } = payload.into_inner();
     let instance = instance.unwrap_or("".to_string());
     let radius = radius.unwrap_or(70.0);
-    let area = area.unwrap_or(vec![]);
-    let return_type = return_type.unwrap_or("json".to_string());
+    let (area, default_return_type) =
+        normalize::area_input(area.unwrap_or(AreaInput::SingleArray(vec![])));
+    let return_type = get_return_type(return_type, default_return_type);
 
     println!(
         "\n[BOOTSTRAP] Mode: Bootstrap, Radius: {}\nScanner Type: {}, Instance: {}, Custom Area: {}",
         radius,
         scanner_type,
         instance,
-        area.len() > 0
+        !area.is_empty(),
     );
 
-    if !scanner_type.eq("rdm") && area.len() == 0 {
-        return Ok(HttpResponse::BadRequest().json(CustomError {
-            message: "no_area_provided_and_invalid_scanner_type".to_string(),
-        }));
-    }
-    if area.len() == 0 && instance.is_empty() {
+    if area.is_empty() && instance.is_empty() {
         return Ok(HttpResponse::BadRequest().json(CustomError {
             message: "no_area_and_empty_instance".to_string(),
         }));
     }
 
-    let area = if area.len() > 0 {
+    let area = if !area.is_empty() {
         area
     } else if !instance.is_empty() && scanner_type.eq("rdm") {
-        let instance =
-            web::block(move || async move { query_instance_route(&conn, &instance).await })
-                .await?
-                .await
-                .map_err(actix_web::error::ErrorInternalServerError)?;
-
-        let data: InstanceData =
-            serde_json::from_str(instance.data.as_str()).expect("JSON was not well-formatted");
-        coord_to_array(data.area[0].clone())
+        web::block(move || async move {
+            if scanner_type.eq("rdm") {
+                instance::route(&conn.data_db, &instance).await
+            } else {
+                area::route(&conn.unown_db.as_ref().unwrap(), &instance).await
+            }
+        })
+        .await?
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?
     } else {
-        vec![]
+        vec![vec![]]
     };
 
-    let circles = generate_circles(area, radius);
+    let circles: Vec<Vec<[f64; 2]>> = area
+        .into_iter()
+        .map(|sub_area| bootstrapping::generate_circles(sub_area, radius))
+        .collect();
 
     println!("[BOOTSTRAP] Returning {} circles\n", circles[0].len());
-    Ok(response::send(
-        circles
-            .iter()
-            .map(|[lat, lon]| [*lat as f32, *lon as f32])
-            .collect::<Vec<[f32; 2]>>(),
-        return_type,
-    ))
+    Ok(response::send(circles, return_type))
 }
 
 #[post("/{mode}/{category}")]
 async fn cluster(
-    conn: web::Data<DatabaseConnection>,
+    conn: web::Data<KojiDb>,
     scanner_type: web::Data<String>,
     url: actix_web::web::Path<(String, String)>,
     payload: web::Json<RouteGeneration>,
 ) -> Result<HttpResponse, Error> {
     let (mode, category) = url.into_inner();
     let category_2 = category.clone();
-    let scanner_type = scanner_type.as_ref();
+    let scanner_type = scanner_type.as_ref().clone();
 
     let RouteGeneration {
         instance,
@@ -114,52 +106,47 @@ async fn cluster(
     let radius = radius.unwrap_or(70.0);
     let generations = generations.unwrap_or(0);
     let devices = devices.unwrap_or(1);
-    let area = area.unwrap_or(vec![]);
     let data_points = data_points.unwrap_or(vec![]);
     let min_points = min_points.unwrap_or(1);
     let fast = fast.unwrap_or(false);
-    let return_type = return_type.unwrap_or("json".to_string());
+    let (area, default_return_type) =
+        normalize::area_input(area.unwrap_or(AreaInput::SingleArray(vec![])));
+    let return_type = get_return_type(return_type, default_return_type);
 
     println!(
         "\n[{}] Radius: {}, Generations: {}, Devices: {}\nInstance: {}, Using Area: {}, Manual Data Points: {}",
         mode.to_uppercase(), radius, generations, devices, instance, area.len() > 0, data_points.len()
     );
 
-    if !scanner_type.eq("rdm") && area.len() == 0 {
-        return Ok(HttpResponse::BadRequest().json(CustomError {
-            message: "no_area_provided_and_invalid_scanner_type".to_string(),
-        }));
-    }
     if area.len() == 0 && instance.is_empty() {
         return Ok(HttpResponse::BadRequest().json(CustomError {
             message: "no_area_and_empty_instance".to_string(),
         }));
     }
 
-    let data_points = if data_points.len() > 0 {
+    let data_points = if !data_points.is_empty() {
         data_points
     } else {
         web::block(move || async move {
-            let instance = if instance.is_empty() {
-                None
-            } else {
-                Some(query_instance_route(&conn, &instance).await?)
-            };
-            let area = if instance.is_some() && area.len() == 0 {
-                let instance_data: InstanceData =
-                    serde_json::from_str(instance.unwrap().data.as_str())
-                        .expect("JSON was not well-formatted");
-                coord_to_array(instance_data.area[0].clone())
-            } else {
+            let area = if !area.is_empty() {
                 area
+            } else if !instance.is_empty() {
+                if scanner_type.eq("rdm") {
+                    instance::route(&conn.data_db, &instance).await?
+                } else {
+                    area::route(&conn.unown_db.as_ref().unwrap(), &instance).await?
+                }
+            } else {
+                vec![vec![]]
             };
+
             if area.len() > 1 {
                 if category == "gym" {
-                    gym::area(&conn, &area).await
+                    gym::area(&conn.data_db, area).await
                 } else if category == "pokestop" {
-                    pokestop::area(&conn, &area).await
+                    pokestop::area(&conn.data_db, area).await
                 } else {
-                    spawnpoint::area(&conn, &area).await
+                    spawnpoint::area(&conn.data_db, area).await
                 }
             } else {
                 Ok(Vec::<GenericData>::new())
@@ -176,7 +163,7 @@ async fn cluster(
     );
 
     let (clusters, biggest) = project_points(
-        data_to_array(data_points),
+        arrays::data_to_array(data_points),
         radius - 1.,
         min_points,
         fast,
@@ -185,13 +172,7 @@ async fn cluster(
     println!("[{}] Clusters: {}", mode.to_uppercase(), clusters.len());
 
     if mode.eq("cluster") {
-        return Ok(response::send(
-            clusters
-                .iter()
-                .map(|[lat, lon]| [*lat as f32, *lon as f32])
-                .collect::<Vec<[f32; 2]>>(),
-            return_type,
-        ));
+        return Ok(response::send(vec![clusters], return_type));
     }
 
     println!("Routing for {}seconds...", generations);
@@ -207,18 +188,18 @@ async fn cluster(
         }),
     );
 
-    let mut final_clusters = VecDeque::<[f32; 2]>::new();
+    let mut final_clusters = VecDeque::<[f64; 2]>::new();
 
-    let mut rotate: usize = 0;
-    for (i, index) in tour.route.iter().enumerate() {
-        let [lat, lon] = clusters[*index];
+    let mut rotate_count: usize = 0;
+    for (i, index) in tour.route.into_iter().enumerate() {
+        let [lat, lon] = clusters[index];
         if lat == biggest[0] && lon == biggest[1] {
-            rotate = i;
+            rotate_count = i;
             println!("Found Best! {}, {} - {}", lat, lon, index);
         }
-        final_clusters.push_back([lat as f32, lon as f32]);
+        final_clusters.push_back([lat as f64, lon as f64]);
     }
-    final_clusters.rotate_left(rotate);
+    final_clusters.rotate_left(rotate_count);
 
     // let circles = solve(clusters, generations, devices);
     // let mapped_circles: Vec<Vec<(f64, f64)>> = circles
@@ -236,10 +217,13 @@ async fn cluster(
         "[{}] Returning {} clusters {} routes\n ",
         mode.to_uppercase(),
         clusters.len(),
-        (clusters.len() / 100) as i64,
+        (clusters.len() / 100),
     );
     Ok(response::send(
-        final_clusters.iter().map(|x| *x).collect::<Vec<[f32; 2]>>(),
+        vec![final_clusters
+            .into_iter()
+            .map(|x| x)
+            .collect::<Vec<[f64; 2]>>()],
         return_type,
     ))
 }

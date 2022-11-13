@@ -35,7 +35,7 @@ fn point_line_distance(input: Vec<Point>, point: Point) -> f64 {
     distance
 }
 
-pub fn generate_circles(input: Vec<[f64; 2]>, circle_size: f64) -> Vec<[f64; 2]> {
+pub fn generate_circles(input: Vec<[f64; 2]>, radius: f64) -> Vec<[f64; 2]> {
     let mut polygon = Vec::<(f64, f64)>::new();
     for p in input.iter() {
         polygon.push((p[1], p[0]))
@@ -50,10 +50,10 @@ pub fn generate_circles(input: Vec<[f64; 2]>, circle_size: f64) -> Vec<[f64; 2]>
     let max = Point::new(extremes.x_max.coord.x, extremes.y_max.coord.y);
     let min = Point::new(extremes.x_min.coord.x, extremes.y_min.coord.y);
 
-    let start = max.haversine_destination(90., circle_size * 1.5);
+    let start = max.haversine_destination(90., radius * 1.5);
     let end = min
-        .haversine_destination(270., circle_size * 1.5)
-        .haversine_destination(180., circle_size);
+        .haversine_destination(270., radius * 1.5)
+        .haversine_destination(180., radius);
 
     let mut row = 0;
     let mut bearing = 270.;
@@ -70,19 +70,19 @@ pub fn generate_circles(input: Vec<[f64; 2]>, circle_size: f64) -> Vec<[f64; 2]>
                     .collect(),
                 current,
             );
-            if point_distance <= circle_size || point_distance == 0. || polygon.contains(&current) {
+            if point_distance <= radius || point_distance == 0. || polygon.contains(&current) {
                 circles.push(current);
             }
-            current = current.haversine_destination(bearing, x_mod * circle_size * 2.)
+            current = current.haversine_destination(bearing, x_mod * radius * 2.)
         }
-        current = current.haversine_destination(180., y_mod * circle_size * 2.);
+        current = current.haversine_destination(180., y_mod * radius * 2.);
 
         if row % 2 == 1 {
             bearing = 270.;
         } else {
             bearing = 90.;
         }
-        current = current.haversine_destination(bearing, x_mod * circle_size * 3.);
+        current = current.haversine_destination(bearing, x_mod * radius * 3.);
 
         row += 1;
     }

@@ -1,6 +1,6 @@
 use actix_files::Files;
 use actix_web::{middleware, web, App, HttpServer};
-use sea_orm::{Database, DatabaseConnection, DbErr};
+use sea_orm::Database;
 
 mod entities;
 mod models;
@@ -8,21 +8,35 @@ mod queries;
 mod routes;
 mod utils;
 
-async fn set_up_db() -> Result<DatabaseConnection, DbErr> {
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL");
-    Ok(Database::connect(database_url).await?)
-}
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
-    let db = match set_up_db().await {
-        Ok(db) => db,
-        Err(err) => panic!("{}", err),
+    let db_url = std::env::var("DATABASE_URL").expect("Need DATABASE_URL env var");
+    let unown_db_url = std::env::var("UNOWN_DB").unwrap_or("".to_string());
+
+    let databases = models::KojiDb {
+        data_db: match Database::connect(db_url.clone()).await {
+            Ok(db) => db,
+            Err(err) => panic!("{}", err),
+        },
+        unown_db: if unown_db_url.is_empty() {
+            None
+        } else {
+            match Database::connect(unown_db_url.clone()).await {
+                Ok(db) => Some(db),
+                Err(err) => panic!("{}", err),
+            }
+        },
     };
-    let scanner_type = std::env::var("SCANNER_TYPE").unwrap_or("rdm".to_string());
+
+    let scanner_type = if unown_db_url.is_empty() {
+        "rdm"
+    } else {
+        "unown"
+    }
+    .to_string();
 
     let port = std::env::var("PORT").unwrap_or("8080".to_string());
     let serve_from = if std::env::var("NODE_ENV") == Ok("development".to_string()) {
@@ -32,7 +46,7 @@ async fn main() -> std::io::Result<()> {
     };
     HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(db.clone()))
+            .app_data(web::Data::new(databases.clone()))
             .app_data(web::Data::new(scanner_type.clone()))
             // increase max payload size to 10MB
             .app_data(web::JsonConfig::default().limit(10_485_760))
@@ -44,13 +58,13 @@ async fn main() -> std::io::Result<()> {
                         web::scope("instance")
                             .service(routes::instance::all)
                             .service(routes::instance::instance_type)
-                            .service(routes::instance::area),
+                            .service(routes::instance::get_area),
                     )
                     .service(
                         web::scope("data")
                             .service(routes::raw_data::all)
                             .service(routes::raw_data::bound)
-                            .service(routes::raw_data::area),
+                            .service(routes::raw_data::by_area),
                     )
                     .service(
                         web::scope("v1").service(

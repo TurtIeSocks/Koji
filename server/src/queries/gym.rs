@@ -3,15 +3,7 @@ use crate::entities::gym;
 
 use crate::models::scanner::LatLon;
 use crate::models::{api::MapBounds, scanner::GenericData};
-use crate::utils::sql_raw::sql_raw;
-
-pub fn return_generic(items: Vec<LatLon>) -> Vec<GenericData> {
-    items
-        .into_iter()
-        .enumerate()
-        .map(|(i, item)| GenericData::new(format!("g{}", i), item.lat, item.lon))
-        .collect()
-}
+use crate::utils;
 
 pub async fn all(conn: &DatabaseConnection) -> Result<Vec<GenericData>, DbErr> {
     let items = gym::Entity::find()
@@ -21,7 +13,7 @@ pub async fn all(conn: &DatabaseConnection) -> Result<Vec<GenericData>, DbErr> {
         .into_model::<LatLon>()
         .all(conn)
         .await?;
-    Ok(return_generic(items))
+    Ok(utils::convert::normalize::fort(items, true))
 }
 
 pub async fn bound(
@@ -37,21 +29,21 @@ pub async fn bound(
         .into_model::<LatLon>()
         .all(conn)
         .await?;
-    Ok(return_generic(items))
+    Ok(utils::convert::normalize::fort(items, true))
 }
 
 pub async fn area(
     conn: &DatabaseConnection,
-    area: &Vec<[f64; 2]>,
+    area: Vec<Vec<[f64; 2]>>,
 ) -> Result<Vec<GenericData>, DbErr> {
     let items = gym::Entity::find()
         .from_raw_sql(Statement::from_sql_and_values(
             DbBackend::MySql,
-            format!("SELECT lat, lon FROM gym {}", sql_raw(area)).as_str(),
+            format!("SELECT lat, lon FROM gym {}", utils::sql_raw(area)).as_str(),
             vec![],
         ))
         .into_model::<LatLon>()
         .all(conn)
         .await?;
-    Ok(return_generic(items))
+    Ok(utils::convert::normalize::fort(items, true))
 }

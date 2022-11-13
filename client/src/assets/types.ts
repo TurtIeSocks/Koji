@@ -1,3 +1,5 @@
+import type { FeatureCollection } from 'geojson'
+
 import type { UseStore } from '@hooks/useStore'
 import type { UseStatic } from '@hooks/useStatic'
 
@@ -15,7 +17,7 @@ export interface PixiMarker {
 export interface Instance {
   name: string
   type: string
-  data: string
+  data: FeatureCollection
 }
 
 export interface Config {

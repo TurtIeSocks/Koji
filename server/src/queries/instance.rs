@@ -1,12 +1,16 @@
-use super::*;
-use crate::entities::{instance, sea_orm_active_enums};
-// use crate::db::{schema::instance::dsl::*, sql_types::InstanceType};
-// use crate::models::scanner::Instance;
+use num_traits::Float;
 
-pub async fn query_all_instances(
+use super::*;
+use crate::{
+    entities::{instance, sea_orm_active_enums},
+    models::scanner::GenericInstance,
+    utils::convert::normalize,
+};
+
+pub async fn all(
     conn: &DatabaseConnection,
     instance_type: Option<String>,
-) -> Result<Vec<instance::Model>, DbErr> {
+) -> Result<Vec<GenericInstance>, DbErr> {
     let instance_type = match instance_type {
         Some(instance_type) => match instance_type.as_str() {
             "AutoQuest" => Some(sea_orm_active_enums::Type::AutoQuest),
@@ -35,19 +39,25 @@ pub async fn query_all_instances(
     } else {
         instance::Entity::find().all(conn).await?
     };
-    Ok(items)
+    Ok(items
+        .iter()
+        .map(|item| normalize::instance(item.clone()))
+        .collect())
 }
 
-pub async fn query_instance_route(
+pub async fn route<T>(
     conn: &DatabaseConnection,
     instance_name: &String,
-) -> Result<instance::Model, DbErr> {
+) -> Result<Vec<Vec<[T; 2]>>, DbErr>
+where
+    T: Float + serde::de::DeserializeOwned,
+{
     let items = instance::Entity::find()
         .filter(instance::Column::Name.contains(instance_name))
         .one(conn)
         .await?;
     if items.is_some() {
-        Ok(items.unwrap())
+        Ok(normalize::instance::<T>(items.unwrap()).data)
     } else {
         Err(DbErr::Custom("Instance not found".to_string()))
     }

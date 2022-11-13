@@ -1,5 +1,5 @@
 use actix_web::{get, post, web, Error, HttpResponse};
-use sea_orm::{DatabaseConnection, DbErr};
+use sea_orm::DbErr;
 
 pub mod calculate;
 pub mod instance;

@@ -1,1 +1,3 @@
-pub mod text;
+pub mod arrays;
+pub mod geo;
+pub mod normalize;

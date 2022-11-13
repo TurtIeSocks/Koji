@@ -1,7 +1,6 @@
 use sea_orm::*;
 
-// use sea_orm::{DatabaseConnection, DbErr};
-
+pub mod area;
 pub mod gym;
 pub mod instance;
 pub mod pokestop;

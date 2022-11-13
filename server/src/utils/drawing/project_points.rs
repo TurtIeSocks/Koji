@@ -1,4 +1,4 @@
-use crate::utils::{cluster_count, clustering};
+use crate::utils::drawing::{cluster_count, clustering};
 
 use geo::Coordinate;
 use map_3d::{geodetic2ecef, Ellipsoid};

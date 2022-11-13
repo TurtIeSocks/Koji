@@ -1,6 +1,6 @@
 [package]
 name = "koji"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
@@ -12,7 +12,9 @@ dotenv = "0.15.0"
 env_logger = "0.9.0"
 futures = "0.3.21"
 geo = "0.22.1"
+geojson = "0.24.0"
 map_3d = "0.1.5"
+num-traits = "0.2.15"
 rstar = "0.9.3"
 sea-orm = { version = "^0.9.0", features = [
   "sqlx-mysql",

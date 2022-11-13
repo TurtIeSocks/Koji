@@ -2,6 +2,7 @@
 
 pub mod prelude;
 
+pub mod area;
 pub mod device;
 pub mod gym;
 pub mod instance;

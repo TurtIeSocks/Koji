@@ -32,6 +32,7 @@ module.exports = {
     'react/jsx-one-expression-per-line': 0,
     'consistent-return': 0,
     radix: 0,
+    'no-plusplus': 0,
     '@typescript-eslint/no-var-requires': 0,
     'import/prefer-default-export': 0,
     'operator-linebreak': 0,
