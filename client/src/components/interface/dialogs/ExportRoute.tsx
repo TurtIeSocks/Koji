@@ -27,8 +27,9 @@ export default function ExportRoute({ open, setOpen }: Props) {
   const mode = useStore((s) => s.mode)
 
   const total = exportSettings.route.flatMap((route) => route).length
+
   return (
-    <Dialog open={open === 'route'} onClose={() => setOpen('')}>
+    <Dialog open={open === 'route'} maxWidth="xl" onClose={() => setOpen('')}>
       <DialogHeader title="Export Route" action={() => setOpen('')} />
       <DialogContent>
         <Grid2 container>
@@ -43,11 +44,11 @@ export default function ExportRoute({ open, setOpen }: Props) {
             alignItems="center"
             justifyContent="center"
           >
-            <List>
+            <List sx={{ width: '90%', mx: 'auto' }}>
               {exportSettings.route.map((route, i) => (
                 <React.Fragment key={i}>
                   <ListSubheader>
-                    <Grid2 container>
+                    <Grid2 container justifyContent="space-around">
                       <Grid2 xs={3}>
                         <IconButton
                           onClick={() =>
@@ -69,6 +70,7 @@ export default function ExportRoute({ open, setOpen }: Props) {
                       key={`${i}-${j}-${point.join('')}`}
                       primary={`${point[0]}, ${point[1]}`}
                       primaryTypographyProps={{ variant: 'caption' }}
+                      sx={{ w: '100%', mx: 'auto' }}
                     />
                   ))}
                 </React.Fragment>

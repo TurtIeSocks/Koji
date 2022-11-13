@@ -37,6 +37,10 @@ fn point_line_distance(input: Vec<Point>, point: Point) -> f64 {
 
 pub fn generate_circles(input: Vec<[f64; 2]>, radius: f64) -> Vec<[f64; 2]> {
     let mut polygon = Vec::<(f64, f64)>::new();
+    let mut circles: Vec<Point> = Vec::new();
+    if input.is_empty() {
+        return circles.iter().map(|p| [p.y(), p.x()]).collect();
+    }
     for p in input.iter() {
         polygon.push((p[1], p[0]))
     }
@@ -44,7 +48,6 @@ pub fn generate_circles(input: Vec<[f64; 2]>, radius: f64) -> Vec<[f64; 2]> {
     let polygon = Polygon::<f64>::new(line, vec![]);
     let x_mod: f64 = 0.75_f64.sqrt();
     let y_mod: f64 = 0.568_f64.sqrt();
-    let mut circles: Vec<Point> = Vec::new();
 
     let extremes = polygon.extremes().unwrap();
     let max = Point::new(extremes.x_max.coord.x, extremes.y_max.coord.y);

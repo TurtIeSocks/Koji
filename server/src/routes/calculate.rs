@@ -41,22 +41,22 @@ async fn bootstrap(
     let return_type = get_return_type(return_type, default_return_type);
 
     println!(
-        "\n[BOOTSTRAP] Mode: Bootstrap, Radius: {}\nScanner Type: {}, Instance: {}, Custom Area: {}",
+        "\n[BOOTSTRAP] Mode: Bootstrap, Radius: {}\nScanner Type: {}, Instance: {}, Custom Area: {:?}",
         radius,
         scanner_type,
         instance,
-        !area.is_empty(),
+        area,
     );
 
-    if area.is_empty() && instance.is_empty() {
+    if area[0].is_empty() && instance.is_empty() {
         return Ok(HttpResponse::BadRequest().json(CustomError {
             message: "no_area_and_empty_instance".to_string(),
         }));
     }
 
-    let area = if !area.is_empty() {
+    let area = if !area[0].is_empty() {
         area
-    } else if !instance.is_empty() && scanner_type.eq("rdm") {
+    } else if !instance.is_empty() {
         web::block(move || async move {
             if scanner_type.eq("rdm") {
                 instance::route(&conn.data_db, &instance).await
@@ -118,7 +118,7 @@ async fn cluster(
         mode.to_uppercase(), radius, generations, devices, instance, area.len() > 0, data_points.len()
     );
 
-    if area.len() == 0 && instance.is_empty() {
+    if area[0].is_empty() && instance.is_empty() {
         return Ok(HttpResponse::BadRequest().json(CustomError {
             message: "no_area_and_empty_instance".to_string(),
         }));
@@ -128,7 +128,7 @@ async fn cluster(
         data_points
     } else {
         web::block(move || async move {
-            let area = if !area.is_empty() {
+            let area = if !area[0].is_empty() {
                 area
             } else if !instance.is_empty() {
                 if scanner_type.eq("rdm") {
@@ -140,7 +140,7 @@ async fn cluster(
                 vec![vec![]]
             };
 
-            if area.len() > 1 {
+            if area[0].len() > 1 {
                 if category == "gym" {
                     gym::area(&conn.data_db, area).await
                 } else if category == "pokestop" {

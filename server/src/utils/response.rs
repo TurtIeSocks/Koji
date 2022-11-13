@@ -6,7 +6,9 @@ fn as_text(points: Vec<Vec<[f64; 2]>>) -> String {
     let mut string: String = "".to_string();
 
     for (i, point_array) in points.iter().enumerate() {
-        string = string + format!("[Geofence {}]\n", i + 1).as_str();
+        if points.len() > 1 {
+            string = string + format!("[Geofence {}]\n", i + 1).as_str();
+        }
         for [lat, lon] in point_array.iter() {
             string = string + &(*lat as f32).to_string() + "," + &(*lon as f32).to_string() + "\n";
         }

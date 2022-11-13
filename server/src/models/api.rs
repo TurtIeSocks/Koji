@@ -1,5 +1,3 @@
-use geojson::FeatureCollection;
-
 use super::*;
 use crate::models::scanner::{GenericData, LatLon};
 
@@ -20,6 +18,7 @@ pub struct MapBounds {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
 pub enum AreaInput {
     Text(String),
     SingleArray(Vec<[f64; 2]>),

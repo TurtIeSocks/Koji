@@ -47,6 +47,7 @@ export async function getLotsOfData(
         },
         body: JSON.stringify({
           ...settings,
+          return_type: 'multi_array',
           devices: Math.max(
             Math.floor((settings.devices || 1) / flat.length),
             1,
@@ -63,56 +64,39 @@ export async function getMarkers(
   map: Map,
   data: UseStore['data'],
   geojson: UseStatic['geojson'],
-  pokestops: boolean,
-  spawnpoints: boolean,
-  gyms: boolean,
+  enableStops: boolean,
+  enableSpawnpoints: boolean,
+  enableGyms: boolean,
 ): Promise<Data> {
-  const flat =
-    geojson.features.length && data === 'area' ? convertGeojson(geojson) : [[]]
-  const stuff = await Promise.all(
-    flat.map((area) =>
-      Promise.all(
-        [
-          pokestops ? 'pokestop' : '',
-          gyms ? 'gym' : '',
-          spawnpoints ? 'spawnpoint' : '',
-        ].map(async (category) =>
-          category
-            ? fetch(
-                `/api/data/${data}/${category}`,
-                data === 'all'
-                  ? undefined
-                  : {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify(
-                        data === 'bound' ? getMapBounds(map) : { area },
-                      ),
-                    },
-              ).then((res) => res.json())
-            : [],
-        ),
-      ),
+  const [pokestops, gyms, spawnpoints] = await Promise.all(
+    [
+      enableStops ? 'pokestop' : '',
+      enableGyms ? 'gym' : '',
+      enableSpawnpoints ? 'spawnpoint' : '',
+    ].map(async (category) =>
+      category && (data === 'area' ? geojson.features.length : true)
+        ? fetch(
+            `/api/data/${data}/${category}`,
+            data === 'all'
+              ? undefined
+              : {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(
+                    data === 'bound'
+                      ? getMapBounds(map)
+                      : { area: convertGeojson(geojson) },
+                  ),
+                },
+          ).then((res) => res.json())
+        : [],
     ),
   )
-
-  const returnData: Data = {
-    pokestops: [],
-    gyms: [],
-    spawnpoints: [],
+  return {
+    pokestops: Array.isArray(pokestops) ? pokestops : [],
+    gyms: Array.isArray(gyms) ? gyms : [],
+    spawnpoints: Array.isArray(spawnpoints) ? spawnpoints : [],
   }
-  stuff.forEach((area) => {
-    if (geojson.features.length && data === 'area') {
-      returnData.pokestops.push(...area[0])
-      returnData.gyms.push(...area[1])
-      returnData.spawnpoints.push(...area[2])
-    } else {
-      returnData.pokestops = Array.isArray(area[0]) ? area[0] : []
-      returnData.gyms = Array.isArray(area[1]) ? area[1] : []
-      returnData.spawnpoints = Array.isArray(area[2]) ? area[2] : []
-    }
-  })
-  return returnData
 }

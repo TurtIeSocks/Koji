@@ -10,16 +10,16 @@ pub fn sql_raw(area: Vec<Vec<[f64; 2]>>) -> String {
     for (i, sub_area) in area.iter().enumerate() {
         let mut sub_string = "".to_string();
         for [lat, lon] in sub_area.iter() {
-            sub_string = format!("{} {},{},", sub_string, lat, lon);
+            sub_string = format!("{} {} {},", sub_string, lat, lon);
         }
+        sub_string = sub_string.trim_end_matches(",").to_string();
         string = format!(
-            "{} ST_CONTAINS(ST_GeomFromText(\"POLYGON(({}))\"), POINT(lat, lon))",
+            "{} {} ST_CONTAINS(ST_GeomFromText(\"POLYGON(({}))\"), POINT(lat, lon))",
+            string,
             if i == 0 { "WHERE" } else { "OR" },
             sub_string
         );
     }
-    string = string.trim_end_matches(",").to_string();
-
     string
 }
 

@@ -108,17 +108,17 @@ async fn by_area(
         scanner_type,
         category,
         instance,
-        !area.is_empty(),
+        !area[0].is_empty(),
     );
 
-    if area.is_empty() && instance.is_empty() {
+    if area[0].is_empty() && instance.is_empty() {
         return Ok(HttpResponse::BadRequest().json(CustomError {
             message: "no_area_and_empty_instance".to_string(),
         }));
     }
 
     let area_data = web::block(move || async move {
-        let area = if !area.is_empty() {
+        let area = if !area[0].is_empty() {
             area
         } else if scanner_type == "rdm" {
             instance::route::<f64>(&conn.data_db, &instance).await?
