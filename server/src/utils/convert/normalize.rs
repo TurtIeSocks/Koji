@@ -4,7 +4,7 @@ use num_traits::Float;
 use crate::entities::{area, instance, sea_orm_active_enums::Type};
 use crate::models::api::{AreaInput, ReturnType};
 use crate::models::scanner::{GenericData, LatLon, TrimmedSpawn};
-use crate::utils;
+use crate::utils::{self, text_test};
 
 use super::{collection, feature};
 
@@ -87,7 +87,11 @@ pub fn area_input(area: Option<AreaInput>) -> (FeatureCollection, ReturnType) {
         match area {
             AreaInput::Text(area) => (
                 collection::from_feature(feature::from_text(area.as_str(), None)),
-                ReturnType::Text,
+                if text_test(area.as_str()) {
+                    ReturnType::AltText
+                } else {
+                    ReturnType::Text
+                },
             ),
             AreaInput::SingleArray(area) => (
                 collection::from_feature(feature::from_single_vector(area, None)),

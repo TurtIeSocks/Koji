@@ -8,7 +8,9 @@ use crate::{
 
 use super::convert::{collection, feature, vector::from_collection};
 
-fn as_text(points: Vec<Vec<[f64; 2]>>) -> String {
+fn as_text(points: Vec<Vec<[f64; 2]>>, alt_text: bool) -> String {
+    let float_separator = if alt_text { " " } else { "," };
+    let point_separator = if alt_text { "," } else { "\n" };
     let mut string: String = "".to_string();
 
     for (i, point_array) in points.iter().enumerate() {
@@ -16,7 +18,11 @@ fn as_text(points: Vec<Vec<[f64; 2]>>) -> String {
             string = string + format!("[Geofence {}]\n", i + 1).as_str();
         }
         for [lat, lon] in point_array.iter() {
-            string = string + &(*lat as f32).to_string() + "," + &(*lon as f32).to_string() + "\n";
+            string = string
+                + &(*lat as f32).to_string()
+                + float_separator
+                + &(*lon as f32).to_string()
+                + point_separator;
         }
     }
     string
@@ -60,7 +66,10 @@ pub fn send(value: Vec<Vec<[f64; 2]>>, return_type: ReturnType) -> HttpResponse 
         ReturnType::MultiStruct => HttpResponse::Ok().json(as_struct(value)),
         ReturnType::Text => HttpResponse::Ok()
             .content_type(ContentType::plaintext())
-            .body(as_text(value)),
+            .body(as_text(value, false)),
+        ReturnType::AltText => HttpResponse::Ok()
+            .content_type(ContentType::plaintext())
+            .body(as_text(value, true)),
         ReturnType::SingleArray => HttpResponse::Ok().json(flatten(as_array(value))),
         ReturnType::Feature => {
             HttpResponse::Ok().json(feature::from_multi_vector(value, Some(Type::CirclePokemon)))
@@ -80,7 +89,10 @@ pub fn from_fc(value: FeatureCollection, return_type: ReturnType) -> HttpRespons
         ReturnType::MultiStruct => HttpResponse::Ok().json(as_struct(from_collection(value))),
         ReturnType::Text => HttpResponse::Ok()
             .content_type(ContentType::plaintext())
-            .body(as_text(from_collection(value))),
+            .body(as_text(from_collection(value), false)),
+        ReturnType::AltText => HttpResponse::Ok()
+            .content_type(ContentType::plaintext())
+            .body(as_text(from_collection(value), true)),
         ReturnType::SingleArray => HttpResponse::Ok().json(flatten(from_collection(value))),
         ReturnType::Feature => {
             if value.features.len() == 1 {

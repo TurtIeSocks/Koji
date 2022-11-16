@@ -62,6 +62,7 @@ pub fn sql_raw(area: FeatureCollection) -> String {
 pub fn get_return_type(return_type: Option<String>, default_return_type: ReturnType) -> ReturnType {
     if return_type.is_some() {
         match return_type.unwrap().to_lowercase().as_str() {
+            "alttext" | "alt_text" => ReturnType::AltText,
             "text" => ReturnType::Text,
             "array" => match default_return_type {
                 ReturnType::SingleArray => ReturnType::SingleArray,

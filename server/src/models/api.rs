@@ -38,6 +38,7 @@ pub enum AreaInput {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum ReturnType {
+    AltText,
     Text,
     SingleArray,
     MultiArray,
