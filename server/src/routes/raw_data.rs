@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::{
-    api::{AreaInput, CustomError, MapBounds, RouteGeneration},
+    api::{CustomError, MapBounds, RouteGeneration},
     KojiDb,
 };
 use crate::queries::{area, gym, instance, pokestop, spawnpoint};
@@ -98,34 +98,35 @@ async fn by_area(
         min_points: _min_points,
         fast: _fast,
         return_type: _return_type,
+        rdm_text,
     } = payload.into_inner();
     let instance = instance.unwrap_or("".to_string());
-    let (area, _return_type) =
-        normalize::area_input(area.unwrap_or(AreaInput::SingleArray(vec![])));
+    let rdm_text = rdm_text.unwrap_or(false);
+    let (area, _return_type) = normalize::area_input(area, rdm_text);
 
     println!(
         "\n[DATA-AREA] Scanner Type: {}, Category: {}, Instance: {}, Custom Area: {}",
         scanner_type,
         category,
         instance,
-        !area[0].is_empty(),
+        !area.features.is_empty(),
     );
 
-    if area[0].is_empty() && instance.is_empty() {
+    if area.features.is_empty() && instance.is_empty() {
         return Ok(HttpResponse::BadRequest().json(CustomError {
             message: "no_area_and_empty_instance".to_string(),
         }));
     }
 
     let area_data = web::block(move || async move {
-        let area = if !area[0].is_empty() {
+        let area = if !area.features.is_empty() {
             area
         } else if scanner_type == "rdm" {
-            instance::route::<f64>(&conn.data_db, &instance).await?
+            instance::route(&conn.data_db, &instance).await?
         } else if conn.unown_db.is_some() {
-            area::route::<f64>(&conn.unown_db.as_ref().unwrap(), &instance).await?
+            area::route(&conn.unown_db.as_ref().unwrap(), &instance).await?
         } else {
-            vec![vec![]]
+            area
         };
         if category == "gym" {
             gym::area(&conn.data_db, area).await

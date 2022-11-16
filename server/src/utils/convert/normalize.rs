@@ -1,11 +1,12 @@
-use std::str::FromStr;
-
+use geojson::{Feature, FeatureCollection};
 use num_traits::Float;
 
 use crate::entities::{area, instance, sea_orm_active_enums::Type};
 use crate::models::api::{AreaInput, ReturnType};
-use crate::models::scanner::{GenericData, GenericInstance, LatLon, TrimmedSpawn};
-use crate::utils::convert::arrays;
+use crate::models::scanner::{GenericData, LatLon, TrimmedSpawn};
+use crate::utils;
+
+use super::{collection, feature};
 
 pub fn fort<T>(items: Vec<LatLon<T>>, gym: bool) -> Vec<GenericData<T>>
 where
@@ -45,85 +46,76 @@ where
         .collect()
 }
 
-pub fn instance<T>(instance: instance::Model) -> GenericInstance<T>
-where
-    T: Float + serde::de::DeserializeOwned,
-{
-    GenericInstance {
-        name: instance.name,
-        r#type: instance.r#type.clone(),
-        data: match instance.r#type {
-            Type::AutoQuest | Type::PokemonIv => {
-                arrays::parse_multi_polygon::<T>(instance.data.as_str())
-            }
-            _ => arrays::parse_single_polygon::<T>(instance.data.as_str()),
-        },
-    }
+pub fn instance(instance: instance::Model) -> Feature {
+    utils::parse_text(
+        instance.data.as_str(),
+        Some(instance.name),
+        Some(instance.r#type),
+    )
 }
 
-pub fn area<T>(areas: Vec<area::Model>) -> Vec<GenericInstance<T>>
-where
-    T: Float + FromStr,
-{
-    let mut normalized = Vec::<GenericInstance<T>>::new();
+pub fn area(areas: Vec<area::Model>) -> Vec<Feature> {
+    let mut normalized = Vec::<Feature>::new();
 
-    for other_area in areas.into_iter() {
-        if other_area.geofence.is_some() && !other_area.geofence.clone().unwrap().is_empty() {
-            let data = arrays::parse_flat_text(other_area.geofence.clone().unwrap().as_str());
-            normalized.push(GenericInstance {
-                name: format!("{}_{}", other_area.name, "Fence"),
-                r#type: Type::AutoQuest,
-                data,
-            });
+    let mut to_feature = |fence: Option<String>, name: String, modifier: &str| -> String {
+        if fence.is_some() && !fence.clone().unwrap().is_empty() {
+            normalized.push(utils::parse_text(
+                fence.unwrap().as_str(),
+                Some(format!("{}_{}", name, modifier)),
+                Some(match modifier {
+                    "Fort" => Type::CircleRaid,
+                    "Quest" => Type::ManualQuest,
+                    "Pokemon" => Type::CirclePokemon,
+                    _ => Type::AutoQuest,
+                }),
+            ));
         }
-        if other_area.fort_mode_route.is_some()
-            && !other_area.fort_mode_route.clone().unwrap().is_empty()
-        {
-            let data =
-                arrays::parse_flat_text(other_area.fort_mode_route.clone().unwrap().as_str());
-            normalized.push(GenericInstance {
-                name: format!("{}_{}", other_area.name, "Fort"),
-                r#type: Type::CircleRaid,
-                data,
-            });
-        }
-        if other_area.quest_mode_route.is_some()
-            && !other_area.quest_mode_route.clone().unwrap().is_empty()
-        {
-            let data =
-                arrays::parse_flat_text(other_area.quest_mode_route.clone().unwrap().as_str());
-            normalized.push(GenericInstance {
-                name: format!("{}_{}", other_area.name, "Quest"),
-                r#type: Type::ManualQuest,
-                data,
-            });
-        }
-        if other_area.pokemon_mode_route.is_some()
-            && !other_area.pokemon_mode_route.clone().unwrap().is_empty()
-        {
-            let data =
-                arrays::parse_flat_text(other_area.pokemon_mode_route.clone().unwrap().as_str());
-            normalized.push(GenericInstance {
-                name: format!("{}_{}", other_area.name, "Pokemon"),
-                r#type: Type::CirclePokemon,
-                data,
-            });
-        }
+        name
+    };
+    for area in areas.into_iter() {
+        let name = to_feature(area.geofence, area.name, "Fence");
+        let name = to_feature(area.fort_mode_route, name, "Fort");
+        let name = to_feature(area.quest_mode_route, name, "Quest");
+        to_feature(area.pokemon_mode_route, name, "Pokemon");
     }
     normalized
 }
 
-pub fn area_input(area: AreaInput) -> (Vec<Vec<[f64; 2]>>, ReturnType) {
-    match area {
-        AreaInput::Text(area) => (arrays::parse_flat_text(area.as_str()), ReturnType::Text),
-        AreaInput::SingleArray(area) => (vec![area], ReturnType::SingleArray),
-        AreaInput::MultiArray(area) => (area, ReturnType::MultiArray),
-        AreaInput::SingleStruct(area) => {
-            (vec![arrays::coord_to_array(area)], ReturnType::SingleStruct)
+pub fn area_input(area: Option<AreaInput>, rdm_text: bool) -> (FeatureCollection, ReturnType) {
+    if area.is_some() {
+        let area = area.unwrap();
+        match area {
+            AreaInput::Text(area) => (
+                collection::from_feature(feature::from_text(area.as_str(), rdm_text, None)),
+                ReturnType::Text,
+            ),
+            AreaInput::SingleArray(area) => (
+                collection::from_feature(feature::from_single_vector(area, None)),
+                ReturnType::SingleArray,
+            ),
+            AreaInput::MultiArray(area) => (
+                collection::from_feature(feature::from_multi_vector(area, None)),
+                ReturnType::MultiArray,
+            ),
+            AreaInput::SingleStruct(area) => (
+                collection::from_feature(feature::from_single_struct(area, None)),
+                ReturnType::SingleStruct,
+            ),
+            AreaInput::MultiStruct(area) => (
+                collection::from_feature(feature::from_multi_struct(area, None)),
+                ReturnType::MultiStruct,
+            ),
+            AreaInput::Feature(area) => (collection::from_feature(area), ReturnType::Feature),
+            AreaInput::FeatureCollection(area) => (area, ReturnType::FeatureCollection),
         }
-        AreaInput::MultiStruct(area) => (
-            area.into_iter().map(arrays::coord_to_array).collect(),
-            ReturnType::MultiStruct,
-        ),
+    } else {
+        (
+            FeatureCollection {
+                bbox: None,
+                foreign_members: None,
+                features: vec![],
+            },
+            ReturnType::SingleArray,
+        )
     }
 }

@@ -18,6 +18,7 @@ pub enum Type {
     CircleSmartRaid,
     #[sea_orm(string_value = "auto_quest")]
     AutoQuest,
+    // This is added manually, re-add it if you run the CLI command
     #[sea_orm(string_value = "manual_quest")]
     ManualQuest,
     #[sea_orm(string_value = "pokemon_iv")]

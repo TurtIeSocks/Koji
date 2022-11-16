@@ -1,6 +1,11 @@
 use actix_web::{http::header::ContentType, HttpResponse};
 
-use crate::models::{api::ReturnType, scanner::LatLon};
+use crate::{
+    entities::sea_orm_active_enums::Type,
+    models::{api::ReturnType, scanner::LatLon},
+};
+
+use super::convert::{collection, feature};
 
 fn as_text(points: Vec<Vec<[f64; 2]>>) -> String {
     let mut string: String = "".to_string();
@@ -56,6 +61,12 @@ pub fn send(value: Vec<Vec<[f64; 2]>>, return_type: ReturnType) -> HttpResponse 
             .content_type(ContentType::plaintext())
             .body(as_text(value)),
         ReturnType::SingleArray => HttpResponse::Ok().json(flatten(as_array(value))),
+        ReturnType::Feature => {
+            HttpResponse::Ok().json(feature::from_multi_vector(value, Some(Type::CirclePokemon)))
+        }
+        ReturnType::FeatureCollection => HttpResponse::Ok().json(collection::from_feature(
+            feature::from_multi_vector(value, Some(Type::CirclePokemon)),
+        )),
         _ => HttpResponse::Ok().json(as_array(value)),
     }
 }

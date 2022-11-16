@@ -4,13 +4,13 @@ use time::Duration;
 use travelling_salesman;
 
 use crate::models::{
-    api::{AreaInput, CustomError, RouteGeneration},
+    api::{CustomError, RouteGeneration},
     scanner::GenericData,
     KojiDb,
 };
 use crate::queries::{area, gym, instance, pokestop, spawnpoint};
 use crate::utils::{
-    convert::{arrays, normalize},
+    convert::{normalize, vector},
     drawing::{bootstrapping, project_points::project_points},
     get_return_type, response,
 };
@@ -33,11 +33,12 @@ async fn bootstrap(
         data_points: _data_points,
         min_points: _min_points,
         fast: _fast,
+        rdm_text,
     } = payload.into_inner();
     let instance = instance.unwrap_or("".to_string());
     let radius = radius.unwrap_or(70.0);
-    let (area, default_return_type) =
-        normalize::area_input(area.unwrap_or(AreaInput::SingleArray(vec![])));
+    let rdm_text = rdm_text.unwrap_or(false);
+    let (area, default_return_type) = normalize::area_input(area, rdm_text);
     let return_type = get_return_type(return_type, default_return_type);
 
     println!(
@@ -48,13 +49,13 @@ async fn bootstrap(
         area,
     );
 
-    if area[0].is_empty() && instance.is_empty() {
+    if area.features.is_empty() && instance.is_empty() {
         return Ok(HttpResponse::BadRequest().json(CustomError {
             message: "no_area_and_empty_instance".to_string(),
         }));
     }
 
-    let area = if !area[0].is_empty() {
+    let area = if !area.features.is_empty() {
         area
     } else if !instance.is_empty() {
         web::block(move || async move {
@@ -68,7 +69,7 @@ async fn bootstrap(
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?
     } else {
-        vec![vec![]]
+        area
     };
 
     let circles: Vec<Vec<[f64; 2]>> = area
@@ -101,24 +102,25 @@ async fn cluster(
         min_points,
         fast,
         return_type,
+        rdm_text,
     } = payload.into_inner();
     let instance = instance.unwrap_or("".to_string());
     let radius = radius.unwrap_or(70.0);
-    let generations = generations.unwrap_or(0);
+    let generations = generations.unwrap_or(1);
     let devices = devices.unwrap_or(1);
     let data_points = data_points.unwrap_or(vec![]);
     let min_points = min_points.unwrap_or(1);
-    let fast = fast.unwrap_or(false);
-    let (area, default_return_type) =
-        normalize::area_input(area.unwrap_or(AreaInput::SingleArray(vec![])));
+    let fast = fast.unwrap_or(true);
+    let rdm_text = rdm_text.unwrap_or(false);
+    let (area, default_return_type) = normalize::area_input(area, rdm_text);
     let return_type = get_return_type(return_type, default_return_type);
 
     println!(
         "\n[{}] Radius: {}, Generations: {}, Devices: {}\nInstance: {}, Using Area: {}, Manual Data Points: {}",
-        mode.to_uppercase(), radius, generations, devices, instance, area.len() > 0, data_points.len()
+        mode.to_uppercase(), radius, generations, devices, instance, area.features.len() > 0, data_points.len()
     );
 
-    if area[0].is_empty() && instance.is_empty() {
+    if area.features.is_empty() && instance.is_empty() {
         return Ok(HttpResponse::BadRequest().json(CustomError {
             message: "no_area_and_empty_instance".to_string(),
         }));
@@ -128,7 +130,7 @@ async fn cluster(
         data_points
     } else {
         web::block(move || async move {
-            let area = if !area[0].is_empty() {
+            let area = if !area.features.is_empty() {
                 area
             } else if !instance.is_empty() {
                 if scanner_type.eq("rdm") {
@@ -137,10 +139,10 @@ async fn cluster(
                     area::route(&conn.unown_db.as_ref().unwrap(), &instance).await?
                 }
             } else {
-                vec![vec![]]
+                area
             };
 
-            if area[0].len() > 1 {
+            if !area.features.is_empty() {
                 if category == "gym" {
                     gym::area(&conn.data_db, area).await
                 } else if category == "pokestop" {
@@ -163,7 +165,7 @@ async fn cluster(
     );
 
     let (clusters, biggest) = project_points(
-        arrays::data_to_array(data_points),
+        vector::from_generic_data(data_points),
         radius - 1.,
         min_points,
         fast,
@@ -171,7 +173,7 @@ async fn cluster(
     );
     println!("[{}] Clusters: {}", mode.to_uppercase(), clusters.len());
 
-    if mode.eq("cluster") || clusters.is_empty() {
+    if mode.eq("cluster") || clusters.is_empty() || generations == 0 {
         return Ok(response::send(vec![clusters], return_type));
     }
 

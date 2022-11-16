@@ -1,6 +1,5 @@
-use geo::{
-    Contains, Extremes, HaversineDestination, HaversineDistance, LineString, Point, Polygon,
-};
+use super::*;
+use geo::{Contains, Extremes, HaversineDestination, HaversineDistance, Point, Polygon};
 
 fn dot(u: &Point, v: &Point) -> f64 {
     u.x() * v.x() + u.y() * v.y()
@@ -35,17 +34,17 @@ fn point_line_distance(input: Vec<Point>, point: Point) -> f64 {
     distance
 }
 
-pub fn generate_circles(input: Vec<[f64; 2]>, radius: f64) -> Vec<[f64; 2]> {
-    let mut polygon = Vec::<(f64, f64)>::new();
+pub fn generate_circles(input: Feature, radius: f64) -> Vec<[f64; 2]> {
     let mut circles: Vec<Point> = Vec::new();
-    if input.is_empty() {
+
+    if input.geometry.is_none() {
         return circles.iter().map(|p| [p.y(), p.x()]).collect();
     }
-    for p in input.iter() {
-        polygon.push((p[1], p[0]))
+    let polygon = Polygon::<f64>::try_from(input).unwrap();
+    let points: Vec<Point> = polygon.clone().exterior().points().collect();
+    if points.is_empty() {
+        return Vec::<[f64; 2]>::new();
     }
-    let line = LineString::from(polygon);
-    let polygon = Polygon::<f64>::new(line, vec![]);
     let x_mod: f64 = 0.75_f64.sqrt();
     let y_mod: f64 = 0.568_f64.sqrt();
 
@@ -66,13 +65,7 @@ pub fn generate_circles(input: Vec<[f64; 2]>, radius: f64) -> Vec<[f64; 2]> {
         while (bearing == 270. && current.x() > end.x())
             || (bearing == 90. && current.x() < start.x())
         {
-            let point_distance = point_line_distance(
-                input
-                    .iter()
-                    .map(|lat_lon| Point::new(lat_lon[1], lat_lon[0]))
-                    .collect(),
-                current,
-            );
+            let point_distance = point_line_distance(points.clone(), current);
             if point_distance <= radius || point_distance == 0. || polygon.contains(&current) {
                 circles.push(current);
             }

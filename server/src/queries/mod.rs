@@ -1,5 +1,7 @@
-use sea_orm::*;
+use super::*;
 
+use geojson::Feature;
+use sea_orm::*;
 pub mod area;
 pub mod gym;
 pub mod instance;

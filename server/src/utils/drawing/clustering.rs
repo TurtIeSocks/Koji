@@ -1,10 +1,6 @@
 use geo::Coordinate;
 use rstar::PointDistance;
-use std::{
-    collections::HashMap,
-    // ops::{Index, IndexMut},
-    time::Instant,
-};
+use std::{collections::HashMap, time::Instant};
 
 #[derive(Debug, Clone)]
 struct BoundingBox {
@@ -14,12 +10,7 @@ struct BoundingBox {
     pub max_y: f64,
 }
 
-trait NewAndUpdate {
-    fn new(point: Coordinate) -> BoundingBox;
-    fn update(&self, point: Coordinate) -> BoundingBox;
-}
-
-impl NewAndUpdate for BoundingBox {
+impl BoundingBox {
     fn new(point: Coordinate) -> BoundingBox {
         BoundingBox {
             min_x: point.x.min(f64::INFINITY),

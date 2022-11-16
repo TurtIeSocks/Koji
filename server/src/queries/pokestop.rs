@@ -35,7 +35,7 @@ pub async fn bound(
 
 pub async fn area(
     conn: &DatabaseConnection,
-    area: Vec<Vec<[f64; 2]>>,
+    area: FeatureCollection,
 ) -> Result<Vec<GenericData>, DbErr> {
     let items = pokestop::Entity::find()
         .from_raw_sql(Statement::from_sql_and_values(

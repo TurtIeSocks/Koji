@@ -1,5 +1,6 @@
 use actix_files::Files;
 use actix_web::{middleware, web, App, HttpServer};
+use geojson::{Feature, FeatureCollection};
 use sea_orm::Database;
 
 mod entities;

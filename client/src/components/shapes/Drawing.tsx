@@ -83,7 +83,7 @@ export default function Drawing() {
             } = layer.feature
             for (let i = 0; i < coordinates.length; i++) {
               L.circle([coordinates[i][1], coordinates[i][0]], {
-                radius,
+                radius: layer.feature.properties.radius || radius,
               }).addTo(ref.current)
             }
           }
@@ -91,11 +91,20 @@ export default function Drawing() {
           ref.current.addLayer(
             layer.on('click', () => setStatic('activeLayer', layer)),
           )
+        } else if (layer instanceof L.Marker) {
+          if (layer?.feature?.properties?.radius && radius) {
+            const { coordinates } = layer.feature.geometry
+            L.circle([coordinates[1], coordinates[0]], {
+              radius: layer.feature.properties.radius || radius,
+            }).addTo(ref.current)
+          }
         } else {
           ref.current?.addLayer(layer)
         }
       }
     })
+    // eslint-disable-next-line no-console
+    console.log({ geojson })
   }, [geojson, radius])
 
   return (

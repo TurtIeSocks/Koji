@@ -1,13 +1,14 @@
+use geojson::{Feature, JsonValue};
+
 use super::*;
 
 use crate::queries::{area, instance};
 use crate::{
     models::{
         api::{CustomError, RouteGeneration},
-        scanner::GenericInstance,
         KojiDb,
     },
-    utils::convert::geo::arr_to_fc,
+    utils::convert::collection,
 };
 
 #[get("/all")]
@@ -25,7 +26,7 @@ async fn all(
         } else if conn.unown_db.is_some() {
             area::all(&(conn.unown_db.as_ref().unwrap())).await
         } else {
-            Ok(Vec::<GenericInstance>::new())
+            Ok(Vec::<Feature>::new())
         }
     })
     .await?
@@ -33,7 +34,7 @@ async fn all(
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
     println!("[INSTANCE_ALL] Returning {} instances\n", instances.len());
-    Ok(HttpResponse::Ok().json(arr_to_fc(instances)))
+    Ok(HttpResponse::Ok().json(collection::from_features(instances)))
 }
 
 #[get("/type/{instance_type}")]
@@ -62,7 +63,14 @@ async fn instance_type(
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    let instances: Vec<String> = instances.iter().map(|inst| inst.name.clone()).collect();
+    let instances: Vec<String> = instances
+        .into_iter()
+        .map(|inst| {
+            inst.property("name")
+                .unwrap_or(&JsonValue::String("".to_string()))
+                .to_string()
+        })
+        .collect();
 
     println!("[INSTANCE-TYPE] Returning {} instances\n", instances.len());
     Ok(HttpResponse::Ok().json(instances))
@@ -90,15 +98,15 @@ async fn get_area(
 
     let instance_data = web::block(move || async move {
         if scanner_type.eq("rdm") {
-            instance::route::<f32>(&conn.data_db, &instance).await
+            instance::route(&conn.data_db, &instance).await
         } else {
-            area::route::<f32>(&conn.unown_db.as_ref().unwrap(), &instance).await
+            area::route(&conn.unown_db.as_ref().unwrap(), &instance).await
         }
     })
     .await?
     .await
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    println!("[INSTANCE-AREA] Returning {} coords\n", instance_data.len(),);
+    // println!("[INSTANCE-AREA] Returning {} coords\n", instance_data.geometry len(),);
     Ok(HttpResponse::Ok().json(instance_data))
 }

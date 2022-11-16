@@ -4,7 +4,7 @@ import type { CombinedState, Data } from '@assets/types'
 import type { UseStore } from '@hooks/useStore'
 import type { UseStatic } from '@hooks/useStatic'
 
-import { getMapBounds, convertGeojson } from './utils'
+import { getMapBounds } from './utils'
 
 export async function getData<T>(
   url: string,
@@ -37,9 +37,9 @@ export async function getLotsOfData(
   url: string,
   settings: CombinedState = {},
 ): Promise<[number, number][][]> {
-  const flat = convertGeojson(settings.geojson)
+  const { length = 0 } = settings.geojson?.features || {}
   const results = await Promise.all(
-    flat.map((area) =>
+    (settings.geojson?.features || []).map((area) =>
       fetch(url, {
         method: 'POST',
         headers: {
@@ -48,10 +48,7 @@ export async function getLotsOfData(
         body: JSON.stringify({
           ...settings,
           return_type: 'multi_array',
-          devices: Math.max(
-            Math.floor((settings.devices || 1) / flat.length),
-            1,
-          ),
+          devices: Math.max(Math.floor((settings.devices || 1) / length), 1),
           area,
         }),
       }).then((res) => res.json()),
@@ -63,7 +60,7 @@ export async function getLotsOfData(
 export async function getMarkers(
   map: Map,
   data: UseStore['data'],
-  geojson: UseStatic['geojson'],
+  area: UseStatic['geojson'],
   enableStops: boolean,
   enableSpawnpoints: boolean,
   enableGyms: boolean,
@@ -76,7 +73,7 @@ export async function getMarkers(
     ].map(async (category) =>
       category &&
       (data === 'area'
-        ? geojson.features.filter(
+        ? area.features.filter(
             (feature) =>
               feature.geometry.type === 'Polygon' ||
               feature.geometry.type === 'MultiPolygon',
@@ -92,9 +89,7 @@ export async function getMarkers(
                     'Content-Type': 'application/json',
                   },
                   body: JSON.stringify(
-                    data === 'bound'
-                      ? getMapBounds(map)
-                      : { area: convertGeojson(geojson) },
+                    data === 'bound' ? getMapBounds(map) : { area },
                   ),
                 },
           ).then((res) => res.json())
