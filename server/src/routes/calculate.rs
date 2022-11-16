@@ -33,12 +33,10 @@ async fn bootstrap(
         data_points: _data_points,
         min_points: _min_points,
         fast: _fast,
-        rdm_text,
     } = payload.into_inner();
     let instance = instance.unwrap_or("".to_string());
     let radius = radius.unwrap_or(70.0);
-    let rdm_text = rdm_text.unwrap_or(false);
-    let (area, default_return_type) = normalize::area_input(area, rdm_text);
+    let (area, default_return_type) = normalize::area_input(area);
     let return_type = get_return_type(return_type, default_return_type);
 
     println!(
@@ -102,7 +100,6 @@ async fn cluster(
         min_points,
         fast,
         return_type,
-        rdm_text,
     } = payload.into_inner();
     let instance = instance.unwrap_or("".to_string());
     let radius = radius.unwrap_or(70.0);
@@ -111,8 +108,7 @@ async fn cluster(
     let data_points = data_points.unwrap_or(vec![]);
     let min_points = min_points.unwrap_or(1);
     let fast = fast.unwrap_or(true);
-    let rdm_text = rdm_text.unwrap_or(false);
-    let (area, default_return_type) = normalize::area_input(area, rdm_text);
+    let (area, default_return_type) = normalize::area_input(area);
     let return_type = get_return_type(return_type, default_return_type);
 
     println!(

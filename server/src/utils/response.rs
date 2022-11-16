@@ -1,11 +1,12 @@
 use actix_web::{http::header::ContentType, HttpResponse};
+use geojson::FeatureCollection;
 
 use crate::{
     entities::sea_orm_active_enums::Type,
     models::{api::ReturnType, scanner::LatLon},
 };
 
-use super::convert::{collection, feature};
+use super::convert::{collection, feature, vector::from_collection};
 
 fn as_text(points: Vec<Vec<[f64; 2]>>) -> String {
     let mut string: String = "".to_string();
@@ -68,5 +69,27 @@ pub fn send(value: Vec<Vec<[f64; 2]>>, return_type: ReturnType) -> HttpResponse 
             feature::from_multi_vector(value, Some(Type::CirclePokemon)),
         )),
         _ => HttpResponse::Ok().json(as_array(value)),
+    }
+}
+
+pub fn from_fc(value: FeatureCollection, return_type: ReturnType) -> HttpResponse {
+    match return_type {
+        ReturnType::SingleStruct => {
+            HttpResponse::Ok().json(flatten(as_struct(from_collection(value))))
+        }
+        ReturnType::MultiStruct => HttpResponse::Ok().json(as_struct(from_collection(value))),
+        ReturnType::Text => HttpResponse::Ok()
+            .content_type(ContentType::plaintext())
+            .body(as_text(from_collection(value))),
+        ReturnType::SingleArray => HttpResponse::Ok().json(flatten(from_collection(value))),
+        ReturnType::Feature => {
+            if value.features.len() == 1 {
+                HttpResponse::Ok().json(value.features[0].clone())
+            } else {
+                HttpResponse::Ok().json(value)
+            }
+        }
+        ReturnType::FeatureCollection => HttpResponse::Ok().json(value),
+        _ => HttpResponse::Ok().json(from_collection(value)),
     }
 }

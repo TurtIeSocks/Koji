@@ -68,11 +68,13 @@ async fn main() -> std::io::Result<()> {
                             .service(routes::raw_data::by_area),
                     )
                     .service(
-                        web::scope("v1").service(
-                            web::scope("calc")
-                                .service(routes::calculate::bootstrap)
-                                .service(routes::calculate::cluster),
-                        ),
+                        web::scope("v1")
+                            .service(
+                                web::scope("calc")
+                                    .service(routes::calculate::bootstrap)
+                                    .service(routes::calculate::cluster),
+                            )
+                            .service(web::scope("convert").service(routes::convert::convert_data)),
                     ),
             )
             .service(

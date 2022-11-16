@@ -1,6 +1,6 @@
 import type { Map } from 'leaflet'
 
-import type { CombinedState, Data } from '@assets/types'
+import type { CombinedState, Data, ToConvert } from '@assets/types'
 import type { UseStore } from '@hooks/useStore'
 import type { UseStatic } from '@hooks/useStatic'
 
@@ -100,5 +100,34 @@ export async function getMarkers(
     pokestops: Array.isArray(pokestops) ? pokestops : [],
     gyms: Array.isArray(gyms) ? gyms : [],
     spawnpoints: Array.isArray(spawnpoints) ? spawnpoints : [],
+  }
+}
+
+export async function convert<T = string>(
+  area: ToConvert,
+  return_type: 'array' | 'struct' | 'feature' | 'feature_collection' | 'text',
+  json = false,
+): Promise<T> {
+  try {
+    const data = await fetch('/api/v1/convert/data', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        area,
+        return_type,
+      }),
+    })
+    if (json) {
+      return await data.json()
+    }
+    return (return_type === 'text'
+      ? await data.text()
+      : JSON.stringify(await data.json(), null, 2)) as unknown as T
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error(e)
+    return '' as unknown as T
   }
 }

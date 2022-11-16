@@ -68,19 +68,17 @@ pub fn get_return_type(return_type: Option<String>, default_return_type: ReturnT
                 ReturnType::MultiArray => ReturnType::MultiArray,
                 _ => ReturnType::SingleArray,
             },
-            "singlearray" => ReturnType::SingleArray,
-            "single_array" => ReturnType::SingleArray,
-            "multiarray" => ReturnType::MultiArray,
-            "multi_array" => ReturnType::MultiArray,
+            "singlearray" | "single_array" => ReturnType::SingleArray,
+            "multiarray" | "multi_array" => ReturnType::MultiArray,
             "struct" => match default_return_type {
                 ReturnType::SingleStruct => ReturnType::SingleStruct,
                 ReturnType::MultiStruct => ReturnType::MultiStruct,
                 _ => ReturnType::SingleStruct,
             },
-            "singlestruct" => ReturnType::SingleStruct,
-            "single_struct" => ReturnType::SingleStruct,
-            "multistruct" => ReturnType::MultiStruct,
-            "multi_struct" => ReturnType::MultiStruct,
+            "singlestruct" | "single_struct" => ReturnType::SingleStruct,
+            "multistruct" | "multi_struct" => ReturnType::MultiStruct,
+            "feature" => ReturnType::Feature,
+            "featurecollection" | "feature_collection" => ReturnType::FeatureCollection,
             _ => default_return_type,
         }
     } else {
@@ -109,7 +107,7 @@ pub fn parse_text(text: &str, name: Option<String>, enum_type: Option<Type>) -> 
             }
         }
     } else {
-        convert::feature::from_text(text, false, enum_type.clone())
+        convert::feature::from_text(text, enum_type.clone())
     }
     .add_instance_properties(name, enum_type)
 }
@@ -126,4 +124,12 @@ where
         points.push(points[0]);
     }
     points
+}
+
+pub fn text_test(string: &str) -> bool {
+    let split: Vec<&str> = string.split_whitespace().collect();
+    match split[0].parse::<f64>() {
+        Ok(_) => true,
+        Err(_) => false,
+    }
 }

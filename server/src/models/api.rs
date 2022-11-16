@@ -58,7 +58,6 @@ pub struct RouteGeneration {
     pub area: Option<AreaInput>,
     pub fast: Option<bool>,
     pub return_type: Option<String>,
-    pub rdm_text: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

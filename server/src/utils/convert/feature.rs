@@ -74,8 +74,8 @@ pub fn from_multi_vector(area: Vec<Vec<[f64; 2]>>, enum_type: Option<Type>) -> F
     get_feature(ArrayType::M(area), enum_type)
 }
 
-pub fn from_text(area: &str, rdm_text: bool, enum_type: Option<Type>) -> Feature {
-    get_feature(ArrayType::S(vector::from_text(area, rdm_text)), enum_type)
+pub fn from_text(area: &str, enum_type: Option<Type>) -> Feature {
+    get_feature(ArrayType::S(vector::from_text(area)), enum_type)
 }
 
 pub fn from_single_point(area: LatLon) -> Feature {

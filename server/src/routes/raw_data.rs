@@ -98,11 +98,9 @@ async fn by_area(
         min_points: _min_points,
         fast: _fast,
         return_type: _return_type,
-        rdm_text,
     } = payload.into_inner();
     let instance = instance.unwrap_or("".to_string());
-    let rdm_text = rdm_text.unwrap_or(false);
-    let (area, _return_type) = normalize::area_input(area, rdm_text);
+    let (area, _return_type) = normalize::area_input(area);
 
     println!(
         "\n[DATA-AREA] Scanner Type: {}, Category: {}, Instance: {}, Custom Area: {}",

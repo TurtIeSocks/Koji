@@ -81,12 +81,12 @@ pub fn area(areas: Vec<area::Model>) -> Vec<Feature> {
     normalized
 }
 
-pub fn area_input(area: Option<AreaInput>, rdm_text: bool) -> (FeatureCollection, ReturnType) {
+pub fn area_input(area: Option<AreaInput>) -> (FeatureCollection, ReturnType) {
     if area.is_some() {
         let area = area.unwrap();
         match area {
             AreaInput::Text(area) => (
-                collection::from_feature(feature::from_text(area.as_str(), rdm_text, None)),
+                collection::from_feature(feature::from_text(area.as_str(), None)),
                 ReturnType::Text,
             ),
             AreaInput::SingleArray(area) => (

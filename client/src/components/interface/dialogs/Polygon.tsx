@@ -2,12 +2,11 @@ import * as React from 'react'
 import { Dialog, DialogContent, DialogActions, Button } from '@mui/material'
 
 import type { Feature, FeatureCollection } from 'geojson'
-import { featureCollection } from '@turf/helpers'
 
-import type { ArrayInput, ObjectInput } from '@assets/types'
+import type { ToConvert } from '@assets/types'
 import { useStore } from '@hooks/useStore'
 import { useStatic } from '@hooks/useStatic'
-import { arrayToFeature, geojsonToExport, textToFeature } from '@services/utils'
+import { convert } from '@services/fetches'
 
 import DialogHeader from './Header'
 import { Code } from '../Code'
@@ -43,81 +42,51 @@ export default function ExportPolygon({
   const [tempGeojson, setTempGeojson] = React.useState<FeatureCollection>()
 
   React.useEffect(() => {
-    switch (polygonExportMode) {
-      case 'geojson':
-        if (mode === 'export') {
-          setCode(JSON.stringify(feature, null, 2))
+    if (mode === 'export') {
+      ;(async () => {
+        switch (polygonExportMode) {
+          case 'geojson':
+            setCode(JSON.stringify(feature, null, 2))
+            break
+          case 'array':
+            setCode(await convert(feature, 'array'))
+            break
+          case 'object':
+            setCode(await convert(feature, 'struct'))
+            break
+          case 'text':
+            setCode(await convert(feature, 'text'))
+            break
+          default:
+            break
         }
-        break
-      case 'array':
-        if (mode === 'export') {
-          const array = geojsonToExport(feature)
-          setCode(
-            JSON.stringify(
-              feature.geometry.type === 'Polygon' ? array[0] : array,
-              null,
-              2,
-            ),
-          )
-        }
-        break
-      case 'object':
-        if (mode === 'export') {
-          const object = geojsonToExport(feature, true)
-          setCode(
-            JSON.stringify(
-              feature.geometry.type === 'Polygon' ? object[0] : object,
-              null,
-              2,
-            ),
-          )
-        }
-        break
-      case 'text':
-        if (mode === 'export') {
-          const array = geojsonToExport(feature)
-          setCode(array.flatMap((a) => a.join('\n')).join('\n\n'))
-        }
-        break
-      default:
-        break
+      })()
     }
   }, [polygonExportMode, code])
 
   React.useEffect(() => {
     if (mode === 'import' && code) {
-      try {
-        const parsed:
-          | string
-          | ObjectInput
-          | ArrayInput
-          | Feature
-          | FeatureCollection =
-          code.startsWith('{') || code.startsWith('[') ? JSON.parse(code) : code
-        const geojson: FeatureCollection = (() => {
-          if (typeof parsed === 'string') {
-            return featureCollection([textToFeature(parsed.trim())])
+      ;(async () => {
+        try {
+          const parsed: ToConvert =
+            code.startsWith('{') || code.startsWith('[')
+              ? JSON.parse(code)
+              : code
+          const geojson: FeatureCollection = await convert<FeatureCollection>(
+            parsed,
+            'feature_collection',
+            true,
+          )
+          if (geojson.type === 'FeatureCollection') {
+            setTempGeojson(geojson)
           }
-          if (Array.isArray(parsed)) {
-            return featureCollection([arrayToFeature(parsed)])
+          setError('')
+        } catch (e) {
+          if (e instanceof Error) {
+            setError(e.message)
           }
-          if (parsed.type === 'Feature') {
-            return featureCollection([parsed])
-          }
-          if (parsed.type === 'FeatureCollection') {
-            return parsed
-          }
-          return { type: 'FeatureCollection', features: [] }
-        })()
-        if (geojson.type === 'FeatureCollection') {
-          setTempGeojson(geojson)
         }
-        setError('')
-      } catch (e) {
-        if (e instanceof Error) {
-          setError(e.message)
-        }
-      }
+      })()
     }
   }, [code])
   return (
