@@ -89,22 +89,34 @@ pub fn get_return_type(return_type: Option<String>, default_return_type: ReturnT
 
 pub fn parse_text(text: &str, name: Option<String>, enum_type: Option<Type>) -> Feature {
     if text.starts_with("{") {
-        match serde_json::from_str::<InstanceParsing>(text).unwrap() {
-            InstanceParsing::Feature(feat) => feat,
-            InstanceParsing::Rdm(json) => {
-                let mut feature = match json.area {
-                    RdmInstanceArea::Leveling(point) => convert::feature::from_single_point(point),
-                    RdmInstanceArea::Single(area) => {
-                        convert::feature::from_single_struct(area, enum_type.clone())
+        match serde_json::from_str::<InstanceParsing>(text) {
+            Ok(result) => match result {
+                InstanceParsing::Feature(feat) => feat,
+                InstanceParsing::Rdm(json) => {
+                    let mut feature = match json.area {
+                        RdmInstanceArea::Leveling(point) => {
+                            convert::feature::from_single_point(point)
+                        }
+                        RdmInstanceArea::Single(area) => {
+                            convert::feature::from_single_struct(area, enum_type.clone())
+                        }
+                        RdmInstanceArea::Multi(area) => {
+                            convert::feature::from_multi_struct(area, enum_type.clone())
+                        }
+                    };
+                    if json.radius.is_some() {
+                        feature.set_property("radius", json.radius.unwrap());
                     }
-                    RdmInstanceArea::Multi(area) => {
-                        convert::feature::from_multi_struct(area, enum_type.clone())
-                    }
-                };
-                if json.radius.is_some() {
-                    feature.set_property("radius", json.radius.unwrap());
+                    feature
                 }
-                feature
+            },
+            Err(err) => {
+                println!(
+                    "Error Parsing Instance: {}\n{}",
+                    name.clone().unwrap_or("".to_string()),
+                    err
+                );
+                Feature::default()
             }
         }
     } else {

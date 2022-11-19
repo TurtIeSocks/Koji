@@ -3,16 +3,27 @@ use geojson::{Geometry, Value};
 
 use super::*;
 
+/*
+    Point > [f64;2]
+    MultiPoint > [Point]
+    LineString > [Point]
+    MultiLineString > [LineString]
+    Polygon > [LineString]
+    MultiPolygon > [Polygon]
+    GeometryCollection > [Point, LineString, Polygon]
+*/
+
 fn multi_polygon(area: Vec<Vec<[f64; 2]>>) -> Value {
-    Value::MultiPolygon(vec![area
-        .into_iter()
-        .map(|poly| {
-            ensure_first_last(poly)
-                .into_iter()
-                .map(|[lat, lon]| vec![lon, lat])
-                .collect()
-        })
-        .collect()])
+    Value::MultiPolygon(
+        area.into_iter()
+            .map(|poly| {
+                vec![ensure_first_last(poly)
+                    .into_iter()
+                    .map(|[lat, lon]| vec![lon, lat])
+                    .collect()]
+            })
+            .collect(),
+    )
 }
 
 fn polygon(area: Vec<[f64; 2]>) -> Value {
@@ -94,4 +105,24 @@ pub fn from_multi_struct(area: Vec<Vec<LatLon>>, enum_type: Option<Type>) -> Fea
         ArrayType::M(area.into_iter().map(|a| vector::from_struct(a)).collect()),
         enum_type,
     )
+}
+
+pub fn split_multi(feature: Feature) -> Vec<Feature> {
+    if feature.geometry.is_none() {
+        return vec![];
+    }
+    match feature.geometry.unwrap().value {
+        Value::MultiPolygon(val) => val
+            .into_iter()
+            .map(|polygon| Feature {
+                geometry: Some(Geometry {
+                    bbox: None,
+                    value: Value::Polygon(polygon),
+                    foreign_members: None,
+                }),
+                ..Default::default()
+            })
+            .collect(),
+        _ => vec![],
+    }
 }

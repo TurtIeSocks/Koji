@@ -1,18 +1,22 @@
 use super::*;
+use geojson::Value;
 use std::collections::VecDeque;
 use time::Duration;
 use travelling_salesman;
 
-use crate::models::{
-    api::{CustomError, RouteGeneration},
-    scanner::GenericData,
-    KojiDb,
-};
 use crate::queries::{area, gym, instance, pokestop, spawnpoint};
 use crate::utils::{
     convert::{normalize, vector},
     drawing::{bootstrapping, project_points::project_points},
     get_return_type, response,
+};
+use crate::{
+    models::{
+        api::{CustomError, RouteGeneration},
+        scanner::GenericData,
+        KojiDb,
+    },
+    utils::convert::feature::split_multi,
 };
 
 #[post("/bootstrap")]
@@ -72,7 +76,13 @@ async fn bootstrap(
 
     let circles: Vec<Vec<[f64; 2]>> = area
         .into_iter()
-        .map(|sub_area| bootstrapping::generate_circles(sub_area, radius))
+        .map(|sub_area| match sub_area.geometry.clone().unwrap().value {
+            Value::MultiPolygon(_) => split_multi(sub_area)
+                .into_iter()
+                .flat_map(|feat| bootstrapping::generate_circles(feat, radius))
+                .collect(),
+            _ => bootstrapping::generate_circles(sub_area, radius),
+        })
         .collect();
 
     println!("[BOOTSTRAP] Returning {} circles\n", circles[0].len());
@@ -162,11 +172,12 @@ async fn cluster(
 
     let (clusters, biggest) = project_points(
         vector::from_generic_data(data_points),
-        radius - 1.,
+        radius,
         min_points,
         fast,
         category_2,
     );
+
     println!("[{}] Clusters: {}", mode.to_uppercase(), clusters.len());
 
     if mode.eq("cluster") || clusters.is_empty() || generations == 0 {

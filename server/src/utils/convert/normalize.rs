@@ -6,6 +6,7 @@ use crate::models::api::{AreaInput, ReturnType};
 use crate::models::scanner::{GenericData, LatLon, TrimmedSpawn};
 use crate::utils::{self, text_test};
 
+use super::collection::Default;
 use super::{collection, feature};
 
 pub fn fort<T>(items: Vec<LatLon<T>>, gym: bool) -> Vec<GenericData<T>>
@@ -113,13 +114,6 @@ pub fn area_input(area: Option<AreaInput>) -> (FeatureCollection, ReturnType) {
             AreaInput::FeatureCollection(area) => (area, ReturnType::FeatureCollection),
         }
     } else {
-        (
-            FeatureCollection {
-                bbox: None,
-                foreign_members: None,
-                features: vec![],
-            },
-            ReturnType::SingleArray,
-        )
+        (FeatureCollection::default(), ReturnType::SingleArray)
     }
 }

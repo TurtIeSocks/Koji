@@ -65,18 +65,18 @@ pub fn from_feature(feature: Feature) -> Vec<[f64; 2]> {
     match feature.geometry.unwrap().value {
         Value::MultiPolygon(geometry) => {
             for poly in geometry.into_iter() {
-                for point in poly.into_iter() {
-                    for p in point.into_iter() {
-                        if p.len() == 2 {
-                            temp_arr.push([p[1], p[0]]);
+                for line in poly.into_iter() {
+                    for point in line.into_iter() {
+                        if point.len() == 2 {
+                            temp_arr.push([point[1], point[0]]);
                         }
                     }
                 }
             }
         }
         Value::Polygon(geometry) => {
-            for poly in geometry.into_iter() {
-                for point in poly.into_iter() {
+            for line in geometry.into_iter() {
+                for point in line.into_iter() {
                     if point.len() == 2 {
                         temp_arr.push([point[1], point[0]]);
                     }

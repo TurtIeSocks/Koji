@@ -1,5 +1,7 @@
 use super::*;
-use geo::{Contains, Extremes, HaversineDestination, HaversineDistance, Point, Polygon};
+use geo::{
+    Contains, Extremes, HaversineDestination, HaversineDistance, MultiPolygon, Point, Polygon,
+};
 
 fn dot(u: &Point, v: &Point) -> f64 {
     u.x() * v.x() + u.y() * v.y()

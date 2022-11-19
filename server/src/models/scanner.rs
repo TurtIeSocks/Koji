@@ -1,7 +1,6 @@
+use super::*;
 use geojson::Feature;
 use num_traits::Float;
-
-use super::*;
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
 pub struct LatLon<T = f64>
@@ -37,13 +36,13 @@ pub struct RdmInstance {
     pub is_event: Option<bool>,
     pub min_level: Option<u8>,
     pub max_level: Option<u8>,
-    pub pokemon_ids: Option<Vec<String>>,
-    pub scatter_pokemon_ids: Option<Vec<u16>>,
     pub delay_logout: Option<u16>,
     pub quest_mode: Option<String>,
     pub spin_limit: Option<u16>,
     pub radius: Option<u32>,
     pub store_data: Option<bool>,
+    pub iv_queue_limit: Option<i32>,
+    pub account_group: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
