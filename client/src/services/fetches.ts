@@ -38,7 +38,7 @@ export async function getLotsOfData(
   settings: CombinedState = {},
 ): Promise<[number, number][][]> {
   const { length = 0 } = settings.geojson?.features || {}
-  const results = await Promise.all(
+  const results = await Promise.allSettled(
     (settings.geojson?.features || []).map((area) =>
       fetch(url, {
         method: 'POST',
@@ -54,7 +54,7 @@ export async function getLotsOfData(
       }).then((res) => res.json()),
     ),
   )
-  return results.flatMap((r) => r)
+  return results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
 }
 
 export async function getMarkers(
