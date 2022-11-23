@@ -31,6 +31,7 @@ export interface UseStore {
   snappable: boolean
   continueDrawing: boolean
   fast: boolean
+  autoMode: boolean
   setStore: <T extends keyof UseStore>(key: T, value: UseStore[T]) => void
 }
 
@@ -66,6 +67,7 @@ export const useStore = create(
       setStore: (key, value) => set({ [key]: value }),
       snappable: true,
       continueDrawing: true,
+      autoMode: false,
     }),
     {
       name: 'local',

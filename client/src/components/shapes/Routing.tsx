@@ -1,6 +1,7 @@
 import * as React from 'react'
-import { Circle, Polyline } from 'react-leaflet'
+import { Circle, Polyline, Popup } from 'react-leaflet'
 import distance from '@turf/distance'
+import geohash from 'ngeohash'
 
 import { useStore } from '@hooks/useStore'
 import { getColor } from '@services/utils'
@@ -22,9 +23,11 @@ export default function Routes() {
   const tab = useStore((s) => s.tab)
   const min_points = useStore((s) => s.min_points)
   const fast = useStore((s) => s.fast)
+  const autoMode = useStore((s) => s.autoMode)
 
   const geojson = useStatic((s) => s.geojson)
   const forceRedraw = useStatic((s) => s.forceRedraw)
+  const forceFetch = useStatic((s) => s.forceFetch)
 
   useDeepCompareEffect(() => {
     if (geojson.features.length && tab === 1) {
@@ -53,15 +56,19 @@ export default function Routes() {
       })
     }
   }, [
-    mode,
-    radius,
-    fast,
-    generations,
-    min_points,
-    category,
-    devices,
-    geojson,
-    tab,
+    autoMode
+      ? {
+          mode,
+          radius,
+          fast,
+          generations,
+          min_points,
+          category,
+          devices,
+          geojson,
+          tab,
+        }
+      : { forceFetch },
   ])
 
   return showCircles || showLines ? (
@@ -87,7 +94,21 @@ export default function Routes() {
                   fillOpacity={j ? 0.25 : 0.65}
                   opacity={0.5}
                   snapIgnore
-                />
+                >
+                  {process.env.NODE_ENV === 'development' && (
+                    <Popup>
+                      <div>
+                        Lat: {p[0]}
+                        <br />
+                        Lng: {p[1]}
+                        <br />
+                        Hash: {geohash.encode(...p, 9)}
+                        <br />
+                        Hash: {geohash.encode(...p, 12)}
+                      </div>
+                    </Popup>
+                  )}
+                </Circle>
               )}
               {showLines && mode !== 'cluster' && (
                 <Polyline

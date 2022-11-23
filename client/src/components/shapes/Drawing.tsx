@@ -13,10 +13,10 @@ export default function Drawing() {
   const snappable = useStore((s) => s.snappable)
   const continueDrawing = useStore((s) => s.continueDrawing)
   const radius = useStore((s) => s.radius)
-
   const setStatic = useStatic((s) => s.setStatic)
   const geojson = useStatic((s) => s.geojson)
   const forceRedraw = useStatic((s) => s.forceRedraw)
+
   const map = useMapEvents({
     click: (e) => setStatic('popupLocation', e.latlng),
     popupclose: () => setStatic('activeLayer', null),
@@ -136,7 +136,7 @@ export default function Drawing() {
           setStatic('forceRedraw', !forceRedraw)
         }}
         onMarkerDragEnd={handleChange}
-        onButtonClick={({ btnName }) => {
+        onActionClick={({ btnName }) => {
           setStatic(
             'cutMode',
             btnName === 'cutPolygon' && !map.pm.globalCutModeEnabled(),
@@ -144,6 +144,10 @@ export default function Drawing() {
           setStatic(
             'dragMode',
             btnName === 'dragMode' && !map.pm.globalDragModeEnabled(),
+          )
+          setStatic(
+            'drawMode',
+            btnName === 'drawPolygon' && !map.pm.globalDrawModeEnabled(),
           )
           setStatic(
             'editMode',
@@ -157,6 +161,34 @@ export default function Drawing() {
             'rotateMode',
             btnName === 'rotateMode' && !map.pm.globalRotateModeEnabled(),
           )
+          setStatic('activeLayer', null)
+        }}
+        onButtonClick={({ btnName }) => {
+          setStatic(
+            'cutMode',
+            btnName === 'cutPolygon' && !map.pm.globalCutModeEnabled(),
+          )
+          setStatic(
+            'dragMode',
+            btnName === 'dragMode' && !map.pm.globalDragModeEnabled(),
+          )
+          setStatic(
+            'drawMode',
+            btnName === 'drawPolygon' && !map.pm.globalDrawModeEnabled(),
+          )
+          setStatic(
+            'editMode',
+            btnName === 'editMode' && !map.pm.globalEditModeEnabled(),
+          )
+          setStatic(
+            'removalMode',
+            btnName === 'removalMode' && !map.pm.globalRemovalModeEnabled(),
+          )
+          setStatic(
+            'rotateMode',
+            btnName === 'rotateMode' && !map.pm.globalRotateModeEnabled(),
+          )
+          setStatic('activeLayer', null)
         }}
       />
     </FeatureGroup>

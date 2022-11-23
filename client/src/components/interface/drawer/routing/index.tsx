@@ -1,6 +1,8 @@
 import React from 'react'
+import { ListItem, ListItemButton, ListItemText } from '@mui/material'
+
+import { useStatic } from '@hooks/useStatic'
 import { useStore } from '@hooks/useStore'
-import { ListItem } from '@mui/material'
 
 import ListSubheader from '../../styled/Subheader'
 import NumInput from '../inputs/NumInput'
@@ -16,10 +18,14 @@ export default function EditTab() {
   const devices = useStore((s) => s.devices)
   const min_points = useStore((s) => s.min_points)
   const fast = useStore((s) => s.fast)
+  const autoMode = useStore((s) => s.autoMode)
+
+  const setStatic = useStatic((s) => s.setStatic)
 
   return (
     <>
       <ListSubheader disableGutters>Routing</ListSubheader>
+      <Toggle field="autoMode" value={autoMode} setValue={setStore} />
       <NumInput field="radius" value={radius} setValue={setStore} />
       <NumInput field="generations" value={generations} setValue={setStore} />
       <NumInput
@@ -47,6 +53,14 @@ export default function EditTab() {
           buttons={['cluster', 'route', 'bootstrap']}
         />
       </ListItem>
+      {!autoMode && (
+        <ListItemButton
+          color="primary"
+          onClick={() => setStatic('forceFetch', (prev) => !prev)}
+        >
+          <ListItemText primary="Update" color="blue" />
+        </ListItemButton>
+      )}
     </>
   )
 }

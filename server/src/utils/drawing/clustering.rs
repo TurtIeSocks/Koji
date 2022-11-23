@@ -29,51 +29,6 @@ impl BoundingBox {
     }
 }
 
-// #[derive(Debug, Clone)]
-// struct NeighborMatrix {
-//     pub s: bool,
-//     pub n: bool,
-//     pub e: bool,
-//     pub w: bool,
-//     pub sw: bool,
-//     pub se: bool,
-//     pub ne: bool,
-//     pub nw: bool,
-// }
-
-// impl Index<&'_ str> for NeighborMatrix {
-//     type Output = bool;
-//     fn index(&self, s: &str) -> &bool {
-//         match s {
-//             "s" => &self.s,
-//             "n" => &self.n,
-//             "e" => &self.e,
-//             "w" => &self.w,
-//             "sw" => &self.sw,
-//             "se" => &self.se,
-//             "ne" => &self.ne,
-//             "nw" => &self.nw,
-//             _ => panic!("unknown field: {}", s),
-//         }
-//     }
-// }
-
-// impl IndexMut<&'_ str> for NeighborMatrix {
-//     fn index_mut(&mut self, s: &str) -> &mut bool {
-//         match s {
-//             "s" => &mut self.s,
-//             "n" => &mut self.n,
-//             "e" => &mut self.e,
-//             "w" => &mut self.w,
-//             "sw" => &mut self.sw,
-//             "se" => &mut self.se,
-//             "ne" => &mut self.ne,
-//             "nw" => &mut self.nw,
-//             _ => panic!("unknown field: {}", s),
-//         }
-//     }
-// }
-
 trait ClusterCoords {
     fn to_key(self) -> String;
     fn midpoint(&self, other: &Coordinate) -> [f64; 2];
@@ -89,9 +44,8 @@ impl ClusterCoords for Coordinate {
 }
 
 type PointTuple = (i32, i32);
-type PointInfo = (BoundingBox, bool, Vec<Coordinate>);
+type PointInfo = (BoundingBox, bool, bool, Vec<String>);
 type ClusterMap = HashMap<PointTuple, PointInfo>;
-type ClusterReturn = Vec<[f64; 2]>;
 
 // fn try_to_merge(
 //     point: (&PointTuple, &PointInfo),
@@ -139,14 +93,14 @@ type ClusterReturn = Vec<[f64; 2]>;
 //     false
 // }
 
-fn update(point_map: &mut ClusterMap, key: PointTuple, p: &Coordinate) {
+fn update(point_map: &mut ClusterMap, key: PointTuple, p: Coordinate) {
     point_map.entry(key).and_modify(|saved| {
-        saved.0 = saved.0.update(*p);
-        saved.2.push(*p);
+        saved.0 = saved.0.update(p);
+        saved.3.push(p.to_key());
     });
 }
 
-pub fn udc(points: Vec<Coordinate>, _min: i32) -> (ClusterReturn, [f64; 2]) {
+pub fn udc(points: Vec<Coordinate>, min_points: usize) -> HashMap<String, Vec<String>> {
     let sqrt2: f64 = 2.0_f64.sqrt();
     let additive_factor: f64 = sqrt2 / 2.;
     let sqrt2_x_one_point_five_minus_one: f64 = (sqrt2 * 1.5) - 1.;
@@ -154,12 +108,10 @@ pub fn udc(points: Vec<Coordinate>, _min: i32) -> (ClusterReturn, [f64; 2]) {
 
     let time = Instant::now();
     let mut udc_point_map: ClusterMap = HashMap::new();
-    // let mut visited_map: HashMap<_, _> =
-    //     points.iter().map(|coord| (coord.to_key(), false)).collect();
+    // let mut seen_map: HashMap<String, bool> = HashMap::new();
+    // let mut clusters = ClusterReturn::new();
 
-    let mut clusters = ClusterReturn::new();
-
-    for p in points.iter() {
+    for p in points.into_iter() {
         let v = (p.x / sqrt2).floor() as i32;
         let h = (p.y / sqrt2).floor() as i32;
         let vertical_times_sqrt2 = v as f64 * sqrt2;
@@ -224,27 +176,22 @@ pub fn udc(points: Vec<Coordinate>, _min: i32) -> (ClusterReturn, [f64; 2]) {
                 continue;
             }
         }
-        udc_point_map.entry(key).or_insert((
-            BoundingBox::new(*p),
-            true,
-            // NeighborMatrix {
-            //     s: true,
-            //     n: true,
-            //     e: true,
-            //     w: true,
-            //     sw: true,
-            //     se: true,
-            //     ne: true,
-            //     nw: true,
-            // },
-            vec![*p],
-        ));
+        udc_point_map
+            .entry(key)
+            .or_insert((BoundingBox::new(p), true, true, vec![p.to_key()]));
     }
-    let mut point_map_2 = udc_point_map.clone();
-    let mut biggest: i16 = 0;
-    let mut best_coord = [0., 0.];
+    let mut point_map_return: HashMap<String, Vec<String>> = HashMap::new();
 
-    'count: for (point, (bb, _check, points)) in udc_point_map.iter() {
+    let mut process_final = |coord: Coordinate, points_to_process: Vec<String>| {
+        if points_to_process.len() > 0 {
+            // for point in points_to_process.clone().into_iter() {
+            //     seen_map.insert(point, true);
+            // }
+            point_map_return.insert(coord.to_key(), points_to_process);
+        }
+    };
+
+    'count: for (point, (bb, _check, _second, points)) in udc_point_map.clone().into_iter() {
         let (v, h) = point.clone();
 
         for (v, h, _index) in [
@@ -257,9 +204,9 @@ pub fn udc(points: Vec<Coordinate>, _min: i32) -> (ClusterReturn, [f64; 2]) {
             (v + 1, h + 1, "ne"),
             (v - 1, h + 1, "nw"),
         ]
-        .iter()
+        .into_iter()
         {
-            let found_cluster = point_map_2.get(&(*v, *h));
+            let found_cluster = udc_point_map.get(&(v, h));
             if found_cluster.is_none() {
                 continue;
             }
@@ -276,88 +223,89 @@ pub fn udc(points: Vec<Coordinate>, _min: i32) -> (ClusterReturn, [f64; 2]) {
                 };
 
                 if lower_left.distance_2(&upper_right) <= 4. {
-                    let new_count = found_cluster.2.len() as i16 + points.len() as i16;
-                    let new_coord = lower_left.midpoint(&upper_right);
-                    if new_count > biggest {
-                        biggest = new_count;
-                        best_coord = new_coord;
+                    let mut combined = points.clone();
+                    combined.extend(found_cluster.3.clone());
+                    if combined.len() > min_points {
+                        let [x, y] = lower_left.midpoint(&upper_right);
+                        process_final(Coordinate { x, y }, combined);
+                        udc_point_map
+                            .entry((v, h))
+                            .and_modify(|saved| saved.1 = false);
+                        udc_point_map
+                            .entry(point)
+                            .and_modify(|saved| saved.1 = false);
+                        continue 'count;
                     }
-                    clusters.push(new_coord);
-                    point_map_2
-                        .entry((*v, *h))
-                        .and_modify(|saved| saved.1 = false);
-                    point_map_2
-                        .entry(*point)
-                        .and_modify(|saved| saved.1 = false);
-                    continue 'count;
                 }
             }
         }
     }
-    for (key, value) in point_map_2.iter() {
-        if value.1 {
-            if value.2.len() == 1 {
-                clusters.push([value.0.min_x, value.0.min_y]);
-            } else {
-                let lat = key.0 as f64 * sqrt2 + additive_factor;
-                let lon = key.1 as f64 * sqrt2 + additive_factor;
-                if value.2.len() as i16 > biggest {
-                    best_coord = [lat, lon];
+
+    'count: for (point, (bb, _check, _second, points)) in udc_point_map.clone().into_iter() {
+        let (v, h) = point.clone();
+
+        for (v, h, _index) in [
+            (v, h - 1, "s"),
+            (v, h + 1, "n"),
+            (v + 1, h, "e"),
+            (v - 1, h, "w"),
+            (v - 1, h - 1, "sw"),
+            (v + 1, h - 1, "se"),
+            (v + 1, h + 1, "ne"),
+            (v - 1, h + 1, "nw"),
+        ]
+        .into_iter()
+        {
+            let found_cluster = udc_point_map.get(&(v, h));
+            if found_cluster.is_none() {
+                continue;
+            }
+            let found_cluster = found_cluster.unwrap();
+
+            if found_cluster.2 {
+                let lower_left = Coordinate {
+                    x: bb.min_x.min(found_cluster.0.min_x),
+                    y: bb.min_y.min(found_cluster.0.min_y),
+                };
+                let upper_right = Coordinate {
+                    x: bb.max_x.max(found_cluster.0.max_x),
+                    y: bb.max_y.max(found_cluster.0.max_y),
+                };
+
+                if lower_left.distance_2(&upper_right) <= 4. {
+                    let mut combined = points.clone();
+                    combined.extend(found_cluster.3.clone());
+                    if combined.len() > min_points {
+                        let [x, y] = lower_left.midpoint(&upper_right);
+                        process_final(Coordinate { x, y }, combined);
+                        udc_point_map
+                            .entry((v, h))
+                            .and_modify(|saved| saved.2 = false);
+                        udc_point_map
+                            .entry(point)
+                            .and_modify(|saved| saved.2 = false);
+                        continue 'count;
+                    }
                 }
-                clusters.push([lat, lon]);
             }
         }
     }
-    println!("Clusters Made: {:?}", clusters.len());
+
+    for (key, value) in udc_point_map.into_iter() {
+        if value.1 && value.2 {
+            if true {
+                if value.3.len() == 1 {
+                    let x = value.0.min_x;
+                    let y = value.0.min_y;
+                    process_final(Coordinate { x, y }, value.3);
+                } else {
+                    let x = key.0 as f64 * sqrt2 + additive_factor;
+                    let y = key.1 as f64 * sqrt2 + additive_factor;
+                    process_final(Coordinate { x, y }, value.3);
+                }
+            }
+        }
+    }
     println!("Clustering Time: {:?}", time.elapsed().as_secs_f64());
-    (clusters, best_coord)
+    point_map_return
 }
-
-// fn greedy_cluster(point_map: ClusterMap, mut point_map_2: ClusterMap) {
-//     'point: for point in point_map.iter() {
-//         let (v, h) = point.0.clone();
-
-//         let mut best_pos = [v as f64, h as f64];
-//         let mut best_count = point.1 .2;
-//         for neighbor in [
-//             (v - 1, h - 1),
-//             (v - 1, h),
-//             (v - 1, h + 1),
-//             (v, h - 1),
-//             (v, h + 1),
-//             (v + 1, h - 1),
-//             (v + 1, h),
-//             (v + 1, h + 1),
-//         ]
-//         .iter()
-//         {
-//             let found_cluster = point_map.get(neighbor);
-//             if found_cluster.is_some() {
-//                 let found_cluster = found_cluster.unwrap();
-//                 if found_cluster.1 {
-//                     let lower_left = Coordinate {
-//                         x: point.1 .0.min_x.min(found_cluster.0.min_x),
-//                         y: point.1 .0.min_y.min(found_cluster.0.min_y),
-//                     };
-//                     let upper_right = Coordinate {
-//                         x: point.1 .0.max_x.max(found_cluster.0.max_x),
-//                         y: point.1 .0.max_y.max(found_cluster.0.max_y),
-//                     };
-//                     if lower_left.distance_2(&upper_right) <= 4. {
-//                         let new_total = found_cluster.2 + point.1 .2;
-//                         if new_total > best_count {
-//                             best_pos = lower_left.midpoint(&upper_right);
-//                             best_count = new_total;
-//                         }
-//                         continue 'point;
-//                     } else if found_cluster.2 > best_count {
-//                         best_pos = [neighbor.0 as f64, neighbor.1 as f64];
-//                         best_count = found_cluster.2;
-//                     }
-//                 }
-//             }
-//         }
-
-//         println!("{:?}, {}", best_pos, best_count);
-//     }
-// }

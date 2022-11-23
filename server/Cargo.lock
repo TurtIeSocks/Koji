@@ -661,35 +661,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cxx"
-version = "1.0.73"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "873c2e83af70859af2aaecd1f5d862f3790b747b1f4f50fb45a931d000ac0422"
-dependencies = [
- "cc",
- "cxxbridge-flags",
- "cxxbridge-macro",
- "link-cplusplus",
-]
-
-[[package]]
-name = "cxxbridge-flags"
-version = "1.0.73"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f46b787c15af80277db5c88c6ac6c502ae545e622f010e06f95e540d34931acf"
-
-[[package]]
-name = "cxxbridge-macro"
-version = "1.0.73"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ba3f3a7efa46626878fb5d324fabca4d19d2956b6ae97ce43044ef4515f5abc"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "der"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -998,6 +969,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "geohash"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2531fb8e2edacf602fd1f2672da559dc1527509cf90940b7a0ebd06b998a004f"
+dependencies = [
+ "geo-types",
+ "libm",
+]
+
+[[package]]
 name = "geojson"
 version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1235,11 +1216,11 @@ dependencies = [
  "actix-files",
  "actix-web",
  "chrono",
- "cxx",
  "dotenv",
  "env_logger",
  "futures",
  "geo",
+ "geohash",
  "geojson",
  "map_3d",
  "num-traits",
@@ -1278,15 +1259,6 @@ name = "libm"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da83a57f3f5ba3680950aa3cbc806fc297bc0b289d42e8942ed528ace71b8145"
-
-[[package]]
-name = "link-cplusplus"
-version = "1.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8cae2cd7ba2f3f63938b9c724475dfb7b9861b545a90324476324ed21dbc8c8"
-dependencies = [
- "cc",
-]
 
 [[package]]
 name = "local-channel"

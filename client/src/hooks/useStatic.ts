@@ -24,8 +24,17 @@ export interface UseStatic {
   forceRedraw: boolean
   activeLayer: L.Polygon | null
   popupLocation: L.LatLng
-  setStatic: <T extends keyof UseStatic>(key: T, value: UseStatic[T]) => void
+  forceFetch: boolean
   setSelected: (incoming: string[], radius: UseStore['radius']) => void
+  setStatic: <
+    T extends keyof Omit<
+      UseStatic,
+      'setStatic' | 'setSelected' | 'setStaticAlt'
+    >,
+  >(
+    key: T,
+    init: UseStatic[T] | ((prev: UseStatic[T]) => void),
+  ) => void
 }
 
 export const useStatic = create<UseStatic>((set, get) => ({
@@ -54,10 +63,14 @@ export const useStatic = create<UseStatic>((set, get) => ({
   forceRedraw: false,
   activeLayer: null,
   popupLocation: new L.LatLng(0, 0),
-  setStatic: (key, value) => set({ [key]: value }),
+  forceFetch: false,
+  setStatic: (key, newValue) => {
+    set((state) => ({
+      [key]: typeof newValue === 'function' ? newValue(state[key]) : newValue,
+    }))
+  },
   setSelected: (selected) => {
     const { instances } = get()
-
     set({
       selected,
       geojson: {

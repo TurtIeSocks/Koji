@@ -63,6 +63,12 @@ where
     }
 }
 
+impl From<GenericData> for [f64; 2] {
+    fn from(item: GenericData) -> Self {
+        item.p
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum InstanceParsing {

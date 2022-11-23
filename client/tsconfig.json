@@ -12,6 +12,7 @@
 		"isolatedModules": true,
 		"baseUrl": "./src",
 		"rootDir": "./",
+		"outDir": "./dist",
 		"lib": [
 			"ESNext",
 			"dom"
@@ -38,8 +39,7 @@
 		},
 	},
 	"include": [
-		"src",
-		".eslintrc.js"
+		"src"
 	],
 	"exclude": [
 		"node_modules",

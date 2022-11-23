@@ -1,10 +1,25 @@
-use crate::utils::drawing::{cluster_count, clustering};
+use std::collections::HashSet;
+
+use crate::utils::drawing::clustering;
 
 use geo::Coordinate;
 use map_3d::{geodetic2ecef, Ellipsoid};
 
 type Geocentric = (f64, f64, f64);
 type Topocentric = (f64, f64);
+
+trait FromKey {
+    fn from_key(self) -> [f64; 2];
+}
+
+impl FromKey for String {
+    fn from_key(self) -> [f64; 2] {
+        let mut iter = self.split(',');
+        let lat = iter.next().unwrap().parse::<f64>().unwrap();
+        let lon = iter.next().unwrap().parse::<f64>().unwrap();
+        [lat, lon]
+    }
+}
 
 fn euclidean_norm2(x: Geocentric) -> f64 {
     x.0 * x.0 + x.1 * x.1 + x.2 * x.2
@@ -68,9 +83,8 @@ fn reverse_project(
 pub fn project_points(
     input: Vec<[f64; 2]>,
     radius: f64,
-    min: i32,
-    fast: bool,
-    category: String,
+    min_points: usize,
+    _category: String,
 ) -> (Vec<[f64; 2]>, [f64; 2]) {
     let points = input
         .iter()
@@ -102,12 +116,37 @@ pub fn project_points(
         })
         .collect();
 
-    let (clusters, best) = clustering::udc(output.clone(), min);
+    let point_map = clustering::udc(output.clone(), min_points);
 
-    let output = if min < 2 || fast || category == "pokestop".to_string() {
-        clusters
-    } else {
-        cluster_count::count(output, clusters, radius, min)
+    let (output, best): (Vec<[f64; 2]>, [f64; 2]) = {
+        let mut temp_best = [0.0, 0.0];
+        let mut best_count = 0;
+        let mut seen_points: HashSet<String> = HashSet::new();
+        let return_value: (Vec<[f64; 2]>, [f64; 2]) = (
+            point_map
+                .into_iter()
+                .filter_map(|(key, values)| {
+                    if values.len() > best_count {
+                        temp_best = key.clone().from_key();
+                        best_count = values.len();
+                    }
+                    if values.len() >= min_points {
+                        for p in values.into_iter() {
+                            seen_points.insert(p);
+                        }
+                        return Some(key.from_key());
+                    }
+                    None
+                })
+                .collect(),
+            temp_best,
+        );
+        println!(
+            "Clusters Made: {} | {} points seen",
+            return_value.0.len(),
+            seen_points.len()
+        );
+        return_value
     };
 
     let mut min = 1. / 0.;

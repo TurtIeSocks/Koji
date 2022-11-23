@@ -1,7 +1,8 @@
+use crate::utils::convert::feature::split_multi;
+
 use super::*;
-use geo::{
-    Contains, Extremes, HaversineDestination, HaversineDistance, MultiPolygon, Point, Polygon,
-};
+use geo::{Contains, Extremes, HaversineDestination, HaversineDistance, Point, Polygon};
+use geojson::Value;
 
 fn dot(u: &Point, v: &Point) -> f64 {
     u.x() * v.x() + u.y() * v.y()
@@ -23,7 +24,7 @@ fn distance_to_segment(p: Point, a: Point, b: Point) -> f64 {
     return p.haversine_distance(&pb);
 }
 
-fn point_line_distance(input: Vec<Point>, point: Point) -> f64 {
+pub fn point_line_distance(input: Vec<Point>, point: Point) -> f64 {
     let mut distance: f64 = std::f64::MAX;
     for (i, line) in input.iter().enumerate() {
         let next = if i == input.len() - 1 {
@@ -36,17 +37,25 @@ fn point_line_distance(input: Vec<Point>, point: Point) -> f64 {
     distance
 }
 
-pub fn generate_circles(input: Feature, radius: f64) -> Vec<[f64; 2]> {
+pub fn check(input: Feature, radius: f64) -> Vec<[f64; 2]> {
+    match input.geometry.clone().unwrap().value {
+        Value::MultiPolygon(_) => split_multi(input)
+            .into_iter()
+            .flat_map(|feat| generate_circles(feat, radius))
+            .collect(),
+        _ => generate_circles(input, radius),
+    }
+}
+
+fn generate_circles(input: Feature, radius: f64) -> Vec<[f64; 2]> {
     let mut circles: Vec<Point> = Vec::new();
 
     if input.geometry.is_none() {
         return circles.iter().map(|p| [p.y(), p.x()]).collect();
     }
     let polygon = Polygon::<f64>::try_from(input).unwrap();
-    let points: Vec<Point> = polygon.clone().exterior().points().collect();
-    if points.is_empty() {
-        return Vec::<[f64; 2]>::new();
-    }
+    let get_points = || polygon.exterior().points().collect::<Vec<Point>>();
+
     let x_mod: f64 = 0.75_f64.sqrt();
     let y_mod: f64 = 0.568_f64.sqrt();
 
@@ -67,7 +76,7 @@ pub fn generate_circles(input: Feature, radius: f64) -> Vec<[f64; 2]> {
         while (bearing == 270. && current.x() > end.x())
             || (bearing == 90. && current.x() < start.x())
         {
-            let point_distance = point_line_distance(points.clone(), current);
+            let point_distance = point_line_distance(get_points(), current);
             if point_distance <= radius || point_distance == 0. || polygon.contains(&current) {
                 circles.push(current);
             }

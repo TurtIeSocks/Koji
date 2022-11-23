@@ -1,22 +1,19 @@
 use super::*;
-use geojson::Value;
 use std::collections::VecDeque;
 use time::Duration;
 use travelling_salesman;
 
+use crate::models::{
+    api::{CustomError, RouteGeneration},
+    scanner::GenericData,
+    KojiDb,
+};
 use crate::queries::{area, gym, instance, pokestop, spawnpoint};
+use crate::utils::drawing::clustering_2::brute_force;
 use crate::utils::{
     convert::{normalize, vector},
     drawing::{bootstrapping, project_points::project_points},
     get_return_type, response,
-};
-use crate::{
-    models::{
-        api::{CustomError, RouteGeneration},
-        scanner::GenericData,
-        KojiDb,
-    },
-    utils::convert::feature::split_multi,
 };
 
 #[post("/bootstrap")]
@@ -76,13 +73,7 @@ async fn bootstrap(
 
     let circles: Vec<Vec<[f64; 2]>> = area
         .into_iter()
-        .map(|sub_area| match sub_area.geometry.clone().unwrap().value {
-            Value::MultiPolygon(_) => split_multi(sub_area)
-                .into_iter()
-                .flat_map(|feat| bootstrapping::generate_circles(feat, radius))
-                .collect(),
-            _ => bootstrapping::generate_circles(sub_area, radius),
-        })
+        .map(|sub_area| bootstrapping::check(sub_area, radius))
         .collect();
 
     println!("[BOOTSTRAP] Returning {} circles\n", circles[0].len());
@@ -122,8 +113,8 @@ async fn cluster(
     let return_type = get_return_type(return_type, default_return_type);
 
     println!(
-        "\n[{}] Radius: {}, Generations: {}, Devices: {}\nInstance: {}, Using Area: {}, Manual Data Points: {}",
-        mode.to_uppercase(), radius, generations, devices, instance, area.features.len() > 0, data_points.len()
+        "\n[{}] Radius: {}, Generations: {}, Devices: {} Min Points: {}\nInstance: {}, Using Area: {}, Manual Data Points: {}",
+        mode.to_uppercase(), radius, generations, devices, min_points, instance, area.features.len() > 0, data_points.len()
     );
 
     if area.features.is_empty() && instance.is_empty() {
@@ -135,9 +126,10 @@ async fn cluster(
     let data_points = if !data_points.is_empty() {
         data_points
     } else {
+        let temp_area = area.clone();
         web::block(move || async move {
-            let area = if !area.features.is_empty() {
-                area
+            let area = if !temp_area.features.is_empty() {
+                temp_area
             } else if !instance.is_empty() {
                 if scanner_type.eq("rdm") {
                     instance::route(&conn.data_db, &instance).await?
@@ -145,7 +137,7 @@ async fn cluster(
                     area::route(&conn.unown_db.as_ref().unwrap(), &instance).await?
                 }
             } else {
-                area
+                temp_area
             };
 
             if !area.features.is_empty() {
@@ -170,13 +162,29 @@ async fn cluster(
         data_points.len()
     );
 
-    let (clusters, biggest) = project_points(
-        vector::from_generic_data(data_points),
-        radius,
-        min_points,
-        fast,
-        category_2,
-    );
+    let (clusters, biggest): (Vec<[f64; 2]>, [f64; 2]) = if fast {
+        project_points(
+            vector::from_generic_data(data_points),
+            radius,
+            min_points,
+            category_2,
+        )
+    } else {
+        (
+            area.into_iter()
+                .flat_map(|feature| {
+                    brute_force(
+                        data_points.clone(),
+                        bootstrapping::check(feature, radius),
+                        radius,
+                        min_points,
+                        generations,
+                    )
+                })
+                .collect(),
+            [0., 0.],
+        )
+    };
 
     println!("[{}] Clusters: {}", mode.to_uppercase(), clusters.len());
 
@@ -193,7 +201,9 @@ async fn cluster(
         Duration::seconds(if generations > 0 {
             generations as i64
         } else {
-            ((clusters.len() / 100) as i64 + 1) * if fast { 1 } else { 2 }
+            ((clusters.len() as f32 / 100.) + 1.)
+                .powf(if fast { 1. } else { 1.25 })
+                .floor() as i64
         }),
     );
 

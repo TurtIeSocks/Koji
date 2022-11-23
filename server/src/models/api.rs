@@ -52,7 +52,7 @@ pub enum ReturnType {
 pub struct RouteGeneration {
     pub instance: Option<String>,
     pub radius: Option<f64>,
-    pub min_points: Option<i32>,
+    pub min_points: Option<usize>,
     pub generations: Option<usize>,
     pub devices: Option<usize>,
     pub data_points: Option<Vec<GenericData>>,

@@ -1,5 +1,6 @@
 import React from 'react'
-import { useMap, Circle } from 'react-leaflet'
+import { useMap, Circle, Popup } from 'react-leaflet'
+import geohash from 'ngeohash'
 
 import { ICON_RADIUS, ICON_COLOR } from '@assets/constants'
 import { useStore } from '@hooks/useStore'
@@ -83,7 +84,21 @@ export default function Markers() {
             fillColor: ICON_COLOR[i.i[0]],
             color: ICON_COLOR[i.i[0]],
           }}
-        />
+        >
+          {process.env.NODE_ENV === 'development' && (
+            <Popup>
+              <div>
+                Lat: {i.p[0]}
+                <br />
+                Lng: {i.p[1]}
+                <br />
+                Hash: {geohash.encode(...i.p, 9)}
+                <br />
+                Hash: {geohash.encode(...i.p, 12)}
+              </div>
+            </Popup>
+          )}
+        </Circle>
       ))}
     </>
   ) : null
