@@ -1,7 +1,7 @@
 use geojson::{Feature, FeatureCollection};
 
 use super::*;
-use crate::models::scanner::{GenericData, LatLon};
+use crate::models::scanner::LatLon;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
@@ -55,7 +55,7 @@ pub struct RouteGeneration {
     pub min_points: Option<usize>,
     pub generations: Option<usize>,
     pub devices: Option<usize>,
-    pub data_points: Option<Vec<GenericData>>,
+    pub data_points: Option<Vec<LatLon>>,
     pub area: Option<AreaInput>,
     pub fast: Option<bool>,
     pub return_type: Option<String>,

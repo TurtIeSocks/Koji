@@ -11,6 +11,5 @@ services:
       START_LON: 0
       TILE_SERVER: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png"
       PORT: 8080
-      SCANNER_TYPE: "rdm"
     ports:
       - "9095:8080"

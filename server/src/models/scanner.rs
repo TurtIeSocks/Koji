@@ -69,6 +69,15 @@ impl From<GenericData> for [f64; 2] {
     }
 }
 
+impl From<LatLon> for GenericData {
+    fn from(item: LatLon) -> Self {
+        GenericData {
+            i: "".to_string(),
+            p: [item.lat, item.lon],
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum InstanceParsing {

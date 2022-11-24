@@ -124,7 +124,7 @@ async fn cluster(
     }
 
     let data_points = if !data_points.is_empty() {
-        data_points
+        data_points.into_iter().map(|point| point.into()).collect()
     } else {
         let temp_area = area.clone();
         web::block(move || async move {
