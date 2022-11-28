@@ -98,19 +98,33 @@ cd client && yarn install && yarn dev
 General Types:
 
 ```rust
-// Accepted Area Inputs:
-  pub enum AreaInput {
+
+// Data Structs and Type Aliases
+pub type PointArray<T = f64> = [T; 2];
+pub type SingleVec<T = f64> = Vec<PointArray<T>>;
+pub type MultiVec<T = f64> = Vec<Vec<PointArray<T>>>;
+
+pub struct PointStruct<T: Float = f64> {
+    pub lat: T,
+    pub lon: T,
+}
+pub type SingleStruct<T = f64> = Vec<PointStruct<T>>;
+pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
+
+// Accepted Area Inputs and Outputs:
+  pub enum GeoFormats {
       Text(String),
       // can be either:
         // lat,lon\nlat,lon
         // or lat lon,lat lon
-      SingleArray(Vec<[f64; 2]>),
-      MultiArray(Vec<Vec<[f64; 2]>>),
-      SingleStruct(Vec<{ lat: f64, lon: f64}>),
-      MultiStruct(Vec<Vec<{ lat: f64, lon: f64}>>),
-      Feature(Feature), // GeoJSON
-      FeatureCollection(FeatureCollection), // GeoJSON
+      SingleArray(SingleVec),
+      MultiArray(MultiVec),
+      SingleStruct(SingleStruct),
+      MultiStruct(MultiStruct),
+      Feature(Feature),
+      FeatureCollection(FeatureCollection),
   }
+
 // Return Types:
   pub enum ReturnType {
     AltText, // lat lon,lat lon
@@ -122,8 +136,15 @@ General Types:
     Feature,
     FeatureCollection,
 }
+
+// Data Input Types:
+  pub enum DataPointsArg {
+      Array(SingleVec),
+      Struct(SingleStruct),
+  }
+
 // all API Fields
-  pub struct API {
+  pub struct Args {
       pub instance: Option<String>,
       // defaults to ""
       pub radius: Option<f64>,
@@ -136,13 +157,33 @@ General Types:
       // defaults to 1
       pub data_points: Option<Vec<{ lat: f64, lon: f64}>>,
       // defaults to []
-      pub area: Option<AreaInput>,
+      pub area: Option<GeoFormats>,
       // defaults to empty FeatureCollection
       pub fast: Option<bool>,
       // defaults to true
       pub return_type: Option<String>,
       // defaults to AreaInput type or SingleArray if AreaInput is None
   }
+// Benchmark/Stats Struct
+  pub struct Stats {
+      pub best_cluster: Option<PointArray>,
+      pub best_cluster_count: Option<u8>,
+      pub cluster_time: Option<f64>,
+      pub points_covered: Option<u32>,
+      pub total_clusters: Option<u32>,
+      pub total_distance: Option<u32>,
+      pub longest_distance: Option<u32>,
+  }
+
+// Response Struct (what you will receive!)
+pub struct Response {
+    pub message: String,
+    pub status: String,
+    pub status_code: u16,
+    pub data: GeoFormats,
+    pub stats: Stats,
+}
+
 ```
 
 ### /api/v1/calc/bootstrap

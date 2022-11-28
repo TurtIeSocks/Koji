@@ -45,22 +45,18 @@ export default function ExportPolygon({
     if (mode === 'export') {
       ;(async () => {
         switch (polygonExportMode) {
-          case 'geojson':
-            setCode(JSON.stringify(feature, null, 2))
-            break
-          case 'array':
-            setCode(await convert(feature, 'array'))
-            break
-          case 'object':
-            setCode(await convert(feature, 'struct'))
-            break
-          case 'text':
-            setCode(await convert(feature, 'text'))
-            break
+          case 'feature':
+            return feature
           default:
-            break
+            return convert(feature, polygonExportMode)
         }
-      })()
+      })().then((newCode) => {
+        if (typeof newCode === 'string') {
+          setCode(newCode)
+        } else {
+          setCode(JSON.stringify(newCode, null, 2))
+        }
+      })
     }
   }, [polygonExportMode, code])
 
@@ -74,8 +70,7 @@ export default function ExportPolygon({
               : code
           const geojson: FeatureCollection = await convert<FeatureCollection>(
             parsed,
-            'feature_collection',
-            true,
+            'featureCollection',
           )
           if (geojson.type === 'FeatureCollection') {
             setTempGeojson(geojson)
@@ -111,7 +106,7 @@ export default function ExportPolygon({
           setCode={setCode}
           textMode={
             mode === 'export'
-              ? polygonExportMode === 'text'
+              ? polygonExportMode === 'text' || polygonExportMode === 'altText'
               : !code.startsWith('{') && !code.startsWith('[')
           }
         />
@@ -122,7 +117,14 @@ export default function ExportPolygon({
             field="polygonExportMode"
             value={polygonExportMode}
             setValue={setStore}
-            buttons={['array', 'geojson', 'object', 'text']}
+            buttons={[
+              'featureCollection',
+              'feature',
+              'array',
+              'struct',
+              'text',
+              'altText',
+            ]}
           />
         )}
         <Button onClick={() => navigator.clipboard.writeText(code)}>

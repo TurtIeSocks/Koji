@@ -3,12 +3,14 @@ use std::collections::VecDeque;
 use time::Duration;
 use travelling_salesman;
 
+use crate::entities::sea_orm_active_enums::Type;
 use crate::models::{api::Args, scanner::GenericData, KojiDb};
 use crate::models::{CustomError, MultiVec, SingleVec};
 use crate::queries::{area, gym, instance, pokestop, spawnpoint};
+use crate::utils::convert::collection;
 use crate::utils::drawing::clustering_2::brute_force;
 use crate::utils::{
-    convert::{normalize, vector},
+    convert::{feature, normalize, vector},
     drawing::{bootstrapping, project_points::project_points},
     get_return_type, response,
 };
@@ -74,7 +76,13 @@ async fn bootstrap(
         .collect();
 
     println!("[BOOTSTRAP] Returning {} circles\n", circles[0].len());
-    Ok(response::send(circles, return_type))
+    Ok(response::send(
+        collection::from_feature(feature::from_multi_vector(
+            circles,
+            Some(Type::CirclePokemon),
+        )),
+        return_type,
+    ))
 }
 
 #[post("/{mode}/{category}")]
@@ -189,7 +197,13 @@ async fn cluster(
     println!("[{}] Clusters: {}", mode.to_uppercase(), clusters.len());
 
     if mode.eq("cluster") || clusters.is_empty() || generations == 0 {
-        return Ok(response::send(vec![clusters], return_type));
+        return Ok(response::send(
+            collection::from_feature(feature::from_single_vector(
+                clusters,
+                Some(Type::CirclePokemon),
+            )),
+            return_type,
+        ));
     }
 
     println!("Routing for {}seconds...", generations);
@@ -239,7 +253,10 @@ async fn cluster(
         (clusters.len() / 100),
     );
     Ok(response::send(
-        vec![final_clusters.into_iter().map(|x| x).collect::<SingleVec>()],
+        collection::from_feature(feature::from_single_vector(
+            final_clusters.into(),
+            Some(Type::CirclePokemon),
+        )),
         return_type,
     ))
 }

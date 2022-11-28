@@ -48,9 +48,27 @@ pub struct ConfigResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Stats {
+    pub best_cluster: Option<PointArray>,
+    pub best_cluster_count: Option<u8>,
+    pub cluster_time: Option<f64>,
+    pub points_covered: Option<u32>,
+    pub total_clusters: Option<u32>,
+    pub total_distance: Option<u32>,
+    pub longest_distance: Option<u32>,
+}
+
+impl Stats {
+    fn log(&self) {
+        println!("Best Cluster: {:?}\nBest Cluster_Count: {:?}\nCluster Time: {:?}\n Points Covered: {:?}\nTotal Clusters: {:?}\nTotal Distance: {:?}\nLongest Distance: {:?}\n", self.best_cluster, self.best_cluster_count, self.cluster_time, self.points_covered, self.total_clusters, self.total_distance, self.longest_distance)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Response {
-    message: Option<String>,
-    status: Option<String>,
-    status_code: Option<u16>,
-    data: GeoFormats,
+    pub message: String,
+    pub status: String,
+    pub status_code: u16,
+    pub data: GeoFormats,
+    pub stats: Stats,
 }

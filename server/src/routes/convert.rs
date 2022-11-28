@@ -24,5 +24,5 @@ async fn convert_data(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         default_return_type, return_type,
     );
 
-    Ok(response::from_fc(area, return_type))
+    Ok(response::send(area, return_type))
 }

@@ -22,7 +22,13 @@ export interface UseStore {
   nativeLeaflet: boolean
   devices: number | ''
   geojson: FeatureCollection
-  polygonExportMode: 'geojson' | 'array' | 'object' | 'text'
+  polygonExportMode:
+    | 'feature'
+    | 'featureCollection'
+    | 'array'
+    | 'struct'
+    | 'text'
+    | 'altText'
   export: {
     total: number
     max: number
@@ -56,7 +62,7 @@ export const useStore = create(
       showPolygon: true,
       nativeLeaflet: false,
       devices: 1,
-      polygonExportMode: 'geojson',
+      polygonExportMode: 'feature',
       fast: false,
       export: {
         total: 0,

@@ -1,15 +1,15 @@
 use std::{fmt::Display, str::FromStr};
 
-use actix_web::{http::header::ContentType, HttpResponse};
+use actix_web::HttpResponse;
 use geojson::FeatureCollection;
 use num_traits::Float;
 
-use crate::{
-    entities::sea_orm_active_enums::Type,
-    models::{api::ReturnTypeArg, MultiStruct, MultiVec, PointStruct, SingleStruct},
+use crate::models::{
+    api::{Response, ReturnTypeArg, Stats},
+    GeoFormats, MultiStruct, MultiVec, PointStruct, SingleStruct,
 };
 
-use super::convert::{collection, feature, vector::from_collection};
+use super::convert::vector::from_collection;
 
 fn as_text<T: Float + FromStr + Display>(points: MultiVec<T>, alt_text: bool) -> String {
     let float_separator = if alt_text { " " } else { "," };
@@ -57,48 +57,40 @@ fn flatten<T>(input: Vec<Vec<T>>) -> Vec<T> {
     input.into_iter().flatten().collect::<Vec<T>>()
 }
 
-pub fn send(value: MultiVec, return_type: ReturnTypeArg) -> HttpResponse {
-    match return_type {
-        ReturnTypeArg::SingleStruct => HttpResponse::Ok().json(flatten(as_struct(value))),
-        ReturnTypeArg::MultiStruct => HttpResponse::Ok().json(as_struct(value)),
-        ReturnTypeArg::Text => HttpResponse::Ok()
-            .content_type(ContentType::plaintext())
-            .body(as_text(value, false)),
-        ReturnTypeArg::AltText => HttpResponse::Ok()
-            .content_type(ContentType::plaintext())
-            .body(as_text(value, true)),
-        ReturnTypeArg::SingleArray => HttpResponse::Ok().json(flatten(value)),
-        ReturnTypeArg::Feature => {
-            HttpResponse::Ok().json(feature::from_multi_vector(value, Some(Type::CirclePokemon)))
-        }
-        ReturnTypeArg::FeatureCollection => HttpResponse::Ok().json(collection::from_feature(
-            feature::from_multi_vector(value, Some(Type::CirclePokemon)),
-        )),
-        _ => HttpResponse::Ok().json(value),
-    }
-}
+pub fn send(value: FeatureCollection, return_type: ReturnTypeArg) -> HttpResponse {
+    HttpResponse::Ok().json(Response {
+        message: "".to_string(),
+        status: "ok".to_string(),
+        status_code: 200,
 
-pub fn from_fc(value: FeatureCollection, return_type: ReturnTypeArg) -> HttpResponse {
-    match return_type {
-        ReturnTypeArg::SingleStruct => {
-            HttpResponse::Ok().json(flatten(as_struct(from_collection(value))))
-        }
-        ReturnTypeArg::MultiStruct => HttpResponse::Ok().json(as_struct(from_collection(value))),
-        ReturnTypeArg::Text => HttpResponse::Ok()
-            .content_type(ContentType::plaintext())
-            .body(as_text(from_collection(value), false)),
-        ReturnTypeArg::AltText => HttpResponse::Ok()
-            .content_type(ContentType::plaintext())
-            .body(as_text(from_collection(value), true)),
-        ReturnTypeArg::SingleArray => HttpResponse::Ok().json(flatten(from_collection(value))),
-        ReturnTypeArg::Feature => {
-            if value.features.len() == 1 {
-                HttpResponse::Ok().json(value.features[0].clone())
-            } else {
-                HttpResponse::Ok().json(value)
+        data: match return_type {
+            ReturnTypeArg::SingleStruct => {
+                GeoFormats::SingleStruct(flatten(as_struct(from_collection(value))))
             }
-        }
-        ReturnTypeArg::FeatureCollection => HttpResponse::Ok().json(value),
-        _ => HttpResponse::Ok().json(from_collection(value)),
-    }
+            ReturnTypeArg::MultiStruct => {
+                GeoFormats::MultiStruct(as_struct(from_collection(value)))
+            }
+            ReturnTypeArg::Text => GeoFormats::Text(as_text(from_collection(value), false)),
+            ReturnTypeArg::AltText => GeoFormats::Text(as_text(from_collection(value), true)),
+            ReturnTypeArg::SingleArray => GeoFormats::SingleArray(flatten(from_collection(value))),
+            ReturnTypeArg::MultiArray => GeoFormats::MultiArray(from_collection(value)),
+            ReturnTypeArg::Feature => {
+                if value.features.len() == 1 {
+                    GeoFormats::Feature(value.features[0].clone())
+                } else {
+                    GeoFormats::FeatureCollection(value)
+                }
+            }
+            ReturnTypeArg::FeatureCollection => GeoFormats::FeatureCollection(value),
+        },
+        stats: Stats {
+            best_cluster: None,
+            best_cluster_count: None,
+            cluster_time: None,
+            points_covered: None,
+            total_clusters: None,
+            total_distance: None,
+            longest_distance: None,
+        },
+    })
 }

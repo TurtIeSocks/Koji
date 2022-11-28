@@ -51,7 +51,9 @@ export async function getLotsOfData(
           devices: Math.max(Math.floor((settings.devices || 1) / length), 1),
           area,
         }),
-      }).then((res) => res.json()),
+      })
+        .then((res) => res.json())
+        .then((r) => r.data),
     ),
   )
   return results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
@@ -103,10 +105,9 @@ export async function getMarkers(
   }
 }
 
-export async function convert<T = string>(
+export async function convert<T = object | string>(
   area: ToConvert,
-  return_type: 'array' | 'struct' | 'feature' | 'feature_collection' | 'text',
-  json = false,
+  return_type: UseStore['polygonExportMode'],
 ): Promise<T> {
   try {
     const data = await fetch('/api/v1/convert/data', {
@@ -119,12 +120,7 @@ export async function convert<T = string>(
         return_type,
       }),
     })
-    if (json) {
-      return await data.json()
-    }
-    return (return_type === 'text'
-      ? await data.text()
-      : JSON.stringify(await data.json(), null, 2)) as unknown as T
+    return await data.json().then((r) => r.data)
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error(e)
