@@ -5,7 +5,10 @@ use std::{
     time::Instant,
 };
 
-use crate::{models::scanner::GenericData, utils::drawing::helpers::*};
+use crate::{
+    models::{scanner::GenericData, SingleVec},
+    utils::drawing::helpers::*,
+};
 
 #[derive(Debug, Clone)]
 struct BBox {
@@ -74,16 +77,16 @@ const APPROX_PRECISION: usize = PRECISION - 3;
 
 pub fn brute_force(
     points: Vec<GenericData>,
-    honeycomb: Vec<[f64; 2]>,
+    honeycomb: SingleVec,
     radius: f64,
     min_points: usize,
     generations: usize,
-) -> Vec<[f64; 2]> {
+) -> SingleVec {
     // unfortunately, due to the borrower, we have to maintain this separately from the point_map
     let mut point_seen_map: HashSet<String> = HashSet::new();
 
     // Return value is a HashMap to ensure no duplicates are sent
-    // TODO: Make into a Vec<[f64; 2]> once the algorithm is solid
+    // TODO: Make into a SingleArray once the algorithm is solid
     let mut final_cluster_map: HashMap<String, CircleInfo> = HashMap::new();
 
     let (mut point_map, mut circle_map) = create_maps(points, honeycomb, radius);
@@ -148,7 +151,7 @@ pub fn brute_force(
 // TODO: Make this less expensive
 fn create_maps(
     points: Vec<GenericData>,
-    honeycomb: Vec<[f64; 2]>,
+    honeycomb: SingleVec,
     radius: f64,
 ) -> (HashMap<String, PointInfo>, HashMap<String, CircleInfo>) {
     let time = Instant::now();

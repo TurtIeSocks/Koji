@@ -3,11 +3,8 @@ use std::collections::VecDeque;
 use time::Duration;
 use travelling_salesman;
 
-use crate::models::{
-    api::{CustomError, RouteGeneration},
-    scanner::GenericData,
-    KojiDb,
-};
+use crate::models::{api::Args, scanner::GenericData, KojiDb};
+use crate::models::{CustomError, MultiVec, SingleVec};
 use crate::queries::{area, gym, instance, pokestop, spawnpoint};
 use crate::utils::drawing::clustering_2::brute_force;
 use crate::utils::{
@@ -20,11 +17,11 @@ use crate::utils::{
 async fn bootstrap(
     conn: web::Data<KojiDb>,
     scanner_type: web::Data<String>,
-    payload: web::Json<RouteGeneration>,
+    payload: web::Json<Args>,
 ) -> Result<HttpResponse, Error> {
     let scanner_type = scanner_type.as_ref().clone();
 
-    let RouteGeneration {
+    let Args {
         instance,
         radius,
         area,
@@ -71,7 +68,7 @@ async fn bootstrap(
         area
     };
 
-    let circles: Vec<Vec<[f64; 2]>> = area
+    let circles: MultiVec = area
         .into_iter()
         .map(|sub_area| bootstrapping::check(sub_area, radius))
         .collect();
@@ -85,13 +82,13 @@ async fn cluster(
     conn: web::Data<KojiDb>,
     scanner_type: web::Data<String>,
     url: actix_web::web::Path<(String, String)>,
-    payload: web::Json<RouteGeneration>,
+    payload: web::Json<Args>,
 ) -> Result<HttpResponse, Error> {
     let (mode, category) = url.into_inner();
     let category_2 = category.clone();
     let scanner_type = scanner_type.as_ref().clone();
 
-    let RouteGeneration {
+    let Args {
         instance,
         radius,
         generations,
@@ -106,7 +103,7 @@ async fn cluster(
     let radius = radius.unwrap_or(70.0);
     let generations = generations.unwrap_or(1);
     let devices = devices.unwrap_or(1);
-    let data_points = data_points.unwrap_or(vec![]);
+    let data_points = normalize::data_points(data_points);
     let min_points = min_points.unwrap_or(1);
     let fast = fast.unwrap_or(true);
     let (area, default_return_type) = normalize::area_input(area);
@@ -124,7 +121,10 @@ async fn cluster(
     }
 
     let data_points = if !data_points.is_empty() {
-        data_points.into_iter().map(|point| point.into()).collect()
+        data_points
+            .iter()
+            .map(|p| GenericData::new("".to_string(), p[0], p[1]))
+            .collect()
     } else {
         let temp_area = area.clone();
         web::block(move || async move {
@@ -149,7 +149,7 @@ async fn cluster(
                     spawnpoint::area(&conn.data_db, area).await
                 }
             } else {
-                Ok(Vec::<GenericData>::new())
+                Ok(vec![])
             }
         })
         .await?
@@ -162,7 +162,7 @@ async fn cluster(
         data_points.len()
     );
 
-    let (clusters, biggest): (Vec<[f64; 2]>, [f64; 2]) = if fast {
+    let (clusters, biggest): (SingleVec, [f64; 2]) = if fast {
         project_points(
             vector::from_generic_data(data_points),
             radius,
@@ -239,10 +239,7 @@ async fn cluster(
         (clusters.len() / 100),
     );
     Ok(response::send(
-        vec![final_clusters
-            .into_iter()
-            .map(|x| x)
-            .collect::<Vec<[f64; 2]>>()],
+        vec![final_clusters.into_iter().map(|x| x).collect::<SingleVec>()],
         return_type,
     ))
 }

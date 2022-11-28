@@ -4,10 +4,7 @@ use super::*;
 
 use crate::queries::{area, instance};
 use crate::{
-    models::{
-        api::{CustomError, RouteGeneration},
-        KojiDb,
-    },
+    models::{api::Args, CustomError, KojiDb},
     utils::convert::collection,
 };
 
@@ -79,7 +76,7 @@ async fn instance_type(
 #[post("/area")]
 async fn get_area(
     conn: web::Data<KojiDb>,
-    payload: web::Json<RouteGeneration>,
+    payload: web::Json<Args>,
     scanner_type: web::Data<String>,
 ) -> Result<HttpResponse, Error> {
     let scanner_type = scanner_type.as_ref().clone();

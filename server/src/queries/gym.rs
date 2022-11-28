@@ -1,24 +1,25 @@
 use super::*;
-use crate::entities::gym;
 
-use crate::models::scanner::LatLon;
-use crate::models::{api::MapBounds, scanner::GenericData};
-use crate::utils;
+use crate::{
+    entities::gym,
+    models::{api::BoundsArg, scanner::GenericData, PointStruct},
+    utils::{self, convert::normalize},
+};
 
 pub async fn all(conn: &DatabaseConnection) -> Result<Vec<GenericData>, DbErr> {
     let items = gym::Entity::find()
         .select_only()
         .column(gym::Column::Lat)
         .column(gym::Column::Lon)
-        .into_model::<LatLon>()
+        .into_model::<PointStruct>()
         .all(conn)
         .await?;
-    Ok(utils::convert::normalize::fort(items, true))
+    Ok(normalize::fort(items, "g"))
 }
 
 pub async fn bound(
     conn: &DatabaseConnection,
-    payload: &MapBounds,
+    payload: &BoundsArg,
 ) -> Result<Vec<GenericData>, DbErr> {
     let items = gym::Entity::find()
         .select_only()
@@ -26,10 +27,10 @@ pub async fn bound(
         .column(gym::Column::Lon)
         .filter(gym::Column::Lat.between(payload.min_lat, payload.max_lat))
         .filter(gym::Column::Lon.between(payload.min_lon, payload.max_lon))
-        .into_model::<LatLon>()
+        .into_model::<PointStruct>()
         .all(conn)
         .await?;
-    Ok(utils::convert::normalize::fort(items, true))
+    Ok(normalize::fort(items, "g"))
 }
 
 pub async fn area(
@@ -42,8 +43,8 @@ pub async fn area(
             format!("SELECT lat, lon FROM gym {}", utils::sql_raw(area)).as_str(),
             vec![],
         ))
-        .into_model::<LatLon>()
+        .into_model::<PointStruct>()
         .all(conn)
         .await?;
-    Ok(utils::convert::normalize::fort(items, true))
+    Ok(normalize::fort(items, "g"))
 }

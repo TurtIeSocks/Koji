@@ -1,10 +1,13 @@
 use super::*;
-use crate::entities::spawnpoint;
-use crate::models::{
-    api::MapBounds,
-    scanner::{GenericData, TrimmedSpawn},
+
+use crate::{
+    entities::spawnpoint,
+    models::{
+        api::BoundsArg,
+        scanner::{GenericData, Spawnpoint},
+    },
+    utils::{self, convert::normalize},
 };
-use crate::utils;
 
 pub async fn all(conn: &DatabaseConnection) -> Result<Vec<GenericData>, DbErr> {
     let items = spawnpoint::Entity::find()
@@ -12,15 +15,15 @@ pub async fn all(conn: &DatabaseConnection) -> Result<Vec<GenericData>, DbErr> {
         .column(spawnpoint::Column::Lat)
         .column(spawnpoint::Column::Lon)
         .column(spawnpoint::Column::DespawnSec)
-        .into_model::<TrimmedSpawn>()
+        .into_model::<Spawnpoint>()
         .all(conn)
         .await?;
-    Ok(utils::convert::normalize::spawnpoint(items))
+    Ok(normalize::spawnpoint(items))
 }
 
 pub async fn bound(
     conn: &DatabaseConnection,
-    payload: &MapBounds,
+    payload: &BoundsArg,
 ) -> Result<Vec<GenericData>, DbErr> {
     let items = spawnpoint::Entity::find()
         .select_only()
@@ -29,10 +32,10 @@ pub async fn bound(
         .column(spawnpoint::Column::DespawnSec)
         .filter(spawnpoint::Column::Lat.between(payload.min_lat, payload.max_lat))
         .filter(spawnpoint::Column::Lon.between(payload.min_lon, payload.max_lon))
-        .into_model::<TrimmedSpawn<f64>>()
+        .into_model::<Spawnpoint<f64>>()
         .all(conn)
         .await?;
-    Ok(utils::convert::normalize::spawnpoint(items))
+    Ok(normalize::spawnpoint(items))
 }
 
 pub async fn area(
@@ -49,8 +52,8 @@ pub async fn area(
             .as_str(),
             vec![],
         ))
-        .into_model::<TrimmedSpawn>()
+        .into_model::<Spawnpoint>()
         .all(conn)
         .await?;
-    Ok(utils::convert::normalize::spawnpoint(items))
+    Ok(normalize::spawnpoint(items))
 }

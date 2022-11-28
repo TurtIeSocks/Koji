@@ -1,4 +1,6 @@
-use crate::models::{api::ArrayType, scanner::LatLon};
+use crate::models::{
+    ArrayType, MultiStruct, MultiVec, PointArray, PointStruct, SingleStruct, SingleVec,
+};
 use geojson::{Geometry, Value};
 
 use super::*;
@@ -13,7 +15,7 @@ use super::*;
     GeometryCollection > [Point, LineString, Polygon]
 */
 
-fn multi_polygon(area: Vec<Vec<[f64; 2]>>) -> Value {
+fn multi_polygon(area: MultiVec) -> Value {
     Value::MultiPolygon(
         area.into_iter()
             .map(|poly| {
@@ -26,18 +28,18 @@ fn multi_polygon(area: Vec<Vec<[f64; 2]>>) -> Value {
     )
 }
 
-fn polygon(area: Vec<[f64; 2]>) -> Value {
+fn polygon(area: SingleVec) -> Value {
     Value::Polygon(vec![ensure_first_last(area)
         .into_iter()
         .map(|[lat, lon]| vec![lon, lat])
         .collect()])
 }
 
-fn multi_point(area: Vec<[f64; 2]>) -> Value {
+fn multi_point(area: SingleVec) -> Value {
     Value::MultiPoint(area.into_iter().map(|[lat, lon]| vec![lon, lat]).collect())
 }
 
-fn point([lat, lon]: [f64; 2]) -> Value {
+fn point([lat, lon]: PointArray) -> Value {
     Value::Point(vec![lon, lat])
 }
 
@@ -77,11 +79,11 @@ pub fn get_feature(area: ArrayType, enum_type: Option<Type>) -> Feature {
     }
 }
 
-pub fn from_single_vector(area: Vec<[f64; 2]>, enum_type: Option<Type>) -> Feature {
+pub fn from_single_vector(area: SingleVec, enum_type: Option<Type>) -> Feature {
     get_feature(ArrayType::S(area), enum_type)
 }
 
-pub fn from_multi_vector(area: Vec<Vec<[f64; 2]>>, enum_type: Option<Type>) -> Feature {
+pub fn from_multi_vector(area: MultiVec, enum_type: Option<Type>) -> Feature {
     get_feature(ArrayType::M(area), enum_type)
 }
 
@@ -89,18 +91,18 @@ pub fn from_text(area: &str, enum_type: Option<Type>) -> Feature {
     get_feature(ArrayType::S(vector::from_text(area)), enum_type)
 }
 
-pub fn from_single_point(area: LatLon) -> Feature {
+pub fn from_single_point(area: PointStruct) -> Feature {
     get_feature(
         ArrayType::S(vector::from_struct(vec![area])),
         Some(Type::Leveling),
     )
 }
 
-pub fn from_single_struct(area: Vec<LatLon>, enum_type: Option<Type>) -> Feature {
+pub fn from_single_struct(area: SingleStruct, enum_type: Option<Type>) -> Feature {
     get_feature(ArrayType::S(vector::from_struct(area)), enum_type)
 }
 
-pub fn from_multi_struct(area: Vec<Vec<LatLon>>, enum_type: Option<Type>) -> Feature {
+pub fn from_multi_struct(area: MultiStruct, enum_type: Option<Type>) -> Feature {
     get_feature(
         ArrayType::M(area.into_iter().map(|a| vector::from_struct(a)).collect()),
         enum_type,

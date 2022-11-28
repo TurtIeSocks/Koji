@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::{
-    api::{CustomError, MapBounds, RouteGeneration},
-    KojiDb,
+    api::{Args, BoundsArg},
+    CustomError, KojiDb,
 };
 use crate::queries::{area, gym, instance, pokestop, spawnpoint};
 use crate::utils::convert::normalize;
@@ -46,7 +46,7 @@ async fn bound(
     conn: web::Data<KojiDb>,
     scanner_type: web::Data<String>,
     category: actix_web::web::Path<String>,
-    payload: web::Json<MapBounds>,
+    payload: web::Json<BoundsArg>,
 ) -> Result<HttpResponse, Error> {
     let scanner_type = scanner_type.as_ref();
     let category = category.into_inner();
@@ -82,13 +82,13 @@ async fn by_area(
     conn: web::Data<KojiDb>,
     scanner_type: web::Data<String>,
     category: actix_web::web::Path<String>,
-    payload: web::Json<RouteGeneration>,
+    payload: web::Json<Args>,
 ) -> Result<HttpResponse, Error> {
     let scanner_type = scanner_type.as_ref().clone();
     let category = category.into_inner();
     let category_copy = category.clone();
 
-    let RouteGeneration {
+    let Args {
         instance,
         area,
         radius: _radius,

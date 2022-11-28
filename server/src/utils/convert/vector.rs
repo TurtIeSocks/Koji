@@ -1,28 +1,28 @@
 use super::*;
-use crate::models::scanner::{GenericData, LatLon};
+use crate::models::{scanner::GenericData, MultiVec, SingleStruct, SingleVec};
 use geojson::Value;
 use num_traits::Float;
 use std::str::FromStr;
 
-pub fn from_struct<T>(coords: Vec<LatLon<T>>) -> Vec<[T; 2]>
+pub fn from_struct<T>(coords: SingleStruct<T>) -> SingleVec<T>
 where
     T: Float,
 {
     coords.iter().map(|p| [p.lat, p.lon]).collect()
 }
 
-pub fn from_generic_data<T>(coords: Vec<GenericData<T>>) -> Vec<[T; 2]>
+pub fn from_generic_data<T>(coords: Vec<GenericData<T>>) -> SingleVec<T>
 where
     T: Float,
 {
     coords.iter().map(|p| p.p).collect()
 }
 
-pub fn from_text<T>(area_data: &str) -> Vec<[T; 2]>
+pub fn from_text<T>(area_data: &str) -> SingleVec<T>
 where
     T: FromStr + Float,
 {
-    let mut points: Vec<[T; 2]> = Vec::new();
+    let mut points: SingleVec<T> = vec![];
     let test = text_test(area_data);
     let coords: Vec<&str> = area_data.split(if test { "," } else { "\n" }).collect();
     for coord in coords {
@@ -49,8 +49,8 @@ where
     ensure_first_last(points)
 }
 
-pub fn from_collection(fc: FeatureCollection) -> Vec<Vec<[f64; 2]>> {
-    let mut return_value = Vec::<Vec<[f64; 2]>>::new();
+pub fn from_collection(fc: FeatureCollection) -> MultiVec {
+    let mut return_value: MultiVec = vec![];
 
     for feature in fc.features.into_iter() {
         if feature.geometry.is_some() {
@@ -60,8 +60,8 @@ pub fn from_collection(fc: FeatureCollection) -> Vec<Vec<[f64; 2]>> {
     return_value
 }
 
-pub fn from_feature(feature: Feature) -> Vec<[f64; 2]> {
-    let mut temp_arr = Vec::<[f64; 2]>::new();
+pub fn from_feature(feature: Feature) -> SingleVec {
+    let mut temp_arr: SingleVec = vec![];
     match feature.geometry.unwrap().value {
         Value::MultiPolygon(geometry) => {
             for poly in geometry.into_iter() {

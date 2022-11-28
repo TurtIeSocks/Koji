@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::utils::drawing::clustering;
+use crate::{models::SingleVec, utils::drawing::clustering};
 
 use geo::Coordinate;
 use map_3d::{geodetic2ecef, Ellipsoid};
@@ -81,11 +81,11 @@ fn reverse_project(
 }
 
 pub fn project_points(
-    input: Vec<[f64; 2]>,
+    input: SingleVec,
     radius: f64,
     min_points: usize,
     _category: String,
-) -> (Vec<[f64; 2]>, [f64; 2]) {
+) -> (SingleVec, [f64; 2]) {
     let points = input
         .iter()
         .map(|&[lat, lon]| {
@@ -118,11 +118,11 @@ pub fn project_points(
 
     let point_map = clustering::udc(output.clone(), min_points);
 
-    let (output, best): (Vec<[f64; 2]>, [f64; 2]) = {
+    let (output, best): (SingleVec, [f64; 2]) = {
         let mut temp_best = [0.0, 0.0];
         let mut best_count = 0;
         let mut seen_points: HashSet<String> = HashSet::new();
-        let return_value: (Vec<[f64; 2]>, [f64; 2]) = (
+        let return_value: (SingleVec, [f64; 2]) = (
             point_map
                 .into_iter()
                 .filter_map(|(key, values)| {
@@ -156,7 +156,7 @@ pub fn project_points(
         plane_center_lat.to_degrees(),
         plane_center_lon.to_degrees()
     );
-    let mut final_output: Vec<[f64; 2]> = Vec::new();
+    let mut final_output: SingleVec = vec![];
     let (best_lat, best_lon, _) = reverse_project(
         best,
         (plane_center, plane_x, plane_y, plane_z, adjusted_radius),

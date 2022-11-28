@@ -1,6 +1,5 @@
-use geojson::FeatureCollection;
-
 use super::*;
+
 use crate::{
     entities::{instance, sea_orm_active_enums},
     utils::convert::{collection, normalize},

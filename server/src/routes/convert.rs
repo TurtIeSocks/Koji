@@ -1,11 +1,11 @@
 use super::*;
 
-use crate::models::api::RouteGeneration;
+use crate::models::api::Args;
 use crate::utils::{convert::normalize, get_return_type, response};
 
 #[post("/data")]
-async fn convert_data(payload: web::Json<RouteGeneration>) -> Result<HttpResponse, Error> {
-    let RouteGeneration {
+async fn convert_data(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
+    let Args {
         area,
         return_type,
         instance: _instance,

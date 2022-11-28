@@ -1,32 +1,34 @@
-use geojson::{Feature, FeatureCollection};
+use super::vector::from_struct;
+use super::*;
 use num_traits::Float;
 
-use crate::entities::{area, instance, sea_orm_active_enums::Type};
-use crate::models::api::{AreaInput, ReturnType};
-use crate::models::scanner::{GenericData, LatLon, TrimmedSpawn};
+use crate::models::api::DataPointsArg;
+use crate::models::{SingleStruct, SingleVec};
 use crate::utils::{self, text_test};
+use crate::{
+    entities::{area, instance, sea_orm_active_enums::Type},
+    models::{
+        api::ReturnTypeArg,
+        scanner::{GenericData, Spawnpoint},
+        GeoFormats,
+    },
+};
 
 use super::collection::Default;
 use super::{collection, feature};
 
-pub fn fort<T>(items: Vec<LatLon<T>>, gym: bool) -> Vec<GenericData<T>>
+pub fn fort<T>(items: SingleStruct<T>, prefix: &str) -> Vec<GenericData<T>>
 where
     T: Float,
 {
     items
         .into_iter()
         .enumerate()
-        .map(|(i, item)| {
-            GenericData::new(
-                format!("{}{}", if gym { "g" } else { "p" }, i),
-                item.lat,
-                item.lon,
-            )
-        })
+        .map(|(i, item)| GenericData::new(format!("{}{}", prefix, i), item.lat, item.lon))
         .collect()
 }
 
-pub fn spawnpoint<T>(items: Vec<TrimmedSpawn<T>>) -> Vec<GenericData<T>>
+pub fn spawnpoint<T>(items: Vec<Spawnpoint<T>>) -> Vec<GenericData<T>>
 where
     T: Float,
 {
@@ -82,38 +84,49 @@ pub fn area(areas: Vec<area::Model>) -> Vec<Feature> {
     normalized
 }
 
-pub fn area_input(area: Option<AreaInput>) -> (FeatureCollection, ReturnType) {
+pub fn data_points(data_points: Option<DataPointsArg>) -> SingleVec {
+    if let Some(data_points) = data_points {
+        match data_points {
+            DataPointsArg::Struct(data_points) => from_struct(data_points),
+            DataPointsArg::Array(data_points) => data_points,
+        }
+    } else {
+        vec![]
+    }
+}
+
+pub fn area_input(area: Option<GeoFormats>) -> (FeatureCollection, ReturnTypeArg) {
     if area.is_some() {
         let area = area.unwrap();
         match area {
-            AreaInput::Text(area) => (
+            GeoFormats::Text(area) => (
                 collection::from_feature(feature::from_text(area.as_str(), None)),
                 if text_test(area.as_str()) {
-                    ReturnType::AltText
+                    ReturnTypeArg::AltText
                 } else {
-                    ReturnType::Text
+                    ReturnTypeArg::Text
                 },
             ),
-            AreaInput::SingleArray(area) => (
+            GeoFormats::SingleArray(area) => (
                 collection::from_feature(feature::from_single_vector(area, None)),
-                ReturnType::SingleArray,
+                ReturnTypeArg::SingleArray,
             ),
-            AreaInput::MultiArray(area) => (
+            GeoFormats::MultiArray(area) => (
                 collection::from_feature(feature::from_multi_vector(area, None)),
-                ReturnType::MultiArray,
+                ReturnTypeArg::MultiArray,
             ),
-            AreaInput::SingleStruct(area) => (
+            GeoFormats::SingleStruct(area) => (
                 collection::from_feature(feature::from_single_struct(area, None)),
-                ReturnType::SingleStruct,
+                ReturnTypeArg::SingleStruct,
             ),
-            AreaInput::MultiStruct(area) => (
+            GeoFormats::MultiStruct(area) => (
                 collection::from_feature(feature::from_multi_struct(area, None)),
-                ReturnType::MultiStruct,
+                ReturnTypeArg::MultiStruct,
             ),
-            AreaInput::Feature(area) => (collection::from_feature(area), ReturnType::Feature),
-            AreaInput::FeatureCollection(area) => (area, ReturnType::FeatureCollection),
+            GeoFormats::Feature(area) => (collection::from_feature(area), ReturnTypeArg::Feature),
+            GeoFormats::FeatureCollection(area) => (area, ReturnTypeArg::FeatureCollection),
         }
     } else {
-        (FeatureCollection::default(), ReturnType::SingleArray)
+        (FeatureCollection::default(), ReturnTypeArg::SingleArray)
     }
 }

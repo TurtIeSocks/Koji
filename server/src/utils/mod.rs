@@ -3,7 +3,7 @@ use num_traits::Float;
 use super::*;
 use crate::entities::sea_orm_active_enums::Type;
 use crate::models::{
-    api::ReturnType,
+    api::ReturnTypeArg,
     scanner::{InstanceParsing, RdmInstanceArea},
 };
 
@@ -59,27 +59,30 @@ pub fn sql_raw(area: FeatureCollection) -> String {
     string
 }
 
-pub fn get_return_type(return_type: Option<String>, default_return_type: ReturnType) -> ReturnType {
+pub fn get_return_type(
+    return_type: Option<String>,
+    default_return_type: ReturnTypeArg,
+) -> ReturnTypeArg {
     if return_type.is_some() {
         match return_type.unwrap().to_lowercase().as_str() {
-            "alttext" | "alt_text" => ReturnType::AltText,
-            "text" => ReturnType::Text,
+            "alttext" | "alt_text" => ReturnTypeArg::AltText,
+            "text" => ReturnTypeArg::Text,
             "array" => match default_return_type {
-                ReturnType::SingleArray => ReturnType::SingleArray,
-                ReturnType::MultiArray => ReturnType::MultiArray,
-                _ => ReturnType::SingleArray,
+                ReturnTypeArg::SingleArray => ReturnTypeArg::SingleArray,
+                ReturnTypeArg::MultiArray => ReturnTypeArg::MultiArray,
+                _ => ReturnTypeArg::SingleArray,
             },
-            "singlearray" | "single_array" => ReturnType::SingleArray,
-            "multiarray" | "multi_array" => ReturnType::MultiArray,
+            "singlearray" | "single_array" => ReturnTypeArg::SingleArray,
+            "multiarray" | "multi_array" => ReturnTypeArg::MultiArray,
             "struct" => match default_return_type {
-                ReturnType::SingleStruct => ReturnType::SingleStruct,
-                ReturnType::MultiStruct => ReturnType::MultiStruct,
-                _ => ReturnType::SingleStruct,
+                ReturnTypeArg::SingleStruct => ReturnTypeArg::SingleStruct,
+                ReturnTypeArg::MultiStruct => ReturnTypeArg::MultiStruct,
+                _ => ReturnTypeArg::SingleStruct,
             },
-            "singlestruct" | "single_struct" => ReturnType::SingleStruct,
-            "multistruct" | "multi_struct" => ReturnType::MultiStruct,
-            "feature" => ReturnType::Feature,
-            "featurecollection" | "feature_collection" => ReturnType::FeatureCollection,
+            "singlestruct" | "single_struct" => ReturnTypeArg::SingleStruct,
+            "multistruct" | "multi_struct" => ReturnTypeArg::MultiStruct,
+            "feature" => ReturnTypeArg::Feature,
+            "featurecollection" | "feature_collection" => ReturnTypeArg::FeatureCollection,
             _ => default_return_type,
         }
     } else {

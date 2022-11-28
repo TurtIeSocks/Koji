@@ -23,7 +23,7 @@ impl ToLocation for (f64, f64) {
     }
 }
 
-fn create_problem(services: Vec<[f64; 2]>, devices: Vec<String>) -> Problem {
+fn create_problem(services: SingleArray, devices: Vec<String>) -> Problem {
     let tour_size = services.len() / devices.len();
     let shifts: Vec<VehicleShift> = devices
         .iter()
@@ -165,7 +165,7 @@ fn sort_all_data(solution: Solution) -> Solution {
     solution
 }
 
-pub fn solve(services: Vec<[f64; 2]>, generations: usize, devices: usize) -> Solution {
+pub fn solve(services: SingleArray, generations: usize, devices: usize) -> Solution {
     let device_strings: Vec<String> = (0..devices).map(|i| format!("device_{}", i)).collect();
     let problem = create_problem(services, device_strings);
     get_core_solution(problem, None, |problem: Arc<CoreProblem>| {

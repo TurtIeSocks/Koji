@@ -1,4 +1,4 @@
-use crate::utils::convert::feature::split_multi;
+use crate::{models::SingleVec, utils::convert::feature::split_multi};
 
 use super::*;
 use geo::{Contains, Extremes, HaversineDestination, HaversineDistance, Point, Polygon};
@@ -37,7 +37,7 @@ pub fn point_line_distance(input: Vec<Point>, point: Point) -> f64 {
     distance
 }
 
-pub fn check(input: Feature, radius: f64) -> Vec<[f64; 2]> {
+pub fn check(input: Feature, radius: f64) -> SingleVec {
     match input.geometry.clone().unwrap().value {
         Value::MultiPolygon(_) => split_multi(input)
             .into_iter()
@@ -47,7 +47,7 @@ pub fn check(input: Feature, radius: f64) -> Vec<[f64; 2]> {
     }
 }
 
-fn generate_circles(input: Feature, radius: f64) -> Vec<[f64; 2]> {
+fn generate_circles(input: Feature, radius: f64) -> SingleVec {
     let mut circles: Vec<Point> = Vec::new();
 
     if input.geometry.is_none() {
