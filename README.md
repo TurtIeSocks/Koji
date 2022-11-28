@@ -98,7 +98,6 @@ cd client && yarn install && yarn dev
 General Types:
 
 ```rust
-
 // Data Structs and Type Aliases
 pub type PointArray<T = f64> = [T; 2];
 pub type SingleVec<T = f64> = Vec<PointArray<T>>;
@@ -176,14 +175,13 @@ pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
   }
 
 // Response Struct (what you will receive!)
-pub struct Response {
-    pub message: String,
-    pub status: String,
-    pub status_code: u16,
-    pub data: GeoFormats,
-    pub stats: Stats,
-}
-
+  pub struct Response {
+      pub message: String,
+      pub status: String,
+      pub status_code: u16,
+      pub data: GeoFormats,
+      pub stats: Stats,
+  }
 ```
 
 ### /api/v1/calc/bootstrap
