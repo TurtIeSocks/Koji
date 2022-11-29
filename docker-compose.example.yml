@@ -1,4 +1,4 @@
-version: '3.7'
+version: '2'
 services:
   koji:
     image: ghcr.io/turtiesocks/koji:main
@@ -11,5 +11,8 @@ services:
       START_LON: 0
       TILE_SERVER: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png"
       PORT: 8080
+    #mem_limit: 2048G
+    #mem_reservation: 256M
+    #cpus: 2 
     ports:
       - "9095:8080"
