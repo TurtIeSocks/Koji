@@ -15,10 +15,11 @@ export default function EditTab() {
   const category = useStore((s) => s.category)
   const generations = useStore((s) => s.generations)
   const setStore = useStore((s) => s.setStore)
-  const devices = useStore((s) => s.devices)
+  // const devices = useStore((s) => s.devices)
   const min_points = useStore((s) => s.min_points)
   const fast = useStore((s) => s.fast)
   const autoMode = useStore((s) => s.autoMode)
+  const routing_time = useStore((s) => s.routing_time)
 
   const setStatic = useStatic((s) => s.setStatic)
 
@@ -28,12 +29,13 @@ export default function EditTab() {
       <Toggle field="autoMode" value={autoMode} setValue={setStore} />
       <NumInput field="radius" value={radius} setValue={setStore} />
       <NumInput field="generations" value={generations} setValue={setStore} />
-      <NumInput
+      <NumInput field="routing_time" value={routing_time} setValue={setStore} />
+      {/* <NumInput
         field="devices"
         value={devices}
         setValue={setStore}
         disabled={mode !== 'route'}
-      />
+      /> */}
       <NumInput field="min_points" value={min_points} setValue={setStore} />
       <Toggle field="fast" value={fast} setValue={setStore} />
       <ListItem disabled={mode === 'bootstrap'}>

@@ -32,6 +32,7 @@ pub struct Args {
     pub radius: Option<f64>,
     pub min_points: Option<usize>,
     pub generations: Option<usize>,
+    pub routing_time: Option<i64>,
     pub devices: Option<usize>,
     pub data_points: Option<DataPointsArg>,
     pub area: Option<GeoFormats>,

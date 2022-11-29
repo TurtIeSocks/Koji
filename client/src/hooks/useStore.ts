@@ -16,6 +16,7 @@ export interface UseStore {
   radius: number | ''
   min_points: number | ''
   generations: number | ''
+  routing_time: number | ''
   showCircles: boolean
   showLines: boolean
   showPolygon: boolean
@@ -55,7 +56,8 @@ export const useStore = create(
       mode: 'cluster',
       data: 'all',
       radius: 70,
-      generations: 100,
+      generations: 1,
+      routing_time: 1,
       min_points: 3,
       showCircles: true,
       showLines: true,

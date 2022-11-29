@@ -27,6 +27,7 @@ async fn bootstrap(
         instance,
         radius,
         area,
+        routing_time: _routing_time,
         return_type,
         generations: _generations,
         devices: _devices,
@@ -100,6 +101,7 @@ async fn cluster(
         instance,
         radius,
         generations,
+        routing_time,
         devices,
         area,
         data_points,
@@ -110,6 +112,7 @@ async fn cluster(
     let instance = instance.unwrap_or("".to_string());
     let radius = radius.unwrap_or(70.0);
     let generations = generations.unwrap_or(1);
+    let routing_time = routing_time.unwrap_or(1);
     let devices = devices.unwrap_or(1);
     let data_points = normalize::data_points(data_points);
     let min_points = min_points.unwrap_or(1);
@@ -196,7 +199,7 @@ async fn cluster(
 
     println!("[{}] Clusters: {}", mode.to_uppercase(), clusters.len());
 
-    if mode.eq("cluster") || clusters.is_empty() || generations == 0 {
+    if mode.eq("cluster") || clusters.is_empty() || routing_time == 0 {
         return Ok(response::send(
             collection::from_feature(feature::from_single_vector(
                 clusters,
@@ -206,14 +209,14 @@ async fn cluster(
         ));
     }
 
-    println!("Routing for {}seconds...", generations);
+    println!("Routing for {}seconds...", routing_time);
     let tour = travelling_salesman::simulated_annealing::solve(
         &clusters
             .iter()
             .map(|[x, y]| (*x, *y))
             .collect::<Vec<(f64, f64)>>()[0..clusters.len()],
-        Duration::seconds(if generations > 0 {
-            generations as i64
+        Duration::seconds(if routing_time > 0 {
+            routing_time
         } else {
             ((clusters.len() as f32 / 100.) + 1.)
                 .powf(if fast { 1. } else { 1.25 })

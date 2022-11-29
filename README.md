@@ -144,25 +144,47 @@ pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
 
 // all API Fields
   pub struct Args {
-      pub instance: Option<String>,
+      // The instance or area to lookup in the db to get geofence/data points
       // defaults to ""
-      pub radius: Option<f64>,
+      pub instance: Option<String>,
+
+      // radius of the circle to use in calculations
       // defaults to 70m
+      pub radius: Option<f64>,
+
+      // min number of points to use with clustering
+      // defaults to 1
       pub min_points: Option<usize>,
+
+      // number of times to run through the clustering optimizations
       // defaults to 1
       pub generations: Option<usize>,
+
+      // number of seconds (s) to run the routing algorithm (longer = better routes)
+      // defaults to 1
+      pub routing_time: Option<i64>,
+
+      // number of devices - not implemented atm
       // defaults to 1
       pub devices: Option<usize>,
-      // defaults to 1
-      pub data_points: Option<Vec<{ lat: f64, lon: f64}>>,
+
+      // Custom list of data points to use in calculations - overrides all else
       // defaults to []
-      pub area: Option<GeoFormats>,
+      pub data_points: Option<DataPointsArg>,
+
+      // Custom area to use in the SQL query to get data points
       // defaults to empty FeatureCollection
-      pub fast: Option<bool>,
+      pub area: Option<GeoFormats>,
+
+      // Run the fast algorithm or not
       // defaults to true
-      pub return_type: Option<String>,
+      pub fast: Option<bool>,
+
+      // Format of how the data should be returned
       // defaults to AreaInput type or SingleArray if AreaInput is None
+      pub return_type: Option<String>,
   }
+
 // Benchmark/Stats Struct
   pub struct Stats {
       pub best_cluster: Option<PointArray>,

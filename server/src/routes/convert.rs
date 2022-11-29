@@ -15,6 +15,7 @@ async fn convert_data(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         data_points: _data_points,
         min_points: _min_points,
         fast: _fast,
+        routing_time: _routing_time,
     } = payload.into_inner();
     let (area, default_return_type) = normalize::area_input(area);
     let return_type = get_return_type(return_type, default_return_type.clone());
