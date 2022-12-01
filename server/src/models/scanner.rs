@@ -1,5 +1,4 @@
 use super::*;
-use num_traits::Float;
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
 pub struct Spawnpoint<T = f64>

@@ -1,12 +1,11 @@
+use geo::Coordinate;
+use map_3d::{self, Ellipsoid};
 use std::{collections::HashSet, time::Instant};
 
 use crate::{
     models::{api::Stats, SingleVec},
     utils::drawing::clustering,
 };
-
-use geo::Coordinate;
-use map_3d::{geodetic2ecef, Ellipsoid};
 
 type Geocentric = (f64, f64, f64);
 type Topocentric = (f64, f64);
@@ -93,11 +92,12 @@ pub fn project_points(
     let points = input
         .iter()
         .map(|&[lat, lon]| {
-            geodetic2ecef(lat.to_radians(), lon.to_radians(), 0., Ellipsoid::default())
+            map_3d::geodetic2ecef(lat.to_radians(), lon.to_radians(), 0., Ellipsoid::default())
         })
         .collect();
     let (plane_center_lat, plane_center_lon) = compute_plane_center(&points);
-    let plane_center = geodetic2ecef(plane_center_lat, plane_center_lon, 0., Ellipsoid::default());
+    let plane_center =
+        map_3d::geodetic2ecef(plane_center_lat, plane_center_lon, 0., Ellipsoid::default());
     let plane_z = (
         plane_center_lat.cos() * plane_center_lon.cos(),
         plane_center_lat.cos() * plane_center_lon.sin(),

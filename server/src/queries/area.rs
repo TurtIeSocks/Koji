@@ -1,11 +1,11 @@
-use geojson::FeatureCollection;
-
 use super::*;
-use crate::entities::area;
-use crate::entities::sea_orm_active_enums::Type;
-use crate::utils::{
-    convert::{collection, normalize},
-    parse_text,
+
+use crate::{
+    entities::{area, sea_orm_active_enums::Type},
+    utils::{
+        self,
+        convert::{collection, normalize},
+    },
 };
 
 pub async fn all(conn: &DatabaseConnection) -> Result<Vec<Feature>, DbErr> {
@@ -24,7 +24,7 @@ pub async fn route(
     if let Some(item) = item {
         if let Some(geofence) = item.geofence {
             if !geofence.is_empty() {
-                Ok(collection::from_feature(parse_text(
+                Ok(collection::from_feature(utils::parse_text(
                     geofence.as_str(),
                     Some(item.name),
                     Some(&Type::AutoQuest),

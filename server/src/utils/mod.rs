@@ -1,10 +1,13 @@
+use super::*;
+
 use num_traits::Float;
 
-use super::*;
-use crate::entities::sea_orm_active_enums::Type;
-use crate::models::{
-    api::ReturnTypeArg,
-    scanner::{InstanceParsing, RdmInstanceArea},
+use crate::{
+    entities::sea_orm_active_enums::Type,
+    models::{
+        api::ReturnTypeArg,
+        scanner::{InstanceParsing, RdmInstanceArea},
+    },
 };
 
 pub mod convert;

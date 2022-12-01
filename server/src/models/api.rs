@@ -1,6 +1,6 @@
-use crate::utils::{self, convert::normalize};
-
 use super::*;
+
+use crate::utils::{self, convert::normalize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BoundsArg {

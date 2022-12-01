@@ -1,10 +1,12 @@
 use super::*;
 
-use crate::models::{
-    api::{Args, ArgsUnwrapped, BoundsArg},
-    CustomError, KojiDb,
+use crate::{
+    models::{
+        api::{Args, ArgsUnwrapped, BoundsArg},
+        CustomError, KojiDb,
+    },
+    queries::{area, gym, instance, pokestop, spawnpoint},
 };
-use crate::queries::{area, gym, instance, pokestop, spawnpoint};
 
 #[get("/all/{category}")]
 async fn all(
@@ -73,19 +75,7 @@ async fn by_area(
     let scanner_type = scanner_type.as_ref();
     let category = category.into_inner();
 
-    let ArgsUnwrapped {
-        area,
-        benchmark_mode: _benchmark_mode,
-        data_points: _data_points,
-        devices: _devices,
-        fast: _fast,
-        generations: _generations,
-        instance,
-        min_points: _min_points,
-        radius: _radius,
-        return_type: _return_type,
-        routing_time: _routing_time,
-    } = payload.into_inner().init(None);
+    let ArgsUnwrapped { area, instance, .. } = payload.into_inner().init(None);
 
     println!(
         "\n[DATA_AREA] Scanner Type: {} | Category: {}",

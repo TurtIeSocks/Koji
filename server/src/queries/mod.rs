@@ -1,7 +1,10 @@
 use super::*;
 
-use geojson::Feature;
-use sea_orm::*;
+use sea_orm::{
+    ColumnTrait, DatabaseConnection, DbBackend, DbErr, EntityTrait, QueryFilter, QuerySelect,
+    Statement,
+};
+
 pub mod area;
 pub mod gym;
 pub mod instance;

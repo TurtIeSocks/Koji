@@ -1,8 +1,10 @@
-use super::{feature::split_multi, *};
-use crate::models::{scanner::GenericData, MultiVec, SingleStruct, SingleVec};
+use super::*;
+
 use geojson::{Geometry, Value};
 use num_traits::Float;
 use std::str::FromStr;
+
+use crate::models::{scanner::GenericData, MultiVec, SingleStruct, SingleVec};
 
 pub fn from_struct<T>(coords: SingleStruct<T>) -> SingleVec<T>
 where
@@ -55,7 +57,7 @@ pub fn from_collection(fc: FeatureCollection) -> MultiVec {
     for feature in fc.features.into_iter() {
         if let Some(geometry) = feature.geometry {
             match geometry.value {
-                Value::MultiPolygon(_) => split_multi(geometry)
+                Value::MultiPolygon(_) => feature::split_multi(geometry)
                     .into_iter()
                     .for_each(|f| return_value.push(from_geometry(f.geometry.unwrap()))),
                 Value::GeometryCollection(geometries) => geometries.into_iter().for_each(|g| {

@@ -1,9 +1,10 @@
+use super::*;
+
+use geojson::{Geometry, Value};
+
 use crate::models::{
     ArrayType, MultiStruct, MultiVec, PointArray, PointStruct, SingleStruct, SingleVec,
 };
-use geojson::{Geometry, Value};
-
-use super::*;
 
 /*
     Point > [f64;2]

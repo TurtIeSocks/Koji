@@ -2,9 +2,9 @@ use geojson::{Feature, JsonValue};
 
 use super::*;
 
-use crate::queries::{area, instance};
 use crate::{
     models::{api::Args, CustomError, KojiDb},
+    queries::{area, instance},
     utils::convert::collection,
 };
 

@@ -1,21 +1,24 @@
 use super::*;
+
 use geo::{HaversineDistance, Point};
 use std::collections::VecDeque;
 use std::time::Instant;
 use time::Duration;
 use travelling_salesman;
 
-use crate::entities::sea_orm_active_enums::Type;
-use crate::models::api::{ArgsUnwrapped, Stats};
-use crate::models::{api::Args, scanner::GenericData, KojiDb};
-use crate::models::{CustomError, SingleVec};
-use crate::queries::{area, gym, instance, pokestop, spawnpoint};
-use crate::utils::convert::collection;
-use crate::utils::drawing::clustering_2::brute_force;
-use crate::utils::{
-    convert::{feature, vector},
-    drawing::{bootstrapping, project_points::project_points},
-    response,
+use crate::{
+    entities::sea_orm_active_enums::Type,
+    models::{
+        api::{Args, ArgsUnwrapped, Stats},
+        scanner::GenericData,
+        CustomError, KojiDb, SingleVec,
+    },
+    queries::{area, gym, instance, pokestop, spawnpoint},
+    utils::{
+        convert::{collection, feature, vector},
+        drawing::{bootstrapping, clustering_2, project_points},
+        response,
+    },
 };
 
 #[post("/bootstrap")]
@@ -29,15 +32,10 @@ async fn bootstrap(
     let ArgsUnwrapped {
         area,
         benchmark_mode,
-        data_points: _data_points,
-        devices: _devices,
-        fast: _fast,
-        generations: _generations,
         instance,
-        min_points: _min_points,
         radius,
         return_type,
-        routing_time: _routing_time,
+        ..
     } = payload.into_inner().init(Some("bootstrap"));
 
     if area.features.is_empty() && instance.is_empty() {
@@ -90,7 +88,6 @@ async fn cluster(
         area,
         benchmark_mode,
         data_points,
-        devices: _devices,
         fast,
         generations,
         instance,
@@ -98,6 +95,7 @@ async fn cluster(
         radius,
         return_type,
         routing_time,
+        ..
     } = payload.into_inner().init(Some(&mode));
 
     if area.features.is_empty() && instance.is_empty() {
@@ -145,7 +143,7 @@ async fn cluster(
     );
 
     let clusters: SingleVec = if fast {
-        project_points(
+        project_points::project_points(
             vector::from_generic_data(data_points),
             radius,
             min_points,
@@ -154,7 +152,7 @@ async fn cluster(
     } else {
         area.into_iter()
             .flat_map(|feature| {
-                brute_force(
+                clustering_2::brute_force(
                     &data_points,
                     bootstrapping::as_vec(feature, radius, &mut stats),
                     radius,

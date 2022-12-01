@@ -1,3 +1,5 @@
+// use super::*;
+
 use geo::{Coordinate, HaversineDestination, HaversineDistance, Point};
 use geohash::encode;
 use std::{

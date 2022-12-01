@@ -1,4 +1,5 @@
 use super::*;
+
 use crate::models::api::ConfigResponse;
 
 #[get("/config")]

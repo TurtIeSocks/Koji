@@ -1,21 +1,15 @@
-use super::vector::from_struct;
-use super::*;
+use super::{collection::Default, *};
+
 use num_traits::Float;
 
-use crate::models::api::DataPointsArg;
-use crate::models::{SingleStruct, SingleVec};
-use crate::utils::{self, text_test};
 use crate::{
     entities::{area, instance, sea_orm_active_enums::Type},
     models::{
-        api::ReturnTypeArg,
+        api::{DataPointsArg, ReturnTypeArg},
         scanner::{GenericData, Spawnpoint},
-        GeoFormats,
+        GeoFormats, SingleStruct, SingleVec,
     },
 };
-
-use super::collection::Default;
-use super::{collection, feature};
 
 pub fn fort<T>(items: SingleStruct<T>, prefix: &str) -> Vec<GenericData<T>>
 where
@@ -89,7 +83,7 @@ pub fn area(areas: Vec<area::Model>) -> Vec<Feature> {
 pub fn data_points(data_points: Option<DataPointsArg>) -> SingleVec {
     if let Some(data_points) = data_points {
         match data_points {
-            DataPointsArg::Struct(data_points) => from_struct(data_points),
+            DataPointsArg::Struct(data_points) => vector::from_struct(data_points),
             DataPointsArg::Array(data_points) => data_points,
         }
     } else {

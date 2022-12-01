@@ -1,4 +1,5 @@
 use super::*;
+
 use num_traits::Float;
 use sea_orm::{DatabaseConnection, FromQueryResult};
 use serde::{Deserialize, Serialize};

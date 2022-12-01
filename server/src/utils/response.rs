@@ -1,8 +1,8 @@
-use std::{fmt::Display, str::FromStr};
+use super::*;
 
 use actix_web::HttpResponse;
-use geojson::FeatureCollection;
 use num_traits::Float;
+use std::{fmt::Display, str::FromStr};
 
 use crate::models::{
     api::{Response, ReturnTypeArg, Stats},
