@@ -109,11 +109,8 @@ pub fn from_multi_struct(area: MultiStruct, enum_type: Option<Type>) -> Feature 
     )
 }
 
-pub fn split_multi(feature: Feature) -> Vec<Feature> {
-    if feature.geometry.is_none() {
-        return vec![];
-    }
-    match feature.geometry.unwrap().value {
+pub fn split_multi(feature: Geometry) -> Vec<Feature> {
+    match feature.value {
         Value::MultiPolygon(val) => val
             .into_iter()
             .map(|polygon| Feature {

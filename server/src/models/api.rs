@@ -17,6 +17,7 @@ pub enum ReturnTypeArg {
     SingleStruct,
     MultiStruct,
     Feature,
+    FeatureVec,
     FeatureCollection,
 }
 
@@ -40,6 +41,16 @@ pub struct Args {
     pub return_type: Option<String>,
 }
 
+impl Args {
+    pub fn log(self, mode: &str) -> Self {
+        println!(
+            "[{}]: Instance: {:?} | Custom Area: {:?} | Custom Data Points: {:?}\nRadius: | {:?} Min Points: {:?} | Generations: {:?} | Routing Time: {:?} | Devices: {:?} | Fast: {:?}\nReturn Type: {}",
+            mode, self.instance, self.area.is_some(), self.data_points.is_some(), self.radius, self.min_points, self.generations, self.routing_time, self.devices, self.fast, self.return_type.clone().unwrap_or("SingleArray".to_string())
+        );
+        self
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConfigResponse {
     pub start_lat: f64,
@@ -50,18 +61,29 @@ pub struct ConfigResponse {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Stats {
-    pub best_cluster: Option<PointArray>,
-    pub best_cluster_count: Option<u8>,
-    pub cluster_time: Option<f64>,
-    pub points_covered: Option<u32>,
-    pub total_clusters: Option<u32>,
-    pub total_distance: Option<u32>,
-    pub longest_distance: Option<u32>,
+    pub best_cluster: PointArray,
+    pub best_cluster_count: u8,
+    pub cluster_time: f32,
+    pub points_covered: usize,
+    pub total_clusters: usize,
+    pub total_distance: f64,
+    pub longest_distance: f64,
 }
 
 impl Stats {
-    fn log(&self) {
-        println!("Best Cluster: {:?}\nBest Cluster_Count: {:?}\nCluster Time: {:?}\n Points Covered: {:?}\nTotal Clusters: {:?}\nTotal Distance: {:?}\nLongest Distance: {:?}\n", self.best_cluster, self.best_cluster_count, self.cluster_time, self.points_covered, self.total_clusters, self.total_distance, self.longest_distance)
+    pub fn new() -> Self {
+        Stats {
+            best_cluster: [0., 0.],
+            best_cluster_count: 0,
+            cluster_time: 0.,
+            points_covered: 0,
+            total_clusters: 0,
+            total_distance: 0.,
+            longest_distance: 0.,
+        }
+    }
+    pub fn log(&self) {
+        println!("Best Cluster: {:?} | Best Cluster_Count: {}\nCluster Time: {}s | Points Covered: {} | Total Clusters: {}\nTotal Distance: {} | Longest Distance: {}\n", self.best_cluster, self.best_cluster_count, self.cluster_time, self.points_covered, self.total_clusters, self.total_distance as f32, self.longest_distance as f32)
     }
 }
 

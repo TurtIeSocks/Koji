@@ -1,11 +1,13 @@
 use super::*;
 use std::collections::VecDeque;
+use std::time::Instant;
 use time::Duration;
 use travelling_salesman;
 
 use crate::entities::sea_orm_active_enums::Type;
+use crate::models::api::Stats;
 use crate::models::{api::Args, scanner::GenericData, KojiDb};
-use crate::models::{CustomError, MultiVec, SingleVec};
+use crate::models::{CustomError, SingleVec};
 use crate::queries::{area, gym, instance, pokestop, spawnpoint};
 use crate::utils::convert::collection;
 use crate::utils::drawing::clustering_2::brute_force;
@@ -34,19 +36,11 @@ async fn bootstrap(
         data_points: _data_points,
         min_points: _min_points,
         fast: _fast,
-    } = payload.into_inner();
+    } = payload.into_inner().log("Bootstrap");
     let instance = instance.unwrap_or("".to_string());
     let radius = radius.unwrap_or(70.0);
     let (area, default_return_type) = normalize::area_input(area);
     let return_type = get_return_type(return_type, default_return_type);
-
-    println!(
-        "\n[BOOTSTRAP] Mode: Bootstrap, Radius: {}\nScanner Type: {}, Instance: {}, Custom Area: {:?}",
-        radius,
-        scanner_type,
-        instance,
-        area,
-    );
 
     if area.features.is_empty() && instance.is_empty() {
         return Ok(HttpResponse::BadRequest().json(CustomError {
@@ -54,9 +48,7 @@ async fn bootstrap(
         }));
     }
 
-    let area = if !area.features.is_empty() {
-        area
-    } else if !instance.is_empty() {
+    let area = if area.features.is_empty() && !instance.is_empty() {
         web::block(move || async move {
             if scanner_type.eq("rdm") {
                 instance::route(&conn.data_db, &instance).await
@@ -71,18 +63,21 @@ async fn bootstrap(
         area
     };
 
-    let circles: MultiVec = area
+    let mut stats = Stats::new();
+
+    let time = Instant::now();
+
+    let features: Vec<Feature> = area
         .into_iter()
-        .map(|sub_area| bootstrapping::check(sub_area, radius))
+        .map(|sub_area| bootstrapping::as_geojson(sub_area, radius, &mut stats))
         .collect();
 
-    println!("[BOOTSTRAP] Returning {} circles\n", circles[0].len());
+    stats.cluster_time = time.elapsed().as_secs_f32();
+
     Ok(response::send(
-        collection::from_feature(feature::from_multi_vector(
-            circles,
-            Some(Type::CirclePokemon),
-        )),
+        collection::from_features(features),
         return_type,
+        stats,
     ))
 }
 
@@ -102,34 +97,30 @@ async fn cluster(
         radius,
         generations,
         routing_time,
-        devices,
+        devices: _devices,
         area,
         data_points,
         min_points,
         fast,
         return_type,
-    } = payload.into_inner();
+    } = payload.into_inner().log(&mode);
     let instance = instance.unwrap_or("".to_string());
     let radius = radius.unwrap_or(70.0);
     let generations = generations.unwrap_or(1);
     let routing_time = routing_time.unwrap_or(1);
-    let devices = devices.unwrap_or(1);
     let data_points = normalize::data_points(data_points);
     let min_points = min_points.unwrap_or(1);
     let fast = fast.unwrap_or(true);
     let (area, default_return_type) = normalize::area_input(area);
     let return_type = get_return_type(return_type, default_return_type);
 
-    println!(
-        "\n[{}] Radius: {}, Generations: {}, Devices: {} Min Points: {}\nInstance: {}, Using Area: {}, Manual Data Points: {}",
-        mode.to_uppercase(), radius, generations, devices, min_points, instance, area.features.len() > 0, data_points.len()
-    );
-
     if area.features.is_empty() && instance.is_empty() {
         return Ok(HttpResponse::BadRequest().json(CustomError {
             message: "no_area_and_empty_instance".to_string(),
         }));
     }
+
+    let mut stats = Stats::new();
 
     let data_points = if !data_points.is_empty() {
         data_points
@@ -186,7 +177,7 @@ async fn cluster(
                 .flat_map(|feature| {
                     brute_force(
                         data_points.clone(),
-                        bootstrapping::check(feature, radius),
+                        bootstrapping::as_vec(feature, radius, &mut stats),
                         radius,
                         min_points,
                         generations,
@@ -206,6 +197,7 @@ async fn cluster(
                 Some(Type::CirclePokemon),
             )),
             return_type,
+            stats,
         ));
     }
 
@@ -261,5 +253,6 @@ async fn cluster(
             Some(Type::CirclePokemon),
         )),
         return_type,
+        stats,
     ))
 }

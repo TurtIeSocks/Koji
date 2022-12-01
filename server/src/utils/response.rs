@@ -57,12 +57,12 @@ fn flatten<T>(input: Vec<Vec<T>>) -> Vec<T> {
     input.into_iter().flatten().collect::<Vec<T>>()
 }
 
-pub fn send(value: FeatureCollection, return_type: ReturnTypeArg) -> HttpResponse {
+pub fn send(value: FeatureCollection, return_type: ReturnTypeArg, stats: Stats) -> HttpResponse {
+    stats.log();
     HttpResponse::Ok().json(Response {
         message: "".to_string(),
         status: "ok".to_string(),
         status_code: 200,
-
         data: match return_type {
             ReturnTypeArg::SingleStruct => {
                 GeoFormats::SingleStruct(flatten(as_struct(from_collection(value))))
@@ -78,19 +78,13 @@ pub fn send(value: FeatureCollection, return_type: ReturnTypeArg) -> HttpRespons
                 if value.features.len() == 1 {
                     GeoFormats::Feature(value.features[0].clone())
                 } else {
-                    GeoFormats::FeatureCollection(value)
+                    println!("\"Feature\" was requested as the return type but multiple features were found so a Vec of features is being returned");
+                    GeoFormats::FeatureVec(value.features)
                 }
             }
+            ReturnTypeArg::FeatureVec => GeoFormats::FeatureVec(value.features),
             ReturnTypeArg::FeatureCollection => GeoFormats::FeatureCollection(value),
         },
-        stats: Stats {
-            best_cluster: None,
-            best_cluster_count: None,
-            cluster_time: None,
-            points_covered: None,
-            total_clusters: None,
-            total_distance: None,
-            longest_distance: None,
-        },
+        stats,
     })
 }

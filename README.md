@@ -121,6 +121,7 @@ pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
       SingleStruct(SingleStruct),
       MultiStruct(MultiStruct),
       Feature(Feature),
+      FeatureVec(Vec<Feature>),
       FeatureCollection(FeatureCollection),
   }
 
@@ -133,6 +134,7 @@ pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
     SingleStruct,
     MultiStruct,
     Feature,
+    FeatureVec,
     FeatureCollection,
 }
 

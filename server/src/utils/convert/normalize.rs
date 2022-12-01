@@ -124,6 +124,9 @@ pub fn area_input(area: Option<GeoFormats>) -> (FeatureCollection, ReturnTypeArg
                 ReturnTypeArg::MultiStruct,
             ),
             GeoFormats::Feature(area) => (collection::from_feature(area), ReturnTypeArg::Feature),
+            GeoFormats::FeatureVec(areas) => {
+                (collection::from_features(areas), ReturnTypeArg::FeatureVec)
+            }
             GeoFormats::FeatureCollection(area) => (area, ReturnTypeArg::FeatureCollection),
         }
     } else {

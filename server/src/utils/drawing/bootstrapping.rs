@@ -1,8 +1,12 @@
-use crate::{models::SingleVec, utils::convert::feature::split_multi};
-
 use super::*;
+
 use geo::{Contains, Extremes, HaversineDestination, HaversineDistance, Point, Polygon};
-use geojson::Value;
+use geojson::{Geometry, Value};
+
+use crate::{
+    models::{api::Stats, SingleVec},
+    utils::convert::feature::split_multi,
+};
 
 fn dot(u: &Point, v: &Point) -> f64 {
     u.x() * v.x() + u.y() * v.y()
@@ -37,21 +41,75 @@ pub fn point_line_distance(input: Vec<Point>, point: Point) -> f64 {
     distance
 }
 
-pub fn check(input: Feature, radius: f64) -> SingleVec {
-    match input.geometry.clone().unwrap().value {
-        Value::MultiPolygon(_) => split_multi(input)
+fn flatten_circles(feature: Feature, radius: f64, stats: &mut Stats) -> Vec<Point> {
+    let circles = match feature.geometry.clone().unwrap().value {
+        Value::MultiPolygon(_) => split_multi(feature.geometry.unwrap())
             .into_iter()
             .flat_map(|feat| generate_circles(feat, radius))
             .collect(),
-        _ => generate_circles(input, radius),
+        _ => generate_circles(feature, radius),
+    };
+    stats.total_clusters += circles.len();
+    circles
+}
+
+pub fn as_vec(feature: Feature, radius: f64, stats: &mut Stats) -> SingleVec {
+    flatten_circles(feature, radius, stats)
+        .iter()
+        .map(|p| [p.y(), p.x()])
+        .collect()
+}
+
+pub fn as_geojson(feature: Feature, radius: f64, stats: &mut Stats) -> Feature {
+    let mut multiline_feature: Vec<Vec<Vec<f64>>> = vec![];
+    let mut multipoint_feature: Vec<Vec<f64>> = vec![];
+
+    let circles = flatten_circles(feature, radius, stats);
+
+    for (i, point) in circles.clone().into_iter().enumerate() {
+        multipoint_feature.push(vec![point.x(), point.y()]);
+        let point2 = if i == circles.len() {
+            circles[i + 1]
+        } else {
+            circles[0]
+        };
+        let distance = point.haversine_distance(&point2);
+        if distance > stats.longest_distance {
+            stats.longest_distance = distance;
+        }
+        stats.total_distance += distance;
+        multiline_feature.push(vec![
+            vec![point.x(), point.y()],
+            vec![point2.x(), point2.y()],
+        ])
+    }
+    let geo_collection = Geometry {
+        bbox: None,
+        value: Value::GeometryCollection(vec![
+            Geometry {
+                bbox: None,
+                foreign_members: None,
+                value: Value::MultiLineString(multiline_feature),
+            },
+            Geometry {
+                bbox: None,
+                foreign_members: None,
+                value: Value::MultiPoint(multipoint_feature),
+            },
+        ]),
+        foreign_members: None,
+    };
+    Feature {
+        geometry: Some(geo_collection),
+        ..Feature::default()
     }
 }
 
-fn generate_circles(input: Feature, radius: f64) -> SingleVec {
-    let mut circles: Vec<Point> = Vec::new();
+fn generate_circles(input: Feature, radius: f64) -> Vec<Point> {
+    let mut circles: Vec<Point> = vec![];
 
     if input.geometry.is_none() {
-        return circles.iter().map(|p| [p.y(), p.x()]).collect();
+        return circles;
     }
     let polygon = Polygon::<f64>::try_from(input).unwrap();
     let get_points = || polygon.exterior().points().collect::<Vec<Point>>();
@@ -93,5 +151,5 @@ fn generate_circles(input: Feature, radius: f64) -> SingleVec {
 
         row += 1;
     }
-    circles.iter().map(|p| [p.y(), p.x()]).collect()
+    circles
 }

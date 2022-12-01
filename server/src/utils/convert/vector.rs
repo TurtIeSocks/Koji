@@ -1,6 +1,6 @@
-use super::*;
+use super::{feature::split_multi, *};
 use crate::models::{scanner::GenericData, MultiVec, SingleStruct, SingleVec};
-use geojson::Value;
+use geojson::{Geometry, Value};
 use num_traits::Float;
 use std::str::FromStr;
 
@@ -53,16 +53,28 @@ pub fn from_collection(fc: FeatureCollection) -> MultiVec {
     let mut return_value: MultiVec = vec![];
 
     for feature in fc.features.into_iter() {
-        if feature.geometry.is_some() {
-            return_value.push(from_feature(feature));
+        if let Some(geometry) = feature.geometry {
+            match geometry.value {
+                Value::MultiPolygon(_) => split_multi(geometry)
+                    .into_iter()
+                    .for_each(|f| return_value.push(from_geometry(f.geometry.unwrap()))),
+                Value::GeometryCollection(geometries) => geometries.into_iter().for_each(|g| {
+                    let value = from_geometry(g);
+                    if !value.is_empty() {
+                        return_value.push(value)
+                    }
+                }),
+                _ => return_value.push(from_geometry(geometry)),
+            }
         }
     }
     return_value
 }
 
-pub fn from_feature(feature: Feature) -> SingleVec {
+pub fn from_geometry(feature: Geometry) -> SingleVec {
     let mut temp_arr: SingleVec = vec![];
-    match feature.geometry.unwrap().value {
+    match feature.value {
+        // This should be unused now but leaving it since the work has been done
         Value::MultiPolygon(geometry) => {
             for poly in geometry.into_iter() {
                 for line in poly.into_iter() {
@@ -95,7 +107,9 @@ pub fn from_feature(feature: Feature) -> SingleVec {
                 temp_arr.push([geometry[1], geometry[0]]);
             }
         }
-        _ => {}
+        _ => {
+            println!("Unsupported Geometry: {:?}", feature.value.type_name())
+        }
     }
     temp_arr
 }

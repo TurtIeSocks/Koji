@@ -41,6 +41,7 @@ pub enum GeoFormats {
     SingleStruct(SingleStruct),
     MultiStruct(MultiStruct),
     Feature(Feature),
+    FeatureVec(Vec<Feature>),
     FeatureCollection(FeatureCollection),
 }
 
