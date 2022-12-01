@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    models::{scanner::GenericData, SingleVec},
+    models::{api::Stats, scanner::GenericData, SingleVec},
     utils::drawing::helpers::*,
 };
 
@@ -81,13 +81,16 @@ pub fn brute_force(
     radius: f64,
     min_points: usize,
     generations: usize,
+    stats: &mut Stats,
 ) -> SingleVec {
+    let time = Instant::now();
     // unfortunately, due to the borrower, we have to maintain this separately from the point_map
     let mut point_seen_map: HashSet<String> = HashSet::new();
 
     // Return value is a HashMap to ensure no duplicates are sent
     // TODO: Make into a SingleArray once the algorithm is solid
     let mut final_cluster_map: HashMap<String, CircleInfo> = HashMap::new();
+    println!("{}", honeycomb.len());
 
     let (mut point_map, mut circle_map) = create_maps(points, honeycomb, radius);
 
@@ -132,14 +135,19 @@ pub fn brute_force(
         count -= 1;
     }
 
-    println!(
-        "Circles: {} | Points Seen: {}",
-        final_cluster_map.len(),
-        point_seen_map
-            .iter()
-            .fold(0, |acc, y| acc + point_map.get(y).unwrap().points)
-    );
-
+    stats.cluster_time = time.elapsed().as_secs_f32();
+    stats.total_clusters = final_cluster_map.len();
+    stats.points_covered = point_seen_map
+        .iter()
+        .fold(0, |acc, y| acc + point_map.get(y).unwrap().points as usize);
+    stats.total_distance = 0.;
+    stats.longest_distance = 0.;
+    final_cluster_map.clone().into_iter().for_each(|(_, info)| {
+        if info.points.len() > stats.best_cluster_count {
+            stats.best_cluster_count = info.points.len();
+            stats.best_cluster = [info.coord.y, info.coord.x];
+        }
+    });
     final_cluster_map
         .values()
         .map(|x| [x.coord.y, x.coord.x])

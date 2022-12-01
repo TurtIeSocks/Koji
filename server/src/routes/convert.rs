@@ -7,6 +7,7 @@ use crate::utils::{convert::normalize, get_return_type, response};
 async fn convert_data(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     let Args {
         area,
+        benchmark_mode,
         return_type,
         instance: _instance,
         radius: _radius,
@@ -16,16 +17,12 @@ async fn convert_data(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         min_points: _min_points,
         fast: _fast,
         routing_time: _routing_time,
-    } = payload.into_inner();
+    } = payload.into_inner().log("convert");
     let (area, default_return_type) = normalize::area_input(area);
     let return_type = get_return_type(return_type, default_return_type.clone());
+    let benchmark_mode = benchmark_mode.unwrap_or(false);
 
     let stats = Stats::new();
 
-    println!(
-        "\n[CONVERT] Input: {:?} | Output: {:?}",
-        default_return_type, return_type,
-    );
-
-    Ok(response::send(area, return_type, stats))
+    Ok(response::send(area, return_type, stats, benchmark_mode))
 }

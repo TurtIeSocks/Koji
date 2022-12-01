@@ -91,6 +91,7 @@ async fn by_area(
     let Args {
         instance,
         area,
+        benchmark_mode: _benchmark_mode,
         radius: _radius,
         generations: _generations,
         devices: _devices,
@@ -128,11 +129,11 @@ async fn by_area(
             area
         };
         if category == "gym" {
-            gym::area(&conn.data_db, area).await
+            gym::area(&conn.data_db, &area).await
         } else if category == "pokestop" {
-            pokestop::area(&conn.data_db, area).await
+            pokestop::area(&conn.data_db, &area).await
         } else {
-            spawnpoint::area(&conn.data_db, area).await
+            spawnpoint::area(&conn.data_db, &area).await
         }
     })
     .await?

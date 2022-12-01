@@ -29,7 +29,12 @@ export default function EditTab() {
       <Toggle field="autoMode" value={autoMode} setValue={setStore} />
       <NumInput field="radius" value={radius} setValue={setStore} />
       <NumInput field="generations" value={generations} setValue={setStore} />
-      <NumInput field="routing_time" value={routing_time} setValue={setStore} />
+      <NumInput
+        field="routing_time"
+        value={routing_time}
+        setValue={setStore}
+        endAdornment="s"
+      />
       {/* <NumInput
         field="devices"
         value={devices}

@@ -1,4 +1,5 @@
 use super::*;
+use geo::{HaversineDistance, Point};
 use std::collections::VecDeque;
 use std::time::Instant;
 use time::Duration;
@@ -29,6 +30,7 @@ async fn bootstrap(
         instance,
         radius,
         area,
+        benchmark_mode,
         routing_time: _routing_time,
         return_type,
         generations: _generations,
@@ -41,6 +43,7 @@ async fn bootstrap(
     let radius = radius.unwrap_or(70.0);
     let (area, default_return_type) = normalize::area_input(area);
     let return_type = get_return_type(return_type, default_return_type);
+    let benchmark_mode = benchmark_mode.unwrap_or(false);
 
     if area.features.is_empty() && instance.is_empty() {
         return Ok(HttpResponse::BadRequest().json(CustomError {
@@ -78,6 +81,7 @@ async fn bootstrap(
         collection::from_features(features),
         return_type,
         stats,
+        benchmark_mode,
     ))
 }
 
@@ -89,7 +93,6 @@ async fn cluster(
     payload: web::Json<Args>,
 ) -> Result<HttpResponse, Error> {
     let (mode, category) = url.into_inner();
-    let category_2 = category.clone();
     let scanner_type = scanner_type.as_ref().clone();
 
     let Args {
@@ -103,6 +106,7 @@ async fn cluster(
         min_points,
         fast,
         return_type,
+        benchmark_mode,
     } = payload.into_inner().log(&mode);
     let instance = instance.unwrap_or("".to_string());
     let radius = radius.unwrap_or(70.0);
@@ -113,6 +117,7 @@ async fn cluster(
     let fast = fast.unwrap_or(true);
     let (area, default_return_type) = normalize::area_input(area);
     let return_type = get_return_type(return_type, default_return_type);
+    let benchmark_mode = benchmark_mode.unwrap_or(false);
 
     if area.features.is_empty() && instance.is_empty() {
         return Ok(HttpResponse::BadRequest().json(CustomError {
@@ -122,6 +127,20 @@ async fn cluster(
 
     let mut stats = Stats::new();
 
+    println!("Area {}", area.features.len());
+
+    let temp_instance = instance.clone();
+    let area = if !temp_instance.is_empty() {
+        if scanner_type.eq("rdm") {
+            instance::route(&conn.data_db, &instance).await
+        } else {
+            area::route(&conn.unown_db.as_ref().unwrap(), &instance).await
+        }
+    } else {
+        Ok(area)
+    }
+    .map_err(actix_web::error::ErrorInternalServerError)?;
+
     let data_points = if !data_points.is_empty() {
         data_points
             .iter()
@@ -129,33 +148,17 @@ async fn cluster(
             .collect()
     } else {
         let temp_area = area.clone();
-        web::block(move || async move {
-            let area = if !temp_area.features.is_empty() {
-                temp_area
-            } else if !instance.is_empty() {
-                if scanner_type.eq("rdm") {
-                    instance::route(&conn.data_db, &instance).await?
-                } else {
-                    area::route(&conn.unown_db.as_ref().unwrap(), &instance).await?
-                }
+        if !temp_area.features.is_empty() {
+            if category == "gym" {
+                gym::area(&conn.data_db, &area).await
+            } else if category == "pokestop" {
+                pokestop::area(&conn.data_db, &area).await
             } else {
-                temp_area
-            };
-
-            if !area.features.is_empty() {
-                if category == "gym" {
-                    gym::area(&conn.data_db, area).await
-                } else if category == "pokestop" {
-                    pokestop::area(&conn.data_db, area).await
-                } else {
-                    spawnpoint::area(&conn.data_db, area).await
-                }
-            } else {
-                Ok(vec![])
+                spawnpoint::area(&conn.data_db, &area).await
             }
-        })
-        .await?
-        .await
+        } else {
+            Ok(vec![])
+        }
         .map_err(actix_web::error::ErrorInternalServerError)?
     };
     println!(
@@ -164,31 +167,27 @@ async fn cluster(
         data_points.len()
     );
 
-    let (clusters, biggest): (SingleVec, [f64; 2]) = if fast {
+    let clusters: SingleVec = if fast {
         project_points(
             vector::from_generic_data(data_points),
             radius,
             min_points,
-            category_2,
+            &mut stats,
         )
     } else {
-        (
-            area.into_iter()
-                .flat_map(|feature| {
-                    brute_force(
-                        data_points.clone(),
-                        bootstrapping::as_vec(feature, radius, &mut stats),
-                        radius,
-                        min_points,
-                        generations,
-                    )
-                })
-                .collect(),
-            [0., 0.],
-        )
+        area.into_iter()
+            .flat_map(|feature| {
+                brute_force(
+                    data_points.clone(),
+                    bootstrapping::as_vec(feature, radius, &mut stats),
+                    radius,
+                    min_points,
+                    generations,
+                    &mut stats,
+                )
+            })
+            .collect()
     };
-
-    println!("[{}] Clusters: {}", mode.to_uppercase(), clusters.len());
 
     if mode.eq("cluster") || clusters.is_empty() || routing_time == 0 {
         return Ok(response::send(
@@ -198,6 +197,7 @@ async fn cluster(
             )),
             return_type,
             stats,
+            benchmark_mode,
         ));
     }
 
@@ -221,13 +221,27 @@ async fn cluster(
     let mut rotate_count: usize = 0;
     for (i, index) in tour.route.into_iter().enumerate() {
         let [lat, lon] = clusters[index];
-        if lat == biggest[0] && lon == biggest[1] {
+        if lat == stats.best_cluster[0] && lon == stats.best_cluster[1] {
             rotate_count = i;
             println!("Found Best! {}, {} - {}", lat, lon, index);
         }
-        final_clusters.push_back([lat as f64, lon as f64]);
+        final_clusters.push_back([lat, lon]);
     }
     final_clusters.rotate_left(rotate_count);
+
+    for (i, point) in final_clusters.clone().into_iter().enumerate() {
+        let point = Point::new(point[1], point[0]);
+        let point2 = if i == final_clusters.len() - 1 {
+            Point::new(final_clusters[0][1], final_clusters[0][0])
+        } else {
+            Point::new(final_clusters[i + 1][1], final_clusters[i + 1][0])
+        };
+        let distance = point.haversine_distance(&point2);
+        stats.total_distance += distance;
+        if distance > stats.longest_distance {
+            stats.longest_distance = distance;
+        }
+    }
 
     // let circles = solve(clusters, generations, devices);
     // let mapped_circles: Vec<Vec<(f64, f64)>> = circles
@@ -241,12 +255,6 @@ async fn cluster(
     //     })
     //     .collect();
 
-    println!(
-        "[{}] Returning {} clusters {} routes\n ",
-        mode.to_uppercase(),
-        clusters.len(),
-        (clusters.len() / 100),
-    );
     Ok(response::send(
         collection::from_feature(feature::from_single_vector(
             final_clusters.into(),
@@ -254,5 +262,6 @@ async fn cluster(
         )),
         return_type,
         stats,
+        benchmark_mode,
     ))
 }

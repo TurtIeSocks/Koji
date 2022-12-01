@@ -185,6 +185,10 @@ pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
       // Format of how the data should be returned
       // defaults to AreaInput type or SingleArray if AreaInput is None
       pub return_type: Option<String>,
+
+      // Only return stats
+      // defaults to false
+      pub benchmark_mode: Option<bool>,
   }
 
 // Benchmark/Stats Struct

@@ -1,3 +1,4 @@
+/* eslint-disable react/jsx-no-duplicate-props */
 import * as React from 'react'
 import { ListItem, ListItemText, TextField } from '@mui/material'
 
@@ -8,12 +9,14 @@ interface Props<T> {
   value: number | ''
   setValue: (field: T, value: number | '') => void
   disabled?: boolean
+  endAdornment?: string
 }
 
 export default function NumInput<T extends string>({
   field,
   value,
   setValue,
+  endAdornment,
   disabled = false,
 }: Props<T>) {
   return (
@@ -29,6 +32,7 @@ export default function NumInput<T extends string>({
         }
         sx={{ width: '35%' }}
         inputProps={{ min: 0, max: 9999 }}
+        InputProps={{ endAdornment }}
         disabled={disabled}
       />
     </ListItem>

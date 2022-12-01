@@ -57,13 +57,18 @@ fn flatten<T>(input: Vec<Vec<T>>) -> Vec<T> {
     input.into_iter().flatten().collect::<Vec<T>>()
 }
 
-pub fn send(value: FeatureCollection, return_type: ReturnTypeArg, stats: Stats) -> HttpResponse {
+pub fn send(
+    value: FeatureCollection,
+    return_type: ReturnTypeArg,
+    stats: Stats,
+    benchmark_mode: bool,
+) -> HttpResponse {
     stats.log();
     HttpResponse::Ok().json(Response {
         message: "".to_string(),
         status: "ok".to_string(),
         status_code: 200,
-        data: match return_type {
+        data: if benchmark_mode { None } else { Some(match return_type {
             ReturnTypeArg::SingleStruct => {
                 GeoFormats::SingleStruct(flatten(as_struct(from_collection(value))))
             }
@@ -84,7 +89,7 @@ pub fn send(value: FeatureCollection, return_type: ReturnTypeArg, stats: Stats) 
             }
             ReturnTypeArg::FeatureVec => GeoFormats::FeatureVec(value.features),
             ReturnTypeArg::FeatureCollection => GeoFormats::FeatureCollection(value),
-        },
+        })},
         stats,
     })
 }

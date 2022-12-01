@@ -46,9 +46,9 @@ impl SetOptions for Feature {
     }
 }
 
-pub fn sql_raw(area: FeatureCollection) -> String {
+pub fn sql_raw(area: &FeatureCollection) -> String {
     let mut string = "".to_string();
-    for (i, feature) in area.features.into_iter().enumerate() {
+    for (i, feature) in area.features.iter().enumerate() {
         string = format!(
             "{} {} ST_CONTAINS(ST_GeomFromGeoJSON('{}', 2, 0), POINT(lon, lat))",
             string,

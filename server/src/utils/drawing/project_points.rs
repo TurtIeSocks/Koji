@@ -1,6 +1,9 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, time::Instant};
 
-use crate::{models::SingleVec, utils::drawing::clustering};
+use crate::{
+    models::{api::Stats, SingleVec},
+    utils::drawing::clustering,
+};
 
 use geo::Coordinate;
 use map_3d::{geodetic2ecef, Ellipsoid};
@@ -84,8 +87,9 @@ pub fn project_points(
     input: SingleVec,
     radius: f64,
     min_points: usize,
-    _category: String,
-) -> (SingleVec, [f64; 2]) {
+    stats: &mut Stats,
+) -> SingleVec {
+    let time = Instant::now();
     let points = input
         .iter()
         .map(|&[lat, lon]| {
@@ -118,34 +122,26 @@ pub fn project_points(
 
     let point_map = clustering::udc(output.clone(), min_points);
 
-    let (output, best): (SingleVec, [f64; 2]) = {
-        let mut temp_best = [0.0, 0.0];
-        let mut best_count = 0;
-        let mut seen_points: HashSet<String> = HashSet::new();
-        let return_value: (SingleVec, [f64; 2]) = (
-            point_map
-                .into_iter()
-                .filter_map(|(key, values)| {
-                    if values.len() > best_count {
-                        temp_best = key.clone().from_key();
-                        best_count = values.len();
+    let output = {
+        let mut seen_map: HashSet<String> = HashSet::new();
+        let return_value: SingleVec = point_map
+            .into_iter()
+            .filter_map(|(key, values)| {
+                if values.len() >= min_points {
+                    if values.len() > stats.best_cluster_count {
+                        stats.best_cluster = key.clone().from_key();
+                        stats.best_cluster_count = values.len();
                     }
-                    if values.len() >= min_points {
-                        for p in values.into_iter() {
-                            seen_points.insert(p);
-                        }
-                        return Some(key.from_key());
+                    for point in values.into_iter() {
+                        seen_map.insert(point);
                     }
-                    None
-                })
-                .collect(),
-            temp_best,
-        );
-        println!(
-            "Clusters Made: {} | {} points seen",
-            return_value.0.len(),
-            seen_points.len()
-        );
+                    return Some(key.from_key());
+                }
+                None
+            })
+            .collect();
+        stats.points_covered = seen_map.len();
+        stats.total_clusters = return_value.len();
         return_value
     };
 
@@ -158,9 +154,10 @@ pub fn project_points(
     );
     let mut final_output: SingleVec = vec![];
     let (best_lat, best_lon, _) = reverse_project(
-        best,
+        stats.best_cluster,
         (plane_center, plane_x, plane_y, plane_z, adjusted_radius),
     );
+    stats.best_cluster = [best_lat, best_lon];
     for p in output.iter() {
         let (lat, lon, s) = reverse_project(
             *p,
@@ -178,5 +175,6 @@ pub fn project_points(
     );
     println!("Average scaling: {:?}", sum / output.len() as f64);
     println!("Disc scaling: {:?}", adjusted_radius / radius);
-    (final_output, [best_lat, best_lon])
+    stats.cluster_time = time.elapsed().as_secs_f32();
+    final_output
 }

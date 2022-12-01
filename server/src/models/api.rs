@@ -39,13 +39,14 @@ pub struct Args {
     pub area: Option<GeoFormats>,
     pub fast: Option<bool>,
     pub return_type: Option<String>,
+    pub benchmark_mode: Option<bool>,
 }
 
 impl Args {
     pub fn log(self, mode: &str) -> Self {
         println!(
             "[{}]: Instance: {:?} | Custom Area: {:?} | Custom Data Points: {:?}\nRadius: | {:?} Min Points: {:?} | Generations: {:?} | Routing Time: {:?} | Devices: {:?} | Fast: {:?}\nReturn Type: {}",
-            mode, self.instance, self.area.is_some(), self.data_points.is_some(), self.radius, self.min_points, self.generations, self.routing_time, self.devices, self.fast, self.return_type.clone().unwrap_or("SingleArray".to_string())
+            mode.to_uppercase(), self.instance, self.area.is_some(), self.data_points.is_some(), self.radius, self.min_points, self.generations, self.routing_time, self.devices, self.fast, self.return_type.clone().unwrap_or("SingleArray".to_string())
         );
         self
     }
@@ -62,7 +63,7 @@ pub struct ConfigResponse {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Stats {
     pub best_cluster: PointArray,
-    pub best_cluster_count: u8,
+    pub best_cluster_count: usize,
     pub cluster_time: f32,
     pub points_covered: usize,
     pub total_clusters: usize,
@@ -83,7 +84,7 @@ impl Stats {
         }
     }
     pub fn log(&self) {
-        println!("Best Cluster: {:?} | Best Cluster_Count: {}\nCluster Time: {}s | Points Covered: {} | Total Clusters: {}\nTotal Distance: {} | Longest Distance: {}\n", self.best_cluster, self.best_cluster_count, self.cluster_time, self.points_covered, self.total_clusters, self.total_distance as f32, self.longest_distance as f32)
+        println!("Best Cluster: {:?} | Best Cluster Count: {}\nCluster Time: {}s | Points Covered: {} | Total Clusters: {}\nTotal Distance: {} | Longest Distance: {}\n", self.best_cluster, self.best_cluster_count, self.cluster_time, self.points_covered, self.total_clusters, self.total_distance as f32, self.longest_distance as f32)
     }
 }
 
@@ -92,6 +93,6 @@ pub struct Response {
     pub message: String,
     pub status: String,
     pub status_code: u16,
-    pub data: GeoFormats,
+    pub data: Option<GeoFormats>,
     pub stats: Stats,
 }

@@ -1,6 +1,6 @@
 use geo::Coordinate;
 use rstar::PointDistance;
-use std::{collections::HashMap, time::Instant};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 struct BoundingBox {
@@ -106,7 +106,6 @@ pub fn udc(points: Vec<Coordinate>, min_points: usize) -> HashMap<String, Vec<St
     let sqrt2_x_one_point_five_minus_one: f64 = (sqrt2 * 1.5) - 1.;
     let sqrt2_x_one_point_five_plus_one: f64 = (sqrt2 * 1.5) + 1.;
 
-    let time = Instant::now();
     let mut udc_point_map: ClusterMap = HashMap::new();
     // let mut seen_map: HashMap<String, bool> = HashMap::new();
     // let mut clusters = ClusterReturn::new();
@@ -306,6 +305,5 @@ pub fn udc(points: Vec<Coordinate>, min_points: usize) -> HashMap<String, Vec<St
             }
         }
     }
-    println!("Clustering Time: {:?}", time.elapsed().as_secs_f64());
     point_map_return
 }
