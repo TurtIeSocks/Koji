@@ -6,16 +6,16 @@ use time::Duration;
 use travelling_salesman;
 
 use crate::entities::sea_orm_active_enums::Type;
-use crate::models::api::Stats;
+use crate::models::api::{ArgsUnwrapped, Stats};
 use crate::models::{api::Args, scanner::GenericData, KojiDb};
 use crate::models::{CustomError, SingleVec};
 use crate::queries::{area, gym, instance, pokestop, spawnpoint};
 use crate::utils::convert::collection;
 use crate::utils::drawing::clustering_2::brute_force;
 use crate::utils::{
-    convert::{feature, normalize, vector},
+    convert::{feature, vector},
     drawing::{bootstrapping, project_points::project_points},
-    get_return_type, response,
+    response,
 };
 
 #[post("/bootstrap")]
@@ -24,26 +24,21 @@ async fn bootstrap(
     scanner_type: web::Data<String>,
     payload: web::Json<Args>,
 ) -> Result<HttpResponse, Error> {
-    let scanner_type = scanner_type.as_ref().clone();
+    let scanner_type = scanner_type.as_ref();
 
-    let Args {
-        instance,
-        radius,
+    let ArgsUnwrapped {
         area,
         benchmark_mode,
-        routing_time: _routing_time,
-        return_type,
-        generations: _generations,
-        devices: _devices,
         data_points: _data_points,
-        min_points: _min_points,
+        devices: _devices,
         fast: _fast,
-    } = payload.into_inner().log("Bootstrap");
-    let instance = instance.unwrap_or("".to_string());
-    let radius = radius.unwrap_or(70.0);
-    let (area, default_return_type) = normalize::area_input(area);
-    let return_type = get_return_type(return_type, default_return_type);
-    let benchmark_mode = benchmark_mode.unwrap_or(false);
+        generations: _generations,
+        instance,
+        min_points: _min_points,
+        radius,
+        return_type,
+        routing_time: _routing_time,
+    } = payload.into_inner().init(Some("bootstrap"));
 
     if area.features.is_empty() && instance.is_empty() {
         return Ok(HttpResponse::BadRequest().json(CustomError {
@@ -52,15 +47,11 @@ async fn bootstrap(
     }
 
     let area = if area.features.is_empty() && !instance.is_empty() {
-        web::block(move || async move {
-            if scanner_type.eq("rdm") {
-                instance::route(&conn.data_db, &instance).await
-            } else {
-                area::route(&conn.unown_db.as_ref().unwrap(), &instance).await
-            }
-        })
-        .await?
-        .await
+        if scanner_type.eq("rdm") {
+            instance::route(&conn.data_db, &instance).await
+        } else {
+            area::route(&conn.unown_db.as_ref().unwrap(), &instance).await
+        }
         .map_err(actix_web::error::ErrorInternalServerError)?
     } else {
         area
@@ -93,31 +84,21 @@ async fn cluster(
     payload: web::Json<Args>,
 ) -> Result<HttpResponse, Error> {
     let (mode, category) = url.into_inner();
-    let scanner_type = scanner_type.as_ref().clone();
+    let scanner_type = scanner_type.as_ref();
 
-    let Args {
-        instance,
-        radius,
-        generations,
-        routing_time,
-        devices: _devices,
+    let ArgsUnwrapped {
         area,
-        data_points,
-        min_points,
-        fast,
-        return_type,
         benchmark_mode,
-    } = payload.into_inner().log(&mode);
-    let instance = instance.unwrap_or("".to_string());
-    let radius = radius.unwrap_or(70.0);
-    let generations = generations.unwrap_or(1);
-    let routing_time = routing_time.unwrap_or(1);
-    let data_points = normalize::data_points(data_points);
-    let min_points = min_points.unwrap_or(1);
-    let fast = fast.unwrap_or(true);
-    let (area, default_return_type) = normalize::area_input(area);
-    let return_type = get_return_type(return_type, default_return_type);
-    let benchmark_mode = benchmark_mode.unwrap_or(false);
+        data_points,
+        devices: _devices,
+        fast,
+        generations,
+        instance,
+        min_points,
+        radius,
+        return_type,
+        routing_time,
+    } = payload.into_inner().init(Some(&mode));
 
     if area.features.is_empty() && instance.is_empty() {
         return Ok(HttpResponse::BadRequest().json(CustomError {
@@ -127,10 +108,7 @@ async fn cluster(
 
     let mut stats = Stats::new();
 
-    println!("Area {}", area.features.len());
-
-    let temp_instance = instance.clone();
-    let area = if !temp_instance.is_empty() {
+    let area = if !instance.is_empty() {
         if scanner_type.eq("rdm") {
             instance::route(&conn.data_db, &instance).await
         } else {
@@ -147,8 +125,7 @@ async fn cluster(
             .map(|p| GenericData::new("".to_string(), p[0], p[1]))
             .collect()
     } else {
-        let temp_area = area.clone();
-        if !temp_area.features.is_empty() {
+        if !area.features.is_empty() {
             if category == "gym" {
                 gym::area(&conn.data_db, &area).await
             } else if category == "pokestop" {
@@ -178,7 +155,7 @@ async fn cluster(
         area.into_iter()
             .flat_map(|feature| {
                 brute_force(
-                    data_points.clone(),
+                    &data_points,
                     bootstrapping::as_vec(feature, radius, &mut stats),
                     radius,
                     min_points,
@@ -193,7 +170,7 @@ async fn cluster(
         return Ok(response::send(
             collection::from_feature(feature::from_single_vector(
                 clusters,
-                Some(Type::CirclePokemon),
+                Some(&Type::CirclePokemon),
             )),
             return_type,
             stats,
@@ -229,7 +206,7 @@ async fn cluster(
     }
     final_clusters.rotate_left(rotate_count);
 
-    for (i, point) in final_clusters.clone().into_iter().enumerate() {
+    for (i, point) in final_clusters.iter().enumerate() {
         let point = Point::new(point[1], point[0]);
         let point2 = if i == final_clusters.len() - 1 {
             Point::new(final_clusters[0][1], final_clusters[0][0])
@@ -258,7 +235,7 @@ async fn cluster(
     Ok(response::send(
         collection::from_feature(feature::from_single_vector(
             final_clusters.into(),
-            Some(Type::CirclePokemon),
+            Some(&Type::CirclePokemon),
         )),
         return_type,
         stats,

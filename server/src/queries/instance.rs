@@ -26,17 +26,17 @@ pub async fn all(
         },
         None => None,
     };
-    let items = if instance_type.is_some() {
+    let items = if let Some(instance_type) = instance_type {
         instance::Entity::find()
-            .filter(instance::Column::Type.eq(instance_type.unwrap()))
+            .filter(instance::Column::Type.eq(instance_type))
             .all(conn)
             .await?
     } else {
         instance::Entity::find().all(conn).await?
     };
     Ok(items
-        .iter()
-        .map(|item| normalize::instance(item.clone()))
+        .into_iter()
+        .map(|item| normalize::instance(item))
         .collect())
 }
 
@@ -48,10 +48,8 @@ pub async fn route(
         .filter(instance::Column::Name.contains(instance_name))
         .one(conn)
         .await?;
-    if items.is_some() {
-        Ok(collection::from_feature(normalize::instance(
-            items.unwrap(),
-        )))
+    if let Some(items) = items {
+        Ok(collection::from_feature(normalize::instance(items)))
     } else {
         Err(DbErr::Custom("Instance not found".to_string()))
     }

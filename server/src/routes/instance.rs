@@ -17,17 +17,13 @@ async fn all(
 
     println!("\n[INSTANCE-ALL] Scanner Type: {}", scanner_type);
 
-    let instances = web::block(move || async move {
-        if scanner_type.eq("rdm") {
-            instance::all(&conn.data_db, None).await
-        } else if conn.unown_db.is_some() {
-            area::all(&(conn.unown_db.as_ref().unwrap())).await
-        } else {
-            Ok(Vec::<Feature>::new())
-        }
-    })
-    .await?
-    .await
+    let instances = if scanner_type.eq("rdm") {
+        instance::all(&conn.data_db, None).await
+    } else if let Some(unown_db) = conn.unown_db.as_ref() {
+        area::all(unown_db).await
+    } else {
+        Ok(Vec::<Feature>::new())
+    }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
     println!("[INSTANCE_ALL] Returning {} instances\n", instances.len());
@@ -54,11 +50,9 @@ async fn instance_type(
         }));
     }
 
-    let instances =
-        web::block(move || async move { instance::all(&conn.data_db, Some(instance_type)).await })
-            .await?
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+    let instances = instance::all(&conn.data_db, Some(instance_type))
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     let instances: Vec<String> = instances
         .into_iter()
@@ -79,7 +73,7 @@ async fn get_area(
     payload: web::Json<Args>,
     scanner_type: web::Data<String>,
 ) -> Result<HttpResponse, Error> {
-    let scanner_type = scanner_type.as_ref().clone();
+    let scanner_type = scanner_type.as_ref();
     let instance = payload.into_inner().instance.unwrap_or("".to_string());
 
     println!(
@@ -87,21 +81,17 @@ async fn get_area(
         scanner_type, instance
     );
 
-    if instance.clone().is_empty() {
+    if instance.is_empty() {
         return Ok(HttpResponse::BadRequest().json(CustomError {
             message: "no_instance_provided".to_string(),
         }));
     }
 
-    let instance_data = web::block(move || async move {
-        if scanner_type.eq("rdm") {
-            instance::route(&conn.data_db, &instance).await
-        } else {
-            area::route(&conn.unown_db.as_ref().unwrap(), &instance).await
-        }
-    })
-    .await?
-    .await
+    let instance_data = if scanner_type.eq("rdm") {
+        instance::route(&conn.data_db, &instance).await
+    } else {
+        area::route(&conn.unown_db.as_ref().unwrap(), &instance).await
+    }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
     // println!("[INSTANCE-AREA] Returning {} coords\n", instance_data.geometry len(),);

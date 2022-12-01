@@ -53,7 +53,7 @@ pub fn instance(instance: instance::Model) -> Feature {
     utils::parse_text(
         instance.data.as_str(),
         Some(instance.name),
-        Some(instance.r#type),
+        Some(&instance.r#type),
     )
 }
 
@@ -61,17 +61,19 @@ pub fn area(areas: Vec<area::Model>) -> Vec<Feature> {
     let mut normalized = Vec::<Feature>::new();
 
     let mut to_feature = |fence: Option<String>, name: String, modifier: &str| -> String {
-        if fence.is_some() && !fence.clone().unwrap().is_empty() {
-            normalized.push(utils::parse_text(
-                fence.unwrap().as_str(),
-                Some(format!("{}_{}", name, modifier)),
-                Some(match modifier {
-                    "Fort" => Type::CircleRaid,
-                    "Quest" => Type::ManualQuest,
-                    "Pokemon" => Type::CirclePokemon,
-                    _ => Type::AutoQuest,
-                }),
-            ));
+        if let Some(fence) = fence {
+            if !fence.is_empty() {
+                normalized.push(utils::parse_text(
+                    fence.as_str(),
+                    Some(format!("{}_{}", name, modifier)),
+                    Some(match modifier {
+                        "Fort" => &Type::CircleRaid,
+                        "Quest" => &Type::ManualQuest,
+                        "Pokemon" => &Type::CirclePokemon,
+                        _ => &Type::AutoQuest,
+                    }),
+                ));
+            }
         }
         name
     };
@@ -96,8 +98,7 @@ pub fn data_points(data_points: Option<DataPointsArg>) -> SingleVec {
 }
 
 pub fn area_input(area: Option<GeoFormats>) -> (FeatureCollection, ReturnTypeArg) {
-    if area.is_some() {
-        let area = area.unwrap();
+    if let Some(area) = area {
         match area {
             GeoFormats::Text(area) => (
                 collection::from_feature(feature::from_text(area.as_str(), None)),

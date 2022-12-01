@@ -21,14 +21,17 @@ pub async fn route(
         .filter(area::Column::Name.contains(area_name))
         .one(conn)
         .await?;
-    if item.is_some() {
-        let item = item.unwrap();
-        if item.geofence.is_some() && !item.geofence.clone().unwrap().is_empty() {
-            Ok(collection::from_feature(parse_text(
-                item.geofence.unwrap().as_str(),
-                Some(item.name),
-                Some(Type::AutoQuest),
-            )))
+    if let Some(item) = item {
+        if let Some(geofence) = item.geofence {
+            if !geofence.is_empty() {
+                Ok(collection::from_feature(parse_text(
+                    geofence.as_str(),
+                    Some(item.name),
+                    Some(&Type::AutoQuest),
+                )))
+            } else {
+                Err(DbErr::Custom("Geofence is empty".to_string()))
+            }
         } else {
             Err(DbErr::Custom("No geofence found".to_string()))
         }

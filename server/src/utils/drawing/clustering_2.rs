@@ -76,7 +76,7 @@ const PRECISION: usize = 9;
 const APPROX_PRECISION: usize = PRECISION - 3;
 
 pub fn brute_force(
-    points: Vec<GenericData>,
+    points: &Vec<GenericData>,
     honeycomb: SingleVec,
     radius: f64,
     min_points: usize,
@@ -158,7 +158,7 @@ pub fn brute_force(
 // Expensive operation to learn which points are in which circles and vice verse
 // TODO: Make this less expensive
 fn create_maps(
-    points: Vec<GenericData>,
+    points: &Vec<GenericData>,
     honeycomb: SingleVec,
     radius: f64,
 ) -> (HashMap<String, PointInfo>, HashMap<String, CircleInfo>) {

@@ -43,10 +43,10 @@ fn point([lat, lon]: PointArray) -> Value {
     Value::Point(vec![lon, lat])
 }
 
-fn value_router(area: ArrayType, enum_type: Option<Type>) -> Value {
-    if enum_type.is_some() {
+fn value_router(area: ArrayType, enum_type: Option<&Type>) -> Value {
+    if let Some(enum_type) = enum_type {
         match area {
-            ArrayType::S(area) => match enum_type.unwrap() {
+            ArrayType::S(area) => match enum_type {
                 Type::CirclePokemon
                 | Type::CircleSmartPokemon
                 | Type::CircleRaid
@@ -65,7 +65,7 @@ fn value_router(area: ArrayType, enum_type: Option<Type>) -> Value {
     }
 }
 
-pub fn get_feature(area: ArrayType, enum_type: Option<Type>) -> Feature {
+pub fn get_feature(area: ArrayType, enum_type: Option<&Type>) -> Feature {
     Feature {
         id: None,
         bbox: None,
@@ -79,30 +79,30 @@ pub fn get_feature(area: ArrayType, enum_type: Option<Type>) -> Feature {
     }
 }
 
-pub fn from_single_vector(area: SingleVec, enum_type: Option<Type>) -> Feature {
+pub fn from_single_vector(area: SingleVec, enum_type: Option<&Type>) -> Feature {
     get_feature(ArrayType::S(area), enum_type)
 }
 
-pub fn from_multi_vector(area: MultiVec, enum_type: Option<Type>) -> Feature {
+pub fn from_multi_vector(area: MultiVec, enum_type: Option<&Type>) -> Feature {
     get_feature(ArrayType::M(area), enum_type)
 }
 
-pub fn from_text(area: &str, enum_type: Option<Type>) -> Feature {
+pub fn from_text(area: &str, enum_type: Option<&Type>) -> Feature {
     get_feature(ArrayType::S(vector::from_text(area)), enum_type)
 }
 
 pub fn from_single_point(area: PointStruct) -> Feature {
     get_feature(
         ArrayType::S(vector::from_struct(vec![area])),
-        Some(Type::Leveling),
+        Some(&Type::Leveling),
     )
 }
 
-pub fn from_single_struct(area: SingleStruct, enum_type: Option<Type>) -> Feature {
+pub fn from_single_struct(area: SingleStruct, enum_type: Option<&Type>) -> Feature {
     get_feature(ArrayType::S(vector::from_struct(area)), enum_type)
 }
 
-pub fn from_multi_struct(area: MultiStruct, enum_type: Option<Type>) -> Feature {
+pub fn from_multi_struct(area: MultiStruct, enum_type: Option<&Type>) -> Feature {
     get_feature(
         ArrayType::M(area.into_iter().map(|a| vector::from_struct(a)).collect()),
         enum_type,

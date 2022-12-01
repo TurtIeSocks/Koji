@@ -65,7 +65,7 @@ pub fn send(
 ) -> HttpResponse {
     stats.log();
     HttpResponse::Ok().json(Response {
-        message: "".to_string(),
+        message: "Success".to_string(),
         status: "ok".to_string(),
         status_code: 200,
         data: if benchmark_mode { None } else { Some(match return_type {

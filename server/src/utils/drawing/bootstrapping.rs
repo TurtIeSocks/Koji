@@ -42,12 +42,22 @@ pub fn point_line_distance(input: Vec<Point>, point: Point) -> f64 {
 }
 
 fn flatten_circles(feature: Feature, radius: f64, stats: &mut Stats) -> Vec<Point> {
-    let circles = match feature.geometry.clone().unwrap().value {
-        Value::MultiPolygon(_) => split_multi(feature.geometry.unwrap())
+    if feature.geometry.is_none() {
+        return vec![];
+    }
+    let geometry = feature.geometry.unwrap();
+    let circles = match geometry.value {
+        Value::MultiPolygon(_) => split_multi(geometry)
             .into_iter()
-            .flat_map(|feat| generate_circles(feat, radius))
+            .flat_map(|feat| {
+                if let Some(geo) = feat.geometry {
+                    generate_circles(geo, radius)
+                } else {
+                    vec![]
+                }
+            })
             .collect(),
-        _ => generate_circles(feature, radius),
+        _ => generate_circles(geometry, radius),
     };
     stats.total_clusters += circles.len();
     circles
@@ -66,7 +76,7 @@ pub fn as_geojson(feature: Feature, radius: f64, stats: &mut Stats) -> Feature {
 
     let circles = flatten_circles(feature, radius, stats);
 
-    for (i, point) in circles.clone().into_iter().enumerate() {
+    for (i, point) in circles.iter().enumerate() {
         multipoint_feature.push(vec![point.x(), point.y()]);
         let point2 = if i == circles.len() {
             circles[i + 1]
@@ -105,13 +115,10 @@ pub fn as_geojson(feature: Feature, radius: f64, stats: &mut Stats) -> Feature {
     }
 }
 
-fn generate_circles(input: Feature, radius: f64) -> Vec<Point> {
+fn generate_circles(geometry: Geometry, radius: f64) -> Vec<Point> {
     let mut circles: Vec<Point> = vec![];
 
-    if input.geometry.is_none() {
-        return circles;
-    }
-    let polygon = Polygon::<f64>::try_from(input).unwrap();
+    let polygon = Polygon::<f64>::try_from(geometry).unwrap();
     let get_points = || polygon.exterior().points().collect::<Vec<Point>>();
 
     let x_mod: f64 = 0.75_f64.sqrt();

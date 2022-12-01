@@ -13,21 +13,15 @@ pub mod response;
 // pub mod routing;
 
 trait SetOptions {
-    fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<Type>)
-        -> Feature;
+    fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<&Type>);
 }
 
 impl SetOptions for Feature {
-    fn add_instance_properties(
-        &mut self,
-        name: Option<String>,
-        enum_type: Option<Type>,
-    ) -> Feature {
-        if name.is_some() {
-            self.set_property("name", name.unwrap())
+    fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<&Type>) {
+        if let Some(name) = name {
+            self.set_property("name", name)
         }
-        if enum_type.is_some() {
-            let enum_type = enum_type.unwrap();
+        if let Some(enum_type) = enum_type {
             self.set_property("type", enum_type.to_string());
             match enum_type {
                 Type::CirclePokemon | Type::CircleSmartPokemon => {
@@ -42,7 +36,6 @@ impl SetOptions for Feature {
                 _ => {}
             }
         }
-        self.clone()
     }
 }
 
@@ -63,8 +56,8 @@ pub fn get_return_type(
     return_type: Option<String>,
     default_return_type: ReturnTypeArg,
 ) -> ReturnTypeArg {
-    if return_type.is_some() {
-        match return_type.unwrap().to_lowercase().as_str() {
+    if let Some(return_type) = return_type {
+        match return_type.to_lowercase().as_str() {
             "alttext" | "alt_text" => ReturnTypeArg::AltText,
             "text" => ReturnTypeArg::Text,
             "array" => match default_return_type {
@@ -90,8 +83,8 @@ pub fn get_return_type(
     }
 }
 
-pub fn parse_text(text: &str, name: Option<String>, enum_type: Option<Type>) -> Feature {
-    if text.starts_with("{") {
+pub fn parse_text(text: &str, name: Option<String>, enum_type: Option<&Type>) -> Feature {
+    let mut parsed = if text.starts_with("{") {
         match serde_json::from_str::<InstanceParsing>(text) {
             Ok(result) => match result {
                 InstanceParsing::Feature(feat) => feat,
@@ -101,14 +94,14 @@ pub fn parse_text(text: &str, name: Option<String>, enum_type: Option<Type>) -> 
                             convert::feature::from_single_point(point)
                         }
                         RdmInstanceArea::Single(area) => {
-                            convert::feature::from_single_struct(area, enum_type.clone())
+                            convert::feature::from_single_struct(area, enum_type)
                         }
                         RdmInstanceArea::Multi(area) => {
-                            convert::feature::from_multi_struct(area, enum_type.clone())
+                            convert::feature::from_multi_struct(area, enum_type)
                         }
                     };
-                    if json.radius.is_some() {
-                        feature.set_property("radius", json.radius.unwrap());
+                    if let Some(radius) = json.radius {
+                        feature.set_property("radius", radius);
                     }
                     feature
                 }
@@ -123,9 +116,10 @@ pub fn parse_text(text: &str, name: Option<String>, enum_type: Option<Type>) -> 
             }
         }
     } else {
-        convert::feature::from_text(text, enum_type.clone())
-    }
-    .add_instance_properties(name, enum_type)
+        convert::feature::from_text(text, enum_type)
+    };
+    parsed.add_instance_properties(name, enum_type);
+    parsed
 }
 
 pub fn ensure_first_last<T>(points: Vec<[T; 2]>) -> Vec<[T; 2]>

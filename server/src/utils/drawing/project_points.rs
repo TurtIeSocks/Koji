@@ -12,11 +12,11 @@ type Geocentric = (f64, f64, f64);
 type Topocentric = (f64, f64);
 
 trait FromKey {
-    fn from_key(self) -> [f64; 2];
+    fn from_key(&self) -> [f64; 2];
 }
 
 impl FromKey for String {
-    fn from_key(self) -> [f64; 2] {
+    fn from_key(&self) -> [f64; 2] {
         let mut iter = self.split(',');
         let lat = iter.next().unwrap().parse::<f64>().unwrap();
         let lon = iter.next().unwrap().parse::<f64>().unwrap();
@@ -120,7 +120,7 @@ pub fn project_points(
         })
         .collect();
 
-    let point_map = clustering::udc(output.clone(), min_points);
+    let point_map = clustering::udc(output, min_points);
 
     let output = {
         let mut seen_map: HashSet<String> = HashSet::new();
@@ -129,7 +129,7 @@ pub fn project_points(
             .filter_map(|(key, values)| {
                 if values.len() >= min_points {
                     if values.len() > stats.best_cluster_count {
-                        stats.best_cluster = key.clone().from_key();
+                        stats.best_cluster = key.from_key();
                         stats.best_cluster_count = values.len();
                     }
                     for point in values.into_iter() {

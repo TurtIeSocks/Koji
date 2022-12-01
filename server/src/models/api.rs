@@ -1,3 +1,5 @@
+use crate::utils::{self, convert::normalize};
+
 use super::*;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -29,26 +31,79 @@ pub enum DataPointsArg {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Args {
-    pub instance: Option<String>,
-    pub radius: Option<f64>,
-    pub min_points: Option<usize>,
-    pub generations: Option<usize>,
-    pub routing_time: Option<i64>,
-    pub devices: Option<usize>,
-    pub data_points: Option<DataPointsArg>,
     pub area: Option<GeoFormats>,
-    pub fast: Option<bool>,
-    pub return_type: Option<String>,
     pub benchmark_mode: Option<bool>,
+    pub data_points: Option<DataPointsArg>,
+    pub devices: Option<usize>,
+    pub fast: Option<bool>,
+    pub generations: Option<usize>,
+    pub instance: Option<String>,
+    pub min_points: Option<usize>,
+    pub radius: Option<f64>,
+    pub return_type: Option<String>,
+    pub routing_time: Option<i64>,
+}
+
+pub struct ArgsUnwrapped {
+    pub area: FeatureCollection,
+    pub benchmark_mode: bool,
+    pub data_points: SingleVec,
+    pub devices: usize,
+    pub fast: bool,
+    pub generations: usize,
+    pub instance: String,
+    pub min_points: usize,
+    pub radius: f64,
+    pub return_type: ReturnTypeArg,
+    pub routing_time: i64,
 }
 
 impl Args {
-    pub fn log(self, mode: &str) -> Self {
-        println!(
-            "[{}]: Instance: {:?} | Custom Area: {:?} | Custom Data Points: {:?}\nRadius: | {:?} Min Points: {:?} | Generations: {:?} | Routing Time: {:?} | Devices: {:?} | Fast: {:?}\nReturn Type: {}",
-            mode.to_uppercase(), self.instance, self.area.is_some(), self.data_points.is_some(), self.radius, self.min_points, self.generations, self.routing_time, self.devices, self.fast, self.return_type.clone().unwrap_or("SingleArray".to_string())
-        );
-        self
+    pub fn init(self, mode: Option<&str>) -> ArgsUnwrapped {
+        let Args {
+            area,
+            benchmark_mode,
+            data_points,
+            devices,
+            fast,
+            generations,
+            instance,
+            min_points,
+            radius,
+            return_type,
+            routing_time,
+        } = self;
+        let (area, default_return_type) = normalize::area_input(area);
+        let benchmark_mode = benchmark_mode.unwrap_or(false);
+        let data_points = normalize::data_points(data_points);
+        let devices = devices.unwrap_or(1);
+        let fast = fast.unwrap_or(true);
+        let generations = generations.unwrap_or(1);
+        let instance = instance.unwrap_or("".to_string());
+        let min_points = min_points.unwrap_or(1);
+        let radius = radius.unwrap_or(70.0);
+        let return_type = utils::get_return_type(return_type, default_return_type);
+        let routing_time = routing_time.unwrap_or(1);
+
+        if let Some(mode) = mode {
+            println!(
+                "[{}]: Instance: {} | Custom Area: {} | Custom Data Points: {}\nRadius: | {} Min Points: {} | Generations: {} | Routing Time: {} | Devices: {} | Fast: {}\nReturn Type: {:?}",
+                mode.to_uppercase(), instance, !area.features.is_empty(), !data_points.is_empty(), radius, min_points, generations, routing_time, devices, fast, return_type,
+            );
+        }
+        ArgsUnwrapped {
+            area,
+            benchmark_mode,
+            data_points,
+            devices,
+            fast,
+            generations,
+            instance,
+            min_points,
+            radius,
+            return_type,
+            routing_time,
+        }
     }
 }
 

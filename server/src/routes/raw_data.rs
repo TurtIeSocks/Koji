@@ -1,10 +1,10 @@
 use super::*;
+
 use crate::models::{
-    api::{Args, BoundsArg},
+    api::{Args, ArgsUnwrapped, BoundsArg},
     CustomError, KojiDb,
 };
 use crate::queries::{area, gym, instance, pokestop, spawnpoint};
-use crate::utils::convert::normalize;
 
 #[get("/all/{category}")]
 async fn all(
@@ -13,31 +13,22 @@ async fn all(
     category: actix_web::web::Path<String>,
 ) -> Result<HttpResponse, Error> {
     let category = category.into_inner();
-    let category_copy = category.clone();
     let scanner_type = scanner_type.as_ref();
 
     println!(
-        "\n[DATA-ALL] Scanner Type: {}, Category: {}",
+        "\n[DATA_ALL] Scanner Type: {} | Category: {}",
         scanner_type, category
     );
 
-    let all_data = web::block(move || async move {
-        match category.as_str() {
-            "gym" => gym::all(&conn.data_db).await,
-            "pokestop" => pokestop::all(&conn.data_db).await,
-            "spawnpoint" => spawnpoint::all(&conn.data_db).await,
-            _ => Err(DbErr::Custom("invalid_category".to_string())),
-        }
-    })
-    .await?
-    .await
+    let all_data = match category.as_str() {
+        "gym" => gym::all(&conn.data_db).await,
+        "pokestop" => pokestop::all(&conn.data_db).await,
+        "spawnpoint" => spawnpoint::all(&conn.data_db).await,
+        _ => Err(DbErr::Custom("invalid_category".to_string())),
+    }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    println!(
-        "[DATA-ALL] Returning {} {}s\n",
-        all_data.len(),
-        category_copy
-    );
+    println!("[DATA-ALL] Returning {} {}s\n", all_data.len(), category);
     Ok(HttpResponse::Ok().json(all_data))
 }
 
@@ -50,29 +41,24 @@ async fn bound(
 ) -> Result<HttpResponse, Error> {
     let scanner_type = scanner_type.as_ref();
     let category = category.into_inner();
-    let category_copy = category.clone();
 
     println!(
-        "\n[DATA-BOUND] Scanner Type: {}, Category: {}",
+        "\n[DATA_BOUND] Scanner Type: {} | Category: {}",
         scanner_type, category
     );
 
-    let bound_data = web::block(move || async move {
-        match category.as_str() {
-            "gym" => gym::bound(&conn.data_db, &payload).await,
-            "pokestop" => pokestop::bound(&conn.data_db, &payload).await,
-            "spawnpoint" => spawnpoint::bound(&conn.data_db, &payload).await,
-            _ => Err(DbErr::Custom("invalid_category".to_string())),
-        }
-    })
-    .await?
-    .await
+    let bound_data = match category.as_str() {
+        "gym" => gym::bound(&conn.data_db, &payload).await,
+        "pokestop" => pokestop::bound(&conn.data_db, &payload).await,
+        "spawnpoint" => spawnpoint::bound(&conn.data_db, &payload).await,
+        _ => Err(DbErr::Custom("invalid_category".to_string())),
+    }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
     println!(
         "[DATA-BOUND] Returning {} {}s\n",
         bound_data.len(),
-        category_copy
+        category
     );
     Ok(HttpResponse::Ok().json(bound_data))
 }
@@ -84,32 +70,26 @@ async fn by_area(
     category: actix_web::web::Path<String>,
     payload: web::Json<Args>,
 ) -> Result<HttpResponse, Error> {
-    let scanner_type = scanner_type.as_ref().clone();
+    let scanner_type = scanner_type.as_ref();
     let category = category.into_inner();
-    let category_copy = category.clone();
 
-    let Args {
-        instance,
+    let ArgsUnwrapped {
         area,
         benchmark_mode: _benchmark_mode,
-        radius: _radius,
-        generations: _generations,
-        devices: _devices,
         data_points: _data_points,
-        min_points: _min_points,
+        devices: _devices,
         fast: _fast,
+        generations: _generations,
+        instance,
+        min_points: _min_points,
+        radius: _radius,
         return_type: _return_type,
         routing_time: _routing_time,
-    } = payload.into_inner();
-    let instance = instance.unwrap_or("".to_string());
-    let (area, _return_type) = normalize::area_input(area);
+    } = payload.into_inner().init(None);
 
     println!(
-        "\n[DATA-AREA] Scanner Type: {}, Category: {}, Instance: {}, Custom Area: {}",
-        scanner_type,
-        category,
-        instance,
-        !area.features.is_empty(),
+        "\n[DATA_AREA] Scanner Type: {} | Category: {}",
+        scanner_type, category
     );
 
     if area.features.is_empty() && instance.is_empty() {
@@ -118,32 +98,26 @@ async fn by_area(
         }));
     }
 
-    let area_data = web::block(move || async move {
-        let area = if !area.features.is_empty() {
-            area
-        } else if scanner_type == "rdm" {
-            instance::route(&conn.data_db, &instance).await?
-        } else if conn.unown_db.is_some() {
-            area::route(&conn.unown_db.as_ref().unwrap(), &instance).await?
+    let area = if !area.features.is_empty() && !instance.is_empty() {
+        if scanner_type == "rdm" {
+            instance::route(&conn.data_db, &instance).await
         } else {
-            area
-        };
-        if category == "gym" {
-            gym::area(&conn.data_db, &area).await
-        } else if category == "pokestop" {
-            pokestop::area(&conn.data_db, &area).await
-        } else {
-            spawnpoint::area(&conn.data_db, &area).await
+            area::route(&conn.unown_db.as_ref().unwrap(), &instance).await
         }
-    })
-    .await?
-    .await
+    } else {
+        Ok(area)
+    }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    println!(
-        "[DATA-AREA] Returning {} {}s\n",
-        area_data.len(),
-        category_copy
-    );
+    let area_data = if category == "gym" {
+        gym::area(&conn.data_db, &area).await
+    } else if category == "pokestop" {
+        pokestop::area(&conn.data_db, &area).await
+    } else {
+        spawnpoint::area(&conn.data_db, &area).await
+    }
+    .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    println!("[DATA-AREA] Returning {} {}s\n", area_data.len(), category);
     Ok(HttpResponse::Ok().json(area_data))
 }
