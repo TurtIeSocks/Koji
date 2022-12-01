@@ -24,6 +24,7 @@ export default function Routes() {
   const min_points = useStore((s) => s.min_points)
   const fast = useStore((s) => s.fast)
   const autoMode = useStore((s) => s.autoMode)
+  const routing_time = useStore((s) => s.routing_time)
 
   const geojson = useStatic((s) => s.geojson)
   const forceRedraw = useStatic((s) => s.forceRedraw)
@@ -36,7 +37,16 @@ export default function Routes() {
         mode === 'bootstrap'
           ? '/api/v1/calc/bootstrap'
           : `/api/v1/calc/${mode}/${category}`,
-        { category, radius, generations, devices, geojson, min_points, fast },
+        {
+          category,
+          radius,
+          generations,
+          devices,
+          geojson,
+          min_points,
+          fast,
+          routing_time,
+        },
       ).then((route) => {
         let total = 0
         let max = 0
@@ -67,6 +77,7 @@ export default function Routes() {
           devices,
           geojson,
           tab,
+          routing_time,
         }
       : { forceFetch },
   ])
