@@ -1,11 +1,13 @@
 use super::*;
 
-use geo::{HaversineDistance, Point};
+use geo::{Coordinate, HaversineDistance, Point};
+use geojson::{Geometry, Value};
 use std::collections::{HashSet, VecDeque};
 use std::time::Instant;
 use time::Duration;
 use travelling_salesman;
 
+use crate::models::BBox;
 use crate::{
     entities::sea_orm_active_enums::Type,
     models::{
@@ -98,9 +100,9 @@ async fn cluster(
         ..
     } = payload.into_inner().init(Some(&mode));
 
-    if area.features.is_empty() && instance.is_empty() {
+    if area.features.is_empty() && instance.is_empty() && data_points.is_empty() {
         return Ok(HttpResponse::BadRequest().json(CustomError {
-            message: "no_area_and_empty_instance".to_string(),
+            message: "no_area_instance_data_points".to_string(),
         }));
     }
 
@@ -112,6 +114,26 @@ async fn cluster(
         } else {
             area::route(&conn.unown_db.as_ref().unwrap(), &instance).await
         }
+    } else if !data_points.is_empty() {
+        let polygon = BBox::new(Some(
+            &data_points
+                .iter()
+                .map(|p| Coordinate { x: p[1], y: p[0] })
+                .collect(),
+        ))
+        .get_poly();
+        Ok(FeatureCollection {
+            bbox: None,
+            features: vec![Feature {
+                geometry: Some(Geometry {
+                    value: Value::Polygon(polygon),
+                    bbox: None,
+                    foreign_members: None,
+                }),
+                ..Default::default()
+            }],
+            foreign_members: None,
+        })
     } else {
         Ok(area)
     }
@@ -176,7 +198,7 @@ async fn cluster(
         ));
     }
 
-    println!("Routing for {}seconds...", routing_time);
+    println!("Routing for {} seconds...", routing_time);
     let tour = travelling_salesman::simulated_annealing::solve(
         &clusters
             .iter()
