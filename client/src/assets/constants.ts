@@ -9,32 +9,36 @@
 
 export const ICON_SVG = {
   v: `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="-2 -2 24 24">
-        <circle cx="10" cy="10" r="10" fill="deeppink" stroke="black" stroke-width="1" />
+        <circle cx="10" cy="10" r="10" fill="deeppink" fill-opacity="0.8" stroke="black" stroke-width="1" />
+        <circle cx="10" cy="10" r="1" fill="black" />
       </svg>`,
   u: `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="-2 -2 24 24">
-        <circle cx="10" cy="10" r="10" fill="dodgerblue" stroke="black" stroke-width="1" />
+        <circle cx="10" cy="10" r="10" fill="dodgerblue" fill-opacity="0.8" stroke="black" stroke-width="1" />
+        <circle cx="10" cy="10" r="1" fill="black" />
       </svg>`,
   p: `<svg xmlns="http://www.w3.org/2000/svg" height="20" width="20" viewBox="-2 -2 24 24">
-        <circle cx="10" cy="10" r="10" fill="green" stroke="black" stroke-width="1" />
+        <circle cx="10" cy="10" r="10" fill="green" fill-opacity="0.8" stroke="black" stroke-width="1" />
+        <circle cx="10" cy="10" r="1" fill="black" />
       </svg>`,
   g: `<svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="-2 -2 24 24">
-        <circle cx="10" cy="10" r="10" fill="maroon" stroke="black" stroke-width="1" />
+        <circle cx="10" cy="10" r="10" fill="maroon" fill-opacity="0.8" stroke="black" stroke-width="1" />
+        <circle cx="10" cy="10" r="1" fill="black" />
       </svg>`,
-}
+} as const
 
 export const ICON_RADIUS = {
   p: 15,
   g: 20,
   v: 10,
   u: 10,
-}
+} as const
 
 export const ICON_COLOR = {
   p: 'green',
   g: 'maroon',
   v: 'deeppink',
   u: 'dodgerblue',
-}
+} as const
 
 export const TABS = ['geofences', 'routing'] as const
 

@@ -1,15 +1,9 @@
-#[macro_use]
-extern crate diesel;
-
 use actix_files::Files;
 use actix_web::{middleware, web, App, HttpServer};
-use diesel::prelude::*;
-use diesel::r2d2::{self, ConnectionManager};
+use geojson::{Feature, FeatureCollection};
+use sea_orm::Database;
 
-pub type DbPool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
-
-mod cpp;
-mod db;
+mod entities;
 mod models;
 mod queries;
 mod routes;
@@ -20,13 +14,31 @@ async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL");
-    let scanner_type = std::env::var("SCANNER_TYPE").unwrap_or("rdm".to_string());
+    let db_url = std::env::var("DATABASE_URL").expect("Need DATABASE_URL env var");
+    let unown_db_url = std::env::var("UNOWN_DB").unwrap_or("".to_string());
 
-    let manager = ConnectionManager::<MysqlConnection>::new(database_url);
-    let pool: DbPool = r2d2::Pool::builder()
-        .build(manager)
-        .expect("Failed to create pool.");
+    let databases = models::KojiDb {
+        data_db: match Database::connect(db_url.clone()).await {
+            Ok(db) => db,
+            Err(err) => panic!("{}", err),
+        },
+        unown_db: if unown_db_url.is_empty() {
+            None
+        } else {
+            match Database::connect(unown_db_url.clone()).await {
+                Ok(db) => Some(db),
+                Err(err) => panic!("{}", err),
+            }
+        },
+    };
+
+    let scanner_type = if unown_db_url.is_empty() {
+        "rdm"
+    } else {
+        "unown"
+    }
+    .to_string();
+
     let port = std::env::var("PORT").unwrap_or("8080".to_string());
     let serve_from = if std::env::var("NODE_ENV") == Ok("development".to_string()) {
         "../client/dist"
@@ -35,7 +47,7 @@ async fn main() -> std::io::Result<()> {
     };
     HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(pool.clone()))
+            .app_data(web::Data::new(databases.clone()))
             .app_data(web::Data::new(scanner_type.clone()))
             // increase max payload size to 10MB
             .app_data(web::JsonConfig::default().limit(10_485_760))
@@ -47,20 +59,22 @@ async fn main() -> std::io::Result<()> {
                         web::scope("instance")
                             .service(routes::instance::all)
                             .service(routes::instance::instance_type)
-                            .service(routes::instance::area),
+                            .service(routes::instance::get_area),
                     )
                     .service(
                         web::scope("data")
                             .service(routes::raw_data::all)
                             .service(routes::raw_data::bound)
-                            .service(routes::raw_data::area),
+                            .service(routes::raw_data::by_area),
                     )
                     .service(
-                        web::scope("v1").service(
-                            web::scope("calc")
-                                .service(routes::calculate::bootstrap)
-                                .service(routes::calculate::cluster),
-                        ),
+                        web::scope("v1")
+                            .service(
+                                web::scope("calc")
+                                    .service(routes::calculate::bootstrap)
+                                    .service(routes::calculate::cluster),
+                            )
+                            .service(web::scope("convert").service(routes::convert::convert_data)),
                     ),
             )
             .service(

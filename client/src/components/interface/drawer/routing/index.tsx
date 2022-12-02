@@ -1,6 +1,8 @@
 import React from 'react'
+import { ListItem, ListItemButton, ListItemText } from '@mui/material'
+
+import { useStatic } from '@hooks/useStatic'
 import { useStore } from '@hooks/useStore'
-import { ListItem } from '@mui/material'
 
 import ListSubheader from '../../styled/Subheader'
 import NumInput from '../inputs/NumInput'
@@ -13,21 +15,32 @@ export default function EditTab() {
   const category = useStore((s) => s.category)
   const generations = useStore((s) => s.generations)
   const setStore = useStore((s) => s.setStore)
-  const devices = useStore((s) => s.devices)
+  // const devices = useStore((s) => s.devices)
   const min_points = useStore((s) => s.min_points)
   const fast = useStore((s) => s.fast)
+  const autoMode = useStore((s) => s.autoMode)
+  const routing_time = useStore((s) => s.routing_time)
+
+  const setStatic = useStatic((s) => s.setStatic)
 
   return (
     <>
       <ListSubheader disableGutters>Routing</ListSubheader>
+      <Toggle field="autoMode" value={autoMode} setValue={setStore} />
       <NumInput field="radius" value={radius} setValue={setStore} />
       <NumInput field="generations" value={generations} setValue={setStore} />
       <NumInput
+        field="routing_time"
+        value={routing_time}
+        setValue={setStore}
+        endAdornment="s"
+      />
+      {/* <NumInput
         field="devices"
         value={devices}
         setValue={setStore}
         disabled={mode !== 'route'}
-      />
+      /> */}
       <NumInput field="min_points" value={min_points} setValue={setStore} />
       <Toggle field="fast" value={fast} setValue={setStore} />
       <ListItem disabled={mode === 'bootstrap'}>
@@ -47,6 +60,14 @@ export default function EditTab() {
           buttons={['cluster', 'route', 'bootstrap']}
         />
       </ListItem>
+      {!autoMode && (
+        <ListItemButton
+          color="primary"
+          onClick={() => setStatic('forceFetch', (prev) => !prev)}
+        >
+          <ListItemText primary="Update" color="blue" />
+        </ListItemButton>
+      )}
     </>
   )
 }

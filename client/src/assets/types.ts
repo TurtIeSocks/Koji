@@ -1,3 +1,5 @@
+import type { Feature, FeatureCollection } from 'geojson'
+
 import type { UseStore } from '@hooks/useStore'
 import type { UseStatic } from '@hooks/useStatic'
 
@@ -8,15 +10,14 @@ export interface Data {
 }
 
 export interface PixiMarker {
-  id: string
-  iconId: 'p' | 'g' | 'v' | 'u'
-  position: [number, number]
+  i: `${'p' | 'g' | 'v' | 'u'}${number}` & { [0]: 'p' | 'g' | 'v' | 'u' }
+  p: [number, number]
 }
 
 export interface Instance {
   name: string
-  type_: string
-  data: string
+  type: string
+  data: FeatureCollection
 }
 
 export interface Config {
@@ -44,6 +45,17 @@ export type Shape = Circle | Polygon
 
 export type CombinedState = Partial<UseStore> & Partial<UseStatic>
 
-export type ObjectInput = { lat: number; lon: number }[][]
+export type ObjectInput = { lat: number; lon: number }[]
+export type MultiObjectInput = ObjectInput[]
 
-export type ArrayInput = number[][][]
+export type ArrayInput = number[][]
+export type MultiArrayInput = ArrayInput[]
+
+export type ToConvert =
+  | ObjectInput
+  | MultiObjectInput
+  | ArrayInput
+  | MultiArrayInput
+  | Feature
+  | FeatureCollection
+  | string

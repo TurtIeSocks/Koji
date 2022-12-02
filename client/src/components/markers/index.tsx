@@ -1,7 +1,8 @@
 import React from 'react'
-import { useMap, Circle } from 'react-leaflet'
+import { useMap, Circle, Popup } from 'react-leaflet'
+import geohash from 'ngeohash'
 
-import { ICON_SVG, ICON_RADIUS, ICON_COLOR } from '@assets/constants'
+import { ICON_RADIUS, ICON_COLOR } from '@assets/constants'
 import { useStore } from '@hooks/useStore'
 import { getMarkers } from '@services/fetches'
 import usePixi from '@hooks/usePixi'
@@ -16,7 +17,7 @@ export default function Markers() {
   const nativeLeaflet = useStore((s) => s.nativeLeaflet)
   const setStore = useStore((s) => s.setStore)
 
-  const selected = useStatic((s) => s.selected)
+  const geojson = useStatic((s) => s.geojson)
   const setStatic = useStatic((s) => s.setStatic)
   const pokestops = useStatic((s) => s.pokestops)
   const spawnpoints = useStatic((s) => s.spawnpoints)
@@ -25,15 +26,20 @@ export default function Markers() {
   const map = useMap()
 
   React.useEffect(() => {
-    getMarkers(map, data, selected).then((incoming) => {
-      setStatic('pokestops', incoming.pokestops)
-      setStatic('spawnpoints', incoming.spawnpoints)
-      setStatic('gyms', incoming.gyms)
-    })
+    getMarkers(map, data, geojson, pokestop, spawnpoint, gym).then(
+      (incoming) => {
+        setStatic('pokestops', incoming.pokestops)
+        setStatic('spawnpoints', incoming.spawnpoints)
+        setStatic('gyms', incoming.gyms)
+      },
+    )
   }, [
     data,
-    data === 'area' ? selected : null,
+    data === 'area' ? geojson.features.length : null,
     data === 'bound' ? location : null,
+    pokestop,
+    spawnpoint,
+    gym,
   ])
 
   const onMove = React.useCallback(() => {
@@ -49,13 +55,11 @@ export default function Markers() {
   }, [map, onMove])
 
   const initialMarkers = React.useMemo(
-    () =>
-      [...pokestops, ...spawnpoints, ...gyms]
-        .filter(
-          (x) =>
-            ({ v: spawnpoint, u: spawnpoint, g: gym, p: pokestop }[x.iconId]),
-        )
-        .map((i) => ({ ...i, customIcon: ICON_SVG[i.iconId] })),
+    () => [
+      ...(pokestop ? pokestops : []),
+      ...(spawnpoint ? spawnpoints : []),
+      ...(gym ? gyms : []),
+    ],
     [
       pokestops.length,
       gyms.length,
@@ -72,15 +76,29 @@ export default function Markers() {
     <>
       {initialMarkers.map((i) => (
         <Circle
-          key={`${i.id}-${i.iconId}`}
-          center={i.position}
-          radius={ICON_RADIUS[i.iconId]}
+          key={i.i}
+          center={i.p}
+          radius={ICON_RADIUS[i.i[0]]}
           pathOptions={{
             fillOpacity: 100,
-            fillColor: ICON_COLOR[i.iconId],
-            color: ICON_COLOR[i.iconId],
+            fillColor: ICON_COLOR[i.i[0]],
+            color: ICON_COLOR[i.i[0]],
           }}
-        />
+        >
+          {process.env.NODE_ENV === 'development' && (
+            <Popup>
+              <div>
+                Lat: {i.p[0]}
+                <br />
+                Lng: {i.p[1]}
+                <br />
+                Hash: {geohash.encode(...i.p, 9)}
+                <br />
+                Hash: {geohash.encode(...i.p, 12)}
+              </div>
+            </Popup>
+          )}
+        </Circle>
       ))}
     </>
   ) : null

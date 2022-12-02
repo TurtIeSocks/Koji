@@ -1,5 +1,6 @@
 use super::*;
-use crate::models::api::Config;
+
+use crate::models::api::ConfigResponse;
 
 #[get("/config")]
 async fn config(scanner_type: web::Data<String>) -> Result<HttpResponse, Error> {
@@ -13,7 +14,7 @@ async fn config(scanner_type: web::Data<String>) -> Result<HttpResponse, Error> 
         .parse()
         .unwrap();
     let tile_server = std::env::var("TILE_SERVER").unwrap_or("".to_string());
-    Ok(HttpResponse::Ok().json(Config {
+    Ok(HttpResponse::Ok().json(ConfigResponse {
         start_lat,
         start_lon,
         tile_server,

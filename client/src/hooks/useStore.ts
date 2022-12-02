@@ -16,13 +16,20 @@ export interface UseStore {
   radius: number | ''
   min_points: number | ''
   generations: number | ''
+  routing_time: number | ''
   showCircles: boolean
   showLines: boolean
   showPolygon: boolean
   nativeLeaflet: boolean
   devices: number | ''
   geojson: FeatureCollection
-  polygonExportMode: 'geojson' | 'array' | 'object' | 'text'
+  polygonExportMode:
+    | 'feature'
+    | 'featureCollection'
+    | 'array'
+    | 'struct'
+    | 'text'
+    | 'altText'
   export: {
     total: number
     max: number
@@ -31,6 +38,7 @@ export interface UseStore {
   snappable: boolean
   continueDrawing: boolean
   fast: boolean
+  autoMode: boolean
   setStore: <T extends keyof UseStore>(key: T, value: UseStore[T]) => void
 }
 
@@ -48,14 +56,15 @@ export const useStore = create(
       mode: 'cluster',
       data: 'all',
       radius: 70,
-      generations: 100,
+      generations: 1,
+      routing_time: 1,
       min_points: 3,
       showCircles: true,
       showLines: true,
       showPolygon: true,
       nativeLeaflet: false,
       devices: 1,
-      polygonExportMode: 'geojson',
+      polygonExportMode: 'feature',
       fast: false,
       export: {
         total: 0,
@@ -66,6 +75,7 @@ export const useStore = create(
       setStore: (key, value) => set({ [key]: value }),
       snappable: true,
       continueDrawing: true,
+      autoMode: false,
     }),
     {
       name: 'local',

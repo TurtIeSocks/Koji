@@ -1,36 +1,50 @@
 use super::*;
-use crate::db::schema::pokestop::dsl::*;
-use crate::models::{
-    api::MapBounds,
-    scanner::{GenericData, Pokestop},
+
+use crate::{
+    entities::pokestop,
+    models::{api::BoundsArg, scanner::GenericData, PointStruct},
+    utils::{self, convert::normalize},
 };
-use crate::utils::sql_raw::sql_raw;
 
-pub fn return_generic(items: Vec<Pokestop>) -> Vec<GenericData> {
-    items
-        .into_iter()
-        .map(|item| GenericData::new(item.id, item.lat, item.lon, None))
-        .collect()
+pub async fn all(conn: &DatabaseConnection) -> Result<Vec<GenericData>, DbErr> {
+    let items = pokestop::Entity::find()
+        .select_only()
+        .column(pokestop::Column::Lat)
+        .column(pokestop::Column::Lon)
+        .into_model::<PointStruct>()
+        .all(conn)
+        .await?;
+    Ok(normalize::fort(items, "p"))
 }
 
-pub fn all(conn: &MysqlConnection) -> Result<Vec<GenericData>, DbError> {
-    let items = pokestop.select((id, lat, lon)).load::<Pokestop>(conn)?;
-    Ok(return_generic(items))
+pub async fn bound(
+    conn: &DatabaseConnection,
+    payload: &BoundsArg,
+) -> Result<Vec<GenericData>, DbErr> {
+    let items = pokestop::Entity::find()
+        .select_only()
+        .column(pokestop::Column::Lat)
+        .column(pokestop::Column::Lon)
+        .filter(pokestop::Column::Lat.between(payload.min_lat, payload.max_lat))
+        .filter(pokestop::Column::Lon.between(payload.min_lon, payload.max_lon))
+        .into_model::<PointStruct>()
+        .all(conn)
+        .await?;
+    Ok(normalize::fort(items, "p"))
 }
 
-pub fn bound(conn: &MysqlConnection, payload: &MapBounds) -> Result<Vec<GenericData>, DbError> {
-    let items = pokestop
-        .filter(lat.lt(payload.max_lat))
-        .filter(lat.gt(payload.min_lat))
-        .filter(lon.lt(payload.max_lon))
-        .filter(lon.gt(payload.min_lon))
-        .load::<Pokestop>(conn)?;
-    Ok(return_generic(items))
-}
-
-pub fn area(conn: &MysqlConnection, area: &Vec<[f64; 2]>) -> Result<Vec<GenericData>, DbError> {
-    let items = sql_query(sql_raw(area, "pokestop"))
-        .load::<Pokestop>(conn)
-        .expect("Error loading pokestops");
-    Ok(return_generic(items))
+pub async fn area(
+    conn: &DatabaseConnection,
+    area: &FeatureCollection,
+) -> Result<Vec<GenericData>, DbErr> {
+    let items = pokestop::Entity::find()
+        .from_raw_sql(Statement::from_sql_and_values(
+            DbBackend::MySql,
+            format!("SELECT lat, lon FROM pokestop {}", utils::sql_raw(area)).as_str(),
+            vec![],
+        ))
+        .into_model::<PointStruct>()
+        .all(conn)
+        .await?;
+    Ok(normalize::fort(items, "p"))
 }

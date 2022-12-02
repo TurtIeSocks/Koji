@@ -11,6 +11,15 @@ import ExportPolygon from '@components/interface/dialogs/Polygon'
 export default function PolygonPopup() {
   const popupLocation = useStatic((s) => s.popupLocation)
   const activeLayer = useStatic((s) => s.activeLayer)
+  const { cutMode, editMode, drawMode, dragMode, removalMode, rotateMode } =
+    useStatic((s) => ({
+      cutMode: s.cutMode,
+      editMode: s.editMode,
+      drawMode: s.drawMode,
+      dragMode: s.dragMode,
+      removalMode: s.removalMode,
+      rotateMode: s.rotateMode,
+    }))
 
   const pokestops = useStatic((s) => s.pokestops)
   const gyms = useStatic((s) => s.gyms)
@@ -31,9 +40,7 @@ export default function PolygonPopup() {
     if (feature) {
       setActivePokestops(
         feature
-          ? pokestops.filter((x) =>
-              inside([x.position[1], x.position[0]], feature),
-            ).length
+          ? pokestops.filter((x) => inside([x.p[1], x.p[0]], feature)).length
           : 0,
       )
     }
@@ -43,8 +50,7 @@ export default function PolygonPopup() {
     if (feature) {
       setActiveGyms(
         feature
-          ? gyms.filter((x) => inside([x.position[1], x.position[0]], feature))
-              .length
+          ? gyms.filter((x) => inside([x.p[1], x.p[0]], feature)).length
           : 0,
       )
     }
@@ -54,15 +60,19 @@ export default function PolygonPopup() {
     if (feature) {
       setActiveSpawnpoints(
         feature
-          ? spawnpoints.filter((x) =>
-              inside([x.position[1], x.position[0]], feature),
-            ).length
+          ? spawnpoints.filter((x) => inside([x.p[1], x.p[0]], feature)).length
           : 0,
       )
     }
   }, [feature || {}, spawnpoints.length])
 
-  return feature ? (
+  return feature &&
+    !cutMode &&
+    !editMode &&
+    !drawMode &&
+    !dragMode &&
+    !removalMode &&
+    !rotateMode ? (
     <Popup position={popupLocation}>
       {typeof activePokestops === 'number' &&
       typeof activeGyms === 'number' &&

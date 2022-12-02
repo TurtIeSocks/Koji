@@ -24,6 +24,7 @@ module.exports = {
   rules: {
     'no-bitwise': 'off',
     semi: 'off',
+    'react/jsx-no-duplicate-props': 'off',
     'jsx-a11y/anchor-is-valid': 'off',
     'no-underscore-dangle': 'off',
     '@typescript-eslint/naming-convention': 0,
@@ -32,6 +33,7 @@ module.exports = {
     'react/jsx-one-expression-per-line': 0,
     'consistent-return': 0,
     radix: 0,
+    'no-plusplus': 0,
     '@typescript-eslint/no-var-requires': 0,
     'import/prefer-default-export': 0,
     'operator-linebreak': 0,

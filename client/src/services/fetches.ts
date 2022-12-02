@@ -1,10 +1,10 @@
 import type { Map } from 'leaflet'
 
-import type { CombinedState, Data } from '@assets/types'
+import type { CombinedState, Data, ToConvert } from '@assets/types'
 import type { UseStore } from '@hooks/useStore'
 import type { UseStatic } from '@hooks/useStatic'
 
-import { getMapBounds, convertGeojson } from './utils'
+import { getMapBounds } from './utils'
 
 export async function getData<T>(
   url: string,
@@ -37,9 +37,9 @@ export async function getLotsOfData(
   url: string,
   settings: CombinedState = {},
 ): Promise<[number, number][][]> {
-  const flat = convertGeojson(settings.geojson)
-  const results = await Promise.all(
-    flat.map((area) =>
+  const { length = 0 } = settings.geojson?.features || {}
+  const results = await Promise.allSettled(
+    (settings.geojson?.features || []).map((area) =>
       fetch(url, {
         method: 'POST',
         headers: {
@@ -47,44 +47,83 @@ export async function getLotsOfData(
         },
         body: JSON.stringify({
           ...settings,
-          devices: Math.max(
-            Math.floor((settings.devices || 1) / flat.length),
-            1,
-          ),
+          return_type: 'multi_array',
+          devices: Math.max(Math.floor((settings.devices || 1) / length), 1),
           area,
         }),
-      }).then((res) => res.json()),
+      })
+        .then((res) => res.json())
+        .then((r) => r.data),
     ),
   )
-  return results.flatMap((r) => r)
+  return results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
 }
 
 export async function getMarkers(
   map: Map,
   data: UseStore['data'],
-  instances: UseStatic['selected'],
+  area: UseStatic['geojson'],
+  enableStops: boolean,
+  enableSpawnpoints: boolean,
+  enableGyms: boolean,
 ): Promise<Data> {
   const [pokestops, gyms, spawnpoints] = await Promise.all(
-    ['pokestop', 'gym', 'spawnpoint'].map((category) =>
-      fetch(
-        `/api/data/${data}/${category}`,
-        data === 'all'
-          ? undefined
-          : {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(
-                data === 'bound' ? getMapBounds(map) : { instances },
-              ),
-            },
-      ).then((res) => res.json()),
+    [
+      enableStops ? 'pokestop' : '',
+      enableGyms ? 'gym' : '',
+      enableSpawnpoints ? 'spawnpoint' : '',
+    ].map(async (category) =>
+      category &&
+      (data === 'area'
+        ? area.features.filter(
+            (feature) =>
+              feature.geometry.type === 'Polygon' ||
+              feature.geometry.type === 'MultiPolygon',
+          ).length
+        : true)
+        ? fetch(
+            `/api/data/${data}/${category}`,
+            data === 'all'
+              ? undefined
+              : {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(
+                    data === 'bound' ? getMapBounds(map) : { area },
+                  ),
+                },
+          ).then((res) => res.json())
+        : [],
     ),
   )
   return {
     pokestops: Array.isArray(pokestops) ? pokestops : [],
     gyms: Array.isArray(gyms) ? gyms : [],
     spawnpoints: Array.isArray(spawnpoints) ? spawnpoints : [],
+  }
+}
+
+export async function convert<T = object | string>(
+  area: ToConvert,
+  return_type: UseStore['polygonExportMode'],
+): Promise<T> {
+  try {
+    const data = await fetch('/api/v1/convert/data', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        area,
+        return_type,
+      }),
+    })
+    return await data.json().then((r) => r.data)
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error(e)
+    return '' as unknown as T
   }
 }

@@ -1,161 +1,113 @@
 use super::*;
-use crate::queries::{gym, instance::query_instance_route, pokestop, spawnpoint};
-use crate::utils::pixi_marker::pixi_marker;
+
 use crate::{
     models::{
-        api::{CustomError, MapBounds, RouteGeneration},
-        scanner::InstanceData,
+        api::{Args, ArgsUnwrapped, BoundsArg},
+        CustomError, KojiDb,
     },
-    utils::to_array::coord_to_array,
+    queries::{area, gym, instance, pokestop, spawnpoint},
 };
 
 #[get("/all/{category}")]
 async fn all(
-    pool: web::Data<DbPool>,
+    conn: web::Data<KojiDb>,
     scanner_type: web::Data<String>,
     category: actix_web::web::Path<String>,
 ) -> Result<HttpResponse, Error> {
     let category = category.into_inner();
-    let category_copy = category.clone();
     let scanner_type = scanner_type.as_ref();
 
     println!(
-        "\n[DATA-ALL] Scanner Type: {}, Category: {}",
+        "\n[DATA_ALL] Scanner Type: {} | Category: {}",
         scanner_type, category
     );
 
-    let all_data = web::block(move || {
-        let conn = pool.get()?;
-        if category == "gym" {
-            gym::all(&conn)
-        } else if category == "pokestop" {
-            pokestop::all(&conn)
-        } else {
-            spawnpoint::all(&conn)
-        }
-    })
-    .await?
+    let all_data = match category.as_str() {
+        "gym" => gym::all(&conn.data_db).await,
+        "pokestop" => pokestop::all(&conn.data_db).await,
+        "spawnpoint" => spawnpoint::all(&conn.data_db).await,
+        _ => Err(DbErr::Custom("invalid_category".to_string())),
+    }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    let all_data = pixi_marker(&all_data, &category_copy);
-
-    println!(
-        "[DATA-ALL] Returning {} {}s\n",
-        all_data.len(),
-        category_copy
-    );
+    println!("[DATA-ALL] Returning {} {}s\n", all_data.len(), category);
     Ok(HttpResponse::Ok().json(all_data))
 }
 
 #[post("/bound/{category}")]
 async fn bound(
-    pool: web::Data<DbPool>,
+    conn: web::Data<KojiDb>,
     scanner_type: web::Data<String>,
     category: actix_web::web::Path<String>,
-    payload: web::Json<MapBounds>,
+    payload: web::Json<BoundsArg>,
 ) -> Result<HttpResponse, Error> {
     let scanner_type = scanner_type.as_ref();
     let category = category.into_inner();
-    let category_copy = category.clone();
 
     println!(
-        "\n[DATA-BOUND] Scanner Type: {}, Category: {}",
+        "\n[DATA_BOUND] Scanner Type: {} | Category: {}",
         scanner_type, category
     );
 
-    let bound_data = web::block(move || {
-        let conn = pool.get()?;
-        if category == "gym" {
-            gym::bound(&conn, &payload)
-        } else if category == "pokestop" {
-            pokestop::bound(&conn, &payload)
-        } else {
-            spawnpoint::bound(&conn, &payload)
-        }
-    })
-    .await?
+    let bound_data = match category.as_str() {
+        "gym" => gym::bound(&conn.data_db, &payload).await,
+        "pokestop" => pokestop::bound(&conn.data_db, &payload).await,
+        "spawnpoint" => spawnpoint::bound(&conn.data_db, &payload).await,
+        _ => Err(DbErr::Custom("invalid_category".to_string())),
+    }
     .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    let bound_data = pixi_marker(&bound_data, &category_copy);
 
     println!(
         "[DATA-BOUND] Returning {} {}s\n",
         bound_data.len(),
-        category_copy
+        category
     );
     Ok(HttpResponse::Ok().json(bound_data))
 }
 
 #[post("/area/{category}")]
-async fn area(
-    pool: web::Data<DbPool>,
+async fn by_area(
+    conn: web::Data<KojiDb>,
     scanner_type: web::Data<String>,
     category: actix_web::web::Path<String>,
-    payload: web::Json<RouteGeneration>,
+    payload: web::Json<Args>,
 ) -> Result<HttpResponse, Error> {
     let scanner_type = scanner_type.as_ref();
     let category = category.into_inner();
-    let category_copy = category.clone();
 
-    let RouteGeneration {
-        instance,
-        area,
-        radius: _radius,
-        generations: _generations,
-        devices: _devices,
-        data_points: _data_points,
-        min_points: _min_points,
-        fast: _fast,
-    } = payload.into_inner();
-    let instance = instance.unwrap_or("".to_string());
-    let area = area.unwrap_or(vec![]);
+    let ArgsUnwrapped { area, instance, .. } = payload.into_inner().init(None);
 
     println!(
-        "\n[DATA-AREA] Scanner Type: {}, Category: {}, Instance: {}, Custom Area: {}",
-        scanner_type,
-        category,
-        instance,
-        area.len() > 0
+        "\n[DATA_AREA] Scanner Type: {} | Category: {}",
+        scanner_type, category
     );
 
-    if !scanner_type.eq("rdm") && area.len() == 0 {
-        return Ok(HttpResponse::BadRequest().json(CustomError {
-            message: "no_area_provided_and_invalid_scanner_type".to_string(),
-        }));
-    }
-    if area.len() == 0 && instance.is_empty() {
+    if area.features.is_empty() && instance.is_empty() {
         return Ok(HttpResponse::BadRequest().json(CustomError {
             message: "no_area_and_empty_instance".to_string(),
         }));
     }
 
-    let area_data = web::block(move || {
-        let conn = pool.get()?;
-        let area = if area.len() > 0 {
-            area
+    let area = if !area.features.is_empty() && !instance.is_empty() {
+        if scanner_type == "rdm" {
+            instance::route(&conn.data_db, &instance).await
         } else {
-            let data = query_instance_route(&conn, &instance)?;
-            let data: InstanceData =
-                serde_json::from_str(data.data.as_str()).expect("JSON was not well-formatted");
-            coord_to_array(data.area[0].clone())
-        };
-        if category == "gym" {
-            gym::area(&conn, &area)
-        } else if category == "pokestop" {
-            pokestop::area(&conn, &area)
-        } else {
-            spawnpoint::area(&conn, &area)
+            area::route(&conn.unown_db.as_ref().unwrap(), &instance).await
         }
-    })
-    .await?
+    } else {
+        Ok(area)
+    }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    let area_data = pixi_marker(&area_data, &category_copy);
+    let area_data = if category == "gym" {
+        gym::area(&conn.data_db, &area).await
+    } else if category == "pokestop" {
+        pokestop::area(&conn.data_db, &area).await
+    } else {
+        spawnpoint::area(&conn.data_db, &area).await
+    }
+    .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    println!(
-        "[DATA-AREA] Returning {} {}s\n",
-        area_data.len(),
-        category_copy
-    );
+    println!("[DATA-AREA] Returning {} {}s\n", area_data.len(), category);
     Ok(HttpResponse::Ok().json(area_data))
 }
