@@ -1,6 +1,6 @@
 // use super::*;
 
-use geo::{Coordinate, HaversineDestination, HaversineDistance, Point};
+use geo::Coordinate;
 use geohash::encode;
 use std::{
     collections::{HashMap, HashSet},
@@ -44,17 +44,32 @@ impl BBox {
         self.max_x = self.max_x.max(coord.x);
         self.max_y = self.max_y.max(coord.y);
     }
+    // fn print_poly(&self) {
+    //     println!(
+    //         "{}, {}\n{}, {}\n{}, {}\n{}, {}\n{}, {}\n",
+    //         self.min_y,
+    //         self.min_x,
+    //         self.max_y,
+    //         self.min_x,
+    //         self.max_y,
+    //         self.max_x,
+    //         self.min_y,
+    //         self.max_x,
+    //         self.min_y,
+    //         self.min_x,
+    //     )
+    // }
 }
 
 trait ClusterCoords {
     fn midpoint(&self, other: &Self) -> Coordinate;
 }
 
-impl ClusterCoords for Point {
-    fn midpoint(&self, other: &Point) -> Coordinate {
+impl ClusterCoords for Coordinate {
+    fn midpoint(&self, other: &Coordinate) -> Coordinate {
         Coordinate {
-            x: (self.x() + other.x()) / 2.,
-            y: (self.y() + other.y()) / 2.,
+            x: (self.x + other.x) / 2.,
+            y: (self.y + other.y) / 2.,
         }
     }
 }
@@ -64,7 +79,6 @@ struct CircleInfo {
     coord: Coordinate,
     bbox: BBox,
     points: HashSet<String>,
-    exists: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -77,12 +91,18 @@ struct PointInfo {
 const PRECISION: usize = 9;
 const APPROX_PRECISION: usize = PRECISION - 3;
 
+// fn dev_log(circle_map: &HashMap<String, CircleInfo>, hash: &str) {
+//     if let Some(info) = circle_map.get(hash) {
+//         println!("{} Points: {}, {:?}", hash, info.points.len(), info.points);
+//     }
+// }
+
 pub fn brute_force(
     points: &Vec<GenericData>,
     honeycomb: SingleVec,
     radius: f64,
     min_points: usize,
-    generations: usize,
+    _generations: usize,
     stats: &mut Stats,
 ) -> SingleVec {
     let time = Instant::now();
@@ -94,48 +114,25 @@ pub fn brute_force(
     let mut final_cluster_map: HashMap<String, CircleInfo> = HashMap::new();
     println!("{}", honeycomb.len());
 
-    let (mut point_map, mut circle_map) = create_maps(points, honeycomb, radius);
+    let (mut point_map, mut circle_map) = create_maps(points, honeycomb.clone(), radius);
 
-    let mut count = generations.clone();
-    let total = count.clone();
-    while count > 0 {
-        println!("Generation {} / {}", generations.clone() - count + 1, total);
-        // let mut points_map: HashMap<_, _> = if count == generations {
-        //     point_map.clone()
-        // } else {
-        //     point_map
-        //         .clone()
-        //         .into_iter()
-        //         .filter_map(|(key, info)| {
-        //             if point_seen_map.contains(&key) {
-        //                 None
-        //             } else {
-        //                 Some((key, info))
-        //             }
-        //         })
-        //         .collect()
-        // };
+    merge_circles(&mut circle_map, &mut point_map, radius);
 
-        step_2(
-            &mut circle_map,
-            &mut point_map,
-            radius,
-            &mut final_cluster_map,
-            &mut point_seen_map,
-            min_points,
-        );
+    filter_unique_points(
+        &mut point_map,
+        &mut circle_map,
+        &mut point_seen_map,
+        min_points,
+        &mut final_cluster_map,
+    );
 
-        step_3(
-            &point_map,
-            &circle_map,
-            &mut point_seen_map,
-            min_points,
-            &mut final_cluster_map,
-        );
-
-        final_cluster_map = step_5(&mut point_map, &circle_map, &mut final_cluster_map, radius);
-        count -= 1;
-    }
+    cleanup_leftovers(
+        &point_map,
+        &mut point_seen_map,
+        &mut final_cluster_map,
+        radius,
+        min_points,
+    );
 
     stats.cluster_time = time.elapsed().as_secs_f32();
     stats.total_clusters = final_cluster_map.len();
@@ -152,7 +149,13 @@ pub fn brute_force(
     });
     final_cluster_map
         .values()
-        .map(|x| [x.coord.y, x.coord.x])
+        .map(|x| {
+            if x.points.len() == 1 {
+                [x.bbox.min_y, x.bbox.min_x]
+            } else {
+                [x.coord.y, x.coord.x]
+            }
+        })
         .collect()
 }
 
@@ -264,9 +267,7 @@ fn create_maps(
                 CircleInfo {
                     coord,
                     bbox,
-                    // points: HashSet::new(),
                     points,
-                    exists: true,
                 },
             )
         })
@@ -317,28 +318,6 @@ fn create_maps(
         point_map.len()
     );
 
-    // if let Some(info) = circle_map.get("drt2z678v") {
-    //     println!("drt2z678v Points: {}, {:?}", info.points.len(), info.points);
-    // }
-    // if let Some(info) = circle_map.get("drt2z67nk") {
-    //     println!("drt2z67nk Points: {}, {:?}", info.points.len(), info.points);
-    // }
-    // if let Some(info) = circle_map.get("drt2z668g") {
-    //     println!("drt2z668g Points: {}, {:?}", info.points.len(), info.points);
-    // }
-    // if let Some(info) = circle_map.get("drt2z655k") {
-    //     println!("drt2z655k Points: {}, {:?}", info.points.len(), info.points);
-    // }
-    // if let Some(info) = circle_map.get("drt2z6h5q") {
-    //     println!("drt2z6h5q Points: {}, {:?}", info.points.len(), info.points);
-    // }
-    // if let Some(info) = circle_map.get("drt2z6kbb") {
-    //     println!("drt2z6kbb Points: {}, {:?}", info.points.len(), info.points);
-    // }
-    // if let Some(info) = circle_map.get("drt2z6knq") {
-    //     println!("drt2z6knq Points: {}, {:?}", info.points.len(), info.points);
-    // }
-
     // Cleans out empty circles, help with loop times
     let circle_map: HashMap<String, CircleInfo> = circle_map
         .into_iter()
@@ -361,105 +340,137 @@ fn create_maps(
 
 // Part 2: Attempt To Merge
 // Iterating through the circles from the honeycomb
-fn step_2(
+fn merge_circles(
     circle_map: &mut HashMap<String, CircleInfo>,
     point_map: &mut HashMap<String, PointInfo>,
     radius: f64,
-    final_cluster_map: &mut HashMap<String, CircleInfo>,
-    point_seen_map: &mut HashSet<String>,
-    min_points: usize,
 ) {
     let time = Instant::now();
-    let neighbor_distance = 0.75_f64.sqrt() * 2. * radius;
 
     'count: for (circle_key, circle_info) in circle_map.clone().into_iter() {
-        for bearing in [30., 90., 150., 210., 270., 330.] {
-            let circle_key = circle_key.clone();
-            let point: Point = circle_info.coord.into();
-            let neighbor_point = point.haversine_destination(bearing, neighbor_distance);
-            let neighbor_key = encode(neighbor_point.into(), PRECISION).unwrap();
+        let approx_key = circle_key[..(APPROX_PRECISION - 1)].to_string();
 
-            // If the circle map already has the neighbor entry
+        let keys = circle_map
+            .clone()
+            .into_keys()
+            .filter_map(|neighbor_key| {
+                if neighbor_key[..(APPROX_PRECISION - 1)] == approx_key {
+                    Some(neighbor_key)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<String>>();
+
+        // println!("Neighbors Found: {}", keys.len());
+        let mut best_neighbor = CircleInfo {
+            coord: Coordinate { x: 0., y: 0. },
+            bbox: BBox::new(Some(&vec![circle_info.coord])),
+            points: HashSet::new(),
+        };
+        let mut best_neighbor_key = "".to_string();
+
+        // println!("Circle: {}", circle_key);
+
+        for neighbor_key in keys {
+            if neighbor_key == circle_key {
+                continue;
+            }
             if let Some(found_neighbor) = circle_map.get(&neighbor_key) {
                 // if found_neighbor.exists {
                 // LL of the circle and its neighbor
-                let lower_left = Point::new(
-                    circle_info.bbox.min_x.min(found_neighbor.bbox.min_x),
-                    circle_info.bbox.min_y.min(found_neighbor.bbox.min_y),
-                );
+                let lower_left = Coordinate {
+                    x: circle_info.bbox.min_x.min(found_neighbor.bbox.min_x),
+                    y: circle_info.bbox.min_y.min(found_neighbor.bbox.min_y),
+                };
                 // UR of the circle and its neighbor
-                let upper_right = Point::new(
-                    circle_info.bbox.max_x.max(found_neighbor.bbox.max_x),
-                    circle_info.bbox.max_y.max(found_neighbor.bbox.max_y),
-                );
+                let upper_right = Coordinate {
+                    x: circle_info.bbox.max_x.max(found_neighbor.bbox.max_x),
+                    y: circle_info.bbox.max_y.max(found_neighbor.bbox.max_y),
+                };
+                let distance = lower_left.vincenty_inverse(&upper_right);
 
                 // Checks whether the LL and UR points are within the circle circumference
-                if lower_left.haversine_distance(&upper_right) <= radius * 2. {
+                if distance <= radius * 2. {
                     // New coord from the midpoint of the LL and UR points
                     let new_coord = lower_left.midpoint(&upper_right);
 
                     // Combine the points from the circle and its neighbor, ensuring uniqueness
                     let mut new_points = circle_info.points.clone();
                     for coord in found_neighbor.points.clone() {
-                        if !new_points.contains(&coord) {
-                            new_points.insert(coord);
-                        }
+                        new_points.insert(coord);
                     }
-                    if new_points.len() >= min_points {
-                        for point in new_points.clone() {
-                            point_seen_map.insert(point);
-                        }
-                        final_cluster_map.insert(
-                            encode(new_coord, PRECISION).unwrap(),
-                            CircleInfo {
-                                coord: new_coord,
-                                bbox: BBox::new(Some(
-                                    &new_points
-                                        .iter()
-                                        .filter_map(|x| {
-                                            if let Some(point) = point_map.get(x) {
-                                                Some(point.coord)
-                                            } else {
-                                                None
-                                            }
-                                        })
-                                        .collect(),
-                                )),
-                                points: new_points,
-                                exists: true,
-                                // exists_2: true,
-                            },
-                        );
-                        // // remove the the circle and the neighboring circle
-                        circle_map
-                            .entry(circle_key)
-                            .and_modify(|info| info.exists = false);
-                        circle_map
-                            .entry(neighbor_key)
-                            .and_modify(|info| info.exists = false);
 
-                        continue 'count;
+                    if new_points.len() > best_neighbor.points.len() {
+                        best_neighbor_key = neighbor_key;
+                        best_neighbor.points = new_points;
+                        best_neighbor.coord = new_coord;
+                    }
+                } else if distance <= radius * 2. + 10. {
+                    // New coord from the midpoint of the LL and UR points
+                    let new_coord = lower_left.midpoint(&upper_right);
+
+                    // Combine the points from the circle and its neighbor, ensuring uniqueness
+                    let mut new_points = circle_info.points.clone();
+                    for coord in found_neighbor.points.clone() {
+                        new_points.insert(coord);
+                    }
+                    if new_points.len() > best_neighbor.points.len() {
+                        if new_points.iter().all(|p| {
+                            let point_info = point_map.get(p).unwrap();
+                            point_info.coord.vincenty_inverse(&new_coord) <= radius
+                        }) {
+                            best_neighbor_key = neighbor_key;
+                            best_neighbor.points = new_points;
+                            best_neighbor.coord = new_coord;
+                        }
                     }
                 }
             }
+        }
+        if !best_neighbor_key.is_empty() {
+            let new_key = encode(best_neighbor.coord, PRECISION).unwrap();
+            circle_map.insert(
+                new_key.clone(),
+                CircleInfo {
+                    bbox: BBox::new(Some(
+                        &best_neighbor
+                            .points
+                            .iter()
+                            .filter_map(|x| {
+                                if let Some(point) = point_map.get_mut(x) {
+                                    point.circles.remove(&circle_key);
+                                    point.circles.remove(&best_neighbor_key);
+                                    point.circles.insert(new_key.clone());
+                                    Some(point.coord)
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect(),
+                    )),
+                    ..best_neighbor
+                },
+            );
+            // // remove the the circle and the neighboring circle
+            circle_map.remove(&circle_key);
+            circle_map.remove(&best_neighbor_key);
+
+            continue 'count;
         }
     }
     println!(
         "Stage 2 time: {}s | Circles: {}",
         time.elapsed().as_secs_f64(),
-        circle_map
-            .clone()
-            .into_values()
-            .filter(|x| x.exists)
-            .count()
+        circle_map.len()
     );
 }
 
 // Part 3:
 // Iterating through the points, marking seen,
-fn step_3(
-    point_map: &HashMap<String, PointInfo>,
-    circle_map: &HashMap<String, CircleInfo>,
+fn filter_unique_points(
+    point_map: &mut HashMap<String, PointInfo>,
+    circle_map: &mut HashMap<String, CircleInfo>,
     point_seen_map: &mut HashSet<String>,
     min_points: usize,
     final_cluster_map: &mut HashMap<String, CircleInfo>,
@@ -474,8 +485,6 @@ fn step_3(
             coord: Coordinate { x: 0., y: 0. },
             bbox: BBox::new(None),
             points: HashSet::new(),
-            exists: false,
-            // exists_2: false,
         };
 
         // iterating through each of the circles that this point is part of
@@ -533,94 +542,59 @@ fn step_3(
     );
 }
 
-// fn step_4(
-//     point_map: &HashMap<String, PointInfo>,
-//     final_cluster_map: &mut HashMap<String, CircleInfo>,
-// ) {
-//     for (circle_key, circle_info) in final_cluster_map.clone().into_iter() {}
-// }
-
-fn step_5(
-    point_map: &mut HashMap<String, PointInfo>,
-    _circle_map: &HashMap<String, CircleInfo>,
+fn cleanup_leftovers(
+    point_map: &HashMap<String, PointInfo>,
+    point_seen_map: &mut HashSet<String>,
     final_cluster_map: &mut HashMap<String, CircleInfo>,
     radius: f64,
-) -> HashMap<String, CircleInfo> {
+    min_points: usize,
+) {
     let time = Instant::now();
-    let mut final_cluster_map_2 = HashMap::new();
+    let mut new_point_map: HashMap<String, PointInfo> = HashMap::new();
 
-    'first: for (key_1, info_1) in final_cluster_map.clone().into_iter() {
-        for (key_2, info_2) in final_cluster_map.clone().into_iter() {
-            // LL of the circle and its neighbor
-            let lower_left = Point::new(
-                info_1.bbox.min_x.min(info_2.bbox.min_x),
-                info_1.bbox.min_y.min(info_2.bbox.min_y),
+    point_map.into_iter().for_each(|(key, info)| {
+        if !point_seen_map.contains(key) {
+            new_point_map.insert(
+                key.clone(),
+                PointInfo {
+                    coord: info.coord,
+                    circles: HashSet::<String>::new(),
+                    points: 0,
+                },
             );
-            // UR of the circle and its neighbor
-            let upper_right = Point::new(
-                info_1.bbox.max_x.max(info_2.bbox.max_x),
-                info_1.bbox.max_y.max(info_2.bbox.max_y),
-            );
+        }
+    });
 
-            // Checks whether the LL and UR points are within the circle circumference
-            if lower_left.haversine_distance(&upper_right) <= radius * 2. {
-                // New coord from the midpoint of the LL and UR points
-                let new_coord = lower_left.midpoint(&upper_right);
-
-                // Combine the points from the circle and its neighbor, ensuring uniqueness
-                let mut new_points = info_1.points.clone();
-                let new_key = encode(new_coord, PRECISION).unwrap();
-                for coord in info_2.points.clone() {
-                    if !new_points.contains(&coord.clone()) {
-                        new_points.insert(coord.clone());
-                    }
-                    if let Some(point) = point_map.get_mut(&coord) {
-                        point.circles.insert(new_key.clone());
-                    }
-                }
-                final_cluster_map_2.insert(
-                    new_key,
-                    CircleInfo {
-                        coord: new_coord,
-                        bbox: BBox::new(Some(
-                            &new_points
-                                .iter()
-                                .filter_map(|x| {
-                                    if let Some(point) = point_map.get(x) {
-                                        Some(point.coord)
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .collect(),
-                        )),
-                        points: new_points,
-                        exists: false,
-                    },
-                );
-                final_cluster_map
-                    .entry(key_1)
-                    .and_modify(|info| info.exists = false);
-                final_cluster_map
-                    .entry(key_2)
-                    .and_modify(|info| info.exists = false);
-
-                continue 'first;
+    for (point_key, point_info) in new_point_map.clone().into_iter() {
+        if point_seen_map.contains(&point_key) {
+            continue;
+        }
+        let mut points: HashSet<String> = HashSet::new();
+        for (point_key_2, point_info_2) in new_point_map.clone().into_iter() {
+            if point_seen_map.contains(&point_key_2) {
+                continue;
+            }
+            if point_info.coord.vincenty_inverse(&point_info_2.coord) <= radius {
+                points.insert(point_key_2);
             }
         }
-        if final_cluster_map.get(&key_1).unwrap().exists {
-            final_cluster_map_2.insert(key_1, info_1);
+        if points.len() >= min_points {
+            for point in points.clone().into_iter() {
+                point_seen_map.insert(point);
+            }
+            final_cluster_map.insert(
+                point_key,
+                CircleInfo {
+                    coord: point_info.coord,
+                    bbox: BBox::new(None),
+                    points,
+                },
+            );
         }
     }
-
-    final_cluster_map
-        .values_mut()
-        .for_each(|info| info.exists = true);
     println!(
         "Stage 4 time: {}s | Circles: {}",
         time.elapsed().as_secs_f64(),
-        final_cluster_map_2.len(),
+        final_cluster_map.len()
     );
-
-    final_cluster_map_2
 }

@@ -36,12 +36,12 @@ where
         if lat_lon.is_empty() || lat_lon.concat().is_empty() {
             continue;
         }
-        let lat = lat_lon[0].parse::<T>();
+        let lat = lat_lon[0].trim().parse::<T>();
         let lat = match lat {
             Ok(lat) => lat,
             Err(_) => continue,
         };
-        let lon = lat_lon[1].parse::<T>();
+        let lon = lat_lon[1].trim().parse::<T>();
         let lon: T = match lon {
             Ok(lon) => lon,
             Err(_) => continue,

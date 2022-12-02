@@ -136,7 +136,10 @@ export default function ExportPolygon({
             setOpen('')
             setCode('')
             if (mode === 'import' && tempGeojson) {
-              setStatic('geojson', tempGeojson)
+              setStatic('geojson', (geo) => ({
+                ...geo,
+                features: [...geo.features, ...tempGeojson.features],
+              }))
             }
           }}
         >
