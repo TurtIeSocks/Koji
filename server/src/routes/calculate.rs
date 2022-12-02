@@ -1,7 +1,7 @@
 use super::*;
 
 use geo::{HaversineDistance, Point};
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::time::Instant;
 use time::Duration;
 use travelling_salesman;
@@ -194,7 +194,14 @@ async fn cluster(
     let mut final_clusters = VecDeque::<[f64; 2]>::new();
 
     let mut rotate_count: usize = 0;
+
+    let mut hash = HashSet::<usize>::new();
     for (i, index) in tour.route.into_iter().enumerate() {
+        if hash.contains(&index) {
+            continue;
+        } else {
+            hash.insert(index);
+        }
         let [lat, lon] = clusters[index];
         if lat == stats.best_cluster[0] && lon == stats.best_cluster[1] {
             rotate_count = i;

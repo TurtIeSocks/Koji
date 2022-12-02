@@ -24,6 +24,7 @@ pub enum ReturnTypeArg {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
 pub enum DataPointsArg {
     Array(SingleVec),
     Struct(SingleStruct),

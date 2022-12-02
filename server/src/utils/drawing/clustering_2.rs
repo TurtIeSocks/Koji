@@ -112,9 +112,8 @@ pub fn brute_force(
     // Return value is a HashMap to ensure no duplicates are sent
     // TODO: Make into a SingleArray once the algorithm is solid
     let mut final_cluster_map: HashMap<String, CircleInfo> = HashMap::new();
-    println!("{}", honeycomb.len());
 
-    let (mut point_map, mut circle_map) = create_maps(points, honeycomb.clone(), radius);
+    let (mut point_map, mut circle_map) = create_maps(points, honeycomb, radius);
 
     merge_circles(&mut circle_map, &mut point_map, radius);
 
@@ -149,13 +148,7 @@ pub fn brute_force(
     });
     final_cluster_map
         .values()
-        .map(|x| {
-            if x.points.len() == 1 {
-                [x.bbox.min_y, x.bbox.min_x]
-            } else {
-                [x.coord.y, x.coord.x]
-            }
-        })
+        .map(|x| [x.coord.y, x.coord.x])
         .collect()
 }
 
@@ -453,8 +446,8 @@ fn merge_circles(
                 },
             );
             // // remove the the circle and the neighboring circle
-            circle_map.remove(&circle_key);
-            circle_map.remove(&best_neighbor_key);
+            // circle_map.remove(&circle_key);
+            // circle_map.remove(&best_neighbor_key);
 
             continue 'count;
         }
