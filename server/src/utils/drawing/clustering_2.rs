@@ -92,9 +92,12 @@ pub fn brute_force(
     stats.total_distance = 0.;
     stats.longest_distance = 0.;
     final_cluster_map.clone().into_iter().for_each(|(_, info)| {
-        if info.points.len() > stats.best_cluster_count {
-            stats.best_cluster_count = info.points.len();
-            stats.best_cluster = [info.coord.y, info.coord.x];
+        if info.points.len() >= stats.best_cluster_point_count {
+            if info.points.len() != stats.best_cluster_point_count {
+                stats.best_clusters = vec![];
+                stats.best_cluster_point_count = info.points.len();
+            }
+            stats.best_clusters.push([info.coord.y, info.coord.x]);
         }
     });
     final_cluster_map

@@ -128,9 +128,12 @@ pub fn project_points(
             .into_iter()
             .filter_map(|(key, values)| {
                 if values.len() >= min_points {
-                    if values.len() > stats.best_cluster_count {
-                        stats.best_cluster = key.from_key();
-                        stats.best_cluster_count = values.len();
+                    if values.len() >= stats.best_cluster_point_count {
+                        if values.len() != stats.best_cluster_point_count {
+                            stats.best_clusters = vec![];
+                            stats.best_cluster_point_count = values.len();
+                        }
+                        stats.best_clusters.push(key.from_key());
                     }
                     for point in values.into_iter() {
                         seen_map.insert(point);
@@ -153,11 +156,18 @@ pub fn project_points(
         plane_center_lon.to_degrees()
     );
     let mut final_output: SingleVec = vec![];
-    let (best_lat, best_lon, _) = reverse_project(
-        stats.best_cluster,
-        (plane_center, plane_x, plane_y, plane_z, adjusted_radius),
-    );
-    stats.best_cluster = [best_lat, best_lon];
+    stats.best_clusters = stats
+        .best_clusters
+        .clone()
+        .into_iter()
+        .map(|p| {
+            let (lat, lon, _) = reverse_project(
+                p,
+                (plane_center, plane_x, plane_y, plane_z, adjusted_radius),
+            );
+            [lat, lon]
+        })
+        .collect();
     for p in output.iter() {
         let (lat, lon, s) = reverse_project(
             *p,

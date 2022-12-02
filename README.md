@@ -193,13 +193,14 @@ pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
 
 // Benchmark/Stats Struct
   pub struct Stats {
-      pub best_cluster: Option<PointArray>,
-      pub best_cluster_count: Option<u8>,
-      pub cluster_time: Option<f64>,
-      pub points_covered: Option<u32>,
-      pub total_clusters: Option<u32>,
-      pub total_distance: Option<u32>,
-      pub longest_distance: Option<u32>,
+      pub best_clusters: SingleVec,
+      pub best_cluster_point_count: usize,
+      pub cluster_time: f32,
+      pub total_points: usize,
+      pub points_covered: usize,
+      pub total_clusters: usize,
+      pub total_distance: f64,
+      pub longest_distance: f64,
   }
 
 // Response Struct (what you will receive!)

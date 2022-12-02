@@ -164,6 +164,8 @@ async fn cluster(
         data_points.len()
     );
 
+    stats.total_points = data_points.len();
+
     let clusters: SingleVec = if fast {
         project_points::project_points(
             vector::from_generic_data(data_points),
@@ -218,6 +220,7 @@ async fn cluster(
     let mut rotate_count: usize = 0;
 
     let mut hash = HashSet::<usize>::new();
+
     for (i, index) in tour.route.into_iter().enumerate() {
         if hash.contains(&index) {
             continue;
@@ -225,7 +228,10 @@ async fn cluster(
             hash.insert(index);
         }
         let [lat, lon] = clusters[index];
-        if lat == stats.best_cluster[0] && lon == stats.best_cluster[1] {
+        if stats.best_clusters.len() >= 1
+            && lat == stats.best_clusters[0][0]
+            && lon == stats.best_clusters[0][1]
+        {
             rotate_count = i;
             println!("Found Best! {}, {} - {}", lat, lon, index);
         }

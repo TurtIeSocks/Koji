@@ -118,9 +118,10 @@ pub struct ConfigResponse {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Stats {
-    pub best_cluster: PointArray,
-    pub best_cluster_count: usize,
+    pub best_clusters: SingleVec,
+    pub best_cluster_point_count: usize,
     pub cluster_time: f32,
+    pub total_points: usize,
     pub points_covered: usize,
     pub total_clusters: usize,
     pub total_distance: f64,
@@ -130,9 +131,10 @@ pub struct Stats {
 impl Stats {
     pub fn new() -> Self {
         Stats {
-            best_cluster: [0., 0.],
-            best_cluster_count: 0,
+            best_clusters: vec![],
+            best_cluster_point_count: 0,
             cluster_time: 0.,
+            total_points: 0,
             points_covered: 0,
             total_clusters: 0,
             total_distance: 0.,
@@ -140,7 +142,7 @@ impl Stats {
         }
     }
     pub fn log(&self) {
-        println!("Best Cluster: {:?} | Best Cluster Count: {}\nCluster Time: {}s | Points Covered: {} | Total Clusters: {}\nTotal Distance: {} | Longest Distance: {}\n", self.best_cluster, self.best_cluster_count, self.cluster_time, self.points_covered, self.total_clusters, self.total_distance as f32, self.longest_distance as f32)
+        println!("Best Cluster Amount: {:?} | Best Cluster Point Count: {}\nCluster Time: {}s | Total Points: {} | Points Covered: {} | Total Clusters: {}\nTotal Distance: {} | Longest Distance: {}\n", self.best_clusters.len(), self.best_cluster_point_count, self.cluster_time, self.total_points, self.points_covered, self.total_clusters, self.total_distance as f32, self.longest_distance as f32)
     }
 }
 
