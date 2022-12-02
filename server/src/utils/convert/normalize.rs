@@ -123,6 +123,12 @@ pub fn area_input(area: Option<GeoFormats>) -> (FeatureCollection, ReturnTypeArg
                 (collection::from_features(areas), ReturnTypeArg::FeatureVec)
             }
             GeoFormats::FeatureCollection(area) => (area, ReturnTypeArg::FeatureCollection),
+            GeoFormats::Poracle(area) => (
+                collection::from_features(
+                    area.into_iter().map(|a| feature::from_poracle(a)).collect(),
+                ),
+                ReturnTypeArg::Poracle,
+            ),
         }
     } else {
         (FeatureCollection::default(), ReturnTypeArg::SingleArray)

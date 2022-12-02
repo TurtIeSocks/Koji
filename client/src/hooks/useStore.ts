@@ -30,6 +30,7 @@ export interface UseStore {
     | 'struct'
     | 'text'
     | 'altText'
+    | 'poracle'
   export: {
     total: number
     max: number

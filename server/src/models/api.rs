@@ -21,6 +21,7 @@ pub enum ReturnTypeArg {
     Feature,
     FeatureVec,
     FeatureCollection,
+    Poracle,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

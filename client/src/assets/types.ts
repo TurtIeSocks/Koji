@@ -51,6 +51,18 @@ export type MultiObjectInput = ObjectInput[]
 export type ArrayInput = number[][]
 export type MultiArrayInput = ArrayInput[]
 
+export interface Poracle {
+  name?: string
+  id?: number
+  color?: string
+  path?: ArrayInput
+  multipath?: MultiArrayInput
+  group?: string
+  description?: string
+  user_selectable?: boolean
+  display_in_matches?: boolean
+}
+
 export type ToConvert =
   | ObjectInput
   | MultiObjectInput
@@ -59,3 +71,4 @@ export type ToConvert =
   | Feature
   | FeatureCollection
   | string
+  | Poracle

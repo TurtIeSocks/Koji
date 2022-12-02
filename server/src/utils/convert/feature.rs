@@ -3,7 +3,7 @@ use super::*;
 use geojson::{Geometry, Value};
 
 use crate::models::{
-    ArrayType, MultiStruct, MultiVec, PointArray, PointStruct, SingleStruct, SingleVec,
+    ArrayType, MultiStruct, MultiVec, PointArray, PointStruct, Poracle, SingleStruct, SingleVec,
 };
 
 /*
@@ -125,4 +125,36 @@ pub fn split_multi(feature: Geometry) -> Vec<Feature> {
             .collect(),
         _ => vec![],
     }
+}
+
+pub fn from_poracle(poracle_feat: Poracle) -> Feature {
+    let mut feature = if let Some(path) = poracle_feat.path {
+        from_single_vector(path, None)
+    } else if let Some(multipath) = poracle_feat.multipath {
+        from_multi_vector(multipath, None)
+    } else {
+        Feature::default()
+    };
+    if let Some(property) = poracle_feat.name {
+        feature.set_property("name", property);
+    }
+    if let Some(property) = poracle_feat.id {
+        feature.set_property("id", property);
+    }
+    if let Some(property) = poracle_feat.color {
+        feature.set_property("color", property);
+    }
+    if let Some(property) = poracle_feat.group {
+        feature.set_property("group", property);
+    }
+    if let Some(property) = poracle_feat.description {
+        feature.set_property("description", property);
+    }
+    if let Some(property) = poracle_feat.user_selectable {
+        feature.set_property("user_selectable", property);
+    }
+    if let Some(property) = poracle_feat.display_in_matches {
+        feature.set_property("display_in_matches", property);
+    }
+    feature
 }

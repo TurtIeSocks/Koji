@@ -1,3 +1,6 @@
+// This file is currently unused but remains in the repo in case someone comes back to it
+// You must uncomment vrp-pragmatic in the Cargo.toml file to use it
+// This should be mostly functional, it's just unreliable and a little slow
 use std::{cmp::Ordering::Less, sync::Arc};
 use vrp_pragmatic::core::{
     models::{Problem as CoreProblem, Solution as CoreSolution},

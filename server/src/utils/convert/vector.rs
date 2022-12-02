@@ -73,9 +73,9 @@ pub fn from_collection(fc: FeatureCollection) -> MultiVec {
     return_value
 }
 
-pub fn from_geometry(feature: Geometry) -> SingleVec {
+pub fn from_geometry(geometry: Geometry) -> SingleVec {
     let mut temp_arr: SingleVec = vec![];
-    match feature.value {
+    match geometry.value {
         // This should be unused now but leaving it since the work has been done
         Value::MultiPolygon(geometry) => {
             for poly in geometry.into_iter() {
@@ -110,7 +110,7 @@ pub fn from_geometry(feature: Geometry) -> SingleVec {
             }
         }
         _ => {
-            println!("Unsupported Geometry: {:?}", feature.value.type_name())
+            println!("Unsupported Geometry: {:?}", geometry.value.type_name())
         }
     }
     temp_arr
