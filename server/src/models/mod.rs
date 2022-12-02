@@ -4,6 +4,7 @@ use geo::Coordinate;
 use num_traits::Float;
 use sea_orm::{DatabaseConnection, FromQueryResult};
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
 pub mod api;
 pub mod scanner;
@@ -19,6 +20,21 @@ type Precision = f64;
 pub type PointArray<T = Precision> = [T; 2];
 pub type SingleVec<T = Precision> = Vec<PointArray<T>>;
 pub type MultiVec<T = Precision> = Vec<Vec<PointArray<T>>>;
+
+#[skip_serializing_none]
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Poracle {
+    pub id: Option<u64>,
+    pub name: Option<String>,
+    pub color: Option<String>,
+    pub group: Option<String>,
+    pub description: Option<String>,
+    pub user_selectable: Option<bool>,
+    pub display_in_matches: Option<bool>,
+    pub path: Option<SingleVec>,
+    pub multipath: Option<MultiVec>,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
 pub struct PointStruct<T: Float = Precision> {
@@ -45,6 +61,7 @@ pub enum GeoFormats {
     Feature(Feature),
     FeatureVec(Vec<Feature>),
     FeatureCollection(FeatureCollection),
+    Poracle(Vec<Poracle>),
 }
 
 #[derive(Debug, Serialize, Deserialize)]

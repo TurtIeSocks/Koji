@@ -1,4 +1,7 @@
-use super::*;
+use super::{
+    convert::{poracle, vector},
+    *,
+};
 
 use actix_web::HttpResponse;
 use num_traits::Float;
@@ -8,8 +11,6 @@ use crate::models::{
     api::{Response, ReturnTypeArg, Stats},
     GeoFormats, MultiStruct, MultiVec, PointStruct, SingleStruct,
 };
-
-use super::convert::vector::from_collection;
 
 fn as_text<T: Float + FromStr + Display>(points: MultiVec<T>, alt_text: bool) -> String {
     let float_separator = if alt_text { " " } else { "," };
@@ -70,15 +71,15 @@ pub fn send(
         status_code: 200,
         data: if benchmark_mode { None } else { Some(match return_type {
             ReturnTypeArg::SingleStruct => {
-                GeoFormats::SingleStruct(flatten(as_struct(from_collection(value))))
+                GeoFormats::SingleStruct(flatten(as_struct(vector::from_collection(value))))
             }
             ReturnTypeArg::MultiStruct => {
-                GeoFormats::MultiStruct(as_struct(from_collection(value)))
+                GeoFormats::MultiStruct(as_struct(vector::from_collection(value)))
             }
-            ReturnTypeArg::Text => GeoFormats::Text(as_text(from_collection(value), false)),
-            ReturnTypeArg::AltText => GeoFormats::Text(as_text(from_collection(value), true)),
-            ReturnTypeArg::SingleArray => GeoFormats::SingleArray(flatten(from_collection(value))),
-            ReturnTypeArg::MultiArray => GeoFormats::MultiArray(from_collection(value)),
+            ReturnTypeArg::Text => GeoFormats::Text(as_text(vector::from_collection(value), false)),
+            ReturnTypeArg::AltText => GeoFormats::Text(as_text(vector::from_collection(value), true)),
+            ReturnTypeArg::SingleArray => GeoFormats::SingleArray(flatten(vector::from_collection(value))),
+            ReturnTypeArg::MultiArray => GeoFormats::MultiArray(vector::from_collection(value)),
             ReturnTypeArg::Feature => {
                 if value.features.len() == 1 {
                     GeoFormats::Feature(value.features[0].clone())
@@ -89,6 +90,7 @@ pub fn send(
             }
             ReturnTypeArg::FeatureVec => GeoFormats::FeatureVec(value.features),
             ReturnTypeArg::FeatureCollection => GeoFormats::FeatureCollection(value),
+            ReturnTypeArg::Poracle => GeoFormats::Poracle(poracle::from_collection(value)),
         })},
         stats,
     })

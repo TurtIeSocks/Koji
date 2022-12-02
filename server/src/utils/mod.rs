@@ -49,7 +49,7 @@ pub fn sql_raw(area: &FeatureCollection) -> String {
             "{} {} ST_CONTAINS(ST_GeomFromGeoJSON('{}', 2, 0), POINT(lon, lat))",
             string,
             if i == 0 { "WHERE" } else { "OR" },
-            feature.to_string()
+            feature.geometry.as_ref().unwrap().to_string()
         );
     }
     string
@@ -78,6 +78,7 @@ pub fn get_return_type(
             "singlestruct" | "single_struct" => ReturnTypeArg::SingleStruct,
             "multistruct" | "multi_struct" => ReturnTypeArg::MultiStruct,
             "feature" => ReturnTypeArg::Feature,
+            "poracle" => ReturnTypeArg::Poracle,
             "featurecollection" | "feature_collection" => ReturnTypeArg::FeatureCollection,
             _ => default_return_type,
         }

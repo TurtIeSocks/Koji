@@ -58,7 +58,7 @@ export default function ExportPolygon({
         }
       })
     }
-  }, [polygonExportMode, code])
+  }, [polygonExportMode])
 
   React.useEffect(() => {
     if (mode === 'import' && code) {
@@ -83,7 +83,7 @@ export default function ExportPolygon({
         }
       })()
     }
-  }, [code])
+  }, [polygonExportMode, code])
   return (
     <Dialog
       open={open === 'polygon'}
@@ -124,6 +124,7 @@ export default function ExportPolygon({
               'struct',
               'text',
               'altText',
+              'poracle',
             ]}
           />
         )}
