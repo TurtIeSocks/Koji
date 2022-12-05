@@ -71,6 +71,7 @@ impl CircleInfo {
 pub struct PointInfo {
     pub coord: Coordinate,
     pub circles: HashSet<String>,
+    pub points: usize,
 }
 
 pub const PRECISION: usize = 9;
@@ -148,24 +149,28 @@ pub fn brute_force(
 
     stats.cluster_time = time.elapsed().as_secs_f32();
     stats.total_clusters = circle_map.len();
-    stats.points_covered = point_seen_map.len();
+    stats.points_covered = point_seen_map
+        .iter()
+        .fold(0, |acc, y| acc + point_map.get(y).unwrap().points);
     stats.total_distance = 0.;
     stats.longest_distance = 0.;
-    circle_map.clone().into_iter().for_each(|(_, info)| {
-        let combined = info.combine();
-        if combined.len() >= stats.best_cluster_point_count {
-            if combined.len() != stats.best_cluster_point_count {
-                stats.best_clusters = vec![];
-                stats.best_cluster_point_count = combined.len();
+    helpers::get_sorted(&circle_map)
+        .into_iter()
+        .for_each(|(_, info)| {
+            let combined = info.combine();
+            if combined.len() >= stats.best_cluster_point_count {
+                if combined.len() != stats.best_cluster_point_count {
+                    stats.best_clusters = vec![];
+                    stats.best_cluster_point_count = combined.len();
+                }
+                stats.best_clusters.push([info.coord.y, info.coord.x]);
             }
-            stats.best_clusters.push([info.coord.y, info.coord.x]);
-        }
-    });
-    circle_map
-        .values()
+        });
+    helpers::get_sorted(&circle_map)
+        .iter()
         .filter_map(|x| {
-            if x.combine().len() >= min_points {
-                Some([x.coord.y, x.coord.x])
+            if x.1.combine().len() >= min_points {
+                Some([x.1.coord.y, x.1.coord.x])
             } else {
                 None
             }

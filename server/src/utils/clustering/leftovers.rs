@@ -17,6 +17,7 @@ pub fn run(
             new_point_map.insert(
                 key.clone(),
                 PointInfo {
+                    points: info.points,
                     coord: info.coord,
                     circles: HashSet::<String>::new(),
                 },

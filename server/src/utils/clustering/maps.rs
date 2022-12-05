@@ -29,10 +29,16 @@ pub fn run(
         let approx_key = encode(coord, APPROX_PRECISION).unwrap();
 
         // Insert into master point map
-        point_map.entry(point_key.clone()).or_insert(PointInfo {
-            coord,
-            circles: HashSet::new(),
-        });
+        point_map
+            .entry(point_key.clone())
+            .and_modify(|info| {
+                info.points += 1;
+            })
+            .or_insert(PointInfo {
+                points: 1,
+                coord,
+                circles: HashSet::new(),
+            });
         // Insert into approx map
         approx_map
             .entry(approx_key)
