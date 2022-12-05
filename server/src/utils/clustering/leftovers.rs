@@ -89,7 +89,7 @@ pub fn run(
             let mut unique = HashSet::new();
             unique.insert(point_key.clone());
             circle_map.insert(
-                point_key,
+                point_key.clone(),
                 CircleInfo {
                     coord: point_info.coord,
                     bbox: BBox::new(Some(&vec![point_info.coord])),
@@ -103,6 +103,7 @@ pub fn run(
             circle_map.remove(&best_merge_key);
             circle_map.insert(new_key, best_merge);
         }
+        point_seen_map.insert(point_key);
     }
     if circle_map.len() != initial_size {
         println!(
