@@ -94,30 +94,3 @@ impl Helpers for Coordinate {
         (s * 1000.0).round() / 1000.0
     }
 }
-
-// pub fn centroid(coords: &Vec<Coordinate>) -> Coordinate {
-//     let (mut x, mut y, mut z) = (0.0, 0.0, 0.0);
-
-//     for loc in coords.iter() {
-//         let lat = loc.y.to_radians();
-//         let lon = loc.x.to_radians();
-
-//         x += lat.cos() * lon.cos();
-//         y += lat.cos() * lon.sin();
-//         z += lat.sin();
-//     }
-
-//     let number_of_locations = coords.len() as f64;
-//     x /= number_of_locations;
-//     y /= number_of_locations;
-//     z /= number_of_locations;
-
-//     let hyp = (x * x + y * y).sqrt();
-//     let lon = y.atan2(x);
-//     let lat = z.atan2(hyp);
-
-//     Coordinate {
-//         y: lat.to_degrees(),
-//         x: lon.to_degrees(),
-//     }
-// }

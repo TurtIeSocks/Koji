@@ -1,6 +1,6 @@
 use super::write_debug;
 
-use geo::{Coordinate, HaversineDestination, Point};
+use geo::{Coordinate, HaversineDestination, HaversineDistance, Point};
 use geohash::encode;
 use std::{
     collections::{HashMap, HashSet},
@@ -37,6 +37,7 @@ pub struct CircleInfo {
     pub bbox: BBox,
     pub points: HashSet<String>,
     pub unique: HashSet<String>,
+    pub meets_min: bool,
 }
 
 pub enum CiKeys {
@@ -99,8 +100,12 @@ pub fn _dev_log(
         for point in combined.iter() {
             if let Some(p) = point_map.get(point) {
                 println!("{} Circles: {}, {:?}", point, p.circles.len(), p.circles);
+            } else {
+                println!("Point_map does not contain {}", point);
             }
         }
+    } else {
+        println!("Circle_map does not contain {}", hash);
     }
 }
 
@@ -116,24 +121,43 @@ pub fn brute_force(
     // unfortunately, due to the borrower, we have to maintain this separately from the point_map
     let mut point_seen_map: HashSet<String> = HashSet::new();
 
-    let (mut point_map, mut circle_map) = maps::run(points, honeycomb, radius);
-
-    wiggle::run(&mut circle_map, &mut point_map, radius);
+    let (mut point_map, mut circle_map) = maps::run(points, honeycomb, radius, min_points);
 
     if std::env::var("DEBUG").unwrap_or("false".to_string()) == "true" {
         write_debug::hashmap("pre_circles.txt", &circle_map).expect("Unable to write circles.txt");
         write_debug::hashmap("pre_points.txt", &point_map).expect("Unable to write points.txt");
     }
 
-    unique::run(&mut point_map, &mut circle_map, radius);
+    wiggle::run(&mut circle_map, &mut point_map, radius, min_points);
+
+    if std::env::var("DEBUG").unwrap_or("false".to_string()) == "true" {
+        write_debug::hashmap("wiggle_circles.txt", &circle_map)
+            .expect("Unable to write circles.txt");
+        write_debug::hashmap("wiggle_points.txt", &point_map).expect("Unable to write points.txt");
+    }
+
+    unique::run(&mut point_map, &mut circle_map, radius, min_points);
 
     for info in circle_map.clone().values() {
         for point in info.combine() {
             point_seen_map.insert(point);
         }
     }
+    let mut count = 0;
+    let mut circle_map = helpers::get_sorted(&circle_map)
+        .into_iter()
+        .filter_map(|(circle_key, circle_info)| {
+            if circle_info.unique.is_empty() {
+                count += 1;
+                return None;
+            }
+            Some((circle_key, circle_info))
+        })
+        .collect();
+
+    println!("Removed at the end {}", count);
     if point_seen_map.len() != points.len() {
-        // println!("Missed Points: {}", points.len() - point_seen_map.len());
+        println!("Missed Points: {}", points.len() - point_seen_map.len());
         leftovers::run(
             &point_map,
             &mut point_seen_map,
@@ -142,34 +166,45 @@ pub fn brute_force(
             min_points,
         );
     }
+    let sorted = helpers::get_sorted(&circle_map);
+
     if std::env::var("DEBUG").unwrap_or("false".to_string()) == "true" {
         write_debug::hashmap("circles.txt", &circle_map).expect("Unable to write circles.txt");
         write_debug::hashmap("points.txt", &point_map).expect("Unable to write points.txt");
     }
 
     stats.cluster_time = time.elapsed().as_secs_f32();
-    stats.total_clusters = circle_map.len();
+    stats.total_clusters = sorted.len();
     stats.points_covered = point_seen_map
         .iter()
         .fold(0, |acc, y| acc + point_map.get(y).unwrap().points);
     stats.total_distance = 0.;
     stats.longest_distance = 0.;
-    helpers::get_sorted(&circle_map)
-        .into_iter()
-        .for_each(|(_, info)| {
-            let combined = info.combine();
-            if combined.len() >= stats.best_cluster_point_count {
-                if combined.len() != stats.best_cluster_point_count {
-                    stats.best_clusters = vec![];
-                    stats.best_cluster_point_count = combined.len();
-                }
-                stats.best_clusters.push([info.coord.y, info.coord.x]);
+    for (i, info) in sorted.iter().enumerate() {
+        let point: Point = info.1.coord.into();
+        let point2: Point = if i == sorted.len() - 1 {
+            sorted[0].1.coord.into()
+        } else {
+            sorted[i + 1].1.coord.into()
+        };
+        let distance = point.haversine_distance(&point2);
+        stats.total_distance += distance;
+        if distance > stats.longest_distance {
+            stats.longest_distance = distance;
+        }
+        let combined = info.1.combine();
+        if combined.len() >= stats.best_cluster_point_count {
+            if combined.len() != stats.best_cluster_point_count {
+                stats.best_clusters = vec![];
+                stats.best_cluster_point_count = combined.len();
             }
-        });
-    helpers::get_sorted(&circle_map)
-        .iter()
+            stats.best_clusters.push([info.1.coord.y, info.1.coord.x]);
+        }
+    }
+    sorted
+        .into_iter()
         .filter_map(|x| {
-            if x.1.combine().len() >= min_points {
+            if x.1.meets_min {
                 Some([x.1.coord.y, x.1.coord.x])
             } else {
                 None

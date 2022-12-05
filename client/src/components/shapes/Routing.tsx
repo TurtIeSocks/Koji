@@ -6,7 +6,7 @@ import geohash from 'ngeohash'
 import { useStore } from '@hooks/useStore'
 import { getColor } from '@services/utils'
 import { getLotsOfData } from '@services/fetches'
-import { COLORS } from '@assets/constants'
+// import { COLORS } from '@assets/constants'
 import { useStatic } from '@hooks/useStatic'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 
@@ -60,8 +60,6 @@ export default function Routes() {
               total += dis
               if (dis > max) max = dis
             })
-            // eslint-disable-next-line no-console
-            console.log('Clusters:', device.length)
           })
           setStore('export', { ...exportSettings, route, total, max })
         }
@@ -88,9 +86,10 @@ export default function Routes() {
     <>
       {exportSettings.route.map((route) => {
         const color =
-          mode === 'route'
-            ? COLORS[(Math.random() * COLORS.length) | 0]
-            : 'blue'
+          // mode === 'route'
+          //   ? COLORS[(Math.random() * COLORS.length) | 0]
+          //   :
+          'blue'
         return route.map((p, j) => {
           if (p.length !== 2 || !p[0] || !p[1]) return null
           const isEnd = j === route.length - 1
@@ -123,13 +122,11 @@ export default function Routes() {
                   )}
                 </Circle>
               )}
-              {showLines && mode !== 'cluster' && (
-                <Polyline
-                  positions={[p, next || p]}
-                  pathOptions={{ color: getColor(dis), opacity: 80 }}
-                  pmIgnore
-                />
-              )}
+              <Polyline
+                positions={[p, next || p]}
+                pathOptions={{ color: getColor(dis), opacity: 80 }}
+                pmIgnore
+              />
             </React.Fragment>
           )
         })

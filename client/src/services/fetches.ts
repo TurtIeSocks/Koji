@@ -53,7 +53,11 @@ export async function getLotsOfData(
         }),
       })
         .then((res) => res.json())
-        .then((r) => r.data),
+        .then((r) => {
+          // eslint-disable-next-line no-console
+          console.log(r.stats)
+          return r.data
+        }),
     ),
   )
   return results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))

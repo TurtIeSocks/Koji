@@ -80,23 +80,35 @@ export default function Markers() {
           center={i.p}
           radius={ICON_RADIUS[i.i[0]]}
           pathOptions={{
-            fillOpacity: 100,
+            fillOpacity: 0.8,
+            opacity: 0.8,
             fillColor: ICON_COLOR[i.i[0]],
-            color: ICON_COLOR[i.i[0]],
+            color: 'black',
           }}
         >
           {process.env.NODE_ENV === 'development' && (
-            <Popup>
-              <div>
-                Lat: {i.p[0]}
-                <br />
-                Lng: {i.p[1]}
-                <br />
-                Hash: {geohash.encode(...i.p, 9)}
-                <br />
-                Hash: {geohash.encode(...i.p, 12)}
-              </div>
-            </Popup>
+            <>
+              <Circle
+                key={i.i}
+                center={i.p}
+                radius={1}
+                pathOptions={{
+                  fillColor: 'black',
+                  color: 'black',
+                }}
+              />
+              <Popup>
+                <div>
+                  Lat: {i.p[0]}
+                  <br />
+                  Lng: {i.p[1]}
+                  <br />
+                  Hash: {geohash.encode(...i.p, 9)}
+                  <br />
+                  Hash: {geohash.encode(...i.p, 12)}
+                </div>
+              </Popup>
+            </>
           )}
         </Circle>
       ))}

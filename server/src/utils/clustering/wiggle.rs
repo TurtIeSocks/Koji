@@ -4,6 +4,7 @@ pub fn run(
     circle_map: &mut HashMap<String, CircleInfo>,
     point_map: &mut HashMap<String, PointInfo>,
     radius: f64,
+    min_points: usize,
 ) {
     let time = Instant::now();
     let neighbor_distance = 0.75_f64.sqrt() * 2. * radius;
@@ -14,6 +15,7 @@ pub fn run(
             bbox: BBox::new(Some(&vec![circle_info.coord])),
             points: HashSet::new(),
             unique: HashSet::new(),
+            meets_min: false,
         };
         let mut best_neighbor_key = "".to_string();
         let mut all_points: HashSet<String> = circle_info.combine();
@@ -49,9 +51,12 @@ pub fn run(
                         let mut new_points = circle_info.combine();
                         new_points.extend(found_neighbor.combine());
 
-                        if new_points.len() > best_neighbor.combine().len() {
+                        if new_points.len() > best_neighbor.combine().len()
+                            && new_points.len() >= min_points
+                        {
                             best_neighbor_key = neighbor_key;
                             best_neighbor.coord = new_coord;
+                            best_neighbor.meets_min = true;
                         }
                     } else if distance <= radius * 2. + 10. {
                         // New coord from the midpoint of the LL and UR points
@@ -61,13 +66,16 @@ pub fn run(
                         let mut new_points = circle_info.combine();
                         new_points.extend(found_neighbor.combine());
 
-                        if new_points.len() > best_neighbor.combine().len() {
+                        if new_points.len() > best_neighbor.combine().len()
+                            && new_points.len() >= min_points
+                        {
                             if new_points.iter().all(|p| {
                                 let point_info = point_map.get(p).unwrap();
                                 point_info.coord.vincenty_inverse(&new_coord) <= radius
                             }) {
                                 best_neighbor_key = neighbor_key;
                                 best_neighbor.coord = new_coord;
+                                best_neighbor.meets_min = true;
                             }
                         }
                     }
@@ -75,17 +83,19 @@ pub fn run(
             }
         }
         if !best_neighbor_key.is_empty() {
+            let mut best_neighbor = CircleInfo {
+                points: all_points,
+                ..best_neighbor
+            };
             helpers::sync_maps(
                 circle_map,
                 circle_key,
                 best_neighbor_key,
-                CircleInfo {
-                    points: all_points,
-                    ..best_neighbor
-                },
+                &mut best_neighbor,
                 point_map,
                 radius,
                 false,
+                min_points,
             );
         }
     }

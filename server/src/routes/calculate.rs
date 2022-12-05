@@ -74,6 +74,7 @@ async fn bootstrap(
         return_type,
         stats,
         benchmark_mode,
+        instance,
     ))
 }
 
@@ -198,6 +199,7 @@ async fn cluster(
             return_type,
             stats,
             benchmark_mode,
+            instance,
         ));
     }
 
@@ -239,6 +241,8 @@ async fn cluster(
         final_clusters.push_back([lat, lon]);
     }
     final_clusters.rotate_left(rotate_count);
+    stats.total_distance = 0.;
+    stats.longest_distance = 0.;
 
     for (i, point) in final_clusters.iter().enumerate() {
         let point = Point::new(point[1], point[0]);
@@ -274,5 +278,6 @@ async fn cluster(
         return_type,
         stats,
         benchmark_mode,
+        instance,
     ))
 }

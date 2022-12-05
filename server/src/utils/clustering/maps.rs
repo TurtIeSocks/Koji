@@ -4,6 +4,7 @@ pub fn run(
     points: &Vec<GenericData>,
     honeycomb: SingleVec,
     radius: f64,
+    min_points: usize,
 ) -> (HashMap<String, PointInfo>, HashMap<String, CircleInfo>) {
     let time = Instant::now();
 
@@ -105,10 +106,11 @@ pub fn run(
             (
                 circle_key,
                 CircleInfo {
+                    meets_min: points.len() >= min_points,
+                    unique: HashSet::new(),
                     coord,
                     bbox,
                     points,
-                    unique: HashSet::new(),
                 },
             )
         })
