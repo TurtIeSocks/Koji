@@ -17,8 +17,9 @@ use crate::{
     },
     queries::{area, gym, instance, pokestop, spawnpoint},
     utils::{
+        clustering,
         convert::{collection, feature, vector},
-        drawing::{bootstrapping, clustering_2, project_points},
+        drawing::{bootstrapping, project_points},
         response,
     },
 };
@@ -176,7 +177,7 @@ async fn cluster(
     } else {
         area.into_iter()
             .flat_map(|feature| {
-                clustering_2::brute_force(
+                clustering::brute_force(
                     &data_points,
                     bootstrapping::as_vec(feature, radius, &mut stats),
                     radius,

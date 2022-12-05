@@ -60,6 +60,8 @@ export default function Routes() {
               total += dis
               if (dis > max) max = dis
             })
+            // eslint-disable-next-line no-console
+            console.log('Clusters:', device.length)
           })
           setStore('export', { ...exportSettings, route, total, max })
         }

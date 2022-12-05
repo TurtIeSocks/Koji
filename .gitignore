@@ -132,3 +132,5 @@ docker-compose.yml
 # VRP
 vrp_tests
 .DS_Store
+
+server/debug_files/*
