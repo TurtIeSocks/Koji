@@ -139,8 +139,10 @@ pub fn brute_force(
     unique::run(&mut point_map, &mut circle_map, radius, min_points);
 
     for info in circle_map.clone().values() {
-        for point in info.combine() {
-            point_seen_map.insert(point);
+        if info.meets_min {
+            for point in info.combine() {
+                point_seen_map.insert(point);
+            }
         }
     }
     let mut count = 0;

@@ -61,6 +61,7 @@ pub fn run(
                     best_merge = CircleInfo {
                         coord,
                         unique,
+                        meets_min: true,
                         ..circle_info
                     };
                     best_merge_key = circle_key;
@@ -77,6 +78,7 @@ pub fn run(
                     best_merge = CircleInfo {
                         coord,
                         unique,
+                        meets_min: true,
                         ..circle_info
                     };
                     best_merge_key = circle_key;

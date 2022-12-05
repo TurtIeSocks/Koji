@@ -57,7 +57,7 @@ pub fn sync_maps(
         points: points.clone(),
         unique: unique.clone(),
         coord: best_neighbor.coord,
-        meets_min: points.len() + unique.len() >= min_points,
+        meets_min: (points.len() + unique.len()) >= min_points,
     });
     for key in info.combine() {
         if let Some(point) = point_map.get(&key) {
