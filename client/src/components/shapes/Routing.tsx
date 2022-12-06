@@ -94,7 +94,7 @@ export default function Routes() {
           // mode === 'route'
           //   ? COLORS[(Math.random() * COLORS.length) | 0]
           //   :
-          'blue'
+          'green'
         return route.map((p, j) => {
           if (p.length !== 2 || !p[0] || !p[1]) return null
           const isEnd = j === route.length - 1
