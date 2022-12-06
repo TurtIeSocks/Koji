@@ -1,5 +1,4 @@
 use geo::Coordinate;
-use geohash::encode;
 use rstar::PointDistance;
 use std::collections::HashMap;
 
@@ -31,10 +30,14 @@ impl BoundingBox {
 }
 
 trait ClusterCoords {
+    fn to_key(self) -> String;
     fn midpoint(&self, other: &Coordinate) -> [f64; 2];
 }
 
 impl ClusterCoords for Coordinate {
+    fn to_key(self) -> String {
+        format!("{},{}", self.x, self.y)
+    }
     fn midpoint(&self, other: &Coordinate) -> [f64; 2] {
         [(self.x + other.x) / 2., (self.y + other.y) / 2.]
     }
@@ -93,7 +96,7 @@ type ClusterMap = HashMap<PointTuple, PointInfo>;
 fn update(point_map: &mut ClusterMap, key: PointTuple, p: Coordinate) {
     point_map.entry(key).and_modify(|saved| {
         saved.0 = saved.0.update(p);
-        saved.3.push(encode(p, 9).unwrap());
+        saved.3.push(p.to_key());
     });
 }
 
@@ -172,12 +175,9 @@ pub fn udc(points: Vec<Coordinate>, min_points: usize) -> HashMap<String, Vec<St
                 continue;
             }
         }
-        udc_point_map.entry(key).or_insert((
-            BoundingBox::new(p),
-            true,
-            true,
-            vec![encode(p, 9).unwrap()],
-        ));
+        udc_point_map
+            .entry(key)
+            .or_insert((BoundingBox::new(p), true, true, vec![p.to_key()]));
     }
     let mut point_map_return: HashMap<String, Vec<String>> = HashMap::new();
 
@@ -186,7 +186,7 @@ pub fn udc(points: Vec<Coordinate>, min_points: usize) -> HashMap<String, Vec<St
             // for point in points_to_process.clone().into_iter() {
             //     seen_map.insert(point, true);
             // }
-            point_map_return.insert(encode(coord, 9).unwrap(), points_to_process);
+            point_map_return.insert(coord.to_key(), points_to_process);
         }
     };
 
