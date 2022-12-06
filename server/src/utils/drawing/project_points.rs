@@ -1,27 +1,15 @@
 use geo::Coordinate;
+use geohash::decode;
 use map_3d::{self, Ellipsoid};
 use std::{collections::HashSet, time::Instant};
 
 use crate::{
     models::{api::Stats, SingleVec},
-    utils::drawing::clustering,
+    utils::{clustering::helpers, drawing::clustering},
 };
 
 type Geocentric = (f64, f64, f64);
 type Topocentric = (f64, f64);
-
-trait FromKey {
-    fn from_key(&self) -> [f64; 2];
-}
-
-impl FromKey for String {
-    fn from_key(&self) -> [f64; 2] {
-        let mut iter = self.split(',');
-        let lat = iter.next().unwrap().parse::<f64>().unwrap();
-        let lon = iter.next().unwrap().parse::<f64>().unwrap();
-        [lat, lon]
-    }
-}
 
 fn euclidean_norm2(x: Geocentric) -> f64 {
     x.0 * x.0 + x.1 * x.1 + x.2 * x.2
@@ -124,22 +112,26 @@ pub fn project_points(
 
     let output = {
         let mut seen_map: HashSet<String> = HashSet::new();
-        let return_value: SingleVec = point_map
+        let return_value: SingleVec = helpers::get_sorted(&point_map)
             .into_iter()
             .filter_map(|(key, values)| {
-                if values.len() >= min_points {
-                    if values.len() >= stats.best_cluster_point_count {
-                        if values.len() != stats.best_cluster_point_count {
-                            stats.best_clusters = vec![];
-                            stats.best_cluster_point_count = values.len();
+                if let Ok(key) = decode(&key) {
+                    let (coord, _, _) = key;
+                    if values.len() >= min_points {
+                        if values.len() >= stats.best_cluster_point_count {
+                            if values.len() != stats.best_cluster_point_count {
+                                stats.best_clusters = vec![];
+                                stats.best_cluster_point_count = values.len();
+                            }
+                            stats.best_clusters.push([coord.x, coord.y]);
                         }
-                        stats.best_clusters.push(key.from_key());
+                        for point in values.into_iter() {
+                            seen_map.insert(point);
+                        }
+                        return Some([coord.x, coord.y]);
                     }
-                    for point in values.into_iter() {
-                        seen_map.insert(point);
-                    }
-                    return Some(key.from_key());
                 }
+
                 None
             })
             .collect();
