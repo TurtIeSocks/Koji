@@ -44,6 +44,7 @@ pub struct Args {
     pub radius: Option<f64>,
     pub return_type: Option<String>,
     pub routing_time: Option<i64>,
+    pub only_unique: Option<bool>,
 }
 
 pub struct ArgsUnwrapped {
@@ -58,6 +59,7 @@ pub struct ArgsUnwrapped {
     pub radius: f64,
     pub return_type: ReturnTypeArg,
     pub routing_time: i64,
+    pub only_unique: bool,
 }
 
 impl Args {
@@ -74,6 +76,7 @@ impl Args {
             radius,
             return_type,
             routing_time,
+            only_unique,
         } = self;
         let (area, default_return_type) = normalize::area_input(area);
         let benchmark_mode = benchmark_mode.unwrap_or(false);
@@ -86,6 +89,7 @@ impl Args {
         let radius = radius.unwrap_or(70.0);
         let return_type = utils::get_return_type(return_type, default_return_type);
         let routing_time = routing_time.unwrap_or(1);
+        let only_unique = only_unique.unwrap_or(false);
 
         if let Some(mode) = mode {
             println!(
@@ -105,6 +109,7 @@ impl Args {
             radius,
             return_type,
             routing_time,
+            only_unique,
         }
     }
 }
@@ -142,8 +147,59 @@ impl Stats {
             longest_distance: 0.,
         }
     }
-    pub fn log(&self) {
-        println!("Best Cluster Amount: {:?} | Best Cluster Point Count: {}\nCluster Time: {}s | Total Points: {} | Points Covered: {} | Total Clusters: {}\nTotal Distance: {} | Longest Distance: {}\n", self.best_clusters.len(), self.best_cluster_point_count, self.cluster_time, self.total_points, self.points_covered, self.total_clusters, self.total_distance as f32, self.longest_distance as f32)
+    pub fn log(&self, area: String) {
+        let width = "=======================================================================";
+        let get_row = |text: String, replace: bool| {
+            format!(
+                "  {}{}{}\n",
+                text,
+                width[..(width.len() - text.len())].replace("=", if replace { " " } else { "=" }),
+                if replace { "||" } else { "==" }
+            )
+        };
+        println!(
+            "\n{}{}{}{}{}{}  {}==\n",
+            get_row("[STATS] ".to_string(), false),
+            if area.is_empty() {
+                "".to_string()
+            } else {
+                get_row(format!("|| [AREA]: {}", area), true)
+            },
+            get_row(
+                format!(
+                    "|| [POINTS] Total: {} | Covered: {}",
+                    self.total_points, self.points_covered,
+                ),
+                true
+            ),
+            get_row(
+                format!(
+                    "|| [CLUSTERS] Time: {}s | Total: {} | Avg Points: {}",
+                    self.cluster_time as f32,
+                    self.total_clusters,
+                    self.total_points / self.total_clusters,
+                ),
+                true
+            ),
+            get_row(
+                format!(
+                    "|| [BEST_CLUSTER] Amount: {:?} | Point Count: {}",
+                    self.best_clusters.len(),
+                    self.best_cluster_point_count,
+                ),
+                true
+            ),
+            get_row(
+                format!(
+                    "|| [DISTANCE] Total {} | Longest {} | Avg: {}",
+                    self.total_distance as f32,
+                    self.longest_distance as f32,
+                    (self.total_distance / self.total_clusters as f64) as f32,
+                ),
+                true
+            ),
+            width,
+        )
     }
 }
 

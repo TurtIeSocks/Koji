@@ -80,7 +80,7 @@ cargo install cargo-watch
 ```bash
 cd server
 # to compile in debug mode (faster recompiling but slower performance)
-cargo watch -x run
+DEBUG=true cargo watch -x run
 # to compile in release mode (slower recompiling but faster performance)
 cargo watch -x 'run -r'
 ```

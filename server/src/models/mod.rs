@@ -123,4 +123,10 @@ impl BBox {
         //     self.min_x,
         // )
     }
+    // pub fn get_center(&self) -> Coordinate {
+    //     Coordinate {
+    //         x: (self.min_x + self.max_x) / 2.0,
+    //         y: (self.min_y + self.max_y) / 2.0,
+    //     }
+    // }
 }

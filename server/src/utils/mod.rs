@@ -10,9 +10,11 @@ use crate::{
     },
 };
 
+pub mod clustering;
 pub mod convert;
 pub mod drawing;
 pub mod response;
+pub mod write_debug;
 // pub mod routing;
 
 trait SetOptions {

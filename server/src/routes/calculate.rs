@@ -17,8 +17,9 @@ use crate::{
     },
     queries::{area, gym, instance, pokestop, spawnpoint},
     utils::{
+        clustering,
         convert::{collection, feature, vector},
-        drawing::{bootstrapping, clustering_2, project_points},
+        drawing::{bootstrapping, project_points},
         response,
     },
 };
@@ -73,6 +74,7 @@ async fn bootstrap(
         return_type,
         stats,
         benchmark_mode,
+        instance,
     ))
 }
 
@@ -97,6 +99,7 @@ async fn cluster(
         radius,
         return_type,
         routing_time,
+        only_unique,
         ..
     } = payload.into_inner().init(Some(&mode));
 
@@ -176,19 +179,20 @@ async fn cluster(
     } else {
         area.into_iter()
             .flat_map(|feature| {
-                clustering_2::brute_force(
+                clustering::brute_force(
                     &data_points,
                     bootstrapping::as_vec(feature, radius, &mut stats),
                     radius,
                     min_points,
                     generations,
                     &mut stats,
+                    only_unique,
                 )
             })
             .collect()
     };
 
-    if mode.eq("cluster") || clusters.is_empty() || routing_time == 0 {
+    if mode.eq("cluster") || clusters.is_empty() {
         return Ok(response::send(
             collection::from_feature(feature::from_single_vector(
                 clusters,
@@ -197,6 +201,7 @@ async fn cluster(
             return_type,
             stats,
             benchmark_mode,
+            instance,
         ));
     }
 
@@ -238,6 +243,8 @@ async fn cluster(
         final_clusters.push_back([lat, lon]);
     }
     final_clusters.rotate_left(rotate_count);
+    stats.total_distance = 0.;
+    stats.longest_distance = 0.;
 
     for (i, point) in final_clusters.iter().enumerate() {
         let point = Point::new(point[1], point[0]);
@@ -273,5 +280,6 @@ async fn cluster(
         return_type,
         stats,
         benchmark_mode,
+        instance,
     ))
 }

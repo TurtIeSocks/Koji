@@ -63,8 +63,9 @@ pub fn send(
     return_type: ReturnTypeArg,
     stats: Stats,
     benchmark_mode: bool,
+    area: String,
 ) -> HttpResponse {
-    stats.log();
+    stats.log(area);
     HttpResponse::Ok().json(Response {
         message: "Success".to_string(),
         status: "ok".to_string(),

@@ -6,7 +6,7 @@ import geohash from 'ngeohash'
 import { useStore } from '@hooks/useStore'
 import { getColor } from '@services/utils'
 import { getLotsOfData } from '@services/fetches'
-import { COLORS } from '@assets/constants'
+// import { COLORS } from '@assets/constants'
 import { useStatic } from '@hooks/useStatic'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 
@@ -25,6 +25,7 @@ export default function Routes() {
   const fast = useStore((s) => s.fast)
   const autoMode = useStore((s) => s.autoMode)
   const routing_time = useStore((s) => s.routing_time)
+  const only_unique = useStore((s) => s.only_unique)
 
   const geojson = useStatic((s) => s.geojson)
   const forceRedraw = useStatic((s) => s.forceRedraw)
@@ -46,11 +47,14 @@ export default function Routes() {
           min_points,
           fast,
           routing_time,
+          only_unique,
         },
       ).then((route) => {
         let total = 0
         let max = 0
         if (Array.isArray(route)) {
+          // eslint-disable-next-line no-console
+          console.log(route)
           route.forEach((device) => {
             device.forEach((p, i) => {
               if (p.length !== 2 || !p[0] || !p[1]) return
@@ -78,6 +82,7 @@ export default function Routes() {
           geojson,
           tab,
           routing_time,
+          only_unique,
         }
       : { forceFetch },
   ])
@@ -86,9 +91,10 @@ export default function Routes() {
     <>
       {exportSettings.route.map((route) => {
         const color =
-          mode === 'route'
-            ? COLORS[(Math.random() * COLORS.length) | 0]
-            : 'blue'
+          // mode === 'route'
+          //   ? COLORS[(Math.random() * COLORS.length) | 0]
+          //   :
+          'green'
         return route.map((p, j) => {
           if (p.length !== 2 || !p[0] || !p[1]) return null
           const isEnd = j === route.length - 1
@@ -121,7 +127,7 @@ export default function Routes() {
                   )}
                 </Circle>
               )}
-              {showLines && mode !== 'cluster' && (
+              {showLines && (
                 <Polyline
                   positions={[p, next || p]}
                   pathOptions={{ color: getColor(dis), opacity: 80 }}

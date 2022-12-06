@@ -13,7 +13,8 @@ export default function EditTab() {
   const radius = useStore((s) => s.radius)
   const mode = useStore((s) => s.mode)
   const category = useStore((s) => s.category)
-  const generations = useStore((s) => s.generations)
+  const only_unique = useStore((s) => s.only_unique)
+  // const generations = useStore((s) => s.generations)
   const setStore = useStore((s) => s.setStore)
   // const devices = useStore((s) => s.devices)
   const min_points = useStore((s) => s.min_points)
@@ -28,12 +29,14 @@ export default function EditTab() {
       <ListSubheader disableGutters>Routing</ListSubheader>
       <Toggle field="autoMode" value={autoMode} setValue={setStore} />
       <NumInput field="radius" value={radius} setValue={setStore} />
-      <NumInput field="generations" value={generations} setValue={setStore} />
+      <NumInput field="min_points" value={min_points} setValue={setStore} />
+      {/* <NumInput field="generations" value={generations} setValue={setStore} /> */}
       <NumInput
         field="routing_time"
         value={routing_time}
         setValue={setStore}
         endAdornment="s"
+        disabled={mode !== 'route'}
       />
       {/* <NumInput
         field="devices"
@@ -41,8 +44,8 @@ export default function EditTab() {
         setValue={setStore}
         disabled={mode !== 'route'}
       /> */}
-      <NumInput field="min_points" value={min_points} setValue={setStore} />
       <Toggle field="fast" value={fast} setValue={setStore} />
+      <Toggle field="only_unique" value={only_unique} setValue={setStore} />
       <ListItem disabled={mode === 'bootstrap'}>
         <BtnGroup
           field="category"
