@@ -175,38 +175,48 @@ pub fn brute_force(
         write_debug::hashmap("points.txt", &point_map).expect("Unable to write points.txt");
     }
 
-    stats.cluster_time = time.elapsed().as_secs_f32();
-    stats.total_clusters = sorted.iter().filter(|x| x.1.meets_min).count();
-    stats.points_covered = point_seen_map
-        .iter()
-        .fold(0, |acc, y| acc + point_map.get(y).unwrap().points);
+    // stats.points_covered = point_seen_map
+    //     .iter()
+    //     .fold(0, |acc, y| acc + point_map.get(y).unwrap().points);
     stats.total_distance = 0.;
     stats.longest_distance = 0.;
+    stats.total_clusters = 0;
+    point_seen_map.clear();
+
     for (i, info) in sorted.iter().enumerate() {
-        let point: Point = info.1.coord.into();
-        let point2: Point = if i == sorted.len() - 1 {
-            sorted[0].1.coord.into()
-        } else {
-            sorted[i + 1].1.coord.into()
-        };
-        let distance = point.haversine_distance(&point2);
-        stats.total_distance += distance;
-        if distance > stats.longest_distance {
-            stats.longest_distance = distance;
-        }
-        let combined = info.1.combine();
-        if combined.len() >= stats.best_cluster_point_count {
-            if combined.len() != stats.best_cluster_point_count {
-                stats.best_clusters = vec![];
-                stats.best_cluster_point_count = combined.len();
+        if info.1.meets_min {
+            for point in info.1.combine() {
+                point_seen_map.insert(point);
             }
-            stats.best_clusters.push([info.1.coord.y, info.1.coord.x]);
+            let point: Point = info.1.coord.into();
+            let point2: Point = if i == sorted.len() - 1 {
+                sorted[0].1.coord.into()
+            } else {
+                sorted[i + 1].1.coord.into()
+            };
+            let distance = point.haversine_distance(&point2);
+            stats.total_distance += distance;
+            if distance > stats.longest_distance {
+                stats.longest_distance = distance;
+            }
+            let combined = info.1.combine();
+            if combined.len() >= stats.best_cluster_point_count {
+                if combined.len() != stats.best_cluster_point_count {
+                    stats.best_clusters = vec![];
+                    stats.best_cluster_point_count = combined.len();
+                }
+                stats.best_clusters.push([info.1.coord.y, info.1.coord.x]);
+            }
         }
     }
+    stats.points_covered = point_seen_map.len();
+    stats.cluster_time = time.elapsed().as_secs_f32();
+
     sorted
         .into_iter()
         .filter_map(|x| {
             if x.1.meets_min {
+                stats.total_clusters += 1;
                 Some([x.1.coord.y, x.1.coord.x])
             } else {
                 None

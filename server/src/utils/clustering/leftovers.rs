@@ -86,24 +86,27 @@ pub fn run(
             }
         }
         if best_merge_key.is_empty() {
-            let mut unique = HashSet::new();
-            unique.insert(point_key.clone());
-            circle_map.insert(
-                point_key.clone(),
-                CircleInfo {
-                    coord: point_info.coord,
-                    bbox: BBox::new(Some(&vec![point_info.coord])),
-                    points: HashSet::new(),
-                    unique,
-                    meets_min: min_points == 1,
-                },
-            );
+            if min_points == 1 {
+                let mut unique = HashSet::new();
+                unique.insert(point_key.clone());
+                circle_map.insert(
+                    point_key.clone(),
+                    CircleInfo {
+                        coord: point_info.coord,
+                        bbox: BBox::new(Some(&vec![point_info.coord])),
+                        points: HashSet::new(),
+                        unique,
+                        meets_min: true,
+                    },
+                );
+                point_seen_map.insert(point_key);
+            }
         } else {
             let new_key = encode(best_merge.coord, PRECISION).unwrap();
             circle_map.remove(&best_merge_key);
             circle_map.insert(new_key, best_merge);
+            point_seen_map.insert(point_key);
         }
-        point_seen_map.insert(point_key);
     }
     if circle_map.len() != initial_size {
         println!(

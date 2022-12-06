@@ -28,7 +28,7 @@ export default function EditTab() {
       <ListSubheader disableGutters>Routing</ListSubheader>
       <Toggle field="autoMode" value={autoMode} setValue={setStore} />
       <NumInput field="radius" value={radius} setValue={setStore} />
-      <NumInput field="generations" value={generations} setValue={setStore} />
+      {/* <NumInput field="generations" value={generations} setValue={setStore} /> */}
       <NumInput
         field="routing_time"
         value={routing_time}

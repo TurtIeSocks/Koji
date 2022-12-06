@@ -51,6 +51,8 @@ export default function Routes() {
         let total = 0
         let max = 0
         if (Array.isArray(route)) {
+          // eslint-disable-next-line no-console
+          console.log(route)
           route.forEach((device) => {
             device.forEach((p, i) => {
               if (p.length !== 2 || !p[0] || !p[1]) return
@@ -122,11 +124,13 @@ export default function Routes() {
                   )}
                 </Circle>
               )}
-              <Polyline
-                positions={[p, next || p]}
-                pathOptions={{ color: getColor(dis), opacity: 80 }}
-                pmIgnore
-              />
+              {showLines && (
+                <Polyline
+                  positions={[p, next || p]}
+                  pathOptions={{ color: getColor(dis), opacity: 80 }}
+                  pmIgnore
+                />
+              )}
             </React.Fragment>
           )
         })

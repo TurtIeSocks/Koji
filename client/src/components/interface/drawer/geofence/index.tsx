@@ -12,7 +12,6 @@ export default function GeofenceTab() {
   const showCircles = useStore((s) => s.showCircles)
   const showLines = useStore((s) => s.showLines)
   const showPolygon = useStore((s) => s.showPolygon)
-  const mode = useStore((s) => s.mode)
   const snappable = useStore((s) => s.snappable)
   const continueDrawing = useStore((s) => s.continueDrawing)
 
@@ -29,12 +28,7 @@ export default function GeofenceTab() {
       <Divider sx={{ my: 2 }} />
       <ListSubheader disableGutters>Vectors</ListSubheader>
       <Toggle field="showCircles" value={showCircles} setValue={setStore} />
-      <Toggle
-        field="showLines"
-        value={showLines}
-        setValue={setStore}
-        disabled={mode === 'cluster'}
-      />
+      <Toggle field="showLines" value={showLines} setValue={setStore} />
       <Toggle field="showPolygon" value={showPolygon} setValue={setStore} />
     </>
   )
