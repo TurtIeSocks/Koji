@@ -13,6 +13,7 @@ export default function EditTab() {
   const radius = useStore((s) => s.radius)
   const mode = useStore((s) => s.mode)
   const category = useStore((s) => s.category)
+  const only_unique = useStore((s) => s.only_unique)
   // const generations = useStore((s) => s.generations)
   const setStore = useStore((s) => s.setStore)
   // const devices = useStore((s) => s.devices)
@@ -44,6 +45,7 @@ export default function EditTab() {
         disabled={mode !== 'route'}
       /> */}
       <Toggle field="fast" value={fast} setValue={setStore} />
+      <Toggle field="only_unique" value={only_unique} setValue={setStore} />
       <ListItem disabled={mode === 'bootstrap'}>
         <BtnGroup
           field="category"

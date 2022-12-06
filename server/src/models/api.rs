@@ -44,6 +44,7 @@ pub struct Args {
     pub radius: Option<f64>,
     pub return_type: Option<String>,
     pub routing_time: Option<i64>,
+    pub only_unique: Option<bool>,
 }
 
 pub struct ArgsUnwrapped {
@@ -58,6 +59,7 @@ pub struct ArgsUnwrapped {
     pub radius: f64,
     pub return_type: ReturnTypeArg,
     pub routing_time: i64,
+    pub only_unique: bool,
 }
 
 impl Args {
@@ -74,6 +76,7 @@ impl Args {
             radius,
             return_type,
             routing_time,
+            only_unique,
         } = self;
         let (area, default_return_type) = normalize::area_input(area);
         let benchmark_mode = benchmark_mode.unwrap_or(false);
@@ -86,6 +89,7 @@ impl Args {
         let radius = radius.unwrap_or(70.0);
         let return_type = utils::get_return_type(return_type, default_return_type);
         let routing_time = routing_time.unwrap_or(1);
+        let only_unique = only_unique.unwrap_or(false);
 
         if let Some(mode) = mode {
             println!(
@@ -105,6 +109,7 @@ impl Args {
             radius,
             return_type,
             routing_time,
+            only_unique,
         }
     }
 }

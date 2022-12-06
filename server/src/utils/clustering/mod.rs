@@ -116,6 +116,7 @@ pub fn brute_force(
     min_points: usize,
     _generations: usize,
     stats: &mut Stats,
+    only_unique: bool,
 ) -> SingleVec {
     let time = Instant::now();
     // unfortunately, due to the borrower, we have to maintain this separately from the point_map
@@ -167,6 +168,11 @@ pub fn brute_force(
             radius,
             min_points,
         );
+    }
+    if only_unique {
+        for info in circle_map.values_mut() {
+            info.meets_min = info.unique.len() >= min_points;
+        }
     }
     let sorted = helpers::get_sorted(&circle_map);
 

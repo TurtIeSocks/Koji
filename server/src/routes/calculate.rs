@@ -99,6 +99,7 @@ async fn cluster(
         radius,
         return_type,
         routing_time,
+        only_unique,
         ..
     } = payload.into_inner().init(Some(&mode));
 
@@ -185,6 +186,7 @@ async fn cluster(
                     min_points,
                     generations,
                     &mut stats,
+                    only_unique,
                 )
             })
             .collect()
