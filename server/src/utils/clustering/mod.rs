@@ -176,7 +176,7 @@ pub fn brute_force(
     }
 
     stats.cluster_time = time.elapsed().as_secs_f32();
-    stats.total_clusters = sorted.len();
+    stats.total_clusters = sorted.iter().filter(|x| x.1.meets_min).count();
     stats.points_covered = point_seen_map
         .iter()
         .fold(0, |acc, y| acc + point_map.get(y).unwrap().points);
