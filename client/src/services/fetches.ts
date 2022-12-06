@@ -39,28 +39,34 @@ export async function getLotsOfData(
 ): Promise<[number, number][][]> {
   const { length = 0 } = settings.geojson?.features || {}
   const results = await Promise.allSettled(
-    (settings.geojson?.features || []).map((area) =>
-      fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...settings,
-          return_type: 'multi_array',
-          devices: Math.max(Math.floor((settings.devices || 1) / length), 1),
-          area,
-        }),
-      })
-        .then((res) => res.json())
-        .then((r) => {
-          Object.entries(r.stats).forEach(([k, v]) =>
-            // eslint-disable-next-line no-console
-            console.log(fromSnakeCase(k), v),
-          )
-          return r.data
-        }),
-    ),
+    (settings.geojson?.features || [])
+      .filter(
+        (feat) =>
+          feat.geometry.type === 'MultiPolygon' ||
+          feat.geometry.type === 'Polygon',
+      )
+      .map((area) =>
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...settings,
+            return_type: 'multi_array',
+            devices: Math.max(Math.floor((settings.devices || 1) / length), 1),
+            area,
+          }),
+        })
+          .then((res) => res.json())
+          .then((r) => {
+            Object.entries(r.stats).forEach(([k, v]) =>
+              // eslint-disable-next-line no-console
+              console.log(fromSnakeCase(k), v),
+            )
+            return r.data
+          }),
+      ),
   )
   return results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
 }
