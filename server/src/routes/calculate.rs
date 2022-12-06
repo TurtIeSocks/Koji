@@ -190,7 +190,7 @@ async fn cluster(
             .collect()
     };
 
-    if mode.eq("cluster") || clusters.is_empty() || routing_time == 0 {
+    if mode.eq("cluster") || clusters.is_empty() {
         return Ok(response::send(
             collection::from_feature(feature::from_single_vector(
                 clusters,
