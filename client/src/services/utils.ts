@@ -27,6 +27,13 @@ export function fromCamelCase(str: string, separator = ' '): string {
     .replace(/([A-Z]+)([A-Z][a-z\d]+)/g, `$1${separator}$2`)
 }
 
+export function fromSnakeCase(str: string, separator = ' '): string {
+  return capitalize(str)
+    .replace(/_/g, separator)
+    .replace(/([a-z\d])([A-Z])/g, `$1${separator}$2`)
+    .replace(/([A-Z]+)([A-Z][a-z\d]+)/g, `$1${separator}$2`)
+}
+
 export function safeParse(value: string) {
   try {
     return JSON.parse(value)

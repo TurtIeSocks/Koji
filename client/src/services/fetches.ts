@@ -4,7 +4,7 @@ import type { CombinedState, Data, ToConvert } from '@assets/types'
 import type { UseStore } from '@hooks/useStore'
 import type { UseStatic } from '@hooks/useStatic'
 
-import { getMapBounds } from './utils'
+import { fromSnakeCase, getMapBounds } from './utils'
 
 export async function getData<T>(
   url: string,
@@ -54,8 +54,10 @@ export async function getLotsOfData(
       })
         .then((res) => res.json())
         .then((r) => {
-          // eslint-disable-next-line no-console
-          console.log(r.stats)
+          Object.entries(r.stats).forEach(([k, v]) =>
+            // eslint-disable-next-line no-console
+            console.log(fromSnakeCase(k), v),
+          )
           return r.data
         }),
     ),
