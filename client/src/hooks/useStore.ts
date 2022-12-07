@@ -32,6 +32,7 @@ export interface UseStore {
     | 'text'
     | 'altText'
     | 'poracle'
+  menuItem: string
   export: {
     total: number
     max: number
@@ -68,6 +69,7 @@ export const useStore = create(
       nativeLeaflet: false,
       devices: 1,
       polygonExportMode: 'feature',
+      menuItem: '',
       fast: false,
       export: {
         total: 0,

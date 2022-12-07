@@ -4,7 +4,6 @@ import { MapContainer, TileLayer } from 'react-leaflet'
 
 import { useStore } from '@hooks/useStore'
 import { useStatic } from '@hooks/useStatic'
-import useSkipFirstEffect from '@hooks/useSkipFirstEffect'
 
 import DrawerIndex from './interface/drawer'
 import Main from './interface/styled/Main'
@@ -19,19 +18,11 @@ export default function Map() {
   const { location, zoom } = useStore.getState()
   const tileServer = useStatic((s) => s.tileServer)
 
-  const [drawerWidth, setDrawerWidth] = React.useState<number>(
-    drawer ? 280 : 20,
-  )
-
-  useSkipFirstEffect(() => {
-    setDrawerWidth(drawer ? 280 : 20)
-  }, [drawer])
-
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
-      <DrawerIndex drawerWidth={drawerWidth} />
-      <Main open={drawer} drawerWidth={drawerWidth}>
+      <DrawerIndex />
+      <Main open={drawer} drawerWidth={280}>
         <MapContainer center={location} zoom={zoom} zoomControl={false}>
           <TileLayer
             key={tileServer}

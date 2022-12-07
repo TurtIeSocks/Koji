@@ -4,11 +4,13 @@ import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import { ChevronLeft } from '@mui/icons-material'
 import { UseStore } from '@hooks/useStore'
 
-const DrawerHeaderRaw = styled(Grid2)(() => ({
+const DrawerHeaderRaw = styled(Grid2)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
-  minHeight: 56,
   justifyContent: 'flex-end',
+  padding: theme.spacing(0, 1),
+  // necessary for content to be below app bar
+  ...theme.mixins.toolbar,
 }))
 
 interface Props {
