@@ -1,17 +1,17 @@
-import React from 'react'
-import { Box, List, Divider, ListItemButton, Tooltip } from '@mui/material'
+import React, { Fragment } from 'react'
+import { Box, List, Divider } from '@mui/material'
 
-import { ICON_MAP, TABS } from '@assets/constants'
+import { TABS } from '@assets/constants'
 import { useStore } from '@hooks/useStore'
 
 import { Drawer } from '../styled/Drawer'
 import DrawerHeader from '../styled/DrawerHeader'
 import GeofenceTab from './geofence'
 import RoutingTab from './routing'
-import MenuItem from './MenuItem'
-import { MySlide } from '../styled/Slide'
+import MenuAccordion from './MenuItem'
 import ImportExport from './importExport'
 import Settings from './settings'
+import MiniItem from './MiniItem'
 
 export default function DrawerIndex() {
   const setStore = useStore((s) => s.setStore)
@@ -48,15 +48,18 @@ export default function DrawerIndex() {
           <DrawerHeader setStore={setStore}>Kōji</DrawerHeader>
           <Divider />
           <List>
-            {TABS.map((text) => (
-              <MenuItem key={text} name={text}>
-                {{
-                  Drawing: <GeofenceTab />,
-                  Clustering: <RoutingTab />,
-                  'Import / Export': <ImportExport />,
-                  Settings: <Settings />,
-                }[text] || null}
-              </MenuItem>
+            {TABS.map((text, i) => (
+              <Fragment key={text}>
+                {!!i && <Divider />}
+                <MenuAccordion name={text}>
+                  {{
+                    Drawing: <GeofenceTab />,
+                    Clustering: <RoutingTab />,
+                    'Import / Export': <ImportExport />,
+                    Settings: <Settings />,
+                  }[text] || null}
+                </MenuAccordion>
+              </Fragment>
             ))}
           </List>
         </>
@@ -68,32 +71,12 @@ export default function DrawerIndex() {
             display: 'flex',
             alignItems: 'flex-start',
             justifyContent: 'center',
-            transition: '0.50s ease',
           }}
         >
           <List>
-            {TABS.map((text, i) => {
-              const Icon = ICON_MAP[text] || null
-              return (
-                <Tooltip
-                  key={text}
-                  title={text}
-                  enterDelay={0}
-                  enterTouchDelay={10}
-                  placement="right"
-                  TransitionComponent={MySlide}
-                >
-                  <ListItemButton
-                    onClick={() => {
-                      setStore('drawer', true)
-                      setStore('menuItem', text)
-                    }}
-                  >
-                    {!!i && <Divider />} <Icon fontSize="large" />
-                  </ListItemButton>
-                </Tooltip>
-              )
-            })}
+            {TABS.map((text, i) => (
+              <MiniItem key={text} text={text} i={i} />
+            ))}
           </List>
         </Box>
       )}

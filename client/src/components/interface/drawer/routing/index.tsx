@@ -1,5 +1,5 @@
 import React from 'react'
-import { ListItem, ListItemButton, ListItemText } from '@mui/material'
+import { List, ListItem, ListItemButton, ListItemText } from '@mui/material'
 
 import { useStatic } from '@hooks/useStatic'
 import { useStore } from '@hooks/useStore'
@@ -25,7 +25,7 @@ export default function EditTab() {
   const setStatic = useStatic((s) => s.setStatic)
 
   return (
-    <>
+    <List dense>
       <ListSubheader disableGutters>Routing</ListSubheader>
       <Toggle field="autoMode" value={autoMode} setValue={setStore} />
       <NumInput field="radius" value={radius} setValue={setStore} />
@@ -71,6 +71,6 @@ export default function EditTab() {
           <ListItemText primary="Update" color="blue" />
         </ListItemButton>
       )}
-    </>
+    </List>
   )
 }

@@ -17,7 +17,7 @@ interface Props {
   children: React.ReactNode
 }
 
-export default function MenuItem({ name, children }: Props) {
+export default function MenuAccordion({ name, children }: Props) {
   const [menuItem, setStore] = useStore((s) => [s.menuItem, s.setStore])
 
   const Icon = ICON_MAP[name] || null

@@ -12,6 +12,7 @@ import Interface from './interface'
 import Routes from './shapes/Routing'
 import Drawing from './shapes/Drawing'
 import PolygonPopup from './popups/Polygon'
+import ErrorBoundary from './ErrorBoundary'
 
 export default function Map() {
   const drawer = useStore((s) => s.drawer)
@@ -21,7 +22,9 @@ export default function Map() {
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
-      <DrawerIndex />
+      <ErrorBoundary>
+        <DrawerIndex />
+      </ErrorBoundary>
       <Main open={drawer} drawerWidth={280}>
         <MapContainer center={location} zoom={zoom} zoomControl={false}>
           <TileLayer
