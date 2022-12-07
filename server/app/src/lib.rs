@@ -1,3 +1,5 @@
+use std::{env, io};
+
 use actix_files::Files;
 use actix_web::{middleware, web, App, HttpServer};
 use geojson::{Feature, FeatureCollection};
@@ -11,19 +13,20 @@ mod utils;
 use migration::{Migrator, MigratorTrait};
 
 #[actix_web::main]
-pub async fn main() -> std::io::Result<()> {
+pub async fn main() -> io::Result<()> {
     dotenv::dotenv().ok();
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
-    let koji_db_url = std::env::var("KOJI_DB_URL").expect("Need KOJI_DB_URL env var");
-    let scanner_db_url = if std::env::var("SCANNER_DB_URL").is_ok() {
-        std::env::var("SCANNER_DB_URL")
+    let koji_db_url = env::var("KOJI_DB_URL").expect("Need KOJI_DB_URL env var to run migrations");
+    let scanner_db_url = if env::var("DATABASE_URL").is_ok() {
+        println!("[WARNING] `DATABASE_URL` is deprecated in favor of `SCANNER_DB_URL`");
+        env::var("DATABASE_URL")
     } else {
-        std::env::var("DATABASE_URL")
+        env::var("SCANNER_DB_URL")
     }
     .expect("Need SCANNER_DB_URL env var");
-    // .unwrap_or(std::env::var("DATABASE_URL").expect("Need SCANNER_DB_URL env var"));
-    let unown_db_url = std::env::var("UNOWN_DB").unwrap_or("".to_string());
+
+    let unown_db_url = env::var("UNOWN_DB").unwrap_or("".to_string());
 
     let databases = models::KojiDb {
         data_db: match Database::connect(scanner_db_url).await {
@@ -52,12 +55,6 @@ pub async fn main() -> std::io::Result<()> {
     }
     .to_string();
 
-    let port = std::env::var("PORT").unwrap_or("8080".to_string());
-    let serve_from = if std::env::var("NODE_ENV") == Ok("development".to_string()) {
-        "../client/dist"
-    } else {
-        "./dist"
-    };
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(databases.clone()))
@@ -91,12 +88,26 @@ pub async fn main() -> std::io::Result<()> {
                     ),
             )
             .service(
-                Files::new("/", serve_from.to_string())
-                    .index_file("index.html")
-                    .prefer_utf8(true),
+                Files::new(
+                    "/",
+                    if env::var("IS_DOCKER").is_ok() {
+                        "./dist"
+                    } else {
+                        "../client/dist"
+                    }
+                    .to_string(),
+                )
+                .index_file("index.html")
+                .prefer_utf8(true),
             )
     })
-    .bind(("0.0.0.0", port.parse::<u16>().unwrap()))?
+    .bind((
+        std::env::var("HOST").unwrap_or("0.0.0.0".to_string()),
+        std::env::var("PORT")
+            .unwrap_or("8080".to_string())
+            .parse::<u16>()
+            .unwrap(),
+    ))?
     .run()
     .await
 }

@@ -35,8 +35,8 @@ cd server && cp .env.example .env
 ```
 
 5. Edit the env file: `nano .env`
-   - Set the `DATABASE_URL` to your RDM database url
-   - Temporarily set `NODE_ENV` to `development`
+   - Set the `SCANNER_DB_URL` to your RDM database url
+   - Set the `KOJI_DB_URL` to the database you want Kōji to write migrations to
    - Set `PORT` to whatever you want
    - Set `START_LAT` and `START_LON` to wherever you want the map to start
 6. Compile the client:
@@ -123,6 +123,7 @@ pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
       Feature(Feature),
       FeatureVec(Vec<Feature>),
       FeatureCollection(FeatureCollection),
+      Poracle(Poracle),
   }
 
 // Return Types:
@@ -136,6 +137,7 @@ pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
     Feature,
     FeatureVec,
     FeatureCollection,
+    Poracle
 }
 
 // Data Input Types:
@@ -189,6 +191,10 @@ pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
       // Only return stats
       // defaults to false
       pub benchmark_mode: Option<bool>,
+
+      // Only count unique points towards the min_count in each cluster
+      // defaults to false
+      pub only_unique: Option<bool>,
   }
 
 // Benchmark/Stats Struct
@@ -230,15 +236,15 @@ pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
 - **Method:** `POST`
 - **JSON Body**:
   - **Required**:
-    - `area` OR `instance`
+    - `area` OR `instance` OR `data_points`
   - **Optional**:
     - `radius`
     - `return_type`
     - `min_points`
     - `generations`
     - `devices`
-    - `data_points`
     - `fast`
+    - `only_unique`
 
 ### /api/v1/convert/data
 
