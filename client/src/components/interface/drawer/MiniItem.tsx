@@ -24,6 +24,7 @@ export default function MiniItem({ text, i }: Props) {
       placement="right"
       TransitionComponent={MySlide}
       color="primary"
+      arrow
     >
       <ListItemButton
         onClick={() => {
