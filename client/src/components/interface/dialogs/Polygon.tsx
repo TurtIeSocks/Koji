@@ -94,12 +94,13 @@ export default function ExportPolygon({
       maxWidth="xl"
     >
       <DialogHeader
-        title={mode === 'export' ? 'Export Polygon' : 'Import Polygon'}
         action={() => {
           setOpen('')
           setCode('')
         }}
-      />
+      >
+        {mode === 'export' ? 'Export Polygon' : 'Import Polygon'}
+      </DialogHeader>
       <DialogContent sx={{ width: '90vw', height: '60vh', overflow: 'auto' }}>
         <Code
           code={code}

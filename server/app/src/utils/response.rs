@@ -5,6 +5,7 @@ use super::{
 
 use actix_web::HttpResponse;
 use num_traits::Float;
+use serde_json::json;
 use std::{fmt::Display, str::FromStr};
 
 use crate::models::{
@@ -70,7 +71,7 @@ pub fn send(
         message: "Success".to_string(),
         status: "ok".to_string(),
         status_code: 200,
-        data: if benchmark_mode { None } else { Some(match return_type {
+        data: if benchmark_mode { None } else { Some(json!(match return_type {
             ReturnTypeArg::SingleStruct => {
                 GeoFormats::SingleStruct(flatten(as_struct(vector::from_collection(value))))
             }
@@ -92,7 +93,7 @@ pub fn send(
             ReturnTypeArg::FeatureVec => GeoFormats::FeatureVec(value.features),
             ReturnTypeArg::FeatureCollection => GeoFormats::FeatureCollection(value),
             ReturnTypeArg::Poracle => GeoFormats::Poracle(poracle::from_collection(value)),
-        })},
-        stats,
+        }))},
+        stats: Some(stats),
     })
 }

@@ -84,7 +84,12 @@ pub async fn main() -> io::Result<()> {
                                     .service(routes::calculate::bootstrap)
                                     .service(routes::calculate::cluster),
                             )
-                            .service(web::scope("convert").service(routes::convert::convert_data)),
+                            .service(web::scope("convert").service(routes::convert::convert_data))
+                            .service(
+                                web::scope("geofence")
+                                    .service(routes::geofence::all)
+                                    .service(routes::geofence::save),
+                            ),
                     ),
             )
             .service(

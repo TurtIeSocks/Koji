@@ -1,16 +1,16 @@
 import * as React from 'react'
 import { Divider, List, ListItemButton, ListItemIcon } from '@mui/material'
-import { ContentCopy, Save } from '@mui/icons-material'
+import { Download, Save, Upload } from '@mui/icons-material'
 
 import { useStatic } from '@hooks/useStatic'
 
+import SaveToKoji from '@components/interface/dialogs/SaveToKoji'
 import ExportRoute from '../../dialogs/ExportRoute'
 import PolygonDialog from '../../dialogs/Polygon'
 import InstanceSelect from './Instance'
 
 export default function ImportExport() {
   const [open, setOpen] = React.useState('')
-
   const geojson = useStatic((s) => s.geojson)
 
   return (
@@ -19,17 +19,17 @@ export default function ImportExport() {
       <Divider sx={{ my: 2 }} />
       <ListItemButton onClick={() => setOpen('polygon')}>
         <ListItemIcon>
-          <ContentCopy />
+          <Download />
         </ListItemIcon>
         Import Polygon
       </ListItemButton>
       <ListItemButton onClick={() => setOpen('route')}>
         <ListItemIcon>
-          <ContentCopy />
+          <Upload />
         </ListItemIcon>
         Export Route
       </ListItemButton>
-      <ListItemButton onClick={() => setOpen('polygon')}>
+      <ListItemButton onClick={() => setOpen('save_koji')}>
         <ListItemIcon>
           <Save />
         </ListItemIcon>
@@ -42,6 +42,7 @@ export default function ImportExport() {
         feature={geojson}
       />
       <ExportRoute open={open} setOpen={setOpen} />
+      <SaveToKoji open={open} setOpen={setOpen} geojson={geojson} />
     </List>
   )
 }

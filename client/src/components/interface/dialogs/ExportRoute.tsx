@@ -30,7 +30,7 @@ export default function ExportRoute({ open, setOpen }: Props) {
 
   return (
     <Dialog open={open === 'route'} maxWidth="xl" onClose={() => setOpen('')}>
-      <DialogHeader title="Export Route" action={() => setOpen('')} />
+      <DialogHeader action={() => setOpen('')}>Export Route</DialogHeader>
       <DialogContent>
         <Grid2 container>
           <Grid2

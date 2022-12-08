@@ -47,17 +47,12 @@ export const ICON_COLOR = {
   u: 'dodgerblue',
 } as const
 
-export const TABS = [
-  'Drawing',
-  'Clustering',
-  'Import / Export',
-  'Settings',
-] as const
+export const TABS = ['Drawing', 'Clustering', 'Manage', 'Settings'] as const
 
 export const ICON_MAP: Record<string, typeof EditRoad> = {
   Drawing: EditRoad,
   Clustering: TravelExplore,
-  'Import / Export': ImportExport,
+  Manage: ImportExport,
   Settings,
 }
 

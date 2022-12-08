@@ -18,7 +18,12 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Geofence::Name).string().not_null())
+                    .col(
+                        ColumnDef::new(Geofence::Name)
+                            .string()
+                            .not_null()
+                            .unique_key(),
+                    )
                     .col(ColumnDef::new(Geofence::Area).json().not_null())
                     .col(ColumnDef::new(Geofence::CreatedAt).timestamp().not_null())
                     .col(ColumnDef::new(Geofence::UpdatedAt).timestamp().not_null())

@@ -1,3 +1,5 @@
+use geojson::JsonValue;
+
 use super::*;
 
 use crate::utils::{self, convert::normalize};
@@ -208,6 +210,6 @@ pub struct Response {
     pub message: String,
     pub status: String,
     pub status_code: u16,
-    pub data: Option<GeoFormats>,
-    pub stats: Stats,
+    pub data: Option<JsonValue>,
+    pub stats: Option<Stats>,
 }

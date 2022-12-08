@@ -1,3 +1,6 @@
+use migration::Order;
+use sea_orm::QueryOrder;
+
 use super::*;
 
 use crate::{
@@ -9,7 +12,10 @@ use crate::{
 };
 
 pub async fn all(conn: &DatabaseConnection) -> Result<Vec<Feature>, DbErr> {
-    let items = area::Entity::find().all(conn).await?;
+    let items = area::Entity::find()
+        .order_by(area::Column::Name, Order::Asc)
+        .all(conn)
+        .await?;
     Ok(normalize::area(items))
 }
 

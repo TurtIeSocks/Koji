@@ -55,7 +55,7 @@ export default function DrawerIndex() {
                   {{
                     Drawing: <GeofenceTab />,
                     Clustering: <RoutingTab />,
-                    'Import / Export': <ImportExport />,
+                    Manage: <ImportExport />,
                     Settings: <Settings />,
                   }[text] || null}
                 </MenuAccordion>

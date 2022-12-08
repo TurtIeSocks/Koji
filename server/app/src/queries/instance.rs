@@ -1,3 +1,6 @@
+use migration::Order;
+use sea_orm::QueryOrder;
+
 use super::*;
 
 use crate::{
@@ -29,10 +32,14 @@ pub async fn all(
     let items = if let Some(instance_type) = instance_type {
         instance::Entity::find()
             .filter(instance::Column::Type.eq(instance_type))
+            .order_by(instance::Column::Name, Order::Asc)
             .all(conn)
             .await?
     } else {
-        instance::Entity::find().all(conn).await?
+        instance::Entity::find()
+            .order_by(instance::Column::Name, Order::Asc)
+            .all(conn)
+            .await?
     };
     Ok(items
         .into_iter()

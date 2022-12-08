@@ -1,6 +1,6 @@
-use geojson::{Feature, JsonValue};
-
 use super::*;
+
+use geojson::{Feature, JsonValue};
 
 use crate::{
     models::{api::Args, CustomError, KojiDb},
