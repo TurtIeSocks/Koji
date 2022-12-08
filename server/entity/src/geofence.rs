@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[sea_orm(table_name = "geofence")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: i32,
+    pub id: u32,
     pub name: String,
     pub area: Json,
     pub created_at: DateTimeUtc,

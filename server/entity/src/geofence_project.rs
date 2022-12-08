@@ -6,9 +6,9 @@ use sea_orm::entity::prelude::*;
 #[sea_orm(table_name = "geofence_project")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: i32,
-    pub geofence_id: i32,
-    pub project_id: i32,
+    pub id: u32,
+    pub geofence_id: u32,
+    pub project_id: u32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
