@@ -1,13 +1,15 @@
-use migration::Order;
-use sea_orm::QueryOrder;
+use migration::{Expr, Order};
+use sea_orm::{QueryOrder, Set};
 
 use super::*;
 
 use crate::{
     entity::{area, sea_orm_active_enums::Type},
+    models::scanner::IdName,
     utils::{
         self,
-        convert::{collection, normalize},
+        convert::{collection, normalize, vector},
+        response::as_text,
     },
 };
 
@@ -44,4 +46,50 @@ pub async fn route(
     } else {
         Err(DbErr::Custom("Area not found".to_string()))
     }
+}
+
+pub async fn save(
+    conn: &DatabaseConnection,
+    area: FeatureCollection,
+) -> Result<(usize, usize), DbErr> {
+    let existing = area::Entity::find()
+        .select_only()
+        .column(area::Column::Id)
+        .column(area::Column::Name)
+        .into_model::<IdName>()
+        .all(conn)
+        .await?;
+
+    let mut inserts: Vec<area::ActiveModel> = vec![];
+    let mut update_len = 0;
+
+    for feat in area.into_iter() {
+        if let Some(name) = feat.property("name") {
+            if let Some(name) = name.as_str() {
+                let area = vector::from_geometry(feat.geometry.clone().unwrap());
+                let area = as_text::<f64>(vec![area], true);
+                let name = name.to_string();
+                let is_update = existing.iter().find(|entry| entry.name == name);
+                if let Some(entry) = is_update {
+                    area::Entity::update_many()
+                        .col_expr(area::Column::Geofence, Expr::value(area))
+                        .filter(area::Column::Id.eq(entry.id))
+                        .exec(conn)
+                        .await?;
+                    update_len += 1;
+                } else {
+                    inserts.push(area::ActiveModel {
+                        name: Set(name.to_string()),
+                        geofence: Set(Some(area)),
+                        ..Default::default()
+                    })
+                }
+            }
+        }
+    }
+    let insert_len = inserts.len();
+    if !inserts.is_empty() {
+        area::Entity::insert_many(inserts).exec(conn).await?;
+    }
+    Ok((insert_len, update_len))
 }

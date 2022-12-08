@@ -22,7 +22,7 @@ import {
 import { getData } from '@services/fetches'
 import { useStatic } from '@hooks/useStatic'
 import { useStore } from '@hooks/useStore'
-import type { FeatureCollection } from 'geojson'
+import { KojiResponse } from '@assets/types'
 
 const icon = <CheckBoxOutlineBlank fontSize="small" color="primary" />
 const checkedIcon = <CheckBox fontSize="small" color="primary" />
@@ -34,9 +34,16 @@ const filterOptions = createFilterOptions({
   stringify: (option: string) => option,
 })
 
-export default function InstanceSelect() {
+interface Props {
+  endpoint: string
+  stateKey: 'instances' | 'geofences'
+}
+export default function InstanceSelect({ endpoint, stateKey }: Props) {
   const selected = useStatic((s) => s.selected)
-  const instances = useStatic((s) => s.instances)
+  const fences = useStatic((s) => ({
+    instances: s.instances,
+    geofences: s.geofences,
+  }))
   const setStatic = useStatic((s) => s.setStatic)
   const setSelected = useStatic((s) => s.setSelected)
 
@@ -46,28 +53,31 @@ export default function InstanceSelect() {
   const [loading, setLoading] = React.useState(false)
 
   React.useEffect(() => {
-    if (!Object.keys(instances).length) {
+    if (!Object.keys(fences[stateKey]).length) {
       setLoading(true)
-      getData<FeatureCollection>('/api/instance/all').then((resp) => {
-        if (resp) {
-          setStatic(
-            'instances',
-            Object.fromEntries(
-              resp.features
-                .filter((f) => f.properties?.name)
-                .map((f) => [f.properties?.name, f]),
-            ),
-          )
-        }
-        setLoading(false)
-      })
+      getData<KojiResponse>(endpoint)
+        .then((resp) => {
+          if (resp) {
+            setStatic(
+              stateKey,
+              Object.fromEntries(
+                resp.data.features
+                  .filter((f) => f.properties?.name)
+                  .map((f) => [f.properties?.name, f]),
+              ),
+            )
+          }
+          setLoading(false)
+        })
+        // eslint-disable-next-line no-console
+        .catch((e) => console.error(e))
     }
   }, [])
 
   return (
     <ListItem>
       <Autocomplete
-        value={selected}
+        value={selected.filter((s) => fences[stateKey][s])}
         inputValue={inputValue}
         size="small"
         onChange={(_e, newValue) => setSelected(newValue, radius)}
@@ -79,11 +89,11 @@ export default function InstanceSelect() {
         loading={loading}
         handleHomeEndKeys
         disableCloseOnSelect
-        groupBy={(option) => instances[option]?.properties?.type}
+        groupBy={(option) => fences[stateKey][option]?.properties?.type}
         sx={{ width: '90%', mx: 'auto' }}
-        options={Object.keys(instances).sort((a, b) =>
-          instances[a].properties?.type?.localeCompare(
-            instances[b].properties?.type,
+        options={Object.keys(fences[stateKey]).sort((a, b) =>
+          fences[stateKey][a].properties?.type?.localeCompare(
+            fences[stateKey][b].properties?.type,
           ),
         )}
         renderTags={(val) => (
@@ -106,11 +116,15 @@ export default function InstanceSelect() {
         renderGroup={({ key, group, children }) => {
           const allValues = Array.isArray(children)
             ? [...selected, ...children.map((x) => x.key)] // vaguely hacky way to select all filtered results
-            : Object.keys(instances).filter((k) => instances[k]?.type === group)
+            : Object.keys(fences[stateKey]).filter(
+                (k) => fences[stateKey][k]?.type === group,
+              )
           const allSelected = allValues.every((v) => selected.includes(v))
           const partialSelected =
             allSelected ||
-            selected.some((v) => instances[v]?.properties?.type === group)
+            selected.some(
+              (v) => fences[stateKey][v]?.properties?.type === group,
+            )
 
           return group ? (
             <List key={key}>
@@ -121,12 +135,13 @@ export default function InstanceSelect() {
                       ? selected.filter(
                           (v) =>
                             !allValues.includes(v) ||
-                            instances[v].properties?.type !== group,
+                            fences[stateKey][v].properties?.type !== group,
                         )
                       : [
                           ...allValues,
                           ...selected.filter(
-                            (v) => instances[v].properties?.type !== group,
+                            (v) =>
+                              fences[stateKey][v].properties?.type !== group,
                           ),
                         ],
                     radius,

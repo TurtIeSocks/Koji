@@ -3,9 +3,9 @@ use super::*;
 use chrono::Utc;
 use geojson::GeoJson;
 use migration::{Expr, Order};
-use sea_orm::{FromQueryResult, QueryOrder, Set};
+use sea_orm::{QueryOrder, Set};
 
-use crate::entity::geofence;
+use crate::{entity::geofence, models::scanner::IdName};
 
 pub async fn all(conn: &DatabaseConnection) -> Result<Vec<Feature>, DbErr> {
     let items = geofence::Entity::find()
@@ -30,12 +30,6 @@ pub async fn all(conn: &DatabaseConnection) -> Result<Vec<Feature>, DbErr> {
     Ok(items)
 }
 
-#[derive(FromQueryResult)]
-struct Geofence {
-    id: i32,
-    name: String,
-}
-
 pub async fn save(
     conn: &DatabaseConnection,
     area: FeatureCollection,
@@ -44,7 +38,7 @@ pub async fn save(
         .select_only()
         .column(geofence::Column::Id)
         .column(geofence::Column::Name)
-        .into_model::<Geofence>()
+        .into_model::<IdName>()
         .all(conn)
         .await?;
 

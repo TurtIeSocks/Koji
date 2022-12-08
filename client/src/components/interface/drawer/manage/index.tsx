@@ -1,10 +1,16 @@
 import * as React from 'react'
-import { Divider, List, ListItemButton, ListItemIcon } from '@mui/material'
+import {
+  Divider,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListSubheader,
+} from '@mui/material'
 import { Download, Save, Upload } from '@mui/icons-material'
 
 import { useStatic } from '@hooks/useStatic'
 
-import SaveToKoji from '@components/interface/dialogs/SaveToKoji'
+import SaveToKoji from '@components/interface/dialogs/Manager'
 import ExportRoute from '../../dialogs/ExportRoute'
 import PolygonDialog from '../../dialogs/Polygon'
 import InstanceSelect from './Instance'
@@ -15,7 +21,10 @@ export default function ImportExport() {
 
   return (
     <List dense>
-      <InstanceSelect />
+      <ListSubheader disableGutters>Import from Scanner</ListSubheader>
+      <InstanceSelect endpoint="/api/instance/all" stateKey="instances" />
+      <ListSubheader disableGutters>Import from Kōji</ListSubheader>
+      <InstanceSelect endpoint="/api/v1/geofence/all" stateKey="geofences" />
       <Divider sx={{ my: 2 }} />
       <ListItemButton onClick={() => setOpen('polygon')}>
         <ListItemIcon>
@@ -29,11 +38,11 @@ export default function ImportExport() {
         </ListItemIcon>
         Export Route
       </ListItemButton>
-      <ListItemButton onClick={() => setOpen('save_koji')}>
+      <ListItemButton onClick={() => setOpen('manager')}>
         <ListItemIcon>
           <Save />
         </ListItemIcon>
-        Save to Kōji
+        Open Manager
       </ListItemButton>
       <PolygonDialog
         mode="import"

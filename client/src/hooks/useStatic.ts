@@ -12,6 +12,7 @@ export interface UseStatic {
   getMarkers: () => PixiMarker[]
   selected: string[]
   instances: { [name: string]: Feature }
+  geofences: { [name: string]: Feature }
   scannerType: string
   tileServer: string
   geojson: FeatureCollection
@@ -47,6 +48,7 @@ export const useStatic = create<UseStatic>((set, get) => ({
   },
   selected: [],
   instances: {},
+  geofences: {},
   scannerType: 'rdm',
   geojson: {
     type: 'FeatureCollection',
@@ -70,12 +72,12 @@ export const useStatic = create<UseStatic>((set, get) => ({
     }))
   },
   setSelected: (selected) => {
-    const { instances } = get()
+    const { instances, geofences } = get()
     set({
       selected,
       geojson: {
         type: 'FeatureCollection',
-        features: selected.map((name) => instances[name]),
+        features: selected.map((name) => instances[name] || geofences[name]),
       },
     })
   },

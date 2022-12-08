@@ -9,7 +9,7 @@ import DrawerHeader from '../styled/DrawerHeader'
 import GeofenceTab from './geofence'
 import RoutingTab from './routing'
 import MenuAccordion from './MenuItem'
-import ImportExport from './importExport'
+import ImportExport from './manage'
 import Settings from './settings'
 import MiniItem from './MiniItem'
 

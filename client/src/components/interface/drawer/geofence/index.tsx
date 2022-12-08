@@ -16,6 +16,7 @@ export default function GeofenceTab() {
 
   return (
     <List dense>
+      <ListSubheader disableGutters>Drawing Options</ListSubheader>
       <Toggle field="snappable" value={snappable} setValue={setStore} />
       <Toggle
         field="continueDrawing"

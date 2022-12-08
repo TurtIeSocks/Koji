@@ -24,6 +24,23 @@ export interface Instance {
   data: FeatureCollection
 }
 
+export interface KojiResponse<T = FeatureCollection> {
+  data: T
+  status_code: number
+  status: string
+  message: string
+  stats?: {
+    best_clusters: [number, number][]
+    best_cluster_point_count: number
+    cluster_time: number
+    total_points: number
+    points_covered: number
+    total_clusters: number
+    total_distance: number
+    longest_distance: number
+  }
+}
+
 export interface Config {
   start_lat: number
   start_lon: number

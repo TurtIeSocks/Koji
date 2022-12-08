@@ -1,9 +1,13 @@
 use super::*;
 
 use geojson::{Feature, JsonValue};
+use serde_json::json;
 
 use crate::{
-    models::{api::Args, CustomError, KojiDb},
+    models::{
+        api::{Args, Response},
+        CustomError, KojiDb,
+    },
     queries::{area, instance},
     utils::convert::collection,
 };
@@ -27,7 +31,13 @@ async fn all(
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
     println!("[INSTANCE_ALL] Returning {} instances\n", instances.len());
-    Ok(HttpResponse::Ok().json(collection::from_features(instances)))
+    Ok(HttpResponse::Ok().json(Response {
+        data: Some(json!(collection::from_features(instances))),
+        message: "ok".to_string(),
+        status_code: 200,
+        status: "Success".to_string(),
+        stats: None,
+    }))
 }
 
 #[get("/type/{instance_type}")]

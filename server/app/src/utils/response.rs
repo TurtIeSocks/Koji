@@ -13,7 +13,7 @@ use crate::models::{
     GeoFormats, MultiStruct, MultiVec, PointStruct, SingleStruct,
 };
 
-fn as_text<T: Float + FromStr + Display>(points: MultiVec<T>, alt_text: bool) -> String {
+pub fn as_text<T: Float + FromStr + Display>(points: MultiVec<T>, alt_text: bool) -> String {
     let float_separator = if alt_text { " " } else { "," };
     let point_separator = if alt_text { "," } else { "\n" };
     let mut string: String = "".to_string();
@@ -30,7 +30,7 @@ fn as_text<T: Float + FromStr + Display>(points: MultiVec<T>, alt_text: bool) ->
     string
 }
 
-fn as_struct<T: Float>(points: MultiVec<T>) -> MultiStruct<T> {
+pub fn as_struct<T: Float>(points: MultiVec<T>) -> MultiStruct<T> {
     let mut return_array: MultiStruct<T> = vec![];
 
     for point_array in points.into_iter() {
@@ -55,7 +55,7 @@ fn as_struct<T: Float>(points: MultiVec<T>) -> MultiStruct<T> {
 //         .collect()
 // }
 
-fn flatten<T>(input: Vec<Vec<T>>) -> Vec<T> {
+pub fn flatten<T>(input: Vec<Vec<T>>) -> Vec<T> {
     input.into_iter().flatten().collect::<Vec<T>>()
 }
 

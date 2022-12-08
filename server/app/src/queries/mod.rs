@@ -10,5 +10,5 @@ pub mod geofence;
 pub mod gym;
 pub mod instance;
 pub mod pokestop;
-pub mod project;
+// pub mod project;
 pub mod spawnpoint;

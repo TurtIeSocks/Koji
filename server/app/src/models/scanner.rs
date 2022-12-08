@@ -18,6 +18,12 @@ pub enum RdmInstanceArea {
     Multi(MultiStruct),
 }
 
+#[derive(Debug, FromQueryResult)]
+pub struct IdName {
+    pub id: u32,
+    pub name: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RdmInstance {
     pub area: RdmInstanceArea,

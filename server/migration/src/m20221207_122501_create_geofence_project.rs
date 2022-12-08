@@ -14,19 +14,19 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(
                         ColumnDef::new(GeofenceProject::Id)
-                            .integer()
+                            .unsigned()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
                     .col(
                         ColumnDef::new(GeofenceProject::GeofenceId)
-                            .integer()
+                            .unsigned()
                             .not_null(),
                     )
                     .col(
                         ColumnDef::new(GeofenceProject::ProjectId)
-                            .integer()
+                            .unsigned()
                             .not_null(),
                     )
                     .foreign_key(

@@ -88,7 +88,8 @@ pub async fn main() -> io::Result<()> {
                             .service(
                                 web::scope("geofence")
                                     .service(routes::geofence::all)
-                                    .service(routes::geofence::save),
+                                    .service(routes::geofence::save_koji)
+                                    .service(routes::geofence::save_scanner),
                             ),
                     ),
             )
