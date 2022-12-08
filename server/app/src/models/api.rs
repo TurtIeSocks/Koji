@@ -47,6 +47,7 @@ pub struct Args {
     pub return_type: Option<String>,
     pub routing_time: Option<i64>,
     pub only_unique: Option<bool>,
+    pub last_seen: Option<u32>,
 }
 
 pub struct ArgsUnwrapped {
@@ -62,6 +63,7 @@ pub struct ArgsUnwrapped {
     pub return_type: ReturnTypeArg,
     pub routing_time: i64,
     pub only_unique: bool,
+    pub last_seen: u32,
 }
 
 impl Args {
@@ -79,6 +81,7 @@ impl Args {
             return_type,
             routing_time,
             only_unique,
+            last_seen,
         } = self;
         let (area, default_return_type) = normalize::area_input(area);
         let benchmark_mode = benchmark_mode.unwrap_or(false);
@@ -92,11 +95,12 @@ impl Args {
         let return_type = utils::get_return_type(return_type, default_return_type);
         let routing_time = routing_time.unwrap_or(1);
         let only_unique = only_unique.unwrap_or(false);
+        let last_seen = last_seen.unwrap_or(0);
 
         if let Some(mode) = mode {
             println!(
-                "[{}]: Instance: {} | Custom Area: {} | Custom Data Points: {}\nRadius: | {} Min Points: {} | Generations: {} | Routing Time: {} | Devices: {} | Fast: {}\nReturn Type: {:?}",
-                mode.to_uppercase(), instance, !area.features.is_empty(), !data_points.is_empty(), radius, min_points, generations, routing_time, devices, fast, return_type,
+                "[{}]: Instance: {} | Custom Area: {} | Custom Data Points: {}\nRadius: | {} Min Points: {} | Generations: {} | Routing Time: {} | Devices: {} | Fast: {}\nOnly Unique: {}, Last Seen: {}\nReturn Type: {:?}",
+                mode.to_uppercase(), instance, !area.features.is_empty(), !data_points.is_empty(), radius, min_points, generations, routing_time, devices, fast, only_unique, last_seen, return_type,
             );
         }
         ArgsUnwrapped {
@@ -112,6 +116,7 @@ impl Args {
             return_type,
             routing_time,
             only_unique,
+            last_seen,
         }
     }
 }
@@ -179,7 +184,11 @@ impl Stats {
                     "|| [CLUSTERS] Time: {}s | Total: {} | Avg Points: {}",
                     self.cluster_time as f32,
                     self.total_clusters,
-                    self.total_points / self.total_clusters,
+                    if self.total_clusters > 0 {
+                        self.total_points / self.total_clusters
+                    } else {
+                        0
+                    },
                 ),
                 true
             ),
@@ -196,7 +205,11 @@ impl Stats {
                     "|| [DISTANCE] Total {} | Longest {} | Avg: {}",
                     self.total_distance as f32,
                     self.longest_distance as f32,
-                    (self.total_distance / self.total_clusters as f64) as f32,
+                    if self.total_clusters > 0 {
+                        (self.total_distance / self.total_clusters as f64) as f32
+                    } else {
+                        0.
+                    },
                 ),
                 true
             ),
