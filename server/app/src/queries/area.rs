@@ -5,12 +5,8 @@ use super::*;
 
 use crate::{
     entity::{area, sea_orm_active_enums::Type},
-    models::scanner::IdName,
-    utils::{
-        self,
-        convert::{collection, normalize, vector},
-        response::as_text,
-    },
+    models::{scanner::IdName, text::TextHelpers, ToCollection, ToText},
+    utils::normalize,
 };
 
 pub async fn all(conn: &DatabaseConnection) -> Result<Vec<Feature>, DbErr> {
@@ -32,11 +28,9 @@ pub async fn route(
     if let Some(item) = item {
         if let Some(geofence) = item.geofence {
             if !geofence.is_empty() {
-                Ok(collection::from_feature(utils::parse_text(
-                    geofence.as_str(),
-                    Some(item.name),
-                    Some(&Type::AutoQuest),
-                )))
+                Ok(geofence
+                    .parse_scanner_instance(Some(item.name), Some(&Type::AutoQuest))
+                    .to_collection(Some(&Type::AutoQuest)))
             } else {
                 Err(DbErr::Custom("Geofence is empty".to_string()))
             }
@@ -65,9 +59,8 @@ pub async fn save(
 
     for feat in area.into_iter() {
         if let Some(name) = feat.property("name") {
-            if let Some(name) = name.as_str() {
-                let area = vector::from_geometry(feat.geometry.clone().unwrap());
-                let area = as_text::<f64>(vec![area], true);
+            if let Some(name) = name.clone().as_str() {
+                let area = feat.to_text(" ", ",");
                 let name = name.to_string();
                 let is_update = existing.iter().find(|entry| entry.name == name);
                 if let Some(entry) = is_update {

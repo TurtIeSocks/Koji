@@ -2,8 +2,8 @@ use super::*;
 
 use crate::{
     entity::gym,
-    models::{api::BoundsArg, scanner::GenericData, PointStruct},
-    utils::{self, convert::normalize},
+    models::{api::BoundsArg, point_struct::PointStruct, scanner::GenericData},
+    utils::{self, normalize},
 };
 
 pub async fn all(conn: &DatabaseConnection) -> Result<Vec<GenericData>, DbErr> {

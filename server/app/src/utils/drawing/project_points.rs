@@ -3,7 +3,7 @@ use map_3d::{self, Ellipsoid};
 use std::{collections::HashSet, time::Instant};
 
 use crate::{
-    models::{api::Stats, SingleVec},
+    models::{api::Stats, single_vec::SingleVec},
     utils::drawing::clustering,
 };
 

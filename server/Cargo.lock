@@ -282,12 +282,12 @@ dependencies = [
  "geojson",
  "map_3d",
  "migration",
+ "model",
  "num-traits",
  "rstar",
  "sea-orm",
  "serde",
  "serde_json",
- "serde_with",
  "time 0.3.17",
  "travelling_salesman",
 ]
@@ -1740,6 +1740,20 @@ dependencies = [
  "log",
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.42.0",
+]
+
+[[package]]
+name = "model"
+version = "0.1.0"
+dependencies = [
+ "entity",
+ "geo",
+ "geojson",
+ "num-traits",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "serde_with",
 ]
 
 [[package]]

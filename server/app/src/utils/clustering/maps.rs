@@ -72,7 +72,7 @@ pub fn run(
             // Approximate Geohash
             let approx_key = encode(coord, APPROX_PRECISION).unwrap();
             // Circle's bbox
-            let mut bbox = BBox::new(None);
+            let mut bbox = BBox::default();
 
             let points: HashSet<String> = if let Some(approx_points) = approx_map.get(&approx_key) {
                 // Get the points from the approx geohash
@@ -84,7 +84,7 @@ pub fn run(
                             // Mark point as seen
                             seen_set.insert(encode(point_coord.clone(), PRECISION).unwrap());
                             // Update circle's bbox
-                            bbox.update(*point_coord);
+                            bbox.update(point_coord);
 
                             point_map
                                 .entry(point_key.clone())
@@ -145,7 +145,7 @@ pub fn run(
                         circle_map
                             .entry(circle_key.clone())
                             .and_modify(|mut_circle_info| {
-                                mut_circle_info.bbox.update(point_info.coord);
+                                mut_circle_info.bbox.update(&point_info.coord);
                                 mut_circle_info.points.insert(point_key.clone());
                             });
                         point_map

@@ -1,9 +1,11 @@
+use models::api::Response;
+
 use super::*;
 
 use crate::{
     models::{
         api::{Args, ArgsUnwrapped, BoundsArg},
-        CustomError, KojiDb,
+        KojiDb,
     },
     queries::{area, gym, instance, pokestop, spawnpoint},
 };
@@ -83,9 +85,9 @@ async fn by_area(
     );
 
     if area.features.is_empty() && instance.is_empty() {
-        return Ok(HttpResponse::BadRequest().json(CustomError {
-            message: "no_area_and_empty_instance".to_string(),
-        }));
+        return Ok(
+            HttpResponse::BadRequest().json(Response::send_error("no_area_and_empty_instance"))
+        );
     }
 
     let area = if !area.features.is_empty() && !instance.is_empty() {

@@ -52,6 +52,13 @@ cd ../server && cargo run -r
 # you might have to also install pkg-config (`apt install pkg-config`)
 ```
 
+8. Optionally install [pm2](https://pm2.keymetrics.io/) to run the server in the background:
+
+```bash
+  npm install pm2 -g
+  pm2 start "cargo run -r" --name koji # from the /server folder
+```
+
 ### Docker (Recommended)
 
 1. Get the docker-compose.yml example file:
@@ -64,6 +71,13 @@ curl https://raw.githubusercontent.com/TurtIeSocks/Koji/main/docker-compose.exam
 3. Set the same env variables as above
 4. `docker-compose pull`
 5. `docker-compose up -d`
+
+### Updating
+
+1. `git pull`
+2. `cd client && yarn install && yarn build`
+3. `cd ../server && cargo run -r`
+4. If using pm2, `pm2 restart koji`
 
 ### Development
 

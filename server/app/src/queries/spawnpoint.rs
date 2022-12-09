@@ -6,7 +6,7 @@ use crate::{
         api::BoundsArg,
         scanner::{GenericData, Spawnpoint},
     },
-    utils::{self, convert::normalize},
+    utils::{self, normalize},
 };
 
 pub async fn all(conn: &DatabaseConnection) -> Result<Vec<GenericData>, DbErr> {

@@ -3,9 +3,8 @@ use serde_json::json;
 use super::*;
 
 use crate::models::api::{Args, ArgsUnwrapped, Response};
-use crate::models::KojiDb;
+use crate::models::{KojiDb, ToCollection};
 use crate::queries::{area, geofence, instance};
-use crate::utils::convert::collection;
 
 #[get("/all")]
 async fn all(
@@ -18,7 +17,7 @@ async fn all(
 
     println!("[GEOFENCES_ALL] Returning {} instances\n", features.len());
     Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(collection::from_features(features))),
+        data: Some(json!(features.to_collection(None))),
         message: "Success".to_string(),
         status: "ok".to_string(),
         stats: None,

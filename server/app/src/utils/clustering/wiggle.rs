@@ -12,7 +12,7 @@ pub fn run(
     for (circle_key, circle_info) in helpers::get_sorted(circle_map) {
         let mut best_neighbor = CircleInfo {
             coord: Coord { x: 0., y: 0. },
-            bbox: BBox::new(Some(&vec![circle_info.coord])),
+            bbox: BBox::new(&vec![circle_info.coord]),
             points: HashSet::new(),
             unique: HashSet::new(),
             meets_min: false,

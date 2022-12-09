@@ -26,10 +26,10 @@ pub fn run(
     });
 
     for (point_key, point_info) in new_point_map.clone().into_iter() {
-        let bbox = BBox::new(Some(&vec![point_info.coord]));
+        let bbox = BBox::new(&vec![point_info.coord]);
         let mut best_merge = CircleInfo {
             coord: point_info.coord,
-            bbox: BBox::new(None),
+            bbox: BBox::default(),
             points: HashSet::new(),
             unique: HashSet::new(),
             meets_min: false,
@@ -93,7 +93,7 @@ pub fn run(
                     point_key.clone(),
                     CircleInfo {
                         coord: point_info.coord,
-                        bbox: BBox::new(Some(&vec![point_info.coord])),
+                        bbox: BBox::new(&vec![point_info.coord]),
                         points: HashSet::new(),
                         unique,
                         meets_min: true,

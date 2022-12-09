@@ -13,9 +13,9 @@ where
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum RdmInstanceArea {
-    Leveling(PointStruct),
-    Single(SingleStruct),
-    Multi(MultiStruct),
+    Leveling(point_struct::PointStruct),
+    Single(single_struct::SingleStruct),
+    Multi(multi_struct::MultiStruct),
 }
 
 #[derive(Debug, FromQueryResult)]
@@ -58,10 +58,29 @@ where
     }
 }
 
+impl ToPointArray for GenericData {
+    fn to_point_array(self) -> point_array::PointArray {
+        self.p
+    }
+}
+impl ToPointStruct for GenericData {
+    fn to_struct(self) -> point_struct::PointStruct {
+        point_struct::PointStruct {
+            lat: self.p[0],
+            lon: self.p[1],
+        }
+    }
+}
+
+impl ToSingleVec for Vec<GenericData> {
+    fn to_single_vec(self) -> single_vec::SingleVec {
+        self.into_iter().map(|p| p.to_point_array()).collect()
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum InstanceParsing {
-    // Text(String),
     Feature(Feature),
     Rdm(RdmInstance),
 }

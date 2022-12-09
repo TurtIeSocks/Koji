@@ -57,7 +57,7 @@ export const useStore = create(
       gym: true,
       pokestop: true,
       mode: 'cluster',
-      data: 'all',
+      data: 'bound',
       radius: 70,
       generations: 1,
       routing_time: 1,

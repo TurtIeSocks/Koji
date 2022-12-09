@@ -1,35 +1,16 @@
 use std::collections::HashMap;
 
 use migration::{Expr, Order};
-use sea_orm::{QueryOrder, Set};
+use sea_orm::{ActiveModelTrait, QueryOrder, Set};
 use serde_json::{json, Value};
 
 use super::*;
 
 use crate::{
-    entity::{instance, sea_orm_active_enums},
-    utils::convert::{collection, normalize, vector},
+    entity::instance,
+    models::{ToCollection, ToSingleVec},
+    utils::{get_enum, get_enum_by_geometry, normalize},
 };
-
-fn get_enum(instance_type: Option<String>) -> Option<sea_orm_active_enums::Type> {
-    match instance_type {
-        Some(instance_type) => match instance_type.as_str() {
-            "AutoQuest" | "auto_quest" => Some(sea_orm_active_enums::Type::AutoQuest),
-            "CirclePokemon" | "circle_pokemon" => Some(sea_orm_active_enums::Type::CirclePokemon),
-            "CircleSmartPokemon" | "circle_smart_pokemon" => {
-                Some(sea_orm_active_enums::Type::CircleSmartPokemon)
-            }
-            "CircleRaid" | "circle_raid" => Some(sea_orm_active_enums::Type::CircleRaid),
-            "CircleSmartRaid" | "circle_smart_raid" => {
-                Some(sea_orm_active_enums::Type::CircleSmartRaid)
-            }
-            "PokemonIv" | "pokemon_iv" => Some(sea_orm_active_enums::Type::PokemonIv),
-            "Leveling" | "leveling" => Some(sea_orm_active_enums::Type::Leveling),
-            _ => None,
-        },
-        None => None,
-    }
-}
 
 pub async fn all(
     conn: &DatabaseConnection,
@@ -63,7 +44,7 @@ pub async fn route(
         .one(conn)
         .await?;
     if let Some(items) = items {
-        Ok(collection::from_feature(normalize::instance(items)))
+        Ok(normalize::instance(items).to_collection(None))
     } else {
         Err(DbErr::Custom("Instance not found".to_string()))
     }
@@ -71,7 +52,7 @@ pub async fn route(
 
 struct Instance {
     name: String,
-    // r#type: sea_orm_active_enums::Type,
+    // r#type: Type,
     data: HashMap<String, Value>,
 }
 
@@ -80,51 +61,65 @@ pub async fn save(
     area: FeatureCollection,
 ) -> Result<(usize, usize), DbErr> {
     let existing = instance::Entity::find().all(conn).await?;
-    let existing: Vec<Instance> = existing
+    let mut existing: Vec<Instance> = existing
         .into_iter()
         .map(|x| Instance {
             name: x.name,
+            // r#type: x.r#type,
             data: serde_json::from_str(&x.data).unwrap(),
         })
         .collect();
 
     let mut inserts: Vec<instance::ActiveModel> = vec![];
     let mut update_len = 0;
-    // let mut errors: Vec<String> = vec![];
 
     for feat in area.into_iter() {
         if let Some(name) = feat.property("name") {
             if let Some(name) = name.as_str() {
-                let area = vector::from_geometry(feat.geometry.clone().unwrap());
-                let new_area = json!(area);
-                // let mut new_area = from_str(&new_area).unwrap();
-                let name = name.to_string();
-                let is_update = existing.iter().find(|entry| entry.name == name);
-
-                if let Some(entry) = is_update {
-                    // let mut entry = entry.clone();
-                    // entry
-                    //     .data
-                    //     .entry("area".to_string())
-                    // .and_modify(|x| {
-                    //     x = &new_area;
-                    // })
-                    // .or_insert(new_area);
-                    instance::Entity::update_many()
-                        .col_expr(
-                            instance::Column::Data,
-                            Expr::value(json!(entry.data).to_string()),
-                        )
-                        .filter(instance::Column::Name.eq(entry.name.to_string()))
-                        .exec(conn)
-                        .await?;
-                    update_len += 1;
+                let r#type = if let Some(instance_type) = feat.property("type") {
+                    if let Some(instance_type) = instance_type.as_str() {
+                        get_enum(Some(instance_type.to_string()))
+                    } else {
+                        get_enum_by_geometry(&feat.geometry.as_ref().unwrap().value)
+                    }
                 } else {
-                    inserts.push(instance::ActiveModel {
-                        name: Set(name.to_string()),
-                        data: Set(json!({ "area": new_area }).to_string()),
-                        ..Default::default()
-                    })
+                    get_enum_by_geometry(&feat.geometry.as_ref().unwrap().value)
+                };
+                if let Some(r#type) = r#type {
+                    let area = feat.clone().to_single_vec();
+                    let new_area = json!(area);
+                    let name = name.to_string();
+                    let is_update = existing.iter_mut().find(|entry| entry.name == name);
+
+                    if let Some(entry) = is_update {
+                        entry.data.insert("area".to_string(), new_area);
+                        instance::Entity::update_many()
+                            .col_expr(
+                                instance::Column::Data,
+                                Expr::value(json!(entry.data).to_string()),
+                            )
+                            .col_expr(instance::Column::Type, Expr::value(r#type))
+                            .filter(instance::Column::Name.eq(entry.name.to_string()))
+                            .exec(conn)
+                            .await?;
+                        update_len += 1;
+                    } else {
+                        let mut active_model = instance::ActiveModel {
+                            name: Set(name.to_string()),
+                            // r#type: Set(r#type),
+                            // data: Set(json!({ "area": new_area }).to_string()),
+                            ..Default::default()
+                        };
+                        active_model
+                            .set_from_json(json!({
+                                "name": name,
+                                "type": r#type,
+                                "data": json!({ "area": new_area }).to_string(),
+                            }))
+                            .unwrap();
+
+                        inserts.push(active_model)
+                    }
                 }
             }
         }

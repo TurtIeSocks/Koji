@@ -6,7 +6,7 @@ use geojson::{Feature, FeatureCollection};
 use sea_orm::Database;
 
 use entity;
-mod models;
+use model as models;
 mod queries;
 mod routes;
 mod utils;

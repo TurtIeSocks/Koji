@@ -53,7 +53,7 @@ pub fn sync_maps(
         }
     }
     let info = circle_map.entry(new_key.clone()).or_insert(CircleInfo {
-        bbox: BBox::new(Some(&bbox_points)),
+        bbox: BBox::new(&bbox_points),
         points: points.clone(),
         unique: unique.clone(),
         coord: best_neighbor.coord,

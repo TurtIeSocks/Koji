@@ -3,10 +3,7 @@ use super::*;
 use geo::{Contains, Extremes, HaversineDestination, HaversineDistance, Point, Polygon};
 use geojson::{Geometry, Value};
 
-use crate::{
-    models::{api::Stats, SingleVec},
-    utils::convert::feature::split_multi,
-};
+use crate::models::{api::Stats, single_vec::SingleVec, ToFeatureVec};
 
 fn dot(u: &Point, v: &Point) -> f64 {
     u.x() * v.x() + u.y() * v.y()
@@ -47,7 +44,8 @@ fn flatten_circles(feature: Feature, radius: f64, stats: &mut Stats) -> Vec<Poin
     }
     let geometry = feature.geometry.unwrap();
     let circles = match geometry.value {
-        Value::MultiPolygon(_) => split_multi(geometry)
+        Value::MultiPolygon(_) => geometry
+            .to_feature_vec()
             .into_iter()
             .flat_map(|feat| {
                 if let Some(geo) = feat.geometry {

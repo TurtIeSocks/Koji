@@ -6,10 +6,9 @@ use serde_json::json;
 use crate::{
     models::{
         api::{Args, Response},
-        CustomError, KojiDb,
+        KojiDb, ToCollection,
     },
     queries::{area, instance},
-    utils::convert::collection,
 };
 
 #[get("/all")]
@@ -32,7 +31,7 @@ async fn all(
 
     println!("[INSTANCE_ALL] Returning {} instances\n", instances.len());
     Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(collection::from_features(instances))),
+        data: Some(json!(instances.to_collection(None))),
         message: "ok".to_string(),
         status_code: 200,
         status: "Success".to_string(),
@@ -55,9 +54,7 @@ async fn instance_type(
     );
 
     if !scanner_type.eq("rdm") {
-        return Ok(HttpResponse::BadRequest().json(CustomError {
-            message: "invalid_scanner_type".to_string(),
-        }));
+        return Ok(HttpResponse::BadRequest().json(Response::send_error("invalid_scanner_type")));
     }
 
     let instances = instance::all(&conn.data_db, Some(instance_type))
@@ -92,9 +89,7 @@ async fn get_area(
     );
 
     if instance.is_empty() {
-        return Ok(HttpResponse::BadRequest().json(CustomError {
-            message: "no_instance_provided".to_string(),
-        }));
+        return Ok(HttpResponse::BadRequest().json(Response::send_error("no_instance_provided")));
     }
 
     let instance_data = if scanner_type.eq("rdm") {

@@ -10,7 +10,7 @@ pub fn run(
 
     for (circle_key, circle_info) in helpers::get_sorted(&circle_map) {
         // Theoretical box if we only had to account for unique points
-        let theoretical_bbox = BBox::new(Some(&circle_info.get_points(point_map, CiKeys::Unique)));
+        let theoretical_bbox = BBox::new(&circle_info.get_points(point_map, CiKeys::Unique));
 
         // Approx key to find neighbors
         let approx_key = circle_key[..(APPROX_PRECISION - 2)].to_string();
@@ -35,7 +35,7 @@ pub fn run(
         // mutable neighbor to merge with after cycling through all of the neighbors to find the best
         let mut best_neighbor = CircleInfo {
             coord: Coord { x: 0., y: 0. },
-            bbox: BBox::new(None),
+            bbox: BBox::default(),
             points: HashSet::new(),
             unique: HashSet::new(),
             meets_min: false,

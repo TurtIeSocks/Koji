@@ -1,8 +1,8 @@
-use geojson::JsonValue;
-
 use super::*;
 
-use crate::utils::{self, convert::normalize};
+use geojson::JsonValue;
+
+use crate::{collection::Default, text::TextHelpers};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BoundsArg {
@@ -29,8 +29,8 @@ pub enum ReturnTypeArg {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum DataPointsArg {
-    Array(SingleVec),
-    Struct(SingleStruct),
+    Array(single_vec::SingleVec),
+    Struct(single_struct::SingleStruct),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -53,7 +53,7 @@ pub struct Args {
 pub struct ArgsUnwrapped {
     pub area: FeatureCollection,
     pub benchmark_mode: bool,
-    pub data_points: SingleVec,
+    pub data_points: single_vec::SingleVec,
     pub devices: usize,
     pub fast: bool,
     pub generations: usize,
@@ -83,16 +83,71 @@ impl Args {
             only_unique,
             last_seen,
         } = self;
-        let (area, default_return_type) = normalize::area_input(area);
+        let (area, default_return_type) = if let Some(area) = area {
+            (
+                area.clone().to_collection(None),
+                match area {
+                    GeoFormats::Text(area) => {
+                        if area.text_test() {
+                            ReturnTypeArg::AltText
+                        } else {
+                            ReturnTypeArg::Text
+                        }
+                    }
+                    GeoFormats::SingleArray(_) => ReturnTypeArg::SingleArray,
+                    GeoFormats::MultiArray(_) => ReturnTypeArg::MultiArray,
+                    GeoFormats::SingleStruct(_) => ReturnTypeArg::SingleStruct,
+                    GeoFormats::MultiStruct(_) => ReturnTypeArg::MultiStruct,
+                    GeoFormats::Feature(_) => ReturnTypeArg::Feature,
+                    GeoFormats::FeatureVec(_) => ReturnTypeArg::FeatureVec,
+                    GeoFormats::FeatureCollection(_) => ReturnTypeArg::FeatureCollection,
+                    GeoFormats::Poracle(_) => ReturnTypeArg::Poracle,
+                },
+            )
+        } else {
+            (FeatureCollection::default(), ReturnTypeArg::SingleArray)
+        };
         let benchmark_mode = benchmark_mode.unwrap_or(false);
-        let data_points = normalize::data_points(data_points);
+        let data_points = if let Some(data_points) = data_points {
+            match data_points {
+                DataPointsArg::Struct(data_points) => data_points.to_single_vec(),
+                DataPointsArg::Array(data_points) => data_points,
+            }
+        } else {
+            vec![]
+        };
         let devices = devices.unwrap_or(1);
         let fast = fast.unwrap_or(true);
         let generations = generations.unwrap_or(1);
         let instance = instance.unwrap_or("".to_string());
         let min_points = min_points.unwrap_or(1);
         let radius = radius.unwrap_or(70.0);
-        let return_type = utils::get_return_type(return_type, default_return_type);
+        let return_type = if let Some(return_type) = return_type {
+            match return_type.to_lowercase().as_str() {
+                "alttext" | "alt_text" => ReturnTypeArg::AltText,
+                "text" => ReturnTypeArg::Text,
+                "array" => match default_return_type {
+                    ReturnTypeArg::SingleArray => ReturnTypeArg::SingleArray,
+                    ReturnTypeArg::MultiArray => ReturnTypeArg::MultiArray,
+                    _ => ReturnTypeArg::SingleArray,
+                },
+                "singlearray" | "single_array" => ReturnTypeArg::SingleArray,
+                "multiarray" | "multi_array" => ReturnTypeArg::MultiArray,
+                "struct" => match default_return_type {
+                    ReturnTypeArg::SingleStruct => ReturnTypeArg::SingleStruct,
+                    ReturnTypeArg::MultiStruct => ReturnTypeArg::MultiStruct,
+                    _ => ReturnTypeArg::SingleStruct,
+                },
+                "singlestruct" | "single_struct" => ReturnTypeArg::SingleStruct,
+                "multistruct" | "multi_struct" => ReturnTypeArg::MultiStruct,
+                "feature" => ReturnTypeArg::Feature,
+                "poracle" => ReturnTypeArg::Poracle,
+                "featurecollection" | "feature_collection" => ReturnTypeArg::FeatureCollection,
+                _ => default_return_type,
+            }
+        } else {
+            default_return_type
+        };
         let routing_time = routing_time.unwrap_or(1);
         let only_unique = only_unique.unwrap_or(false);
         let last_seen = last_seen.unwrap_or(0);
@@ -131,7 +186,7 @@ pub struct ConfigResponse {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Stats {
-    pub best_clusters: SingleVec,
+    pub best_clusters: single_vec::SingleVec,
     pub best_cluster_point_count: usize,
     pub cluster_time: f32,
     pub total_points: usize,
@@ -225,4 +280,16 @@ pub struct Response {
     pub status_code: u16,
     pub data: Option<JsonValue>,
     pub stats: Option<Stats>,
+}
+
+impl Response {
+    pub fn send_error(message: &str) -> Response {
+        Response {
+            message: message.to_string(),
+            status: "error".to_string(),
+            status_code: 500,
+            data: None,
+            stats: None,
+        }
+    }
 }

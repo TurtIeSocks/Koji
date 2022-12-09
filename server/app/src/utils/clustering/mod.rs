@@ -8,7 +8,7 @@ use std::{
 };
 
 use crate::{
-    models::{api::Stats, scanner::GenericData, BBox, SingleVec},
+    models::{api::Stats, scanner::GenericData, single_vec::SingleVec, BBox},
     utils::drawing::helpers::*,
 };
 

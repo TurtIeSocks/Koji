@@ -2,23 +2,25 @@ use super::*;
 
 use geo::{Coord, HaversineDistance, Point};
 use geojson::{Geometry, Value};
+use models::api::Response;
 use std::collections::{HashSet, VecDeque};
 use std::time::Instant;
 use time::Duration;
 use travelling_salesman;
 
-use crate::models::BBox;
+use crate::models::point_array::PointArray;
+use crate::models::single_vec::SingleVec;
+use crate::models::{BBox, ToCollection, ToSingleVec};
 use crate::{
     entity::sea_orm_active_enums::Type,
     models::{
         api::{Args, ArgsUnwrapped, Stats},
         scanner::GenericData,
-        CustomError, KojiDb, SingleVec,
+        KojiDb,
     },
     queries::{area, gym, instance, pokestop, spawnpoint},
     utils::{
         clustering,
-        convert::{collection, feature, vector},
         drawing::{bootstrapping, project_points},
         response,
     },
@@ -42,9 +44,9 @@ async fn bootstrap(
     } = payload.into_inner().init(Some("bootstrap"));
 
     if area.features.is_empty() && instance.is_empty() {
-        return Ok(HttpResponse::BadRequest().json(CustomError {
-            message: "no_area_and_empty_instance".to_string(),
-        }));
+        return Ok(
+            HttpResponse::BadRequest().json(Response::send_error("no_area_and_empty_instance"))
+        );
     }
 
     let area = if area.features.is_empty() && !instance.is_empty() {
@@ -70,7 +72,7 @@ async fn bootstrap(
     stats.cluster_time = time.elapsed().as_secs_f32();
 
     Ok(response::send(
-        collection::from_features(features),
+        features.to_collection(None),
         return_type,
         stats,
         benchmark_mode,
@@ -104,9 +106,9 @@ async fn cluster(
     } = payload.into_inner().init(Some(&mode));
 
     if area.features.is_empty() && instance.is_empty() && data_points.is_empty() {
-        return Ok(HttpResponse::BadRequest().json(CustomError {
-            message: "no_area_instance_data_points".to_string(),
-        }));
+        return Ok(
+            HttpResponse::BadRequest().json(Response::send_error("no_area_instance_data_points"))
+        );
     }
 
     let mut stats = Stats::new();
@@ -118,12 +120,12 @@ async fn cluster(
             area::route(&conn.unown_db.as_ref().unwrap(), &instance).await
         }
     } else if !data_points.is_empty() {
-        let polygon = BBox::new(Some(
+        let polygon = BBox::new(
             &data_points
                 .iter()
                 .map(|p| Coord { x: p[1], y: p[0] })
                 .collect(),
-        ))
+        )
         .get_poly();
         Ok(FeatureCollection {
             bbox: None,
@@ -170,12 +172,7 @@ async fn cluster(
     stats.total_points = data_points.len();
 
     let clusters: SingleVec = if fast {
-        project_points::project_points(
-            vector::from_generic_data(data_points),
-            radius,
-            min_points,
-            &mut stats,
-        )
+        project_points::project_points(data_points.to_single_vec(), radius, min_points, &mut stats)
     } else {
         area.into_iter()
             .flat_map(|feature| {
@@ -194,10 +191,7 @@ async fn cluster(
 
     if mode.eq("cluster") || clusters.is_empty() {
         return Ok(response::send(
-            collection::from_feature(feature::from_single_vector(
-                clusters,
-                Some(&Type::CirclePokemon),
-            )),
+            clusters.to_collection(Some(&Type::CirclePokemon)),
             return_type,
             stats,
             benchmark_mode,
@@ -220,7 +214,7 @@ async fn cluster(
         }),
     );
 
-    let mut final_clusters = VecDeque::<[f64; 2]>::new();
+    let mut final_clusters = VecDeque::<PointArray>::new();
 
     let mut rotate_count: usize = 0;
 
@@ -259,6 +253,7 @@ async fn cluster(
             stats.longest_distance = distance;
         }
     }
+    let final_clusters: Vec<PointArray> = final_clusters.into();
 
     // let circles = solve(clusters, generations, devices);
     // let mapped_circles: Vec<Vec<(f64, f64)>> = circles
@@ -273,10 +268,7 @@ async fn cluster(
     //     .collect();
 
     Ok(response::send(
-        collection::from_feature(feature::from_single_vector(
-            final_clusters.into(),
-            Some(&Type::CirclePokemon),
-        )),
+        final_clusters.to_collection(Some(&Type::CirclePokemon)),
         return_type,
         stats,
         benchmark_mode,
