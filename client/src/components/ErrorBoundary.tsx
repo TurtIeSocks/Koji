@@ -3,12 +3,15 @@ import React, { Component } from 'react'
 import {
   Alert,
   AlertTitle,
+  Button,
   Collapse,
   IconButton,
   Stack,
   Typography,
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
+import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
+import { Refresh } from '@mui/icons-material'
 
 type Props = {
   children: React.ReactNode
@@ -17,23 +20,51 @@ type Props = {
 type State = {
   hasError: boolean
   message: string
+  errorCount: number
 }
 
 export default class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props)
-    this.state = { hasError: false, message: '' }
+    this.state = { hasError: false, message: '', errorCount: 0 }
   }
 
   componentDidCatch(error: Error) {
-    this.setState({
+    this.setState((prev) => ({
       hasError: true,
       message: error?.message || '',
-    })
+      errorCount: prev.errorCount + 1,
+    }))
   }
 
   render() {
-    return (
+    return this.state.errorCount > 5 ? (
+      <Grid2
+        container
+        alignItems="center"
+        justifyContent="center"
+        sx={{ height: '100vh', width: '100vw', textAlign: 'center' }}
+      >
+        <Grid2 xs={12}>
+          <Typography variant="h3" align="center">
+            Kōji encountered an error!
+          </Typography>
+          <Typography variant="h6" align="center">
+            {this.state.message}
+          </Typography>
+          <br />
+          <br />
+          <Button
+            onClick={() => window.location.reload()}
+            variant="contained"
+            color="primary"
+            startIcon={<Refresh />}
+          >
+            Refresh
+          </Button>
+        </Grid2>
+      </Grid2>
+    ) : (
       <>
         <Collapse
           in={this.state.hasError}
