@@ -3,6 +3,7 @@ use super::*;
 use geo::{Coord, HaversineDistance, Point};
 use geojson::{Geometry, Value};
 use models::api::Response;
+use models::{FeatureHelpers, ToFeature};
 use std::collections::{HashSet, VecDeque};
 use std::time::Instant;
 use time::Duration;
@@ -102,6 +103,7 @@ async fn cluster(
         return_type,
         routing_time,
         only_unique,
+        save_to_db,
         ..
     } = payload.into_inner().init(Some(&mode));
 
@@ -254,6 +256,23 @@ async fn cluster(
         }
     }
     let final_clusters: Vec<PointArray> = final_clusters.into();
+
+    if !instance.is_empty() && save_to_db {
+        let enum_type = if category == "gym" {
+            Type::CircleRaid
+        } else if category == "pokestop" {
+            Type::ManualQuest
+        } else {
+            Type::CirclePokemon
+        };
+        let mut feature = final_clusters.clone().to_feature(Some(&enum_type));
+
+        println!("Name {} | Type: {}", instance, enum_type);
+        feature.add_instance_properties(Some(instance.clone()), Some(&enum_type));
+        area::save(conn.unown_db.as_ref().unwrap(), feature.to_collection(None))
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
+    }
 
     // let circles = solve(clusters, generations, devices);
     // let mapped_circles: Vec<Vec<(f64, f64)>> = circles

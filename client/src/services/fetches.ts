@@ -56,6 +56,7 @@ export async function getLotsOfData(
             return_type: 'multi_array',
             devices: Math.max(Math.floor((settings.devices || 1) / length), 1),
             area,
+            instance: area.properties?.name,
           }),
         })
           .then((res) => res.json())

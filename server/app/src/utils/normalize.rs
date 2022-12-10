@@ -52,12 +52,12 @@ pub fn instance(instance: instance::Model) -> Feature {
 pub fn area(areas: Vec<area::Model>) -> Vec<Feature> {
     let mut normalized = Vec::<Feature>::new();
 
-    let mut to_feature = |fence: Option<String>, name: String, modifier: &str| -> String {
+    let mut to_feature = |fence: Option<String>, name: String, category: &str| -> String {
         if let Some(fence) = fence {
             if !fence.is_empty() {
                 normalized.push(fence.parse_scanner_instance(
-                    Some(format!("{}_{}", name, modifier)),
-                    Some(match modifier {
+                    Some(name.to_string()),
+                    Some(match category {
                         "Fort" => &Type::CircleRaid,
                         "Quest" => &Type::ManualQuest,
                         "Pokemon" => &Type::CirclePokemon,

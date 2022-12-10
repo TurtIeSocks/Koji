@@ -32,7 +32,7 @@ export default function Routes() {
   const forceFetch = useStatic((s) => s.forceFetch)
 
   useDeepCompareEffect(() => {
-    if (geojson.features.length && tab === 1) {
+    if (geojson.features.length) {
       setStore('export', { ...exportSettings, route: [[]] })
       getLotsOfData(
         mode === 'bootstrap'

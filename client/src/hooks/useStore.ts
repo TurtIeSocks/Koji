@@ -38,6 +38,7 @@ export interface UseStore {
     max: number
     route: [number, number][][]
   }
+  save_to_db: boolean
   snappable: boolean
   continueDrawing: boolean
   fast: boolean
@@ -63,6 +64,7 @@ export const useStore = create(
       routing_time: 1,
       min_points: 3,
       only_unique: false,
+      save_to_db: false,
       showCircles: true,
       showLines: true,
       showPolygon: true,

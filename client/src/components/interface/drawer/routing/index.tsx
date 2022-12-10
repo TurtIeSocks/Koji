@@ -21,6 +21,7 @@ export default function EditTab() {
   const fast = useStore((s) => s.fast)
   const autoMode = useStore((s) => s.autoMode)
   const routing_time = useStore((s) => s.routing_time)
+  const save_to_db = useStore((s) => s.save_to_db)
 
   const setStatic = useStatic((s) => s.setStatic)
 
@@ -63,6 +64,7 @@ export default function EditTab() {
           buttons={['cluster', 'route', 'bootstrap']}
         />
       </ListItem>
+      <Toggle field="save_to_db" value={save_to_db} setValue={setStore} />
       {!autoMode && (
         <ListItemButton
           color="primary"

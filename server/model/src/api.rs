@@ -48,6 +48,7 @@ pub struct Args {
     pub routing_time: Option<i64>,
     pub only_unique: Option<bool>,
     pub last_seen: Option<u32>,
+    pub save_to_db: Option<bool>,
 }
 
 pub struct ArgsUnwrapped {
@@ -64,6 +65,7 @@ pub struct ArgsUnwrapped {
     pub routing_time: i64,
     pub only_unique: bool,
     pub last_seen: u32,
+    pub save_to_db: bool,
 }
 
 impl Args {
@@ -82,6 +84,7 @@ impl Args {
             routing_time,
             only_unique,
             last_seen,
+            save_to_db,
         } = self;
         let (area, default_return_type) = if let Some(area) = area {
             (
@@ -151,6 +154,7 @@ impl Args {
         let routing_time = routing_time.unwrap_or(1);
         let only_unique = only_unique.unwrap_or(false);
         let last_seen = last_seen.unwrap_or(0);
+        let save_to_db = save_to_db.unwrap_or(false);
 
         if let Some(mode) = mode {
             println!(
@@ -172,6 +176,7 @@ impl Args {
             routing_time,
             only_unique,
             last_seen,
+            save_to_db,
         }
     }
 }

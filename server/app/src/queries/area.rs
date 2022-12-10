@@ -60,15 +60,36 @@ pub async fn save(
     for feat in area.into_iter() {
         if let Some(name) = feat.property("name") {
             if let Some(name) = name.clone().as_str() {
-                let area = feat.to_text(" ", ",");
                 let name = name.to_string();
+                let column = if let Some(r#type) = feat.property("type").clone() {
+                    if let Some(r#type) = r#type.as_str() {
+                        println!("Instance Type: {}", r#type);
+                        match r#type.to_lowercase().as_str() {
+                            "circlepokemon"
+                            | "circle_pokemon"
+                            | "circlesmartpokemon"
+                            | "circle_smart_pokemon" => area::Column::PokemonModeRoute,
+                            "circleraid" | "circle_raid" | "circlesmartraid"
+                            | "circle_smart_raid" => area::Column::FortModeRoute,
+                            "manualquest" | "manual_quest" => area::Column::QuestModeRoute,
+                            _ => area::Column::Geofence,
+                        }
+                    } else {
+                        area::Column::Geofence
+                    }
+                } else {
+                    area::Column::Geofence
+                };
+                let area = feat.to_text(" ", ",");
+
                 let is_update = existing.iter().find(|entry| entry.name == name);
                 if let Some(entry) = is_update {
                     area::Entity::update_many()
-                        .col_expr(area::Column::Geofence, Expr::value(area))
+                        .col_expr(column, Expr::value(area))
                         .filter(area::Column::Id.eq(entry.id))
                         .exec(conn)
                         .await?;
+                    println!("[DB] {}.{:?} Area Updated!", name, column);
                     update_len += 1;
                 } else {
                     inserts.push(area::ActiveModel {
@@ -77,12 +98,17 @@ pub async fn save(
                         ..Default::default()
                     })
                 }
+            } else {
+                println!("[DB] Couldn't save area, name property is malformed");
             }
+        } else {
+            println!("[DB] Couldn't save area, name not found in GeoJson!");
         }
     }
     let insert_len = inserts.len();
     if !inserts.is_empty() {
         area::Entity::insert_many(inserts).exec(conn).await?;
+        println!("Updated {} Areas", insert_len);
     }
     Ok((insert_len, update_len))
 }

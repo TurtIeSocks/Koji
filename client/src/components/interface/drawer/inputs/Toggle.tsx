@@ -2,7 +2,7 @@ import * as React from 'react'
 import { ListItem, ListItemText, Switch } from '@mui/material'
 
 import { type UseStore } from '@hooks/useStore'
-import { fromCamelCase } from '@services/utils'
+import { fromCamelCase, fromSnakeCase } from '@services/utils'
 
 interface Props<T extends keyof UseStore> {
   field: T
@@ -19,7 +19,11 @@ export default function Toggle<T extends keyof UseStore>({
 }: Props<T>) {
   return (
     <ListItem disabled={disabled}>
-      <ListItemText primary={fromCamelCase(field)} />
+      <ListItemText
+        primary={
+          field.includes('_') ? fromSnakeCase(field) : fromCamelCase(field)
+        }
+      />
       <Switch
         edge="end"
         onChange={(_e, v) => setValue(field, v)}

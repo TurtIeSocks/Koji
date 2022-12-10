@@ -19,7 +19,6 @@ import CheckBox from '@mui/icons-material/CheckBox'
 
 import { getData } from '@services/fetches'
 import { useStatic } from '@hooks/useStatic'
-import { useStore } from '@hooks/useStore'
 import { KojiResponse } from '@assets/types'
 
 const icon = <CheckBoxOutlineBlank fontSize="small" color="primary" />
@@ -45,8 +44,6 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
   const setStatic = useStatic((s) => s.setStatic)
   const setSelected = useStatic((s) => s.setSelected)
 
-  const radius = useStore((s) => s.radius)
-
   const [inputValue, setInputValue] = React.useState('')
   const [loading, setLoading] = React.useState(false)
 
@@ -61,7 +58,10 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
               Object.fromEntries(
                 resp.data.features
                   .filter((f) => f.properties?.name)
-                  .map((f) => [f.properties?.name, f]),
+                  .map((f) => [
+                    `${f.properties?.name}_${f.properties?.type}_${stateKey}`,
+                    f,
+                  ]),
               ),
             )
           }
@@ -78,7 +78,7 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
         value={selected.filter((s) => fences[stateKey][s])}
         inputValue={inputValue}
         size="small"
-        onChange={(_e, newValue) => setSelected(newValue, radius)}
+        onChange={(_e, newValue) => setSelected(newValue, stateKey)}
         onInputChange={(_e, newValue) => setInputValue(newValue)}
         filterOptions={filterOptions}
         selectOnFocus
@@ -105,7 +105,7 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
               style={{ marginRight: 8 }}
               checked={s}
             />
-            {option}
+            {option.split('_').slice(0, -2).join('_')}
           </li>
         )}
         renderInput={(params) => (
@@ -142,7 +142,7 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
                               fences[stateKey][v].properties?.type !== group,
                           ),
                         ],
-                    radius,
+                    stateKey,
                   )
                 }}
               >

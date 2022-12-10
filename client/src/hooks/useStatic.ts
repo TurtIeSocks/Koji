@@ -3,7 +3,6 @@ import type { Feature, FeatureCollection } from 'geojson'
 import * as L from 'leaflet'
 
 import type { PixiMarker } from '@assets/types'
-import { UseStore } from './useStore'
 
 export interface UseStatic {
   pokestops: PixiMarker[]
@@ -26,7 +25,7 @@ export interface UseStatic {
   activeLayer: L.Polygon | null
   popupLocation: L.LatLng
   forceFetch: boolean
-  setSelected: (incoming: string[], radius: UseStore['radius']) => void
+  setSelected: (incoming: string[], stateKey: 'geofences' | 'instances') => void
   setStatic: <
     T extends keyof Omit<
       UseStatic,
@@ -71,13 +70,12 @@ export const useStatic = create<UseStatic>((set, get) => ({
       [key]: typeof newValue === 'function' ? newValue(state[key]) : newValue,
     }))
   },
-  setSelected: (selected) => {
-    const { instances, geofences } = get()
+  setSelected: (selected, stateKey) => {
     set({
       selected,
       geojson: {
         type: 'FeatureCollection',
-        features: selected.map((name) => instances[name] || geofences[name]),
+        features: selected.map((name) => get()[stateKey][name]),
       },
     })
   },

@@ -2,7 +2,7 @@ import * as React from 'react'
 import { ToggleButtonGroup, ToggleButton } from '@mui/material'
 
 import { type UseStore } from '@hooks/useStore'
-import { fromCamelCase } from '@services/utils'
+import { fromCamelCase, fromSnakeCase } from '@services/utils'
 
 interface Props<T extends keyof UseStore, K extends string> {
   field: T
@@ -31,7 +31,7 @@ export default function BtnGroup<T extends keyof UseStore, K extends string>({
     >
       {buttons.map((m) => (
         <ToggleButton key={m} value={m} disabled={disabled}>
-          {fromCamelCase(m)}
+          {m.includes('_') ? fromSnakeCase(m) : fromCamelCase(m)}
         </ToggleButton>
       ))}
     </ToggleButtonGroup>
