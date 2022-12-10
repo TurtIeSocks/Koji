@@ -1,4 +1,5 @@
 use geo::Coord;
+use geohash::encode;
 use map_3d::{self, Ellipsoid};
 use std::{collections::HashSet, time::Instant};
 
@@ -186,5 +187,10 @@ pub fn project_points(
     println!("Average scaling: {:?}", sum / output.len() as f64);
     println!("Disc scaling: {:?}", adjusted_radius / radius);
     stats.cluster_time = time.elapsed().as_secs_f32();
+    final_output.sort_by(|a, b| {
+        encode(Coord { x: a[1], y: a[0] }, 9)
+            .unwrap()
+            .cmp(&encode(Coord { x: b[1], y: b[0] }, 9).unwrap())
+    });
     final_output
 }
