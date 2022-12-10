@@ -173,7 +173,7 @@ async fn cluster(
 
     stats.total_points = data_points.len();
 
-    let clusters: SingleVec = if fast {
+    let mut clusters: SingleVec = if fast {
         project_points::project_points(data_points.to_single_vec(), radius, min_points, &mut stats)
     } else {
         area.into_iter()
@@ -191,71 +191,63 @@ async fn cluster(
             .collect()
     };
 
-    if mode.eq("cluster") || clusters.is_empty() {
-        return Ok(response::send(
-            clusters.to_collection(Some(&Type::CirclePokemon)),
-            return_type,
-            stats,
-            benchmark_mode,
-            instance,
-        ));
-    }
+    if mode.eq("cluster") && !clusters.is_empty() {
+        println!("Routing for {} seconds...", routing_time);
+        let tour = travelling_salesman::simulated_annealing::solve(
+            &clusters
+                .iter()
+                .map(|[x, y]| (*x, *y))
+                .collect::<Vec<(f64, f64)>>()[0..clusters.len()],
+            Duration::seconds(if routing_time > 0 {
+                routing_time
+            } else {
+                ((clusters.len() as f32 / 100.) + 1.)
+                    .powf(if fast { 1. } else { 1.25 })
+                    .floor() as i64
+            }),
+        );
 
-    println!("Routing for {} seconds...", routing_time);
-    let tour = travelling_salesman::simulated_annealing::solve(
-        &clusters
-            .iter()
-            .map(|[x, y]| (*x, *y))
-            .collect::<Vec<(f64, f64)>>()[0..clusters.len()],
-        Duration::seconds(if routing_time > 0 {
-            routing_time
-        } else {
-            ((clusters.len() as f32 / 100.) + 1.)
-                .powf(if fast { 1. } else { 1.25 })
-                .floor() as i64
-        }),
-    );
+        let mut final_clusters = VecDeque::<PointArray>::new();
 
-    let mut final_clusters = VecDeque::<PointArray>::new();
+        let mut rotate_count: usize = 0;
 
-    let mut rotate_count: usize = 0;
+        let mut hash = HashSet::<usize>::new();
 
-    let mut hash = HashSet::<usize>::new();
-
-    for (i, index) in tour.route.into_iter().enumerate() {
-        if hash.contains(&index) {
-            continue;
-        } else {
-            hash.insert(index);
+        for (i, index) in tour.route.into_iter().enumerate() {
+            if hash.contains(&index) {
+                continue;
+            } else {
+                hash.insert(index);
+            }
+            let [lat, lon] = clusters[index];
+            if stats.best_clusters.len() >= 1
+                && lat == stats.best_clusters[0][0]
+                && lon == stats.best_clusters[0][1]
+            {
+                rotate_count = i;
+                println!("Found Best! {}, {} - {}", lat, lon, index);
+            }
+            final_clusters.push_back([lat, lon]);
         }
-        let [lat, lon] = clusters[index];
-        if stats.best_clusters.len() >= 1
-            && lat == stats.best_clusters[0][0]
-            && lon == stats.best_clusters[0][1]
-        {
-            rotate_count = i;
-            println!("Found Best! {}, {} - {}", lat, lon, index);
-        }
-        final_clusters.push_back([lat, lon]);
-    }
-    final_clusters.rotate_left(rotate_count);
-    stats.total_distance = 0.;
-    stats.longest_distance = 0.;
+        final_clusters.rotate_left(rotate_count);
+        stats.total_distance = 0.;
+        stats.longest_distance = 0.;
 
-    for (i, point) in final_clusters.iter().enumerate() {
-        let point = Point::new(point[1], point[0]);
-        let point2 = if i == final_clusters.len() - 1 {
-            Point::new(final_clusters[0][1], final_clusters[0][0])
-        } else {
-            Point::new(final_clusters[i + 1][1], final_clusters[i + 1][0])
-        };
-        let distance = point.haversine_distance(&point2);
-        stats.total_distance += distance;
-        if distance > stats.longest_distance {
-            stats.longest_distance = distance;
+        for (i, point) in final_clusters.iter().enumerate() {
+            let point = Point::new(point[1], point[0]);
+            let point2 = if i == final_clusters.len() - 1 {
+                Point::new(final_clusters[0][1], final_clusters[0][0])
+            } else {
+                Point::new(final_clusters[i + 1][1], final_clusters[i + 1][0])
+            };
+            let distance = point.haversine_distance(&point2);
+            stats.total_distance += distance;
+            if distance > stats.longest_distance {
+                stats.longest_distance = distance;
+            }
         }
+        clusters = final_clusters.into();
     }
-    let final_clusters: Vec<PointArray> = final_clusters.into();
 
     if !instance.is_empty() && save_to_db {
         let enum_type = if category == "gym" {
@@ -265,7 +257,7 @@ async fn cluster(
         } else {
             Type::CirclePokemon
         };
-        let mut feature = final_clusters.clone().to_feature(Some(&enum_type));
+        let mut feature = clusters.clone().to_feature(Some(&enum_type));
 
         println!("Name {} | Type: {}", instance, enum_type);
         feature.add_instance_properties(Some(instance.clone()), Some(&enum_type));
@@ -287,7 +279,7 @@ async fn cluster(
     //     .collect();
 
     Ok(response::send(
-        final_clusters.to_collection(Some(&Type::CirclePokemon)),
+        clusters.to_collection(Some(&Type::CirclePokemon)),
         return_type,
         stats,
         benchmark_mode,
