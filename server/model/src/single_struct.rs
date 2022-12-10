@@ -73,8 +73,10 @@ impl ToCollection for SingleStruct {
 
 impl ToText for SingleStruct {
     fn to_text(self, sep_1: &str, sep_2: &str) -> String {
+        let last = self.len() - 1;
         self.into_iter()
-            .map(|each| each.to_text(sep_1, sep_2))
+            .enumerate()
+            .map(|(i, each)| each.to_text(sep_1, if i == last { "" } else { sep_2 }))
             .collect()
     }
 }
