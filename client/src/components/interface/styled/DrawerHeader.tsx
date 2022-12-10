@@ -1,7 +1,8 @@
 import * as React from 'react'
 import { Typography, IconButton, styled } from '@mui/material'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
-import { ChevronLeft } from '@mui/icons-material'
+import ChevronLeft from '@mui/icons-material/ChevronLeft'
+
 import { UseStore } from '@hooks/useStore'
 
 const DrawerHeaderRaw = styled(Grid2)(({ theme }) => ({

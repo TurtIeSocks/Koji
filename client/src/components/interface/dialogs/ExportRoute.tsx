@@ -12,7 +12,7 @@ import {
   IconButton,
 } from '@mui/material'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
-import { ContentCopy } from '@mui/icons-material'
+import ContentCopy from '@mui/icons-material/ContentCopy'
 
 import { useStore } from '@hooks/useStore'
 import DialogHeader from './Header'

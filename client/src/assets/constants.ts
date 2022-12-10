@@ -6,13 +6,10 @@
 
   Shortened to reduce fetch sizes
 */
-
-import {
-  EditRoad,
-  ImportExport,
-  Settings,
-  TravelExplore,
-} from '@mui/icons-material'
+import EditRoad from '@mui/icons-material/EditRoad'
+import ImportExport from '@mui/icons-material/ImportExport'
+import Settings from '@mui/icons-material/Settings'
+import TravelExplore from '@mui/icons-material/TravelExplore'
 
 export const ICON_SVG = {
   v: `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="-2 -2 24 24">

@@ -13,11 +13,9 @@ import {
   capitalize,
   ListItemIcon,
 } from '@mui/material'
-import {
-  CheckBoxOutlineBlank,
-  CheckBox,
-  IndeterminateCheckBoxOutlined,
-} from '@mui/icons-material'
+import CheckBoxOutlineBlank from '@mui/icons-material/CheckBoxOutlineBlank'
+import IndeterminateCheckBoxOutlined from '@mui/icons-material/IndeterminateCheckBoxOutlined'
+import CheckBox from '@mui/icons-material/CheckBox'
 
 import { getData } from '@services/fetches'
 import { useStatic } from '@hooks/useStatic'

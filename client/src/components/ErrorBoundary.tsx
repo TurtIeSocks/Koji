@@ -9,9 +9,9 @@ import {
   Stack,
   Typography,
 } from '@mui/material'
-import CloseIcon from '@mui/icons-material/Close'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
-import { Refresh } from '@mui/icons-material'
+import CloseIcon from '@mui/icons-material/Close'
+import Refresh from '@mui/icons-material/Refresh'
 
 type Props = {
   children: React.ReactNode

@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { DialogTitle, IconButton } from '@mui/material'
-import { Clear } from '@mui/icons-material'
+import Clear from '@mui/icons-material/Clear'
 
 interface Props {
   children?: React.ReactNode

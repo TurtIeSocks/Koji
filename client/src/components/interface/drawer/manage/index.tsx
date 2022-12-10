@@ -6,7 +6,9 @@ import {
   ListItemIcon,
   ListSubheader,
 } from '@mui/material'
-import { Download, Save, Upload } from '@mui/icons-material'
+import Download from '@mui/icons-material/Download'
+import Save from '@mui/icons-material/Save'
+import Upload from '@mui/icons-material/Upload'
 
 import { useStatic } from '@hooks/useStatic'
 
