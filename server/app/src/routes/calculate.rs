@@ -191,7 +191,7 @@ async fn cluster(
             .collect()
     };
 
-    if mode.eq("cluster") && !clusters.is_empty() {
+    if mode.eq("route") && !clusters.is_empty() {
         println!("Routing for {} seconds...", routing_time);
         let tour = travelling_salesman::simulated_annealing::solve(
             &clusters
