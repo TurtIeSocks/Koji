@@ -26,6 +26,7 @@ export default function Routes() {
   const autoMode = useStore((s) => s.autoMode)
   const routing_time = useStore((s) => s.routing_time)
   const only_unique = useStore((s) => s.only_unique)
+  const save_to_db = useStore((s) => s.save_to_db)
 
   const geojson = useStatic((s) => s.geojson)
   const forceRedraw = useStatic((s) => s.forceRedraw)
@@ -48,6 +49,7 @@ export default function Routes() {
           fast,
           routing_time,
           only_unique,
+          save_to_db,
         },
       ).then((route) => {
         let total = 0
@@ -83,6 +85,7 @@ export default function Routes() {
           tab,
           routing_time,
           only_unique,
+          save_to_db,
         }
       : { forceFetch },
   ])
