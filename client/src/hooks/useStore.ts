@@ -22,6 +22,7 @@ export interface UseStore {
   showLines: boolean
   showPolygon: boolean
   nativeLeaflet: boolean
+  last_seen: Date
   devices: number | ''
   geojson: FeatureCollection
   polygonExportMode:
@@ -78,6 +79,7 @@ export const useStore = create(
         max: 0,
         route: [],
       },
+      last_seen: new Date(),
       geojson: { type: 'FeatureCollection', features: [] },
       setStore: (key, value) => set({ [key]: value }),
       snappable: true,

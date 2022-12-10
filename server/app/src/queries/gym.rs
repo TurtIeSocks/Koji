@@ -6,11 +6,14 @@ use crate::{
     utils::{self, normalize},
 };
 
-pub async fn all(conn: &DatabaseConnection) -> Result<Vec<GenericData>, DbErr> {
+pub async fn all(conn: &DatabaseConnection, last_seen: u32) -> Result<Vec<GenericData>, DbErr> {
     let items = gym::Entity::find()
         .select_only()
         .column(gym::Column::Lat)
         .column(gym::Column::Lon)
+        .filter(gym::Column::Updated.gt(last_seen))
+        .filter(gym::Column::Deleted.eq(false))
+        .filter(gym::Column::Enabled.eq(true))
         .into_model::<PointStruct>()
         .all(conn)
         .await?;
@@ -20,6 +23,7 @@ pub async fn all(conn: &DatabaseConnection) -> Result<Vec<GenericData>, DbErr> {
 pub async fn bound(
     conn: &DatabaseConnection,
     payload: &BoundsArg,
+    last_seen: u32,
 ) -> Result<Vec<GenericData>, DbErr> {
     let items = gym::Entity::find()
         .select_only()
@@ -27,6 +31,9 @@ pub async fn bound(
         .column(gym::Column::Lon)
         .filter(gym::Column::Lat.between(payload.min_lat, payload.max_lat))
         .filter(gym::Column::Lon.between(payload.min_lon, payload.max_lon))
+        .filter(gym::Column::Updated.gt(last_seen))
+        .filter(gym::Column::Deleted.eq(false))
+        .filter(gym::Column::Enabled.eq(true))
         .into_model::<PointStruct>()
         .all(conn)
         .await?;
@@ -36,11 +43,17 @@ pub async fn bound(
 pub async fn area(
     conn: &DatabaseConnection,
     area: &FeatureCollection,
+    last_seen: u32,
 ) -> Result<Vec<GenericData>, DbErr> {
     let items = gym::Entity::find()
         .from_raw_sql(Statement::from_sql_and_values(
             DbBackend::MySql,
-            format!("SELECT lat, lon FROM gym {}", utils::sql_raw(area)).as_str(),
+            format!(
+                "SELECT lat, lon FROM gym {} AND enabled = 1 AND deleted = 0 AND updated >= {}",
+                utils::sql_raw(area),
+                last_seen
+            )
+            .as_str(),
             vec![],
         ))
         .into_model::<PointStruct>()

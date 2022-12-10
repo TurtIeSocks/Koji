@@ -104,6 +104,7 @@ async fn cluster(
         routing_time,
         only_unique,
         save_to_db,
+        last_seen,
         ..
     } = payload.into_inner().init(Some(&mode));
 
@@ -154,11 +155,11 @@ async fn cluster(
     } else {
         if !area.features.is_empty() {
             if category == "gym" {
-                gym::area(&conn.data_db, &area).await
+                gym::area(&conn.data_db, &area, last_seen).await
             } else if category == "pokestop" {
-                pokestop::area(&conn.data_db, &area).await
+                pokestop::area(&conn.data_db, &area, last_seen).await
             } else {
-                spawnpoint::area(&conn.data_db, &area).await
+                spawnpoint::area(&conn.data_db, &area, last_seen).await
             }
         } else {
             Ok(vec![])

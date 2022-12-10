@@ -25,9 +25,9 @@ async fn all(
     );
 
     let all_data = match category.as_str() {
-        "gym" => gym::all(&conn.data_db).await,
-        "pokestop" => pokestop::all(&conn.data_db).await,
-        "spawnpoint" => spawnpoint::all(&conn.data_db).await,
+        "gym" => gym::all(&conn.data_db, 0).await,
+        "pokestop" => pokestop::all(&conn.data_db, 0).await,
+        "spawnpoint" => spawnpoint::all(&conn.data_db, 0).await,
         _ => Err(DbErr::Custom("invalid_category".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -52,9 +52,9 @@ async fn bound(
     );
 
     let bound_data = match category.as_str() {
-        "gym" => gym::bound(&conn.data_db, &payload).await,
-        "pokestop" => pokestop::bound(&conn.data_db, &payload).await,
-        "spawnpoint" => spawnpoint::bound(&conn.data_db, &payload).await,
+        "gym" => gym::bound(&conn.data_db, &payload, 0).await,
+        "pokestop" => pokestop::bound(&conn.data_db, &payload, 0).await,
+        "spawnpoint" => spawnpoint::bound(&conn.data_db, &payload, 0).await,
         _ => Err(DbErr::Custom("invalid_category".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -77,7 +77,12 @@ async fn by_area(
     let scanner_type = scanner_type.as_ref();
     let category = category.into_inner();
 
-    let ArgsUnwrapped { area, instance, .. } = payload.into_inner().init(None);
+    let ArgsUnwrapped {
+        area,
+        instance,
+        last_seen,
+        ..
+    } = payload.into_inner().init(None);
 
     println!(
         "\n[DATA_AREA] Scanner Type: {} | Category: {}",
@@ -102,11 +107,11 @@ async fn by_area(
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
     let area_data = if category == "gym" {
-        gym::area(&conn.data_db, &area).await
+        gym::area(&conn.data_db, &area, last_seen).await
     } else if category == "pokestop" {
-        pokestop::area(&conn.data_db, &area).await
+        pokestop::area(&conn.data_db, &area, last_seen).await
     } else {
-        spawnpoint::area(&conn.data_db, &area).await
+        spawnpoint::area(&conn.data_db, &area, last_seen).await
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 

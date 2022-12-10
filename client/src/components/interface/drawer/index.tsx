@@ -1,5 +1,8 @@
 import React, { Fragment } from 'react'
 import { Box, List, Divider } from '@mui/material'
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import type {} from '@mui/x-date-pickers/themeAugmentation'
 
 import { TABS } from '@assets/constants'
 import { useStore } from '@hooks/useStore'
@@ -44,7 +47,7 @@ export default function DrawerIndex() {
   return (
     <Drawer variant="permanent" open={drawer} onClose={toggleDrawer}>
       {drawer ? (
-        <>
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
           <DrawerHeader setStore={setStore}>Kōji</DrawerHeader>
           <Divider />
           <List>
@@ -62,7 +65,7 @@ export default function DrawerIndex() {
               </Fragment>
             ))}
           </List>
-        </>
+        </LocalizationProvider>
       ) : (
         <Box
           sx={{
