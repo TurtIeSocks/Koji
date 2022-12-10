@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
+use entity::sea_orm_active_enums::Type;
 use migration::{Expr, Order};
+use models::{scanner::RdmInstanceArea, ToMultiStruct, ToMultiVec, ToSingleStruct};
 use sea_orm::{ActiveModelTrait, QueryOrder, Set};
 use serde_json::{json, Value};
 
@@ -8,7 +10,7 @@ use super::*;
 
 use crate::{
     entity::instance,
-    models::{ToCollection, ToSingleVec},
+    models::{ToCollection, ToPointStruct, ToSingleVec},
     utils::{get_enum, get_enum_by_geometry, normalize},
 };
 
@@ -86,7 +88,21 @@ pub async fn save(
                     get_enum_by_geometry(&feat.geometry.as_ref().unwrap().value)
                 };
                 if let Some(r#type) = r#type {
-                    let area = feat.clone().to_single_vec();
+                    let area = match r#type {
+                        Type::CirclePokemon
+                        | Type::CircleSmartPokemon
+                        | Type::CircleRaid
+                        | Type::CircleSmartRaid
+                        | Type::ManualQuest => {
+                            RdmInstanceArea::Single(feat.clone().to_single_vec().to_single_struct())
+                        }
+                        Type::Leveling => {
+                            RdmInstanceArea::Leveling(feat.clone().to_single_vec().to_struct())
+                        }
+                        Type::AutoQuest | Type::PokemonIv => {
+                            RdmInstanceArea::Multi(feat.clone().to_multi_vec().to_multi_struct())
+                        }
+                    };
                     let new_area = json!(area);
                     let name = name.to_string();
                     let is_update = existing.iter_mut().find(|entry| entry.name == name);
