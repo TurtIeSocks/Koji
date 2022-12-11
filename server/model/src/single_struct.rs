@@ -12,7 +12,8 @@ impl ToSingleVec for SingleStruct {
     fn to_single_vec(self) -> single_vec::SingleVec {
         self.into_iter()
             .map(|point| point.to_point_array())
-            .collect()
+            .collect::<single_vec::SingleVec>()
+            .ensure_first_last()
     }
 }
 
