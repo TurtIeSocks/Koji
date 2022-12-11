@@ -79,7 +79,12 @@ export const useStore = create(
         max: 0,
         route: [],
       },
-      last_seen: new Date(),
+      last_seen: (() => {
+        const date = new Date()
+        date.setMinutes(0)
+        date.setSeconds(0)
+        return date
+      })(),
       geojson: { type: 'FeatureCollection', features: [] },
       setStore: (key, value) => set({ [key]: value }),
       snappable: true,

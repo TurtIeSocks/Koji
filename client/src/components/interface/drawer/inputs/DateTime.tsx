@@ -35,7 +35,7 @@ export default function DateTime<T extends keyof UseStore>({
         value={dayjs(value)}
         onChange={(newValue) => {
           if (newValue) {
-            setValue(field, newValue.toDate())
+            setValue(field, newValue.set('second', 0).set('minute', 0).toDate())
           }
         }}
       />
