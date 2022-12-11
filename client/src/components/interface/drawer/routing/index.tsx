@@ -22,6 +22,7 @@ export default function EditTab() {
   const autoMode = useStore((s) => s.autoMode)
   const routing_time = useStore((s) => s.routing_time)
   const save_to_db = useStore((s) => s.save_to_db)
+  const route_chunk_size = useStore((s) => s.route_chunk_size)
 
   const setStatic = useStatic((s) => s.setStatic)
 
@@ -37,6 +38,12 @@ export default function EditTab() {
         value={routing_time}
         setValue={setStore}
         endAdornment="s"
+        disabled={mode !== 'route'}
+      />
+      <NumInput
+        field="route_chunk_size"
+        value={route_chunk_size}
+        setValue={setStore}
         disabled={mode !== 'route'}
       />
       {/* <NumInput

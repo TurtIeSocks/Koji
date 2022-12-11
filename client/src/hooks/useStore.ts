@@ -25,6 +25,7 @@ export interface UseStore {
   last_seen: Date
   devices: number | ''
   geojson: FeatureCollection
+  route_chunk_size: number | ''
   polygonExportMode:
     | 'feature'
     | 'featureCollection'
@@ -72,6 +73,7 @@ export const useStore = create(
       nativeLeaflet: false,
       devices: 1,
       polygonExportMode: 'feature',
+      route_chunk_size: 0,
       menuItem: '',
       fast: false,
       export: {

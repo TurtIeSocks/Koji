@@ -58,6 +58,7 @@ export async function getLotsOfData(
             devices: Math.max(Math.floor((settings.devices || 1) / length), 1),
             area,
             instance: area.properties?.name,
+            route_chunk_size: settings.route_chunk_size,
             last_seen: Math.floor(
               (settings.last_seen?.getTime?.() || 0) / 1000,
             ),

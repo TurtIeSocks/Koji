@@ -1,4 +1,5 @@
 use super::*;
+use std::thread;
 
 use geo::{Coord, HaversineDistance, Point};
 use geojson::{Geometry, Value};
@@ -7,7 +8,7 @@ use models::{FeatureHelpers, ToFeature};
 use std::collections::{HashSet, VecDeque};
 use std::time::Instant;
 use time::Duration;
-use travelling_salesman;
+use travelling_salesman::{self, Tour};
 
 use crate::models::point_array::PointArray;
 use crate::models::single_vec::SingleVec;
@@ -105,6 +106,7 @@ async fn cluster(
         only_unique,
         save_to_db,
         last_seen,
+        route_chunk_size,
         ..
     } = payload.into_inner().init(Some(&mode));
 
@@ -193,28 +195,59 @@ async fn cluster(
     };
 
     if mode.eq("route") && !clusters.is_empty() {
+        println!("Cluster Length: {}", clusters.len());
         println!("Routing for {} seconds...", routing_time);
-        let tour = travelling_salesman::simulated_annealing::solve(
-            &clusters
-                .iter()
-                .map(|[x, y]| (*x, *y))
-                .collect::<Vec<(f64, f64)>>()[0..clusters.len()],
-            Duration::seconds(if routing_time > 0 {
-                routing_time
-            } else {
-                ((clusters.len() as f32 / 100.) + 1.)
-                    .powf(if fast { 1. } else { 1.25 })
-                    .floor() as i64
-            }),
-        );
+        let split_routes: Vec<SingleVec> = if route_chunk_size > 0 {
+            clusters
+                .chunks(route_chunk_size)
+                .map(|s| s.into())
+                .collect()
+        } else {
+            vec![clusters.clone()]
+        };
 
+        let mut merged_routes = vec![];
+
+        for (i, data_segment) in split_routes.into_iter().enumerate() {
+            println!("Creating thread: {}", i + 1);
+            merged_routes.push(thread::spawn(move || -> Tour {
+                travelling_salesman::simulated_annealing::solve(
+                    &data_segment
+                        .iter()
+                        .map(|[x, y]| (*x, *y))
+                        .collect::<Vec<(f64, f64)>>()[0..data_segment.len()],
+                    Duration::seconds(if routing_time > 0 {
+                        routing_time
+                    } else {
+                        ((data_segment.len() as f32 / 100.) + 1.)
+                            .powf(if fast { 1. } else { 1.25 })
+                            .floor() as i64
+                    }),
+                )
+            }));
+        }
+
+        let tour: Vec<usize> = merged_routes
+            .into_iter()
+            .enumerate()
+            .flat_map(|(i, c)| {
+                c.join()
+                    .unwrap()
+                    .route
+                    .into_iter()
+                    .map(|p| p + (i * route_chunk_size))
+                    .collect::<Vec<usize>>()
+            })
+            .collect();
+
+        println!("Tour Length {}", tour.len());
         let mut final_clusters = VecDeque::<PointArray>::new();
 
         let mut rotate_count: usize = 0;
 
         let mut hash = HashSet::<usize>::new();
 
-        for (i, index) in tour.route.into_iter().enumerate() {
+        for (i, index) in tour.into_iter().enumerate() {
             if hash.contains(&index) {
                 continue;
             } else {

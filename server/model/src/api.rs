@@ -49,6 +49,7 @@ pub struct Args {
     pub only_unique: Option<bool>,
     pub last_seen: Option<u32>,
     pub save_to_db: Option<bool>,
+    pub route_chunk_size: Option<usize>,
 }
 
 pub struct ArgsUnwrapped {
@@ -66,6 +67,7 @@ pub struct ArgsUnwrapped {
     pub only_unique: bool,
     pub last_seen: u32,
     pub save_to_db: bool,
+    pub route_chunk_size: usize,
 }
 
 impl Args {
@@ -85,6 +87,7 @@ impl Args {
             only_unique,
             last_seen,
             save_to_db,
+            route_chunk_size,
         } = self;
         let (area, default_return_type) = if let Some(area) = area {
             (
@@ -155,6 +158,7 @@ impl Args {
         let only_unique = only_unique.unwrap_or(false);
         let last_seen = last_seen.unwrap_or(0);
         let save_to_db = save_to_db.unwrap_or(false);
+        let route_chunk_size = route_chunk_size.unwrap_or(0);
 
         if let Some(mode) = mode {
             println!(
@@ -177,6 +181,7 @@ impl Args {
             only_unique,
             last_seen,
             save_to_db,
+            route_chunk_size,
         }
     }
 }

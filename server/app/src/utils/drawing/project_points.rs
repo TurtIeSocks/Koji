@@ -1,4 +1,4 @@
-use geo::Coord;
+use geo::{Coord, HaversineDistance, Point};
 use geohash::encode;
 use map_3d::{self, Ellipsoid};
 use std::{collections::HashSet, time::Instant};
@@ -192,5 +192,19 @@ pub fn project_points(
             .unwrap()
             .cmp(&encode(Coord { x: b[1], y: b[0] }, 9).unwrap())
     });
+    for (i, point) in final_output.iter().enumerate() {
+        let point = Point::new(point[1], point[0]);
+        let point2 = if i == final_output.len() - 1 {
+            Point::new(final_output[0][1], final_output[0][0])
+        } else {
+            Point::new(final_output[i + 1][1], final_output[i + 1][0])
+        };
+        let distance = point.haversine_distance(&point2);
+        stats.total_distance += distance;
+        if distance > stats.longest_distance {
+            stats.longest_distance = distance;
+        }
+    }
+
     final_output
 }

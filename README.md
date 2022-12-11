@@ -225,6 +225,11 @@ pub struct BoundsArg {
       // Auto save the results to the scanner database
       // defaults to false
       pub save_to_db: Option<bool>,
+
+      // Number of points to split by when routing
+      // Lower = better local routing but may have longer stretches that join the smaller routes
+      // defaults to 250
+      pub route_chunk_size: Option<usize>
   }
 
 // Benchmark/Stats Struct
