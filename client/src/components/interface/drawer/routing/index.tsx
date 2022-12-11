@@ -8,7 +8,6 @@ import ListSubheader from '../../styled/Subheader'
 import NumInput from '../inputs/NumInput'
 import BtnGroup from '../inputs/BtnGroup'
 import Toggle from '../inputs/Toggle'
-import DateTime from '../inputs/DateTime'
 
 export default function EditTab() {
   const radius = useStore((s) => s.radius)
@@ -23,7 +22,6 @@ export default function EditTab() {
   const autoMode = useStore((s) => s.autoMode)
   const routing_time = useStore((s) => s.routing_time)
   const save_to_db = useStore((s) => s.save_to_db)
-  const last_seen = useStore((s) => s.last_seen)
 
   const setStatic = useStatic((s) => s.setStatic)
 
@@ -47,7 +45,6 @@ export default function EditTab() {
         setValue={setStore}
         disabled={mode !== 'route'}
       /> */}
-      <DateTime field="last_seen" value={last_seen} setValue={setStore} />
       <Toggle field="fast" value={fast} setValue={setStore} />
       <Toggle field="only_unique" value={only_unique} setValue={setStore} />
       <ListItem disabled={mode === 'bootstrap'}>

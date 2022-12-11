@@ -10,12 +10,14 @@ use crate::{
     queries::{area, gym, instance, pokestop, spawnpoint},
 };
 
-#[get("/all/{category}")]
+#[post("/all/{category}")]
 async fn all(
     conn: web::Data<KojiDb>,
     scanner_type: web::Data<String>,
     category: actix_web::web::Path<String>,
+    payload: web::Json<Args>,
 ) -> Result<HttpResponse, Error> {
+    let ArgsUnwrapped { last_seen, .. } = payload.into_inner().init(Some("all_data"));
     let category = category.into_inner();
     let scanner_type = scanner_type.as_ref();
 
@@ -25,9 +27,9 @@ async fn all(
     );
 
     let all_data = match category.as_str() {
-        "gym" => gym::all(&conn.data_db, 0).await,
-        "pokestop" => pokestop::all(&conn.data_db, 0).await,
-        "spawnpoint" => spawnpoint::all(&conn.data_db, 0).await,
+        "gym" => gym::all(&conn.data_db, last_seen).await,
+        "pokestop" => pokestop::all(&conn.data_db, last_seen).await,
+        "spawnpoint" => spawnpoint::all(&conn.data_db, last_seen).await,
         _ => Err(DbErr::Custom("invalid_category".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;

@@ -124,8 +124,16 @@ pub struct PointStruct<T: Float = f64> {
 pub type SingleStruct<T = f64> = Vec<PointStruct<T>>;
 pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
 
+pub struct BoundsArg {
+    pub min_lat: f64,
+    pub min_lon: f64,
+    pub max_lat: f64,
+    pub max_lon: f64,
+}
+
 // Accepted Area Inputs and Outputs:
   pub enum GeoFormats {
+      Bounds(BoundsArg),
       Text(String),
       // can be either:
         // lat,lon\nlat,lon
@@ -209,6 +217,14 @@ pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
       // Only count unique points towards the min_count in each cluster
       // defaults to false
       pub only_unique: Option<bool>,
+
+      // Filter spawnpoints by `last_seen` and pokestops/gyms by `updated`
+      // defaults to 0
+      pub last_seen: Option<i64>,
+
+      // Auto save the results to the scanner database
+      // defaults to false
+      pub save_to_db: Option<bool>,
   }
 
 // Benchmark/Stats Struct

@@ -4,7 +4,7 @@ use geojson::JsonValue;
 
 use crate::{collection::Default, text::TextHelpers};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BoundsArg {
     pub min_lat: f64,
     pub min_lon: f64,
@@ -97,7 +97,7 @@ impl Args {
                             ReturnTypeArg::Text
                         }
                     }
-                    GeoFormats::SingleArray(_) => ReturnTypeArg::SingleArray,
+                    GeoFormats::SingleArray(_) | GeoFormats::Bound(_) => ReturnTypeArg::SingleArray,
                     GeoFormats::MultiArray(_) => ReturnTypeArg::MultiArray,
                     GeoFormats::SingleStruct(_) => ReturnTypeArg::SingleStruct,
                     GeoFormats::MultiStruct(_) => ReturnTypeArg::MultiStruct,

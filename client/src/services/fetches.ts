@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary */
 import type { Map } from 'leaflet'
 
 import type { CombinedState, Data, ToConvert } from '@assets/types'
@@ -82,6 +83,7 @@ export async function getMarkers(
   enableStops: boolean,
   enableSpawnpoints: boolean,
   enableGyms: boolean,
+  last_seen: UseStore['last_seen'],
 ): Promise<Data> {
   const [pokestops, gyms, spawnpoints] = await Promise.all(
     [
@@ -97,20 +99,21 @@ export async function getMarkers(
               feature.geometry.type === 'MultiPolygon',
           ).length
         : true)
-        ? fetch(
-            `/api/data/${data}/${category}`,
-            data === 'all'
-              ? undefined
-              : {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify(
-                    data === 'bound' ? getMapBounds(map) : { area },
-                  ),
-                },
-          ).then((res) => res.json())
+        ? fetch(`/api/data/${data === 'all' ? 'all' : 'area'}/${category}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              area:
+                data === 'area'
+                  ? area
+                  : data === 'bound'
+                  ? getMapBounds(map)
+                  : undefined,
+              last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+            }),
+          }).then((res) => res.json())
         : [],
     ),
   )

@@ -15,18 +15,19 @@ export default function Markers() {
   const spawnpoint = useStore((s) => s.spawnpoint)
   const gym = useStore((s) => s.gym)
   const nativeLeaflet = useStore((s) => s.nativeLeaflet)
+  const last_seen = useStore((s) => s.last_seen)
   const setStore = useStore((s) => s.setStore)
 
   const geojson = useStatic((s) => s.geojson)
-  const setStatic = useStatic((s) => s.setStatic)
   const pokestops = useStatic((s) => s.pokestops)
   const spawnpoints = useStatic((s) => s.spawnpoints)
   const gyms = useStatic((s) => s.gyms)
+  const setStatic = useStatic((s) => s.setStatic)
 
   const map = useMap()
 
   React.useEffect(() => {
-    getMarkers(map, data, geojson, pokestop, spawnpoint, gym).then(
+    getMarkers(map, data, geojson, pokestop, spawnpoint, gym, last_seen).then(
       (incoming) => {
         setStatic('pokestops', incoming.pokestops)
         setStatic('spawnpoints', incoming.spawnpoints)
@@ -40,6 +41,7 @@ export default function Markers() {
     pokestop,
     spawnpoint,
     gym,
+    last_seen,
   ])
 
   const onMove = React.useCallback(() => {

@@ -1,3 +1,4 @@
+use api::BoundsArg;
 use entity::sea_orm_active_enums::Type;
 use geo::Coord;
 use geojson::{Feature, FeatureCollection, Geometry, Value};
@@ -113,6 +114,7 @@ pub enum GeoFormats {
     FeatureVec(Vec<Feature>),
     FeatureCollection(FeatureCollection),
     Poracle(Vec<poracle::Poracle>),
+    Bound(BoundsArg),
 }
 
 impl ToCollection for GeoFormats {
@@ -127,6 +129,14 @@ impl ToCollection for GeoFormats {
             GeoFormats::FeatureVec(area) => area.to_collection(enum_type),
             GeoFormats::FeatureCollection(area) => area,
             GeoFormats::Poracle(area) => area.to_collection(enum_type),
+            GeoFormats::Bound(area) => vec![
+                [area.min_lat, area.min_lon],
+                [area.min_lat, area.max_lon],
+                [area.max_lat, area.max_lon],
+                [area.max_lat, area.min_lon],
+                [area.min_lat, area.min_lon],
+            ]
+            .to_collection(enum_type),
         }
     }
 }

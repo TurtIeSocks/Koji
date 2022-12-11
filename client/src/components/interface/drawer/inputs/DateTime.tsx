@@ -25,6 +25,7 @@ export default function DateTime<T extends keyof UseStore>({
       <DateTimePicker
         disabled={disabled}
         disableFuture
+        views={['year', 'month', 'day', 'hours']}
         label={
           field.includes('_') ? fromSnakeCase(field) : fromCamelCase(field)
         }
