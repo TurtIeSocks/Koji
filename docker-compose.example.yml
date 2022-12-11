@@ -13,6 +13,7 @@ services:
       #START_LAT: 0
       #START_LON: 0
       #TILE_SERVER: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png"
+      #MAX_CONNECTIONS: 100
       #mem_limit: 2048G
       #mem_reservation: 256M
       #cpus: 2 

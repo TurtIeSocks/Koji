@@ -3,7 +3,7 @@ use std::{env, io};
 use actix_files::Files;
 use actix_web::{middleware, web, App, HttpServer};
 use geojson::{Feature, FeatureCollection};
-use sea_orm::Database;
+use sea_orm::{ConnectOptions, Database};
 
 use entity;
 use model as models;
@@ -26,21 +26,39 @@ pub async fn main() -> io::Result<()> {
     }
     .expect("Need SCANNER_DB_URL env var");
 
+    let max_connections: u32 = if let Ok(parsed) = env::var("MAX_CONNECTIONS")
+        .unwrap_or("100".to_string())
+        .parse()
+    {
+        parsed
+    } else {
+        100
+    };
     let unown_db_url = env::var("UNOWN_DB").unwrap_or("".to_string());
 
     let databases = models::KojiDb {
-        data_db: match Database::connect(scanner_db_url).await {
-            Ok(db) => db,
-            Err(err) => panic!("{}", err),
+        data_db: {
+            let mut opt = ConnectOptions::new(scanner_db_url);
+            opt.max_connections(max_connections);
+            match Database::connect(opt).await {
+                Ok(db) => db,
+                Err(err) => panic!("{}", err),
+            }
         },
-        koji_db: match Database::connect(koji_db_url).await {
-            Ok(db) => db,
-            Err(err) => panic!("{}", err),
+        koji_db: {
+            let mut opt = ConnectOptions::new(koji_db_url);
+            opt.max_connections(max_connections);
+            match Database::connect(opt).await {
+                Ok(db) => db,
+                Err(err) => panic!("{}", err),
+            }
         },
         unown_db: if unown_db_url.is_empty() {
             None
         } else {
-            match Database::connect(unown_db_url).await {
+            let mut opt = ConnectOptions::new(unown_db_url);
+            opt.max_connections(max_connections);
+            match Database::connect(opt).await {
                 Ok(db) => Some(db),
                 Err(err) => panic!("{}", err),
             }
