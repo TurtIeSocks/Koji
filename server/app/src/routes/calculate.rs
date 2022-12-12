@@ -42,6 +42,7 @@ async fn bootstrap(
         instance,
         radius,
         return_type,
+        save_to_db,
         ..
     } = payload.into_inner().init(Some("bootstrap"));
 
@@ -72,6 +73,21 @@ async fn bootstrap(
         .collect();
 
     stats.cluster_time = time.elapsed().as_secs_f32();
+
+    if !instance.is_empty() && save_to_db {
+        for feat in features.clone().iter_mut() {
+            if !feat.contains_property("name") {
+                feat.set_property("name", instance.clone());
+            }
+            feat.set_property("type", Type::CirclePokemon.to_string());
+            area::save(
+                conn.unown_db.as_ref().unwrap(),
+                feat.clone().to_collection(None),
+            )
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
+        }
+    }
 
     Ok(response::send(
         features.to_collection(None),
