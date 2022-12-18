@@ -1,3 +1,4 @@
+/* eslint-disable no-param-reassign */
 import * as React from 'react'
 import { renderToString } from 'react-dom/server'
 import { FeatureGroup, useMapEvents } from 'react-leaflet'
@@ -60,8 +61,7 @@ export function Drawing() {
     setGeojson(newGeo)
   }
 
-  const moveEvent: L.PM.DragEndEventHandler = ({ layer }) => {
-    console.log(layer)
+  const onDragEnd: L.PM.DragEndEventHandler = ({ layer }) => {
     if (layer instanceof L.Circle) {
       const feature: Feature<MultiPoint> | undefined = useStatic
         .getState()
@@ -71,11 +71,27 @@ export function Drawing() {
             layer.options.attribution === feat.properties?.name,
         ) as Feature<MultiPoint>
       if (feature && ref.current) {
+        const { lat, lng } = layer.getLatLng()
+        const foundIndex = feature.geometry.coordinates.findIndex(
+          (position) =>
+            position[0] === layer.feature?.geometry.coordinates[0] &&
+            position[1] === layer.feature?.geometry.coordinates[1],
+        )
+        if (foundIndex !== -1) {
+          feature.geometry.coordinates[foundIndex] = [lng, lat]
+          layer.feature = {
+            properties: {},
+            type: 'Feature',
+            ...layer.feature,
+            geometry: { type: 'Point', coordinates: [lng, lat] },
+          }
+        }
         ref.current.eachLayer((lay) => {
           if (
             lay instanceof L.Polyline &&
             !(lay instanceof L.Polygon) &&
-            lay.options.attribution === layer.options.attribution
+            (lay.options.attribution === layer.options.attribution ||
+              lay.options.attribution === 'last')
           ) {
             ref.current?.removeLayer(lay)
           }
@@ -105,8 +121,6 @@ export function Drawing() {
         }
       }
     }
-
-    handleChange()
   }
 
   useDeepCompareEffect(() => {
@@ -139,7 +153,7 @@ export function Drawing() {
                     : coordinates[i + 1]
                 const dis = distance(coordinates[i], next, { units: 'meters' })
 
-                const newCircle = L.circle(
+                const newCircle = new L.Circle(
                   [coordinates[i][1], coordinates[i][0]],
                   {
                     radius: radius || undefined,
@@ -166,11 +180,9 @@ export function Drawing() {
                   ...layer.feature,
                   geometry: { type: 'Point', coordinates: coordinates[i] },
                 }
-                // L.PM.reInitLayer(newCircle)
-                // layerEvents(layer, { onDragEnd: moveEvent }, 'on')
+                newCircle.on('pm:dragend', onDragEnd)
                 newCircle.addTo(ref.current)
 
-                // console.log(newCircle.getEvents?.())
                 const line = L.polyline(
                   [
                     [coordinates[i][1], coordinates[i][0]],
@@ -187,6 +199,7 @@ export function Drawing() {
                 )
                   .addTo(ref.current)
                   .bindPopup(renderToString(<div>{dis.toFixed(2)}m</div>))
+
                 line.feature = line.toGeoJSON()
                 line.feature.properties.name = layer.feature.properties.name
               }
@@ -197,6 +210,7 @@ export function Drawing() {
           ) {
             layer.setStyle({ pane: 'polygons' })
             layer.on('click', () => setStatic('activeLayer', layer))
+            layer.on('pm:dragend', onDragEnd)
             ref.current.addLayer(layer)
           }
         }
@@ -238,32 +252,33 @@ export function Drawing() {
           snappable,
           radiusEditCircle: false,
           templineStyle: { radius: radius || 70 },
-          // panes: {
-          //   layerPane: 'polygons',
-          // },
+          panes: {
+            polygonPane: 'polygons',
+            circlePane: 'circles',
+            polylinePane: 'lines',
+          },
         }}
         onCreate={({ layer }) => {
           if (layer instanceof L.Polygon) {
             layer.on('click', () => setStatic('activeLayer', layer))
-            layer.setStyle({ pane: 'polygons' })
-            ref.current?.removeLayer(layer)
-            ref.current?.addLayer(layer)
             handleChange()
           }
           if (layer instanceof L.Circle) {
             if (ref.current) {
               layer.setStyle({
                 snapIgnore: true,
-                pane: 'circles',
                 attribution: 'new_circles',
               })
-              ref.current?.removeLayer(layer)
-              ref.current?.addLayer(layer)
 
               if (radius) {
                 layer.setRadius(radius)
               }
               const { lat, lng } = layer.getLatLng()
+              layer.feature = {
+                properties: {},
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [lng, lat] },
+              }
               layer.bindPopup(
                 renderToString(
                   <div>
@@ -312,7 +327,7 @@ export function Drawing() {
                       .getLayers()
                       .find((x) => x.getAttribution?.() === 'last')
                     if (oldLayer) {
-                      oldLayer.removeFrom(ref.current as unknown as L.Map)
+                      ref.current.removeLayer(oldLayer)
                     }
                     const { lat: lat1, lng: lng1 } = first.getLatLng()
                     const dis2 = distance([lng, lat], [lng1, lat1], {
@@ -343,7 +358,7 @@ export function Drawing() {
         onEdit={handleChange}
         onMapRemove={handleChange}
         onMapCut={handleChange}
-        onDragEnd={moveEvent}
+        onDragEnd={onDragEnd}
         onGlobalDrawModeToggled={({ enabled, shape }) => {
           if (!enabled) {
             setStatic('activeLayer', null)

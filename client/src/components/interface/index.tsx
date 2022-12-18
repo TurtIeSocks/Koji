@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { ZoomControl } from 'react-leaflet'
 
-import Drawing from '@components/markers/Drawing'
+// import Drawing from '@components/markers/Drawing'
 import useCluster from '@hooks/useCluster'
 import useLayers from '@hooks/useLayers'
 
