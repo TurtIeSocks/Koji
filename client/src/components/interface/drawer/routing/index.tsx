@@ -24,6 +24,7 @@ export default function EditTab() {
   const save_to_db = useStore((s) => s.save_to_db)
   const route_chunk_size = useStore((s) => s.route_chunk_size)
 
+  const layerEditing = useStatic((s) => s.layerEditing)
   const setStatic = useStatic((s) => s.setStatic)
 
   return (
@@ -75,7 +76,10 @@ export default function EditTab() {
       {!autoMode && (
         <ListItemButton
           color="primary"
-          onClick={() => setStatic('forceFetch', (prev) => !prev)}
+          disabled={Object.values(layerEditing).some((v) => v)}
+          onClick={() => {
+            setStatic('forceFetch', (prev) => !prev)
+          }}
         >
           <ListItemText primary="Update" color="blue" />
         </ListItemButton>

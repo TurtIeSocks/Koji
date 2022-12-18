@@ -25,7 +25,6 @@ export function Drawing() {
   const layerEditing = useStatic((s) => s.layerEditing)
   const geojson = useStatic((s) => s.geojson)
   const setStatic = useStatic((s) => s.setStatic)
-  const setGeojson = useStatic((s) => s.setGeojson)
 
   useMapEvents({
     click: (e) => setStatic('popupLocation', e.latlng),
@@ -39,26 +38,104 @@ export function Drawing() {
       type: 'FeatureCollection',
       features: [],
     }
+    const existing: Record<string, Feature | null> = Object.fromEntries(
+      useStatic
+        .getState()
+        .geojson.features.map((feat) => [
+          `${feat.properties?.name}-${feat.properties?.type}`,
+          feat,
+        ]),
+    )
     const newMultiPointFeature: Feature<MultiPoint> = {
       geometry: { coordinates: [], type: 'MultiPoint' },
       properties: { name: 'new_circles', radius },
       type: 'Feature',
     }
-    ref.current?.eachLayer((layer) => {
+    ref.current?.getLayers().forEach((layer, i) => {
+      const found =
+        layer instanceof L.Circle || layer instanceof L.Polygon
+          ? existing[
+              `${layer?.feature?.properties.name}-${layer?.feature?.properties.type}`
+            ]
+          : null
       if (
         layer instanceof L.Circle &&
         layer.feature?.properties.type === undefined
       ) {
         const { lat, lng } = layer.getLatLng()
         newMultiPointFeature.geometry.coordinates.push([lng, lat])
-      } else if (layer instanceof L.Polygon) {
-        newGeo.features.push(layer.toGeoJSON())
+      } else if (
+        layer instanceof L.Polygon &&
+        layer.feature?.properties.name === undefined
+      ) {
+        const feature = layer.toGeoJSON()
+        feature.properties.name = `new_polygon_${i + 1}`
+        newGeo.features.push(feature)
+      } else if (found) {
+        newGeo.features.push(found)
+        existing[`${found.properties?.name}-${found.properties?.type}`] = null
       }
     })
     if (newMultiPointFeature.geometry.coordinates.length) {
       newGeo.features.push(newMultiPointFeature)
     }
-    setGeojson(newGeo)
+    setStatic('geojson', newGeo)
+  }
+
+  const onMapRemove: L.PM.RemoveEventHandler = ({ layer }) => {
+    if (layer instanceof L.Circle) {
+      const feature: Feature<MultiPoint> | undefined = useStatic
+        .getState()
+        .geojson.features.find(
+          (feat) =>
+            feat.geometry.type === 'MultiPoint' &&
+            layer.options.attribution === feat.properties?.name,
+        ) as Feature<MultiPoint>
+      if (feature && ref.current) {
+        const foundIndex = feature.geometry.coordinates.findIndex(
+          (position) =>
+            position[0] === layer.feature?.geometry.coordinates[0] &&
+            position[1] === layer.feature?.geometry.coordinates[1],
+        )
+        if (foundIndex !== -1) {
+          feature.geometry.coordinates.splice(foundIndex, 1)
+        }
+        ref.current.eachLayer((lay) => {
+          if (
+            lay instanceof L.Polyline &&
+            !(lay instanceof L.Polygon) &&
+            (lay.options.attribution === layer.options.attribution ||
+              lay.options.attribution === 'last')
+          ) {
+            ref.current?.removeLayer(lay)
+          }
+        })
+        const { coordinates } = feature.geometry
+        for (let i = 0; i < coordinates.length; i++) {
+          const next =
+            i === coordinates.length - 1 ? coordinates[0] : coordinates[i + 1]
+          const dis = distance(coordinates[i], next, { units: 'meters' })
+
+          L.polyline(
+            [
+              [coordinates[i][1], coordinates[i][0]],
+              [next[1], next[0]],
+            ],
+            {
+              color: getColor(dis),
+              opacity: 80,
+              pmIgnore: true,
+              snapIgnore: true,
+              pane: 'lines',
+              attribution: layer.options.attribution,
+            },
+          )
+            .addTo(ref.current)
+            .bindPopup(renderToString(<div>{dis.toFixed(2)}m</div>))
+        }
+      }
+    }
+    handleChange()
   }
 
   const onDragEnd: L.PM.DragEndEventHandler = ({ layer }) => {
@@ -145,7 +222,17 @@ export function Drawing() {
             if (layer?.feature?.geometry?.type === 'MultiPoint') {
               const {
                 geometry: { coordinates },
+                properties: { name },
               } = layer.feature
+              ref.current.eachLayer((lay) => {
+                if (
+                  lay instanceof L.Polyline &&
+                  !(lay instanceof L.Polygon) &&
+                  lay.options.attribution === name
+                ) {
+                  ref.current?.removeLayer(lay)
+                }
+              })
               for (let i = 0; i < coordinates.length; i++) {
                 const next =
                   i === coordinates.length - 1
@@ -181,6 +268,7 @@ export function Drawing() {
                   geometry: { type: 'Point', coordinates: coordinates[i] },
                 }
                 newCircle.on('pm:dragend', onDragEnd)
+                newCircle.on('pm:remove', onMapRemove)
                 newCircle.addTo(ref.current)
 
                 const line = L.polyline(
@@ -211,6 +299,7 @@ export function Drawing() {
             layer.setStyle({ pane: 'polygons' })
             layer.on('click', () => setStatic('activeLayer', layer))
             layer.on('pm:dragend', onDragEnd)
+            layer.on('pm:remove', onMapRemove)
             ref.current.addLayer(layer)
           }
         }
@@ -356,7 +445,7 @@ export function Drawing() {
           }
         }}
         onEdit={handleChange}
-        onMapRemove={handleChange}
+        onMapRemove={onMapRemove}
         onMapCut={handleChange}
         onDragEnd={onDragEnd}
         onGlobalDrawModeToggled={({ enabled, shape }) => {
