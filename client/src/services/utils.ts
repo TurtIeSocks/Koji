@@ -1,5 +1,6 @@
 import type { Map } from 'leaflet'
 import { capitalize } from '@mui/material'
+import type { FeatureCollection } from 'geojson'
 
 export function getMapBounds(map: Map) {
   const mapBounds = map.getBounds()
@@ -34,13 +35,25 @@ export function fromSnakeCase(str: string, separator = ' '): string {
     .replace(/([A-Z]+)([A-Z][a-z\d]+)/g, `$1${separator}$2`)
 }
 
-export function safeParse(value: string) {
+export function safeParse<T>(value: string): {
+  value: T
+  error: boolean | string
+} {
   try {
-    return JSON.parse(value)
+    return { value: JSON.parse(value), error: false }
   } catch (e) {
     if (e instanceof Error) {
-      return { error: e.message }
+      return { error: e.message, value: null as T }
     }
-    return { error: true }
+    return { error: true, value: null as T }
   }
+}
+
+export function collectionToObject(collection: FeatureCollection) {
+  return Object.fromEntries(
+    collection.features.map((feat) => [
+      `${feat.properties?.name}_${feat.properties?.type}`,
+      feat,
+    ]),
+  )
 }

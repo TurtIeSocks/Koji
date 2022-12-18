@@ -64,11 +64,16 @@ export default function ExportPolygon({
     if (mode === 'import' && code) {
       ;(async () => {
         try {
+          const cleanCode = code.trim()
           const parsed: ToConvert =
-            code.startsWith('{') || code.startsWith('[')
-              ? JSON.parse(code)
-              : code
-          const geojson: FeatureCollection = await convert<FeatureCollection>(
+            cleanCode.startsWith('{') || cleanCode.startsWith('[')
+              ? JSON.parse(
+                  cleanCode.endsWith(',')
+                    ? cleanCode.substring(0, cleanCode.length - 1)
+                    : cleanCode,
+                )
+              : cleanCode
+          const geojson = await convert<FeatureCollection>(
             parsed,
             'featureCollection',
           )

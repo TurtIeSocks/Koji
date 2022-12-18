@@ -559,10 +559,9 @@
     minimatch "^3.1.2"
     strip-json-comments "^3.1.1"
 
-"@geoman-io/leaflet-geoman-free@^2.13.1":
-  version "2.13.1"
-  resolved "https://registry.yarnpkg.com/@geoman-io/leaflet-geoman-free/-/leaflet-geoman-free-2.13.1.tgz#a968810bc1b7c4fae9fe6f7a99e0015c9aeaaeef"
-  integrity sha512-csTmg0JJegXRfwGpNXQ9wy1Y1wha8AcrxhvaVFGm3xrhpPG8l3wouMZvO91PN8ZthG3xpZtfDnUQF+7Pm4mwXQ==
+"@geoman-io/leaflet-geoman-free@github:TurtIeSocks/leaflet-geoman#890d86d":
+  version "2.13.2"
+  resolved "https://codeload.github.com/TurtIeSocks/leaflet-geoman/tar.gz/890d86d013c270ca6403ce6d7cd046926ad92ee2"
   dependencies:
     "@turf/boolean-contains" "^6.5.0"
     "@turf/kinks" "^6.5.0"

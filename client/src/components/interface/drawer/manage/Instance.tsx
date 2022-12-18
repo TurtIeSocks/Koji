@@ -44,7 +44,6 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
   const setStatic = useStatic((s) => s.setStatic)
   const setSelected = useStatic((s) => s.setSelected)
 
-  const [inputValue, setInputValue] = React.useState('')
   const [loading, setLoading] = React.useState(false)
 
   React.useEffect(() => {
@@ -76,10 +75,8 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
     <ListItem>
       <Autocomplete
         value={selected.filter((s) => fences[stateKey][s])}
-        inputValue={inputValue}
         size="small"
         onChange={(_e, newValue) => setSelected(newValue, stateKey)}
-        onInputChange={(_e, newValue) => setInputValue(newValue)}
         filterOptions={filterOptions}
         selectOnFocus
         clearOnBlur
@@ -87,15 +84,16 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
         loading={loading}
         handleHomeEndKeys
         disableCloseOnSelect
+        fullWidth
         groupBy={(option) => fences[stateKey][option]?.properties?.type}
-        sx={{ width: '90%', mx: 'auto' }}
+        // sx={{ width: '100%', mx: 'auto' }}
         options={Object.keys(fences[stateKey]).sort((a, b) =>
           fences[stateKey][a].properties?.type?.localeCompare(
             fences[stateKey][b].properties?.type,
           ),
         )}
         renderTags={(val) => (
-          <Typography align="center">{val.length} Selected</Typography>
+          <Typography align="center">({val.length})</Typography>
         )}
         renderOption={(props, option, { selected: s }) => (
           <li {...props}>
@@ -123,27 +121,31 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
             selected.some(
               (v) => fences[stateKey][v]?.properties?.type === group,
             )
-
           return group ? (
             <List key={key}>
               <ListItemButton
                 onClick={() => {
-                  setSelected(
-                    allSelected || partialSelected
-                      ? selected.filter(
-                          (v) =>
-                            !allValues.includes(v) ||
-                            fences[stateKey][v].properties?.type !== group,
-                        )
-                      : [
-                          ...allValues,
-                          ...selected.filter(
+                  try {
+                    setSelected(
+                      allSelected || partialSelected
+                        ? selected.filter(
                             (v) =>
-                              fences[stateKey][v].properties?.type !== group,
-                          ),
-                        ],
-                    stateKey,
-                  )
+                              !allValues.includes(v) ||
+                              fences[stateKey][v]?.properties?.type !== group,
+                          )
+                        : [
+                            ...allValues,
+                            ...selected.filter(
+                              (v) =>
+                                fences[stateKey][v]?.properties?.type !== group,
+                            ),
+                          ],
+                      stateKey,
+                    )
+                  } catch (e) {
+                    // eslint-disable-next-line no-console
+                    console.error(e)
+                  }
                 }}
               >
                 <ListItemIcon>

@@ -4,6 +4,7 @@ use std::thread;
 use geo::{Coord, HaversineDistance, Point};
 use geojson::{Geometry, Value};
 use models::api::Response;
+use models::collection::Default as FCDefault;
 use models::{FeatureHelpers, ToFeature};
 use std::collections::{HashSet, VecDeque};
 use std::time::Instant;
@@ -133,14 +134,15 @@ async fn cluster(
     }
 
     let mut stats = Stats::new();
+    let enum_type = if category == "gym" {
+        Type::CircleRaid
+    } else if category == "pokestop" {
+        Type::ManualQuest
+    } else {
+        Type::CirclePokemon
+    };
 
-    let area = if !instance.is_empty() {
-        if scanner_type.eq("rdm") {
-            instance::route(&conn.data_db, &instance).await
-        } else {
-            area::route(&conn.unown_db.as_ref().unwrap(), &instance).await
-        }
-    } else if !data_points.is_empty() {
+    let area = if !data_points.is_empty() {
         let polygon = BBox::new(
             &data_points
                 .iter()
@@ -160,8 +162,16 @@ async fn cluster(
             }],
             foreign_members: None,
         })
-    } else {
+    } else if !area.features.is_empty() {
         Ok(area)
+    } else if !instance.is_empty() {
+        if scanner_type.eq("rdm") {
+            instance::route(&conn.data_db, &instance).await
+        } else {
+            area::route(&conn.unown_db.as_ref().unwrap(), &instance).await
+        }
+    } else {
+        Ok(FeatureCollection::default())
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -299,23 +309,25 @@ async fn cluster(
         clusters = final_clusters.into();
     }
 
-    if !instance.is_empty() && save_to_db {
-        let enum_type = if category == "gym" {
-            Type::CircleRaid
-        } else if category == "pokestop" {
-            Type::ManualQuest
+    let mut feature = clusters.to_feature(Some(&enum_type));
+    feature.add_instance_properties(
+        Some(instance.to_string()),
+        if instance.eq("new_multipoint") {
+            None
         } else {
-            Type::CirclePokemon
-        };
-        let mut feature = clusters.clone().to_feature(Some(&enum_type));
+            Some(&enum_type)
+        },
+    );
+    feature.set_property("radius", radius);
+    let feature = feature.to_collection(None);
 
-        println!("Name {} | Type: {}", instance, enum_type);
-        feature.add_instance_properties(Some(instance.clone()), Some(&enum_type));
-        area::save(conn.unown_db.as_ref().unwrap(), feature.to_collection(None))
+    if !instance.is_empty() && save_to_db {
+        area::save(conn.unown_db.as_ref().unwrap(), feature.clone())
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }
 
+    // old VRP routing
     // let circles = solve(clusters, generations, devices);
     // let mapped_circles: Vec<Vec<(f64, f64)>> = circles
     //     .tours
@@ -329,7 +341,7 @@ async fn cluster(
     //     .collect();
 
     Ok(response::send(
-        clusters.to_collection(Some(&Type::CirclePokemon)),
+        feature,
         return_type,
         stats,
         benchmark_mode,

@@ -166,6 +166,8 @@ pub struct BoundsArg {
   pub enum DataPointsArg {
       Array(SingleVec),
       Struct(SingleStruct),
+      Feature(Feature),
+      FeatureCollection(FeatureCollection),
   }
 
 // all API Fields

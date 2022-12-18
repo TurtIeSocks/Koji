@@ -6,6 +6,7 @@
 
   Shortened to reduce fetch sizes
 */
+import Map from '@mui/icons-material/Map'
 import EditRoad from '@mui/icons-material/EditRoad'
 import ImportExport from '@mui/icons-material/ImportExport'
 import Settings from '@mui/icons-material/Settings'
@@ -44,13 +45,20 @@ export const ICON_COLOR = {
   u: 'dodgerblue',
 } as const
 
-export const TABS = ['Drawing', 'Clustering', 'Manage', 'Settings'] as const
+export const TABS = [
+  'Drawing',
+  'Clustering',
+  'Manage',
+  'Geojson',
+  'Settings',
+] as const
 
 export const ICON_MAP: Record<string, typeof EditRoad> = {
   Drawing: EditRoad,
   Clustering: TravelExplore,
   Manage: ImportExport,
   Settings,
+  Geojson: Map,
 }
 
 export const COLORS = [

@@ -20,7 +20,7 @@ export interface UseStore {
   routing_time: number | ''
   showCircles: boolean
   showLines: boolean
-  showPolygon: boolean
+  showPolygons: boolean
   nativeLeaflet: boolean
   last_seen: Date
   devices: number | ''
@@ -69,7 +69,7 @@ export const useStore = create(
       save_to_db: false,
       showCircles: true,
       showLines: true,
-      showPolygon: true,
+      showPolygons: true,
       nativeLeaflet: false,
       devices: 1,
       polygonExportMode: 'feature',

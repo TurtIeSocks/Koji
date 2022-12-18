@@ -5,9 +5,7 @@ import {
   styled,
 } from '@mui/material'
 
-const drawerWidth = 300
-
-const openedMixin = (theme: Theme): CSSObject => ({
+const openedMixin = (theme: Theme, drawerWidth: number): CSSObject => ({
   width: drawerWidth,
   transition: theme.transitions.create('width', {
     easing: theme.transitions.easing.sharp,
@@ -29,15 +27,15 @@ const closedMixin = (theme: Theme): CSSObject => ({
 })
 
 export const Drawer = styled(MuiDrawer, {
-  shouldForwardProp: (prop) => prop !== 'open',
-})(({ theme, open }) => ({
+  shouldForwardProp: (prop) => prop !== 'open' && prop !== 'drawerWidth',
+})<{ drawerWidth: number }>(({ theme, open, drawerWidth }) => ({
   width: drawerWidth,
   flexShrink: 0,
   whiteSpace: 'nowrap',
   boxSizing: 'border-box',
   ...(open && {
-    ...openedMixin(theme),
-    '& .MuiDrawer-paper': openedMixin(theme),
+    ...openedMixin(theme, drawerWidth),
+    '& .MuiDrawer-paper': openedMixin(theme, drawerWidth),
   }),
   ...(!open && {
     ...closedMixin(theme),

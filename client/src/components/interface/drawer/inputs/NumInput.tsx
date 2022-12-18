@@ -32,7 +32,12 @@ export default function NumInput<T extends string>({
         type="number"
         size="small"
         onChange={({ target }) => {
-          setValue(field, target.value && +target.value ? +target.value : '')
+          setValue(
+            field,
+            target.value && (+target.value || target.value === '0')
+              ? +target.value
+              : '',
+          )
         }}
         sx={{ width: '35%' }}
         inputProps={{ min: 0, max: 9999 }}

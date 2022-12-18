@@ -31,6 +31,8 @@ pub enum ReturnTypeArg {
 pub enum DataPointsArg {
     Array(single_vec::SingleVec),
     Struct(single_struct::SingleStruct),
+    Feature(Feature),
+    FeatureCollection(FeatureCollection),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -118,6 +120,8 @@ impl Args {
             match data_points {
                 DataPointsArg::Struct(data_points) => data_points.to_single_vec(),
                 DataPointsArg::Array(data_points) => data_points,
+                DataPointsArg::Feature(data_points) => data_points.to_single_vec(),
+                DataPointsArg::FeatureCollection(data_points) => data_points.to_single_vec(),
             }
         } else {
             vec![]

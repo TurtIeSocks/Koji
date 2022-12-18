@@ -7,6 +7,7 @@ import { useStore } from '@hooks/useStore'
 import { getMarkers } from '@services/fetches'
 import usePixi from '@hooks/usePixi'
 import { useStatic } from '@hooks/useStatic'
+import useDeepCompareEffect from 'use-deep-compare-effect'
 
 export default function Markers() {
   const location = useStore((s) => s.location)
@@ -26,7 +27,7 @@ export default function Markers() {
 
   const map = useMap()
 
-  React.useEffect(() => {
+  useDeepCompareEffect(() => {
     getMarkers(map, data, geojson, pokestop, spawnpoint, gym, last_seen).then(
       (incoming) => {
         setStatic('pokestops', incoming.pokestops)
@@ -36,7 +37,7 @@ export default function Markers() {
     )
   }, [
     data,
-    data === 'area' ? geojson.features.length : null,
+    data === 'area' ? geojson : null,
     data === 'bound' ? location : null,
     pokestop,
     spawnpoint,

@@ -1,5 +1,6 @@
 /* eslint-disable no-nested-ternary */
 import type { Map } from 'leaflet'
+import type { FeatureCollection } from 'geojson'
 
 import type { CombinedState, Data, ToConvert } from '@assets/types'
 import type { UseStore } from '@hooks/useStore'
@@ -37,14 +38,13 @@ export async function getData<T>(
 export async function getLotsOfData(
   url: string,
   settings: CombinedState = {},
-): Promise<[number, number][][]> {
+): Promise<FeatureCollection> {
   const { length = 0 } = settings.geojson?.features || {}
-  const results = await Promise.allSettled(
+  const features = await Promise.allSettled(
     (settings.geojson?.features || [])
       .filter(
-        (feat) =>
-          feat.geometry.type === 'MultiPolygon' ||
-          feat.geometry.type === 'Polygon',
+        (x) =>
+          x.geometry.type === 'Polygon' || x.geometry.type === 'MultiPolygon',
       )
       .map((area) =>
         fetch(url, {
@@ -54,7 +54,7 @@ export async function getLotsOfData(
           },
           body: JSON.stringify({
             ...settings,
-            return_type: 'multi_array',
+            return_type: 'feature',
             devices: Math.max(Math.floor((settings.devices || 1) / length), 1),
             area,
             instance: area.properties?.name,
@@ -74,7 +74,12 @@ export async function getLotsOfData(
           }),
       ),
   )
-  return results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
+  return {
+    type: 'FeatureCollection',
+    features: features.flatMap((r) =>
+      r.status === 'fulfilled' ? r.value : [],
+    ),
+  }
 }
 
 export async function getMarkers(

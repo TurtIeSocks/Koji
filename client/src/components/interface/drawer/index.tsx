@@ -6,6 +6,8 @@ import type {} from '@mui/x-date-pickers/themeAugmentation'
 
 import { TABS } from '@assets/constants'
 import { useStore } from '@hooks/useStore'
+import { useStatic } from '@hooks/useStatic'
+import { safeParse } from '@services/utils'
 
 import { Drawer } from '../styled/Drawer'
 import DrawerHeader from '../styled/DrawerHeader'
@@ -15,10 +17,15 @@ import MenuAccordion from './MenuItem'
 import ImportExport from './manage'
 import Settings from './settings'
 import MiniItem from './MiniItem'
+import { Code } from '../Code'
 
 export default function DrawerIndex() {
-  const setStore = useStore((s) => s.setStore)
+  const geojson = useStatic((s) => s.geojson)
+  const setStatic = useStatic((s) => s.setStatic)
+
+  const menuItem = useStore((s) => s.menuItem)
   const drawer = useStore((s) => s.drawer)
+  const setStore = useStore((s) => s.setStore)
 
   const toggleDrawer = (event: React.KeyboardEvent | React.MouseEvent) => {
     if (
@@ -45,7 +52,12 @@ export default function DrawerIndex() {
   }, [])
 
   return (
-    <Drawer variant="permanent" open={drawer} onClose={toggleDrawer}>
+    <Drawer
+      variant="permanent"
+      open={drawer}
+      drawerWidth={menuItem === 'Geojson' ? 500 : 300}
+      onClose={toggleDrawer}
+    >
       {drawer ? (
         <LocalizationProvider dateAdapter={AdapterDayjs}>
           <DrawerHeader setStore={setStore}>Kōji</DrawerHeader>
@@ -60,6 +72,17 @@ export default function DrawerIndex() {
                     Clustering: <RoutingTab />,
                     Manage: <ImportExport />,
                     Settings: <Settings />,
+                    Geojson: (
+                      <Code
+                        code={JSON.stringify(geojson, null, 2)}
+                        setCode={(newCode) => {
+                          const parsed = safeParse<typeof geojson>(newCode)
+                          if (!parsed.error) {
+                            setStatic('geojson', parsed.value)
+                          }
+                        }}
+                      />
+                    ),
                   }[text] || null}
                 </MenuAccordion>
               </Fragment>

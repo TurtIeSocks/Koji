@@ -7,18 +7,18 @@ impl FeatureHelpers for Feature {
         }
         if let Some(enum_type) = enum_type {
             self.set_property("type", enum_type.to_string());
-            match enum_type {
-                Type::CirclePokemon | Type::CircleSmartPokemon => {
-                    self.set_property("radius", 70);
-                }
-                Type::CircleRaid | Type::CircleSmartRaid => {
-                    self.set_property("radius", 700);
-                }
-                Type::ManualQuest => {
-                    self.set_property("radius", 80);
-                }
-                _ => {}
-            }
+            // match enum_type {
+            //     Type::CirclePokemon | Type::CircleSmartPokemon => {
+            //         self.set_property("radius", 70);
+            //     }
+            //     Type::CircleRaid | Type::CircleSmartRaid => {
+            //         self.set_property("radius", 700);
+            //     }
+            //     Type::ManualQuest => {
+            //         self.set_property("radius", 80);
+            //     }
+            //     _ => {}
+            // }
         }
     }
 }

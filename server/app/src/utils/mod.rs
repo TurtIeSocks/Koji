@@ -12,13 +12,24 @@ pub mod write_debug;
 
 pub fn sql_raw(area: &FeatureCollection) -> String {
     let mut string = "".to_string();
-    for (i, feature) in area.features.iter().enumerate() {
-        string = format!(
-            "{} {} ST_CONTAINS(ST_GeomFromGeoJSON('{}', 2, 0), POINT(lon, lat))",
-            string,
-            if i == 0 { "WHERE" } else { "OR" },
-            feature.geometry.as_ref().unwrap().to_string()
-        );
+    for feature in area.features.iter() {
+        if let Some(geometry) = feature.geometry.as_ref() {
+            match geometry.value {
+                Value::Polygon(_) | Value::MultiPolygon(_) => {
+                    string = format!(
+                        "{} {} ST_CONTAINS(ST_GeomFromGeoJSON('{}', 2, 0), POINT(lon, lat))",
+                        string,
+                        if string.contains("WHERE") {
+                            "OR"
+                        } else {
+                            "WHERE"
+                        },
+                        feature.geometry.as_ref().unwrap().to_string()
+                    );
+                }
+                _ => {}
+            }
+        }
     }
     string
 }
