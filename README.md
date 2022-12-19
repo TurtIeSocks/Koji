@@ -61,7 +61,13 @@ cd ../server && cargo run -r
 
 ### Docker (Recommended)
 
-1. Get the docker-compose.yml example file:
+### Temp Authenticate
+
+1. `docker login ghcr.io/turtiesocks/koji`
+2. Enter your GitHub username
+3. Enter your GitHub authentication token
+
+4. Get the docker-compose.yml example file:
 
 ```bash
 curl https://raw.githubusercontent.com/TurtIeSocks/Koji/main/docker-compose.example.yml > docker-compose.yml

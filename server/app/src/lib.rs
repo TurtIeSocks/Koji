@@ -114,9 +114,11 @@ pub async fn main() -> io::Result<()> {
             .service(
                 Files::new(
                     "/",
-                    if env::var("IS_DOCKER").is_ok() {
+                    if env::var("HOME").unwrap_or("".to_string()).eq("/root") {
+                        // docker path
                         "./dist"
                     } else {
+                        // repo path
                         "../client/dist"
                     }
                     .to_string(),
