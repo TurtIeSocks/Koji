@@ -130,7 +130,7 @@ export async function getMarkers(
   }
 }
 
-export async function convert<T = object | string>(
+export async function convert<T = Array<object> | object | string>(
   area: ToConvert,
   return_type: UseStore['polygonExportMode'],
 ): Promise<T> {

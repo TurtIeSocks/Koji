@@ -19,6 +19,7 @@ import InstanceSelect from './Instance'
 
 export default function ImportExport() {
   const [open, setOpen] = React.useState('')
+  const [exportAll, setExportAll] = React.useState(false)
   const geojson = useStatic((s) => s.geojson)
 
   return (
@@ -34,6 +35,17 @@ export default function ImportExport() {
         </ListItemIcon>
         Import Polygon
       </ListItemButton>
+      <ListItemButton
+        onClick={() => {
+          setOpen('polygon')
+          setExportAll(true)
+        }}
+      >
+        <ListItemIcon>
+          <Upload />
+        </ListItemIcon>
+        Export All Polygons
+      </ListItemButton>
       <ListItemButton onClick={() => setOpen('route')}>
         <ListItemIcon>
           <Upload />
@@ -47,7 +59,7 @@ export default function ImportExport() {
         Open Manager
       </ListItemButton>
       <PolygonDialog
-        mode="import"
+        mode={exportAll ? 'exportAll' : 'import'}
         open={open}
         setOpen={setOpen}
         feature={geojson}

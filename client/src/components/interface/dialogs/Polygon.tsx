@@ -24,15 +24,20 @@ interface Export extends Props {
   mode: 'export'
   feature: Feature
 }
+interface ExportAll extends Props {
+  mode: 'exportAll'
+  feature: FeatureCollection
+}
 
 export function ExportPolygon(props: Import): JSX.Element
 export function ExportPolygon(props: Export): JSX.Element
+export function ExportPolygon(props: ExportAll): JSX.Element
 export default function ExportPolygon({
   mode,
   open,
   setOpen,
   feature,
-}: Import | Export): JSX.Element {
+}: Import | Export | ExportAll): JSX.Element {
   const polygonExportMode = useStore((s) => s.polygonExportMode)
   const setStore = useStore((s) => s.setStore)
 
@@ -42,11 +47,9 @@ export default function ExportPolygon({
   const [tempGeojson, setTempGeojson] = React.useState<FeatureCollection>()
 
   React.useEffect(() => {
-    if (mode === 'export') {
+    if (mode === 'export' || mode === 'exportAll') {
       ;(async () => {
         switch (polygonExportMode) {
-          case 'feature':
-            return feature
           default:
             return convert(feature, polygonExportMode)
         }
@@ -54,7 +57,17 @@ export default function ExportPolygon({
         if (typeof newCode === 'string') {
           setCode(newCode)
         } else {
-          setCode(JSON.stringify(newCode, null, 2))
+          setCode(
+            JSON.stringify(
+              mode === 'export' &&
+                polygonExportMode === 'poracle' &&
+                Array.isArray(newCode)
+                ? newCode[0]
+                : newCode,
+              null,
+              2,
+            ),
+          )
         }
       })
     }
@@ -104,21 +117,23 @@ export default function ExportPolygon({
           setCode('')
         }}
       >
-        {mode === 'export' ? 'Export Polygon' : 'Import Polygon'}
+        {mode === 'export' || mode === 'exportAll'
+          ? 'Export Polygon'
+          : 'Import Polygon'}
       </DialogHeader>
       <DialogContent sx={{ width: '90vw', height: '60vh', overflow: 'auto' }}>
         <Code
           code={code}
           setCode={setCode}
           textMode={
-            mode === 'export'
+            mode === 'export' || mode === 'exportAll'
               ? polygonExportMode === 'text' || polygonExportMode === 'altText'
               : !code.startsWith('{') && !code.startsWith('[')
           }
         />
       </DialogContent>
       <DialogActions>
-        {mode === 'export' && (
+        {(mode === 'export' || mode === 'exportAll') && (
           <BtnGroup
             field="polygonExportMode"
             value={polygonExportMode}
@@ -150,7 +165,7 @@ export default function ExportPolygon({
             }
           }}
         >
-          {mode === 'export' ? 'Close' : 'Import'}
+          {mode === 'export' || mode === 'exportAll' ? 'Close' : 'Import'}
         </Button>
       </DialogActions>
     </Dialog>
