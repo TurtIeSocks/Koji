@@ -113,7 +113,11 @@ export async function getMarkers(
             body: JSON.stringify({
               area:
                 data === 'area'
-                  ? area
+                  ? area.features.filter(
+                      (feature) =>
+                        feature.geometry.type === 'Polygon' ||
+                        feature.geometry.type === 'MultiPolygon',
+                    )
                   : data === 'bound'
                   ? getMapBounds(map)
                   : undefined,
