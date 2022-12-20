@@ -1,7 +1,7 @@
 use api::BoundsArg;
 use entity::sea_orm_active_enums::Type;
 use geo::Coord;
-use geojson::{Feature, FeatureCollection, Geometry, Value};
+use geojson::{Bbox, Feature, FeatureCollection, Geometry, Value};
 use num_traits::Float;
 use sea_orm::{DatabaseConnection, FromQueryResult};
 use serde::{Deserialize, Serialize};
@@ -31,6 +31,11 @@ type Precision = f64;
 
 pub trait EnsurePoints {
     fn ensure_first_last(self) -> Self;
+}
+
+/// [min_lon, min_lat, max_lon, max_lat]
+pub trait GetBbox {
+    fn get_bbox(&self) -> Option<Bbox>;
 }
 
 pub trait ValueHelpers {
@@ -200,6 +205,9 @@ impl BBox {
         //     self.min_y,
         //     self.min_x,
         // )
+    }
+    pub fn get_geojson_bbox(&self) -> Option<Bbox> {
+        Some(vec![self.min_x, self.max_x, self.min_y, self.max_y])
     }
     // pub fn get_center(&self) -> Coord {
     //     Coord {

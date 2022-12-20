@@ -69,9 +69,14 @@ impl ToFeatureVec for Feature {
 
 impl ToCollection for Feature {
     fn to_collection(self, _enum_type: Option<&Type>) -> FeatureCollection {
+        let bbox = if self.bbox.is_some() {
+            self.bbox
+        } else {
+            self.clone().to_single_vec().get_bbox()
+        };
         FeatureCollection {
-            bbox: None,
-            features: vec![self],
+            bbox: bbox.clone(),
+            features: vec![Feature { bbox, ..self }],
             foreign_members: None,
         }
     }
@@ -80,7 +85,12 @@ impl ToCollection for Feature {
 impl ToCollection for Vec<Feature> {
     fn to_collection(self, _enum_type: Option<&Type>) -> FeatureCollection {
         FeatureCollection {
-            bbox: None,
+            bbox: self
+                .clone()
+                .into_iter()
+                .flat_map(|feat| feat.to_single_vec())
+                .collect::<single_vec::SingleVec>()
+                .get_bbox(),
             features: self,
             foreign_members: None,
         }

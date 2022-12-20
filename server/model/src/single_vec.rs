@@ -18,6 +18,33 @@ impl EnsurePoints for SingleVec {
     }
 }
 
+impl GetBbox for SingleVec {
+    fn get_bbox(&self) -> Option<Vec<f64>> {
+        let mut bbox = vec![
+            f64::INFINITY,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NEG_INFINITY,
+        ];
+
+        for point in self {
+            if point[1] < bbox[0] {
+                bbox[0] = point[1]
+            }
+            if point[1] > bbox[2] {
+                bbox[2] = point[1]
+            }
+            if point[0] < bbox[1] {
+                bbox[1] = point[0]
+            }
+            if point[0] > bbox[3] {
+                bbox[3] = point[0]
+            }
+        }
+        Some(bbox)
+    }
+}
+
 impl ToPointArray for SingleVec {
     fn to_point_array(self) -> point_array::PointArray {
         self[0]
@@ -64,6 +91,7 @@ impl ToMultiStruct for SingleVec {
 impl ToFeature for SingleVec {
     fn to_feature(self, enum_type: Option<&Type>) -> Feature {
         Feature {
+            bbox: self.get_bbox(),
             geometry: Some(Geometry {
                 bbox: None,
                 foreign_members: None,
@@ -81,7 +109,7 @@ impl ToFeature for SingleVec {
 impl ToCollection for SingleVec {
     fn to_collection(self, enum_type: Option<&Type>) -> FeatureCollection {
         FeatureCollection {
-            bbox: None,
+            bbox: self.get_bbox(),
             features: vec![self.to_feature(enum_type)],
             foreign_members: None,
         }

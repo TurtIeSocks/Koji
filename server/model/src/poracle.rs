@@ -129,6 +129,7 @@ impl ToMultiStruct for Poracle {
 impl ToFeature for Poracle {
     fn to_feature(self, enum_type: Option<&Type>) -> Feature {
         let mut feature = Feature {
+            bbox: self.clone().to_single_vec().get_bbox(),
             geometry: Some(Geometry {
                 bbox: None,
                 foreign_members: None,
@@ -171,9 +172,10 @@ impl ToFeature for Poracle {
 
 impl ToCollection for Poracle {
     fn to_collection(self, enum_type: Option<&Type>) -> FeatureCollection {
+        let feature = self.to_feature(enum_type);
         FeatureCollection {
-            bbox: None,
-            features: vec![self.to_feature(enum_type)],
+            bbox: feature.bbox.clone(),
+            features: vec![feature],
             foreign_members: None,
         }
     }
@@ -182,7 +184,12 @@ impl ToCollection for Poracle {
 impl ToCollection for Vec<Poracle> {
     fn to_collection(self, enum_type: Option<&Type>) -> FeatureCollection {
         FeatureCollection {
-            bbox: None,
+            bbox: self
+                .clone()
+                .into_iter()
+                .flat_map(|x| x.to_single_vec())
+                .collect::<single_vec::SingleVec>()
+                .get_bbox(),
             features: self
                 .into_iter()
                 .map(|poracle_feat| poracle_feat.to_feature(enum_type))

@@ -50,7 +50,7 @@ impl ToFeature for MultiStruct {
     fn to_feature(self, enum_type: Option<&Type>) -> Feature {
         Feature {
             geometry: Some(Geometry {
-                bbox: None,
+                bbox: self.clone().to_single_vec().get_bbox(),
                 foreign_members: None,
                 value: if let Some(enum_type) = enum_type {
                     self.to_multi_vec().get_geojson_value(enum_type)
@@ -65,9 +65,10 @@ impl ToFeature for MultiStruct {
 
 impl ToCollection for MultiStruct {
     fn to_collection(self, enum_type: Option<&Type>) -> FeatureCollection {
+        let feature = self.to_feature(enum_type);
         FeatureCollection {
-            bbox: None,
-            features: vec![self.to_feature(enum_type)],
+            bbox: feature.bbox.clone(),
+            features: vec![feature],
             foreign_members: None,
         }
     }

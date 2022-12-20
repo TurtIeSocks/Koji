@@ -14,6 +14,7 @@ use travelling_salesman::{self, Tour};
 use crate::models::point_array::PointArray;
 use crate::models::single_vec::SingleVec;
 use crate::models::{BBox, ToCollection, ToSingleVec};
+use crate::queries::geofence;
 use crate::{
     entity::sea_orm_active_enums::Type,
     models::{
@@ -143,18 +144,19 @@ async fn cluster(
     };
 
     let area = if !data_points.is_empty() {
-        let polygon = BBox::new(
+        let bbox = BBox::new(
             &data_points
                 .iter()
                 .map(|p| Coord { x: p[1], y: p[0] })
                 .collect(),
-        )
-        .get_poly();
+        );
+
         Ok(FeatureCollection {
-            bbox: None,
+            bbox: bbox.get_geojson_bbox(),
             features: vec![Feature {
+                bbox: bbox.get_geojson_bbox(),
                 geometry: Some(Geometry {
-                    value: Value::Polygon(polygon),
+                    value: Value::Polygon(bbox.get_poly()),
                     bbox: None,
                     foreign_members: None,
                 }),
@@ -165,10 +167,16 @@ async fn cluster(
     } else if !area.features.is_empty() {
         Ok(area)
     } else if !instance.is_empty() {
-        if scanner_type.eq("rdm") {
-            instance::route(&conn.data_db, &instance).await
-        } else {
-            area::route(&conn.unown_db.as_ref().unwrap(), &instance).await
+        let koji_area = geofence::route(&conn.koji_db, &instance).await;
+        match koji_area {
+            Ok(area) => Ok(area),
+            Err(_) => {
+                if scanner_type.eq("rdm") {
+                    instance::route(&conn.data_db, &instance).await
+                } else {
+                    area::route(&conn.unown_db.as_ref().unwrap(), &instance).await
+                }
+            }
         }
     } else {
         Ok(FeatureCollection::default())

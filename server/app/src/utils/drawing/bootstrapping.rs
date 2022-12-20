@@ -2,6 +2,7 @@ use super::*;
 
 use geo::{Contains, Extremes, HaversineDestination, HaversineDistance, Point, Polygon};
 use geojson::{Geometry, Value};
+use models::{GetBbox, ToSingleVec};
 
 use crate::models::{api::Stats, single_vec::SingleVec, ToFeatureVec};
 
@@ -71,8 +72,7 @@ pub fn as_vec(feature: Feature, radius: f64, stats: &mut Stats) -> SingleVec {
 pub fn as_geojson(feature: Feature, radius: f64, stats: &mut Stats) -> Feature {
     let mut multiline_feature: Vec<Vec<Vec<f64>>> = vec![];
     let mut multipoint_feature: Vec<Vec<f64>> = vec![];
-
-    let circles = flatten_circles(feature, radius, stats);
+    let circles = flatten_circles(feature.clone(), radius, stats);
 
     for (i, point) in circles.iter().enumerate() {
         multipoint_feature.push(vec![point.x(), point.y()]);
@@ -108,6 +108,7 @@ pub fn as_geojson(feature: Feature, radius: f64, stats: &mut Stats) -> Feature {
         foreign_members: None,
     };
     Feature {
+        bbox: feature.to_single_vec().get_bbox(),
         geometry: Some(geo_collection),
         ..Feature::default()
     }

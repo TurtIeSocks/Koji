@@ -1,8 +1,10 @@
 use super::*;
 
 use chrono::Utc;
+use entity::sea_orm_active_enums::Type;
 use geojson::GeoJson;
 use migration::{Expr, Order};
+use models::ToCollection;
 use sea_orm::{QueryOrder, Set};
 
 use crate::{entity::geofence, models::scanner::IdName};
@@ -28,6 +30,25 @@ pub async fn all(conn: &DatabaseConnection) -> Result<Vec<Feature>, DbErr> {
         })
         .collect();
     Ok(items)
+}
+
+pub async fn route(
+    conn: &DatabaseConnection,
+    instance_name: &String,
+) -> Result<FeatureCollection, DbErr> {
+    let items = geofence::Entity::find()
+        .filter(geofence::Column::Name.contains(instance_name))
+        .one(conn)
+        .await?;
+    if let Some(items) = items {
+        let feature = Feature::from_json_value(items.area);
+        return match feature {
+            Ok(feat) => Ok(feat.to_collection(Some(&Type::AutoQuest))),
+            Err(err) => Err(DbErr::Custom(err.to_string())),
+        };
+    } else {
+        Err(DbErr::Custom("Instance not found".to_string()))
+    }
 }
 
 pub async fn save(

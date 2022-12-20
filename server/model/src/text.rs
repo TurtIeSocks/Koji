@@ -115,14 +115,16 @@ impl ToMultiStruct for String {
 
 impl ToFeature for String {
     fn to_feature(self, enum_type: Option<&Type>) -> Feature {
+        let multi_vec = self.to_multi_vec();
         Feature {
+            bbox: multi_vec.clone().to_single_vec().get_bbox(),
             geometry: Some(Geometry {
                 bbox: None,
                 foreign_members: None,
                 value: if let Some(enum_type) = enum_type {
-                    self.to_multi_vec().get_geojson_value(enum_type)
+                    multi_vec.get_geojson_value(enum_type)
                 } else {
-                    self.to_multi_vec().polygon()
+                    multi_vec.polygon()
                 },
             }),
             ..Default::default()
@@ -132,9 +134,10 @@ impl ToFeature for String {
 
 impl ToCollection for String {
     fn to_collection(self, enum_type: Option<&Type>) -> FeatureCollection {
+        let feature = self.to_feature(enum_type);
         FeatureCollection {
-            bbox: None,
-            features: vec![self.to_feature(enum_type)],
+            bbox: feature.bbox.clone(),
+            features: vec![feature],
             foreign_members: None,
         }
     }

@@ -14,6 +14,7 @@ pub async fn all(conn: &DatabaseConnection, last_seen: u32) -> Result<Vec<Generi
         .filter(pokestop::Column::Updated.gt(last_seen))
         .filter(pokestop::Column::Deleted.eq(false))
         .filter(pokestop::Column::Enabled.eq(true))
+        .limit(2_000_000)
         .into_model::<PointStruct>()
         .all(conn)
         .await?;
@@ -34,6 +35,7 @@ pub async fn bound(
         .filter(pokestop::Column::Updated.gt(last_seen))
         .filter(pokestop::Column::Deleted.eq(false))
         .filter(pokestop::Column::Enabled.eq(true))
+        .limit(2_000_000)
         .into_model::<PointStruct>()
         .all(conn)
         .await?;
@@ -48,7 +50,7 @@ pub async fn area(
     let items = pokestop::Entity::find()
         .from_raw_sql(Statement::from_sql_and_values(
             DbBackend::MySql,
-            format!("SELECT lat, lon FROM pokestop {} AND enabled = 1 AND deleted = 0 AND updated >= {}", utils::sql_raw(area), last_seen).as_str(),
+            format!("SELECT lat, lon FROM pokestop WHERE enabled = 1 AND deleted = 0 AND updated >= {} AND ({}) LIMIT 2000000", last_seen, utils::sql_raw(area)).as_str(),
             vec![],
         ))
         .into_model::<PointStruct>()

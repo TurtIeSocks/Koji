@@ -44,6 +44,7 @@ impl ToMultiStruct for PointArray {
 impl ToFeature for PointArray {
     fn to_feature(self, enum_type: Option<&Type>) -> Feature {
         Feature {
+            bbox: self.clone().to_single_vec().get_bbox(),
             geometry: Some(Geometry {
                 bbox: None,
                 foreign_members: None,
@@ -60,9 +61,10 @@ impl ToFeature for PointArray {
 
 impl ToCollection for PointArray {
     fn to_collection(self, enum_type: Option<&Type>) -> FeatureCollection {
+        let feature = self.to_feature(enum_type);
         FeatureCollection {
-            bbox: None,
-            features: vec![self.to_feature(enum_type)],
+            bbox: feature.bbox.clone(),
+            features: vec![feature],
             foreign_members: None,
         }
     }

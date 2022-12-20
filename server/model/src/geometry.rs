@@ -48,6 +48,7 @@ impl ToSingleVec for Geometry {
 impl ToFeature for Geometry {
     fn to_feature(self, _enum_type: Option<&Type>) -> Feature {
         Feature {
+            bbox: self.clone().to_single_vec().get_bbox(),
             geometry: Some(self),
             ..Default::default()
         }
@@ -60,6 +61,16 @@ impl ToFeatureVec for Geometry {
             Value::MultiPolygon(val) => val
                 .into_iter()
                 .map(|polygon| Feature {
+                    bbox: polygon
+                        .clone()
+                        .into_iter()
+                        .flat_map(|x| {
+                            x.into_iter()
+                                .map(|y| [y[0], y[1]])
+                                .collect::<single_vec::SingleVec>()
+                        })
+                        .collect::<single_vec::SingleVec>()
+                        .get_bbox(),
                     geometry: Some(Geometry {
                         bbox: None,
                         value: Value::Polygon(polygon),
