@@ -9,36 +9,26 @@ export default function useLayers() {
 
   const map = useMap()
 
-  useEffect(() => {
-    const pane = map.getPane('circles')
+  const setPane = (name: string, show: boolean) => {
+    const pane = map.getPane(name)
     if (pane) {
-      if (showCircles) {
+      if (show) {
         pane.hidden = false
       } else {
         pane.hidden = true
       }
     }
+  }
+
+  useEffect(() => {
+    setPane('circles', showCircles)
   }, [showCircles])
 
   useEffect(() => {
-    const pane = map.getPane('lines')
-    if (pane) {
-      if (showLines) {
-        pane.hidden = false
-      } else {
-        pane.hidden = true
-      }
-    }
+    setPane('lines', showLines)
   }, [showLines])
 
   useEffect(() => {
-    const pane = map.getPane('polygons')
-    if (pane) {
-      if (showPolygons) {
-        pane.hidden = false
-      } else {
-        pane.hidden = true
-      }
-    }
+    setPane('polygons', showPolygons)
   }, [showPolygons])
 }

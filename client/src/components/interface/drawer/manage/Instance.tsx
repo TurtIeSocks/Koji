@@ -16,10 +16,12 @@ import {
 import CheckBoxOutlineBlank from '@mui/icons-material/CheckBoxOutlineBlank'
 import IndeterminateCheckBoxOutlined from '@mui/icons-material/IndeterminateCheckBoxOutlined'
 import CheckBox from '@mui/icons-material/CheckBox'
+import type { FeatureCollection } from 'geojson'
 
-import { getData } from '@services/fetches'
-import { useStatic } from '@hooks/useStatic'
 import { KojiResponse } from '@assets/types'
+import { useStatic } from '@hooks/useStatic'
+import { useShapes } from '@hooks/useShapes'
+import { getData } from '@services/fetches'
 
 const icon = <CheckBoxOutlineBlank fontSize="small" color="primary" />
 const checkedIcon = <CheckBox fontSize="small" color="primary" />
@@ -42,7 +44,7 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
     geofences: s.geofences,
   }))
   const setStatic = useStatic((s) => s.setStatic)
-  const setSelected = useStatic((s) => s.setSelected)
+  const setFromCollection = useShapes((s) => s.setters.setFromCollection)
 
   const [loading, setLoading] = React.useState(false)
 
@@ -59,7 +61,10 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
                   .filter((f) => f.properties?.name)
                   .map((f) => [
                     `${f.properties?.name}_${f.properties?.type}_${stateKey}`,
-                    f,
+                    {
+                      ...f,
+                      id: `${f.properties?.name}_${f.properties?.type}_${stateKey}`,
+                    },
                   ]),
               ),
             )
@@ -76,7 +81,16 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
       <Autocomplete
         value={selected.filter((s) => fences[stateKey][s])}
         size="small"
-        onChange={(_e, newValue) => setSelected(newValue, stateKey)}
+        onChange={(_e, newValue) => {
+          // const added = newValue.filter((s) => !selected.includes(s))
+          // const deleted = selected.filter((s) => !newValue.includes(s))
+          const newCollection: FeatureCollection = {
+            type: 'FeatureCollection',
+            features: newValue.map((s) => fences[stateKey][s]),
+          }
+          setStatic('selected', newValue)
+          setFromCollection(newCollection, stateKey)
+        }}
         filterOptions={filterOptions}
         selectOnFocus
         clearOnBlur
@@ -126,7 +140,8 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
               <ListItemButton
                 onClick={() => {
                   try {
-                    setSelected(
+                    setStatic(
+                      'selected',
                       allSelected || partialSelected
                         ? selected.filter(
                             (v) =>
@@ -140,7 +155,6 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
                                 fences[stateKey][v]?.properties?.type !== group,
                             ),
                           ],
-                      stateKey,
                     )
                   } catch (e) {
                     // eslint-disable-next-line no-console

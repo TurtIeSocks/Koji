@@ -3,6 +3,7 @@ import { getLotsOfData } from '@services/fetches'
 // import { COLORS } from '@assets/constants'
 import { useStatic } from '@hooks/useStatic'
 import useDeepCompareEffect from 'use-deep-compare-effect'
+import { useShapes } from './useShapes'
 
 export default function useCluster(): void {
   const mode = useStore((s) => s.mode)
@@ -21,9 +22,12 @@ export default function useCluster(): void {
   const route_chunk_size = useStore((s) => s.route_chunk_size)
 
   const layerEditing = useStatic((s) => s.layerEditing)
-  const geojson = useStatic((s) => s.geojson)
   const forceFetch = useStatic((s) => s.forceFetch)
-  const setGeojson = useStatic((s) => s.setGeojson)
+
+  const getGeojson = useShapes((s) => s.getters.getGeojson)
+  const setFromCollection = useShapes((s) => s.setters.setFromCollection)
+
+  const geojson = getGeojson(['Polygon', 'MultiPolygon'])
 
   useDeepCompareEffect(() => {
     if (geojson.features.length) {
@@ -47,7 +51,7 @@ export default function useCluster(): void {
             route_chunk_size,
           },
         ).then((newCollection) => {
-          setGeojson(newCollection)
+          setFromCollection(newCollection)
         })
       }
     }

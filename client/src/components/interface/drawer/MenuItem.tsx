@@ -29,6 +29,7 @@ export default function MenuAccordion({ name, children }: Props) {
         onChange={(_, isExpanded) => {
           setStore('menuItem', isExpanded ? name : '')
         }}
+        TransitionProps={{ unmountOnExit: true }}
       >
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <ListItemIcon>

@@ -12,6 +12,7 @@ import Markers from './markers'
 import Interface from './interface'
 import PolygonPopup from './popups/Polygon'
 import ErrorBoundary from './ErrorBoundary'
+import Vectors from './markers/Vectors'
 
 export default function Map() {
   const drawer = useStore((s) => s.drawer)
@@ -43,6 +44,7 @@ export default function Map() {
           <Interface />
           <PolygonPopup />
           <Drawing key="drawing" />
+          <Vectors />
         </MapContainer>
       </Main>
     </Box>

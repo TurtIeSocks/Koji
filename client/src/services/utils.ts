@@ -1,8 +1,8 @@
-import type { Map } from 'leaflet'
+import * as L from 'leaflet'
 import { capitalize } from '@mui/material'
-import type { FeatureCollection } from 'geojson'
+import type { Feature, FeatureCollection } from 'geojson'
 
-export function getMapBounds(map: Map) {
+export function getMapBounds(map: L.Map) {
   const mapBounds = map.getBounds()
   const { lat: min_lat, lng: min_lon } = mapBounds.getSouthWest()
   const { lat: max_lat, lng: max_lon } = mapBounds.getNorthEast()
@@ -55,5 +55,15 @@ export function collectionToObject(collection: FeatureCollection) {
       `${feat.properties?.name}_${feat.properties?.type}`,
       feat,
     ]),
+  )
+}
+
+export function filterImports<T extends Feature>(
+  existing: Record<string, T>,
+): Record<string, T> {
+  return Object.fromEntries(
+    Object.values(existing)
+      .filter((feat) => typeof feat.id === 'number')
+      .map((feat) => [feat.id, feat]),
   )
 }
