@@ -24,6 +24,11 @@ pub struct IdName {
     pub name: String,
 }
 
+#[derive(Debug, FromQueryResult, Serialize, Deserialize, Clone)]
+pub struct Total {
+    pub total: i32,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RdmInstance {
     pub area: RdmInstanceArea,

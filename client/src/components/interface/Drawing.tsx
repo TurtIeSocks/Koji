@@ -1,6 +1,6 @@
 /* eslint-disable no-param-reassign */
 import * as React from 'react'
-import { FeatureGroup, useMapEvents } from 'react-leaflet'
+import { FeatureGroup, useMap } from 'react-leaflet'
 import * as L from 'leaflet'
 import type { Feature, MultiPolygon, Point, Polygon } from 'geojson'
 import 'leaflet-arrowheads'
@@ -15,10 +15,7 @@ export function Drawing() {
   const continueDrawing = useStore((s) => s.continueDrawing)
   const radius = useStore((s) => s.radius)
 
-  const map = useMapEvents({
-    click: (e) => useStatic.getState().setStatic('popupLocation', e.latlng),
-    popupclose: () => useStatic.getState().setStatic('activeLayer', null),
-  })
+  const map = useMap()
 
   const ref = React.useRef<L.FeatureGroup>(null)
 
@@ -184,9 +181,6 @@ export function Drawing() {
         }}
         onGlobalDrawModeToggled={({ enabled, shape }) => {
           const { showCircles, showPolygons, setStore } = useStore.getState()
-          if (!enabled) {
-            useStatic.getState().setStatic('activeLayer', null)
-          }
           if (shape === 'Polygon' && !showPolygons) {
             setStore('showPolygons', true)
           } else if (shape === 'Circle' && !showCircles) {

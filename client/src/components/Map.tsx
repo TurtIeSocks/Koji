@@ -9,7 +9,6 @@ import DrawerIndex from './interface/drawer'
 import Main from './interface/styled/Main'
 import Markers from './markers'
 import Interface from './interface'
-import PolygonPopup from './popups/Polygon'
 import ErrorBoundary from './ErrorBoundary'
 import Features from './markers/Features'
 
@@ -41,7 +40,6 @@ export default function Map() {
           <Pane name="polygons" style={{ zIndex: 500 }} />
           <Markers />
           <Interface />
-          <PolygonPopup />
           <Features />
         </MapContainer>
       </Main>

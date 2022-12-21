@@ -1,6 +1,6 @@
 /* eslint-disable no-nested-ternary */
 import type { Map } from 'leaflet'
-import type { FeatureCollection } from 'geojson'
+import type { Feature, FeatureCollection } from 'geojson'
 
 import type { CombinedState, Data, ToConvert } from '@assets/types'
 import type { UseStore } from '@hooks/useStore'
@@ -10,7 +10,7 @@ import { fromSnakeCase, getMapBounds } from './utils'
 
 export async function getData<T>(
   url: string,
-  settings: CombinedState & { area?: [number, number][] } = {},
+  settings: CombinedState & { area?: Feature } = {},
 ): Promise<T | null> {
   try {
     const data = Object.keys(settings).length

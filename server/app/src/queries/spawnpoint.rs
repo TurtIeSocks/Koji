@@ -1,3 +1,5 @@
+use models::scanner::Total;
+
 use super::*;
 
 use crate::{
@@ -63,4 +65,31 @@ pub async fn area(
         .all(conn)
         .await?;
     Ok(normalize::spawnpoint(items))
+}
+
+pub async fn stats(
+    conn: &DatabaseConnection,
+    area: &FeatureCollection,
+    last_seen: u32,
+) -> Result<Total, DbErr> {
+    let items = spawnpoint::Entity::find()
+        .column_as(spawnpoint::Column::Id.count(), "count")
+        .from_raw_sql(Statement::from_sql_and_values(
+            DbBackend::MySql,
+            format!(
+                "SELECT COUNT(*) AS total FROM spawnpoint WHERE last_seen >= {} AND ({})",
+                last_seen,
+                utils::sql_raw(area)
+            )
+            .as_str(),
+            vec![],
+        ))
+        .into_model::<Total>()
+        .one(conn)
+        .await?;
+    Ok(if let Some(item) = items {
+        item
+    } else {
+        Total { total: 0 }
+    })
 }

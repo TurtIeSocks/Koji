@@ -6,6 +6,7 @@ import { Polygon } from 'react-leaflet'
 import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
 import * as L from 'leaflet'
+import PolygonPopup from '@components/popups/Polygon'
 
 export default function KojiPolygon({
   feature,
@@ -87,6 +88,8 @@ export default function KojiPolygon({
       {...feature.properties}
       pmIgnore={false}
       pane="polygons"
-    />
+    >
+      <PolygonPopup feature={feature} />
+    </Polygon>
   )
 }

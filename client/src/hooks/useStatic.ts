@@ -1,6 +1,5 @@
 import create from 'zustand'
 import type { Feature, FeatureCollection } from 'geojson'
-import * as L from 'leaflet'
 
 import type { PixiMarker } from '@assets/types'
 import { collectionToObject } from '@services/utils'
@@ -28,8 +27,6 @@ export interface UseStatic {
     removalMode: boolean
   }
   forceRedraw: boolean
-  activeLayer: L.Polygon | null
-  popupLocation: L.LatLng
   forceFetch: boolean
   setSelected: (incoming: string[], stateKey: 'geofences' | 'instances') => void
   setStatic: <
@@ -86,8 +83,6 @@ export const useStatic = create<UseStatic>((set, get) => ({
     rotateMode: false,
   },
   forceRedraw: false,
-  activeLayer: null,
-  popupLocation: new L.LatLng(0, 0),
   forceFetch: false,
   setStatic: (key, newValue) => {
     set((state) => ({

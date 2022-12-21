@@ -93,7 +93,8 @@ pub async fn main() -> io::Result<()> {
                         web::scope("data")
                             .service(routes::raw_data::all)
                             .service(routes::raw_data::bound)
-                            .service(routes::raw_data::by_area),
+                            .service(routes::raw_data::by_area)
+                            .service(routes::raw_data::area_stats),
                     )
                     .service(
                         web::scope("v1")
