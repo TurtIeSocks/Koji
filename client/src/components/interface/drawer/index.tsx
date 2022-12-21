@@ -55,7 +55,7 @@ export default function DrawerIndex() {
     <Drawer
       variant="permanent"
       open={drawer}
-      drawerWidth={menuItem === 'Geojson' ? 500 : 300}
+      drawerWidth={menuItem === 'Geojson' ? 450 : 300}
       onClose={toggleDrawer}
     >
       {drawer ? (

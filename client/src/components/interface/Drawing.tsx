@@ -27,22 +27,22 @@ export function Drawing() {
       {
         text: 'Lines',
         onClick() {
-          useShapes.getState().setters.remove('lineStrings')
-          useShapes.getState().setters.remove('multiLineStrings')
+          useShapes.getState().setters.remove('LineString')
+          useShapes.getState().setters.remove('MultiLineString')
         },
       },
       {
         text: 'Circles',
         onClick() {
-          useShapes.getState().setters.remove('points')
-          useShapes.getState().setters.remove('multiPoints')
+          useShapes.getState().setters.remove('Point')
+          useShapes.getState().setters.remove('MultiPoint')
         },
       },
       {
         text: 'Polygons',
         onClick() {
-          useShapes.getState().setters.remove('polygons')
-          useShapes.getState().setters.remove('multiPolygons')
+          useShapes.getState().setters.remove('Polygon')
+          useShapes.getState().setters.remove('MultiPolygon')
         },
       },
       {
@@ -89,12 +89,12 @@ export function Drawing() {
                   const feature = layer.toGeoJSON()
                   feature.id = id
                   if (feature.geometry.type === 'Polygon') {
-                    setShapes('polygons', (prev) => ({
+                    setShapes('Polygon', (prev) => ({
                       ...prev,
                       [id]: feature as Feature<Polygon>,
                     }))
                   } else if (feature.geometry.type === 'MultiPolygon') {
-                    setShapes('multiPolygons', (prev) => ({
+                    setShapes('MultiPolygon', (prev) => ({
                       ...prev,
                       [id]: feature as Feature<MultiPolygon>,
                     }))
@@ -120,7 +120,7 @@ export function Drawing() {
                     first.properties.backward = id
                   }
                   if (last && first) {
-                    setShapes('lineStrings', (prev) => ({
+                    setShapes('LineString', (prev) => ({
                       ...prev,
                       [`${last.id}_${feature.id}`]: {
                         type: 'Feature',
@@ -153,14 +153,14 @@ export function Drawing() {
                         },
                       },
                     }))
-                    setters.remove('lineStrings', `${last.id}_${first.id}`)
+                    setters.remove('LineString', `${last.id}_${first.id}`)
                   }
-                  setShapes('points', (prev) => ({
+                  setShapes('Point', (prev) => ({
                     ...prev,
                     [id]: feature,
                   }))
                   if (last) {
-                    setShapes('points', (prev) => ({
+                    setShapes('Point', (prev) => ({
                       ...prev,
                       [last?.id as number]: last,
                     }))
@@ -168,7 +168,7 @@ export function Drawing() {
                   if (!first) {
                     setShapes('firstPoint', id)
                   } else {
-                    setShapes('points', (prev) => ({
+                    setShapes('Point', (prev) => ({
                       ...prev,
                       [first?.id as number]: first,
                     }))

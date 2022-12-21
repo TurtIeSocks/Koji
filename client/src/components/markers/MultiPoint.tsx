@@ -1,9 +1,9 @@
 import * as React from 'react'
 import type { Feature, MultiPoint as MpType } from 'geojson'
-import Circle from './Circle'
-import Polyline from './Polyline'
+import KojiPoint from './Point'
+import KojiLineString from './LineString'
 
-export default function MultiPoint({
+export default function KojiMultiPoint({
   feature: {
     id,
     properties,
@@ -24,7 +24,7 @@ export default function MultiPoint({
         const next = isEnd ? coordinates[0] : coordinates[i + 1]
         return (
           <React.Fragment key={`${first}-${isEnd}`}>
-            <Circle
+            <KojiPoint
               radius={radius}
               feature={{
                 type: 'Feature',
@@ -32,9 +32,9 @@ export default function MultiPoint({
                 properties,
                 geometry: { coordinates: first, type: 'Point' },
               }}
-              type="multiPoints"
+              type="MultiPoint"
             />
-            <Polyline
+            <KojiLineString
               feature={{
                 type: 'Feature',
                 properties,

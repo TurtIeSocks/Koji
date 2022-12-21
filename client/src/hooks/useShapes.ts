@@ -9,19 +9,21 @@ import type {
   MultiPolygon,
   FeatureCollection,
   GeoJsonTypes,
+  GeometryCollection,
 } from 'geojson'
 import { filterImports } from '@services/utils'
 
 export interface UseShapes {
   test: boolean
-  firstPoint: keyof UseShapes['points'] | null
-  lastPoint: keyof UseShapes['points'] | null
-  points: Record<number | string, Feature<Point>>
-  multiPoints: Record<number | string, Feature<MultiPoint>>
-  lineStrings: Record<number | string, Feature<LineString>>
-  multiLineStrings: Record<number | string, Feature<MultiLineString>>
-  polygons: Record<number | string, Feature<Polygon>>
-  multiPolygons: Record<number | string, Feature<MultiPolygon>>
+  firstPoint: keyof UseShapes['Point'] | null
+  lastPoint: keyof UseShapes['Point'] | null
+  Point: Record<number | string, Feature<Point>>
+  MultiPoint: Record<number | string, Feature<MultiPoint>>
+  LineString: Record<number | string, Feature<LineString>>
+  MultiLineString: Record<number | string, Feature<MultiLineString>>
+  Polygon: Record<number | string, Feature<Polygon>>
+  MultiPolygon: Record<number | string, Feature<MultiPolygon>>
+  GeometryCollection: Record<number | string, Feature<GeometryCollection>>
   getters: {
     getFirst: () => Feature<Point> | null
     getLast: () => Feature<Point> | null
@@ -33,25 +35,16 @@ export interface UseShapes {
       source?: 'instances' | 'geofences' | '',
     ) => void
     remove: (
-      key:
-        | 'points'
-        | 'multiPoints'
-        | 'lineStrings'
-        | 'multiLineStrings'
-        | 'polygons'
-        | 'multiPolygons',
+      key: Exclude<GeoJsonTypes, 'Feature' | 'FeatureCollection'>,
       id?: number | string,
     ) => void
-    update: (
-      key:
-        | 'points'
-        | 'multiPoints'
-        | 'lineStrings'
-        | 'multiLineStrings'
-        | 'polygons'
-        | 'multiPolygons',
-      id: number | string,
-      feature: Feature,
+    update: <
+      T extends Exclude<GeoJsonTypes, 'Feature' | 'FeatureCollection'>,
+      U extends number | string,
+    >(
+      key: T,
+      id: U,
+      feature: UseShapes[T][U],
     ) => void
   }
   setShapes: <
@@ -66,29 +59,30 @@ export const useShapes = create<UseShapes>((set, get) => ({
   test: false,
   firstPoint: null,
   lastPoint: null,
-  points: {},
-  multiPoints: {},
-  lineStrings: {},
-  multiLineStrings: {},
-  polygons: {},
-  multiPolygons: {},
+  Point: {},
+  MultiPoint: {},
+  LineString: {},
+  MultiLineString: {},
+  Polygon: {},
+  MultiPolygon: {},
+  GeometryCollection: {},
   getters: {
     getFirst: () => {
-      const { firstPoint, points } = get()
+      const { firstPoint, Point: points } = get()
       return firstPoint ? points[firstPoint] : null
     },
     getLast: () => {
-      const { lastPoint, points } = get()
+      const { lastPoint, Point: points } = get()
       return lastPoint ? points[lastPoint] : null
     },
     getGeojson: (types) => {
       const {
-        points,
-        multiPoints,
-        lineStrings,
-        multiLineStrings,
-        polygons,
-        multiPolygons,
+        Point: points,
+        MultiPoint: multiPoints,
+        LineString: lineStrings,
+        MultiLineString: multiLineStrings,
+        Polygon: polygons,
+        MultiPolygon: multiPolygons,
       } = get()
       return {
         type: 'FeatureCollection',
@@ -121,46 +115,75 @@ export const useShapes = create<UseShapes>((set, get) => ({
   setters: {
     update: (key, id, feature) => {
       set((state) => {
-        const newState = { ...state }
-        if (key === 'points' && feature.geometry.type === 'Point') {
-          newState.points[id] = feature as Feature<Point>
+        const newState = {
+          [key]: { ...state[key] },
+          [feature.geometry.type]: { ...state[feature.geometry.type] },
+        }
+        if (newState[key]) {
+          if (key === 'Point' && feature.geometry.type === 'Point') {
+            newState[key][id] = feature
 
-          const firstPoint =
-            newState.points[newState.points[id].properties?.forward]
-          const firstLine = Object.values(newState.lineStrings).find(
-            (line) => line.properties?.end === firstPoint?.id,
-          )
-          const secondPoint =
-            newState.points[newState.points[id].properties?.backward]
-          const secondLine = Object.values(newState.lineStrings).find(
-            (line) => line.properties?.start === secondPoint?.id,
-          )
+            const firstPoint = state.Point[state.Point[id].properties?.forward]
+            const firstLine = Object.values(state.LineString).find(
+              (line) => line.properties?.end === firstPoint?.id,
+            )
+            const secondPoint =
+              state.Point[state.Point[id].properties?.backward]
+            const secondLine = Object.values(state.LineString).find(
+              (line) => line.properties?.start === secondPoint?.id,
+            )
 
-          if (firstLine?.id) {
-            firstLine.geometry.coordinates = [
-              feature.geometry.coordinates,
-              firstPoint?.geometry.coordinates,
-            ]
-            newState.lineStrings[firstLine?.id] = firstLine
+            if (firstLine?.id) {
+              firstLine.geometry.coordinates = [
+                feature.geometry.coordinates,
+                firstPoint?.geometry.coordinates,
+              ]
+              newState[key][firstLine?.id] = firstLine
+            }
+            if (secondLine?.id) {
+              secondLine.geometry.coordinates = [
+                secondPoint?.geometry.coordinates,
+                feature.geometry.coordinates,
+              ]
+              newState[key][secondLine?.id] = secondLine
+            }
+          } else if (
+            key === 'MultiPoint' &&
+            feature.geometry.type === 'Point' &&
+            typeof id === 'string'
+          ) {
+            const [parent, child] = id.split('___')
+            const newGeometry = newState[key][parent].geometry
+            if (newGeometry.type === 'MultiPoint') {
+              newGeometry.coordinates.splice(
+                +child,
+                1,
+                feature.geometry.coordinates,
+              )
+              newState[key][parent].geometry = newGeometry
+            }
+          } else if (key !== feature.geometry.type) {
+            const newId = feature.properties?.leafletId || feature.id
+            newState[feature.geometry.type][newId] = {
+              ...feature,
+              id: newId,
+              properties: { ...feature.properties },
+            }
+            delete newState[key][id]
+          } else if (
+            feature.properties?.leafletId &&
+            id !== feature.properties?.leafletId
+          ) {
+            const { leafletId, ...rest } = feature.properties || {}
+            newState[key][leafletId] = {
+              ...feature,
+              id: leafletId,
+              properties: rest,
+            }
+            delete newState[key][id]
+          } else {
+            newState[key][id] = feature
           }
-          if (secondLine?.id) {
-            secondLine.geometry.coordinates = [
-              secondPoint?.geometry.coordinates,
-              feature.geometry.coordinates,
-            ]
-            newState.lineStrings[secondLine?.id] = secondLine
-          }
-        } else if (
-          key === 'multiPoints' &&
-          feature.geometry.type === 'Point' &&
-          typeof id === 'string'
-        ) {
-          const [parent, child] = id.split('___')
-          newState.multiPoints[parent].geometry.coordinates.splice(
-            +child,
-            1,
-            feature.geometry.coordinates,
-          )
         }
         return { ...newState, test: !state.test }
       })
@@ -169,15 +192,15 @@ export const useShapes = create<UseShapes>((set, get) => ({
       set((state) => {
         const newState = { ...state }
         if (id) {
-          if (key === 'points') {
+          if (key === 'Point') {
             const val = newState[key][id] // Point to delete
 
-            const firstPoint = newState.points[val.properties?.forward]
-            const firstLine = Object.values(newState.lineStrings).find(
+            const firstPoint = newState.Point[val.properties?.forward]
+            const firstLine = Object.values(newState.LineString).find(
               (line) => line.properties?.end === firstPoint?.id,
             )
-            const secondPoint = newState.points[val.properties?.backward]
-            const secondLine = Object.values(newState.lineStrings).find(
+            const secondPoint = newState.Point[val.properties?.backward]
+            const secondLine = Object.values(newState.LineString).find(
               (line) => line.properties?.start === secondPoint?.id,
             )
 
@@ -191,7 +214,7 @@ export const useShapes = create<UseShapes>((set, get) => ({
             }
 
             if (firstLine?.id && secondLine?.id) {
-              newState.lineStrings[
+              newState.LineString[
                 `${secondLine.properties?.start}_${firstLine.properties?.end}`
               ] = {
                 type: 'Feature',
@@ -199,9 +222,9 @@ export const useShapes = create<UseShapes>((set, get) => ({
                 geometry: {
                   type: 'LineString',
                   coordinates: [
-                    newState.points[val.properties?.backward].geometry
+                    newState.Point[val.properties?.backward].geometry
                       .coordinates,
-                    newState.points[val.properties?.forward].geometry
+                    newState.Point[val.properties?.forward].geometry
                       .coordinates,
                   ],
                 },
@@ -210,26 +233,26 @@ export const useShapes = create<UseShapes>((set, get) => ({
                   end: firstLine.properties?.end,
                 },
               }
-              newState.points[val.properties?.forward] = {
+              newState.Point[val.properties?.forward] = {
                 ...firstPoint,
                 properties: {
                   ...firstPoint.properties,
                   backward: secondLine.properties?.start,
                 },
               }
-              newState.points[val.properties?.backward] = {
+              newState.Point[val.properties?.backward] = {
                 ...secondPoint,
                 properties: {
                   ...secondPoint.properties,
                   forward: firstLine.properties?.end,
                 },
               }
-              delete newState.lineStrings[firstLine?.id]
-              delete newState.lineStrings[secondLine?.id]
+              delete newState.LineString[firstLine?.id]
+              delete newState.LineString[secondLine?.id]
             }
-          } else if (key === 'multiPoints' && typeof id === 'string') {
+          } else if (key === 'MultiPoint' && typeof id === 'string') {
             const [parent, child] = id.split('___')
-            newState.multiPoints[parent].geometry.coordinates.splice(+child, 1)
+            newState.MultiPoint[parent].geometry.coordinates.splice(+child, 1)
           }
           if (newState[key][id]) {
             delete newState[key][id]
@@ -244,12 +267,12 @@ export const useShapes = create<UseShapes>((set, get) => ({
       })
     },
     setFromCollection: (collection, source = '') => {
-      const points: UseShapes['points'] = {}
-      const multiPoints: UseShapes['multiPoints'] = {}
-      const lineStrings: UseShapes['lineStrings'] = {}
-      const multiLineStrings: UseShapes['multiLineStrings'] = {}
-      const polygons: UseShapes['polygons'] = {}
-      const multiPolygons: UseShapes['multiPolygons'] = {}
+      const points: UseShapes['Point'] = {}
+      const multiPoints: UseShapes['MultiPoint'] = {}
+      const lineStrings: UseShapes['LineString'] = {}
+      const multiLineStrings: UseShapes['MultiLineString'] = {}
+      const polygons: UseShapes['Polygon'] = {}
+      const multiPolygons: UseShapes['MultiPolygon'] = {}
 
       collection.features.forEach((feature) => {
         const id =
@@ -282,19 +305,19 @@ export const useShapes = create<UseShapes>((set, get) => ({
         }
       })
       set((state) => ({
-        points: {
-          ...filterImports(state.points),
+        Point: {
+          ...filterImports(state.Point),
           ...points,
         },
-        multiPoints: { ...filterImports(state.multiPoints), ...multiPoints },
-        lineStrings: { ...filterImports(state.lineStrings), ...lineStrings },
-        multiLineStrings: {
-          ...filterImports(state.multiLineStrings),
+        MultiPoint: { ...filterImports(state.MultiPoint), ...multiPoints },
+        LineString: { ...filterImports(state.LineString), ...lineStrings },
+        MultiLineString: {
+          ...filterImports(state.MultiLineString),
           ...multiLineStrings,
         },
-        polygons: { ...filterImports(state.polygons), ...polygons },
-        multiPolygons: {
-          ...filterImports(state.multiPolygons),
+        Polygon: { ...filterImports(state.Polygon), ...polygons },
+        MultiPolygon: {
+          ...filterImports(state.MultiPolygon),
           ...multiPolygons,
         },
       }))

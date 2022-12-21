@@ -4,12 +4,12 @@ import type { FeatureCollection } from 'geojson'
 import { useStatic } from './useStatic'
 
 export default function useSyncGeojson() {
-  const points = useShapes((s) => s.points)
-  const multiPoints = useShapes((s) => s.multiPoints)
-  const lineStrings = useShapes((s) => s.lineStrings)
-  const multiLineStrings = useShapes((s) => s.multiLineStrings)
-  const polygons = useShapes((s) => s.polygons)
-  const multiPolygons = useShapes((s) => s.multiPolygons)
+  const points = useShapes((s) => s.Point)
+  const multiPoints = useShapes((s) => s.MultiPoint)
+  const lineStrings = useShapes((s) => s.LineString)
+  const multiLineStrings = useShapes((s) => s.MultiLineString)
+  const polygons = useShapes((s) => s.Polygon)
+  const multiPolygons = useShapes((s) => s.MultiPolygon)
   const test = useShapes((s) => s.test)
 
   const geojson = useStatic((s) => s.geojson)

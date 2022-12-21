@@ -96,6 +96,9 @@ export type ToConvert =
 
 // for some reason locate.control @types augmentation is broken
 declare module 'leaflet' {
+  interface Layer {
+    _leaflet_id: number
+  }
   namespace Control {
     class Locate extends Control {
       constructor(locateOptions?: LocateOptions)

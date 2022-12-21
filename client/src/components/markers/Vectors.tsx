@@ -3,19 +3,20 @@ import { useStore } from '@hooks/useStore'
 import type {
   Feature,
   LineString,
-  MultiPoint as MPType,
+  MultiPoint,
   MultiLineString,
   Point,
-  Polygon as PGType,
+  Polygon,
   MultiPolygon,
 } from 'geojson'
 
 import useSyncGeojson from '@hooks/useSyncGeojson'
 
-import Circle from './Circle'
-import Polyline from './Polyline'
-import Polygon from './Polygon'
-import MultiPoint from './MultiPoint'
+import KojiPoint from './Point'
+import KojiLineString from './LineString'
+import KojiPolygon from './Polygon'
+import KojiMultiPoint from './MultiPoint'
+import KojiMultiLineString from './MultiLineString'
 
 export default function Vectors() {
   const geojson = useSyncGeojson()
@@ -24,98 +25,49 @@ export default function Vectors() {
   return (
     <>
       {geojson.features.map(
-        (each) =>
+        (feature) =>
           ({
             Point: (
-              <Circle
-                key={`point_${each.id}`}
-                feature={each as Feature<Point>}
+              <KojiPoint
+                key={`point_${feature.id}`}
+                feature={feature as Feature<Point>}
                 radius={radius || 10}
               />
             ),
             MultiPoint: (
-              <MultiPoint
-                key={`multiPoint_${each.id}`}
-                feature={each as Feature<MPType>}
+              <KojiMultiPoint
+                key={`multiPoint_${feature.id}`}
+                feature={feature as Feature<MultiPoint>}
                 radius={radius || 10}
               />
             ),
             LineString: (
-              <Polyline
-                key={`line_${each.id}`}
-                feature={each as Feature<LineString>}
+              <KojiLineString
+                key={`line_${feature.id}`}
+                feature={feature as Feature<LineString>}
               />
             ),
             MultiLineString: (
-              each as Feature<MultiLineString>
-            ).geometry.coordinates.map((coords) => (
-              <Polyline
-                key={`multiLine_${coords}`}
-                feature={{
-                  ...each,
-                  geometry: { type: 'LineString', coordinates: coords },
-                }}
+              <KojiMultiLineString
+                key={`multiline_${feature.id}`}
+                feature={feature as Feature<MultiLineString>}
               />
-            )),
+            ),
             Polygon: (
-              <Polygon
-                key={`polygon_${each.id}`}
-                feature={each as Feature<PGType>}
+              <KojiPolygon
+                key={`polygon_${feature.id}`}
+                feature={feature as Feature<Polygon>}
               />
             ),
             MultiPolygon: (
-              each as Feature<MultiPolygon>
-            ).geometry.coordinates.map((coords) => (
-              <Polygon
-                key={`multiPolygon_${coords}`}
-                feature={{
-                  ...each,
-                  geometry: { type: 'Polygon', coordinates: coords },
-                }}
+              <KojiPolygon
+                key={`polygon_${feature.id}`}
+                feature={feature as Feature<MultiPolygon>}
               />
-            )),
+            ),
             GeometryCollection: null,
-          }[each.geometry.type] || null),
+          }[feature.geometry.type] || null),
       )}
     </>
-    //   {Object.values(points).map((each) => (
-    //     <Circle key={`point_${each.id}`} feature={each} radius={radius || 10} />
-    //   ))}
-    //   {Object.values(lineStrings).map((each) => (
-    //     <Polyline key={`line_${each.id}`} feature={each} />
-    //   ))}
-    //   {Object.values(polygons).map((each) => (
-    //     <Polygon key={`polygon_${each.id}`} feature={each} />
-    //   ))}
-    //   {Object.values(multiPoints).map((each) => (
-    // <MultiPoint
-    //   key={`multiPoint_${each.id}`}
-    //   feature={each}
-    //   radius={radius || 10}
-    // />
-    //   ))}
-    //   {Object.values(multiLineStrings).map((each) =>
-    // each.geometry.coordinates.map((coords) => (
-    //   <Polyline
-    //     key={`multiLine_${coords}`}
-    //     feature={{
-    //       ...each,
-    //       geometry: { type: 'LineString', coordinates: coords },
-    //     }}
-    //   />
-    // )),
-    //   )}
-    //   {Object.values(multiPolygons).map((each) =>
-    // each.geometry.coordinates.map((coords) => (
-    //   <Polygon
-    //     key={`multiPolygon_${coords}`}
-    //     feature={{
-    //       ...each,
-    //       geometry: { type: 'Polygon', coordinates: coords },
-    //     }}
-    //   />
-    // )),
-    //   )}
-    // </>
   )
 }

@@ -1,12 +1,12 @@
 /* eslint-disable prefer-arrow-callback */
 import * as React from 'react'
 import type { Feature, Point } from 'geojson'
-import { Circle as BaseCircle, Popup } from 'react-leaflet'
+import { Circle, Popup } from 'react-leaflet'
 import geohash from 'ngeohash'
 import { useShapes } from '@hooks/useShapes'
 import * as L from 'leaflet'
 
-export default function Circle({
+export default function KojiPoint({
   feature: {
     id,
     properties,
@@ -15,14 +15,14 @@ export default function Circle({
     },
   },
   radius,
-  type = 'points',
+  type = 'Point',
 }: {
   feature: Feature<Point>
   radius: number
-  type?: 'points' | 'multiPoints'
+  type?: 'Point' | 'MultiPoint'
 }) {
   return (
-    <BaseCircle
+    <Circle
       ref={(circle) => {
         if (circle && id) {
           circle.removeEventListener('pm:remove')
@@ -62,6 +62,6 @@ export default function Circle({
           Hash: {geohash.encode(lat, lon, 12)}
         </div>
       </Popup>
-    </BaseCircle>
+    </Circle>
   )
 }

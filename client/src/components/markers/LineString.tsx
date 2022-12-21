@@ -3,9 +3,9 @@ import { getColor } from '@services/utils'
 import distance from '@turf/distance'
 import type { Feature, LineString } from 'geojson'
 import * as React from 'react'
-import { Polyline as BaseLine, Popup } from 'react-leaflet'
+import { Polyline, Popup } from 'react-leaflet'
 
-export default function Polyline({
+export default function KojiLineString({
   feature: {
     id,
     properties,
@@ -24,7 +24,7 @@ export default function Polyline({
   const color = getColor(dis)
 
   return (
-    <BaseLine
+    <Polyline
       key={dis}
       ref={(line) => {
         if (line && id) {
@@ -56,6 +56,6 @@ export default function Polyline({
         {JSON.stringify({ id, properties }, null, 2)}
         {dis.toFixed(2)}
       </Popup>
-    </BaseLine>
+    </Polyline>
   )
 }

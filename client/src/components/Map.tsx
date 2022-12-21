@@ -4,7 +4,6 @@ import { MapContainer, Pane, TileLayer } from 'react-leaflet'
 
 import { useStore } from '@hooks/useStore'
 import { useStatic } from '@hooks/useStatic'
-import Drawing from '@components/markers/Drawing'
 
 import DrawerIndex from './interface/drawer'
 import Main from './interface/styled/Main'
@@ -43,7 +42,6 @@ export default function Map() {
           <Markers />
           <Interface />
           <PolygonPopup />
-          <Drawing key="drawing" />
           <Vectors />
         </MapContainer>
       </Main>
