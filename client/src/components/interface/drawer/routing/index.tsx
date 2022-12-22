@@ -72,7 +72,12 @@ export default function EditTab() {
           buttons={['cluster', 'route', 'bootstrap']}
         />
       </ListItem>
-      <Toggle field="save_to_db" value={save_to_db} setValue={setStore} />
+      <Toggle
+        field="save_to_db"
+        value={save_to_db}
+        setValue={setStore}
+        disabled
+      />
       {!autoMode && (
         <ListItemButton
           color="primary"
