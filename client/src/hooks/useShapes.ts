@@ -11,7 +11,6 @@ import type {
   GeoJsonTypes,
   GeometryCollection,
 } from 'geojson'
-import { filterImports } from '@services/utils'
 
 export interface UseShapes {
   test: boolean
@@ -32,6 +31,10 @@ export interface UseShapes {
   setters: {
     setFromCollection: (
       collection: FeatureCollection,
+      source?: 'instances' | 'geofences' | '',
+    ) => void
+    add: (
+      feature: Feature | Feature[],
       source?: 'instances' | 'geofences' | '',
     ) => void
     remove: (
@@ -113,6 +116,21 @@ export const useShapes = create<UseShapes>((set, get) => ({
     }))
   },
   setters: {
+    add: (feature, source = '') => {
+      if (Array.isArray(feature)) {
+        feature.forEach((f) => get().setters.add(f, source))
+      } else {
+        const id =
+          feature.id ??
+          `${feature.properties?.name}${feature.properties?.type}${source}`
+        set((state) => ({
+          [feature.geometry.type]: {
+            ...state[feature.geometry.type],
+            [id]: { ...feature, id },
+          },
+        }))
+      }
+    },
     update: (key, id, feature) => {
       set((state) => {
         const newState = {
@@ -267,12 +285,12 @@ export const useShapes = create<UseShapes>((set, get) => ({
       })
     },
     setFromCollection: (collection, source = '') => {
-      const points: UseShapes['Point'] = {}
-      const multiPoints: UseShapes['MultiPoint'] = {}
-      const lineStrings: UseShapes['LineString'] = {}
-      const multiLineStrings: UseShapes['MultiLineString'] = {}
-      const polygons: UseShapes['Polygon'] = {}
-      const multiPolygons: UseShapes['MultiPolygon'] = {}
+      const Point: UseShapes['Point'] = {}
+      const MultiPoint: UseShapes['MultiPoint'] = {}
+      const LineString: UseShapes['LineString'] = {}
+      const MultiLineString: UseShapes['MultiLineString'] = {}
+      const Polygon: UseShapes['Polygon'] = {}
+      const MultiPolygon: UseShapes['MultiPolygon'] = {}
 
       collection.features.forEach((feature) => {
         const id =
@@ -280,47 +298,38 @@ export const useShapes = create<UseShapes>((set, get) => ({
           `${feature.properties?.name}${feature.properties?.type}${source}`
         switch (feature.geometry.type) {
           case 'Point':
-            points[id] = { ...feature, id } as Feature<Point>
+            Point[id] = { ...feature, id } as Feature<Point>
             break
           case 'MultiPoint':
-            multiPoints[id] = { ...feature, id } as Feature<MultiPoint>
+            MultiPoint[id] = { ...feature, id } as Feature<MultiPoint>
             break
           case 'LineString':
-            lineStrings[id] = { ...feature, id } as Feature<LineString>
+            LineString[id] = { ...feature, id } as Feature<LineString>
             break
           case 'MultiLineString':
-            multiLineStrings[id] = {
+            MultiLineString[id] = {
               ...feature,
               id,
             } as Feature<MultiLineString>
             break
           case 'Polygon':
-            polygons[id] = { ...feature, id } as Feature<Polygon>
+            Polygon[id] = { ...feature, id } as Feature<Polygon>
             break
           case 'MultiPolygon':
-            multiPolygons[id] = { ...feature, id } as Feature<MultiPolygon>
+            MultiPolygon[id] = { ...feature, id } as Feature<MultiPolygon>
             break
           default:
             break
         }
       })
-      set((state) => ({
-        Point: {
-          ...filterImports(state.Point),
-          ...points,
-        },
-        MultiPoint: { ...filterImports(state.MultiPoint), ...multiPoints },
-        LineString: { ...filterImports(state.LineString), ...lineStrings },
-        MultiLineString: {
-          ...filterImports(state.MultiLineString),
-          ...multiLineStrings,
-        },
-        Polygon: { ...filterImports(state.Polygon), ...polygons },
-        MultiPolygon: {
-          ...filterImports(state.MultiPolygon),
-          ...multiPolygons,
-        },
-      }))
+      set({
+        Point,
+        MultiPoint,
+        LineString,
+        MultiLineString,
+        Polygon,
+        MultiPolygon,
+      })
     },
   },
 }))

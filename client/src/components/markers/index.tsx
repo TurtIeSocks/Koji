@@ -55,7 +55,7 @@ export default function Markers() {
     return () => {
       map.off('moveend', onMove)
     }
-  }, [map, onMove])
+  }, [onMove])
 
   const initialMarkers = React.useMemo(
     () => [

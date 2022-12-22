@@ -170,7 +170,7 @@ async fn area_stats(
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
     println!(
-        "[DATA-AREA] Returning {} Total: {}s\n",
+        "[DATA-AREA] Returning {} Total: {}\n",
         category, area_data.total
     );
     Ok(HttpResponse::Ok().json(area_data))

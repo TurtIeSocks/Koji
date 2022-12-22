@@ -20,17 +20,17 @@ export default function useCluster(): void {
   const save_to_db = useStore((s) => s.save_to_db)
   const last_seen = useStore((s) => s.last_seen)
   const route_chunk_size = useStore((s) => s.route_chunk_size)
+  const drawer = useStore((s) => s.drawer)
+  const menuItem = useStore((s) => s.menuItem)
 
+  const geojson = useStatic((s) => s.geojson)
   const layerEditing = useStatic((s) => s.layerEditing)
   const forceFetch = useStatic((s) => s.forceFetch)
 
-  const getGeojson = useShapes((s) => s.getters.getGeojson)
-  const setFromCollection = useShapes((s) => s.setters.setFromCollection)
-
-  const geojson = getGeojson(['Polygon', 'MultiPolygon'])
+  const add = useShapes((s) => s.setters.add)
 
   useDeepCompareEffect(() => {
-    if (geojson.features.length) {
+    if (geojson.features.length && drawer && menuItem === 'Clustering') {
       if (Object.values(layerEditing).every((v) => !v)) {
         getLotsOfData(
           mode === 'bootstrap'
@@ -51,7 +51,7 @@ export default function useCluster(): void {
             route_chunk_size,
           },
         ).then((newCollection) => {
-          setFromCollection(newCollection)
+          add(newCollection.features)
         })
       }
     }

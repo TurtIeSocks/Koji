@@ -16,6 +16,7 @@ export default function useSyncGeojson() {
   const setStatic = useStatic((s) => s.setStatic)
 
   useDeepCompareEffect(() => {
+    const { geofences, instances } = useStatic.getState()
     const newGeojson: FeatureCollection = {
       type: 'FeatureCollection',
       features: [],
@@ -35,6 +36,12 @@ export default function useSyncGeojson() {
     )
     Object.values(multiPolygons).forEach((multiPolygon) =>
       newGeojson.features.push(multiPolygon),
+    )
+    setStatic(
+      'selected',
+      newGeojson.features
+        .filter((f) => f.id && (geofences[f.id] || instances[f.id]))
+        .map((f) => f.id as string),
     )
     setStatic('geojson', newGeojson)
   }, [

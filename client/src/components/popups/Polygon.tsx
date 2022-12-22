@@ -16,7 +16,9 @@ export default function PolygonPopup({ feature: ref }: { feature: Feature }) {
     ref.geometry.type === 'Polygon'
       ? s.Polygon[ref.id as number | string]
       : s.MultiPolygon[ref.id as number | string],
-  )
+  ) || { properties: {}, geometry: { type: 'Polygon', coordinates: [] } }
+  const remove = useShapes((s) => s.setters.remove)
+
   const [open, setOpen] = React.useState('')
   const [active, setActive] = React.useState({
     spawnpoint: 0,
@@ -25,6 +27,7 @@ export default function PolygonPopup({ feature: ref }: { feature: Feature }) {
   })
 
   useDeepCompareEffect(() => {
+    if (!feature.geometry.coordinates.length) return
     Promise.all(
       ['pokestop', 'gym', 'spawnpoint'].map((category) =>
         getData<{ total: number }>(`/api/data/area_stats/${category}`, {
@@ -49,7 +52,16 @@ export default function PolygonPopup({ feature: ref }: { feature: Feature }) {
         <Grid2 xs={12}>Gyms: {active.gym.toLocaleString()}</Grid2>
         <Grid2 xs={12}>Spawnpoints: {active.spawnpoint.toLocaleString()}</Grid2>
         <Grid2>
-          <Button onClick={() => setOpen('polygon')}>Export Polygon</Button>
+          <Button size="small" onClick={() => setOpen('polygon')}>
+            Export Polygon
+          </Button>
+          <br />
+          <Button
+            size="small"
+            onClick={() => remove(feature.geometry.type, feature.id)}
+          >
+            Remove
+          </Button>
         </Grid2>
       </Grid2>
       {open && (

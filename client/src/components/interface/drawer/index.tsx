@@ -7,6 +7,7 @@ import type {} from '@mui/x-date-pickers/themeAugmentation'
 import { TABS } from '@assets/constants'
 import { useStore } from '@hooks/useStore'
 import { useStatic } from '@hooks/useStatic'
+import { useShapes } from '@hooks/useShapes'
 import { safeParse } from '@services/utils'
 
 import { Drawer } from '../styled/Drawer'
@@ -21,7 +22,7 @@ import { Code } from '../Code'
 
 export default function DrawerIndex() {
   const geojson = useStatic((s) => s.geojson)
-  const setStatic = useStatic((s) => s.setStatic)
+  const setFromCollection = useShapes((s) => s.setters.setFromCollection)
 
   const menuItem = useStore((s) => s.menuItem)
   const drawer = useStore((s) => s.drawer)
@@ -78,7 +79,7 @@ export default function DrawerIndex() {
                         setCode={(newCode) => {
                           const parsed = safeParse<typeof geojson>(newCode)
                           if (!parsed.error) {
-                            setStatic('geojson', parsed.value)
+                            setFromCollection(parsed.value)
                           }
                         }}
                       />

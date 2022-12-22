@@ -16,7 +16,6 @@ import {
 import CheckBoxOutlineBlank from '@mui/icons-material/CheckBoxOutlineBlank'
 import IndeterminateCheckBoxOutlined from '@mui/icons-material/IndeterminateCheckBoxOutlined'
 import CheckBox from '@mui/icons-material/CheckBox'
-import type { FeatureCollection } from 'geojson'
 
 import { KojiResponse } from '@assets/types'
 import { useStatic } from '@hooks/useStatic'
@@ -44,7 +43,8 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
     geofences: s.geofences,
   }))
   const setStatic = useStatic((s) => s.setStatic)
-  const setFromCollection = useShapes((s) => s.setters.setFromCollection)
+  const add = useShapes((s) => s.setters.add)
+  const remove = useShapes((s) => s.setters.remove)
 
   const [loading, setLoading] = React.useState(false)
 
@@ -76,21 +76,26 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
     }
   }, [])
 
+  const updateState = (newValue: string[]) => {
+    const added = newValue.filter((s) => !selected.includes(s))
+    const deleted = selected.filter((s) => !newValue.includes(s))
+    added.forEach((a) => {
+      const feature = fences[stateKey][a]
+      if (feature) add(fences[stateKey][a], stateKey)
+    })
+    deleted.forEach((d) => {
+      const feature = fences[stateKey][d]
+      if (feature) remove(feature.geometry.type, feature.id)
+    })
+    setStatic('selected', newValue)
+  }
+
   return (
     <ListItem>
       <Autocomplete
         value={selected.filter((s) => fences[stateKey][s])}
         size="small"
-        onChange={(_e, newValue) => {
-          // const added = newValue.filter((s) => !selected.includes(s))
-          // const deleted = selected.filter((s) => !newValue.includes(s))
-          const newCollection: FeatureCollection = {
-            type: 'FeatureCollection',
-            features: newValue.map((s) => fences[stateKey][s]),
-          }
-          setStatic('selected', newValue)
-          setFromCollection(newCollection, stateKey)
-        }}
+        onChange={(_e, newValue) => updateState(newValue)}
         filterOptions={filterOptions}
         selectOnFocus
         clearOnBlur
@@ -100,7 +105,6 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
         disableCloseOnSelect
         fullWidth
         groupBy={(option) => fences[stateKey][option]?.properties?.type}
-        // sx={{ width: '100%', mx: 'auto' }}
         options={Object.keys(fences[stateKey]).sort((a, b) =>
           fences[stateKey][a].properties?.type?.localeCompare(
             fences[stateKey][b].properties?.type,
@@ -139,27 +143,21 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
             <List key={key}>
               <ListItemButton
                 onClick={() => {
-                  try {
-                    setStatic(
-                      'selected',
-                      allSelected || partialSelected
-                        ? selected.filter(
+                  updateState(
+                    allSelected || partialSelected
+                      ? selected.filter(
+                          (v) =>
+                            !allValues.includes(v) ||
+                            fences[stateKey][v]?.properties?.type !== group,
+                        )
+                      : [
+                          ...allValues,
+                          ...selected.filter(
                             (v) =>
-                              !allValues.includes(v) ||
                               fences[stateKey][v]?.properties?.type !== group,
-                          )
-                        : [
-                            ...allValues,
-                            ...selected.filter(
-                              (v) =>
-                                fences[stateKey][v]?.properties?.type !== group,
-                            ),
-                          ],
-                    )
-                  } catch (e) {
-                    // eslint-disable-next-line no-console
-                    console.error(e)
-                  }
+                          ),
+                        ],
+                  )
                 }}
               >
                 <ListItemIcon>
