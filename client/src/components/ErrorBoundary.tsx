@@ -1,7 +1,17 @@
 /* eslint-disable react/destructuring-assignment */
 import React, { Component } from 'react'
-import { Grid, Typography, Button } from '@mui/material'
-import { Refresh } from '@mui/icons-material'
+import {
+  Alert,
+  AlertTitle,
+  Button,
+  Collapse,
+  IconButton,
+  Stack,
+  Typography,
+} from '@mui/material'
+import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
+import CloseIcon from '@mui/icons-material/Close'
+import Refresh from '@mui/icons-material/Refresh'
 
 type Props = {
   children: React.ReactNode
@@ -10,30 +20,32 @@ type Props = {
 type State = {
   hasError: boolean
   message: string
+  errorCount: number
 }
 
 export default class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props)
-    this.state = { hasError: false, message: '' }
+    this.state = { hasError: false, message: '', errorCount: 0 }
   }
 
   componentDidCatch(error: Error) {
-    this.setState({
+    this.setState((prev) => ({
       hasError: true,
       message: error?.message || '',
-    })
+      errorCount: prev.errorCount + 1,
+    }))
   }
 
   render() {
-    return this.state.hasError ? (
-      <Grid
+    return this.state.errorCount > 5 ? (
+      <Grid2
         container
         alignItems="center"
         justifyContent="center"
         sx={{ height: '100vh', width: '100vw', textAlign: 'center' }}
       >
-        <Grid item xs={12}>
+        <Grid2 xs={12}>
           <Typography variant="h3" align="center">
             Kōji encountered an error!
           </Typography>
@@ -50,10 +62,47 @@ export default class ErrorBoundary extends Component<Props, State> {
           >
             Refresh
           </Button>
-        </Grid>
-      </Grid>
+        </Grid2>
+      </Grid2>
     ) : (
-      this.props.children || null
+      <>
+        <Collapse
+          in={this.state.hasError}
+          sx={{
+            position: 'absolute',
+            bottom: 0,
+            width: '66%',
+            mx: 'auto',
+            left: 0,
+            right: 0,
+            transition: '0.50s ease-in-out',
+          }}
+        >
+          <Stack sx={{ width: '100%' }} spacing={2}>
+            <Alert
+              variant="filled"
+              severity="error"
+              action={
+                <IconButton
+                  aria-label="close"
+                  color="inherit"
+                  size="small"
+                  onClick={() => this.setState({ hasError: false })}
+                >
+                  <CloseIcon fontSize="inherit" />
+                </IconButton>
+              }
+              sx={{ mb: 2, zIndex: 10000 }}
+            >
+              <AlertTitle>
+                <strong>Kōji encountered an error!</strong>
+              </AlertTitle>
+              <Typography>{this.state.message}</Typography>
+            </Alert>
+          </Stack>
+        </Collapse>
+        {this.props.children || null}
+      </>
     )
   }
 }

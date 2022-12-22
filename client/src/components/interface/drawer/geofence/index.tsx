@@ -1,9 +1,8 @@
 import React from 'react'
-import { Divider } from '@mui/material'
+import { List, Divider } from '@mui/material'
 
 import { useStore } from '@hooks/useStore'
 
-import InstanceSelect from './Instance'
 import ListSubheader from '../../styled/Subheader'
 import Toggle from '../inputs/Toggle'
 
@@ -11,14 +10,13 @@ export default function GeofenceTab() {
   const setStore = useStore((s) => s.setStore)
   const showCircles = useStore((s) => s.showCircles)
   const showLines = useStore((s) => s.showLines)
-  const showPolygon = useStore((s) => s.showPolygon)
+  const showPolygon = useStore((s) => s.showPolygons)
   const snappable = useStore((s) => s.snappable)
   const continueDrawing = useStore((s) => s.continueDrawing)
 
   return (
-    <>
-      <InstanceSelect />
-      <Divider sx={{ my: 2 }} />
+    <List dense>
+      <ListSubheader disableGutters>Drawing Options</ListSubheader>
       <Toggle field="snappable" value={snappable} setValue={setStore} />
       <Toggle
         field="continueDrawing"
@@ -29,7 +27,7 @@ export default function GeofenceTab() {
       <ListSubheader disableGutters>Vectors</ListSubheader>
       <Toggle field="showCircles" value={showCircles} setValue={setStore} />
       <Toggle field="showLines" value={showLines} setValue={setStore} />
-      <Toggle field="showPolygon" value={showPolygon} setValue={setStore} />
-    </>
+      <Toggle field="showPolygons" value={showPolygon} setValue={setStore} />
+    </List>
   )
 }

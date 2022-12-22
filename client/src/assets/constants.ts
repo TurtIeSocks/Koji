@@ -6,6 +6,11 @@
 
   Shortened to reduce fetch sizes
 */
+import Map from '@mui/icons-material/Map'
+import EditRoad from '@mui/icons-material/EditRoad'
+import ImportExport from '@mui/icons-material/ImportExport'
+import Settings from '@mui/icons-material/Settings'
+import TravelExplore from '@mui/icons-material/TravelExplore'
 
 export const ICON_SVG = {
   v: `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="-2 -2 24 24">
@@ -40,7 +45,21 @@ export const ICON_COLOR = {
   u: 'dodgerblue',
 } as const
 
-export const TABS = ['geofences', 'routing'] as const
+export const TABS = [
+  'Drawing',
+  'Clustering',
+  'Manage',
+  'Geojson',
+  'Settings',
+] as const
+
+export const ICON_MAP: Record<string, typeof EditRoad> = {
+  Drawing: EditRoad,
+  Clustering: TravelExplore,
+  Manage: ImportExport,
+  Settings,
+  Geojson: Map,
+}
 
 export const COLORS = [
   '#F0F8FF',

@@ -1,0 +1,58 @@
+import useDeepCompareEffect from 'use-deep-compare-effect'
+import { useShapes } from '@hooks/useShapes'
+import type { FeatureCollection } from 'geojson'
+import { useStatic } from './useStatic'
+
+export default function useSyncGeojson() {
+  const points = useShapes((s) => s.Point)
+  const multiPoints = useShapes((s) => s.MultiPoint)
+  const lineStrings = useShapes((s) => s.LineString)
+  const multiLineStrings = useShapes((s) => s.MultiLineString)
+  const polygons = useShapes((s) => s.Polygon)
+  const multiPolygons = useShapes((s) => s.MultiPolygon)
+  const test = useShapes((s) => s.test)
+
+  const geojson = useStatic((s) => s.geojson)
+  const setStatic = useStatic((s) => s.setStatic)
+
+  useDeepCompareEffect(() => {
+    const { geofences, instances } = useStatic.getState()
+    const newGeojson: FeatureCollection = {
+      type: 'FeatureCollection',
+      features: [],
+    }
+    Object.values(points).forEach((point) => newGeojson.features.push(point))
+    Object.values(multiPoints).forEach((multiPoint) =>
+      newGeojson.features.push(multiPoint),
+    )
+    Object.values(lineStrings).forEach((lineString) =>
+      newGeojson.features.push(lineString),
+    )
+    Object.values(multiLineStrings).forEach((multiLineString) =>
+      newGeojson.features.push(multiLineString),
+    )
+    Object.values(polygons).forEach((polygon) =>
+      newGeojson.features.push(polygon),
+    )
+    Object.values(multiPolygons).forEach((multiPolygon) =>
+      newGeojson.features.push(multiPolygon),
+    )
+    setStatic(
+      'selected',
+      newGeojson.features
+        .filter((f) => f.id && (geofences[f.id] || instances[f.id]))
+        .map((f) => f.id as string),
+    )
+    setStatic('geojson', newGeojson)
+  }, [
+    points,
+    multiPoints,
+    lineStrings,
+    multiLineStrings,
+    polygons,
+    multiPolygons,
+    test,
+  ])
+
+  return geojson
+}

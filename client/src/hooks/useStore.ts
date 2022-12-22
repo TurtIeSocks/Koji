@@ -20,10 +20,12 @@ export interface UseStore {
   routing_time: number | ''
   showCircles: boolean
   showLines: boolean
-  showPolygon: boolean
+  showPolygons: boolean
   nativeLeaflet: boolean
+  last_seen: Date
   devices: number | ''
   geojson: FeatureCollection
+  route_chunk_size: number | ''
   polygonExportMode:
     | 'feature'
     | 'featureCollection'
@@ -32,11 +34,13 @@ export interface UseStore {
     | 'text'
     | 'altText'
     | 'poracle'
+  menuItem: string
   export: {
     total: number
     max: number
     route: [number, number][][]
   }
+  save_to_db: boolean
   snappable: boolean
   continueDrawing: boolean
   fast: boolean
@@ -56,24 +60,33 @@ export const useStore = create(
       gym: true,
       pokestop: true,
       mode: 'cluster',
-      data: 'all',
+      data: 'bound',
       radius: 70,
       generations: 1,
       routing_time: 1,
       min_points: 3,
       only_unique: false,
+      save_to_db: false,
       showCircles: true,
       showLines: true,
-      showPolygon: true,
+      showPolygons: true,
       nativeLeaflet: false,
       devices: 1,
       polygonExportMode: 'feature',
+      route_chunk_size: 0,
+      menuItem: '',
       fast: false,
       export: {
         total: 0,
         max: 0,
         route: [],
       },
+      last_seen: (() => {
+        const date = new Date()
+        date.setMinutes(0)
+        date.setSeconds(0)
+        return date
+      })(),
       geojson: { type: 'FeatureCollection', features: [] },
       setStore: (key, value) => set({ [key]: value }),
       snappable: true,

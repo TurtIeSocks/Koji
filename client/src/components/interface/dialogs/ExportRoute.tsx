@@ -12,7 +12,7 @@ import {
   IconButton,
 } from '@mui/material'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
-import { ContentCopy } from '@mui/icons-material'
+import ContentCopy from '@mui/icons-material/ContentCopy'
 
 import { useStore } from '@hooks/useStore'
 import DialogHeader from './Header'
@@ -30,7 +30,7 @@ export default function ExportRoute({ open, setOpen }: Props) {
 
   return (
     <Dialog open={open === 'route'} maxWidth="xl" onClose={() => setOpen('')}>
-      <DialogHeader title="Export Route" action={() => setOpen('')} />
+      <DialogHeader action={() => setOpen('')}>Export Route</DialogHeader>
       <DialogContent>
         <Grid2 container>
           <Grid2

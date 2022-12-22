@@ -35,8 +35,8 @@ cd server && cp .env.example .env
 ```
 
 5. Edit the env file: `nano .env`
-   - Set the `DATABASE_URL` to your RDM database url
-   - Temporarily set `NODE_ENV` to `development`
+   - Set the `SCANNER_DB_URL` to your RDM database url
+   - Set the `KOJI_DB_URL` to the database you want Kōji to write migrations to
    - Set `PORT` to whatever you want
    - Set `START_LAT` and `START_LON` to wherever you want the map to start
 6. Compile the client:
@@ -52,9 +52,22 @@ cd ../server && cargo run -r
 # you might have to also install pkg-config (`apt install pkg-config`)
 ```
 
+8. Optionally install [pm2](https://pm2.keymetrics.io/) to run the server in the background:
+
+```bash
+  npm install pm2 -g
+  pm2 start "cargo run -r" --name koji # from the /server folder
+```
+
 ### Docker (Recommended)
 
-1. Get the docker-compose.yml example file:
+### Temp Authenticate
+
+1. `docker login ghcr.io/turtiesocks/koji`
+2. Enter your GitHub username
+3. Enter your GitHub authentication token
+
+4. Get the docker-compose.yml example file:
 
 ```bash
 curl https://raw.githubusercontent.com/TurtIeSocks/Koji/main/docker-compose.example.yml > docker-compose.yml
@@ -64,6 +77,13 @@ curl https://raw.githubusercontent.com/TurtIeSocks/Koji/main/docker-compose.exam
 3. Set the same env variables as above
 4. `docker-compose pull`
 5. `docker-compose up -d`
+
+### Updating
+
+1. `git pull`
+2. `cd client && yarn install && yarn build`
+3. `cd ../server && cargo run -r`
+4. If using pm2, `pm2 restart koji`
 
 ### Development
 
@@ -110,8 +130,16 @@ pub struct PointStruct<T: Float = f64> {
 pub type SingleStruct<T = f64> = Vec<PointStruct<T>>;
 pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
 
+pub struct BoundsArg {
+    pub min_lat: f64,
+    pub min_lon: f64,
+    pub max_lat: f64,
+    pub max_lon: f64,
+}
+
 // Accepted Area Inputs and Outputs:
   pub enum GeoFormats {
+      Bounds(BoundsArg),
       Text(String),
       // can be either:
         // lat,lon\nlat,lon
@@ -123,6 +151,7 @@ pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
       Feature(Feature),
       FeatureVec(Vec<Feature>),
       FeatureCollection(FeatureCollection),
+      Poracle(Poracle),
   }
 
 // Return Types:
@@ -136,12 +165,15 @@ pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
     Feature,
     FeatureVec,
     FeatureCollection,
+    Poracle
 }
 
 // Data Input Types:
   pub enum DataPointsArg {
       Array(SingleVec),
       Struct(SingleStruct),
+      Feature(Feature),
+      FeatureCollection(FeatureCollection),
   }
 
 // all API Fields
@@ -189,6 +221,23 @@ pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
       // Only return stats
       // defaults to false
       pub benchmark_mode: Option<bool>,
+
+      // Only count unique points towards the min_count in each cluster
+      // defaults to false
+      pub only_unique: Option<bool>,
+
+      // Filter spawnpoints by `last_seen` and pokestops/gyms by `updated`
+      // defaults to 0
+      pub last_seen: Option<i64>,
+
+      // Auto save the results to the scanner database
+      // defaults to false
+      pub save_to_db: Option<bool>,
+
+      // Number of points to split by when routing
+      // Lower = better local routing but may have longer stretches that join the smaller routes
+      // defaults to 250
+      pub route_chunk_size: Option<usize>
   }
 
 // Benchmark/Stats Struct
@@ -230,15 +279,15 @@ pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
 - **Method:** `POST`
 - **JSON Body**:
   - **Required**:
-    - `area` OR `instance`
+    - `area` OR `instance` OR `data_points`
   - **Optional**:
     - `radius`
     - `return_type`
     - `min_points`
     - `generations`
     - `devices`
-    - `data_points`
     - `fast`
+    - `only_unique`
 
 ### /api/v1/convert/data
 

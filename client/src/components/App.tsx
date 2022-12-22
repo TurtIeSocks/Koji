@@ -1,5 +1,7 @@
 import * as React from 'react'
+import { ThemeProvider } from '@mui/material'
 
+import { theme } from '@assets/theme'
 import { Config } from '@assets/types'
 import { useStatic } from '@hooks/useStatic'
 import { useStore } from '@hooks/useStore'
@@ -28,5 +30,5 @@ export default function App() {
     })
   }, [])
 
-  return fetched ? <Map /> : null
+  return <ThemeProvider theme={theme}>{fetched ? <Map /> : null}</ThemeProvider>
 }

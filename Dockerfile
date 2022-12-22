@@ -9,7 +9,6 @@ ENV PKG_CONFIG_ALLOW_CROSS=1
 WORKDIR /usr/src/koji
 COPY ./server .
 RUN apt-get update && apt-get install -y
-# RUN apt-get install libcgal-dev -y
 
 RUN cargo install --path .
 

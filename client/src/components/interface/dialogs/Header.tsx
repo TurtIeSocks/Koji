@@ -1,16 +1,16 @@
 import * as React from 'react'
 import { DialogTitle, IconButton } from '@mui/material'
-import { Clear } from '@mui/icons-material'
+import Clear from '@mui/icons-material/Clear'
 
 interface Props {
-  title: string
+  children?: React.ReactNode
   action: () => void
 }
 
-export default function DialogHeader({ title, action }: Props) {
+export default function DialogHeader({ children, action }: Props) {
   return (
     <DialogTitle>
-      {title}
+      {children}
       <IconButton
         onClick={action}
         style={{ position: 'absolute', right: 5, top: 5 }}

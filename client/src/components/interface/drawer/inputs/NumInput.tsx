@@ -2,7 +2,7 @@
 import * as React from 'react'
 import { ListItem, ListItemText, TextField } from '@mui/material'
 
-import { fromCamelCase } from '@services/utils'
+import { fromCamelCase, fromSnakeCase } from '@services/utils'
 
 interface Props<T> {
   field: T
@@ -21,14 +21,23 @@ export default function NumInput<T extends string>({
 }: Props<T>) {
   return (
     <ListItem disabled={disabled}>
-      <ListItemText primary={fromCamelCase(field).replace(/_/g, ' ')} />
+      <ListItemText
+        primary={
+          field.includes('_') ? fromSnakeCase(field) : fromCamelCase(field)
+        }
+      />
       <TextField
         name={field}
         value={value}
         type="number"
         size="small"
         onChange={({ target }) => {
-          setValue(field, target.value && +target.value ? +target.value : '')
+          setValue(
+            field,
+            target.value && (+target.value || target.value === '0')
+              ? +target.value
+              : '',
+          )
         }}
         sx={{ width: '35%' }}
         inputProps={{ min: 0, max: 9999 }}

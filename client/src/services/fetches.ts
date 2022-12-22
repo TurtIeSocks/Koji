@@ -1,4 +1,6 @@
+/* eslint-disable no-nested-ternary */
 import type { Map } from 'leaflet'
+import type { Feature, FeatureCollection } from 'geojson'
 
 import type { CombinedState, Data, ToConvert } from '@assets/types'
 import type { UseStore } from '@hooks/useStore'
@@ -8,7 +10,7 @@ import { fromSnakeCase, getMapBounds } from './utils'
 
 export async function getData<T>(
   url: string,
-  settings: CombinedState & { area?: [number, number][] } = {},
+  settings: CombinedState & { area?: Feature } = {},
 ): Promise<T | null> {
   try {
     const data = Object.keys(settings).length
@@ -36,14 +38,13 @@ export async function getData<T>(
 export async function getLotsOfData(
   url: string,
   settings: CombinedState = {},
-): Promise<[number, number][][]> {
+): Promise<FeatureCollection> {
   const { length = 0 } = settings.geojson?.features || {}
-  const results = await Promise.allSettled(
+  const features = await Promise.allSettled(
     (settings.geojson?.features || [])
       .filter(
-        (feat) =>
-          feat.geometry.type === 'MultiPolygon' ||
-          feat.geometry.type === 'Polygon',
+        (x) =>
+          x.geometry.type === 'Polygon' || x.geometry.type === 'MultiPolygon',
       )
       .map((area) =>
         fetch(url, {
@@ -53,9 +54,14 @@ export async function getLotsOfData(
           },
           body: JSON.stringify({
             ...settings,
-            return_type: 'multi_array',
+            return_type: 'feature',
             devices: Math.max(Math.floor((settings.devices || 1) / length), 1),
             area,
+            instance: area.properties?.name,
+            route_chunk_size: settings.route_chunk_size,
+            last_seen: Math.floor(
+              (settings.last_seen?.getTime?.() || 0) / 1000,
+            ),
           }),
         })
           .then((res) => res.json())
@@ -68,7 +74,12 @@ export async function getLotsOfData(
           }),
       ),
   )
-  return results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
+  return {
+    type: 'FeatureCollection',
+    features: features.flatMap((r) =>
+      r.status === 'fulfilled' ? r.value : [],
+    ),
+  }
 }
 
 export async function getMarkers(
@@ -78,6 +89,7 @@ export async function getMarkers(
   enableStops: boolean,
   enableSpawnpoints: boolean,
   enableGyms: boolean,
+  last_seen: UseStore['last_seen'],
 ): Promise<Data> {
   const [pokestops, gyms, spawnpoints] = await Promise.all(
     [
@@ -93,20 +105,25 @@ export async function getMarkers(
               feature.geometry.type === 'MultiPolygon',
           ).length
         : true)
-        ? fetch(
-            `/api/data/${data}/${category}`,
-            data === 'all'
-              ? undefined
-              : {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify(
-                    data === 'bound' ? getMapBounds(map) : { area },
-                  ),
-                },
-          ).then((res) => res.json())
+        ? fetch(`/api/data/${data === 'all' ? 'all' : 'area'}/${category}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              area:
+                data === 'area'
+                  ? area.features.filter(
+                      (feature) =>
+                        feature.geometry.type === 'Polygon' ||
+                        feature.geometry.type === 'MultiPolygon',
+                    )
+                  : data === 'bound'
+                  ? getMapBounds(map)
+                  : undefined,
+              last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+            }),
+          }).then((res) => res.json())
         : [],
     ),
   )
@@ -117,7 +134,7 @@ export async function getMarkers(
   }
 }
 
-export async function convert<T = object | string>(
+export async function convert<T = Array<object> | object | string>(
   area: ToConvert,
   return_type: UseStore['polygonExportMode'],
 ): Promise<T> {

@@ -1,0 +1,23 @@
+[package]
+name = "model"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "model"
+path = "src/lib.rs"
+
+[dependencies]
+geo = "0.22.1"
+geojson = "0.24.0"
+entity = { path = "../entity" }
+num-traits = "0.2.15"
+sea-orm = { version = "0.9.3", features = [
+  "sqlx-mysql",
+  "runtime-actix-native-tls",
+  "macros",
+] }
+serde = { version = "1.0.136", features = ["derive"] }
+serde_json = "1.0"
+serde_with = "2.1.0"

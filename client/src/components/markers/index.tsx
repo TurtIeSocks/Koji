@@ -7,6 +7,7 @@ import { useStore } from '@hooks/useStore'
 import { getMarkers } from '@services/fetches'
 import usePixi from '@hooks/usePixi'
 import { useStatic } from '@hooks/useStatic'
+import useDeepCompareEffect from 'use-deep-compare-effect'
 
 export default function Markers() {
   const location = useStore((s) => s.location)
@@ -15,18 +16,19 @@ export default function Markers() {
   const spawnpoint = useStore((s) => s.spawnpoint)
   const gym = useStore((s) => s.gym)
   const nativeLeaflet = useStore((s) => s.nativeLeaflet)
+  const last_seen = useStore((s) => s.last_seen)
   const setStore = useStore((s) => s.setStore)
 
   const geojson = useStatic((s) => s.geojson)
-  const setStatic = useStatic((s) => s.setStatic)
   const pokestops = useStatic((s) => s.pokestops)
   const spawnpoints = useStatic((s) => s.spawnpoints)
   const gyms = useStatic((s) => s.gyms)
+  const setStatic = useStatic((s) => s.setStatic)
 
   const map = useMap()
 
-  React.useEffect(() => {
-    getMarkers(map, data, geojson, pokestop, spawnpoint, gym).then(
+  useDeepCompareEffect(() => {
+    getMarkers(map, data, geojson, pokestop, spawnpoint, gym, last_seen).then(
       (incoming) => {
         setStatic('pokestops', incoming.pokestops)
         setStatic('spawnpoints', incoming.spawnpoints)
@@ -35,11 +37,12 @@ export default function Markers() {
     )
   }, [
     data,
-    data === 'area' ? geojson.features.length : null,
+    data === 'area' ? geojson : null,
     data === 'bound' ? location : null,
     pokestop,
     spawnpoint,
     gym,
+    last_seen,
   ])
 
   const onMove = React.useCallback(() => {
@@ -52,7 +55,7 @@ export default function Markers() {
     return () => {
       map.off('moveend', onMove)
     }
-  }, [map, onMove])
+  }, [onMove])
 
   const initialMarkers = React.useMemo(
     () => [

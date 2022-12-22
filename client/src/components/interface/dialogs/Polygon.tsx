@@ -24,15 +24,20 @@ interface Export extends Props {
   mode: 'export'
   feature: Feature
 }
+interface ExportAll extends Props {
+  mode: 'exportAll'
+  feature: FeatureCollection
+}
 
 export function ExportPolygon(props: Import): JSX.Element
 export function ExportPolygon(props: Export): JSX.Element
+export function ExportPolygon(props: ExportAll): JSX.Element
 export default function ExportPolygon({
   mode,
   open,
   setOpen,
   feature,
-}: Import | Export): JSX.Element {
+}: Import | Export | ExportAll): JSX.Element {
   const polygonExportMode = useStore((s) => s.polygonExportMode)
   const setStore = useStore((s) => s.setStore)
 
@@ -42,11 +47,9 @@ export default function ExportPolygon({
   const [tempGeojson, setTempGeojson] = React.useState<FeatureCollection>()
 
   React.useEffect(() => {
-    if (mode === 'export') {
+    if (mode === 'export' || mode === 'exportAll') {
       ;(async () => {
         switch (polygonExportMode) {
-          case 'feature':
-            return feature
           default:
             return convert(feature, polygonExportMode)
         }
@@ -54,7 +57,17 @@ export default function ExportPolygon({
         if (typeof newCode === 'string') {
           setCode(newCode)
         } else {
-          setCode(JSON.stringify(newCode, null, 2))
+          setCode(
+            JSON.stringify(
+              mode === 'export' &&
+                polygonExportMode === 'poracle' &&
+                Array.isArray(newCode)
+                ? newCode[0]
+                : newCode,
+              null,
+              2,
+            ),
+          )
         }
       })
     }
@@ -64,11 +77,16 @@ export default function ExportPolygon({
     if (mode === 'import' && code) {
       ;(async () => {
         try {
+          const cleanCode = code.trim()
           const parsed: ToConvert =
-            code.startsWith('{') || code.startsWith('[')
-              ? JSON.parse(code)
-              : code
-          const geojson: FeatureCollection = await convert<FeatureCollection>(
+            cleanCode.startsWith('{') || cleanCode.startsWith('[')
+              ? JSON.parse(
+                  cleanCode.endsWith(',')
+                    ? cleanCode.substring(0, cleanCode.length - 1)
+                    : cleanCode,
+                )
+              : cleanCode
+          const geojson = await convert<FeatureCollection>(
             parsed,
             'featureCollection',
           )
@@ -94,25 +112,28 @@ export default function ExportPolygon({
       maxWidth="xl"
     >
       <DialogHeader
-        title={mode === 'export' ? 'Export Polygon' : 'Import Polygon'}
         action={() => {
           setOpen('')
           setCode('')
         }}
-      />
+      >
+        {mode === 'export' || mode === 'exportAll'
+          ? 'Export Polygon'
+          : 'Import Polygon'}
+      </DialogHeader>
       <DialogContent sx={{ width: '90vw', height: '60vh', overflow: 'auto' }}>
         <Code
           code={code}
           setCode={setCode}
           textMode={
-            mode === 'export'
+            mode === 'export' || mode === 'exportAll'
               ? polygonExportMode === 'text' || polygonExportMode === 'altText'
               : !code.startsWith('{') && !code.startsWith('[')
           }
         />
       </DialogContent>
       <DialogActions>
-        {mode === 'export' && (
+        {(mode === 'export' || mode === 'exportAll') && (
           <BtnGroup
             field="polygonExportMode"
             value={polygonExportMode}
@@ -144,7 +165,7 @@ export default function ExportPolygon({
             }
           }}
         >
-          {mode === 'export' ? 'Close' : 'Import'}
+          {mode === 'export' || mode === 'exportAll' ? 'Close' : 'Import'}
         </Button>
       </DialogActions>
     </Dialog>

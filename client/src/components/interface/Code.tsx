@@ -6,10 +6,10 @@ import { linter } from '@codemirror/lint'
 interface Props {
   code: string
   setCode: (code: string) => void
-  textMode: boolean
+  textMode?: boolean
 }
 
-export function Code({ code, setCode, textMode }: Props) {
+export function Code({ code, setCode, textMode = false }: Props) {
   const extensions = React.useMemo(
     () => (textMode ? [json()] : [json(), linter(jsonParseLinter())]),
     [textMode],
