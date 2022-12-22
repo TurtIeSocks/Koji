@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { ThemeProvider } from '@mui/material'
 
-import { theme } from '@assets/theme'
+import createTheme from '@assets/theme'
 import { Config } from '@assets/types'
 import { useStatic } from '@hooks/useStatic'
 import { useStore } from '@hooks/useStore'
@@ -12,8 +12,14 @@ import Map from './Map'
 export default function App() {
   const { location, setStore } = useStore.getState()
   const { setStatic } = useStatic.getState()
+  const darkMode = useStore((s) => s.darkMode)
 
   const [fetched, setFetched] = React.useState<boolean>(false)
+
+  const theme = React.useMemo(
+    () => createTheme(darkMode ? 'dark' : 'light'),
+    [darkMode],
+  )
 
   React.useEffect(() => {
     getData<Config>('/api/config').then((res) => {
