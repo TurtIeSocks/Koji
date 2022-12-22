@@ -70,7 +70,7 @@ pub fn as_vec(feature: Feature, radius: f64, stats: &mut Stats) -> SingleVec {
 }
 
 pub fn as_geojson(feature: Feature, radius: f64, stats: &mut Stats) -> Feature {
-    let mut multiline_feature: Vec<Vec<Vec<f64>>> = vec![];
+    // let mut multiline_feature: Vec<Vec<Vec<f64>>> = vec![];
     let mut multipoint_feature: Vec<Vec<f64>> = vec![];
     let circles = flatten_circles(feature.clone(), radius, stats);
 
@@ -86,25 +86,30 @@ pub fn as_geojson(feature: Feature, radius: f64, stats: &mut Stats) -> Feature {
             stats.longest_distance = distance;
         }
         stats.total_distance += distance;
-        multiline_feature.push(vec![
-            vec![point.x(), point.y()],
-            vec![point2.x(), point2.y()],
-        ])
+        // multiline_feature.push(vec![
+        //     vec![point.x(), point.y()],
+        //     vec![point2.x(), point2.y()],
+        // ])
     }
+    // let geo_collection = Geometry {
+    //     bbox: None,
+    //     value: Value::GeometryCollection(vec![
+    //         Geometry {
+    //             bbox: None,
+    //             foreign_members: None,
+    //             value: Value::MultiLineString(multiline_feature),
+    //         },
+    //         Geometry {
+    //             bbox: None,
+    //             foreign_members: None,
+    //             value: Value::MultiPoint(multipoint_feature),
+    //         },
+    //     ]),
+    //     foreign_members: None,
+    // };
     let geo_collection = Geometry {
+        value: Value::MultiPoint(multipoint_feature),
         bbox: None,
-        value: Value::GeometryCollection(vec![
-            Geometry {
-                bbox: None,
-                foreign_members: None,
-                value: Value::MultiLineString(multiline_feature),
-            },
-            Geometry {
-                bbox: None,
-                foreign_members: None,
-                value: Value::MultiPoint(multipoint_feature),
-            },
-        ]),
         foreign_members: None,
     };
     Feature {

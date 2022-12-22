@@ -32,39 +32,51 @@ export function Geometries({
       {{
         Point: (
           <KojiPoint
-            key={`point_${feature.id}`}
+            key={`point_${feature.id}_${
+              (feature as Feature<Point>).geometry.coordinates.length
+            }`}
             feature={feature as Feature<Point>}
             radius={radius || 10}
           />
         ),
         MultiPoint: (
           <KojiMultiPoint
-            key={`multiPoint_${feature.id}`}
+            key={`multiPoint_${feature.id}_${
+              (feature as Feature<MultiPoint>).geometry.coordinates.length
+            }`}
             feature={feature as Feature<MultiPoint>}
             radius={radius || 10}
           />
         ),
         LineString: (
           <KojiLineString
-            key={`line_${feature.id}`}
+            key={`line_${feature.id}_${
+              (feature as Feature<LineString>).geometry.coordinates.length
+            }`}
             feature={feature as Feature<LineString>}
           />
         ),
         MultiLineString: (
           <KojiMultiLineString
-            key={`multiline_${feature.id}`}
+            key={`multiline_${feature.id}_${
+              (feature as Feature<MultiLineString>).geometry.coordinates.length
+            }`}
             feature={feature as Feature<MultiLineString>}
           />
         ),
         Polygon: (
           <KojiPolygon
-            key={`polygon_${feature.id}`}
+            key={`polygon_${feature.id}_${
+              (feature as Feature<Polygon>).geometry.coordinates.length
+            }`}
             feature={feature as Feature<Polygon>}
           />
         ),
         MultiPolygon: (
           <KojiPolygon
-            key={`polygon_${feature.id}`}
+            key={`polygon_${feature.id}_${
+              (feature as Feature<MultiPolygon>).geometry.coordinates.length
+            }`}
             feature={feature as Feature<MultiPolygon>}
           />
         ),
@@ -89,8 +101,6 @@ export function Geometries({
   )
 }
 
-const MemoizedGeometries = React.memo(Geometries, () => true)
-
 export default function Features() {
   const geojson = useSyncGeojson()
   const radius = useStore((s) => s.radius)
@@ -98,11 +108,7 @@ export default function Features() {
   return (
     <>
       {geojson.features.map((feature) => (
-        <MemoizedGeometries
-          key={feature.id}
-          feature={feature}
-          radius={radius || 10}
-        />
+        <Geometries key={feature.id} feature={feature} radius={radius || 10} />
       ))}
     </>
   )

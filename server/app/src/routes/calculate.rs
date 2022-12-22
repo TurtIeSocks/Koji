@@ -69,19 +69,19 @@ async fn bootstrap(
 
     let time = Instant::now();
 
-    let features: Vec<Feature> = area
+    let mut features: Vec<Feature> = area
         .into_iter()
         .map(|sub_area| bootstrapping::as_geojson(sub_area, radius, &mut stats))
         .collect();
 
     stats.cluster_time = time.elapsed().as_secs_f32();
 
-    if !instance.is_empty() && save_to_db {
-        for feat in features.clone().iter_mut() {
-            if !feat.contains_property("name") {
-                feat.set_property("name", instance.clone());
-            }
-            feat.set_property("type", Type::CirclePokemon.to_string());
+    for feat in features.iter_mut() {
+        if !feat.contains_property("name") && !instance.is_empty() {
+            feat.set_property("name", instance.clone());
+        }
+        feat.set_property("type", Type::CirclePokemon.to_string());
+        if save_to_db {
             area::save(
                 conn.unown_db.as_ref().unwrap(),
                 feat.clone().to_collection(None),
@@ -317,7 +317,7 @@ async fn cluster(
         clusters = final_clusters.into();
     }
 
-    let mut feature = clusters.to_feature(Some(&enum_type));
+    let mut feature = clusters.to_feature(Some(&enum_type)).remove_last_coord();
     feature.add_instance_properties(
         Some(instance.to_string()),
         if instance.eq("new_multipoint") {

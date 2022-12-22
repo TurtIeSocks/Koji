@@ -21,6 +21,27 @@ impl FeatureHelpers for Feature {
             // }
         }
     }
+    fn remove_last_coord(self) -> Self {
+        if let Some(geometry) = self.geometry {
+            let geometry = match geometry.value {
+                Value::MultiPoint(value) => {
+                    let mut new_value = value;
+                    new_value.pop();
+                    Geometry {
+                        value: Value::MultiPoint(new_value),
+                        ..geometry
+                    }
+                }
+                _ => geometry,
+            };
+            Self {
+                geometry: Some(geometry),
+                ..self
+            }
+        } else {
+            self
+        }
+    }
 }
 
 impl ToSingleVec for Feature {

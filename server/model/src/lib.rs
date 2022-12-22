@@ -48,6 +48,7 @@ pub trait ValueHelpers {
 
 pub trait FeatureHelpers {
     fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<&Type>);
+    fn remove_last_coord(self) -> Self;
 }
 
 pub trait ToPointArray {
