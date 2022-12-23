@@ -43,7 +43,7 @@ pub async fn route(
     if let Some(items) = items {
         let feature = Feature::from_json_value(items.area);
         return match feature {
-            Ok(feat) => Ok(feat.to_collection(Some(&Type::AutoQuest))),
+            Ok(feat) => Ok(feat.to_collection(None, Some(&Type::AutoQuest))),
             Err(err) => Err(DbErr::Custom(err.to_string())),
         };
     } else {

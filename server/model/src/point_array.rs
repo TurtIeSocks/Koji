@@ -60,8 +60,10 @@ impl ToFeature for PointArray {
 }
 
 impl ToCollection for PointArray {
-    fn to_collection(self, enum_type: Option<&Type>) -> FeatureCollection {
-        let feature = self.to_feature(enum_type);
+    fn to_collection(self, name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
+        let feature = self
+            .to_feature(enum_type)
+            .ensure_properties(name, enum_type);
         FeatureCollection {
             bbox: feature.bbox.clone(),
             features: vec![feature],

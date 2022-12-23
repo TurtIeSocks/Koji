@@ -19,6 +19,38 @@ impl ToSingleVec for FeatureCollection {
     }
 }
 
+impl EnsurePoints for FeatureCollection {
+    fn ensure_first_last(self) -> Self {
+        self.into_iter()
+            .map(|feat| feat.ensure_first_last())
+            .collect()
+    }
+}
+
+impl EnsureProperties for FeatureCollection {
+    fn ensure_properties(self, name: Option<String>, enum_type: Option<&Type>) -> Self {
+        let name = if let Some(n) = name {
+            n
+        } else {
+            "".to_string()
+        };
+        let length = self.features.len();
+        self.into_iter()
+            .enumerate()
+            .map(|(i, feat)| {
+                feat.ensure_properties(
+                    Some(if length > 1 {
+                        format!("{}_{}", name, i)
+                    } else {
+                        name.clone()
+                    }),
+                    enum_type,
+                )
+            })
+            .collect()
+    }
+}
+
 impl ToMultiVec for FeatureCollection {
     fn to_multi_vec(self) -> MultiVec {
         let mut return_value: MultiVec = vec![];

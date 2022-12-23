@@ -46,7 +46,7 @@ pub async fn route(
         .one(conn)
         .await?;
     if let Some(items) = items {
-        Ok(normalize::instance(items).to_collection(None))
+        Ok(normalize::instance(items).to_collection(None, None))
     } else {
         Err(DbErr::Custom("Instance not found".to_string()))
     }

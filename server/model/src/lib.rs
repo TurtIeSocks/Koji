@@ -33,6 +33,10 @@ pub trait EnsurePoints {
     fn ensure_first_last(self) -> Self;
 }
 
+pub trait EnsureProperties {
+    fn ensure_properties(self, name: Option<String>, enum_type: Option<&Type>) -> Self;
+}
+
 /// [min_lon, min_lat, max_lon, max_lat]
 pub trait GetBbox {
     fn get_bbox(&self) -> Option<Bbox>;
@@ -84,7 +88,7 @@ pub trait ToFeatureVec {
 }
 
 pub trait ToCollection {
-    fn to_collection(self, enum_type: Option<&Type>) -> FeatureCollection;
+    fn to_collection(self, name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection;
 }
 
 pub trait ToPoracle {
@@ -124,17 +128,18 @@ pub enum GeoFormats {
 }
 
 impl ToCollection for GeoFormats {
-    fn to_collection(self, enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
+        let name_clone = name.clone();
         match self {
-            GeoFormats::Text(area) => area.to_collection(enum_type),
-            GeoFormats::SingleArray(area) => area.to_collection(enum_type),
-            GeoFormats::MultiArray(area) => area.to_collection(enum_type),
-            GeoFormats::SingleStruct(area) => area.to_collection(enum_type),
-            GeoFormats::MultiStruct(area) => area.to_collection(enum_type),
-            GeoFormats::Feature(area) => area.to_collection(enum_type),
-            GeoFormats::FeatureVec(area) => area.to_collection(enum_type),
+            GeoFormats::Text(area) => area.to_collection(name, enum_type),
+            GeoFormats::SingleArray(area) => area.to_collection(name, enum_type),
+            GeoFormats::MultiArray(area) => area.to_collection(name, enum_type),
+            GeoFormats::SingleStruct(area) => area.to_collection(name, enum_type),
+            GeoFormats::MultiStruct(area) => area.to_collection(name, enum_type),
+            GeoFormats::Feature(area) => area.to_collection(name, enum_type),
+            GeoFormats::FeatureVec(area) => area.to_collection(name, enum_type),
             GeoFormats::FeatureCollection(area) => area,
-            GeoFormats::Poracle(area) => area.to_collection(enum_type),
+            GeoFormats::Poracle(area) => area.to_collection(name, enum_type),
             GeoFormats::Bound(area) => vec![
                 [area.min_lat, area.min_lon],
                 [area.min_lat, area.max_lon],
@@ -142,8 +147,10 @@ impl ToCollection for GeoFormats {
                 [area.max_lat, area.min_lon],
                 [area.min_lat, area.min_lon],
             ]
-            .to_collection(enum_type),
+            .to_collection(name, enum_type),
         }
+        .ensure_first_last()
+        .ensure_properties(name_clone, enum_type)
     }
 }
 

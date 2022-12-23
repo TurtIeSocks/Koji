@@ -13,6 +13,8 @@ export default function KojiPolygon({
 }: {
   feature: Feature<PolygonType> | Feature<MultiPolygon>
 }) {
+  const [loadData, setLoadData] = React.useState(false)
+
   return (
     <Polygon
       key={feature.id}
@@ -20,6 +22,7 @@ export default function KojiPolygon({
         if (ref && feature.id) {
           ref.feature = feature
           const { type } = feature.geometry
+          ref.on('click', () => setLoadData(true))
           ref.removeEventListener('pm:remove')
           ref.on('pm:remove', function remove() {
             useShapes.getState().setters.remove(type, feature.id)
@@ -89,7 +92,7 @@ export default function KojiPolygon({
       pmIgnore={false}
       pane="polygons"
     >
-      <PolygonPopup feature={feature} />
+      <PolygonPopup feature={feature} loadData={loadData} />
     </Polygon>
   )
 }

@@ -1,5 +1,34 @@
 use super::*;
 
+impl EnsurePoints for Geometry {
+    fn ensure_first_last(self) -> Self {
+        let mut return_value = self;
+        match &mut return_value.value {
+            Value::MultiPolygon(polygons) => {
+                for polygon in polygons.into_iter() {
+                    for line_string in polygon.into_iter() {
+                        let last = line_string.last().unwrap();
+                        if last[0] != line_string[0][0] && last[1] != line_string[0][1] {
+                            line_string.push(line_string[0].clone())
+                        }
+                    }
+                }
+                return_value
+            }
+            Value::Polygon(poly) => {
+                for line_string in poly {
+                    let last = line_string.last().unwrap();
+                    if last[0] != line_string[0][0] && last[1] != line_string[0][1] {
+                        line_string.push(line_string[0].clone())
+                    }
+                }
+                return_value
+            }
+            _ => return_value,
+        }
+    }
+}
+
 impl ToSingleVec for Geometry {
     fn to_single_vec(self) -> single_vec::SingleVec {
         let mut return_value = vec![];

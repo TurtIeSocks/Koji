@@ -30,6 +30,7 @@ export interface UseStore {
   polygonExportMode:
     | 'feature'
     | 'featureCollection'
+    | 'featureVec'
     | 'array'
     | 'struct'
     | 'text'

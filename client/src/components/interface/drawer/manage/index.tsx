@@ -4,9 +4,10 @@ import {
   List,
   ListItemButton,
   ListItemIcon,
+  ListItemText,
   ListSubheader,
 } from '@mui/material'
-import Download from '@mui/icons-material/Download'
+import Code from '@mui/icons-material/Code'
 import Save from '@mui/icons-material/Save'
 import Upload from '@mui/icons-material/Upload'
 
@@ -16,6 +17,8 @@ import SaveToKoji from '@components/interface/dialogs/Manager'
 import ExportRoute from '../../dialogs/ExportRoute'
 import PolygonDialog from '../../dialogs/Polygon'
 import InstanceSelect from './Instance'
+import ShapeFile from './ShapeFile'
+import JsonFile from './Json'
 
 export default function ImportExport() {
   const [open, setOpen] = React.useState('')
@@ -28,13 +31,16 @@ export default function ImportExport() {
       <InstanceSelect endpoint="/api/instance/all" stateKey="instances" />
       <ListSubheader disableGutters>Import from Kōji</ListSubheader>
       <InstanceSelect endpoint="/api/v1/geofence/all" stateKey="geofences" />
-      <Divider sx={{ my: 2 }} />
+      <ListSubheader disableGutters>Additional Importing Methods</ListSubheader>
       <ListItemButton onClick={() => setOpen('polygon')}>
         <ListItemIcon>
-          <Download />
+          <Code />
         </ListItemIcon>
-        Import Polygon
+        <ListItemText primary="Geofence Input" />
       </ListItemButton>
+      <JsonFile />
+      <ShapeFile />
+      <ListSubheader disableGutters>Exporting</ListSubheader>
       <ListItemButton
         onClick={() => {
           setOpen('polygon')
@@ -52,11 +58,12 @@ export default function ImportExport() {
         </ListItemIcon>
         Export Route
       </ListItemButton>
+      <Divider sx={{ my: 2 }} />
       <ListItemButton onClick={() => setOpen('manager')}>
         <ListItemIcon>
           <Save />
         </ListItemIcon>
-        Open Manager
+        <ListItemText primary="Open Manager" />
       </ListItemButton>
       <PolygonDialog
         mode={exportAll ? 'exportAll' : 'import'}

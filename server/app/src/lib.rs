@@ -77,8 +77,8 @@ pub async fn main() -> io::Result<()> {
         App::new()
             .app_data(web::Data::new(databases.clone()))
             .app_data(web::Data::new(scanner_type.clone()))
-            // increase max payload size to 10MB
-            .app_data(web::JsonConfig::default().limit(10_485_760))
+            // increase max payload size to 20MB
+            .app_data(web::JsonConfig::default().limit(20_971_520))
             .wrap(middleware::Logger::new("%s | %r - %b bytes in %D ms (%a)"))
             .service(
                 web::scope("api")
