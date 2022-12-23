@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { FeatureCollection } from 'geojson'
 
 export interface UseStore {
+  darkMode: boolean
   tab: number
   drawer: boolean
   location: [number, number]
@@ -51,6 +52,7 @@ export interface UseStore {
 export const useStore = create(
   persist<UseStore>(
     (set) => ({
+      darkMode: true,
       tab: 0,
       drawer: false,
       location: [0, 0],

@@ -61,7 +61,7 @@ export default function DrawerIndex() {
     >
       {drawer ? (
         <LocalizationProvider dateAdapter={AdapterDayjs}>
-          <DrawerHeader setStore={setStore}>Kōji</DrawerHeader>
+          <DrawerHeader>Kōji</DrawerHeader>
           <Divider />
           <List>
             {TABS.map((text, i) => (
