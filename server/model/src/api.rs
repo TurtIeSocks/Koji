@@ -5,6 +5,11 @@ use geojson::JsonValue;
 use crate::{collection::Default, text::TextHelpers};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Auth {
+    pub password: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BoundsArg {
     pub min_lat: f64,
     pub min_lon: f64,
@@ -197,6 +202,7 @@ pub struct ConfigResponse {
     pub start_lon: f64,
     pub tile_server: String,
     pub scanner_type: String,
+    pub logged_in: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

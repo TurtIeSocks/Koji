@@ -17,3 +17,7 @@
 .sr-only {
   display: none;
 }
+
+body {
+  margin: 0;
+}

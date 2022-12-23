@@ -1,7 +1,18 @@
 use std::{env, io};
 
 use actix_files::Files;
-use actix_web::{middleware, web, App, HttpServer};
+
+use actix_session::{storage::CookieSessionStore, SessionExt, SessionMiddleware};
+use actix_web::{cookie::Key, dev::ServiceRequest, middleware, web, App, HttpServer};
+use actix_web_httpauth::extractors::AuthExtractorConfig;
+
+use actix_web_httpauth::{
+    extractors::{
+        bearer::{self, BearerAuth},
+        AuthenticationError,
+    },
+    middleware::HttpAuthentication,
+};
 use geojson::{Feature, FeatureCollection};
 use sea_orm::{ConnectOptions, Database};
 
@@ -12,10 +23,35 @@ mod routes;
 mod utils;
 use migration::{Migrator, MigratorTrait};
 
+async fn validator(
+    req: ServiceRequest,
+    credentials: BearerAuth,
+) -> Result<ServiceRequest, (actix_web::Error, ServiceRequest)> {
+    let session = req.get_session();
+    let logged_in = if let Ok(logged_in) = session.get::<bool>("logged_in") {
+        logged_in.unwrap_or(false)
+    } else {
+        false
+    };
+    if logged_in || credentials.token() == env::var("KOJI_SECRET").unwrap_or("".to_string()) {
+        Ok(req)
+    } else {
+        let config = req
+            .app_data::<bearer::Config>()
+            .cloned()
+            .unwrap_or_default();
+        Err((AuthenticationError::new(config.into_inner()).into(), req))
+    }
+}
+
 #[actix_web::main]
 pub async fn main() -> io::Result<()> {
     dotenv::dotenv().ok();
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    // error | warn | info | debug | trace
+    env_logger::init_from_env(
+        env_logger::Env::new()
+            .default_filter_or(env::var("LOG_LEVEL").unwrap_or("warn".to_string())),
+    );
 
     let koji_db_url = env::var("KOJI_DB_URL").expect("Need KOJI_DB_URL env var to run migrations");
     let scanner_db_url = if env::var("DATABASE_URL").is_ok() {
@@ -64,7 +100,10 @@ pub async fn main() -> io::Result<()> {
             }
         },
     };
-    Migrator::up(&databases.koji_db, None).await.unwrap();
+    match Migrator::up(&databases.koji_db, None).await {
+        Ok(_) => println!("Migrations successful"),
+        Err(err) => println!("Migration Error {:?}", err),
+    };
 
     let scanner_type = if databases.unown_db.is_none() {
         "rdm"
@@ -80,17 +119,25 @@ pub async fn main() -> io::Result<()> {
             // increase max payload size to 20MB
             .app_data(web::JsonConfig::default().limit(20_971_520))
             .wrap(middleware::Logger::new("%s | %r - %b bytes in %D ms (%a)"))
+            .wrap(
+                SessionMiddleware::builder(CookieSessionStore::default(), Key::from(&[0; 64]))
+                    .cookie_secure(false)
+                    .build(),
+            )
             .service(
                 web::scope("api")
                     .service(routes::misc::config)
+                    .service(routes::misc::login)
                     .service(
                         web::scope("instance")
+                            .wrap(HttpAuthentication::bearer(validator))
                             .service(routes::instance::all)
                             .service(routes::instance::instance_type)
                             .service(routes::instance::get_area),
                     )
                     .service(
                         web::scope("data")
+                            .wrap(HttpAuthentication::bearer(validator))
                             .service(routes::raw_data::all)
                             .service(routes::raw_data::bound)
                             .service(routes::raw_data::by_area)
@@ -98,6 +145,7 @@ pub async fn main() -> io::Result<()> {
                     )
                     .service(
                         web::scope("v1")
+                            .wrap(HttpAuthentication::bearer(validator))
                             .service(
                                 web::scope("calc")
                                     .service(routes::calculate::bootstrap)

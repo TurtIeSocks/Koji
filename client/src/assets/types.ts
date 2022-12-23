@@ -46,6 +46,7 @@ export interface Config {
   start_lon: number
   tile_server: string
   scanner_type: string
+  logged_in: boolean
 }
 
 export interface Circle {

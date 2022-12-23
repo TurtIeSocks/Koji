@@ -5,6 +5,7 @@ import type { PixiMarker } from '@assets/types'
 import { collectionToObject } from '@services/utils'
 
 export interface UseStatic {
+  loggedIn: boolean
   pokestops: PixiMarker[]
   gyms: PixiMarker[]
   spawnpoints: PixiMarker[]
@@ -45,6 +46,7 @@ export interface UseStatic {
 }
 
 export const useStatic = create<UseStatic>((set, get) => ({
+  loggedIn: false,
   pokestops: [],
   gyms: [],
   spawnpoints: [],

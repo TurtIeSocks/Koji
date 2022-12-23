@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /* eslint-disable no-nested-ternary */
 import type { Map } from 'leaflet'
 import type { Feature, FeatureCollection } from 'geojson'
@@ -18,20 +19,21 @@ export async function getData<T>(
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            Authorization: 'Bearer a',
           },
           body: JSON.stringify(settings),
         })
-      : await fetch(url)
+      : await fetch(url, {
+          headers: { Authorization: 'Bearer a' },
+        })
     const body = await data.json()
     if (!data.ok) {
       throw new Error(body.message)
     }
     return body
   } catch (e) {
-    // eslint-disable-next-line no-console
     console.error(e)
     return null
-    // return { error: e instanceof Error ? e.message : 'Unknown Error' }
   }
 }
 
@@ -51,6 +53,7 @@ export async function getLotsOfData(
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            Authorization: 'Bearer a',
           },
           body: JSON.stringify({
             ...settings,
@@ -109,6 +112,7 @@ export async function getMarkers(
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              Authorization: 'Bearer a',
             },
             body: JSON.stringify({
               area:
@@ -143,6 +147,7 @@ export async function convert<T = Array<object> | object | string>(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: 'Bearer a',
       },
       body: JSON.stringify({
         area,
@@ -151,8 +156,26 @@ export async function convert<T = Array<object> | object | string>(
     })
     return await data.json().then((r) => r.data)
   } catch (e) {
-    // eslint-disable-next-line no-console
     console.error(e)
     return '' as unknown as T
+  }
+}
+
+export async function save(url: string, code: string) {
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer a',
+      },
+      body: JSON.stringify({ area: JSON.parse(code) }),
+    })
+    if (!res.ok) {
+      throw new Error('Unable to save')
+    }
+    return await res.json()
+  } catch (e) {
+    console.error(e)
   }
 }
