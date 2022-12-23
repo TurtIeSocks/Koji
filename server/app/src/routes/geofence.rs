@@ -17,7 +17,7 @@ async fn all(
 
     println!("[GEOFENCES_ALL] Returning {} instances\n", features.len());
     Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(features.to_collection(None))),
+        data: Some(json!(features.to_collection(None, None))),
         message: "Success".to_string(),
         status: "ok".to_string(),
         stats: None,

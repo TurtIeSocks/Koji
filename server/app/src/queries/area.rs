@@ -30,7 +30,7 @@ pub async fn route(
             if !geofence.is_empty() {
                 Ok(geofence
                     .parse_scanner_instance(Some(item.name), Some(&Type::AutoQuest))
-                    .to_collection(Some(&Type::AutoQuest)))
+                    .to_collection(None, Some(&Type::AutoQuest)))
             } else {
                 Err(DbErr::Custom("Geofence is empty".to_string()))
             }

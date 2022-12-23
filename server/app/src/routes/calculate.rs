@@ -84,7 +84,7 @@ async fn bootstrap(
         if save_to_db {
             area::save(
                 conn.unown_db.as_ref().unwrap(),
-                feat.clone().to_collection(None),
+                feat.clone().to_collection(Some(instance.clone()), None),
             )
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -92,7 +92,7 @@ async fn bootstrap(
     }
 
     Ok(response::send(
-        features.to_collection(None),
+        features.to_collection(Some(instance.clone()), None),
         return_type,
         stats,
         benchmark_mode,
@@ -327,7 +327,7 @@ async fn cluster(
         },
     );
     feature.set_property("radius", radius);
-    let feature = feature.to_collection(None);
+    let feature = feature.to_collection(Some(instance.clone()), None);
 
     if !instance.is_empty() && save_to_db {
         area::save(conn.unown_db.as_ref().unwrap(), feature.clone())

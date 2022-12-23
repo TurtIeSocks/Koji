@@ -107,10 +107,12 @@ impl ToFeature for SingleVec {
 }
 
 impl ToCollection for SingleVec {
-    fn to_collection(self, enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
         FeatureCollection {
             bbox: self.get_bbox(),
-            features: vec![self.to_feature(enum_type)],
+            features: vec![self
+                .to_feature(enum_type)
+                .ensure_properties(name, enum_type)],
             foreign_members: None,
         }
     }

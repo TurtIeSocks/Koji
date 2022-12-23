@@ -2,7 +2,7 @@ use super::*;
 
 use entity::sea_orm_active_enums::Type;
 use geojson::Value;
-use models::{GetBbox, ToSingleVec};
+use models::{GetBbox, ToSingleVec, EnsurePoints};
 
 pub mod clustering;
 pub mod drawing;
@@ -13,14 +13,15 @@ pub mod write_debug;
 
 pub fn sql_raw(area: &FeatureCollection) -> String {
     let mut string = "".to_string();
-    for (i, feature) in area.features.iter().enumerate() {
+    for (i, feature) in area.into_iter().enumerate() {
         let bbox = if let Some(bbox) = feature.bbox.clone() {
             bbox
         } else {
             feature.clone().to_single_vec().get_bbox().unwrap()
         };
-        if let Some(geometry) = feature.geometry.as_ref() {
-            match geometry.value {
+        if let Some(geometry) = feature.geometry.clone() {
+            let geo = geometry.ensure_first_last();
+            match geo.value {
                 Value::Polygon(_) | Value::MultiPolygon(_) => {
                     string = format!(
                         "{}{} (lon BETWEEN {} AND {}\nAND lat BETWEEN {} AND {}\nAND ST_CONTAINS(ST_GeomFromGeoJSON('{}', 2, 0), POINT(lon, lat)))",
@@ -34,7 +35,7 @@ pub fn sql_raw(area: &FeatureCollection) -> String {
                         bbox[2],
                         bbox[1],
                         bbox[3],
-                        feature.geometry.as_ref().unwrap().to_string()
+                        geo.to_string()
                     );
                 }
                 _ => {}

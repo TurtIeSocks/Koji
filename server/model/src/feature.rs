@@ -1,24 +1,49 @@
 use super::*;
 
+impl EnsurePoints for Feature {
+    fn ensure_first_last(self) -> Self {
+        let geometry = if let Some(geometry) = self.geometry {
+            Some(geometry.ensure_first_last())
+        } else {
+            None
+        };
+        Self { geometry, ..self }
+    }
+}
+
 impl FeatureHelpers for Feature {
     fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<&Type>) {
-        if let Some(name) = name {
-            self.set_property("name", name)
+        if !self.contains_property("name") {
+            if let Some(name) = name {
+                self.set_property("name", name)
+            }
         }
-        if let Some(enum_type) = enum_type {
-            self.set_property("type", enum_type.to_string());
-            // match enum_type {
-            //     Type::CirclePokemon | Type::CircleSmartPokemon => {
-            //         self.set_property("radius", 70);
-            //     }
-            //     Type::CircleRaid | Type::CircleSmartRaid => {
-            //         self.set_property("radius", 700);
-            //     }
-            //     Type::ManualQuest => {
-            //         self.set_property("radius", 80);
-            //     }
-            //     _ => {}
-            // }
+        if !self.contains_property("type") {
+            if let Some(enum_type) = enum_type {
+                self.set_property("type", enum_type.to_string());
+                // match enum_type {
+                //     Type::CirclePokemon | Type::CircleSmartPokemon => {
+                //         self.set_property("radius", 70);
+                //     }
+                //     Type::CircleRaid | Type::CircleSmartRaid => {
+                //         self.set_property("radius", 700);
+                //     }
+                //     Type::ManualQuest => {
+                //         self.set_property("radius", 80);
+                //     }
+                //     _ => {}
+                // }
+            } else if let Some(geometry) = self.geometry.as_ref() {
+                match geometry.value {
+                    Value::Point(_) | Value::MultiPoint(_) => {
+                        self.set_property("type", "CirclePokemon");
+                    }
+                    Value::Polygon(_) | Value::MultiPolygon(_) => {
+                        self.set_property("type", "AutoQuest");
+                    }
+                    _ => {}
+                }
+            }
         }
     }
     fn remove_last_coord(self) -> Self {
@@ -41,6 +66,14 @@ impl FeatureHelpers for Feature {
         } else {
             self
         }
+    }
+}
+
+impl EnsureProperties for Feature {
+    fn ensure_properties(self, name: Option<String>, enum_type: Option<&Type>) -> Self {
+        let mut mutable_self = self;
+        mutable_self.add_instance_properties(name, enum_type);
+        mutable_self
     }
 }
 
@@ -89,7 +122,7 @@ impl ToFeatureVec for Feature {
 }
 
 impl ToCollection for Feature {
-    fn to_collection(self, _enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
         let bbox = if self.bbox.is_some() {
             self.bbox
         } else {
@@ -97,14 +130,22 @@ impl ToCollection for Feature {
         };
         FeatureCollection {
             bbox: bbox.clone(),
-            features: vec![Feature { bbox, ..self }],
+            features: vec![Feature { bbox, ..self }
+                .ensure_first_last()
+                .ensure_properties(name, enum_type)],
             foreign_members: None,
         }
     }
 }
 
 impl ToCollection for Vec<Feature> {
-    fn to_collection(self, _enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
+        let name = if let Some(name) = name {
+            name
+        } else {
+            "".to_string()
+        };
+        let length = self.len();
         FeatureCollection {
             bbox: self
                 .clone()
@@ -112,7 +153,20 @@ impl ToCollection for Vec<Feature> {
                 .flat_map(|feat| feat.to_single_vec())
                 .collect::<single_vec::SingleVec>()
                 .get_bbox(),
-            features: self,
+            features: self
+                .into_iter()
+                .enumerate()
+                .map(|(i, feat)| {
+                    feat.ensure_first_last().ensure_properties(
+                        Some(if length > 1 {
+                            format!("{}_{}", name, i)
+                        } else {
+                            name.clone()
+                        }),
+                        enum_type,
+                    )
+                })
+                .collect(),
             foreign_members: None,
         }
     }

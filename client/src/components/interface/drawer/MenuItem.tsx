@@ -23,13 +23,17 @@ export default function MenuAccordion({ name, children }: Props) {
   const Icon = ICON_MAP[name] || null
 
   return (
-    <ListItem key={name} disablePadding sx={{ display: 'block' }}>
+    <ListItem
+      key={name}
+      disablePadding
+      sx={{ display: 'block', maxHeight: '80vh', overflow: 'auto' }}
+    >
       <Accordion
         expanded={menuItem === name}
         onChange={(_, isExpanded) => {
           setStore('menuItem', isExpanded ? name : '')
         }}
-        TransitionProps={{ unmountOnExit: true }}
+        TransitionProps={{ unmountOnExit: name === 'Geojson' }}
       >
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <ListItemIcon>

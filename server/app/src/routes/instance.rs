@@ -31,7 +31,7 @@ async fn all(
 
     println!("[INSTANCE_ALL] Returning {} instances\n", instances.len());
     Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(instances.to_collection(None))),
+        data: Some(json!(instances.to_collection(None, None))),
         message: "ok".to_string(),
         status_code: 200,
         status: "Success".to_string(),

@@ -93,7 +93,7 @@ impl Args {
         } = self;
         let (area, default_return_type) = if let Some(area) = area {
             (
-                area.clone().to_collection(None),
+                area.clone().to_collection(instance.clone(), None),
                 match area {
                     GeoFormats::Text(area) => {
                         if area.text_test() {
@@ -151,6 +151,7 @@ impl Args {
                 "singlestruct" | "single_struct" => ReturnTypeArg::SingleStruct,
                 "multistruct" | "multi_struct" => ReturnTypeArg::MultiStruct,
                 "feature" => ReturnTypeArg::Feature,
+                "featurevec" | "feature_vec" => ReturnTypeArg::FeatureVec,
                 "poracle" => ReturnTypeArg::Poracle,
                 "featurecollection" | "feature_collection" => ReturnTypeArg::FeatureCollection,
                 _ => default_return_type,

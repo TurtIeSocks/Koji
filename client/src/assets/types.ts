@@ -93,6 +93,7 @@ export type ToConvert =
   | FeatureCollection
   | string
   | Poracle
+  | Feature[]
 
 // for some reason locate.control @types augmentation is broken
 declare module 'leaflet' {
