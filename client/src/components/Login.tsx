@@ -1,11 +1,24 @@
 import * as React from 'react'
-import Box from '@mui/material/Box'
-import { Button, Collapse, TextField, Typography } from '@mui/material'
+import {
+  Box,
+  Button,
+  Collapse,
+  IconButton,
+  InputAdornment,
+  Paper,
+  TextField,
+  Typography,
+} from '@mui/material'
+import Visibility from '@mui/icons-material/Visibility'
+import VisibilityOff from '@mui/icons-material/VisibilityOff'
+
 import { useStatic } from '@hooks/useStatic'
+import ThemeToggle from './ThemeToggle'
 
 export default function Login() {
   const [password, setPassword] = React.useState<string>('')
   const [error, setError] = React.useState<string>('')
+  const [show, setShow] = React.useState<boolean>(false)
 
   const setStatic = useStatic((s) => s.setStatic)
 
@@ -26,15 +39,21 @@ export default function Login() {
   }
 
   return (
-    <Box
-      display="flex"
-      alignItems="center"
-      justifyContent="center"
-      height="100vh"
-      width="100%"
-      bgcolor="#333333"
-      flexDirection="column"
+    <Paper
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        width: '100%',
+        flexDirection: 'column',
+      }}
+      square
+      elevation={0}
     >
+      <Box sx={{ position: 'absolute', top: 10, right: 10 }}>
+        <ThemeToggle />
+      </Box>
       <form
         autoComplete="off"
         onSubmit={onSubmit}
@@ -47,13 +66,25 @@ export default function Login() {
         <TextField
           name="password"
           label="Password"
-          variant="outlined"
+          type={show ? 'text' : 'password'}
           value={password}
           onChange={(e) => {
             setError('')
             setPassword(e.target.value)
           }}
           error={!!error}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  onClick={() => setShow((prev) => !prev)}
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  {show ? <Visibility /> : <VisibilityOff />}
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
         />
         <Button color={error ? 'error' : 'primary'} type="submit">
           Login
@@ -64,6 +95,6 @@ export default function Login() {
           {error}
         </Typography>
       </Collapse>
-    </Box>
+    </Paper>
   )
 }
