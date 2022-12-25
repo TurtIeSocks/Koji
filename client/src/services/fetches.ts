@@ -19,13 +19,10 @@ export async function getData<T>(
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: 'Bearer a',
           },
           body: JSON.stringify(settings),
         })
-      : await fetch(url, {
-          headers: { Authorization: 'Bearer a' },
-        })
+      : await fetch(url)
     const body = await data.json()
     if (!data.ok) {
       throw new Error(body.message)
@@ -53,7 +50,6 @@ export async function getLotsOfData(
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: 'Bearer a',
           },
           body: JSON.stringify({
             ...settings,
@@ -112,7 +108,6 @@ export async function getMarkers(
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: 'Bearer a',
             },
             body: JSON.stringify({
               area:
@@ -147,7 +142,6 @@ export async function convert<T = Array<object> | object | string>(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: 'Bearer a',
       },
       body: JSON.stringify({
         area,
@@ -167,7 +161,6 @@ export async function save(url: string, code: string) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: 'Bearer a',
       },
       body: JSON.stringify({ area: JSON.parse(code) }),
     })

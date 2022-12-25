@@ -25,7 +25,7 @@ use migration::{Migrator, MigratorTrait};
 
 async fn validator(
     req: ServiceRequest,
-    credentials: BearerAuth,
+    credentials: Option<BearerAuth>,
 ) -> Result<ServiceRequest, (actix_web::Error, ServiceRequest)> {
     let session = req.get_session();
     let logged_in = if let Ok(logged_in) = session.get::<bool>("logged_in") {
@@ -33,15 +33,24 @@ async fn validator(
     } else {
         false
     };
-    if logged_in || credentials.token() == env::var("KOJI_SECRET").unwrap_or("".to_string()) {
-        Ok(req)
-    } else {
-        let config = req
-            .app_data::<bearer::Config>()
-            .cloned()
-            .unwrap_or_default();
-        Err((AuthenticationError::new(config.into_inner()).into(), req))
+    if logged_in {
+        return Ok(req);
     }
+    if let Some(credentials) = credentials {
+        if credentials.token() == env::var("KOJI_SECRET").unwrap_or("".to_string()) {
+            return Ok(req);
+        }
+    }
+    Err((
+        AuthenticationError::new(
+            req.app_data::<bearer::Config>()
+                .cloned()
+                .unwrap_or_default()
+                .into_inner(),
+        )
+        .into(),
+        req,
+    ))
 }
 
 #[actix_web::main]
@@ -130,14 +139,14 @@ pub async fn main() -> io::Result<()> {
                     .service(routes::misc::login)
                     .service(
                         web::scope("instance")
-                            .wrap(HttpAuthentication::bearer(validator))
+                            .wrap(HttpAuthentication::with_fn(validator))
                             .service(routes::instance::all)
                             .service(routes::instance::instance_type)
                             .service(routes::instance::get_area),
                     )
                     .service(
                         web::scope("data")
-                            .wrap(HttpAuthentication::bearer(validator))
+                            .wrap(HttpAuthentication::with_fn(validator))
                             .service(routes::raw_data::all)
                             .service(routes::raw_data::bound)
                             .service(routes::raw_data::by_area)
@@ -145,7 +154,7 @@ pub async fn main() -> io::Result<()> {
                     )
                     .service(
                         web::scope("v1")
-                            .wrap(HttpAuthentication::bearer(validator))
+                            .wrap(HttpAuthentication::with_fn(validator))
                             .service(
                                 web::scope("calc")
                                     .service(routes::calculate::bootstrap)
