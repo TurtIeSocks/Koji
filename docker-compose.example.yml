@@ -7,13 +7,15 @@ services:
     restart: unless-stopped
     environment:
       # Required
-      SCANNER_DB_URL: "mysql://rdm_user:rdm_password@host:3306/rdm_database"
-      KOJI_DB_URL: "mysql://koji_user:koji_password@127.0.0.1:3306/koji_database"
+      SCANNER_DB_URL: mysql://rdm_user:rdm_password@host:3306/rdm_database
+      KOJI_DB_URL: mysql://koji_user:koji_password@127.0.0.1:3306/koji_database
+      KOJI_SECRET: your_super_secret
       # Optional
       #START_LAT: 0
       #START_LON: 0
-      #TILE_SERVER: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png"
+      #TILE_SERVER: https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png
       #MAX_CONNECTIONS: 100
+      #LOG_LEVEL: warn # error | warn | info | debug | trace
       #mem_limit: 2048G
       #mem_reservation: 256M
       #cpus: 2 

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /* eslint-disable no-nested-ternary */
 import type { Map } from 'leaflet'
 import type { Feature, FeatureCollection } from 'geojson'
@@ -28,10 +29,8 @@ export async function getData<T>(
     }
     return body
   } catch (e) {
-    // eslint-disable-next-line no-console
     console.error(e)
     return null
-    // return { error: e instanceof Error ? e.message : 'Unknown Error' }
   }
 }
 
@@ -151,8 +150,25 @@ export async function convert<T = Array<object> | object | string>(
     })
     return await data.json().then((r) => r.data)
   } catch (e) {
-    // eslint-disable-next-line no-console
     console.error(e)
     return '' as unknown as T
+  }
+}
+
+export async function save(url: string, code: string) {
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ area: JSON.parse(code) }),
+    })
+    if (!res.ok) {
+      throw new Error('Unable to save')
+    }
+    return await res.json()
+  } catch (e) {
+    console.error(e)
   }
 }

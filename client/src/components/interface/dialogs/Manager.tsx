@@ -4,6 +4,7 @@ import { Button, Dialog, DialogActions, DialogContent } from '@mui/material'
 import type { Feature, FeatureCollection } from 'geojson'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 
+import { save } from '@services/fetches'
 import DialogHeader from './Header'
 import { Code } from '../Code'
 
@@ -17,18 +18,6 @@ export default function Manager({ open, setOpen, geojson }: Props) {
   const [code, setCode] = React.useState<string>(
     JSON.stringify(geojson, null, 2),
   )
-
-  const save = (endpoint: string) => {
-    fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ area: JSON.parse(code) }),
-    })
-      .then(async (res) => console.log(await res.json()))
-      .catch((err) => console.log(err))
-  }
 
   useDeepCompareEffect(() => {
     setCode(JSON.stringify(geojson, null, 2))
@@ -74,10 +63,22 @@ export default function Manager({ open, setOpen, geojson }: Props) {
         >
           Split Multi Polygons
         </Button>
-        <Button onClick={() => save('/api/v1/geofence/save-koji')}>
+        <Button
+          onClick={() =>
+            save('/api/v1/geofence/save-koji', code).then((res) =>
+              console.log(res),
+            )
+          }
+        >
           Save to Koji
         </Button>
-        <Button onClick={() => save('/api/v1/geofence/save-scanner')}>
+        <Button
+          onClick={() =>
+            save('/api/v1/geofence/save-scanner', code).then((res) =>
+              console.log(res),
+            )
+          }
+        >
           Save to Scanner
         </Button>
         <Button
