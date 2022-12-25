@@ -10,16 +10,10 @@ export default function create(mode: Theme['palette']['mode']) {
       palette: {
         mode,
         // primary: {
-        //   light: '#ff784e',
-        //   main: '#ff5722',
-        //   dark: '#b23c17',
-        //   contrastText: '#fff',
+        //   main: 'rgba(191, 22, 233)',
         // },
         // secondary: {
-        //   light: '#33bfff',
-        //   main: '#00b0ff',
-        //   dark: '#007bb2',
-        //   contrastText: '#fff',
+        //   main: 'rgba(208, 80, 0, 1)',
         // },
       },
       components: {

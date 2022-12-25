@@ -1,0 +1,72 @@
+@import 'https://fonts.googleapis.com/css?family=Kaushan+Script';
+
+.leaflet-control-container .leaflet-top,
+.leaflet-control-container .leaflet-bottom {
+  transform: translate3d(0px, 0px, 0px);
+}
+
+.leaflet-container {
+  position: absolute;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  margin: auto;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+.sr-only {
+  display: none;
+}
+
+body {
+  margin: 0;
+}
+
+.section-process {
+  --gradient-color-1: rgba(191, 22, 233);
+  --gradient-color-2: rgba(208, 80, 0, 1);
+  --gradient-color-3: rgba(239, 0, 143, 0.3);
+  .process-steps-container {
+    .process-step-container {
+      .process-step-title-container {
+        margin-top: -16px;
+        position: relative;
+        .process-step-title,
+        .process-step-title-overlay {
+          font-family: 'Kaushan Script', sans-serif;
+          font-size: 160px;
+          font-weight: 900;
+          margin: 0;
+          margin-right: 40px;
+          line-height: 1.6em;
+          letter-spacing: -4px;
+        }
+        .process-step-title-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: auto;
+          padding-right: 40px;
+          height: 100%;
+          opacity: 1;
+          -webkit-text-fill-color: transparent;
+          -webkit-background-clip: text;
+          background-clip: text;
+          text-shadow: 0em 0em 0.66em var(--gradient-color-3);
+        }
+      }
+
+      &.process-step-1 {
+        .process-step-title-overlay {
+          background-image: linear-gradient(
+            90deg,
+            var(--gradient-color-1),
+            var(--gradient-color-2)
+          );
+        }
+      }
+    }
+  }
+}

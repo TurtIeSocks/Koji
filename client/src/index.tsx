@@ -1,7 +1,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 
-import '@assets/index.css'
+import '@assets/index.scss'
 
 import App from '@components/App'
 import ErrorBoundary from '@components/ErrorBoundary'
