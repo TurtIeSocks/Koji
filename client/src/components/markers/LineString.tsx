@@ -1,9 +1,11 @@
 /* eslint-disable react/destructuring-assignment */
+import LineStringPopup from '@components/popups/LineString'
+import StyledPopup from '@components/popups/Styled'
 import { getColor } from '@services/utils'
 import distance from '@turf/distance'
 import type { Feature, LineString } from 'geojson'
 import * as React from 'react'
-import { Polyline, Popup } from 'react-leaflet'
+import { Polyline } from 'react-leaflet'
 
 export default function KojiLineString({
   feature: {
@@ -52,10 +54,9 @@ export default function KojiLineString({
       snapIgnore
       pane="lines"
     >
-      <Popup>
-        {JSON.stringify({ id, properties }, null, 2)}
-        {dis.toFixed(2)}
-      </Popup>
+      <StyledPopup>
+        <LineStringPopup id={id} properties={properties} dis={dis} />
+      </StyledPopup>
     </Polyline>
   )
 }

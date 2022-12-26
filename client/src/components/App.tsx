@@ -41,10 +41,10 @@ function ConfigAuth() {
 export default function App() {
   const darkMode = useStore((s) => s.darkMode)
 
-  const theme = React.useMemo(
-    () => createTheme(darkMode ? 'dark' : 'light'),
-    [darkMode],
-  )
+  const theme = React.useMemo(() => {
+    const newTheme = createTheme(darkMode ? 'dark' : 'light')
+    return newTheme
+  }, [darkMode])
 
   return (
     <ThemeProvider theme={theme}>

@@ -1,10 +1,11 @@
 /* eslint-disable prefer-arrow-callback */
 import * as React from 'react'
 import type { Feature, Point } from 'geojson'
-import { Circle, Popup } from 'react-leaflet'
-import geohash from 'ngeohash'
+import { Circle } from 'react-leaflet'
 import { useShapes } from '@hooks/useShapes'
 import * as L from 'leaflet'
+import StyledPopup from '@components/popups/Styled'
+import PointPopup from '@components/popups/Point'
 
 export default function KojiPoint({
   feature: {
@@ -49,19 +50,9 @@ export default function KojiPoint({
       pane="circles"
       {...properties}
     >
-      <Popup>
-        <div>
-          {JSON.stringify({ id, properties }, null, 2)}
-          <br />
-          Lat: {lat.toFixed(6)}
-          <br />
-          Lng: {lon.toFixed(6)}
-          <br />
-          Hash: {geohash.encode(lat, lon, 9)}
-          <br />
-          Hash: {geohash.encode(lat, lon, 12)}
-        </div>
-      </Popup>
+      <StyledPopup>
+        <PointPopup id={id} properties={properties} lat={lat} lon={lon} />
+      </StyledPopup>
     </Circle>
   )
 }

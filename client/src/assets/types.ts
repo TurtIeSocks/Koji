@@ -96,6 +96,10 @@ export type ToConvert =
   | Poracle
   | Feature[]
 
+export interface PopupProps {
+  id: Feature['id']
+  properties: Feature['properties']
+}
 // for some reason locate.control @types augmentation is broken
 declare module 'leaflet' {
   interface Layer {

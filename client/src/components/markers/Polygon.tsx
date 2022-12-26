@@ -7,6 +7,7 @@ import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
 import * as L from 'leaflet'
 import PolygonPopup from '@components/popups/Polygon'
+import StyledPopup from '@components/popups/Styled'
 
 export default function KojiPolygon({
   feature,
@@ -92,7 +93,9 @@ export default function KojiPolygon({
       pmIgnore={false}
       pane="polygons"
     >
-      <PolygonPopup feature={feature} loadData={loadData} />
+      <StyledPopup>
+        <PolygonPopup feature={feature} loadData={loadData} />
+      </StyledPopup>
     </Polygon>
   )
 }
