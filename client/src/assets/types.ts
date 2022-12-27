@@ -100,6 +100,17 @@ export interface PopupProps {
   id: Feature['id']
   properties: Feature['properties']
 }
+
+export interface KojiGeofence {
+  id: string
+  name: string
+  area: Feature
+}
+
+export interface ClientGeofence extends KojiGeofence {
+  properties: { key: string; value: string | number | boolean }[]
+}
+
 // for some reason locate.control @types augmentation is broken
 declare module 'leaflet' {
   interface Layer {

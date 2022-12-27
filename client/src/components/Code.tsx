@@ -6,13 +6,24 @@ import { linter } from '@codemirror/lint'
 import { usePersist } from '@hooks/usePersist'
 import { getData } from '@services/fetches'
 
-interface Props {
+interface EditProps {
   code: string
   setCode: (code: string) => void
   textMode?: boolean
+  children?: string
+  maxHeight?: string
+}
+interface ReadProps extends Partial<EditProps> {
+  children: string
 }
 
-export function Code({ code, setCode, textMode = false }: Props) {
+export function Code({
+  code,
+  setCode,
+  textMode = false,
+  children,
+  maxHeight,
+}: EditProps | ReadProps) {
   const darkMode = usePersist((s) => s.darkMode)
 
   const extensions = React.useMemo(
@@ -25,18 +36,21 @@ export function Code({ code, setCode, textMode = false }: Props) {
       key={darkMode.toString()}
       extensions={extensions}
       theme={darkMode ? 'dark' : 'light'}
-      value={code}
+      value={children ?? code}
       onUpdate={async (value) => {
         if (value.docChanged) {
-          const newValue = value.state.doc.toString()
-          if (newValue.startsWith('http')) {
-            const remoteValue = await getData<object>(newValue)
-            setCode(JSON.stringify(remoteValue, null, 2))
-          } else {
-            setCode(newValue)
+          if (setCode) {
+            const newValue = value.state.doc.toString()
+            if (newValue.startsWith('http')) {
+              const remoteValue = await getData<object>(newValue)
+              setCode(JSON.stringify(remoteValue, null, 2))
+            } else {
+              setCode(newValue)
+            }
           }
         }
       }}
+      maxHeight={maxHeight}
     />
   )
 }

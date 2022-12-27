@@ -5,7 +5,7 @@ use entity::sea_orm_active_enums::Type;
 use geojson::GeoJson;
 use migration::Expr;
 use models::ToCollection;
-use sea_orm::{DeleteResult, Order, PaginatorTrait, QueryOrder, Set};
+use sea_orm::{ActiveModelTrait, DeleteResult, Order, PaginatorTrait, QueryOrder, Set};
 use serde::Serialize;
 
 use crate::{entity::geofence, models::scanner::IdName};
@@ -146,7 +146,25 @@ impl Query {
             has_next: page + 1 < total.number_of_pages,
         })
     }
+    pub async fn get_one(
+        db: &DatabaseConnection,
+        id: u32,
+    ) -> Result<Option<geofence::Model>, DbErr> {
+        let record = geofence::Entity::find_by_id(id).one(db).await?;
+        Ok(record)
+    }
 
+    pub async fn update(
+        db: &DatabaseConnection,
+        id: u32,
+        updated_geofence: geofence::Model,
+    ) -> Result<geofence::Model, DbErr> {
+        let old_fence: Option<geofence::Model> = geofence::Entity::find_by_id(id).one(db).await?;
+        let mut old_fence: geofence::ActiveModel = old_fence.unwrap().into();
+        old_fence.name = Set(updated_geofence.name.to_owned());
+        old_fence.area = Set(updated_geofence.area.to_owned());
+        old_fence.update(db).await
+    }
     pub async fn delete(db: &DatabaseConnection, id: u32) -> Result<DeleteResult, DbErr> {
         let record = geofence::Entity::delete_by_id(id).exec(db).await?;
         Ok(record)

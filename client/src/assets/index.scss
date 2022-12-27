@@ -5,17 +5,6 @@
   transform: translate3d(0px, 0px, 0px);
 }
 
-.leaflet-container {
-  position: absolute;
-  max-width: 100% !important;
-  max-height: 100% !important;
-  margin: auto;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-}
-
 .sr-only {
   display: none;
 }
@@ -30,6 +19,7 @@ body {
   --gradient-color-3: rgba(239, 0, 143, 0.3);
   --gradient-color-4: rgb(0, 163, 208);
   --gradient-color-5: rgb(125, 0, 208);
+  --gradient-color-6: rgb(208, 208, 0);
   --degrees: 180deg;
   .process-steps-container {
     .process-step-container {
@@ -39,8 +29,8 @@ body {
         .process-step-title,
         .process-step-title-overlay {
           font-family: 'Kaushan Script', sans-serif;
-          font-size: 140px;
-          font-weight: 900;
+          // font-size: 140px;
+          // font-weight: 900;
           margin: 0;
           margin-right: 46px;
           line-height: 1.6em;
@@ -85,6 +75,15 @@ body {
             var(--degrees),
             var(--gradient-color-4),
             var(--gradient-color-5)
+          );
+        }
+      }
+      &.error {
+        .process-step-title-overlay {
+          background-image: linear-gradient(
+            var(--degrees),
+            var(--gradient-color-6),
+            var(--gradient-color-2)
           );
         }
       }

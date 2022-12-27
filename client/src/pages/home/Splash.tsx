@@ -48,10 +48,14 @@ export default function Splash() {
   return (
     <Grid container component={Paper} height="100vh" square>
       <GridLink darkMode={darkMode} to="/map">
-        <GradientText className="map">Map</GradientText>
+        <GradientText className="map" variant="h1">
+          Map
+        </GradientText>
       </GridLink>
       <GridLink darkMode={darkMode} to="/admin">
-        <GradientText className="admin">Admin</GradientText>
+        <GradientText className="admin" variant="h1">
+          Admin
+        </GradientText>
       </GridLink>
       <Box sx={{ position: 'absolute', top: 10, right: 10 }}>
         <ThemeToggle />

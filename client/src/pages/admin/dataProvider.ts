@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable import/no-extraneous-dependencies */
 import simpleRestProvider from 'ra-data-simple-rest'
@@ -40,7 +41,7 @@ const getList = async (
     sortBy: params.sort.field,
     order: params.sort.order,
   }
-  const url = `/api/internal/${resource}?${stringify(queryParams)}`
+  const url = `/api/internal/admin/${resource}?${stringify(queryParams)}`
 
   const { json } = await httpClient(url, {
     headers: new Headers({
@@ -61,7 +62,7 @@ const getList = async (
 export const dataProvider: typeof defaultProvider = {
   ...defaultProvider,
   getMany: async (resource) => {
-    const url = `/api/internal/${resource}`
+    const url = `/api/internal/admin/${resource}`
     const options = {}
 
     const { json } = await httpClient(url, options)
@@ -73,18 +74,37 @@ export const dataProvider: typeof defaultProvider = {
   getManyReference: getList,
   getList,
   getOne: (resource, params) =>
-    httpClient(`/api/internal/${resource}/${params.id}`).then(({ json }) => ({
-      data: json,
-    })),
-  create: (resource, params) =>
-    httpClient(`/${resource}`, {
+    httpClient(`/api/internal/admin/${resource}/${params.id}`).then(
+      ({ json }) => {
+        return resource === 'geofence'
+          ? {
+              data: {
+                ...json.data,
+                properties: Object.entries(
+                  json.data?.area?.properties || {},
+                ).map(([key, value]) => ({
+                  key,
+                  value,
+                })),
+              } as any,
+            }
+          : { data: json.data }
+      },
+    ),
+  create: async (resource, params) => {
+    const { json } = await httpClient(`/${resource}`, {
       method: 'POST',
-      body: JSON.stringify(params.data),
-    }).then(({ json }) => ({
+      body: JSON.stringify({
+        area: params.data.area,
+        instance: params.data.name,
+      }),
+    })
+    return {
       data: { ...json, id: 'id' in json ? json.id : '0' },
-    })),
+    }
+  },
   update: (resource, params) =>
-    httpClient(`/api/internal/${resource}/${params.id}`, {
+    httpClient(`/api/internal/admin/${resource}/${params.id}`, {
       method: 'PATCH',
       body: JSON.stringify(params.data),
     }).then(({ json }) => {
@@ -100,7 +120,7 @@ export const dataProvider: typeof defaultProvider = {
       return { data: { ...json, id: 'id' in json ? json.id : params.id } }
     }),
   delete: (resource, params) =>
-    httpClient(`/api/internal/${resource}/${params.id}`, {
+    httpClient(`/api/internal/admin/${resource}/${params.id}`, {
       method: 'DELETE',
       headers: new Headers({
         'Content-Type': 'application/json',
@@ -110,7 +130,7 @@ export const dataProvider: typeof defaultProvider = {
   // deleteMany: async (resource, params) => {
   //   const results = await Promise.allSettled(
   //     params.ids.map((id) =>
-  //       httpClient(`/api/internal/${resource}/${id}`, {
+  //       httpClient(`/api/internal/admin/${resource}/${id}`, {
   //         method: 'DELETE',
   //         headers: new Headers({
   //           'Content-Type': 'application/json',

@@ -16,6 +16,11 @@ export default function create(mode: Theme['palette']['mode']) {
         //   main: 'rgba(208, 80, 0, 1)',
         // },
       },
+      typography: {
+        h1: {
+          fontSize: '10rem',
+        },
+      },
       components: {
         MuiGrid2: {
           defaultProps: {
@@ -27,6 +32,7 @@ export default function create(mode: Theme['palette']['mode']) {
         MuiPaper: {
           defaultProps: {
             elevation: 0,
+            square: true,
           },
         },
       },

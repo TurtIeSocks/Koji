@@ -1,12 +1,13 @@
 import * as React from 'react'
-import { useTheme } from '@mui/material'
+import { Typography, type TypographyProps, useTheme } from '@mui/material'
 
 interface Props {
   children: React.ReactNode
-  className: 'koji' | 'map' | 'admin'
+  className: 'koji' | 'map' | 'admin' | 'error'
+  variant?: TypographyProps['variant']
 }
 
-export default function GradientText({ children, className }: Props) {
+export default function GradientText({ children, className, variant }: Props) {
   const theme = useTheme()
   return (
     <div className="section-process">
@@ -14,13 +15,19 @@ export default function GradientText({ children, className }: Props) {
         <div className="process-steps-container container-medium with-padding">
           <div className={`process-step-container ${className}`}>
             <div className="process-step-title-container">
-              <h1
+              <Typography
+                variant={variant}
                 className="process-step-title"
                 style={{ color: theme.palette.background.paper }}
               >
                 {children}
-              </h1>
-              <div className="process-step-title-overlay">{children}</div>
+              </Typography>
+              <Typography
+                variant={variant}
+                className="process-step-title-overlay"
+              >
+                {children}
+              </Typography>
             </div>
           </div>
         </div>

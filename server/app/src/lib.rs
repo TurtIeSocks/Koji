@@ -133,7 +133,14 @@ pub async fn main() -> io::Result<()> {
                                     .service(routes::raw_data::by_area)
                                     .service(routes::raw_data::area_stats),
                             )
-                            .service(routes::manage::get_geofence),
+                            .service(
+                                web::scope("/admin")
+                                    .service(routes::admin::geofence::get_all)
+                                    .service(routes::admin::geofence::get_one)
+                                    .service(routes::admin::geofence::post_geofence)
+                                    .service(routes::admin::geofence::patch_geofence)
+                                    .service(routes::admin::geofence::delete_geofence),
+                            ),
                     )
                     // public api
                     .service(

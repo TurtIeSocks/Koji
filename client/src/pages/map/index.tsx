@@ -1,47 +1,46 @@
 import React from 'react'
-import { Box, CssBaseline } from '@mui/material'
-import { MapContainer, Pane, TileLayer } from 'react-leaflet'
+import { Box } from '@mui/material'
+import { Pane } from 'react-leaflet'
 
 import { usePersist } from '@hooks/usePersist'
-import { useStatic } from '@hooks/useStatic'
 
-import DrawerIndex from '../../components/drawer'
-import Main from '../../components/styled/Main'
+import Map from '@components/Map'
+import ErrorBoundary from '@components/ErrorBoundary'
+import DrawerIndex from '@components/drawer'
+import Main from '@components/styled/Main'
+
 import Markers from './markers'
 import Interface from './interface'
-import ErrorBoundary from '../../components/ErrorBoundary'
 import Features from './markers/Features'
 
-export default function Map() {
+export default function MapWrapper() {
   const drawer = usePersist((s) => s.drawer)
-  const { location, zoom } = usePersist.getState()
-  const tileServer = useStatic((s) => s.tileServer)
 
   return (
     <Box sx={{ display: 'flex' }}>
-      <CssBaseline />
       <ErrorBoundary>
         <DrawerIndex />
       </ErrorBoundary>
-      <Main open={drawer} drawerWidth={280}>
-        <MapContainer
-          key="map"
-          center={location}
-          zoom={zoom}
-          zoomControl={false}
+      <Main open={drawer} drawerWidth={450}>
+        <Map
+          style={{
+            position: 'absolute',
+            maxWidth: '100% !important',
+            maxHeight: '100% !important',
+            margin: 'auto',
+            top: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
+          }}
         >
-          <TileLayer
-            key={tileServer}
-            attribution="<a href='https://github.com/TurtIeSocks/Koji' noreferrer='true' target='_blank'>Kōji - TurtleSocks</a>"
-            url={tileServer}
-          />
           <Pane name="circles" style={{ zIndex: 600 }} />
           <Pane name="lines" style={{ zIndex: 550 }} />
           <Pane name="polygons" style={{ zIndex: 500 }} />
           <Markers />
           <Interface />
           <Features />
-        </MapContainer>
+        </Map>
       </Main>
     </Box>
   )

@@ -10,13 +10,13 @@ import {
   TopToolbar,
 } from 'react-admin'
 
-function ListActions() {
-  return (
-    <TopToolbar>
-      <CreateButton />
-    </TopToolbar>
-  )
-}
+// function ListActions() {
+//   return (
+//     <TopToolbar>
+//       <CreateButton />
+//     </TopToolbar>
+//   )
+// }
 
 const defaultSort = { field: 'id', order: 'ASC' }
 
@@ -29,7 +29,7 @@ export default function GeofenceList() {
     <List
       pagination={<AreaPagination />}
       title="Geofences"
-      actions={<ListActions />}
+      // actions={<ListActions />}
       perPage={25}
       sort={defaultSort}
     >

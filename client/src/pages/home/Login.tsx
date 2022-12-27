@@ -53,7 +53,9 @@ export default function Login() {
       elevation={0}
     >
       <Grid2>
-        <GradientText className="koji">Kōji</GradientText>
+        <GradientText className="koji" variant="h1">
+          Kōji
+        </GradientText>
       </Grid2>
       <Grid2 mt={8}>
         <form

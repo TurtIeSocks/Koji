@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { ThemeProvider } from '@mui/material'
+import { CssBaseline, ThemeProvider } from '@mui/material'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 
 import createTheme from '@assets/theme'
@@ -8,6 +8,7 @@ import { usePersist } from '@hooks/usePersist'
 import Home from '@pages/home'
 import Map from '@pages/map'
 import AdminPanel from '@pages/admin'
+import ErrorPage from '@pages/Error'
 
 const router = createBrowserRouter([
   {
@@ -22,6 +23,10 @@ const router = createBrowserRouter([
     path: '/admin/*',
     element: <AdminPanel />,
   },
+  {
+    path: '*',
+    element: <ErrorPage />,
+  },
 ])
 
 export default function App() {
@@ -35,6 +40,7 @@ export default function App() {
 
   return (
     <ThemeProvider theme={theme}>
+      <CssBaseline />
       <RouterProvider router={router} />
     </ThemeProvider>
   )
