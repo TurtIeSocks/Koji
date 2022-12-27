@@ -25,9 +25,10 @@ export default defineConfig(({ mode }) => ({
   publicDir: 'public',
   resolve: {
     alias: {
-      '@components': resolve(__dirname, './src/components'),
       '@assets': resolve(__dirname, './src/assets'),
+      '@components': resolve(__dirname, './src/components'),
       '@hooks': resolve(__dirname, './src/hooks'),
+      '@pages': resolve(__dirname, './src/pages'),
       '@services': resolve(__dirname, './src/services'),
     },
   },

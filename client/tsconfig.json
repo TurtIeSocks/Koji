@@ -30,11 +30,14 @@
 			"@components/*": [
 				"./components/*"
 			],
-			"@services/*": [
-				"./services/*"
-			],
 			"@hooks/*": [
 				"./hooks/*"
+			],
+			"@pages/*": [
+				"./pages/*"
+			],
+			"@services/*": [
+				"./services/*"
 			],
 		},
 	},

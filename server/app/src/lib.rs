@@ -1,9 +1,13 @@
 use std::{env, io};
 
-use actix_files::Files;
+use actix_files::{Files, NamedFile};
 
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
-use actix_web::{cookie::Key, middleware, web, App, HttpServer};
+use actix_web::{
+    cookie::Key,
+    dev::{ServiceRequest, ServiceResponse},
+    middleware, web, App, HttpServer,
+};
 
 use actix_web_httpauth::middleware::HttpAuthentication;
 use geojson::{Feature, FeatureCollection};
@@ -85,6 +89,17 @@ pub async fn main() -> io::Result<()> {
     }
     .to_string();
 
+    let path = || {
+        if env::var("HOME").unwrap_or("".to_string()).eq("/root") {
+            // docker path
+            "./dist"
+        } else {
+            // repo path
+            "../client/dist"
+        }
+        .to_string()
+    };
+
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(databases.clone()))
@@ -98,21 +113,21 @@ pub async fn main() -> io::Result<()> {
                     .build(),
             )
             .service(
-                web::scope("api")
+                web::scope("/api")
                     .service(routes::misc::config)
                     .service(routes::misc::login)
                     // private api
                     .service(
-                        web::scope("internal")
+                        web::scope("/internal")
                             .wrap(HttpAuthentication::with_fn(auth::pri_validator))
                             .service(
-                                web::scope("instance")
+                                web::scope("/instance")
                                     .service(routes::instance::all)
                                     .service(routes::instance::instance_type)
                                     .service(routes::instance::get_area),
                             )
                             .service(
-                                web::scope("data")
+                                web::scope("/data")
                                     .service(routes::raw_data::all)
                                     .service(routes::raw_data::bound)
                                     .service(routes::raw_data::by_area)
@@ -122,16 +137,16 @@ pub async fn main() -> io::Result<()> {
                     )
                     // public api
                     .service(
-                        web::scope("v1")
+                        web::scope("/v1")
                             .wrap(HttpAuthentication::with_fn(auth::pub_validator))
                             .service(
-                                web::scope("calc")
+                                web::scope("/calc")
                                     .service(routes::calculate::bootstrap)
                                     .service(routes::calculate::cluster),
                             )
-                            .service(web::scope("convert").service(routes::convert::convert_data))
+                            .service(web::scope("/convert").service(routes::convert::convert_data))
                             .service(
-                                web::scope("geofence")
+                                web::scope("/geofence")
                                     .service(routes::geofence::all)
                                     .service(routes::geofence::save_koji)
                                     .service(routes::geofence::save_scanner),
@@ -139,19 +154,17 @@ pub async fn main() -> io::Result<()> {
                     ),
             )
             .service(
-                Files::new(
-                    "/",
-                    if env::var("HOME").unwrap_or("".to_string()).eq("/root") {
-                        // docker path
-                        "./dist"
-                    } else {
-                        // repo path
-                        "../client/dist"
-                    }
-                    .to_string(),
-                )
-                .index_file("index.html")
-                .prefer_utf8(true),
+                Files::new("/", path())
+                    .index_file("index.html")
+                    .default_handler(move |req: ServiceRequest| {
+                        // "enables" wildcards for react-router/react-admin
+                        let (http_req, _) = req.into_parts();
+                        async move {
+                            let response = NamedFile::open(format!("{}/index.html", path()))?
+                                .into_response(&http_req);
+                            Ok(ServiceResponse::new(http_req, response))
+                        }
+                    }),
             )
     })
     .bind((

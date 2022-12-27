@@ -3,9 +3,10 @@ use super::*;
 use chrono::Utc;
 use entity::sea_orm_active_enums::Type;
 use geojson::GeoJson;
-use migration::{Expr, Order};
+use migration::Expr;
 use models::ToCollection;
-use sea_orm::{QueryOrder, Set};
+use sea_orm::{DeleteResult, Order, PaginatorTrait, QueryOrder, Set};
+use serde::Serialize;
 
 use crate::{entity::geofence, models::scanner::IdName};
 
@@ -100,4 +101,54 @@ pub async fn save(
         geofence::Entity::insert_many(inserts).exec(conn).await?;
     }
     Ok((insert_len, update_len))
+}
+
+#[derive(Debug, Serialize)]
+pub struct PaginateResults<T> {
+    results: Vec<T>,
+    total: usize,
+    has_next: bool,
+    has_prev: bool,
+}
+
+pub struct Query;
+
+impl Query {
+    // pub async fn find_post_by_id(
+    //     db: &DatabaseConnection,
+    //     id: i32,
+    // ) -> Result<Option<geofence::Model>, DbErr> {
+    //     geofence::Entity::find_by_id(id).one(db).await
+    // }
+
+    /// If ok, returns (post models, num pages).
+    pub async fn paginate(
+        db: &DatabaseConnection,
+        page: usize,
+        posts_per_page: usize,
+        sort_by: geofence::Column,
+        order_by: Order,
+    ) -> Result<PaginateResults<geofence::Model>, DbErr> {
+        let paginator = geofence::Entity::find()
+            .order_by(sort_by, order_by)
+            .paginate(db, posts_per_page);
+        let total = paginator.num_items_and_pages().await?;
+
+        let results = if let Ok(stuff) = paginator.fetch_page(page).await.map(|p| p) {
+            stuff
+        } else {
+            vec![]
+        };
+        Ok(PaginateResults {
+            results,
+            total: total.number_of_items,
+            has_prev: total.number_of_pages == page + 1,
+            has_next: page + 1 < total.number_of_pages,
+        })
+    }
+
+    pub async fn delete(db: &DatabaseConnection, id: u32) -> Result<DeleteResult, DbErr> {
+        let record = geofence::Entity::delete_by_id(id).exec(db).await?;
+        Ok(record)
+    }
 }

@@ -25,9 +25,12 @@ body {
 }
 
 .section-process {
-  --gradient-color-1: rgba(191, 22, 233);
+  --gradient-color-1: rgba(191, 22, 233, 1);
   --gradient-color-2: rgba(208, 80, 0, 1);
   --gradient-color-3: rgba(239, 0, 143, 0.3);
+  --gradient-color-4: rgb(0, 163, 208);
+  --gradient-color-5: rgb(125, 0, 208);
+  --degrees: 180deg;
   .process-steps-container {
     .process-step-container {
       .process-step-title-container {
@@ -36,7 +39,7 @@ body {
         .process-step-title,
         .process-step-title-overlay {
           font-family: 'Kaushan Script', sans-serif;
-          font-size: 160px;
+          font-size: 140px;
           font-weight: 900;
           margin: 0;
           margin-right: 46px;
@@ -58,7 +61,7 @@ body {
         }
       }
 
-      &.process-step-1 {
+      &.koji {
         .process-step-title-overlay {
           background-image: linear-gradient(
             90deg,
@@ -67,6 +70,30 @@ body {
           );
         }
       }
+      &.map {
+        .process-step-title-overlay {
+          background-image: linear-gradient(
+            var(--degrees),
+            var(--gradient-color-5),
+            var(--gradient-color-4)
+          );
+        }
+      }
+      &.admin {
+        .process-step-title-overlay {
+          background-image: linear-gradient(
+            var(--degrees),
+            var(--gradient-color-4),
+            var(--gradient-color-5)
+          );
+        }
+      }
     }
+  }
+}
+
+@media screen and (min-width: 900px) {
+  .section-process {
+    --degrees: 90deg;
   }
 }

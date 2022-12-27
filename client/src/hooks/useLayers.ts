@@ -1,11 +1,11 @@
 import { useEffect } from 'react'
 import { useMap } from 'react-leaflet'
-import { useStore } from './useStore'
+import { usePersist } from './usePersist'
 
 export default function useLayers() {
-  const showCircles = useStore((s) => s.showCircles)
-  const showLines = useStore((s) => s.showLines)
-  const showPolygons = useStore((s) => s.showPolygons)
+  const showCircles = usePersist((s) => s.showCircles)
+  const showLines = usePersist((s) => s.showLines)
+  const showPolygons = usePersist((s) => s.showPolygons)
 
   const map = useMap()
 
