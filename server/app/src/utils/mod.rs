@@ -9,6 +9,7 @@ pub mod drawing;
 pub mod normalize;
 pub mod response;
 pub mod write_debug;
+pub mod auth;
 // pub mod routing;
 
 pub fn sql_raw(area: &FeatureCollection) -> String {
