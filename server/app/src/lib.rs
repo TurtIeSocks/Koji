@@ -23,7 +23,7 @@ use utils::auth;
 
 #[actix_web::main]
 pub async fn main() -> io::Result<()> {
-    dotenv::dotenv().ok();
+    dotenv::from_filename(env::var("ENV").unwrap_or(".env".to_string())).ok();
     // error | warn | info | debug | trace
     env_logger::init_from_env(
         env_logger::Env::new()
