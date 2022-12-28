@@ -55,7 +55,7 @@
     "@types/shapefile": "^0.6.1",
     "@typescript-eslint/eslint-plugin": "^5.45.1",
     "@typescript-eslint/parser": "^5.45.1",
-    "@vitejs/plugin-react": "^2.2.0",
+    "@vitejs/plugin-react": "^3.0.0",
     "eslint": "^8.29.0",
     "eslint-config-airbnb": "^19.0.4",
     "eslint-config-airbnb-typescript": "^17.0.0",
@@ -69,7 +69,7 @@
     "prettier": "^2.8.0",
     "sass": "^1.57.1",
     "typescript": "^4.9.3",
-    "vite": "^3.2.5",
-    "vite-plugin-checker": "^0.5.1"
+    "vite": "^4.0.3",
+    "vite-plugin-checker": "^0.5.3"
   }
 }

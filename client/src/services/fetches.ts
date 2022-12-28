@@ -105,7 +105,7 @@ export async function getMarkers(
           ).length
         : true)
         ? fetch(
-            `/api/internal/data/${data === 'all' ? 'all' : 'area'}/${category}`,
+            `/internal/data/${data === 'all' ? 'all' : 'area'}/${category}`,
             {
               method: 'POST',
               headers: {

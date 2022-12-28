@@ -19,13 +19,13 @@ function GridLink({ darkMode, to, children }: Props) {
       container
       item
       xs={12}
-      md={6}
+      sm={6}
       component={Link}
       justifyContent="center"
       alignItems="center"
       to={to}
       sx={{
-        height: { xs: '50vh', md: '100vh' },
+        height: { xs: '50vh', sm: '100vh' },
         transition: '0.5s ease',
         '&:hover': {
           background: darkMode

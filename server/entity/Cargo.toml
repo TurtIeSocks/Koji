@@ -9,6 +9,7 @@ name = "entity"
 path = "src/lib.rs"
 
 [dependencies]
+chrono = { version = "0.4.19", features = ["serde"] }
 sea-orm = { version = "0.9.3", features = [
   "sqlx-mysql",
   "runtime-actix-native-tls",

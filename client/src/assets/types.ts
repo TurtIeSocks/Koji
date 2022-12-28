@@ -102,7 +102,7 @@ export interface PopupProps {
 }
 
 export interface KojiGeofence {
-  id: string
+  id: number
   name: string
   area: Feature
 }
@@ -110,6 +110,15 @@ export interface KojiGeofence {
 export interface ClientGeofence extends KojiGeofence {
   properties: { key: string; value: string | number | boolean }[]
 }
+
+export interface KojiProject {
+  id: number
+  name: string
+}
+
+// export interface ClientProject extends KojiProject {
+
+// }
 
 // for some reason locate.control @types augmentation is broken
 declare module 'leaflet' {

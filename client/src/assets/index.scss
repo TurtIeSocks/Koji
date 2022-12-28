@@ -74,7 +74,7 @@ body {
           background-image: linear-gradient(
             var(--degrees),
             var(--gradient-color-4),
-            var(--gradient-color-5)
+            var(--gradient-color-2)
           );
         }
       }
@@ -91,7 +91,7 @@ body {
   }
 }
 
-@media screen and (min-width: 900px) {
+@media screen and (min-width: 600px) {
   .section-process {
     --degrees: 90deg;
   }

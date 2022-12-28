@@ -57,6 +57,21 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         secure: false,
       },
+      '/internal': {
+        target: `http://0.0.0.0:8080`,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/config': {
+        target: `http://0.0.0.0:8080`,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/login': {
+        target: `http://0.0.0.0:8080`,
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
 }))

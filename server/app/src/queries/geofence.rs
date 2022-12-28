@@ -114,14 +114,6 @@ pub struct PaginateResults<T> {
 pub struct Query;
 
 impl Query {
-    // pub async fn find_post_by_id(
-    //     db: &DatabaseConnection,
-    //     id: i32,
-    // ) -> Result<Option<geofence::Model>, DbErr> {
-    //     geofence::Entity::find_by_id(id).one(db).await
-    // }
-
-    /// If ok, returns (post models, num pages).
     pub async fn paginate(
         db: &DatabaseConnection,
         page: usize,

@@ -1,27 +1,25 @@
 use super::*;
 
-use entity::geofence as geoEntity;
+use entity::project;
 use migration::Order;
-use models::api::{Args, ArgsUnwrapped};
 use serde_json::json;
 
 use crate::models::api::Response;
 use crate::models::KojiDb;
-use crate::queries::geofence;
 
-#[get("/geofence")]
+#[get("/project")]
 async fn get_all(
     conn: web::Data<KojiDb>,
     url: web::Query<AdminReq>,
 ) -> Result<HttpResponse, Error> {
     let url = url.into_inner();
 
-    let geofences = geofence::Query::paginate(
+    let projects = project::Query::paginate(
         &conn.koji_db,
         url.page,
         url.per_page,
         match url.order.to_lowercase() {
-            _ => geoEntity::Column::Name,
+            _ => project::Column::Name,
         },
         if url.order.to_lowercase().eq("asc") {
             Order::Asc
@@ -33,7 +31,7 @@ async fn get_all(
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(geofences)),
+        data: Some(json!(projects)),
         message: "Success".to_string(),
         status: "ok".to_string(),
         stats: None,
@@ -41,19 +39,19 @@ async fn get_all(
     }))
 }
 
-#[get("/geofence/{id}")]
+#[get("/project/{id}")]
 async fn get_one(
     conn: web::Data<KojiDb>,
     id: actix_web::web::Path<u32>,
 ) -> Result<HttpResponse, Error> {
     let id = id.into_inner();
 
-    let geofence = geofence::Query::get_one(&conn.koji_db, id)
+    let project = project::Query::get_one(&conn.koji_db, id)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(geofence)),
+        data: Some(json!(project)),
         message: "Success".to_string(),
         status: "ok".to_string(),
         stats: None,
@@ -61,21 +59,18 @@ async fn get_one(
     }))
 }
 
-#[post("/geofence/{id}")]
+#[post("/project")]
 async fn create(
     conn: web::Data<KojiDb>,
-    // id: actix_web::web::Path<u32>,
-    payload: web::Json<Args>,
+    payload: web::Json<project::Model>,
 ) -> Result<HttpResponse, Error> {
-    // let id = id.into_inner();
-    let ArgsUnwrapped { area, .. } = payload.into_inner().init(Some("bootstrap"));
-
-    let (inserted, updated) = geofence::save(&conn.koji_db, area)
+    let project = payload.into_inner();
+    let new_project = project::Query::create(&conn.koji_db, project)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!({ "updated": updated, "inserted": inserted })),
+        data: Some(json!(new_project)),
         message: "Success".to_string(),
         status: "ok".to_string(),
         stats: None,
@@ -83,16 +78,16 @@ async fn create(
     }))
 }
 
-#[patch("/geofence/{id}")]
+#[patch("/project/{id}")]
 async fn update(
     conn: web::Data<KojiDb>,
     id: actix_web::web::Path<u32>,
-    payload: web::Json<geoEntity::Model>,
+    payload: web::Json<project::Model>,
 ) -> Result<HttpResponse, Error> {
     let id = id.into_inner();
-    let updated_geofence = payload.into_inner();
+    let updated_project = payload.into_inner();
 
-    let result = geofence::Query::update(&conn.koji_db, id, updated_geofence)
+    let result = project::Query::update(&conn.koji_db, id, updated_project)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -105,19 +100,19 @@ async fn update(
     }))
 }
 
-#[delete("/geofence/{id}")]
+#[delete("/project/{id}")]
 async fn remove(
     conn: web::Data<KojiDb>,
     id: actix_web::web::Path<u32>,
 ) -> Result<HttpResponse, Error> {
     let id = id.into_inner();
 
-    let geofences = geofence::Query::delete(&conn.koji_db, id)
+    let projects = project::Query::delete(&conn.koji_db, id)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(geofences.rows_affected)),
+        data: Some(json!(projects.rows_affected)),
         message: "Success".to_string(),
         status: "ok".to_string(),
         stats: None,

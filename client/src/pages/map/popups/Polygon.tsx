@@ -51,12 +51,9 @@ export default function PolygonPopup({
     if (!feature.geometry.coordinates.length || !loadData) return
     Promise.allSettled(
       ['pokestop', 'gym', 'spawnpoint'].map((category) =>
-        getData<{ total: number }>(
-          `/api/internal/data/area_stats/${category}`,
-          {
-            area: feature,
-          },
-        ).then((data) =>
+        getData<{ total: number }>(`/internal/data/area_stats/${category}`, {
+          area: feature,
+        }).then((data) =>
           setActive((prev) => ({
             ...prev,
             [category]: data?.total ?? (data || 0),

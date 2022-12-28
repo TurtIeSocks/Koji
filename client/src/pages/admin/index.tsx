@@ -2,12 +2,17 @@ import * as React from 'react'
 import { Admin, RaThemeOptions, Resource, defaultTheme } from 'react-admin'
 import { useTheme } from '@mui/material'
 import Map from '@mui/icons-material/Map'
+import AccountTree from '@mui/icons-material/AccountTree'
 
 import { dataProvider } from './dataProvider'
 import Layout from './Layout'
 import GeofenceList from './geofence/GeofenceList'
 import GeofenceShow from './geofence/GeofenceShow'
 import GeofenceEdit from './geofence/GeofenceEdit'
+import ProjectList from './project/ProjectLIst'
+import ProjectEdit from './project/ProjectEdit'
+import ProjectShow from './project/ProjectShow'
+import ProjectCreate from './project/ProjectCreate'
 
 export default function AdminPanel() {
   const theme = useTheme()
@@ -29,6 +34,14 @@ export default function AdminPanel() {
         list={GeofenceList}
         edit={GeofenceEdit}
         show={GeofenceShow}
+      />
+      <Resource
+        name="project"
+        icon={AccountTree}
+        list={ProjectList}
+        edit={ProjectEdit}
+        show={ProjectShow}
+        create={ProjectCreate}
       />
     </Admin>
   )

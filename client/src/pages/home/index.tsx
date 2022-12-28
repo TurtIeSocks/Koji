@@ -16,7 +16,7 @@ export default function Home() {
   const [fetched, setFetched] = React.useState<boolean>(false)
 
   React.useEffect(() => {
-    getData<Config>('/api/config').then((res) => {
+    getData<Config>('/config').then((res) => {
       if (res) {
         if (location[0] === 0 && location[1] === 0) {
           setStore('location', [res.start_lat, res.start_lon])
