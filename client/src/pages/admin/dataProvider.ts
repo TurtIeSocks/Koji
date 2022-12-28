@@ -67,7 +67,6 @@ export const dataProvider: typeof defaultProvider = {
   getMany: async (resource) => {
     const url = `/internal/admin/${resource}/all`
     const options = {}
-
     const { json } = await httpClient(url, options)
     return {
       data: json.data,
@@ -139,20 +138,25 @@ export const dataProvider: typeof defaultProvider = {
         Accept: 'application/json',
       }),
     }).then(({ json }) => ({ data: json })),
-  // deleteMany: async (resource, params) => {
-  //   const results = await Promise.allSettled(
-  //     params.ids.map((id) =>
-  //       httpClient(`/internal/admin/${resource}/${id}`, {
-  //         method: 'DELETE',
-  //         headers: new Headers({
-  //           'Content-Type': 'application/json',
-  //           Accept: 'application/json',
-  //         }),
-  //       }).then(({ json }) => ({ data: json })),
-  //     ),
-  //   )
-  //   return results
-  //     .filter((result) => result.status === 'fulfilled')
-  //     .map((result) => (result as PromiseFulfilledResult<{ data: any }>).value)
-  // },
+  deleteMany: async (resource, params) => {
+    const results = await Promise.allSettled(
+      params.ids.map((id) =>
+        httpClient(`/internal/admin/${resource}/${id}`, {
+          method: 'DELETE',
+          headers: new Headers({
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          }),
+        }).then(({ json }) => ({ data: json })),
+      ),
+    )
+    return {
+      data: results
+        .filter((result) => result.status === 'fulfilled')
+        .map(
+          (result) =>
+            (result as PromiseFulfilledResult<{ data: any }>).value.data,
+        ),
+    }
+  },
 }

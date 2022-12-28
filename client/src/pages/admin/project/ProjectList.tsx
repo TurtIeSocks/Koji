@@ -1,6 +1,6 @@
 import * as React from 'react'
 import {
-  // CreateButton,
+  CreateButton,
   Datagrid,
   DeleteWithUndoButton,
   EditButton,
@@ -8,16 +8,17 @@ import {
   NumberField,
   Pagination,
   TextField,
-  // TopToolbar,
+  TopToolbar,
 } from 'react-admin'
+import { BulkAssignButton } from '../actions/bulk/AssignButton'
 
-// function ListActions() {
-//   return (
-//     <TopToolbar>
-//       <CreateButton />
-//     </TopToolbar>
-//   )
-// }
+function ListActions() {
+  return (
+    <TopToolbar>
+      <CreateButton />
+    </TopToolbar>
+  )
+}
 
 const defaultSort = { field: 'id', order: 'ASC' }
 
@@ -30,11 +31,14 @@ export default function ProjectList() {
     <List
       pagination={<AreaPagination />}
       title="Projects"
-      // actions={<ListActions />}
+      actions={<ListActions />}
       perPage={25}
       sort={defaultSort}
     >
-      <Datagrid rowClick="show" bulkActionButtons={false}>
+      <Datagrid
+        rowClick="show"
+        bulkActionButtons={<BulkAssignButton resource="project" />}
+      >
         <TextField source="name" />
         <NumberField source="related.length" label="Geofences" />
         <EditButton />

@@ -1,6 +1,5 @@
 import * as React from 'react'
 import {
-  // CreateButton,
   Datagrid,
   DeleteWithUndoButton,
   EditButton,
@@ -8,16 +7,8 @@ import {
   NumberField,
   Pagination,
   TextField,
-  // TopToolbar,
 } from 'react-admin'
-
-// function ListActions() {
-//   return (
-//     <TopToolbar>
-//       <CreateButton />
-//     </TopToolbar>
-//   )
-// }
+import { BulkAssignButton } from '../actions/bulk/AssignButton'
 
 const defaultSort = { field: 'id', order: 'ASC' }
 
@@ -30,11 +21,13 @@ export default function GeofenceList() {
     <List
       pagination={<AreaPagination />}
       title="Geofences"
-      // actions={<ListActions />}
       perPage={25}
       sort={defaultSort}
     >
-      <Datagrid rowClick="show" bulkActionButtons={false}>
+      <Datagrid
+        rowClick="show"
+        bulkActionButtons={<BulkAssignButton resource="geofence" />}
+      >
         <TextField source="name" />
         <NumberField source="related.length" label="Projects" />
         <EditButton />
