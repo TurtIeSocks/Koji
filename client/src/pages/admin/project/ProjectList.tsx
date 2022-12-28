@@ -5,6 +5,7 @@ import {
   DeleteWithUndoButton,
   EditButton,
   List,
+  NumberField,
   Pagination,
   TextField,
   // TopToolbar,
@@ -35,6 +36,7 @@ export default function ProjectList() {
     >
       <Datagrid rowClick="show" bulkActionButtons={false}>
         <TextField source="name" />
+        <NumberField source="related.length" label="Geofences" />
         <EditButton />
         <DeleteWithUndoButton />
       </Datagrid>

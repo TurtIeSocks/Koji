@@ -1,8 +1,11 @@
 import * as React from 'react'
 import {
+  ChipField,
   FunctionField,
+  ReferenceArrayField,
   Show,
   SimpleShowLayout,
+  SingleFieldList,
   TextField,
   useRecordContext,
 } from 'react-admin'
@@ -32,6 +35,15 @@ export default function GeofenceShow() {
         <TextField source="name" />
         <TextField source="area.geometry.type" label="Geometry Type" />
         <PropertyFields />
+        <ReferenceArrayField
+          label="Projects"
+          source="related"
+          reference="project"
+        >
+          <SingleFieldList>
+            <ChipField source="name" />
+          </SingleFieldList>
+        </ReferenceArrayField>
         <FunctionField<KojiGeofence>
           label="Area"
           render={(fence) => {

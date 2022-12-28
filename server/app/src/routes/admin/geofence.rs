@@ -1,27 +1,26 @@
 use super::*;
 
-use entity::geofence as geoEntity;
+use entity::geofence;
 use migration::Order;
-use models::api::{Args, ArgsUnwrapped};
 use serde_json::json;
 
 use crate::models::api::Response;
 use crate::models::KojiDb;
-use crate::queries::geofence;
 
 #[get("/geofence")]
-async fn get_all(
+async fn paginate(
     conn: web::Data<KojiDb>,
     url: web::Query<AdminReq>,
 ) -> Result<HttpResponse, Error> {
-    let url = url.into_inner();
+    let url = url.into_inner().parse();
 
-    let geofences = geofence::Query::paginate(
+    let mut geofences = geofence::Query::paginate(
         &conn.koji_db,
         url.page,
         url.per_page,
-        match url.order.to_lowercase() {
-            _ => geoEntity::Column::Name,
+        match url.order.to_lowercase().as_str() {
+            "id" => geofence::Column::Id,
+            _ => geofence::Column::Name,
         },
         if url.order.to_lowercase().eq("asc") {
             Order::Asc
@@ -31,6 +30,31 @@ async fn get_all(
     )
     .await
     .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    // ghetto sort
+    if url.sort_by == "related.length" {
+        geofences.results.sort_by(|a, b| {
+            if url.order == "ASC" {
+                a.1.len().cmp(&b.1.len())
+            } else {
+                b.1.len().cmp(&a.1.len())
+            }
+        })
+    }
+    Ok(HttpResponse::Ok().json(Response {
+        data: Some(json!(geofences)),
+        message: "Success".to_string(),
+        status: "ok".to_string(),
+        stats: None,
+        status_code: 200,
+    }))
+}
+
+#[get("/geofence/all")]
+async fn get_all(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
+    let geofences = geofence::Query::get_all_no_fences(&conn.koji_db)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!(geofences)),
@@ -65,17 +89,15 @@ async fn get_one(
 async fn create(
     conn: web::Data<KojiDb>,
     // id: actix_web::web::Path<u32>,
-    payload: web::Json<Args>,
+    payload: web::Json<geofence::Model>,
 ) -> Result<HttpResponse, Error> {
-    // let id = id.into_inner();
-    let ArgsUnwrapped { area, .. } = payload.into_inner().init(Some("bootstrap"));
-
-    let (inserted, updated) = geofence::save(&conn.koji_db, area)
+    let payload = payload.into_inner();
+    let return_payload = geofence::Query::create(&conn.koji_db, payload)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!({ "updated": updated, "inserted": inserted })),
+        data: Some(json!(return_payload)),
         message: "Success".to_string(),
         status: "ok".to_string(),
         stats: None,
@@ -87,7 +109,7 @@ async fn create(
 async fn update(
     conn: web::Data<KojiDb>,
     id: actix_web::web::Path<u32>,
-    payload: web::Json<geoEntity::Model>,
+    payload: web::Json<geofence::Model>,
 ) -> Result<HttpResponse, Error> {
     let id = id.into_inner();
     let updated_geofence = payload.into_inner();

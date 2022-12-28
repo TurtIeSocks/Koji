@@ -134,15 +134,22 @@ pub async fn main() -> io::Result<()> {
                     .service(
                         web::scope("/admin")
                             .service(routes::admin::geofence::get_all)
+                            .service(routes::admin::geofence::paginate)
                             .service(routes::admin::geofence::get_one)
                             .service(routes::admin::geofence::create)
                             .service(routes::admin::geofence::update)
                             .service(routes::admin::geofence::remove)
                             .service(routes::admin::project::get_all)
+                            .service(routes::admin::project::paginate)
                             .service(routes::admin::project::get_one)
                             .service(routes::admin::project::create)
                             .service(routes::admin::project::update)
-                            .service(routes::admin::project::remove),
+                            .service(routes::admin::project::remove)
+                            .service(routes::admin::geofence_project::get_all)
+                            .service(routes::admin::geofence_project::create)
+                            .service(routes::admin::geofence_project::update)
+                            .service(routes::admin::geofence_project::update_by_id)
+                            .service(routes::admin::geofence_project::remove),
                     ),
             )
             // public api

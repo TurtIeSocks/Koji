@@ -109,6 +109,7 @@ export interface KojiGeofence {
 
 export interface ClientGeofence extends KojiGeofence {
   properties: { key: string; value: string | number | boolean }[]
+  related: number[]
 }
 
 export interface KojiProject {
@@ -116,9 +117,9 @@ export interface KojiProject {
   name: string
 }
 
-// export interface ClientProject extends KojiProject {
-
-// }
+export interface ClientProject extends KojiProject {
+  related: number[]
+}
 
 // for some reason locate.control @types augmentation is broken
 declare module 'leaflet' {

@@ -50,7 +50,10 @@ const getList = async (
     }),
   })
   return {
-    data: json.data.results,
+    data: json.data.results.map((result: any) => ({
+      ...result[0],
+      related: result[1],
+    })),
     total: json.data.total,
     pageInfo: {
       hasNextPage: json.data.has_next,
@@ -62,7 +65,7 @@ const getList = async (
 export const dataProvider: typeof defaultProvider = {
   ...defaultProvider,
   getMany: async (resource) => {
-    const url = `/internal/admin/${resource}`
+    const url = `/internal/admin/${resource}/all`
     const options = {}
 
     const { json } = await httpClient(url, options)
@@ -78,16 +81,26 @@ export const dataProvider: typeof defaultProvider = {
       return resource === 'geofence'
         ? {
             data: {
-              ...json.data,
-              properties: Object.entries(json.data?.area?.properties || {}).map(
-                ([key, value]) => ({
-                  key,
-                  value,
-                }),
+              ...json.data[0],
+              properties: Object.entries(
+                json.data?.[0]?.area?.properties || {},
+              ).map(([key, value]) => ({
+                key,
+                value,
+              })),
+              related: json.data[1].map(
+                (r: { id: number; name: string }) => r.id,
               ),
             } as any,
           }
-        : { data: json.data }
+        : {
+            data: {
+              ...json.data[0],
+              related: json.data[1].map(
+                (r: { id: number; name: string }) => r.id,
+              ),
+            },
+          }
     }),
   create: async (resource, params) => {
     const { json } = await httpClient(`/internal/admin/${resource}`, {
@@ -116,7 +129,6 @@ export const dataProvider: typeof defaultProvider = {
           ),
         }
       }
-
       return { data: { ...json, id: 'id' in json ? json.id : params.id } }
     }),
   delete: (resource, params) =>

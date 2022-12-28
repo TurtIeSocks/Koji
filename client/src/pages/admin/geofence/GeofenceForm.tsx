@@ -2,6 +2,8 @@ import * as React from 'react'
 import {
   ArrayInput,
   FormDataConsumer,
+  ReferenceArrayInput,
+  SelectArrayInput,
   SimpleForm,
   SimpleFormIterator,
   TextInput,
@@ -18,7 +20,6 @@ export default function GeofenceForm() {
       <FormDataConsumer>
         {({ formData }) => {
           const point = center(formData.area.geometry)
-
           return (
             <Map
               forcedLocation={[
@@ -40,6 +41,9 @@ export default function GeofenceForm() {
           <TextInput source="value" helperText={false} />
         </SimpleFormIterator>
       </ArrayInput>
+      <ReferenceArrayInput source="related" reference="project">
+        <SelectArrayInput optionText="name" />
+      </ReferenceArrayInput>
     </SimpleForm>
   )
 }

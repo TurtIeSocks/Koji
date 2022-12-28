@@ -8,17 +8,18 @@ use crate::models::api::Response;
 use crate::models::KojiDb;
 
 #[get("/project")]
-async fn get_all(
+async fn paginate(
     conn: web::Data<KojiDb>,
     url: web::Query<AdminReq>,
 ) -> Result<HttpResponse, Error> {
-    let url = url.into_inner();
+    let url = url.into_inner().parse();
 
-    let projects = project::Query::paginate(
+    let mut projects = project::Query::paginate(
         &conn.koji_db,
         url.page,
         url.per_page,
-        match url.order.to_lowercase() {
+        match url.sort_by.to_lowercase().as_str() {
+            "id" => project::Column::Id,
             _ => project::Column::Name,
         },
         if url.order.to_lowercase().eq("asc") {
@@ -29,6 +30,31 @@ async fn get_all(
     )
     .await
     .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    // ghetto sort
+    if url.sort_by == "related.length" {
+        projects.results.sort_by(|a, b| {
+            if url.order == "ASC" {
+                a.1.len().cmp(&b.1.len())
+            } else {
+                b.1.len().cmp(&a.1.len())
+            }
+        })
+    }
+    Ok(HttpResponse::Ok().json(Response {
+        data: Some(json!(projects)),
+        message: "Success".to_string(),
+        status: "ok".to_string(),
+        stats: None,
+        status_code: 200,
+    }))
+}
+
+#[get("/project/all")]
+async fn get_all(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
+    let projects = project::Query::get_all(&conn.koji_db)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!(projects)),
@@ -64,13 +90,13 @@ async fn create(
     conn: web::Data<KojiDb>,
     payload: web::Json<project::Model>,
 ) -> Result<HttpResponse, Error> {
-    let project = payload.into_inner();
-    let new_project = project::Query::create(&conn.koji_db, project)
+    let payload = payload.into_inner();
+    let return_payload = project::Query::create(&conn.koji_db, payload)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(new_project)),
+        data: Some(json!(return_payload)),
         message: "Success".to_string(),
         status: "ok".to_string(),
         stats: None,
