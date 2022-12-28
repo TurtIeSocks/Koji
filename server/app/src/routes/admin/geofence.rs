@@ -74,10 +74,10 @@ async fn get_one(
 #[post("/geofence/{id}")]
 async fn post_geofence(
     conn: web::Data<KojiDb>,
-    id: actix_web::web::Path<u32>,
+    // id: actix_web::web::Path<u32>,
     payload: web::Json<Args>,
 ) -> Result<HttpResponse, Error> {
-    let id = id.into_inner();
+    // let id = id.into_inner();
     let ArgsUnwrapped { area, .. } = payload.into_inner().init(Some("bootstrap"));
 
     let (inserted, updated) = geofence::save(&conn.koji_db, area)

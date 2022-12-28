@@ -1,8 +1,10 @@
+import { LinkProps } from '@mui/material/Link'
 import {
   createTheme,
   responsiveFontSizes,
   type Theme,
 } from '@mui/material/styles'
+import LinkBehavior from '@components/styled/LinkBehavior'
 
 export default function create(mode: Theme['palette']['mode']) {
   return responsiveFontSizes(
@@ -22,6 +24,16 @@ export default function create(mode: Theme['palette']['mode']) {
         },
       },
       components: {
+        MuiLink: {
+          defaultProps: {
+            component: LinkBehavior,
+          } as LinkProps,
+        },
+        MuiButtonBase: {
+          defaultProps: {
+            LinkComponent: LinkBehavior,
+          },
+        },
         MuiGrid2: {
           defaultProps: {
             alignItems: 'center',

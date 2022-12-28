@@ -1,5 +1,4 @@
 import * as React from 'react'
-import { Link } from 'react-router-dom'
 import { Box, IconButton, Typography } from '@mui/material'
 import { AppBar as BaseAppBar } from 'react-admin'
 import Home from '@mui/icons-material/Home'
@@ -12,11 +11,9 @@ export default function AppBar() {
       <Box flex="1">
         <Typography variant="h6" id="react-admin-title" />
       </Box>
-      <Link to="/">
-        <IconButton>
-          <Home fontSize="medium" />
-        </IconButton>
-      </Link>
+      <IconButton href="/" sx={{ color: 'white' }}>
+        <Home fontSize="medium" />
+      </IconButton>
       <ThemeToggle />
     </BaseAppBar>
   )

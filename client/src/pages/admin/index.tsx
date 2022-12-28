@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Admin, Resource, defaultTheme } from 'react-admin'
+import { Admin, RaThemeOptions, Resource, defaultTheme } from 'react-admin'
 import { useTheme } from '@mui/material'
 import Map from '@mui/icons-material/Map'
 
@@ -19,8 +19,7 @@ export default function AdminPanel() {
       dataProvider={dataProvider}
       theme={{
         ...defaultTheme,
-        ...theme,
-        components: defaultTheme.components,
+        ...(theme as RaThemeOptions),
       }}
       layout={Layout}
     >
