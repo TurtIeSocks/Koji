@@ -61,7 +61,7 @@ export default function Loading() {
         bgcolor: 'rgba(0, 0, 0, 0.8)',
       }}
     >
-      <Grid2 xs={totalLoadingTime ? 6 : 12}>
+      <Grid2 xs={totalLoadingTime ? 6 : 12} sm={4}>
         <Typography variant="h2" color="secondary">
           {totalLoadingTime
             ? 'Stats'
@@ -74,7 +74,8 @@ export default function Loading() {
         </Typography>
       </Grid2>
       <Grid2
-        xs={6}
+        xs={12}
+        sm={8}
         container
         sx={{ display: totalLoadingTime ? 'flex' : 'none' }}
       >
