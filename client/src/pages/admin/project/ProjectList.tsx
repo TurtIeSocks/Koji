@@ -36,7 +36,7 @@ export default function ProjectList() {
       sort={defaultSort}
     >
       <Datagrid
-        rowClick="show"
+        rowClick="expand"
         bulkActionButtons={<BulkAssignButton resource="project" />}
       >
         <TextField source="name" />

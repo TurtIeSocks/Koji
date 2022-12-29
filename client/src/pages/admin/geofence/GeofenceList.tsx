@@ -25,7 +25,7 @@ export default function GeofenceList() {
       sort={defaultSort}
     >
       <Datagrid
-        rowClick="show"
+        rowClick="expand"
         bulkActionButtons={<BulkAssignButton resource="geofence" />}
       >
         <TextField source="name" />

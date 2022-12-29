@@ -2,6 +2,7 @@ import * as React from 'react'
 import { Box, IconButton, Typography } from '@mui/material'
 import { AppBar as BaseAppBar } from 'react-admin'
 import Home from '@mui/icons-material/Home'
+import Map from '@mui/icons-material/Map'
 
 import ThemeToggle from '@components/ThemeToggle'
 
@@ -13,6 +14,9 @@ export default function AppBar() {
       </Box>
       <IconButton href="/" sx={{ color: 'white' }}>
         <Home fontSize="medium" />
+      </IconButton>
+      <IconButton href="/map" sx={{ color: 'white' }}>
+        <Map fontSize="medium" />
       </IconButton>
       <ThemeToggle />
     </BaseAppBar>

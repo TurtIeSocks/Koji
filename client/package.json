@@ -29,6 +29,7 @@
     "dayjs": "^1.11.7",
     "leaflet": "^1.9.3",
     "leaflet-arrowheads": "^1.4.0",
+    "leaflet-easybutton": "^2.4.0",
     "leaflet-pixi-overlay": "^1.8.2",
     "leaflet.locatecontrol": "^0.79.0",
     "ngeohash": "^0.6.3",

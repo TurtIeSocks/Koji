@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { Admin, RaThemeOptions, Resource, defaultTheme } from 'react-admin'
 import { useTheme } from '@mui/material'
-import Map from '@mui/icons-material/Map'
+import Architecture from '@mui/icons-material/Architecture'
 import AccountTree from '@mui/icons-material/AccountTree'
 
 import { dataProvider } from './dataProvider'
@@ -30,7 +30,7 @@ export default function AdminPanel() {
     >
       <Resource
         name="geofence"
-        icon={Map}
+        icon={Architecture}
         list={GeofenceList}
         edit={GeofenceEdit}
         show={GeofenceShow}
