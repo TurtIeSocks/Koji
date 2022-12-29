@@ -17,6 +17,7 @@ futures = "0.3.21"
 geo = "0.22.1"
 geohash = "0.12.0"
 geojson = "0.24.0"
+log = "0.4.17"
 map_3d = "0.1.5"
 migration = { path = "../migration" }
 model = { path = "../model" }

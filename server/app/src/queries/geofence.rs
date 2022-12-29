@@ -1,7 +1,7 @@
 use super::*;
 
 use chrono::Utc;
-use entity::sea_orm_active_enums::Type;
+use entity::{project, sea_orm_active_enums::Type};
 use geojson::GeoJson;
 use migration::Expr;
 use models::ToCollection;
@@ -68,7 +68,9 @@ pub async fn save(
     for feat in area.into_iter() {
         if let Some(name) = feat.property("name") {
             if let Some(name) = name.as_str() {
-                let area = GeoJson::Feature(feat.clone()).to_json_value();
+                let mut feat = feat.clone();
+                feat.id = None;
+                let area = GeoJson::Feature(feat).to_json_value();
                 if let Some(area) = area.as_object() {
                     let area = sea_orm::JsonValue::Object(area.to_owned());
                     let name = name.to_string();
@@ -99,4 +101,30 @@ pub async fn save(
         geofence::Entity::insert_many(inserts).exec(conn).await?;
     }
     Ok((insert_len, update_len))
+}
+
+pub async fn by_project(
+    conn: &DatabaseConnection,
+    project_id: String,
+) -> Result<Vec<Feature>, DbErr> {
+    let items = geofence::Entity::find()
+        .order_by(geofence::Column::Name, Order::Asc)
+        .left_join(project::Entity)
+        .filter(project::Column::Name.eq(project_id))
+        .all(conn)
+        .await?;
+
+    let items: Vec<Feature> = items
+        .into_iter()
+        .map(|item| {
+            let feature = Feature::from_json_value(item.area);
+            let feature = if feature.is_ok() {
+                feature.unwrap()
+            } else {
+                Feature::default()
+            };
+            feature
+        })
+        .collect();
+    Ok(items)
 }
