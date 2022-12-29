@@ -36,17 +36,20 @@ export async function getData<T>(
 
 export async function getLotsOfData(
   url: string,
+  setStatic: UseStatic['setStatic'],
   settings: CombinedState = {},
 ): Promise<FeatureCollection> {
   const { length = 0 } = settings.geojson?.features || {}
+  const totalStartTime = Date.now()
   const features = await Promise.allSettled(
     (settings.geojson?.features || [])
       .filter(
         (x) =>
           x.geometry.type === 'Polygon' || x.geometry.type === 'MultiPolygon',
       )
-      .map((area) =>
-        fetch(url, {
+      .map(async (area) => {
+        const startTime = Date.now()
+        return fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -65,14 +68,26 @@ export async function getLotsOfData(
         })
           .then((res) => res.json())
           .then((r) => {
+            const fetch_time = Date.now() - startTime
+            setStatic('loading', (prev) => ({
+              ...prev,
+              [area.properties?.name]: {
+                ...r.stats,
+                fetch_time,
+              },
+            }))
+            console.log(area.properties?.name)
             Object.entries(r.stats).forEach(([k, v]) =>
               // eslint-disable-next-line no-console
               console.log(fromSnakeCase(k), v),
             )
+            console.log(`Total Time: ${fetch_time / 1000}s\n`)
+            console.log('-----------------')
             return r.data
-          }),
-      ),
+          })
+      }),
   )
+  setStatic('totalLoadingTime', Date.now() - totalStartTime)
   return {
     type: 'FeatureCollection',
     features: features.flatMap((r) =>

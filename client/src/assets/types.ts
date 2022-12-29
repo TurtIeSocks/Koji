@@ -121,6 +121,18 @@ export interface ClientProject extends KojiProject {
   related: number[]
 }
 
+export interface KojiStats {
+  best_clusters: [number, number][]
+  best_cluster_point_count: number
+  cluster_time: number
+  total_points: number
+  points_covered: number
+  total_clusters: number
+  total_distance: number
+  longest_distance: number
+  fetch_time: number
+}
+
 // for some reason locate.control @types augmentation is broken
 declare module 'leaflet' {
   interface Layer {

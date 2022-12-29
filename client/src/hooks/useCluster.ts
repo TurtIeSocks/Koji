@@ -26,16 +26,31 @@ export default function useCluster(): void {
   const geojson = useStatic((s) => s.geojson)
   const layerEditing = useStatic((s) => s.layerEditing)
   const forceFetch = useStatic((s) => s.forceFetch)
+  const setStatic = useStatic((s) => s.setStatic)
 
   const add = useShapes((s) => s.setters.add)
 
   useDeepCompareEffect(() => {
     if (geojson.features.length && drawer && menuItem === 'Clustering') {
       if (Object.values(layerEditing).every((v) => !v)) {
+        setStatic(
+          'loading',
+          Object.fromEntries(
+            geojson.features
+              .filter(
+                (feat) =>
+                  feat.geometry.type === 'Polygon' ||
+                  feat.geometry.type === 'MultiPolygon',
+              )
+              .map((k) => [k.properties?.name, null]),
+          ),
+        )
+        setStatic('totalLoadingTime', 0)
         getLotsOfData(
           mode === 'bootstrap'
             ? '/api/v1/calc/bootstrap'
             : `/api/v1/calc/${mode}/${category}`,
+          setStatic,
           {
             category,
             radius,

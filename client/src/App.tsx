@@ -14,18 +14,22 @@ const router = createBrowserRouter([
   {
     path: '/',
     element: <Home />,
+    errorElement: <ErrorPage error="500" />,
   },
   {
     path: '/map',
     element: <Map />,
+    errorElement: <ErrorPage error="500" />,
   },
   {
     path: '/admin/*',
     element: <AdminPanel />,
+    errorElement: <ErrorPage error="500" />,
   },
   {
     path: '*',
     element: <ErrorPage />,
+    errorElement: <ErrorPage error="500" />,
   },
 ])
 
