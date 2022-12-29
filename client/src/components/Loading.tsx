@@ -16,6 +16,7 @@ export default function Loading() {
   const totalLoadingTime = useStatic((s) => s.totalLoadingTime)
   const setStatic = useStatic((s) => s.setStatic)
 
+  const loadingScreen = usePersist((s) => s.loadingScreen)
   const settings = usePersist(
     (s) => ({
       mode: s.mode,
@@ -30,13 +31,17 @@ export default function Loading() {
   const [time, setTime] = React.useState(0)
 
   const loadingStarted = Object.keys(loading).length
+  const loadingStatus =
+    (Object.values(loading).filter(Boolean).length /
+      Object.keys(loading).length) *
+    100
 
   React.useEffect(() => {
     let interval: NodeJS.Timeout
-    if (!totalLoadingTime) {
+    if (!totalLoadingTime && loadingStarted) {
       interval = setInterval(() => {
-        setTime((t) => t + 1)
-      }, 1000)
+        setTime((t) => t + 0.1)
+      }, 100)
     }
     return () => {
       if (interval) {
@@ -44,7 +49,9 @@ export default function Loading() {
       }
       setTime(0)
     }
-  }, [loadingStarted])
+  }, [loadingStarted, totalLoadingTime])
+
+  if (!loadingScreen) return null
 
   return loadingStarted ? (
     <Grid2
@@ -61,16 +68,11 @@ export default function Loading() {
         bgcolor: 'rgba(0, 0, 0, 0.8)',
       }}
     >
-      <Grid2 xs={totalLoadingTime ? 6 : 12} sm={4}>
-        <Typography variant="h2" color="secondary">
+      <Grid2 xs={12} sm={totalLoadingTime ? 4 : 12}>
+        <Typography variant="h3" color="secondary">
           {totalLoadingTime
             ? 'Stats'
-            : `Loading...${(
-                (Object.values(loading).filter(Boolean).length /
-                  Object.keys(loading).length) *
-                100
-              ).toFixed(2)}
-          % - ${time}s`}
+            : `Loading... ${loadingStatus.toFixed(2)}% | ${time.toFixed(1)}s`}
         </Typography>
       </Grid2>
       <Grid2

@@ -59,7 +59,9 @@ export async function getLotsOfData(
             return_type: 'feature',
             devices: Math.max(Math.floor((settings.devices || 1) / length), 1),
             area,
-            instance: area.properties?.name,
+            instance:
+              area.properties?.name ||
+              `${area.geometry.type}${area.id ? `-${area.id}` : ''}`,
             route_chunk_size: settings.route_chunk_size,
             last_seen: Math.floor(
               (settings.last_seen?.getTime?.() || 0) / 1000,
@@ -71,7 +73,7 @@ export async function getLotsOfData(
             const fetch_time = Date.now() - startTime
             setStatic('loading', (prev) => ({
               ...prev,
-              [area.properties?.name]: {
+              [r.data?.properties?.name]: {
                 ...r.stats,
                 fetch_time,
               },

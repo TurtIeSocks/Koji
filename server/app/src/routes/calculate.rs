@@ -326,6 +326,7 @@ async fn cluster(
             Some(&enum_type)
         },
     );
+
     feature.set_property("radius", radius);
     let feature = feature.to_collection(Some(instance.clone()), None);
 

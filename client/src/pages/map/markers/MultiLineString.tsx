@@ -1,9 +1,10 @@
 /* eslint-disable react/destructuring-assignment */
-import type { Feature, MultiLineString } from 'geojson'
 import * as React from 'react'
-import KojiLineString from './LineString'
+import type { Feature, MultiLineString } from 'geojson'
 
-export default function KojiMultiLineString({
+import { MemoLineString } from './LineString'
+
+export function KojiMultiLineString({
   feature,
 }: {
   feature: Feature<MultiLineString>
@@ -11,7 +12,7 @@ export default function KojiMultiLineString({
   return (
     <>
       {feature.geometry.coordinates.map((coords) => (
-        <KojiLineString
+        <MemoLineString
           key={`multiLine_${coords}`}
           feature={{
             ...feature,
@@ -22,3 +23,5 @@ export default function KojiMultiLineString({
     </>
   )
 }
+
+export const MemoMultiLineString = React.memo(KojiMultiLineString)

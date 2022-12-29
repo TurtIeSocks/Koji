@@ -20,11 +20,14 @@ import Settings from './settings'
 import MiniItem from './MiniItem'
 import { Code } from '../Code'
 
-export default function DrawerIndex() {
+interface Props {
+  drawerWidth: number
+}
+
+export default function DrawerIndex({ drawerWidth }: Props) {
   const geojson = useStatic((s) => s.geojson)
   const setFromCollection = useShapes((s) => s.setters.setFromCollection)
 
-  const menuItem = usePersist((s) => s.menuItem)
   const drawer = usePersist((s) => s.drawer)
   const setStore = usePersist((s) => s.setStore)
 
@@ -56,7 +59,7 @@ export default function DrawerIndex() {
     <Drawer
       variant="permanent"
       open={drawer}
-      drawerWidth={menuItem === 'Geojson' ? 450 : 300}
+      drawerWidth={drawerWidth}
       onClose={toggleDrawer}
     >
       {drawer ? (
@@ -82,6 +85,7 @@ export default function DrawerIndex() {
                             setFromCollection(parsed.value)
                           }
                         }}
+                        maxHeight="70vh"
                       />
                     ),
                   }[text] || null}

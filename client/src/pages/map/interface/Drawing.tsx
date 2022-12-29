@@ -117,39 +117,44 @@ export function Drawing() {
                     first.properties.backward = id
                   }
                   if (last && first) {
-                    setShapes('LineString', (prev) => ({
-                      ...prev,
-                      [`${last.id}_${feature.id}`]: {
-                        type: 'Feature',
-                        id: `${last.id}_${feature.id}`,
-                        properties: {
-                          start: last.id,
-                          end: feature.id,
+                    setShapes('LineString', (prev) => {
+                      const newState: typeof prev = {
+                        ...prev,
+                        [`${last.id}_${feature.id}`]: {
+                          type: 'Feature',
+                          id: `${last.id}_${feature.id}`,
+                          properties: {
+                            start: last.id,
+                            end: feature.id,
+                          },
+                          geometry: {
+                            type: 'LineString',
+                            coordinates: [
+                              last.geometry.coordinates,
+                              feature.geometry.coordinates,
+                            ],
+                          },
                         },
-                        geometry: {
-                          type: 'LineString',
-                          coordinates: [
-                            last.geometry.coordinates,
-                            feature.geometry.coordinates,
-                          ],
-                        },
-                      },
-                      [`${feature.id}_${first.id}`]: {
-                        type: 'Feature',
-                        id: `${feature.id}_${first.id}`,
-                        properties: {
-                          start: feature.id,
-                          end: first.id,
-                        },
-                        geometry: {
-                          type: 'LineString',
-                          coordinates: [
-                            feature.geometry.coordinates,
-                            first.geometry.coordinates,
-                          ],
-                        },
-                      },
-                    }))
+                      }
+                      if (Object.keys(useShapes.getState().Point).length > 2) {
+                        newState[`${feature.id}_${first.id}`] = {
+                          type: 'Feature',
+                          id: `${feature.id}_${first.id}`,
+                          properties: {
+                            start: feature.id,
+                            end: first.id,
+                          },
+                          geometry: {
+                            type: 'LineString',
+                            coordinates: [
+                              feature.geometry.coordinates,
+                              first.geometry.coordinates,
+                            ],
+                          },
+                        }
+                      }
+                      return newState
+                    })
                     setters.remove('LineString', `${last.id}_${first.id}`)
                   }
                   setShapes('Point', (prev) => ({

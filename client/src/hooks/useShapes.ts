@@ -137,88 +137,91 @@ export const useShapes = create<UseShapes>((set, get) => ({
           [key]: { ...state[key] },
           [feature.geometry.type]: { ...state[feature.geometry.type] },
         }
-        if (newState[key]) {
-          if (key === 'Point' && feature.geometry.type === 'Point') {
-            newState[key][id] = feature
+        if (key === 'Point' && feature.geometry.type === 'Point') {
+          newState[key][id] = feature
+          newState.LineString = { ...state.LineString }
+          const firstPoint = state.Point[state.Point[id].properties?.forward]
+          const firstLine = Object.values(state.LineString).find(
+            (line) => line.properties?.end === firstPoint?.id,
+          )
+          const secondPoint = state.Point[state.Point[id].properties?.backward]
+          const secondLine = Object.values(state.LineString).find(
+            (line) => line.properties?.start === secondPoint?.id,
+          )
 
-            const firstPoint = state.Point[state.Point[id].properties?.forward]
-            const firstLine = Object.values(state.LineString).find(
-              (line) => line.properties?.end === firstPoint?.id,
-            )
-            const secondPoint =
-              state.Point[state.Point[id].properties?.backward]
-            const secondLine = Object.values(state.LineString).find(
-              (line) => line.properties?.start === secondPoint?.id,
-            )
-
-            if (firstLine?.id) {
-              firstLine.geometry.coordinates = [
-                feature.geometry.coordinates,
-                firstPoint?.geometry.coordinates,
-              ]
-              newState[key][firstLine?.id] = firstLine
-            }
-            if (secondLine?.id) {
-              secondLine.geometry.coordinates = [
-                secondPoint?.geometry.coordinates,
-                feature.geometry.coordinates,
-              ]
-              newState[key][secondLine?.id] = secondLine
-            }
-          } else if (
-            key === 'MultiPoint' &&
-            feature.geometry.type === 'Point' &&
-            typeof id === 'string'
-          ) {
-            const [parent, child] = id.split('___')
-            const newGeometry = newState[key][parent].geometry
-            if (newGeometry.type === 'MultiPoint') {
-              newGeometry.coordinates.splice(
-                +child,
-                1,
-                feature.geometry.coordinates,
-              )
-              newState[key][parent].geometry = newGeometry
-            }
-          } else if (key !== feature.geometry.type) {
-            const newId = feature.properties?.leafletId || feature.id
-            newState[feature.geometry.type][newId] = {
-              ...feature,
-              id: newId,
-              properties: { ...feature.properties },
-            }
-            delete newState[key][id]
-          } else if (
-            feature.properties?.leafletId &&
-            id !== feature.properties?.leafletId
-          ) {
-            const { leafletId, ...rest } = feature.properties || {}
-            newState[key][leafletId] = {
-              ...feature,
-              id: leafletId,
-              properties: rest,
-            }
-            delete newState[key][id]
-          } else {
-            newState[key][id] = feature
+          if (firstLine?.id) {
+            firstLine.geometry.coordinates = [
+              feature.geometry.coordinates,
+              firstPoint?.geometry.coordinates,
+            ]
+            newState.LineString[firstLine?.id] = firstLine
           }
+          if (secondLine?.id) {
+            secondLine.geometry.coordinates = [
+              secondPoint?.geometry.coordinates,
+              feature.geometry.coordinates,
+            ]
+            newState.LineString[secondLine?.id] = secondLine
+          }
+        } else if (
+          key === 'MultiPoint' &&
+          feature.geometry.type === 'Point' &&
+          typeof id === 'string'
+        ) {
+          const [parent, child] = id.split('___')
+          const newGeometry = newState[key][parent].geometry
+          if (newGeometry.type === 'MultiPoint') {
+            newGeometry.coordinates.splice(
+              +child,
+              1,
+              feature.geometry.coordinates,
+            )
+            newState[key][parent].geometry = newGeometry
+          }
+        } else if (key !== feature.geometry.type) {
+          const newId = feature.properties?.leafletId || feature.id
+          newState[feature.geometry.type][newId] = {
+            ...feature,
+            id: newId,
+            properties: { ...feature.properties },
+          }
+          delete newState[key][id]
+        } else if (
+          feature.properties?.leafletId &&
+          id !== feature.properties?.leafletId
+        ) {
+          const { leafletId, ...rest } = feature.properties || {}
+          newState[key][leafletId] = {
+            ...feature,
+            id: leafletId,
+            properties: rest,
+          }
+          delete newState[key][id]
+        } else {
+          newState[key][id] = feature
         }
         return { ...newState, test: !state.test }
       })
     },
     remove: (key, id) => {
+      // todo fix types
       set((state) => {
-        const newState = { ...state }
+        const newState = {
+          lastPoint: state.lastPoint,
+          firstPoint: state.firstPoint,
+          [key]: { ...state[key] },
+        }
         if (id) {
           if (key === 'Point') {
-            const val = newState[key][id] // Point to delete
+            newState.LineString = { ...state.LineString }
+            const val = state[key][id] // Point to delete
 
-            const firstPoint = newState.Point[val.properties?.forward]
-            const firstLine = Object.values(newState.LineString).find(
+            const firstPoint = state.Point[val.properties?.forward]
+            const firstLine = Object.values(state.LineString).find(
               (line) => line.properties?.end === firstPoint?.id,
             )
-            const secondPoint = newState.Point[val.properties?.backward]
-            const secondLine = Object.values(newState.LineString).find(
+            const secondPoint = state.Point[val.properties?.backward]
+            const secondLine = Object.values(state.LineString).find(
               (line) => line.properties?.start === secondPoint?.id,
             )
 
@@ -231,48 +234,74 @@ export const useShapes = create<UseShapes>((set, get) => ({
               newState.lastPoint = secondPoint.id
             }
 
-            if (firstLine?.id && secondLine?.id) {
-              newState.LineString[
-                `${secondLine.properties?.start}_${firstLine.properties?.end}`
-              ] = {
-                type: 'Feature',
-                id: `${secondLine.properties?.start}_${firstLine.properties?.end}`,
-                geometry: {
-                  type: 'LineString',
-                  coordinates: [
-                    newState.Point[val.properties?.backward].geometry
-                      .coordinates,
-                    newState.Point[val.properties?.forward].geometry
-                      .coordinates,
-                  ],
-                },
-                properties: {
-                  start: secondLine.properties?.start,
-                  end: firstLine.properties?.end,
-                },
+            if (
+              firstLine?.id &&
+              secondLine?.id &&
+              val.properties?.forward &&
+              val.properties?.backward
+            ) {
+              if (Object.keys(newState.Point || {}).length > 2) {
+                newState.LineString[
+                  `${secondLine.properties?.start}_${firstLine.properties?.end}`
+                ] = {
+                  type: 'Feature',
+                  id: `${secondLine.properties?.start}_${firstLine.properties?.end}`,
+                  geometry: {
+                    type: 'LineString',
+                    coordinates: [
+                      (
+                        (newState[key] as UseShapes['Point'])[
+                          val.properties?.backward
+                        ] as Feature<Point>
+                      ).geometry.coordinates,
+                      (
+                        (newState[key] as UseShapes['Point'])[
+                          val.properties?.forward
+                        ] as Feature<Point>
+                      ).geometry.coordinates,
+                    ],
+                  },
+                  properties: {
+                    start: secondLine.properties?.start,
+                    end: firstLine.properties?.end,
+                  },
+                }
+              } else {
+                newState.LineString = {}
               }
-              newState.Point[val.properties?.forward] = {
-                ...firstPoint,
-                properties: {
-                  ...firstPoint.properties,
-                  backward: secondLine.properties?.start,
-                },
-              }
-              newState.Point[val.properties?.backward] = {
-                ...secondPoint,
-                properties: {
-                  ...secondPoint.properties,
-                  forward: firstLine.properties?.end,
-                },
-              }
+              ;(newState[key] as UseShapes['Point'])[val.properties?.forward] =
+                {
+                  ...firstPoint,
+                  properties: {
+                    ...firstPoint.properties,
+                    backward: secondLine.properties?.start,
+                  },
+                }
+              ;(newState[key] as UseShapes['Point'])[val.properties?.backward] =
+                {
+                  ...secondPoint,
+                  properties: {
+                    ...secondPoint.properties,
+                    forward: firstLine.properties?.end,
+                  },
+                }
               delete newState.LineString[firstLine?.id]
               delete newState.LineString[secondLine?.id]
             }
           } else if (key === 'MultiPoint' && typeof id === 'string') {
             const [parent, child] = id.split('___')
-            newState.MultiPoint[parent].geometry.coordinates.splice(+child, 1)
+            const newGeometry = (newState[key] as UseShapes['MultiPoint'])[
+              parent
+            ].geometry
+            if (newGeometry.type === 'MultiPoint') {
+              newGeometry.coordinates.splice(+child, 1)
+              ;(newState[key] as UseShapes['MultiPoint'])[parent].geometry =
+                newGeometry
+            }
           }
-          if (newState[key][id]) {
+          if (newState[key]) {
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore
             delete newState[key][id]
           }
         } else {

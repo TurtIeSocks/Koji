@@ -12,18 +12,27 @@ import Loading from '@components/Loading'
 
 import Markers from './markers'
 import Interface from './interface'
-import Features from './markers/Features'
+
+import {
+  LineStrings,
+  MultiLineStrings,
+  MultiPoints,
+  Points,
+  Polygons,
+} from './markers/Vectors'
 
 export default function MapWrapper() {
   const drawer = usePersist((s) => s.drawer)
+  const menuItem = usePersist((s) => s.menuItem)
 
+  const drawerWidth = menuItem === 'Geojson' ? 500 : 300
   return (
     <Box sx={{ display: 'flex' }}>
       <Loading />
       <ErrorBoundary>
-        <DrawerIndex />
+        <DrawerIndex drawerWidth={drawerWidth} />
       </ErrorBoundary>
-      <Main open={drawer} drawerWidth={450}>
+      <Main open={drawer} drawerWidth={drawerWidth}>
         <Map
           style={{
             position: 'absolute',
@@ -41,7 +50,11 @@ export default function MapWrapper() {
           <Pane name="polygons" style={{ zIndex: 500 }} />
           <Markers />
           <Interface />
-          <Features />
+          <Points />
+          <MultiPoints />
+          <LineStrings />
+          <MultiLineStrings />
+          <Polygons />
         </Map>
       </Main>
     </Box>

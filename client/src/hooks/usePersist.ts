@@ -47,6 +47,7 @@ export interface UsePersist {
   continueDrawing: boolean
   fast: boolean
   autoMode: boolean
+  loadingScreen: boolean
   setStore: <T extends keyof UsePersist>(key: T, value: UsePersist[T]) => void
 }
 
@@ -95,6 +96,7 @@ export const usePersist = create(
       snappable: true,
       continueDrawing: true,
       autoMode: false,
+      loadingScreen: true,
     }),
     {
       name: 'local',

@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { ZoomControl } from 'react-leaflet'
+import { ZoomControl, useMapEvents } from 'react-leaflet'
 import { renderToString } from 'react-dom/server'
 import AdminPanelSettings from '@mui/icons-material/AdminPanelSettings'
 import { useNavigate } from 'react-router'
@@ -7,16 +7,31 @@ import { useNavigate } from 'react-router'
 import useCluster from '@hooks/useCluster'
 import useLayers from '@hooks/useLayers'
 import usePopupStyle from '@hooks/usePopupStyle'
+import useSyncGeojson from '@hooks/useSyncGeojson'
+import { useStatic } from '@hooks/useStatic'
 
 import Locate from './Locate'
 import MemoizedDrawing from './Drawing'
 import EasyButton from './EasyButton'
 
 export default function Interface() {
+  const navigate = useNavigate()
+
   useCluster()
   useLayers()
   usePopupStyle()
-  const navigate = useNavigate()
+  useSyncGeojson()
+
+  useMapEvents({
+    popupopen(e) {
+      const isEditing = Object.values(useStatic.getState().layerEditing).some(
+        (v) => v,
+      )
+      if (isEditing) {
+        e.popup.close()
+      }
+    },
+  })
 
   return (
     <>
