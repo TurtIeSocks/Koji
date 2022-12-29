@@ -11,11 +11,13 @@ use crate::models::{
 pub fn send(
     value: FeatureCollection,
     return_type: ReturnTypeArg,
-    stats: Stats,
+    stats: Option<Stats>,
     benchmark_mode: bool,
-    area: String,
+    area: Option<String>,
 ) -> HttpResponse {
-    stats.log(area);
+    if let Some(stats) = stats.as_ref() {
+        stats.log(area);
+    }
     HttpResponse::Ok().json(Response {
         message: "Success".to_string(),
         status: "ok".to_string(),
@@ -39,6 +41,6 @@ pub fn send(
             ReturnTypeArg::FeatureCollection => GeoFormats::FeatureCollection(value),
             ReturnTypeArg::Poracle => GeoFormats::Poracle(value.to_poracle_vec()),
         }))},
-        stats: Some(stats),
+        stats,
     })
 }

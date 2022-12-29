@@ -1,4 +1,4 @@
-use models::ToPoracleVec;
+use models::api::{get_return_type, ReturnTypeArg};
 use serde_json::json;
 
 use super::*;
@@ -6,6 +6,7 @@ use super::*;
 use crate::models::api::{Args, ArgsUnwrapped, Response};
 use crate::models::{KojiDb, ToCollection};
 use crate::queries::{area, geofence, instance};
+use crate::utils::response;
 
 #[get("/all")]
 async fn all(
@@ -75,73 +76,35 @@ async fn save_scanner(
     }))
 }
 
-#[get("/feature-collection")]
-async fn feature_collection(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
-    let features = geofence::all(&conn.koji_db)
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    println!(
-        "[GEOFENCES_FC_ALL] Returning {} instances\n",
-        features.len()
-    );
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(features.to_collection(None, None))),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
-}
-
-#[get("/feature-collection/{project_name}")]
-async fn feature_collection_project(
+#[get("/{return_type}")]
+async fn specific_return_type(
     conn: web::Data<KojiDb>,
     url: actix_web::web::Path<String>,
 ) -> Result<HttpResponse, Error> {
-    let project_name = url.into_inner();
-    let features = geofence::by_project(&conn.koji_db, project_name)
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let return_type = url.into_inner();
+    let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
 
-    println!(
-        "[GEOFENCES_FC_ALL] Returning {} instances\n",
-        features.len()
-    );
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(features.to_collection(None, None))),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
-}
-
-#[get("/poracle")]
-async fn poracle(
-    conn: web::Data<KojiDb>,
-    // url: actix_web::web::Path<Option<String>>,
-) -> Result<HttpResponse, Error> {
     let features = geofence::all(&conn.koji_db)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     println!("[GEOFENCES_ALL] Returning {} instances\n", features.len());
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(features.to_collection(None, None).to_poracle_vec())),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(response::send(
+        features.to_collection(None, None),
+        return_type,
+        None,
+        false,
+        None,
+    ))
 }
 
-#[get("/poracle/{project_name}")]
-async fn poracle_project(
+#[get("/{return_type}/{project_name}")]
+async fn specific_project(
     conn: web::Data<KojiDb>,
-    url: actix_web::web::Path<String>,
+    url: actix_web::web::Path<(String, String)>,
 ) -> Result<HttpResponse, Error> {
-    let project_name = url.into_inner();
+    let (return_type, project_name) = url.into_inner();
+    let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
     let features = geofence::by_project(&conn.koji_db, project_name)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -150,11 +113,11 @@ async fn poracle_project(
         "[GEOFENCES_FC_ALL] Returning {} instances\n",
         features.len()
     );
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(features.to_collection(None, None))),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(response::send(
+        features.to_collection(None, None),
+        return_type,
+        None,
+        false,
+        None,
+    ))
 }

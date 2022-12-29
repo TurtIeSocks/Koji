@@ -170,10 +170,8 @@ pub async fn main() -> io::Result<()> {
                                 .service(routes::geofence::all)
                                 .service(routes::geofence::save_koji)
                                 .service(routes::geofence::save_scanner)
-                                .service(routes::geofence::feature_collection)
-                                .service(routes::geofence::poracle)
-                                .service(routes::geofence::feature_collection_project)
-                                .service(routes::geofence::poracle_project),
+                                .service(routes::geofence::specific_return_type)
+                                .service(routes::geofence::specific_project),
                         ),
                 ),
             )

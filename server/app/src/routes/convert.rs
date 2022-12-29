@@ -20,8 +20,8 @@ async fn convert_data(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     Ok(response::send(
         area,
         return_type,
-        stats,
+        Some(stats),
         benchmark_mode,
-        instance,
+        Some(instance),
     ))
 }
