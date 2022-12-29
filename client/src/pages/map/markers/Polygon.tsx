@@ -7,10 +7,10 @@ import * as L from 'leaflet'
 import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
 
-import PolygonPopup from '../popups/Polygon'
-import StyledPopup from '../popups/Styled'
+import { MemoPolyPopup } from '../popups/Polygon'
+import Popup from '../popups/Styled'
 
-export default function KojiPolygon({
+export function KojiPolygon({
   feature,
 }: {
   feature: Feature<PolygonType> | Feature<MultiPolygon>
@@ -94,9 +94,11 @@ export default function KojiPolygon({
       pmIgnore={false}
       pane="polygons"
     >
-      <StyledPopup>
-        <PolygonPopup feature={feature} loadData={loadData} />
-      </StyledPopup>
+      <Popup>
+        <MemoPolyPopup feature={feature} loadData={loadData} />
+      </Popup>
     </Polygon>
   )
 }
+
+export const MemoPolygon = React.memo(KojiPolygon, () => true)

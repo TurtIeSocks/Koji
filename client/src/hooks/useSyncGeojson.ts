@@ -10,7 +10,6 @@ export default function useSyncGeojson() {
   const multiLineStrings = useShapes((s) => s.MultiLineString)
   const polygons = useShapes((s) => s.Polygon)
   const multiPolygons = useShapes((s) => s.MultiPolygon)
-  const test = useShapes((s) => s.test)
 
   const geojson = useStatic((s) => s.geojson)
   const setStatic = useStatic((s) => s.setStatic)
@@ -51,7 +50,6 @@ export default function useSyncGeojson() {
     multiLineStrings,
     polygons,
     multiPolygons,
-    test,
   ])
 
   return geojson

@@ -14,17 +14,18 @@ export default function Settings() {
   const data = usePersist((s) => s.data)
   const nativeLeaflet = usePersist((s) => s.nativeLeaflet)
   const last_seen = usePersist((s) => s.last_seen)
+  const loadingScreen = usePersist((s) => s.loadingScreen)
   const setStore = usePersist((s) => s.setStore)
 
   return (
     <List>
       <ListSubheader disableGutters>Markers</ListSubheader>
+      <DateTime field="last_seen" value={last_seen} setValue={setStore} />
       <Toggle field="pokestop" value={pokestop} setValue={setStore} />
       <Toggle field="gym" value={gym} setValue={setStore} />
       <Toggle field="spawnpoint" value={spawnpoint} setValue={setStore} />
-      <DateTime field="last_seen" value={last_seen} setValue={setStore} />
-
       <Toggle field="nativeLeaflet" value={nativeLeaflet} setValue={setStore} />
+      <Toggle field="loadingScreen" value={loadingScreen} setValue={setStore} />
       <ListItem>
         <BtnGroup
           field="data"

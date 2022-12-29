@@ -5,6 +5,11 @@ interface Props extends PopupProps {
   dis: number
 }
 
-export default function LineStringPopup({ dis }: Props) {
+export function LineStringPopup({ dis }: Props) {
   return <>{dis.toFixed(2)}</>
 }
+
+export const MemoLinePopup = React.memo(
+  LineStringPopup,
+  (prev, next) => prev.dis === next.dis,
+)

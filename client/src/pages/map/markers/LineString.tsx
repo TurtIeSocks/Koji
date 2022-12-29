@@ -6,10 +6,10 @@ import distance from '@turf/distance'
 
 import { getColor } from '@services/utils'
 
-import LineStringPopup from '../popups/LineString'
-import StyledPopup from '../popups/Styled'
+import { MemoLinePopup } from '../popups/LineString'
+import Popup from '../popups/Styled'
 
-export default function KojiLineString({
+export function KojiLineString({
   feature: {
     id,
     properties,
@@ -43,6 +43,7 @@ export default function KojiLineString({
             size: '8px',
             offsets: { end: `${dis / 2}m` },
           })
+          line.redraw()
         }
       }}
       positions={[
@@ -56,9 +57,14 @@ export default function KojiLineString({
       snapIgnore
       pane="lines"
     >
-      <StyledPopup>
-        <LineStringPopup id={id} properties={properties} dis={dis} />
-      </StyledPopup>
+      <Popup>
+        <MemoLinePopup id={id} properties={properties} dis={dis} />
+      </Popup>
     </Polyline>
   )
 }
+
+export const MemoLineString = React.memo(
+  KojiLineString,
+  (prev, next) => prev.feature.id === next.feature.id,
+)

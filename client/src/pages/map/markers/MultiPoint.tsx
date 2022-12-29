@@ -1,9 +1,10 @@
 import * as React from 'react'
-import type { Feature, MultiPoint as MpType } from 'geojson'
-import KojiPoint from './Point'
-import KojiLineString from './LineString'
+import type { Feature, MultiPoint } from 'geojson'
 
-export default function KojiMultiPoint({
+import { KojiPoint } from './Point'
+import { KojiLineString } from './LineString'
+
+export function KojiMultiPoint({
   feature: {
     id,
     properties,
@@ -11,7 +12,7 @@ export default function KojiMultiPoint({
   },
   radius,
 }: {
-  feature: Feature<MpType>
+  feature: Feature<MultiPoint>
   radius: number
 }) {
   return (
@@ -35,9 +36,11 @@ export default function KojiMultiPoint({
               type="MultiPoint"
             />
             <KojiLineString
+              key={`${first}-${isEnd}-${coordinates.length}`}
               feature={{
                 type: 'Feature',
                 properties,
+                id: `${first}-${isEnd}`,
                 geometry: { coordinates: [first, next], type: 'LineString' },
               }}
             />
@@ -47,3 +50,5 @@ export default function KojiMultiPoint({
     </>
   )
 }
+
+export const MemoMultiPoint = React.memo(KojiMultiPoint)

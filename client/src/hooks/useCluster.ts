@@ -39,7 +39,11 @@ export default function useCluster(): void {
                   feat.geometry.type === 'Polygon' ||
                   feat.geometry.type === 'MultiPolygon',
               )
-              .map((k) => [k.properties?.name, null]),
+              .map((k) => [
+                k.properties?.name ||
+                  `${k.geometry.type}${k.id ? `-${k.id}` : ''}`,
+                null,
+              ]),
           ),
         )
         setStatic('totalLoadingTime', 0)

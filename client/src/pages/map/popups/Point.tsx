@@ -7,7 +7,7 @@ interface Props extends PopupProps {
   lon: number
 }
 
-export default function PointPopup({ lat, lon }: Props) {
+export function PointPopup({ lat, lon }: Props) {
   return (
     <div>
       Lat: {lat.toFixed(6)}
@@ -20,3 +20,5 @@ export default function PointPopup({ lat, lon }: Props) {
     </div>
   )
 }
+
+export const MemoPointPopup = React.memo(PointPopup, () => true)

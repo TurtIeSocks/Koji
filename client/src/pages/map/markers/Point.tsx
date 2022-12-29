@@ -1,13 +1,14 @@
-/* eslint-disable prefer-arrow-callback */
 import * as React from 'react'
 import type { Feature, Point } from 'geojson'
 import { Circle } from 'react-leaflet'
-import { useShapes } from '@hooks/useShapes'
 import * as L from 'leaflet'
-import StyledPopup from '../popups/Styled'
-import PointPopup from '../popups/Point'
 
-export default function KojiPoint({
+import { useShapes } from '@hooks/useShapes'
+
+import BasePopup from '../popups/Styled'
+import { MemoPointPopup } from '../popups/Point'
+
+export function KojiPoint({
   feature: {
     id,
     properties,
@@ -50,9 +51,19 @@ export default function KojiPoint({
       pane="circles"
       {...properties}
     >
-      <StyledPopup>
-        <PointPopup id={id} properties={properties} lat={lat} lon={lon} />
-      </StyledPopup>
+      <BasePopup>
+        <MemoPointPopup id={id} properties={properties} lat={lat} lon={lon} />
+      </BasePopup>
     </Circle>
   )
 }
+
+export const MemoPoint = React.memo(
+  KojiPoint,
+  (prev, next) =>
+    prev.feature.id === next.feature.id &&
+    prev.radius === next.radius &&
+    prev.feature.geometry.coordinates.every(
+      (coord, i) => next.feature.geometry.coordinates[i] === coord,
+    ),
+)

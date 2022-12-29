@@ -8,7 +8,7 @@ import ExportPolygon from '@components/dialogs/Polygon'
 import { getData } from '@services/fetches'
 import { useShapes } from '@hooks/useShapes'
 
-export default function PolygonPopup({
+export function PolygonPopup({
   feature: ref,
   loadData,
 }: {
@@ -103,3 +103,8 @@ export default function PolygonPopup({
     </>
   ) : null
 }
+
+export const MemoPolyPopup = React.memo(
+  PolygonPopup,
+  (prev, next) => prev.loadData === next.loadData,
+)
