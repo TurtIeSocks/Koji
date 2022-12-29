@@ -37,7 +37,7 @@ cd server && cp .env.example .env
 5. Edit the env file: `nano .env`
    - Set the `SCANNER_DB_URL` to your RDM database url
    - Set the `KOJI_DB_URL` to the database you want Kōji to write migrations to
-   - Set `PORT` to whatever you want
+   - Set `KOJI_SECRET` to your preferred secret, this will be used for the bearer token when calling the API and logging into the client
    - Set `START_LAT` and `START_LON` to wherever you want the map to start
 6. Compile the client:
 

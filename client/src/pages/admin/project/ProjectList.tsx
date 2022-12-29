@@ -1,0 +1,49 @@
+import * as React from 'react'
+import {
+  CreateButton,
+  Datagrid,
+  DeleteWithUndoButton,
+  EditButton,
+  List,
+  NumberField,
+  Pagination,
+  TextField,
+  TopToolbar,
+} from 'react-admin'
+import { BulkAssignButton } from '../actions/bulk/AssignButton'
+
+function ListActions() {
+  return (
+    <TopToolbar>
+      <CreateButton />
+    </TopToolbar>
+  )
+}
+
+const defaultSort = { field: 'id', order: 'ASC' }
+
+function AreaPagination() {
+  return <Pagination rowsPerPageOptions={[25, 50, 100]} />
+}
+
+export default function ProjectList() {
+  return (
+    <List
+      pagination={<AreaPagination />}
+      title="Projects"
+      actions={<ListActions />}
+      perPage={25}
+      sort={defaultSort}
+    >
+      <Datagrid
+        rowClick="expand"
+        bulkActionButtons={<BulkAssignButton resource="project" />}
+      >
+        <TextField source="name" />
+        <NumberField source="related.length" label="Geofences" />
+        <EditButton />
+        <DeleteWithUndoButton />
+      </Datagrid>
+    </List>
+  )
+}

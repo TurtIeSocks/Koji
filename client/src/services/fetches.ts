@@ -4,7 +4,7 @@ import type { Map } from 'leaflet'
 import type { Feature, FeatureCollection } from 'geojson'
 
 import type { CombinedState, Data, ToConvert } from '@assets/types'
-import type { UseStore } from '@hooks/useStore'
+import type { UsePersist } from '@hooks/usePersist'
 import type { UseStatic } from '@hooks/useStatic'
 
 import { fromSnakeCase, getMapBounds } from './utils'
@@ -83,12 +83,12 @@ export async function getLotsOfData(
 
 export async function getMarkers(
   map: Map,
-  data: UseStore['data'],
+  data: UsePersist['data'],
   area: UseStatic['geojson'],
   enableStops: boolean,
   enableSpawnpoints: boolean,
   enableGyms: boolean,
-  last_seen: UseStore['last_seen'],
+  last_seen: UsePersist['last_seen'],
 ): Promise<Data> {
   const [pokestops, gyms, spawnpoints] = await Promise.all(
     [
@@ -104,25 +104,28 @@ export async function getMarkers(
               feature.geometry.type === 'MultiPolygon',
           ).length
         : true)
-        ? fetch(`/api/data/${data === 'all' ? 'all' : 'area'}/${category}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
+        ? fetch(
+            `/internal/data/${data === 'all' ? 'all' : 'area'}/${category}`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                area:
+                  data === 'area'
+                    ? area.features.filter(
+                        (feature) =>
+                          feature.geometry.type === 'Polygon' ||
+                          feature.geometry.type === 'MultiPolygon',
+                      )
+                    : data === 'bound'
+                    ? getMapBounds(map)
+                    : undefined,
+                last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+              }),
             },
-            body: JSON.stringify({
-              area:
-                data === 'area'
-                  ? area.features.filter(
-                      (feature) =>
-                        feature.geometry.type === 'Polygon' ||
-                        feature.geometry.type === 'MultiPolygon',
-                    )
-                  : data === 'bound'
-                  ? getMapBounds(map)
-                  : undefined,
-              last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
-            }),
-          }).then((res) => res.json())
+          ).then((res) => res.json())
         : [],
     ),
   )
@@ -135,7 +138,7 @@ export async function getMarkers(
 
 export async function convert<T = Array<object> | object | string>(
   area: ToConvert,
-  return_type: UseStore['polygonExportMode'],
+  return_type: UsePersist['polygonExportMode'],
 ): Promise<T> {
   try {
     const data = await fetch('/api/v1/convert/data', {

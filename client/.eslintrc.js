@@ -24,6 +24,7 @@ module.exports = {
   rules: {
     'no-bitwise': 'off',
     semi: 'off',
+    'arrow-body-style': 'off',
     'react/jsx-no-duplicate-props': 'off',
     'jsx-a11y/anchor-is-valid': 'off',
     'no-underscore-dangle': 'off',

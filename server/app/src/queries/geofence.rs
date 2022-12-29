@@ -3,15 +3,14 @@ use super::*;
 use chrono::Utc;
 use entity::sea_orm_active_enums::Type;
 use geojson::GeoJson;
-use migration::{Expr, Order};
+use migration::Expr;
 use models::ToCollection;
-use sea_orm::{QueryOrder, Set};
+use sea_orm::{Order, QueryOrder, Set};
 
 use crate::{entity::geofence, models::scanner::IdName};
 
 pub async fn all(conn: &DatabaseConnection) -> Result<Vec<Feature>, DbErr> {
     let items = geofence::Entity::find()
-        // .find_with_related(project::Entity)
         .order_by(geofence::Column::Name, Order::Asc)
         .all(conn)
         .await?;

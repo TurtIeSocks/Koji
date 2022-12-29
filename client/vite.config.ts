@@ -25,9 +25,10 @@ export default defineConfig(({ mode }) => ({
   publicDir: 'public',
   resolve: {
     alias: {
-      '@components': resolve(__dirname, './src/components'),
       '@assets': resolve(__dirname, './src/assets'),
+      '@components': resolve(__dirname, './src/components'),
       '@hooks': resolve(__dirname, './src/hooks'),
+      '@pages': resolve(__dirname, './src/pages'),
       '@services': resolve(__dirname, './src/services'),
     },
   },
@@ -52,6 +53,21 @@ export default defineConfig(({ mode }) => ({
     },
     proxy: {
       '/api': {
+        target: `http://0.0.0.0:8080`,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/internal': {
+        target: `http://0.0.0.0:8080`,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/config': {
+        target: `http://0.0.0.0:8080`,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/login': {
         target: `http://0.0.0.0:8080`,
         changeOrigin: true,
         secure: false,

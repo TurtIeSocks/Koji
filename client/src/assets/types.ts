@@ -4,7 +4,7 @@
 import type { Feature, FeatureCollection } from 'geojson'
 import * as L from 'leaflet'
 
-import type { UseStore } from '@hooks/useStore'
+import type { UsePersist } from '@hooks/usePersist'
 import type { UseStatic } from '@hooks/useStatic'
 
 export interface Data {
@@ -65,7 +65,7 @@ export interface Polygon {
 
 export type Shape = Circle | Polygon
 
-export type CombinedState = Partial<UseStore> & Partial<UseStatic>
+export type CombinedState = Partial<UsePersist> & Partial<UseStatic>
 
 export type ObjectInput = { lat: number; lon: number }[]
 export type MultiObjectInput = ObjectInput[]
@@ -95,6 +95,31 @@ export type ToConvert =
   | string
   | Poracle
   | Feature[]
+
+export interface PopupProps {
+  id: Feature['id']
+  properties: Feature['properties']
+}
+
+export interface KojiGeofence {
+  id: number
+  name: string
+  area: Feature
+}
+
+export interface ClientGeofence extends KojiGeofence {
+  properties: { key: string; value: string | number | boolean }[]
+  related: number[]
+}
+
+export interface KojiProject {
+  id: number
+  name: string
+}
+
+export interface ClientProject extends KojiProject {
+  related: number[]
+}
 
 // for some reason locate.control @types augmentation is broken
 declare module 'leaflet' {
