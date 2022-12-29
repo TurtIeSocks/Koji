@@ -8,6 +8,7 @@ import Map from '@components/Map'
 import ErrorBoundary from '@components/ErrorBoundary'
 import DrawerIndex from '@components/drawer'
 import Main from '@components/styled/Main'
+import Loading from '@components/Loading'
 
 import Markers from './markers'
 import Interface from './interface'
@@ -18,6 +19,7 @@ export default function MapWrapper() {
 
   return (
     <Box sx={{ display: 'flex' }}>
+      <Loading />
       <ErrorBoundary>
         <DrawerIndex />
       </ErrorBoundary>

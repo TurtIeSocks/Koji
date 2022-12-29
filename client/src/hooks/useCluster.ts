@@ -9,9 +9,6 @@ export default function useCluster(): void {
   const mode = usePersist((s) => s.mode)
   const radius = usePersist((s) => s.radius)
   const category = usePersist((s) => s.category)
-  const generations = usePersist((s) => s.generations)
-  const devices = usePersist((s) => s.devices)
-  const tab = usePersist((s) => s.tab)
   const min_points = usePersist((s) => s.min_points)
   const fast = usePersist((s) => s.fast)
   const autoMode = usePersist((s) => s.autoMode)
@@ -26,21 +23,34 @@ export default function useCluster(): void {
   const geojson = useStatic((s) => s.geojson)
   const layerEditing = useStatic((s) => s.layerEditing)
   const forceFetch = useStatic((s) => s.forceFetch)
+  const setStatic = useStatic((s) => s.setStatic)
 
   const add = useShapes((s) => s.setters.add)
 
   useDeepCompareEffect(() => {
     if (geojson.features.length && drawer && menuItem === 'Clustering') {
       if (Object.values(layerEditing).every((v) => !v)) {
+        setStatic(
+          'loading',
+          Object.fromEntries(
+            geojson.features
+              .filter(
+                (feat) =>
+                  feat.geometry.type === 'Polygon' ||
+                  feat.geometry.type === 'MultiPolygon',
+              )
+              .map((k) => [k.properties?.name, null]),
+          ),
+        )
+        setStatic('totalLoadingTime', 0)
         getLotsOfData(
           mode === 'bootstrap'
             ? '/api/v1/calc/bootstrap'
             : `/api/v1/calc/${mode}/${category}`,
+          setStatic,
           {
             category,
             radius,
-            generations,
-            devices,
             geojson,
             min_points,
             fast,
@@ -61,12 +71,9 @@ export default function useCluster(): void {
           mode,
           radius,
           fast,
-          generations,
           min_points,
           category,
-          devices,
           geojson,
-          tab,
           routing_time,
           only_unique,
           save_to_db,

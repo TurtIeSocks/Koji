@@ -5,11 +5,6 @@ interface Props extends PopupProps {
   dis: number
 }
 
-export default function LineStringPopup({ id, properties, dis }: Props) {
-  return (
-    <>
-      {JSON.stringify({ id, properties }, null, 2)}
-      {dis.toFixed(2)}
-    </>
-  )
+export default function LineStringPopup({ dis }: Props) {
+  return <>{dis.toFixed(2)}</>
 }

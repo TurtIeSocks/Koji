@@ -7,11 +7,9 @@ interface Props extends PopupProps {
   lon: number
 }
 
-export default function PointPopup({ id, properties, lat, lon }: Props) {
+export default function PointPopup({ lat, lon }: Props) {
   return (
     <div>
-      {JSON.stringify({ id, properties }, null, 2)}
-      <br />
       Lat: {lat.toFixed(6)}
       <br />
       Lng: {lon.toFixed(6)}

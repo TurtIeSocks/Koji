@@ -95,7 +95,9 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
       <Autocomplete
         value={selected.filter((s) => fences[stateKey][s])}
         size="small"
-        onChange={(_e, newValue) => updateState(newValue)}
+        onChange={(_e, newValue) => {
+          updateState(newValue)
+        }}
         filterOptions={filterOptions}
         selectOnFocus
         clearOnBlur
