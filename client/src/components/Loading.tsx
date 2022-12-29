@@ -1,15 +1,32 @@
+/* eslint-disable no-nested-ternary */
 import * as React from 'react'
-import { useStatic } from '@hooks/useStatic'
+import shallow from 'zustand/shallow'
 import Backdrop from '@mui/material/Backdrop'
 import CircularProgress from '@mui/material/CircularProgress'
-import { Divider, Typography } from '@mui/material'
+import Divider from '@mui/material/Divider'
+import Typography from '@mui/material/Typography'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
+
+import { usePersist } from '@hooks/usePersist'
+import { useStatic } from '@hooks/useStatic'
+import { fromSnakeCase } from '@services/utils'
 
 export default function Loading() {
   const loading = useStatic((s) => s.loading)
   const totalLoadingTime = useStatic((s) => s.totalLoadingTime)
   const setStatic = useStatic((s) => s.setStatic)
 
+  const settings = usePersist(
+    (s) => ({
+      mode: s.mode,
+      radius: s.radius,
+      category: s.category,
+      min_points: s.min_points,
+      fast: s.fast,
+      routing_time: s.routing_time,
+    }),
+    shallow,
+  )
   const [time, setTime] = React.useState(0)
 
   const loadingStarted = Object.keys(loading).length
@@ -44,7 +61,7 @@ export default function Loading() {
         bgcolor: 'rgba(0, 0, 0, 0.8)',
       }}
     >
-      <Grid2 xs={12}>
+      <Grid2 xs={totalLoadingTime ? 6 : 12}>
         <Typography variant="h2" color="secondary">
           {totalLoadingTime
             ? 'Stats'
@@ -53,16 +70,31 @@ export default function Loading() {
                   Object.keys(loading).length) *
                 100
               ).toFixed(2)}
-          %`}
+          % - ${time}s`}
         </Typography>
-        <Divider
-          flexItem
-          sx={{ width: '90%', mx: 'auto', height: 8, mt: 2, color: 'white' }}
-        />
       </Grid2>
+      <Grid2
+        xs={6}
+        container
+        sx={{ display: totalLoadingTime ? 'flex' : 'none' }}
+      >
+        {Object.entries(settings).map(([key, value]) => (
+          <Grid2 key={key} xs={4} sm={2}>
+            <Typography color="primary">{fromSnakeCase(key)}</Typography>
+            <Typography variant="subtitle2">
+              {value.toString()}
+              {key === 'routing_time' ? 's' : key === 'radius' ? 'm' : ''}
+            </Typography>
+          </Grid2>
+        ))}
+      </Grid2>
+      <Divider
+        flexItem
+        sx={{ width: '95%', mx: 'auto', height: 8, mt: 2, color: 'white' }}
+      />
       {Object.entries(loading).map(([key, value]) => (
         <Grid2 key={key} container xs={12} md={6}>
-          <Grid2 xs={6} width="100%" my={2}>
+          <Grid2 xs={12} width="100%" my={2}>
             <Typography variant="h4" color="primary">
               {key}
             </Typography>
@@ -165,21 +197,19 @@ export default function Loading() {
           />
         </Grid2>
       ))}
-      <Grid2 xs={12} container pt={3}>
-        <Grid2 xs={4}>
-          <Typography variant="h4">
-            {totalLoadingTime ? 'Total Time:' : 'Time:'}
-          </Typography>
+      {!!totalLoadingTime && (
+        <Grid2 xs={12} container pt={3}>
+          <Grid2 xs={4}>
+            <Typography variant="h4">Total Time:</Typography>
+          </Grid2>
+          <Grid2 xs={4}>
+            <Typography variant="h4">{totalLoadingTime / 1000}s</Typography>
+          </Grid2>
+          <Grid2 xs={4}>
+            <Typography variant="caption">Click anywhere to close</Typography>
+          </Grid2>
         </Grid2>
-        <Grid2 xs={4}>
-          <Typography variant="h4">
-            {totalLoadingTime / 1000 || time}s
-          </Typography>
-        </Grid2>
-        <Grid2 xs={4}>
-          <Typography variant="caption">Click anywhere to close</Typography>
-        </Grid2>
-      </Grid2>
+      )}
     </Grid2>
   ) : null
 }

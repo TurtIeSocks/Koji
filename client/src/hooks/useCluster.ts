@@ -9,9 +9,6 @@ export default function useCluster(): void {
   const mode = usePersist((s) => s.mode)
   const radius = usePersist((s) => s.radius)
   const category = usePersist((s) => s.category)
-  const generations = usePersist((s) => s.generations)
-  const devices = usePersist((s) => s.devices)
-  const tab = usePersist((s) => s.tab)
   const min_points = usePersist((s) => s.min_points)
   const fast = usePersist((s) => s.fast)
   const autoMode = usePersist((s) => s.autoMode)
@@ -54,8 +51,6 @@ export default function useCluster(): void {
           {
             category,
             radius,
-            generations,
-            devices,
             geojson,
             min_points,
             fast,
@@ -76,12 +71,9 @@ export default function useCluster(): void {
           mode,
           radius,
           fast,
-          generations,
           min_points,
           category,
-          devices,
           geojson,
-          tab,
           routing_time,
           only_unique,
           save_to_db,
