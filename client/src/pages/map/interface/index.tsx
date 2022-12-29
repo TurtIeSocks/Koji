@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { ZoomControl } from 'react-leaflet'
 import { renderToString } from 'react-dom/server'
-import { AdminPanelSettings } from '@mui/icons-material'
+import AdminPanelSettings from '@mui/icons-material/AdminPanelSettings'
 import { useNavigate } from 'react-router'
 
 import useCluster from '@hooks/useCluster'
