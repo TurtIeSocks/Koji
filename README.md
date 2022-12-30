@@ -262,6 +262,23 @@ pub struct BoundsArg {
   }
 ```
 
+### /api/v1/geofence/{ReturnType}
+
+- **Method:** `GET`
+- **URL Params**:
+  - See `ReturnType` enum above
+- **Returns**:
+  - All geofences saved in the Kōji database in the format specified by `ReturnType`
+
+### /api/v1/geofence/{ReturnType}/{Project_Name}
+
+- **Method:** `GET`
+- **URL Params**:
+  - See `ReturnType` enum above
+  - Name of a saved project in the Kōji database
+- **Returns**:
+  - The geofence saved in the Kōji database in the format specified by `ReturnType` that are related to the specified `Project_Name`
+
 ### /api/v1/calc/bootstrap
 
 - **Method:** `POST`
@@ -271,6 +288,8 @@ pub struct BoundsArg {
   - **Optional**:
     - `radius`
     - `return_type`
+- **Returns**:
+  - Bootstrap route data for the specified area/instance with the specified radius
 
 ### /api/v1/calc/cluster
 
@@ -288,6 +307,8 @@ pub struct BoundsArg {
     - `devices`
     - `fast`
     - `only_unique`
+- **Returns**:
+  - Clustered/routing data for the specified area/instance with the specified radius
 
 ### /api/v1/convert/data
 
@@ -297,3 +318,5 @@ pub struct BoundsArg {
     - `area`
   - **Optional**:
     - `return_type`
+- **Returns**:
+  - Converted data points in any of the supported formats
