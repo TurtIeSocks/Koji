@@ -26,7 +26,7 @@ pub async fn main() -> io::Result<()> {
     // error | warn | info | debug | trace
     env_logger::init_from_env(
         env_logger::Env::new()
-            .default_filter_or(env::var("LOG_LEVEL").unwrap_or("warn".to_string())),
+            .default_filter_or(env::var("LOG_LEVEL").unwrap_or("info".to_string())),
     );
 
     let koji_db_url = env::var("KOJI_DB_URL").expect("Need KOJI_DB_URL env var to run migrations");
