@@ -1,5 +1,6 @@
 import * as React from 'react'
 import {
+  BulkDeleteWithUndoButton,
   CreateButton,
   Datagrid,
   DeleteWithUndoButton,
@@ -20,6 +21,15 @@ function ListActions() {
   )
 }
 
+function BulkActions() {
+  return (
+    <>
+      <BulkDeleteWithUndoButton resource="project" />
+      <BulkAssignButton resource="project" />
+    </>
+  )
+}
+
 const defaultSort = { field: 'id', order: 'ASC' }
 
 function AreaPagination() {
@@ -35,10 +45,7 @@ export default function ProjectList() {
       perPage={25}
       sort={defaultSort}
     >
-      <Datagrid
-        rowClick="expand"
-        bulkActionButtons={<BulkAssignButton resource="project" />}
-      >
+      <Datagrid rowClick="expand" bulkActionButtons={<BulkActions />}>
         <TextField source="name" />
         <NumberField source="related.length" label="Geofences" />
         <EditButton />

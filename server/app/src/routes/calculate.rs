@@ -94,9 +94,9 @@ async fn bootstrap(
     Ok(response::send(
         features.to_collection(Some(instance.clone()), None),
         return_type,
-        stats,
+        Some(stats),
         benchmark_mode,
-        instance,
+        Some(instance),
     ))
 }
 
@@ -352,8 +352,8 @@ async fn cluster(
     Ok(response::send(
         feature,
         return_type,
-        stats,
+        Some(stats),
         benchmark_mode,
-        instance,
+        Some(instance),
     ))
 }

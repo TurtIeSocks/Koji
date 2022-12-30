@@ -1,3 +1,4 @@
+use models::api::{get_return_type, ReturnTypeArg};
 use serde_json::json;
 
 use super::*;
@@ -5,6 +6,7 @@ use super::*;
 use crate::models::api::{Args, ArgsUnwrapped, Response};
 use crate::models::{KojiDb, ToCollection};
 use crate::queries::{area, geofence, instance};
+use crate::utils::response;
 
 #[get("/all")]
 async fn all(
@@ -72,4 +74,50 @@ async fn save_scanner(
         stats: None,
         status_code: 200,
     }))
+}
+
+#[get("/{return_type}")]
+async fn specific_return_type(
+    conn: web::Data<KojiDb>,
+    url: actix_web::web::Path<String>,
+) -> Result<HttpResponse, Error> {
+    let return_type = url.into_inner();
+    let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
+
+    let features = geofence::all(&conn.koji_db)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    println!("[GEOFENCES_ALL] Returning {} instances\n", features.len());
+    Ok(response::send(
+        features.to_collection(None, None),
+        return_type,
+        None,
+        false,
+        None,
+    ))
+}
+
+#[get("/{return_type}/{project_name}")]
+async fn specific_project(
+    conn: web::Data<KojiDb>,
+    url: actix_web::web::Path<(String, String)>,
+) -> Result<HttpResponse, Error> {
+    let (return_type, project_name) = url.into_inner();
+    let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
+    let features = geofence::by_project(&conn.koji_db, project_name)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    println!(
+        "[GEOFENCES_FC_ALL] Returning {} instances\n",
+        features.len()
+    );
+    Ok(response::send(
+        features.to_collection(None, None),
+        return_type,
+        None,
+        false,
+        None,
+    ))
 }

@@ -138,29 +138,7 @@ impl Args {
         let min_points = min_points.unwrap_or(1);
         let radius = radius.unwrap_or(70.0);
         let return_type = if let Some(return_type) = return_type {
-            match return_type.to_lowercase().as_str() {
-                "alttext" | "alt_text" => ReturnTypeArg::AltText,
-                "text" => ReturnTypeArg::Text,
-                "array" => match default_return_type {
-                    ReturnTypeArg::SingleArray => ReturnTypeArg::SingleArray,
-                    ReturnTypeArg::MultiArray => ReturnTypeArg::MultiArray,
-                    _ => ReturnTypeArg::SingleArray,
-                },
-                "singlearray" | "single_array" => ReturnTypeArg::SingleArray,
-                "multiarray" | "multi_array" => ReturnTypeArg::MultiArray,
-                "struct" => match default_return_type {
-                    ReturnTypeArg::SingleStruct => ReturnTypeArg::SingleStruct,
-                    ReturnTypeArg::MultiStruct => ReturnTypeArg::MultiStruct,
-                    _ => ReturnTypeArg::SingleStruct,
-                },
-                "singlestruct" | "single_struct" => ReturnTypeArg::SingleStruct,
-                "multistruct" | "multi_struct" => ReturnTypeArg::MultiStruct,
-                "feature" => ReturnTypeArg::Feature,
-                "featurevec" | "feature_vec" => ReturnTypeArg::FeatureVec,
-                "poracle" => ReturnTypeArg::Poracle,
-                "featurecollection" | "feature_collection" => ReturnTypeArg::FeatureCollection,
-                _ => default_return_type,
-            }
+            get_return_type(return_type, &default_return_type)
         } else {
             default_return_type
         };
@@ -193,6 +171,34 @@ impl Args {
             save_to_db,
             route_chunk_size,
         }
+    }
+}
+
+pub fn get_return_type(return_type: String, default_return_type: &ReturnTypeArg) -> ReturnTypeArg {
+    match return_type.to_lowercase().as_str() {
+        "alttext" | "alt_text" | "alt-text" => ReturnTypeArg::AltText,
+        "text" => ReturnTypeArg::Text,
+        "array" => match *default_return_type {
+            ReturnTypeArg::SingleArray => ReturnTypeArg::SingleArray,
+            ReturnTypeArg::MultiArray => ReturnTypeArg::MultiArray,
+            _ => ReturnTypeArg::SingleArray,
+        },
+        "singlearray" | "single_array" | "single-array" => ReturnTypeArg::SingleArray,
+        "multiarray" | "multi_array" | "multi-array" => ReturnTypeArg::MultiArray,
+        "struct" => match *default_return_type {
+            ReturnTypeArg::SingleStruct => ReturnTypeArg::SingleStruct,
+            ReturnTypeArg::MultiStruct => ReturnTypeArg::MultiStruct,
+            _ => ReturnTypeArg::SingleStruct,
+        },
+        "singlestruct" | "single_struct" | "single-struct" => ReturnTypeArg::SingleStruct,
+        "multistruct" | "multi_struct" | "multi-struct" => ReturnTypeArg::MultiStruct,
+        "feature" => ReturnTypeArg::Feature,
+        "featurevec" | "feature_vec" | "feature-vec" => ReturnTypeArg::FeatureVec,
+        "poracle" => ReturnTypeArg::Poracle,
+        "featurecollection" | "feature_collection" | "feature-collection" => {
+            ReturnTypeArg::FeatureCollection
+        }
+        _ => default_return_type.clone(),
     }
 }
 
@@ -230,7 +236,7 @@ impl Stats {
             longest_distance: 0.,
         }
     }
-    pub fn log(&self, area: String) {
+    pub fn log(&self, area: Option<String>) {
         let width = "=======================================================================";
         let get_row = |text: String, replace: bool| {
             format!(
@@ -243,10 +249,14 @@ impl Stats {
         println!(
             "\n{}{}{}{}{}{}  {}==\n",
             get_row("[STATS] ".to_string(), false),
-            if area.is_empty() {
-                "".to_string()
+            if let Some(area) = area {
+                if area.is_empty() {
+                    "".to_string()
+                } else {
+                    get_row(format!("|| [AREA]: {}", area), true)
+                }
             } else {
-                get_row(format!("|| [AREA]: {}", area), true)
+                "".to_string()
             },
             get_row(
                 format!(

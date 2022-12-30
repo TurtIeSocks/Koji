@@ -17,7 +17,7 @@ services:
       #PORT: 8080
       #TILE_SERVER: https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png
       #MAX_CONNECTIONS: 100
-      #LOG_LEVEL: warn # error | warn | info | debug | trace
+      #LOG_LEVEL: info # error | warn | info | debug | trace
       #mem_limit: 2048G
       #mem_reservation: 256M
       #cpus: 2 

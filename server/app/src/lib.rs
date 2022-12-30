@@ -1,16 +1,15 @@
 use std::{env, io};
 
 use actix_files::{Files, NamedFile};
-
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::{
     cookie::Key,
     dev::{ServiceRequest, ServiceResponse},
     middleware, web, App, HttpServer,
 };
-
 use actix_web_httpauth::middleware::HttpAuthentication;
 use geojson::{Feature, FeatureCollection};
+use log::LevelFilter;
 use sea_orm::{ConnectOptions, Database};
 
 use entity;
@@ -53,6 +52,7 @@ pub async fn main() -> io::Result<()> {
         data_db: {
             let mut opt = ConnectOptions::new(scanner_db_url);
             opt.max_connections(max_connections);
+            opt.sqlx_logging_level(LevelFilter::Debug);
             match Database::connect(opt).await {
                 Ok(db) => db,
                 Err(err) => panic!("{}", err),
@@ -61,6 +61,7 @@ pub async fn main() -> io::Result<()> {
         koji_db: {
             let mut opt = ConnectOptions::new(koji_db_url);
             opt.max_connections(max_connections);
+            opt.sqlx_logging_level(LevelFilter::Debug);
             match Database::connect(opt).await {
                 Ok(db) => db,
                 Err(err) => panic!("{}", err),
@@ -71,6 +72,7 @@ pub async fn main() -> io::Result<()> {
         } else {
             let mut opt = ConnectOptions::new(unown_db_url);
             opt.max_connections(max_connections);
+            opt.sqlx_logging_level(LevelFilter::Debug);
             match Database::connect(opt).await {
                 Ok(db) => Some(db),
                 Err(err) => panic!("{}", err),
@@ -167,7 +169,9 @@ pub async fn main() -> io::Result<()> {
                             web::scope("/geofence")
                                 .service(routes::geofence::all)
                                 .service(routes::geofence::save_koji)
-                                .service(routes::geofence::save_scanner),
+                                .service(routes::geofence::save_scanner)
+                                .service(routes::geofence::specific_return_type)
+                                .service(routes::geofence::specific_project),
                         ),
                 ),
             )

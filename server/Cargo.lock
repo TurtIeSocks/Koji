@@ -355,6 +355,7 @@ dependencies = [
  "geo",
  "geohash",
  "geojson",
+ "log",
  "map_3d",
  "migration",
  "model",
