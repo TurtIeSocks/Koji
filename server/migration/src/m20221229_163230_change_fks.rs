@@ -7,6 +7,14 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let table = Table::alter()
+            .table(GeofenceProject::Table)
+            .drop_foreign_key(Alias::new("FK_geofence_id"))
+            .drop_foreign_key(Alias::new("FK_project_id"))
+            .to_owned();
+
+        manager.alter_table(table).await?;
+
         let foreign_key_char = TableForeignKey::new()
             .name("FK_geofence_id")
             .from_tbl(GeofenceProject::Table)
@@ -37,6 +45,14 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let table = Table::alter()
+            .table(GeofenceProject::Table)
+            .drop_foreign_key(Alias::new("FK_geofence_id"))
+            .drop_foreign_key(Alias::new("FK_project_id"))
+            .to_owned();
+
+        manager.alter_table(table).await?;
+
         let foreign_key_char = TableForeignKey::new()
             .name("FK_geofence_id")
             .from_tbl(GeofenceProject::Table)
