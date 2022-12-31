@@ -156,6 +156,7 @@ export async function getMarkers(
 export async function convert<T = Array<object> | object | string>(
   area: ToConvert,
   return_type: UsePersist['polygonExportMode'],
+  simplify: UsePersist['simplifyPolygons'],
 ): Promise<T> {
   try {
     const data = await fetch('/api/v1/convert/data', {
@@ -166,6 +167,7 @@ export async function convert<T = Array<object> | object | string>(
       body: JSON.stringify({
         area,
         return_type,
+        simplify,
       }),
     })
     return await data.json().then((r) => r.data)

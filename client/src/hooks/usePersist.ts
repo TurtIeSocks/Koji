@@ -48,6 +48,7 @@ export interface UsePersist {
   fast: boolean
   autoMode: boolean
   loadingScreen: boolean
+  simplifyPolygons: boolean
   setStore: <T extends keyof UsePersist>(key: T, value: UsePersist[T]) => void
 }
 
@@ -97,6 +98,7 @@ export const usePersist = create(
       continueDrawing: true,
       autoMode: false,
       loadingScreen: true,
+      simplifyPolygons: true,
     }),
     {
       name: 'local',

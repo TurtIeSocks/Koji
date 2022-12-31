@@ -39,6 +39,7 @@ export default function ExportPolygon({
   feature,
 }: Import | Export | ExportAll): JSX.Element {
   const polygonExportMode = usePersist((s) => s.polygonExportMode)
+  const simplifyPolygons = usePersist((s) => s.simplifyPolygons)
   const setStore = usePersist((s) => s.setStore)
 
   const add = useShapes((s) => s.setters.add)
@@ -52,7 +53,7 @@ export default function ExportPolygon({
       ;(async () => {
         switch (polygonExportMode) {
           default:
-            return convert(feature, polygonExportMode)
+            return convert(feature, polygonExportMode, simplifyPolygons)
         }
       })().then((newCode) => {
         if (typeof newCode === 'string') {
@@ -93,6 +94,7 @@ export default function ExportPolygon({
           const geojson = await convert<FeatureCollection>(
             parsed,
             'featureCollection',
+            simplifyPolygons,
           )
           if (geojson.type === 'FeatureCollection') {
             setTempGeojson({
