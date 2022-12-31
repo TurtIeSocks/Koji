@@ -12,9 +12,10 @@
 - Fast route solver for quest scanning
 - Geofence conversions into various formats
 
-## Compatibility
+## Data Compatibility
 
 - [RealDeviceMap (RDM)](https://github.com/realdevicemap/realdevicemap)
+- [Golbat](https://github.com/UnownHash/Golbat)
 
 ## Installation
 
