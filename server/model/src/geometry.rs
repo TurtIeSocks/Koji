@@ -1,3 +1,5 @@
+use geo::{MultiPolygon, Polygon, Simplify};
+
 use super::*;
 
 impl EnsurePoints for Geometry {
@@ -25,6 +27,22 @@ impl EnsurePoints for Geometry {
                 return_value
             }
             _ => return_value,
+        }
+    }
+}
+
+impl GeometryHelpers for Geometry {
+    fn simplify(self) -> Self {
+        match self.value {
+            Value::Polygon(_) => {
+                Geometry::from(&Polygon::<f64>::try_from(self).unwrap().simplify(&0.0001))
+            }
+            Value::MultiPolygon(_) => Geometry::from(
+                &MultiPolygon::<f64>::try_from(self)
+                    .unwrap()
+                    .simplify(&0.0001),
+            ),
+            _ => self,
         }
     }
 }

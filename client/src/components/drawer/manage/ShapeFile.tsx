@@ -6,12 +6,14 @@ import UploadFileIcon from '@mui/icons-material/UploadFile'
 import type { Feature } from 'geojson'
 import { useShapes } from '@hooks/useShapes'
 import { convert } from '@services/fetches'
+import { usePersist } from '@hooks/usePersist'
 
 export default function ShapeFile() {
   const [value, setValue] = React.useState<Feature[]>([])
   const [shpString, setShpString] = React.useState<string | ArrayBuffer>('')
   const [dbfString, setDbfString] = React.useState<string | ArrayBuffer>('')
 
+  const simplifyPolygons = usePersist((s) => s.simplifyPolygons)
   const add = useShapes((s) => s.setters.add)
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,6 +66,7 @@ export default function ShapeFile() {
           },
         })),
         'featureVec',
+        simplifyPolygons,
       ).then((geojson) => {
         add(geojson)
         setValue([])

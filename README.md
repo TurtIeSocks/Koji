@@ -321,3 +321,14 @@ pub struct BoundsArg {
     - `return_type`
 - **Returns**:
   - Converted data points in any of the supported formats
+
+### /api/v1/convert/simplify
+
+- **Method:** `POST`
+- **JSON Body**:
+  - **Required**:
+    - `area`
+  - **Optional**:
+    - `return_type`
+- **Returns**:
+  - Simplify Polygons and MultiPolygons

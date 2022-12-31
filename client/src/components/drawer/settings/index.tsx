@@ -15,6 +15,7 @@ export default function Settings() {
   const nativeLeaflet = usePersist((s) => s.nativeLeaflet)
   const last_seen = usePersist((s) => s.last_seen)
   const loadingScreen = usePersist((s) => s.loadingScreen)
+  const simplifyPolygons = usePersist((s) => s.simplifyPolygons)
   const setStore = usePersist((s) => s.setStore)
 
   return (
@@ -26,6 +27,11 @@ export default function Settings() {
       <Toggle field="spawnpoint" value={spawnpoint} setValue={setStore} />
       <Toggle field="nativeLeaflet" value={nativeLeaflet} setValue={setStore} />
       <Toggle field="loadingScreen" value={loadingScreen} setValue={setStore} />
+      <Toggle
+        field="simplifyPolygons"
+        value={simplifyPolygons}
+        setValue={setStore}
+      />
       <ListItem>
         <BtnGroup
           field="data"
