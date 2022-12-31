@@ -8,6 +8,7 @@ interface Props {
   forcedLocation?: [number, number]
   forcedZoom?: number
   style?: React.CSSProperties
+  zoomControl?: boolean
 }
 
 export default function Map({
@@ -15,6 +16,7 @@ export default function Map({
   forcedLocation,
   forcedZoom,
   style,
+  zoomControl = false,
 }: Props) {
   const { location, zoom } = usePersist.getState()
   const tileServer = useStatic((s) => s.tileServer)
@@ -24,7 +26,7 @@ export default function Map({
       key="map"
       center={forcedLocation ?? location}
       zoom={forcedZoom ?? zoom}
-      zoomControl={false}
+      zoomControl={zoomControl}
       style={style}
     >
       <TileLayer

@@ -19,6 +19,7 @@ export default function GeofenceForm() {
       <TextInput source="name" fullWidth required />
       <FormDataConsumer>
         {({ formData }) => {
+          if (formData?.area?.geometry === undefined) return null
           const point = center(formData.area.geometry)
           return (
             <Map
@@ -27,6 +28,7 @@ export default function GeofenceForm() {
                 point.geometry.coordinates[0],
               ]}
               forcedZoom={8}
+              zoomControl
               style={{ width: '100%', height: '50vh' }}
             >
               <GeoJSON data={formData.area} />
@@ -41,7 +43,11 @@ export default function GeofenceForm() {
           <TextInput source="value" helperText={false} />
         </SimpleFormIterator>
       </ArrayInput>
-      <ReferenceArrayInput source="related" reference="project">
+      <ReferenceArrayInput
+        source="related"
+        reference="project"
+        label="Projects"
+      >
         <SelectArrayInput optionText="name" />
       </ReferenceArrayInput>
     </SimpleForm>
