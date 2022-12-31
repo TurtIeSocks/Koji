@@ -3,6 +3,7 @@ import create from 'zustand'
 export interface UseRaStore {
   bulkAssignProject: boolean
   bulkAssignGeofence: boolean
+  geofenceCreateDialog: boolean
   setRaStore: <T extends keyof Omit<UseRaStore, 'setRaStore'>>(
     key: T,
     init: UseRaStore[T] | ((prev: UseRaStore[T]) => UseRaStore[T]),
@@ -12,6 +13,7 @@ export interface UseRaStore {
 export const useRaStore = create<UseRaStore>((set) => ({
   bulkAssignProject: false,
   bulkAssignGeofence: false,
+  geofenceCreateDialog: false,
   setRaStore: (key, newValue) => {
     set((state) => ({
       [key]: typeof newValue === 'function' ? newValue(state[key]) : newValue,

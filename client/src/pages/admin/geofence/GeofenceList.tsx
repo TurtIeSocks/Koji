@@ -8,8 +8,18 @@ import {
   NumberField,
   Pagination,
   TextField,
+  TopToolbar,
 } from 'react-admin'
 import { BulkAssignButton } from '../actions/bulk/AssignButton'
+import GeofenceCreateButton from './CreateDialog'
+
+function ListActions() {
+  return (
+    <TopToolbar>
+      <GeofenceCreateButton />
+    </TopToolbar>
+  )
+}
 
 const defaultSort = { field: 'id', order: 'ASC' }
 
@@ -32,6 +42,7 @@ export default function GeofenceList() {
       pagination={<AreaPagination />}
       title="Geofences"
       perPage={25}
+      actions={<ListActions />}
       sort={defaultSort}
     >
       <Datagrid rowClick="expand" bulkActionButtons={<BulkActions />}>
