@@ -18,22 +18,7 @@ async fn convert_data(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         ..
     } = payload.into_inner().init(Some("convert_data"));
 
-    let area = if arg_simplify {
-        area.into_iter()
-            .map(|feat| {
-                if let Some(geometry) = feat.geometry {
-                    Feature {
-                        geometry: Some(geometry.simplify()),
-                        ..feat
-                    }
-                } else {
-                    feat
-                }
-            })
-            .collect()
-    } else {
-        area
-    };
+    let area = if arg_simplify { area.simplify() } else { area };
     Ok(response::send(
         area,
         return_type,
@@ -50,18 +35,7 @@ async fn simplify(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     } = payload.into_inner().init(Some("simplify"));
 
     Ok(response::send(
-        area.into_iter()
-            .map(|feat| {
-                if let Some(geometry) = feat.geometry {
-                    Feature {
-                        geometry: Some(geometry.simplify()),
-                        ..feat
-                    }
-                } else {
-                    feat
-                }
-            })
-            .collect(),
+        area.simplify(),
         return_type,
         None,
         false,

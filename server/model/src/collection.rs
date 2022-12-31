@@ -13,6 +13,7 @@ impl Default for FeatureCollection {
         }
     }
 }
+
 impl ToSingleVec for FeatureCollection {
     fn to_single_vec(self) -> single_vec::SingleVec {
         self.to_multi_vec().into_iter().flatten().collect()
@@ -23,6 +24,23 @@ impl EnsurePoints for FeatureCollection {
     fn ensure_first_last(self) -> Self {
         self.into_iter()
             .map(|feat| feat.ensure_first_last())
+            .collect()
+    }
+}
+
+impl GeometryHelpers for FeatureCollection {
+    fn simplify(self) -> Self {
+        self.into_iter()
+            .map(|feat| {
+                if let Some(geometry) = feat.geometry {
+                    Feature {
+                        geometry: Some(geometry.simplify()),
+                        ..feat
+                    }
+                } else {
+                    feat
+                }
+            })
             .collect()
     }
 }
