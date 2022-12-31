@@ -22,4 +22,4 @@ services:
       #mem_reservation: 256M
       #cpus: 2 
     ports:
-      - "9095:8080"
+      - "8080:8080"
