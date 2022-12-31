@@ -1,4 +1,4 @@
-use std::{env, io};
+use std::{env, fs, io};
 
 use actix_files::{Files, NamedFile};
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
@@ -18,7 +18,7 @@ mod queries;
 mod routes;
 mod utils;
 use migration::{Migrator, MigratorTrait};
-use utils::auth;
+use utils::{auth, is_docker};
 
 #[actix_web::main]
 pub async fn main() -> io::Result<()> {
@@ -55,7 +55,7 @@ pub async fn main() -> io::Result<()> {
             opt.sqlx_logging_level(LevelFilter::Debug);
             match Database::connect(opt).await {
                 Ok(db) => db,
-                Err(err) => panic!("{}", err),
+                Err(err) => panic!("Cannot connect to Scanner DB: {}", err),
             }
         },
         koji_db: {
@@ -64,7 +64,7 @@ pub async fn main() -> io::Result<()> {
             opt.sqlx_logging_level(LevelFilter::Debug);
             match Database::connect(opt).await {
                 Ok(db) => db,
-                Err(err) => panic!("{}", err),
+                Err(err) => panic!("Cannot connect to Koji DB: {}", err),
             }
         },
         unown_db: if unown_db_url.is_empty() {
@@ -75,7 +75,7 @@ pub async fn main() -> io::Result<()> {
             opt.sqlx_logging_level(LevelFilter::Debug);
             match Database::connect(opt).await {
                 Ok(db) => Some(db),
-                Err(err) => panic!("{}", err),
+                Err(err) => panic!("Cannot connect to Unown DB: {}", err),
             }
         },
     };
@@ -92,11 +92,9 @@ pub async fn main() -> io::Result<()> {
     .to_string();
 
     let path = || {
-        if env::var("HOME").unwrap_or("".to_string()).eq("/root") {
-            // docker path
+        if is_docker().is_ok() {
             "./dist"
         } else {
-            // repo path
             "../client/dist"
         }
         .to_string()
