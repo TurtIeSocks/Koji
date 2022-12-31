@@ -74,3 +74,10 @@ pub fn get_enum_by_geometry(enum_val: &Value) -> Option<Type> {
         }
     }
 }
+
+pub fn is_docker() -> io::Result<bool> {
+    let mut path = env::current_dir()?;
+    path.push("dist");
+    let metadata = fs::metadata(path)?;
+    Ok(metadata.is_dir())
+}
