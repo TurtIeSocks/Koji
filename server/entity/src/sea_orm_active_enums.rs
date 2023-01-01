@@ -25,4 +25,8 @@ pub enum Type {
     PokemonIv,
     #[sea_orm(string_value = "leveling")]
     Leveling,
+    #[sea_orm(string_value = "auto_pokemon")]
+    AutoPokemon,
+    #[sea_orm(string_value = "auto_tth")]
+    AutoTth,
 }

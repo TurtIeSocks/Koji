@@ -5,7 +5,9 @@ pub type MultiVec<T = Precision> = Vec<Vec<point_array::PointArray<T>>>;
 impl ValueHelpers for MultiVec {
     fn get_geojson_value(self, enum_type: &Type) -> Value {
         match enum_type {
-            Type::AutoQuest | Type::PokemonIv => self.multi_polygon(),
+            Type::AutoQuest | Type::PokemonIv | Type::AutoPokemon | Type::AutoTth => {
+                self.multi_polygon()
+            }
             Type::CirclePokemon
             | Type::CircleSmartPokemon
             | Type::CircleRaid
