@@ -13,20 +13,19 @@ import Visibility from '@mui/icons-material/Visibility'
 import VisibilityOff from '@mui/icons-material/VisibilityOff'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 
-import { useStatic } from '@hooks/useStatic'
 import ThemeToggle from '@components/ThemeToggle'
 import GradientText from '@components/GradientText'
+import { useNavigate } from 'react-router'
 
 export default function Login() {
   const [password, setPassword] = React.useState<string>('')
   const [error, setError] = React.useState<string>('')
   const [show, setShow] = React.useState<boolean>(false)
-
-  const setStatic = useStatic((s) => s.setStatic)
+  const navigate = useNavigate()
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const res = await fetch('/login', {
+    const res = await fetch('/config/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -34,7 +33,7 @@ export default function Login() {
       body: JSON.stringify({ password }),
     })
     if (res.status === 200) {
-      setStatic('loggedIn', true)
+      navigate('/')
     } else {
       setError('Wrong Password')
     }

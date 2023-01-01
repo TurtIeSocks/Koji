@@ -1,7 +1,6 @@
 import * as React from 'react'
-import { Link } from 'react-router-dom'
 import Paper from '@mui/material/Paper'
-import Grid from '@mui/material/Grid' // https://github.com/mui/material-ui/issues/35643
+import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import GradientText from '@components/GradientText'
 import { Box } from '@mui/material'
 import ThemeToggle from '@components/ThemeToggle'
@@ -15,15 +14,14 @@ interface Props {
 
 function GridLink({ darkMode, to, children }: Props) {
   return (
-    <Grid
+    <Grid2
       container
-      item
       xs={12}
       sm={6}
-      component={Link}
+      component="a"
+      href={to}
       justifyContent="center"
       alignItems="center"
-      to={to}
       sx={{
         height: { xs: '50vh', sm: '100vh' },
         transition: '0.5s ease',
@@ -39,14 +37,14 @@ function GridLink({ darkMode, to, children }: Props) {
       }}
     >
       {children}
-    </Grid>
+    </Grid2>
   )
 }
-export default function Splash() {
+export default function Home() {
   const darkMode = usePersist((s) => s.darkMode)
 
   return (
-    <Grid container component={Paper} height="100vh" square>
+    <Grid2 container component={Paper} height="100vh" square>
       <GridLink darkMode={darkMode} to="/map">
         <GradientText className="map" variant="h1">
           Map
@@ -60,6 +58,6 @@ export default function Splash() {
       <Box sx={{ position: 'absolute', top: 10, right: 10 }}>
         <ThemeToggle />
       </Box>
-    </Grid>
+    </Grid2>
   )
 }

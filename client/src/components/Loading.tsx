@@ -189,9 +189,19 @@ export default function Loading() {
             </Grid2>
           ) : (
             <Grid2 xs={6}>
-              <CircularProgress
-                size={`calc(100vh / ${Object.keys(loading).length * 3})`}
-              />
+              {typeof value === 'boolean' ? (
+                <>
+                  <Typography color="error">Failed</Typography>
+                  <Typography>
+                    Press F12 to open the browser console to see the logged
+                    error
+                  </Typography>
+                </>
+              ) : (
+                <CircularProgress
+                  size={`calc(100vh / ${Object.keys(loading).length * 3})`}
+                />
+              )}
             </Grid2>
           )}
           <Divider

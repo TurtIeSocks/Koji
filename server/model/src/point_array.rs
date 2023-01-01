@@ -74,7 +74,7 @@ impl ToCollection for PointArray {
 
 impl ToText for PointArray {
     fn to_text(self, sep_1: &str, sep_2: &str) -> String {
-        format!("{}{}{}{}", self[0], sep_1, self[1], sep_2)
+        format!("{}{}{}{}", self[0] as f32, sep_1, self[1] as f32, sep_2)
     }
 }
 

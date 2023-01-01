@@ -1,8 +1,9 @@
 use super::*;
 use actix_session::Session;
+use actix_web::http::header;
 use models::api::{Auth, ConfigResponse};
 
-#[get("/config")]
+#[get("/")]
 async fn config(scanner_type: web::Data<String>, session: Session) -> Result<HttpResponse, Error> {
     let scanner_type = scanner_type.as_ref().to_string();
     let start_lat: f64 = std::env::var("START_LAT")
@@ -39,4 +40,12 @@ async fn login(payload: web::Json<Auth>, session: Session) -> Result<HttpRespons
         };
     }
     Ok(HttpResponse::Unauthorized().finish())
+}
+
+#[get("/logout")]
+async fn logout(session: Session) -> Result<HttpResponse, Error> {
+    session.clear();
+    Ok(HttpResponse::Found()
+        .append_header((header::LOCATION, "/"))
+        .finish())
 }

@@ -5,9 +5,8 @@ import type { KojiStats, PixiMarker } from '@assets/types'
 import { collectionToObject } from '@services/utils'
 
 export interface UseStatic {
-  loading: Record<string, KojiStats | null>
+  loading: Record<string, KojiStats | null | false>
   totalLoadingTime: number
-  loggedIn: boolean
   pokestops: PixiMarker[]
   gyms: PixiMarker[]
   spawnpoints: PixiMarker[]
@@ -50,7 +49,6 @@ export interface UseStatic {
 export const useStatic = create<UseStatic>((set, get) => ({
   loading: {},
   totalLoadingTime: 0,
-  loggedIn: false,
   pokestops: [],
   gyms: [],
   spawnpoints: [],
