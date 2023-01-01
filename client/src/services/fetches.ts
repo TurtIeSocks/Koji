@@ -87,13 +87,20 @@ export async function getLotsOfData(
             console.log('-----------------')
             return r.data
           })
+          .catch(() => {
+            setStatic('loading', (prev) => ({
+              ...prev,
+              [area.properties?.name ||
+              `${area.geometry.type}${area.id ? `-${area.id}` : ''}`]: false,
+            }))
+          })
       }),
   )
   setStatic('totalLoadingTime', Date.now() - totalStartTime)
   return {
     type: 'FeatureCollection',
     features: features.flatMap((r) =>
-      r.status === 'fulfilled' ? r.value : [],
+      r.status === 'fulfilled' && r.value ? r.value : [],
     ),
   }
 }
@@ -170,6 +177,9 @@ export async function convert<T = Array<object> | object | string>(
         simplify,
       }),
     })
+    if (!data.ok) {
+      throw new Error('Unable to convert')
+    }
     return await data.json().then((r) => r.data)
   } catch (e) {
     console.error(e)

@@ -112,9 +112,13 @@ pub async fn main() -> io::Result<()> {
                     .cookie_secure(false)
                     .build(),
             )
-            .service(routes::misc::config)
-            .service(routes::misc::login)
             // private api
+            .service(
+                web::scope("/config")
+                    .service(routes::misc::config)
+                    .service(routes::misc::login)
+                    .service(routes::misc::logout),
+            )
             .service(
                 web::scope("/internal")
                     .wrap(HttpAuthentication::with_fn(auth::pri_validator))

@@ -122,8 +122,21 @@ impl ToCollection for MultiVec {
 
 impl ToText for MultiVec {
     fn to_text(self, sep_1: &str, sep_2: &str) -> String {
+        let more_than_1 = self.len() > 1;
         self.into_iter()
-            .map(|each| each.to_text(sep_1, sep_2))
+            .enumerate()
+            .map(|(i, each)| {
+                format!(
+                    "{}{}{}",
+                    if i == 0 { "" } else { "\n" },
+                    if more_than_1 {
+                        format!("[Geofence {}]\n", i + 1)
+                    } else {
+                        "".to_string()
+                    },
+                    each.to_text(sep_1, sep_2),
+                )
+            })
             .collect()
     }
 }

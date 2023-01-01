@@ -73,7 +73,7 @@ export default function ExportPolygon({
         }
       })
     }
-  }, [polygonExportMode])
+  }, [polygonExportMode, open])
 
   React.useEffect(() => {
     if (mode === 'import' && code) {

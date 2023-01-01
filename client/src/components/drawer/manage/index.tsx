@@ -77,7 +77,7 @@ export default function ImportExport() {
         setOpen={setOpen}
         feature={geojson}
       />
-      <ExportRoute open={open} setOpen={setOpen} />
+      <ExportRoute open={open} setOpen={setOpen} geojson={geojson} />
       <RawManager open={open} setOpen={setOpen} geojson={geojson} />
     </List>
   )

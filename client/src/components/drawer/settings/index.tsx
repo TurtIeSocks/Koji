@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { List, ListItem, ListSubheader } from '@mui/material'
+import { List, ListItem, ListItemButton, ListSubheader } from '@mui/material'
 
 import { usePersist } from '@hooks/usePersist'
 
@@ -40,6 +40,7 @@ export default function Settings() {
           buttons={['all', 'bound', 'area']}
         />
       </ListItem>
+      <ListItemButton href="/config/logout">Logout</ListItemButton>
     </List>
   )
 }
