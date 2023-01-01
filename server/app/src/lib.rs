@@ -169,6 +169,7 @@ pub async fn main() -> io::Result<()> {
                         .service(
                             web::scope("/convert")
                                 .service(routes::convert::convert_data)
+                                .service(routes::convert::merge_points)
                                 .service(routes::convert::simplify),
                         )
                         .service(

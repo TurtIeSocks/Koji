@@ -13,7 +13,7 @@ import {
 } from '@mui/material'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import ContentCopy from '@mui/icons-material/ContentCopy'
-import type { FeatureCollection } from 'geojson'
+import type { Feature, FeatureCollection } from 'geojson'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import distance from '@turf/distance'
 
@@ -37,31 +37,49 @@ export default function ExportRoute({ open, setOpen, geojson }: Props) {
     count: number
   }>({ max: 0, total: 0, count: 0 })
 
+  const getRoutes = async () => {
+    const points = geojson.features.filter((f) => f.geometry?.type === 'Point')
+    const mergedPoints = points.length
+      ? await convert<Feature[]>(
+          points,
+          'featureVec',
+          false,
+          '/api/v1/convert/merge_points',
+        )
+      : []
+    const newGeojson = {
+      ...geojson,
+      features: [
+        ...mergedPoints,
+        ...geojson.features.filter((f) => f.geometry?.type !== 'Point'),
+      ],
+    }
+    const newCode = await convert<number[][][]>(newGeojson, 'multiArray', false)
+    let max = 0
+    let total = 0
+    let count = 0
+    const newRoute = newCode.map((eachRoute) => {
+      return eachRoute.map((point, j) => {
+        const next = j ? eachRoute[j + 1] : eachRoute.at(-1)
+        if (next) {
+          const dis = distance(point, next, { units: 'meters' })
+          if (dis > max) max = dis
+          total += dis
+        }
+        count++
+        return [+point[0].toFixed(6), +point[1].toFixed(6)]
+      })
+    })
+    setStats({
+      max,
+      total,
+      count,
+    })
+    setRoute(newRoute)
+  }
   useDeepCompareEffect(() => {
     if (open === 'route') {
-      convert<number[][][]>(geojson, 'multiArray', false).then((newCode) => {
-        let max = 0
-        let total = 0
-        let count = 0
-        const newRoute = newCode.map((eachRoute) => {
-          return eachRoute.map((point, j) => {
-            const next = j ? eachRoute[j + 1] : eachRoute.at(-1)
-            if (next) {
-              const dis = distance(point, next, { units: 'meters' })
-              if (dis > max) max = dis
-              total += dis
-            }
-            count++
-            return [+point[0].toFixed(6), +point[1].toFixed(6)]
-          })
-        })
-        setStats({
-          max,
-          total,
-          count,
-        })
-        setRoute(newRoute)
-      })
+      getRoutes()
     }
   }, [geojson, open])
 

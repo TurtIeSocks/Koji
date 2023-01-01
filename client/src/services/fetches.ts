@@ -164,9 +164,10 @@ export async function convert<T = Array<object> | object | string>(
   area: ToConvert,
   return_type: UsePersist['polygonExportMode'],
   simplify: UsePersist['simplifyPolygons'],
+  url = '/api/v1/convert/data',
 ): Promise<T> {
   try {
-    const data = await fetch('/api/v1/convert/data', {
+    const data = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

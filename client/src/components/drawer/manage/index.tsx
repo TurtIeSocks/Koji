@@ -75,9 +75,27 @@ export default function ImportExport() {
         mode={exportAll ? 'exportAll' : 'import'}
         open={open}
         setOpen={setOpen}
-        feature={geojson}
+        feature={{
+          ...geojson,
+          features: geojson.features.filter(
+            (feat) =>
+              feat.geometry.type === 'Polygon' ||
+              feat.geometry.type === 'MultiPolygon',
+          ),
+        }}
       />
-      <ExportRoute open={open} setOpen={setOpen} geojson={geojson} />
+      <ExportRoute
+        open={open}
+        setOpen={setOpen}
+        geojson={{
+          ...geojson,
+          features: geojson.features.filter(
+            (feat) =>
+              feat.geometry.type === 'Point' ||
+              feat.geometry.type === 'MultiPoint',
+          ),
+        }}
+      />
       <RawManager open={open} setOpen={setOpen} geojson={geojson} />
     </List>
   )
