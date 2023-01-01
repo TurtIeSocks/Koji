@@ -99,7 +99,7 @@ pub async fn save(
                         Type::Leveling => {
                             RdmInstanceArea::Leveling(feat.clone().to_single_vec().to_struct())
                         }
-                        Type::AutoQuest | Type::PokemonIv => {
+                        Type::AutoQuest | Type::PokemonIv | Type::AutoPokemon | Type::AutoTth => {
                             RdmInstanceArea::Multi(feat.clone().to_multi_vec().to_multi_struct())
                         }
                     };
