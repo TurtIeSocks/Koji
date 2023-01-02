@@ -127,8 +127,7 @@ pub async fn main() -> io::Result<()> {
                     .service(
                         web::scope("/instance")
                             .service(private::data::instance::all)
-                            .service(private::data::instance::instance_type)
-                            .service(private::data::instance::get_area),
+                            .service(private::data::instance::one),
                     )
                     .service(
                         web::scope("/data")

@@ -1,11 +1,8 @@
 use super::*;
 
 use model::{
-    api::{
-        args::{Args, ArgsUnwrapped, BoundsArg, Response},
-        ToCollection,
-    },
-    db::{area, gym, instance, pokestop, spawnpoint},
+    api::args::{Args, ArgsUnwrapped, BoundsArg, Response},
+    db::{gym, pokestop, spawnpoint},
     KojiDb,
 };
 
@@ -96,30 +93,13 @@ async fn by_area(
             HttpResponse::BadRequest().json(Response::send_error("no_area_and_empty_instance"))
         );
     }
+    let area = utils::create_or_find_collection(&instance, scanner_type, &conn, area, &vec![])
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    let area = if !area.features.is_empty() && !instance.is_empty() {
-        let feature = if scanner_type == "rdm" {
-            instance::Query::route(&conn.data_db, &instance).await
-        } else {
-            area::Query::route(&conn.unown_db.as_ref().unwrap(), &instance).await
-        };
-        match feature {
-            Ok(feature) => Ok(feature.to_collection(None, None)),
-            Err(err) => Err(err),
-        }
-    } else {
-        Ok(area)
-    }
-    .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    let area_data = if category == "gym" {
-        gym::Query::area(&conn.data_db, &area, last_seen).await
-    } else if category == "pokestop" {
-        pokestop::Query::area(&conn.data_db, &area, last_seen).await
-    } else {
-        spawnpoint::Query::area(&conn.data_db, &area, last_seen).await
-    }
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    let area_data = utils::points_from_area(&area, &category, &conn, last_seen)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     println!("[DATA-AREA] Returning {} {}s\n", area_data.len(), category);
     Ok(HttpResponse::Ok().json(area_data))
@@ -153,27 +133,15 @@ async fn area_stats(
         );
     }
 
-    let area = if !area.features.is_empty() && !instance.is_empty() {
-        let feature = if scanner_type == "rdm" {
-            instance::Query::route(&conn.data_db, &instance).await
-        } else {
-            area::Query::route(&conn.unown_db.as_ref().unwrap(), &instance).await
-        };
-        match feature {
-            Ok(feature) => Ok(feature.to_collection(None, None)),
-            Err(err) => Err(err),
-        }
-    } else {
-        Ok(area)
-    }
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    let area = utils::create_or_find_collection(&instance, scanner_type, &conn, area, &vec![])
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    let area_data = if category == "gym" {
-        gym::Query::stats(&conn.data_db, &area, last_seen).await
-    } else if category == "pokestop" {
-        pokestop::Query::stats(&conn.data_db, &area, last_seen).await
-    } else {
-        spawnpoint::Query::stats(&conn.data_db, &area, last_seen).await
+    let area_data = match category.as_str() {
+        "gym" => gym::Query::stats(&conn.data_db, &area, last_seen).await,
+        "pokestop" => pokestop::Query::stats(&conn.data_db, &area, last_seen).await,
+        "spawnpoint" => spawnpoint::Query::stats(&conn.data_db, &area, last_seen).await,
+        _ => Err(DbErr::Custom("Invalid Category".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 

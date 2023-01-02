@@ -6,19 +6,15 @@ use std::{
 };
 
 use algorithms::{bootstrapping, clustering, routing::tsp};
-use geo::{Coord, HaversineDistance, Point};
-use geojson::{Geometry, Value};
+use geo::{HaversineDistance, Point};
 
 use model::{
     api::{
         args::{Args, ArgsUnwrapped, Response, Stats},
         point_array::PointArray,
-        BBox, FeatureHelpers, ToCollection, ToFeature,
+        FeatureHelpers, ToCollection, ToFeature,
     },
-    db::{
-        area, geofence, gym, instance, pokestop, sea_orm_active_enums::Type, spawnpoint,
-        GenericData,
-    },
+    db::{area, sea_orm_active_enums::Type, GenericData},
     KojiDb,
 };
 
@@ -46,17 +42,9 @@ async fn bootstrap(
         );
     }
 
-    let area = if area.features.is_empty() && !instance.is_empty() {
-        if scanner_type.eq("rdm") {
-            instance::Query::route(&conn.data_db, &instance).await
-        } else {
-            area::Query::route(&conn.unown_db.as_ref().unwrap(), &instance).await
-        }
-        .map_err(actix_web::error::ErrorInternalServerError)?
-        .to_collection(None, None)
-    } else {
-        area
-    };
+    let area = utils::create_or_find_collection(&instance, scanner_type, &conn, area, &vec![])
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     let mut stats = Stats::new();
 
@@ -135,49 +123,9 @@ async fn cluster(
         Type::CirclePokemon
     };
 
-    let area = if !data_points.is_empty() {
-        let bbox = BBox::new(
-            &data_points
-                .iter()
-                .map(|p| Coord { x: p[1], y: p[0] })
-                .collect(),
-        );
-
-        Ok(FeatureCollection {
-            bbox: bbox.get_geojson_bbox(),
-            features: vec![Feature {
-                bbox: bbox.get_geojson_bbox(),
-                geometry: Some(Geometry {
-                    value: Value::Polygon(bbox.get_poly()),
-                    bbox: None,
-                    foreign_members: None,
-                }),
-                ..Default::default()
-            }],
-            foreign_members: None,
-        })
-    } else if !area.features.is_empty() {
-        Ok(area)
-    } else if !instance.is_empty() {
-        let koji_area = geofence::Query::route(&conn.koji_db, &instance).await;
-        let feature = match koji_area {
-            Ok(area) => Ok(area),
-            Err(_) => {
-                if scanner_type.eq("rdm") {
-                    instance::Query::route(&conn.data_db, &instance).await
-                } else {
-                    area::Query::route(&conn.unown_db.as_ref().unwrap(), &instance).await
-                }
-            }
-        };
-        match feature {
-            Ok(feature) => Ok(feature.to_collection(None, None)),
-            Err(err) => Err(err),
-        }
-    } else {
-        Ok(<FeatureCollection as model::api::collection::Default>::default())
-    }
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    let area = utils::create_or_find_collection(&instance, scanner_type, &conn, area, &data_points)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     let data_points = if !data_points.is_empty() {
         data_points
@@ -185,18 +133,9 @@ async fn cluster(
             .map(|p| GenericData::new("".to_string(), p[0], p[1]))
             .collect()
     } else {
-        if !area.features.is_empty() {
-            if category == "gym" {
-                gym::Query::area(&conn.data_db, &area, last_seen).await
-            } else if category == "pokestop" {
-                pokestop::Query::area(&conn.data_db, &area, last_seen).await
-            } else {
-                spawnpoint::Query::area(&conn.data_db, &area, last_seen).await
-            }
-        } else {
-            Ok(vec![])
-        }
-        .map_err(actix_web::error::ErrorInternalServerError)?
+        utils::points_from_area(&area, &category, &conn, last_seen)
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?
     };
     println!(
         "[{}] Found Data Points: {}",
