@@ -16,9 +16,9 @@ import {
 import CheckBoxOutlineBlank from '@mui/icons-material/CheckBoxOutlineBlank'
 import IndeterminateCheckBoxOutlined from '@mui/icons-material/IndeterminateCheckBoxOutlined'
 import CheckBox from '@mui/icons-material/CheckBox'
+import type { Feature, GeoJsonTypes } from 'geojson'
 
 import { KojiResponse } from '@assets/types'
-import { useStatic } from '@hooks/useStatic'
 import { useShapes } from '@hooks/useShapes'
 import { getData } from '@services/fetches'
 
@@ -32,72 +32,78 @@ const filterOptions = createFilterOptions({
   stringify: (option: string) => option,
 })
 
+interface Option {
+  id: number
+  type: string
+  name: string
+  geoType?: Exclude<GeoJsonTypes, 'Feature' | 'FeatureCollection'>
+}
+
 interface Props {
   endpoint: string
-  stateKey: 'instances' | 'geofences'
+  koji?: boolean
 }
-export default function InstanceSelect({ endpoint, stateKey }: Props) {
-  const selected = useStatic((s) => s.selected)
-  const fences = useStatic((s) => ({
-    instances: s.instances,
-    geofences: s.geofences,
-  }))
-  const setStatic = useStatic((s) => s.setStatic)
+
+export default function InstanceSelect({ endpoint, koji = false }: Props) {
   const add = useShapes((s) => s.setters.add)
   const remove = useShapes((s) => s.setters.remove)
 
   const [loading, setLoading] = React.useState(false)
+  const [options, setOptions] = React.useState<Record<string, Option>>({})
+  const [selected, setSelected] = React.useState<string[]>([])
 
   React.useEffect(() => {
-    if (!Object.keys(fences[stateKey]).length) {
-      setLoading(true)
-      getData<KojiResponse>(endpoint)
-        .then((resp) => {
-          if (resp) {
-            setStatic(
-              stateKey,
-              Object.fromEntries(
-                resp.data.features
-                  .filter((f) => f.properties?.name)
-                  .map((f) => [
-                    `${f.properties?.name}_${f.properties?.type}_${stateKey}`,
-                    {
-                      ...f,
-                      id: `${f.properties?.name}_${f.properties?.type}_${stateKey}`,
-                    },
-                  ]),
-              ),
-            )
-          }
-          setLoading(false)
-        })
-        // eslint-disable-next-line no-console
-        .catch((e) => console.error(e))
-    }
+    setLoading(true)
+    getData<KojiResponse<Option[]>>(endpoint)
+      .then((resp) => {
+        if (resp) {
+          setOptions(
+            Object.fromEntries(
+              resp.data.map((o) => [`${o.name}__${o.type}`, o]),
+            ),
+          )
+        }
+        setLoading(false)
+      })
+      // eslint-disable-next-line no-console
+      .catch((e) => console.error(e))
   }, [])
 
-  const updateState = (newValue: string[]) => {
+  const updateState = async (newValue: string[]) => {
     const added = newValue.filter((s) => !selected.includes(s))
     const deleted = selected.filter((s) => !newValue.includes(s))
-    added.forEach((a) => {
-      const feature = fences[stateKey][a]
-      if (feature) add(fences[stateKey][a], stateKey)
-    })
+    await Promise.all(
+      added.map((a) =>
+        getData<KojiResponse<Feature>>(
+          `/internal/routes/one/${koji ? 'koji' : 'scanner'}/${options[
+            a
+          ].name.replace(/\//g, '__')}/${options[a].type}`,
+        ).then((resp) => {
+          if (resp) {
+            add(resp.data, koji ? '' : '__SCANNER')
+            setOptions((prev) => ({
+              ...prev,
+              [a]: { ...prev[a], geoType: resp.data.geometry.type },
+            }))
+          }
+        }),
+      ),
+    )
     deleted.forEach((d) => {
-      const feature = fences[stateKey][d]
-      if (feature) remove(feature.geometry.type, feature.id)
+      const { name, type, geoType } = options[d]
+      if (geoType) {
+        remove(geoType, `${name}${type}${koji ? '' : '__SCANNER'}`)
+      }
     })
-    setStatic('selected', newValue)
+    setSelected(newValue)
   }
 
   return (
     <ListItem>
       <Autocomplete
-        value={selected.filter((s) => fences[stateKey][s])}
+        value={selected}
         size="small"
-        onChange={(_e, newValue) => {
-          updateState(newValue)
-        }}
+        onChange={async (_e, newValue) => updateState(newValue)}
         filterOptions={filterOptions}
         selectOnFocus
         clearOnBlur
@@ -106,61 +112,53 @@ export default function InstanceSelect({ endpoint, stateKey }: Props) {
         handleHomeEndKeys
         disableCloseOnSelect
         fullWidth
-        groupBy={(option) => fences[stateKey][option]?.properties?.type}
-        options={Object.keys(fences[stateKey]).sort((a, b) =>
-          fences[stateKey][a].properties?.type?.localeCompare(
-            fences[stateKey][b].properties?.type,
-          ),
+        groupBy={(option) => options[option]?.type}
+        options={Object.keys(options).sort((a, b) =>
+          options[a].type?.localeCompare(options[b].type),
         )}
         renderTags={(val) => (
           <Typography align="center">({val.length})</Typography>
         )}
-        renderOption={(props, option, { selected: s }) => (
-          <li {...props}>
-            <Checkbox
-              icon={icon}
-              checkedIcon={checkedIcon}
-              style={{ marginRight: 8 }}
-              checked={s}
-            />
-            {option.split('_').slice(0, -2).join('_')}
-          </li>
-        )}
+        renderOption={(props, option, { selected: s }) => {
+          return (
+            <li {...props}>
+              <Checkbox
+                icon={icon}
+                checkedIcon={checkedIcon}
+                style={{ marginRight: 8 }}
+                checked={s}
+              />
+              {option.split('__')[0]}
+            </li>
+          )
+        }}
         renderInput={(params) => (
           <TextField label="Select Instance" {...params} />
         )}
         renderGroup={({ key, group, children }) => {
           const allValues = Array.isArray(children)
             ? [...selected, ...children.map((x) => x.key)] // vaguely hacky way to select all filtered results
-            : Object.keys(fences[stateKey]).filter(
-                (k) => fences[stateKey][k]?.type === group,
-              )
+            : Object.values(options).filter((v) => v.type === group)
           const allSelected = allValues.every((v) => selected.includes(v))
           const partialSelected =
-            allSelected ||
-            selected.some(
-              (v) => fences[stateKey][v]?.properties?.type === group,
-            )
+            allSelected || selected.some((v) => options[v]?.type === group)
           return group ? (
             <List key={key}>
               <ListItemButton
-                onClick={() => {
+                onClick={() =>
                   updateState(
                     allSelected || partialSelected
                       ? selected.filter(
                           (v) =>
                             !allValues.includes(v) ||
-                            fences[stateKey][v]?.properties?.type !== group,
+                            options[v]?.type !== group,
                         )
                       : [
                           ...allValues,
-                          ...selected.filter(
-                            (v) =>
-                              fences[stateKey][v]?.properties?.type !== group,
-                          ),
+                          ...selected.filter((v) => options[v]?.type !== group),
                         ],
                   )
-                }}
+                }
               >
                 <ListItemIcon>
                   {allSelected

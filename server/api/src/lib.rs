@@ -125,9 +125,10 @@ pub async fn main() -> io::Result<()> {
                 web::scope("/internal")
                     .wrap(HttpAuthentication::with_fn(auth::private_validator))
                     .service(
-                        web::scope("/instance")
-                            .service(private::data::instance::all)
-                            .service(private::data::instance::one),
+                        web::scope("/routes")
+                            .service(private::data::instance::from_koji)
+                            .service(private::data::instance::from_scanner)
+                            .service(private::data::instance::route_from_scanner),
                     )
                     .service(
                         web::scope("/data")

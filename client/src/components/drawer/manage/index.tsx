@@ -28,9 +28,9 @@ export default function ImportExport() {
   return (
     <List dense>
       <ListSubheader disableGutters>Import from Scanner</ListSubheader>
-      <InstanceSelect endpoint="/internal/instance/all" stateKey="instances" />
+      <InstanceSelect endpoint="/internal/routes/from_scanner" />
       <ListSubheader disableGutters>Import from Kōji</ListSubheader>
-      <InstanceSelect endpoint="/api/v1/geofence/all" stateKey="geofences" />
+      <InstanceSelect endpoint="/internal/routes/from_koji" koji />
       <ListSubheader disableGutters>Additional Importing Methods</ListSubheader>
       <ListItemButton onClick={() => setOpen('polygon')}>
         <ListItemIcon>

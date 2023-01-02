@@ -1,5 +1,5 @@
 import create from 'zustand'
-import type { Feature, FeatureCollection } from 'geojson'
+import type { FeatureCollection } from 'geojson'
 
 import type { KojiStats, PixiMarker } from '@assets/types'
 import { collectionToObject } from '@services/utils'
@@ -12,8 +12,8 @@ export interface UseStatic {
   spawnpoints: PixiMarker[]
   getMarkers: () => PixiMarker[]
   selected: string[]
-  instances: { [name: string]: Feature }
-  geofences: { [name: string]: Feature }
+  kojiRoutes: { name: string; id: number; type: string }[]
+  scannerRoutes: { name: string; id: number; type: string }[]
   scannerType: string
   tileServer: string
   geojson: FeatureCollection
@@ -30,7 +30,6 @@ export interface UseStatic {
   }
   forceRedraw: boolean
   forceFetch: boolean
-  setSelected: (incoming: string[], stateKey: 'geofences' | 'instances') => void
   setStatic: <
     T extends keyof Omit<
       UseStatic,
@@ -57,8 +56,11 @@ export const useStatic = create<UseStatic>((set, get) => ({
     return [...pokestops, ...gyms, ...spawnpoints]
   },
   selected: [],
+  scannerRoutes: [],
+  kojiRoutes: [],
   instances: {},
   geofences: {},
+  routes: [],
   scannerType: 'rdm',
   geojson: {
     type: 'FeatureCollection',
@@ -92,33 +94,6 @@ export const useStatic = create<UseStatic>((set, get) => ({
     set((state) => ({
       [key]: typeof newValue === 'function' ? newValue(state[key]) : newValue,
     }))
-  },
-  setSelected: (selected, stateKey) => {
-    const { geojson, instances, geofences } = get()
-    const fences = { instances, geofences }
-    set({
-      selected,
-      geojson: {
-        ...geojson,
-        features: [
-          ...Object.values({
-            // ...collectionToObject(geojson),
-            ...collectionToObject({
-              type: 'FeatureCollection',
-              features: [
-                ...selected.map((name) => fences[stateKey][name]),
-                ...geojson.features.filter(
-                  (feature) => feature.properties?.type === undefined,
-                ),
-              ],
-            }),
-          }),
-          ...geojson.features.filter(
-            (feature) => feature.properties?.type === undefined,
-          ),
-        ],
-      },
-    })
   },
   setGeojson: (newGeojson, noSet) => {
     const { geojson } = get()

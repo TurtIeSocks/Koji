@@ -1,6 +1,9 @@
 use super::*;
 
-use crate::{api::text::TextHelpers, db::sea_orm_active_enums::Type};
+use crate::{
+    api::text::TextHelpers,
+    db::{sea_orm_active_enums::Type, AreaRef, NameTypeId},
+};
 
 pub fn fort<T>(items: api::single_struct::SingleStruct<T>, prefix: &str) -> Vec<db::GenericData<T>>
 where
@@ -64,6 +67,43 @@ pub fn area(areas: Vec<db::area::Model>) -> Vec<Feature> {
         let name = to_feature(area.fort_mode_route, name, "Fort");
         let name = to_feature(area.quest_mode_route, name, "Quest");
         to_feature(area.pokemon_mode_route, name, "Pokemon");
+    }
+    normalized
+}
+
+pub fn area_ref(areas: Vec<AreaRef>) -> Vec<NameTypeId> {
+    let mut normalized = Vec::<NameTypeId>::new();
+
+    for area in areas.into_iter() {
+        println!("Area: {:?}", area);
+        if area.has_fort {
+            normalized.push(NameTypeId {
+                id: area.id,
+                name: area.name.clone(),
+                r#type: Type::CircleRaid,
+            });
+        }
+        if area.has_geofence {
+            normalized.push(NameTypeId {
+                id: area.id,
+                name: area.name.clone(),
+                r#type: Type::AutoQuest,
+            });
+        }
+        if area.has_pokemon {
+            normalized.push(NameTypeId {
+                id: area.id,
+                name: area.name.clone(),
+                r#type: Type::CirclePokemon,
+            });
+        }
+        if area.has_quest {
+            normalized.push(NameTypeId {
+                id: area.id,
+                name: area.name,
+                r#type: Type::ManualQuest,
+            });
+        }
     }
     normalized
 }

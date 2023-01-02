@@ -37,28 +37,63 @@ impl ActiveModelBehavior for ActiveModel {}
 pub struct Query;
 
 impl Query {
-    pub async fn all(conn: &DatabaseConnection) -> Result<Vec<Feature>, DbErr> {
+    pub async fn all(conn: &DatabaseConnection) -> Result<Vec<NameTypeId>, DbErr> {
         let items = area::Entity::find()
+            .select_only()
+            .column(Column::Id)
+            .column(Column::Name)
+            .column_as(
+                Column::Geofence.is_not_null().and(Column::Geofence.ne("")),
+                "has_geofence",
+            )
+            .column_as(
+                Column::PokemonModeRoute
+                    .is_not_null()
+                    .and(Column::PokemonModeRoute.ne("")),
+                "has_pokemon",
+            )
+            .column_as(
+                Column::QuestModeRoute
+                    .is_not_null()
+                    .and(Column::QuestModeRoute.ne("")),
+                "has_quest",
+            )
+            .column_as(
+                Column::FortModeRoute
+                    .is_not_null()
+                    .and(Column::FortModeRoute.ne("")),
+                "has_fort",
+            )
             .order_by(area::Column::Name, Order::Asc)
+            .into_model::<AreaRef>()
             .all(conn)
             .await?;
-        Ok(utils::normalize::area(items))
+        Ok(utils::normalize::area_ref(items))
     }
 
-    pub async fn route(conn: &DatabaseConnection, area_name: &String) -> Result<Feature, DbErr> {
+    pub async fn route(
+        conn: &DatabaseConnection,
+        area_name: &String,
+        area_type: &Type,
+    ) -> Result<Feature, DbErr> {
         let item = area::Entity::find()
             .filter(area::Column::Name.contains(area_name))
             .one(conn)
             .await?;
         if let Some(item) = item {
-            if let Some(geofence) = item.geofence {
-                if !geofence.is_empty() {
-                    Ok(geofence.parse_scanner_instance(Some(item.name), Some(&Type::AutoQuest)))
-                } else {
-                    Err(DbErr::Custom("Geofence is empty".to_string()))
+            let coords = match area_type {
+                Type::AutoQuest | Type::AutoPokemon | Type::AutoTth | Type::PokemonIv => {
+                    item.geofence
                 }
+                Type::CirclePokemon | Type::CircleSmartPokemon => item.pokemon_mode_route,
+                Type::CircleRaid | Type::CircleSmartRaid => item.fort_mode_route,
+                Type::ManualQuest => item.quest_mode_route,
+                Type::Leveling => Some("".to_string()),
+            };
+            if let Some(coords) = coords {
+                Ok(coords.parse_scanner_instance(Some(item.name), Some(area_type)))
             } else {
-                Err(DbErr::Custom("No geofence found".to_string()))
+                Err(DbErr::Custom("No route found".to_string()))
             }
         } else {
             Err(DbErr::Custom("Area not found".to_string()))

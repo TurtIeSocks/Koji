@@ -40,7 +40,12 @@ pub async fn load_feature(
             if scanner_type.eq("rdm") {
                 instance::Query::route(&conn.data_db, &instance).await
             } else {
-                area::Query::route(&conn.unown_db.as_ref().unwrap(), &instance).await
+                area::Query::route(
+                    &conn.unown_db.as_ref().unwrap(),
+                    &instance,
+                    &model::db::sea_orm_active_enums::Type::AutoQuest,
+                )
+                .await
             }
         }
     }

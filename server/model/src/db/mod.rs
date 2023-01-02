@@ -5,8 +5,8 @@ use super::*;
 use chrono::Utc;
 use futures::future;
 use sea_orm::{
-    sea_query::Expr, DbBackend, DeleteResult, FromQueryResult, Order, QueryOrder, QuerySelect, Set,
-    Statement,
+    sea_query::Expr, DbBackend, DeleteResult, DeriveEntityModel, FromQueryResult, Order,
+    QueryOrder, QuerySelect, Set, Statement,
 };
 
 pub mod area;
@@ -25,6 +25,29 @@ pub mod spawnpoint;
 pub struct NameId {
     id: u32,
     name: String,
+}
+
+#[derive(FromQueryResult)]
+pub struct NameType {
+    pub name: String,
+    pub instance_type: self::sea_orm_active_enums::Type,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct NameTypeId {
+    pub id: u32,
+    pub name: String,
+    pub r#type: self::sea_orm_active_enums::Type,
+}
+
+#[derive(Debug, FromQueryResult)]
+pub struct AreaRef {
+    pub id: u32,
+    pub name: String,
+    pub has_geofence: bool,
+    pub has_pokemon: bool,
+    pub has_quest: bool,
+    pub has_fort: bool,
 }
 
 #[derive(Debug, FromQueryResult, Serialize, Deserialize, Clone)]

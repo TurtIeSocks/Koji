@@ -1,15 +1,17 @@
 use super::*;
 
+use model::db::{self, NameTypeId};
+use serde::Deserialize;
 use serde_json::json;
 
 use crate::model::{
-    api::{args::Response, ToCollection},
-    db::{area, instance},
+    api::args::Response,
+    db::{area, geofence, instance},
     KojiDb,
 };
 
-#[get("/all")]
-async fn all(
+#[get("/from_scanner")]
+async fn from_scanner(
     conn: web::Data<KojiDb>,
     scanner_type: web::Data<String>,
 ) -> Result<HttpResponse, Error> {
@@ -22,13 +24,13 @@ async fn all(
     } else if let Some(unown_db) = conn.unown_db.as_ref() {
         area::Query::all(unown_db).await
     } else {
-        Ok(Vec::<Feature>::new())
+        Ok(vec![])
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
     println!("[INSTANCE_ALL] Returning {} instances\n", instances.len());
     Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(instances.to_collection(None, None))),
+        data: Some(json!(instances)),
         message: "ok".to_string(),
         status_code: 200,
         status: "Success".to_string(),
@@ -36,28 +38,75 @@ async fn all(
     }))
 }
 
-#[get("/area/{instance_name}")]
-async fn one(
+#[get("/from_koji")]
+async fn from_koji(
     conn: web::Data<KojiDb>,
-    instance: actix_web::web::Path<String>,
     scanner_type: web::Data<String>,
 ) -> Result<HttpResponse, Error> {
-    let scanner_type = scanner_type.as_ref();
-    let instance = instance.into_inner();
+    let scanner_type = scanner_type.to_string();
 
-    println!(
-        "\n[INSTANCE] Scanner Type: {}, Instance: {}",
-        scanner_type, instance
-    );
+    println!("\n[INSTANCE-ALL] Scanner Type: {}", scanner_type);
 
-    if instance.is_empty() {
-        return Ok(HttpResponse::BadRequest().json(Response::send_error("no_instance_provided")));
-    }
-
-    let instance_data = utils::load_feature(&instance, &scanner_type, &conn)
+    let instances = geofence::Query::get_all_no_fences(&conn.koji_db)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
+    let instances: Vec<NameTypeId> = instances
+        .into_iter()
+        .map(|instance| NameTypeId {
+            id: instance.id,
+            name: instance.name,
+            r#type: model::db::sea_orm_active_enums::Type::AutoQuest,
+        })
+        .collect();
+    println!("[INSTANCE_ALL] Returning {} instances\n", instances.len());
+    Ok(HttpResponse::Ok().json(Response {
+        data: Some(json!(instances)),
+        message: "ok".to_string(),
+        status_code: 200,
+        status: "Success".to_string(),
+        stats: None,
+    }))
+}
 
-    // println!("[INSTANCE-AREA] Returning {} coords\n", instance_data.geometry len(),);
-    Ok(HttpResponse::Ok().json(instance_data))
+#[derive(Debug, Deserialize)]
+struct UrlVars {
+    source: String,
+    name: String,
+    instance_type: db::sea_orm_active_enums::Type,
+}
+
+#[get("/one/{source}/{name}/{instance_type}")]
+async fn route_from_scanner(
+    conn: web::Data<KojiDb>,
+    instance: actix_web::web::Path<UrlVars>,
+    scanner_type: web::Data<String>,
+) -> Result<HttpResponse, Error> {
+    let scanner_type = scanner_type.to_string();
+    let UrlVars {
+        source,
+        name,
+        instance_type,
+    } = instance.into_inner();
+
+    let instances = if source == "scanner" {
+        if scanner_type.eq("rdm") {
+            instance::Query::route(&conn.data_db, &name).await
+        } else if let Some(unown_db) = conn.unown_db.as_ref() {
+            area::Query::route(unown_db, &name, &instance_type).await
+        } else {
+            Ok(Feature::default())
+        }
+    } else {
+        geofence::Query::route(&conn.koji_db, &name).await
+    }
+    .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    // println!("[INSTANCE_ALL] Returning {} instances\n", instances.len());
+    Ok(HttpResponse::Ok().json(Response {
+        data: Some(json!(instances)),
+        message: "ok".to_string(),
+        status_code: 200,
+        status: "Success".to_string(),
+        stats: None,
+    }))
 }

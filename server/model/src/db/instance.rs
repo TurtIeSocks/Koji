@@ -5,11 +5,11 @@ use std::collections::HashMap;
 use crate::api::{ToMultiStruct, ToMultiVec, ToPointStruct, ToSingleStruct, ToSingleVec};
 
 use super::{
-    sea_orm_active_enums::Type, utils, Feature, FeatureCollection, Order, QueryOrder,
-    RdmInstanceArea,
+    sea_orm_active_enums::Type, utils, Feature, FeatureCollection, NameType, NameTypeId, Order,
+    QueryOrder, RdmInstanceArea,
 };
 
-use sea_orm::{entity::prelude::*, sea_query::Expr, Set};
+use sea_orm::{entity::prelude::*, sea_query::Expr, QuerySelect, Set};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -49,23 +49,36 @@ impl Query {
     pub async fn all(
         conn: &DatabaseConnection,
         instance_type: Option<String>,
-    ) -> Result<Vec<Feature>, DbErr> {
+    ) -> Result<Vec<NameTypeId>, DbErr> {
         let instance_type = utils::get_enum(instance_type);
         let items = if let Some(instance_type) = instance_type {
             Entity::find()
                 .filter(Column::Type.eq(instance_type))
+                .select_only()
+                .column(Column::Name)
+                .column_as(Column::Type, "instance_type")
                 .order_by(Column::Name, Order::Asc)
+                .into_model::<NameType>()
                 .all(conn)
                 .await?
         } else {
             Entity::find()
+                .select_only()
+                .column(Column::Name)
+                .column_as(Column::Type, "instance_type")
                 .order_by(Column::Name, Order::Asc)
+                .into_model::<NameType>()
                 .all(conn)
                 .await?
         };
         Ok(items
             .into_iter()
-            .map(|item| utils::normalize::instance(item))
+            .enumerate()
+            .map(|(i, item)| NameTypeId {
+                id: i as u32,
+                name: item.name,
+                r#type: item.instance_type,
+            })
             .collect())
     }
 
