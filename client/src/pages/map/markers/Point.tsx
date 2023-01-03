@@ -66,6 +66,7 @@ export function KojiPoint({
       radius={radius}
       center={[lat, lon]}
       snapIgnore
+      pmIgnore={type === 'MultiPoint'}
       pane="circles"
       {...properties}
       color={type === 'Point' ? '#3388ff' : 'red'}
