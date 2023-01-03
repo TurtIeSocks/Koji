@@ -37,7 +37,7 @@ export default function ExportRoute({ open, setOpen, geojson }: Props) {
     count: number
   }>({ max: 0, total: 0, count: 0 })
 
-  const getRoutes = async () => {
+  const getRoutes = async (doNotSet = false) => {
     const points = geojson.features.filter((f) => f.geometry?.type === 'Point')
     const mergedPoints = points.length
       ? await convert<Feature[]>(
@@ -54,7 +54,15 @@ export default function ExportRoute({ open, setOpen, geojson }: Props) {
         ...geojson.features.filter((f) => f.geometry?.type !== 'Point'),
       ],
     }
+    if (doNotSet) {
+      return convert<string>(
+        newGeojson,
+        scannerType === 'rdm' ? 'text' : 'altText',
+        false,
+      )
+    }
     const newCode = await convert<number[][][]>(newGeojson, 'multiArray', false)
+
     let max = 0
     let total = 0
     let count = 0
@@ -76,12 +84,15 @@ export default function ExportRoute({ open, setOpen, geojson }: Props) {
       count,
     })
     setRoute(newRoute)
+    return ''
   }
   useDeepCompareEffect(() => {
     if (open === 'route') {
       getRoutes()
     }
   }, [geojson, open])
+
+  const blockedClipboard = window.safari && window.location.protocol === 'http:'
 
   return (
     <Dialog open={open === 'route'} maxWidth="xl" onClose={() => setOpen('')}>
@@ -107,7 +118,8 @@ export default function ExportRoute({ open, setOpen, geojson }: Props) {
                       <Grid2 container justifyContent="space-around">
                         <Grid2 xs={3}>
                           <IconButton
-                            onClick={async () =>
+                            disabled={blockedClipboard}
+                            onPointerDown={async () =>
                               navigator.clipboard.writeText(
                                 await convert<string>(
                                   feat,
@@ -188,17 +200,12 @@ export default function ExportRoute({ open, setOpen, geojson }: Props) {
       </DialogContent>
       <DialogActions>
         <Button
-          onClick={async () =>
-            navigator.clipboard.writeText(
-              await convert<string>(
-                geojson,
-                scannerType === 'rdm' ? 'text' : 'altText',
-                false,
-              ),
-            )
+          disabled={blockedClipboard}
+          onPointerDown={async () =>
+            navigator.clipboard.writeText(await getRoutes(true))
           }
         >
-          Copy to Clipboard
+          {blockedClipboard ? 'Use Chrome or https' : 'Copy to Clipboard'}
         </Button>
         <Button onClick={() => setOpen('')}>Close</Button>
       </DialogActions>
