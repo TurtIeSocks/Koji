@@ -8,32 +8,34 @@ import { useShapes } from '@hooks/useShapes'
 import { MemoPoint } from './Point'
 import { KojiLineString } from './LineString'
 import { MemoPolygon } from './Polygon'
-import { KojiMultiPoint } from './MultiPoint'
+import { KojiMultiPoint, MemoMultiPoint } from './MultiPoint'
 import { MemoMultiLineString } from './MultiLineString'
 
 export function Points() {
   const shapes = useShapes((s) => s.Point)
   const radius = usePersist((s) => s.radius)
+  const setActiveMode = usePersist((s) => s.setActiveMode)
 
   return (
-    <>
+    <React.Fragment key={setActiveMode}>
       {Object.entries(shapes).map(([id, feature]) => (
         <MemoPoint key={id} feature={feature} radius={radius || 10} />
       ))}
-    </>
+    </React.Fragment>
   )
 }
 
 export function MultiPoints() {
   const shapes = useShapes((s) => s.MultiPoint)
   const radius = usePersist((s) => s.radius)
+  const setActiveMode = usePersist((s) => s.setActiveMode)
 
   return (
-    <>
+    <React.Fragment key={setActiveMode}>
       {Object.entries(shapes).map(([id, feature]) => (
-        <KojiMultiPoint key={id} feature={feature} radius={radius || 10} />
+        <MemoMultiPoint key={id} feature={feature} radius={radius || 10} />
       ))}
-    </>
+    </React.Fragment>
   )
 }
 

@@ -49,6 +49,39 @@ export function Drawing() {
         },
       },
     ])
+    map.pm.Toolbar.changeActionsOfControl('drawCircle', [
+      {
+        text: 'Finish',
+        onClick() {
+          map.pm.disableGlobalRemovalMode()
+          useShapes
+            .getState()
+            .setters.activeRoute(
+              `new_route_${useShapes.getState().newRouteCount + 1}`,
+            )
+          useShapes.getState().setShapes('newRouteCount', (prev) => prev + 1)
+        },
+      },
+      {
+        text: 'New Route',
+        onClick() {
+          useShapes
+            .getState()
+            .setters.activeRoute(
+              `new_route_${useShapes.getState().newRouteCount + 1}`,
+            )
+          useShapes.getState().setShapes('newRouteCount', (prev) => prev + 1)
+        },
+      },
+      {
+        text: 'Cancel',
+        onClick() {
+          map.pm.disableGlobalRemovalMode()
+          useShapes.getState().setters.remove('Point')
+          useShapes.getState().setters.remove('LineString')
+        },
+      },
+    ])
   }, [])
 
   return (
@@ -186,10 +219,24 @@ export function Drawing() {
         }}
         onGlobalDrawModeToggled={({ enabled, shape }) => {
           const { showCircles, showPolygons, setStore } = usePersist.getState()
-          if (shape === 'Polygon' && !showPolygons) {
-            setStore('showPolygons', true)
-          } else if (shape === 'Circle' && !showCircles) {
-            setStore('showCircles', true)
+          const { setters, setShapes, newRouteCount } = useShapes.getState()
+
+          switch (shape) {
+            case 'Circle':
+              if (!showCircles && enabled) {
+                setStore('showCircles', true)
+              }
+              setters.activeRoute(`new_route_${newRouteCount + 1}`)
+              setShapes('newRouteCount', (prev) => prev + 1)
+              break
+            case 'Rectangle':
+            case 'Polygon':
+              if (!showPolygons && enabled) {
+                setStore('showPolygons', true)
+              }
+              break
+            default:
+              break
           }
           useStatic
             .getState()

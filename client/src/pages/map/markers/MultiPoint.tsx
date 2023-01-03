@@ -1,8 +1,8 @@
 import * as React from 'react'
 import type { Feature, MultiPoint } from 'geojson'
 
-import { KojiPoint } from './Point'
-import { KojiLineString } from './LineString'
+import { MemoPoint } from './Point'
+import { MemoLineString } from './LineString'
 
 export function KojiMultiPoint({
   feature: {
@@ -24,8 +24,8 @@ export function KojiMultiPoint({
         const isEnd = i === coordinates.length - 1
         const next = isEnd ? coordinates[0] : coordinates[i + 1]
         return (
-          <React.Fragment key={`${first}-${isEnd}`}>
-            <KojiPoint
+          <React.Fragment key={`${id}_${first}-${isEnd}`}>
+            <MemoPoint
               radius={radius}
               feature={{
                 type: 'Feature',
@@ -35,7 +35,7 @@ export function KojiMultiPoint({
               }}
               type="MultiPoint"
             />
-            <KojiLineString
+            <MemoLineString
               key={`${first}-${isEnd}-${coordinates.length}`}
               feature={{
                 type: 'Feature',

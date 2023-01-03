@@ -92,8 +92,6 @@ export default function ExportRoute({ open, setOpen, geojson }: Props) {
     }
   }, [geojson, open])
 
-  const blockedClipboard = window.safari && window.location.protocol === 'http:'
-
   return (
     <Dialog open={open === 'route'} maxWidth="xl" onClose={() => setOpen('')}>
       <DialogHeader action={() => setOpen('')}>Export Route</DialogHeader>
@@ -118,7 +116,7 @@ export default function ExportRoute({ open, setOpen, geojson }: Props) {
                       <Grid2 container justifyContent="space-around">
                         <Grid2 xs={3}>
                           <IconButton
-                            disabled={blockedClipboard}
+                            disabled={!!window.safari}
                             onPointerDown={async () =>
                               navigator.clipboard.writeText(
                                 await convert<string>(
@@ -200,12 +198,12 @@ export default function ExportRoute({ open, setOpen, geojson }: Props) {
       </DialogContent>
       <DialogActions>
         <Button
-          disabled={blockedClipboard}
+          disabled={!!window.safari}
           onPointerDown={async () =>
             navigator.clipboard.writeText(await getRoutes(true))
           }
         >
-          {blockedClipboard ? 'Use Chrome or https' : 'Copy to Clipboard'}
+          {window.safari ? 'Clipboard Requires Chrome' : 'Copy to Clipboard'}
         </Button>
         <Button onClick={() => setOpen('')}>Close</Button>
       </DialogActions>
