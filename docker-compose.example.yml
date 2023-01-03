@@ -13,8 +13,6 @@ services:
       # Optional
       #START_LAT: 0
       #START_LON: 0
-      #HOST: "0.0.0.0"
-      #PORT: 8080
       #TILE_SERVER: https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png
       #MAX_CONNECTIONS: 100
       #LOG_LEVEL: info # error | warn | info | debug | trace
@@ -22,4 +20,4 @@ services:
       #mem_reservation: 256M
       #cpus: 2 
     ports:
-      - "8080:8080"
+      - "8080:8080" # change left one for external port

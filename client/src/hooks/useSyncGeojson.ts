@@ -14,6 +14,8 @@ export default function useSyncGeojson() {
   const geojson = useStatic((s) => s.geojson)
   const setStatic = useStatic((s) => s.setStatic)
 
+  // eslint-disable-next-line no-console
+  console.log('Shape Debug:', useShapes.getState())
   useDeepCompareEffect(() => {
     const newGeojson: FeatureCollection = {
       type: 'FeatureCollection',

@@ -79,6 +79,11 @@ curl https://raw.githubusercontent.com/TurtIeSocks/Koji/main/docker-compose.exam
 4. `docker-compose pull`
 5. `docker-compose up -d`
 
+### Using the Client
+
+1. Open a browser with whatever port you specified in the `.env` or `docker-compose.yml` file. (default is 8080)
+2. Login with the secret you set as your `KOJI_SECRET`, or press enter to login with no password if you didn't set it.
+
 ### Updating
 
 1. `git pull`

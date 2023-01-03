@@ -51,6 +51,7 @@ export interface UsePersist {
   autoMode: boolean
   loadingScreen: boolean
   simplifyPolygons: boolean
+  setActiveMode: 'hover' | 'click'
   setStore: <T extends keyof UsePersist>(key: T, value: UsePersist[T]) => void
 }
 
@@ -101,6 +102,7 @@ export const usePersist = create(
       autoMode: false,
       loadingScreen: true,
       simplifyPolygons: true,
+      setActiveMode: 'hover',
     }),
     {
       name: 'local',
