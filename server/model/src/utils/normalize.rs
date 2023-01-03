@@ -75,7 +75,6 @@ pub fn area_ref(areas: Vec<AreaRef>) -> Vec<NameTypeId> {
     let mut normalized = Vec::<NameTypeId>::new();
 
     for area in areas.into_iter() {
-        println!("Area: {:?}", area);
         if area.has_fort {
             normalized.push(NameTypeId {
                 id: area.id,
