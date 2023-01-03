@@ -36,9 +36,7 @@ export function KojiPoint({
             if (layer instanceof L.Circle) {
               const { lat: newLat, lng: newLon } = circle.getLatLng()
               useShapes.getState().setters.update(type, id, {
-                type: 'Feature',
-                id,
-                properties,
+                ...useShapes.getState().Point[id],
                 geometry: { type: 'Point', coordinates: [newLon, newLat] },
               })
             }

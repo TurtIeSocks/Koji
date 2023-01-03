@@ -136,7 +136,7 @@ export function Drawing() {
                           },
                         },
                       }
-                      if (Object.keys(useShapes.getState().Point).length > 2) {
+                      if (Object.keys(useShapes.getState().Point).length > 1) {
                         newState[`${feature.id}_${first.id}`] = {
                           type: 'Feature',
                           id: `${feature.id}_${first.id}`,

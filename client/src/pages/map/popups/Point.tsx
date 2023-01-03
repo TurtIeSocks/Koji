@@ -37,6 +37,10 @@ export function PointPopup({ id, lat, lon, properties }: Props) {
         </>
       )}
       <Button onClick={() => setOpen('route')}>Export Route</Button>
+      <br />
+      <Button onClick={() => useShapes.getState().setters.remove('Point', id)}>
+        Remove
+      </Button>
       {open && (
         <ExportRoute
           open={open}
