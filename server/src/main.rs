@@ -1,5 +1,5 @@
 fn main() {
-    if let Err(err) = app::main() {
+    if let Err(err) = api::main() {
         println!("Error: {}", err);
     }
 }

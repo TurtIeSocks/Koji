@@ -1,10 +1,10 @@
 [package]
 name = "koji"
-version = "0.2.0"
+version = "0.3.2"
 edition = "2021"
 
 [workspace]
-members = [".", "app", "entity", "migration"]
+members = [".", "algorithms", "api", "migration", "model"]
 
 [dependencies]
-app = { path = "app" }
+api = { path = "api" }

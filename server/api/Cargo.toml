@@ -1,18 +1,28 @@
 [package]
-name = "model"
+name = "api"
 version = "0.1.0"
 edition = "2021"
 publish = false
 
 [lib]
-name = "model"
+name = "api"
 path = "src/lib.rs"
 
 [dependencies]
+actix-web = "4"
+actix-files = "0.6.0"
+actix-session = { version = "0.7.2", features = ["cookie-session"] }
+actix-web-httpauth = "0.8.0"
+algorithms = { path = "../algorithms" }
 chrono = { version = "0.4.19", features = ["serde"] }
-futures = "0.3.25"
+dotenv = "0.15.0"
+env_logger = "0.9.0"
+futures = "0.3.21"
 geo = "0.22.1"
 geojson = "0.24.0"
+log = "0.4.17"
+migration = { path = "../migration" }
+model = { path = "../model" }
 num-traits = "0.2.15"
 sea-orm = { version = "0.9.3", features = [
   "sqlx-mysql",
@@ -21,4 +31,3 @@ sea-orm = { version = "0.9.3", features = [
 ] }
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0"
-serde_with = "2.1.0"

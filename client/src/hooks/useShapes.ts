@@ -31,12 +31,9 @@ export interface UseShapes {
   setters: {
     setFromCollection: (
       collection: FeatureCollection,
-      source?: 'instances' | 'geofences' | '',
+      source?: '__SCANNER' | '',
     ) => void
-    add: (
-      feature: Feature | Feature[],
-      source?: 'instances' | 'geofences' | '',
-    ) => void
+    add: (feature: Feature | Feature[], source?: '__SCANNER' | '') => void
     remove: (
       key: Exclude<GeoJsonTypes, 'Feature' | 'FeatureCollection'>,
       id?: number | string,
