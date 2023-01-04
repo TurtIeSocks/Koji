@@ -1,22 +1,20 @@
 import * as React from 'react'
 import { ListItem, ListItemText, Switch } from '@mui/material'
 
-import { type UsePersist } from '@hooks/usePersist'
+import { usePersist, type UsePersist } from '@hooks/usePersist'
 import { fromCamelCase, fromSnakeCase } from '@services/utils'
+import { OnlyType } from '@assets/types'
 
-interface Props<T extends keyof UsePersist> {
-  field: T
-  value: boolean
-  setValue: (field: Props<T>['field'], value: Props<T>['value']) => void
-  disabled?: boolean
-}
-
-export default function Toggle<T extends keyof UsePersist>({
+export default function Toggle<T extends keyof OnlyType<UsePersist, boolean>>({
   field,
-  value,
-  setValue,
   disabled = false,
-}: Props<T>) {
+}: {
+  field: T
+  disabled?: boolean
+}) {
+  const value = usePersist((s) => s[field])
+  const setStore = usePersist((s) => s.setStore)
+
   return (
     <ListItem disabled={disabled}>
       <ListItemText
@@ -26,8 +24,8 @@ export default function Toggle<T extends keyof UsePersist>({
       />
       <Switch
         edge="end"
-        onChange={(_e, v) => setValue(field, v)}
-        checked={value}
+        onChange={(_e, v) => setStore(field, v)}
+        checked={!!value}
         disabled={disabled}
       />
     </ListItem>

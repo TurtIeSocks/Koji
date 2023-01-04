@@ -12,7 +12,7 @@ import { safeParse } from '@services/utils'
 
 import { Drawer } from '../styled/Drawer'
 import DrawerHeader from '../styled/DrawerHeader'
-import GeofenceTab from './geofence'
+import DrawingTab from './drawing'
 import RoutingTab from './routing'
 import MenuAccordion from './MenuItem'
 import ImportExport from './manage'
@@ -72,7 +72,7 @@ export default function DrawerIndex({ drawerWidth }: Props) {
                 {!!i && <Divider />}
                 <MenuAccordion name={text}>
                   {{
-                    Drawing: <GeofenceTab />,
+                    Drawing: <DrawingTab />,
                     Clustering: <RoutingTab />,
                     Manage: <ImportExport />,
                     Settings: <Settings />,

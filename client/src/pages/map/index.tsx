@@ -45,8 +45,9 @@ export default function MapWrapper() {
             right: 0,
           }}
         >
-          <Pane name="circles" style={{ zIndex: 600 }} />
-          <Pane name="lines" style={{ zIndex: 550 }} />
+          <Pane name="circles" style={{ zIndex: 503 }} />
+          <Pane name="lines" style={{ zIndex: 502 }} />
+          <Pane name="arrows" style={{ zIndex: 501 }} />
           <Pane name="polygons" style={{ zIndex: 500 }} />
           <Markers />
           <Interface />

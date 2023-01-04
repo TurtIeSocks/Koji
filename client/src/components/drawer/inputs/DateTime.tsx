@@ -3,23 +3,21 @@ import dayjs from 'dayjs'
 import TextField from '@mui/material/TextField'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
 
-import { type UsePersist } from '@hooks/usePersist'
+import { usePersist, type UsePersist } from '@hooks/usePersist'
 import { fromCamelCase, fromSnakeCase } from '@services/utils'
 import { ListItem } from '@mui/material'
+import { OnlyType } from '@assets/types'
 
-interface Props<T extends keyof UsePersist> {
-  field: T
-  value: Date
-  setValue: (field: Props<T>['field'], value: Props<T>['value']) => void
-  disabled?: boolean
-}
-
-export default function DateTime<T extends keyof UsePersist>({
+export default function DateTime<T extends keyof OnlyType<UsePersist, Date>>({
   field,
-  value,
-  setValue,
   disabled,
-}: Props<T>) {
+}: {
+  field: T
+  disabled?: boolean
+}) {
+  const value = usePersist((s) => s[field])
+  const setStore = usePersist((s) => s.setStore)
+
   return (
     <ListItem>
       <DateTimePicker
@@ -35,7 +33,7 @@ export default function DateTime<T extends keyof UsePersist>({
         value={dayjs(value)}
         onChange={(newValue) => {
           if (newValue) {
-            setValue(field, newValue.set('second', 0).set('minute', 0).toDate())
+            setStore(field, newValue.set('second', 0).set('minute', 0).toDate())
           }
         }}
       />
