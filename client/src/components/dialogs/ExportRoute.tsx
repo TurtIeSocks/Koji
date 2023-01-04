@@ -10,6 +10,9 @@ import {
   ListItemText,
   ListSubheader,
   IconButton,
+  Box,
+  CircularProgress,
+  Typography,
 } from '@mui/material'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import ContentCopy from '@mui/icons-material/ContentCopy'
@@ -30,6 +33,8 @@ interface Props {
 
 export default function ExportRoute({ open, setOpen, geojson }: Props) {
   const scannerType = useStatic((s) => s.scannerType)
+
+  const [loading, setLoading] = React.useState(false)
   const [route, setRoute] = React.useState<number[][][]>([])
   const [stats, setStats] = React.useState<{
     max: number
@@ -86,9 +91,44 @@ export default function ExportRoute({ open, setOpen, geojson }: Props) {
     setRoute(newRoute)
     return ''
   }
+
+  const getClipboard = async (inputRoute?: number[][]) => {
+    if (typeof ClipboardItem && navigator.clipboard.write) {
+      // Safari bs (also works for Chrome)
+      const text = new ClipboardItem({
+        'text/plain': (inputRoute
+          ? convert<string>(
+              inputRoute,
+              scannerType === 'rdm' ? 'text' : 'altText',
+              false,
+            )
+          : getRoutes(true)
+        ).then(
+          (input) =>
+            new Blob([input], {
+              type: 'text/plain',
+            }),
+        ),
+      })
+      navigator.clipboard.write([text])
+    } else {
+      // Firefox
+      navigator.clipboard.writeText(
+        await (inputRoute
+          ? convert<string>(
+              inputRoute,
+              scannerType === 'rdm' ? 'text' : 'altText',
+              false,
+            )
+          : getRoutes(true)),
+      )
+    }
+  }
+
   useDeepCompareEffect(() => {
     if (open === 'route') {
-      getRoutes()
+      setLoading(true)
+      getRoutes().then(() => setLoading(false))
     }
   }, [geojson, open])
 
@@ -96,115 +136,102 @@ export default function ExportRoute({ open, setOpen, geojson }: Props) {
     <Dialog open={open === 'route'} maxWidth="xl" onClose={() => setOpen('')}>
       <DialogHeader action={() => setOpen('')}>Export Route</DialogHeader>
       <DialogContent>
-        <Grid2 container>
-          <Grid2
-            container
-            xs={7}
-            height="50vh"
-            overflow="auto"
-            border="2px grey solid"
-            borderRadius={2}
-            mx={2}
-            alignItems="center"
-            justifyContent="center"
-          >
-            <List sx={{ width: '90%', mx: 'auto' }}>
-              {route.map((feat, i) => {
-                return (
-                  <React.Fragment key={i}>
-                    <ListSubheader>
-                      <Grid2 container justifyContent="space-around">
-                        <Grid2 xs={3}>
-                          <IconButton
-                            disabled={!!window.safari}
-                            onPointerDown={async () =>
-                              navigator.clipboard.writeText(
-                                await convert<string>(
-                                  feat,
-                                  scannerType === 'rdm' ? 'text' : 'altText',
-                                  false,
-                                ),
-                              )
-                            }
-                          >
-                            <ContentCopy />
-                          </IconButton>
+        {loading ? (
+          <Box sx={{ display: 'flex', height: '50vh', width: '40vw' }}>
+            <CircularProgress />
+            <Typography variant="caption">Loading</Typography>
+          </Box>
+        ) : (
+          <Grid2 container>
+            <Grid2
+              container
+              xs={7}
+              height="50vh"
+              overflow="auto"
+              border="2px grey solid"
+              borderRadius={2}
+              mx={2}
+              alignItems="center"
+              justifyContent="center"
+            >
+              <List sx={{ width: '90%', mx: 'auto' }}>
+                {route.map((feat, i) => {
+                  return (
+                    <React.Fragment key={i}>
+                      <ListSubheader>
+                        <Grid2 container justifyContent="space-around">
+                          <Grid2 xs={3}>
+                            <IconButton
+                              onPointerDown={() => getClipboard(feat)}
+                            >
+                              <ContentCopy />
+                            </IconButton>
+                          </Grid2>
+                          <Grid2 xs={9}>[Geofence {i + 1}]</Grid2>
                         </Grid2>
-                        <Grid2 xs={9}>[Geofence {i + 1}]</Grid2>
-                      </Grid2>
-                    </ListSubheader>
-                    {feat.map((point, j) => (
-                      <ListItemText
-                        key={`${i}-${j}-${point.join('')}`}
-                        primary={`${point[0]}, ${point[1]}`}
-                        primaryTypographyProps={{ variant: 'caption' }}
-                        sx={{ w: '100%', mx: 'auto' }}
-                      />
-                    ))}
-                  </React.Fragment>
-                )
-              })}
-            </List>
-          </Grid2>
-          <Grid2
-            container
-            xs={4}
-            direction="column"
-            alignItems="center"
-            justifyContent="space-around"
-            height="50vh"
-          >
-            <Grid2>
-              <TextField
-                value={route.reduce((acc, cur) => acc + cur.length, 0)}
-                label="Count"
-                type="number"
-                fullWidth
-                disabled
-              />
+                      </ListSubheader>
+                      {feat.map((point, j) => (
+                        <ListItemText
+                          key={`${i}-${j}-${point.join('')}`}
+                          primary={`${point[0]}, ${point[1]}`}
+                          primaryTypographyProps={{ variant: 'caption' }}
+                          sx={{ w: '100%', mx: 'auto' }}
+                        />
+                      ))}
+                    </React.Fragment>
+                  )
+                })}
+              </List>
             </Grid2>
-            <Grid2>
-              <TextField
-                value={stats.max?.toFixed(2) || 0}
-                label="Max"
-                type="number"
-                fullWidth
-                InputProps={{ endAdornment: 'm' }}
-                disabled
-              />
-            </Grid2>
-            <Grid2>
-              <TextField
-                value={(stats.total / (stats.count || 1))?.toFixed(2) || 0}
-                label="Average"
-                type="number"
-                fullWidth
-                InputProps={{ endAdornment: 'm' }}
-                disabled
-              />
-            </Grid2>
-            <Grid2>
-              <TextField
-                value={stats.total?.toFixed(2) || 0}
-                label="Total"
-                type="number"
-                fullWidth
-                InputProps={{ endAdornment: 'm' }}
-                disabled
-              />
+            <Grid2
+              container
+              xs={4}
+              direction="column"
+              alignItems="center"
+              justifyContent="space-around"
+              height="50vh"
+            >
+              <Grid2>
+                <TextField
+                  value={stats.count}
+                  label="Count"
+                  fullWidth
+                  disabled
+                />
+              </Grid2>
+              <Grid2>
+                <TextField
+                  value={stats.max?.toFixed(2) || 0}
+                  label="Max"
+                  fullWidth
+                  InputProps={{ endAdornment: 'm' }}
+                  disabled
+                />
+              </Grid2>
+              <Grid2>
+                <TextField
+                  value={(stats.total / (stats.count || 1))?.toFixed(2) || 0}
+                  label="Average"
+                  fullWidth
+                  InputProps={{ endAdornment: 'm' }}
+                  disabled
+                />
+              </Grid2>
+              <Grid2>
+                <TextField
+                  value={stats.total?.toFixed(2) || 0}
+                  label="Total"
+                  fullWidth
+                  InputProps={{ endAdornment: 'm' }}
+                  disabled
+                />
+              </Grid2>
             </Grid2>
           </Grid2>
-        </Grid2>
+        )}
       </DialogContent>
       <DialogActions>
-        <Button
-          disabled={!!window.safari}
-          onPointerDown={async () =>
-            navigator.clipboard.writeText(await getRoutes(true))
-          }
-        >
-          {window.safari ? 'Clipboard Requires Chrome' : 'Copy to Clipboard'}
-        </Button>
+        <Button onPointerDown={() => getClipboard()}>Copy to Clipboard</Button>
         <Button onClick={() => setOpen('')}>Close</Button>
       </DialogActions>
     </Dialog>
