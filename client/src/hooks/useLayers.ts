@@ -6,6 +6,7 @@ export default function useLayers() {
   const showCircles = usePersist((s) => s.showCircles)
   const showLines = usePersist((s) => s.showLines)
   const showPolygons = usePersist((s) => s.showPolygons)
+  const showArrows = usePersist((s) => s.showArrows)
 
   const map = useMap()
 
@@ -31,4 +32,8 @@ export default function useLayers() {
   useEffect(() => {
     setPane('polygons', showPolygons)
   }, [showPolygons])
+
+  useEffect(() => {
+    setPane('arrows', showArrows)
+  }, [showArrows])
 }

@@ -36,14 +36,13 @@ export function KojiLineString({
             color,
             fill: true,
             fillOpacity,
-            pane: 'lines',
+            pane: 'arrows',
             opacity,
             pmIgnore: true,
             snapIgnore: true,
-            size: '8px',
+            size: '50m',
             offsets: { end: `${dis / 2}m` },
           })
-          line.redraw()
         }
       }}
       positions={[

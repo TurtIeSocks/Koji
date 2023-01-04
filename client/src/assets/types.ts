@@ -7,6 +7,12 @@ import * as L from 'leaflet'
 import type { UsePersist } from '@hooks/usePersist'
 import type { UseStatic } from '@hooks/useStatic'
 
+export type SpecificValueType<T, U> = {
+  [k in keyof T]: T[k] extends U ? k : never
+}[keyof T]
+
+export type OnlyType<T, U> = { [k in SpecificValueType<T, U>]: U }
+
 export interface Data {
   gyms: PixiMarker[]
   pokestops: PixiMarker[]

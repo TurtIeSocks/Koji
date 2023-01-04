@@ -73,6 +73,7 @@ export default function Manager({ open, setOpen, geojson }: Props) {
           Save to Koji
         </Button>
         <Button
+          disabled
           onClick={() =>
             save('/api/v1/geofence/save-scanner', code).then((res) =>
               console.log(res),

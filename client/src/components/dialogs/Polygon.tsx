@@ -7,10 +7,10 @@ import type { ToConvert } from '@assets/types'
 import { usePersist } from '@hooks/usePersist'
 import { useShapes } from '@hooks/useShapes'
 import { convert } from '@services/fetches'
+import MultiOptions from '@components/drawer/inputs/MultiOptions'
 
 import DialogHeader from './Header'
 import { Code } from '../Code'
-import BtnGroup from '../drawer/inputs/BtnGroup'
 
 interface Props {
   open: string
@@ -40,7 +40,6 @@ export default function ExportPolygon({
 }: Import | Export | ExportAll): JSX.Element {
   const polygonExportMode = usePersist((s) => s.polygonExportMode)
   const simplifyPolygons = usePersist((s) => s.simplifyPolygons)
-  const setStore = usePersist((s) => s.setStore)
 
   const add = useShapes((s) => s.setters.add)
 
@@ -147,22 +146,22 @@ export default function ExportPolygon({
       </DialogContent>
       <DialogActions>
         {(mode === 'export' || mode === 'exportAll') && (
-          <BtnGroup
+          <MultiOptions
             field="polygonExportMode"
-            value={polygonExportMode}
-            setValue={setStore}
             buttons={[
-              'featureCollection',
-              'feature',
               'array',
+              'multiArray',
+              'feature',
+              'featureCollection',
               'struct',
+              'multiStruct',
               'text',
               'altText',
               'poracle',
             ]}
           />
         )}
-        <Button onClick={() => navigator.clipboard.writeText(code)}>
+        <Button onPointerDown={() => navigator.clipboard.writeText(code)}>
           Copy to Clipboard
         </Button>
         <Button

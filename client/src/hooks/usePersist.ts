@@ -22,6 +22,7 @@ export interface UsePersist {
   showCircles: boolean
   showLines: boolean
   showPolygons: boolean
+  showArrows: boolean
   nativeLeaflet: boolean
   last_seen: Date
   devices: number | ''
@@ -78,6 +79,7 @@ export const usePersist = create(
       showCircles: true,
       showLines: true,
       showPolygons: true,
+      showArrows: true,
       nativeLeaflet: false,
       devices: 1,
       polygonExportMode: 'feature',

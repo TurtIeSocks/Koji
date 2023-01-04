@@ -3,22 +3,23 @@ import * as React from 'react'
 import { ListItem, ListItemText, TextField } from '@mui/material'
 
 import { fromCamelCase, fromSnakeCase } from '@services/utils'
+import { UsePersist, usePersist } from '@hooks/usePersist'
+import { OnlyType } from '@assets/types'
 
-interface Props<T> {
-  field: T
-  value: number | ''
-  setValue: (field: T, value: number | '') => void
-  disabled?: boolean
-  endAdornment?: string
-}
-
-export default function NumInput<T extends string>({
+export default function NumInput<
+  T extends keyof OnlyType<UsePersist, number | ''>,
+>({
   field,
-  value,
-  setValue,
   endAdornment,
   disabled = false,
-}: Props<T>) {
+}: {
+  field: T
+  disabled?: boolean
+  endAdornment?: string
+}) {
+  const value = usePersist((s) => s[field])
+  const setStore = usePersist((s) => s.setStore)
+
   return (
     <ListItem disabled={disabled}>
       <ListItemText
@@ -28,17 +29,10 @@ export default function NumInput<T extends string>({
       />
       <TextField
         name={field}
-        value={value}
+        value={value || ''}
         type="number"
         size="small"
-        onChange={({ target }) => {
-          setValue(
-            field,
-            target.value && (+target.value || target.value === '0')
-              ? +target.value
-              : '',
-          )
-        }}
+        onChange={({ target }) => setStore(field, +target.value)}
         sx={{ width: '35%' }}
         inputProps={{ min: 0, max: 9999 }}
         InputProps={{ endAdornment }}

@@ -56,15 +56,9 @@ export default function ImportExport() {
         <ListItemIcon>
           <Upload />
         </ListItemIcon>
-        Export Route
+        Export All Routes
       </ListItemButton>
       <Divider sx={{ my: 2 }} />
-      <ListItemButton onClick={() => setOpen('manager')}>
-        <ListItemIcon>
-          <Save />
-        </ListItemIcon>
-        <ListItemText primary="Admin Panel" />
-      </ListItemButton>
       <ListItemButton onClick={() => setOpen('rawManager')}>
         <ListItemIcon>
           <Save />
