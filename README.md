@@ -68,16 +68,13 @@ cd ../server && cargo run -r
 2. Enter your GitHub username
 3. Enter your GitHub authentication token
 
-4. Get the docker-compose.yml example file:
-
-```bash
-curl https://raw.githubusercontent.com/TurtIeSocks/Koji/main/docker-compose.example.yml > docker-compose.yml
-```
-
-2. `nano docker-compose.yml`
-3. Set the same env variables as above
-4. `docker-compose pull`
-5. `docker-compose up -d`
+4. If you don't already have a `docker-compose.yml` file, `touch docker-compose.yml`
+5. Copy the contents of the example [docker-compose.yml](./docker-compose.example.yml) file
+6. `nano docker-compose.yml`
+7. Paste the copied contents
+8. Set the env variables as above
+9. `docker-compose pull`
+10. `docker-compose up -d`
 
 ### Using the Client
 
@@ -86,10 +83,15 @@ curl https://raw.githubusercontent.com/TurtIeSocks/Koji/main/docker-compose.exam
 
 ### Updating
 
+Local Repo:
 1. `git pull`
 2. `cd client && yarn install && yarn build`
 3. `cd ../server && cargo run -r`
 4. If using pm2, `pm2 restart koji`
+
+Docker:
+1. `docker-compose pull`
+2. `docker-compose down && docker-compose up -d`
 
 ### Development
 
