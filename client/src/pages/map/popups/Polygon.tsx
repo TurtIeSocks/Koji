@@ -43,7 +43,7 @@ export function PolygonPopup({
       case 'object':
         return <CircularProgress size={10} />
       default:
-        return ''
+        return 'Loading'
     }
   }
 
