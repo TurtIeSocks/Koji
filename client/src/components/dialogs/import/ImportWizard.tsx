@@ -123,7 +123,7 @@ export default function ImportWizard() {
     ? {
         ...safe,
         features: safe.features.filter(
-          (feat) => importWizard.checked[feat.properties?.name],
+          (feat) => importWizard.checked[feat.id || ''],
         ),
       }
     : safe

@@ -83,7 +83,7 @@ async fn get_one(
     }))
 }
 
-#[post("/geofence/{id}")]
+#[post("/geofence")]
 async fn create(
     conn: web::Data<KojiDb>,
     // id: actix_web::web::Path<u32>,

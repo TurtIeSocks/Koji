@@ -2,10 +2,7 @@ import * as React from 'react'
 import {
   ArrayInput,
   FormDataConsumer,
-  ReferenceArrayInput,
-  SelectArrayInput,
   SelectInput,
-  SimpleForm,
   SimpleFormIterator,
   TextInput,
 } from 'react-admin'
@@ -15,11 +12,12 @@ import { GeoJSON } from 'react-leaflet'
 import center from '@turf/center'
 import { useStatic } from '@hooks/useStatic'
 import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
+import CodeInput from '../inputs/CodeInput'
 
 export default function GeofenceForm() {
   const scannerType = useStatic((s) => s.scannerType)
   return (
-    <SimpleForm>
+    <>
       <TextInput source="name" fullWidth required />
       <SelectInput
         source="mode"
@@ -55,13 +53,7 @@ export default function GeofenceForm() {
           <TextInput source="value" helperText={false} />
         </SimpleFormIterator>
       </ArrayInput>
-      <ReferenceArrayInput
-        source="related"
-        reference="project"
-        label="Projects"
-      >
-        <SelectArrayInput optionText="name" />
-      </ReferenceArrayInput>
-    </SimpleForm>
+      <CodeInput source="area" label="Fence" />
+    </>
   )
 }

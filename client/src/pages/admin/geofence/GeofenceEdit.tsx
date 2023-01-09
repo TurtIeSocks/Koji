@@ -1,7 +1,11 @@
 import * as React from 'react'
-import { Edit } from 'react-admin'
+import {
+  Edit,
+  ReferenceArrayInput,
+  SelectArrayInput,
+  SimpleForm,
+} from 'react-admin'
 
-// import { KojiGeofence } from '@assets/types'
 import { ClientGeofence } from '@assets/types'
 
 import GeofenceForm from './GeofenceForm'
@@ -19,7 +23,9 @@ const transformPayload = async (geofence: ClientGeofence) => {
   return {
     ...geofence,
     area: {
-      ...geofence.area,
+      ...(typeof geofence.area === 'string'
+        ? JSON.parse(geofence.area)
+        : geofence.area),
       properties: Object.fromEntries(
         geofence.properties.map((p) => [p.key, p.value]),
       ),
@@ -30,7 +36,16 @@ const transformPayload = async (geofence: ClientGeofence) => {
 export default function GeofenceEdit() {
   return (
     <Edit mutationMode="pessimistic" transform={transformPayload}>
-      <GeofenceForm />
+      <SimpleForm>
+        <GeofenceForm />
+        <ReferenceArrayInput
+          source="related"
+          reference="project"
+          label="Projects"
+        >
+          <SelectArrayInput optionText="name" />
+        </ReferenceArrayInput>
+      </SimpleForm>
     </Edit>
   )
 }

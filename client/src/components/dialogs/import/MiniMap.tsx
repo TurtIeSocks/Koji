@@ -51,10 +51,6 @@ export default function MiniMap({ filtered }: { filtered: FeatureCollection }) {
           <GeoJSON
             data={filtered}
             onEachFeature={(feature, layer) => {
-              const projectObj = Object.fromEntries(
-                useStatic.getState().projects.map((p) => [p.id, p.name]),
-              )
-
               if (layer instanceof L.Polygon && feature.properties) {
                 layer.setStyle(feature.properties)
               }
@@ -66,7 +62,7 @@ export default function MiniMap({ filtered }: { filtered: FeatureCollection }) {
         <strong>Projects:</strong>
           <p style="margin:0;padding:0">
             ${(feature?.properties?.projects || [])
-              ?.map((p: number) => projectObj[p])
+              ?.map((p: number) => useStatic.getState().projects[p])
               .join(', ')}
           </p>
         </div>

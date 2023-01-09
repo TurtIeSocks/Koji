@@ -255,6 +255,9 @@ impl Query {
                         } else {
                             None
                         };
+                    feat.remove_property("name");
+                    feat.remove_property("type");
+                    feat.remove_property("projects");
                     let area = GeoJson::Feature(feat).to_json_value();
                     if let Some(area) = area.as_object() {
                         let area = sea_orm::JsonValue::Object(area.to_owned());

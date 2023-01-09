@@ -25,12 +25,13 @@ export default function FinishStep({ code, filtered, reset }: Props) {
         <Button
           variant="outlined"
           color="success"
-          onClick={() =>
+          onClick={() => {
             save('/api/v1/geofence/save-koji', code).then((res) =>
               // eslint-disable-next-line no-console
               console.log(res),
             )
-          }
+            reset()
+          }}
         >
           Save to Kōji Database
         </Button>

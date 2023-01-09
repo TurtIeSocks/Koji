@@ -33,12 +33,12 @@ export interface UseStatic {
     props: string[]
     customName: string
     modifier: 'capitalize' | 'lowercase' | 'uppercase' | 'none'
-    allProjects: string[]
+    allProjects: number[]
     allType: '' | 'AutoQuest' | 'PokemonIv' | 'AutoPokemon' | 'AutoTth'
     checked: Record<string, boolean>
     scannerSelected: Set<string>
   }
-  projects: ClientProject[]
+  projects: Record<number | string, ClientProject>
   setStatic: <
     T extends keyof Omit<
       UseStatic,
@@ -98,7 +98,7 @@ export const useStatic = create<UseStatic>((set, get) => ({
     checked: {},
     scannerSelected: new Set(),
   },
-  projects: [],
+  projects: {},
   setStatic: (key, newValue) => {
     set((state) => ({
       [key]: typeof newValue === 'function' ? newValue(state[key]) : newValue,

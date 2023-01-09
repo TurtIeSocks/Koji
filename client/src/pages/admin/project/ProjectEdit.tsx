@@ -1,9 +1,13 @@
 import * as React from 'react'
-import { Edit } from 'react-admin'
+import {
+  Edit,
+  ReferenceArrayInput,
+  SelectArrayInput,
+  SimpleForm,
+  TextInput,
+} from 'react-admin'
 
 import { ClientProject } from '@assets/types'
-
-import ProjectForm from './ProjectForm'
 
 const transformPayload = async (project: ClientProject) => {
   if (Array.isArray(project.related)) {
@@ -21,7 +25,16 @@ const transformPayload = async (project: ClientProject) => {
 export default function ProjectEdit() {
   return (
     <Edit mutationMode="pessimistic" transform={transformPayload}>
-      <ProjectForm />
+      <SimpleForm>
+        <TextInput source="name" fullWidth isRequired />
+        <ReferenceArrayInput
+          source="related"
+          reference="geofence"
+          label="Geofences"
+        >
+          <SelectArrayInput optionText="name" />
+        </ReferenceArrayInput>
+      </SimpleForm>
     </Edit>
   )
 }

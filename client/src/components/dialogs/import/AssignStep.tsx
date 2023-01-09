@@ -9,6 +9,7 @@ import { Checkbox, Divider, MenuItem, Select } from '@mui/material'
 import ReactWindow from '@components/ReactWindow'
 import { useStatic } from '@hooks/useStatic'
 import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
+import ProjectsAc from '@components/drawer/inputs/ProjectsAC'
 
 const AssignStep = React.forwardRef<
   HTMLDivElement,
@@ -23,23 +24,24 @@ const AssignStep = React.forwardRef<
   )
   const scannerType = useStatic((s) => s.scannerType)
 
-  const projects = useStatic((s) => s.projects)
-
   const innerRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
     fetch('/internal/admin/project/all')
       .then((res) => res.json())
-      .then((data) =>
-        useStatic.setState({
-          projects: data.data.map(
-            (project: Omit<ClientProject, 'related'>) => ({
-              ...project,
-              related: [],
-            }),
+      .then((data) => {
+        return useStatic.setState({
+          projects: Object.fromEntries(
+            data.data.map((project: Omit<ClientProject, 'related'>) => [
+              project.id,
+              {
+                ...project,
+                related: [],
+              },
+            ]),
           ),
-        }),
-      )
+        })
+      })
   }, [])
 
   React.useEffect(() => {
@@ -48,8 +50,8 @@ const AssignStep = React.forwardRef<
         ...prev.importWizard,
         checked: Object.fromEntries(
           geojson.features.map((feature) => [
-            feature.properties?.name,
-            checked[feature.properties?.name] ?? true,
+            feature.id,
+            checked[feature.id || ''] ?? true,
           ]),
         ),
       },
@@ -68,6 +70,7 @@ const AssignStep = React.forwardRef<
         ),
     [nameProp],
   )
+
   return (
     <Grid2 container ref={ref} sx={{ width: '100%' }}>
       <Grid2 xs={1} mt={1} />
@@ -141,36 +144,27 @@ const AssignStep = React.forwardRef<
         </Select>
       </Grid2>
       <Grid2 xs={5} mt={1}>
-        <Select
+        <ProjectsAc
           value={allProjects}
-          size="small"
-          multiple
-          sx={{ width: '80%' }}
-          onChange={(e) => {
-            useStatic.setState((prev) => ({
-              importWizard: {
-                ...prev.importWizard,
-                allProjects: e.target.value as string[],
-              },
-            }))
+          setValue={(newValue) => {
             handleChange({
               ...geojson,
               features: geojson.features.map((feature) => ({
                 ...feature,
                 properties: {
                   ...feature.properties,
-                  projects: e.target.value as string[],
+                  projects: newValue,
                 },
               })),
             })
+            useStatic.setState((prev) => ({
+              importWizard: {
+                ...prev.importWizard,
+                allProjects: newValue,
+              },
+            }))
           }}
-        >
-          {projects.map((project) => (
-            <MenuItem key={project.id} value={project.id}>
-              {project.name}
-            </MenuItem>
-          ))}
-        </Select>
+        />
       </Grid2>
       <Divider sx={{ width: '100%', my: 1 }} />
       <Grid2 xs={12} ref={innerRef}>
@@ -187,11 +181,11 @@ const AssignStep = React.forwardRef<
                 (feat) => feat.id === refFeature.id,
               )
               if (!feature) return null
-              const isActive =
-                feature && checked[feature.properties?.name || '']
+              const isActive = feature && checked[feature.id || '']
+
               return (
                 <Grid2
-                  key={`${refFeature?.properties?.name}`}
+                  key={`${feature?.properties?.name}`}
                   container
                   style={style}
                 >
@@ -204,7 +198,7 @@ const AssignStep = React.forwardRef<
                             ...prev.importWizard,
                             checked: {
                               ...prev.importWizard.checked,
-                              [feature.properties?.name || '']: !isActive,
+                              [feature.id as string]: !isActive,
                             },
                           },
                         }))
@@ -234,8 +228,7 @@ const AssignStep = React.forwardRef<
                           ...geojson,
                           features: [
                             ...geojson.features.filter(
-                              (f) =>
-                                f.properties?.name !== feature.properties?.name,
+                              (f) => f.id !== feature.id,
                             ),
                             newFeature,
                           ],
@@ -252,37 +245,27 @@ const AssignStep = React.forwardRef<
                     </Select>
                   </Grid2>
                   <Grid2 xs={5}>
-                    <Select
-                      size="small"
-                      multiple
-                      sx={{ width: '80%' }}
+                    <ProjectsAc
                       value={feature.properties?.projects || []}
-                      onChange={(e) => {
+                      setValue={(newValue) => {
                         const newFeature = {
                           ...feature,
                           properties: {
                             ...feature.properties,
-                            projects: e.target.value,
+                            projects: newValue,
                           },
                         }
                         handleChange({
                           ...geojson,
                           features: [
                             ...geojson.features.filter(
-                              (f) =>
-                                f.properties?.name !== feature.properties?.name,
+                              (f) => f.id !== feature.id,
                             ),
                             newFeature,
                           ],
                         })
                       }}
-                    >
-                      {projects.map((project) => (
-                        <MenuItem key={project.id} value={project.id}>
-                          {project.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
+                    />
                   </Grid2>
                 </Grid2>
               )

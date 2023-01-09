@@ -146,6 +146,7 @@ pub async fn main() -> io::Result<()> {
                             .service(private::admin::geofence::update)
                             .service(private::admin::geofence::remove)
                             .service(private::admin::project::get_all)
+                            .service(private::admin::project::search)
                             .service(private::admin::project::paginate)
                             .service(private::admin::project::get_one)
                             .service(private::admin::project::create)

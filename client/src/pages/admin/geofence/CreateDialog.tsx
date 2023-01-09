@@ -4,7 +4,11 @@ import Add from '@mui/icons-material/Add'
 import ImportWizard from '@components/dialogs/import/ImportWizard'
 import { useStatic } from '@hooks/useStatic'
 
-export default function GeofenceCreateButton() {
+export default function GeofenceCreateButton({
+  children,
+}: {
+  children?: string
+}) {
   return (
     <>
       <Button
@@ -16,7 +20,7 @@ export default function GeofenceCreateButton() {
         }
       >
         <Add />
-        Create
+        {children ?? 'Create'}
       </Button>
       <ImportWizard />
     </>
