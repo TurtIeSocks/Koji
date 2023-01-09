@@ -24,61 +24,67 @@ export function KojiPolygon({
         if (ref && feature.id) {
           ref.feature = feature
           const { type } = feature.geometry
-          ref.on('click', () => setLoadData(true))
-          ref.removeEventListener('pm:remove')
-          ref.on('pm:remove', function remove() {
-            useShapes.getState().setters.remove(type, feature.id)
-          })
-          ref.removeEventListener('pm:dragend')
-          ref.on('pm:dragend', function dragend({ layer }) {
-            if (layer instanceof L.Polygon && layer.feature && feature.id) {
-              useShapes.getState().setters.update(type, feature.id, {
-                ...layer.toGeoJSON(),
-                id: feature.id,
-                properties: feature.properties,
-              } as any) // TODO: fix this
-            }
-          })
-          ref.removeEventListener('pm:cut')
-          ref.on('pm:cut', function cut({ layer, originalLayer }) {
-            if (layer instanceof L.Polygon && layer.feature && feature.id) {
-              useShapes.getState().setters.update(type, feature.id, {
-                ...layer.toGeoJSON(),
-                id: feature.id,
-                properties: {
-                  ...feature.properties,
-                  leafletId: layer._leaflet_id,
-                },
-              } as any) // TODO: fix this
-              originalLayer.remove()
-              layer.remove()
-            }
-          })
-          ref.removeEventListener('pm:rotateend')
-          ref.on('pm:rotateend', function rotateEnd({ layer }) {
-            if (layer instanceof L.Polygon && layer.feature && feature.id) {
-              useShapes.getState().setters.update(type, feature.id, {
-                ...layer.toGeoJSON(),
-                id: feature.id,
-                properties: feature.properties,
-              } as any) // TODO: fix this
-            }
-          })
-          ref.removeEventListener('pm:edit')
-          ref.on('pm:edit', function edit({ layer }) {
-            if (
-              useStatic.getState().layerEditing.editMode &&
-              layer instanceof L.Polygon &&
-              layer.feature &&
-              feature.id
-            ) {
-              useShapes.getState().setters.update(type, feature.id, {
-                ...layer.toGeoJSON(),
-                id: feature.id,
-                properties: feature.properties,
-              } as any) // TODO: fix this
-            }
-          })
+          ref.addOneTimeEventListener('click', () => setLoadData(true))
+
+          if (!ref.hasEventListeners('pm:remove')) {
+            ref.on('pm:remove', function remove() {
+              useShapes.getState().setters.remove(type, feature.id)
+            })
+          }
+          if (!ref.hasEventListeners('pm:dragend')) {
+            ref.on('pm:dragend', function dragend({ layer }) {
+              if (layer instanceof L.Polygon && layer.feature && feature.id) {
+                useShapes.getState().setters.update(type, feature.id, {
+                  ...layer.toGeoJSON(),
+                  id: feature.id,
+                  properties: feature.properties,
+                } as any) // TODO: fix this
+              }
+            })
+          }
+          if (!ref.hasEventListeners('pm:cut')) {
+            ref.on('pm:cut', function cut({ layer, originalLayer }) {
+              if (layer instanceof L.Polygon && layer.feature && feature.id) {
+                useShapes.getState().setters.update(type, feature.id, {
+                  ...layer.toGeoJSON(),
+                  id: feature.id,
+                  properties: {
+                    ...feature.properties,
+                    leafletId: layer._leaflet_id,
+                  },
+                } as any) // TODO: fix this
+                originalLayer.remove()
+                layer.remove()
+              }
+            })
+          }
+          if (!ref.hasEventListeners('pm:rotateend')) {
+            ref.on('pm:rotateend', function rotateEnd({ layer }) {
+              if (layer instanceof L.Polygon && layer.feature && feature.id) {
+                useShapes.getState().setters.update(type, feature.id, {
+                  ...layer.toGeoJSON(),
+                  id: feature.id,
+                  properties: feature.properties,
+                } as any) // TODO: fix this
+              }
+            })
+          }
+          if (!ref.hasEventListeners('pm:edit')) {
+            ref.on('pm:edit', function edit({ layer }) {
+              if (
+                useStatic.getState().layerEditing.editMode &&
+                layer instanceof L.Polygon &&
+                layer.feature &&
+                feature.id
+              ) {
+                useShapes.getState().setters.update(type, feature.id, {
+                  ...layer.toGeoJSON(),
+                  id: feature.id,
+                  properties: feature.properties,
+                } as any) // TODO: fix this
+              }
+            })
+          }
         }
       }}
       positions={
@@ -91,7 +97,6 @@ export function KojiPolygon({
             ) as [[[number, number]]])
       }
       {...feature.properties}
-      pmIgnore={false}
       pane="polygons"
     >
       <Popup>

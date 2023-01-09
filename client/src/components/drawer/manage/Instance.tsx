@@ -16,7 +16,7 @@ import {
 import CheckBoxOutlineBlank from '@mui/icons-material/CheckBoxOutlineBlank'
 import IndeterminateCheckBoxOutlined from '@mui/icons-material/IndeterminateCheckBoxOutlined'
 import CheckBox from '@mui/icons-material/CheckBox'
-import type { Feature, GeoJsonTypes } from 'geojson'
+import type { Feature, FeatureCollection, GeoJsonTypes } from 'geojson'
 
 import { KojiResponse } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
@@ -39,14 +39,22 @@ interface Option {
   geoType?: Exclude<GeoJsonTypes, 'Feature' | 'FeatureCollection'>
 }
 
-interface Props {
+export default function InstanceSelect({
+  endpoint,
+  setGeojson,
+  koji = false,
+  filters = [],
+  initialState = [],
+}: {
   endpoint: string
+  setGeojson?: (collection: FeatureCollection) => void
   koji?: boolean
-}
-
-export default function InstanceSelect({ endpoint, koji = false }: Props) {
+  filters?: string[]
+  initialState?: string[]
+}) {
   const add = useShapes((s) => s.setters.add)
   const remove = useShapes((s) => s.setters.remove)
+  const remoteCache = useShapes((s) => s.remoteCache)
 
   const [loading, setLoading] = React.useState(false)
   const [options, setOptions] = React.useState<Record<string, Option>>({})
@@ -59,10 +67,13 @@ export default function InstanceSelect({ endpoint, koji = false }: Props) {
         if (resp) {
           setOptions(
             Object.fromEntries(
-              resp.data.map((o) => [`${o.name}__${o.type}`, o]),
+              resp.data
+                .filter((o) => filters.length === 0 || filters.includes(o.type))
+                .map((o) => [`${o.name}__${o.type}`, o]),
             ),
           )
         }
+        setSelected(initialState)
         setLoading(false)
       })
       // eslint-disable-next-line no-console
@@ -72,29 +83,50 @@ export default function InstanceSelect({ endpoint, koji = false }: Props) {
   const updateState = async (newValue: string[]) => {
     const added = newValue.filter((s) => !selected.includes(s))
     const deleted = selected.filter((s) => !newValue.includes(s))
-    await Promise.all(
+
+    const features = await Promise.allSettled(
       added.map((a) =>
-        getData<KojiResponse<Feature>>(
-          `/internal/routes/one/${koji ? 'koji' : 'scanner'}/${options[
-            a
-          ].name.replace(/\//g, '__')}/${options[a].type}`,
-        ).then((resp) => {
-          if (resp) {
-            add(resp.data, koji ? '' : '__SCANNER')
-            setOptions((prev) => ({
-              ...prev,
-              [a]: { ...prev[a], geoType: resp.data.geometry.type },
-            }))
-          }
-        }),
+        remoteCache[a]
+          ? Promise.resolve(remoteCache[a])
+          : getData<KojiResponse<Feature>>(
+              `/internal/routes/one/${koji ? 'koji' : 'scanner'}/${options[
+                a
+              ].name.replace(/\//g, '__')}/${options[a].type}`,
+            ).then((resp) => {
+              if (resp) {
+                if (!setGeojson) {
+                  add(resp.data, koji ? '' : '__SCANNER')
+                }
+                setOptions((prev) => ({
+                  ...prev,
+                  [a]: { ...prev[a], geoType: resp.data.geometry.type },
+                }))
+
+                return resp.data
+              }
+            }),
       ),
     )
-    deleted.forEach((d) => {
-      const { name, type, geoType } = options[d]
-      if (geoType) {
-        remove(geoType, `${name}${type}${koji ? '' : '__SCANNER'}`)
-      }
-    })
+    if (setGeojson) {
+      setGeojson({
+        type: 'FeatureCollection',
+        features: [
+          ...features
+            .filter(
+              (result): result is PromiseFulfilledResult<Feature> =>
+                result.status === 'fulfilled',
+            )
+            .map((result) => result.value),
+        ],
+      })
+    } else {
+      deleted.forEach((d) => {
+        const { name, type, geoType } = options[d]
+        if (geoType) {
+          remove(geoType, `${name}${type}${koji ? '' : '__SCANNER'}`)
+        }
+      })
+    }
     setSelected(newValue)
   }
 

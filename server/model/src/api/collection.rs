@@ -112,6 +112,35 @@ impl ToText for FeatureCollection {
     }
 }
 
+impl ToCollection for FeatureCollection {
+    fn to_collection(self, _name: Option<String>, _enum_type: Option<&Type>) -> FeatureCollection {
+        FeatureCollection {
+            bbox: if self.bbox.is_some() {
+                self.bbox
+            } else {
+                self.clone()
+                    .into_iter()
+                    .flat_map(|x| x.to_single_vec())
+                    .collect::<single_vec::SingleVec>()
+                    .get_bbox()
+            },
+            features: self
+                .features
+                .into_iter()
+                .map(|feat| Feature {
+                    bbox: if feat.bbox.is_some() {
+                        feat.bbox
+                    } else {
+                        feat.clone().to_single_vec().get_bbox()
+                    },
+                    ..feat
+                })
+                .collect(),
+            ..self
+        }
+    }
+}
+
 impl ToPoracleVec for FeatureCollection {
     fn to_poracle_vec(self: FeatureCollection) -> Vec<poracle::Poracle> {
         let mut return_vec = vec![];

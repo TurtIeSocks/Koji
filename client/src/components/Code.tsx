@@ -1,13 +1,13 @@
 import * as React from 'react'
-import ReactCodeMirror from '@uiw/react-codemirror'
+import ReactCodeMirror, { ReactCodeMirrorProps } from '@uiw/react-codemirror'
 import { json, jsonParseLinter } from '@codemirror/lang-json'
 import { linter } from '@codemirror/lint'
 
 import { usePersist } from '@hooks/usePersist'
 import { getData } from '@services/fetches'
 
-interface EditProps {
-  code: string
+interface EditProps extends ReactCodeMirrorProps {
+  code?: string
   setCode: (code: string) => void
   textMode?: boolean
   children?: string
@@ -22,7 +22,7 @@ export function Code({
   setCode,
   textMode = false,
   children,
-  maxHeight,
+  ...rest
 }: EditProps | ReadProps) {
   const darkMode = usePersist((s) => s.darkMode)
 
@@ -36,7 +36,7 @@ export function Code({
       key={darkMode.toString()}
       extensions={extensions}
       theme={darkMode ? 'dark' : 'light'}
-      value={children ?? code}
+      value={children ?? code ?? ''}
       onUpdate={async (value) => {
         if (value.docChanged) {
           if (setCode) {
@@ -50,7 +50,7 @@ export function Code({
           }
         }
       }}
-      maxHeight={maxHeight}
+      {...rest}
     />
   )
 }

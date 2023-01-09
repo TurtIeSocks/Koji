@@ -135,7 +135,7 @@ impl ToCollection for GeoFormats {
             GeoFormats::MultiStruct(area) => area.to_collection(name, enum_type),
             GeoFormats::Feature(area) => area.to_collection(name, enum_type),
             GeoFormats::FeatureVec(area) => area.to_collection(name, enum_type),
-            GeoFormats::FeatureCollection(area) => area,
+            GeoFormats::FeatureCollection(area) => area.to_collection(name, enum_type),
             GeoFormats::Poracle(area) => area.to_collection(name, enum_type),
             GeoFormats::Bound(area) => vec![
                 [area.min_lat, area.min_lon],
