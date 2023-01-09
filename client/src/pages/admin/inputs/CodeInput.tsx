@@ -22,9 +22,13 @@ export default function CodeInput({
     <>
       <Typography variant="subtitle2">{label}</Typography>
       <Code
-        width="70vw"
+        width="75vw"
         maxHeight="50vh"
-        code={field.value}
+        code={
+          typeof field.value === 'string'
+            ? JSON.stringify(JSON.parse(field.value), null, 2)
+            : JSON.stringify(field.value, null, 2)
+        }
         setCode={(newCode) => {
           field.onChange({ target: { value: newCode } })
         }}
