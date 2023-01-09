@@ -28,6 +28,7 @@ pub enum ReturnTypeArg {
     Feature,
     FeatureVec,
     FeatureCollection,
+    PoracleSingle,
     Poracle,
 }
 
@@ -117,7 +118,7 @@ impl Args {
                     GeoFormats::Feature(_) => ReturnTypeArg::Feature,
                     GeoFormats::FeatureVec(_) => ReturnTypeArg::FeatureVec,
                     GeoFormats::FeatureCollection(_) => ReturnTypeArg::FeatureCollection,
-                    GeoFormats::Poracle(_) => ReturnTypeArg::Poracle,
+                    GeoFormats::Poracle(_) | GeoFormats::PoracleSingle(_) => ReturnTypeArg::Poracle,
                 },
             )
         } else {

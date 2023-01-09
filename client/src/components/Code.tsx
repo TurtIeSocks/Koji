@@ -5,6 +5,8 @@ import { linter } from '@codemirror/lint'
 
 import { usePersist } from '@hooks/usePersist'
 import { getData } from '@services/fetches'
+import Typography from '@mui/material/Typography'
+import { Box } from '@mui/material'
 
 interface EditProps extends ReactCodeMirrorProps {
   code?: string
@@ -32,25 +34,31 @@ export function Code({
   )
 
   return (
-    <ReactCodeMirror
-      key={darkMode.toString()}
-      extensions={extensions}
-      theme={darkMode ? 'dark' : 'light'}
-      value={children ?? code ?? ''}
-      onUpdate={async (value) => {
-        if (value.docChanged) {
-          if (setCode) {
-            const newValue = value.state.doc.toString()
-            if (newValue.startsWith('http')) {
-              const remoteValue = await getData<object>(newValue)
-              setCode(JSON.stringify(remoteValue, null, 2))
-            } else {
-              setCode(newValue)
+    <Box py={3}>
+      <ReactCodeMirror
+        key={darkMode.toString()}
+        extensions={extensions}
+        theme={darkMode ? 'dark' : 'light'}
+        value={children ?? code ?? ''}
+        onUpdate={async (value) => {
+          if (value.docChanged) {
+            if (setCode) {
+              const newValue = value.state.doc.toString()
+              if (newValue.startsWith('http')) {
+                const remoteValue = await getData<object>(newValue)
+                setCode(JSON.stringify(remoteValue, null, 2))
+              } else {
+                setCode(newValue)
+              }
             }
           }
-        }
-      }}
-      {...rest}
-    />
+        }}
+        {...rest}
+      />
+      <Typography variant="caption" color="grey">
+        You can also try entering a url for a remote JSON, Kōji will attempt to
+        fetch and parse it.
+      </Typography>
+    </Box>
   )
 }

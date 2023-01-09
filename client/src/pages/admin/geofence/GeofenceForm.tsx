@@ -12,6 +12,9 @@ import { GeoJSON } from 'react-leaflet'
 import center from '@turf/center'
 import { useStatic } from '@hooks/useStatic'
 import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
+import { safeParse } from '@services/utils'
+import type { Feature } from 'geojson'
+
 import CodeInput from '../inputs/CodeInput'
 
 export default function GeofenceForm() {
@@ -29,8 +32,17 @@ export default function GeofenceForm() {
       />
       <FormDataConsumer>
         {({ formData }) => {
-          if (formData?.area?.geometry === undefined) return null
-          const point = center(formData.area.geometry)
+          console.log(formData.area)
+          const parsed =
+            typeof formData.area === 'string'
+              ? (() => {
+                  const safe = safeParse<Feature>(formData.area)
+                  if (!safe.error) return safe.value
+                })()
+              : formData.area
+          if (parsed?.geometry === undefined) return null
+
+          const point = center(parsed.geometry)
           return (
             <Map
               forcedLocation={[
@@ -41,7 +53,7 @@ export default function GeofenceForm() {
               zoomControl
               style={{ width: '100%', height: '50vh' }}
             >
-              <GeoJSON data={formData.area} />
+              <GeoJSON data={parsed} />
             </Map>
           )
         }}

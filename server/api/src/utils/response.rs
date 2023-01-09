@@ -31,7 +31,7 @@ pub fn send(
             ReturnTypeArg::MultiArray => GeoFormats::MultiArray(value.to_multi_vec()),
             ReturnTypeArg::Feature => {
                 if value.features.len() == 1 {
-                    GeoFormats::Feature(value.features[0].clone())
+                    GeoFormats::Feature(value.features.first().unwrap().clone())
                 } else {
                     println!("\"Feature\" was requested as the return type but multiple features were found so a Vec of features is being returned");
                     GeoFormats::FeatureVec(value.features)
@@ -40,6 +40,7 @@ pub fn send(
             ReturnTypeArg::FeatureVec => GeoFormats::FeatureVec(value.features),
             ReturnTypeArg::FeatureCollection => GeoFormats::FeatureCollection(value),
             ReturnTypeArg::Poracle => GeoFormats::Poracle(value.to_poracle_vec()),
+            ReturnTypeArg::PoracleSingle => GeoFormats::PoracleSingle(value.to_poracle_vec().first().unwrap().clone())
         }))},
         stats,
     })
