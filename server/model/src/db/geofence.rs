@@ -5,7 +5,7 @@ use crate::api::{EnsureProperties, ToCollection};
 use super::{sea_orm_active_enums::Type, *};
 
 use geojson::GeoJson;
-use sea_orm::entity::prelude::*;
+use sea_orm::{entity::prelude::*, InsertResult};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
@@ -187,6 +187,24 @@ impl Query {
         }
     }
 
+    async fn insert_related_projects(
+        conn: &DatabaseConnection,
+        projects: Vec<u64>,
+        id: u32,
+    ) -> Result<InsertResult<geofence_project::ActiveModel>, DbErr> {
+        let projects: Vec<geofence_project::ActiveModel> = projects
+            .into_iter()
+            .map(|project| geofence_project::ActiveModel {
+                project_id: Set(project as u32),
+                geofence_id: Set(id),
+                ..Default::default()
+            })
+            .collect();
+        geofence_project::Entity::insert_many(projects)
+            .exec(conn)
+            .await
+    }
+
     pub async fn save(
         conn: &DatabaseConnection,
         area: FeatureCollection,
@@ -199,7 +217,7 @@ impl Query {
             .all(conn)
             .await?;
 
-        let mut inserts: Vec<ActiveModel> = vec![];
+        let mut inserts = 0;
         let mut update_len = 0;
 
         for feat in area.into_iter() {
@@ -216,6 +234,27 @@ impl Query {
                     } else {
                         None
                     };
+                    let projects: Option<Vec<u64>> =
+                        if let Some(projects) = feat.property("projects") {
+                            if let Some(projects) = projects.as_array() {
+                                Some(
+                                    projects
+                                        .iter()
+                                        .filter_map(|project| {
+                                            if let Some(project) = project.as_u64() {
+                                                Some(project)
+                                            } else {
+                                                None
+                                            }
+                                        })
+                                        .collect(),
+                                )
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        };
                     let area = GeoJson::Feature(feat).to_json_value();
                     if let Some(area) = area.as_object() {
                         let area = sea_orm::JsonValue::Object(area.to_owned());
@@ -223,32 +262,39 @@ impl Query {
                         let is_update = existing.iter().find(|entry| entry.name == name);
 
                         if let Some(entry) = is_update {
-                            Entity::update_many()
-                                .col_expr(Column::Area, Expr::value(area))
-                                .col_expr(Column::Mode, Expr::value(mode))
-                                .filter(Column::Id.eq(entry.id))
-                                .exec(conn)
-                                .await?;
+                            let old_model: Option<Model> =
+                                Entity::find_by_id(entry.id).one(conn).await?;
+                            let mut old_model: ActiveModel = old_model.unwrap().into();
+                            old_model.area = Set(area);
+                            old_model.updated_at = Set(Utc::now());
+                            let model = old_model.update(conn).await?;
+
+                            if let Some(projects) = projects {
+                                Query::insert_related_projects(conn, projects, model.id).await?;
+                            };
                             update_len += 1;
                         } else {
-                            inserts.push(ActiveModel {
+                            let model = ActiveModel {
                                 name: Set(name.to_string()),
                                 area: Set(area),
                                 mode: Set(mode),
                                 created_at: Set(Utc::now()),
                                 updated_at: Set(Utc::now()),
                                 ..Default::default()
-                            })
+                            }
+                            .insert(conn)
+                            .await?;
+
+                            if let Some(projects) = projects {
+                                Query::insert_related_projects(conn, projects, model.id).await?;
+                            };
+                            inserts += 1;
                         }
                     }
                 }
             }
         }
-        let insert_len = inserts.len();
-        if !inserts.is_empty() {
-            Entity::insert_many(inserts).exec(conn).await?;
-        }
-        Ok((insert_len, update_len))
+        Ok((inserts, update_len))
     }
 
     pub async fn by_project(
