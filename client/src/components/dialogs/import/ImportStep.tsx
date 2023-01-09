@@ -8,6 +8,7 @@ import ShapeFile from '@components/drawer/manage/ShapeFile'
 import { Divider } from '@mui/material'
 import InstanceSelect from '@components/drawer/manage/Instance'
 import { useStatic } from '@hooks/useStatic'
+import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
 
 const ImportStep = React.forwardRef<
   HTMLDivElement,
@@ -19,6 +20,7 @@ const ImportStep = React.forwardRef<
   }
 >(({ handleChange }, ref) => {
   const { scannerSelected } = useStatic((s) => s.importWizard)
+  const scannerType = useStatic((s) => s.scannerType)
 
   return (
     <Grid2 container ref={ref}>
@@ -64,7 +66,7 @@ const ImportStep = React.forwardRef<
         <InstanceSelect
           endpoint="/internal/routes/from_scanner"
           setGeojson={(geo) => handleChange(geo, true)}
-          filters={['AutoTth', 'AutoQuest', 'PokemonIv', 'AutoPokemon']}
+          filters={scannerType === 'rdm' ? RDM_FENCES : UNOWN_FENCES}
           initialState={[...scannerSelected]}
         />
       </Grid2>

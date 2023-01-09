@@ -15,6 +15,7 @@ pub struct Model {
     pub id: u32,
     pub name: String,
     pub area: Json,
+    pub mode: Option<String>,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
 }
@@ -76,14 +77,15 @@ impl Query {
         Entity::find().all(db).await
     }
 
-    pub async fn get_all_no_fences(db: &DatabaseConnection) -> Result<Vec<project::Model>, DbErr> {
+    pub async fn get_all_no_fences(db: &DatabaseConnection) -> Result<Vec<NoFence>, DbErr> {
         Entity::find()
             .select_only()
             .column(Column::Id)
             .column(Column::Name)
+            .column(Column::Mode)
             .column(Column::CreatedAt)
             .column(Column::UpdatedAt)
-            .into_model::<project::Model>()
+            .into_model::<NoFence>()
             .all(db)
             .await
     }
@@ -107,6 +109,7 @@ impl Query {
         ActiveModel {
             name: Set(new_project.name.to_owned()),
             area: Set(new_project.area),
+            mode: Set(new_project.mode),
             created_at: Set(Utc::now()),
             updated_at: Set(Utc::now()),
             ..Default::default()
@@ -204,6 +207,15 @@ impl Query {
                 if let Some(name) = name.as_str() {
                     let mut feat = feat.clone();
                     feat.id = None;
+                    let mode = if let Some(r#type) = feat.property("type") {
+                        if let Some(r#type) = r#type.as_str() {
+                            Some(r#type.to_string())
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
                     let area = GeoJson::Feature(feat).to_json_value();
                     if let Some(area) = area.as_object() {
                         let area = sea_orm::JsonValue::Object(area.to_owned());
@@ -213,6 +225,7 @@ impl Query {
                         if let Some(entry) = is_update {
                             Entity::update_many()
                                 .col_expr(Column::Area, Expr::value(area))
+                                .col_expr(Column::Mode, Expr::value(mode))
                                 .filter(Column::Id.eq(entry.id))
                                 .exec(conn)
                                 .await?;
@@ -221,6 +234,7 @@ impl Query {
                             inserts.push(ActiveModel {
                                 name: Set(name.to_string()),
                                 area: Set(area),
+                                mode: Set(mode),
                                 created_at: Set(Utc::now()),
                                 updated_at: Set(Utc::now()),
                                 ..Default::default()

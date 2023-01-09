@@ -4,6 +4,7 @@ import {
   FormDataConsumer,
   ReferenceArrayInput,
   SelectArrayInput,
+  SelectInput,
   SimpleForm,
   SimpleFormIterator,
   TextInput,
@@ -12,11 +13,22 @@ import { Box } from '@mui/material'
 import Map from '@components/Map'
 import { GeoJSON } from 'react-leaflet'
 import center from '@turf/center'
+import { useStatic } from '@hooks/useStatic'
+import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
 
 export default function GeofenceForm() {
+  const scannerType = useStatic((s) => s.scannerType)
   return (
     <SimpleForm>
       <TextInput source="name" fullWidth required />
+      <SelectInput
+        source="mode"
+        choices={(scannerType === 'rdm' ? RDM_FENCES : UNOWN_FENCES).map(
+          (mode, i) => ({ id: i, mode }),
+        )}
+        optionText="mode"
+        optionValue="mode"
+      />
       <FormDataConsumer>
         {({ formData }) => {
           if (formData?.area?.geometry === undefined) return null

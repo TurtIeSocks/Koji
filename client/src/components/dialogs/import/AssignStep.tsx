@@ -8,6 +8,7 @@ import { ClientProject } from '@assets/types'
 import { Checkbox, Divider, MenuItem, Select } from '@mui/material'
 import ReactWindow from '@components/ReactWindow'
 import { useStatic } from '@hooks/useStatic'
+import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
 
 const AssignStep = React.forwardRef<
   HTMLDivElement,
@@ -20,6 +21,8 @@ const AssignStep = React.forwardRef<
   const { allProjects, allType, checked, nameProp } = useStatic(
     (s) => s.importWizard,
   )
+  const scannerType = useStatic((s) => s.scannerType)
+
   const projects = useStatic((s) => s.projects)
 
   const innerRef = React.useRef<HTMLDivElement>(null)
@@ -128,7 +131,7 @@ const AssignStep = React.forwardRef<
             })
           }}
         >
-          {['AutoQuest', 'PokemonIv', 'AutoPokemon', 'AutoTth'].map(
+          {(scannerType === 'rdm' ? RDM_FENCES : UNOWN_FENCES).map(
             (instanceType) => (
               <MenuItem key={instanceType} value={instanceType}>
                 {instanceType}
@@ -239,7 +242,7 @@ const AssignStep = React.forwardRef<
                         })
                       }}
                     >
-                      {['AutoQuest', 'PokemonIv', 'AutoPokemon', 'AutoTth'].map(
+                      {(scannerType === 'rdm' ? RDM_FENCES : UNOWN_FENCES).map(
                         (instanceType) => (
                           <MenuItem key={instanceType} value={instanceType}>
                             {instanceType}

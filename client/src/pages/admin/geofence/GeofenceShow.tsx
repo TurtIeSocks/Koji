@@ -33,6 +33,7 @@ export default function GeofenceShow() {
           Overview
         </Typography>
         <TextField source="name" />
+        <TextField source="mode" />
         <TextField source="area.geometry.type" label="Geometry Type" />
         <PropertyFields />
         <ReferenceArrayField

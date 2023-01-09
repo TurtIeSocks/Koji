@@ -49,7 +49,7 @@ export default function InstanceSelect({
   endpoint: string
   setGeojson?: (collection: FeatureCollection) => void
   koji?: boolean
-  filters?: string[]
+  filters?: readonly string[]
   initialState?: string[]
 }) {
   const add = useShapes((s) => s.setters.add)
