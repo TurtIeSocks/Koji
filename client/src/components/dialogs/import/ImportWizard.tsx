@@ -17,7 +17,7 @@ import FinishStep from './Finish'
 import TabPanel from './TabPanel'
 import MiniMap from './MiniMap'
 
-export default function ImportWizard() {
+export default function ImportWizard({ onClose }: { onClose?: () => void }) {
   const importWizard = useStatic((s) => s.importWizard)
   const setStatic = useStatic((s) => s.setStatic)
 
@@ -87,6 +87,9 @@ export default function ImportWizard() {
   }
 
   const reset = (open = false) => {
+    if (onClose) {
+      onClose()
+    }
     setStatic('importWizard', {
       open,
       nameProp: 'name',

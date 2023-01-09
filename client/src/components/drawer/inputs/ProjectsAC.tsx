@@ -24,6 +24,7 @@ export default function ProjectsAc({
 }) {
   const projectObj = useStatic((s) => s.projects)
 
+  const [open, setOpen] = React.useState(false)
   const [projects, setProjects] = React.useState<KojiProject[]>(
     Object.values(projectObj),
   )
@@ -141,6 +142,17 @@ export default function ProjectsAc({
             {option.name}
           </li>
         )
+      }}
+      open={open}
+      onFocus={() => {
+        setOpen(true)
+      }}
+      onOpen={async () => {
+        setOpen(true)
+        await getOptions()
+      }}
+      onClose={() => {
+        setOpen(false)
       }}
       limitTags={1}
       loading={loading}

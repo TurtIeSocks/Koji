@@ -25,9 +25,9 @@ export default function CodeInput({
         width="75vw"
         maxHeight="50vh"
         code={
-          typeof field.value === 'string'
-            ? JSON.stringify(JSON.parse(field.value), null, 2)
-            : JSON.stringify(field.value, null, 2)
+          typeof field.value === 'object'
+            ? JSON.stringify(field.value, null, 2)
+            : field.value
         }
         setCode={(newCode) => {
           field.onChange({ target: { value: newCode } })

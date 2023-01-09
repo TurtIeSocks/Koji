@@ -9,14 +9,14 @@ import {
   Pagination,
   TextField,
   TopToolbar,
+  CreateButton,
 } from 'react-admin'
 import { BulkAssignButton } from '../actions/bulk/AssignButton'
-import GeofenceCreateButton from './CreateDialog'
 
 function ListActions() {
   return (
     <TopToolbar>
-      <GeofenceCreateButton />
+      <CreateButton />
     </TopToolbar>
   )
 }
