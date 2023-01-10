@@ -77,7 +77,7 @@ impl Query {
         area_type: &Type,
     ) -> Result<Feature, DbErr> {
         let item = area::Entity::find()
-            .filter(area::Column::Name.contains(area_name))
+            .filter(Column::Name.eq(Value::String(Some(Box::new(area_name.to_string())))))
             .one(conn)
             .await?;
         if let Some(item) = item {
