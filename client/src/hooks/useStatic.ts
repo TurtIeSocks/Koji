@@ -1,7 +1,7 @@
 import create from 'zustand'
 import type { FeatureCollection } from 'geojson'
 
-import type { KojiStats, PixiMarker } from '@assets/types'
+import type { ClientProject, KojiStats, PixiMarker } from '@assets/types'
 import { collectionToObject } from '@services/utils'
 
 export interface UseStatic {
@@ -17,9 +17,6 @@ export interface UseStatic {
   scannerType: string
   tileServer: string
   geojson: FeatureCollection
-  lineStrings: FeatureCollection
-  polygons: FeatureCollection
-  circles: FeatureCollection
   layerEditing: {
     cutMode: boolean
     editMode: boolean
@@ -30,6 +27,17 @@ export interface UseStatic {
   }
   forceRedraw: boolean
   forceFetch: boolean
+  importWizard: {
+    open: boolean
+    nameProp: string
+    props: string[]
+    customName: string
+    modifier: 'capitalize' | 'lowercase' | 'uppercase' | 'none'
+    allProjects: number[]
+    allType: '' | 'AutoQuest' | 'PokemonIv' | 'AutoPokemon' | 'AutoTth'
+    checked: Record<string, boolean>
+  }
+  projects: Record<number | string, ClientProject>
   setStatic: <
     T extends keyof Omit<
       UseStatic,
@@ -66,18 +74,6 @@ export const useStatic = create<UseStatic>((set, get) => ({
     type: 'FeatureCollection',
     features: [],
   },
-  lineStrings: {
-    type: 'FeatureCollection',
-    features: [],
-  },
-  circles: {
-    type: 'FeatureCollection',
-    features: [],
-  },
-  polygons: {
-    type: 'FeatureCollection',
-    features: [],
-  },
   tileServer:
     'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
   layerEditing: {
@@ -90,6 +86,18 @@ export const useStatic = create<UseStatic>((set, get) => ({
   },
   forceRedraw: false,
   forceFetch: false,
+  importWizard: {
+    open: false,
+    nameProp: 'name',
+    props: [],
+    customName: '',
+    modifier: 'none',
+    allProjects: [],
+    allType: '',
+    checked: {},
+    scannerSelected: new Set(),
+  },
+  projects: {},
   setStatic: (key, newValue) => {
     set((state) => ({
       [key]: typeof newValue === 'function' ? newValue(state[key]) : newValue,

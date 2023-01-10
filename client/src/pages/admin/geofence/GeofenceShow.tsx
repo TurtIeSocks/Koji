@@ -33,6 +33,7 @@ export default function GeofenceShow() {
           Overview
         </Typography>
         <TextField source="name" />
+        <TextField source="mode" />
         <TextField source="area.geometry.type" label="Geometry Type" />
         <PropertyFields />
         <ReferenceArrayField
@@ -49,7 +50,7 @@ export default function GeofenceShow() {
           render={(fence) => {
             const parsed: string =
               typeof fence?.area === 'string'
-                ? fence?.area
+                ? JSON.stringify(JSON.parse(fence?.area), null, 2)
                 : JSON.stringify(fence?.area, null, 2)
             return <Code maxHeight="50vh">{parsed}</Code>
           }}

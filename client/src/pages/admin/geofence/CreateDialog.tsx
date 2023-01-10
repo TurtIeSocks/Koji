@@ -1,51 +1,38 @@
 import * as React from 'react'
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  Link,
-} from '@mui/material'
-import { useRaStore } from '@hooks/useRaStore'
+import { Button } from '@mui/material'
 import Add from '@mui/icons-material/Add'
+import ImportWizard from '@components/dialogs/import/ImportWizard'
+import { useStatic } from '@hooks/useStatic'
+import { useRedirect, useRefresh } from 'react-admin'
 
-export function CreateDialog() {
-  const geofenceCreateDialog = useRaStore((state) => state.geofenceCreateDialog)
-  const setRaStore = useRaStore((state) => state.setRaStore)
-
-  return (
-    <Dialog
-      open={geofenceCreateDialog}
-      onClose={() => setRaStore('geofenceCreateDialog', false)}
-    >
-      <DialogContent>
-        Creating a geofence from the admin panel is currently not supported. To
-        create one or import from a file, please go to the{' '}
-        <Link href="/map">map</Link> and open the &quot;JSON Manager&quot; from
-        the side panel.
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={() => setRaStore('geofenceCreateDialog', false)}>
-          Close
-        </Button>
-      </DialogActions>
-    </Dialog>
-  )
-}
-
-export default function GeofenceCreateButton() {
-  const setRaStore = useRaStore((state) => state.setRaStore)
-
+export default function GeofenceCreateButton({
+  children,
+}: {
+  children?: string
+}) {
+  const refresh = useRefresh()
+  const redirect = useRedirect()
   return (
     <>
       <Button
         color="primary"
-        onClick={() => setRaStore('geofenceCreateDialog', true)}
+        onClick={() =>
+          useStatic.setState((prev) => ({
+            importWizard: { ...prev.importWizard, open: true },
+          }))
+        }
       >
         <Add />
-        Create
+        {children ?? 'Create'}
       </Button>
-      <CreateDialog />
+      <ImportWizard
+        onClose={() => {
+          setTimeout(() => {
+            refresh()
+          }, 1000)
+          redirect('list', 'geofence')
+        }}
+      />
     </>
   )
 }

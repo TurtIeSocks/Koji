@@ -13,6 +13,7 @@ import ProjectList from './project/ProjectList'
 import ProjectEdit from './project/ProjectEdit'
 import ProjectShow from './project/ProjectShow'
 import ProjectCreate from './project/ProjectCreate'
+import GeofenceCreate from './geofence/GeofenceCreate'
 
 export default function AdminPanel() {
   const theme = useTheme()
@@ -34,6 +35,7 @@ export default function AdminPanel() {
         list={GeofenceList}
         edit={GeofenceEdit}
         show={GeofenceShow}
+        create={GeofenceCreate}
       />
       <Resource
         name="project"

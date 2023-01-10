@@ -110,6 +110,7 @@ export interface PopupProps {
 export interface KojiGeofence {
   id: number
   name: string
+  mode: string
   area: Feature
 }
 

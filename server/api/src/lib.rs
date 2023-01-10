@@ -11,6 +11,7 @@ use actix_web::{
 use actix_web_httpauth::middleware::HttpAuthentication;
 use geojson::{Feature, FeatureCollection};
 use log::LevelFilter;
+use nominatim;
 use sea_orm::{ConnectOptions, Database, DbErr};
 
 use algorithms;
@@ -102,10 +103,23 @@ pub async fn main() -> io::Result<()> {
         .to_string()
     };
 
+    let client = nominatim::Client::new(
+        url::Url::parse(
+            env::var("NOMINATIM_URL")
+                .unwrap_or("https://nominatim.openstreetmap.org/".to_string())
+                .as_str(),
+        )
+        .unwrap(),
+        "nominatim-rust/0.1.0 test-suite".to_string(),
+        None,
+    )
+    .unwrap();
+
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(databases.clone()))
             .app_data(web::Data::new(scanner_type.clone()))
+            .app_data(web::Data::new(client.clone()))
             // increase max payload size to 20MB
             .app_data(web::JsonConfig::default().limit(20_971_520))
             .wrap(middleware::Logger::new("%s | %r - %b bytes in %D ms (%a)"))
@@ -119,7 +133,8 @@ pub async fn main() -> io::Result<()> {
                 web::scope("/config")
                     .service(private::misc::config)
                     .service(private::misc::login)
-                    .service(private::misc::logout),
+                    .service(private::misc::logout)
+                    .service(private::misc::search_nominatim),
             )
             .service(
                 web::scope("/internal")
@@ -146,6 +161,7 @@ pub async fn main() -> io::Result<()> {
                             .service(private::admin::geofence::update)
                             .service(private::admin::geofence::remove)
                             .service(private::admin::project::get_all)
+                            .service(private::admin::project::search)
                             .service(private::admin::project::paginate)
                             .service(private::admin::project::get_one)
                             .service(private::admin::project::create)

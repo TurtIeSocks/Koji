@@ -1,20 +1,23 @@
 /* eslint-disable no-console */
-import { ListItemButton, ListItemIcon, ListItemText } from '@mui/material'
+import { Button, CircularProgress } from '@mui/material'
 import * as React from 'react'
 import * as shapefile from 'shapefile'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
-import type { Feature } from 'geojson'
-import { useShapes } from '@hooks/useShapes'
-import { convert } from '@services/fetches'
+import type { Feature, FeatureCollection } from 'geojson'
 import { usePersist } from '@hooks/usePersist'
+import { convert } from '@services/fetches'
 
-export default function ShapeFile() {
-  const [value, setValue] = React.useState<Feature[]>([])
+interface Props {
+  setter?: (featureCollection: FeatureCollection) => void
+}
+
+export default function ShapeFile({ setter }: Props) {
   const [shpString, setShpString] = React.useState<string | ArrayBuffer>('')
   const [dbfString, setDbfString] = React.useState<string | ArrayBuffer>('')
+  const [fileNames, setFileNames] = React.useState<string[]>([])
+  const [loading, setLoading] = React.useState<boolean>(false)
 
   const simplifyPolygons = usePersist((s) => s.simplifyPolygons)
-  const add = useShapes((s) => s.setters.add)
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) {
@@ -22,6 +25,7 @@ export default function ShapeFile() {
     }
 
     Array.from(e.target.files).forEach((file) => {
+      setFileNames((prev) => [...prev, file.name])
       const reader = new FileReader()
       reader.onload = (evt) => {
         if (!evt?.target?.result) {
@@ -39,13 +43,24 @@ export default function ShapeFile() {
   }
 
   React.useEffect(() => {
+    const values: Feature[] = []
     if (shpString) {
       shapefile
         .open(shpString, dbfString || undefined)
         .then((source) =>
           source.read().then(function write(result): Promise<void> | void {
-            if (result.done) return
-            setValue((prev) => [...prev, result.value])
+            if (result.done && setter) {
+              setLoading(true)
+              return convert<FeatureCollection>(
+                values,
+                'featureCollection',
+                simplifyPolygons,
+              ).then((geo) => {
+                setLoading(false)
+                setter(geo)
+              })
+            }
+            values.push(result.value)
             return source.read().then(write)
           }),
         )
@@ -53,33 +68,24 @@ export default function ShapeFile() {
     }
   }, [shpString, dbfString])
 
-  React.useEffect(() => {
-    if (value.length) {
-      convert<Feature[]>(
-        value.map((feat) => ({
-          ...feat,
-          id: feat.properties?.town,
-          properties: {
-            ...feat.properties,
-            name: feat.properties?.town,
-            type: 'AutoQuest',
-          },
-        })),
-        'featureVec',
-        simplifyPolygons,
-      ).then((geojson) => {
-        add(geojson)
-        setValue([])
-      })
-    }
-  }, [value])
-
-  return (
-    <ListItemButton component="label" sx={{ marginRight: '1rem' }}>
-      <ListItemIcon>
-        <UploadFileIcon />
-      </ListItemIcon>
-      <ListItemText primary="ShapeFile" />
+  return loading ? (
+    <CircularProgress color="secondary" />
+  ) : (
+    <Button
+      component="label"
+      variant="contained"
+      color="secondary"
+      sx={{ maxWidth: '90%' }}
+      endIcon={fileNames.length ? undefined : <UploadFileIcon />}
+      onClick={() => setFileNames([])}
+    >
+      {fileNames.length > 0
+        ? fileNames
+            .map((name) =>
+              name.length > 15 ? `${name.substring(0, 15)}...` : name,
+            )
+            .join(', ')
+        : 'Browse'}
       <input
         type="file"
         hidden
@@ -87,6 +93,6 @@ export default function ShapeFile() {
         accept=".shp,.dbf"
         onChange={handleFileUpload}
       />
-    </ListItemButton>
+    </Button>
   )
 }

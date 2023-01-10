@@ -2,9 +2,7 @@ import * as React from 'react'
 import {
   ArrayInput,
   FormDataConsumer,
-  ReferenceArrayInput,
-  SelectArrayInput,
-  SimpleForm,
+  SelectInput,
   SimpleFormIterator,
   TextInput,
 } from 'react-admin'
@@ -12,15 +10,38 @@ import { Box } from '@mui/material'
 import Map from '@components/Map'
 import { GeoJSON } from 'react-leaflet'
 import center from '@turf/center'
+import { useStatic } from '@hooks/useStatic'
+import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
+import { safeParse } from '@services/utils'
+import type { Feature } from 'geojson'
+
+import CodeInput from '../inputs/CodeInput'
 
 export default function GeofenceForm() {
+  const scannerType = useStatic((s) => s.scannerType)
   return (
-    <SimpleForm>
+    <>
       <TextInput source="name" fullWidth required />
+      <SelectInput
+        source="mode"
+        choices={(scannerType === 'rdm' ? RDM_FENCES : UNOWN_FENCES).map(
+          (mode, i) => ({ id: i, mode }),
+        )}
+        optionText="mode"
+        optionValue="mode"
+      />
       <FormDataConsumer>
         {({ formData }) => {
-          if (formData?.area?.geometry === undefined) return null
-          const point = center(formData.area.geometry)
+          const parsed =
+            typeof formData.area === 'string'
+              ? (() => {
+                  const safe = safeParse<Feature>(formData.area)
+                  if (!safe.error) return safe.value
+                })()
+              : formData.area
+          if (parsed?.geometry === undefined) return null
+
+          const point = center(parsed.geometry)
           return (
             <Map
               forcedLocation={[
@@ -31,7 +52,7 @@ export default function GeofenceForm() {
               zoomControl
               style={{ width: '100%', height: '50vh' }}
             >
-              <GeoJSON data={formData.area} />
+              <GeoJSON data={parsed} />
             </Map>
           )
         }}
@@ -43,13 +64,7 @@ export default function GeofenceForm() {
           <TextInput source="value" helperText={false} />
         </SimpleFormIterator>
       </ArrayInput>
-      <ReferenceArrayInput
-        source="related"
-        reference="project"
-        label="Projects"
-      >
-        <SelectArrayInput optionText="name" />
-      </ReferenceArrayInput>
-    </SimpleForm>
+      <CodeInput source="area" label="Fence" />
+    </>
   )
 }

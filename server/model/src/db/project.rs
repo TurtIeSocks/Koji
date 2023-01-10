@@ -118,4 +118,11 @@ impl Query {
         let record = project::Entity::delete_by_id(id).exec(db).await?;
         Ok(record)
     }
+
+    pub async fn search(db: &DatabaseConnection, search: String) -> Result<Vec<Model>, DbErr> {
+        Ok(project::Entity::find()
+            .filter(Column::Name.like(format!("%{}%", search).as_str()))
+            .all(db)
+            .await?)
+    }
 }

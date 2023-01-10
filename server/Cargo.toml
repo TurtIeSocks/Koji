@@ -4,7 +4,7 @@ version = "0.3.2"
 edition = "2021"
 
 [workspace]
-members = [".", "algorithms", "api", "migration", "model"]
+members = [".", "algorithms", "api", "migration", "model", "nominatim"]
 
 [dependencies]
 api = { path = "api" }

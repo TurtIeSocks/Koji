@@ -48,19 +48,20 @@ export function PolygonPopup({
   }
 
   useDeepCompareEffect(() => {
-    if (!feature.geometry.coordinates.length || !loadData) return
-    Promise.allSettled(
-      ['pokestop', 'gym', 'spawnpoint'].map((category) =>
-        getData<{ total: number }>(`/internal/data/area_stats/${category}`, {
-          area: feature,
-        }).then((data) =>
-          setActive((prev) => ({
-            ...prev,
-            [category]: data?.total ?? (data || 0),
-          })),
+    if (feature.geometry.coordinates.length && loadData) {
+      Promise.allSettled(
+        ['pokestop', 'gym', 'spawnpoint'].map((category) =>
+          getData<{ total: number }>(`/internal/data/area_stats/${category}`, {
+            area: feature,
+          }).then((data) =>
+            setActive((prev) => ({
+              ...prev,
+              [category]: data?.total ?? (data || 0),
+            })),
+          ),
         ),
-      ),
-    )
+      )
+    }
   }, [feature, loadData])
 
   return feature ? (

@@ -21,6 +21,7 @@ geojson = "0.24.0"
 log = "0.4.17"
 migration = { path = "../migration" }
 model = { path = "../model" }
+nominatim = { path = "../nominatim" }
 sea-orm = { version = "0.9.3", features = [
   "sqlx-mysql",
   "runtime-actix-native-tls",
@@ -28,3 +29,4 @@ sea-orm = { version = "0.9.3", features = [
 ] }
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0"
+url = "2.3.1"

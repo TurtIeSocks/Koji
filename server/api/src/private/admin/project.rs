@@ -143,3 +143,21 @@ async fn remove(
         status_code: 200,
     }))
 }
+
+#[get("/project/search")]
+async fn search(conn: web::Data<KojiDb>, url: web::Query<Search>) -> Result<HttpResponse, Error> {
+    let url = url.into_inner();
+
+    println!("Search {:?}", url.query);
+    let projects = project::Query::search(&conn.koji_db, url.query)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    Ok(HttpResponse::Ok().json(Response {
+        data: Some(json!(projects)),
+        message: "Success".to_string(),
+        status: "ok".to_string(),
+        stats: None,
+        status_code: 200,
+    }))
+}

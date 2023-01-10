@@ -16,6 +16,7 @@ export interface UseShapes {
   test: boolean
   activeRoute: string
   newRouteCount: number
+  remoteCache: Record<string, Feature>
   firstPoint: keyof UseShapes['Point'] | null
   lastPoint: keyof UseShapes['Point'] | null
   Point: Record<number | string, Feature<Point>>
@@ -62,6 +63,7 @@ export interface UseShapes {
 
 export const useShapes = create<UseShapes>((set, get) => ({
   activeRoute: 'new_route_0',
+  remoteCache: {},
   newRouteCount: 0,
   test: false,
   firstPoint: null,

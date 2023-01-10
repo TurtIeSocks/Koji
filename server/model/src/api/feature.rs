@@ -156,8 +156,9 @@ impl ToCollection for Vec<Feature> {
             features: self
                 .into_iter()
                 .enumerate()
-                .map(|(i, feat)| {
-                    feat.ensure_first_last().ensure_properties(
+                .map(|(i, feat)| Feature {
+                    bbox: feat.clone().to_single_vec().get_bbox(),
+                    ..feat.ensure_first_last().ensure_properties(
                         Some(if length > 1 {
                             format!("{}_{}", name, i)
                         } else {

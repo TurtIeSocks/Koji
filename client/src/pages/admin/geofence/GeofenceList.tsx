@@ -9,14 +9,14 @@ import {
   Pagination,
   TextField,
   TopToolbar,
+  CreateButton,
 } from 'react-admin'
 import { BulkAssignButton } from '../actions/bulk/AssignButton'
-import GeofenceCreateButton from './CreateDialog'
 
 function ListActions() {
   return (
     <TopToolbar>
-      <GeofenceCreateButton />
+      <CreateButton />
     </TopToolbar>
   )
 }
@@ -47,6 +47,7 @@ export default function GeofenceList() {
     >
       <Datagrid rowClick="expand" bulkActionButtons={<BulkActions />}>
         <TextField source="name" />
+        <TextField source="mode" />
         <NumberField source="related.length" label="Projects" />
         <EditButton />
         <DeleteWithUndoButton />

@@ -5,8 +5,8 @@ use super::*;
 use chrono::Utc;
 use futures::future;
 use sea_orm::{
-    sea_query::Expr, DbBackend, DeleteResult, DeriveEntityModel, FromQueryResult, Order,
-    QueryOrder, QuerySelect, Set, Statement,
+    prelude::DateTimeUtc, sea_query::Expr, DbBackend, DeleteResult, DeriveEntityModel,
+    FromQueryResult, Order, QueryOrder, QuerySelect, Set, Statement,
 };
 
 pub mod area;
@@ -38,6 +38,15 @@ pub struct NameTypeId {
     pub id: u32,
     pub name: String,
     pub r#type: self::sea_orm_active_enums::Type,
+}
+
+#[derive(Serialize, Deserialize, FromQueryResult)]
+pub struct NoFence {
+    pub id: u32,
+    pub name: String,
+    pub mode: String,
+    pub created_at: DateTimeUtc,
+    pub updated_at: DateTimeUtc,
 }
 
 #[derive(Debug, FromQueryResult)]

@@ -14,6 +14,7 @@ services:
       #START_LAT: 0
       #START_LON: 0
       #TILE_SERVER: https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png
+      #NOMINATIM_URL="https://nominatim.openstreetmap.org" # highly recommended using your own
       #MAX_CONNECTIONS: 100
       #LOG_LEVEL: info # error | warn | info | debug | trace
       #mem_limit: 2048G

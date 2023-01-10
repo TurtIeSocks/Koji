@@ -81,6 +81,7 @@ export const dataProvider: typeof defaultProvider = {
         ? {
             data: {
               ...json.data[0],
+              area: JSON.stringify(json.data[0].area),
               properties: Object.entries(
                 json.data?.[0]?.area?.properties || {},
               ).map(([key, value]) => ({
@@ -105,8 +106,8 @@ export const dataProvider: typeof defaultProvider = {
     const { json } = await httpClient(`/internal/admin/${resource}`, {
       method: 'POST',
       body: JSON.stringify({
+        ...params.data,
         id: 0,
-        name: params.data.name,
         created_at: params.data.created_at || new Date(),
         updated_at: params.data.updated_at || new Date(),
       }),

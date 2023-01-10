@@ -61,6 +61,28 @@ export const ICON_MAP: Record<string, typeof EditRoad> = {
   Geojson: Map,
 }
 
+export const RDM_FENCES = [
+  'AutoPokemon',
+  'AutoQuest',
+  'AutoTth',
+  'PokemonIV',
+] as const
+
+export const RDM_ROUTES = [
+  'CirclePokemon',
+  'CircleSmartPokemon',
+  'CircleRaid',
+  'CircleSmartRaid',
+] as const
+
+export const UNOWN_FENCES = ['AutoQuest'] as const
+
+export const UNOWN_ROUTES = [
+  'CirclePokemon',
+  'CircleRaid',
+  'ManualQuest',
+] as const
+
 export const COLORS = [
   '#F0F8FF',
   '#FAEBD7',

@@ -1,29 +1,29 @@
 import * as React from 'react'
 import {
-  Divider,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
   ListSubheader,
 } from '@mui/material'
-import Code from '@mui/icons-material/Code'
 import Save from '@mui/icons-material/Save'
 import Upload from '@mui/icons-material/Upload'
+import AutoFix from '@mui/icons-material/AutoFixHigh'
+import Code from '@mui/icons-material/Code'
 
 import { useStatic } from '@hooks/useStatic'
-
 import RawManager from '@components/dialogs/Manager'
+import ImportWizard from '@components/dialogs/import/ImportWizard'
+
 import ExportRoute from '../../dialogs/ExportRoute'
 import PolygonDialog from '../../dialogs/Polygon'
 import InstanceSelect from './Instance'
-import ShapeFile from './ShapeFile'
-import JsonFile from './Json'
 
 export default function ImportExport() {
   const [open, setOpen] = React.useState('')
   const [exportAll, setExportAll] = React.useState(false)
   const geojson = useStatic((s) => s.geojson)
+  const setStatic = useStatic((s) => s.setStatic)
 
   return (
     <List dense>
@@ -31,15 +31,23 @@ export default function ImportExport() {
       <InstanceSelect endpoint="/internal/routes/from_scanner" />
       <ListSubheader disableGutters>Import from Kōji</ListSubheader>
       <InstanceSelect endpoint="/internal/routes/from_koji" koji />
-      <ListSubheader disableGutters>Additional Importing Methods</ListSubheader>
+      <ListSubheader disableGutters>Manual Importing</ListSubheader>
+      <ListItemButton
+        onClick={() =>
+          setStatic('importWizard', (prev) => ({ ...prev, open: true }))
+        }
+      >
+        <ListItemIcon>
+          <AutoFix />
+        </ListItemIcon>
+        <ListItemText primary="Import Wizard" />
+      </ListItemButton>
       <ListItemButton onClick={() => setOpen('polygon')}>
         <ListItemIcon>
           <Code />
         </ListItemIcon>
         <ListItemText primary="Geofence Input" />
       </ListItemButton>
-      <JsonFile />
-      <ShapeFile />
       <ListSubheader disableGutters>Exporting</ListSubheader>
       <ListItemButton
         onClick={() => {
@@ -58,7 +66,7 @@ export default function ImportExport() {
         </ListItemIcon>
         Export All Routes
       </ListItemButton>
-      <Divider sx={{ my: 2 }} />
+      <ListSubheader disableGutters>Manage Current GeoJSON</ListSubheader>
       <ListItemButton onClick={() => setOpen('rawManager')}>
         <ListItemIcon>
           <Save />
@@ -91,6 +99,7 @@ export default function ImportExport() {
         }}
       />
       <RawManager open={open} setOpen={setOpen} geojson={geojson} />
+      <ImportWizard />
     </List>
   )
 }

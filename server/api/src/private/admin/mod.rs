@@ -15,6 +15,11 @@ pub struct AdminReq {
     pub order: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct Search {
+    pub query: String,
+}
+
 pub struct AdminReqParsed {
     pub page: usize,
     pub per_page: usize,

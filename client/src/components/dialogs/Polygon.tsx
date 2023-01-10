@@ -79,17 +79,14 @@ export default function ExportPolygon({
       ;(async () => {
         try {
           const cleanCode = code.trim()
-          const remote = cleanCode.startsWith('http')
-            ? await fetch(cleanCode).then((res) => res.json())
-            : cleanCode
           const parsed: ToConvert =
-            remote.startsWith('{') || remote.startsWith('[')
+            cleanCode.startsWith('{') || cleanCode.startsWith('[')
               ? JSON.parse(
-                  remote.endsWith(',')
-                    ? remote.substring(0, remote.length - 1)
-                    : remote,
+                  cleanCode.endsWith(',')
+                    ? cleanCode.substring(0, cleanCode.length - 1)
+                    : cleanCode,
                 )
-              : remote
+              : cleanCode
           const geojson = await convert<FeatureCollection>(
             parsed,
             'featureCollection',
