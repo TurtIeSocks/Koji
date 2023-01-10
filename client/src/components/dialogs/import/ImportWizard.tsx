@@ -204,6 +204,17 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
           ),
           3: <FinishStep code={code} filtered={filtered} reset={reset} />,
         }[step] || null}
+        <Stepper
+          activeStep={step}
+          alternativeLabel
+          sx={{ mt: 3, maxWidth: '100%' }}
+        >
+          {['Import', 'Properties', 'Assign', 'Confirm'].map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
       </TabPanel>
       <TabPanel value={tab} index={1}>
         <Code
@@ -221,17 +232,6 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
       <TabPanel value={tab} index={2}>
         <MiniMap filtered={filtered} />
       </TabPanel>
-      <Stepper
-        activeStep={step}
-        alternativeLabel
-        sx={{ mt: 3, maxWidth: '100%' }}
-      >
-        {['Import', 'Properties', 'Assign', 'Confirm'].map((label) => (
-          <Step key={label}>
-            <StepLabel>{label}</StepLabel>
-          </Step>
-        ))}
-      </Stepper>
     </BaseDialog>
   )
 }

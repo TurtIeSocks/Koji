@@ -62,7 +62,7 @@ export default function MiniMap({ filtered }: { filtered: FeatureCollection }) {
         <strong>Projects:</strong>
           <p style="margin:0;padding:0">
             ${(feature?.properties?.projects || [])
-              ?.map((p: number) => useStatic.getState().projects[p])
+              ?.map((p: number) => useStatic.getState().projects[p].name)
               .join(', ')}
           </p>
         </div>
