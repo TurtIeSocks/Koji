@@ -87,7 +87,7 @@ impl Query {
         instance_name: &String,
     ) -> Result<Feature, DbErr> {
         let items = Entity::find()
-            .filter(Column::Name.contains(instance_name))
+            .filter(Column::Name.eq(Value::String(instance_name.to_string())))
             .one(conn)
             .await?;
         if let Some(items) = items {

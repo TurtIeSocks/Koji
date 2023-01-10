@@ -3,7 +3,6 @@ import { ZoomControl, useMapEvents } from 'react-leaflet'
 import { useNavigate } from 'react-router'
 
 import { useStatic } from '@hooks/useStatic'
-import useCluster from '@hooks/useCluster'
 import useLayers from '@hooks/useLayers'
 import usePopupStyle from '@hooks/usePopupStyle'
 import useSyncGeojson from '@hooks/useSyncGeojson'
@@ -26,7 +25,6 @@ export default function Interface() {
     },
   })
 
-  useCluster()
   useLayers()
   usePopupStyle()
   useSyncGeojson()

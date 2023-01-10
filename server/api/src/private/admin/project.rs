@@ -25,6 +25,7 @@ async fn paginate(
         } else {
             Order::Desc
         },
+        url.q,
     )
     .await
     .map_err(actix_web::error::ErrorInternalServerError)?;

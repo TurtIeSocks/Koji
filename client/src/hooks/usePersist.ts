@@ -49,7 +49,6 @@ export interface UsePersist {
   snappable: boolean
   continueDrawing: boolean
   fast: boolean
-  autoMode: boolean
   loadingScreen: boolean
   simplifyPolygons: boolean
   setActiveMode: 'hover' | 'click'
@@ -101,7 +100,6 @@ export const usePersist = create(
       setStore: (key, value) => set({ [key]: value }),
       snappable: true,
       continueDrawing: true,
-      autoMode: false,
       loadingScreen: true,
       simplifyPolygons: true,
       setActiveMode: 'hover',

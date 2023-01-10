@@ -46,9 +46,11 @@ impl Query {
         posts_per_page: usize,
         sort_by: Column,
         order_by: Order,
+        q: String,
     ) -> Result<PaginateResults<Model>, DbErr> {
         let paginator = Entity::find()
             .order_by(sort_by, order_by)
+            .filter(Column::Name.like(format!("%{}%", q).as_str()))
             .paginate(db, posts_per_page);
         let total = paginator.num_items_and_pages().await?;
 
@@ -85,6 +87,7 @@ impl Query {
             .column(Column::Mode)
             .column(Column::CreatedAt)
             .column(Column::UpdatedAt)
+            .order_by(Column::Name, Order::Asc)
             .into_model::<NoFence>()
             .all(db)
             .await
@@ -133,6 +136,7 @@ impl Query {
         let mut old_model: ActiveModel = old_model.unwrap().into();
         old_model.name = Set(new_model.name.to_owned());
         old_model.area = Set(new_model.area);
+        old_model.mode = Set(new_model.mode);
         old_model.updated_at = Set(Utc::now());
         old_model.update(db).await
     }
@@ -170,7 +174,7 @@ impl Query {
         instance_name: &String,
     ) -> Result<Feature, DbErr> {
         let items = Entity::find()
-            .filter(Column::Name.contains(instance_name))
+            .filter(Column::Name.eq(Value::String(Some(Box::new(instance_name.to_string())))))
             .one(conn)
             .await?;
         if let Some(items) = items {

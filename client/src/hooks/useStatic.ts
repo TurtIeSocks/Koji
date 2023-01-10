@@ -95,7 +95,6 @@ export const useStatic = create<UseStatic>((set, get) => ({
     allProjects: [],
     allType: '',
     checked: {},
-    scannerSelected: new Set(),
   },
   projects: {},
   setStatic: (key, newValue) => {
