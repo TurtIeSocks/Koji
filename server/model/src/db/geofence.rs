@@ -85,6 +85,7 @@ impl Query {
             .column(Column::Mode)
             .column(Column::CreatedAt)
             .column(Column::UpdatedAt)
+            .order_by(Column::Name, Order::Asc)
             .into_model::<NoFence>()
             .all(db)
             .await
@@ -133,6 +134,7 @@ impl Query {
         let mut old_model: ActiveModel = old_model.unwrap().into();
         old_model.name = Set(new_model.name.to_owned());
         old_model.area = Set(new_model.area);
+        old_model.mode = Set(new_model.mode);
         old_model.updated_at = Set(Utc::now());
         old_model.update(db).await
     }
