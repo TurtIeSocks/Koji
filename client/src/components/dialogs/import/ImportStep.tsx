@@ -9,17 +9,15 @@ import { Divider } from '@mui/material'
 import InstanceSelect from '@components/drawer/manage/Instance'
 import { useStatic } from '@hooks/useStatic'
 import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
+import Nominatim from './Nominatim'
 
 const ImportStep = React.forwardRef<
   HTMLDivElement,
   {
-    handleChange: (
-      geojson: FeatureCollection,
-      updatedSelected?: boolean,
-    ) => void
+    geojson: FeatureCollection
+    handleChange: (geojson: FeatureCollection, key?: string) => void
   }
->(({ handleChange }, ref) => {
-  const { scannerSelected } = useStatic((s) => s.importWizard)
+>(({ geojson, handleChange }, ref) => {
   const scannerType = useStatic((s) => s.scannerType)
 
   return (
@@ -65,17 +63,41 @@ const ImportStep = React.forwardRef<
       <Grid2 xs={4}>
         <InstanceSelect
           endpoint="/internal/routes/from_scanner"
-          setGeojson={(geo) => handleChange(geo, true)}
+          setGeojson={(geo) =>
+            handleChange(
+              {
+                ...geo,
+                features: geo.features.map((feat) => ({
+                  ...feat,
+                  properties: { ...feat.properties, __scanner: true },
+                })),
+              },
+              '__scanner',
+            )
+          }
           filters={scannerType === 'rdm' ? RDM_FENCES : UNOWN_FENCES}
-          initialState={[...scannerSelected]}
+          initialState={geojson.features
+            .filter((feat) => feat.properties?.__scanner)
+            .map(
+              (feat) => `${feat.properties?.name}__${feat.properties?.type}`,
+            )}
         />
       </Grid2>
       <Divider sx={{ width: '95%', my: 1 }} />
       {/* Nominatim */}
-      <Grid2 xs={12}>
-        <Typography sx={{ my: 1 }}>
-          Nominatim and OSM searching coming soon
-        </Typography>
+      <Grid2 xs={2}>
+        <Typography variant="h5">Nominatim</Typography>
+      </Grid2>
+      <Grid2 xs={4}>
+        <Typography sx={{ my: 1 }}>Search Nominatim for GeoJSONs</Typography>
+      </Grid2>
+      <Grid2 xs={6}>
+        <Nominatim
+          features={geojson.features.filter(
+            (feat) => feat.properties?.__nominatim,
+          )}
+          handleChange={handleChange}
+        />
       </Grid2>
     </Grid2>
   )

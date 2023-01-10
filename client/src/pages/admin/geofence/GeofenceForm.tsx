@@ -32,7 +32,6 @@ export default function GeofenceForm() {
       />
       <FormDataConsumer>
         {({ formData }) => {
-          console.log(formData.area)
           const parsed =
             typeof formData.area === 'string'
               ? (() => {

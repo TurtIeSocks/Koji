@@ -1,9 +1,12 @@
 use super::*;
 
+use crate::private::admin::Search;
+
 use actix_session::Session;
 use actix_web::http::header;
 
-use model::api::args::{Auth, ConfigResponse};
+use model::api::args::{Auth, ConfigResponse, Response};
+use serde_json::json;
 
 #[get("/")]
 async fn config(scanner_type: web::Data<String>, session: Session) -> Result<HttpResponse, Error> {
@@ -50,4 +53,32 @@ async fn logout(session: Session) -> Result<HttpResponse, Error> {
     Ok(HttpResponse::Found()
         .append_header((header::LOCATION, "/"))
         .finish())
+}
+
+#[get("/nominatim")]
+async fn search_nominatim(
+    nominatim_client: web::Data<nominatim::Client>,
+    url: web::Query<Search>,
+) -> Result<HttpResponse, Error> {
+    let query = url.into_inner();
+    let results = nominatim_client
+        .search(
+            nominatim::SearchQueryBuilder::default()
+                .address_details(true)
+                .location_query(nominatim::LocationQuery::Generalised { q: query.query })
+                .dedupe(true)
+                .build()
+                .unwrap(),
+        )
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    println!("Nominatim Results Length: {}", results.features.len());
+    Ok(HttpResponse::Ok().json(Response {
+        data: Some(json!(results)),
+        message: "Success".to_string(),
+        status: "ok".to_string(),
+        stats: None,
+        status_code: 200,
+    }))
 }

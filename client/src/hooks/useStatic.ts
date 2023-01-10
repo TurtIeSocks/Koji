@@ -36,7 +36,6 @@ export interface UseStatic {
     allProjects: number[]
     allType: '' | 'AutoQuest' | 'PokemonIv' | 'AutoPokemon' | 'AutoTth'
     checked: Record<string, boolean>
-    scannerSelected: Set<string>
   }
   projects: Record<number | string, ClientProject>
   setStatic: <

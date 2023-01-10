@@ -32,40 +32,6 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
 
   const tabRef = React.useRef<HTMLDivElement>(null)
 
-  const handleChange = (
-    newGeojson: FeatureCollection,
-    updatedSelected = false,
-  ) => {
-    if (updatedSelected) {
-      useStatic.setState({
-        importWizard: {
-          ...importWizard,
-          scannerSelected: new Set([
-            ...importWizard.scannerSelected,
-            ...newGeojson.features.map(
-              (feat) => `${feat.properties?.name}__${feat.properties?.type}`,
-            ),
-          ]),
-        },
-      })
-    }
-    setTempGeojson((prev) => {
-      const merged = {
-        ...prev,
-        ...newGeojson,
-        features: [
-          ...prev.features,
-          ...newGeojson.features.map((feat) => ({
-            ...feat,
-            id: crypto.randomUUID(),
-          })),
-        ],
-      }
-      setCode(JSON.stringify(merged, null, 2))
-      return merged
-    })
-  }
-
   const handleCodeChange = (newGeojson: FeatureCollection) => {
     setCode(
       JSON.stringify(
@@ -86,6 +52,28 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
     )
   }
 
+  const handleChange = (newGeojson: FeatureCollection, key = '') => {
+    setTempGeojson((prev) => {
+      const merged = {
+        ...prev,
+        ...newGeojson,
+        features: [
+          ...(key
+            ? prev.features.filter(
+                (feat) => feat.properties?.[key] === undefined,
+              )
+            : prev.features),
+          ...newGeojson.features.map((feat) => ({
+            ...feat,
+            id: crypto.randomUUID(),
+          })),
+        ],
+      }
+      handleCodeChange(merged)
+      return merged
+    })
+  }
+
   const reset = (open = false) => {
     if (onClose) {
       onClose()
@@ -99,7 +87,6 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
       allProjects: [],
       allType: '',
       checked: {},
-      scannerSelected: new Set(),
     })
     setTempGeojson({
       type: 'FeatureCollection',
@@ -193,7 +180,13 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
       </Tabs>
       <TabPanel value={tab} index={0}>
         {{
-          0: <ImportStep ref={tabRef} handleChange={handleChange} />,
+          0: (
+            <ImportStep
+              ref={tabRef}
+              geojson={tempGeojson}
+              handleChange={handleChange}
+            />
+          ),
           1: (
             <PropsStep
               ref={tabRef}
