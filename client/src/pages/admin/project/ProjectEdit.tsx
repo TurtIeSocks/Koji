@@ -1,13 +1,14 @@
 import * as React from 'react'
 import {
+  AutocompleteArrayInput,
   Edit,
   ReferenceArrayInput,
-  SelectArrayInput,
   SimpleForm,
   TextInput,
+  useRecordContext,
 } from 'react-admin'
 
-import { ClientProject } from '@assets/types'
+import { ClientProject, KojiGeofence } from '@assets/types'
 
 const transformPayload = async (project: ClientProject) => {
   if (Array.isArray(project.related)) {
@@ -22,6 +23,16 @@ const transformPayload = async (project: ClientProject) => {
   return project
 }
 
+function OptionRenderer() {
+  const record = useRecordContext()
+  return <span>{record.name}</span>
+}
+const inputText = (choice: KojiGeofence) => choice.name
+
+const matchSuggestion = (filter: string, choice: KojiGeofence) => {
+  return choice.name.toLowerCase().includes(filter.toLowerCase())
+}
+
 export default function ProjectEdit() {
   return (
     <Edit mutationMode="pessimistic" transform={transformPayload}>
@@ -31,8 +42,19 @@ export default function ProjectEdit() {
           source="related"
           reference="geofence"
           label="Geofences"
+          perPage={1000}
+          sort={{ field: 'name', order: 'ASC' }}
+          alwaysOn={false}
         >
-          <SelectArrayInput optionText="name" />
+          <AutocompleteArrayInput
+            optionText={<OptionRenderer />}
+            inputText={inputText}
+            matchSuggestion={matchSuggestion}
+            disableCloseOnSelect
+            label="Related Geofences"
+            fullWidth
+            blurOnSelect={false}
+          />
         </ReferenceArrayInput>
       </SimpleForm>
     </Edit>

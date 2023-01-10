@@ -46,9 +46,11 @@ impl Query {
         posts_per_page: usize,
         sort_by: Column,
         order_by: Order,
+        q: String,
     ) -> Result<PaginateResults<Model>, DbErr> {
         let paginator = Entity::find()
             .order_by(sort_by, order_by)
+            .filter(Column::Name.like(format!("%{}%", q).as_str()))
             .paginate(db, posts_per_page);
         let total = paginator.num_items_and_pages().await?;
 

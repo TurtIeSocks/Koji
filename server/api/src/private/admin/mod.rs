@@ -13,6 +13,7 @@ pub struct AdminReq {
     pub per_page: Option<usize>,
     pub sort_by: Option<String>,
     pub order: Option<String>,
+    pub q: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -25,6 +26,7 @@ pub struct AdminReqParsed {
     pub per_page: usize,
     pub sort_by: String,
     pub order: String,
+    pub q: String,
 }
 
 impl AdminReq {
@@ -34,6 +36,7 @@ impl AdminReq {
             order: self.order.unwrap_or("ASC".to_string()),
             per_page: self.per_page.unwrap_or(25),
             sort_by: self.sort_by.unwrap_or("id".to_string()),
+            q: self.q.unwrap_or("".to_string()),
         }
     }
 }

@@ -1,12 +1,13 @@
 import * as React from 'react'
 import {
+  AutocompleteArrayInput,
   Edit,
   ReferenceArrayInput,
-  SelectArrayInput,
   SimpleForm,
+  useRecordContext,
 } from 'react-admin'
 
-import { ClientGeofence } from '@assets/types'
+import { ClientGeofence, KojiProject } from '@assets/types'
 
 import GeofenceForm from './GeofenceForm'
 
@@ -33,6 +34,16 @@ const transformPayload = async (geofence: ClientGeofence) => {
   }
 }
 
+function OptionRenderer() {
+  const record = useRecordContext()
+  return <span>{record.name}</span>
+}
+const inputText = (choice: KojiProject) => choice.name
+
+const matchSuggestion = (filter: string, choice: KojiProject) => {
+  return choice.name.toLowerCase().includes(filter.toLowerCase())
+}
+
 export default function GeofenceEdit() {
   return (
     <Edit mutationMode="pessimistic" transform={transformPayload}>
@@ -42,8 +53,19 @@ export default function GeofenceEdit() {
           source="related"
           reference="project"
           label="Projects"
+          perPage={1000}
+          sort={{ field: 'name', order: 'ASC' }}
+          alwaysOn={false}
         >
-          <SelectArrayInput optionText="name" />
+          <AutocompleteArrayInput
+            optionText={<OptionRenderer />}
+            inputText={inputText}
+            matchSuggestion={matchSuggestion}
+            disableCloseOnSelect
+            label="Related Projects"
+            fullWidth
+            blurOnSelect={false}
+          />
         </ReferenceArrayInput>
       </SimpleForm>
     </Edit>
