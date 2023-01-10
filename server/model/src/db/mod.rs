@@ -44,7 +44,7 @@ pub struct NameTypeId {
 pub struct NoFence {
     pub id: u32,
     pub name: String,
-    pub mode: String,
+    pub mode: Option<String>,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
 }
