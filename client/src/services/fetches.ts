@@ -4,8 +4,9 @@ import type { Map } from 'leaflet'
 import type { Feature, FeatureCollection } from 'geojson'
 
 import type { CombinedState, Data, ToConvert } from '@assets/types'
-import type { UsePersist } from '@hooks/usePersist'
-import type { UseStatic } from '@hooks/useStatic'
+import { UsePersist, usePersist } from '@hooks/usePersist'
+import { UseStatic, useStatic } from '@hooks/useStatic'
+import { useShapes } from '@hooks/useShapes'
 
 import { fromSnakeCase, getMapBounds } from './utils'
 
@@ -34,40 +35,74 @@ export async function getData<T>(
   }
 }
 
-export async function getLotsOfData(
-  url: string,
-  setStatic: UseStatic['setStatic'],
-  settings: CombinedState = {},
-): Promise<FeatureCollection> {
-  const { length = 0 } = settings.geojson?.features || {}
+export async function clusteringRouting(): Promise<FeatureCollection> {
+  const {
+    mode,
+    radius,
+    category,
+    min_points,
+    fast,
+    routing_time,
+    only_unique,
+    save_to_db,
+    last_seen,
+    route_chunk_size,
+  } = usePersist.getState()
+  const { geojson, setStatic } = useStatic.getState()
+  const { add } = useShapes.getState().setters
+
+  setStatic(
+    'loading',
+    Object.fromEntries(
+      geojson.features
+        .filter(
+          (feat) =>
+            feat.geometry.type === 'Polygon' ||
+            feat.geometry.type === 'MultiPolygon',
+        )
+        .map((k) => [
+          k.properties?.name || `${k.geometry.type}${k.id ? `-${k.id}` : ''}`,
+          null,
+        ]),
+    ),
+  )
+  setStatic('totalLoadingTime', 0)
+
   const totalStartTime = Date.now()
-  const features = await Promise.allSettled(
-    (settings.geojson?.features || [])
+  const features = await Promise.allSettled<Feature>(
+    (geojson?.features || [])
       .filter(
         (x) =>
           x.geometry.type === 'Polygon' || x.geometry.type === 'MultiPolygon',
       )
       .map(async (area) => {
         const startTime = Date.now()
-        return fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+        return fetch(
+          mode === 'bootstrap'
+            ? '/api/v1/calc/bootstrap'
+            : `/api/v1/calc/${mode}/${category}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              return_type: 'feature',
+              area,
+              instance:
+                area.properties?.name ||
+                `${area.geometry.type}${area.id ? `-${area.id}` : ''}`,
+              route_chunk_size,
+              last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+              radius,
+              min_points,
+              fast,
+              routing_time,
+              only_unique,
+              save_to_db,
+            }),
           },
-          body: JSON.stringify({
-            ...settings,
-            return_type: 'feature',
-            devices: Math.max(Math.floor((settings.devices || 1) / length), 1),
-            area,
-            instance:
-              area.properties?.name ||
-              `${area.geometry.type}${area.id ? `-${area.id}` : ''}`,
-            route_chunk_size: settings.route_chunk_size,
-            last_seen: Math.floor(
-              (settings.last_seen?.getTime?.() || 0) / 1000,
-            ),
-          }),
-        })
+        )
           .then((res) => res.json())
           .then((r) => {
             const fetch_time = Date.now() - startTime
@@ -95,13 +130,20 @@ export async function getLotsOfData(
             }))
           })
       }),
+  ).then((feats) =>
+    feats
+      .filter(
+        (f): f is PromiseFulfilledResult<Feature> => f.status === 'fulfilled',
+      )
+      .map((f) => f.value),
   )
+
   setStatic('totalLoadingTime', Date.now() - totalStartTime)
+  add(features)
+
   return {
     type: 'FeatureCollection',
-    features: features.flatMap((r) =>
-      r.status === 'fulfilled' && r.value ? r.value : [],
-    ),
+    features,
   }
 }
 

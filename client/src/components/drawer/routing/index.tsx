@@ -3,6 +3,7 @@ import { List, ListItem, ListItemButton, ListItemText } from '@mui/material'
 
 import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
+import { clusteringRouting } from '@services/fetches'
 
 import ListSubheader from '../../styled/Subheader'
 import NumInput from '../inputs/NumInput'
@@ -11,15 +12,12 @@ import Toggle from '../inputs/Toggle'
 
 export default function EditTab() {
   const mode = usePersist((s) => s.mode)
-  const autoMode = usePersist((s) => s.autoMode)
 
   const layerEditing = useStatic((s) => s.layerEditing)
-  const setStatic = useStatic((s) => s.setStatic)
 
   return (
     <List dense>
       <ListSubheader disableGutters>Routing</ListSubheader>
-      <Toggle field="autoMode" />
       <NumInput field="radius" />
       <NumInput field="min_points" />
       {/* <NumInput field="generations" /> */}
@@ -46,17 +44,13 @@ export default function EditTab() {
         />
       </ListItem>
       <Toggle field="save_to_db" disabled />
-      {!autoMode && (
-        <ListItemButton
-          color="primary"
-          disabled={Object.values(layerEditing).some((v) => v)}
-          onClick={() => {
-            setStatic('forceFetch', (prev) => !prev)
-          }}
-        >
-          <ListItemText primary="Update" color="blue" />
-        </ListItemButton>
-      )}
+      <ListItemButton
+        color="primary"
+        disabled={Object.values(layerEditing).some((v) => v)}
+        onClick={clusteringRouting}
+      >
+        <ListItemText primary="Update" color="blue" />
+      </ListItemButton>
     </List>
   )
 }
