@@ -15,6 +15,7 @@ export interface UseStatic {
   kojiRoutes: { name: string; id: number; type: string }[]
   scannerRoutes: { name: string; id: number; type: string }[]
   scannerType: string
+  dangerous: boolean
   tileServer: string
   geojson: FeatureCollection
   layerEditing: {
@@ -70,6 +71,7 @@ export const useStatic = create<UseStatic>((set, get) => ({
   geofences: {},
   routes: [],
   scannerType: 'rdm',
+  dangerous: false,
   geojson: {
     type: 'FeatureCollection',
     features: [],

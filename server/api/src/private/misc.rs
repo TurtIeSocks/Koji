@@ -30,6 +30,7 @@ async fn config(scanner_type: web::Data<String>, session: Session) -> Result<Htt
         } else {
             false
         },
+        dangerous: std::env::var("DANGEROUS").is_ok(),
     }))
 }
 

@@ -4,7 +4,9 @@ import { Button, Dialog, DialogActions, DialogContent } from '@mui/material'
 import type { Feature, FeatureCollection } from 'geojson'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 
+import { useStatic } from '@hooks/useStatic'
 import { save } from '@services/fetches'
+
 import DialogHeader from './Header'
 import { Code } from '../Code'
 
@@ -73,7 +75,7 @@ export default function Manager({ open, setOpen, geojson }: Props) {
           Save to Koji
         </Button>
         <Button
-          disabled
+          disabled={!useStatic.getState().dangerous}
           onClick={() =>
             save('/api/v1/geofence/save-scanner', code).then((res) =>
               console.log(res),

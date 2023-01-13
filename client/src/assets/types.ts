@@ -53,6 +53,7 @@ export interface Config {
   tile_server: string
   scanner_type: string
   logged_in: boolean
+  dangerous: boolean
 }
 
 export interface Circle {

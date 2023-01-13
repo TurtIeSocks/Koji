@@ -68,6 +68,7 @@ export default function App() {
           if (res.tile_server) {
             setStatic('tileServer', res.tile_server)
           }
+          setStatic('dangerous', res.dangerous || false)
         } else {
           router.navigate('/login')
         }

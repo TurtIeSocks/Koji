@@ -214,6 +214,7 @@ pub struct ConfigResponse {
     pub tile_server: String,
     pub scanner_type: String,
     pub logged_in: bool,
+    pub dangerous: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

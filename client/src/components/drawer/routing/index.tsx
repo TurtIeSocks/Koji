@@ -43,7 +43,7 @@ export default function EditTab() {
           buttons={['cluster', 'route', 'bootstrap']}
         />
       </ListItem>
-      <Toggle field="save_to_db" disabled />
+      <Toggle field="save_to_db" disabled={!useStatic.getState().dangerous} />
       <ListItemButton
         color="primary"
         disabled={Object.values(layerEditing).some((v) => v)}
