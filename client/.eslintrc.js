@@ -6,6 +6,7 @@ module.exports = {
     tsconfigRootDir: __dirname,
     sourceType: 'module',
   },
+  ignorePatterns: ['.eslintrc.js'],
   plugins: ['react', '@typescript-eslint'],
   env: {
     browser: true,
