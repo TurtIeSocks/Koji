@@ -37,7 +37,7 @@ pub struct NameType {
 pub struct NameTypeId {
     pub id: u32,
     pub name: String,
-    pub r#type: self::sea_orm_active_enums::Type,
+    pub r#type: Option<self::sea_orm_active_enums::Type>,
 }
 
 #[derive(Serialize, Deserialize, FromQueryResult)]

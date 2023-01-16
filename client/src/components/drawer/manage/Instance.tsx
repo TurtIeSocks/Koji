@@ -12,6 +12,7 @@ import {
   ListItemButton,
   capitalize,
   ListItemIcon,
+  CircularProgress,
 } from '@mui/material'
 import CheckBoxOutlineBlank from '@mui/icons-material/CheckBoxOutlineBlank'
 import IndeterminateCheckBoxOutlined from '@mui/icons-material/IndeterminateCheckBoxOutlined'
@@ -61,29 +62,45 @@ export default function InstanceSelect({
   const [selected, setSelected] = React.useState<string[]>([])
 
   React.useEffect(() => {
-    setLoading(true)
-    getData<KojiResponse<Option[]>>(endpoint)
-      .then((resp) => {
-        if (resp) {
-          setOptions(
-            Object.fromEntries(
-              resp.data
-                .filter((o) => filters.length === 0 || filters.includes(o.type))
-                .map((o) => [`${o.name}__${o.type}`, o]),
-            ),
-          )
-        }
-        setSelected(initialState)
-        setLoading(false)
-      })
-      // eslint-disable-next-line no-console
-      .catch((e) => console.error(e))
-  }, [])
+    if (
+      Object.keys(options).length === 0 ||
+      initialState.some((s) => !options[s])
+    ) {
+      setLoading(true)
+      getData<KojiResponse<Option[]>>(endpoint)
+        .then((resp) => {
+          if (resp) {
+            setOptions((prev) =>
+              Object.fromEntries(
+                resp.data
+                  .filter(
+                    (option) =>
+                      filters.length === 0 || filters.includes(option.type),
+                  )
+                  .map((o) => [
+                    `${o.name}__${o.type || ''}`,
+                    {
+                      ...o,
+                      type: o.type || 'Unset',
+                      geoType: prev[`${o.name}__${o.type || ''}`]?.geoType,
+                    },
+                  ]),
+              ),
+            )
+          }
+          setSelected(initialState)
+          setLoading(false)
+        })
+        // eslint-disable-next-line no-console
+        .catch((e) => console.error(e))
+    }
+  }, [initialState])
 
   const updateState = async (newValue: string[]) => {
     const added = newValue.filter((s) => !selected.includes(s))
     const deleted = selected.filter((s) => !newValue.includes(s))
 
+    setLoading(true)
     const features = await Promise.allSettled(
       added.map((a) =>
         remoteCache[a]
@@ -93,45 +110,57 @@ export default function InstanceSelect({
                 a
               ].name.replace(/\//g, '__')}/${options[a].type}`,
             ).then((resp) => {
-              if (resp) {
-                if (!setGeojson) {
-                  add(resp.data, koji ? '' : '__SCANNER')
-                }
-                setOptions((prev) => ({
-                  ...prev,
-                  [a]: { ...prev[a], geoType: resp.data.geometry.type },
-                }))
-
-                return resp.data
-              }
+              return resp?.data
             }),
       ),
-    )
+    ).then((res) => {
+      setLoading(false)
+      return res
+    })
+
+    const cleaned = features
+      .filter(
+        (result): result is PromiseFulfilledResult<Feature> =>
+          result.status === 'fulfilled',
+      )
+      .map((result) => result.value)
+
+    add(cleaned, koji ? '__KOJI' : '__SCANNER')
     if (setGeojson) {
       setGeojson({
         type: 'FeatureCollection',
-        features: [
-          ...features
-            .filter(
-              (result): result is PromiseFulfilledResult<Feature> =>
-                result.status === 'fulfilled',
-            )
-            .map((result) => result.value),
-        ],
+        features: cleaned,
       })
     } else {
       deleted.forEach((d) => {
         const { name, type, geoType } = options[d]
         if (geoType) {
-          remove(geoType, `${name}${type}${koji ? '' : '__SCANNER'}`)
+          remove(
+            geoType,
+            `${name}__${type || ''}${koji ? '__KOJI' : '__SCANNER'}`,
+          )
         }
       })
     }
     setSelected(newValue)
+    setOptions((prev) => ({
+      ...prev,
+      ...Object.fromEntries(
+        cleaned.map((c) => [
+          `${c.properties?.__name}__${c.properties?.__type || ''}`,
+          {
+            ...options[
+              `${c.properties?.__name}__${c.properties?.__type || ''}`
+            ],
+            geoType: c.geometry.type,
+          },
+        ]),
+      ),
+    }))
   }
 
   return (
-    <ListItem>
+    <ListItem key={initialState.some((s) => !options[s]).toString()}>
       <Autocomplete
         value={selected}
         size="small"
@@ -153,14 +182,18 @@ export default function InstanceSelect({
         )}
         renderOption={(props, option, { selected: s }) => {
           return (
-            <li {...props}>
-              <Checkbox
-                icon={icon}
-                checkedIcon={checkedIcon}
-                style={{ marginRight: 8 }}
-                checked={s}
-              />
-              {option.split('__')[0]}
+            <li {...props} style={{ display: 'flex' }}>
+              <div style={{ flexGrow: 1 }}>
+                <Checkbox
+                  icon={icon}
+                  checkedIcon={checkedIcon}
+                  style={{ marginRight: 8 }}
+                  checked={s}
+                  disabled={loading}
+                />
+                {option.split('__')[0]}
+              </div>
+              {loading && <CircularProgress size={20} sx={{ flexGrow: 0 }} />}
             </li>
           )
         }}
@@ -177,6 +210,7 @@ export default function InstanceSelect({
           return group ? (
             <List key={key}>
               <ListItemButton
+                disabled={loading}
                 onClick={() =>
                   updateState(
                     allSelected || partialSelected
@@ -207,6 +241,7 @@ export default function InstanceSelect({
                       .join(' '),
                   )}
                 />
+                {loading && <CircularProgress size={20} />}
               </ListItemButton>
               {children}
             </List>

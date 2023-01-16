@@ -1,12 +1,23 @@
 import * as React from 'react'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
-import { Button, CircularProgress, Divider, Typography } from '@mui/material'
+import {
+  Button,
+  ButtonGroup,
+  CircularProgress,
+  Divider,
+  MenuItem,
+  Select,
+  TextField,
+  Typography,
+} from '@mui/material'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { Feature } from 'geojson'
 
 import ExportPolygon from '@components/dialogs/Polygon'
 import { getData } from '@services/fetches'
 import { useShapes } from '@hooks/useShapes'
+import { useStatic } from '@hooks/useStatic'
+import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
 
 export function PolygonPopup({
   feature: ref,
@@ -33,6 +44,8 @@ export function PolygonPopup({
     gym: null,
     pokestop: null,
   })
+  const [name, setName] = React.useState(feature.properties?.__name || '')
+  const [type, setType] = React.useState(feature.properties?.__type || '')
 
   const getState = (category: keyof typeof active) => {
     switch (typeof active[category]) {
@@ -67,19 +80,43 @@ export function PolygonPopup({
   return feature ? (
     <>
       <Grid2 container minWidth={150}>
-        <Grid2 xs={12}>
-          <Typography>{feature.properties?.name}</Typography>
-          <Typography>{feature.properties?.type}</Typography>
+        <Grid2 xs={12} pt={1}>
+          <TextField
+            label="Name"
+            size="small"
+            fullWidth
+            value={name}
+            onChange={({ target }) => setName(target.value)}
+          />
         </Grid2>
-        <Divider
-          flexItem
-          sx={{ my: 1, color: 'black', width: '90%', height: 2 }}
-        />
-        <Grid2 xs={12}>
-          <Typography>Pokestops: {getState('pokestop')}</Typography>
-          <Typography>Gyms: {getState('gym')}</Typography>
-          <Typography>Spawnpoints: {getState('spawnpoint')}</Typography>
+        <Grid2 xs={12} py={1}>
+          <Select
+            size="small"
+            fullWidth
+            value={type}
+            onChange={async ({ target }) => setType(target.value)}
+          >
+            {(useStatic.getState().scannerType === 'rdm'
+              ? RDM_FENCES
+              : UNOWN_FENCES
+            ).map((t) => (
+              <MenuItem key={t} value={t}>
+                {t}
+              </MenuItem>
+            ))}
+          </Select>
         </Grid2>
+        <Divider flexItem sx={{ my: 1, color: 'black', width: '90%' }} />
+        <Grid2 xs={12}>
+          <Typography variant="subtitle2">
+            Pokestops: {getState('pokestop')}
+          </Typography>
+          <Typography variant="subtitle2">Gyms: {getState('gym')}</Typography>
+          <Typography variant="subtitle2">
+            Spawnpoints: {getState('spawnpoint')}
+          </Typography>
+        </Grid2>
+        <Divider flexItem sx={{ my: 1, color: 'black', width: '90%' }} />
         <Grid2>
           <Button size="small" onClick={() => setOpen('polygon')}>
             Export Polygon
@@ -89,8 +126,69 @@ export function PolygonPopup({
             size="small"
             onClick={() => remove(feature.geometry.type, feature.id)}
           >
-            Remove
+            Remove From Map
           </Button>
+          <br />
+          <ButtonGroup>
+            <Button
+              disabled={feature.properties?.__koji_id === undefined}
+              size="small"
+              onClick={async () => {
+                remove(feature.geometry.type, feature.id)
+                await fetch(
+                  `/internal/admin/geofence/${feature.properties?.__koji_id}`,
+                  {
+                    method: 'DELETE',
+                  },
+                )
+              }}
+            >
+              Delete
+            </Button>
+            <Button
+              disabled={feature.properties?.__name === undefined}
+              size="small"
+              onClick={() => {
+                fetch(
+                  feature.properties?.__koji_id
+                    ? `/internal/admin/geofence/${feature.properties?.__koji_id}`
+                    : '/internal/admin/geofence',
+                  {
+                    method: feature.properties?.__koji_id ? 'PATCH' : 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      id: feature.properties?.__koji_id || 0,
+                      name,
+                      mode: type,
+                      area: feature,
+                      updated_at: new Date(),
+                      created_at: new Date(),
+                    }),
+                  },
+                )
+                  .then((res) => res.json())
+                  .then((res) => {
+                    const newFeature = {
+                      ...res.data.area,
+                      properties: {
+                        ...res.data.properties,
+                        __name: res.data.name,
+                        __type: res.data.mode,
+                        __koji_id: res.data.id,
+                      },
+                    }
+                    useShapes
+                      .getState()
+                      .setters.remove(feature.geometry.type, feature.id)
+                    useShapes.getState().setters.add(newFeature, '__KOJI')
+                  })
+              }}
+            >
+              {feature.properties?.__koji_id ? 'Save' : 'Create'}
+            </Button>
+          </ButtonGroup>
         </Grid2>
       </Grid2>
       {open && (

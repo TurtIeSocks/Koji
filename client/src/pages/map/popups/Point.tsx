@@ -22,7 +22,7 @@ export function PointPopup({ id, lat, lon, properties }: Props) {
 
   return id !== undefined ? (
     <div>
-      {properties?.name && (
+      {properties?.__name && (
         <>
           Name: {properties.name}
           <br />

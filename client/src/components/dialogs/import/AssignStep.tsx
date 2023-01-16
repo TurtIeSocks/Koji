@@ -63,11 +63,13 @@ const AssignStep = React.forwardRef<
 
   const sorted = React.useMemo(
     () =>
-      refGeojson.features
-        .slice()
-        .sort((a, b) =>
-          a.properties?.[nameProp]?.localeCompare(b.properties?.[nameProp]),
-        ),
+      refGeojson.features.slice().sort((a, b) => {
+        const aName = a.properties?.[nameProp]
+        const bName = b.properties?.[nameProp]
+        return typeof aName === 'string' && typeof bName === 'string'
+          ? aName.localeCompare(bName)
+          : 0
+      }),
     [nameProp],
   )
 
@@ -128,12 +130,13 @@ const AssignStep = React.forwardRef<
                 ...feature,
                 properties: {
                   ...feature.properties,
-                  type: e.target.value as string,
+                  type: e.target.value ? (e.target.value as string) : undefined,
                 },
               })),
             })
           }}
         >
+          <MenuItem value="" />
           {(scannerType === 'rdm' ? RDM_FENCES : UNOWN_FENCES).map(
             (instanceType) => (
               <MenuItem key={instanceType} value={instanceType}>
@@ -168,7 +171,7 @@ const AssignStep = React.forwardRef<
       </Grid2>
       <Divider sx={{ width: '100%', my: 1 }} />
       <Grid2 xs={12} ref={innerRef}>
-        <div>
+        <div key={sorted.length}>
           <ReactWindow
             rows={sorted}
             itemSize={60}
@@ -210,6 +213,9 @@ const AssignStep = React.forwardRef<
                     <Typography variant="subtitle2">
                       {feature.properties?.name || `Feature_${index}`}
                     </Typography>
+                    <Typography variant="caption">
+                      {feature.geometry.type}
+                    </Typography>
                   </Grid2>
                   <Grid2 xs={3}>
                     <Select
@@ -221,7 +227,9 @@ const AssignStep = React.forwardRef<
                           ...feature,
                           properties: {
                             ...feature.properties,
-                            type: e.target.value,
+                            type: e.target.value
+                              ? (e.target.value as string)
+                              : undefined,
                           },
                         }
                         handleChange({
@@ -235,6 +243,7 @@ const AssignStep = React.forwardRef<
                         })
                       }}
                     >
+                      <MenuItem value="" />
                       {(scannerType === 'rdm' ? RDM_FENCES : UNOWN_FENCES).map(
                         (instanceType) => (
                           <MenuItem key={instanceType} value={instanceType}>

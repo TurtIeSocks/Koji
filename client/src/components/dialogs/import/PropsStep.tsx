@@ -17,24 +17,37 @@ import { useStatic, UseStatic } from '@hooks/useStatic'
 import useSkipFirstEffect from '@hooks/useSkipFirstEffect'
 
 const modifyName = (
-  name: string,
+  name: unknown,
   mod: UseStatic['importWizard']['modifier'],
-) => {
-  switch (mod) {
-    case 'capitalize':
-      return name
-        .split(' ')
-        .map(
-          (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
-        )
-        .join(' ')
-    case 'lowercase':
-      return name.toLowerCase()
-    case 'uppercase':
-      return name.toUpperCase()
-    default:
-      return name
+): string => {
+  if (typeof name === 'string') {
+    switch (mod) {
+      case 'capitalize':
+        return name
+          .split(' ')
+          .map(
+            (word) =>
+              word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+          )
+          .join(' ')
+      case 'lowercase':
+        return name.toLowerCase()
+      case 'uppercase':
+        return name.toUpperCase()
+      default:
+        return name
+    }
   }
+  if (typeof name === 'number' || typeof name === 'boolean') {
+    return name.toString()
+  }
+  if (Array.isArray(name)) {
+    return name.join('')
+  }
+  if (typeof name === 'object') {
+    return JSON.stringify(name)
+  }
+  return 'Invalid Property'
 }
 
 const PropsStep = React.forwardRef<
@@ -59,11 +72,6 @@ const PropsStep = React.forwardRef<
         (feat) => feat.properties?.[key] !== undefined && !key.startsWith('__'),
       ),
     )
-    if (filtered.includes('name') && !importWizard.nameProp) {
-      useStatic.setState({
-        importWizard: { ...importWizard, nameProp: 'name' },
-      })
-    }
     return filtered
   })
 
@@ -75,13 +83,17 @@ const PropsStep = React.forwardRef<
           feat.properties?.[importWizard.nameProp] || `feature_${i}`,
           importWizard.modifier,
         )
-        const name = importWizard.customName
-          ? `${importWizard.customName
-              .replace(/{name}/g, moddedName)
-              .replace(/{index}/g, i.toString())}${
-              /{name}|{index}/g.test(importWizard.customName) ? '' : `_${i}`
-            }`
-          : moddedName
+        const name = (
+          importWizard.customName
+            ? `${importWizard.customName
+                .replace(/{name}/g, moddedName)
+                .replace(/{index}/g, i.toString())}${
+                /{name}|{index}/g.test(importWizard.customName) ? '' : `_${i}`
+              }`
+            : moddedName
+        )
+          .trim()
+          .replaceAll('\u0000', '')
         return {
           ...feat,
           properties: {
@@ -104,6 +116,14 @@ const PropsStep = React.forwardRef<
     importWizard.customName,
     importWizard.modifier,
   ])
+
+  React.useEffect(() => {
+    if (availableProps.includes('name') && !importWizard.nameProp) {
+      useStatic.setState({
+        importWizard: { ...importWizard, nameProp: 'name' },
+      })
+    }
+  }, [])
 
   return (
     <Grid2 container ref={ref} minHeight="30vh">
@@ -129,6 +149,7 @@ const PropsStep = React.forwardRef<
         </Grid2>
         <Grid2 xs={7}>
           <Select
+            required
             fullWidth
             value={importWizard.nameProp}
             onChange={({ target }) => {

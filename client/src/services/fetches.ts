@@ -61,7 +61,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
             feat.geometry.type === 'MultiPolygon',
         )
         .map((k) => [
-          k.properties?.name || `${k.geometry.type}${k.id ? `-${k.id}` : ''}`,
+          k.properties?.__name || `${k.geometry.type}${k.id ? `-${k.id}` : ''}`,
           null,
         ]),
     ),
@@ -90,7 +90,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
               return_type: 'feature',
               area,
               instance:
-                area.properties?.name ||
+                area.properties?.__name ||
                 `${area.geometry.type}${area.id ? `-${area.id}` : ''}`,
               route_chunk_size,
               last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
@@ -108,12 +108,12 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
             const fetch_time = Date.now() - startTime
             setStatic('loading', (prev) => ({
               ...prev,
-              [r.data?.properties?.name]: {
+              [r.data?.properties?.__name]: {
                 ...r.stats,
                 fetch_time,
               },
             }))
-            console.log(area.properties?.name)
+            console.log(area.properties?.__name)
             Object.entries(r.stats).forEach(([k, v]) =>
               // eslint-disable-next-line no-console
               console.log(fromSnakeCase(k), v),
@@ -125,7 +125,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
           .catch(() => {
             setStatic('loading', (prev) => ({
               ...prev,
-              [area.properties?.name ||
+              [area.properties?.__name ||
               `${area.geometry.type}${area.id ? `-${area.id}` : ''}`]: false,
             }))
           })
@@ -231,6 +231,7 @@ export async function convert<T = Array<object> | object | string>(
 }
 
 export async function save(url: string, code: string) {
+  console.log(JSON.parse(code))
   try {
     const res = await fetch(url, {
       method: 'POST',

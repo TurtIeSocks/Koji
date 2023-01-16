@@ -13,14 +13,14 @@ impl EnsurePoints for Feature {
 
 impl FeatureHelpers for Feature {
     fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<&Type>) {
-        if !self.contains_property("name") {
+        if !self.contains_property("__name") {
             if let Some(name) = name {
-                self.set_property("name", name)
+                self.set_property("__name", name)
             }
         }
-        if !self.contains_property("type") {
+        if !self.contains_property("__type") {
             if let Some(enum_type) = enum_type {
-                self.set_property("type", enum_type.to_string());
+                self.set_property("__type", enum_type.to_string());
                 // match enum_type {
                 //     Type::CirclePokemon | Type::CircleSmartPokemon => {
                 //         self.set_property("radius", 70);
@@ -36,22 +36,29 @@ impl FeatureHelpers for Feature {
             } else if let Some(geometry) = self.geometry.as_ref() {
                 match geometry.value {
                     Value::Point(_) | Value::MultiPoint(_) => {
-                        self.set_property("type", "CirclePokemon");
+                        self.set_property("__type", "CirclePokemon");
                     }
                     Value::Polygon(_) | Value::MultiPolygon(_) => {
-                        self.set_property("type", "AutoQuest");
+                        self.set_property("__type", "AutoQuest");
                     }
                     _ => {}
                 }
             }
         }
     }
+    /// Removes the last point if it matches the first point in a multipoint feature
     fn remove_last_coord(self) -> Self {
         if let Some(geometry) = self.geometry {
             let geometry = match geometry.value {
                 Value::MultiPoint(value) => {
                     let mut new_value = value;
-                    new_value.pop();
+                    if let Some(first) = new_value.first() {
+                        if let Some(last) = new_value.last() {
+                            if first == last {
+                                new_value.pop();
+                            }
+                        };
+                    }
                     Geometry {
                         value: Value::MultiPoint(new_value),
                         ..geometry
@@ -66,6 +73,20 @@ impl FeatureHelpers for Feature {
         } else {
             self
         }
+    }
+    /// Removes internally used properties that start with `__`
+    fn remove_internal_props(&mut self) {
+        self.properties = Some(
+            self.properties_iter()
+                .filter_map(|(key, val)| {
+                    if key.starts_with("__") {
+                        None
+                    } else {
+                        Some((key.to_owned(), val.to_owned()))
+                    }
+                })
+                .collect(),
+        );
     }
 }
 

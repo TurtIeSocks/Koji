@@ -51,6 +51,7 @@ export default function ShapeFile({ setter }: Props) {
           source.read().then(function write(result): Promise<void> | void {
             if (result.done && setter) {
               setLoading(true)
+              console.log('ShapeFile Results:', values)
               return convert<FeatureCollection>(
                 values,
                 'featureCollection',

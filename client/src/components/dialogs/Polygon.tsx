@@ -45,7 +45,10 @@ export default function ExportPolygon({
 
   const [code, setCode] = React.useState('')
   const [error, setError] = React.useState('')
-  const [tempGeojson, setTempGeojson] = React.useState<FeatureCollection>()
+  const [tempGeojson, setTempGeojson] = React.useState<FeatureCollection>({
+    type: 'FeatureCollection',
+    features: [],
+  })
 
   React.useEffect(() => {
     if (mode === 'export' || mode === 'exportAll') {
@@ -97,7 +100,7 @@ export default function ExportPolygon({
               ...geojson,
               features: geojson.features.map((f) => ({
                 ...f,
-                id: f.id ?? `${f.properties?.name}${f.properties?.type}`,
+                id: f.id ?? `${f.properties?.__name}${f.properties?.__type}`,
               })),
             })
           }
@@ -156,8 +159,15 @@ export default function ExportPolygon({
               'altText',
               'poracle',
             ]}
+            type="select"
           />
         )}
+        {/* <Button
+          onClick={async () => {
+          }}
+        >
+          Combine
+        </Button> */}
         <Button onPointerDown={() => navigator.clipboard.writeText(code)}>
           Copy to Clipboard
         </Button>

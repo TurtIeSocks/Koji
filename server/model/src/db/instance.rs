@@ -77,7 +77,7 @@ impl Query {
             .map(|(i, item)| NameTypeId {
                 id: i as u32,
                 name: item.name,
-                r#type: item.instance_type,
+                r#type: Some(item.instance_type),
             })
             .collect())
     }

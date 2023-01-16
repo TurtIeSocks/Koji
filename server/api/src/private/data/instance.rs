@@ -1,6 +1,6 @@
 use super::*;
 
-use model::db::{self, NameTypeId};
+use model::{db::NameTypeId, utils::get_enum};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -55,7 +55,7 @@ async fn from_koji(
         .map(|instance| NameTypeId {
             id: instance.id,
             name: instance.name,
-            r#type: model::db::sea_orm_active_enums::Type::AutoQuest,
+            r#type: get_enum(instance.mode),
         })
         .collect();
     println!("[INSTANCE_ALL] Returning {} instances\n", instances.len());
@@ -72,7 +72,7 @@ async fn from_koji(
 struct UrlVars {
     source: String,
     name: String,
-    instance_type: db::sea_orm_active_enums::Type,
+    instance_type: String,
 }
 
 #[get("/one/{source}/{name}/{instance_type}")]
@@ -92,7 +92,12 @@ async fn route_from_scanner(
         if scanner_type.eq("rdm") {
             instance::Query::route(&conn.data_db, &name).await
         } else if let Some(unown_db) = conn.unown_db.as_ref() {
-            area::Query::route(unown_db, &name, &instance_type).await
+            let instance_type = get_enum(Some(instance_type));
+            if let Some(instance_type) = instance_type {
+                area::Query::route(unown_db, &name, &instance_type).await
+            } else {
+                Err(DbErr::Custom("Invalid Mode".to_string()))
+            }
         } else {
             Ok(Feature::default())
         }

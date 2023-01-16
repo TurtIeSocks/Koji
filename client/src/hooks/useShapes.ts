@@ -37,7 +37,10 @@ export interface UseShapes {
       collection: FeatureCollection,
       source?: '__SCANNER' | '',
     ) => void
-    add: (feature: Feature | Feature[], source?: '__SCANNER' | '') => void
+    add: (
+      feature: Feature | Feature[],
+      source?: '__SCANNER' | '' | '__KOJI',
+    ) => void
     remove: (
       key: Exclude<GeoJsonTypes, 'Feature' | 'FeatureCollection'>,
       id?: number | string,
@@ -49,6 +52,15 @@ export interface UseShapes {
       key: T,
       id: U,
       feature: UseShapes[T][U],
+    ) => void
+    updateProperty: <
+      T extends Exclude<GeoJsonTypes, 'Feature' | 'FeatureCollection'>,
+      U extends number | string,
+    >(
+      key: T,
+      id: U,
+      propertyKey: string,
+      value: unknown,
     ) => void
     activeRoute: (newId: string) => void
     splitLine: <U extends keyof UseShapes['LineString']>(id: U) => void
@@ -135,7 +147,9 @@ export const useShapes = create<UseShapes>((set, get) => ({
       } else {
         const id =
           feature.id ??
-          `${feature.properties?.name}${feature.properties?.type}${source}`
+          `${feature.properties?.__name}__${
+            feature.properties?.__type || ''
+          }${source}`
         set((state) => ({
           [feature.geometry.type]: {
             ...state[feature.geometry.type],
@@ -370,6 +384,20 @@ export const useShapes = create<UseShapes>((set, get) => ({
         return { ...newState, test: !state.test }
       })
     },
+    updateProperty: (key, id, property, value) => {
+      set((prev) => ({
+        [key]: {
+          ...prev[key],
+          [id]: {
+            ...prev[key][id],
+            properties: {
+              ...prev[key][id].properties,
+              [property]: value,
+            },
+          },
+        },
+      }))
+    },
     remove: (key, id) => {
       // todo fix types
       set((state) => {
@@ -491,7 +519,7 @@ export const useShapes = create<UseShapes>((set, get) => ({
       collection.features.forEach((feature) => {
         const id =
           feature.id ??
-          `${feature.properties?.name}${feature.properties?.type}${source}`
+          `${feature.properties?.__name}${feature.properties?.__type}${source}`
         switch (feature.geometry.type) {
           case 'Point':
             Point[id] = { ...feature, id } as Feature<Point>
