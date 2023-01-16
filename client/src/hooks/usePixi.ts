@@ -113,14 +113,13 @@ export default function usePixi(markers: PixiMarker[]) {
         }
         const markerTexture =
           PIXILoader.resources[`marker_${resolvedIconId}`].texture
-        // const markerTexture = new PIXI.Texture.fromImage(url);
         if (markerTexture) {
           const markerSprite = PIXI.Sprite.from(markerTexture)
+          markerSprite.anchor.set(0.5, 0.5)
           const markerCoords = project(p)
           markerSprite.x = markerCoords.x
           markerSprite.y = markerCoords.y
           markerSprite.scale.set(1 / scale)
-
           container.addChild(markerSprite)
         }
       })
