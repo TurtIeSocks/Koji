@@ -4,15 +4,30 @@ import * as React from 'react'
 
 import { useShapes } from '@hooks/useShapes'
 import type { FeatureCollection } from 'geojson'
-import { save } from '@services/fetches'
+import SaveToKoji from '@components/buttons/SaveToKoji'
 
 interface Props {
-  code: string
   filtered: FeatureCollection
   reset: () => void
 }
 
-export default function FinishStep({ code, filtered, reset }: Props) {
+export default function FinishStep({ filtered, reset }: Props) {
+  const withInternalProps = {
+    ...filtered,
+    features: filtered.features.map((feat) => ({
+      ...feat,
+      properties: {
+        ...feat.properties,
+        __name: feat.properties?.name,
+        __type: feat.properties?.type,
+        __projects: feat.properties?.projects,
+        name: undefined,
+        type: undefined,
+        projects: undefined,
+      },
+    })),
+  }
+
   return (
     <Grid2
       container
@@ -22,26 +37,18 @@ export default function FinishStep({ code, filtered, reset }: Props) {
       justifyContent="space-around"
     >
       <Grid2>
-        <Button
+        <SaveToKoji
+          fc={JSON.stringify(withInternalProps)}
           variant="outlined"
           color="success"
-          onClick={() => {
-            save('/api/v1/geofence/save-koji', code).then((res) =>
-              // eslint-disable-next-line no-console
-              console.log(res),
-            )
-            reset()
-          }}
-        >
-          Save to Kōji Database
-        </Button>
+        />
       </Grid2>
       <Grid2>
         <Button
           variant="outlined"
           color="success"
           onClick={() => {
-            useShapes.getState().setters.add(filtered.features)
+            useShapes.getState().setters.add(withInternalProps.features)
             reset()
           }}
         >
@@ -57,7 +64,7 @@ export default function FinishStep({ code, filtered, reset }: Props) {
             el.setAttribute(
               'href',
               `data:application/json;chartset=utf-8,${encodeURIComponent(
-                code,
+                JSON.stringify(filtered),
               )}`,
             )
             el.setAttribute('download', 'geojson.json')

@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { KojiResponse } from '@assets/types'
 import {
   Autocomplete,
@@ -8,6 +9,7 @@ import {
 } from '@mui/material'
 import * as React from 'react'
 import type { Feature, FeatureCollection } from 'geojson'
+import Clear from '@mui/icons-material/Clear'
 
 export default function Nominatim({
   features,
@@ -64,7 +66,7 @@ export default function Nominatim({
       renderInput={(params) => (
         <TextField
           {...params}
-          label="Search Nominatim"
+          label="Search Nominatim for [Multi]Polygons"
           InputProps={{
             ...params.InputProps,
             endAdornment: (
@@ -78,7 +80,9 @@ export default function Nominatim({
           }}
         />
       )}
-      options={results.features}
+      options={results.features.sort((a, b) =>
+        a.properties?.display_name.localeCompare(b.properties?.display_name),
+      )}
       getOptionLabel={(option) => {
         return typeof option === 'string'
           ? option
@@ -90,13 +94,22 @@ export default function Nominatim({
             {...props}
             key={option.properties?.osm_id || option.properties?.display_name}
           >
-            <Checkbox style={{ marginRight: 8 }} checked={selected} />
+            {props['aria-disabled'] ? (
+              <Clear sx={{ mx: 1 }} />
+            ) : (
+              <Checkbox style={{ marginRight: 8 }} checked={selected} />
+            )}
             <Typography variant="subtitle2">
-              {option.properties?.display_name} ({option.properties?.osm_id})
+              {option.properties?.display_name} - {option.geometry.type} (
+              {option.properties?.osm_id})
             </Typography>
           </li>
         )
       }}
+      getOptionDisabled={(option) =>
+        option.geometry.type !== 'Polygon' &&
+        option.geometry.type !== 'MultiPolygon'
+      }
       isOptionEqualToValue={(option, v) =>
         option.properties?.osm_id === v.properties?.osm_id
       }

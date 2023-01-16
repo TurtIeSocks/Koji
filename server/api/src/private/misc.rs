@@ -5,6 +5,7 @@ use crate::private::admin::Search;
 use actix_session::Session;
 use actix_web::http::header;
 
+use geojson::Value;
 use model::api::args::{Auth, ConfigResponse, Response};
 use serde_json::json;
 
@@ -68,12 +69,31 @@ async fn search_nominatim(
                 .address_details(true)
                 .location_query(nominatim::LocationQuery::Generalised { q: query.query })
                 .dedupe(true)
+                .limit(Some(50))
                 .build()
                 .unwrap(),
         )
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
-
+    let results: FeatureCollection = results
+        .into_iter()
+        .filter_map(|feat| {
+            if let Some(geometry) = feat.geometry.as_ref() {
+                match geometry.value {
+                    Value::Polygon(_) | Value::MultiPolygon(_) => return Some(feat),
+                    _ => {
+                        if let Some(id) = feat.property("osm_id") {
+                            if let Some(id) = id.as_u64() {
+                                println!("Filtered OSM ID: {} | Not a Polygon or MultiPolygon", id);
+                            }
+                        }
+                        return None;
+                    }
+                }
+            }
+            None
+        })
+        .collect();
     println!("Nominatim Results Length: {}", results.features.len());
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!(results)),

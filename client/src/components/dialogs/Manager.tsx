@@ -1,11 +1,12 @@
 /* eslint-disable no-console */
 import * as React from 'react'
 import { Button, Dialog, DialogActions, DialogContent } from '@mui/material'
-import type { Feature, FeatureCollection } from 'geojson'
+import type { FeatureCollection } from 'geojson'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 
-import { useStatic } from '@hooks/useStatic'
-import { save } from '@services/fetches'
+import SplitMultiPolygonsBtn from '@components/buttons/SplitMultiPolygons'
+import SaveToKoji from '@components/buttons/SaveToKoji'
+import SaveToScanner from '@components/buttons/SaveToScanner'
 
 import DialogHeader from './Header'
 import { Code } from '../Code'
@@ -32,58 +33,12 @@ export default function Manager({ open, setOpen, geojson }: Props) {
         <Code code={code} setCode={setCode} />
       </DialogContent>
       <DialogActions>
-        <Button
-          onClick={() => {
-            const split: FeatureCollection = JSON.parse(code)
-            const features: Feature[] = []
-            split.features.forEach((feature: Feature) => {
-              if (feature.geometry.type === 'MultiPolygon') {
-                const { coordinates } = feature.geometry
-                coordinates.forEach((polygon, i) => {
-                  features.push({
-                    ...feature,
-                    properties: {
-                      ...feature.properties,
-                      name:
-                        coordinates.length === 1
-                          ? feature.properties?.name || ''
-                          : `${feature.properties?.name}_${i}`,
-                    },
-                    geometry: {
-                      ...feature.geometry,
-                      type: 'Polygon',
-                      coordinates: polygon,
-                    },
-                  })
-                })
-              } else {
-                features.push(feature)
-              }
-              setCode(JSON.stringify({ ...split, features }, null, 2))
-            })
-          }}
-        >
-          Split Multi Polygons
-        </Button>
-        <Button
-          onClick={() =>
-            save('/api/v1/geofence/save-koji', code).then((res) =>
-              console.log(res),
-            )
-          }
-        >
-          Save to Koji
-        </Button>
-        <Button
-          disabled={!useStatic.getState().dangerous}
-          onClick={() =>
-            save('/api/v1/geofence/save-scanner', code).then((res) =>
-              console.log(res),
-            )
-          }
-        >
-          Save to Scanner
-        </Button>
+        <SplitMultiPolygonsBtn
+          fc={JSON.parse(code)}
+          setter={(fc) => setCode(JSON.stringify(fc))}
+        />
+        <SaveToKoji fc={code} />
+        <SaveToScanner fc={code} />
         <Button
           onClick={() => {
             setOpen('')

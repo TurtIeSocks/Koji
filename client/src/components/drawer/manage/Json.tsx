@@ -30,8 +30,10 @@ export default function JsonFile({ setter }: Props) {
         const contents = newSettings.target.result
         if (typeof contents === 'string') {
           setLoading(true)
+          const parsed = JSON.parse(contents)
+          console.log('JSON File Results:', parsed)
           const geojson = await convert<FeatureCollection>(
-            JSON.parse(contents),
+            parsed,
             'featureCollection',
             simplifyPolygons,
           ).then((geo) => {

@@ -28,9 +28,31 @@ export default function ImportExport() {
   return (
     <List dense>
       <ListSubheader disableGutters>Import from Scanner</ListSubheader>
-      <InstanceSelect endpoint="/internal/routes/from_scanner" />
+      <InstanceSelect
+        endpoint="/internal/routes/from_scanner"
+        initialState={geojson.features
+          .filter(
+            (feat) =>
+              typeof feat.id === 'string' && feat.id.endsWith('__SCANNER'),
+          )
+          .map(
+            (feat) =>
+              `${feat.properties?.__name}__${feat.properties?.__type || ''}`,
+          )}
+      />
       <ListSubheader disableGutters>Import from Kōji</ListSubheader>
-      <InstanceSelect endpoint="/internal/routes/from_koji" koji />
+      <InstanceSelect
+        endpoint="/internal/routes/from_koji"
+        koji
+        initialState={geojson.features
+          .filter(
+            (feat) => typeof feat.id === 'string' && feat.id.endsWith('__KOJI'),
+          )
+          .map(
+            (feat) =>
+              `${feat.properties?.__name}__${feat.properties?.__type || ''}`,
+          )}
+      />
       <ListSubheader disableGutters>Manual Importing</ListSubheader>
       <ListItemButton
         onClick={() =>

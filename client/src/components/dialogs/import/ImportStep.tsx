@@ -69,7 +69,12 @@ const ImportStep = React.forwardRef<
                 ...geo,
                 features: geo.features.map((feat) => ({
                   ...feat,
-                  properties: { ...feat.properties, __scanner: true },
+                  properties: {
+                    ...feat.properties,
+                    name: feat.properties?.__name,
+                    type: feat.properties?.__type,
+                    __scanner: true,
+                  },
                 })),
               },
               '__scanner',
@@ -79,7 +84,8 @@ const ImportStep = React.forwardRef<
           initialState={geojson.features
             .filter((feat) => feat.properties?.__scanner)
             .map(
-              (feat) => `${feat.properties?.name}__${feat.properties?.type}`,
+              (feat) =>
+                `${feat.properties?.__name}__${feat.properties?.__type || ''}`,
             )}
         />
       </Grid2>
@@ -88,10 +94,7 @@ const ImportStep = React.forwardRef<
       <Grid2 xs={2}>
         <Typography variant="h5">Nominatim</Typography>
       </Grid2>
-      <Grid2 xs={4}>
-        <Typography sx={{ my: 1 }}>Search Nominatim for GeoJSONs</Typography>
-      </Grid2>
-      <Grid2 xs={6}>
+      <Grid2 xs={10}>
         <Nominatim
           features={geojson.features.filter(
             (feat) => feat.properties?.__nominatim,

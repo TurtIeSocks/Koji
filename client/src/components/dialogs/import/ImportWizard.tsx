@@ -5,9 +5,11 @@ import Step from '@mui/material/Step'
 import StepLabel from '@mui/material/StepLabel'
 import { Code } from '@components/Code'
 
-import { Box, Button, Tab, Tabs } from '@mui/material'
+import { Box, Button, Tab, Tabs, Typography } from '@mui/material'
 import type { FeatureCollection } from 'geojson'
 import { safeParse } from '@services/utils'
+import CombineByName from '@components/buttons/CombineByName'
+import SplitMultiPolygonsBtn from '@components/buttons/SplitMultiPolygons'
 
 import BaseDialog from '../Base'
 import ImportStep from './ImportStep'
@@ -80,7 +82,7 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
     }
     setStatic('importWizard', {
       open,
-      nameProp: 'name',
+      nameProp: '',
       props: [],
       customName: '',
       modifier: 'none',
@@ -141,6 +143,27 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
               <Button color="error" onClick={() => reset(true)}>
                 Reset
               </Button>
+              <CombineByName
+                fc={tempGeojson}
+                nameProp={importWizard.nameProp}
+                setter={(newFc) => {
+                  setTempGeojson(newFc)
+                  handleCodeChange(newFc)
+                }}
+                disabled={
+                  !tempGeojson.features.length || !importWizard.nameProp
+                }
+              />
+              <SplitMultiPolygonsBtn
+                fc={tempGeojson}
+                setter={(newFc) => {
+                  setTempGeojson(newFc)
+                  handleCodeChange(newFc)
+                }}
+                disabled={
+                  !tempGeojson.features.length || !importWizard.nameProp
+                }
+              />
               <Box sx={{ flex: '1 1 auto' }} />
               <Button
                 color="secondary"
@@ -202,7 +225,7 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
               refGeojson={tempGeojson}
             />
           ),
-          3: <FinishStep code={code} filtered={filtered} reset={reset} />,
+          3: <FinishStep filtered={filtered} reset={reset} />,
         }[step] || null}
         <Stepper
           activeStep={step}
@@ -217,17 +240,23 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
         </Stepper>
       </TabPanel>
       <TabPanel value={tab} index={1}>
-        <Code
-          code={
-            Object.keys(importWizard.checked).length
-              ? JSON.stringify(filtered, null, 2)
-              : code
-          }
-          setCode={setCode}
-          textMode={!code.startsWith('{') && !code.startsWith('[')}
-          minHeight={`${tabRef.current?.clientHeight}px`}
-          maxHeight="70vh"
-        />
+        <Box py={3}>
+          <Code
+            code={
+              Object.keys(importWizard.checked).length
+                ? JSON.stringify(filtered, null, 2)
+                : code
+            }
+            setCode={setCode}
+            textMode={!code.startsWith('{') && !code.startsWith('[')}
+            minHeight={`${tabRef.current?.clientHeight}px`}
+            maxHeight="70vh"
+          />
+          <Typography variant="caption" color="grey">
+            You can also try entering a url for a remote JSON, Kōji will attempt
+            to fetch and parse it.
+          </Typography>
+        </Box>
       </TabPanel>
       <TabPanel value={tab} index={2}>
         <MiniMap filtered={filtered} />

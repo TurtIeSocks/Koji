@@ -79,28 +79,28 @@ pub fn area_ref(areas: Vec<AreaRef>) -> Vec<NameTypeId> {
             normalized.push(NameTypeId {
                 id: area.id,
                 name: area.name.clone(),
-                r#type: Type::CircleRaid,
+                r#type: Some(Type::CircleRaid),
             });
         }
         if area.has_geofence {
             normalized.push(NameTypeId {
                 id: area.id,
                 name: area.name.clone(),
-                r#type: Type::AutoQuest,
+                r#type: Some(Type::AutoQuest),
             });
         }
         if area.has_pokemon {
             normalized.push(NameTypeId {
                 id: area.id,
                 name: area.name.clone(),
-                r#type: Type::CirclePokemon,
+                r#type: Some(Type::CirclePokemon),
             });
         }
         if area.has_quest {
             normalized.push(NameTypeId {
                 id: area.id,
                 name: area.name,
-                r#type: Type::ManualQuest,
+                r#type: Some(Type::ManualQuest),
             });
         }
     }

@@ -90,7 +90,7 @@ export const useStatic = create<UseStatic>((set, get) => ({
   forceFetch: false,
   importWizard: {
     open: false,
-    nameProp: 'name',
+    nameProp: '',
     props: [],
     customName: '',
     modifier: 'none',
