@@ -13,6 +13,7 @@ import {
 } from '@mui/material'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { Feature, MultiPolygon, Polygon } from 'geojson'
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 
 import ExportPolygon from '@components/dialogs/Polygon'
 import { getData } from '@services/fetches'
@@ -154,8 +155,20 @@ export function PolygonPopup({
             Action Menus
           </Typography>
           <ButtonGroup>
-            <Button onClick={handleClick(true)}>Map</Button>
-            <Button onClick={handleClick(false)}>Database</Button>
+            <Button
+              size="small"
+              onClick={handleClick(true)}
+              endIcon={<KeyboardArrowDownIcon />}
+            >
+              Map
+            </Button>
+            <Button
+              size="small"
+              onClick={handleClick(false)}
+              endIcon={<KeyboardArrowDownIcon />}
+            >
+              Database
+            </Button>
           </ButtonGroup>
         </Grid2>
       </Grid2>
