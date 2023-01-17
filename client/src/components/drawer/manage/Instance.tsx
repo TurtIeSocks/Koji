@@ -191,7 +191,18 @@ export default function InstanceSelect({
                   checked={s}
                   disabled={loading}
                 />
-                {option.split('__')[0]}
+                {option.split('__')[0]}{' '}
+                {
+                  {
+                    Polygon: '(P)',
+                    MultiPolygon: '(MP)',
+                    Point: '',
+                    MultiPoint: '',
+                    GeometryCollection: '',
+                    LineString: '',
+                    MultiLineString: '',
+                  }[options[option]?.geoType || 'Point']
+                }
               </div>
               {loading && <CircularProgress size={20} sx={{ flexGrow: 0 }} />}
             </li>
