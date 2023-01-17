@@ -39,6 +39,7 @@ export interface UseStatic {
     checked: Record<string, boolean>
   }
   projects: Record<number | string, ClientProject>
+  clickedLocation: [number, number]
   setStatic: <
     T extends keyof Omit<
       UseStatic,
@@ -99,6 +100,7 @@ export const useStatic = create<UseStatic>((set, get) => ({
     checked: {},
   },
   projects: {},
+  clickedLocation: [0, 0],
   setStatic: (key, newValue) => {
     set((state) => ({
       [key]: typeof newValue === 'function' ? newValue(state[key]) : newValue,

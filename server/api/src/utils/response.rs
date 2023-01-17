@@ -25,8 +25,8 @@ pub fn send(
         data: if benchmark_mode { None } else { Some(json!(match return_type {
             ReturnTypeArg::SingleStruct => GeoFormats::SingleStruct(value.to_single_struct()),
             ReturnTypeArg::MultiStruct => GeoFormats::MultiStruct(value.to_multi_struct()),
-            ReturnTypeArg::Text => GeoFormats::Text(value.to_text(",", "\n")),
-            ReturnTypeArg::AltText => GeoFormats::Text(value.to_text(" ", ",")),
+            ReturnTypeArg::Text => GeoFormats::Text(value.to_text(",", "\n", true)),
+            ReturnTypeArg::AltText => GeoFormats::Text(value.to_text(" ", ",", false)),
             ReturnTypeArg::SingleArray => GeoFormats::SingleArray(value.to_single_vec()),
             ReturnTypeArg::MultiArray => GeoFormats::MultiArray(value.to_multi_vec()),
             ReturnTypeArg::Feature => {

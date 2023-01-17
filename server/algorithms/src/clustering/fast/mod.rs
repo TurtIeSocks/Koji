@@ -1,7 +1,7 @@
 use geo::{Coord, HaversineDistance, Point};
 use geohash::encode;
 use map_3d::{self, Ellipsoid};
-use model::api::{args::Stats, single_vec::SingleVec};
+use model::api::{args::Stats, single_vec::SingleVec, Precision};
 use std::{collections::HashSet, time::Instant};
 
 type Geocentric = (f64, f64, f64);
@@ -182,9 +182,9 @@ pub fn project_points(
         "Worst scaling: {:?} (larger/closer to 1 = better; larger area to cover is worse)",
         min
     );
-    println!("Average scaling: {:?}", sum / output.len() as f64);
+    println!("Average scaling: {:?}", sum / output.len() as Precision);
     println!("Disc scaling: {:?}", adjusted_radius / radius);
-    stats.cluster_time = time.elapsed().as_secs_f32();
+    stats.cluster_time = time.elapsed().as_secs_f32() as Precision;
     final_output.sort_by(|a, b| {
         encode(Coord { x: a[1], y: a[0] }, 9)
             .unwrap()

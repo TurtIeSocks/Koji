@@ -19,12 +19,12 @@ impl EnsurePoints for SingleVec {
 }
 
 impl GetBbox for SingleVec {
-    fn get_bbox(&self) -> Option<Vec<f64>> {
+    fn get_bbox(&self) -> Option<Vec<Precision>> {
         let mut bbox = vec![
-            f64::INFINITY,
-            f64::INFINITY,
-            f64::NEG_INFINITY,
-            f64::NEG_INFINITY,
+            Precision::INFINITY,
+            Precision::INFINITY,
+            Precision::NEG_INFINITY,
+            Precision::NEG_INFINITY,
         ];
 
         for point in self {
@@ -119,11 +119,11 @@ impl ToCollection for SingleVec {
 }
 
 impl ToText for SingleVec {
-    fn to_text(self, sep_1: &str, sep_2: &str) -> String {
+    fn to_text(self, sep_1: &str, sep_2: &str, poly_sep: bool) -> String {
         let last = self.len() - 1;
         self.into_iter()
             .enumerate()
-            .map(|(i, each)| each.to_text(sep_1, if i == last { "" } else { sep_2 }))
+            .map(|(i, each)| each.to_text(sep_1, if i == last { "" } else { sep_2 }, poly_sep))
             .collect()
     }
 }

@@ -116,10 +116,10 @@ impl Query {
         let mut update_len = 0;
 
         for feat in area.into_iter() {
-            if let Some(name) = feat.property("name") {
+            if let Some(name) = feat.property("__name") {
                 if let Some(name) = name.clone().as_str() {
                     let name = name.to_string();
-                    let column = if let Some(r#type) = feat.property("type").clone() {
+                    let column = if let Some(r#type) = feat.property("__type").clone() {
                         if let Some(r#type) = r#type.as_str() {
                             println!("Instance Type: {}", r#type);
                             match r#type.to_lowercase().as_str() {
@@ -138,7 +138,7 @@ impl Query {
                     } else {
                         area::Column::Geofence
                     };
-                    let area = feat.to_text(" ", ",");
+                    let area = feat.to_text(" ", ",", false);
 
                     let is_update = existing.iter().find(|entry| entry.name == name);
                     if let Some(entry) = is_update {

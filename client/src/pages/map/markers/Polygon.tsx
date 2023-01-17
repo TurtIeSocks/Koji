@@ -19,13 +19,16 @@ export function KojiPolygon({
 
   return (
     <Polygon
-      key={feature.id}
+      key={`${feature.id}_${feature.geometry.type}_${feature.geometry.coordinates.length}`}
       ref={(ref) => {
         if (ref && feature.id) {
           ref.feature = feature
           const { type } = feature.geometry
           ref.addOneTimeEventListener('click', () => setLoadData(true))
-
+          ref.addEventListener('click', ({ latlng }) => {
+            const { lat, lng } = latlng
+            useStatic.getState().setStatic('clickedLocation', [lng, lat])
+          })
           if (!ref.hasEventListeners('pm:remove')) {
             ref.on('pm:remove', function remove() {
               useShapes.getState().setters.remove(type, feature.id)
@@ -106,4 +109,10 @@ export function KojiPolygon({
   )
 }
 
-export const MemoPolygon = React.memo(KojiPolygon, () => true)
+export const MemoPolygon = React.memo(
+  KojiPolygon,
+  (prev, next) =>
+    prev.feature.geometry.type === next.feature.geometry.type &&
+    prev.feature.geometry.coordinates.length ===
+      next.feature.geometry.coordinates.length,
+)

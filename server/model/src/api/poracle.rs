@@ -237,11 +237,11 @@ impl ToCollection for Vec<Poracle> {
 }
 
 impl ToText for Poracle {
-    fn to_text(self, sep_1: &str, sep_2: &str) -> String {
+    fn to_text(self, sep_1: &str, sep_2: &str, poly_sep: bool) -> String {
         if let Some(multipath) = self.multipath {
-            multipath.to_text(sep_1, sep_2)
+            multipath.to_text(sep_1, sep_2, poly_sep)
         } else if let Some(path) = self.path {
-            path.to_text(sep_1, sep_2)
+            path.to_text(sep_1, sep_2, poly_sep)
         } else {
             "".to_string()
         }

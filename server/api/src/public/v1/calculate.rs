@@ -12,7 +12,7 @@ use model::{
     api::{
         args::{Args, ArgsUnwrapped, Response, Stats},
         point_array::PointArray,
-        FeatureHelpers, ToCollection, ToFeature,
+        FeatureHelpers, Precision, ToCollection, ToFeature,
     },
     db::{area, sea_orm_active_enums::Type, GenericData},
     KojiDb,
@@ -55,7 +55,7 @@ async fn bootstrap(
         .map(|sub_area| bootstrapping::as_geojson(sub_area, radius, &mut stats))
         .collect();
 
-    stats.cluster_time = time.elapsed().as_secs_f32();
+    stats.cluster_time = time.elapsed().as_secs_f32() as Precision;
 
     for feat in features.iter_mut() {
         if !feat.contains_property("name") && !instance.is_empty() {

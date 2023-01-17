@@ -7,6 +7,7 @@ import useDeepCompareEffect from 'use-deep-compare-effect'
 import SplitMultiPolygonsBtn from '@components/buttons/SplitMultiPolygons'
 import SaveToKoji from '@components/buttons/SaveToKoji'
 import SaveToScanner from '@components/buttons/SaveToScanner'
+import { safeParse } from '@services/utils'
 
 import DialogHeader from './Header'
 import { Code } from '../Code'
@@ -26,6 +27,9 @@ export default function Manager({ open, setOpen, geojson }: Props) {
     setCode(JSON.stringify(geojson, null, 2))
   }, [geojson])
 
+  const parsed = safeParse<FeatureCollection>(code)
+  const safe = parsed.error ? geojson : parsed.value
+
   return (
     <Dialog open={open === 'rawManager'} fullScreen onClose={() => setOpen('')}>
       <DialogHeader action={() => setOpen('')}>Manager</DialogHeader>
@@ -34,7 +38,7 @@ export default function Manager({ open, setOpen, geojson }: Props) {
       </DialogContent>
       <DialogActions>
         <SplitMultiPolygonsBtn
-          fc={JSON.parse(code)}
+          fc={safe}
           setter={(fc) => setCode(JSON.stringify(fc))}
         />
         <SaveToKoji fc={code} />

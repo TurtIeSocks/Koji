@@ -14,12 +14,6 @@ impl Default for FeatureCollection {
     }
 }
 
-impl ToSingleVec for FeatureCollection {
-    fn to_single_vec(self) -> single_vec::SingleVec {
-        self.to_multi_vec().into_iter().flatten().collect()
-    }
-}
-
 impl EnsurePoints for FeatureCollection {
     fn ensure_first_last(self) -> Self {
         self.into_iter()
@@ -69,28 +63,15 @@ impl EnsureProperties for FeatureCollection {
     }
 }
 
+impl ToSingleVec for FeatureCollection {
+    fn to_single_vec(self) -> single_vec::SingleVec {
+        self.to_multi_vec().into_iter().flatten().collect()
+    }
+}
+
 impl ToMultiVec for FeatureCollection {
     fn to_multi_vec(self) -> MultiVec {
-        let mut return_value: MultiVec = vec![];
-
-        for feature in self.into_iter() {
-            if let Some(geometry) = feature.geometry {
-                match geometry.value {
-                    Value::MultiPolygon(_) => geometry
-                        .to_feature_vec()
-                        .into_iter()
-                        .for_each(|f| return_value.push(f.to_single_vec())),
-                    Value::GeometryCollection(geometries) => geometries.into_iter().for_each(|g| {
-                        let value = g.to_single_vec();
-                        if !value.is_empty() {
-                            return_value.push(value)
-                        }
-                    }),
-                    _ => return_value.push(geometry.to_single_vec()),
-                }
-            }
-        }
-        return_value
+        self.into_iter().map(|feat| feat.to_single_vec()).collect()
     }
 }
 
@@ -107,8 +88,8 @@ impl ToMultiStruct for FeatureCollection {
 }
 
 impl ToText for FeatureCollection {
-    fn to_text(self, sep_1: &str, sep_2: &str) -> String {
-        self.to_multi_vec().to_text(sep_1, sep_2)
+    fn to_text(self, sep_1: &str, sep_2: &str, poly_sep: bool) -> String {
+        self.to_multi_vec().to_text(sep_1, sep_2, poly_sep)
     }
 }
 

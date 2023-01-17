@@ -20,7 +20,7 @@ pub mod single_struct;
 pub mod single_vec;
 pub mod text;
 
-type Precision = f64;
+pub type Precision = f64;
 
 pub trait EnsurePoints {
     fn ensure_first_last(self) -> Self;
@@ -98,17 +98,8 @@ pub trait ToPoracleVec {
 }
 
 pub trait ToText {
-    fn to_text(self, sep_1: &str, sep_2: &str) -> String;
+    fn to_text(self, sep_1: &str, sep_2: &str, poly_sep: bool) -> String;
 }
-
-// pub trait GeojsonValueConversions {
-//     fn point(self) -> Value;
-//     fn multi_point(self) -> Value;
-//     fn line(self) -> Value;
-//     fn multi_line(self) -> Value;
-//     fn polygon(self) -> Value;
-//     fn multi_polygon(self) -> Value;
-// }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
