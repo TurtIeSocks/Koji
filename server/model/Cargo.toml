@@ -13,6 +13,7 @@ chrono = { version = "0.4.19", features = ["serde"] }
 futures = "0.3.25"
 geo = "0.22.1"
 geojson = "0.24.0"
+geo_repair = { path = "../geo_repair" }
 num-traits = "0.2.15"
 sea-orm = { version = "0.9.3", features = [
   "sqlx-mysql",

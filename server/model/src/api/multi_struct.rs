@@ -77,9 +77,9 @@ impl ToCollection for MultiStruct {
 }
 
 impl ToText for MultiStruct {
-    fn to_text(self, sep_1: &str, sep_2: &str) -> String {
+    fn to_text(self, sep_1: &str, sep_2: &str, poly_sep: bool) -> String {
         self.into_iter()
-            .map(|each| each.to_text(sep_1, sep_2))
+            .map(|each| each.to_text(sep_1, sep_2, poly_sep))
             .collect()
     }
 }

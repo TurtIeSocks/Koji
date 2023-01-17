@@ -8,6 +8,7 @@ import { usePersist } from '@hooks/usePersist'
 import { useShapes } from '@hooks/useShapes'
 import { convert } from '@services/fetches'
 import MultiOptions from '@components/drawer/inputs/MultiOptions'
+import SplitMultiPolygonsBtn from '@components/buttons/SplitMultiPolygons'
 
 import DialogHeader from './Header'
 import { Code } from '../Code'
@@ -146,28 +147,32 @@ export default function ExportPolygon({
       </DialogContent>
       <DialogActions>
         {(mode === 'export' || mode === 'exportAll') && (
-          <MultiOptions
-            field="polygonExportMode"
-            buttons={[
-              'array',
-              'multiArray',
-              'feature',
-              'featureCollection',
-              'struct',
-              'multiStruct',
-              'text',
-              'altText',
-              'poracle',
-            ]}
-            type="select"
-          />
+          <>
+            <MultiOptions
+              field="polygonExportMode"
+              buttons={[
+                'array',
+                'multiArray',
+                'feature',
+                'featureCollection',
+                'struct',
+                'multiStruct',
+                'text',
+                'altText',
+                'poracle',
+              ]}
+              type="select"
+            />
+            <SplitMultiPolygonsBtn
+              fc={
+                feature.type === 'FeatureCollection'
+                  ? feature
+                  : { type: 'FeatureCollection', features: [feature] }
+              }
+              setter={(newFc) => setCode(JSON.stringify(newFc, null, 2))}
+            />
+          </>
         )}
-        {/* <Button
-          onClick={async () => {
-          }}
-        >
-          Combine
-        </Button> */}
         <Button onPointerDown={() => navigator.clipboard.writeText(code)}>
           Copy to Clipboard
         </Button>

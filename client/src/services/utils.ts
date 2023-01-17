@@ -3,6 +3,9 @@ import { capitalize } from '@mui/material'
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from 'geojson'
 import union from '@turf/union'
 import bbox from '@turf/bbox'
+import { useStatic } from '@hooks/useStatic'
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon'
+import { useShapes } from '@hooks/useShapes'
 
 export function getMapBounds(map: L.Map) {
   const mapBounds = map.getBounds()
@@ -120,9 +123,10 @@ export function splitMultiPolygons(
       coordinates.forEach((polygon, i) => {
         features.push({
           ...feature,
+          id: `${feature.id}_${i}`,
           properties: {
             ...feature.properties,
-            name:
+            __name:
               coordinates.length === 1
                 ? feature.properties?.__name || ''
                 : `${feature.properties?.__name}_${i}`,
@@ -141,5 +145,53 @@ export function splitMultiPolygons(
   return {
     ...featureCollection,
     features,
+  }
+}
+
+export function removeThisPolygon(feature: Feature<MultiPolygon>) {
+  const point = {
+    type: 'Point',
+    coordinates: useStatic.getState().clickedLocation,
+  } as const
+  const filtered = feature.geometry.coordinates.filter(
+    (polygon) =>
+      !booleanPointInPolygon(point, {
+        type: 'Polygon',
+        coordinates: polygon,
+      }),
+  )
+  if (feature.id) {
+    useShapes.getState().setters.update('MultiPolygon', feature.id, {
+      ...feature,
+      geometry: {
+        ...feature.geometry,
+        coordinates: filtered,
+      },
+    })
+  }
+}
+
+export function removeAllOthers(feature: Feature<MultiPolygon>) {
+  const point = {
+    type: 'Point',
+    coordinates: useStatic.getState().clickedLocation,
+  } as const
+  const found = feature.geometry.coordinates.find((polygon) =>
+    booleanPointInPolygon(point, {
+      type: 'Polygon',
+      coordinates: polygon,
+    }),
+  )
+  if (found) {
+    const { add, remove } = useShapes.getState().setters
+    remove('MultiPolygon', feature.id)
+    add({
+      ...feature,
+      geometry: {
+        ...feature.geometry,
+        type: 'Polygon',
+        coordinates: found,
+      },
+    })
   }
 }

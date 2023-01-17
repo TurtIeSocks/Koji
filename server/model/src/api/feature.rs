@@ -1,3 +1,6 @@
+use geo::{CoordsIter, MultiPolygon};
+use geo_repair::repair::Repair;
+
 use super::*;
 
 impl EnsurePoints for Feature {
@@ -109,10 +112,23 @@ impl ToMultiVec for Feature {
         let mut return_value = vec![];
         if let Some(geometry) = self.geometry {
             match geometry.value {
-                Value::MultiPolygon(_) => geometry
-                    .to_feature_vec()
-                    .into_iter()
-                    .for_each(|f| return_value.push(f.to_single_vec())),
+                Value::MultiPolygon(_) => {
+                    let mp = MultiPolygon::<Precision>::try_from(geometry.clone()).unwrap();
+                    let repaired = mp.repair();
+                    if let Some(repaired) = repaired {
+                        let local: single_vec::SingleVec = repaired
+                            .exterior_coords_iter()
+                            .map(|coord| [coord.y as Precision, coord.x as Precision])
+                            .collect();
+                        println!("Repaired a Polygon");
+                        return_value.push(local);
+                    } else {
+                        geometry
+                            .to_feature_vec()
+                            .into_iter()
+                            .for_each(|f| return_value.push(f.to_single_vec()))
+                    }
+                }
                 Value::GeometryCollection(geometries) => geometries.into_iter().for_each(|g| {
                     let value = g.to_single_vec();
                     if !value.is_empty() {
@@ -122,13 +138,14 @@ impl ToMultiVec for Feature {
                 _ => return_value.push(geometry.to_single_vec()),
             }
         }
+
         return_value
     }
 }
 
 impl ToText for Feature {
-    fn to_text(self, sep_1: &str, sep_2: &str) -> String {
-        self.to_multi_vec().to_text(sep_1, sep_2)
+    fn to_text(self, sep_1: &str, sep_2: &str, poly_sep: bool) -> String {
+        self.to_multi_vec().to_text(sep_1, sep_2, poly_sep)
     }
 }
 

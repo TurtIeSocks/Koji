@@ -79,7 +79,7 @@ impl ToCollection for PointStruct {
 }
 
 impl ToText for PointStruct {
-    fn to_text(self, sep_1: &str, sep_2: &str) -> String {
+    fn to_text(self, sep_1: &str, sep_2: &str, _poly_sep: bool) -> String {
         format!("{}{}{}{}", self.lat as f32, sep_1, self.lon as f32, sep_2)
     }
 }

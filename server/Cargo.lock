@@ -1438,6 +1438,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "geo_repair"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "geo",
+ "geo-types",
+ "linked-hash-map",
+]
+
+[[package]]
 name = "geographiclib-rs"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1865,6 +1875,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "linked-hash-map"
+version = "0.5.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0717cef1bc8b636c6e1c1bbdefc09e6322da8a9321966e8928ef80d20f7f770f"
+
+[[package]]
 name = "local-channel"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2000,6 +2016,7 @@ dependencies = [
  "chrono",
  "futures",
  "geo",
+ "geo_repair",
  "geojson",
  "num-traits",
  "sea-orm",

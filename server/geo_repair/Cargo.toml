@@ -1,0 +1,15 @@
+[package]
+name = "geo_repair"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "geo_repair"
+path = "src/lib.rs"
+
+[dependencies]
+geo-types = "0.7.8"
+geo = "0.22.1"
+byteorder = "1.3.4"
+linked-hash-map = "0.5.2"

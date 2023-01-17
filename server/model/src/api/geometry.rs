@@ -113,7 +113,7 @@ impl ToFeatureVec for Geometry {
                         .into_iter()
                         .flat_map(|x| {
                             x.into_iter()
-                                .map(|y| [y[0], y[1]])
+                                .map(|y| [y[0] as Precision, y[1] as Precision])
                                 .collect::<single_vec::SingleVec>()
                         })
                         .collect::<single_vec::SingleVec>()

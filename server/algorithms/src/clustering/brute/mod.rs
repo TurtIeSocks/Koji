@@ -3,7 +3,7 @@ use super::utils::debug_hashmap;
 use geo::{Coord, HaversineDestination, HaversineDistance, Point};
 use geohash::encode;
 use model::{
-    api::{args::Stats, single_vec::SingleVec, BBox},
+    api::{args::Stats, single_vec::SingleVec, BBox, Precision},
     db::GenericData,
 };
 
@@ -210,7 +210,7 @@ pub fn cluster(
         }
     }
     stats.points_covered = point_seen_map.len();
-    stats.cluster_time = time.elapsed().as_secs_f32();
+    stats.cluster_time = time.elapsed().as_secs_f32() as Precision;
 
     sorted
         .into_iter()

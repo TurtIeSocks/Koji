@@ -11,10 +11,10 @@ pub struct Auth {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BoundsArg {
-    pub min_lat: f64,
-    pub min_lon: f64,
-    pub max_lat: f64,
-    pub max_lon: f64,
+    pub min_lat: Precision,
+    pub min_lon: Precision,
+    pub max_lat: Precision,
+    pub max_lon: Precision,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -51,7 +51,7 @@ pub struct Args {
     pub generations: Option<usize>,
     pub instance: Option<String>,
     pub min_points: Option<usize>,
-    pub radius: Option<f64>,
+    pub radius: Option<Precision>,
     pub return_type: Option<String>,
     pub routing_time: Option<i64>,
     pub only_unique: Option<bool>,
@@ -70,7 +70,7 @@ pub struct ArgsUnwrapped {
     pub generations: usize,
     pub instance: String,
     pub min_points: usize,
-    pub radius: f64,
+    pub radius: Precision,
     pub return_type: ReturnTypeArg,
     pub routing_time: i64,
     pub only_unique: bool,
@@ -209,8 +209,8 @@ pub fn get_return_type(return_type: String, default_return_type: &ReturnTypeArg)
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConfigResponse {
-    pub start_lat: f64,
-    pub start_lon: f64,
+    pub start_lat: Precision,
+    pub start_lon: Precision,
     pub tile_server: String,
     pub scanner_type: String,
     pub logged_in: bool,
@@ -221,12 +221,12 @@ pub struct ConfigResponse {
 pub struct Stats {
     pub best_clusters: single_vec::SingleVec,
     pub best_cluster_point_count: usize,
-    pub cluster_time: f32,
+    pub cluster_time: Precision,
     pub total_points: usize,
     pub points_covered: usize,
     pub total_clusters: usize,
-    pub total_distance: f64,
-    pub longest_distance: f64,
+    pub total_distance: Precision,
+    pub longest_distance: Precision,
 }
 
 impl Stats {

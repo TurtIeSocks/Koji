@@ -115,9 +115,9 @@ impl Query {
         let mut update_len = 0;
 
         for feat in area.into_iter() {
-            if let Some(name) = feat.property("name") {
+            if let Some(name) = feat.property("__name") {
                 if let Some(name) = name.as_str() {
-                    let r#type = if let Some(instance_type) = feat.property("type") {
+                    let r#type = if let Some(instance_type) = feat.property("__type") {
                         if let Some(instance_type) = instance_type.as_str() {
                             utils::get_enum(Some(instance_type.to_string()))
                         } else {
