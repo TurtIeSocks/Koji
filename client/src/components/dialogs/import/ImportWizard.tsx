@@ -67,7 +67,7 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
             : prev.features),
           ...newGeojson.features.map((feat) => ({
             ...feat,
-            id: crypto.randomUUID(),
+            id: Math.random().toString(36).substring(2, 10),
           })),
         ],
       }
