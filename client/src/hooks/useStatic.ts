@@ -40,6 +40,7 @@ export interface UseStatic {
   }
   projects: Record<number | string, ClientProject>
   clickedLocation: [number, number]
+  combinePolyMode: boolean
   setStatic: <
     T extends keyof Omit<
       UseStatic,
@@ -101,6 +102,7 @@ export const useStatic = create<UseStatic>((set, get) => ({
   },
   projects: {},
   clickedLocation: [0, 0],
+  combinePolyMode: false,
   setStatic: (key, newValue) => {
     set((state) => ({
       [key]: typeof newValue === 'function' ? newValue(state[key]) : newValue,

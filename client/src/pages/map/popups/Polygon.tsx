@@ -244,7 +244,7 @@ export function PolygonPopup({
       </Menu>
       <Menu anchorEl={dbAnchorEl} open={!!dbAnchorEl} onClose={handleClose}>
         <MenuItem
-          disabled={feature.properties?.__name === undefined}
+          disabled={name === undefined}
           onClick={() => {
             fetch(
               feature.properties?.__koji_id

@@ -9,6 +9,7 @@ import ErrorBoundary from '@components/ErrorBoundary'
 import DrawerIndex from '@components/drawer'
 import Main from '@components/styled/Main'
 import Loading from '@components/Loading'
+import CombinedPolyNotif from '@components/notifications/CombinePolygons'
 
 import Markers from './markers'
 import Interface from './interface'
@@ -26,6 +27,7 @@ export default function MapWrapper() {
   const menuItem = usePersist((s) => s.menuItem)
 
   const drawerWidth = menuItem === 'Geojson' ? 500 : 300
+
   return (
     <Box sx={{ display: 'flex' }}>
       <Loading />
@@ -57,6 +59,7 @@ export default function MapWrapper() {
           <MultiLineStrings />
           <Polygons />
         </Map>
+        <CombinedPolyNotif />
       </Main>
     </Box>
   )

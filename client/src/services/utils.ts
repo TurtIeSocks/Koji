@@ -126,6 +126,7 @@ export function splitMultiPolygons(
           id: `${feature.id}_${i}`,
           properties: {
             ...feature.properties,
+            __koji_id: undefined,
             __name:
               coordinates.length === 1
                 ? feature.properties?.__name || ''
@@ -194,4 +195,8 @@ export function removeAllOthers(feature: Feature<MultiPolygon>) {
       },
     })
   }
+}
+
+export function getKey() {
+  return Math.random().toString(36).substring(2, 10)
 }

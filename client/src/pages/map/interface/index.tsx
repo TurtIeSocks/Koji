@@ -19,7 +19,7 @@ export default function Interface() {
       const isEditing = Object.values(useStatic.getState().layerEditing).some(
         (v) => v,
       )
-      if (isEditing) {
+      if (isEditing || useStatic.getState().combinePolyMode) {
         e.popup.close()
       }
     },

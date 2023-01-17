@@ -7,7 +7,7 @@ import { Code } from '@components/Code'
 
 import { Box, Button, Tab, Tabs, Typography } from '@mui/material'
 import type { FeatureCollection } from 'geojson'
-import { safeParse } from '@services/utils'
+import { getKey, safeParse } from '@services/utils'
 import CombineByName from '@components/buttons/CombineByName'
 import SplitMultiPolygonsBtn from '@components/buttons/SplitMultiPolygons'
 
@@ -67,7 +67,7 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
             : prev.features),
           ...newGeojson.features.map((feat) => ({
             ...feat,
-            id: Math.random().toString(36).substring(2, 10),
+            id: getKey(),
           })),
         ],
       }

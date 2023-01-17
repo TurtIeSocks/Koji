@@ -1,30 +1,21 @@
 /* eslint-disable react/destructuring-assignment */
 import React, { Component } from 'react'
-import {
-  Alert,
-  AlertTitle,
-  Button,
-  Collapse,
-  IconButton,
-  Stack,
-  Typography,
-} from '@mui/material'
+import { Button, Typography } from '@mui/material'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
-import CloseIcon from '@mui/icons-material/Close'
 import Refresh from '@mui/icons-material/Refresh'
+import Notification from './notifications/Base'
 
-type Props = {
-  children: React.ReactNode
-}
-
-type State = {
-  hasError: boolean
-  message: string
-  errorCount: number
-}
-
-export default class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
+export default class ErrorBoundary extends Component<
+  {
+    children: React.ReactNode
+  },
+  {
+    hasError: boolean
+    message: string
+    errorCount: number
+  }
+> {
+  constructor(props: { children: React.ReactNode }) {
     super(props)
     this.state = { hasError: false, message: '', errorCount: 0 }
   }
@@ -66,41 +57,15 @@ export default class ErrorBoundary extends Component<Props, State> {
       </Grid2>
     ) : (
       <>
-        <Collapse
-          in={this.state.hasError}
-          sx={{
-            position: 'absolute',
-            bottom: 0,
-            width: '66%',
-            mx: 'auto',
-            left: 0,
-            right: 0,
-            transition: '0.50s ease-in-out',
+        <Notification
+          CollapseProps={{ in: this.state.hasError }}
+          title="Kōji encountered an error!"
+          IconButtonProps={{
+            onClick: () => this.setState({ hasError: false }),
           }}
         >
-          <Stack sx={{ width: '100%' }} spacing={2}>
-            <Alert
-              variant="filled"
-              severity="error"
-              action={
-                <IconButton
-                  aria-label="close"
-                  color="inherit"
-                  size="small"
-                  onClick={() => this.setState({ hasError: false })}
-                >
-                  <CloseIcon fontSize="inherit" />
-                </IconButton>
-              }
-              sx={{ mb: 2, zIndex: 10000 }}
-            >
-              <AlertTitle>
-                <strong>Kōji encountered an error!</strong>
-              </AlertTitle>
-              <Typography>{this.state.message}</Typography>
-            </Alert>
-          </Stack>
-        </Collapse>
+          <Typography>{this.state.message}</Typography>
+        </Notification>
         {this.props.children || null}
       </>
     )

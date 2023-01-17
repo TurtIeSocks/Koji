@@ -11,6 +11,8 @@ import type {
   GeoJsonTypes,
   GeometryCollection,
 } from 'geojson'
+import { getKey } from '@services/utils'
+import union from '@turf/union'
 
 export interface UseShapes {
   test: boolean
@@ -26,6 +28,7 @@ export interface UseShapes {
   Polygon: Record<number | string, Feature<Polygon>>
   MultiPolygon: Record<number | string, Feature<MultiPolygon>>
   GeometryCollection: Record<number | string, Feature<GeometryCollection>>
+  combined: Record<string, boolean>
   getters: {
     getFirst: () => Feature<Point> | null
     getLast: () => Feature<Point> | null
@@ -33,6 +36,7 @@ export interface UseShapes {
     getNewPointId: (id: number | string) => number | string
   }
   setters: {
+    combine: () => void
     setFromCollection: (
       collection: FeatureCollection,
       source?: '__SCANNER' | '',
@@ -87,6 +91,7 @@ export const useShapes = create<UseShapes>((set, get) => ({
   Polygon: {},
   MultiPolygon: {},
   GeometryCollection: {},
+  combined: {},
   getters: {
     getNewPointId: (id) => {
       let newId = id
@@ -239,6 +244,47 @@ export const useShapes = create<UseShapes>((set, get) => ({
           MultiPoint: newMultiPoint,
         })
       }
+    },
+    combine: () => {
+      const {
+        combined,
+        Polygon,
+        MultiPolygon,
+        setters: { remove, add },
+      } = get()
+      let newMultiPolygon: Feature<MultiPolygon> = {
+        geometry: { type: 'MultiPolygon', coordinates: [] },
+        type: 'Feature',
+        properties: {},
+        id: getKey(),
+      }
+      Object.entries(combined).forEach(([key, value]) => {
+        if (value) {
+          const isPolygon = Polygon[key]
+          const polygon = isPolygon ? Polygon[key] : MultiPolygon[key]
+          if (polygon) {
+            remove(isPolygon ? 'Polygon' : 'MultiPolygon', key)
+
+            const possiblyNew = union(newMultiPolygon, polygon)
+            if (possiblyNew && possiblyNew.geometry?.type === 'MultiPolygon') {
+              newMultiPolygon = {
+                ...newMultiPolygon,
+                properties: {
+                  ...newMultiPolygon.properties,
+                  ...possiblyNew.properties,
+                  __koji_id: undefined,
+                  __name: undefined,
+                  __type: undefined,
+                },
+                geometry: possiblyNew.geometry,
+              }
+            }
+          }
+        }
+      })
+      add(newMultiPolygon)
+
+      set({ combined: {} })
     },
     splitLine: (id) => {
       if (typeof id === 'string') {

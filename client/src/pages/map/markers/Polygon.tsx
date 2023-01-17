@@ -31,15 +31,37 @@ export function KojiPolygon({
           })
           if (!ref.hasEventListeners('mouseover')) {
             ref.on('mouseover', function mouseOver() {
-              ref.setStyle({ color: 'red' })
+              if (!useStatic.getState().combinePolyMode) {
+                ref.setStyle({ color: 'red' })
+              }
             })
           }
           if (!ref.hasEventListeners('mouseout')) {
             ref.on('mouseout', function mouseOut() {
-              ref.setStyle({ color: '#3388ff' })
+              if (!useStatic.getState().combinePolyMode) {
+                ref.setStyle({ color: '#3388ff' })
+              }
             })
           }
-
+          if (!ref.hasEventListeners('mousedown')) {
+            ref.on('mousedown', function mouseDown() {
+              if (useStatic.getState().combinePolyMode) {
+                useShapes.setState((prev) => {
+                  if (prev.combined[feature.id || '']) {
+                    ref.setStyle({ color: '#3388ff' })
+                  } else {
+                    ref.setStyle({ color: 'orange' })
+                  }
+                  return {
+                    combined: {
+                      ...prev.combined,
+                      [feature.id || '']: !prev.combined[feature.id || ''],
+                    },
+                  }
+                })
+              }
+            })
+          }
           if (!ref.hasEventListeners('pm:remove')) {
             ref.on('pm:remove', function remove() {
               useShapes.getState().setters.remove(type, feature.id)
