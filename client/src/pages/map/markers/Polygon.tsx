@@ -29,6 +29,17 @@ export function KojiPolygon({
             const { lat, lng } = latlng
             useStatic.getState().setStatic('clickedLocation', [lng, lat])
           })
+          if (!ref.hasEventListeners('mouseover')) {
+            ref.on('mouseover', function mouseOver() {
+              ref.setStyle({ color: 'red' })
+            })
+          }
+          if (!ref.hasEventListeners('mouseout')) {
+            ref.on('mouseout', function mouseOut() {
+              ref.setStyle({ color: '#3388ff' })
+            })
+          }
+
           if (!ref.hasEventListeners('pm:remove')) {
             ref.on('pm:remove', function remove() {
               useShapes.getState().setters.remove(type, feature.id)
