@@ -35,6 +35,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .index(Index::create().name("route_name").col(Route::Name))
                     .to_owned(),
             )
             .await

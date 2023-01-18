@@ -6,7 +6,7 @@ use crate::utils::get_mode_acronym;
 
 use super::*;
 
-use geojson::{GeoJson, Geometry};
+use geojson::{self, GeoJson, Geometry};
 use sea_orm::{entity::prelude::*, FromQueryResult, Order, QueryOrder, QuerySelect};
 use serde::{Deserialize, Serialize};
 
@@ -53,6 +53,15 @@ pub struct RouteNoGeometry {
     pub updated_at: DateTimeUtc,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Paginated {
+    pub id: u32,
+    pub geofence_id: u32,
+    pub name: String,
+    pub mode: String,
+    pub hops: usize,
+}
+
 pub struct Query;
 
 impl Query {
@@ -64,18 +73,38 @@ impl Query {
         sort_by: Column,
         order_by: Order,
         q: String,
-    ) -> Result<PaginateResults<Vec<Model>>, DbErr> {
+    ) -> Result<PaginateResults<Vec<Paginated>>, DbErr> {
         let paginator = Entity::find()
             .order_by(sort_by, order_by)
             .filter(Column::Name.like(format!("%{}%", q).as_str()))
             .paginate(db, posts_per_page);
         let total = paginator.num_items_and_pages().await?;
 
-        let results = if let Ok(paginated_results) = paginator.fetch_page(page).await.map(|p| p) {
-            paginated_results
-        } else {
-            vec![]
-        };
+        let results: Vec<Paginated> = match paginator.fetch_page(page).await {
+            Ok(results) => results,
+            Err(err) => {
+                println!("Error paginating, {:?}", err);
+                vec![]
+            }
+        }
+        .into_iter()
+        .map(|model| Paginated {
+            id: model.id,
+            geofence_id: model.geofence_id,
+            name: model.name,
+            hops: match Geometry::from_json_value(model.geometry) {
+                Ok(geometry) => match geometry.value {
+                    geojson::Value::MultiPoint(mp) => mp.len(),
+                    _ => 0,
+                },
+                Err(err) => {
+                    println!("[Route] Error unwrapping geometry, {:?}", err);
+                    0
+                }
+            },
+            mode: model.mode,
+        })
+        .collect();
 
         Ok(PaginateResults {
             results,
@@ -199,7 +228,6 @@ impl Query {
             .map(|model| (format!("{}_{}", model.name, model.mode), model))
             .collect();
 
-        println!("{:?}", existing);
         let mut inserts = 0;
         let mut update_len = 0;
 

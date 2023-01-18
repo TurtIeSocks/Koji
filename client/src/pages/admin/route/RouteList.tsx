@@ -50,7 +50,7 @@ export default function GeofenceList() {
         <TextField source="name" />
         <TextField source="mode" />
         <ReferenceField source="geofence_id" reference="geofence" />
-        <NumberField source="geometry.coordinates.length" label="Hops" />
+        <NumberField source="hops" label="Hops" />
         <EditButton />
         <DeleteWithUndoButton />
       </Datagrid>

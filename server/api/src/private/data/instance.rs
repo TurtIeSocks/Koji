@@ -1,6 +1,9 @@
 use super::*;
 
-use model::{db::NameTypeId, utils::get_enum};
+use model::{
+    db::{route, NameTypeId},
+    utils::get_enum,
+};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -47,10 +50,10 @@ async fn from_koji(
 
     println!("\n[INSTANCE-ALL] Scanner Type: {}", scanner_type);
 
-    let instances = geofence::Query::get_all_no_fences(&conn.koji_db)
+    let fences = geofence::Query::get_all_no_fences(&conn.koji_db)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
-    let instances: Vec<NameTypeId> = instances
+    let mut fences: Vec<NameTypeId> = fences
         .into_iter()
         .map(|instance| NameTypeId {
             id: instance.id,
@@ -58,9 +61,21 @@ async fn from_koji(
             r#type: get_enum(instance.mode),
         })
         .collect();
-    println!("[INSTANCE_ALL] Returning {} instances\n", instances.len());
+
+    let routes = route::Query::get_all_no_fences(&conn.koji_db)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+    routes.into_iter().for_each(|instance| {
+        fences.push(NameTypeId {
+            id: instance.id,
+            name: instance.name,
+            r#type: get_enum(Some(instance.mode)),
+        })
+    });
+
+    println!("[INSTANCE_ALL] Returning {} instances\n", fences.len());
     Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(instances)),
+        data: Some(json!(fences)),
         message: "ok".to_string(),
         status_code: 200,
         status: "Success".to_string(),
@@ -88,7 +103,7 @@ async fn route_from_scanner(
         instance_type,
     } = instance.into_inner();
 
-    let instances = if source == "scanner" {
+    let instances = if source.eq("scanner") {
         if scanner_type.eq("rdm") {
             instance::Query::route(&conn.data_db, &name).await
         } else if let Some(unown_db) = conn.unown_db.as_ref() {
@@ -102,7 +117,14 @@ async fn route_from_scanner(
             Ok(Feature::default())
         }
     } else {
-        geofence::Query::route(&conn.koji_db, &name).await
+        if instance_type.eq("CirclePokemon")
+            || instance_type.eq("ManualQuest")
+            || instance_type.eq("CircleRaid")
+        {
+            route::Query::route(&conn.koji_db, &name).await
+        } else {
+            geofence::Query::route(&conn.koji_db, &name).await
+        }
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
