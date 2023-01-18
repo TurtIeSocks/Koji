@@ -236,6 +236,7 @@ impl Query {
         conn: &DatabaseConnection,
         area: FeatureCollection,
         auto_mode: bool,
+        bootstrap: bool,
     ) -> Result<(usize, usize), DbErr> {
         let existing: HashMap<String, RouteNoGeometry> = Query::get_all_no_fences(conn)
             .await?
@@ -277,7 +278,15 @@ impl Query {
                                         let name = name.to_string();
                                         let mode = mode.to_string();
                                         let name = if auto_mode {
-                                            format!("{}_{}", name, get_mode_acronym(Some(&mode)))
+                                            format!(
+                                                "{}_{}",
+                                                name,
+                                                if bootstrap {
+                                                    "BS".to_string()
+                                                } else {
+                                                    get_mode_acronym(Some(&mode))
+                                                }
+                                            )
                                         } else {
                                             name
                                         };

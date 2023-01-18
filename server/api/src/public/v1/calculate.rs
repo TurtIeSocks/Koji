@@ -67,6 +67,7 @@ async fn bootstrap(
                 &conn.koji_db,
                 feat.clone().to_collection(Some(instance.clone()), None),
                 true,
+                true,
             )
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -210,7 +211,7 @@ async fn cluster(
     let feature = feature.to_collection(Some(instance.clone()), None);
 
     if !instance.is_empty() && save_to_db {
-        route::Query::upsert_from_collection(&conn.koji_db, feature.clone(), true)
+        route::Query::upsert_from_collection(&conn.koji_db, feature.clone(), true, false)
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }
