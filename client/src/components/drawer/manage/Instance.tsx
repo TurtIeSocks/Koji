@@ -44,6 +44,7 @@ export default function InstanceSelect({
   endpoint,
   setGeojson,
   koji = false,
+  controlled = false,
   filters = [],
   initialState = [],
 }: {
@@ -51,6 +52,7 @@ export default function InstanceSelect({
   setGeojson?: (collection: FeatureCollection) => void
   koji?: boolean
   filters?: readonly string[]
+  controlled?: boolean
   initialState?: string[]
 }) {
   const add = useShapes((s) => s.setters.add)
@@ -88,12 +90,12 @@ export default function InstanceSelect({
               ),
             )
           }
-          setSelected(initialState)
+          if (controlled) setSelected(initialState)
           setLoading(false)
         })
         // eslint-disable-next-line no-console
         .catch((e) => console.error(e))
-    }
+    } else if (controlled) setSelected(initialState)
   }, [initialState])
 
   const updateState = async (newValue: string[]) => {
@@ -149,7 +151,8 @@ export default function InstanceSelect({
         }
       })
     }
-    setSelected(newValue)
+    if (controlled) setSelected(newValue)
+
     setOptions((prev) => ({
       ...prev,
       ...Object.fromEntries(
@@ -191,13 +194,15 @@ export default function InstanceSelect({
           return (
             <li {...props} style={{ display: 'flex' }}>
               <div style={{ flexGrow: 1 }}>
-                <Checkbox
-                  icon={icon}
-                  checkedIcon={checkedIcon}
-                  style={{ marginRight: 8 }}
-                  checked={s}
-                  disabled={loading}
-                />
+                {controlled && (
+                  <Checkbox
+                    icon={icon}
+                    checkedIcon={checkedIcon}
+                    style={{ marginRight: 8 }}
+                    checked={s}
+                    disabled={loading}
+                  />
+                )}
                 {option.split('__')[0]}{' '}
                 {
                   {
@@ -244,13 +249,15 @@ export default function InstanceSelect({
                   )
                 }
               >
-                <ListItemIcon>
-                  {allSelected
-                    ? checkedIcon
-                    : partialSelected
-                    ? partialIcon
-                    : icon}
-                </ListItemIcon>
+                {controlled && (
+                  <ListItemIcon>
+                    {allSelected
+                      ? checkedIcon
+                      : partialSelected
+                      ? partialIcon
+                      : icon}
+                  </ListItemIcon>
+                )}
                 <ListItemText
                   primary={capitalize(
                     group

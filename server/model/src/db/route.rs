@@ -216,6 +216,8 @@ impl Query {
                     };
                     let mode = get_enum(Some(item.mode));
                     if let Some(mode) = mode {
+                        new_feature.set_property("__koji_id", item.id);
+                        new_feature.set_property("__geofence_id", item.geofence_id);
                         new_feature.add_instance_properties(Some(item.name), Some(&mode));
                     }
                     new_feature

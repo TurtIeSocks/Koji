@@ -19,71 +19,6 @@ export function Drawing() {
 
   const ref = React.useRef<L.FeatureGroup>(null)
 
-  React.useEffect(() => {
-    map.pm.Toolbar.changeActionsOfControl('removalMode', [
-      {
-        text: 'Lines',
-        onClick() {
-          useShapes.getState().setters.remove('LineString')
-          useShapes.getState().setters.remove('MultiLineString')
-        },
-      },
-      {
-        text: 'Circles',
-        onClick() {
-          useShapes.getState().setters.remove('Point')
-          useShapes.getState().setters.remove('MultiPoint')
-        },
-      },
-      {
-        text: 'Polygons',
-        onClick() {
-          useShapes.getState().setters.remove('Polygon')
-          useShapes.getState().setters.remove('MultiPolygon')
-        },
-      },
-      {
-        text: 'Finish',
-        onClick() {
-          map.pm.disableGlobalRemovalMode()
-        },
-      },
-    ])
-    map.pm.Toolbar.changeActionsOfControl('drawCircle', [
-      {
-        text: 'Finish',
-        onClick() {
-          map.pm.disableGlobalRemovalMode()
-          useShapes
-            .getState()
-            .setters.activeRoute(
-              `new_route_${useShapes.getState().newRouteCount + 1}`,
-            )
-          useShapes.getState().setShapes('newRouteCount', (prev) => prev + 1)
-        },
-      },
-      {
-        text: 'New Route',
-        onClick() {
-          useShapes
-            .getState()
-            .setters.activeRoute(
-              `new_route_${useShapes.getState().newRouteCount + 1}`,
-            )
-          useShapes.getState().setShapes('newRouteCount', (prev) => prev + 1)
-        },
-      },
-      {
-        text: 'Cancel',
-        onClick() {
-          map.pm.disableGlobalRemovalMode()
-          useShapes.getState().setters.remove('Point')
-          useShapes.getState().setters.remove('LineString')
-        },
-      },
-    ])
-  }, [])
-
   return (
     <FeatureGroup ref={ref}>
       <GeomanControls
@@ -107,6 +42,74 @@ export function Drawing() {
             circlePane: 'circles',
             polylinePane: 'lines',
           },
+        }}
+        onMount={() => {
+          map.pm.Toolbar.changeActionsOfControl('removalMode', [
+            {
+              text: 'Lines',
+              onClick() {
+                useShapes.getState().setters.remove('LineString')
+                useShapes.getState().setters.remove('MultiLineString')
+              },
+            },
+            {
+              text: 'Circles',
+              onClick() {
+                useShapes.getState().setters.remove('Point')
+                useShapes.getState().setters.remove('MultiPoint')
+              },
+            },
+            {
+              text: 'Polygons',
+              onClick() {
+                useShapes.getState().setters.remove('Polygon')
+                useShapes.getState().setters.remove('MultiPolygon')
+              },
+            },
+            {
+              text: 'Finish',
+              onClick() {
+                map.pm.disableGlobalRemovalMode()
+              },
+            },
+          ])
+          map.pm.Toolbar.changeActionsOfControl('drawCircle', [
+            {
+              text: 'Finish',
+              onClick() {
+                map.pm.disableGlobalRemovalMode()
+                useShapes
+                  .getState()
+                  .setters.activeRoute(
+                    `new_route_${useShapes.getState().newRouteCount + 1}`,
+                  )
+                useShapes
+                  .getState()
+                  .setShapes('newRouteCount', (prev) => prev + 1)
+              },
+            },
+            {
+              text: 'New Route',
+              onClick() {
+                useShapes
+                  .getState()
+                  .setters.activeRoute(
+                    `new_route_${useShapes.getState().newRouteCount + 1}`,
+                  )
+                useShapes
+                  .getState()
+                  .setShapes('newRouteCount', (prev) => prev + 1)
+              },
+            },
+            {
+              text: 'Cancel',
+              onClick() {
+                map.pm.disableGlobalRemovalMode()
+                useShapes.getState().setters.remove('Point')
+                useShapes.getState().setters.remove('LineString')
+              },
+            },
+          ])
         }}
         onCreate={({ layer, shape }) => {
           if (ref.current && ref.current.hasLayer(layer)) {

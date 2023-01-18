@@ -276,10 +276,8 @@ export function PolygonPopup({
                     __koji_id: res.data.id,
                   },
                 }
-                useShapes
-                  .getState()
-                  .setters.remove(feature.geometry.type, feature.id)
-                useShapes.getState().setters.add(newFeature, '__KOJI')
+                remove(feature.geometry.type, feature.id)
+                add(newFeature, '__KOJI')
                 handleClose()
               })
           }}

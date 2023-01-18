@@ -80,6 +80,7 @@ const ImportStep = React.forwardRef<
               '__scanner',
             )
           }
+          controlled
           filters={scannerType === 'rdm' ? RDM_FENCES : UNOWN_FENCES}
           initialState={geojson.features
             .filter((feat) => feat.properties?.__scanner)
