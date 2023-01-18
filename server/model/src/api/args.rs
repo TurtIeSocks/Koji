@@ -157,7 +157,7 @@ impl Args {
                 "[{}]: Instance: {} | Custom Area: {} | Custom Data Points: {}\nRadius: | {} Min Points: {} | Generations: {} | Routing Time: {} | Devices: {} | Fast: {}\nOnly Unique: {}, Last Seen: {}\nReturn Type: {:?}",
                 mode.to_uppercase(), instance, !area.features.is_empty(), !data_points.is_empty(), radius, min_points, generations, routing_time, devices, fast, only_unique, last_seen, return_type,
             );
-        }
+        };
         ArgsUnwrapped {
             area,
             benchmark_mode,

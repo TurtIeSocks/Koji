@@ -121,7 +121,7 @@ export default function InstanceSelect({
     const cleaned = features
       .filter(
         (result): result is PromiseFulfilledResult<Feature> =>
-          result.status === 'fulfilled',
+          result.status === 'fulfilled' && !!result.value,
       )
       .map((result) => result.value)
 

@@ -2,7 +2,10 @@
 
 use std::collections::HashMap;
 
-use crate::utils::get_mode_acronym;
+use crate::{
+    api::FeatureHelpers,
+    utils::{get_enum, get_mode_acronym},
+};
 
 use super::*;
 
@@ -205,10 +208,20 @@ impl Query {
             .one(conn)
             .await?;
         if let Some(item) = item {
-            match Feature::from_json_value(item.geometry) {
-                Ok(feat) => Ok(feat),
+            match Geometry::from_json_value(item.geometry) {
+                Ok(geometry) => Ok({
+                    let mut new_feature = Feature {
+                        geometry: Some(geometry),
+                        ..Default::default()
+                    };
+                    let mode = get_enum(Some(item.mode));
+                    if let Some(mode) = mode {
+                        new_feature.add_instance_properties(Some(item.name), Some(&mode));
+                    }
+                    new_feature
+                }),
                 Err(err) => {
-                    println!("Unable to convert to a feature");
+                    println!("Unable to parse geometry for, {}", item.name);
                     Err(DbErr::Custom(format!("{:?}", err)))
                 }
             }

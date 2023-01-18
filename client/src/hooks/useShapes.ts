@@ -147,6 +147,7 @@ export const useShapes = create<UseShapes>((set, get) => ({
   },
   setters: {
     add: (feature, source = '') => {
+      if (!feature) return
       if (Array.isArray(feature)) {
         feature.forEach((f) => get().setters.add(f, source))
       } else {
