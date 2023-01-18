@@ -49,8 +49,8 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
     route_chunk_size,
   } = usePersist.getState()
   const { geojson, setStatic } = useStatic.getState()
-  const { add } = useShapes.getState().setters
-
+  const { add, activeRoute } = useShapes.getState().setters
+  activeRoute('layer_1')
   setStatic(
     'loading',
     Object.fromEntries(
