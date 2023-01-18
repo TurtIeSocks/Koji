@@ -24,11 +24,12 @@ interface Props extends PopupProps {
   lat: number
   lon: number
   properties: Feature['properties']
+  type: 'Point' | 'MultiPoint'
 }
 
-export function PointPopup({ id, lat, lon, properties }: Props) {
+export function PointPopup({ id, lat, lon, properties, type: geoType }: Props) {
   const [open, setOpen] = React.useState('')
-  const feature = useShapes((s) => s.Point[id as number | string])
+  const feature = useShapes((s) => s[geoType][id as number | string])
   const { add, remove, splitLine } = useShapes.getState().setters
 
   const [name, setName] = React.useState(feature.properties?.__name || '')
