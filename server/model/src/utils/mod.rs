@@ -50,7 +50,10 @@ pub fn get_enum(instance_type: Option<String>) -> Option<Type> {
           "CircleSmartRaid" | "circle_smart_raid" => Some(Type::CircleSmartRaid),
           "PokemonIv" | "pokemon_iv" => Some(Type::PokemonIv),
           "Leveling" | "leveling" => Some(Type::Leveling),
-          _ => None,
+          "ManualQuest" | "manual_quest" => Some(Type::ManualQuest),
+          "AutoTth" | "auto_tth" => Some(Type::AutoTth),
+          "AutoPokemon" | "auto_pokemon" => Some(Type::AutoPokemon),
+          _ => None
       },
       None => None,
   }
@@ -68,3 +71,23 @@ pub fn get_enum_by_geometry(enum_val: &Value) -> Option<Type> {
       }
   }
 }
+
+pub fn get_mode_acronym(instance_type: Option<&String>) -> String {
+    match instance_type {
+        Some(instance_type) => match instance_type.as_str() {
+            "AutoQuest" | "auto_quest" => "AQ",
+            "CirclePokemon" | "circle_pokemon" => "CP",
+            "CircleSmartPokemon" | "circle_smart_pokemon" => "CSP",
+            "CircleRaid" | "circle_raid" => "CR",
+            "CircleSmartRaid" | "circle_smart_raid" => "CSR",
+            "PokemonIv" | "pokemon_iv" => "IV",
+            "Leveling" | "leveling" => "L",
+            "ManualQuest" | "manual_quest" => "MQ",
+            "AutoTth" | "auto_tth" => "ATTH",
+            "AutoPokemon" | "auto_pokemon" => "AP",
+            _ => "",
+        },
+        None => "",
+    }.to_string()
+  }
+  

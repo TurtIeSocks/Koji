@@ -27,7 +27,7 @@ const AssignStep = React.forwardRef<
   const innerRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
-    fetch('/internal/admin/project/all')
+    fetch('/internal/admin/project/all/')
       .then((res) => res.json())
       .then((data) => {
         return useStatic.setState({

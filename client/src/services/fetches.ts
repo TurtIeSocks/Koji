@@ -120,7 +120,13 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
             )
             console.log(`Total Time: ${fetch_time / 1000}s\n`)
             console.log('-----------------')
-            return r.data
+            return {
+              ...r.data,
+              properties: {
+                ...r.data.properties,
+                __geofence_id: area.properties?.__koji_id,
+              },
+            }
           })
           .catch(() => {
             setStatic('loading', (prev) => ({
@@ -133,7 +139,8 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
   ).then((feats) =>
     feats
       .filter(
-        (f): f is PromiseFulfilledResult<Feature> => f.status === 'fulfilled',
+        (f): f is PromiseFulfilledResult<Feature> =>
+          f.status === 'fulfilled' && !!f.value,
       )
       .map((f) => f.value),
   )
@@ -231,7 +238,6 @@ export async function convert<T = Array<object> | object | string>(
 }
 
 export async function save(url: string, code: string) {
-  console.log(JSON.parse(code))
   try {
     const res = await fetch(url, {
       method: 'POST',

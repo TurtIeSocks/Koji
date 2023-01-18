@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-namespace */
 
-import type { Feature, FeatureCollection } from 'geojson'
+import type { Feature, FeatureCollection, MultiPoint } from 'geojson'
 import * as L from 'leaflet'
 
 import type { UsePersist } from '@hooks/usePersist'
@@ -127,6 +127,14 @@ export interface KojiProject {
 
 export interface ClientProject extends KojiProject {
   related: number[]
+}
+
+export interface KojiRoute {
+  id: number
+  geofence_id: number
+  name: string
+  mode: string
+  geometry: MultiPoint
 }
 
 export interface KojiStats {

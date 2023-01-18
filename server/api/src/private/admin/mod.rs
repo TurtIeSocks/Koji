@@ -5,6 +5,7 @@ use serde::Deserialize;
 pub mod geofence;
 pub mod geofence_project;
 pub mod project;
+pub mod route;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

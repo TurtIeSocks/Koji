@@ -129,7 +129,14 @@ export default function InstanceSelect({
     if (setGeojson) {
       setGeojson({
         type: 'FeatureCollection',
-        features: cleaned,
+        features: newValue
+          .map((n) => {
+            return (
+              remoteCache[n] ||
+              cleaned.find((f) => f.properties?.__name === n.split('__')[0])
+            )
+          })
+          .filter(Boolean),
       })
     } else {
       deleted.forEach((d) => {

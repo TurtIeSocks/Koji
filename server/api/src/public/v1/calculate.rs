@@ -14,7 +14,7 @@ use model::{
         point_array::PointArray,
         FeatureHelpers, Precision, ToCollection, ToFeature,
     },
-    db::{area, sea_orm_active_enums::Type, GenericData},
+    db::{route, sea_orm_active_enums::Type, GenericData},
     KojiDb,
 };
 
@@ -58,14 +58,15 @@ async fn bootstrap(
     stats.cluster_time = time.elapsed().as_secs_f32() as Precision;
 
     for feat in features.iter_mut() {
-        if !feat.contains_property("name") && !instance.is_empty() {
-            feat.set_property("name", instance.clone());
+        if !feat.contains_property("__name") && !instance.is_empty() {
+            feat.set_property("__name", instance.clone());
         }
-        feat.set_property("type", Type::CirclePokemon.to_string());
+        feat.set_property("__type", Type::CirclePokemon.to_string());
         if save_to_db {
-            area::Query::save(
-                conn.unown_db.as_ref().unwrap(),
+            route::Query::upsert_from_collection(
+                &conn.koji_db,
                 feat.clone().to_collection(Some(instance.clone()), None),
+                true,
             )
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -204,20 +205,12 @@ async fn cluster(
     }
 
     let mut feature = clusters.to_feature(Some(&enum_type)).remove_last_coord();
-    feature.add_instance_properties(
-        Some(instance.to_string()),
-        if instance.eq("new_multipoint") {
-            None
-        } else {
-            Some(&enum_type)
-        },
-    );
+    feature.add_instance_properties(Some(instance.to_string()), Some(&enum_type));
 
-    feature.set_property("radius", radius);
     let feature = feature.to_collection(Some(instance.clone()), None);
 
     if !instance.is_empty() && save_to_db {
-        area::Query::save(conn.unown_db.as_ref().unwrap(), feature.clone())
+        route::Query::upsert_from_collection(&conn.koji_db, feature.clone(), true)
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }

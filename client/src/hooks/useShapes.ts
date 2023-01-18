@@ -150,6 +150,16 @@ export const useShapes = create<UseShapes>((set, get) => ({
       if (Array.isArray(feature)) {
         feature.forEach((f) => get().setters.add(f, source))
       } else {
+        if (source) {
+          set((state) => ({
+            remoteCache: {
+              ...state.remoteCache,
+              [`${feature.properties?.__name}__${
+                feature.properties?.__type || ''
+              }`]: feature,
+            },
+          }))
+        }
         const id =
           feature.id ??
           `${feature.properties?.__name}__${

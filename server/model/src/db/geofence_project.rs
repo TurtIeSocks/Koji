@@ -19,16 +19,16 @@ pub enum Relation {
         belongs_to = "super::geofence::Entity",
         from = "Column::GeofenceId",
         to = "super::geofence::Column::Id",
-        on_update = "NoAction",
-        on_delete = "NoAction"
+        on_update = "Cascade",
+        on_delete = "Cascade"
     )]
     Geofence,
     #[sea_orm(
         belongs_to = "super::project::Entity",
         from = "Column::ProjectId",
         to = "super::project::Column::Id",
-        on_update = "NoAction",
-        on_delete = "NoAction"
+        on_update = "Cascade",
+        on_delete = "Cascade"
     )]
     Project,
 }

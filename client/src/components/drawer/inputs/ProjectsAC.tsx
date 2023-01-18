@@ -31,7 +31,7 @@ export default function ProjectsAc({
   const [loading, setLoading] = React.useState(false)
 
   const saveProject = async (newProject: NewKojiProject) => {
-    const res = await fetch('/internal/admin/project', {
+    const res = await fetch('/internal/admin/project/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -49,7 +49,7 @@ export default function ProjectsAc({
 
   const getOptions = async (search = '') => {
     setLoading(true)
-    const res = await fetch(`/internal/admin/project/search?query=${search}`)
+    const res = await fetch(`/internal/admin/project/search/?query=${search}`)
     if (!res.ok) {
       return
     }

@@ -84,37 +84,30 @@ pub fn as_geojson(feature: Feature, radius: f64, stats: &mut Stats) -> Feature {
             stats.longest_distance = distance;
         }
         stats.total_distance += distance;
-        // multiline_feature.push(vec![
-        //     vec![point.x(), point.y()],
-        //     vec![point2.x(), point2.y()],
-        // ])
     }
-    // let geo_collection = Geometry {
-    //     bbox: None,
-    //     value: Value::GeometryCollection(vec![
-    //         Geometry {
-    //             bbox: None,
-    //             foreign_members: None,
-    //             value: Value::MultiLineString(multiline_feature),
-    //         },
-    //         Geometry {
-    //             bbox: None,
-    //             foreign_members: None,
-    //             value: Value::MultiPoint(multipoint_feature),
-    //         },
-    //     ]),
-    //     foreign_members: None,
-    // };
     let geo_collection = Geometry {
         value: Value::MultiPoint(multipoint_feature),
         bbox: None,
         foreign_members: None,
     };
-    Feature {
-        bbox: feature.to_single_vec().get_bbox(),
+    let mut new_feature = Feature {
+        bbox: None,
         geometry: Some(geo_collection),
         ..Feature::default()
+    };
+    if let Some(name) = feature.property("__name") {
+        if let Some(name) = name.as_str() {
+            new_feature.set_property("__name", name);
+        }
     }
+    if let Some(geofence_id) = feature.property("__koji_id") {
+        if let Some(geofence_id) = geofence_id.as_str() {
+            new_feature.set_property("__geofence_id", geofence_id);
+        }
+    }
+    new_feature.set_property("__type", "CirclePokemon");
+    new_feature.bbox = feature.to_single_vec().get_bbox();
+    new_feature
 }
 
 fn generate_circles(geometry: Geometry, radius: f64) -> Vec<Point> {

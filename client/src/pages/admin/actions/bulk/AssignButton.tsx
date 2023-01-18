@@ -42,7 +42,7 @@ export function AssignFencesToProjects({ resource, storeKey, open }: Props) {
       return Promise.all(
         selectedIds.map((id) =>
           fetchUtils.fetchJson(
-            `/internal/admin/geofence_project/${resource}/${id}`,
+            `/internal/admin/geofence_project/${resource}/${id}/`,
             {
               method: 'PATCH',
               body: JSON.stringify(selected.map((x) => x.id)),

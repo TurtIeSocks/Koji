@@ -41,7 +41,7 @@ const getList = async (
     sortBy: params.sort.field,
     order: params.sort.order,
   }
-  const url = `/internal/admin/${resource}?${stringify(queryParams)}`
+  const url = `/internal/admin/${resource}/?${stringify(queryParams)}`
 
   const { json } = await httpClient(url, {
     headers: new Headers({
@@ -50,10 +50,13 @@ const getList = async (
     }),
   })
   return {
-    data: json.data.results.map((result: any) => ({
-      ...result[0],
-      related: result[1],
-    })),
+    data:
+      resource === 'route'
+        ? json.data.results
+        : json.data.results.map((result: any) => ({
+            ...result[0],
+            related: result[1],
+          })),
     total: json.data.total,
     pageInfo: {
       hasNextPage: json.data.has_next,
@@ -65,7 +68,7 @@ const getList = async (
 export const dataProvider: typeof defaultProvider = {
   ...defaultProvider,
   getMany: async (resource) => {
-    const url = `/internal/admin/${resource}/all`
+    const url = `/internal/admin/${resource}/all/`
     const options = {}
     const { json } = await httpClient(url, options)
     return {
@@ -76,7 +79,7 @@ export const dataProvider: typeof defaultProvider = {
   getManyReference: getList,
   getList,
   getOne: (resource, params) =>
-    httpClient(`/internal/admin/${resource}/${params.id}`).then(({ json }) => {
+    httpClient(`/internal/admin/${resource}/${params.id}/`).then(({ json }) => {
       return resource === 'geofence'
         ? {
             data: {
@@ -94,16 +97,19 @@ export const dataProvider: typeof defaultProvider = {
             } as any,
           }
         : {
-            data: {
-              ...json.data[0],
-              related: json.data[1].map(
-                (r: { id: number; name: string }) => r.id,
-              ),
-            },
+            data:
+              resource === 'route'
+                ? json.data
+                : {
+                    ...json.data[0],
+                    related: json.data[1].map(
+                      (r: { id: number; name: string }) => r.id,
+                    ),
+                  },
           }
     }),
   create: async (resource, params) => {
-    const { json } = await httpClient(`/internal/admin/${resource}`, {
+    const { json } = await httpClient(`/internal/admin/${resource}/`, {
       method: 'POST',
       body: JSON.stringify({
         ...params.data,
@@ -117,7 +123,7 @@ export const dataProvider: typeof defaultProvider = {
     }
   },
   update: (resource, params) =>
-    httpClient(`/internal/admin/${resource}/${params.id}`, {
+    httpClient(`/internal/admin/${resource}/${params.id}/`, {
       method: 'PATCH',
       body: JSON.stringify(params.data),
     }).then(({ json }) => {
@@ -132,7 +138,7 @@ export const dataProvider: typeof defaultProvider = {
       return { data: { ...json, id: 'id' in json ? json.id : params.id } }
     }),
   delete: (resource, params) =>
-    httpClient(`/internal/admin/${resource}/${params.id}`, {
+    httpClient(`/internal/admin/${resource}/${params.id}/`, {
       method: 'DELETE',
       headers: new Headers({
         'Content-Type': 'application/json',
@@ -142,7 +148,7 @@ export const dataProvider: typeof defaultProvider = {
   deleteMany: async (resource, params) => {
     const results = await Promise.allSettled(
       params.ids.map((id) =>
-        httpClient(`/internal/admin/${resource}/${id}`, {
+        httpClient(`/internal/admin/${resource}/${id}/`, {
           method: 'DELETE',
           headers: new Headers({
             'Content-Type': 'application/json',
