@@ -31,6 +31,7 @@ export function Drawing() {
           drawRectangle: true,
           drawPolyline: false,
           drawPolygon: true,
+          customControls: true,
         }}
         globalOptions={{
           continueDrawing,
@@ -110,6 +111,24 @@ export function Drawing() {
               },
             },
           ])
+          if (!map.pm.Toolbar.controlExists('mergeMode')) {
+            map.pm.Toolbar.createCustomControl({
+              name: 'mergeMode',
+              block: 'custom',
+              title: 'Merge Polygons',
+              className: 'leaflet-button-merge',
+              toggle: true,
+              actions: [
+                {
+                  text: 'Merge',
+                  onClick(_) {
+                    useShapes.getState().setters.combine()
+                  },
+                },
+                'cancel',
+              ],
+            })
+          }
         }}
         onCreate={({ layer, shape }) => {
           if (ref.current && ref.current.hasLayer(layer)) {
@@ -270,6 +289,18 @@ export function Drawing() {
             .getState()
             .setStatic('layerEditing', (e) => ({ ...e, rotateMode: enabled }))
         }
+        onButtonClick={(e) => {
+          if (e.btnName === 'mergeMode') {
+            useStatic.getState().setStatic('combinePolyMode', (prev) => !prev)
+          } else {
+            useStatic.getState().setStatic('combinePolyMode', false)
+          }
+        }}
+        onActionClick={({ btnName, text }) => {
+          if (btnName === 'mergeMode' && text === 'Cancel') {
+            useStatic.getState().setStatic('combinePolyMode', false)
+          }
+        }}
       />
     </FeatureGroup>
   )

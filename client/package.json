@@ -17,7 +17,7 @@
     "@codemirror/lint": "^6.1.0",
     "@emotion/react": "^11.10.5",
     "@emotion/styled": "^11.10.5",
-    "@geoman-io/leaflet-geoman-free": "github:TurtIeSocks/leaflet-geoman#1dcf3a0",
+    "@geoman-io/leaflet-geoman-free": "github:TurtIeSocks/leaflet-geoman#a42d8fd",
     "@mui/icons-material": "^5.11.0",
     "@mui/material": "^5.11.2",
     "@mui/x-date-pickers": "^5.0.12",
