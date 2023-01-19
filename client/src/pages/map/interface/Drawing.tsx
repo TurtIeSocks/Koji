@@ -299,6 +299,7 @@ export function Drawing() {
         onActionClick={({ btnName, text }) => {
           if (btnName === 'mergeMode' && text === 'Cancel') {
             useStatic.getState().setStatic('combinePolyMode', false)
+            useShapes.setState({ combined: {} })
           }
         }}
       />
