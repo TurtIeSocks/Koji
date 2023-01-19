@@ -19,6 +19,13 @@ export function Drawing() {
 
   const ref = React.useRef<L.FeatureGroup>(null)
 
+  const revertPolygonsToDefault = () =>
+    map.pm.getGeomanLayers().forEach((layer) => {
+      if (layer instanceof L.Polygon) {
+        layer.setStyle({ color: '#3388ff' })
+      }
+    })
+
   return (
     <FeatureGroup ref={ref}>
       <GeomanControls
@@ -121,7 +128,7 @@ export function Drawing() {
               actions: [
                 {
                   text: 'Merge',
-                  onClick(_) {
+                  onClick() {
                     useShapes.getState().setters.combine()
                   },
                 },
@@ -290,15 +297,20 @@ export function Drawing() {
             .setStatic('layerEditing', (e) => ({ ...e, rotateMode: enabled }))
         }
         onButtonClick={(e) => {
+          revertPolygonsToDefault()
           if (e.btnName === 'mergeMode') {
-            useStatic.getState().setStatic('combinePolyMode', (prev) => !prev)
+            useShapes.setState({ combined: {} })
+            useStatic.setState((prev) => ({
+              combinePolyMode: !prev.combinePolyMode,
+            }))
           } else {
-            useStatic.getState().setStatic('combinePolyMode', false)
+            useStatic.setState({ combinePolyMode: false })
           }
         }}
         onActionClick={({ btnName, text }) => {
           if (btnName === 'mergeMode' && text === 'Cancel') {
-            useStatic.getState().setStatic('combinePolyMode', false)
+            revertPolygonsToDefault()
+            useStatic.setState({ combinePolyMode: false })
             useShapes.setState({ combined: {} })
           }
         }}
