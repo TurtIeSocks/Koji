@@ -26,6 +26,9 @@ export interface UseStatic {
     drawMode: boolean
     removalMode: boolean
   }
+  dialogs: {
+    convert: boolean
+  }
   forceRedraw: boolean
   forceFetch: boolean
   importWizard: {
@@ -99,6 +102,9 @@ export const useStatic = create<UseStatic>((set, get) => ({
     allProjects: [],
     allType: '',
     checked: {},
+  },
+  dialogs: {
+    convert: false,
   },
   projects: {},
   clickedLocation: [0, 0],
