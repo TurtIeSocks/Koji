@@ -7,6 +7,8 @@ import {
   Switch,
   Typography,
 } from '@mui/material'
+import { GeoJSON } from 'react-leaflet'
+import type { FeatureCollection } from 'geojson'
 
 import { ToConvert } from '@assets/types'
 import { useStatic } from '@hooks/useStatic'
@@ -15,6 +17,7 @@ import { Code } from '@components/Code'
 import MultiOptions from '@components/drawer/inputs/MultiOptions'
 import { safeParse } from '@services/utils'
 import { convert } from '@services/fetches'
+import Map from '@components/Map'
 
 import BaseDialog from './Base'
 
@@ -25,15 +28,30 @@ export default function ConvertDialog() {
 
   const [code, setCode] = React.useState('')
   const [converted, setConverted] = React.useState('')
+  const [previewGeojson, setPreviewGeojson] = React.useState<FeatureCollection>(
+    {
+      type: 'FeatureCollection',
+      features: [],
+    },
+  )
+
+  const [showPreview, setShowPreview] = React.useState(false)
 
   const convertCode = async (incoming: ToConvert) => {
-    await convert(incoming, polygonExportMode, simplifyPolygons).then((res) => {
-      if (typeof res === 'string') {
-        setConverted(res)
-      } else {
-        setConverted(JSON.stringify(res, null, 2))
-      }
-    })
+    await convert(incoming, polygonExportMode, simplifyPolygons)
+      .then((res) => {
+        if (typeof res === 'string') {
+          setConverted(res)
+        } else {
+          setConverted(JSON.stringify(res, null, 2))
+        }
+        return res
+      })
+      .then((res) =>
+        convert<FeatureCollection>(res, 'featureCollection', false).then(
+          (res2) => setPreviewGeojson(res2),
+        ),
+      )
   }
 
   React.useEffect(() => {
@@ -109,6 +127,7 @@ export default function ConvertDialog() {
             Input
           </Typography>
           <Code
+            minWidth="40vw"
             code={code}
             setCode={async (newCode) => {
               const parsed = safeParse<ToConvert>(newCode)
@@ -121,11 +140,44 @@ export default function ConvertDialog() {
             }}
           />
         </Grid2>
-        <Grid2 xs={12} sm={6} textAlign="left">
-          <Typography variant="h3" align="center" my={1}>
-            Result
-          </Typography>
-          <Code>{converted}</Code>
+        <Grid2 xs={12} sm={6} container textAlign="left">
+          <Grid2 xs={6}>
+            <Typography variant="h3" align="center" my={1}>
+              Result
+            </Typography>
+          </Grid2>
+          <Grid2 xs={6}>
+            <FormControl>
+              <FormControlLabel
+                value={simplifyPolygons}
+                label="Preview"
+                control={
+                  <Switch
+                    value={simplifyPolygons}
+                    onChange={() => setShowPreview((prev) => !prev)}
+                  />
+                }
+              />
+            </FormControl>
+          </Grid2>
+
+          {showPreview ? (
+            <Map
+              forcedLocation={[
+                ((previewGeojson.bbox?.[1] || 0) +
+                  (previewGeojson.bbox?.[3] || 0)) /
+                  2,
+                ((previewGeojson.bbox?.[0] || 0) +
+                  (previewGeojson.bbox?.[2] || 0)) /
+                  2,
+              ]}
+              style={{ minWidth: '40vw', minHeight: '80vh' }}
+            >
+              <GeoJSON data={previewGeojson} />
+            </Map>
+          ) : (
+            <Code minWidth="40vw">{converted}</Code>
+          )}
         </Grid2>
       </Grid2>
     </BaseDialog>

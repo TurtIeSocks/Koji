@@ -205,7 +205,7 @@ export async function getMarkers(
   }
 }
 
-export async function convert<T = Array<object> | object | string>(
+export async function convert<T = ToConvert>(
   area: ToConvert,
   return_type: UsePersist['polygonExportMode'],
   simplify: UsePersist['simplifyPolygons'],
