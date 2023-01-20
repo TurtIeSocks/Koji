@@ -51,9 +51,9 @@ async fn bound(
     );
 
     let bound_data = match category.as_str() {
-        "gym" => gym::Query::bound(&conn.data_db, &payload, 0).await,
-        "pokestop" => pokestop::Query::bound(&conn.data_db, &payload, 0).await,
-        "spawnpoint" => spawnpoint::Query::bound(&conn.data_db, &payload, 0).await,
+        "gym" => gym::Query::bound(&conn.data_db, &payload).await,
+        "pokestop" => pokestop::Query::bound(&conn.data_db, &payload).await,
+        "spawnpoint" => spawnpoint::Query::bound(&conn.data_db, &payload).await,
         _ => Err(DbErr::Custom("invalid_category".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;

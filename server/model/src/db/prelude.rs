@@ -7,4 +7,5 @@ pub use super::gym::Entity as Gym;
 pub use super::instance::Entity as Instance;
 pub use super::pokestop::Entity as Pokestop;
 pub use super::project::Entity as Project;
+pub use super::route::Entity as Route;
 pub use super::spawnpoint::Entity as Spawnpoint;

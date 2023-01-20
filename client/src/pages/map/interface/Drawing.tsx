@@ -19,70 +19,12 @@ export function Drawing() {
 
   const ref = React.useRef<L.FeatureGroup>(null)
 
-  React.useEffect(() => {
-    map.pm.Toolbar.changeActionsOfControl('removalMode', [
-      {
-        text: 'Lines',
-        onClick() {
-          useShapes.getState().setters.remove('LineString')
-          useShapes.getState().setters.remove('MultiLineString')
-        },
-      },
-      {
-        text: 'Circles',
-        onClick() {
-          useShapes.getState().setters.remove('Point')
-          useShapes.getState().setters.remove('MultiPoint')
-        },
-      },
-      {
-        text: 'Polygons',
-        onClick() {
-          useShapes.getState().setters.remove('Polygon')
-          useShapes.getState().setters.remove('MultiPolygon')
-        },
-      },
-      {
-        text: 'Finish',
-        onClick() {
-          map.pm.disableGlobalRemovalMode()
-        },
-      },
-    ])
-    map.pm.Toolbar.changeActionsOfControl('drawCircle', [
-      {
-        text: 'Finish',
-        onClick() {
-          map.pm.disableGlobalRemovalMode()
-          useShapes
-            .getState()
-            .setters.activeRoute(
-              `new_route_${useShapes.getState().newRouteCount + 1}`,
-            )
-          useShapes.getState().setShapes('newRouteCount', (prev) => prev + 1)
-        },
-      },
-      {
-        text: 'New Route',
-        onClick() {
-          useShapes
-            .getState()
-            .setters.activeRoute(
-              `new_route_${useShapes.getState().newRouteCount + 1}`,
-            )
-          useShapes.getState().setShapes('newRouteCount', (prev) => prev + 1)
-        },
-      },
-      {
-        text: 'Cancel',
-        onClick() {
-          map.pm.disableGlobalRemovalMode()
-          useShapes.getState().setters.remove('Point')
-          useShapes.getState().setters.remove('LineString')
-        },
-      },
-    ])
-  }, [])
+  const revertPolygonsToDefault = () =>
+    map.pm.getGeomanLayers().forEach((layer) => {
+      if (layer instanceof L.Polygon) {
+        layer.setStyle({ color: '#3388ff' })
+      }
+    })
 
   return (
     <FeatureGroup ref={ref}>
@@ -96,6 +38,7 @@ export function Drawing() {
           drawRectangle: true,
           drawPolyline: false,
           drawPolygon: true,
+          customControls: true,
         }}
         globalOptions={{
           continueDrawing,
@@ -107,6 +50,92 @@ export function Drawing() {
             circlePane: 'circles',
             polylinePane: 'lines',
           },
+        }}
+        onMount={() => {
+          map.pm.Toolbar.changeActionsOfControl('removalMode', [
+            {
+              text: 'Lines',
+              onClick() {
+                useShapes.getState().setters.remove('LineString')
+                useShapes.getState().setters.remove('MultiLineString')
+              },
+            },
+            {
+              text: 'Circles',
+              onClick() {
+                useShapes.getState().setters.remove('Point')
+                useShapes.getState().setters.remove('MultiPoint')
+              },
+            },
+            {
+              text: 'Polygons',
+              onClick() {
+                useShapes.getState().setters.remove('Polygon')
+                useShapes.getState().setters.remove('MultiPolygon')
+              },
+            },
+            {
+              text: 'Finish',
+              onClick() {
+                map.pm.disableGlobalRemovalMode()
+              },
+            },
+          ])
+          map.pm.Toolbar.changeActionsOfControl('drawCircle', [
+            {
+              text: 'Finish',
+              onClick() {
+                map.pm.disableGlobalRemovalMode()
+                useShapes
+                  .getState()
+                  .setters.activeRoute(
+                    `new_route_${useShapes.getState().newRouteCount + 1}`,
+                  )
+                useShapes
+                  .getState()
+                  .setShapes('newRouteCount', (prev) => prev + 1)
+              },
+            },
+            {
+              text: 'New Route',
+              onClick() {
+                useShapes
+                  .getState()
+                  .setters.activeRoute(
+                    `new_route_${useShapes.getState().newRouteCount + 1}`,
+                  )
+                useShapes
+                  .getState()
+                  .setShapes('newRouteCount', (prev) => prev + 1)
+              },
+            },
+            {
+              text: 'Cancel',
+              onClick() {
+                map.pm.disableGlobalRemovalMode()
+                useShapes.getState().setters.remove('Point')
+                useShapes.getState().setters.remove('LineString')
+              },
+            },
+          ])
+          if (!map.pm.Toolbar.controlExists('mergeMode')) {
+            map.pm.Toolbar.createCustomControl({
+              name: 'mergeMode',
+              block: 'custom',
+              title: 'Merge Polygons',
+              className: 'leaflet-button-merge',
+              toggle: true,
+              actions: [
+                {
+                  text: 'Merge',
+                  onClick() {
+                    useShapes.getState().setters.combine()
+                  },
+                },
+                'cancel',
+              ],
+            })
+          }
         }}
         onCreate={({ layer, shape }) => {
           if (ref.current && ref.current.hasLayer(layer)) {
@@ -267,6 +296,24 @@ export function Drawing() {
             .getState()
             .setStatic('layerEditing', (e) => ({ ...e, rotateMode: enabled }))
         }
+        onButtonClick={(e) => {
+          revertPolygonsToDefault()
+          if (e.btnName === 'mergeMode') {
+            useShapes.setState({ combined: {} })
+            useStatic.setState((prev) => ({
+              combinePolyMode: !prev.combinePolyMode,
+            }))
+          } else {
+            useStatic.setState({ combinePolyMode: false })
+          }
+        }}
+        onActionClick={({ btnName, text }) => {
+          if (btnName === 'mergeMode' && text === 'Cancel') {
+            revertPolygonsToDefault()
+            useStatic.setState({ combinePolyMode: false })
+            useShapes.setState({ combined: {} })
+          }
+        }}
       />
     </FeatureGroup>
   )

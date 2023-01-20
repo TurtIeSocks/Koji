@@ -30,10 +30,14 @@ export default function ImportExport() {
       <ListSubheader disableGutters>Import from Scanner</ListSubheader>
       <InstanceSelect
         endpoint="/internal/routes/from_scanner"
+        controlled
         initialState={geojson.features
           .filter(
             (feat) =>
-              typeof feat.id === 'string' && feat.id.endsWith('__SCANNER'),
+              feat.geometry.type !== 'LineString' &&
+              feat.geometry.type !== 'Point' &&
+              typeof feat.id === 'string' &&
+              feat.id.endsWith('__SCANNER'),
           )
           .map(
             (feat) =>
@@ -44,9 +48,14 @@ export default function ImportExport() {
       <InstanceSelect
         endpoint="/internal/routes/from_koji"
         koji
+        controlled
         initialState={geojson.features
           .filter(
-            (feat) => typeof feat.id === 'string' && feat.id.endsWith('__KOJI'),
+            (feat) =>
+              feat.geometry.type !== 'LineString' &&
+              feat.geometry.type !== 'Point' &&
+              typeof feat.id === 'string' &&
+              feat.id.endsWith('__KOJI'),
           )
           .map(
             (feat) =>

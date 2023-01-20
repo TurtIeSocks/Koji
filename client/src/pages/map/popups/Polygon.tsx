@@ -248,8 +248,8 @@ export function PolygonPopup({
           onClick={() => {
             fetch(
               feature.properties?.__koji_id
-                ? `/internal/admin/geofence/${feature.properties?.__koji_id}`
-                : '/internal/admin/geofence',
+                ? `/internal/admin/geofence/${feature.properties?.__koji_id}/`
+                : '/internal/admin/geofence/',
               {
                 method: feature.properties?.__koji_id ? 'PATCH' : 'POST',
                 headers: {
@@ -276,10 +276,8 @@ export function PolygonPopup({
                     __koji_id: res.data.id,
                   },
                 }
-                useShapes
-                  .getState()
-                  .setters.remove(feature.geometry.type, feature.id)
-                useShapes.getState().setters.add(newFeature, '__KOJI')
+                remove(feature.geometry.type, feature.id)
+                add(newFeature, '__KOJI')
                 handleClose()
               })
           }}
@@ -291,7 +289,7 @@ export function PolygonPopup({
           onClick={async () => {
             remove(feature.geometry.type, feature.id)
             await fetch(
-              `/internal/admin/geofence/${feature.properties?.__koji_id}`,
+              `/internal/admin/geofence/${feature.properties?.__koji_id}/`,
               {
                 method: 'DELETE',
               },

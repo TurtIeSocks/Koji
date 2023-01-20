@@ -40,17 +40,19 @@ impl Query {
         sort_by: project::Column,
         order_by: Order,
         q: String,
-    ) -> Result<PaginateResults<Model>, DbErr> {
+    ) -> Result<PaginateResults<Vec<(Model, Vec<NameId>)>>, DbErr> {
         let paginator = project::Entity::find()
             .order_by(sort_by, order_by)
             .filter(Column::Name.like(format!("%{}%", q).as_str()))
             .paginate(db, posts_per_page);
         let total = paginator.num_items_and_pages().await?;
 
-        let results = if let Ok(paginated_results) = paginator.fetch_page(page).await.map(|p| p) {
-            paginated_results
-        } else {
-            vec![]
+        let results: Vec<Model> = match paginator.fetch_page(page).await {
+            Ok(results) => results,
+            Err(err) => {
+                println!("[project] Error paginating, {:?}", err);
+                vec![]
+            }
         };
         let results = future::try_join_all(
             results

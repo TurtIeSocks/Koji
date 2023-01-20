@@ -33,6 +33,7 @@ export function KojiPolygon({
             ref.on('mouseover', function mouseOver() {
               if (!useStatic.getState().combinePolyMode) {
                 ref.setStyle({ color: 'red' })
+                // ref.bringToFront()
               }
             })
           }

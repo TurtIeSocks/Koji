@@ -621,9 +621,9 @@
     minimatch "^3.1.2"
     strip-json-comments "^3.1.1"
 
-"@geoman-io/leaflet-geoman-free@github:TurtIeSocks/leaflet-geoman#1dcf3a0":
-  version "2.13.2"
-  resolved "https://codeload.github.com/TurtIeSocks/leaflet-geoman/tar.gz/1dcf3a065e9039894da08e81945dbecff6780ffb"
+"@geoman-io/leaflet-geoman-free@github:TurtIeSocks/leaflet-geoman#a42d8fd":
+  version "2.14.1"
+  resolved "https://codeload.github.com/TurtIeSocks/leaflet-geoman/tar.gz/a42d8fdf302d471ab0dc1b8f8a704565548c4c85"
   dependencies:
     "@turf/boolean-contains" "^6.5.0"
     "@turf/kinks" "^6.5.0"

@@ -17,9 +17,9 @@ import {
 import CheckBoxOutlineBlank from '@mui/icons-material/CheckBoxOutlineBlank'
 import IndeterminateCheckBoxOutlined from '@mui/icons-material/IndeterminateCheckBoxOutlined'
 import CheckBox from '@mui/icons-material/CheckBox'
-import type { Feature, FeatureCollection, GeoJsonTypes } from 'geojson'
+import type { Feature, FeatureCollection } from 'geojson'
 
-import { KojiResponse } from '@assets/types'
+import { KojiResponse, Option } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
 import { getData } from '@services/fetches'
 
@@ -33,17 +33,11 @@ const filterOptions = createFilterOptions({
   stringify: (option: string) => option,
 })
 
-interface Option {
-  id: number
-  type: string
-  name: string
-  geoType?: Exclude<GeoJsonTypes, 'Feature' | 'FeatureCollection'>
-}
-
 export default function InstanceSelect({
   endpoint,
   setGeojson,
   koji = false,
+  controlled = false,
   filters = [],
   initialState = [],
 }: {
@@ -51,6 +45,7 @@ export default function InstanceSelect({
   setGeojson?: (collection: FeatureCollection) => void
   koji?: boolean
   filters?: readonly string[]
+  controlled?: boolean
   initialState?: string[]
 }) {
   const add = useShapes((s) => s.setters.add)
@@ -70,6 +65,13 @@ export default function InstanceSelect({
       getData<KojiResponse<Option[]>>(endpoint)
         .then((resp) => {
           if (resp) {
+            if (koji) {
+              useShapes.setState({
+                kojiRefCache: Object.fromEntries(
+                  resp.data.map((t) => [t.id, t]),
+                ),
+              })
+            }
             setOptions((prev) =>
               Object.fromEntries(
                 resp.data
@@ -88,12 +90,12 @@ export default function InstanceSelect({
               ),
             )
           }
-          setSelected(initialState)
+          if (controlled) setSelected(initialState)
           setLoading(false)
         })
         // eslint-disable-next-line no-console
         .catch((e) => console.error(e))
-    }
+    } else if (controlled) setSelected(initialState)
   }, [initialState])
 
   const updateState = async (newValue: string[]) => {
@@ -121,7 +123,7 @@ export default function InstanceSelect({
     const cleaned = features
       .filter(
         (result): result is PromiseFulfilledResult<Feature> =>
-          result.status === 'fulfilled',
+          result.status === 'fulfilled' && !!result.value,
       )
       .map((result) => result.value)
 
@@ -129,7 +131,14 @@ export default function InstanceSelect({
     if (setGeojson) {
       setGeojson({
         type: 'FeatureCollection',
-        features: cleaned,
+        features: newValue
+          .map((n) => {
+            return (
+              remoteCache[n] ||
+              cleaned.find((f) => f.properties?.__name === n.split('__')[0])
+            )
+          })
+          .filter(Boolean),
       })
     } else {
       deleted.forEach((d) => {
@@ -142,7 +151,8 @@ export default function InstanceSelect({
         }
       })
     }
-    setSelected(newValue)
+    if (controlled) setSelected(newValue)
+
     setOptions((prev) => ({
       ...prev,
       ...Object.fromEntries(
@@ -184,13 +194,15 @@ export default function InstanceSelect({
           return (
             <li {...props} style={{ display: 'flex' }}>
               <div style={{ flexGrow: 1 }}>
-                <Checkbox
-                  icon={icon}
-                  checkedIcon={checkedIcon}
-                  style={{ marginRight: 8 }}
-                  checked={s}
-                  disabled={loading}
-                />
+                {controlled && (
+                  <Checkbox
+                    icon={icon}
+                    checkedIcon={checkedIcon}
+                    style={{ marginRight: 8 }}
+                    checked={s}
+                    disabled={loading}
+                  />
+                )}
                 {option.split('__')[0]}{' '}
                 {
                   {
@@ -237,13 +249,15 @@ export default function InstanceSelect({
                   )
                 }
               >
-                <ListItemIcon>
-                  {allSelected
-                    ? checkedIcon
-                    : partialSelected
-                    ? partialIcon
-                    : icon}
-                </ListItemIcon>
+                {controlled && (
+                  <ListItemIcon>
+                    {allSelected
+                      ? checkedIcon
+                      : partialSelected
+                      ? partialIcon
+                      : icon}
+                  </ListItemIcon>
+                )}
                 <ListItemText
                   primary={capitalize(
                     group

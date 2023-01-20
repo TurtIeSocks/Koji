@@ -7,10 +7,12 @@ import { OnlyType } from '@assets/types'
 
 export default function Toggle<T extends keyof OnlyType<UsePersist, boolean>>({
   field,
+  label,
   disabled = false,
 }: {
   field: T
   disabled?: boolean
+  label?: string
 }) {
   const value = usePersist((s) => s[field])
   const setStore = usePersist((s) => s.setStore)
@@ -19,7 +21,8 @@ export default function Toggle<T extends keyof OnlyType<UsePersist, boolean>>({
     <ListItem disabled={disabled}>
       <ListItemText
         primary={
-          field.includes('_') ? fromSnakeCase(field) : fromCamelCase(field)
+          label ??
+          (field.includes('_') ? fromSnakeCase(field) : fromCamelCase(field))
         }
       />
       <Switch

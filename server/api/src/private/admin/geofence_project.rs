@@ -4,7 +4,7 @@ use serde_json::json;
 
 use crate::model::{api::args::Response, db::geofence_project, KojiDb};
 
-#[get("/geofence_project/all")]
+#[get("/all/")]
 async fn get_all(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
     let items = geofence_project::Query::get_all(&conn.koji_db)
         .await
@@ -19,7 +19,7 @@ async fn get_all(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
     }))
 }
 
-#[post("/geofence_project")]
+#[post("/")]
 async fn create(
     conn: web::Data<KojiDb>,
     payload: web::Json<geofence_project::Model>,
@@ -44,7 +44,7 @@ struct UpdateManyToMany {
     project_id: Option<u32>,
 }
 
-#[patch("/geofence_project")]
+#[patch("/")]
 async fn update(
     conn: web::Data<KojiDb>,
     payload: web::Json<UpdateManyToMany>,
@@ -65,7 +65,7 @@ async fn update(
     }))
 }
 
-#[patch("/geofence_project/{table}/{id}")]
+#[patch("/{table}/{id}/")]
 async fn update_by_id(
     conn: web::Data<KojiDb>,
     id: actix_web::web::Path<(String, u32)>,
@@ -89,7 +89,7 @@ async fn update_by_id(
     }))
 }
 
-#[delete("/geofence_project")]
+#[delete("/")]
 async fn remove(
     conn: web::Data<KojiDb>,
     payload: web::Json<UpdateManyToMany>,

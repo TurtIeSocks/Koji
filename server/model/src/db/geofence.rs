@@ -24,6 +24,8 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::project::Entity")]
     Project,
+    #[sea_orm(has_many = "super::route::Entity")]
+    Route,
 }
 
 impl Related<project::Entity> for Entity {
@@ -35,7 +37,22 @@ impl Related<project::Entity> for Entity {
     }
 }
 
+impl Related<super::route::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Route.def()
+    }
+}
+
 impl ActiveModelBehavior for ActiveModel {}
+
+#[derive(Serialize, Deserialize, FromQueryResult)]
+pub struct GeofenceNoGeometry {
+    pub id: u32,
+    pub name: String,
+    pub mode: Option<String>,
+    pub created_at: DateTimeUtc,
+    pub updated_at: DateTimeUtc,
+}
 
 impl ToFeature for Model {
     /// Turns a Geofence model into a feature,
@@ -75,17 +92,19 @@ impl Query {
         sort_by: Column,
         order_by: Order,
         q: String,
-    ) -> Result<PaginateResults<Model>, DbErr> {
+    ) -> Result<PaginateResults<Vec<(GeofenceNoGeometry, Vec<NameId>)>>, DbErr> {
         let paginator = Entity::find()
             .order_by(sort_by, order_by)
             .filter(Column::Name.like(format!("%{}%", q).as_str()))
             .paginate(db, posts_per_page);
         let total = paginator.num_items_and_pages().await?;
 
-        let results = if let Ok(paginated_results) = paginator.fetch_page(page).await.map(|p| p) {
-            paginated_results
-        } else {
-            vec![]
+        let results: Vec<Model> = match paginator.fetch_page(page).await {
+            Ok(results) => results,
+            Err(err) => {
+                println!("[Geofence] Error paginating, {:?}", err);
+                vec![]
+            }
         };
         let results = future::try_join_all(
             results
@@ -96,7 +115,21 @@ impl Query {
         .unwrap();
 
         Ok(PaginateResults {
-            results,
+            results: results
+                .into_iter()
+                .map(|(fence, related)| {
+                    (
+                        GeofenceNoGeometry {
+                            id: fence.id,
+                            name: fence.name,
+                            mode: fence.mode,
+                            created_at: fence.created_at,
+                            updated_at: fence.updated_at,
+                        },
+                        related,
+                    )
+                })
+                .collect(),
             total: total.number_of_items,
             has_prev: total.number_of_pages == page + 1,
             has_next: page + 1 < total.number_of_pages,
@@ -109,7 +142,9 @@ impl Query {
     }
 
     /// Returns all Geofence models in the db without their features
-    pub async fn get_all_no_fences(db: &DatabaseConnection) -> Result<Vec<NoFence>, DbErr> {
+    pub async fn get_all_no_fences(
+        db: &DatabaseConnection,
+    ) -> Result<Vec<GeofenceNoGeometry>, DbErr> {
         Entity::find()
             .select_only()
             .column(Column::Id)
@@ -118,7 +153,7 @@ impl Query {
             .column(Column::CreatedAt)
             .column(Column::UpdatedAt)
             .order_by(Column::Name, Order::Asc)
-            .into_model::<NoFence>()
+            .into_model::<GeofenceNoGeometry>()
             .all(db)
             .await
     }
@@ -279,7 +314,6 @@ impl Query {
                     } else {
                         None
                     };
-                    println!("Mode: {:?}", mode);
                     let projects: Option<Vec<u64>> =
                         if let Some(projects) = feat.property("__projects") {
                             if let Some(projects) = projects.as_array() {
@@ -371,4 +405,21 @@ impl Query {
             .collect();
         Ok(items)
     }
+
+    // pub async fn migration_helper(conn: &DatabaseConnection) {
+    //     match Entity::find()
+    //         .from_raw_sql(Statement::from_sql_and_values(
+    //             DbBackend::MySql,
+    //             r#"SELECT * FROM geofence WHERE JSON_EXTRACT(area, '$.properties') IS NOT NULL"#,
+    //             vec![],
+    //         ))
+    //         .all(conn)
+    //         .await
+    //     {
+    //         Ok(results) => {
+    //             println!("Geojsons in old format: {}", results.len())
+    //         }
+    //         Err(err) => println!("{:?}", err),
+    //     }
+    // }
 }

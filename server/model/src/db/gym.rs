@@ -77,7 +77,6 @@ impl Query {
     pub async fn bound(
         conn: &DatabaseConnection,
         payload: &api::args::BoundsArg,
-        last_seen: u32,
     ) -> Result<Vec<GenericData>, DbErr> {
         let items = Entity::find()
             .select_only()
@@ -85,7 +84,13 @@ impl Query {
             .column(Column::Lon)
             .filter(Column::Lat.between(payload.min_lat, payload.max_lat))
             .filter(Column::Lon.between(payload.min_lon, payload.max_lon))
-            .filter(Column::Updated.gt(last_seen))
+            .filter(
+                Column::Updated.gt(if let Some(last_seen) = payload.last_seen {
+                    last_seen
+                } else {
+                    0
+                }),
+            )
             .filter(Column::Deleted.eq(false))
             .filter(Column::Enabled.eq(true))
             .limit(2_000_000)

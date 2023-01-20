@@ -18,6 +18,7 @@ pub mod instance;
 pub mod pokestop;
 pub mod prelude;
 pub mod project;
+pub mod route;
 pub mod sea_orm_active_enums;
 pub mod spawnpoint;
 
@@ -40,15 +41,6 @@ pub struct NameTypeId {
     pub r#type: Option<self::sea_orm_active_enums::Type>,
 }
 
-#[derive(Serialize, Deserialize, FromQueryResult)]
-pub struct NoFence {
-    pub id: u32,
-    pub name: String,
-    pub mode: Option<String>,
-    pub created_at: DateTimeUtc,
-    pub updated_at: DateTimeUtc,
-}
-
 #[derive(Debug, FromQueryResult)]
 pub struct AreaRef {
     pub id: u32,
@@ -66,7 +58,7 @@ pub struct Total {
 
 #[derive(Debug, Serialize)]
 pub struct PaginateResults<T> {
-    pub results: Vec<(T, Vec<NameId>)>,
+    pub results: T,
     total: usize,
     has_next: bool,
     has_prev: bool,

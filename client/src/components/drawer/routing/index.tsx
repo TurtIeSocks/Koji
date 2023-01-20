@@ -43,7 +43,7 @@ export default function EditTab() {
           buttons={['cluster', 'route', 'bootstrap']}
         />
       </ListItem>
-      <Toggle field="save_to_db" disabled={!useStatic.getState().dangerous} />
+      <Toggle field="save_to_db" label="Auto Save to Kōji Db" />
       <ListItemButton
         color="primary"
         disabled={Object.values(layerEditing).some((v) => v)}

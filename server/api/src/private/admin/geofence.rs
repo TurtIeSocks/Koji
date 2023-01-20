@@ -5,7 +5,7 @@ use serde_json::json;
 
 use crate::model::{api::args::Response, db::geofence, KojiDb};
 
-#[get("/geofence")]
+#[get("/")]
 async fn paginate(
     conn: web::Data<KojiDb>,
     url: web::Query<AdminReq>,
@@ -49,7 +49,7 @@ async fn paginate(
     }))
 }
 
-#[get("/geofence/all")]
+#[get("/all/")]
 async fn get_all(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
     let geofences = geofence::Query::get_all_no_fences(&conn.koji_db)
         .await
@@ -64,7 +64,7 @@ async fn get_all(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
     }))
 }
 
-#[get("/geofence/{id}")]
+#[get("/{id}/")]
 async fn get_one(
     conn: web::Data<KojiDb>,
     id: actix_web::web::Path<u32>,
@@ -84,7 +84,7 @@ async fn get_one(
     }))
 }
 
-#[post("/geofence")]
+#[post("/")]
 async fn create(
     conn: web::Data<KojiDb>,
     // id: actix_web::web::Path<u32>,
@@ -104,7 +104,7 @@ async fn create(
     }))
 }
 
-#[patch("/geofence/{id}")]
+#[patch("/{id}/")]
 async fn update(
     conn: web::Data<KojiDb>,
     id: actix_web::web::Path<u32>,
@@ -126,7 +126,7 @@ async fn update(
     }))
 }
 
-#[delete("/geofence/{id}")]
+#[delete("/{id}/")]
 async fn remove(
     conn: web::Data<KojiDb>,
     id: actix_web::web::Path<u32>,

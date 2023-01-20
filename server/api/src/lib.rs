@@ -86,6 +86,7 @@ pub async fn main() -> io::Result<()> {
         Ok(_) => println!("Migrations successful"),
         Err(err) => println!("Migration Error {:?}", err),
     };
+    // geofence::Query::migration_helper(&databases.koji_db).await;
 
     let scanner_type = if databases.unown_db.is_none() {
         "rdm"
@@ -154,24 +155,42 @@ pub async fn main() -> io::Result<()> {
                     )
                     .service(
                         web::scope("/admin")
-                            .service(private::admin::geofence::get_all)
-                            .service(private::admin::geofence::paginate)
-                            .service(private::admin::geofence::get_one)
-                            .service(private::admin::geofence::create)
-                            .service(private::admin::geofence::update)
-                            .service(private::admin::geofence::remove)
-                            .service(private::admin::project::get_all)
-                            .service(private::admin::project::search)
-                            .service(private::admin::project::paginate)
-                            .service(private::admin::project::get_one)
-                            .service(private::admin::project::create)
-                            .service(private::admin::project::update)
-                            .service(private::admin::project::remove)
-                            .service(private::admin::geofence_project::get_all)
-                            .service(private::admin::geofence_project::create)
-                            .service(private::admin::geofence_project::update)
-                            .service(private::admin::geofence_project::update_by_id)
-                            .service(private::admin::geofence_project::remove),
+                            .service(
+                                web::scope("/geofence")
+                                    .service(private::admin::geofence::get_all)
+                                    .service(private::admin::geofence::paginate)
+                                    .service(private::admin::geofence::get_one)
+                                    .service(private::admin::geofence::create)
+                                    .service(private::admin::geofence::update)
+                                    .service(private::admin::geofence::remove),
+                            )
+                            .service(
+                                web::scope("/project")
+                                    .service(private::admin::project::get_all)
+                                    .service(private::admin::project::search)
+                                    .service(private::admin::project::paginate)
+                                    .service(private::admin::project::get_one)
+                                    .service(private::admin::project::create)
+                                    .service(private::admin::project::update)
+                                    .service(private::admin::project::remove),
+                            )
+                            .service(
+                                web::scope("/geofence_project")
+                                    .service(private::admin::geofence_project::get_all)
+                                    .service(private::admin::geofence_project::create)
+                                    .service(private::admin::geofence_project::update)
+                                    .service(private::admin::geofence_project::update_by_id)
+                                    .service(private::admin::geofence_project::remove),
+                            )
+                            .service(
+                                web::scope("/route")
+                                    .service(private::admin::route::get_all)
+                                    .service(private::admin::route::paginate)
+                                    .service(private::admin::route::get_one)
+                                    .service(private::admin::route::create)
+                                    .service(private::admin::route::update)
+                                    .service(private::admin::route::remove),
+                            ),
                     ),
             )
             // public api

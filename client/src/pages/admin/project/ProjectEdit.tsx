@@ -12,7 +12,7 @@ import { ClientProject, KojiGeofence } from '@assets/types'
 
 const transformPayload = async (project: ClientProject) => {
   if (Array.isArray(project.related)) {
-    await fetch(`/internal/admin/geofence_project/project/${project.id}`, {
+    await fetch(`/internal/admin/geofence_project/project/${project.id}/`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',

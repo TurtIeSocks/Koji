@@ -1,7 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-namespace */
 
-import type { Feature, FeatureCollection } from 'geojson'
+import type {
+  Feature,
+  FeatureCollection,
+  GeoJsonTypes,
+  MultiPoint,
+} from 'geojson'
 import * as L from 'leaflet'
 
 import type { UsePersist } from '@hooks/usePersist'
@@ -129,6 +134,14 @@ export interface ClientProject extends KojiProject {
   related: number[]
 }
 
+export interface KojiRoute {
+  id: number
+  geofence_id: number
+  name: string
+  mode: string
+  geometry: MultiPoint
+}
+
 export interface KojiStats {
   best_clusters: [number, number][]
   best_cluster_point_count: number
@@ -139,6 +152,13 @@ export interface KojiStats {
   total_distance: number
   longest_distance: number
   fetch_time: number
+}
+
+export interface Option {
+  id: number
+  type: string
+  name: string
+  geoType?: Exclude<GeoJsonTypes, 'Feature' | 'FeatureCollection'>
 }
 
 // for some reason locate.control @types augmentation is broken

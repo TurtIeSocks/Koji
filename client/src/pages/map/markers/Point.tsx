@@ -72,7 +72,13 @@ export function KojiPoint({
       color={type === 'Point' ? '#3388ff' : 'red'}
     >
       <BasePopup>
-        <MemoPointPopup id={id} properties={properties} lat={lat} lon={lon} />
+        <MemoPointPopup
+          id={id}
+          properties={properties}
+          lat={lat}
+          lon={lon}
+          type={type}
+        />
       </BasePopup>
     </Circle>
   )

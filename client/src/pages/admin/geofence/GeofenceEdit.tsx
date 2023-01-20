@@ -13,7 +13,7 @@ import GeofenceForm from './GeofenceForm'
 
 const transformPayload = async (geofence: ClientGeofence) => {
   if (Array.isArray(geofence.related)) {
-    await fetch(`/internal/admin/geofence_project/geofence/${geofence.id}`, {
+    await fetch(`/internal/admin/geofence_project/geofence/${geofence.id}/`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',

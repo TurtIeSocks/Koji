@@ -49,8 +49,8 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
     route_chunk_size,
   } = usePersist.getState()
   const { geojson, setStatic } = useStatic.getState()
-  const { add } = useShapes.getState().setters
-
+  const { add, activeRoute } = useShapes.getState().setters
+  activeRoute('layer_1')
   setStatic(
     'loading',
     Object.fromEntries(
@@ -120,7 +120,13 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
             )
             console.log(`Total Time: ${fetch_time / 1000}s\n`)
             console.log('-----------------')
-            return r.data
+            return {
+              ...r.data,
+              properties: {
+                ...r.data.properties,
+                __geofence_id: area.properties?.__koji_id,
+              },
+            }
           })
           .catch(() => {
             setStatic('loading', (prev) => ({
@@ -133,7 +139,8 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
   ).then((feats) =>
     feats
       .filter(
-        (f): f is PromiseFulfilledResult<Feature> => f.status === 'fulfilled',
+        (f): f is PromiseFulfilledResult<Feature> =>
+          f.status === 'fulfilled' && !!f.value,
       )
       .map((f) => f.value),
   )
@@ -170,28 +177,24 @@ export async function getMarkers(
               feature.geometry.type === 'MultiPolygon',
           ).length
         : true)
-        ? fetch(
-            `/internal/data/${data === 'all' ? 'all' : 'area'}/${category}`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                area:
-                  data === 'area'
-                    ? area.features.filter(
-                        (feature) =>
-                          feature.geometry.type === 'Polygon' ||
-                          feature.geometry.type === 'MultiPolygon',
-                      )
-                    : data === 'bound'
-                    ? getMapBounds(map)
-                    : undefined,
-                last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
-              }),
+        ? fetch(`/internal/data/${data}/${category}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
             },
-          ).then((res) => res.json())
+            body: JSON.stringify({
+              area:
+                data === 'area'
+                  ? area.features.filter(
+                      (feature) =>
+                        feature.geometry.type === 'Polygon' ||
+                        feature.geometry.type === 'MultiPolygon',
+                    )
+                  : undefined,
+              ...(data === 'bound' && getMapBounds(map)),
+              last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+            }),
+          }).then((res) => res.json())
         : [],
     ),
   )
@@ -231,7 +234,6 @@ export async function convert<T = Array<object> | object | string>(
 }
 
 export async function save(url: string, code: string) {
-  console.log(JSON.parse(code))
   try {
     const res = await fetch(url, {
       method: 'POST',
