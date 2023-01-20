@@ -10,10 +10,12 @@ import Save from '@mui/icons-material/Save'
 import Upload from '@mui/icons-material/Upload'
 import AutoFix from '@mui/icons-material/AutoFixHigh'
 import Code from '@mui/icons-material/Code'
+import ChangeCircle from '@mui/icons-material/ChangeCircle'
 
 import { useStatic } from '@hooks/useStatic'
 import RawManager from '@components/dialogs/Manager'
 import ImportWizard from '@components/dialogs/import/ImportWizard'
+import ConvertDialog from '@components/dialogs/Convert'
 
 import ExportRoute from '../../dialogs/ExportRoute'
 import PolygonDialog from '../../dialogs/Polygon'
@@ -97,13 +99,26 @@ export default function ImportExport() {
         </ListItemIcon>
         Export All Routes
       </ListItemButton>
-      <ListSubheader disableGutters>Manage Current GeoJSON</ListSubheader>
+      <ListSubheader disableGutters>Other</ListSubheader>
       <ListItemButton onClick={() => setOpen('rawManager')}>
         <ListItemIcon>
           <Save />
         </ListItemIcon>
         <ListItemText primary="JSON Manager" />
       </ListItemButton>
+      <ListItemButton
+        onClick={() =>
+          useStatic.setState((prev) => ({
+            dialogs: { ...prev.dialogs, convert: true },
+          }))
+        }
+      >
+        <ListItemIcon>
+          <ChangeCircle />
+        </ListItemIcon>
+        <ListItemText primary="Conversion Playground" />
+      </ListItemButton>
+
       <PolygonDialog
         mode={exportAll ? 'exportAll' : 'import'}
         open={open}
@@ -131,6 +146,7 @@ export default function ImportExport() {
       />
       <RawManager open={open} setOpen={setOpen} geojson={geojson} />
       <ImportWizard />
+      <ConvertDialog />
     </List>
   )
 }
