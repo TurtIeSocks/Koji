@@ -17,9 +17,9 @@ import {
 import CheckBoxOutlineBlank from '@mui/icons-material/CheckBoxOutlineBlank'
 import IndeterminateCheckBoxOutlined from '@mui/icons-material/IndeterminateCheckBoxOutlined'
 import CheckBox from '@mui/icons-material/CheckBox'
-import type { Feature, FeatureCollection, GeoJsonTypes } from 'geojson'
+import type { Feature, FeatureCollection } from 'geojson'
 
-import { KojiResponse } from '@assets/types'
+import { KojiResponse, Option } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
 import { getData } from '@services/fetches'
 
@@ -32,13 +32,6 @@ const filterOptions = createFilterOptions({
   matchFrom: 'any',
   stringify: (option: string) => option,
 })
-
-interface Option {
-  id: number
-  type: string
-  name: string
-  geoType?: Exclude<GeoJsonTypes, 'Feature' | 'FeatureCollection'>
-}
 
 export default function InstanceSelect({
   endpoint,
@@ -72,6 +65,13 @@ export default function InstanceSelect({
       getData<KojiResponse<Option[]>>(endpoint)
         .then((resp) => {
           if (resp) {
+            if (koji) {
+              useShapes.setState({
+                kojiRefCache: Object.fromEntries(
+                  resp.data.map((t) => [t.id, t]),
+                ),
+              })
+            }
             setOptions((prev) =>
               Object.fromEntries(
                 resp.data

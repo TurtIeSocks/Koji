@@ -12,7 +12,7 @@ import Add from '@mui/icons-material/Add'
 import geohash from 'ngeohash'
 import type { Feature, MultiPoint } from 'geojson'
 
-import { KojiResponse, PopupProps } from '@assets/types'
+import { KojiResponse, Option, PopupProps } from '@assets/types'
 import ExportRoute from '@components/dialogs/ExportRoute'
 import { useShapes } from '@hooks/useShapes'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
@@ -23,17 +23,21 @@ interface Props extends PopupProps {
   id: Feature['id']
   lat: number
   lon: number
-  properties: Feature['properties']
   type: 'Point' | 'MultiPoint'
 }
 
-export function PointPopup({ id, lat, lon, properties, type: geoType }: Props) {
+export function PointPopup({ id, lat, lon, type: geoType }: Props) {
   const [open, setOpen] = React.useState('')
   const feature = useShapes((s) => s[geoType][id as number | string])
   const { add, remove, splitLine } = useShapes.getState().setters
 
   const [name, setName] = React.useState(feature.properties?.__name || '')
   const [type, setType] = React.useState(feature.properties?.__type || '')
+  const [fenceId, setFenceId] = React.useState(
+    feature.properties?.__geofence_id || 0,
+  )
+  const options = Object.values(useShapes.getState().kojiRefCache)
+
   const [loading, setLoading] = React.useState(false)
 
   const removeCheck = () =>
@@ -43,12 +47,6 @@ export function PointPopup({ id, lat, lon, properties, type: geoType }: Props) {
 
   return id !== undefined ? (
     <div>
-      {properties?.__name && (
-        <>
-          Name: {properties.name}
-          <br />
-        </>
-      )}
       Lat: {lat.toFixed(6)}
       <br />
       Lng: {lon.toFixed(6)}
@@ -79,7 +77,7 @@ export function PointPopup({ id, lat, lon, properties, type: geoType }: Props) {
             size="small"
             fullWidth
             value={type}
-            onChange={async ({ target }) => setType(target.value)}
+            onChange={({ target }) => setType(target.value)}
           >
             {(useStatic.getState().scannerType === 'rdm'
               ? RDM_ROUTES
@@ -87,6 +85,33 @@ export function PointPopup({ id, lat, lon, properties, type: geoType }: Props) {
             ).map((t) => (
               <MenuItem key={t} value={t}>
                 {t}
+              </MenuItem>
+            ))}
+          </Select>
+        </Grid2>
+        <Grid2 xs={12} py={1}>
+          <Select
+            size="small"
+            fullWidth
+            value={options.length ? fenceId || '' : ''}
+            onChange={({ target }) => setFenceId(+target.value)}
+            onOpen={async () =>
+              options.length
+                ? null
+                : fetch('/internal/routes/from_koji')
+                    .then((res) => res.json())
+                    .then((res: KojiResponse<Option[]>) =>
+                      useShapes.setState({
+                        kojiRefCache: Object.fromEntries(
+                          res.data.map((t) => [t.id, t]),
+                        ),
+                      }),
+                    )
+            }
+          >
+            {options.map((t) => (
+              <MenuItem key={t.id} value={t.id}>
+                {t.name}
               </MenuItem>
             ))}
           </Select>
@@ -178,7 +203,7 @@ export function PointPopup({ id, lat, lon, properties, type: geoType }: Props) {
                         body: JSON.stringify({
                           id: feature.properties?.__koji_id || 0,
                           name,
-                          geofence_id: feature.properties?.__geofence_id,
+                          geofence_id: fenceId,
                           mode: type,
                           geometry: mp.data.geometry,
                           updated_at: new Date(),
@@ -197,6 +222,7 @@ export function PointPopup({ id, lat, lon, properties, type: geoType }: Props) {
                             __name: res.data.name,
                             __type: res.data.mode,
                             __koji_id: res.data.id,
+                            __geofence_id: res.data.geofence_id,
                           },
                         }
                         setLoading(false)

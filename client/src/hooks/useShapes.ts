@@ -13,11 +13,13 @@ import type {
 } from 'geojson'
 import { getKey } from '@services/utils'
 import union from '@turf/union'
+import { Option } from '@assets/types'
 
 export interface UseShapes {
   test: boolean
   activeRoute: string
   newRouteCount: number
+  kojiRefCache: Record<string, Option>
   remoteCache: Record<string, Feature>
   firstPoint: keyof UseShapes['Point'] | null
   lastPoint: keyof UseShapes['Point'] | null
@@ -80,6 +82,7 @@ export interface UseShapes {
 export const useShapes = create<UseShapes>((set, get) => ({
   activeRoute: 'new_route_0',
   remoteCache: {},
+  kojiRefCache: {},
   newRouteCount: 0,
   test: false,
   firstPoint: null,
