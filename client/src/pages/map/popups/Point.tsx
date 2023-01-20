@@ -171,7 +171,7 @@ export function PointPopup({ id, lat, lon, type: geoType }: Props) {
               Delete
             </Button>
             <Button
-              disabled={!name || !type || loading}
+              disabled={!name || !type || loading || !fenceId}
               onClick={() => {
                 setLoading(true)
                 fetch(`/api/v1/convert/merge_points`, {
