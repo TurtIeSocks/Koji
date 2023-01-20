@@ -15,6 +15,7 @@ pub struct BoundsArg {
     pub min_lon: Precision,
     pub max_lat: Precision,
     pub max_lon: Precision,
+    pub last_seen: Option<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

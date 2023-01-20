@@ -42,7 +42,6 @@ impl Query {
     pub async fn bound(
         conn: &DatabaseConnection,
         payload: &api::args::BoundsArg,
-        last_seen: u32,
     ) -> Result<Vec<GenericData>, DbErr> {
         let items = spawnpoint::Entity::find()
             .select_only()
@@ -51,7 +50,13 @@ impl Query {
             .column(spawnpoint::Column::DespawnSec)
             .filter(spawnpoint::Column::Lat.between(payload.min_lat, payload.max_lat))
             .filter(spawnpoint::Column::Lon.between(payload.min_lon, payload.max_lon))
-            .filter(spawnpoint::Column::LastSeen.gt(last_seen))
+            .filter(
+                Column::Updated.gt(if let Some(last_seen) = payload.last_seen {
+                    last_seen
+                } else {
+                    0
+                }),
+            )
             .limit(2_000_000)
             .into_model::<Spawnpoint<f64>>()
             .all(conn)

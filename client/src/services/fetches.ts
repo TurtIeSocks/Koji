@@ -177,28 +177,24 @@ export async function getMarkers(
               feature.geometry.type === 'MultiPolygon',
           ).length
         : true)
-        ? fetch(
-            `/internal/data/${data === 'all' ? 'all' : 'area'}/${category}`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                area:
-                  data === 'area'
-                    ? area.features.filter(
-                        (feature) =>
-                          feature.geometry.type === 'Polygon' ||
-                          feature.geometry.type === 'MultiPolygon',
-                      )
-                    : data === 'bound'
-                    ? getMapBounds(map)
-                    : undefined,
-                last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
-              }),
+        ? fetch(`/internal/data/${data}/${category}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
             },
-          ).then((res) => res.json())
+            body: JSON.stringify({
+              area:
+                data === 'area'
+                  ? area.features.filter(
+                      (feature) =>
+                        feature.geometry.type === 'Polygon' ||
+                        feature.geometry.type === 'MultiPolygon',
+                    )
+                  : undefined,
+              ...(data === 'bound' && getMapBounds(map)),
+              last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+            }),
+          }).then((res) => res.json())
         : [],
     ),
   )
