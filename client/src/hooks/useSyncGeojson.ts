@@ -1,6 +1,8 @@
 import useDeepCompareEffect from 'use-deep-compare-effect'
-import { useShapes } from '@hooks/useShapes'
 import type { FeatureCollection } from 'geojson'
+
+import { useShapes } from '@hooks/useShapes'
+
 import { useStatic } from './useStatic'
 
 export default function useSyncGeojson() {

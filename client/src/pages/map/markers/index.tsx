@@ -1,83 +1,67 @@
 import React from 'react'
-import { useMap, Circle, Popup } from 'react-leaflet'
+import { Circle, Popup, useMap } from 'react-leaflet'
 import geohash from 'ngeohash'
 
 import { ICON_RADIUS, ICON_COLOR } from '@assets/constants'
-import { usePersist } from '@hooks/usePersist'
-import { getMarkers } from '@services/fetches'
+import { UsePersist, usePersist } from '@hooks/usePersist'
 import usePixi from '@hooks/usePixi'
 import { useStatic } from '@hooks/useStatic'
 import useDeepCompareEffect from 'use-deep-compare-effect'
+import { getMarkers } from '@services/fetches'
+import { getMapBounds } from '@services/utils'
+import { PixiMarker } from '@assets/types'
 
-export default function Markers() {
+export default function Markers({
+  category,
+}: {
+  category: UsePersist['category']
+}) {
+  const enabled = usePersist((s) => s[category])
+  const nativeLeaflet = usePersist((s) => s.nativeLeaflet)
   const location = usePersist((s) => s.location)
   const data = usePersist((s) => s.data)
-  const pokestop = usePersist((s) => s.pokestop)
-  const spawnpoint = usePersist((s) => s.spawnpoint)
-  const gym = usePersist((s) => s.gym)
-  const nativeLeaflet = usePersist((s) => s.nativeLeaflet)
   const last_seen = usePersist((s) => s.last_seen)
-  const setStore = usePersist((s) => s.setStore)
 
   const geojson = useStatic((s) => s.geojson)
-  const pokestops = useStatic((s) => s.pokestops)
-  const spawnpoints = useStatic((s) => s.spawnpoints)
-  const gyms = useStatic((s) => s.gyms)
-  const setStatic = useStatic((s) => s.setStatic)
 
+  const [markers, setMarkers] = React.useState<PixiMarker[]>([])
   const map = useMap()
 
+  usePixi(nativeLeaflet ? [] : markers)
+
   useDeepCompareEffect(() => {
-    getMarkers(map, data, geojson, pokestop, spawnpoint, gym, last_seen).then(
-      (incoming) => {
-        setStatic('pokestops', incoming.pokestops)
-        setStatic('spawnpoints', incoming.spawnpoints)
-        setStatic('gyms', incoming.gyms)
-      },
-    )
+    const controller = new AbortController()
+    if (enabled) {
+      getMarkers(
+        category,
+        getMapBounds(map),
+        data,
+        {
+          ...geojson,
+          features: geojson.features.filter(
+            (feature) =>
+              feature.geometry.type === 'Polygon' ||
+              feature.geometry.type === 'MultiPolygon',
+          ),
+        },
+        last_seen,
+        controller.signal,
+      ).then((res) => {
+        if (res.length) setMarkers(res)
+      })
+    }
+    return () => controller.abort()
   }, [
     data,
     data === 'area' ? geojson : {},
     data === 'bound' ? location : {},
-    pokestop,
-    spawnpoint,
-    gym,
+    enabled,
     last_seen,
   ])
 
-  const onMove = React.useCallback(() => {
-    setStore('location', Object.values(map.getCenter()) as [number, number])
-    setStore('zoom', map.getZoom())
-  }, [map])
-
-  React.useEffect(() => {
-    map.on('moveend', onMove)
-    return () => {
-      map.off('moveend', onMove)
-    }
-  }, [onMove])
-
-  const initialMarkers = React.useMemo(
-    () => [
-      ...(pokestop ? pokestops : []),
-      ...(spawnpoint ? spawnpoints : []),
-      ...(gym ? gyms : []),
-    ],
-    [
-      pokestops.length,
-      gyms.length,
-      spawnpoints.length,
-      pokestop,
-      gym,
-      spawnpoint,
-    ],
-  )
-
-  usePixi(nativeLeaflet ? [] : initialMarkers)
-
   return nativeLeaflet ? (
     <>
-      {initialMarkers.map((i) => (
+      {markers.map((i) => (
         <Circle
           key={i.i}
           center={i.p}

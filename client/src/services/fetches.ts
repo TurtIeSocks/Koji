@@ -1,9 +1,8 @@
 /* eslint-disable no-console */
 /* eslint-disable no-nested-ternary */
-import type { Map } from 'leaflet'
 import type { Feature, FeatureCollection } from 'geojson'
 
-import type { CombinedState, Data, ToConvert } from '@assets/types'
+import type { CombinedState, PixiMarker, ToConvert } from '@assets/types'
 import { UsePersist, usePersist } from '@hooks/usePersist'
 import { UseStatic, useStatic } from '@hooks/useStatic'
 import { useShapes } from '@hooks/useShapes'
@@ -168,56 +167,44 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
 }
 
 export async function getMarkers(
-  map: Map,
+  category: UsePersist['category'],
+  bounds: ReturnType<typeof getMapBounds>,
   data: UsePersist['data'],
   area: UseStatic['geojson'],
-  enableStops: boolean,
-  enableSpawnpoints: boolean,
-  enableGyms: boolean,
   last_seen: UsePersist['last_seen'],
-): Promise<Data> {
-  const filtered = area.features.filter(
-    (feature) =>
-      feature.geometry.type === 'Polygon' ||
-      feature.geometry.type === 'MultiPolygon',
-  )
-  const [pokestops, gyms, spawnpoints] = await Promise.all(
-    [
-      enableStops ? 'pokestop' : '',
-      enableGyms ? 'gym' : '',
-      enableSpawnpoints ? 'spawnpoint' : '',
-    ].map(async (category) => {
-      if (category && (data === 'area' ? filtered.length : true)) {
-        const res = await fetch(`/internal/data/${data}/${category}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            area: data === 'area' ? filtered : undefined,
-            ...(data === 'bound' && getMapBounds(map)),
-            last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
-          }),
-        })
-        if (!res.ok) {
-          useStatic.setState({
-            networkError: {
-              message: await res.text(),
-              status: res.status,
-              severity: 'error',
-            },
-          })
-          return null
-        }
-        return res.json()
+  signal: AbortSignal,
+): Promise<PixiMarker[]> {
+  try {
+    const res = await fetch(`/internal/data/${data}/${category}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal,
+      body: JSON.stringify({
+        area: data === 'area' ? area : undefined,
+        ...(data === 'bound' && bounds),
+        last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+      }),
+    })
+    if (!res.ok) {
+      useStatic.setState({
+        networkError: {
+          message: await res.text(),
+          status: res.status,
+          severity: 'error',
+        },
+      })
+      throw new Error('Network Error')
+    }
+    return await res.json()
+  } catch (e) {
+    if (e instanceof Error) {
+      if (e.name !== 'AbortError' || process.env.NODE_ENV === 'development') {
+        console.error(e)
       }
-      return []
-    }),
-  )
-  return {
-    pokestops: Array.isArray(pokestops) ? pokestops : [],
-    gyms: Array.isArray(gyms) ? gyms : [],
-    spawnpoints: Array.isArray(spawnpoints) ? spawnpoints : [],
+    }
+    return []
   }
 }
 

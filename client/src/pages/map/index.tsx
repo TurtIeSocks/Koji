@@ -51,7 +51,9 @@ export default function MapWrapper() {
           <Pane name="lines" style={{ zIndex: 502 }} />
           <Pane name="arrows" style={{ zIndex: 501 }} />
           <Pane name="polygons" style={{ zIndex: 500 }} />
-          <Markers />
+          <Markers category="pokestop" />
+          <Markers category="spawnpoint" />
+          <Markers category="gym" />
           <Interface />
           <Points />
           <MultiPoints />
