@@ -2,7 +2,7 @@ import create from 'zustand'
 import type { FeatureCollection } from 'geojson'
 import type { AlertProps } from '@mui/material'
 
-import type { ClientProject, KojiStats, PixiMarker } from '@assets/types'
+import type { ClientProject, KojiStats } from '@assets/types'
 import { collectionToObject } from '@services/utils'
 
 export interface UseStatic {
@@ -13,10 +13,6 @@ export interface UseStatic {
   }
   loading: Record<string, KojiStats | null | false>
   totalLoadingTime: number
-  pokestops: PixiMarker[]
-  gyms: PixiMarker[]
-  spawnpoints: PixiMarker[]
-  getMarkers: () => PixiMarker[]
   selected: string[]
   kojiRoutes: { name: string; id: number; type: string }[]
   scannerRoutes: { name: string; id: number; type: string }[]
@@ -73,13 +69,6 @@ export const useStatic = create<UseStatic>((set, get) => ({
   },
   loading: {},
   totalLoadingTime: 0,
-  pokestops: [],
-  gyms: [],
-  spawnpoints: [],
-  getMarkers: () => {
-    const { pokestops, gyms, spawnpoints } = get()
-    return [...pokestops, ...gyms, ...spawnpoints]
-  },
   selected: [],
   scannerRoutes: [],
   kojiRoutes: [],

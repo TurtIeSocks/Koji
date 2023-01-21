@@ -172,29 +172,40 @@ export async function getMarkers(
   data: UsePersist['data'],
   area: UseStatic['geojson'],
   last_seen: UsePersist['last_seen'],
-): Promise<PixiMarker[] | null> {
-  const res = await fetch(`/internal/data/${data}/${category}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      area: data === 'area' ? area : undefined,
-      ...(data === 'bound' && bounds),
-      last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
-    }),
-  })
-  if (!res.ok) {
-    useStatic.setState({
-      networkError: {
-        message: await res.text(),
-        status: res.status,
-        severity: 'error',
+  signal: AbortSignal,
+): Promise<PixiMarker[]> {
+  try {
+    const res = await fetch(`/internal/data/${data}/${category}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
+      signal,
+      body: JSON.stringify({
+        area: data === 'area' ? area : undefined,
+        ...(data === 'bound' && bounds),
+        last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+      }),
     })
-    return null
+    if (!res.ok) {
+      useStatic.setState({
+        networkError: {
+          message: await res.text(),
+          status: res.status,
+          severity: 'error',
+        },
+      })
+      throw new Error('Network Error')
+    }
+    return await res.json()
+  } catch (e) {
+    if (e instanceof Error) {
+      if (e.name !== 'AbortError' || process.env.NODE_ENV === 'development') {
+        console.error(e)
+      }
+    }
+    return []
   }
-  return res.json()
 }
 
 export async function convert<T = ToConvert>(

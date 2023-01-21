@@ -9,6 +9,7 @@ import { useStatic } from '@hooks/useStatic'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import { getMarkers } from '@services/fetches'
 import { getMapBounds } from '@services/utils'
+import { PixiMarker } from '@assets/types'
 
 export default function Markers({
   category,
@@ -22,11 +23,14 @@ export default function Markers({
   const last_seen = usePersist((s) => s.last_seen)
 
   const geojson = useStatic((s) => s.geojson)
-  const markers = useStatic((s) => s[`${category}s`])
 
+  const [markers, setMarkers] = React.useState<PixiMarker[]>([])
   const map = useMap()
 
+  usePixi(nativeLeaflet ? [] : markers)
+
   useDeepCompareEffect(() => {
+    const controller = new AbortController()
     if (enabled) {
       getMarkers(
         category,
@@ -41,12 +45,12 @@ export default function Markers({
           ),
         },
         last_seen,
+        controller.signal,
       ).then((res) => {
-        useStatic.setState({ [`${category}s`]: res })
+        if (res.length) setMarkers(res)
       })
-    } else {
-      useStatic.setState({ [`${category}s`]: [] })
     }
+    return () => controller.abort()
   }, [
     data,
     data === 'area' ? geojson : {},
@@ -54,8 +58,6 @@ export default function Markers({
     enabled,
     last_seen,
   ])
-
-  usePixi(nativeLeaflet ? [] : markers)
 
   return nativeLeaflet ? (
     <>
