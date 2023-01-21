@@ -6,6 +6,7 @@ import { useStatic } from '@hooks/useStatic'
 import useLayers from '@hooks/useLayers'
 import usePopupStyle from '@hooks/usePopupStyle'
 import useSyncGeojson from '@hooks/useSyncGeojson'
+import { usePersist } from '@hooks/usePersist'
 
 import Locate from './Locate'
 import MemoizedDrawing from './Drawing'
@@ -14,7 +15,7 @@ import EasyButton from './EasyButton'
 export default function Interface() {
   const navigate = useNavigate()
 
-  useMapEvents({
+  const map = useMapEvents({
     popupopen(e) {
       const isEditing = Object.values(useStatic.getState().layerEditing).some(
         (v) => v,
@@ -24,6 +25,20 @@ export default function Interface() {
       }
     },
   })
+
+  const onMove = React.useCallback(() => {
+    usePersist.setState({
+      location: Object.values(map.getCenter()) as [number, number],
+      zoom: map.getZoom(),
+    })
+  }, [map])
+
+  React.useEffect(() => {
+    map.on('moveend', onMove)
+    return () => {
+      map.off('moveend', onMove)
+    }
+  }, [onMove])
 
   useLayers()
   usePopupStyle()

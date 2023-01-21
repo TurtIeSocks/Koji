@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-param-reassign */
 
@@ -28,6 +29,7 @@ export default function usePixi(markers: PixiMarker[]) {
   const [pixiOverlay, setPixiOverlay] = useState(null)
   const [loaded, setLoaded] = useState(false)
   const map = useMap()
+
   if (map.getZoom() === undefined) {
     // this if statement is to avoid getContainer error
     // map must have zoom prop
@@ -36,7 +38,7 @@ export default function usePixi(markers: PixiMarker[]) {
 
   // load sprites
   useEffect(() => {
-    // cancel loading if already loading as it may cause: Error: Cannot add resources while the loader is running.
+    // cancel loading if already loading as it may cause an error
     if (PIXILoader.loading) {
       PIXILoader.reset()
     }
@@ -68,10 +70,8 @@ export default function usePixi(markers: PixiMarker[]) {
   // load pixi when map changes
   useEffect(() => {
     const pixiContainer = new PIXI.Container()
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     const overlay = L.pixiOverlay((utils) => {
-      // redraw markers
       const scale = utils.getScale(16)
       utils.getContainer().children.forEach((child: any) => {
         child.currentScale = child.scale.x
@@ -90,16 +90,12 @@ export default function usePixi(markers: PixiMarker[]) {
   useEffect(() => {
     if (pixiOverlay && markers && loaded) {
       const { utils } = pixiOverlay
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       const container = utils.getContainer()
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       const renderer = utils.getRenderer()
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       const project = utils.latLngToLayerPoint
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       const scale = utils.getScale(16)
       markers.forEach((marker) => {
@@ -127,11 +123,11 @@ export default function usePixi(markers: PixiMarker[]) {
     }
     return () => {
       if (pixiOverlay) {
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         pixiOverlay.utils.getContainer().removeChildren()
       }
     }
   }, [pixiOverlay, markers, loaded])
+
   return null
 }
