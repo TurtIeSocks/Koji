@@ -63,6 +63,8 @@ async fn search_nominatim(
     url: web::Query<Search>,
 ) -> Result<HttpResponse, Error> {
     let query = url.into_inner();
+    log::debug!("[NOMINATIM] Search: \"{}\"", query.query);
+
     let results = nominatim_client
         .search(
             nominatim::SearchQueryBuilder::default()
@@ -74,7 +76,12 @@ async fn search_nominatim(
                 .unwrap(),
         )
         .await
+        .map_err(|err| {
+            log::error!("[NOMINATIM] {:?}", err);
+            err
+        })
         .map_err(actix_web::error::ErrorInternalServerError)?;
+
     let results: FeatureCollection = results
         .into_iter()
         .filter_map(|feat| {
@@ -84,7 +91,7 @@ async fn search_nominatim(
                     _ => {
                         if let Some(id) = feat.property("osm_id") {
                             if let Some(id) = id.as_u64() {
-                                println!("Filtered OSM ID: {} | Not a Polygon or MultiPolygon", id);
+                                log::info!("[NOMINATIM] Filtered OSM ID: {} | Not a Polygon or MultiPolygon", id)
                             }
                         }
                         return None;
@@ -94,7 +101,8 @@ async fn search_nominatim(
             None
         })
         .collect();
-    println!("Nominatim Results Length: {}", results.features.len());
+    log::info!("[NOMINATIM] Results Found: {}", results.features.len());
+
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!(results)),
         message: "Success".to_string(),

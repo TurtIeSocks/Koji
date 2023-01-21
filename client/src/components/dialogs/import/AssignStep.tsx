@@ -4,12 +4,13 @@ import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import Typography from '@mui/material/Typography'
 import type { FeatureCollection } from 'geojson'
 
-import { ClientProject } from '@assets/types'
+import { ClientProject, KojiResponse } from '@assets/types'
 import { Checkbox, Divider, MenuItem, Select } from '@mui/material'
 import ReactWindow from '@components/ReactWindow'
 import { useStatic } from '@hooks/useStatic'
 import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
 import ProjectsAc from '@components/drawer/inputs/ProjectsAC'
+import { getData } from '@services/fetches'
 
 const AssignStep = React.forwardRef<
   HTMLDivElement,
@@ -27,12 +28,13 @@ const AssignStep = React.forwardRef<
   const innerRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
-    fetch('/internal/admin/project/all/')
-      .then((res) => res.json())
-      .then((data) => {
-        return useStatic.setState({
+    getData<KojiResponse<Omit<ClientProject, 'related'>[]>>(
+      '/internal/admin/project/all/',
+    ).then((res) => {
+      if (res) {
+        useStatic.setState({
           projects: Object.fromEntries(
-            data.data.map((project: Omit<ClientProject, 'related'>) => [
+            res.data.map((project) => [
               project.id,
               {
                 ...project,
@@ -41,7 +43,8 @@ const AssignStep = React.forwardRef<
             ]),
           ),
         })
-      })
+      }
+    })
   }, [])
 
   React.useEffect(() => {

@@ -7,6 +7,7 @@ import {
   TextField,
   createFilterOptions,
 } from '@mui/material'
+import { getData } from '@services/fetches'
 import * as React from 'react'
 
 interface NewKojiProject extends KojiProject {
@@ -31,31 +32,33 @@ export default function ProjectsAc({
   const [loading, setLoading] = React.useState(false)
 
   const saveProject = async (newProject: NewKojiProject) => {
-    const res = await fetch('/internal/admin/project/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const res = await getData<KojiResponse<KojiProject>>(
+      '/internal/admin/project/',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: 0,
+          name: newProject.inputValue,
+          created_at: new Date(),
+          updated_at: new Date(),
+        }),
       },
-      body: JSON.stringify({
-        id: 0,
-        name: newProject.inputValue,
-        created_at: new Date(),
-        updated_at: new Date(),
-      }),
-    })
-    const data: KojiResponse<KojiProject> = await res.json()
-    return data.data
+    )
+    return res?.data
   }
 
   const getOptions = async (search = '') => {
     setLoading(true)
-    const res = await fetch(`/internal/admin/project/search/?query=${search}`)
-    if (!res.ok) {
-      return
+    const res = await getData<KojiResponse<KojiProject[]>>(
+      `/internal/admin/project/search/?query=${search}`,
+    )
+    if (res) {
+      setProjects(res.data)
+      setLoading(false)
     }
-    const json: KojiResponse<KojiProject[]> = await res.json()
-    setProjects(json.data)
-    setLoading(false)
   }
 
   return (
@@ -67,22 +70,24 @@ export default function ProjectsAc({
         )
         if (typeof newProject === 'object') {
           saveProject(newProject).then((val) => {
-            const newProjects = Object.fromEntries(
-              [...Object.values(projectObj), val].map((project) => [
-                project.id,
-                { ...project, related: [] },
-              ]),
-            )
-            setValue(
-              newValue.map((project) => {
-                return typeof project === 'string'
-                  ? Object.values(newProjects).find(
-                      (proj) => proj.name === project,
-                    )?.id || val.id
-                  : project.id || val.id
-              }),
-            )
-            useStatic.setState({ projects: newProjects })
+            if (val) {
+              const newProjects = Object.fromEntries(
+                [...Object.values(projectObj), val].map((project) => [
+                  project.id,
+                  { ...project, related: [] },
+                ]),
+              )
+              setValue(
+                newValue.map((project) => {
+                  return typeof project === 'string'
+                    ? Object.values(newProjects).find(
+                        (proj) => proj.name === project,
+                      )?.id || val.id
+                    : project.id || val.id
+                }),
+              )
+              useStatic.setState({ projects: newProjects })
+            }
           })
         } else {
           setValue(

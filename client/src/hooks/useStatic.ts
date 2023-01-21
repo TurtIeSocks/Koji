@@ -1,10 +1,16 @@
 import create from 'zustand'
 import type { FeatureCollection } from 'geojson'
+import type { AlertProps } from '@mui/material'
 
 import type { ClientProject, KojiStats, PixiMarker } from '@assets/types'
 import { collectionToObject } from '@services/utils'
 
 export interface UseStatic {
+  networkError: {
+    message: string
+    status: number
+    severity: AlertProps['severity']
+  }
   loading: Record<string, KojiStats | null | false>
   totalLoadingTime: number
   pokestops: PixiMarker[]
@@ -60,6 +66,11 @@ export interface UseStatic {
 }
 
 export const useStatic = create<UseStatic>((set, get) => ({
+  networkError: {
+    message: '',
+    status: 500,
+    severity: 'info',
+  },
   loading: {},
   totalLoadingTime: 0,
   pokestops: [],

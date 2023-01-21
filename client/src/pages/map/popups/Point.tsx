@@ -12,12 +12,13 @@ import Add from '@mui/icons-material/Add'
 import geohash from 'ngeohash'
 import type { Feature, MultiPoint } from 'geojson'
 
-import { KojiResponse, Option, PopupProps } from '@assets/types'
+import { KojiResponse, KojiRoute, Option, PopupProps } from '@assets/types'
 import ExportRoute from '@components/dialogs/ExportRoute'
 import { useShapes } from '@hooks/useShapes'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import { RDM_ROUTES, UNOWN_ROUTES } from '@assets/constants'
 import { useStatic } from '@hooks/useStatic'
+import { getData } from '@services/fetches'
 
 interface Props extends PopupProps {
   id: Feature['id']
@@ -98,15 +99,17 @@ export function PointPopup({ id, lat, lon, type: geoType }: Props) {
             onOpen={async () =>
               options.length
                 ? null
-                : fetch('/internal/routes/from_koji')
-                    .then((res) => res.json())
-                    .then((res: KojiResponse<Option[]>) =>
+                : getData<KojiResponse<Option[]>>(
+                    '/internal/routes/from_koji',
+                  ).then(
+                    (res) =>
+                      res &&
                       useShapes.setState({
                         kojiRefCache: Object.fromEntries(
                           res.data.map((t) => [t.id, t]),
                         ),
                       }),
-                    )
+                  )
             }
           >
             {options.map((t) => (
@@ -157,7 +160,7 @@ export function PointPopup({ id, lat, lon, type: geoType }: Props) {
               disabled={feature.properties?.__koji_id === undefined}
               onClick={async () => {
                 setLoading(true)
-                await fetch(
+                await getData(
                   `/internal/admin/route/${feature.properties?.__koji_id}/`,
                   {
                     method: 'DELETE',
@@ -174,22 +177,25 @@ export function PointPopup({ id, lat, lon, type: geoType }: Props) {
               disabled={!name || !type || loading || !fenceId}
               onClick={() => {
                 setLoading(true)
-                fetch(`/api/v1/convert/merge_points`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    area: {
-                      type: 'FeatureCollection',
-                      features: Object.values(useShapes.getState().Point),
+                getData<KojiResponse<Feature<MultiPoint>>>(
+                  `/api/v1/convert/merge_points`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
                     },
-                    return_type: 'feature',
-                  }),
-                })
-                  .then((res) => res.json())
-                  .then((mp: KojiResponse<Feature<MultiPoint>>) =>
-                    fetch(
+                    body: JSON.stringify({
+                      area: {
+                        type: 'FeatureCollection',
+                        features: Object.values(useShapes.getState().Point),
+                      },
+                      return_type: 'feature',
+                    }),
+                  },
+                ).then(
+                  (mp) =>
+                    mp &&
+                    getData<KojiResponse<KojiRoute>>(
                       feature.properties?.__koji_id
                         ? `/internal/admin/route/${feature.properties?.__koji_id}/`
                         : '/internal/admin/route/',
@@ -210,9 +216,15 @@ export function PointPopup({ id, lat, lon, type: geoType }: Props) {
                           created_at: new Date(),
                         }),
                       },
-                    )
-                      .then((res) => res.json())
-                      .then((res) => {
+                    ).then((res) => {
+                      if (res) {
+                        useStatic.setState({
+                          networkError: {
+                            message: 'Saved successfully!',
+                            status: 200,
+                            severity: 'success',
+                          },
+                        })
                         const newFeature = {
                           ...feature,
                           id: `${res.data.name}__${res.data.mode}__KOJI`,
@@ -225,11 +237,12 @@ export function PointPopup({ id, lat, lon, type: geoType }: Props) {
                             __geofence_id: res.data.geofence_id,
                           },
                         }
-                        setLoading(false)
                         removeCheck()
                         add(newFeature, '__KOJI')
-                      }),
-                  )
+                      }
+                      setLoading(false)
+                    }),
+                )
               }}
             >
               {feature.properties?.__koji_id ? 'Save' : 'Create'}

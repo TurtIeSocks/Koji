@@ -10,7 +10,7 @@ use actix_web::{
 };
 use actix_web_httpauth::middleware::HttpAuthentication;
 use geojson::{Feature, FeatureCollection};
-use log::LevelFilter;
+use log::{self, LevelFilter};
 use nominatim;
 use sea_orm::{ConnectOptions, Database, DbErr};
 

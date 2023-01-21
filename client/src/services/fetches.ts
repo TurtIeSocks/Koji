@@ -12,10 +12,11 @@ import { fromSnakeCase, getMapBounds } from './utils'
 
 export async function getData<T>(
   url: string,
+  options: RequestInit = {},
   settings: CombinedState & { area?: Feature } = {},
 ): Promise<T | null> {
   try {
-    const data = Object.keys(settings).length
+    const res = Object.keys(settings).length
       ? await fetch(url, {
           method: 'POST',
           headers: {
@@ -23,12 +24,17 @@ export async function getData<T>(
           },
           body: JSON.stringify(settings),
         })
-      : await fetch(url)
-    const body = await data.json()
-    if (!data.ok) {
-      throw new Error(body.message)
+      : await fetch(url, options)
+    if (!res.ok) {
+      useStatic.setState({
+        networkError: {
+          message: await res.text(),
+          status: res.status,
+          severity: 'error',
+        },
+      })
     }
-    return body
+    return await res.json()
   } catch (e) {
     console.error(e)
     return null
@@ -77,7 +83,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
       )
       .map(async (area) => {
         const startTime = Date.now()
-        return fetch(
+        const res = await fetch(
           mode === 'bootstrap'
             ? '/api/v1/calc/bootstrap'
             : `/api/v1/calc/${mode}/${category}`,
@@ -103,38 +109,45 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
             }),
           },
         )
-          .then((res) => res.json())
-          .then((r) => {
-            const fetch_time = Date.now() - startTime
-            setStatic('loading', (prev) => ({
-              ...prev,
-              [r.data?.properties?.__name]: {
-                ...r.stats,
-                fetch_time,
-              },
-            }))
-            console.log(area.properties?.__name)
-            Object.entries(r.stats).forEach(([k, v]) =>
-              // eslint-disable-next-line no-console
-              console.log(fromSnakeCase(k), v),
-            )
-            console.log(`Total Time: ${fetch_time / 1000}s\n`)
-            console.log('-----------------')
-            return {
-              ...r.data,
-              properties: {
-                ...r.data.properties,
-                __geofence_id: area.properties?.__koji_id,
-              },
-            }
+        if (!res.ok) {
+          setStatic('loading', (prev) => ({
+            ...prev,
+            [area.properties?.__name ||
+            `${area.geometry.type}${area.id ? `-${area.id}` : ''}`]: false,
+          }))
+          console.log(res)
+          useStatic.setState({
+            networkError: {
+              message: await res.text(),
+              status: res.status,
+              severity: 'error',
+            },
           })
-          .catch(() => {
-            setStatic('loading', (prev) => ({
-              ...prev,
-              [area.properties?.__name ||
-              `${area.geometry.type}${area.id ? `-${area.id}` : ''}`]: false,
-            }))
-          })
+          return null
+        }
+        const json = await res.json()
+        const fetch_time = Date.now() - startTime
+        setStatic('loading', (prev) => ({
+          ...prev,
+          [json.data?.properties?.__name]: {
+            ...json.stats,
+            fetch_time,
+          },
+        }))
+        console.log(area.properties?.__name)
+        Object.entries(json.stats).forEach(([k, v]) =>
+          // eslint-disable-next-line no-console
+          console.log(fromSnakeCase(k), v),
+        )
+        console.log(`Total Time: ${fetch_time / 1000}s\n`)
+        console.log('-----------------')
+        return {
+          ...json.data,
+          properties: {
+            ...json.data.properties,
+            __geofence_id: area.properties?.__koji_id,
+          },
+        }
       }),
   ).then((feats) =>
     feats
@@ -163,40 +176,43 @@ export async function getMarkers(
   enableGyms: boolean,
   last_seen: UsePersist['last_seen'],
 ): Promise<Data> {
+  const filtered = area.features.filter(
+    (feature) =>
+      feature.geometry.type === 'Polygon' ||
+      feature.geometry.type === 'MultiPolygon',
+  )
   const [pokestops, gyms, spawnpoints] = await Promise.all(
     [
       enableStops ? 'pokestop' : '',
       enableGyms ? 'gym' : '',
       enableSpawnpoints ? 'spawnpoint' : '',
-    ].map(async (category) =>
-      category &&
-      (data === 'area'
-        ? area.features.filter(
-            (feature) =>
-              feature.geometry.type === 'Polygon' ||
-              feature.geometry.type === 'MultiPolygon',
-          ).length
-        : true)
-        ? fetch(`/internal/data/${data}/${category}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
+    ].map(async (category) => {
+      if (category && (data === 'area' ? filtered.length : true)) {
+        const res = await fetch(`/internal/data/${data}/${category}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            area: data === 'area' ? filtered : undefined,
+            ...(data === 'bound' && getMapBounds(map)),
+            last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+          }),
+        })
+        if (!res.ok) {
+          useStatic.setState({
+            networkError: {
+              message: await res.text(),
+              status: res.status,
+              severity: 'error',
             },
-            body: JSON.stringify({
-              area:
-                data === 'area'
-                  ? area.features.filter(
-                      (feature) =>
-                        feature.geometry.type === 'Polygon' ||
-                        feature.geometry.type === 'MultiPolygon',
-                    )
-                  : undefined,
-              ...(data === 'bound' && getMapBounds(map)),
-              last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
-            }),
-          }).then((res) => res.json())
-        : [],
-    ),
+          })
+          return null
+        }
+        return res.json()
+      }
+      return []
+    }),
   )
   return {
     pokestops: Array.isArray(pokestops) ? pokestops : [],
@@ -212,7 +228,7 @@ export async function convert<T = ToConvert>(
   url = '/api/v1/convert/data',
 ): Promise<T> {
   try {
-    const data = await fetch(url, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -223,17 +239,24 @@ export async function convert<T = ToConvert>(
         simplify,
       }),
     })
-    if (!data.ok) {
+    if (!res.ok) {
+      useStatic.setState({
+        networkError: {
+          message: await res.text(),
+          status: res.status,
+          severity: 'error',
+        },
+      })
       throw new Error('Unable to convert')
     }
-    return await data.json().then((r) => r.data)
+    return await res.json().then((r) => r.data)
   } catch (e) {
     console.error(e)
     return '' as unknown as T
   }
 }
 
-export async function save(url: string, code: string) {
+export async function save<T>(url: string, code: string): Promise<T | null> {
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -243,10 +266,25 @@ export async function save(url: string, code: string) {
       body: JSON.stringify({ area: JSON.parse(code) }),
     })
     if (!res.ok) {
+      useStatic.setState({
+        networkError: {
+          message: await res.text(),
+          status: res.status,
+          severity: 'error',
+        },
+      })
       throw new Error('Unable to save')
     }
+    useStatic.setState({
+      networkError: {
+        message: 'Saved successfully!',
+        status: res.status,
+        severity: 'success',
+      },
+    })
     return await res.json()
   } catch (e) {
     console.error(e)
+    return null
   }
 }

@@ -190,10 +190,11 @@ impl ToFeature for Poracle {
 }
 
 impl ToCollection for Poracle {
-    fn to_collection(self, name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
         let feature = self
             .to_feature(enum_type)
-            .ensure_properties(name, enum_type);
+            // .ensure_properties(name, enum_type)
+            ;
         FeatureCollection {
             bbox: feature.bbox.clone(),
             features: vec![feature],
@@ -203,13 +204,13 @@ impl ToCollection for Poracle {
 }
 
 impl ToCollection for Vec<Poracle> {
-    fn to_collection(self, name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
-        let name = if let Some(name) = name {
-            name
-        } else {
-            "".to_string()
-        };
-        let length = self.len();
+    fn to_collection(self, _name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
+        // let name = if let Some(name) = name {
+        //     name
+        // } else {
+        //     "".to_string()
+        // };
+        // let length = self.len();
         FeatureCollection {
             bbox: self
                 .clone()
@@ -220,15 +221,16 @@ impl ToCollection for Vec<Poracle> {
             features: self
                 .into_iter()
                 .enumerate()
-                .map(|(i, poracle_feat)| {
-                    poracle_feat.to_feature(enum_type).ensure_properties(
-                        Some(if length > 1 {
-                            format!("{}_{}", name, i)
-                        } else {
-                            name.clone()
-                        }),
-                        enum_type,
-                    )
+                .map(|(_i, poracle_feat)| {
+                    poracle_feat.to_feature(enum_type)
+                    // .ensure_properties(
+                    //     Some(if length > 1 {
+                    //         format!("{}_{}", name, i)
+                    //     } else {
+                    //         name.clone()
+                    //     }),
+                    //     enum_type,
+                    // )
                 })
                 .collect(),
             foreign_members: None,

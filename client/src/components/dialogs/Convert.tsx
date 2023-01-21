@@ -2,6 +2,7 @@ import * as React from 'react'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import {
   Box,
+  Divider,
   FormControl,
   FormControlLabel,
   Switch,
@@ -25,6 +26,8 @@ export default function ConvertDialog() {
   const open = useStatic((s) => s.dialogs.convert)
   const polygonExportMode = usePersist((s) => s.polygonExportMode)
   const simplifyPolygons = usePersist((s) => s.simplifyPolygons)
+
+  const containerRef = React.useRef<HTMLDivElement>(null)
 
   const [code, setCode] = React.useState('')
   const [converted, setConverted] = React.useState('')
@@ -54,11 +57,17 @@ export default function ConvertDialog() {
       )
   }
 
+  const reset = () => {
+    setCode('')
+    setConverted('')
+    setPreviewGeojson({
+      type: 'FeatureCollection',
+      features: [],
+    })
+  }
+
   React.useEffect(() => {
-    if (open) {
-      setCode('')
-      setConverted('')
-    }
+    reset()
   }, [open])
 
   React.useEffect(() => {
@@ -70,6 +79,8 @@ export default function ConvertDialog() {
     }
   }, [polygonExportMode, simplifyPolygons])
 
+  const height = containerRef.current?.clientHeight.toString() ?? 0
+
   return (
     <BaseDialog
       open={open}
@@ -78,9 +89,10 @@ export default function ConvertDialog() {
           dialogs: { ...prev.dialogs, convert: false },
         }))
       }
-      title="Conversion Playground"
+      title="Polygon Conversion Playground"
       Components={{
         Dialog: { maxWidth: 'xl' },
+        DialogContent: { ref: containerRef, sx: { pb: 0, height: '70vh' } },
         DialogActions: {
           children: (
             <>
@@ -98,22 +110,30 @@ export default function ConvertDialog() {
                   'poracle',
                 ]}
                 type="select"
+                label="Select Format"
               />
-              <FormControl>
-                <FormControlLabel
+              <Divider
+                flexItem
+                orientation="vertical"
+                sx={{ width: 2, ml: 2, mr: 0.5, color: 'white' }}
+              />
+              <FormControl
+                size="small"
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Switch
                   value={simplifyPolygons}
-                  label="Simplify Polygons"
-                  control={
-                    <Switch
-                      value={simplifyPolygons}
-                      onChange={() =>
-                        usePersist.setState((prev) => ({
-                          simplifyPolygons: !prev.simplifyPolygons,
-                        }))
-                      }
-                    />
+                  onChange={() =>
+                    usePersist.setState((prev) => ({
+                      simplifyPolygons: !prev.simplifyPolygons,
+                    }))
                   }
                 />
+                <Typography variant="caption">Simplify Polygons</Typography>
               </FormControl>
               <Box sx={{ flex: '1 1 auto' }} />
             </>
@@ -121,26 +141,31 @@ export default function ConvertDialog() {
         },
       }}
     >
-      <Grid2 container height="85vh" minWidth="85vw" alignItems="flex-start">
+      <Grid2 container minWidth="85vw">
         <Grid2 xs={12} sm={6} textAlign="left">
           <Typography variant="h3" align="center" my={1}>
             Input
           </Typography>
           <Code
             minWidth="40vw"
+            maxWidth="98%"
+            height={height ? `${+height - 70}px` : '75vh'}
             code={code}
             setCode={async (newCode) => {
+              if (!newCode) {
+                reset()
+              }
+              setCode(newCode)
               const parsed = safeParse<ToConvert>(newCode)
               if (!parsed.error) {
-                setCode(newCode)
                 await convertCode(parsed.value)
-              } else if (typeof parsed.error === 'string') {
+              } else if (typeof parsed.error === 'string' && newCode) {
                 setConverted(parsed.error)
               }
             }}
           />
         </Grid2>
-        <Grid2 xs={12} sm={6} container textAlign="left">
+        <Grid2 xs={12} sm={6} container>
           <Grid2 xs={6}>
             <Typography variant="h3" align="center" my={1}>
               Result
@@ -160,24 +185,42 @@ export default function ConvertDialog() {
               />
             </FormControl>
           </Grid2>
-
-          {showPreview ? (
-            <Map
-              forcedLocation={[
-                ((previewGeojson.bbox?.[1] || 0) +
-                  (previewGeojson.bbox?.[3] || 0)) /
-                  2,
-                ((previewGeojson.bbox?.[0] || 0) +
-                  (previewGeojson.bbox?.[2] || 0)) /
-                  2,
-              ]}
-              style={{ minWidth: '40vw', minHeight: '80vh' }}
-            >
-              <GeoJSON data={previewGeojson} />
-            </Map>
-          ) : (
-            <Code minWidth="40vw">{converted}</Code>
-          )}
+          <Grid2 xs={12} textAlign="left">
+            {showPreview ? (
+              <Map
+                forcedLocation={
+                  previewGeojson.bbox?.every((x) => typeof x === 'number')
+                    ? [
+                        ((previewGeojson.bbox?.[1] || 0) +
+                          (previewGeojson.bbox?.[3] || 0)) /
+                          2,
+                        ((previewGeojson.bbox?.[0] || 0) +
+                          (previewGeojson.bbox?.[2] || 0)) /
+                          2,
+                      ]
+                    : usePersist.getState().location
+                }
+                style={{
+                  minWidth: '40vw',
+                  maxWidth: '98%',
+                  height: height ? `${+height - 70}px` : '75vh',
+                }}
+              >
+                <GeoJSON
+                  key={`${polygonExportMode}${simplifyPolygons}${previewGeojson.features.length}`}
+                  data={previewGeojson}
+                />
+              </Map>
+            ) : (
+              <Code
+                minWidth="40vw"
+                maxWidth="98%"
+                height={height ? `${+height - 70}px` : '75vh'}
+              >
+                {converted}
+              </Code>
+            )}
+          </Grid2>
         </Grid2>
       </Grid2>
     </BaseDialog>
