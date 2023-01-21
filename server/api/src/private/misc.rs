@@ -41,7 +41,7 @@ async fn login(payload: web::Json<Auth>, session: Session) -> Result<HttpRespons
         return match session.insert("logged_in", true) {
             Ok(_) => Ok(HttpResponse::Ok().finish()),
             Err(err) => {
-                println!("[API] Error logging in: {:?}", err);
+                log::info!("[API] Error logging in: {:?}", err);
                 Ok(HttpResponse::Unauthorized().finish())
             }
         };

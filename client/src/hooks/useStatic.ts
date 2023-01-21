@@ -65,7 +65,7 @@ export interface UseStatic {
 export const useStatic = create<UseStatic>((set, get) => ({
   networkError: {
     message: '',
-    status: 500,
+    status: 0,
     severity: 'info',
   },
   loading: {},

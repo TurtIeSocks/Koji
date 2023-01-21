@@ -1,6 +1,7 @@
 import create from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { FeatureCollection } from 'geojson'
+import type { TabOption } from '@assets/types'
 
 export interface UsePersist {
   darkMode: boolean
@@ -39,7 +40,7 @@ export interface UsePersist {
     | 'text'
     | 'altText'
     | 'poracle'
-  menuItem: string
+  menuItem: TabOption
   export: {
     total: number
     max: number
@@ -83,7 +84,7 @@ export const usePersist = create(
       devices: 1,
       polygonExportMode: 'feature',
       route_chunk_size: 0,
-      menuItem: '',
+      menuItem: 'Manage',
       fast: false,
       export: {
         total: 0,

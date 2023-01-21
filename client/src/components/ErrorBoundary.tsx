@@ -63,6 +63,7 @@ export default class ErrorBoundary extends Component<
           IconButtonProps={{
             onClick: () => this.setState({ hasError: false }),
           }}
+          AlertProps={{ severity: 'error' }}
         >
           <Typography>{this.state.message}</Typography>
         </Notification>

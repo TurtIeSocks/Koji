@@ -40,6 +40,7 @@ export default function InstanceSelect({
   controlled = false,
   filters = [],
   initialState = [],
+  label = 'Select Instance',
 }: {
   endpoint: string
   setGeojson?: (collection: FeatureCollection) => void
@@ -47,6 +48,7 @@ export default function InstanceSelect({
   filters?: readonly string[]
   controlled?: boolean
   initialState?: string[]
+  label?: string
 }) {
   const add = useShapes((s) => s.setters.add)
   const remove = useShapes((s) => s.setters.remove)
@@ -220,9 +222,7 @@ export default function InstanceSelect({
             </li>
           )
         }}
-        renderInput={(params) => (
-          <TextField label="Select Instance" {...params} />
-        )}
+        renderInput={(params) => <TextField label={label} {...params} />}
         renderGroup={({ key, group, children }) => {
           const allValues = Array.isArray(children)
             ? [...selected, ...children.map((x) => x.key)] // vaguely hacky way to select all filtered results

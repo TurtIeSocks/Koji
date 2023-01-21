@@ -1,16 +1,17 @@
 import * as React from 'react'
 import {
+  Divider,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  ListSubheader,
 } from '@mui/material'
 import Save from '@mui/icons-material/Save'
-import Upload from '@mui/icons-material/Upload'
 import AutoFix from '@mui/icons-material/AutoFixHigh'
 import Code from '@mui/icons-material/Code'
 import ChangeCircle from '@mui/icons-material/ChangeCircle'
+import Fence from '@mui/icons-material/Fence'
+import Route from '@mui/icons-material/Route'
 
 import { useStatic } from '@hooks/useStatic'
 import RawManager from '@components/dialogs/Manager'
@@ -20,6 +21,7 @@ import ConvertDialog from '@components/dialogs/Convert'
 import ExportRoute from '../../dialogs/ExportRoute'
 import PolygonDialog from '../../dialogs/Polygon'
 import InstanceSelect from './Instance'
+import StyledSubheader from '../../styled/Subheader'
 
 export default function ImportExport() {
   const [open, setOpen] = React.useState('')
@@ -28,43 +30,8 @@ export default function ImportExport() {
   const setStatic = useStatic((s) => s.setStatic)
 
   return (
-    <List dense>
-      <ListSubheader disableGutters>Import from Scanner</ListSubheader>
-      <InstanceSelect
-        endpoint="/internal/routes/from_scanner"
-        controlled
-        initialState={geojson.features
-          .filter(
-            (feat) =>
-              feat.geometry.type !== 'LineString' &&
-              feat.geometry.type !== 'Point' &&
-              typeof feat.id === 'string' &&
-              feat.id.endsWith('__SCANNER'),
-          )
-          .map(
-            (feat) =>
-              `${feat.properties?.__name}__${feat.properties?.__type || ''}`,
-          )}
-      />
-      <ListSubheader disableGutters>Import from Kōji</ListSubheader>
-      <InstanceSelect
-        endpoint="/internal/routes/from_koji"
-        koji
-        controlled
-        initialState={geojson.features
-          .filter(
-            (feat) =>
-              feat.geometry.type !== 'LineString' &&
-              feat.geometry.type !== 'Point' &&
-              typeof feat.id === 'string' &&
-              feat.id.endsWith('__KOJI'),
-          )
-          .map(
-            (feat) =>
-              `${feat.properties?.__name}__${feat.properties?.__type || ''}`,
-          )}
-      />
-      <ListSubheader disableGutters>Manual Importing</ListSubheader>
+    <List dense sx={{ width: 275 }}>
+      <StyledSubheader>Import</StyledSubheader>
       <ListItemButton
         onClick={() =>
           setStatic('importWizard', (prev) => ({ ...prev, open: true }))
@@ -81,7 +48,43 @@ export default function ImportExport() {
         </ListItemIcon>
         <ListItemText primary="Geofence Input" />
       </ListItemButton>
-      <ListSubheader disableGutters>Exporting</ListSubheader>
+      <InstanceSelect
+        endpoint="/internal/routes/from_scanner"
+        controlled
+        initialState={geojson.features
+          .filter(
+            (feat) =>
+              feat.geometry.type !== 'LineString' &&
+              feat.geometry.type !== 'Point' &&
+              typeof feat.id === 'string' &&
+              feat.id.endsWith('__SCANNER'),
+          )
+          .map(
+            (feat) =>
+              `${feat.properties?.__name}__${feat.properties?.__type || ''}`,
+          )}
+        label="Import from Scanner"
+      />
+      <InstanceSelect
+        endpoint="/internal/routes/from_koji"
+        koji
+        controlled
+        initialState={geojson.features
+          .filter(
+            (feat) =>
+              feat.geometry.type !== 'LineString' &&
+              feat.geometry.type !== 'Point' &&
+              typeof feat.id === 'string' &&
+              feat.id.endsWith('__KOJI'),
+          )
+          .map(
+            (feat) =>
+              `${feat.properties?.__name}__${feat.properties?.__type || ''}`,
+          )}
+        label="Import from Kōji"
+      />
+      <Divider sx={{ my: 2 }} />
+      <StyledSubheader>Export</StyledSubheader>
       <ListItemButton
         onClick={() => {
           setOpen('polygon')
@@ -89,17 +92,18 @@ export default function ImportExport() {
         }}
       >
         <ListItemIcon>
-          <Upload />
+          <Fence />
         </ListItemIcon>
-        Export All Polygons
+        Export Polygons
       </ListItemButton>
       <ListItemButton onClick={() => setOpen('route')}>
         <ListItemIcon>
-          <Upload />
+          <Route />
         </ListItemIcon>
-        Export All Routes
+        Export Routes
       </ListItemButton>
-      <ListSubheader disableGutters>Other</ListSubheader>
+      <Divider sx={{ my: 2 }} />
+      <StyledSubheader>Other</StyledSubheader>
       <ListItemButton onClick={() => setOpen('rawManager')}>
         <ListItemIcon>
           <Save />
