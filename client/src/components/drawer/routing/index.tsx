@@ -12,8 +12,8 @@ import Toggle from '../inputs/Toggle'
 
 export default function EditTab() {
   const mode = usePersist((s) => s.mode)
-
   const layerEditing = useStatic((s) => s.layerEditing)
+  const updateButton = useStatic((s) => s.updateButton)
 
   return (
     <List dense>
@@ -46,8 +46,13 @@ export default function EditTab() {
       <Toggle field="save_to_db" label="Auto Save to Kōji Db" />
       <ListItemButton
         color="primary"
-        disabled={Object.values(layerEditing).some((v) => v)}
-        onClick={clusteringRouting}
+        disabled={Object.values(layerEditing).some((v) => v) || !!updateButton}
+        onClick={async () => {
+          useStatic.setState({ updateButton: true })
+          await clusteringRouting().then(() => {
+            useStatic.setState({ updateButton: false })
+          })
+        }}
       >
         <ListItemText primary="Update" color="blue" />
       </ListItemButton>
