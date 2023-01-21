@@ -10,8 +10,11 @@ import { usePersist } from '@hooks/usePersist'
 import { ATTRIBUTION } from '@assets/constants'
 
 export default function Home() {
-  const { location, zoom } = usePersist.getState()
-  const darkMode = usePersist((state) => state.darkMode)
+  const [darkMode, location, zoom] = usePersist((s) => [
+    s.darkMode,
+    s.location,
+    s.zoom,
+  ])
 
   return (
     <MapContainer

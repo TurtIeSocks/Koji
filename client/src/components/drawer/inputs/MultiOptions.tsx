@@ -6,11 +6,25 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  ListItem,
+  ListItemText,
 } from '@mui/material'
 
 import { usePersist, type UsePersist } from '@hooks/usePersist'
 import { fromCamelCase, fromSnakeCase } from '@services/utils'
 import { OnlyType } from '@assets/types'
+
+interface Props<
+  T extends keyof OnlyType<UsePersist, string>,
+  K extends UsePersist[T],
+> {
+  field: T
+  buttons: K[]
+  disabled?: boolean
+  type?: 'button' | 'select'
+  label?: string
+  hideLabel?: boolean
+}
 
 export default function MultiOptions<
   T extends keyof OnlyType<UsePersist, string>,
@@ -21,13 +35,8 @@ export default function MultiOptions<
   disabled = false,
   type = 'button',
   label = '',
-}: {
-  field: T
-  buttons: K[]
-  disabled?: boolean
-  type?: 'button' | 'select'
-  label?: string
-}) {
+  hideLabel = !label,
+}: Props<T, K>) {
   const value = usePersist((s) => s[field])
   const setStore = usePersist((s) => s.setStore)
 
@@ -49,11 +58,13 @@ export default function MultiOptions<
     </ToggleButtonGroup>
   ) : (
     <FormControl>
-      <InputLabel id="multi-option-select-label">{label}</InputLabel>
+      {!hideLabel && (
+        <InputLabel id="multi-option-select-label">{label}</InputLabel>
+      )}
       <Select
         labelId="multi-option-select-label"
         size="small"
-        label={label}
+        label={hideLabel ? undefined : label}
         value={value}
         color="primary"
         onChange={({ target }) => setStore(field, target.value as K)} // Mui y u like this
@@ -65,7 +76,26 @@ export default function MultiOptions<
             {m.includes('_') ? fromSnakeCase(m) : fromCamelCase(m)}
           </MenuItem>
         ))}
-      </Select>{' '}
+      </Select>
     </FormControl>
+  )
+}
+
+export function MultiOptionList<
+  T extends keyof OnlyType<UsePersist, string>,
+  K extends UsePersist[T],
+>({ field, label, ...rest }: Props<T, K>) {
+  const display = label || field
+  return (
+    <ListItem>
+      <ListItemText
+        primary={
+          display.includes('_')
+            ? fromSnakeCase(display)
+            : fromCamelCase(display)
+        }
+      />
+      <MultiOptions field={field} label={label} {...rest} />
+    </ListItem>
   )
 }

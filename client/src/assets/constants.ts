@@ -11,6 +11,7 @@ import EditRoad from '@mui/icons-material/EditRoad'
 import ImportExport from '@mui/icons-material/ImportExport'
 import Settings from '@mui/icons-material/Settings'
 import TravelExplore from '@mui/icons-material/TravelExplore'
+import Layers from '@mui/icons-material/Layers'
 
 export const ATTRIBUTION = `
   <a href='https://github.com/TurtIeSocks/Koji' noreferrer='true' target='_blank'>
@@ -57,13 +58,15 @@ export const ICON_COLOR = {
 export const TABS = [
   'Drawing',
   'Clustering',
+  'Layers',
   'Manage',
   'Geojson',
   'Settings',
 ] as const
 
-export const ICON_MAP: Record<string, typeof EditRoad> = {
+export const ICON_MAP: Record<typeof TABS[number], typeof EditRoad> = {
   Drawing: EditRoad,
+  Layers,
   Clustering: TravelExplore,
   Manage: ImportExport,
   Settings,

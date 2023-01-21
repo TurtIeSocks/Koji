@@ -114,7 +114,6 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
             [area.properties?.__name ||
             `${area.geometry.type}${area.id ? `-${area.id}` : ''}`]: false,
           }))
-          console.log(res)
           useStatic.setState({
             networkError: {
               message: await res.text(),
@@ -188,14 +187,25 @@ export async function getMarkers(
       }),
     })
     if (!res.ok) {
+      const message =
+        (await res.text()) ||
+        {
+          400: 'Try refreshing the page or contacting the developer',
+          401: 'Try refreshing the page and signing in again',
+          404: 'Try refreshing the page or contacting the developer',
+          408: 'Check CloudFlare or Nginx/Apache Settings',
+          413: 'Check CloudFlare or Nginx/Apache Settings',
+          500: 'Refresh the page, resetting the Kōji server, or contacting the developer',
+        }[res.status] ||
+        ''
       useStatic.setState({
         networkError: {
-          message: await res.text(),
+          message,
           status: res.status,
           severity: 'error',
         },
       })
-      throw new Error('Network Error')
+      throw new Error(message)
     }
     return await res.json()
   } catch (e) {

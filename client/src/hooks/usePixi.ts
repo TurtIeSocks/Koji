@@ -98,27 +98,26 @@ export default function usePixi(markers: PixiMarker[]) {
       const project = utils.latLngToLayerPoint
       // @ts-ignore
       const scale = utils.getScale(16)
-      markers.forEach((marker) => {
-        const { i, p } = marker
+      for (let j = 0; j < markers.length; j += 1) {
+        const { i, p } = markers[j]
         const resolvedIconId = i[0]
         if (
-          !PIXILoader.resources[`marker_${resolvedIconId}`] ||
-          !PIXILoader.resources[`marker_${resolvedIconId}`].texture
-        ) {
-          return
-        }
-        const markerTexture =
+          PIXILoader.resources[`marker_${resolvedIconId}`] &&
           PIXILoader.resources[`marker_${resolvedIconId}`].texture
-        if (markerTexture) {
-          const markerSprite = PIXI.Sprite.from(markerTexture)
-          markerSprite.anchor.set(0.5, 0.5)
-          const markerCoords = project(p)
-          markerSprite.x = markerCoords.x
-          markerSprite.y = markerCoords.y
-          markerSprite.scale.set(1 / scale)
-          container.addChild(markerSprite)
+        ) {
+          const markerTexture =
+            PIXILoader.resources[`marker_${resolvedIconId}`].texture
+          if (markerTexture) {
+            const markerSprite = PIXI.Sprite.from(markerTexture)
+            markerSprite.anchor.set(0.5, 0.5)
+            const markerCoords = project(p)
+            markerSprite.x = markerCoords.x
+            markerSprite.y = markerCoords.y
+            markerSprite.scale.set(1 / scale)
+            container.addChild(markerSprite)
+          }
         }
-      })
+      }
       renderer.render(container)
     }
     return () => {

@@ -66,16 +66,15 @@ export default function App() {
   React.useEffect(() => {
     getData<Config>('/config/').then((res) => {
       if (res) {
-        if (res.logged_in) {
-          if (location[0] === 0 && location[1] === 0) {
-            setStore('location', [res.start_lat, res.start_lon])
-          }
-          setStatic('scannerType', res.scanner_type)
-          if (res.tile_server) {
-            setStatic('tileServer', res.tile_server)
-          }
-          setStatic('dangerous', res.dangerous || false)
-        } else {
+        if (location[0] === 0 && location[1] === 0) {
+          setStore('location', [res.start_lat, res.start_lon])
+        }
+        setStatic('scannerType', res.scanner_type)
+        if (res.tile_server) {
+          setStatic('tileServer', res.tile_server)
+        }
+        setStatic('dangerous', res.dangerous || false)
+        if (!res.logged_in) {
           router.navigate('/login')
         }
         setFetched(true)
