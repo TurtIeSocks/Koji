@@ -13,7 +13,7 @@ import DialogHeader from './Header'
 
 interface Props {
   open: boolean
-  onClose: () => void
+  onClose?: () => void
   title: string
   children: React.ReactNode
   Components?: {
@@ -49,8 +49,12 @@ export default function BaseDialog({
         {...actionProps}
       >
         {actions}
-        <Button onClick={onClose} color="error">
-          Close
+        <Button
+          href={onClose ? undefined : '/'}
+          onClick={onClose}
+          color="error"
+        >
+          {onClose ? 'Close' : 'Exit'}
         </Button>
       </DialogActions>
     </Dialog>
