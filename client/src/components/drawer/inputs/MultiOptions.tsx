@@ -4,6 +4,8 @@ import {
   ToggleButton,
   Select,
   MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material'
 
 import { usePersist, type UsePersist } from '@hooks/usePersist'
@@ -18,11 +20,13 @@ export default function MultiOptions<
   buttons,
   disabled = false,
   type = 'button',
+  label = '',
 }: {
   field: T
   buttons: K[]
   disabled?: boolean
   type?: 'button' | 'select'
+  label?: string
 }) {
   const value = usePersist((s) => s[field])
   const setStore = usePersist((s) => s.setStore)
@@ -44,19 +48,24 @@ export default function MultiOptions<
       ))}
     </ToggleButtonGroup>
   ) : (
-    <Select
-      size="small"
-      color="primary"
-      value={value}
-      onChange={({ target }) => setStore(field, target.value as K)} // Mui y u like this
-      sx={{ mx: 'auto' }}
-      disabled={disabled}
-    >
-      {buttons.map((m) => (
-        <MenuItem key={m} value={m}>
-          {m.includes('_') ? fromSnakeCase(m) : fromCamelCase(m)}
-        </MenuItem>
-      ))}
-    </Select>
+    <FormControl>
+      <InputLabel id="multi-option-select-label">{label}</InputLabel>
+      <Select
+        labelId="multi-option-select-label"
+        size="small"
+        label={label}
+        value={value}
+        color="primary"
+        onChange={({ target }) => setStore(field, target.value as K)} // Mui y u like this
+        sx={{ mx: 'auto' }}
+        disabled={disabled}
+      >
+        {buttons.map((m) => (
+          <MenuItem key={m} value={m}>
+            {m.includes('_') ? fromSnakeCase(m) : fromCamelCase(m)}
+          </MenuItem>
+        ))}
+      </Select>{' '}
+    </FormControl>
   )
 }

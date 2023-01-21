@@ -10,6 +10,7 @@ import {
 import * as React from 'react'
 import type { Feature, FeatureCollection } from 'geojson'
 import Clear from '@mui/icons-material/Clear'
+import { getData } from '@services/fetches'
 
 export default function Nominatim({
   features,
@@ -27,12 +28,14 @@ export default function Nominatim({
 
   React.useEffect(() => {
     setLoading(true)
-    fetch(`/config/nominatim?query=${inputValue}`)
-      .then((res) => res.json())
-      .then((res: KojiResponse<FeatureCollection>) => {
+    getData<KojiResponse<FeatureCollection>>(
+      `/config/nominatim?query=${inputValue}`,
+    ).then((res) => {
+      if (res) {
         setResults(res.data)
         setLoading(false)
-      })
+      }
+    })
   }, [inputValue])
 
   return (

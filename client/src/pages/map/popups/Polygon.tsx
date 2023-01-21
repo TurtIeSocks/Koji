@@ -25,6 +25,7 @@ import {
   removeThisPolygon,
   splitMultiPolygons,
 } from '@services/utils'
+import { KojiGeofence, KojiResponse } from '@assets/types'
 
 export function PolygonPopup({
   feature: ref,
@@ -89,9 +90,13 @@ export function PolygonPopup({
     if (feature.geometry.coordinates.length && loadData) {
       Promise.allSettled(
         ['pokestop', 'gym', 'spawnpoint'].map((category) =>
-          getData<{ total: number }>(`/internal/data/area_stats/${category}`, {
-            area: feature,
-          }).then((data) =>
+          getData<{ total: number }>(
+            `/internal/data/area_stats/${category}`,
+            undefined,
+            {
+              area: feature,
+            },
+          ).then((data) =>
             setActive((prev) => ({
               ...prev,
               [category]: data?.total ?? (data || 0),
@@ -246,7 +251,7 @@ export function PolygonPopup({
         <MenuItem
           disabled={name === undefined}
           onClick={() => {
-            fetch(
+            getData<KojiResponse<KojiGeofence>>(
               feature.properties?.__koji_id
                 ? `/internal/admin/geofence/${feature.properties?.__koji_id}/`
                 : '/internal/admin/geofence/',
@@ -264,13 +269,19 @@ export function PolygonPopup({
                   created_at: new Date(),
                 }),
               },
-            )
-              .then((res) => res.json())
-              .then((res) => {
+            ).then((res) => {
+              if (res) {
+                useStatic.setState({
+                  networkError: {
+                    message: 'Saved successfully!',
+                    status: 200,
+                    severity: 'success',
+                  },
+                })
                 const newFeature = {
                   ...res.data.area,
                   properties: {
-                    ...res.data.properties,
+                    ...res.data.area.properties,
                     __name: res.data.name,
                     __type: res.data.mode,
                     __koji_id: res.data.id,
@@ -278,8 +289,9 @@ export function PolygonPopup({
                 }
                 remove(feature.geometry.type, feature.id)
                 add(newFeature, '__KOJI')
-                handleClose()
-              })
+              }
+              handleClose()
+            })
           }}
         >
           {feature.properties?.__koji_id ? 'Save' : 'Create'}
@@ -288,7 +300,7 @@ export function PolygonPopup({
           disabled={feature.properties?.__koji_id === undefined}
           onClick={async () => {
             remove(feature.geometry.type, feature.id)
-            await fetch(
+            await getData(
               `/internal/admin/geofence/${feature.properties?.__koji_id}/`,
               {
                 method: 'DELETE',

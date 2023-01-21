@@ -9,6 +9,7 @@ import ErrorBoundary from '@components/ErrorBoundary'
 import DrawerIndex from '@components/drawer'
 import Main from '@components/styled/Main'
 import Loading from '@components/Loading'
+import NetworkAlert from '@components/notifications/Error'
 
 import Markers from './markers'
 import Interface from './interface'
@@ -58,6 +59,7 @@ export default function MapWrapper() {
           <MultiLineStrings />
           <Polygons />
         </Map>
+        <NetworkAlert />
       </Main>
     </Box>
   )

@@ -20,12 +20,16 @@ impl EnsurePoints for SingleVec {
 
 impl GetBbox for SingleVec {
     fn get_bbox(&self) -> Option<Vec<Precision>> {
-        let mut bbox = vec![
-            Precision::INFINITY,
-            Precision::INFINITY,
-            Precision::NEG_INFINITY,
-            Precision::NEG_INFINITY,
-        ];
+        let mut bbox = if self.is_empty() {
+            vec![]
+        } else {
+            vec![
+                Precision::INFINITY,
+                Precision::INFINITY,
+                Precision::NEG_INFINITY,
+                Precision::NEG_INFINITY,
+            ]
+        };
 
         for point in self {
             if point[1] < bbox[0] {
@@ -107,12 +111,12 @@ impl ToFeature for SingleVec {
 }
 
 impl ToCollection for SingleVec {
-    fn to_collection(self, name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
         FeatureCollection {
             bbox: self.get_bbox(),
-            features: vec![self
-                .to_feature(enum_type)
-                .ensure_properties(name, enum_type)],
+            features: vec![
+                self.to_feature(enum_type), // .ensure_properties(name, enum_type)
+            ],
             foreign_members: None,
         }
     }

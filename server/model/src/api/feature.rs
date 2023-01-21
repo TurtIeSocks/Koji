@@ -160,7 +160,7 @@ impl ToFeatureVec for Feature {
 }
 
 impl ToCollection for Feature {
-    fn to_collection(self, name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, _enum_type: Option<&Type>) -> FeatureCollection {
         let bbox = if self.bbox.is_some() {
             self.bbox
         } else {
@@ -168,22 +168,20 @@ impl ToCollection for Feature {
         };
         FeatureCollection {
             bbox: bbox.clone(),
-            features: vec![Feature { bbox, ..self }
-                .ensure_first_last()
-                .ensure_properties(name, enum_type)],
+            features: vec![Feature { bbox, ..self }.ensure_first_last()],
             foreign_members: None,
         }
     }
 }
 
 impl ToCollection for Vec<Feature> {
-    fn to_collection(self, name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
-        let name = if let Some(name) = name {
-            name
-        } else {
-            "".to_string()
-        };
-        let length = self.len();
+    fn to_collection(self, _name: Option<String>, _enum_type: Option<&Type>) -> FeatureCollection {
+        // let name = if let Some(name) = name {
+        //     name
+        // } else {
+        //     "".to_string()
+        // };
+        // let length = self.len();
         FeatureCollection {
             bbox: self
                 .clone()
@@ -194,16 +192,16 @@ impl ToCollection for Vec<Feature> {
             features: self
                 .into_iter()
                 .enumerate()
-                .map(|(i, feat)| Feature {
+                .map(|(_i, feat)| Feature {
                     bbox: feat.clone().to_single_vec().get_bbox(),
-                    ..feat.ensure_first_last().ensure_properties(
-                        Some(if length > 1 {
-                            format!("{}_{}", name, i)
-                        } else {
-                            name.clone()
-                        }),
-                        enum_type,
-                    )
+                    ..feat.ensure_first_last() // .ensure_properties(
+                                               //     Some(if length > 1 {
+                                               //         format!("{}_{}", name, i)
+                                               //     } else {
+                                               //         name.clone()
+                                               //     }),
+                                               //     enum_type,
+                                               // )
                 })
                 .collect(),
             foreign_members: None,
