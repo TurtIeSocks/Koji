@@ -22,7 +22,11 @@ import Map from '@components/Map'
 
 import BaseDialog from './Base'
 
-export default function ConvertDialog() {
+export default function ConvertDialog({
+  fullScreen = false,
+}: {
+  fullScreen?: boolean
+}) {
   const open = useStatic((s) => s.dialogs.convert)
   const polygonExportMode = usePersist((s) => s.polygonExportMode)
   const simplifyPolygons = usePersist((s) => s.simplifyPolygons)
@@ -83,15 +87,18 @@ export default function ConvertDialog() {
 
   return (
     <BaseDialog
-      open={open}
-      onClose={() =>
-        useStatic.setState((prev) => ({
-          dialogs: { ...prev.dialogs, convert: false },
-        }))
+      open={fullScreen || open}
+      onClose={
+        fullScreen
+          ? undefined
+          : () =>
+              useStatic.setState((prev) => ({
+                dialogs: { ...prev.dialogs, convert: false },
+              }))
       }
       title="Polygon Conversion Playground"
       Components={{
-        Dialog: { maxWidth: 'xl' },
+        Dialog: { maxWidth: 'xl', fullScreen },
         DialogContent: { ref: containerRef, sx: { pb: 0, height: '70vh' } },
         DialogActions: {
           children: (

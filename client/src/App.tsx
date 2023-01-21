@@ -13,6 +13,7 @@ import Map from '@pages/map'
 import AdminPanel from '@pages/admin'
 import ErrorPage from '@pages/Error'
 import Login from '@pages/Login'
+import ConvertPage from '@pages/Convert'
 
 const router = createBrowserRouter([
   {
@@ -33,6 +34,11 @@ const router = createBrowserRouter([
   {
     path: '/admin/*',
     element: <AdminPanel />,
+    errorElement: <ErrorPage error="500" />,
+  },
+  {
+    path: '/convert',
+    element: <ConvertPage />,
     errorElement: <ErrorPage error="500" />,
   },
   {
