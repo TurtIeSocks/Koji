@@ -21,6 +21,7 @@ export default function Notification({
   StackProps,
   AlertProps,
   IconButtonProps,
+  AlertTitleProps,
   children,
   title,
 }: Props) {
@@ -39,8 +40,6 @@ export default function Notification({
     >
       <Stack sx={{ width: '100%' }} spacing={2} {...StackProps}>
         <Alert
-          variant="filled"
-          severity="error"
           action={
             <IconButton
               aria-label="close"
@@ -51,10 +50,10 @@ export default function Notification({
               <CloseIcon fontSize="inherit" />
             </IconButton>
           }
-          sx={{ mb: 2, zIndex: 10000 }}
           {...AlertProps}
+          sx={{ mb: 2, zIndex: 10000, ...AlertProps?.sx }}
         >
-          <AlertTitle color="white">
+          <AlertTitle {...AlertTitleProps}>
             <strong>{title}</strong>
           </AlertTitle>
           {children}

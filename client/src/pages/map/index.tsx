@@ -9,7 +9,7 @@ import ErrorBoundary from '@components/ErrorBoundary'
 import DrawerIndex from '@components/drawer'
 import Main from '@components/styled/Main'
 import Loading from '@components/Loading'
-import NetworkAlert from '@components/notifications/Error'
+import NetworkAlert from '@components/notifications/NetworkStatus'
 
 import Markers from './markers'
 import Interface from './interface'

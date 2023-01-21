@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { useStatic } from '@hooks/useStatic'
+import { Typography } from '@mui/material'
 
 import Notification from './Base'
 
@@ -13,15 +14,14 @@ export default function NetworkAlert() {
       }}
       AlertProps={{ severity }}
       IconButtonProps={{
-        sx: { color: 'white' },
         onClick: () =>
           useStatic.setState((prev) => ({
             networkError: { ...prev.networkError, message: '' },
           })),
       }}
-      title={`Network Error: ${status}`}
+      title={`Network Status: ${status}`}
     >
-      {message}
+      <Typography>{message}</Typography>
     </Notification>
   )
 }

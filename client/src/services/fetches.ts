@@ -249,13 +249,6 @@ export async function convert<T = ToConvert>(
       })
       throw new Error('Unable to convert')
     }
-    useStatic.setState({
-      networkError: {
-        message: 'Converted!',
-        status: res.status,
-        severity: 'success',
-      },
-    })
     return await res.json().then((r) => r.data)
   } catch (e) {
     console.error(e)
