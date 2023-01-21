@@ -1,63 +1,111 @@
 import * as React from 'react'
-import Paper from '@mui/material/Paper'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
-import GradientText from '@components/GradientText'
-import { Box } from '@mui/material'
+import { Box, Button, Typography } from '@mui/material'
 import ThemeToggle from '@components/ThemeToggle'
+import Map from '@mui/icons-material/Map'
+import Admin from '@mui/icons-material/AdminPanelSettings'
+import Convert from '@mui/icons-material/PrecisionManufacturing'
+import { MapContainer, TileLayer } from 'react-leaflet'
 import { usePersist } from '@hooks/usePersist'
+import { ATTRIBUTION } from '@assets/constants'
 
-interface Props {
-  children: React.ReactNode
-  darkMode: boolean
-  to: string
-}
+export default function Home() {
+  const { location, zoom } = usePersist.getState()
+  const darkMode = usePersist((state) => state.darkMode)
 
-function GridLink({ darkMode, to, children }: Props) {
   return (
-    <Grid2
-      container
-      xs={12}
-      sm={6}
-      component="a"
-      href={to}
-      justifyContent="center"
-      alignItems="center"
-      sx={{
-        height: { xs: '50vh', sm: '100vh' },
-        transition: '0.5s ease',
-        '&:hover': {
-          background: darkMode
-            ? 'rgba(255, 255, 255, 0.2)'
-            : 'rgba(0, 0, 0, 0.2)',
-          backgroundSize: 'cover',
-          backgroundRepeat: 'no-repeat',
-          backgroundPosition: 'center',
-        },
-        textDecoration: 'none',
+    <MapContainer
+      center={location}
+      zoom={zoom}
+      style={{ height: '100vh', width: '100vw' }}
+      zoomControl={false}
+      scrollWheelZoom={false}
+      dragging={false}
+      ref={(ref) => {
+        if (ref) {
+          ref.attributionControl.setPrefix(ATTRIBUTION)
+        }
       }}
     >
-      {children}
-    </Grid2>
-  )
-}
-export default function Home() {
-  const darkMode = usePersist((s) => s.darkMode)
-
-  return (
-    <Grid2 container component={Paper} height="100vh" square>
-      <GridLink darkMode={darkMode} to="/map">
-        <GradientText className="map" variant="h1">
-          Map
-        </GradientText>
-      </GridLink>
-      <GridLink darkMode={darkMode} to="/admin">
-        <GradientText className="admin" variant="h1">
-          Admin
-        </GradientText>
-      </GridLink>
-      <Box sx={{ position: 'absolute', top: 10, right: 10 }}>
+      <TileLayer
+        key={darkMode.toString()}
+        url={
+          darkMode
+            ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+            : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png'
+        }
+      />
+      <Box sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}>
         <ThemeToggle />
       </Box>
-    </Grid2>
+      <Grid2
+        sx={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+          zIndex: 999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Box
+          sx={{
+            padding: 2,
+            background: 'rgba(125, 0, 208, 0.25)',
+            borderRadius: '16px',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.6)',
+            backdropFilter: 'blur(6.9px)',
+            WebkitBackdropFilter: 'blur(6.9px)',
+          }}
+        >
+          <Grid2
+            container
+            height="100%"
+            zIndex={10000}
+            flexDirection={{ xs: 'column', sm: 'row' }}
+          >
+            {(['Map', 'Admin', 'Convert'] as const).map((page) => {
+              const Icon = {
+                Map,
+                Admin,
+                Convert,
+              }[page]
+              return (
+                <Grid2
+                  key={page}
+                  component={Button}
+                  href={`/${page.toLowerCase()}`}
+                  color="primary"
+                  sx={{
+                    m: 3,
+                    height: 100,
+                    width: 100,
+                    background: 'rgba(125, 0, 208, 0.4)',
+                    borderRadius: '16px',
+                    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.6)',
+                    backdropFilter: 'blur(6.9px)',
+                    WebkitBackdropFilter: 'blur(6.9px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    '&:hover': {
+                      background: 'rgba(208, 80, 0, 0.75)',
+                    },
+                    textDecoration: 'none',
+                  }}
+                >
+                  <Icon fontSize="large" sx={{ my: 1, color: 'white' }} />
+                  <Typography fontWeight="bold" sx={{ color: 'white' }}>
+                    {page}
+                  </Typography>
+                </Grid2>
+              )
+            })}
+          </Grid2>
+        </Box>
+      </Grid2>
+    </MapContainer>
   )
 }

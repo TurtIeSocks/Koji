@@ -2,6 +2,7 @@ import * as React from 'react'
 import { usePersist } from '@hooks/usePersist'
 import { MapContainer, TileLayer } from 'react-leaflet'
 import { useStatic } from '@hooks/useStatic'
+import { ATTRIBUTION } from '@assets/constants'
 
 interface Props {
   children?: React.ReactNode
@@ -27,7 +28,7 @@ const Map = React.forwardRef<L.Map, Props>(
       >
         <TileLayer
           key={tileServer}
-          attribution="<a href='https://github.com/TurtIeSocks/Koji' noreferrer='true' target='_blank'>Kōji - TurtleSocks</a>"
+          attribution={ATTRIBUTION}
           url={tileServer}
         />
         {children}
