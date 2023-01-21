@@ -31,7 +31,7 @@ export default function Markers({
 
   useDeepCompareEffect(() => {
     const controller = new AbortController()
-    if (enabled) {
+    if (enabled && (data === 'area' ? geojson.features.length : true)) {
       getMarkers(
         category,
         getMapBounds(map),
