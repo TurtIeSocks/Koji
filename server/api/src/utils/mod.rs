@@ -9,6 +9,7 @@ use model::{
 };
 
 pub mod auth;
+pub mod request;
 pub mod response;
 
 pub fn is_docker() -> io::Result<bool> {

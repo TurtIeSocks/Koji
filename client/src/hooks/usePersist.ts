@@ -47,6 +47,8 @@ export interface UsePersist {
     route: [number, number][][]
   }
   save_to_db: boolean
+  save_to_scanner: boolean
+  skipRendering: boolean
   snappable: boolean
   continueDrawing: boolean
   fast: boolean
@@ -76,6 +78,8 @@ export const usePersist = create(
       min_points: 3,
       only_unique: false,
       save_to_db: false,
+      save_to_scanner: false,
+      skipRendering: false,
       showCircles: true,
       showLines: true,
       showPolygons: true,

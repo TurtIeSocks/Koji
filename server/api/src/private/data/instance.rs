@@ -118,8 +118,10 @@ async fn route_from_scanner(
         }
     } else {
         if instance_type.eq("CirclePokemon")
+            || instance_type.eq("CircleSmartPokemon")
             || instance_type.eq("ManualQuest")
             || instance_type.eq("CircleRaid")
+            || instance_type.eq("CircleSmartRaid")
         {
             route::Query::route(&conn.koji_db, &name).await
         } else {

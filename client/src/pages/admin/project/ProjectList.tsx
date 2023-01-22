@@ -49,6 +49,9 @@ export default function ProjectList() {
       <Datagrid rowClick="expand" bulkActionButtons={<BulkActions />}>
         <TextField source="name" />
         <BooleanField source="scanner" />
+        <BooleanField source="api_endpoint" looseValue />
+        <BooleanField source="api_key" looseValue />
+        <BooleanField source="scanner" />
         <NumberField source="related.length" label="Geofences" />
         <EditButton />
         <DeleteWithUndoButton />

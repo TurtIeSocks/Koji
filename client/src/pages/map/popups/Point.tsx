@@ -30,7 +30,7 @@ interface Props extends PopupProps {
 export function PointPopup({ id, lat, lon, type: geoType }: Props) {
   const [open, setOpen] = React.useState('')
   const feature = useShapes((s) => s[geoType][id as number | string])
-  const { add, remove, splitLine } = useShapes.getState().setters
+  const { add, remove, splitLine, activeRoute } = useShapes.getState().setters
 
   const [name, setName] = React.useState(feature.properties?.__name || '')
   const [type, setType] = React.useState(feature.properties?.__type || '')
@@ -168,6 +168,7 @@ export function PointPopup({ id, lat, lon, type: geoType }: Props) {
                 ).then(() => {
                   setLoading(false)
                   removeCheck()
+                  activeRoute()
                 })
               }}
             >
@@ -238,6 +239,7 @@ export function PointPopup({ id, lat, lon, type: geoType }: Props) {
                           },
                         }
                         removeCheck()
+                        activeRoute()
                         add(newFeature, '__KOJI')
                       }
                       setLoading(false)

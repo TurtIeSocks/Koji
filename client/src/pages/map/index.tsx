@@ -26,7 +26,7 @@ export default function MapWrapper() {
   const drawer = usePersist((s) => s.drawer)
   const menuItem = usePersist((s) => s.menuItem)
 
-  const drawerWidth = menuItem === 'Geojson' ? 500 : 325
+  const drawerWidth = menuItem === 'Geojson' ? 515 : 325
 
   return (
     <Box sx={{ display: 'flex' }}>

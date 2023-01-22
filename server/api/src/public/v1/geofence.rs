@@ -96,9 +96,9 @@ async fn save_scanner(
     let ArgsUnwrapped { area, .. } = payload.into_inner().init(Some("geofence_save"));
 
     let (inserts, updates) = if scanner_type == "rdm" {
-        instance::Query::save(&conn.data_db, area).await
+        instance::Query::upsert_from_collection(&conn.data_db, area, false).await
     } else {
-        area::Query::save(&conn.unown_db.as_ref().unwrap(), area).await
+        area::Query::upsert_from_collection(&conn.unown_db.as_ref().unwrap(), area).await
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 

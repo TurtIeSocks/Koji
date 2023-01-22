@@ -50,6 +50,8 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
     routing_time,
     only_unique,
     save_to_db,
+    save_to_scanner,
+    skipRendering,
     last_seen,
     route_chunk_size,
   } = usePersist.getState()
@@ -105,6 +107,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
               routing_time,
               only_unique,
               save_to_db,
+              save_to_scanner,
             }),
           },
         )
@@ -157,8 +160,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
   )
 
   setStatic('totalLoadingTime', Date.now() - totalStartTime)
-  add(features)
-
+  if (!skipRendering) add(features)
   return {
     type: 'FeatureCollection',
     features,

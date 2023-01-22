@@ -321,6 +321,7 @@ export const useShapes = create<UseShapes>((set, get) => ({
             ),
             type: 'Feature',
             properties: {
+              ...firstPoint.properties,
               forward: secondPoint.id,
               backward: firstPoint.id,
             },

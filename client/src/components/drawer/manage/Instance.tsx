@@ -172,7 +172,10 @@ export default function InstanceSelect({
   }
 
   return (
-    <ListItem key={initialState.some((s) => !options[s]).toString()}>
+    <ListItem
+      key={initialState.some((s) => !options[s]).toString()}
+      sx={{ py: 1 }}
+    >
       <Autocomplete
         value={selected}
         size="small"

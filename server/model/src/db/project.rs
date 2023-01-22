@@ -95,6 +95,9 @@ impl Query {
     pub async fn create(db: &DatabaseConnection, new_project: Model) -> Result<Model, DbErr> {
         ActiveModel {
             name: Set(new_project.name.to_owned()),
+            api_endpoint: Set(new_project.api_endpoint.to_owned()),
+            api_key: Set(new_project.api_key.to_owned()),
+            scanner: Set(new_project.scanner.to_owned()),
             created_at: Set(Utc::now()),
             updated_at: Set(Utc::now()),
             ..Default::default()
@@ -107,6 +110,14 @@ impl Query {
         let record = project::Entity::find_by_id(id).one(db).await?;
         let record = record.unwrap();
         Query::get_related_fences(db, record).await
+    }
+
+    pub async fn get_scanner_project(db: &DatabaseConnection) -> Result<Option<Model>, DbErr> {
+        project::Entity::find()
+            .filter(Column::Scanner.eq(true))
+            .filter(Column::ApiEndpoint.is_not_null())
+            .one(db)
+            .await
     }
 
     pub async fn update(

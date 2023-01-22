@@ -15,7 +15,7 @@ pub fn base(segment: SingleVec, routing_time: i64, fast: bool) -> Tour {
             routing_time
         } else {
             ((segment.len() as f32 / 100.) + 1.)
-                .powf(if fast { 1. } else { 1.25 })
+                .powf(if fast { 1. } else { 1.5 })
                 .floor() as i64
         }),
     )

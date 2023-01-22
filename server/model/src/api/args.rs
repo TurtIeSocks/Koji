@@ -58,6 +58,7 @@ pub struct Args {
     pub only_unique: Option<bool>,
     pub last_seen: Option<u32>,
     pub save_to_db: Option<bool>,
+    pub save_to_scanner: Option<bool>,
     pub route_chunk_size: Option<usize>,
     pub simplify: Option<bool>,
 }
@@ -77,6 +78,7 @@ pub struct ArgsUnwrapped {
     pub only_unique: bool,
     pub last_seen: u32,
     pub save_to_db: bool,
+    pub save_to_scanner: bool,
     pub route_chunk_size: usize,
     pub simplify: bool,
 }
@@ -98,6 +100,7 @@ impl Args {
             only_unique,
             last_seen,
             save_to_db,
+            save_to_scanner,
             route_chunk_size,
             simplify,
         } = self;
@@ -151,6 +154,7 @@ impl Args {
         let only_unique = only_unique.unwrap_or(false);
         let last_seen = last_seen.unwrap_or(0);
         let save_to_db = save_to_db.unwrap_or(false);
+        let save_to_scanner = save_to_scanner.unwrap_or(false);
         let route_chunk_size = route_chunk_size.unwrap_or(0);
         let simplify = simplify.unwrap_or(false);
         if let Some(mode) = mode {
@@ -174,6 +178,7 @@ impl Args {
             only_unique,
             last_seen,
             save_to_db,
+            save_to_scanner,
             route_chunk_size,
             simplify,
         }

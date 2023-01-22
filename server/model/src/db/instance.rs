@@ -37,12 +37,6 @@ impl Related<super::device::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-struct Instance {
-    name: String,
-    // r#type: Type,
-    data: HashMap<String, Value>,
-}
-
 pub struct Query;
 
 impl Query {
@@ -97,18 +91,16 @@ impl Query {
         }
     }
 
-    pub async fn save(
+    pub async fn upsert_from_collection(
         conn: &DatabaseConnection,
         area: FeatureCollection,
+        auto_mode: bool,
     ) -> Result<(usize, usize), DbErr> {
-        let existing = Entity::find().all(conn).await?;
-        let mut existing: Vec<Instance> = existing
+        let existing: HashMap<String, Model> = Entity::find()
+            .all(conn)
+            .await?
             .into_iter()
-            .map(|x| Instance {
-                name: x.name,
-                // r#type: x.r#type,
-                data: serde_json::from_str(&x.data).unwrap(),
-            })
+            .map(|model| (format!("{}_{}", model.name, model.r#type), model))
             .collect();
 
         let mut inserts: Vec<ActiveModel> = vec![];
@@ -117,7 +109,7 @@ impl Query {
         for feat in area.into_iter() {
             if let Some(name) = feat.property("__name") {
                 if let Some(name) = name.as_str() {
-                    let r#type = if let Some(instance_type) = feat.property("__type") {
+                    let mode = if let Some(instance_type) = feat.property("__type") {
                         if let Some(instance_type) = instance_type.as_str() {
                             utils::get_enum(Some(instance_type.to_string()))
                         } else {
@@ -126,8 +118,9 @@ impl Query {
                     } else {
                         utils::get_enum_by_geometry(&feat.geometry.as_ref().unwrap().value)
                     };
-                    if let Some(r#type) = r#type {
-                        let area = match r#type {
+                    if let Some(mode) = mode {
+                        let mut is_fence = false;
+                        let area = match mode {
                             Type::CirclePokemon
                             | Type::CircleSmartPokemon
                             | Type::CircleRaid
@@ -141,19 +134,32 @@ impl Query {
                             Type::AutoQuest
                             | Type::PokemonIv
                             | Type::AutoPokemon
-                            | Type::AutoTth => RdmInstanceArea::Multi(
-                                feat.clone().to_multi_vec().to_multi_struct(),
-                            ),
+                            | Type::AutoTth => {
+                                is_fence = true;
+                                RdmInstanceArea::Multi(
+                                    feat.clone().to_multi_vec().to_multi_struct(),
+                                )
+                            }
                         };
                         let new_area = json!(area);
-                        let name = name.to_string();
-                        let is_update = existing.iter_mut().find(|entry| entry.name == name);
+                        let name = if auto_mode && !is_fence {
+                            format!(
+                                "{}_{}",
+                                name,
+                                utils::get_mode_acronym(Some(&mode.to_string()))
+                            )
+                        } else {
+                            name.to_string()
+                        };
+                        let is_update = existing.get(&format!("{}_{}", name, mode));
 
                         if let Some(entry) = is_update {
-                            entry.data.insert("area".to_string(), new_area);
+                            let mut data: HashMap<String, Value> =
+                                serde_json::from_str(&entry.data).unwrap();
+                            data.insert("area".to_string(), new_area);
+
                             Entity::update_many()
-                                .col_expr(Column::Data, Expr::value(json!(entry.data).to_string()))
-                                .col_expr(Column::Type, Expr::value(r#type))
+                                .col_expr(Column::Data, Expr::value(json!(data).to_string()))
                                 .filter(Column::Name.eq(entry.name.to_string()))
                                 .exec(conn)
                                 .await?;
@@ -161,14 +167,12 @@ impl Query {
                         } else {
                             let mut active_model = ActiveModel {
                                 name: Set(name.to_string()),
-                                // r#type: Set(r#type),
-                                // data: Set(json!({ "area": new_area }).to_string()),
                                 ..Default::default()
                             };
                             active_model
                                 .set_from_json(json!({
                                     "name": name,
-                                    "type": r#type,
+                                    "type": mode,
                                     "data": json!({ "area": new_area }).to_string(),
                                 }))
                                 .unwrap();

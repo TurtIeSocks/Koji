@@ -1,3 +1,5 @@
+use crate::utils::request::update_project_api;
+
 use super::*;
 
 use std::{
@@ -14,7 +16,7 @@ use model::{
         point_array::PointArray,
         FeatureHelpers, Precision, ToCollection, ToFeature,
     },
-    db::{route, sea_orm_active_enums::Type, GenericData},
+    db::{area, instance, project, route, sea_orm_active_enums::Type, GenericData},
     KojiDb,
 };
 
@@ -33,6 +35,7 @@ async fn bootstrap(
         radius,
         return_type,
         save_to_db,
+        save_to_scanner,
         ..
     } = payload.into_inner().init(Some("bootstrap"));
 
@@ -61,7 +64,7 @@ async fn bootstrap(
         if !feat.contains_property("__name") && !instance.is_empty() {
             feat.set_property("__name", instance.clone());
         }
-        feat.set_property("__type", Type::CirclePokemon.to_string());
+        feat.set_property("__type", Type::CircleSmartPokemon.to_string());
         if save_to_db {
             route::Query::upsert_from_collection(
                 &conn.koji_db,
@@ -71,6 +74,32 @@ async fn bootstrap(
             )
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
+        }
+        if save_to_scanner {
+            if scanner_type == "rdm" {
+                instance::Query::upsert_from_collection(
+                    &conn.data_db,
+                    feat.clone().to_collection(Some(instance.clone()), None),
+                    true,
+                )
+                .await
+            } else if let Some(conn) = conn.unown_db.as_ref() {
+                area::Query::upsert_from_collection(conn, feat.clone().to_collection(None, None))
+                    .await
+            } else {
+                Err(DbErr::Custom(
+                    "Scanner not configured correctly".to_string(),
+                ))
+            }
+            .map_err(actix_web::error::ErrorInternalServerError)?;
+        }
+    }
+    if save_to_scanner {
+        let project = project::Query::get_scanner_project(&conn.koji_db)
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
+        if let Some(project) = project {
+            update_project_api(project, Some(scanner_type)).await
         }
     }
 
@@ -105,6 +134,7 @@ async fn cluster(
         routing_time,
         only_unique,
         save_to_db,
+        save_to_scanner,
         last_seen,
         route_chunk_size,
         ..
@@ -118,11 +148,11 @@ async fn cluster(
 
     let mut stats = Stats::new();
     let enum_type = if category == "gym" {
-        Type::CircleRaid
+        Type::CircleSmartRaid
     } else if category == "pokestop" {
         Type::ManualQuest
     } else {
-        Type::CirclePokemon
+        Type::CircleSmartPokemon
     };
 
     let area = utils::create_or_find_collection(&instance, scanner_type, &conn, area, &data_points)
@@ -214,6 +244,25 @@ async fn cluster(
         route::Query::upsert_from_collection(&conn.koji_db, feature.clone(), true, false)
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
+    }
+    if save_to_scanner {
+        if scanner_type == "rdm" {
+            instance::Query::upsert_from_collection(&conn.data_db, feature.clone(), true).await
+        } else if let Some(conn) = conn.unown_db.as_ref() {
+            area::Query::upsert_from_collection(conn, feature.clone()).await
+        } else {
+            Err(DbErr::Custom(
+                "Scanner not configured correctly".to_string(),
+            ))
+        }
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
+        let project = project::Query::get_scanner_project(&conn.koji_db)
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
+        if let Some(project) = project {
+            update_project_api(project, Some(scanner_type)).await
+        }
     }
 
     Ok(utils::response::send(

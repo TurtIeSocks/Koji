@@ -1,4 +1,4 @@
-import { List, ListItem } from '@mui/material'
+import { List } from '@mui/material'
 import * as React from 'react'
 
 import { useStatic } from '@hooks/useStatic'
@@ -15,19 +15,17 @@ export default function GeojsonTab() {
   return (
     <List dense>
       <ListSubheader disableGutters>GeoJSON Preview</ListSubheader>
-      <ListItem>
-        <Code
-          code={JSON.stringify(geojson, null, 2)}
-          setCode={(newCode) => {
-            const parsed = safeParse<typeof geojson>(newCode)
-            if (!parsed.error) {
-              setFromCollection(parsed.value)
-            }
-          }}
-          width="425px"
-          maxHeight="70vh"
-        />
-      </ListItem>
+      <Code
+        code={JSON.stringify(geojson, null, 2)}
+        setCode={(newCode) => {
+          const parsed = safeParse<typeof geojson>(newCode)
+          if (!parsed.error) {
+            setFromCollection(parsed.value)
+          }
+        }}
+        width="460px"
+        maxHeight="85vh"
+      />
     </List>
   )
 }

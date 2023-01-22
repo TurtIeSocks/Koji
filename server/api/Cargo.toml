@@ -22,6 +22,7 @@ log = "0.4.17"
 migration = { path = "../migration" }
 model = { path = "../model" }
 nominatim = { path = "../nominatim" }
+reqwest = "0.11.14"
 sea-orm = { version = "0.9.3", features = [
   "sqlx-mysql",
   "runtime-actix-native-tls",
