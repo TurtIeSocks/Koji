@@ -1,5 +1,6 @@
 import * as React from 'react'
 import {
+  BooleanField,
   BulkDeleteWithUndoButton,
   CreateButton,
   Datagrid,
@@ -47,6 +48,7 @@ export default function ProjectList() {
     >
       <Datagrid rowClick="expand" bulkActionButtons={<BulkActions />}>
         <TextField source="name" />
+        <BooleanField source="scanner" />
         <NumberField source="related.length" label="Geofences" />
         <EditButton />
         <DeleteWithUndoButton />

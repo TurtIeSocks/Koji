@@ -136,6 +136,9 @@ export default function ProjectsAc({
             id: 0,
             name: `Add "${inputValue}"`,
             inputValue,
+            created_at: new Date(),
+            updated_at: new Date(),
+            scanner: false,
           })
         }
         return filtered

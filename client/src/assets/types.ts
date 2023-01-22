@@ -72,8 +72,6 @@ export interface Polygon {
   type: 'polygon'
 }
 
-export type Shape = Circle | Polygon
-
 export type CombinedState = Partial<UsePersist> & Partial<UseStatic>
 
 export type ObjectInput = { lat: number; lon: number }[]
@@ -125,6 +123,11 @@ export interface ClientGeofence extends KojiGeofence {
 export interface KojiProject {
   id: number
   name: string
+  created_at: Date | string
+  updated_at: Date | string
+  api_endpoint?: string
+  api_key?: string
+  scanner: boolean
 }
 
 export interface ClientProject extends KojiProject {

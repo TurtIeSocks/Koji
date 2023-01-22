@@ -9,6 +9,9 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: u32,
     pub name: String,
+    pub api_endpoint: Option<String>,
+    pub api_key: Option<String>,
+    pub scanner: bool,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
 }
@@ -113,7 +116,11 @@ impl Query {
     ) -> Result<Model, DbErr> {
         let old_model: Option<Model> = project::Entity::find_by_id(id).one(db).await?;
         let mut old_model: ActiveModel = old_model.unwrap().into();
+
         old_model.name = Set(new_model.name.to_owned());
+        old_model.api_endpoint = Set(new_model.api_endpoint.to_owned());
+        old_model.api_key = Set(new_model.api_key.to_owned());
+        old_model.scanner = Set(new_model.scanner.to_owned());
         old_model.updated_at = Set(Utc::now());
         old_model.update(db).await
     }

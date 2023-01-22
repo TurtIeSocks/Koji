@@ -6,6 +6,7 @@ mod m20221207_122501_create_geofence_project;
 mod m20221229_163230_change_fks;
 mod m20230108_204408_add_type_column;
 mod m20230117_010422_routes_table;
+mod m20230121_184556_add_project_api;
 
 pub struct Migrator;
 
@@ -19,6 +20,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20221229_163230_change_fks::Migration),
             Box::new(m20230108_204408_add_type_column::Migration),
             Box::new(m20230117_010422_routes_table::Migration),
+            Box::new(m20230121_184556_add_project_api::Migration),
         ]
     }
 }

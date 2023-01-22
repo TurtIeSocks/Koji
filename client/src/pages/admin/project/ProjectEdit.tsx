@@ -4,12 +4,12 @@ import {
   Edit,
   ReferenceArrayInput,
   SimpleForm,
-  TextInput,
   useRecordContext,
 } from 'react-admin'
 
 import { ClientProject, KojiGeofence } from '@assets/types'
 import { getData } from '@services/fetches'
+import ProjectForm from './ProjectForm'
 
 const transformPayload = async (project: ClientProject) => {
   if (Array.isArray(project.related)) {
@@ -38,7 +38,7 @@ export default function ProjectEdit() {
   return (
     <Edit mutationMode="pessimistic" transform={transformPayload}>
       <SimpleForm>
-        <TextInput source="name" fullWidth isRequired />
+        <ProjectForm />
         <ReferenceArrayInput
           source="related"
           reference="geofence"

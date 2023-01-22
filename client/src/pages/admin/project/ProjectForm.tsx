@@ -1,10 +1,13 @@
 import * as React from 'react'
-import { SimpleForm, TextInput } from 'react-admin'
+import { BooleanInput, TextInput } from 'react-admin'
 
 export default function ProjectForm() {
   return (
-    <SimpleForm>
+    <>
       <TextInput source="name" fullWidth isRequired />
-    </SimpleForm>
+      <TextInput source="api_endpoint" fullWidth />
+      <TextInput source="api_key" fullWidth />
+      <BooleanInput source="scanner" />
+    </>
   )
 }

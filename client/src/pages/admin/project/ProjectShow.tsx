@@ -1,5 +1,6 @@
 import * as React from 'react'
 import {
+  BooleanField,
   ChipField,
   ReferenceArrayField,
   Show,
@@ -17,6 +18,9 @@ export default function ProjectShow() {
           Overview
         </Typography>
         <TextField source="name" />
+        <TextField source="api_endpoint" />
+        <TextField source="api_key" />
+        <BooleanField source="scanner" />
         <ReferenceArrayField
           label="Geofences"
           source="related"
