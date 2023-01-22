@@ -14,6 +14,8 @@ import Fence from '@mui/icons-material/Fence'
 import Route from '@mui/icons-material/Route'
 
 import { useStatic } from '@hooks/useStatic'
+import { useShapes } from '@hooks/useShapes'
+
 import RawManager from '@components/dialogs/Manager'
 import ImportWizard from '@components/dialogs/import/ImportWizard'
 import ConvertDialog from '@components/dialogs/Convert'
@@ -104,7 +106,12 @@ export default function ImportExport() {
       </ListItemButton>
       <Divider sx={{ my: 2 }} />
       <StyledSubheader>Other</StyledSubheader>
-      <ListItemButton onClick={() => setOpen('rawManager')}>
+      <ListItemButton
+        onClick={() => {
+          useShapes.getState().setters.activeRoute()
+          return setOpen('rawManager')
+        }}
+      >
         <ListItemIcon>
           <Save />
         </ListItemIcon>

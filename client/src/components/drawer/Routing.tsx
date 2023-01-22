@@ -29,14 +29,14 @@ export default function RoutingTab() {
     <List dense sx={{ width: 275 }}>
       <ListSubheader>Calculation Modes</ListSubheader>
       <MultiOptionList
-        field="category"
-        buttons={['pokestop', 'gym', 'spawnpoint']}
-        disabled={mode === 'bootstrap'}
+        field="mode"
+        buttons={['cluster', 'route', 'bootstrap']}
         type="select"
       />
       <MultiOptionList
-        field="mode"
-        buttons={['cluster', 'route', 'bootstrap']}
+        field="category"
+        buttons={['pokestop', 'gym', 'spawnpoint']}
+        disabled={mode === 'bootstrap'}
         type="select"
       />
       <Divider sx={{ my: 2 }} />

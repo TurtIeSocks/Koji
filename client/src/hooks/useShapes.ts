@@ -177,8 +177,9 @@ export const useShapes = create<UseShapes>((set, get) => ({
         }))
       }
     },
-    activeRoute: (newId) => {
-      if (!newId) return set({ activeRoute: 'new_route_0' })
+    activeRoute: (incomingId) => {
+      const newId = incomingId || 'new_route_0'
+
       const { activeRoute, Point, MultiPoint } = get()
       if (activeRoute !== newId) {
         const newMultiPoint: Record<string | number, Feature<MultiPoint>> = {

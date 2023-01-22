@@ -49,6 +49,8 @@ export default function Markers({
       ).then((res) => {
         if (res.length) setMarkers(res)
       })
+    } else {
+      setMarkers([])
     }
     return () => controller.abort()
   }, [
