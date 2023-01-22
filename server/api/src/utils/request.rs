@@ -1,8 +1,25 @@
-use super::*;
+use super::{error::Error, *};
 
 use model::db::project;
+use sea_orm::DatabaseConnection;
 
-pub async fn update_project_api(project: project::Model, scanner_type: Option<&String>) {
+pub async fn update_project_api(
+    db: &DatabaseConnection,
+    scanner_type: Option<&String>,
+) -> Result<reqwest::Response, Error> {
+    let project = project::Query::get_scanner_project(&db).await?;
+    if let Some(project) = project {
+        send_api_req(project, scanner_type).await
+    } else {
+        Err(Error::ProjectApiError(
+            "No scanner project found".to_string(),
+        ))
+    }
+}
+pub async fn send_api_req(
+    project: project::Model,
+    scanner_type: Option<&String>,
+) -> Result<reqwest::Response, Error> {
     if let Some(endpoint) = project.api_endpoint {
         let req = reqwest::ClientBuilder::new().build();
         if let Ok(req) = req {
@@ -21,18 +38,16 @@ pub async fn update_project_api(project: project::Model, scanner_type: Option<&S
                 } else {
                     req.get(endpoint)
                 };
-                match req.send().await {
-                    Ok(_) => {
-                        log::info!("[API UPDATE] Scanner successfully updated",)
-                    }
-                    Err(err) => log::error!(
-                        "[API UPDATE] There was an error processing the API update request: {:?}",
-                        err
-                    ),
-                }
+                Ok(req.send().await?)
+            } else {
+                Err(Error::NotImplemented("Scanner type not found".to_string()))
             }
+        } else {
+            Err(Error::NotImplemented("Scanner type not found".to_string()))
         }
     } else {
-        log::warn!("API Endpoint not specified for project {}", project.name)
+        let error = format!("API Endpoint not specified for project {}", project.name);
+        log::warn!("{}", error);
+        Err(Error::ProjectApiError(error))
     }
 }

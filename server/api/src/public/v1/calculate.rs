@@ -1,4 +1,4 @@
-use crate::utils::request::update_project_api;
+use crate::utils::request;
 
 use super::*;
 
@@ -16,7 +16,7 @@ use model::{
         point_array::PointArray,
         FeatureHelpers, Precision, ToCollection, ToFeature,
     },
-    db::{area, instance, project, route, sea_orm_active_enums::Type, GenericData},
+    db::{area, instance, route, sea_orm_active_enums::Type, GenericData},
     KojiDb,
 };
 
@@ -95,12 +95,9 @@ async fn bootstrap(
         }
     }
     if save_to_scanner {
-        let project = project::Query::get_scanner_project(&conn.koji_db)
+        request::update_project_api(&conn.koji_db, Some(scanner_type))
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
-        if let Some(project) = project {
-            update_project_api(project, Some(scanner_type)).await
-        }
     }
 
     Ok(utils::response::send(
@@ -257,12 +254,9 @@ async fn cluster(
         }
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-        let project = project::Query::get_scanner_project(&conn.koji_db)
+        request::update_project_api(&conn.koji_db, Some(scanner_type))
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
-        if let Some(project) = project {
-            update_project_api(project, Some(scanner_type)).await
-        }
     }
 
     Ok(utils::response::send(

@@ -1,3 +1,5 @@
+use crate::utils::request::send_api_req;
+
 use super::*;
 
 use serde_json::json;
@@ -7,7 +9,7 @@ use model::{
         args::{get_return_type, Args, ArgsUnwrapped, Response, ReturnTypeArg},
         ToCollection,
     },
-    db::{area, geofence, instance},
+    db::{area, geofence, instance, project},
     KojiDb,
 };
 
@@ -102,6 +104,14 @@ async fn save_scanner(
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
+    let project = project::Query::get_scanner_project(&conn.koji_db)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+    if let Some(project) = project {
+        send_api_req(project, Some(scanner_type))
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
+    }
     println!("Rows Updated: {}, Rows Inserted: {}", updates, inserts);
 
     Ok(HttpResponse::Ok().json(Response {
