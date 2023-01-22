@@ -56,6 +56,7 @@ export default function RouteForm() {
   return (
     <>
       <TextInput source="name" fullWidth required />
+      <TextInput source="description" fullWidth />
       <SelectInput
         source="mode"
         choices={(scannerType === 'rdm' ? RDM_ROUTES : UNOWN_ROUTES).map(
@@ -73,7 +74,7 @@ export default function RouteForm() {
                   if (!safe.error) return safe.value
                 })()
               : formData.geometry
-          if (parsed === undefined) return null
+          if (parsed === undefined || !parsed.coordinates.length) return null
           const point = center(parsed)
 
           const fc: FeatureCollection = {

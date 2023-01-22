@@ -55,6 +55,7 @@ pub enum Route {
     GeofenceId,
     Name,
     Mode,
+    Description,
     Geometry,
     CreatedAt,
     UpdatedAt,

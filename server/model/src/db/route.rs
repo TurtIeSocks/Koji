@@ -20,6 +20,7 @@ pub struct Model {
     pub id: u32,
     pub geofence_id: u32,
     pub name: String,
+    pub description: Option<String>,
     pub mode: String,
     pub geometry: Json,
     pub created_at: DateTimeUtc,
@@ -51,6 +52,7 @@ pub struct RouteNoGeometry {
     pub id: u32,
     pub geofence_id: u32,
     pub name: String,
+    pub description: Option<String>,
     pub mode: String,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
@@ -61,6 +63,7 @@ pub struct Paginated {
     pub id: u32,
     pub geofence_id: u32,
     pub name: String,
+    pub description: Option<String>,
     pub mode: String,
     pub hops: usize,
 }
@@ -95,6 +98,7 @@ impl Query {
             id: model.id,
             geofence_id: model.geofence_id,
             name: model.name,
+            description: model.description,
             hops: match Geometry::from_json_value(model.geometry) {
                 Ok(geometry) => match geometry.value {
                     geojson::Value::MultiPoint(mp) => mp.len(),
@@ -129,6 +133,7 @@ impl Query {
             .column(Column::Id)
             .column(Column::GeofenceId)
             .column(Column::Name)
+            .column(Column::Description)
             .column(Column::Mode)
             .column(Column::CreatedAt)
             .column(Column::UpdatedAt)
@@ -150,6 +155,7 @@ impl Query {
                     geofence_id: Set(incoming.geofence_id),
                     geometry: Set(value),
                     mode: Set(incoming.mode),
+                    description: Set(incoming.description),
                     created_at: Set(Utc::now()),
                     updated_at: Set(Utc::now()),
                     ..Default::default()
@@ -182,6 +188,7 @@ impl Query {
 
             let mut old_model: ActiveModel = old_model.unwrap().into();
             old_model.name = Set(new_model.name.to_owned());
+            old_model.description = Set(new_model.description.to_owned());
             old_model.geofence_id = Set(new_model.geofence_id);
             old_model.geometry = Set(value);
             old_model.mode = Set(new_model.mode);

@@ -18,6 +18,7 @@ export default function GeofenceShow() {
           Overview
         </Typography>
         <TextField source="name" />
+        <TextField source="description" />
         <TextField source="mode" />
         <ReferenceField source="geofence_id" reference="geofence" />
         <FunctionField<KojiRoute>

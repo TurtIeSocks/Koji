@@ -122,8 +122,8 @@ export const dataProvider: typeof defaultProvider = {
       data: { ...json, id: 'id' in json ? json.id : '0' },
     }
   },
-  update: (resource, params) =>
-    httpClient(`/internal/admin/${resource}/${params.id}/`, {
+  update: async (resource, params) => {
+    return httpClient(`/internal/admin/${resource}/${params.id}/`, {
       method: 'PATCH',
       body: JSON.stringify(params.data),
     }).then(({ json }) => {
@@ -136,7 +136,8 @@ export const dataProvider: typeof defaultProvider = {
         }
       }
       return { data: { ...json, id: 'id' in json ? json.id : params.id } }
-    }),
+    })
+  },
   delete: (resource, params) =>
     httpClient(`/internal/admin/${resource}/${params.id}/`, {
       method: 'DELETE',

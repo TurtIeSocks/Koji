@@ -48,6 +48,7 @@ export default function GeofenceList() {
     >
       <Datagrid rowClick="expand" bulkActionButtons={<BulkActions />}>
         <TextField source="name" />
+        <TextField source="description" />
         <TextField source="mode" />
         <ReferenceField source="geofence_id" reference="geofence" />
         <NumberField source="hops" label="Hops" />

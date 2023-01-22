@@ -138,6 +138,7 @@ export interface KojiRoute {
   id: number
   geofence_id: number
   name: string
+  description?: string
   mode: string
   geometry: MultiPoint
 }
