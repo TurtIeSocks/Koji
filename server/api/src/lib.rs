@@ -124,6 +124,7 @@ pub async fn main() -> io::Result<()> {
             // increase max payload size to 20MB
             .app_data(web::JsonConfig::default().limit(20_971_520))
             .wrap(middleware::Logger::new("%s | %r - %b bytes in %D ms (%a)"))
+            .wrap(middleware::Compress::default())
             .wrap(
                 SessionMiddleware::builder(CookieSessionStore::default(), Key::from(&[0; 64]))
                     .cookie_secure(false)
