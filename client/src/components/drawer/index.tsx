@@ -47,6 +47,7 @@ export default function DrawerIndex({ drawerWidth }: Props) {
   const { setStore } = usePersist.getState()
 
   const [tab, setTab] = React.useState(TABS.indexOf(menuItem) || 0)
+  const [hover, setHover] = React.useState(false)
 
   const toggleDrawer = (event: React.KeyboardEvent | React.MouseEvent) => {
     if (
@@ -85,7 +86,7 @@ export default function DrawerIndex({ drawerWidth }: Props) {
     <Drawer
       variant="permanent"
       open={drawer}
-      drawerWidth={drawerWidth}
+      drawerWidth={drawerWidth + (hover ? 55 : 0)}
       onClose={toggleDrawer}
     >
       {drawer ? (
@@ -102,19 +103,34 @@ export default function DrawerIndex({ drawerWidth }: Props) {
           >
             <Tabs
               orientation="vertical"
-              variant="scrollable"
               value={tab}
               onChange={handleChange}
-              sx={{ borderRight: 1, borderColor: 'divider' }}
+              sx={{
+                borderRight: 1,
+                borderColor: 'divider',
+              }}
+              onMouseEnter={() => setHover(true)}
+              onMouseLeave={() => setHover(false)}
             >
               {TABS.map((text, i) => {
                 const Icon = ICON_MAP[text]
+
                 return (
                   <Tab
                     key={text}
                     value={i}
-                    icon={<Icon />}
-                    sx={{ p: 0, m: 0, minWidth: 45 }}
+                    label={hover ? text : ''}
+                    icon={hover ? undefined : <Icon />}
+                    sx={(theme) => ({
+                      p: 0,
+                      m: 0,
+                      fontSize: '0.8rem',
+                      minWidth: hover ? 100 : 45,
+                      transition: theme.transitions.create('width', {
+                        easing: theme.transitions.easing.sharp,
+                        duration: theme.transitions.duration.leavingScreen,
+                      }),
+                    })}
                   />
                 )
               })}
