@@ -10,7 +10,6 @@ use sea_orm::{
 };
 
 pub mod area;
-pub mod device;
 pub mod geofence;
 pub mod geofence_project;
 pub mod gym;
