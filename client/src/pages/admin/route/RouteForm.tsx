@@ -7,7 +7,8 @@ import center from '@turf/center'
 import { useStatic } from '@hooks/useStatic'
 import { RDM_ROUTES, UNOWN_ROUTES } from '@assets/constants'
 import { getColor, safeParse } from '@services/utils'
-import type { FeatureCollection, MultiPoint } from 'geojson'
+import type { FeatureCollection } from '@assets/types'
+import type { MultiPoint } from 'geojson'
 import * as L from 'leaflet'
 import distance from '@turf/distance'
 import CodeInput from '../inputs/CodeInput'
@@ -81,6 +82,7 @@ export default function RouteForm() {
             type: 'FeatureCollection',
             features: (parsed.coordinates || []).map((c, i) => {
               return {
+                id: `${i}`,
                 type: 'Feature',
                 geometry: {
                   type: 'Point',

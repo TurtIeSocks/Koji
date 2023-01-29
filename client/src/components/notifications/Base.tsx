@@ -38,7 +38,11 @@ export default function Notification({
       }}
       {...CollapseProps}
     >
-      <Stack sx={{ width: '100%' }} spacing={2} {...StackProps}>
+      <Stack
+        sx={{ width: '100%', maxHeight: '90vh' }}
+        spacing={2}
+        {...StackProps}
+      >
         <Alert
           action={
             <IconButton

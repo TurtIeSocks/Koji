@@ -21,9 +21,9 @@ impl FeatureHelpers for Feature {
                 self.set_property("__name", name)
             }
         }
-        if !self.contains_property("__type") {
+        if !self.contains_property("__mode") {
             if let Some(enum_type) = enum_type {
-                self.set_property("__type", enum_type.to_string());
+                self.set_property("__mode", enum_type.to_string());
                 // match enum_type {
                 //     Type::CirclePokemon | Type::CircleSmartPokemon => {
                 //         self.set_property("radius", 70);
@@ -39,10 +39,10 @@ impl FeatureHelpers for Feature {
             } else if let Some(geometry) = self.geometry.as_ref() {
                 match geometry.value {
                     Value::Point(_) | Value::MultiPoint(_) => {
-                        self.set_property("__type", "CirclePokemon");
+                        self.set_property("__mode", "CirclePokemon");
                     }
                     Value::Polygon(_) | Value::MultiPolygon(_) => {
-                        self.set_property("__type", "AutoQuest");
+                        self.set_property("__mode", "AutoQuest");
                     }
                     _ => {}
                 }

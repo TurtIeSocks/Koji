@@ -15,27 +15,13 @@ use model::{
 
 #[get("/all")]
 async fn all(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
-    let geofences = geofence::Query::get_all(&conn.koji_db)
+    let fc = geofence::Query::as_collection(&conn.koji_db)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
-    let features: Vec<Feature> = geofences
-        .into_iter()
-        .map(|item| {
-            let feature = Feature::from_json_value(item.area);
-            let mut feature = if feature.is_ok() {
-                feature.unwrap()
-            } else {
-                Feature::default()
-            };
-            feature.set_property("name", item.name);
-            feature.set_property("id", item.id);
-            feature
-        })
-        .collect();
 
-    println!("[PUBLIC_API] Returning {} instances\n", features.len());
+    println!("[PUBLIC_API] Returning {} instances\n", fc.features.len());
     Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(features.to_collection(None, None))),
+        data: Some(json!(fc)),
         message: "Success".to_string(),
         status: "ok".to_string(),
         stats: None,
@@ -49,7 +35,7 @@ async fn get_area(
     area: actix_web::web::Path<String>,
 ) -> Result<HttpResponse, Error> {
     let area = area.into_inner();
-    let feature = geofence::Query::route(&conn.koji_db, &area)
+    let feature = geofence::Query::feature_from_name(&conn.koji_db, &area)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 

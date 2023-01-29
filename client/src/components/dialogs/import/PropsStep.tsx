@@ -1,7 +1,4 @@
 import * as React from 'react'
-import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
-import type { FeatureCollection } from 'geojson'
-
 import {
   Box,
   Button,
@@ -13,6 +10,9 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material'
+import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
+
+import type { FeatureCollection } from '@assets/types'
 import { useStatic, UseStatic } from '@hooks/useStatic'
 import useSkipFirstEffect from '@hooks/useSkipFirstEffect'
 

@@ -2,10 +2,14 @@
 
 use std::collections::HashMap;
 
-use super::{sea_orm_active_enums::Type, *};
+use super::*;
 use sea_orm::entity::prelude::*;
+use serde_json::json;
 
-use crate::api::{text::TextHelpers, ToText};
+use crate::{
+    api::{text::TextHelpers, ToText},
+    utils::get_enum,
+};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "area")]
@@ -35,6 +39,37 @@ pub struct Model {
 pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}
+
+impl Model {
+    fn to_feature(self, mode: String) -> Result<Feature, ModelError> {
+        if let Some(area_type) = get_enum(Some(mode.to_string())) {
+            let coords = match mode.as_str() {
+                "AutoQuest" | "AutoPokemon" | "AutoTth" | "PokemonIv" => self.geofence,
+                "CirclePokemon" | "CircleSmartPokemon" => self.pokemon_mode_route,
+                "CircleRaid" | "CircleSmartRaid" => self.fort_mode_route,
+                "ManualQuest" => self.quest_mode_route,
+                _ => None,
+            };
+            if let Some(coords) = coords {
+                let mut feature =
+                    coords.parse_scanner_instance(Some(self.name.clone()), Some(&area_type));
+                feature.id = Some(geojson::feature::Id::String(format!(
+                    "{}__{}__SCANNER",
+                    self.id, area_type
+                )));
+                feature.set_property(
+                    "__koji",
+                    json!({ "name": self.name, "id": self.id, "mode": area_type }),
+                );
+                Ok(feature)
+            } else {
+                Err(ModelError::Custom("Unable to determine route".to_string()))
+            }
+        } else {
+            Err(ModelError::Custom("Area not found".to_string()))
+        }
+    }
+}
 
 pub struct Query;
 
@@ -73,32 +108,32 @@ impl Query {
         Ok(utils::normalize::area_ref(items))
     }
 
-    pub async fn route(
+    pub async fn feature_from_name(
         conn: &DatabaseConnection,
         area_name: &String,
-        area_type: &Type,
-    ) -> Result<Feature, DbErr> {
+        area_type: String,
+    ) -> Result<Feature, ModelError> {
         let item = area::Entity::find()
             .filter(Column::Name.eq(Value::String(Some(Box::new(area_name.to_string())))))
             .one(conn)
             .await?;
         if let Some(item) = item {
-            let coords = match area_type {
-                Type::AutoQuest | Type::AutoPokemon | Type::AutoTth | Type::PokemonIv => {
-                    item.geofence
-                }
-                Type::CirclePokemon | Type::CircleSmartPokemon => item.pokemon_mode_route,
-                Type::CircleRaid | Type::CircleSmartRaid => item.fort_mode_route,
-                Type::ManualQuest => item.quest_mode_route,
-                Type::Leveling => Some("".to_string()),
-            };
-            if let Some(coords) = coords {
-                Ok(coords.parse_scanner_instance(Some(item.name), Some(area_type)))
-            } else {
-                Err(DbErr::Custom("No route found".to_string()))
-            }
+            item.to_feature(area_type)
         } else {
-            Err(DbErr::Custom("Area not found".to_string()))
+            Err(ModelError::Custom("Area not found".to_string()))
+        }
+    }
+
+    pub async fn feature(
+        conn: &DatabaseConnection,
+        id: u32,
+        area_type: String,
+    ) -> Result<Feature, ModelError> {
+        let item = area::Entity::find_by_id(id).one(conn).await?;
+        if let Some(item) = item {
+            item.to_feature(area_type)
+        } else {
+            Err(ModelError::Custom("Area not found".to_string()))
         }
     }
 
@@ -123,7 +158,7 @@ impl Query {
         for feat in area.into_iter() {
             if let Some(name) = feat.property("__name") {
                 if let Some(name) = name.as_str() {
-                    let column = if let Some(r#type) = feat.property("__type").clone() {
+                    let column = if let Some(r#type) = feat.property("__mode").clone() {
                         if let Some(r#type) = r#type.as_str() {
                             match r#type.to_lowercase().as_str() {
                                 "circlepokemon"

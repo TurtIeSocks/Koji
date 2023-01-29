@@ -2,10 +2,11 @@
 import * as React from 'react'
 import { FeatureGroup, useMap } from 'react-leaflet'
 import * as L from 'leaflet'
-import type { Feature, MultiPolygon, Point, Polygon } from 'geojson'
+import type { MultiPolygon, Point, Polygon } from 'geojson'
 import 'leaflet-arrowheads'
-
 import { GeomanControls } from 'react-leaflet-geoman-v2'
+
+import type { Feature } from '@assets/types'
 import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
 import { useShapes } from '@hooks/useShapes'
@@ -146,16 +147,16 @@ export function Drawing() {
               case 'Polygon':
                 if (layer instanceof L.Polygon) {
                   const feature = layer.toGeoJSON()
-                  feature.id = id
+                  feature.id = id.toString()
                   if (feature.geometry.type === 'Polygon') {
                     setShapes('Polygon', (prev) => ({
                       ...prev,
-                      [id]: feature as Feature<Polygon>,
+                      [id.toString()]: feature as Feature<Polygon>,
                     }))
                   } else if (feature.geometry.type === 'MultiPolygon') {
                     setShapes('MultiPolygon', (prev) => ({
                       ...prev,
-                      [id]: feature as Feature<MultiPolygon>,
+                      [id.toString()]: feature as Feature<MultiPolygon>,
                     }))
                   }
                 }
@@ -169,25 +170,29 @@ export function Drawing() {
                   const last = getters.getLast()
 
                   if (feature.properties) {
-                    feature.properties.forward = first?.id
-                    feature.properties.backward = last?.id
+                    if (typeof first?.id === 'number') {
+                      feature.properties.__forward = first.id
+                    }
+                    if (typeof last?.id === 'number') {
+                      feature.properties.__backward = last.id
+                    }
                   }
                   if (last?.properties) {
-                    last.properties.forward = id
+                    last.properties.__forward = id
                   }
                   if (first?.properties) {
-                    first.properties.backward = id
+                    first.properties.__backward = id
                   }
                   if (last && first) {
                     setShapes('LineString', (prev) => {
                       const newState: typeof prev = {
                         ...prev,
-                        [`${last.id}_${feature.id}`]: {
+                        [`${+last.id}__${+feature.id}`]: {
                           type: 'Feature',
-                          id: `${last.id}_${feature.id}`,
+                          id: `${+last.id}__${+feature.id}`,
                           properties: {
-                            start: last.id,
-                            end: feature.id,
+                            __start: +last.id,
+                            __end: +feature.id,
                           },
                           geometry: {
                             type: 'LineString',
@@ -199,25 +204,30 @@ export function Drawing() {
                         },
                       }
                       if (Object.keys(useShapes.getState().Point).length > 1) {
-                        newState[`${feature.id}_${first.id}`] = {
-                          type: 'Feature',
-                          id: `${feature.id}_${first.id}`,
-                          properties: {
-                            start: feature.id,
-                            end: first.id,
-                          },
-                          geometry: {
-                            type: 'LineString',
-                            coordinates: [
-                              feature.geometry.coordinates,
-                              first.geometry.coordinates,
-                            ],
-                          },
+                        if (
+                          typeof feature.id === 'number' &&
+                          typeof first.id === 'number'
+                        ) {
+                          newState[`${feature.id}__${first.id}`] = {
+                            type: 'Feature',
+                            id: `${feature.id}__${first.id}`,
+                            properties: {
+                              __start: feature.id,
+                              __end: first.id,
+                            },
+                            geometry: {
+                              type: 'LineString',
+                              coordinates: [
+                                feature.geometry.coordinates,
+                                first.geometry.coordinates,
+                              ],
+                            },
+                          }
                         }
                       }
                       return newState
                     })
-                    setters.remove('LineString', `${last.id}_${first.id}`)
+                    setters.remove('LineString', `${last.id}__${first.id}`)
                   }
                   setShapes('Point', (prev) => ({
                     ...prev,
@@ -226,7 +236,7 @@ export function Drawing() {
                   if (last) {
                     setShapes('Point', (prev) => ({
                       ...prev,
-                      [last?.id as number]: last,
+                      [last?.id]: last,
                     }))
                   }
                   if (!first) {
@@ -234,7 +244,7 @@ export function Drawing() {
                   } else {
                     setShapes('Point', (prev) => ({
                       ...prev,
-                      [first?.id as number]: first,
+                      [first?.id]: first,
                     }))
                   }
                   setShapes('lastPoint', id)

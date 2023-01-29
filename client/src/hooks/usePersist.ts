@@ -1,7 +1,6 @@
 import create from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { FeatureCollection } from 'geojson'
-import type { TabOption } from '@assets/types'
+import type { TabOption, FeatureCollection, Category } from '@assets/types'
 
 export interface UsePersist {
   darkMode: boolean
@@ -9,7 +8,7 @@ export interface UsePersist {
   drawer: boolean
   location: [number, number]
   zoom: number
-  category: 'pokestop' | 'gym' | 'spawnpoint'
+  category: Category
   spawnpoint: boolean
   gym: boolean
   pokestop: boolean

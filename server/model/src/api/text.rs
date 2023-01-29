@@ -14,7 +14,7 @@ impl TextHelpers for String {
         }
     }
     fn parse_scanner_instance(self, name: Option<String>, enum_type: Option<&Type>) -> Feature {
-        let mut parsed = if self.starts_with("{") {
+        let parsed = if self.starts_with("{") {
             match serde_json::from_str::<InstanceParsing>(&self) {
                 Ok(result) => match result {
                     InstanceParsing::Feature(feat) => feat,
@@ -31,7 +31,7 @@ impl TextHelpers for String {
                     }
                 },
                 Err(err) => {
-                    println!(
+                    log::error!(
                         "Error Parsing Instance: {}\n{}",
                         name.clone().unwrap_or("".to_string()),
                         err
@@ -42,7 +42,6 @@ impl TextHelpers for String {
         } else {
             self.to_feature(enum_type)
         };
-        parsed.add_instance_properties(name, enum_type);
         parsed
     }
 }
@@ -114,9 +113,9 @@ impl ToFeature for String {
     fn to_feature(self, enum_type: Option<&Type>) -> Feature {
         let multi_vec = self.to_multi_vec();
         Feature {
-            bbox: multi_vec.clone().to_single_vec().get_bbox(),
+            bbox: None,
             geometry: Some(Geometry {
-                bbox: None,
+                bbox: multi_vec.clone().to_single_vec().get_bbox(),
                 foreign_members: None,
                 value: if let Some(enum_type) = enum_type {
                     multi_vec.get_geojson_value(enum_type)

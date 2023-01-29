@@ -6,7 +6,7 @@ import StepLabel from '@mui/material/StepLabel'
 import { Code } from '@components/Code'
 
 import { Box, Button, Tab, Tabs, Typography } from '@mui/material'
-import type { FeatureCollection } from 'geojson'
+import type { FeatureCollection } from '@assets/types'
 import { getKey, safeParse } from '@services/utils'
 import CombineByName from '@components/buttons/CombineByName'
 import SplitMultiPolygonsBtn from '@components/buttons/SplitMultiPolygons'

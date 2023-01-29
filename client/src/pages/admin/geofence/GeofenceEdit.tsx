@@ -7,12 +7,12 @@ import {
   useRecordContext,
 } from 'react-admin'
 
-import { ClientGeofence, KojiProject } from '@assets/types'
+import { AdminGeofence, KojiProject } from '@assets/types'
 import { getData } from '@services/fetches'
 
 import GeofenceForm from './GeofenceForm'
 
-const transformPayload = async (geofence: ClientGeofence) => {
+const transformPayload = async (geofence: AdminGeofence) => {
   if (Array.isArray(geofence.related)) {
     await getData(`/internal/admin/geofence_project/geofence/${geofence.id}/`, {
       method: 'PATCH',

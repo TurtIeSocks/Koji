@@ -1,4 +1,4 @@
-import { ToConvert } from '@assets/types'
+import { Conversions } from '@assets/types'
 import { Code } from '@components/Code'
 import { usePersist } from '@hooks/usePersist'
 import { Typography } from '@mui/material'
@@ -33,7 +33,7 @@ export default function CodeInput({
           field.onChange({ target: { value: newCode } })
         }}
         onBlurCapture={async () => {
-          const geofence = safeParse<ToConvert>(field.value)
+          const geofence = safeParse<Conversions>(field.value)
           if (!geofence.error) {
             await convert(geofence.value, 'feature', simplifyPolygons).then(
               (res) => {

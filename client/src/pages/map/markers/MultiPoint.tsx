@@ -1,5 +1,7 @@
 import * as React from 'react'
-import type { Feature, MultiPoint } from 'geojson'
+import type { MultiPoint } from 'geojson'
+
+import type { Feature, DbOption, KojiKey } from '@assets/types'
 
 import { MemoPoint } from './Point'
 import { MemoLineString } from './LineString'
@@ -11,9 +13,11 @@ export function KojiMultiPoint({
     geometry: { coordinates },
   },
   radius,
+  dbRef,
 }: {
   feature: Feature<MultiPoint>
   radius: number
+  dbRef: DbOption | null
 }) {
   return (
     <>
@@ -29,18 +33,22 @@ export function KojiMultiPoint({
               radius={radius}
               feature={{
                 type: 'Feature',
-                id: `${id}___${i}`,
-                properties,
+                id: i,
+                properties: {
+                  ...properties,
+                  __multipoint_id: id as KojiKey,
+                },
                 geometry: { coordinates: first, type: 'Point' },
               }}
               type="MultiPoint"
+              dbRef={dbRef}
             />
             <MemoLineString
               key={`${first}-${isEnd}-${coordinates.length}`}
               feature={{
                 type: 'Feature',
                 properties,
-                id: `${first}-${isEnd}`,
+                id: `${i}__${isEnd ? 0 : i + 1}`,
                 geometry: { coordinates: [first, next], type: 'LineString' },
               }}
             />

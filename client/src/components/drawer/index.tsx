@@ -6,6 +6,7 @@ import type {} from '@mui/x-date-pickers/themeAugmentation'
 
 import { ICON_MAP, TABS } from '@assets/constants'
 import { usePersist } from '@hooks/usePersist'
+import { useShapes } from '@hooks/useShapes'
 
 import { Drawer } from '../styled/Drawer'
 import DrawerHeader from '../styled/DrawerHeader'
@@ -87,6 +88,7 @@ export default function DrawerIndex({ drawerWidth }: Props) {
       open={drawer}
       drawerWidth={drawerWidth}
       onClose={toggleDrawer}
+      onMouseEnter={() => useShapes.getState().setters.activeRoute()}
     >
       {drawer ? (
         <LocalizationProvider dateAdapter={AdapterDayjs}>

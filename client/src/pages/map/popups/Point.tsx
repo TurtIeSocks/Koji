@@ -10,34 +10,33 @@ import {
 import ChevronLeft from '@mui/icons-material/ChevronLeft'
 import Add from '@mui/icons-material/Add'
 import geohash from 'ngeohash'
-import type { Feature, MultiPoint } from 'geojson'
+import type { MultiPoint } from 'geojson'
 
-import { KojiResponse, KojiRoute, Option, PopupProps } from '@assets/types'
+import { Feature, KojiResponse, KojiRoute, PopupProps } from '@assets/types'
 import ExportRoute from '@components/dialogs/ExportRoute'
 import { useShapes } from '@hooks/useShapes'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import { RDM_ROUTES, UNOWN_ROUTES } from '@assets/constants'
 import { useStatic } from '@hooks/useStatic'
-import { getData } from '@services/fetches'
+import { getData, getKojiCache } from '@services/fetches'
+import { useDbCache } from '@hooks/useDbCache'
 
 interface Props extends PopupProps {
-  id: Feature['id']
   lat: number
   lon: number
   type: 'Point' | 'MultiPoint'
 }
 
-export function PointPopup({ id, lat, lon, type: geoType }: Props) {
+export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
   const [open, setOpen] = React.useState('')
-  const feature = useShapes((s) => s[geoType][id as number | string])
+  const feature = useShapes((s) => s[geoType][id])
   const { add, remove, splitLine, activeRoute } = useShapes.getState().setters
+  const { setRecord, geofence } = useDbCache.getState()
 
-  const [name, setName] = React.useState(feature.properties?.__name || '')
-  const [type, setType] = React.useState(feature.properties?.__type || '')
-  const [fenceId, setFenceId] = React.useState(
-    feature.properties?.__geofence_id || 0,
-  )
-  const options = Object.values(useShapes.getState().kojiRefCache)
+  const [name, setName] = React.useState(dbRef?.name || '')
+  const [type, setType] = React.useState(dbRef?.mode || '')
+  const [fenceId, setFenceId] = React.useState(dbRef?.geofence_id || 0)
+  const options = Object.values(geofence)
 
   const [loading, setLoading] = React.useState(false)
 
@@ -45,6 +44,8 @@ export function PointPopup({ id, lat, lon, type: geoType }: Props) {
     useShapes.getState().activeRoute === feature.id
       ? remove(feature.geometry.type, feature.id)
       : remove('Point')
+
+  const isInKoji = feature.properties?.__multipoint_id?.endsWith('KOJI')
 
   return id !== undefined ? (
     <div>
@@ -94,22 +95,10 @@ export function PointPopup({ id, lat, lon, type: geoType }: Props) {
           <Select
             size="small"
             fullWidth
-            value={options.length ? fenceId || '' : ''}
+            value={options.length && isInKoji ? fenceId || '' : ''}
             onChange={({ target }) => setFenceId(+target.value)}
             onOpen={async () =>
-              options.length
-                ? null
-                : getData<KojiResponse<Option[]>>(
-                    '/internal/routes/from_koji',
-                  ).then(
-                    (res) =>
-                      res &&
-                      useShapes.setState({
-                        kojiRefCache: Object.fromEntries(
-                          res.data.map((t) => [t.id, t]),
-                        ),
-                      }),
-                  )
+              options.length ? null : getKojiCache('geofence')
             }
           >
             {options.map((t) => (
@@ -121,18 +110,18 @@ export function PointPopup({ id, lat, lon, type: geoType }: Props) {
         </Grid2>
         <Grid2
           xs={6}
-          disabled={feature.properties?.backward === undefined}
+          disabled={feature.properties?.__backward === undefined}
           component={Button}
-          onClick={() => splitLine(`${feature.properties?.backward}_${id}`)}
+          onClick={() => splitLine(`${feature.properties?.__backward}__${id}`)}
         >
           <ChevronLeft />
           <Add />
         </Grid2>
         <Grid2
           xs={6}
-          disabled={feature.properties?.forward === undefined}
+          disabled={feature.properties?.__forward === undefined}
           component={Button}
-          onClick={() => splitLine(`${id}_${feature.properties?.forward}`)}
+          onClick={() => splitLine(`${id}__${feature.properties?.__forward}`)}
         >
           <Add />
           <SvgIcon>
@@ -157,15 +146,12 @@ export function PointPopup({ id, lat, lon, type: geoType }: Props) {
         <Grid2 xs={12}>
           <ButtonGroup>
             <Button
-              disabled={feature.properties?.__koji_id === undefined}
+              disabled={!isInKoji}
               onClick={async () => {
                 setLoading(true)
-                await getData(
-                  `/internal/admin/route/${feature.properties?.__koji_id}/`,
-                  {
-                    method: 'DELETE',
-                  },
-                ).then(() => {
+                await getData(`/internal/admin/route/${dbRef?.id}/`, {
+                  method: 'DELETE',
+                }).then(() => {
                   setLoading(false)
                   removeCheck()
                   activeRoute()
@@ -197,18 +183,16 @@ export function PointPopup({ id, lat, lon, type: geoType }: Props) {
                   (mp) =>
                     mp &&
                     getData<KojiResponse<KojiRoute>>(
-                      feature.properties?.__koji_id
-                        ? `/internal/admin/route/${feature.properties?.__koji_id}/`
+                      isInKoji
+                        ? `/internal/admin/route/${dbRef?.id}/`
                         : '/internal/admin/route/',
                       {
-                        method: feature.properties?.__koji_id
-                          ? 'PATCH'
-                          : 'POST',
+                        method: isInKoji ? 'PATCH' : 'POST',
                         headers: {
                           'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                          id: feature.properties?.__koji_id || 0,
+                          id: isInKoji ? dbRef?.id : 0,
                           name,
                           geofence_id: fenceId,
                           mode: type,
@@ -226,28 +210,29 @@ export function PointPopup({ id, lat, lon, type: geoType }: Props) {
                             severity: 'success',
                           },
                         })
+                        const { geometry, ...rest } = res.data
+                        const newId = `${rest.id}__${rest.mode}__KOJI` as const
                         const newFeature = {
                           ...feature,
-                          id: `${res.data.name}__${res.data.mode}__KOJI`,
-                          geometry: res.data.geometry,
-                          properties: {
-                            ...feature.properties,
-                            __name: res.data.name,
-                            __type: res.data.mode,
-                            __koji_id: res.data.id,
-                            __geofence_id: res.data.geofence_id,
-                          },
+                          id: newId,
+                          geometry,
                         }
+                        setRecord('route', rest.id, {
+                          ...rest,
+                          geoType: geometry.type,
+                        })
+                        setRecord('feature', newId, newFeature)
+
                         removeCheck()
                         activeRoute()
-                        add(newFeature, '__KOJI')
+                        add(newFeature)
                       }
                       setLoading(false)
                     }),
                 )
               }}
             >
-              {feature.properties?.__koji_id ? 'Save' : 'Create'}
+              {isInKoji ? 'Save' : 'Create'}
             </Button>
           </ButtonGroup>
         </Grid2>

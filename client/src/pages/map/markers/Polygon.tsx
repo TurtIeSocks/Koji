@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Feature, Polygon as PolygonType, MultiPolygon } from 'geojson'
+import type { Polygon as PolygonType, MultiPolygon } from 'geojson'
 import * as React from 'react'
 import { Polygon } from 'react-leaflet'
 import * as L from 'leaflet'
 
+import { Feature, DbOption } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
 
@@ -12,8 +13,10 @@ import Popup from '../popups/Styled'
 
 export function KojiPolygon({
   feature,
+  dbRef,
 }: {
   feature: Feature<PolygonType> | Feature<MultiPolygon>
+  dbRef: DbOption | null
 }) {
   const [loadData, setLoadData] = React.useState(false)
 
@@ -137,7 +140,7 @@ export function KojiPolygon({
       pane="polygons"
     >
       <Popup>
-        <MemoPolyPopup feature={feature} loadData={loadData} />
+        <MemoPolyPopup feature={feature} loadData={loadData} dbRef={dbRef} />
       </Popup>
     </Polygon>
   )

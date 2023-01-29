@@ -13,7 +13,7 @@ import center from '@turf/center'
 import { useStatic } from '@hooks/useStatic'
 import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
 import { safeParse } from '@services/utils'
-import type { Feature } from 'geojson'
+import type { Feature } from '@assets/types'
 
 import CodeInput from '../inputs/CodeInput'
 

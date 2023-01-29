@@ -5,6 +5,7 @@ use geojson::{Geometry, Value};
 use model::{
     api::{collection::Default, single_vec::SingleVec, BBox, ToCollection},
     db::{area, geofence, gym, instance, pokestop, spawnpoint, GenericData},
+    error::ModelError,
     KojiDb,
 };
 
@@ -24,7 +25,7 @@ pub async fn load_collection(
     instance: &String,
     scanner_type: &String,
     conn: &KojiDb,
-) -> Result<FeatureCollection, DbErr> {
+) -> Result<FeatureCollection, ModelError> {
     match load_feature(instance, scanner_type, conn).await {
         Ok(feature) => Ok(feature.to_collection(None, None)),
         Err(err) => Err(err),
@@ -35,17 +36,17 @@ pub async fn load_feature(
     instance: &String,
     scanner_type: &String,
     conn: &KojiDb,
-) -> Result<Feature, DbErr> {
-    match geofence::Query::route(&conn.koji_db, &instance).await {
+) -> Result<Feature, ModelError> {
+    match geofence::Query::feature_from_name(&conn.koji_db, &instance).await {
         Ok(area) => Ok(area),
         Err(_) => {
             if scanner_type.eq("rdm") {
-                instance::Query::route(&conn.data_db, &instance).await
+                instance::Query::feature_from_name(&conn.data_db, &instance).await
             } else {
-                area::Query::route(
+                area::Query::feature_from_name(
                     &conn.unown_db.as_ref().unwrap(),
                     &instance,
-                    &model::db::sea_orm_active_enums::Type::AutoQuest,
+                    "AutoQuest".to_string(),
                 )
                 .await
             }
@@ -59,7 +60,7 @@ pub async fn create_or_find_collection(
     conn: &KojiDb,
     area: FeatureCollection,
     data_points: &SingleVec,
-) -> Result<FeatureCollection, DbErr> {
+) -> Result<FeatureCollection, ModelError> {
     if !data_points.is_empty() {
         let bbox = BBox::new(
             &data_points
@@ -78,7 +79,7 @@ pub async fn create_or_find_collection(
                 }),
                 ..Feature::default()
             }],
-            foreign_members: None,
+            ..FeatureCollection::default()
         })
     } else if !area.features.is_empty() {
         Ok(area)

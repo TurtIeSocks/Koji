@@ -95,6 +95,10 @@ export const UNOWN_ROUTES = [
   'ManualQuest',
 ] as const
 
+export const ALL_FENCES = [...new Set([...RDM_FENCES, ...UNOWN_FENCES])]
+
+export const ALL_ROUTES = [...new Set([...RDM_ROUTES, ...UNOWN_ROUTES])]
+
 export const COLORS = [
   '#F0F8FF',
   '#FAEBD7',

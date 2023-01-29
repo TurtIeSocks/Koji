@@ -363,7 +363,6 @@ dependencies = [
  "actix-web-httpauth",
  "algorithms",
  "dotenv",
- "env_logger",
  "geo",
  "geojson",
  "log",
@@ -1835,6 +1834,8 @@ name = "koji"
 version = "0.3.5"
 dependencies = [
  "api",
+ "env_logger",
+ "log",
 ]
 
 [[package]]
@@ -2026,11 +2027,13 @@ dependencies = [
  "geo",
  "geo_repair",
  "geojson",
+ "log",
  "num-traits",
  "sea-orm",
  "serde",
  "serde_json",
  "serde_with",
+ "thiserror",
 ]
 
 [[package]]

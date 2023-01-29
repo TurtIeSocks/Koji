@@ -9,9 +9,8 @@ import {
   Typography,
 } from '@mui/material'
 import { GeoJSON } from 'react-leaflet'
-import type { FeatureCollection } from 'geojson'
 
-import { ToConvert } from '@assets/types'
+import { Conversions, FeatureCollection } from '@assets/types'
 import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
 import { Code } from '@components/Code'
@@ -44,7 +43,7 @@ export default function ConvertDialog({
 
   const [showPreview, setShowPreview] = React.useState(false)
 
-  const convertCode = async (incoming: ToConvert) => {
+  const convertCode = async (incoming: Conversions) => {
     await convert(incoming, polygonExportMode, simplifyPolygons)
       .then((res) => {
         if (typeof res === 'string') {
@@ -76,7 +75,7 @@ export default function ConvertDialog({
 
   React.useEffect(() => {
     if (code) {
-      const incoming = safeParse<ToConvert>(code)
+      const incoming = safeParse<Conversions>(code)
       if (!incoming.error) {
         convertCode(incoming.value)
       }
@@ -163,7 +162,7 @@ export default function ConvertDialog({
                 reset()
               }
               setCode(newCode)
-              const parsed = safeParse<ToConvert>(newCode)
+              const parsed = safeParse<Conversions>(newCode)
               if (!parsed.error) {
                 await convertCode(parsed.value)
               } else if (typeof parsed.error === 'string' && newCode) {

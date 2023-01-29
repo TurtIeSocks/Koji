@@ -12,36 +12,38 @@ import {
   Typography,
 } from '@mui/material'
 import useDeepCompareEffect from 'use-deep-compare-effect'
-import type { Feature, MultiPolygon, Polygon } from 'geojson'
+import type { MultiPolygon, Polygon } from 'geojson'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 
+import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
+import type {
+  KojiGeofence,
+  KojiResponse,
+  Feature,
+  DbOption,
+} from '@assets/types'
 import ExportPolygon from '@components/dialogs/Polygon'
-import { getData } from '@services/fetches'
 import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
-import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
+import { useDbCache } from '@hooks/useDbCache'
+import { getData } from '@services/fetches'
 import {
   removeAllOthers,
   removeThisPolygon,
   splitMultiPolygons,
 } from '@services/utils'
-import { KojiGeofence, KojiResponse } from '@assets/types'
 
 export function PolygonPopup({
-  feature: ref,
+  feature,
   loadData,
+  dbRef,
 }: {
   feature: Feature<Polygon | MultiPolygon>
   loadData: boolean
+  dbRef: DbOption | null
 }) {
-  const feature = useShapes((s) =>
-    ref.geometry.type === 'Polygon'
-      ? s.Polygon[ref.id as number | string]
-      : s.MultiPolygon[ref.id as number | string],
-  ) ||
-    ref || { properties: {}, geometry: { type: 'Polygon', coordinates: [] } }
   const { add, remove } = useShapes.getState().setters
-
+  const { setRecord } = useDbCache.getState()
   const [open, setOpen] = React.useState('')
   const [active, setActive] = React.useState<{
     spawnpoint: number | null | string
@@ -52,8 +54,8 @@ export function PolygonPopup({
     gym: null,
     pokestop: null,
   })
-  const [name, setName] = React.useState(feature.properties?.__name || '')
-  const [type, setType] = React.useState(feature.properties?.__type || '')
+  const [name, setName] = React.useState(dbRef?.name || '')
+  const [type, setType] = React.useState(dbRef?.mode || '')
 
   const [mapAnchorEl, setMapAnchorEl] = React.useState<null | HTMLElement>(null)
   const [dbAnchorEl, setDbAnchorEl] = React.useState<null | HTMLElement>(null)
@@ -107,6 +109,7 @@ export function PolygonPopup({
     }
   }, [feature, loadData])
 
+  const isInKoji = feature.id.endsWith('KOJI')
   return feature ? (
     <React.Fragment key={feature.geometry.type}>
       <Grid2 container minWidth={150}>
@@ -252,16 +255,16 @@ export function PolygonPopup({
           disabled={name === undefined}
           onClick={() => {
             getData<KojiResponse<KojiGeofence>>(
-              feature.properties?.__koji_id
-                ? `/internal/admin/geofence/${feature.properties?.__koji_id}/`
+              isInKoji
+                ? `/internal/admin/geofence/${dbRef?.id}/`
                 : '/internal/admin/geofence/',
               {
-                method: feature.properties?.__koji_id ? 'PATCH' : 'POST',
+                method: isInKoji ? 'PATCH' : 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  id: feature.properties?.__koji_id || 0,
+                  id: isInKoji ? dbRef?.id : 0,
                   name,
                   mode: type,
                   area: feature,
@@ -278,34 +281,33 @@ export function PolygonPopup({
                     severity: 'success',
                   },
                 })
-                const newFeature = {
-                  ...res.data.area,
-                  properties: {
-                    ...res.data.area.properties,
-                    __name: res.data.name,
-                    __type: res.data.mode,
-                    __koji_id: res.data.id,
-                  },
+                const { area, mode, ...rest } = res.data
+                if (mode && area.geometry.type !== 'GeometryCollection') {
+                  const newId = `${rest.id}__${mode}__KOJI` as const
+                  area.id = newId
+                  setRecord('geofence', rest.id, {
+                    ...rest,
+                    mode,
+                    geoType: area.geometry.type,
+                  })
+                  setRecord('feature', newId, area)
+                  remove(feature.geometry.type, feature.id)
+                  add(area)
                 }
-                remove(feature.geometry.type, feature.id)
-                add(newFeature, '__KOJI')
               }
               handleClose()
             })
           }}
         >
-          {feature.properties?.__koji_id ? 'Save' : 'Create'}
+          {isInKoji ? 'Save' : 'Create'}
         </MenuItem>
         <MenuItem
-          disabled={feature.properties?.__koji_id === undefined}
+          disabled={!isInKoji}
           onClick={async () => {
             remove(feature.geometry.type, feature.id)
-            await getData(
-              `/internal/admin/geofence/${feature.properties?.__koji_id}/`,
-              {
-                method: 'DELETE',
-              },
-            ).then(() => {
+            await getData(`/internal/admin/geofence/${dbRef?.id}/`, {
+              method: 'DELETE',
+            }).then(() => {
               handleClose()
             })
           }}

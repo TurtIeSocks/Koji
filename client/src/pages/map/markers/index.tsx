@@ -39,18 +39,17 @@ export default function Markers({
   useDeepCompareEffect(() => {
     if (focused) {
       const controller = new AbortController()
-      if (enabled && (data === 'area' ? geojson.features.length : true)) {
+      const filtered = geojson.features.filter((feature) =>
+        feature.geometry.type.includes('Polygon'),
+      )
+      if (enabled && (data === 'area' ? filtered.length : true)) {
         getMarkers(
           category,
           getMapBounds(map),
           data,
           {
             ...geojson,
-            features: geojson.features.filter(
-              (feature) =>
-                feature.geometry.type === 'Polygon' ||
-                feature.geometry.type === 'MultiPolygon',
-            ),
+            features: filtered,
           },
           last_seen,
           controller.signal,

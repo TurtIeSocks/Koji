@@ -2,9 +2,8 @@
 import * as React from 'react'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import Typography from '@mui/material/Typography'
-import type { FeatureCollection } from 'geojson'
 
-import { ClientProject, KojiResponse } from '@assets/types'
+import { AdminProject, KojiResponse, FeatureCollection } from '@assets/types'
 import { Checkbox, Divider, MenuItem, Select } from '@mui/material'
 import ReactWindow from '@components/ReactWindow'
 import { useStatic } from '@hooks/useStatic'
@@ -28,7 +27,7 @@ const AssignStep = React.forwardRef<
   const innerRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
-    getData<KojiResponse<Omit<ClientProject, 'related'>[]>>(
+    getData<KojiResponse<Omit<AdminProject, 'related'>[]>>(
       '/internal/admin/project/all/',
     ).then((res) => {
       if (res) {
@@ -133,7 +132,7 @@ const AssignStep = React.forwardRef<
                 ...feature,
                 properties: {
                   ...feature.properties,
-                  type: e.target.value ? (e.target.value as string) : undefined,
+                  mode: e.target.value ? (e.target.value as string) : undefined,
                 },
               })),
             })
@@ -230,7 +229,7 @@ const AssignStep = React.forwardRef<
                           ...feature,
                           properties: {
                             ...feature.properties,
-                            type: e.target.value
+                            mode: e.target.value
                               ? (e.target.value as string)
                               : undefined,
                           },

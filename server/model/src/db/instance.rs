@@ -2,11 +2,17 @@
 
 use std::collections::HashMap;
 
-use crate::api::{ToMultiStruct, ToMultiVec, ToPointStruct, ToSingleStruct, ToSingleVec};
+use crate::{
+    api::{
+        text::TextHelpers, ToMultiStruct, ToMultiVec, ToPointStruct, ToSingleStruct, ToSingleVec,
+    },
+    error::ModelError,
+    utils::get_mode_acronym,
+};
 
 use super::{
-    sea_orm_active_enums::Type, utils, Feature, FeatureCollection, NameType, NameTypeId, Order,
-    QueryOrder, RdmInstanceArea,
+    sea_orm_active_enums::Type, utils, Feature, FeatureCollection, NameTypeId, Order, QueryOrder,
+    RdmInstanceArea, ToFeatureFromModel,
 };
 
 use sea_orm::{entity::prelude::*, sea_query::Expr, QuerySelect, Set};
@@ -16,7 +22,10 @@ use serde_json::{json, Value};
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "instance")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
+    #[sea_orm(primary_key)]
+    #[serde(skip_deserializing)]
+    pub id: u32,
+    #[sea_orm(unique)]
     pub name: String,
     pub r#type: Type,
     #[sea_orm(column_type = "Custom(\"LONGTEXT\".to_owned())")]
@@ -28,6 +37,27 @@ pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}
 
+impl ToFeatureFromModel for Model {
+    fn to_feature(self) -> Result<Feature, ModelError> {
+        let Self {
+            id,
+            name,
+            r#type,
+            data,
+            ..
+        } = self;
+        let mut feature = data.parse_scanner_instance(Some(name.clone()), Some(&r#type));
+        feature.id = Some(geojson::feature::Id::String(format!(
+            "{}__{}__SCANNER",
+            id, r#type
+        )));
+        feature.set_property("__name", name);
+        feature.set_property("__mode", r#type.to_string());
+        feature.set_property("__id", id);
+        Ok(feature)
+    }
+}
+
 pub struct Query;
 
 impl Query {
@@ -36,62 +66,63 @@ impl Query {
         instance_type: Option<String>,
     ) -> Result<Vec<NameTypeId>, DbErr> {
         let instance_type = utils::get_enum(instance_type);
-        let items = if let Some(instance_type) = instance_type {
+        if let Some(instance_type) = instance_type {
             Entity::find()
                 .filter(Column::Type.eq(instance_type))
                 .select_only()
                 .column(Column::Name)
-                .column_as(Column::Type, "instance_type")
+                .column_as(Column::Type, "mode")
                 .order_by(Column::Name, Order::Asc)
-                .into_model::<NameType>()
+                .into_model::<NameTypeId>()
                 .all(conn)
-                .await?
+                .await
         } else {
             Entity::find()
                 .select_only()
+                .column(Column::Id)
                 .column(Column::Name)
-                .column_as(Column::Type, "instance_type")
+                .column_as(Column::Type, "mode")
                 .order_by(Column::Name, Order::Asc)
-                .into_model::<NameType>()
+                .into_model::<NameTypeId>()
                 .all(conn)
-                .await?
-        };
-        Ok(items
-            .into_iter()
-            .enumerate()
-            .map(|(i, item)| NameTypeId {
-                id: i as u32,
-                name: item.name,
-                r#type: Some(item.instance_type),
-            })
-            .collect())
+                .await
+        }
     }
 
-    pub async fn route(
+    pub async fn feature_from_name(
         conn: &DatabaseConnection,
-        instance_name: &String,
-    ) -> Result<Feature, DbErr> {
-        let items = Entity::find()
-            .filter(Column::Name.eq(instance_name.trim().to_string()))
+        name: &String,
+    ) -> Result<Feature, ModelError> {
+        let item = Entity::find()
+            .filter(Column::Name.eq(name.trim().to_string()))
             .one(conn)
             .await?;
-        if let Some(items) = items {
-            Ok(utils::normalize::instance(items))
+        if let Some(item) = item {
+            item.to_feature()
         } else {
-            Err(DbErr::Custom("Instance not found".to_string()))
+            Err(ModelError::Custom("Instance not found".to_string()))
+        }
+    }
+
+    pub async fn feature(conn: &DatabaseConnection, id: u32) -> Result<Feature, ModelError> {
+        let item = Entity::find_by_id(id).one(conn).await?;
+        if let Some(item) = item {
+            item.to_feature()
+        } else {
+            Err(ModelError::Custom("Instance not found".to_string()))
         }
     }
 
     pub async fn upsert_from_collection(
         conn: &DatabaseConnection,
         area: FeatureCollection,
-        auto_mode: bool,
+        _auto_mode: bool,
     ) -> Result<(usize, usize), DbErr> {
         let existing: HashMap<String, Model> = Entity::find()
             .all(conn)
             .await?
             .into_iter()
-            .map(|model| (format!("{}_{}", model.name, model.r#type), model))
+            .map(|model| (model.name.to_string(), model))
             .collect();
 
         let mut inserts: Vec<ActiveModel> = vec![];
@@ -100,7 +131,7 @@ impl Query {
         for feat in area.into_iter() {
             if let Some(name) = feat.property("__name") {
                 if let Some(name) = name.as_str() {
-                    let mode = if let Some(instance_type) = feat.property("__type") {
+                    let mode = if let Some(instance_type) = feat.property("__mode") {
                         if let Some(instance_type) = instance_type.as_str() {
                             utils::get_enum(Some(instance_type.to_string()))
                         } else {
@@ -110,7 +141,6 @@ impl Query {
                         utils::get_enum_by_geometry(&feat.geometry.as_ref().unwrap().value)
                     };
                     if let Some(mode) = mode {
-                        let mut is_fence = false;
                         let area = match mode {
                             Type::CirclePokemon
                             | Type::CircleSmartPokemon
@@ -125,50 +155,100 @@ impl Query {
                             Type::AutoQuest
                             | Type::PokemonIv
                             | Type::AutoPokemon
-                            | Type::AutoTth => {
-                                is_fence = true;
-                                RdmInstanceArea::Multi(
-                                    feat.clone().to_multi_vec().to_multi_struct(),
-                                )
-                            }
+                            | Type::AutoTth => RdmInstanceArea::Multi(
+                                feat.clone().to_multi_vec().to_multi_struct(),
+                            ),
                         };
                         let new_area = json!(area);
-                        let name = if auto_mode && !is_fence {
-                            format!(
-                                "{}_{}",
-                                name,
-                                utils::get_mode_acronym(Some(&mode.to_string()))
-                            )
+                        let id = if let Some(id) = feat.property("__id") {
+                            id.as_u64()
                         } else {
-                            name.to_string()
+                            None
                         };
-                        let is_update = existing.get(&format!("{}_{}", name, mode));
+                        if let Some(id) = id {
+                            let model = Entity::find_by_id(id as u32).one(conn).await?;
+                            if let Some(model) = model {
+                                let mut data: HashMap<String, Value> =
+                                    serde_json::from_str(&model.data).unwrap();
+                                data.insert("area".to_string(), new_area);
 
-                        if let Some(entry) = is_update {
-                            let mut data: HashMap<String, Value> =
-                                serde_json::from_str(&entry.data).unwrap();
-                            data.insert("area".to_string(), new_area);
-
-                            Entity::update_many()
-                                .col_expr(Column::Data, Expr::value(json!(data).to_string()))
-                                .filter(Column::Name.eq(entry.name.to_string()))
-                                .exec(conn)
-                                .await?;
-                            update_len += 1;
+                                if let Ok(data) = serde_json::to_string(&data) {
+                                    let mut model: ActiveModel = model.into();
+                                    model.data = Set(data);
+                                    match model.update(conn).await {
+                                        Ok(_) => log::info!("Successfully updated {}", id),
+                                        Err(err) => {
+                                            log::error!("Unable to update {}: {:?}", id, err)
+                                        }
+                                    }
+                                }
+                            }
                         } else {
-                            let mut active_model = ActiveModel {
-                                name: Set(name.to_string()),
-                                ..Default::default()
-                            };
-                            active_model
-                                .set_from_json(json!({
-                                    "name": name,
-                                    "type": mode,
-                                    "data": json!({ "area": new_area }).to_string(),
-                                }))
-                                .unwrap();
+                            let name = name.to_string();
+                            let is_update = existing.get(&name);
+                            if let Some(entry) = is_update {
+                                if entry.r#type == mode {
+                                    let mut data: HashMap<String, Value> =
+                                        serde_json::from_str(&entry.data).unwrap();
+                                    data.insert("area".to_string(), new_area);
 
-                            inserts.push(active_model)
+                                    Entity::update_many()
+                                        .col_expr(
+                                            Column::Data,
+                                            Expr::value(json!(data).to_string()),
+                                        )
+                                        .filter(Column::Id.eq(entry.id))
+                                        .exec(conn)
+                                        .await?;
+                                    update_len += 1;
+                                } else if let Some(actual_entry) = existing.get(&format!(
+                                    "{}_{}",
+                                    name,
+                                    get_mode_acronym(Some(&mode.to_string()))
+                                )) {
+                                    let mut data: HashMap<String, Value> =
+                                        serde_json::from_str(&actual_entry.data).unwrap();
+                                    data.insert("area".to_string(), new_area);
+
+                                    Entity::update_many()
+                                        .col_expr(
+                                            Column::Data,
+                                            Expr::value(json!(data).to_string()),
+                                        )
+                                        .filter(Column::Name.eq(actual_entry.name.to_string()))
+                                        .exec(conn)
+                                        .await?;
+                                    update_len += 1;
+                                } else {
+                                    let mut active_model = ActiveModel {
+                                        name: Set(name.to_string()),
+                                        ..Default::default()
+                                    };
+                                    active_model
+                                        .set_from_json(json!({
+                                            "name": format!("{}_{}", name, get_mode_acronym(Some(&mode.to_string()))),
+                                            "type": mode,
+                                            "data": json!({ "area": new_area }).to_string(),
+                                        }))
+                                        .unwrap();
+
+                                    inserts.push(active_model)
+                                }
+                            } else {
+                                let mut active_model = ActiveModel {
+                                    name: Set(name.to_string()),
+                                    ..Default::default()
+                                };
+                                active_model
+                                    .set_from_json(json!({
+                                        "name": name,
+                                        "type": mode,
+                                        "data": json!({ "area": new_area }).to_string(),
+                                    }))
+                                    .unwrap();
+
+                                inserts.push(active_model)
+                            }
                         }
                     }
                 }

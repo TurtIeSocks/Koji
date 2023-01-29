@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 import * as React from 'react'
 import { Button, Dialog, DialogActions, DialogContent } from '@mui/material'
-import type { FeatureCollection } from 'geojson'
+import type { FeatureCollection } from 'assets/types'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 
 import SplitMultiPolygonsBtn from '@components/buttons/SplitMultiPolygons'

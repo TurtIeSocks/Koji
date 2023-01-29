@@ -6,7 +6,7 @@ import center from '@turf/center'
 import Map from '@components/Map'
 import { useStatic } from '@hooks/useStatic'
 import type { AllGeoJSON } from '@turf/helpers'
-import type { FeatureCollection } from 'geojson'
+import type { FeatureCollection } from 'assets/types'
 
 export default function MiniMap({ filtered }: { filtered: FeatureCollection }) {
   const centerPoint = filtered.features.length

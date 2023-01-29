@@ -3,10 +3,10 @@ import { CssBaseline, ThemeProvider } from '@mui/material'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 
 import createTheme from '@assets/theme'
-import { Config } from '@assets/types'
+import type { Config } from '@assets/types'
 import { usePersist } from '@hooks/usePersist'
 import { useStatic } from '@hooks/useStatic'
-import { getData } from '@services/fetches'
+import { getData, getKojiCache, getScannerCache } from '@services/fetches'
 
 import Home from '@pages/Home'
 import Map from '@pages/map'
@@ -64,24 +64,44 @@ export default function App() {
   const [error, setError] = React.useState<string>('')
 
   React.useEffect(() => {
-    getData<Config>('/config/').then((res) => {
-      if (res) {
-        if (location[0] === 0 && location[1] === 0) {
-          setStore('location', [res.start_lat, res.start_lon])
+    getData<Config>('/config/')
+      .then((res) => {
+        if (res) {
+          if (location[0] === 0 && location[1] === 0) {
+            setStore('location', [res.start_lat, res.start_lon])
+          }
+          setStatic('scannerType', res.scanner_type)
+          if (res.tile_server) {
+            setStatic('tileServer', res.tile_server)
+          }
+          setStatic('dangerous', res.dangerous || false)
+          if (!res.logged_in) {
+            router.navigate('/login')
+          }
+          setFetched(true)
+        } else {
+          setError('Unable to fetch config, try again later')
         }
-        setStatic('scannerType', res.scanner_type)
-        if (res.tile_server) {
-          setStatic('tileServer', res.tile_server)
-        }
-        setStatic('dangerous', res.dangerous || false)
-        if (!res.logged_in) {
-          router.navigate('/login')
-        }
-        setFetched(true)
-      } else {
-        setError('Unable to fetch config, try again later')
-      }
-    })
+      })
+      .then(() =>
+        Promise.all(
+          (['geofence', 'route', 'project', 'scanner'] as const).map(
+            (resource) =>
+              resource === 'scanner'
+                ? getScannerCache()
+                : getKojiCache(resource).then(
+                    (res) =>
+                      res &&
+                      // eslint-disable-next-line no-console
+                      console.log(
+                        'Cache set:',
+                        resource,
+                        Object.values(res).length,
+                      ),
+                  ),
+          ),
+        ),
+      )
   }, [])
 
   if (!fetched) return null

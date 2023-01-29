@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { KojiResponse } from '@assets/types'
+import { KojiResponse, Feature, FeatureCollection } from '@assets/types'
 import {
   Autocomplete,
   Checkbox,
@@ -8,7 +8,6 @@ import {
   Typography,
 } from '@mui/material'
 import * as React from 'react'
-import type { Feature, FeatureCollection } from 'geojson'
 import Clear from '@mui/icons-material/Clear'
 import { getData } from '@services/fetches'
 

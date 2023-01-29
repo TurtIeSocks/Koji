@@ -17,11 +17,18 @@ import {
 import CheckBoxOutlineBlank from '@mui/icons-material/CheckBoxOutlineBlank'
 import IndeterminateCheckBoxOutlined from '@mui/icons-material/IndeterminateCheckBoxOutlined'
 import CheckBox from '@mui/icons-material/CheckBox'
-import type { Feature, FeatureCollection } from 'geojson'
 
-import { KojiResponse, Option } from '@assets/types'
+import type {
+  KojiResponse,
+  KojiKey,
+  Feature,
+  FeatureCollection,
+} from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
 import { getData } from '@services/fetches'
+import { useDbCache } from '@hooks/useDbCache'
+// import useDeepCompareEffect from 'use-deep-compare-effect'
+// import shallow from 'zustand/shallow'
 
 const icon = <CheckBoxOutlineBlank fontSize="small" color="primary" />
 const checkedIcon = <CheckBox fontSize="small" color="primary" />
@@ -34,11 +41,11 @@ const filterOptions = createFilterOptions({
 })
 
 export default function InstanceSelect({
-  endpoint,
+  // endpoint,
   setGeojson,
   koji = false,
   controlled = false,
-  filters = [],
+  // filters = [],
   initialState = [],
   label = 'Select Instance',
 }: {
@@ -47,128 +54,109 @@ export default function InstanceSelect({
   koji?: boolean
   filters?: readonly string[]
   controlled?: boolean
-  initialState?: string[]
+  initialState?: KojiKey[]
   label?: string
 }) {
-  const add = useShapes((s) => s.setters.add)
-  const remove = useShapes((s) => s.setters.remove)
-  const remoteCache = useShapes((s) => s.remoteCache)
-
+  const { add, remove } = useShapes.getState().setters
+  const {
+    feature: featureCache,
+    setRecords,
+    getFromKojiKey,
+  } = useDbCache.getState()
+  const options = useDbCache((s) =>
+    koji ? s.getOptions('geofence', 'route') : s.getOptions('scanner'),
+  )
   const [loading, setLoading] = React.useState(false)
-  const [options, setOptions] = React.useState<Record<string, Option>>({})
-  const [selected, setSelected] = React.useState<string[]>([])
+  const [selected, setSelected] = React.useState<KojiKey[]>([])
 
   React.useEffect(() => {
-    if (
-      Object.keys(options).length === 0 ||
-      initialState.some((s) => !options[s])
-    ) {
-      setLoading(true)
-      getData<KojiResponse<Option[]>>(endpoint)
-        .then((resp) => {
-          if (resp) {
-            if (koji) {
-              useShapes.setState({
-                kojiRefCache: Object.fromEntries(
-                  resp.data.map((t) => [t.id, t]),
-                ),
-              })
-            }
-            setOptions((prev) =>
-              Object.fromEntries(
-                resp.data
-                  .filter(
-                    (option) =>
-                      filters.length === 0 || filters.includes(option.type),
-                  )
-                  .map((o) => [
-                    `${o.name}__${o.type || ''}`,
-                    {
-                      ...o,
-                      type: o.type || 'Unset',
-                      geoType: prev[`${o.name}__${o.type || ''}`]?.geoType,
-                    },
-                  ]),
-              ),
-            )
-          }
-          if (controlled) setSelected(initialState)
-          setLoading(false)
-        })
-        // eslint-disable-next-line no-console
-        .catch((e) => console.error(e))
-    } else if (controlled) setSelected(initialState)
+    if (controlled) setSelected(initialState)
   }, [initialState])
 
-  const updateState = async (newValue: string[]) => {
+  const updateState = async (newValue: KojiKey[]) => {
     const added = newValue.filter((s) => !selected.includes(s))
     const deleted = selected.filter((s) => !newValue.includes(s))
 
     setLoading(true)
-    const features = await Promise.allSettled(
-      added.map((a) =>
-        remoteCache[a]
-          ? Promise.resolve(remoteCache[a])
-          : getData<KojiResponse<Feature>>(
-              `/internal/routes/one/${koji ? 'koji' : 'scanner'}/${options[
-                a
-              ].name.replace(/\//g, '__')}/${options[a].type}`,
-            ).then((resp) => {
-              return resp?.data
-            }),
+    const newFeatures = await Promise.allSettled(
+      added.map(
+        (a) =>
+          featureCache[a] ||
+          getData<KojiResponse<Feature>>(
+            `/internal/routes/one/${koji ? 'koji' : 'scanner'}/${
+              options[a].id
+            }/${options[a].mode}`,
+          ).then((resp) => {
+            return resp?.data
+          }),
       ),
     ).then((res) => {
       setLoading(false)
       return res
     })
 
-    const cleaned = features
+    const cleaned = newFeatures
       .filter(
         (result): result is PromiseFulfilledResult<Feature> =>
           result.status === 'fulfilled' && !!result.value,
       )
       .map((result) => result.value)
 
-    add(cleaned, koji ? '__KOJI' : '__SCANNER')
+    add(cleaned)
     if (setGeojson) {
       setGeojson({
         type: 'FeatureCollection',
         features: newValue
-          .map((n) => {
-            return (
-              remoteCache[n] ||
-              cleaned.find((f) => f.properties?.__name === n.split('__')[0])
-            )
-          })
+          .map((n) => featureCache[n] || cleaned.find((f) => f.id === n))
           .filter(Boolean),
       })
     } else {
       deleted.forEach((d) => {
-        const { name, type, geoType } = options[d]
+        const { geoType } = options[d]
         if (geoType) {
-          remove(
-            geoType,
-            `${name}__${type || ''}${koji ? '__KOJI' : '__SCANNER'}`,
-          )
+          remove(geoType, d)
         }
       })
     }
     if (controlled) setSelected(newValue)
+    if (koji) {
+      const { geofence, route } = useDbCache.getState()
+      const updatedFences = { ...geofence }
+      const updatedRoutes = { ...route }
 
-    setOptions((prev) => ({
-      ...prev,
-      ...Object.fromEntries(
-        cleaned.map((c) => [
-          `${c.properties?.__name}__${c.properties?.__type || ''}`,
-          {
-            ...options[
-              `${c.properties?.__name}__${c.properties?.__type || ''}`
-            ],
-            geoType: c.geometry.type,
-          },
-        ]),
-      ),
-    }))
+      cleaned.forEach((c) => {
+        const reference = getFromKojiKey(c.id.toString())
+        if (reference) {
+          if (c.geometry.type.includes('Polygon')) {
+            updatedFences[c.id] = {
+              ...reference,
+              geoType: c.geometry.type as 'Polygon' | 'MultiPolygon',
+            }
+          } else if (c.geometry.type === 'MultiPoint') {
+            updatedRoutes[c.id] = {
+              ...reference,
+              geoType: c.geometry.type as 'MultiPoint',
+            }
+          }
+        }
+      })
+      setRecords('route', updatedRoutes)
+      setRecords('geofence', updatedFences)
+    } else {
+      const { scanner } = useDbCache.getState()
+      setRecords('scanner', {
+        ...scanner,
+        ...Object.fromEntries(
+          cleaned.map((c) => [
+            c.id,
+            {
+              ...getFromKojiKey(c.id.toString()),
+              geoType: c.geometry.type,
+            },
+          ]),
+        ),
+      })
+    }
   }
 
   return (
@@ -179,7 +167,7 @@ export default function InstanceSelect({
       <Autocomplete
         value={selected}
         size="small"
-        onChange={async (_e, newValue) => updateState(newValue)}
+        onChange={(_e, newValue) => updateState(newValue as KojiKey[])}
         filterOptions={filterOptions}
         selectOnFocus
         clearOnBlur
@@ -188,14 +176,15 @@ export default function InstanceSelect({
         handleHomeEndKeys
         disableCloseOnSelect
         fullWidth
-        groupBy={(option) => options[option]?.type}
+        groupBy={(option) => options[option as KojiKey]?.mode}
         options={Object.keys(options).sort((a, b) =>
-          options[a].type?.localeCompare(options[b].type),
+          options[a as KojiKey].mode?.localeCompare(options[b as KojiKey].mode),
         )}
         renderTags={(val) => (
           <Typography align="center">({val.length})</Typography>
         )}
         renderOption={(props, option, { selected: s }) => {
+          const fullOption = options[option as KojiKey]
           return (
             <li {...props} style={{ display: 'flex' }}>
               <div style={{ flexGrow: 1 }}>
@@ -208,7 +197,7 @@ export default function InstanceSelect({
                     disabled={loading}
                   />
                 )}
-                {option.split('__')[0]}{' '}
+                {fullOption.name}
                 {
                   {
                     Polygon: '(P)',
@@ -218,7 +207,7 @@ export default function InstanceSelect({
                     GeometryCollection: '',
                     LineString: '',
                     MultiLineString: '',
-                  }[options[option]?.geoType || 'Point']
+                  }[options[option as KojiKey]?.geoType || 'Point']
                 }
               </div>
               {loading && <CircularProgress size={20} sx={{ flexGrow: 0 }} />}
@@ -229,10 +218,10 @@ export default function InstanceSelect({
         renderGroup={({ key, group, children }) => {
           const allValues = Array.isArray(children)
             ? [...selected, ...children.map((x) => x.key)] // vaguely hacky way to select all filtered results
-            : Object.values(options).filter((v) => v.type === group)
+            : Object.values(options).filter((v) => v.mode === group)
           const allSelected = allValues.every((v) => selected.includes(v))
           const partialSelected =
-            allSelected || selected.some((v) => options[v]?.type === group)
+            allSelected || selected.some((v) => options[v]?.mode === group)
           return group ? (
             <List key={key}>
               <ListItemButton
@@ -243,11 +232,11 @@ export default function InstanceSelect({
                       ? selected.filter(
                           (v) =>
                             !allValues.includes(v) ||
-                            options[v]?.type !== group,
+                            options[v]?.mode !== group,
                         )
                       : [
                           ...allValues,
-                          ...selected.filter((v) => options[v]?.type !== group),
+                          ...selected.filter((v) => options[v]?.mode !== group),
                         ],
                   )
                 }

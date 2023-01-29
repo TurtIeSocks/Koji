@@ -64,7 +64,7 @@ async fn bootstrap(
         if !feat.contains_property("__name") && !instance.is_empty() {
             feat.set_property("__name", instance.clone());
         }
-        feat.set_property("__type", Type::CircleSmartPokemon.to_string());
+        feat.set_property("__mode", Type::CircleSmartPokemon.to_string());
         if save_to_db {
             route::Query::upsert_from_collection(
                 &conn.koji_db,
@@ -234,7 +234,6 @@ async fn cluster(
 
     let mut feature = clusters.to_feature(Some(&enum_type)).remove_last_coord();
     feature.add_instance_properties(Some(instance.to_string()), Some(&enum_type));
-
     let feature = feature.to_collection(Some(instance.clone()), None);
 
     if !instance.is_empty() && save_to_db {

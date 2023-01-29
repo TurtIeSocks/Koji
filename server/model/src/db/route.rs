@@ -2,10 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::{
-    api::FeatureHelpers,
-    utils::{get_enum, get_mode_acronym},
-};
+use crate::{api::ToFeature, error::ModelError};
 
 use super::*;
 
@@ -68,6 +65,31 @@ pub struct Paginated {
     pub hops: usize,
 }
 
+impl ToFeatureFromModel for Model {
+    fn to_feature(self) -> Result<Feature, ModelError> {
+        let Self {
+            geometry,
+            name,
+            geofence_id,
+            id,
+            mode,
+            ..
+        } = self;
+
+        let geometry = Geometry::from_json_value(geometry)?;
+        let mut feature = geometry.to_feature(None);
+
+        feature.id = Some(geojson::feature::Id::String(format!(
+            "{}__{}__KOJI",
+            id, mode
+        )));
+        feature.set_property("__name", name);
+        feature.set_property("__id", id);
+        feature.set_property("__geofence_id", geofence_id);
+        feature.set_property("__mode", mode);
+        Ok(feature)
+    }
+}
 pub struct Query;
 
 impl Query {
@@ -206,44 +228,36 @@ impl Query {
     }
 
     /// Returns a feature for a route queried by name
-    pub async fn route(
+    pub async fn feature_from_name(
         conn: &DatabaseConnection,
-        instance_name: &String,
-    ) -> Result<Feature, DbErr> {
+        name: String,
+    ) -> Result<Feature, ModelError> {
         let item = Entity::find()
-            .filter(Column::Name.eq(Value::String(Some(Box::new(instance_name.to_string())))))
+            .filter(Column::Name.eq(Value::String(Some(Box::new(name.to_string())))))
             .one(conn)
             .await?;
         if let Some(item) = item {
-            match Geometry::from_json_value(item.geometry) {
-                Ok(geometry) => Ok({
-                    let mut new_feature = Feature {
-                        geometry: Some(geometry),
-                        ..Default::default()
-                    };
-                    let mode = get_enum(Some(item.mode));
-                    if let Some(mode) = mode {
-                        new_feature.set_property("__koji_id", item.id);
-                        new_feature.set_property("__geofence_id", item.geofence_id);
-                        new_feature.add_instance_properties(Some(item.name), Some(&mode));
-                    }
-                    new_feature
-                }),
-                Err(err) => {
-                    println!("Unable to parse geometry for, {}", item.name);
-                    Err(DbErr::Custom(format!("{:?}", err)))
-                }
-            }
+            item.to_feature()
         } else {
-            Err(DbErr::Custom("Route not found".to_string()))
+            Err(ModelError::Custom("Route not found".to_string()))
+        }
+    }
+
+    /// Returns a feature for a route queried by name
+    pub async fn feature(conn: &DatabaseConnection, id: u32) -> Result<Feature, ModelError> {
+        let item = Entity::find_by_id(id).one(conn).await?;
+        if let Some(item) = item {
+            item.to_feature()
+        } else {
+            Err(ModelError::Custom("Route not found".to_string()))
         }
     }
 
     pub async fn upsert_from_collection(
         conn: &DatabaseConnection,
         area: FeatureCollection,
-        auto_mode: bool,
-        bootstrap: bool,
+        _auto_mode: bool,
+        _bootstrap: bool,
     ) -> Result<(usize, usize), DbErr> {
         let existing: HashMap<String, RouteNoGeometry> = Query::get_all_no_fences(conn)
             .await?
@@ -257,7 +271,7 @@ impl Query {
         for feat in area.into_iter() {
             if let Some(name) = feat.property("__name") {
                 if let Some(name) = name.as_str() {
-                    if let Some(mode) = feat.property("__type") {
+                    if let Some(mode) = feat.property("__mode") {
                         if let Some(mode) = mode.as_str() {
                             let geofence_id = if let Some(fence_id) = feat.property("__geofence_id")
                             {
@@ -284,22 +298,8 @@ impl Query {
                                             sea_orm::JsonValue::Object(geometry.to_owned());
                                         let name = name.to_string();
                                         let mode = mode.to_string();
-                                        let name = if auto_mode {
-                                            format!(
-                                                "{}_{}",
-                                                name,
-                                                if bootstrap {
-                                                    "BS".to_string()
-                                                } else {
-                                                    get_mode_acronym(Some(&mode))
-                                                }
-                                            )
-                                        } else {
-                                            name
-                                        };
                                         let is_update = existing.get(&format!("{}_{}", name, mode));
                                         let update_bool = is_update.is_some();
-
                                         let mut active_model = if let Some(entry) = is_update {
                                             Entity::find_by_id(entry.id)
                                                 .one(conn)
@@ -315,7 +315,6 @@ impl Query {
                                         active_model.geometry = Set(geometry);
                                         active_model.mode = Set(mode);
                                         active_model.updated_at = Set(Utc::now());
-
                                         if update_bool {
                                             active_model.update(conn).await?;
                                             update_len += 1;
@@ -362,6 +361,7 @@ impl Query {
                 println!("[ROUTE_SAVE] __name property not found, {:?}", feat.id)
             }
         }
+
         Ok((inserts, update_len))
     }
 }

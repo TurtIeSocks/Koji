@@ -58,7 +58,7 @@ async fn from_koji(
         .map(|instance| NameTypeId {
             id: instance.id,
             name: instance.name,
-            r#type: get_enum(instance.mode),
+            mode: get_enum(instance.mode),
         })
         .collect();
 
@@ -69,7 +69,7 @@ async fn from_koji(
         fences.push(NameTypeId {
             id: instance.id,
             name: instance.name,
-            r#type: get_enum(Some(instance.mode)),
+            mode: get_enum(Some(instance.mode)),
         })
     });
 
@@ -86,11 +86,11 @@ async fn from_koji(
 #[derive(Debug, Deserialize)]
 struct UrlVars {
     source: String,
-    name: String,
+    id: u32,
     instance_type: String,
 }
 
-#[get("/one/{source}/{name}/{instance_type}")]
+#[get("/one/{source}/{id}/{instance_type}")]
 async fn route_from_scanner(
     conn: web::Data<KojiDb>,
     instance: actix_web::web::Path<UrlVars>,
@@ -99,20 +99,15 @@ async fn route_from_scanner(
     let scanner_type = scanner_type.to_string();
     let UrlVars {
         source,
-        name,
+        id,
         instance_type,
     } = instance.into_inner();
 
     let instances = if source.eq("scanner") {
         if scanner_type.eq("rdm") {
-            instance::Query::route(&conn.data_db, &name).await
+            instance::Query::feature(&conn.data_db, id).await
         } else if let Some(unown_db) = conn.unown_db.as_ref() {
-            let instance_type = get_enum(Some(instance_type));
-            if let Some(instance_type) = instance_type {
-                area::Query::route(unown_db, &name, &instance_type).await
-            } else {
-                Err(DbErr::Custom("Invalid Mode".to_string()))
-            }
+            area::Query::feature(unown_db, id, instance_type).await
         } else {
             Ok(Feature::default())
         }
@@ -123,9 +118,9 @@ async fn route_from_scanner(
             || instance_type.eq("CircleRaid")
             || instance_type.eq("CircleSmartRaid")
         {
-            route::Query::route(&conn.koji_db, &name).await
+            route::Query::feature(&conn.koji_db, id).await
         } else {
-            geofence::Query::route(&conn.koji_db, &name).await
+            geofence::Query::feature(&conn.koji_db, id).await
         }
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;

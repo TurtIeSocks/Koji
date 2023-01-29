@@ -1,7 +1,6 @@
 import * as React from 'react'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import Typography from '@mui/material/Typography'
-import type { FeatureCollection } from 'geojson'
 
 import JsonFile from '@components/drawer/manage/Json'
 import ShapeFile from '@components/drawer/manage/ShapeFile'
@@ -9,6 +8,8 @@ import { Divider } from '@mui/material'
 import InstanceSelect from '@components/drawer/manage/Instance'
 import { useStatic } from '@hooks/useStatic'
 import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
+import type { KojiKey, FeatureCollection } from '@assets/types'
+
 import Nominatim from './Nominatim'
 
 const ImportStep = React.forwardRef<
@@ -72,7 +73,7 @@ const ImportStep = React.forwardRef<
                   properties: {
                     ...feat.properties,
                     name: feat.properties?.__name,
-                    type: feat.properties?.__type,
+                    mode: feat.properties?.__mode,
                     __scanner: true,
                   },
                 })),
@@ -84,10 +85,7 @@ const ImportStep = React.forwardRef<
           filters={scannerType === 'rdm' ? RDM_FENCES : UNOWN_FENCES}
           initialState={geojson.features
             .filter((feat) => feat.properties?.__scanner)
-            .map(
-              (feat) =>
-                `${feat.properties?.__name}__${feat.properties?.__type || ''}`,
-            )}
+            .map((feat) => feat.id as KojiKey)}
         />
       </Grid2>
       <Divider sx={{ width: '95%', my: 1 }} />

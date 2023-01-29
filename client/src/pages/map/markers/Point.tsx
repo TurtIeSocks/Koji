@@ -1,8 +1,9 @@
 import * as React from 'react'
-import type { Feature, Point } from 'geojson'
+import type { Point } from 'geojson'
 import { Circle } from 'react-leaflet'
 import * as L from 'leaflet'
 
+import type { Feature, DbOption, KojiKey } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
@@ -20,15 +21,19 @@ export function KojiPoint({
   },
   radius,
   type = 'Point',
+  dbRef,
 }: {
   feature: Feature<Point>
   radius: number
   type?: 'Point' | 'MultiPoint'
+  dbRef: DbOption | null
+  parentId?: KojiKey
 }) {
   return (
     <Circle
       ref={(circle) => {
         if (circle && id !== undefined) {
+          if (circle.isPopupOpen()) circle.closePopup()
           circle.removeEventListener('pm:remove')
           circle.on('pm:remove', function remove() {
             useShapes.getState().setters.remove(type, id)
@@ -47,17 +52,21 @@ export function KojiPoint({
             circle.removeEventListener('mouseover')
             circle.on('mouseover', function onClick() {
               if (
-                typeof id === 'string' &&
                 type === 'MultiPoint' &&
+                properties?.__multipoint_id &&
                 !Object.values(useStatic.getState().layerEditing).some((v) => v)
               ) {
-                useShapes.getState().setters.activeRoute(id.split('___')[0])
+                useShapes
+                  .getState()
+                  .setters.activeRoute(properties?.__multipoint_id)
               }
             })
           } else {
             circle.on('click', function onClick() {
-              if (typeof id === 'string' && type === 'MultiPoint') {
-                useShapes.getState().setters.activeRoute(id.split('___')[0])
+              if (type === 'MultiPoint' && properties?.__multipoint_id) {
+                useShapes
+                  .getState()
+                  .setters.activeRoute(properties?.__multipoint_id)
               }
             })
           }
@@ -78,6 +87,7 @@ export function KojiPoint({
           lat={lat}
           lon={lon}
           type={type}
+          dbRef={dbRef}
         />
       </BasePopup>
     </Circle>

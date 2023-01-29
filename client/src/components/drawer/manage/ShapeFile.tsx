@@ -3,7 +3,8 @@ import { Button, CircularProgress } from '@mui/material'
 import * as React from 'react'
 import * as shapefile from 'shapefile'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
-import type { Feature, FeatureCollection } from 'geojson'
+
+import type { Feature, FeatureCollection } from '@assets/types'
 import { usePersist } from '@hooks/usePersist'
 import { convert } from '@services/fetches'
 
@@ -61,7 +62,7 @@ export default function ShapeFile({ setter }: Props) {
                 setter(geo)
               })
             }
-            values.push(result.value)
+            values.push(result.value as Feature)
             return source.read().then(write)
           }),
         )

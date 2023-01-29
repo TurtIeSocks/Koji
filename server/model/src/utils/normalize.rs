@@ -46,27 +46,18 @@ pub fn instance(instance: db::instance::Model) -> Feature {
 pub fn area(areas: Vec<db::area::Model>) -> Vec<Feature> {
     let mut normalized = Vec::<Feature>::new();
 
-    let mut to_feature = |fence: Option<String>, name: String, category: &str| -> String {
+    let mut to_feature = |fence: Option<String>, name: &String, mode: Type| {
         if let Some(fence) = fence {
             if !fence.is_empty() {
-                normalized.push(fence.parse_scanner_instance(
-                    Some(name.to_string()),
-                    Some(match category {
-                        "Fort" => &Type::CircleRaid,
-                        "Quest" => &Type::ManualQuest,
-                        "Pokemon" => &Type::CirclePokemon,
-                        _ => &Type::AutoQuest,
-                    }),
-                ));
+                normalized.push(fence.parse_scanner_instance(Some(name.to_string()), Some(&mode)));
             }
         }
-        name
     };
     for area in areas.into_iter() {
-        let name = to_feature(area.geofence, area.name, "Fence");
-        let name = to_feature(area.fort_mode_route, name, "Fort");
-        let name = to_feature(area.quest_mode_route, name, "Quest");
-        to_feature(area.pokemon_mode_route, name, "Pokemon");
+        to_feature(area.geofence, &area.name, Type::AutoQuest);
+        to_feature(area.fort_mode_route, &area.name, Type::CircleRaid);
+        to_feature(area.quest_mode_route, &area.name, Type::ManualQuest);
+        to_feature(area.pokemon_mode_route, &area.name, Type::CirclePokemon);
     }
     normalized
 }
@@ -79,28 +70,28 @@ pub fn area_ref(areas: Vec<AreaRef>) -> Vec<NameTypeId> {
             normalized.push(NameTypeId {
                 id: area.id,
                 name: area.name.clone(),
-                r#type: Some(Type::CircleRaid),
+                mode: Some(Type::CircleRaid),
             });
         }
         if area.has_geofence {
             normalized.push(NameTypeId {
                 id: area.id,
                 name: area.name.clone(),
-                r#type: Some(Type::AutoQuest),
+                mode: Some(Type::AutoQuest),
             });
         }
         if area.has_pokemon {
             normalized.push(NameTypeId {
                 id: area.id,
                 name: area.name.clone(),
-                r#type: Some(Type::CirclePokemon),
+                mode: Some(Type::CirclePokemon),
             });
         }
         if area.has_quest {
             normalized.push(NameTypeId {
                 id: area.id,
                 name: area.name,
-                r#type: Some(Type::ManualQuest),
+                mode: Some(Type::ManualQuest),
             });
         }
     }

@@ -1,8 +1,7 @@
 import create from 'zustand'
-import type { FeatureCollection } from 'geojson'
 import type { AlertProps } from '@mui/material'
 
-import type { ClientProject, KojiStats } from '@assets/types'
+import type { AdminProject, KojiStats, FeatureCollection } from '@assets/types'
 import { collectionToObject } from '@services/utils'
 
 export interface UseStatic {
@@ -44,7 +43,7 @@ export interface UseStatic {
     allType: '' | 'AutoQuest' | 'PokemonIv' | 'AutoPokemon' | 'AutoTth'
     checked: Record<string, boolean>
   }
-  projects: Record<number | string, ClientProject>
+  projects: Record<number | string, AdminProject>
   clickedLocation: [number, number]
   combinePolyMode: boolean
   setStatic: <

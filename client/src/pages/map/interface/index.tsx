@@ -13,6 +13,9 @@ import MemoizedDrawing from './Drawing'
 import EasyButton from './EasyButton'
 
 export default function Interface() {
+  useLayers()
+  usePopupStyle()
+  useSyncGeojson()
   const navigate = useNavigate()
 
   const map = useMapEvents({
@@ -39,10 +42,6 @@ export default function Interface() {
       map.off('moveend', onMove)
     }
   }, [onMove])
-
-  useLayers()
-  usePopupStyle()
-  useSyncGeojson()
 
   return (
     <>

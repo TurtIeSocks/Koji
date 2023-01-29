@@ -1,11 +1,18 @@
 /* eslint-disable no-console */
 /* eslint-disable no-nested-ternary */
-import type { Feature, FeatureCollection } from 'geojson'
-
-import type { CombinedState, PixiMarker, ToConvert } from '@assets/types'
+import type {
+  CombinedState,
+  KojiResponse,
+  PixiMarker,
+  Conversions,
+  Feature,
+  FeatureCollection,
+  DbOption,
+} from '@assets/types'
 import { UsePersist, usePersist } from '@hooks/usePersist'
 import { UseStatic, useStatic } from '@hooks/useStatic'
 import { useShapes } from '@hooks/useShapes'
+import { UseDbCache, useDbCache } from '@hooks/useDbCache'
 
 import { fromSnakeCase, getMapBounds } from './utils'
 
@@ -40,6 +47,48 @@ export async function getData<T>(
   }
 }
 
+export async function getKojiCache<T extends 'geofence' | 'project' | 'route'>(
+  resource: T,
+): Promise<UseDbCache[T] | null> {
+  const res = await fetch(`/internal/admin/${resource}/all/`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+  if (!res.ok) {
+    useStatic.setState({
+      networkError: {
+        message: await res.text(),
+        status: res.status,
+        severity: 'error',
+      },
+    })
+    return null
+  }
+  const { data }: KojiResponse<UseDbCache[T][string][]> = await res.json()
+  const asObject = Object.fromEntries(data.map((d) => [d.id, d]))
+  useDbCache.setState({ [resource]: asObject })
+  return asObject
+}
+
+export async function getScannerCache() {
+  return getData<KojiResponse<DbOption[]>>(
+    '/internal/routes/from_scanner',
+  ).then((res) => {
+    if (res) {
+      // eslint-disable-next-line no-console
+      console.log('Cache set:', 'scanner', res.data.length)
+      const asObject = Object.fromEntries(
+        res.data.map((t) => [`${t.id}__${t.mode}__SCANNER`, t]),
+      )
+      useDbCache.setState({
+        scanner: asObject,
+      })
+      return asObject
+    }
+  })
+}
 export async function clusteringRouting(): Promise<FeatureCollection> {
   const {
     mode,
@@ -57,18 +106,17 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
   } = usePersist.getState()
   const { geojson, setStatic } = useStatic.getState()
   const { add, activeRoute } = useShapes.getState().setters
+  const { getFromKojiKey, getRouteByCategory } = useDbCache.getState()
+
   activeRoute('layer_1')
   setStatic(
     'loading',
     Object.fromEntries(
       geojson.features
-        .filter(
-          (feat) =>
-            feat.geometry.type === 'Polygon' ||
-            feat.geometry.type === 'MultiPolygon',
-        )
+        .filter((feat) => feat.geometry.type.includes('Polygon'))
         .map((k) => [
-          k.properties?.__name || `${k.geometry.type}${k.id ? `-${k.id}` : ''}`,
+          getFromKojiKey(k.id as string)?.name ||
+            `${k.geometry.type}${k.id ? `-${k.id}` : ''}`,
           null,
         ]),
     ),
@@ -78,11 +126,10 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
   const totalStartTime = Date.now()
   const features = await Promise.allSettled<Feature>(
     (geojson?.features || [])
-      .filter(
-        (x) =>
-          x.geometry.type === 'Polygon' || x.geometry.type === 'MultiPolygon',
-      )
+      .filter((x) => x.geometry.type.includes('Polygon'))
       .map(async (area) => {
+        const fenceRef = getFromKojiKey(area.id as string)
+        const routeRef = getRouteByCategory(category, fenceRef?.name)
         const startTime = Date.now()
         const res = await fetch(
           mode === 'bootstrap'
@@ -95,9 +142,17 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
             },
             body: JSON.stringify({
               return_type: 'feature',
-              area,
+              area: {
+                ...area,
+                properties: {
+                  __id: routeRef?.id,
+                  __name: fenceRef?.name,
+                  __geofence_id: fenceRef?.id,
+                  __mode: fenceRef?.mode,
+                },
+              },
               instance:
-                area.properties?.__name ||
+                fenceRef?.name ||
                 `${area.geometry.type}${area.id ? `-${area.id}` : ''}`,
               route_chunk_size,
               last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
@@ -112,11 +167,13 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
           },
         )
         if (!res.ok) {
-          setStatic('loading', (prev) => ({
-            ...prev,
-            [area.properties?.__name ||
-            `${area.geometry.type}${area.id ? `-${area.id}` : ''}`]: false,
-          }))
+          if (fenceRef?.name) {
+            setStatic('loading', (prev) => ({
+              ...prev,
+              [fenceRef?.name ||
+              `${area.geometry.type}${area.id ? `-${area.id}` : ''}`]: false,
+            }))
+          }
           useStatic.setState({
             networkError: {
               message: await res.text(),
@@ -128,27 +185,23 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
         }
         const json = await res.json()
         const fetch_time = Date.now() - startTime
-        setStatic('loading', (prev) => ({
-          ...prev,
-          [json.data?.properties?.__name]: {
-            ...json.stats,
-            fetch_time,
-          },
-        }))
-        console.log(area.properties?.__name)
+        if (fenceRef?.name) {
+          setStatic('loading', (prev) => ({
+            ...prev,
+            [fenceRef?.name]: {
+              ...json.stats,
+              fetch_time,
+            },
+          }))
+        }
+        console.log(fenceRef?.name)
         Object.entries(json.stats).forEach(([k, v]) =>
           // eslint-disable-next-line no-console
           console.log(fromSnakeCase(k), v),
         )
         console.log(`Total Time: ${fetch_time / 1000}s\n`)
         console.log('-----------------')
-        return {
-          ...json.data,
-          properties: {
-            ...json.data.properties,
-            __geofence_id: area.properties?.__koji_id,
-          },
-        }
+        return json.data
       }),
   ).then((feats) =>
     feats
@@ -161,6 +214,8 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
 
   setStatic('totalLoadingTime', Date.now() - totalStartTime)
   if (!skipRendering) add(features)
+  if (save_to_db) await getKojiCache('route')
+  if (save_to_scanner) await getScannerCache()
   return {
     type: 'FeatureCollection',
     features,
@@ -198,6 +253,7 @@ export async function getMarkers(
           408: 'Check CloudFlare or Nginx/Apache Settings',
           413: 'Check CloudFlare or Nginx/Apache Settings',
           500: 'Refresh the page, resetting the Kōji server, or contacting the developer',
+          524: 'Check CloudFlare or Nginx/Apache Timeout Settings',
         }[res.status] ||
         ''
       useStatic.setState({
@@ -220,8 +276,8 @@ export async function getMarkers(
   }
 }
 
-export async function convert<T = ToConvert>(
-  area: ToConvert,
+export async function convert<T = Conversions>(
+  area: Conversions,
   return_type: UsePersist['polygonExportMode'],
   simplify: UsePersist['simplifyPolygons'],
   url = '/api/v1/convert/data',
