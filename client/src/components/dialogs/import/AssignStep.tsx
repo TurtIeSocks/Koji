@@ -223,7 +223,7 @@ const AssignStep = React.forwardRef<
                     <Select
                       size="small"
                       sx={{ width: '80%' }}
-                      value={feature.properties?.type || ''}
+                      value={feature.properties?.mode || ''}
                       onChange={(e) => {
                         const newFeature = {
                           ...feature,

@@ -72,6 +72,14 @@ export async function getKojiCache<T extends 'geofence' | 'project' | 'route'>(
   return asObject
 }
 
+export async function refreshKojiCache() {
+  await Promise.allSettled([
+    getKojiCache('geofence'),
+    getKojiCache('project'),
+    getKojiCache('route'),
+  ])
+}
+
 export async function getScannerCache() {
   return getData<KojiResponse<DbOption[]>>(
     '/internal/routes/from_scanner',

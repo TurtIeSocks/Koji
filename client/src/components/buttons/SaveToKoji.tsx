@@ -1,5 +1,5 @@
 import Button, { ButtonProps } from '@mui/material/Button'
-import { save } from '@services/fetches'
+import { refreshKojiCache, save } from '@services/fetches'
 import * as React from 'react'
 
 interface Props extends ButtonProps {
@@ -10,8 +10,7 @@ export default function SaveToKoji({ fc, ...rest }: Props) {
   return (
     <Button
       onClick={() =>
-        // eslint-disable-next-line no-console
-        save('/api/v1/geofence/save-koji', fc).then((res) => console.log(res))
+        save('/api/v1/geofence/save-koji', fc).then(() => refreshKojiCache())
       }
       {...rest}
     >

@@ -67,7 +67,7 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
             : prev.features),
           ...newGeojson.features.map((feat) => ({
             ...feat,
-            id: getKey(),
+            id: key ? feat.id || getKey() : getKey(),
           })),
         ],
       }

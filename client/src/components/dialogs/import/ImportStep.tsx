@@ -70,6 +70,7 @@ const ImportStep = React.forwardRef<
                 ...geo,
                 features: geo.features.map((feat) => ({
                   ...feat,
+                  id: `${feat.properties?.__id}__${feat.properties?.__mode}__SCANNER`,
                   properties: {
                     ...feat.properties,
                     name: feat.properties?.__name,

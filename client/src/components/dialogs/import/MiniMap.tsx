@@ -57,7 +57,7 @@ export default function MiniMap({ filtered }: { filtered: FeatureCollection }) {
               layer.bindTooltip(
                 `
         <div><strong>Name:</strong> ${feature?.properties?.name}</div>
-        <div><strong>Type:</strong> ${feature?.properties?.type}</div>
+        <div><strong>Mode:</strong> ${feature?.properties?.mode}</div>
         <div>
         <strong>Projects:</strong>
           <p style="margin:0;padding:0">
