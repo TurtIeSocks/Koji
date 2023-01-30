@@ -88,6 +88,7 @@ export const useDbCache = create<UseDbCache>((set, get) => ({
     if (!key) return null
     const [id, mode, source] = key.split('__')
 
+    if (source === 'CLIENT') return null
     if (source === 'SCANNER') {
       return get().scanner[key as KojiKey] || null
     }

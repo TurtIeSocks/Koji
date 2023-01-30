@@ -102,7 +102,7 @@ export default function InstanceSelect({
       )
       .map((result) => result.value)
 
-    add(cleaned)
+    add(cleaned, koji ? '__KOJI' : '__SCANNER')
     if (setGeojson) {
       setGeojson({
         type: 'FeatureCollection',

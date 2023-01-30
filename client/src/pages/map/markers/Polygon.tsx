@@ -90,7 +90,7 @@ export function KojiPolygon({
                   id: feature.id,
                   properties: {
                     ...feature.properties,
-                    leafletId: layer._leaflet_id,
+                    __leafletId: layer._leaflet_id,
                   },
                 } as any) // TODO: fix this
                 originalLayer.remove()

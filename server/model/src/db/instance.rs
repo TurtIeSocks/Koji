@@ -163,6 +163,11 @@ impl Query {
                         let id = if let Some(id) = feat.property("__id") {
                             id.as_u64()
                         } else {
+                            log::info!(
+                                "ID not found, attempting to save by name ({}) and mode ({})",
+                                name,
+                                mode
+                            );
                             None
                         };
                         if let Some(id) = id {
@@ -250,8 +255,20 @@ impl Query {
                                 inserts.push(active_model)
                             }
                         }
+                    } else {
+                        log::warn!("Unable to determine mode | {:?}", mode)
                     }
+                } else {
+                    log::warn!(
+                        "Name property is not a properly formatted string | {}",
+                        name
+                    )
                 }
+            } else {
+                log::warn!(
+                    "Name not found, unable to save feature {:?}",
+                    feat.properties
+                )
             }
         }
         let insert_len = inserts.len();

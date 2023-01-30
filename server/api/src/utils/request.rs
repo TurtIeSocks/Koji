@@ -20,7 +20,7 @@ pub async fn send_api_req(
     project: project::Model,
     scanner_type: Option<&String>,
 ) -> Result<reqwest::Response, Error> {
-    if let Some(endpoint) = project.api_endpoint {
+    if let Some(endpoint) = project.api_endpoint.as_ref() {
         let req = reqwest::ClientBuilder::new().build();
         if let Ok(req) = req {
             if let Some(scanner_type) = scanner_type {
@@ -38,6 +38,10 @@ pub async fn send_api_req(
                 } else {
                     req.get(endpoint)
                 };
+                log::info!(
+                    "Sending Scanner Request to {}",
+                    project.api_endpoint.unwrap()
+                );
                 Ok(req.send().await?)
             } else {
                 Err(Error::NotImplemented("Scanner type not found".to_string()))

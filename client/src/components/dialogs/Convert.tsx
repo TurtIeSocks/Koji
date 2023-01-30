@@ -213,7 +213,7 @@ export default function ConvertDialog({
                 }}
               >
                 <GeoJSON
-                  key={`${polygonExportMode}${simplifyPolygons}${previewGeojson.features.length}`}
+                  key={JSON.stringify(previewGeojson)}
                   data={previewGeojson}
                 />
               </Map>

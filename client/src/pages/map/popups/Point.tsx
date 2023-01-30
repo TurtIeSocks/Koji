@@ -33,8 +33,12 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
   const { add, remove, splitLine, activeRoute } = useShapes.getState().setters
   const { setRecord, geofence } = useDbCache.getState()
 
-  const [name, setName] = React.useState(dbRef?.name || '')
-  const [type, setType] = React.useState(dbRef?.mode || '')
+  const [name, setName] = React.useState(
+    dbRef?.name || feature.properties?.__name || '',
+  )
+  const [mode, setMode] = React.useState(
+    dbRef?.mode || feature.properties?.__mode || '',
+  )
   const [fenceId, setFenceId] = React.useState(dbRef?.geofence_id || 0)
   const options = Object.values(geofence)
 
@@ -78,8 +82,8 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
           <Select
             size="small"
             fullWidth
-            value={type}
-            onChange={({ target }) => setType(target.value)}
+            value={mode}
+            onChange={({ target }) => setMode(target.value)}
           >
             {(useStatic.getState().scannerType === 'rdm'
               ? RDM_ROUTES
@@ -95,7 +99,7 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
           <Select
             size="small"
             fullWidth
-            value={options.length && isInKoji ? fenceId || '' : ''}
+            value={options.length ? fenceId || '' : ''}
             onChange={({ target }) => setFenceId(+target.value)}
             onOpen={async () =>
               options.length ? null : getKojiCache('geofence')
@@ -161,7 +165,7 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
               Delete
             </Button>
             <Button
-              disabled={!name || !type || loading || !fenceId}
+              disabled={!name || !mode || loading || !fenceId}
               onClick={() => {
                 setLoading(true)
                 getData<KojiResponse<Feature<MultiPoint>>>(
@@ -195,7 +199,7 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
                           id: isInKoji ? dbRef?.id : 0,
                           name,
                           geofence_id: fenceId,
-                          mode: type,
+                          mode,
                           geometry: mp.data.geometry,
                           updated_at: new Date(),
                           created_at: new Date(),

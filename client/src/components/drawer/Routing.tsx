@@ -8,6 +8,7 @@ import {
   ListItemText,
 } from '@mui/material'
 import Update from '@mui/icons-material/Update'
+import shallow from 'zustand/shallow'
 
 import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
@@ -20,10 +21,18 @@ import Toggle from './inputs/Toggle'
 
 export default function RoutingTab() {
   const mode = usePersist((s) => s.mode)
-  const [layerEditing, updateButton] = useStatic((s) => [
-    s.layerEditing,
-    s.updateButton,
-  ])
+  const category = usePersist((s) => s.category)
+
+  const [layerEditing, updateButton, scannerType] = useStatic(
+    (s) => [s.layerEditing, s.updateButton, s.scannerType],
+    shallow,
+  )
+
+  React.useEffect(() => {
+    if (category === 'pokestop' && scannerType === 'rdm') {
+      usePersist.setState({ save_to_db: false, save_to_scanner: false })
+    }
+  }, [category])
 
   return (
     <List dense sx={{ width: 275 }}>
@@ -64,11 +73,18 @@ export default function RoutingTab() {
       </Collapse>
 
       <ListSubheader>Saving</ListSubheader>
-      <Toggle field="save_to_db" label="Save to Kōji Db" />
+      <Toggle
+        field="save_to_db"
+        label="Save to Kōji Db"
+        disabled={scannerType === 'rdm' && category === 'pokestop'}
+      />
       <Toggle
         field="save_to_scanner"
         label="Save to Scanner Db"
-        disabled={!useStatic.getState().dangerous}
+        disabled={
+          !useStatic.getState().dangerous ||
+          (scannerType === 'rdm' && category === 'pokestop')
+        }
       />
       <Toggle field="skipRendering" />
       <ListItemButton

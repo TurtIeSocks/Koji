@@ -124,7 +124,7 @@ export function splitMultiPolygons(
       coordinates.forEach((polygon, i) => {
         features.push({
           ...feature,
-          id: `${feature.id}___${i}`,
+          id: `${i}__${feature.properties?.__mode}__CLIENT`,
           properties: {
             ...feature.properties,
             __id: undefined,

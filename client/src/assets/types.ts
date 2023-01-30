@@ -80,7 +80,10 @@ export type GeometryTypes = Exclude<
 
 export type KojiModes = typeof RDM_FENCES[number] | typeof RDM_ROUTES[number]
 
-export type KojiKey = `${number}__${KojiModes}__${'KOJI' | 'SCANNER'}`
+export type KojiKey = `${number}__${KojiModes}__${
+  | 'KOJI'
+  | 'SCANNER'
+  | 'CLIENT'}`
 
 export type BasicKojiEntry = {
   id: number
