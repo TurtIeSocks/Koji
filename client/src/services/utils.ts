@@ -1,6 +1,6 @@
 import * as L from 'leaflet'
 import { capitalize } from '@mui/material'
-import type { MultiPolygon, Polygon } from 'geojson'
+import type { MultiPoint, MultiPolygon, Point, Polygon } from 'geojson'
 import union from '@turf/union'
 import bbox from '@turf/bbox'
 import { useStatic } from '@hooks/useStatic'
@@ -200,4 +200,22 @@ export function removeAllOthers(feature: Feature<MultiPolygon>) {
 
 export function getKey() {
   return Math.random().toString(36).substring(2, 10)
+}
+
+export function mpToPoints(geometry: MultiPoint): Feature<Point>[] {
+  return (geometry.coordinates || []).map((c, i) => {
+    return {
+      id: i,
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: c,
+      },
+      properties: {
+        next: geometry.coordinates[
+          i === geometry.coordinates.length - 1 ? 0 : i + 1
+        ],
+      },
+    }
+  })
 }

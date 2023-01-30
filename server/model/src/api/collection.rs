@@ -40,7 +40,7 @@ impl GeometryHelpers for FeatureCollection {
 }
 
 impl EnsureProperties for FeatureCollection {
-    fn ensure_properties(self, name: Option<String>, enum_type: Option<&Type>) -> Self {
+    fn ensure_properties(self, name: Option<String>, enum_type: Option<Type>) -> Self {
         let name = if let Some(n) = name {
             n
         } else {
@@ -56,7 +56,7 @@ impl EnsureProperties for FeatureCollection {
                     } else {
                         name.clone()
                     }),
-                    enum_type,
+                    enum_type.clone(),
                 )
             })
             .collect()
@@ -94,7 +94,7 @@ impl ToText for FeatureCollection {
 }
 
 impl ToCollection for FeatureCollection {
-    fn to_collection(self, _name: Option<String>, _enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, _enum_type: Option<Type>) -> FeatureCollection {
         FeatureCollection {
             bbox: if self.bbox.is_some() {
                 self.bbox

@@ -8,9 +8,8 @@ import {
   Switch,
   Typography,
 } from '@mui/material'
-import { GeoJSON } from 'react-leaflet'
 
-import { CONVERSION_TYPES } from '@assets/constants'
+import { CONVERSION_TYPES, GEOMETRY_CONVERSION_TYPES } from '@assets/constants'
 import { Conversions, FeatureCollection } from '@assets/types'
 import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
@@ -19,6 +18,7 @@ import MultiOptions from '@components/drawer/inputs/MultiOptions'
 import { safeParse } from '@services/utils'
 import { convert } from '@services/fetches'
 import Map from '@components/Map'
+import GeoJsonWrapper from '@components/GeojsonWrapper'
 
 import BaseDialog from './Base'
 
@@ -30,6 +30,7 @@ export default function ConvertDialog({
   const open = useStatic((s) => s.dialogs.convert)
   const polygonExportMode = usePersist((s) => s.polygonExportMode)
   const simplifyPolygons = usePersist((s) => s.simplifyPolygons)
+  const geometryType = usePersist((s) => s.geometryType)
 
   const containerRef = React.useRef<HTMLDivElement>(null)
 
@@ -45,7 +46,7 @@ export default function ConvertDialog({
   const [showPreview, setShowPreview] = React.useState(false)
 
   const convertCode = async (incoming: Conversions) => {
-    await convert(incoming, polygonExportMode, simplifyPolygons)
+    await convert(incoming, polygonExportMode, simplifyPolygons, geometryType)
       .then((res) => {
         if (typeof res === 'string') {
           setConverted(res)
@@ -55,9 +56,12 @@ export default function ConvertDialog({
         return res
       })
       .then((res) =>
-        convert<FeatureCollection>(res, 'featureCollection', false).then(
-          (res2) => setPreviewGeojson(res2),
-        ),
+        convert<FeatureCollection>(
+          res,
+          'featureCollection',
+          false,
+          geometryType,
+        ).then((res2) => setPreviewGeojson(res2)),
       )
   }
 
@@ -76,12 +80,14 @@ export default function ConvertDialog({
 
   React.useEffect(() => {
     if (code) {
-      const incoming = safeParse<Conversions>(code)
-      if (!incoming.error) {
-        convertCode(incoming.value)
+      const parsed = safeParse<Conversions>(code)
+      if (code.startsWith('{') || code.startsWith('[') ? !parsed.error : code) {
+        convertCode(parsed.error ? code : parsed.value)
+      } else {
+        setConverted(parsed.error.toString())
       }
     }
-  }, [polygonExportMode, simplifyPolygons])
+  }, [polygonExportMode, simplifyPolygons, geometryType])
 
   const height = containerRef.current?.clientHeight.toString() ?? 0
 
@@ -108,6 +114,12 @@ export default function ConvertDialog({
                 buttons={CONVERSION_TYPES}
                 type="select"
                 label="Select Format"
+              />
+              <MultiOptions
+                field="geometryType"
+                buttons={GEOMETRY_CONVERSION_TYPES}
+                type="select"
+                label="Select Geometry Type"
               />
               <Divider
                 flexItem
@@ -154,10 +166,14 @@ export default function ConvertDialog({
               }
               setCode(newCode)
               const parsed = safeParse<Conversions>(newCode)
-              if (!parsed.error) {
-                await convertCode(parsed.value)
-              } else if (typeof parsed.error === 'string' && newCode) {
-                setConverted(parsed.error)
+              if (
+                newCode.startsWith('{') || newCode.startsWith('[')
+                  ? !parsed.error
+                  : newCode
+              ) {
+                await convertCode(parsed.error ? newCode : parsed.value)
+              } else {
+                setConverted(parsed.error.toString())
               }
             }}
           />
@@ -203,9 +219,9 @@ export default function ConvertDialog({
                   height: height ? `${+height - 70}px` : '75vh',
                 }}
               >
-                <GeoJSON
+                <GeoJsonWrapper
                   key={JSON.stringify(previewGeojson)}
-                  data={previewGeojson}
+                  fc={previewGeojson}
                 />
               </Map>
             ) : (

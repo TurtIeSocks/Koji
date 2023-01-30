@@ -49,6 +49,7 @@ export default function ExportRoute({ open, setOpen, geojson }: Props) {
           points,
           'feature_vec',
           false,
+          undefined,
           '/api/v1/convert/merge_points',
         )
       : []

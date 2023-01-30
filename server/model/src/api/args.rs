@@ -2,7 +2,10 @@ use super::*;
 
 use geojson::JsonValue;
 
-use crate::api::{collection::Default, text::TextHelpers};
+use crate::{
+    api::{collection::Default, text::TextHelpers},
+    utils::get_enum_by_geometry_string,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Auth {
@@ -63,6 +66,7 @@ pub struct Args {
     pub save_to_scanner: Option<bool>,
     pub route_chunk_size: Option<usize>,
     pub simplify: Option<bool>,
+    pub geometry_type: Option<String>,
 }
 
 pub struct ArgsUnwrapped {
@@ -105,10 +109,12 @@ impl Args {
             save_to_scanner,
             route_chunk_size,
             simplify,
+            geometry_type,
         } = self;
+        let enum_type = get_enum_by_geometry_string(geometry_type);
         let (area, default_return_type) = if let Some(area) = area {
             (
-                area.clone().to_collection(instance.clone(), None),
+                area.clone().to_collection(instance.clone(), enum_type),
                 match area {
                     GeoFormats::Text(area) => {
                         if area.text_test() {

@@ -333,6 +333,7 @@ impl Query {
                     None
                 };
                 feat.remove_internal_props();
+                feat.id = None;
                 let area = GeoJson::Feature(feat).to_json_value();
                 if let Some(area) = area.as_object() {
                     let area = sea_orm::JsonValue::Object(area.to_owned());

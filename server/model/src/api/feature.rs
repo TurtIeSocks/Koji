@@ -29,7 +29,7 @@ impl ToGeometry for Feature {
 }
 
 impl FeatureHelpers for Feature {
-    fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<&Type>) {
+    fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<Type>) {
         if !self.contains_property("__name") {
             if let Some(name) = name {
                 self.set_property("__name", name)
@@ -108,7 +108,7 @@ impl FeatureHelpers for Feature {
 }
 
 impl EnsureProperties for Feature {
-    fn ensure_properties(self, name: Option<String>, enum_type: Option<&Type>) -> Self {
+    fn ensure_properties(self, name: Option<String>, enum_type: Option<Type>) -> Self {
         let mut mutable_self = self;
         mutable_self.add_instance_properties(name, enum_type);
         mutable_self
@@ -174,7 +174,7 @@ impl ToFeatureVec for Feature {
 }
 
 impl ToCollection for Feature {
-    fn to_collection(self, _name: Option<String>, _enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, _enum_type: Option<Type>) -> FeatureCollection {
         let bbox = if self.bbox.is_some() {
             self.bbox
         } else {
@@ -189,7 +189,7 @@ impl ToCollection for Feature {
 }
 
 impl ToCollection for Vec<Feature> {
-    fn to_collection(self, _name: Option<String>, _enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, _enum_type: Option<Type>) -> FeatureCollection {
         // let name = if let Some(name) = name {
         //     name
         // } else {

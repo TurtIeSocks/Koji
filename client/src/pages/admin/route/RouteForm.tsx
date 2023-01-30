@@ -1,55 +1,17 @@
 import * as React from 'react'
 import { FormDataConsumer, SelectInput, TextInput } from 'react-admin'
 import { Box } from '@mui/material'
-import Map from '@components/Map'
-import { GeoJSON, useMap } from 'react-leaflet'
-import center from '@turf/center'
-import { useStatic } from '@hooks/useStatic'
-import { RDM_ROUTES, UNOWN_ROUTES } from '@assets/constants'
-import { getColor, safeParse } from '@services/utils'
-import type { FeatureCollection } from '@assets/types'
 import type { MultiPoint } from 'geojson'
-import * as L from 'leaflet'
-import distance from '@turf/distance'
-import CodeInput from '../inputs/CodeInput'
+import center from '@turf/center'
 
-export function GeoJsonWrapper({
-  fc,
-  mode,
-}: {
-  fc: FeatureCollection
-  mode: string
-}) {
-  const map = useMap()
-  return (
-    <GeoJSON
-      data={fc}
-      pointToLayer={(feat, latlng) => {
-        L.polyline(
-          [
-            [latlng.lat, latlng.lng],
-            [feat.properties?.next[1], feat.properties?.next[0]],
-          ],
-          {
-            color: getColor(
-              distance(feat, feat.properties?.next, {
-                units: 'meters',
-              }),
-            ),
-          },
-        ).addTo(map)
-        return L.circle(latlng, {
-          radius:
-            {
-              ManualQuest: 80,
-              CircleRaid: 1100,
-              CircleSmartRaid: 1100,
-            }[mode] || 70,
-        })
-      }}
-    />
-  )
-}
+import { RDM_ROUTES, UNOWN_ROUTES } from '@assets/constants'
+import type { FeatureCollection } from '@assets/types'
+import GeoJsonWrapper from '@components/GeojsonWrapper'
+import Map from '@components/Map'
+import { useStatic } from '@hooks/useStatic'
+import { safeParse } from '@services/utils'
+
+import CodeInput from '../inputs/CodeInput'
 
 export default function RouteForm() {
   const scannerType = useStatic((s) => s.scannerType)
@@ -112,7 +74,12 @@ export default function RouteForm() {
         }}
       </FormDataConsumer>
       <Box pt="1em" />
-      <CodeInput source="geometry" label="Route" />
+      <CodeInput
+        source="geometry"
+        label="Route"
+        conversionType="geometry"
+        geometryType="MultiPoint"
+      />
     </>
   )
 }

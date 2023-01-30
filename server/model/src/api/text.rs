@@ -2,7 +2,7 @@ use super::*;
 
 pub trait TextHelpers {
     fn text_test(&self) -> bool;
-    fn parse_scanner_instance(self, name: Option<String>, enum_type: Option<&Type>) -> Feature;
+    fn parse_scanner_instance(self, name: Option<String>, enum_type: Option<Type>) -> Feature;
 }
 
 impl TextHelpers for String {
@@ -13,7 +13,7 @@ impl TextHelpers for String {
             Err(_) => false,
         }
     }
-    fn parse_scanner_instance(self, name: Option<String>, enum_type: Option<&Type>) -> Feature {
+    fn parse_scanner_instance(self, name: Option<String>, enum_type: Option<Type>) -> Feature {
         let parsed = if self.starts_with("{") {
             match serde_json::from_str::<InstanceParsing>(&self) {
                 Ok(result) => match result {
@@ -110,7 +110,7 @@ impl ToMultiStruct for String {
 }
 
 impl ToFeature for String {
-    fn to_feature(self, enum_type: Option<&Type>) -> Feature {
+    fn to_feature(self, enum_type: Option<Type>) -> Feature {
         let multi_vec = self.to_multi_vec();
         Feature {
             bbox: None,
@@ -129,7 +129,7 @@ impl ToFeature for String {
 }
 
 impl ToCollection for String {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, enum_type: Option<Type>) -> FeatureCollection {
         let feature = self
             .to_feature(enum_type)
             // .ensure_properties(name, enum_type)

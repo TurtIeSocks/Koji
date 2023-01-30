@@ -93,7 +93,7 @@ impl ToMultiStruct for SingleVec {
 }
 
 impl ToFeature for SingleVec {
-    fn to_feature(self, enum_type: Option<&Type>) -> Feature {
+    fn to_feature(self, enum_type: Option<Type>) -> Feature {
         Feature {
             bbox: self.get_bbox(),
             geometry: Some(Geometry {
@@ -111,7 +111,7 @@ impl ToFeature for SingleVec {
 }
 
 impl ToCollection for SingleVec {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, enum_type: Option<Type>) -> FeatureCollection {
         FeatureCollection {
             bbox: self.get_bbox(),
             features: vec![

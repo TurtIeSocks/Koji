@@ -6,6 +6,7 @@ import type {
   Category,
   ConversionOptions,
 } from '@assets/types'
+import { GEOMETRY_CONVERSION_TYPES } from '@assets/constants'
 
 export interface UsePersist {
   darkMode: boolean
@@ -34,6 +35,7 @@ export interface UsePersist {
   geojson: FeatureCollection
   route_chunk_size: number | ''
   polygonExportMode: ConversionOptions
+  geometryType: typeof GEOMETRY_CONVERSION_TYPES[number]
   menuItem: TabOption
   export: {
     total: number
@@ -81,6 +83,7 @@ export const usePersist = create(
       nativeLeaflet: false,
       devices: 1,
       polygonExportMode: 'feature',
+      geometryType: 'Polygon',
       route_chunk_size: 0,
       menuItem: 'Manage',
       fast: false,

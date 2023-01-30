@@ -226,8 +226,10 @@ async fn cluster(
         clusters = final_clusters.into();
     }
 
-    let mut feature = clusters.to_feature(Some(&enum_type)).remove_last_coord();
-    feature.add_instance_properties(Some(instance.to_string()), Some(&enum_type));
+    let mut feature = clusters
+        .to_feature(Some(enum_type.clone()))
+        .remove_last_coord();
+    feature.add_instance_properties(Some(instance.to_string()), Some(enum_type));
     let feature = feature.to_collection(Some(instance.clone()), None);
 
     if !instance.is_empty() && save_to_db {

@@ -114,6 +114,13 @@ export const CONVERSION_TYPES = [
   'poracle',
 ] as const
 
+export const GEOMETRY_CONVERSION_TYPES = [
+  'Point',
+  'MultiPoint',
+  'Polygon',
+  'MultiPolygon',
+] as const
+
 export const COLORS = [
   '#F0F8FF',
   '#FAEBD7',

@@ -69,7 +69,7 @@ async fn merge_points(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
             foreign_members: None,
             value: Value::MultiPoint(new_multi_point),
         }
-        .to_feature(Some(&Type::CirclePokemon))
+        .to_feature(Some(Type::CirclePokemon))
         .to_collection(None, None),
         return_type,
         None,

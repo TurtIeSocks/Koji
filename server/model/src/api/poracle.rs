@@ -134,7 +134,7 @@ impl ToMultiStruct for Poracle {
 }
 
 impl ToFeature for Poracle {
-    fn to_feature(self, enum_type: Option<&Type>) -> Feature {
+    fn to_feature(self, enum_type: Option<Type>) -> Feature {
         let mut feature = Feature {
             bbox: self.clone().to_single_vec().get_bbox(),
             geometry: Some(Geometry {
@@ -190,7 +190,7 @@ impl ToFeature for Poracle {
 }
 
 impl ToCollection for Poracle {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, enum_type: Option<Type>) -> FeatureCollection {
         let feature = self
             .to_feature(enum_type)
             // .ensure_properties(name, enum_type)
@@ -204,7 +204,7 @@ impl ToCollection for Poracle {
 }
 
 impl ToCollection for Vec<Poracle> {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, enum_type: Option<Type>) -> FeatureCollection {
         // let name = if let Some(name) = name {
         //     name
         // } else {
@@ -222,7 +222,7 @@ impl ToCollection for Vec<Poracle> {
                 .into_iter()
                 .enumerate()
                 .map(|(_i, poracle_feat)| {
-                    poracle_feat.to_feature(enum_type)
+                    poracle_feat.to_feature(enum_type.to_owned())
                     // .ensure_properties(
                     //     Some(if length > 1 {
                     //         format!("{}_{}", name, i)

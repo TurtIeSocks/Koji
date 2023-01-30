@@ -68,7 +68,7 @@ export default function MultiOptions<
         value={value}
         color="primary"
         onChange={({ target }) => setStore(field, target.value as K)} // Mui y u like this
-        sx={{ mx: 'auto' }}
+        sx={{ mx: 'auto', minWidth: 150 }}
         disabled={disabled}
       >
         {buttons.map((m) => (

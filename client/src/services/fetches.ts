@@ -280,6 +280,7 @@ export async function convert<T = Conversions>(
   area: Conversions,
   return_type: UsePersist['polygonExportMode'],
   simplify: UsePersist['simplifyPolygons'],
+  geometry_type?: UsePersist['geometryType'],
   url = '/api/v1/convert/data',
 ): Promise<T> {
   try {
@@ -292,6 +293,7 @@ export async function convert<T = Conversions>(
         area,
         return_type,
         simplify,
+        geometry_type,
       }),
     })
     if (!res.ok) {

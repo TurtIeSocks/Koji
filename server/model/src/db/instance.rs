@@ -47,7 +47,7 @@ impl ToFeatureFromModel for Model {
             data,
             ..
         } = self;
-        let mut feature = data.parse_scanner_instance(Some(name.clone()), Some(&r#type));
+        let mut feature = data.parse_scanner_instance(Some(name.clone()), Some(r#type.clone()));
         feature.id = Some(geojson::feature::Id::String(format!(
             "{}__{}__SCANNER",
             id, r#type

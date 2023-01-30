@@ -40,7 +40,7 @@ where
 pub fn instance(instance: db::instance::Model) -> Feature {
     instance
         .data
-        .parse_scanner_instance(Some(instance.name), Some(&instance.r#type))
+        .parse_scanner_instance(Some(instance.name), Some(instance.r#type))
 }
 
 pub fn area(areas: Vec<db::area::Model>) -> Vec<Feature> {
@@ -49,7 +49,7 @@ pub fn area(areas: Vec<db::area::Model>) -> Vec<Feature> {
     let mut to_feature = |fence: Option<String>, name: &String, mode: Type| {
         if let Some(fence) = fence {
             if !fence.is_empty() {
-                normalized.push(fence.parse_scanner_instance(Some(name.to_string()), Some(&mode)));
+                normalized.push(fence.parse_scanner_instance(Some(name.to_string()), Some(mode)));
             }
         }
     };

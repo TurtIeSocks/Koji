@@ -64,7 +64,12 @@ export default function GeofenceForm() {
           <TextInput source="value" helperText={false} />
         </SimpleFormIterator>
       </ArrayInput>
-      <CodeInput source="area" label="Fence" />
+      <CodeInput
+        source="area"
+        label="Fence"
+        conversionType="feature"
+        geometryType="Polygon"
+      />
     </>
   )
 }
