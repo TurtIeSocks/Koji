@@ -100,7 +100,7 @@ pub fn as_geojson(feature: Feature, radius: f64, stats: &mut Stats) -> Feature {
             new_feature.set_property("__name", name);
         }
     }
-    if let Some(geofence_id) = feature.property("__koji_id") {
+    if let Some(geofence_id) = feature.property("__id") {
         if let Some(geofence_id) = geofence_id.as_str() {
             new_feature.set_property("__geofence_id", geofence_id);
         }

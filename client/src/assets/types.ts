@@ -50,7 +50,6 @@ export type Properties<G extends Geometry | null = Geometry> =
     __geofence_id?: number
     __mode?: KojiModes
     __projects?: number[]
-    // __koji?: T // exists in db
   }
 
 export interface Feature<G extends Geometry | null = Geometry, P = Properties>

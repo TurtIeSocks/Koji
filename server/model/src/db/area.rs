@@ -57,10 +57,9 @@ impl Model {
                     "{}__{}__SCANNER",
                     self.id, area_type
                 )));
-                feature.set_property(
-                    "__koji",
-                    json!({ "name": self.name, "id": self.id, "mode": area_type }),
-                );
+                feature.set_property("__id", self.id);
+                feature.set_property("__name", self.name);
+                feature.set_property("__mode", area_type.to_string());
                 Ok(feature)
             } else {
                 Err(ModelError::Custom("Unable to determine route".to_string()))
