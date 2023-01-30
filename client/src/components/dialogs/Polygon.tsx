@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { Dialog, DialogContent, DialogActions, Button } from '@mui/material'
 
+import { CONVERSION_TYPES } from '@assets/constants'
 import type { Conversions, Feature, FeatureCollection } from '@assets/types'
 import MultiOptions from '@components/drawer/inputs/MultiOptions'
 import SplitMultiPolygonsBtn from '@components/buttons/SplitMultiPolygons'
@@ -148,17 +149,7 @@ export default function ExportPolygon({
           <>
             <MultiOptions
               field="polygonExportMode"
-              buttons={[
-                'array',
-                'multiArray',
-                'feature',
-                'featureCollection',
-                'struct',
-                'multiStruct',
-                'text',
-                'altText',
-                'poracle',
-              ]}
+              buttons={CONVERSION_TYPES}
               type="select"
             />
             <SplitMultiPolygonsBtn

@@ -14,6 +14,20 @@ impl EnsurePoints for Feature {
     }
 }
 
+impl ToGeometry for Feature {
+    fn to_geometry(self) -> Geometry {
+        if let Some(geometry) = self.geometry {
+            geometry
+        } else {
+            Geometry {
+                bbox: None,
+                foreign_members: None,
+                value: Value::Point(vec![0., 0.]),
+            }
+        }
+    }
+}
+
 impl FeatureHelpers for Feature {
     fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<&Type>) {
         if !self.contains_property("__name") {

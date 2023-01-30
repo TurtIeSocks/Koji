@@ -1,6 +1,11 @@
 import create from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { TabOption, FeatureCollection, Category } from '@assets/types'
+import type {
+  TabOption,
+  FeatureCollection,
+  Category,
+  ConversionOptions,
+} from '@assets/types'
 
 export interface UsePersist {
   darkMode: boolean
@@ -28,17 +33,7 @@ export interface UsePersist {
   devices: number | ''
   geojson: FeatureCollection
   route_chunk_size: number | ''
-  polygonExportMode:
-    | 'feature'
-    | 'featureCollection'
-    | 'featureVec'
-    | 'array'
-    | 'multiArray'
-    | 'struct'
-    | 'multiStruct'
-    | 'text'
-    | 'altText'
-    | 'poracle'
+  polygonExportMode: ConversionOptions
   menuItem: TabOption
   export: {
     total: number

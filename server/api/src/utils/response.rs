@@ -1,6 +1,7 @@
 use super::*;
 
 use actix_web::HttpResponse;
+use model::api::ToGeometry;
 use serde_json::json;
 
 use crate::model::api::{
@@ -29,11 +30,20 @@ pub fn send(
             ReturnTypeArg::AltText => GeoFormats::Text(value.to_text(" ", ",", false)),
             ReturnTypeArg::SingleArray => GeoFormats::SingleArray(value.to_single_vec()),
             ReturnTypeArg::MultiArray => GeoFormats::MultiArray(value.to_multi_vec()),
+            ReturnTypeArg::Geometry => {
+                if value.features.len() == 1 {
+                    GeoFormats::Geometry(value.features.first().unwrap().to_owned().to_geometry())
+                } else {
+                    log::info!("\"Geometry\" was requested as the return type but multiple features were found so a Vec of geometries is being returned");
+                    GeoFormats::GeometryVec(value.into_iter().map(|feat| feat.to_geometry()).collect())
+                }
+            },
+            ReturnTypeArg::GeometryVec => GeoFormats::GeometryVec(value.into_iter().map(|feat| feat.to_geometry()).collect()),
             ReturnTypeArg::Feature => {
                 if value.features.len() == 1 {
                     GeoFormats::Feature(value.features.first().unwrap().clone())
                 } else {
-                    println!("\"Feature\" was requested as the return type but multiple features were found so a Vec of features is being returned");
+                    log::info!("\"Feature\" was requested as the return type but multiple features were found so a Vec of features is being returned");
                     GeoFormats::FeatureVec(value.features)
                 }
             }

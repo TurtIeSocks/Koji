@@ -223,7 +223,7 @@ impl ToPoracleVec for FeatureCollection {
                     }),
                     Value::Polygon(_) => poracle_feat.path = Some(geometry.to_single_vec()),
                     _ => {
-                        println!(
+                        log::warn!(
                             "Poracle format does not support: {:?}",
                             geometry.value.type_name()
                         );

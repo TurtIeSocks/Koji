@@ -19,7 +19,7 @@ interface Props<
   K extends UsePersist[T],
 > {
   field: T
-  buttons: K[]
+  buttons: readonly K[]
   disabled?: boolean
   type?: 'button' | 'select'
   label?: string

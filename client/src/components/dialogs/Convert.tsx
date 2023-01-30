@@ -10,6 +10,7 @@ import {
 } from '@mui/material'
 import { GeoJSON } from 'react-leaflet'
 
+import { CONVERSION_TYPES } from '@assets/constants'
 import { Conversions, FeatureCollection } from '@assets/types'
 import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
@@ -104,17 +105,7 @@ export default function ConvertDialog({
             <>
               <MultiOptions
                 field="polygonExportMode"
-                buttons={[
-                  'array',
-                  'multiArray',
-                  'feature',
-                  'featureCollection',
-                  'struct',
-                  'multiStruct',
-                  'text',
-                  'altText',
-                  'poracle',
-                ]}
+                buttons={CONVERSION_TYPES}
                 type="select"
                 label="Select Format"
               />

@@ -134,3 +134,16 @@ impl ToFeatureVec for Geometry {
         }
     }
 }
+
+impl ToCollection for Vec<Geometry> {
+    fn to_collection(self, _name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
+        FeatureCollection {
+            bbox: None,
+            foreign_members: None,
+            features: self
+                .into_iter()
+                .map(|geometry| geometry.to_feature(enum_type))
+                .collect(),
+        }
+    }
+}

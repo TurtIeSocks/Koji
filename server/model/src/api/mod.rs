@@ -101,6 +101,10 @@ pub trait ToText {
     fn to_text(self, sep_1: &str, sep_2: &str, poly_sep: bool) -> String;
 }
 
+pub trait ToGeometry {
+    fn to_geometry(self) -> Geometry;
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum GeoFormats {
@@ -109,6 +113,8 @@ pub enum GeoFormats {
     MultiArray(multi_vec::MultiVec),
     SingleStruct(single_struct::SingleStruct),
     MultiStruct(multi_struct::MultiStruct),
+    Geometry(Geometry),
+    GeometryVec(Vec<Geometry>),
     Feature(Feature),
     FeatureVec(Vec<Feature>),
     FeatureCollection(FeatureCollection),
@@ -126,6 +132,8 @@ impl ToCollection for GeoFormats {
             GeoFormats::MultiArray(area) => area.to_collection(name, enum_type),
             GeoFormats::SingleStruct(area) => area.to_collection(name, enum_type),
             GeoFormats::MultiStruct(area) => area.to_collection(name, enum_type),
+            GeoFormats::Geometry(area) => area.to_feature(enum_type).to_collection(name, None),
+            GeoFormats::GeometryVec(area) => area.to_collection(name, enum_type),
             GeoFormats::Feature(area) => area.to_collection(name, enum_type),
             GeoFormats::FeatureVec(area) => area.to_collection(name, enum_type),
             GeoFormats::FeatureCollection(area) => area.to_collection(name, enum_type),

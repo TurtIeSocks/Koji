@@ -26,6 +26,8 @@ pub enum ReturnTypeArg {
     MultiArray,
     SingleStruct,
     MultiStruct,
+    Geometry,
+    GeometryVec,
     Feature,
     FeatureVec,
     FeatureCollection,
@@ -119,6 +121,8 @@ impl Args {
                     GeoFormats::MultiArray(_) => ReturnTypeArg::MultiArray,
                     GeoFormats::SingleStruct(_) => ReturnTypeArg::SingleStruct,
                     GeoFormats::MultiStruct(_) => ReturnTypeArg::MultiStruct,
+                    GeoFormats::Geometry(_) => ReturnTypeArg::Geometry,
+                    GeoFormats::GeometryVec(_) => ReturnTypeArg::GeometryVec,
                     GeoFormats::Feature(_) => ReturnTypeArg::Feature,
                     GeoFormats::FeatureVec(_) => ReturnTypeArg::FeatureVec,
                     GeoFormats::FeatureCollection(_) => ReturnTypeArg::FeatureCollection,
@@ -186,29 +190,29 @@ impl Args {
 }
 
 pub fn get_return_type(return_type: String, default_return_type: &ReturnTypeArg) -> ReturnTypeArg {
-    match return_type.to_lowercase().as_str() {
-        "alttext" | "alt_text" | "alt-text" => ReturnTypeArg::AltText,
+    match return_type.to_lowercase().replace("-", "_").as_str() {
+        "alttext" | "alt_text" => ReturnTypeArg::AltText,
         "text" => ReturnTypeArg::Text,
         "array" => match *default_return_type {
             ReturnTypeArg::SingleArray => ReturnTypeArg::SingleArray,
             ReturnTypeArg::MultiArray => ReturnTypeArg::MultiArray,
             _ => ReturnTypeArg::SingleArray,
         },
-        "singlearray" | "single_array" | "single-array" => ReturnTypeArg::SingleArray,
-        "multiarray" | "multi_array" | "multi-array" => ReturnTypeArg::MultiArray,
+        "singlearray" | "single_array" => ReturnTypeArg::SingleArray,
+        "multiarray" | "multi_array" => ReturnTypeArg::MultiArray,
         "struct" => match *default_return_type {
             ReturnTypeArg::SingleStruct => ReturnTypeArg::SingleStruct,
             ReturnTypeArg::MultiStruct => ReturnTypeArg::MultiStruct,
             _ => ReturnTypeArg::SingleStruct,
         },
-        "singlestruct" | "single_struct" | "single-struct" => ReturnTypeArg::SingleStruct,
-        "multistruct" | "multi_struct" | "multi-struct" => ReturnTypeArg::MultiStruct,
+        "geometry" => ReturnTypeArg::Geometry,
+        "geometryvec" | "geometry_vec" | "geometries" => ReturnTypeArg::GeometryVec,
+        "singlestruct" | "single_struct" => ReturnTypeArg::SingleStruct,
+        "multistruct" | "multi_struct" => ReturnTypeArg::MultiStruct,
         "feature" => ReturnTypeArg::Feature,
-        "featurevec" | "feature_vec" | "feature-vec" => ReturnTypeArg::FeatureVec,
+        "featurevec" | "feature_vec" => ReturnTypeArg::FeatureVec,
         "poracle" => ReturnTypeArg::Poracle,
-        "featurecollection" | "feature_collection" | "feature-collection" => {
-            ReturnTypeArg::FeatureCollection
-        }
+        "featurecollection" | "feature_collection" => ReturnTypeArg::FeatureCollection,
         _ => default_return_type.clone(),
     }
 }

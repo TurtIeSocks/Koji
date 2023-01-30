@@ -12,7 +12,7 @@ import type {
 
 import type { UsePersist } from '@hooks/usePersist'
 import type { UseStatic } from '@hooks/useStatic'
-import { RDM_FENCES, RDM_ROUTES, TABS } from './constants'
+import { CONVERSION_TYPES, RDM_FENCES, RDM_ROUTES, TABS } from './constants'
 
 // UTILITY TYPES ==================================================================================
 
@@ -203,12 +203,16 @@ export type Conversions =
   | MultiObjectInput
   | ArrayInput
   | MultiArrayInput
+  | Geometry
+  | Geometry[]
   | Feature
+  | Feature[]
   | FeatureCollection
   | string
   | Poracle
-  | Feature[]
+  | Poracle[]
 
+export type ConversionOptions = typeof CONVERSION_TYPES[number]
 // ================================================================================================
 
 // PROPS ==========================================================================================
