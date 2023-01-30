@@ -33,7 +33,7 @@ export async function getData<T>(
       : await fetch(url, options)
     if (!res.ok) {
       useStatic.setState({
-        networkError: {
+        networkStatus: {
           message: await res.text(),
           status: res.status,
           severity: 'error',
@@ -58,7 +58,7 @@ export async function getKojiCache<T extends 'geofence' | 'project' | 'route'>(
   })
   if (!res.ok) {
     useStatic.setState({
-      networkError: {
+      networkStatus: {
         message: await res.text(),
         status: res.status,
         severity: 'error',
@@ -175,7 +175,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
             }))
           }
           useStatic.setState({
-            networkError: {
+            networkStatus: {
               message: await res.text(),
               status: res.status,
               severity: 'error',
@@ -257,7 +257,7 @@ export async function getMarkers(
         }[res.status] ||
         ''
       useStatic.setState({
-        networkError: {
+        networkStatus: {
           message,
           status: res.status,
           severity: 'error',
@@ -296,7 +296,7 @@ export async function convert<T = Conversions>(
     })
     if (!res.ok) {
       useStatic.setState({
-        networkError: {
+        networkStatus: {
           message: await res.text(),
           status: res.status,
           severity: 'error',
@@ -322,7 +322,7 @@ export async function save<T>(url: string, code: string): Promise<T | null> {
     })
     if (!res.ok) {
       useStatic.setState({
-        networkError: {
+        networkStatus: {
           message: await res.text(),
           status: res.status,
           severity: 'error',
@@ -331,7 +331,7 @@ export async function save<T>(url: string, code: string): Promise<T | null> {
       throw new Error('Unable to save')
     }
     useStatic.setState({
-      networkError: {
+      networkStatus: {
         message: 'Saved successfully!',
         status: res.status,
         severity: 'success',

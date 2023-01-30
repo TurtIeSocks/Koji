@@ -5,7 +5,7 @@ import { Typography } from '@mui/material'
 import Notification from './Base'
 
 export default function NetworkAlert() {
-  const { status, severity, message } = useStatic((s) => s.networkError)
+  const { status, severity, message } = useStatic((s) => s.networkStatus)
 
   const [hover, setHover] = React.useState(false)
 
@@ -13,7 +13,7 @@ export default function NetworkAlert() {
     if (status && !hover) {
       const timer = setTimeout(() => {
         useStatic.setState((prev) => ({
-          networkError: { ...prev.networkError, message: '', status: 0 },
+          networkStatus: { ...prev.networkStatus, message: '', status: 0 },
         }))
       }, 5000)
       return () => clearTimeout(timer)
@@ -33,7 +33,7 @@ export default function NetworkAlert() {
       IconButtonProps={{
         onClick: () =>
           useStatic.setState((prev) => ({
-            networkError: { ...prev.networkError, message: '', status: 0 },
+            networkStatus: { ...prev.networkStatus, message: '', status: 0 },
           })),
       }}
       title={`Network Status: ${status} ${

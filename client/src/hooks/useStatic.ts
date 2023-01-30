@@ -5,7 +5,7 @@ import type { AdminProject, KojiStats, FeatureCollection } from '@assets/types'
 import { collectionToObject } from '@services/utils'
 
 export interface UseStatic {
-  networkError: {
+  networkStatus: {
     message: string
     status: number
     severity: AlertProps['severity']
@@ -62,7 +62,7 @@ export interface UseStatic {
 }
 
 export const useStatic = create<UseStatic>((set, get) => ({
-  networkError: {
+  networkStatus: {
     message: '',
     status: 0,
     severity: 'info',

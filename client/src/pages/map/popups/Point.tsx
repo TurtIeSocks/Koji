@@ -208,7 +208,7 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
                     ).then((res) => {
                       if (res) {
                         useStatic.setState({
-                          networkError: {
+                          networkStatus: {
                             message: 'Saved successfully!',
                             status: 200,
                             severity: 'success',

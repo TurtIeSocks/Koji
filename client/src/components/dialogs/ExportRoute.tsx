@@ -47,7 +47,7 @@ export default function ExportRoute({ open, setOpen, geojson }: Props) {
     const mergedPoints = points.length
       ? await convert<Feature[]>(
           points,
-          'featureVec',
+          'feature_vec',
           false,
           '/api/v1/convert/merge_points',
         )
