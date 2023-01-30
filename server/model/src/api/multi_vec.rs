@@ -46,6 +46,12 @@ impl ValueHelpers for MultiVec {
     }
 }
 
+impl GetBbox for MultiVec {
+    fn get_bbox(&self) -> Option<Bbox> {
+        self.clone().to_single_vec().get_bbox()
+    }
+}
+
 impl ToPointArray for MultiVec {
     fn to_point_array(self) -> point_array::PointArray {
         self[0][0]
@@ -94,9 +100,11 @@ impl ToMultiStruct for MultiVec {
 
 impl ToFeature for MultiVec {
     fn to_feature(self, enum_type: Option<Type>) -> Feature {
+        let bbox = self.get_bbox();
         Feature {
+            bbox: bbox.clone(),
             geometry: Some(Geometry {
-                bbox: self.clone().to_single_vec().get_bbox(),
+                bbox,
                 foreign_members: None,
                 value: if let Some(enum_type) = enum_type {
                     self.get_geojson_value(enum_type)

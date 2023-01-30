@@ -25,7 +25,6 @@ mod utils;
 
 #[actix_web::main]
 pub async fn start() -> io::Result<()> {
-    dotenv::from_filename(env::var("ENV").unwrap_or(".env".to_string())).ok();
     let koji_db_url = env::var("KOJI_DB_URL").expect("Need KOJI_DB_URL env var to run migrations");
     let scanner_db_url = if env::var("DATABASE_URL").is_ok() {
         println!("[WARNING] `DATABASE_URL` is deprecated in favor of `SCANNER_DB_URL`");

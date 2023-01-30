@@ -24,19 +24,21 @@ export default function GeoJsonWrapper({
     <GeoJSON
       data={featureCollection}
       pointToLayer={(feat, latlng) => {
-        L.polyline(
-          [
-            [latlng.lat, latlng.lng],
-            [feat.properties?.next[1], feat.properties?.next[0]],
-          ],
-          {
-            color: getColor(
-              distance(feat, feat.properties?.next, {
-                units: 'meters',
-              }),
-            ),
-          },
-        ).addTo(map)
+        if (feat.properties?.next) {
+          L.polyline(
+            [
+              [latlng.lat, latlng.lng],
+              [feat.properties.next[1], feat.properties.next[0]],
+            ],
+            {
+              color: getColor(
+                distance(feat, feat.properties.next, {
+                  units: 'meters',
+                }),
+              ),
+            },
+          ).addTo(map)
+        }
         return L.circle(latlng, {
           radius: mode
             ? {

@@ -63,6 +63,16 @@ impl EnsureProperties for FeatureCollection {
     }
 }
 
+impl GetBbox for FeatureCollection {
+    fn get_bbox(&self) -> Option<Bbox> {
+        self.clone()
+            .into_iter()
+            .flat_map(|x| x.to_single_vec())
+            .collect::<single_vec::SingleVec>()
+            .get_bbox()
+    }
+}
+
 impl ToSingleVec for FeatureCollection {
     fn to_single_vec(self) -> single_vec::SingleVec {
         self.to_multi_vec().into_iter().flatten().collect()
@@ -99,11 +109,7 @@ impl ToCollection for FeatureCollection {
             bbox: if self.bbox.is_some() {
                 self.bbox
             } else {
-                self.clone()
-                    .into_iter()
-                    .flat_map(|x| x.to_single_vec())
-                    .collect::<single_vec::SingleVec>()
-                    .get_bbox()
+                self.get_bbox()
             },
             features: self
                 .features
@@ -112,7 +118,7 @@ impl ToCollection for FeatureCollection {
                     bbox: if feat.bbox.is_some() {
                         feat.bbox
                     } else {
-                        feat.clone().to_single_vec().get_bbox()
+                        feat.get_bbox()
                     },
                     ..feat
                 })

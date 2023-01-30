@@ -1,4 +1,6 @@
 fn main() {
+    dotenv::from_filename(std::env::var("ENV").unwrap_or(".env".to_string())).ok();
+
     // error | warn | info | debug | trace
     env_logger::init_from_env(
         env_logger::Env::new()

@@ -2,6 +2,12 @@ use super::*;
 
 pub type MultiStruct<T = Precision> = Vec<Vec<point_struct::PointStruct<T>>>;
 
+impl GetBbox for MultiStruct {
+    fn get_bbox(&self) -> Option<Bbox> {
+        self.clone().to_single_vec().get_bbox()
+    }
+}
+
 impl ToPointArray for MultiStruct {
     fn to_point_array(self) -> point_array::PointArray {
         [self[0][0].lat, self[0][0].lon]
@@ -10,9 +16,7 @@ impl ToPointArray for MultiStruct {
 
 impl ToSingleVec for MultiStruct {
     fn to_single_vec(self) -> single_vec::SingleVec {
-        self.into_iter()
-            .map(|point| point.to_point_array())
-            .collect()
+        self.to_multi_vec().into_iter().flatten().collect()
     }
 }
 
@@ -48,9 +52,11 @@ impl ToMultiStruct for MultiStruct {
 
 impl ToFeature for MultiStruct {
     fn to_feature(self, enum_type: Option<Type>) -> Feature {
+        let bbox = self.clone().to_single_vec().get_bbox();
         Feature {
+            bbox: bbox.clone(),
             geometry: Some(Geometry {
-                bbox: self.clone().to_single_vec().get_bbox(),
+                bbox,
                 foreign_members: None,
                 value: if let Some(enum_type) = enum_type {
                     self.to_multi_vec().get_geojson_value(enum_type)

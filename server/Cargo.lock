@@ -362,7 +362,6 @@ dependencies = [
  "actix-web",
  "actix-web-httpauth",
  "algorithms",
- "dotenv",
  "geo",
  "geojson",
  "log",
@@ -1834,6 +1833,7 @@ name = "koji"
 version = "0.3.5"
 dependencies = [
  "api",
+ "dotenv",
  "env_logger",
  "log",
 ]

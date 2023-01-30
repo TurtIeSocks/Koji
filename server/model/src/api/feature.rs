@@ -115,6 +115,16 @@ impl EnsureProperties for Feature {
     }
 }
 
+impl GetBbox for Feature {
+    fn get_bbox(&self) -> Option<Bbox> {
+        if let Some(geometry) = self.geometry.clone() {
+            geometry.to_single_vec().get_bbox()
+        } else {
+            None
+        }
+    }
+}
+
 impl ToSingleVec for Feature {
     fn to_single_vec(self) -> single_vec::SingleVec {
         self.to_multi_vec().into_iter().flatten().collect()
@@ -175,16 +185,22 @@ impl ToFeatureVec for Feature {
 
 impl ToCollection for Feature {
     fn to_collection(self, _name: Option<String>, _enum_type: Option<Type>) -> FeatureCollection {
-        let bbox = if self.bbox.is_some() {
-            self.bbox
-        } else {
-            self.clone().to_single_vec().get_bbox()
-        };
+        let bbox = self.get_bbox();
         FeatureCollection {
             bbox: bbox.clone(),
             features: vec![Feature { bbox, ..self }.ensure_first_last()],
             foreign_members: None,
         }
+    }
+}
+
+impl GetBbox for Vec<Feature> {
+    fn get_bbox(&self) -> Option<Bbox> {
+        self.clone()
+            .into_iter()
+            .flat_map(|f| f.to_single_vec())
+            .collect::<single_vec::SingleVec>()
+            .get_bbox()
     }
 }
 
@@ -197,25 +213,12 @@ impl ToCollection for Vec<Feature> {
         // };
         // let length = self.len();
         FeatureCollection {
-            bbox: self
-                .clone()
-                .into_iter()
-                .flat_map(|feat| feat.to_single_vec())
-                .collect::<single_vec::SingleVec>()
-                .get_bbox(),
+            bbox: self.get_bbox(),
             features: self
                 .into_iter()
-                .enumerate()
-                .map(|(_i, feat)| Feature {
-                    bbox: feat.clone().to_single_vec().get_bbox(),
-                    ..feat.ensure_first_last() // .ensure_properties(
-                                               //     Some(if length > 1 {
-                                               //         format!("{}_{}", name, i)
-                                               //     } else {
-                                               //         name.clone()
-                                               //     }),
-                                               //     enum_type,
-                                               // )
+                .map(|feat| Feature {
+                    bbox: feat.get_bbox(),
+                    ..feat.ensure_first_last()
                 })
                 .collect(),
             foreign_members: None,

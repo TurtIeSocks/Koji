@@ -66,7 +66,7 @@ pub fn get_enum_by_geometry(enum_val: &Value) -> Option<Type> {
       Value::Polygon(_) => Some(Type::PokemonIv),
       Value::MultiPolygon(_) => Some(Type::AutoQuest),
       _ => {
-          println!("Invalid Geometry Type");
+          log::warn!("Invalid Geometry Type: {}", enum_val.type_name());
           None
       }
   }

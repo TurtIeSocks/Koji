@@ -112,10 +112,11 @@ impl ToMultiStruct for String {
 impl ToFeature for String {
     fn to_feature(self, enum_type: Option<Type>) -> Feature {
         let multi_vec = self.to_multi_vec();
+        let bbox = multi_vec.get_bbox();
         Feature {
-            bbox: None,
+            bbox: bbox.clone(),
             geometry: Some(Geometry {
-                bbox: multi_vec.clone().to_single_vec().get_bbox(),
+                bbox,
                 foreign_members: None,
                 value: if let Some(enum_type) = enum_type {
                     multi_vec.get_geojson_value(enum_type)

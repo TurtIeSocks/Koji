@@ -135,12 +135,10 @@ export default function ConvertDialog({
                 }}
               >
                 <Switch
-                  value={simplifyPolygons}
-                  onChange={() =>
-                    usePersist.setState((prev) => ({
-                      simplifyPolygons: !prev.simplifyPolygons,
-                    }))
+                  onChange={(_e, v) =>
+                    usePersist.setState({ simplifyPolygons: v })
                   }
+                  checked={!!simplifyPolygons}
                 />
                 <Typography variant="caption">Simplify Polygons</Typography>
               </FormControl>

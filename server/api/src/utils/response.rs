@@ -41,7 +41,8 @@ pub fn send(
             ReturnTypeArg::GeometryVec => GeoFormats::GeometryVec(value.into_iter().map(|feat| feat.to_geometry()).collect()),
             ReturnTypeArg::Feature => {
                 if value.features.len() == 1 {
-                    GeoFormats::Feature(value.features.first().unwrap().clone())
+                    let feat = GeoFormats::Feature(value.features.first().unwrap().clone());
+                    feat
                 } else {
                     log::info!("\"Feature\" was requested as the return type but multiple features were found so a Vec of features is being returned");
                     GeoFormats::FeatureVec(value.features)
