@@ -2,7 +2,10 @@
 
 use std::collections::HashMap;
 
-use crate::{api::ToFeature, error::ModelError};
+use crate::{
+    api::{GeoFormats, ToCollection, ToFeature},
+    error::ModelError,
+};
 
 use super::*;
 
@@ -111,7 +114,7 @@ impl Query {
         let results: Vec<Paginated> = match paginator.fetch_page(page).await {
             Ok(results) => results,
             Err(err) => {
-                println!("Error paginating, {:?}", err);
+                log::warn!("Error paginating, {:?}", err);
                 vec![]
             }
         }
@@ -127,7 +130,7 @@ impl Query {
                     _ => 0,
                 },
                 Err(err) => {
-                    println!("[Route] Error unwrapping geometry, {:?}", err);
+                    log::warn!("[Route] Error unwrapping geometry, {:?}", err);
                     0
                 }
             },
@@ -253,11 +256,104 @@ impl Query {
         }
     }
 
-    pub async fn upsert_from_collection(
+    async fn upsert_feature(
         conn: &DatabaseConnection,
-        area: FeatureCollection,
-        _auto_mode: bool,
-        _bootstrap: bool,
+        feat: Feature,
+        existing: &HashMap<String, RouteNoGeometry>,
+        inserts_updates: &mut InsertsUpdates<ActiveModel>,
+    ) -> Result<(), DbErr> {
+        if let Some(name) = feat.property("__name") {
+            if let Some(name) = name.as_str() {
+                if let Some(mode) = feat.property("__mode") {
+                    if let Some(mode) = mode.as_str() {
+                        let geofence_id = if let Some(fence_id) = feat.property("__geofence_id") {
+                            fence_id.as_u64()
+                        } else {
+                            let geofence = geofence::Entity::find()
+                                .filter(
+                                    geofence::Column::Name
+                                        .eq(Value::String(Some(Box::new(name.to_string())))),
+                                )
+                                .one(conn)
+                                .await?;
+                            if let Some(geofence) = geofence {
+                                Some(geofence.id as u64)
+                            } else {
+                                None
+                            }
+                        };
+                        if let Some(fence_id) = geofence_id {
+                            if let Some(geometry) = feat.geometry.clone() {
+                                let geometry = GeoJson::Geometry(geometry).to_json_value();
+                                if let Some(geometry) = geometry.as_object() {
+                                    let geometry = sea_orm::JsonValue::Object(geometry.to_owned());
+                                    let name = name.to_string();
+                                    let mode = mode.to_string();
+                                    let is_update = existing.get(&format!("{}_{}", name, mode));
+                                    let update_bool = is_update.is_some();
+                                    let mut active_model = if let Some(entry) = is_update {
+                                        Entity::find_by_id(entry.id)
+                                            .one(conn)
+                                            .await?
+                                            .unwrap()
+                                            .into()
+                                    } else {
+                                        ActiveModel {
+                                            ..Default::default()
+                                        }
+                                    };
+                                    active_model.geofence_id = Set(fence_id as u32);
+                                    active_model.geometry = Set(geometry);
+                                    active_model.mode = Set(mode);
+                                    active_model.updated_at = Set(Utc::now());
+                                    if update_bool {
+                                        active_model.update(conn).await?;
+                                        inserts_updates.updates += 1;
+                                    } else {
+                                        active_model.name = Set(name);
+                                        active_model.created_at = Set(Utc::now());
+                                        active_model.insert(conn).await?;
+                                        inserts_updates.inserts += 1;
+                                    }
+                                } else {
+                                    log::warn!(
+                                        "[ROUTE_SAVE] geometry value is invalid for {}",
+                                        name
+                                    )
+                                }
+                            } else {
+                                log::warn!(
+                                    "[ROUTE_SAVE] geometry value does not exist for {}",
+                                    name
+                                )
+                            }
+                        } else {
+                            log::warn!("[ROUTE_SAVE] __geofence_id property not found for {}", name)
+                        }
+                    } else {
+                        log::warn!(
+                            "[ROUTE_SAVE] __mode property is not a valid string for {}",
+                            name
+                        )
+                    }
+                } else {
+                    log::warn!("[ROUTE_SAVE] __mode property not found for {}", name)
+                }
+            } else {
+                log::warn!(
+                    "[ROUTE_SAVE] __name property is not a valid string for {:?}",
+                    name
+                )
+            }
+        } else {
+            log::warn!("[ROUTE_SAVE] __name property not found, {:?}", feat.id)
+        }
+        Ok(())
+    }
+
+    pub async fn upsert_from_geometry(
+        conn: &DatabaseConnection,
+        area: GeoFormats,
     ) -> Result<(usize, usize), DbErr> {
         let existing: HashMap<String, RouteNoGeometry> = Query::get_all_no_fences(conn)
             .await?
@@ -265,103 +361,27 @@ impl Query {
             .map(|model| (format!("{}_{}", model.name, model.mode), model))
             .collect();
 
-        let mut inserts = 0;
-        let mut update_len = 0;
+        let mut inserts_updates = InsertsUpdates::<ActiveModel> {
+            inserts: 0,
+            updates: 0,
+            to_insert: vec![],
+        };
 
-        for feat in area.into_iter() {
-            if let Some(name) = feat.property("__name") {
-                if let Some(name) = name.as_str() {
-                    if let Some(mode) = feat.property("__mode") {
-                        if let Some(mode) = mode.as_str() {
-                            let geofence_id = if let Some(fence_id) = feat.property("__geofence_id")
-                            {
-                                fence_id.as_u64()
-                            } else {
-                                let geofence = geofence::Entity::find()
-                                    .filter(
-                                        geofence::Column::Name
-                                            .eq(Value::String(Some(Box::new(name.to_string())))),
-                                    )
-                                    .one(conn)
-                                    .await?;
-                                if let Some(geofence) = geofence {
-                                    Some(geofence.id as u64)
-                                } else {
-                                    None
-                                }
-                            };
-                            if let Some(fence_id) = geofence_id {
-                                if let Some(geometry) = feat.geometry.clone() {
-                                    let geometry = GeoJson::Geometry(geometry).to_json_value();
-                                    if let Some(geometry) = geometry.as_object() {
-                                        let geometry =
-                                            sea_orm::JsonValue::Object(geometry.to_owned());
-                                        let name = name.to_string();
-                                        let mode = mode.to_string();
-                                        let is_update = existing.get(&format!("{}_{}", name, mode));
-                                        let update_bool = is_update.is_some();
-                                        let mut active_model = if let Some(entry) = is_update {
-                                            Entity::find_by_id(entry.id)
-                                                .one(conn)
-                                                .await?
-                                                .unwrap()
-                                                .into()
-                                        } else {
-                                            ActiveModel {
-                                                ..Default::default()
-                                            }
-                                        };
-                                        active_model.geofence_id = Set(fence_id as u32);
-                                        active_model.geometry = Set(geometry);
-                                        active_model.mode = Set(mode);
-                                        active_model.updated_at = Set(Utc::now());
-                                        if update_bool {
-                                            active_model.update(conn).await?;
-                                            update_len += 1;
-                                        } else {
-                                            active_model.name = Set(name);
-                                            active_model.created_at = Set(Utc::now());
-                                            active_model.insert(conn).await?;
-                                            inserts += 1;
-                                        }
-                                    } else {
-                                        println!(
-                                            "[ROUTE_SAVE] geometry value is invalid for {}",
-                                            name
-                                        )
-                                    }
-                                } else {
-                                    println!(
-                                        "[ROUTE_SAVE] geometry value does not exist for {}",
-                                        name
-                                    )
-                                }
-                            } else {
-                                println!(
-                                    "[ROUTE_SAVE] __geofence_id property not found for {}",
-                                    name
-                                )
-                            }
-                        } else {
-                            println!(
-                                "[ROUTE_SAVE] __mode property is not a valid string for {}",
-                                name
-                            )
-                        }
-                    } else {
-                        println!("[ROUTE_SAVE] __mode property not found for {}", name)
-                    }
-                } else {
-                    println!(
-                        "[ROUTE_SAVE] __name property is not a valid string for {:?}",
-                        name
-                    )
+        match area {
+            GeoFormats::Feature(feat) => {
+                Query::upsert_feature(conn, feat, &existing, &mut inserts_updates).await?
+            }
+            feat => {
+                let fc = match feat {
+                    GeoFormats::FeatureCollection(fc) => fc,
+                    geometry => geometry.to_collection(None, None),
+                };
+                for feat in fc.into_iter() {
+                    Query::upsert_feature(conn, feat, &existing, &mut inserts_updates).await?
                 }
-            } else {
-                println!("[ROUTE_SAVE] __name property not found, {:?}", feat.id)
             }
         }
 
-        Ok((inserts, update_len))
+        Ok((inserts_updates.inserts, inserts_updates.updates))
     }
 }

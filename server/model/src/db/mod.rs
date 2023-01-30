@@ -139,3 +139,9 @@ pub enum InstanceParsing {
     Feature(Feature),
     Rdm(RdmInstance),
 }
+
+pub struct InsertsUpdates<T> {
+    to_insert: Vec<T>,
+    updates: usize,
+    inserts: usize,
+}

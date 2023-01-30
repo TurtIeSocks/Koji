@@ -7,7 +7,7 @@ use serde_json::json;
 use model::{
     api::{
         args::{get_return_type, Args, ArgsUnwrapped, Response, ReturnTypeArg},
-        ToCollection,
+        GeoFormats, ToCollection,
     },
     db::{area, geofence, instance, project},
     KojiDb,
@@ -59,9 +59,10 @@ async fn save_koji(
 ) -> Result<HttpResponse, Error> {
     let ArgsUnwrapped { area, .. } = payload.into_inner().init(Some("geofence_save"));
 
-    let (inserts, updates) = geofence::Query::save(&conn.koji_db, area)
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let (inserts, updates) =
+        geofence::Query::upsert_from_geometry(&conn.koji_db, GeoFormats::FeatureCollection(area))
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
 
     println!("Rows Updated: {}, Rows Inserted: {}", updates, inserts);
 
@@ -84,9 +85,18 @@ async fn save_scanner(
     let ArgsUnwrapped { area, .. } = payload.into_inner().init(Some("geofence_save"));
 
     let (inserts, updates) = if scanner_type == "rdm" {
-        instance::Query::upsert_from_collection(&conn.data_db, area, false).await
+        instance::Query::upsert_from_geometry(
+            &conn.data_db,
+            GeoFormats::FeatureCollection(area),
+            false,
+        )
+        .await
     } else {
-        area::Query::upsert_from_collection(&conn.unown_db.as_ref().unwrap(), area).await
+        area::Query::upsert_from_geometry(
+            &conn.unown_db.as_ref().unwrap(),
+            GeoFormats::FeatureCollection(area),
+        )
+        .await
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 

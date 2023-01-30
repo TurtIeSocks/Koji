@@ -7,7 +7,7 @@ use sea_orm::entity::prelude::*;
 use serde_json::json;
 
 use crate::{
-    api::{text::TextHelpers, ToText},
+    api::{text::TextHelpers, GeoFormats, ToCollection, ToText},
     utils::get_enum,
 };
 
@@ -137,9 +137,77 @@ impl Query {
         }
     }
 
-    pub async fn upsert_from_collection(
+    async fn upsert_feature(
         conn: &DatabaseConnection,
-        area: FeatureCollection,
+        feat: Feature,
+        existing: &HashMap<String, u32>,
+        inserts_updates: &mut InsertsUpdates<ActiveModel>,
+    ) -> Result<(), DbErr> {
+        if let Some(name) = feat.property("__name") {
+            if let Some(name) = name.as_str() {
+                let column = if let Some(r#type) = feat.property("__mode").clone() {
+                    if let Some(r#type) = r#type.as_str() {
+                        match r#type.to_lowercase().as_str() {
+                            "circlepokemon"
+                            | "circle_pokemon"
+                            | "circlesmartpokemon"
+                            | "circle_smart_pokemon" => Some(area::Column::PokemonModeRoute),
+                            "circleraid" | "circle_raid" | "circlesmartraid"
+                            | "circle_smart_raid" => Some(area::Column::FortModeRoute),
+                            "manualquest" | "manual_quest" => Some(area::Column::QuestModeRoute),
+                            "autoquest" | "auto_quest" => Some(area::Column::Geofence),
+                            _ => None,
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+                if let Some(column) = column {
+                    let name = name.to_string();
+                    let area = feat.to_text(" ", ",", false);
+                    let is_update = existing.get(&name);
+
+                    if let Some(id) = is_update {
+                        area::Entity::update_many()
+                            .col_expr(column, Expr::value(area))
+                            .filter(area::Column::Id.eq(id.to_owned()))
+                            .exec(conn)
+                            .await?;
+                        log::info!("[DB] {}.{:?} Area Updated!", name, column);
+                        inserts_updates.updates += 1;
+                    } else {
+                        log::info!("[AREA] Adding new area {}", name);
+                        let mut new_model = ActiveModel {
+                            name: Set(name),
+                            ..Default::default()
+                        };
+                        match column {
+                            Column::Geofence => new_model.geofence = Set(Some(area)),
+                            Column::FortModeRoute => new_model.fort_mode_route = Set(Some(area)),
+                            Column::QuestModeRoute => new_model.quest_mode_route = Set(Some(area)),
+                            Column::PokemonModeRoute => {
+                                new_model.pokemon_mode_route = Set(Some(area))
+                            }
+                            _ => {}
+                        }
+                        inserts_updates.to_insert.push(new_model)
+                    }
+                } else {
+                    log::warn!("[AREA] Couldn't determine column for {}", name);
+                }
+            } else {
+                log::warn!("[AREA] Couldn't save area, name property is malformed");
+            }
+        } else {
+            log::warn!("[AREA] Couldn't save area, name not found in GeoJson!");
+        }
+        Ok(())
+    }
+    pub async fn upsert_from_geometry(
+        conn: &DatabaseConnection,
+        area: GeoFormats,
     ) -> Result<(usize, usize), DbErr> {
         let existing: HashMap<String, u32> = area::Entity::find()
             .select_only()
@@ -152,82 +220,32 @@ impl Query {
             .map(|model| (model.name, model.id))
             .collect();
 
-        let mut inserts: Vec<area::ActiveModel> = vec![];
-        let mut update_len = 0;
-
-        for feat in area.into_iter() {
-            if let Some(name) = feat.property("__name") {
-                if let Some(name) = name.as_str() {
-                    let column = if let Some(r#type) = feat.property("__mode").clone() {
-                        if let Some(r#type) = r#type.as_str() {
-                            match r#type.to_lowercase().as_str() {
-                                "circlepokemon"
-                                | "circle_pokemon"
-                                | "circlesmartpokemon"
-                                | "circle_smart_pokemon" => Some(area::Column::PokemonModeRoute),
-                                "circleraid" | "circle_raid" | "circlesmartraid"
-                                | "circle_smart_raid" => Some(area::Column::FortModeRoute),
-                                "manualquest" | "manual_quest" => {
-                                    Some(area::Column::QuestModeRoute)
-                                }
-                                "autoquest" | "auto_quest" => Some(area::Column::Geofence),
-                                _ => None,
-                            }
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    };
-                    if let Some(column) = column {
-                        let name = name.to_string();
-                        let area = feat.to_text(" ", ",", false);
-                        let is_update = existing.get(&name);
-
-                        if let Some(id) = is_update {
-                            area::Entity::update_many()
-                                .col_expr(column, Expr::value(area))
-                                .filter(area::Column::Id.eq(id.to_owned()))
-                                .exec(conn)
-                                .await?;
-                            println!("[DB] {}.{:?} Area Updated!", name, column);
-                            update_len += 1;
-                        } else {
-                            println!("[AREA] Adding new area {}", name);
-                            let mut new_model = ActiveModel {
-                                name: Set(name),
-                                ..Default::default()
-                            };
-                            match column {
-                                Column::Geofence => new_model.geofence = Set(Some(area)),
-                                Column::FortModeRoute => {
-                                    new_model.fort_mode_route = Set(Some(area))
-                                }
-                                Column::QuestModeRoute => {
-                                    new_model.quest_mode_route = Set(Some(area))
-                                }
-                                Column::PokemonModeRoute => {
-                                    new_model.pokemon_mode_route = Set(Some(area))
-                                }
-                                _ => {}
-                            }
-                            inserts.push(new_model)
-                        }
-                    } else {
-                        println!("[AREA] Couldn't determine column for {}", name);
-                    }
-                } else {
-                    println!("[AREA] Couldn't save area, name property is malformed");
+        let mut insert_update = InsertsUpdates::<ActiveModel> {
+            to_insert: vec![],
+            updates: 0,
+            inserts: 0,
+        };
+        match area {
+            GeoFormats::Feature(feat) => {
+                Query::upsert_feature(conn, feat, &existing, &mut insert_update).await?
+            }
+            feat => {
+                let fc = match feat {
+                    GeoFormats::FeatureCollection(fc) => fc,
+                    geometry => geometry.to_collection(None, None),
+                };
+                for feat in fc.into_iter() {
+                    Query::upsert_feature(conn, feat, &existing, &mut insert_update).await?
                 }
-            } else {
-                println!("[AREA] Couldn't save area, name not found in GeoJson!");
             }
         }
-        let insert_len = inserts.len();
-        if !inserts.is_empty() {
-            area::Entity::insert_many(inserts).exec(conn).await?;
-            println!("Updated {} Areas", insert_len);
+        let insert_len = insert_update.to_insert.len();
+        if !insert_update.to_insert.is_empty() {
+            area::Entity::insert_many(insert_update.to_insert)
+                .exec(conn)
+                .await?;
+            log::info!("Updated {} Areas", insert_len);
         }
-        Ok((insert_len, update_len))
+        Ok((insert_len, insert_update.updates))
     }
 }
