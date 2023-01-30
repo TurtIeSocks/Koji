@@ -309,46 +309,64 @@ impl Query {
                                     if update_bool {
                                         active_model.update(conn).await?;
                                         inserts_updates.updates += 1;
+                                        Ok(())
                                     } else {
                                         active_model.name = Set(name);
                                         active_model.created_at = Set(Utc::now());
                                         active_model.insert(conn).await?;
                                         inserts_updates.inserts += 1;
+                                        Ok(())
                                     }
                                 } else {
-                                    log::warn!(
+                                    let error = format!(
                                         "[ROUTE_SAVE] geometry value is invalid for {}",
                                         name
-                                    )
+                                    );
+                                    log::warn!("{}", error);
+                                    Err(DbErr::Custom(error))
                                 }
                             } else {
-                                log::warn!(
+                                let error = format!(
                                     "[ROUTE_SAVE] geometry value does not exist for {}",
                                     name
-                                )
+                                );
+                                log::warn!("{}", error);
+                                Err(DbErr::Custom(error))
                             }
                         } else {
-                            log::warn!("[ROUTE_SAVE] __geofence_id property not found for {}", name)
+                            let error = format!(
+                                "[ROUTE_SAVE] __geofence_id property not found for {}",
+                                name
+                            );
+                            log::warn!("{}", error);
+                            Err(DbErr::Custom(error))
                         }
                     } else {
-                        log::warn!(
+                        let error = format!(
                             "[ROUTE_SAVE] __mode property is not a valid string for {}",
                             name
-                        )
+                        );
+                        log::warn!("{}", error);
+                        Err(DbErr::Custom(error))
                     }
                 } else {
-                    log::warn!("[ROUTE_SAVE] __mode property not found for {}", name)
+                    let error = format!("[ROUTE_SAVE] __mode property not found for {}", name);
+                    log::warn!("{}", error);
+                    Err(DbErr::Custom(error))
                 }
             } else {
-                log::warn!(
+                let error = format!(
                     "[ROUTE_SAVE] __name property is not a valid string for {:?}",
                     name
-                )
+                );
+                log::warn!("{}", error);
+                Err(DbErr::Custom(error))
             }
         } else {
-            log::warn!("[ROUTE_SAVE] __name property not found, {:?}", feat.id)
+            let error = format!("[ROUTE_SAVE] __name property not found, {:?}", feat.id);
+            log::warn!("{}", error);
+            Err(DbErr::Custom(error))
         }
-        Ok(())
     }
 
     pub async fn upsert_from_geometry(

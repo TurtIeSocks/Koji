@@ -353,6 +353,7 @@ impl Query {
                             Query::insert_related_projects(conn, projects, model.id).await?;
                         };
                         inserts_updates.updates += 1;
+                        Ok(())
                     } else {
                         let model = ActiveModel {
                             name: Set(name.to_string()),
@@ -369,11 +370,23 @@ impl Query {
                             Query::insert_related_projects(conn, projects, model.id).await?;
                         };
                         inserts_updates.inserts += 1;
+                        Ok(())
                     }
+                } else {
+                    let error = format!("[AREA] unable to serialize the feature: {}", name);
+                    log::warn!("{}", error);
+                    Err(DbErr::Custom(error))
                 }
+            } else {
+                let error = "[AREA] Couldn't save area, name property is malformed";
+                log::warn!("{}", error);
+                Err(DbErr::Custom(error.to_string()))
             }
+        } else {
+            let error = "[AREA] Couldn't save area, name not found in GeoJson!";
+            log::warn!("{}", error);
+            Err(DbErr::Custom(error.to_string()))
         }
-        Ok(())
     }
 
     pub async fn upsert_from_geometry(

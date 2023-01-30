@@ -4,7 +4,6 @@ use std::collections::HashMap;
 
 use super::*;
 use sea_orm::entity::prelude::*;
-use serde_json::json;
 
 use crate::{
     api::{text::TextHelpers, GeoFormats, ToCollection, ToText},
@@ -176,6 +175,7 @@ impl Query {
                             .await?;
                         log::info!("[DB] {}.{:?} Area Updated!", name, column);
                         inserts_updates.updates += 1;
+                        Ok(())
                     } else {
                         log::info!("[AREA] Adding new area {}", name);
                         let mut new_model = ActiveModel {
@@ -191,19 +191,26 @@ impl Query {
                             }
                             _ => {}
                         }
-                        inserts_updates.to_insert.push(new_model)
+                        inserts_updates.to_insert.push(new_model);
+                        Ok(())
                     }
                 } else {
-                    log::warn!("[AREA] Couldn't determine column for {}", name);
+                    let error = format!("[AREA] Couldn't determine column for {}", name);
+                    log::warn!("{}", error);
+                    Err(DbErr::Custom(error))
                 }
             } else {
-                log::warn!("[AREA] Couldn't save area, name property is malformed");
+                let error = "[AREA] Couldn't save area, name property is malformed";
+                log::warn!("{}", error);
+                Err(DbErr::Custom(error.to_string()))
             }
         } else {
-            log::warn!("[AREA] Couldn't save area, name not found in GeoJson!");
+            let error = "[AREA] Couldn't save area, name not found in GeoJson!";
+            log::warn!("{}", error);
+            Err(DbErr::Custom(error.to_string()))
         }
-        Ok(())
     }
+
     pub async fn upsert_from_geometry(
         conn: &DatabaseConnection,
         area: GeoFormats,

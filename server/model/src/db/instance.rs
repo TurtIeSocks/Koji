@@ -169,12 +169,28 @@ impl Query {
                                 let mut model: ActiveModel = model.into();
                                 model.data = Set(data);
                                 match model.update(conn).await {
-                                    Ok(_) => log::info!("Successfully updated {}", id),
+                                    Ok(_) => {
+                                        log::info!("Successfully updated {}", id);
+                                        Ok(())
+                                    }
                                     Err(err) => {
-                                        log::error!("Unable to update {}: {:?}", id, err)
+                                        let error = format!("Unable to update {}: {:?}", id, err);
+                                        log::error!("{}", error);
+                                        Err(DbErr::Custom(error))
                                     }
                                 }
+                            } else {
+                                let error = format!("Unable to serialize json: {:?}", data);
+                                log::error!("{}", error);
+                                Err(DbErr::Custom(error))
                             }
+                        } else {
+                            let error = format!(
+                                "Found an ID but was unable to find the record in the db: {}",
+                                id
+                            );
+                            log::error!("{}", error);
+                            Err(DbErr::Custom(error))
                         }
                     } else {
                         let name = name.to_string();
@@ -191,6 +207,7 @@ impl Query {
                                     .exec(conn)
                                     .await?;
                                 inserts_updates.updates += 1;
+                                Ok(())
                             } else if let Some(actual_entry) = existing.get(&format!(
                                 "{}_{}",
                                 name,
@@ -206,6 +223,7 @@ impl Query {
                                     .exec(conn)
                                     .await?;
                                 inserts_updates.updates += 1;
+                                Ok(())
                             } else {
                                 let mut active_model = ActiveModel {
                                     name: Set(name.to_string()),
@@ -220,7 +238,8 @@ impl Query {
                                     .unwrap();
 
                                 inserts_updates.inserts += 1;
-                                inserts_updates.to_insert.push(active_model)
+                                inserts_updates.to_insert.push(active_model);
+                                Ok(())
                             }
                         } else {
                             let mut active_model = ActiveModel {
@@ -235,25 +254,31 @@ impl Query {
                                 }))
                                 .unwrap();
                             inserts_updates.inserts += 1;
-                            inserts_updates.to_insert.push(active_model)
+                            inserts_updates.to_insert.push(active_model);
+                            Ok(())
                         }
                     }
                 } else {
-                    log::warn!("Unable to determine mode | {:?}", mode)
+                    let error = format!("Unable to determine mode | {:?}", mode);
+                    log::warn!("{}", error);
+                    Err(DbErr::Custom(error))
                 }
             } else {
-                log::warn!(
+                let error = format!(
                     "Name property is not a properly formatted string | {}",
                     name
-                )
+                );
+                log::warn!("{}", error);
+                Err(DbErr::Custom(error))
             }
         } else {
-            log::warn!(
+            let error = format!(
                 "Name not found, unable to save feature {:?}",
                 feat.properties
-            )
+            );
+            log::warn!("{}", error);
+            Err(DbErr::Custom(error))
         }
-        Ok(())
     }
 
     pub async fn upsert_from_geometry(
