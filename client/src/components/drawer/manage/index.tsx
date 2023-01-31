@@ -22,7 +22,7 @@ import ConvertDialog from '@components/dialogs/Convert'
 
 import ExportRoute from '../../dialogs/ExportRoute'
 import PolygonDialog from '../../dialogs/Polygon'
-import InstanceSelect from './Instance'
+import InstanceSelect from '../inputs/Instance'
 import StyledSubheader from '../../styled/Subheader'
 
 export default function ImportExport() {

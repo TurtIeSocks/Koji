@@ -125,6 +125,7 @@ export function PolygonPopup({
 
   const isKoji = feature.id.endsWith('KOJI')
   const isScanner = feature.id.endsWith('SCANNER')
+
   return feature ? (
     <React.Fragment key={feature.geometry.type}>
       <Grid2 container minWidth={150}>
@@ -141,7 +142,7 @@ export function PolygonPopup({
           <Select
             size="small"
             fullWidth
-            value={mode}
+            value={mode === 'Unset' ? '' : mode || ''}
             onChange={async ({ target }) => setMode(target.value as KojiModes)}
           >
             {(useStatic.getState().scannerType === 'rdm'
@@ -297,12 +298,14 @@ export function PolygonPopup({
                   },
                 })
                 const { area, mode: newMode, ...rest } = res.data
-                if (newMode && area.geometry.type !== 'GeometryCollection') {
-                  const newId = `${rest.id}__${newMode}__KOJI` as const
+                if (area.geometry.type !== 'GeometryCollection') {
+                  const newId = `${rest.id}__${
+                    newMode || 'Unset'
+                  }__KOJI` as const
                   area.id = newId
                   setRecord('geofence', rest.id, {
                     ...rest,
-                    mode: newMode,
+                    mode: newMode || 'Unset',
                     geoType: area.geometry.type,
                   })
                   setRecord('feature', newId, area)

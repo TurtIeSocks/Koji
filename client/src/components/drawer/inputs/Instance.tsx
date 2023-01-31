@@ -85,7 +85,7 @@ export default function InstanceSelect({
           getData<KojiResponse<Feature>>(
             `/internal/routes/one/${koji ? 'koji' : 'scanner'}/${
               options[a].id
-            }/${options[a].mode}`,
+            }/${options[a].mode || 'unset'}`,
           ).then((resp) => {
             return resp?.data
           }),
@@ -176,7 +176,7 @@ export default function InstanceSelect({
         handleHomeEndKeys
         disableCloseOnSelect
         fullWidth
-        groupBy={(option) => options[option as KojiKey]?.mode}
+        groupBy={(option) => options[option as KojiKey]?.mode || 'Unset'}
         options={Object.keys(options).sort((a, b) =>
           options[a as KojiKey].mode?.localeCompare(options[b as KojiKey].mode),
         )}
