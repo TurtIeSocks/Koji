@@ -11,6 +11,8 @@ import { usePersist } from '@hooks/usePersist'
 import BasePopup from '../popups/Styled'
 import { MemoPointPopup } from '../popups/Point'
 
+const { isEditing } = useStatic.getState()
+
 export function KojiPoint({
   feature: {
     id,
@@ -54,7 +56,7 @@ export function KojiPoint({
               if (
                 type === 'MultiPoint' &&
                 properties?.__multipoint_id &&
-                !Object.values(useStatic.getState().layerEditing).some((v) => v)
+                !isEditing()
               ) {
                 useShapes
                   .getState()

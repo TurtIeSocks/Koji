@@ -23,8 +23,8 @@ export default function RoutingTab() {
   const mode = usePersist((s) => s.mode)
   const category = usePersist((s) => s.category)
 
-  const [layerEditing, updateButton, scannerType] = useStatic(
-    (s) => [s.layerEditing, s.updateButton, s.scannerType],
+  const [isEditing, updateButton, scannerType] = useStatic(
+    (s) => [s.isEditing, s.updateButton, s.scannerType],
     shallow,
   )
 
@@ -90,7 +90,7 @@ export default function RoutingTab() {
       <ListItemButton
         color="primary"
         disabled={
-          Object.values(layerEditing).some((v) => v) ||
+          isEditing() ||
           !!updateButton ||
           !useStatic.getState().geojson.features.length
         }

@@ -28,6 +28,7 @@ export interface UseStatic {
     drawMode: boolean
     removalMode: boolean
   }
+  isEditing: () => boolean
   dialogs: {
     convert: boolean
   }
@@ -92,6 +93,7 @@ export const useStatic = create<UseStatic>((set, get) => ({
     removalMode: false,
     rotateMode: false,
   },
+  isEditing: () => Object.values(get().layerEditing).some((v) => v),
   forceRedraw: false,
   forceFetch: false,
   importWizard: {
