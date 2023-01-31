@@ -35,11 +35,6 @@ const checkedIcon = <CheckBox fontSize="small" color="primary" />
 const partialIcon = (
   <IndeterminateCheckBoxOutlined fontSize="small" color="primary" />
 )
-const filterOptions = createFilterOptions({
-  matchFrom: 'any',
-  stringify: (option: string) => option,
-})
-
 export default function InstanceSelect({
   // endpoint,
   setGeojson,
@@ -72,6 +67,12 @@ export default function InstanceSelect({
   React.useEffect(() => {
     if (controlled) setSelected(initialState)
   }, [initialState])
+
+  const filterOptions = createFilterOptions({
+    matchFrom: 'any',
+    stringify: (option: string) =>
+      `${option}${options[option as KojiKey]?.name}`,
+  })
 
   const updateState = async (newValue: KojiKey[]) => {
     const added = newValue.filter((s) => !selected.includes(s))
