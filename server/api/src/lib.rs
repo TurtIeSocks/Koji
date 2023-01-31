@@ -138,7 +138,7 @@ pub async fn start() -> io::Result<()> {
                         web::scope("/routes")
                             .service(private::data::instance::from_koji)
                             .service(private::data::instance::from_scanner)
-                            .service(private::data::instance::route_from_scanner),
+                            .service(private::data::instance::route_from_db),
                     )
                     .service(
                         web::scope("/data")

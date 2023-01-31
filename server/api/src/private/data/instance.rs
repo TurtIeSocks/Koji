@@ -91,7 +91,7 @@ struct UrlVars {
 }
 
 #[get("/one/{source}/{id}/{instance_type}")]
-async fn route_from_scanner(
+async fn route_from_db(
     conn: web::Data<KojiDb>,
     instance: actix_web::web::Path<UrlVars>,
     scanner_type: web::Data<String>,

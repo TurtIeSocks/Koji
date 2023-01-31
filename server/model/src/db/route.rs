@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use crate::{
     api::{GeoFormats, ToCollection, ToFeature},
+    db::sea_orm_active_enums::Type,
     error::ModelError,
 };
 
@@ -80,7 +81,7 @@ impl ToFeatureFromModel for Model {
         } = self;
 
         let geometry = Geometry::from_json_value(geometry)?;
-        let mut feature = geometry.to_feature(None);
+        let mut feature = geometry.to_feature(Some(Type::CirclePokemon));
 
         feature.id = Some(geojson::feature::Id::String(format!(
             "{}__{}__KOJI",
@@ -90,6 +91,7 @@ impl ToFeatureFromModel for Model {
         feature.set_property("__id", id);
         feature.set_property("__geofence_id", geofence_id);
         feature.set_property("__mode", mode);
+
         Ok(feature)
     }
 }
