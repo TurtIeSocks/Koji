@@ -36,6 +36,9 @@ import {
 } from '@services/utils'
 import shallow from 'zustand/shallow'
 
+const { add, remove, updateProperty } = useShapes.getState().setters
+const { setRecord } = useDbCache.getState()
+
 export function PolygonPopup({
   feature: refFeature,
   loadData,
@@ -45,9 +48,6 @@ export function PolygonPopup({
   loadData: boolean
   dbRef: DbOption | null
 }) {
-  const { add, remove } = useShapes.getState().setters
-  const { setRecord } = useDbCache.getState()
-
   const feature =
     useShapes(
       (s) => ({ ...s.Polygon, ...s.MultiPolygon }[refFeature.id]),
@@ -136,6 +136,9 @@ export function PolygonPopup({
             fullWidth
             value={name}
             onChange={({ target }) => setName(target.value)}
+            onBlur={() =>
+              updateProperty(feature.geometry.type, feature.id, '__name', name)
+            }
           />
         </Grid2>
         <Grid2 xs={12} py={1}>
@@ -144,6 +147,9 @@ export function PolygonPopup({
             fullWidth
             value={mode === 'Unset' ? '' : mode || ''}
             onChange={async ({ target }) => setMode(target.value as KojiModes)}
+            onBlur={() =>
+              updateProperty(feature.geometry.type, feature.id, '__mode', mode)
+            }
           >
             {(useStatic.getState().scannerType === 'rdm'
               ? RDM_FENCES

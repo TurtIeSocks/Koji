@@ -21,6 +21,9 @@ import { useStatic } from '@hooks/useStatic'
 import { getData, getKojiCache } from '@services/fetches'
 import { useDbCache } from '@hooks/useDbCache'
 
+const { add, remove, splitLine, activeRoute, updateProperty } =
+  useShapes.getState().setters
+
 interface Props extends PopupProps {
   lat: number
   lon: number
@@ -30,7 +33,6 @@ interface Props extends PopupProps {
 export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
   const [open, setOpen] = React.useState('')
   const feature = useShapes((s) => s[geoType][id])
-  const { add, remove, splitLine, activeRoute } = useShapes.getState().setters
   const { setRecord, geofence } = useDbCache.getState()
 
   const [name, setName] = React.useState(
@@ -76,6 +78,9 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
             fullWidth
             value={name}
             onChange={({ target }) => setName(target.value)}
+            onBlur={() =>
+              updateProperty(feature.geometry.type, feature.id, '__name', name)
+            }
           />
         </Grid2>
         <Grid2 xs={12} py={1}>
@@ -84,6 +89,9 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
             fullWidth
             value={mode}
             onChange={({ target }) => setMode(target.value)}
+            onBlur={() =>
+              updateProperty(feature.geometry.type, feature.id, '__mode', mode)
+            }
           >
             {(useStatic.getState().scannerType === 'rdm'
               ? RDM_ROUTES
@@ -101,8 +109,14 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
             fullWidth
             value={options.length ? fenceId || '' : ''}
             onChange={({ target }) => setFenceId(+target.value)}
-            onOpen={async () =>
-              options.length ? null : getKojiCache('geofence')
+            onOpen={() => (options.length ? null : getKojiCache('geofence'))}
+            onBlur={() =>
+              updateProperty(
+                feature.geometry.type,
+                feature.id,
+                '__geofence_id',
+                fenceId,
+              )
             }
           >
             {options.map((t) => (
