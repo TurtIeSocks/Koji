@@ -33,7 +33,6 @@ const partialIcon = (
   <IndeterminateCheckBoxOutlined fontSize="small" color="primary" />
 )
 export default function InstanceSelect({
-  // endpoint,
   setGeojson,
   koji = false,
   controlled = false,
@@ -231,11 +230,13 @@ export default function InstanceSelect({
                       ? selected.filter(
                           (v) =>
                             !allValues.includes(v) ||
-                            options[v]?.mode !== group,
+                            (options[v]?.mode || 'Unset') !== group,
                         )
                       : [
                           ...allValues,
-                          ...selected.filter((v) => options[v]?.mode !== group),
+                          ...selected.filter(
+                            (v) => (options[v]?.mode || 'Unset') !== group,
+                          ),
                         ],
                   )
                 }
