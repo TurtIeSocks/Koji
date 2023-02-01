@@ -39,6 +39,7 @@ export async function getData<T>(
           severity: 'error',
         },
       })
+      return null
     }
     return await res.json()
   } catch (e) {
@@ -50,7 +51,7 @@ export async function getData<T>(
 export async function getKojiCache<T extends 'geofence' | 'project' | 'route'>(
   resource: T,
 ): Promise<UseDbCache[T] | null> {
-  const res = await fetch(`/internal/admin/${resource}/all/`, {
+  const res = await fetch(`/internal/admin/${resource}/ref/`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -69,6 +70,11 @@ export async function getKojiCache<T extends 'geofence' | 'project' | 'route'>(
   const { data }: KojiResponse<UseDbCache[T][string][]> = await res.json()
   const asObject = Object.fromEntries(data.map((d) => [d.id, d]))
   useDbCache.setState({ [resource]: asObject })
+  console.log(
+    'Cache set:',
+    resource,
+    process.env.NODE_ENV === 'development' ? data : data.length,
+  )
   return asObject
 }
 
@@ -85,18 +91,30 @@ export async function getScannerCache() {
     '/internal/routes/from_scanner',
   ).then((res) => {
     if (res) {
-      // eslint-disable-next-line no-console
-      console.log('Cache set:', 'scanner', res.data.length)
       const asObject = Object.fromEntries(
         res.data.map((t) => [`${t.id}__${t.mode}__SCANNER`, t]),
       )
       useDbCache.setState({
         scanner: asObject,
       })
+      console.log(
+        'Cache set:',
+        'scanner',
+        process.env.NODE_ENV === 'development' ? res.data : res.data.length,
+      )
       return asObject
     }
   })
 }
+
+export async function getFullCache() {
+  Promise.all(
+    (['geofence', 'route', 'project', 'scanner'] as const).map((resource) =>
+      resource === 'scanner' ? getScannerCache() : getKojiCache(resource),
+    ),
+  )
+}
+
 export async function clusteringRouting(): Promise<FeatureCollection> {
   const {
     mode,

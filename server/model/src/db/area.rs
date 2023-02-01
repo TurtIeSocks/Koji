@@ -72,7 +72,7 @@ impl Model {
 pub struct Query;
 
 impl Query {
-    pub async fn all(conn: &DatabaseConnection) -> Result<Vec<NameTypeId>, DbErr> {
+    pub async fn all(conn: &DatabaseConnection) -> Result<Vec<sea_orm::JsonValue>, DbErr> {
         let items = area::Entity::find()
             .select_only()
             .column(Column::Id)

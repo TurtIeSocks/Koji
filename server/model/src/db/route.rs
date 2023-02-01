@@ -153,6 +153,18 @@ impl Query {
         Entity::find().all(db).await
     }
 
+    pub async fn get_json_cache(db: &DatabaseConnection) -> Result<Vec<sea_orm::JsonValue>, DbErr> {
+        Entity::find()
+            .from_raw_sql(Statement::from_sql_and_values(
+                DbBackend::MySql,
+                r#"SELECT id, name, geofence_id, mode, JSON_EXTRACT(geometry, '$.type') AS geo_type FROM route ORDER BY name"#,
+                vec![],
+            ))
+            .into_json()
+            .all(db)
+            .await
+    }
+
     /// Returns all Geofence models in the db without their features
     pub async fn get_all_no_fences(db: &DatabaseConnection) -> Result<Vec<RouteNoGeometry>, DbErr> {
         Entity::find()

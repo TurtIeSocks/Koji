@@ -1,8 +1,10 @@
+use serde_json::json;
+
 use super::*;
 
 use crate::{
     api::text::TextHelpers,
-    db::{sea_orm_active_enums::Type, AreaRef, NameTypeId},
+    db::{sea_orm_active_enums::Type, AreaRef},
 };
 
 pub fn fort<T>(items: api::single_struct::SingleStruct<T>, prefix: &str) -> Vec<db::GenericData<T>>
@@ -62,37 +64,41 @@ pub fn area(areas: Vec<db::area::Model>) -> Vec<Feature> {
     normalized
 }
 
-pub fn area_ref(areas: Vec<AreaRef>) -> Vec<NameTypeId> {
-    let mut normalized = Vec::<NameTypeId>::new();
+pub fn area_ref(areas: Vec<AreaRef>) -> Vec<sea_orm::JsonValue> {
+    let mut normalized = Vec::<sea_orm::JsonValue>::new();
 
     for area in areas.into_iter() {
-        if area.has_fort {
-            normalized.push(NameTypeId {
-                id: area.id,
-                name: area.name.clone(),
-                mode: Some(Type::CircleRaid),
-            });
-        }
         if area.has_geofence {
-            normalized.push(NameTypeId {
-                id: area.id,
-                name: area.name.clone(),
-                mode: Some(Type::AutoQuest),
-            });
+            normalized.push(json!({
+                "id": area.id,
+                "name": area.name,
+                "mode": "AutoQuest",
+                "geo_type": "Polygon",
+            }));
+        }
+        if area.has_fort {
+            normalized.push(json!({
+                "id": area.id,
+                "name": area.name,
+                "mode": "CircleRaid",
+                "geo_type": "MultiPoint",
+            }));
         }
         if area.has_pokemon {
-            normalized.push(NameTypeId {
-                id: area.id,
-                name: area.name.clone(),
-                mode: Some(Type::CirclePokemon),
-            });
+            normalized.push(json!({
+                "id": area.id,
+                "name": area.name,
+                "mode": "CirclePokemon",
+                "geo_type": "MultiPoint",
+            }));
         }
         if area.has_quest {
-            normalized.push(NameTypeId {
-                id: area.id,
-                name: area.name,
-                mode: Some(Type::ManualQuest),
-            });
+            normalized.push(json!({
+                "id": area.id,
+                "name": area.name,
+                "mode": "ManualQuest",
+                "geo_type": "MultiPoint",
+            }));
         }
     }
     normalized

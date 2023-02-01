@@ -306,7 +306,7 @@ export function PolygonPopup({
                   setRecord('geofence', rest.id, {
                     ...rest,
                     mode: newMode || 'Unset',
-                    geoType: area.geometry.type,
+                    geo_type: area.geometry.type,
                   })
                   setRecord('feature', newId, area)
                   remove(feature.geometry.type, feature.id)
@@ -350,7 +350,7 @@ export function PolygonPopup({
                   setRecord('scanner', feature.id as KojiKey, {
                     ...dbRef,
                     mode,
-                    geoType: feature.geometry.type,
+                    geo_type: feature.geometry.type,
                   })
                   setRecord('feature', feature.id as KojiKey, feature)
                 }

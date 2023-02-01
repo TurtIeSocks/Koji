@@ -44,6 +44,7 @@ pub struct NameTypeId {
     pub id: u32,
     pub name: String,
     pub mode: Option<self::sea_orm_active_enums::Type>,
+    pub geo_type: Option<String>,
 }
 
 #[derive(Debug, FromQueryResult)]

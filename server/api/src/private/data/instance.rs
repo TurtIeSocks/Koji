@@ -23,11 +23,13 @@ async fn from_scanner(
     println!("\n[INSTANCE-ALL] Scanner Type: {}", scanner_type);
 
     let instances = if scanner_type.eq("rdm") {
-        instance::Query::all(&conn.data_db, None).await
+        instance::Query::get_json_cache(&conn.data_db).await
     } else if let Some(unown_db) = conn.unown_db.as_ref() {
         area::Query::all(unown_db).await
     } else {
-        Ok(vec![])
+        Err(DbErr::Custom(
+            "[DB] Scanner is not configured correctly".to_string(),
+        ))
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -59,6 +61,7 @@ async fn from_koji(
             id: instance.id,
             name: instance.name,
             mode: get_enum(instance.mode),
+            geo_type: None,
         })
         .collect();
 
@@ -70,6 +73,7 @@ async fn from_koji(
             id: instance.id,
             name: instance.name,
             mode: get_enum(Some(instance.mode)),
+            geo_type: None,
         })
     });
 

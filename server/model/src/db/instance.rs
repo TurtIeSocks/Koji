@@ -16,7 +16,7 @@ use super::{
     RdmInstanceArea, ToFeatureFromModel,
 };
 
-use sea_orm::{entity::prelude::*, sea_query::Expr, QuerySelect, Set};
+use sea_orm::{entity::prelude::*, sea_query::Expr, DbBackend, QuerySelect, Set, Statement};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -88,6 +88,26 @@ impl Query {
                 .all(conn)
                 .await
         }
+    }
+
+    pub async fn get_json_cache(db: &DatabaseConnection) -> Result<Vec<sea_orm::JsonValue>, DbErr> {
+        Entity::find()
+            .from_raw_sql(Statement::from_sql_and_values(
+                DbBackend::MySql,
+                r#"SELECT id, name, type AS mode,
+                        CASE 
+                            WHEN type = 'leveling' THEN 'Point'
+                            WHEN type LIKE 'circle_%' THEN 'MultiPoint'
+                            ELSE 'MultiPolygon'
+                        END AS geo_type
+                        FROM instance
+                        ORDER BY name
+                    "#,
+                vec![],
+            ))
+            .into_json()
+            .all(db)
+            .await
     }
 
     pub async fn feature_from_name(

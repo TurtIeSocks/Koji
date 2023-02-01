@@ -4,6 +4,7 @@ import { useTheme } from '@mui/material'
 import Architecture from '@mui/icons-material/Architecture'
 import AccountTree from '@mui/icons-material/AccountTree'
 import Route from '@mui/icons-material/Route'
+import { getFullCache } from '@services/fetches'
 
 import { dataProvider } from './dataProvider'
 import Layout from './Layout'
@@ -25,6 +26,10 @@ import RouteCreate from './route/RouteCreate'
 
 export default function AdminPanel() {
   const theme = useTheme()
+
+  React.useEffect(() => {
+    getFullCache()
+  }, [])
 
   return (
     <Admin

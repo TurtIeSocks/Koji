@@ -66,6 +66,21 @@ async fn get_all(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
     }))
 }
 
+#[get("/ref/")]
+async fn get_ref(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
+    let geofences = route::Query::get_json_cache(&conn.koji_db)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    Ok(HttpResponse::Ok().json(Response {
+        data: Some(json!(geofences)),
+        message: "Success".to_string(),
+        status: "ok".to_string(),
+        stats: None,
+        status_code: 200,
+    }))
+}
+
 #[get("/{id}/")]
 async fn get_one(
     conn: web::Data<KojiDb>,

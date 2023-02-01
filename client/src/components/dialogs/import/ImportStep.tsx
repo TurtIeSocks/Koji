@@ -63,7 +63,6 @@ const ImportStep = React.forwardRef<
       </Grid2>
       <Grid2 xs={4}>
         <InstanceSelect
-          endpoint="/internal/routes/from_scanner"
           setGeojson={(geo) =>
             handleChange(
               {

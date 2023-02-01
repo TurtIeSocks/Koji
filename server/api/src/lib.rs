@@ -152,6 +152,7 @@ pub async fn start() -> io::Result<()> {
                             .service(
                                 web::scope("/geofence")
                                     .service(private::admin::geofence::get_all)
+                                    .service(private::admin::geofence::get_ref)
                                     .service(private::admin::geofence::paginate)
                                     .service(private::admin::geofence::get_one)
                                     .service(private::admin::geofence::create)
@@ -161,6 +162,7 @@ pub async fn start() -> io::Result<()> {
                             .service(
                                 web::scope("/project")
                                     .service(private::admin::project::get_all)
+                                    .service(private::admin::project::get_ref)
                                     .service(private::admin::project::search)
                                     .service(private::admin::project::paginate)
                                     .service(private::admin::project::get_one)
@@ -179,6 +181,7 @@ pub async fn start() -> io::Result<()> {
                             .service(
                                 web::scope("/route")
                                     .service(private::admin::route::get_all)
+                                    .service(private::admin::route::get_ref)
                                     .service(private::admin::route::paginate)
                                     .service(private::admin::route::get_one)
                                     .service(private::admin::route::create)

@@ -77,6 +77,18 @@ impl Query {
         project::Entity::find().all(db).await
     }
 
+    pub async fn get_json_cache(db: &DatabaseConnection) -> Result<Vec<sea_orm::JsonValue>, DbErr> {
+        Entity::find()
+            .from_raw_sql(Statement::from_sql_and_values(
+                DbBackend::MySql,
+                r#"SELECT id, name FROM project ORDER BY name"#,
+                vec![],
+            ))
+            .into_json()
+            .all(db)
+            .await
+    }
+
     pub async fn get_related_fences(
         db: &DatabaseConnection,
         model: Model,

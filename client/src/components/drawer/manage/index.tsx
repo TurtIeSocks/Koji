@@ -63,7 +63,6 @@ export default function ImportExport() {
         <ListItemText primary="Geofence Input" />
       </ListItemButton>
       <InstanceSelect
-        endpoint="/internal/routes/from_scanner"
         controlled
         initialState={[
           ...(addPoint && addPoint.endsWith('__SCANNER') ? [addPoint] : []),
@@ -80,7 +79,6 @@ export default function ImportExport() {
         label="Import from Scanner"
       />
       <InstanceSelect
-        endpoint="/internal/routes/from_koji"
         koji
         controlled
         initialState={[

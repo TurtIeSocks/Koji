@@ -1,4 +1,3 @@
-/* eslint-disable no-nested-ternary */
 import * as React from 'react'
 import {
   ListItem,
@@ -27,8 +26,6 @@ import type {
 import { useShapes } from '@hooks/useShapes'
 import { getData } from '@services/fetches'
 import { useDbCache } from '@hooks/useDbCache'
-// import useDeepCompareEffect from 'use-deep-compare-effect'
-// import shallow from 'zustand/shallow'
 
 const icon = <CheckBoxOutlineBlank fontSize="small" color="primary" />
 const checkedIcon = <CheckBox fontSize="small" color="primary" />
@@ -44,7 +41,6 @@ export default function InstanceSelect({
   initialState = [],
   label = 'Select Instance',
 }: {
-  endpoint: string
   setGeojson?: (collection: FeatureCollection) => void
   koji?: boolean
   filters?: readonly string[]
@@ -113,9 +109,9 @@ export default function InstanceSelect({
       })
     } else {
       deleted.forEach((d) => {
-        const { geoType } = options[d]
-        if (geoType) {
-          remove(geoType, d)
+        const { geo_type } = options[d]
+        if (geo_type) {
+          remove(geo_type, d)
         }
       })
     }
@@ -131,12 +127,12 @@ export default function InstanceSelect({
           if (c.geometry.type.includes('Polygon')) {
             updatedFences[c.id] = {
               ...reference,
-              geoType: c.geometry.type as 'Polygon' | 'MultiPolygon',
+              geo_type: c.geometry.type as 'Polygon' | 'MultiPolygon',
             }
           } else if (c.geometry.type === 'MultiPoint') {
             updatedRoutes[c.id] = {
               ...reference,
-              geoType: c.geometry.type as 'MultiPoint',
+              geo_type: c.geometry.type as 'MultiPoint',
             }
           }
         }
@@ -152,7 +148,7 @@ export default function InstanceSelect({
             c.id,
             {
               ...getFromKojiKey(c.id.toString()),
-              geoType: c.geometry.type,
+              geo_type: c.geometry.type,
             },
           ]),
         ),
@@ -179,7 +175,9 @@ export default function InstanceSelect({
         fullWidth
         groupBy={(option) => options[option as KojiKey]?.mode || 'Unset'}
         options={Object.keys(options).sort((a, b) =>
-          options[a as KojiKey].mode?.localeCompare(options[b as KojiKey].mode),
+          (options[a as KojiKey].mode || 'Unset').localeCompare(
+            options[b as KojiKey].mode || 'Unset',
+          ),
         )}
         renderTags={(val) => (
           <Typography align="center">({val.length})</Typography>
@@ -208,7 +206,7 @@ export default function InstanceSelect({
                     GeometryCollection: '',
                     LineString: '',
                     MultiLineString: '',
-                  }[options[option as KojiKey]?.geoType || 'Point']
+                  }[options[option as KojiKey]?.geo_type || 'Point']
                 }
               </div>
               {loading && <CircularProgress size={20} sx={{ flexGrow: 0 }} />}
@@ -261,7 +259,11 @@ export default function InstanceSelect({
                 />
                 {loading && <CircularProgress size={20} />}
               </ListItemButton>
-              {children}
+              {Array.isArray(children)
+                ? children.sort((a, b) =>
+                    options[a.key].name.localeCompare(options[b.key].name),
+                  )
+                : children}
             </List>
           ) : null
         }}

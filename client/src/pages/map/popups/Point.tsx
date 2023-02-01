@@ -223,7 +223,7 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
                         }
                         setRecord('route', rest.id, {
                           ...rest,
-                          geoType: geometry.type,
+                          geo_type: geometry.type,
                         })
                         setRecord('feature', newId, newFeature)
 

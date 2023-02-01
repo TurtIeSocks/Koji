@@ -144,7 +144,7 @@ export interface KojiResponse<T = FeatureCollection> {
 export interface DbOption
   extends Omit<BasicKojiEntry, 'created_at' | 'updated_at'> {
   mode: KojiModes
-  geoType?: GeometryTypes
+  geo_type?: GeometryTypes
   geofence_id?: number
 }
 
