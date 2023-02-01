@@ -26,15 +26,20 @@ export default function Nominatim({
   const [inputValue, setInputValue] = React.useState('')
 
   React.useEffect(() => {
+    const controller = new AbortController()
     setLoading(true)
     getData<KojiResponse<FeatureCollection>>(
       `/config/nominatim?query=${inputValue}`,
+      { signal: controller.signal },
     ).then((res) => {
       if (res) {
         setResults(res.data)
         setLoading(false)
       }
     })
+    return () => {
+      controller.abort()
+    }
   }, [inputValue])
 
   return (
