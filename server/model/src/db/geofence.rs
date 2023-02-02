@@ -236,13 +236,13 @@ impl Query {
         }
     }
 
-    // Deletes a Geofence model from db
+    /// Deletes a Geofence model from db
     pub async fn delete(db: &DatabaseConnection, id: u32) -> Result<DeleteResult, DbErr> {
         let record = Entity::delete_by_id(id).exec(db).await?;
         Ok(record)
     }
 
-    // Returns all geofence models as a FeatureCollection,
+    /// Returns all geofence models as a FeatureCollection,
     pub async fn as_collection(conn: &DatabaseConnection) -> Result<FeatureCollection, DbErr> {
         let items = Entity::find()
             .order_by(Column::Name, Order::Asc)
@@ -441,12 +441,12 @@ impl Query {
     /// Returns all geofence models, as features, that are related to the specified project
     pub async fn by_project(
         conn: &DatabaseConnection,
-        project_id: String,
+        project_name: String,
     ) -> Result<Vec<Feature>, DbErr> {
         let items = Entity::find()
             .order_by(Column::Name, Order::Asc)
             .left_join(project::Entity)
-            .filter(project::Column::Name.eq(project_id))
+            .filter(project::Column::Name.eq(project_name))
             .all(conn)
             .await?;
 

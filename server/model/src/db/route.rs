@@ -270,6 +270,20 @@ impl Query {
         }
     }
 
+    /// Returns all route models as a FeatureCollection,
+    pub async fn as_collection(conn: &DatabaseConnection) -> Result<FeatureCollection, DbErr> {
+        let items = Entity::find()
+            .order_by(Column::Name, Order::Asc)
+            .all(conn)
+            .await?;
+        let items: Vec<Feature> = items
+            .into_iter()
+            .filter_map(|item| item.to_feature().ok())
+            .collect();
+
+        Ok(items.to_collection(None, None))
+    }
+
     async fn upsert_feature(
         conn: &DatabaseConnection,
         feat: Feature,
@@ -415,5 +429,23 @@ impl Query {
         }
 
         Ok((inserts_updates.inserts, inserts_updates.updates))
+    }
+
+    pub async fn by_geofence(
+        conn: &DatabaseConnection,
+        geofence_name: String,
+    ) -> Result<Vec<Feature>, DbErr> {
+        let items = Entity::find()
+            .order_by(Column::Name, Order::Asc)
+            .left_join(geofence::Entity)
+            .filter(geofence::Column::Name.eq(geofence_name))
+            .all(conn)
+            .await?;
+
+        let items: Vec<Feature> = items
+            .into_iter()
+            .filter_map(|item| item.to_feature().ok())
+            .collect();
+        Ok(items)
     }
 }

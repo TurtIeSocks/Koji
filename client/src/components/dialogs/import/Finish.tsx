@@ -37,11 +37,7 @@ export default function FinishStep({ filtered, reset }: Props) {
       justifyContent="space-around"
     >
       <Grid2>
-        <SaveToKoji
-          fc={JSON.stringify(withInternalProps)}
-          variant="outlined"
-          color="success"
-        />
+        <SaveToKoji fc={withInternalProps} variant="outlined" color="success" />
       </Grid2>
       <Grid2>
         <Button

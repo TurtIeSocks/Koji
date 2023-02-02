@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { GeoJSON, useMap } from 'react-leaflet'
+import { GeoJSON, GeoJSONProps, useMap } from 'react-leaflet'
 import distance from '@turf/distance'
 import * as L from 'leaflet'
 
@@ -7,12 +7,13 @@ import type { FeatureCollection } from '@assets/types'
 import { getColor, mpToPoints } from '@services/utils'
 
 export default function GeoJsonWrapper({
-  fc,
+  data: fc,
   mode,
+  ...rest
 }: {
-  fc: FeatureCollection
+  data: FeatureCollection
   mode?: string
-}) {
+} & GeoJSONProps) {
   const map = useMap()
   const featureCollection: FeatureCollection = {
     ...fc,
@@ -49,6 +50,7 @@ export default function GeoJsonWrapper({
             : feat.properties?.radius || 70,
         })
       }}
+      {...rest}
     />
   )
 }

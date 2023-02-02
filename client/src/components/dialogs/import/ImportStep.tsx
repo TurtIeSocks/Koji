@@ -16,7 +16,11 @@ const ImportStep = React.forwardRef<
   HTMLDivElement,
   {
     geojson: FeatureCollection
-    handleChange: (geojson: FeatureCollection, key?: string) => void
+    handleChange: (
+      geojson: FeatureCollection,
+      key?: string,
+      deleted?: string[],
+    ) => void
   }
 >(({ geojson, handleChange }, ref) => {
   const scannerType = useStatic((s) => s.scannerType)
@@ -63,11 +67,11 @@ const ImportStep = React.forwardRef<
       </Grid2>
       <Grid2 xs={4}>
         <InstanceSelect
-          setGeojson={(geo) =>
+          setGeojson={(incoming, deleted) =>
             handleChange(
               {
-                ...geo,
-                features: geo.features.map((feat) => ({
+                ...incoming,
+                features: incoming.features.map((feat) => ({
                   ...feat,
                   id: `${feat.properties?.__id}__${feat.properties?.__mode}__SCANNER`,
                   properties: {
@@ -79,6 +83,7 @@ const ImportStep = React.forwardRef<
                 })),
               },
               '__scanner',
+              deleted,
             )
           }
           controlled

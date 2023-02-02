@@ -219,7 +219,7 @@ export default function ConvertDialog({
               >
                 <GeoJsonWrapper
                   key={JSON.stringify(previewGeojson)}
-                  fc={previewGeojson}
+                  data={previewGeojson}
                 />
               </Map>
             ) : (

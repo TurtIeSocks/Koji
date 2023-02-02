@@ -68,7 +68,7 @@ export default function RouteForm() {
               zoomControl
               style={{ width: '100%', height: '50vh' }}
             >
-              <GeoJsonWrapper fc={fc} mode={formData.mode} />
+              <GeoJsonWrapper data={fc} mode={formData.mode} />
             </Map>
           )
         }}

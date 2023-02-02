@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { GeoJSON, LayerGroup, LayersControl, Rectangle } from 'react-leaflet'
+import { LayerGroup, LayersControl, Rectangle } from 'react-leaflet'
 import * as L from 'leaflet'
 import center from '@turf/center'
 
@@ -7,6 +7,7 @@ import Map from '@components/Map'
 import { useStatic } from '@hooks/useStatic'
 import type { AllGeoJSON } from '@turf/helpers'
 import type { FeatureCollection } from 'assets/types'
+import GeoJsonWrapper from '@components/GeojsonWrapper'
 
 export default function MiniMap({ filtered }: { filtered: FeatureCollection }) {
   const centerPoint = filtered.features.length
@@ -48,7 +49,7 @@ export default function MiniMap({ filtered }: { filtered: FeatureCollection }) {
           </LayerGroup>
         </LayersControl.Overlay>
         <LayersControl.Overlay name="Features" checked>
-          <GeoJSON
+          <GeoJsonWrapper
             data={filtered}
             onEachFeature={(feature, layer) => {
               if (layer instanceof L.Polygon && feature.properties) {

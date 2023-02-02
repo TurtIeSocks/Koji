@@ -73,7 +73,7 @@ pub fn area_ref(areas: Vec<AreaRef>) -> Vec<sea_orm::JsonValue> {
                 "id": area.id,
                 "name": area.name,
                 "mode": "AutoQuest",
-                "geo_type": "Polygon",
+                "geo_type": "MultiPolygon",
             }));
         }
         if area.has_fort {

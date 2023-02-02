@@ -41,7 +41,7 @@ export default function Manager({ open, setOpen, geojson }: Props) {
           fc={safe}
           setter={(fc) => setCode(JSON.stringify(fc))}
         />
-        <SaveToKoji fc={code} />
+        <SaveToKoji fc={safe} />
         <SaveToScanner fc={code} />
         <Button
           onClick={() => {

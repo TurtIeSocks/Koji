@@ -40,7 +40,7 @@ export default function InstanceSelect({
   initialState = [],
   label = 'Select Instance',
 }: {
-  setGeojson?: (collection: FeatureCollection) => void
+  setGeojson?: (collection: FeatureCollection, deleted: string[]) => void
   koji?: boolean
   filters?: readonly string[]
   controlled?: boolean
@@ -98,15 +98,18 @@ export default function InstanceSelect({
       )
       .map((result) => result.value)
 
-    add(cleaned, koji ? '__KOJI' : '__SCANNER')
     if (setGeojson) {
-      setGeojson({
-        type: 'FeatureCollection',
-        features: newValue
-          .map((n) => featureCache[n] || cleaned.find((f) => f.id === n))
-          .filter(Boolean),
-      })
+      setGeojson(
+        {
+          type: 'FeatureCollection',
+          features: newValue
+            .map((n) => featureCache[n] || cleaned.find((f) => f.id === n))
+            .filter(Boolean),
+        },
+        deleted,
+      )
     } else {
+      add(cleaned, koji ? '__KOJI' : '__SCANNER')
       deleted.forEach((d) => {
         const { geo_type } = options[d]
         if (geo_type) {

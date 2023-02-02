@@ -1,8 +1,16 @@
 import create from 'zustand'
 import type { AlertProps } from '@mui/material'
 
-import type { AdminProject, KojiStats, FeatureCollection } from '@assets/types'
+import type {
+  AdminProject,
+  KojiStats,
+  FeatureCollection,
+  StoreNoFn,
+} from '@assets/types'
 import { collectionToObject } from '@services/utils'
+import { ALL_FENCES, ALL_ROUTES } from '@assets/constants'
+
+type CacheKey = StoreNoFn<UseStatic>
 
 export interface UseStatic {
   networkStatus: {
@@ -41,18 +49,15 @@ export interface UseStatic {
     customName: string
     modifier: 'capitalize' | 'lowercase' | 'uppercase' | 'none'
     allProjects: number[]
-    allType: '' | 'AutoQuest' | 'PokemonIv' | 'AutoPokemon' | 'AutoTth'
+    allGeofences: number | string
+    allFenceMode: '' | typeof ALL_FENCES
+    allRouteMode: '' | typeof ALL_ROUTES
     checked: Record<string, boolean>
   }
   projects: Record<number | string, AdminProject>
   clickedLocation: [number, number]
   combinePolyMode: boolean
-  setStatic: <
-    T extends keyof Omit<
-      UseStatic,
-      'setStatic' | 'setSelected' | 'setStaticAlt' | 'setGeojson'
-    >,
-  >(
+  setStatic: <T extends CacheKey>(
     key: T,
     init: UseStatic[T] | ((prev: UseStatic[T]) => UseStatic[T]),
   ) => void
@@ -103,7 +108,9 @@ export const useStatic = create<UseStatic>((set, get) => ({
     customName: '',
     modifier: 'none',
     allProjects: [],
-    allType: '',
+    allGeofences: '',
+    allFenceMode: '',
+    allRouteMode: '',
     checked: {},
   },
   dialogs: {

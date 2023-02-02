@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import create from 'zustand'
 import type {
-  OnlyType,
   DbOption,
   KojiKey,
   Feature,
   Category,
+  StoreNoFn,
 } from '@assets/types'
 import { ALL_FENCES, ALL_ROUTES } from '@assets/constants'
 
-type CacheKey = keyof OnlyType<UseDbCache, Function, false>
+type CacheKey = StoreNoFn<UseDbCache>
 
 export interface UseDbCache {
   route: Record<string | number, DbOption>
