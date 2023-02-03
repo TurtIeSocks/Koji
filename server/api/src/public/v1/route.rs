@@ -6,7 +6,7 @@ use serde_json::json;
 
 use model::{
     api::{
-        args::{get_return_type, Args, ArgsUnwrapped, Response, ReturnTypeArg},
+        args::{get_return_type, ApiQueryArgs, Args, ArgsUnwrapped, Response, ReturnTypeArg},
         GeoFormats, ToCollection,
     },
     db::{area, instance, project, route},
@@ -14,8 +14,12 @@ use model::{
 };
 
 #[get("/all")]
-async fn all(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
-    let fc = route::Query::as_collection(&conn.koji_db)
+async fn all(
+    conn: web::Data<KojiDb>,
+    args: web::Query<ApiQueryArgs>,
+) -> Result<HttpResponse, Error> {
+    let args = args.into_inner();
+    let fc = route::Query::as_collection(&conn.koji_db, Some(args))
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -33,9 +37,11 @@ async fn all(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
 async fn get_area(
     conn: web::Data<KojiDb>,
     area: actix_web::web::Path<String>,
+    args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
     let area = area.into_inner();
-    let feature = route::Query::feature_from_name(&conn.koji_db, area)
+    let args = args.into_inner();
+    let feature = route::Query::feature_from_name(&conn.koji_db, area, Some(args))
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -84,7 +90,7 @@ async fn push_to_prod(
     let id = id.into_inner();
     let scanner_type = scanner_type.as_ref();
 
-    let feature = route::Query::feature(&conn.koji_db, id)
+    let feature = route::Query::feature(&conn.koji_db, id, None)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -123,11 +129,13 @@ async fn push_to_prod(
 async fn specific_return_type(
     conn: web::Data<KojiDb>,
     url: actix_web::web::Path<String>,
+    args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
     let return_type = url.into_inner();
+    let args = args.into_inner();
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
 
-    let fc = route::Query::as_collection(&conn.koji_db)
+    let fc = route::Query::as_collection(&conn.koji_db, Some(args))
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -142,10 +150,12 @@ async fn specific_return_type(
 async fn specific_project(
     conn: web::Data<KojiDb>,
     url: actix_web::web::Path<(String, String)>,
+    args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
     let (return_type, project_name) = url.into_inner();
+    let args = args.into_inner();
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
-    let features = route::Query::by_geofence(&conn.koji_db, project_name)
+    let features = route::Query::by_geofence(&conn.koji_db, project_name, Some(args))
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 

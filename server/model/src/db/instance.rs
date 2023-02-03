@@ -4,8 +4,8 @@ use std::collections::HashMap;
 
 use crate::{
     api::{
-        text::TextHelpers, GeoFormats, ToCollection, ToMultiStruct, ToMultiVec, ToPointStruct,
-        ToSingleStruct, ToSingleVec,
+        args::ApiQueryArgs, text::TextHelpers, GeoFormats, ToCollection, ToMultiStruct, ToMultiVec,
+        ToPointStruct, ToSingleStruct, ToSingleVec,
     },
     error::ModelError,
     utils::get_mode_acronym,
@@ -49,7 +49,7 @@ pub struct WithGeoType {
 }
 
 impl ToFeatureFromModel for Model {
-    fn to_feature(self) -> Result<Feature, ModelError> {
+    fn to_feature(self, _args: &Option<ApiQueryArgs>) -> Result<Feature, ModelError> {
         let Self {
             id,
             name,
@@ -130,7 +130,7 @@ impl Query {
             .one(conn)
             .await?;
         if let Some(item) = item {
-            item.to_feature()
+            item.to_feature(&None)
         } else {
             Err(ModelError::Custom("Instance not found".to_string()))
         }
@@ -139,7 +139,7 @@ impl Query {
     pub async fn feature(conn: &DatabaseConnection, id: u32) -> Result<Feature, ModelError> {
         let item = Entity::find_by_id(id).one(conn).await?;
         if let Some(item) = item {
-            item.to_feature()
+            item.to_feature(&None)
         } else {
             Err(ModelError::Custom("Instance not found".to_string()))
         }

@@ -6,7 +6,7 @@ use serde_json::json;
 
 use model::{
     api::{
-        args::{get_return_type, Args, ArgsUnwrapped, Response, ReturnTypeArg},
+        args::{get_return_type, ApiQueryArgs, Args, ArgsUnwrapped, Response, ReturnTypeArg},
         GeoFormats, ToCollection,
     },
     db::{area, geofence, instance, project},
@@ -14,8 +14,12 @@ use model::{
 };
 
 #[get("/all")]
-async fn all(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
-    let fc = geofence::Query::as_collection(&conn.koji_db)
+async fn all(
+    conn: web::Data<KojiDb>,
+    args: web::Query<ApiQueryArgs>,
+) -> Result<HttpResponse, Error> {
+    let args = args.into_inner();
+    let fc = geofence::Query::as_collection(&conn.koji_db, Some(args))
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -29,15 +33,19 @@ async fn all(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
     }))
 }
 
-#[get("/area/{area_name}")]
+#[get("/area/{geofence}")]
 async fn get_area(
     conn: web::Data<KojiDb>,
-    area: actix_web::web::Path<String>,
+    geofence: actix_web::web::Path<String>,
+    args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
-    let area = area.into_inner();
-    let feature = geofence::Query::feature_from_name(&conn.koji_db, &area)
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let geofence = geofence.into_inner();
+    let args = args.into_inner();
+    let feature = match geofence.parse::<u32>() {
+        Ok(id) => geofence::Query::feature(&conn.koji_db, id, Some(args)).await,
+        Err(_) => geofence::Query::feature_from_name(&conn.koji_db, &geofence, Some(args)).await,
+    }
+    .map_err(actix_web::error::ErrorInternalServerError)?;
 
     println!(
         "[PUBLIC_API] Returning feature for {:?}\n",
@@ -128,7 +136,7 @@ async fn push_to_prod(
     let id = id.into_inner();
     let scanner_type = scanner_type.as_ref();
 
-    let feature = geofence::Query::feature(&conn.koji_db, id)
+    let feature = geofence::Query::feature(&conn.koji_db, id, None)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -167,11 +175,13 @@ async fn push_to_prod(
 async fn specific_return_type(
     conn: web::Data<KojiDb>,
     url: actix_web::web::Path<String>,
+    args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
     let return_type = url.into_inner();
+    let args = args.into_inner();
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
 
-    let fc = geofence::Query::as_collection(&conn.koji_db)
+    let fc = geofence::Query::as_collection(&conn.koji_db, Some(args))
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -182,14 +192,20 @@ async fn specific_return_type(
     Ok(utils::response::send(fc, return_type, None, false, None))
 }
 
-#[get("/{return_type}/{project_name}")]
+#[get("/{return_type}/{project}")]
 async fn specific_project(
     conn: web::Data<KojiDb>,
     url: actix_web::web::Path<(String, String)>,
+    args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
-    let (return_type, project_name) = url.into_inner();
+    let (return_type, project) = url.into_inner();
+    let args = args.into_inner();
+
+    println!("Return Type: {}", return_type);
+    println!("Project: {}", project);
+    println!("Args: {:?}", args);
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
-    let features = geofence::Query::by_project(&conn.koji_db, project_name)
+    let features = geofence::Query::by_project(&conn.koji_db, project, Some(args))
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 

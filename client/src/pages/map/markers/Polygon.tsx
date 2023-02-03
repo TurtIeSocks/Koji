@@ -11,8 +11,6 @@ import { useStatic } from '@hooks/useStatic'
 import { MemoPolyPopup } from '../popups/Polygon'
 import Popup from '../popups/Styled'
 
-const { isEditing, setStatic } = useStatic.getState()
-
 export function KojiPolygon({
   feature,
   dbRef,
@@ -20,6 +18,8 @@ export function KojiPolygon({
   feature: Feature<PolygonType> | Feature<MultiPolygon>
   dbRef: DbOption | null
 }) {
+  const { setStatic } = useStatic.getState()
+
   const [loadData, setLoadData] = React.useState(false)
 
   return (
@@ -36,7 +36,10 @@ export function KojiPolygon({
           })
           if (!ref.hasEventListeners('mouseover')) {
             ref.on('mouseover', function mouseOver() {
-              if (!useStatic.getState().combinePolyMode && !isEditing()) {
+              if (
+                !useStatic.getState().combinePolyMode &&
+                !Object.values(useStatic.getState().layerEditing).some((v) => v)
+              ) {
                 ref.setStyle({ color: 'red' })
                 // ref.bringToFront()
               }

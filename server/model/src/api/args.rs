@@ -54,6 +54,23 @@ pub enum DataPointsArg {
     FeatureCollection(FeatureCollection),
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiQueryArgs {
+    pub internal: Option<bool>,
+    pub id: Option<bool>,
+    pub name: Option<bool>,
+    pub mode: Option<bool>,
+    pub geofence_id: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum UnknownId {
+    String(String),
+    Number(u32),
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Args {
     pub area: Option<GeoFormats>,

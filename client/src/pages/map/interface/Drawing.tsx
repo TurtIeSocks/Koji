@@ -46,11 +46,6 @@ export function Drawing() {
           snappable,
           radiusEditCircle: false,
           templineStyle: { radius: radius || 70 },
-          panes: {
-            polygonPane: 'polygons',
-            circlePane: 'circles',
-            polylinePane: 'lines',
-          },
         }}
         onMount={() => {
           map.pm.Toolbar.changeActionsOfControl('removalMode', [
@@ -291,11 +286,11 @@ export function Drawing() {
             .getState()
             .setStatic('layerEditing', (e) => ({ ...e, dragMode: enabled }))
         }
-        onGlobalEditModeToggled={({ enabled }) =>
-          useStatic
+        onGlobalEditModeToggled={({ enabled }) => {
+          return useStatic
             .getState()
             .setStatic('layerEditing', (e) => ({ ...e, editMode: enabled }))
-        }
+        }}
         onGlobalRemovalModeToggled={({ enabled }) =>
           useStatic
             .getState()

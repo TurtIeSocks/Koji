@@ -1,4 +1,4 @@
-use super::{multi_vec::MultiVec, poracle::PoracleId, *};
+use super::{args::UnknownId, multi_vec::MultiVec, *};
 
 pub trait Default {
     fn default() -> Self;
@@ -155,11 +155,11 @@ impl ToPoracleVec for FeatureCollection {
                 );
             }
             if feature.contains_property("id") {
-                poracle_feat.id = Some(PoracleId::Number(
-                    feature.property("id").unwrap().as_u64().unwrap_or(i as u64),
+                poracle_feat.id = Some(UnknownId::Number(
+                    (feature.property("id").unwrap().as_u64().unwrap_or(i as u64)) as u32,
                 ));
             } else {
-                poracle_feat.id = Some(PoracleId::Number(i as u64));
+                poracle_feat.id = Some(UnknownId::Number(i as u32));
             }
             if feature.contains_property("color") {
                 poracle_feat.color = Some(

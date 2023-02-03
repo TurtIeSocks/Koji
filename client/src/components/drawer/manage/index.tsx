@@ -24,6 +24,7 @@ import ExportRoute from '../../dialogs/ExportRoute'
 import PolygonDialog from '../../dialogs/Polygon'
 import InstanceSelect from '../inputs/Instance'
 import StyledSubheader from '../../styled/Subheader'
+import SelectProject from '../inputs/SelectProject'
 
 export default function ImportExport() {
   const [open, setOpen] = React.useState('')
@@ -95,6 +96,7 @@ export default function ImportExport() {
         ]}
         label="Import from Kōji"
       />
+      <SelectProject />
       <Divider sx={{ my: 2 }} />
       <StyledSubheader>Export</StyledSubheader>
       <ListItemButton

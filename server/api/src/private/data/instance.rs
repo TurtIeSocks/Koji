@@ -122,9 +122,9 @@ async fn route_from_db(
             || instance_type.eq("CircleRaid")
             || instance_type.eq("CircleSmartRaid")
         {
-            route::Query::feature(&conn.koji_db, id).await
+            route::Query::feature(&conn.koji_db, id, None).await
         } else {
-            geofence::Query::feature(&conn.koji_db, id).await
+            geofence::Query::feature(&conn.koji_db, id, None).await
         }
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;

@@ -12,8 +12,6 @@ import Locate from './Locate'
 import MemoizedDrawing from './Drawing'
 import EasyButton from './EasyButton'
 
-const { isEditing } = useStatic.getState()
-
 export default function Interface() {
   useLayers()
   usePopupStyle()
@@ -22,7 +20,10 @@ export default function Interface() {
 
   const map = useMapEvents({
     popupopen(e) {
-      if (isEditing() || useStatic.getState().combinePolyMode) {
+      if (
+        Object.values(useStatic.getState().layerEditing).some((v) => v) ||
+        useStatic.getState().combinePolyMode
+      ) {
         e.popup.close()
       }
     },

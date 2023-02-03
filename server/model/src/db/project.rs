@@ -2,6 +2,7 @@
 
 use super::*;
 use sea_orm::entity::prelude::*;
+use serde_json::json;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "project")]
@@ -57,13 +58,7 @@ impl Query {
                 vec![]
             }
         };
-        let results = future::try_join_all(
-            results
-                .into_iter()
-                .map(|result| Query::get_related_fences(db, result)),
-        )
-        .await
-        .unwrap();
+        let results = Query::get_all_related(db, results).await?;
 
         Ok(PaginateResults {
             results,
@@ -78,15 +73,33 @@ impl Query {
     }
 
     pub async fn get_json_cache(db: &DatabaseConnection) -> Result<Vec<sea_orm::JsonValue>, DbErr> {
-        Entity::find()
-            .from_raw_sql(Statement::from_sql_and_values(
-                DbBackend::MySql,
-                r#"SELECT id, name FROM project ORDER BY name"#,
-                vec![],
-            ))
-            .into_json()
+        let results = Entity::find()
+            .order_by(Column::Name, Order::Asc)
             .all(db)
-            .await
+            .await?;
+        let results = Query::get_all_related(db, results).await?;
+        Ok(results
+            .into_iter()
+            .map(|(model, related)| {
+                json!({
+                    "id": model.id,
+                    "name": model.name,
+                    "related": related.iter().map(|r| r.id).collect::<Vec<u32>>()
+                })
+            })
+            .collect())
+    }
+
+    pub async fn get_all_related(
+        db: &DatabaseConnection,
+        results: Vec<Model>,
+    ) -> Result<Vec<(Model, Vec<NameId>)>, DbErr> {
+        future::try_join_all(
+            results
+                .into_iter()
+                .map(|result| Query::get_related_fences(db, result)),
+        )
+        .await
     }
 
     pub async fn get_related_fences(
