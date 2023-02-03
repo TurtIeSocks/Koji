@@ -1,12 +1,12 @@
 /* eslint-disable no-console */
-import { Button, CircularProgress } from '@mui/material'
 import * as React from 'react'
+import { Button, CircularProgress } from '@mui/material'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 
+import type { FeatureCollection } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
-import { convert } from '@services/fetches'
-import type { FeatureCollection } from 'geojson'
 import { usePersist } from '@hooks/usePersist'
+import { convert } from '@services/fetches'
 
 interface Props {
   setter?: (featureCollection: FeatureCollection) => void

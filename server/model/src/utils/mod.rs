@@ -66,7 +66,7 @@ pub fn get_enum_by_geometry(enum_val: &Value) -> Option<Type> {
       Value::Polygon(_) => Some(Type::PokemonIv),
       Value::MultiPolygon(_) => Some(Type::AutoQuest),
       _ => {
-          println!("Invalid Geometry Type");
+          log::warn!("Invalid Geometry Type: {}", enum_val.type_name());
           None
       }
   }
@@ -91,3 +91,15 @@ pub fn get_mode_acronym(instance_type: Option<&String>) -> String {
     }.to_string()
   }
   
+  pub fn get_enum_by_geometry_string(input: Option<String>) -> Option<Type> {
+    if let Some(input) = input {
+        match input.to_lowercase().as_str() {
+            "point" => Some(Type::Leveling),
+            "multipoint" => Some(Type::CirclePokemon),
+            "multipolygon" => Some(Type::AutoQuest),
+            _ => None
+        }
+    } else {
+        None
+    }
+  }

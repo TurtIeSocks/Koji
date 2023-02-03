@@ -93,11 +93,12 @@ impl ToMultiStruct for SingleVec {
 }
 
 impl ToFeature for SingleVec {
-    fn to_feature(self, enum_type: Option<&Type>) -> Feature {
+    fn to_feature(self, enum_type: Option<Type>) -> Feature {
+        let bbox = self.get_bbox();
         Feature {
-            bbox: self.get_bbox(),
+            bbox: bbox.clone(),
             geometry: Some(Geometry {
-                bbox: None,
+                bbox,
                 foreign_members: None,
                 value: if let Some(enum_type) = enum_type {
                     self.to_multi_vec().get_geojson_value(enum_type)
@@ -111,7 +112,7 @@ impl ToFeature for SingleVec {
 }
 
 impl ToCollection for SingleVec {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, enum_type: Option<Type>) -> FeatureCollection {
         FeatureCollection {
             bbox: self.get_bbox(),
             features: vec![

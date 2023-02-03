@@ -3,7 +3,7 @@ use super::*;
 pub type MultiVec<T = Precision> = Vec<Vec<point_array::PointArray<T>>>;
 
 impl ValueHelpers for MultiVec {
-    fn get_geojson_value(self, enum_type: &Type) -> Value {
+    fn get_geojson_value(self, enum_type: Type) -> Value {
         match enum_type {
             Type::AutoQuest | Type::PokemonIv | Type::AutoPokemon | Type::AutoTth => {
                 self.multi_polygon()
@@ -43,6 +43,12 @@ impl ValueHelpers for MultiVec {
                 .map(|poly| vec![poly.into_iter().map(|[lat, lon]| vec![lon, lat]).collect()])
                 .collect(),
         )
+    }
+}
+
+impl GetBbox for MultiVec {
+    fn get_bbox(&self) -> Option<Bbox> {
+        self.clone().to_single_vec().get_bbox()
     }
 }
 
@@ -93,10 +99,12 @@ impl ToMultiStruct for MultiVec {
 }
 
 impl ToFeature for MultiVec {
-    fn to_feature(self, enum_type: Option<&Type>) -> Feature {
+    fn to_feature(self, enum_type: Option<Type>) -> Feature {
+        let bbox = self.get_bbox();
         Feature {
+            bbox: bbox.clone(),
             geometry: Some(Geometry {
-                bbox: self.clone().to_single_vec().get_bbox(),
+                bbox,
                 foreign_members: None,
                 value: if let Some(enum_type) = enum_type {
                     self.get_geojson_value(enum_type)
@@ -110,7 +118,7 @@ impl ToFeature for MultiVec {
 }
 
 impl ToCollection for MultiVec {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, enum_type: Option<Type>) -> FeatureCollection {
         let feature = self
             .to_feature(enum_type)
             // .ensure_properties(name, enum_type)

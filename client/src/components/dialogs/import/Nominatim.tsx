@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { KojiResponse } from '@assets/types'
+import { KojiResponse, Feature, FeatureCollection } from '@assets/types'
 import {
   Autocomplete,
   Checkbox,
@@ -8,9 +8,8 @@ import {
   Typography,
 } from '@mui/material'
 import * as React from 'react'
-import type { Feature, FeatureCollection } from 'geojson'
 import Clear from '@mui/icons-material/Clear'
-import { getData } from '@services/fetches'
+import { fetchWrapper } from '@services/fetches'
 
 export default function Nominatim({
   features,
@@ -27,15 +26,20 @@ export default function Nominatim({
   const [inputValue, setInputValue] = React.useState('')
 
   React.useEffect(() => {
+    const controller = new AbortController()
     setLoading(true)
-    getData<KojiResponse<FeatureCollection>>(
+    fetchWrapper<KojiResponse<FeatureCollection>>(
       `/config/nominatim?query=${inputValue}`,
+      { signal: controller.signal },
     ).then((res) => {
       if (res) {
         setResults(res.data)
         setLoading(false)
       }
     })
+    return () => {
+      controller.abort()
+    }
   }, [inputValue])
 
   return (

@@ -1,8 +1,10 @@
+use serde_json::json;
+
 use super::*;
 
 use crate::{
     api::text::TextHelpers,
-    db::{sea_orm_active_enums::Type, AreaRef, NameTypeId},
+    db::{sea_orm_active_enums::Type, AreaRef},
 };
 
 pub fn fort<T>(items: api::single_struct::SingleStruct<T>, prefix: &str) -> Vec<db::GenericData<T>>
@@ -40,68 +42,63 @@ where
 pub fn instance(instance: db::instance::Model) -> Feature {
     instance
         .data
-        .parse_scanner_instance(Some(instance.name), Some(&instance.r#type))
+        .parse_scanner_instance(Some(instance.name), Some(instance.r#type))
 }
 
 pub fn area(areas: Vec<db::area::Model>) -> Vec<Feature> {
     let mut normalized = Vec::<Feature>::new();
 
-    let mut to_feature = |fence: Option<String>, name: String, category: &str| -> String {
+    let mut to_feature = |fence: Option<String>, name: &String, mode: Type| {
         if let Some(fence) = fence {
             if !fence.is_empty() {
-                normalized.push(fence.parse_scanner_instance(
-                    Some(name.to_string()),
-                    Some(match category {
-                        "Fort" => &Type::CircleRaid,
-                        "Quest" => &Type::ManualQuest,
-                        "Pokemon" => &Type::CirclePokemon,
-                        _ => &Type::AutoQuest,
-                    }),
-                ));
+                normalized.push(fence.parse_scanner_instance(Some(name.to_string()), Some(mode)));
             }
         }
-        name
     };
     for area in areas.into_iter() {
-        let name = to_feature(area.geofence, area.name, "Fence");
-        let name = to_feature(area.fort_mode_route, name, "Fort");
-        let name = to_feature(area.quest_mode_route, name, "Quest");
-        to_feature(area.pokemon_mode_route, name, "Pokemon");
+        to_feature(area.geofence, &area.name, Type::AutoQuest);
+        to_feature(area.fort_mode_route, &area.name, Type::CircleRaid);
+        to_feature(area.quest_mode_route, &area.name, Type::ManualQuest);
+        to_feature(area.pokemon_mode_route, &area.name, Type::CirclePokemon);
     }
     normalized
 }
 
-pub fn area_ref(areas: Vec<AreaRef>) -> Vec<NameTypeId> {
-    let mut normalized = Vec::<NameTypeId>::new();
+pub fn area_ref(areas: Vec<AreaRef>) -> Vec<sea_orm::JsonValue> {
+    let mut normalized = Vec::<sea_orm::JsonValue>::new();
 
     for area in areas.into_iter() {
-        if area.has_fort {
-            normalized.push(NameTypeId {
-                id: area.id,
-                name: area.name.clone(),
-                r#type: Some(Type::CircleRaid),
-            });
-        }
         if area.has_geofence {
-            normalized.push(NameTypeId {
-                id: area.id,
-                name: area.name.clone(),
-                r#type: Some(Type::AutoQuest),
-            });
+            normalized.push(json!({
+                "id": area.id,
+                "name": area.name,
+                "mode": "AutoQuest",
+                "geo_type": "MultiPolygon",
+            }));
+        }
+        if area.has_fort {
+            normalized.push(json!({
+                "id": area.id,
+                "name": area.name,
+                "mode": "CircleRaid",
+                "geo_type": "MultiPoint",
+            }));
         }
         if area.has_pokemon {
-            normalized.push(NameTypeId {
-                id: area.id,
-                name: area.name.clone(),
-                r#type: Some(Type::CirclePokemon),
-            });
+            normalized.push(json!({
+                "id": area.id,
+                "name": area.name,
+                "mode": "CirclePokemon",
+                "geo_type": "MultiPoint",
+            }));
         }
         if area.has_quest {
-            normalized.push(NameTypeId {
-                id: area.id,
-                name: area.name,
-                r#type: Some(Type::ManualQuest),
-            });
+            normalized.push(json!({
+                "id": area.id,
+                "name": area.name,
+                "mode": "ManualQuest",
+                "geo_type": "MultiPoint",
+            }));
         }
     }
     normalized

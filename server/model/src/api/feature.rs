@@ -14,16 +14,30 @@ impl EnsurePoints for Feature {
     }
 }
 
+impl ToGeometry for Feature {
+    fn to_geometry(self) -> Geometry {
+        if let Some(geometry) = self.geometry {
+            geometry
+        } else {
+            Geometry {
+                bbox: None,
+                foreign_members: None,
+                value: Value::Point(vec![0., 0.]),
+            }
+        }
+    }
+}
+
 impl FeatureHelpers for Feature {
-    fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<&Type>) {
+    fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<Type>) {
         if !self.contains_property("__name") {
             if let Some(name) = name {
                 self.set_property("__name", name)
             }
         }
-        if !self.contains_property("__type") {
+        if !self.contains_property("__mode") {
             if let Some(enum_type) = enum_type {
-                self.set_property("__type", enum_type.to_string());
+                self.set_property("__mode", enum_type.to_string());
                 // match enum_type {
                 //     Type::CirclePokemon | Type::CircleSmartPokemon => {
                 //         self.set_property("radius", 70);
@@ -39,10 +53,10 @@ impl FeatureHelpers for Feature {
             } else if let Some(geometry) = self.geometry.as_ref() {
                 match geometry.value {
                     Value::Point(_) | Value::MultiPoint(_) => {
-                        self.set_property("__type", "CirclePokemon");
+                        self.set_property("__mode", "CirclePokemon");
                     }
                     Value::Polygon(_) | Value::MultiPolygon(_) => {
-                        self.set_property("__type", "AutoQuest");
+                        self.set_property("__mode", "AutoQuest");
                     }
                     _ => {}
                 }
@@ -94,10 +108,20 @@ impl FeatureHelpers for Feature {
 }
 
 impl EnsureProperties for Feature {
-    fn ensure_properties(self, name: Option<String>, enum_type: Option<&Type>) -> Self {
+    fn ensure_properties(self, name: Option<String>, enum_type: Option<Type>) -> Self {
         let mut mutable_self = self;
         mutable_self.add_instance_properties(name, enum_type);
         mutable_self
+    }
+}
+
+impl GetBbox for Feature {
+    fn get_bbox(&self) -> Option<Bbox> {
+        if let Some(geometry) = self.geometry.clone() {
+            geometry.to_single_vec().get_bbox()
+        } else {
+            None
+        }
     }
 }
 
@@ -160,12 +184,8 @@ impl ToFeatureVec for Feature {
 }
 
 impl ToCollection for Feature {
-    fn to_collection(self, _name: Option<String>, _enum_type: Option<&Type>) -> FeatureCollection {
-        let bbox = if self.bbox.is_some() {
-            self.bbox
-        } else {
-            self.clone().to_single_vec().get_bbox()
-        };
+    fn to_collection(self, _name: Option<String>, _enum_type: Option<Type>) -> FeatureCollection {
+        let bbox = self.get_bbox();
         FeatureCollection {
             bbox: bbox.clone(),
             features: vec![Feature { bbox, ..self }.ensure_first_last()],
@@ -174,8 +194,18 @@ impl ToCollection for Feature {
     }
 }
 
+impl GetBbox for Vec<Feature> {
+    fn get_bbox(&self) -> Option<Bbox> {
+        self.clone()
+            .into_iter()
+            .flat_map(|f| f.to_single_vec())
+            .collect::<single_vec::SingleVec>()
+            .get_bbox()
+    }
+}
+
 impl ToCollection for Vec<Feature> {
-    fn to_collection(self, _name: Option<String>, _enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, _enum_type: Option<Type>) -> FeatureCollection {
         // let name = if let Some(name) = name {
         //     name
         // } else {
@@ -183,25 +213,12 @@ impl ToCollection for Vec<Feature> {
         // };
         // let length = self.len();
         FeatureCollection {
-            bbox: self
-                .clone()
-                .into_iter()
-                .flat_map(|feat| feat.to_single_vec())
-                .collect::<single_vec::SingleVec>()
-                .get_bbox(),
+            bbox: self.get_bbox(),
             features: self
                 .into_iter()
-                .enumerate()
-                .map(|(_i, feat)| Feature {
-                    bbox: feat.clone().to_single_vec().get_bbox(),
-                    ..feat.ensure_first_last() // .ensure_properties(
-                                               //     Some(if length > 1 {
-                                               //         format!("{}_{}", name, i)
-                                               //     } else {
-                                               //         name.clone()
-                                               //     }),
-                                               //     enum_type,
-                                               // )
+                .map(|feat| Feature {
+                    bbox: feat.get_bbox(),
+                    ..feat.ensure_first_last()
                 })
                 .collect(),
             foreign_members: None,

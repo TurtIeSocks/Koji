@@ -16,7 +16,7 @@ import {
 } from '@mui/material'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import ContentCopy from '@mui/icons-material/ContentCopy'
-import type { Feature, FeatureCollection } from 'geojson'
+import type { Feature, FeatureCollection } from '@assets/types'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import distance from '@turf/distance'
 
@@ -47,8 +47,9 @@ export default function ExportRoute({ open, setOpen, geojson }: Props) {
     const mergedPoints = points.length
       ? await convert<Feature[]>(
           points,
-          'featureVec',
+          'feature_vec',
           false,
+          undefined,
           '/api/v1/convert/merge_points',
         )
       : []

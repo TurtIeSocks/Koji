@@ -4,6 +4,7 @@ import { useTheme } from '@mui/material'
 import Architecture from '@mui/icons-material/Architecture'
 import AccountTree from '@mui/icons-material/AccountTree'
 import Route from '@mui/icons-material/Route'
+import { getFullCache } from '@services/fetches'
 
 import { dataProvider } from './dataProvider'
 import Layout from './Layout'
@@ -26,6 +27,10 @@ import RouteCreate from './route/RouteCreate'
 export default function AdminPanel() {
   const theme = useTheme()
 
+  React.useEffect(() => {
+    getFullCache()
+  }, [])
+
   return (
     <Admin
       basename="/admin"
@@ -47,21 +52,21 @@ export default function AdminPanel() {
         recordRepresentation={(record) => record.name || ''}
       />
       <Resource
-        name="project"
-        icon={AccountTree}
-        list={ProjectList}
-        edit={ProjectEdit}
-        show={ProjectShow}
-        create={ProjectCreate}
-        recordRepresentation={(record) => record.name || ''}
-      />
-      <Resource
         name="route"
         icon={Route}
         list={RouteList}
         edit={RouteEdit}
         show={RouteShow}
         create={RouteCreate}
+        recordRepresentation={(record) => record.name || ''}
+      />
+      <Resource
+        name="project"
+        icon={AccountTree}
+        list={ProjectList}
+        edit={ProjectEdit}
+        show={ProjectShow}
+        create={ProjectCreate}
         recordRepresentation={(record) => record.name || ''}
       />
     </Admin>

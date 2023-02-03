@@ -3,7 +3,7 @@ import type { PopupProps } from '@assets/types'
 import { Button, Typography } from '@mui/material'
 import { useShapes } from '@hooks/useShapes'
 
-interface Props extends PopupProps {
+interface Props extends Omit<PopupProps, 'dbRef'> {
   dis: number
 }
 

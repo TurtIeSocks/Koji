@@ -42,11 +42,12 @@ impl ToMultiStruct for PointArray {
 }
 
 impl ToFeature for PointArray {
-    fn to_feature(self, enum_type: Option<&Type>) -> Feature {
+    fn to_feature(self, enum_type: Option<Type>) -> Feature {
+        let bbox = self.clone().to_single_vec().get_bbox();
         Feature {
-            bbox: self.clone().to_single_vec().get_bbox(),
+            bbox: bbox.clone(),
             geometry: Some(Geometry {
-                bbox: None,
+                bbox,
                 foreign_members: None,
                 value: if let Some(enum_type) = enum_type {
                     self.to_multi_vec().get_geojson_value(enum_type)
@@ -60,7 +61,7 @@ impl ToFeature for PointArray {
 }
 
 impl ToCollection for PointArray {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, enum_type: Option<Type>) -> FeatureCollection {
         let feature = self
             .to_feature(enum_type)
             // .ensure_properties(name, enum_type)

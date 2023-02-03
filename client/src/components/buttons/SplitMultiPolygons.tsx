@@ -1,6 +1,6 @@
 import Button, { ButtonProps } from '@mui/material/Button/Button'
 import { splitMultiPolygons } from '@services/utils'
-import type { FeatureCollection } from 'geojson'
+import type { FeatureCollection } from '@assets/types'
 import * as React from 'react'
 
 interface Props extends ButtonProps {

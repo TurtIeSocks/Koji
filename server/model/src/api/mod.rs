@@ -27,7 +27,7 @@ pub trait EnsurePoints {
 }
 
 pub trait EnsureProperties {
-    fn ensure_properties(self, name: Option<String>, enum_type: Option<&Type>) -> Self;
+    fn ensure_properties(self, name: Option<String>, enum_type: Option<Type>) -> Self;
 }
 
 /// [min_lon, min_lat, max_lon, max_lat]
@@ -36,7 +36,7 @@ pub trait GetBbox {
 }
 
 pub trait ValueHelpers {
-    fn get_geojson_value(self, enum_type: &Type) -> Value;
+    fn get_geojson_value(self, enum_type: Type) -> Value;
     fn point(self) -> Value;
     fn multi_point(self) -> Value;
     fn polygon(self) -> Value;
@@ -48,7 +48,7 @@ pub trait GeometryHelpers {
 }
 
 pub trait FeatureHelpers {
-    fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<&Type>);
+    fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<Type>);
     fn remove_last_coord(self) -> Self;
     fn remove_internal_props(&mut self);
 }
@@ -78,7 +78,7 @@ pub trait ToMultiStruct {
 }
 
 pub trait ToFeature {
-    fn to_feature(self, enum_type: Option<&Type>) -> Feature;
+    fn to_feature(self, enum_type: Option<Type>) -> Feature;
 }
 
 pub trait ToFeatureVec {
@@ -86,7 +86,7 @@ pub trait ToFeatureVec {
 }
 
 pub trait ToCollection {
-    fn to_collection(self, name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection;
+    fn to_collection(self, name: Option<String>, enum_type: Option<Type>) -> FeatureCollection;
 }
 
 pub trait ToPoracle {
@@ -101,6 +101,10 @@ pub trait ToText {
     fn to_text(self, sep_1: &str, sep_2: &str, poly_sep: bool) -> String;
 }
 
+pub trait ToGeometry {
+    fn to_geometry(self) -> Geometry;
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum GeoFormats {
@@ -109,6 +113,8 @@ pub enum GeoFormats {
     MultiArray(multi_vec::MultiVec),
     SingleStruct(single_struct::SingleStruct),
     MultiStruct(multi_struct::MultiStruct),
+    Geometry(Geometry),
+    GeometryVec(Vec<Geometry>),
     Feature(Feature),
     FeatureVec(Vec<Feature>),
     FeatureCollection(FeatureCollection),
@@ -118,7 +124,7 @@ pub enum GeoFormats {
 }
 
 impl ToCollection for GeoFormats {
-    fn to_collection(self, name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, name: Option<String>, enum_type: Option<Type>) -> FeatureCollection {
         // let name_clone = name.clone();
         match self {
             GeoFormats::Text(area) => area.to_collection(name, enum_type),
@@ -126,6 +132,8 @@ impl ToCollection for GeoFormats {
             GeoFormats::MultiArray(area) => area.to_collection(name, enum_type),
             GeoFormats::SingleStruct(area) => area.to_collection(name, enum_type),
             GeoFormats::MultiStruct(area) => area.to_collection(name, enum_type),
+            GeoFormats::Geometry(area) => area.to_feature(enum_type).to_collection(name, None),
+            GeoFormats::GeometryVec(area) => area.to_collection(name, enum_type),
             GeoFormats::Feature(area) => area.to_collection(name, enum_type),
             GeoFormats::FeatureVec(area) => area.to_collection(name, enum_type),
             GeoFormats::FeatureCollection(area) => area.to_collection(name, enum_type),

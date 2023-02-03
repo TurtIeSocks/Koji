@@ -95,6 +95,32 @@ export const UNOWN_ROUTES = [
   'ManualQuest',
 ] as const
 
+export const ALL_FENCES = [...new Set([...RDM_FENCES, ...UNOWN_FENCES])]
+
+export const ALL_ROUTES = [...new Set([...RDM_ROUTES, ...UNOWN_ROUTES])]
+
+export const CONVERSION_TYPES = [
+  'array',
+  'multiArray',
+  'geometry',
+  'geometry_vec',
+  'feature',
+  'feature_vec',
+  'featureCollection',
+  'struct',
+  'multiStruct',
+  'text',
+  'altText',
+  'poracle',
+] as const
+
+export const GEOMETRY_CONVERSION_TYPES = [
+  'Point',
+  'MultiPoint',
+  'Polygon',
+  'MultiPolygon',
+] as const
+
 export const COLORS = [
   '#F0F8FF',
   '#FAEBD7',

@@ -40,6 +40,9 @@ pub enum Project {
     Table,
     Id,
     Name,
+    ApiEndpoint,
+    ApiKey,
+    Scanner,
     CreatedAt,
     UpdatedAt,
 }

@@ -2,15 +2,20 @@
 import * as React from 'react'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import Typography from '@mui/material/Typography'
-import type { FeatureCollection } from 'geojson'
 
-import { ClientProject, KojiResponse } from '@assets/types'
+import { AdminProject, KojiResponse, FeatureCollection } from '@assets/types'
 import { Checkbox, Divider, MenuItem, Select } from '@mui/material'
 import ReactWindow from '@components/ReactWindow'
 import { useStatic } from '@hooks/useStatic'
-import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
+import {
+  RDM_FENCES,
+  RDM_ROUTES,
+  UNOWN_FENCES,
+  UNOWN_ROUTES,
+} from '@assets/constants'
 import ProjectsAc from '@components/drawer/inputs/ProjectsAC'
-import { getData } from '@services/fetches'
+import { fetchWrapper } from '@services/fetches'
+import { useDbCache } from '@hooks/useDbCache'
 
 const AssignStep = React.forwardRef<
   HTMLDivElement,
@@ -18,17 +23,23 @@ const AssignStep = React.forwardRef<
     handleChange: (geojson: FeatureCollection) => void
     geojson: FeatureCollection
     refGeojson: FeatureCollection
+    routeMode?: boolean
   }
->(({ handleChange, geojson, refGeojson }, ref) => {
-  const { allProjects, allType, checked, nameProp } = useStatic(
-    (s) => s.importWizard,
-  )
+>(({ handleChange, geojson, refGeojson, routeMode = false }, ref) => {
+  const {
+    allProjects,
+    allGeofences,
+    allFenceMode,
+    allRouteMode,
+    checked,
+    nameProp,
+  } = useStatic((s) => s.importWizard)
   const scannerType = useStatic((s) => s.scannerType)
 
   const innerRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
-    getData<KojiResponse<Omit<ClientProject, 'related'>[]>>(
+    fetchWrapper<KojiResponse<Omit<AdminProject, 'related'>[]>>(
       '/internal/admin/project/all/',
     ).then((res) => {
       if (res) {
@@ -66,14 +77,18 @@ const AssignStep = React.forwardRef<
 
   const sorted = React.useMemo(
     () =>
-      refGeojson.features.slice().sort((a, b) => {
-        const aName = a.properties?.[nameProp]
-        const bName = b.properties?.[nameProp]
-        return typeof aName === 'string' && typeof bName === 'string'
-          ? aName.localeCompare(bName)
-          : 0
-      }),
-    [nameProp],
+      refGeojson.features
+        .filter((feat) =>
+          feat.geometry.type.includes(routeMode ? 'Point' : 'Polygon'),
+        )
+        .sort((a, b) => {
+          const aName = a.properties?.[nameProp]
+          const bName = b.properties?.[nameProp]
+          return typeof aName === 'string' && typeof bName === 'string'
+            ? aName.localeCompare(bName)
+            : 0
+        }),
+    [nameProp, routeMode],
   )
 
   return (
@@ -86,12 +101,12 @@ const AssignStep = React.forwardRef<
       </Grid2>
       <Grid2 xs={3} mt={1}>
         <Typography variant="h6" align="center">
-          Type
+          Mode
         </Typography>
       </Grid2>
       <Grid2 xs={5} mt={1}>
         <Typography variant="h6" align="center">
-          Projects
+          {routeMode ? 'Geofence Parent' : 'Projects'}
         </Typography>
       </Grid2>
       <Grid2 xs={1} mt={1}>
@@ -117,14 +132,14 @@ const AssignStep = React.forwardRef<
       </Grid2>
       <Grid2 xs={3} mt={1}>
         <Select
-          value={allType}
+          value={routeMode ? allRouteMode : allFenceMode}
           size="small"
           sx={{ width: '80%' }}
           onChange={(e) => {
             useStatic.setState((prev) => ({
               importWizard: {
                 ...prev.importWizard,
-                allType: e.target.value as typeof allType,
+                [routeMode ? 'allRouteMode' : 'allFenceMode']: e.target.value,
               },
             }))
             handleChange({
@@ -133,44 +148,105 @@ const AssignStep = React.forwardRef<
                 ...feature,
                 properties: {
                   ...feature.properties,
-                  type: e.target.value ? (e.target.value as string) : undefined,
+                  mode: feature.geometry.type.includes(
+                    routeMode ? 'Polygon' : 'Point',
+                  )
+                    ? feature.properties.mode
+                    : e.target.value,
                 },
               })),
             })
           }}
         >
           <MenuItem value="" />
-          {(scannerType === 'rdm' ? RDM_FENCES : UNOWN_FENCES).map(
-            (instanceType) => (
-              <MenuItem key={instanceType} value={instanceType}>
-                {instanceType}
-              </MenuItem>
-            ),
-          )}
+          {(scannerType === 'rdm'
+            ? routeMode
+              ? RDM_ROUTES
+              : RDM_FENCES
+            : routeMode
+            ? UNOWN_ROUTES
+            : UNOWN_FENCES
+          ).map((mode) => (
+            <MenuItem key={mode} value={mode}>
+              {mode}
+            </MenuItem>
+          ))}
         </Select>
       </Grid2>
       <Grid2 xs={5} mt={1}>
-        <ProjectsAc
-          value={allProjects}
-          setValue={(newValue) => {
-            handleChange({
-              ...geojson,
-              features: geojson.features.map((feature) => ({
-                ...feature,
-                properties: {
-                  ...feature.properties,
-                  projects: newValue,
+        {routeMode ? (
+          <Select
+            size="small"
+            sx={{ width: '80%', mx: 'auto' }}
+            value={allGeofences}
+            onChange={({ target }) => {
+              useStatic.setState((prev) => ({
+                importWizard: {
+                  ...prev.importWizard,
+                  allGeofences: +target.value ? +target.value : target.value,
                 },
-              })),
-            })
-            useStatic.setState((prev) => ({
-              importWizard: {
-                ...prev.importWizard,
-                allProjects: newValue,
-              },
-            }))
-          }}
-        />
+              }))
+              handleChange({
+                ...geojson,
+                features: geojson.features.map((feature) => ({
+                  ...feature,
+                  properties: {
+                    ...feature.properties,
+                    geofence_id: feature.geometry.type.includes('Polygon')
+                      ? feature.properties.geofence_id
+                      : +target.value
+                      ? +target.value
+                      : target.value,
+                  },
+                })),
+              })
+            }}
+          >
+            {Object.values(useDbCache.getState().geofence).map((t) => (
+              <MenuItem key={t.id} value={t.id}>
+                {t.name}
+              </MenuItem>
+            ))}
+            {refGeojson.features
+              .filter((feat) => feat.geometry.type.includes('Polygon'))
+              .sort((a, b) => {
+                const aName = a.properties?.[nameProp]
+                const bName = b.properties?.[nameProp]
+                return typeof aName === 'string' && typeof bName === 'string'
+                  ? aName.localeCompare(bName)
+                  : 0
+              })
+              .map((t) => (
+                <MenuItem key={t.id} value={t.properties?.[nameProp]}>
+                  {t.properties?.[nameProp]}
+                </MenuItem>
+              ))}
+          </Select>
+        ) : (
+          <ProjectsAc
+            value={allProjects}
+            setValue={(newValue) => {
+              handleChange({
+                ...geojson,
+                features: geojson.features.map((feature) => ({
+                  ...feature,
+                  properties: {
+                    ...feature.properties,
+                    projects: feature.geometry.type.includes('Polygon')
+                      ? newValue
+                      : undefined,
+                  },
+                })),
+              })
+              useStatic.setState((prev) => ({
+                importWizard: {
+                  ...prev.importWizard,
+                  allProjects: newValue,
+                },
+              }))
+            }}
+          />
+        )}
       </Grid2>
       <Divider sx={{ width: '100%', my: 1 }} />
       <Grid2 xs={12} ref={innerRef}>
@@ -224,13 +300,13 @@ const AssignStep = React.forwardRef<
                     <Select
                       size="small"
                       sx={{ width: '80%' }}
-                      value={feature.properties?.type || ''}
+                      value={feature.properties?.mode || ''}
                       onChange={(e) => {
                         const newFeature = {
                           ...feature,
                           properties: {
                             ...feature.properties,
-                            type: e.target.value
+                            mode: e.target.value
                               ? (e.target.value as string)
                               : undefined,
                           },
@@ -247,37 +323,100 @@ const AssignStep = React.forwardRef<
                       }}
                     >
                       <MenuItem value="" />
-                      {(scannerType === 'rdm' ? RDM_FENCES : UNOWN_FENCES).map(
-                        (instanceType) => (
-                          <MenuItem key={instanceType} value={instanceType}>
-                            {instanceType}
-                          </MenuItem>
-                        ),
-                      )}
+                      {(scannerType === 'rdm'
+                        ? routeMode
+                          ? RDM_ROUTES
+                          : RDM_FENCES
+                        : routeMode
+                        ? UNOWN_ROUTES
+                        : UNOWN_FENCES
+                      ).map((instanceType) => (
+                        <MenuItem key={instanceType} value={instanceType}>
+                          {instanceType}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </Grid2>
                   <Grid2 xs={5}>
-                    <ProjectsAc
-                      value={feature.properties?.projects || []}
-                      setValue={(newValue) => {
-                        const newFeature = {
-                          ...feature,
-                          properties: {
-                            ...feature.properties,
-                            projects: newValue,
-                          },
-                        }
-                        handleChange({
-                          ...geojson,
-                          features: [
-                            ...geojson.features.filter(
-                              (f) => f.id !== feature.id,
-                            ),
-                            newFeature,
-                          ],
-                        })
-                      }}
-                    />
+                    {routeMode ? (
+                      <Select
+                        size="small"
+                        sx={{ width: '80%', mx: 'auto' }}
+                        value={feature.properties.geofence_id || ''}
+                        onChange={({ target }) => {
+                          const newFeature = {
+                            ...feature,
+                            properties: {
+                              ...feature.properties,
+                              geofence_id: +target.value
+                                ? +target.value
+                                : target.value,
+                            },
+                          }
+                          handleChange({
+                            ...geojson,
+                            features: [
+                              ...geojson.features.filter(
+                                (f) => f.id !== feature.id,
+                              ),
+                              newFeature,
+                            ],
+                          })
+                        }}
+                      >
+                        {Object.values(useDbCache.getState().geofence).map(
+                          (t) => (
+                            <MenuItem key={t.id} value={t.id}>
+                              {t.name}
+                            </MenuItem>
+                          ),
+                        )}
+                        {refGeojson.features
+                          .filter((feat) =>
+                            feat.geometry.type.includes('Polygon'),
+                          )
+                          .sort((a, b) => {
+                            const aName = a.properties?.[nameProp]
+                            const bName = b.properties?.[nameProp]
+                            return typeof aName === 'string' &&
+                              typeof bName === 'string'
+                              ? aName.localeCompare(bName)
+                              : 0
+                          })
+                          .map((t) => {
+                            return (
+                              <MenuItem
+                                key={t.id}
+                                value={t.properties?.[nameProp]}
+                              >
+                                {t.properties?.[nameProp]}
+                              </MenuItem>
+                            )
+                          })}
+                      </Select>
+                    ) : (
+                      <ProjectsAc
+                        value={feature.properties?.projects || []}
+                        setValue={(newValue) => {
+                          const newFeature = {
+                            ...feature,
+                            properties: {
+                              ...feature.properties,
+                              projects: newValue,
+                            },
+                          }
+                          handleChange({
+                            ...geojson,
+                            features: [
+                              ...geojson.features.filter(
+                                (f) => f.id !== feature.id,
+                              ),
+                              newFeature,
+                            ],
+                          })
+                        }}
+                      />
+                    )}
                   </Grid2>
                 </Grid2>
               )

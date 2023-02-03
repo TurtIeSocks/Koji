@@ -1,26 +1,33 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import create from 'zustand'
 import type {
-  Feature,
   Point,
   MultiPoint,
   LineString,
   MultiLineString,
   Polygon,
   MultiPolygon,
-  FeatureCollection,
   GeoJsonTypes,
   GeometryCollection,
 } from 'geojson'
 import { getKey } from '@services/utils'
 import union from '@turf/union'
-import { Option } from '@assets/types'
+import type {
+  DbOption,
+  Feature,
+  FeatureCollection,
+  GeometryTypes,
+  KojiKey,
+} from '@assets/types'
+import { useDbCache } from './useDbCache'
+
+const { setRecord } = useDbCache.getState()
 
 export interface UseShapes {
   test: boolean
   activeRoute: string
   newRouteCount: number
-  kojiRefCache: Record<string, Option>
-  remoteCache: Record<string, Feature>
+  kojiRefCache: Record<string, DbOption>
   firstPoint: keyof UseShapes['Point'] | null
   lastPoint: keyof UseShapes['Point'] | null
   Point: Record<number | string, Feature<Point>>
@@ -35,7 +42,7 @@ export interface UseShapes {
     getFirst: () => Feature<Point> | null
     getLast: () => Feature<Point> | null
     getGeojson: (types?: GeoJsonTypes[]) => FeatureCollection
-    getNewPointId: (id: number | string) => number | string
+    getNewPointId: (id: number) => number
   }
   setters: {
     combine: () => void
@@ -44,25 +51,16 @@ export interface UseShapes {
       source?: '__SCANNER' | '',
     ) => void
     add: (
-      feature: Feature | Feature[],
+      feature?: Feature | Feature[],
       source?: '__SCANNER' | '' | '__KOJI',
     ) => void
-    remove: (
-      key: Exclude<GeoJsonTypes, 'Feature' | 'FeatureCollection'>,
-      id?: number | string,
-    ) => void
-    update: <
-      T extends Exclude<GeoJsonTypes, 'Feature' | 'FeatureCollection'>,
-      U extends number | string,
-    >(
+    remove: (key: GeometryTypes, id?: number | string) => void
+    update: <T extends GeometryTypes, U extends number | string>(
       key: T,
       id: U,
       feature: UseShapes[T][U],
     ) => void
-    updateProperty: <
-      T extends Exclude<GeoJsonTypes, 'Feature' | 'FeatureCollection'>,
-      U extends number | string,
-    >(
+    updateProperty: <T extends GeometryTypes, U extends number | string>(
       key: T,
       id: U,
       propertyKey: string,
@@ -81,7 +79,6 @@ export interface UseShapes {
 
 export const useShapes = create<UseShapes>((set, get) => ({
   activeRoute: 'new_route_0',
-  remoteCache: {},
   kojiRefCache: {},
   newRouteCount: 0,
   test: false,
@@ -155,19 +152,12 @@ export const useShapes = create<UseShapes>((set, get) => ({
         feature.forEach((f) => get().setters.add(f, source))
       } else {
         if (source) {
-          set((state) => ({
-            remoteCache: {
-              ...state.remoteCache,
-              [`${feature.properties?.__name}__${
-                feature.properties?.__type || ''
-              }`]: feature,
-            },
-          }))
+          setRecord('feature', feature.id as KojiKey, feature)
         }
         const id =
           feature.id ??
           `${feature.properties?.__name}__${
-            feature.properties?.__type || ''
+            feature.properties?.__mode || ''
           }${source}`
         set((state) => ({
           [feature.geometry.type]: {
@@ -177,21 +167,22 @@ export const useShapes = create<UseShapes>((set, get) => ({
         }))
       }
     },
-    activeRoute: (newId) => {
-      if (!newId) return set({ activeRoute: 'new_route_0' })
+    activeRoute: (incomingId) => {
+      const newId = incomingId || 'new_route_0'
+
       const { activeRoute, Point, MultiPoint } = get()
       if (activeRoute !== newId) {
         const newMultiPoint: Record<string | number, Feature<MultiPoint>> = {
           ...MultiPoint,
         }
         if (Object.values(Point).length) {
-          const { forward, backward, ...rest } =
+          const { __forward, __backward, ...rest } =
             Object.values(Point)?.[0]?.properties || {}
 
           newMultiPoint[activeRoute] = {
             type: 'Feature',
             id: activeRoute,
-            properties: MultiPoint[activeRoute] || rest,
+            properties: MultiPoint[activeRoute]?.properties || rest,
             geometry: {
               type: 'MultiPoint',
               coordinates: Object.values(Point).map(
@@ -200,7 +191,7 @@ export const useShapes = create<UseShapes>((set, get) => ({
             },
           }
         }
-        const newPoint: Record<
+        const newPoints: Record<
           string | number,
           Feature<Point>
         > = Object.fromEntries(
@@ -211,14 +202,15 @@ export const useShapes = create<UseShapes>((set, get) => ({
                 ...MultiPoint[newId],
                 properties: {
                   ...MultiPoint[newId]?.properties,
-                  forward: i
+                  __multipoint_id: MultiPoint[newId]?.id as KojiKey,
+                  __forward: i
                     ? i ===
                       (MultiPoint[newId]?.geometry?.coordinates?.length || 0) -
                         1
                       ? 0
                       : i * 10 + 10
                     : 10,
-                  backward: i
+                  __backward: i
                     ? i * 10 - 10
                     : (MultiPoint[newId]?.geometry?.coordinates?.length || 0) *
                         10 -
@@ -231,17 +223,17 @@ export const useShapes = create<UseShapes>((set, get) => ({
           ),
         )
         const newLineString: Record<string | number, Feature<LineString>> = {}
-        Object.entries(newPoint).forEach(([key, point], i) => {
+        Object.entries(newPoints).forEach(([key, point], i) => {
           const prevPoint = i
-            ? newPoint[+key - 10]
-            : newPoint[Object.values(newPoint).at(-1)?.id || 0]
-          const id = `${prevPoint.id}_${point.id}`
+            ? newPoints[+key - 10]
+            : newPoints[Object.values(newPoints).at(-1)?.id || 0]
+          const id = `${+prevPoint.id}__${+point.id}` as const
           newLineString[id] = {
             type: 'Feature',
             id,
             properties: {
-              start: prevPoint.id,
-              end: point.id,
+              __start: +prevPoint.id,
+              __end: +point.id,
             },
             geometry: {
               type: 'LineString',
@@ -254,10 +246,10 @@ export const useShapes = create<UseShapes>((set, get) => ({
         })
         delete newMultiPoint[newId]
         set({
-          firstPoint: Object.keys(newPoint).at(0) || null,
-          lastPoint: Object.keys(newPoint).at(-1) || null,
+          firstPoint: Object.keys(newPoints).at(0) || null,
+          lastPoint: Object.keys(newPoints).at(-1) || null,
           activeRoute: newId,
-          Point: newPoint,
+          Point: newPoints,
           LineString: newLineString,
           MultiPoint: newMultiPoint,
         })
@@ -290,9 +282,9 @@ export const useShapes = create<UseShapes>((set, get) => ({
                 properties: {
                   ...newPoly.properties,
                   ...possiblyNew.properties,
-                  __koji_id: undefined,
+                  __id: undefined,
                   __name: undefined,
-                  __type: undefined,
+                  __mode: undefined,
                 },
                 geometry: possiblyNew.geometry,
               }
@@ -311,7 +303,7 @@ export const useShapes = create<UseShapes>((set, get) => ({
       if (typeof id === 'string') {
         const { Point, setters, getters } = get()
 
-        const [pointKeyOne, pointKeyTwo] = id.split('_')
+        const [pointKeyOne, pointKeyTwo] = id.split('__')
         const firstPoint = Point[pointKeyOne]
         const secondPoint = Point[pointKeyTwo]
         if (firstPoint?.id !== undefined && secondPoint?.id !== undefined) {
@@ -321,8 +313,9 @@ export const useShapes = create<UseShapes>((set, get) => ({
             ),
             type: 'Feature',
             properties: {
-              forward: secondPoint.id,
-              backward: firstPoint.id,
+              ...firstPoint.properties,
+              __forward: +secondPoint.id,
+              __backward: +firstPoint.id,
             },
             geometry: {
               type: 'Point',
@@ -339,18 +332,18 @@ export const useShapes = create<UseShapes>((set, get) => ({
           setters.add(center)
           setters.update('Point', firstPoint.id, {
             ...firstPoint,
-            properties: { ...firstPoint.properties, forward: center.id },
+            properties: { ...firstPoint.properties, __forward: +center.id },
           })
           setters.update('Point', secondPoint.id, {
             ...secondPoint,
-            properties: { ...secondPoint.properties, backward: center.id },
+            properties: { ...secondPoint.properties, __backward: +center.id },
           })
           const firstLine: Feature<LineString> = {
-            id: `${firstPoint.id}_${center.id}`,
+            id: `${+firstPoint.id}__${+center.id}`,
             type: 'Feature',
             properties: {
-              start: firstPoint.id,
-              end: center.id,
+              __start: +firstPoint.id,
+              __end: +center.id,
             },
             geometry: {
               type: 'LineString',
@@ -361,11 +354,11 @@ export const useShapes = create<UseShapes>((set, get) => ({
             },
           }
           const secondLine: Feature<LineString> = {
-            id: `${center.id}_${secondPoint.id}`,
+            id: `${+center.id}__${+secondPoint.id}`,
             type: 'Feature',
             properties: {
-              start: center.id,
-              end: secondPoint.id,
+              __start: +center.id,
+              __end: +secondPoint.id,
             },
             geometry: {
               type: 'LineString',
@@ -383,20 +376,23 @@ export const useShapes = create<UseShapes>((set, get) => ({
     },
     update: (key, id, feature) => {
       set((state) => {
+        const { type } = feature.geometry
         const newState = {
           [key]: { ...state[key] },
-          [feature.geometry.type]: { ...state[feature.geometry.type] },
+          [type]: { ...state[type] },
         }
-        if (key === 'Point' && feature.geometry.type === 'Point') {
+        if (key === 'Point' && type === 'Point') {
           newState[key][id] = feature
           newState.LineString = { ...state.LineString }
-          const firstPoint = state.Point[state.Point[id].properties?.forward]
+          const firstPoint =
+            state.Point[state.Point[id].properties?.__forward || '']
           const firstLine = Object.values(state.LineString).find(
-            (line) => line.properties?.end === firstPoint?.id,
+            (line) => line.properties?.__end === firstPoint?.id,
           )
-          const secondPoint = state.Point[state.Point[id].properties?.backward]
+          const secondPoint =
+            state.Point[state.Point[id].properties?.__backward || '']
           const secondLine = Object.values(state.LineString).find(
-            (line) => line.properties?.start === secondPoint?.id,
+            (line) => line.properties?.__start === secondPoint?.id,
           )
 
           if (firstLine?.id !== undefined) {
@@ -415,7 +411,7 @@ export const useShapes = create<UseShapes>((set, get) => ({
           }
         } else if (
           key === 'MultiPoint' &&
-          feature.geometry.type === 'Point' &&
+          type === 'Point' &&
           typeof id === 'string'
         ) {
           const [parent, child] = id.split('___')
@@ -428,8 +424,9 @@ export const useShapes = create<UseShapes>((set, get) => ({
             )
             newState[key][parent].geometry = newGeometry
           }
-        } else if (key !== feature.geometry.type) {
-          const newId = feature.properties?.leafletId || feature.id
+        } else if (key !== type) {
+          const newId = feature.properties?.__leafletId || feature.id
+          // @ts-ignore
           newState[feature.geometry.type][newId] = {
             ...feature,
             id: newId,
@@ -437,16 +434,19 @@ export const useShapes = create<UseShapes>((set, get) => ({
           }
           delete newState[key][id]
         } else if (
-          feature.properties?.leafletId &&
-          id !== feature.properties?.leafletId
+          feature.properties?.__leafletId &&
+          id !== feature.properties?.__leafletId
         ) {
-          const { leafletId, ...rest } = feature.properties || {}
-          newState[key][leafletId] = {
-            ...feature,
-            id: leafletId,
-            properties: rest,
+          const { __leafletId, ...rest } = feature.properties || {}
+          if (__leafletId) {
+            // @ts-ignore
+            newState[key][__leafletId] = {
+              ...feature,
+              id: __leafletId,
+              properties: rest,
+            }
+            delete newState[key][id]
           }
-          delete newState[key][id]
         } else {
           newState[key][id] = feature
         }
@@ -480,13 +480,13 @@ export const useShapes = create<UseShapes>((set, get) => ({
             newState.LineString = { ...state.LineString }
             const val = state[key][id] // Point to delete
 
-            const firstPoint = state.Point[val.properties?.forward]
+            const firstPoint = state.Point[val.properties?.__forward || '']
             const firstLine = Object.values(state.LineString).find(
-              (line) => line.properties?.end === firstPoint?.id,
+              (line) => line.properties?.__end === firstPoint?.id,
             )
-            const secondPoint = state.Point[val.properties?.backward]
+            const secondPoint = state.Point[val.properties?.__backward || '']
             const secondLine = Object.values(state.LineString).find(
-              (line) => line.properties?.start === secondPoint?.id,
+              (line) => line.properties?.__start === secondPoint?.id,
             )
             if (val?.id === state.firstPoint && firstPoint?.id) {
               // If the point to delete was the first point
@@ -500,54 +500,58 @@ export const useShapes = create<UseShapes>((set, get) => ({
             if (
               firstLine?.id !== undefined &&
               secondLine?.id !== undefined &&
-              val.properties?.forward !== undefined &&
-              val.properties?.backward !== undefined
+              val.properties?.__forward !== undefined &&
+              val.properties?.__backward !== undefined
             ) {
               if (Object.keys(newState.Point || {}).length > 2) {
                 newState.LineString[
-                  `${secondLine.properties?.start}_${firstLine.properties?.end}`
+                  `${secondLine.properties?.__start}__${firstLine.properties?.__end}`
                 ] = {
                   type: 'Feature',
-                  id: `${secondLine.properties?.start}_${firstLine.properties?.end}`,
+                  id: `${secondLine.properties?.__start || 0}__${
+                    firstLine.properties?.__end || 0
+                  }`,
                   geometry: {
                     type: 'LineString',
                     coordinates: [
                       (
                         (newState[key] as UseShapes['Point'])[
-                          val.properties?.backward
+                          val.properties?.__backward
                         ] as Feature<Point>
                       ).geometry.coordinates,
                       (
                         (newState[key] as UseShapes['Point'])[
-                          val.properties?.forward
+                          val.properties?.__forward
                         ] as Feature<Point>
                       ).geometry.coordinates,
                     ],
                   },
                   properties: {
-                    start: secondLine.properties?.start,
-                    end: firstLine.properties?.end,
+                    __start: secondLine.properties?.__start,
+                    __end: firstLine.properties?.__end,
                   },
                 }
               } else {
                 newState.LineString = {}
               }
-              ;(newState[key] as UseShapes['Point'])[val.properties?.forward] =
-                {
-                  ...firstPoint,
-                  properties: {
-                    ...firstPoint.properties,
-                    backward: secondLine.properties?.start,
-                  },
-                }
-              ;(newState[key] as UseShapes['Point'])[val.properties?.backward] =
-                {
-                  ...secondPoint,
-                  properties: {
-                    ...secondPoint.properties,
-                    forward: firstLine.properties?.end,
-                  },
-                }
+              ;(newState[key] as UseShapes['Point'])[
+                val.properties?.__forward
+              ] = {
+                ...firstPoint,
+                properties: {
+                  ...firstPoint.properties,
+                  __backward: secondLine.properties?.__start,
+                },
+              }
+              ;(newState[key] as UseShapes['Point'])[
+                val.properties?.__backward
+              ] = {
+                ...secondPoint,
+                properties: {
+                  ...secondPoint.properties,
+                  __forward: firstLine.properties?.__end,
+                },
+              }
               delete newState.LineString[firstLine?.id]
               delete newState.LineString[secondLine?.id]
             }
@@ -592,7 +596,7 @@ export const useShapes = create<UseShapes>((set, get) => ({
       collection.features.forEach((feature) => {
         const id =
           feature.id ??
-          `${feature.properties?.__name}${feature.properties?.__type}${source}`
+          `${feature.properties?.__name}${feature.properties?.__mode}${source}`
         switch (feature.geometry.type) {
           case 'Point':
             Point[id] = { ...feature, id } as Feature<Point>

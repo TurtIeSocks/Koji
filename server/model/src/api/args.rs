@@ -2,7 +2,10 @@ use super::*;
 
 use geojson::JsonValue;
 
-use crate::api::{collection::Default, text::TextHelpers};
+use crate::{
+    api::{collection::Default, text::TextHelpers},
+    utils::get_enum_by_geometry_string,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Auth {
@@ -26,6 +29,8 @@ pub enum ReturnTypeArg {
     MultiArray,
     SingleStruct,
     MultiStruct,
+    Geometry,
+    GeometryVec,
     Feature,
     FeatureVec,
     FeatureCollection,
@@ -58,8 +63,10 @@ pub struct Args {
     pub only_unique: Option<bool>,
     pub last_seen: Option<u32>,
     pub save_to_db: Option<bool>,
+    pub save_to_scanner: Option<bool>,
     pub route_chunk_size: Option<usize>,
     pub simplify: Option<bool>,
+    pub geometry_type: Option<String>,
 }
 
 pub struct ArgsUnwrapped {
@@ -77,6 +84,7 @@ pub struct ArgsUnwrapped {
     pub only_unique: bool,
     pub last_seen: u32,
     pub save_to_db: bool,
+    pub save_to_scanner: bool,
     pub route_chunk_size: usize,
     pub simplify: bool,
 }
@@ -98,12 +106,15 @@ impl Args {
             only_unique,
             last_seen,
             save_to_db,
+            save_to_scanner,
             route_chunk_size,
             simplify,
+            geometry_type,
         } = self;
+        let enum_type = get_enum_by_geometry_string(geometry_type);
         let (area, default_return_type) = if let Some(area) = area {
             (
-                area.clone().to_collection(instance.clone(), None),
+                area.clone().to_collection(instance.clone(), enum_type),
                 match area {
                     GeoFormats::Text(area) => {
                         if area.text_test() {
@@ -116,6 +127,8 @@ impl Args {
                     GeoFormats::MultiArray(_) => ReturnTypeArg::MultiArray,
                     GeoFormats::SingleStruct(_) => ReturnTypeArg::SingleStruct,
                     GeoFormats::MultiStruct(_) => ReturnTypeArg::MultiStruct,
+                    GeoFormats::Geometry(_) => ReturnTypeArg::Geometry,
+                    GeoFormats::GeometryVec(_) => ReturnTypeArg::GeometryVec,
                     GeoFormats::Feature(_) => ReturnTypeArg::Feature,
                     GeoFormats::FeatureVec(_) => ReturnTypeArg::FeatureVec,
                     GeoFormats::FeatureCollection(_) => ReturnTypeArg::FeatureCollection,
@@ -151,6 +164,7 @@ impl Args {
         let only_unique = only_unique.unwrap_or(false);
         let last_seen = last_seen.unwrap_or(0);
         let save_to_db = save_to_db.unwrap_or(false);
+        let save_to_scanner = save_to_scanner.unwrap_or(false);
         let route_chunk_size = route_chunk_size.unwrap_or(0);
         let simplify = simplify.unwrap_or(false);
         if let Some(mode) = mode {
@@ -174,6 +188,7 @@ impl Args {
             only_unique,
             last_seen,
             save_to_db,
+            save_to_scanner,
             route_chunk_size,
             simplify,
         }
@@ -181,29 +196,29 @@ impl Args {
 }
 
 pub fn get_return_type(return_type: String, default_return_type: &ReturnTypeArg) -> ReturnTypeArg {
-    match return_type.to_lowercase().as_str() {
-        "alttext" | "alt_text" | "alt-text" => ReturnTypeArg::AltText,
+    match return_type.to_lowercase().replace("-", "_").as_str() {
+        "alttext" | "alt_text" => ReturnTypeArg::AltText,
         "text" => ReturnTypeArg::Text,
         "array" => match *default_return_type {
             ReturnTypeArg::SingleArray => ReturnTypeArg::SingleArray,
             ReturnTypeArg::MultiArray => ReturnTypeArg::MultiArray,
             _ => ReturnTypeArg::SingleArray,
         },
-        "singlearray" | "single_array" | "single-array" => ReturnTypeArg::SingleArray,
-        "multiarray" | "multi_array" | "multi-array" => ReturnTypeArg::MultiArray,
+        "singlearray" | "single_array" => ReturnTypeArg::SingleArray,
+        "multiarray" | "multi_array" => ReturnTypeArg::MultiArray,
         "struct" => match *default_return_type {
             ReturnTypeArg::SingleStruct => ReturnTypeArg::SingleStruct,
             ReturnTypeArg::MultiStruct => ReturnTypeArg::MultiStruct,
             _ => ReturnTypeArg::SingleStruct,
         },
-        "singlestruct" | "single_struct" | "single-struct" => ReturnTypeArg::SingleStruct,
-        "multistruct" | "multi_struct" | "multi-struct" => ReturnTypeArg::MultiStruct,
+        "geometry" => ReturnTypeArg::Geometry,
+        "geometryvec" | "geometry_vec" | "geometries" => ReturnTypeArg::GeometryVec,
+        "singlestruct" | "single_struct" => ReturnTypeArg::SingleStruct,
+        "multistruct" | "multi_struct" => ReturnTypeArg::MultiStruct,
         "feature" => ReturnTypeArg::Feature,
-        "featurevec" | "feature_vec" | "feature-vec" => ReturnTypeArg::FeatureVec,
+        "featurevec" | "feature_vec" => ReturnTypeArg::FeatureVec,
         "poracle" => ReturnTypeArg::Poracle,
-        "featurecollection" | "feature_collection" | "feature-collection" => {
-            ReturnTypeArg::FeatureCollection
-        }
+        "featurecollection" | "feature_collection" => ReturnTypeArg::FeatureCollection,
         _ => default_return_type.clone(),
     }
 }

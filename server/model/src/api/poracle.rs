@@ -40,14 +40,11 @@ impl Default for Poracle {
     }
 }
 
-// impl Poracle {
-//     fn multipath_to_path(&mut self) {
-//         self.path = Some(self.clone().to_single_vec());
-//     }
-//     fn path_to_multipath(&mut self) {
-//         self.multipath = Some(self.clone().to_multi_vec())
-//     }
-// }
+impl GetBbox for Poracle {
+    fn get_bbox(&self) -> Option<Bbox> {
+        self.clone().to_single_vec().get_bbox()
+    }
+}
 
 impl ToPointArray for Poracle {
     fn to_point_array(self) -> point_array::PointArray {
@@ -134,11 +131,12 @@ impl ToMultiStruct for Poracle {
 }
 
 impl ToFeature for Poracle {
-    fn to_feature(self, enum_type: Option<&Type>) -> Feature {
+    fn to_feature(self, enum_type: Option<Type>) -> Feature {
+        let bbox = self.get_bbox();
         let mut feature = Feature {
-            bbox: self.clone().to_single_vec().get_bbox(),
+            bbox: bbox.clone(),
             geometry: Some(Geometry {
-                bbox: None,
+                bbox,
                 foreign_members: None,
                 value: if let Some(enum_type) = enum_type {
                     self.clone().to_multi_vec().get_geojson_value(enum_type)
@@ -190,7 +188,7 @@ impl ToFeature for Poracle {
 }
 
 impl ToCollection for Poracle {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, enum_type: Option<Type>) -> FeatureCollection {
         let feature = self
             .to_feature(enum_type)
             // .ensure_properties(name, enum_type)
@@ -204,7 +202,7 @@ impl ToCollection for Poracle {
 }
 
 impl ToCollection for Vec<Poracle> {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, enum_type: Option<Type>) -> FeatureCollection {
         // let name = if let Some(name) = name {
         //     name
         // } else {
@@ -222,7 +220,7 @@ impl ToCollection for Vec<Poracle> {
                 .into_iter()
                 .enumerate()
                 .map(|(_i, poracle_feat)| {
-                    poracle_feat.to_feature(enum_type)
+                    poracle_feat.to_feature(enum_type.to_owned())
                     // .ensure_properties(
                     //     Some(if length > 1 {
                     //         format!("{}_{}", name, i)

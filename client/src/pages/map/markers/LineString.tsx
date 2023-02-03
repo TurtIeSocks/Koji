@@ -1,9 +1,10 @@
 /* eslint-disable react/destructuring-assignment */
 import * as React from 'react'
 import { Polyline } from 'react-leaflet'
-import type { Feature, LineString } from 'geojson'
+import type { LineString } from 'geojson'
 import distance from '@turf/distance'
 
+import type { Feature } from '@assets/types'
 import { getColor } from '@services/utils'
 
 import { MemoLinePopup } from '../popups/LineString'

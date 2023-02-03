@@ -1,7 +1,12 @@
 import create from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { FeatureCollection } from 'geojson'
-import type { TabOption } from '@assets/types'
+import type {
+  TabOption,
+  FeatureCollection,
+  Category,
+  ConversionOptions,
+} from '@assets/types'
+import { GEOMETRY_CONVERSION_TYPES } from '@assets/constants'
 
 export interface UsePersist {
   darkMode: boolean
@@ -9,7 +14,7 @@ export interface UsePersist {
   drawer: boolean
   location: [number, number]
   zoom: number
-  category: 'pokestop' | 'gym' | 'spawnpoint'
+  category: Category
   spawnpoint: boolean
   gym: boolean
   pokestop: boolean
@@ -29,17 +34,8 @@ export interface UsePersist {
   devices: number | ''
   geojson: FeatureCollection
   route_chunk_size: number | ''
-  polygonExportMode:
-    | 'feature'
-    | 'featureCollection'
-    | 'featureVec'
-    | 'array'
-    | 'multiArray'
-    | 'struct'
-    | 'multiStruct'
-    | 'text'
-    | 'altText'
-    | 'poracle'
+  polygonExportMode: ConversionOptions
+  geometryType: typeof GEOMETRY_CONVERSION_TYPES[number]
   menuItem: TabOption
   export: {
     total: number
@@ -47,6 +43,8 @@ export interface UsePersist {
     route: [number, number][][]
   }
   save_to_db: boolean
+  save_to_scanner: boolean
+  skipRendering: boolean
   snappable: boolean
   continueDrawing: boolean
   fast: boolean
@@ -63,9 +61,9 @@ export const usePersist = create(
       tab: 0,
       drawer: false,
       location: [0, 0],
-      zoom: 16,
+      zoom: 18,
       category: 'pokestop',
-      spawnpoint: true,
+      spawnpoint: false,
       gym: true,
       pokestop: true,
       mode: 'cluster',
@@ -76,6 +74,8 @@ export const usePersist = create(
       min_points: 3,
       only_unique: false,
       save_to_db: false,
+      save_to_scanner: false,
+      skipRendering: false,
       showCircles: true,
       showLines: true,
       showPolygons: true,
@@ -83,6 +83,7 @@ export const usePersist = create(
       nativeLeaflet: false,
       devices: 1,
       polygonExportMode: 'feature',
+      geometryType: 'Polygon',
       route_chunk_size: 0,
       menuItem: 'Manage',
       fast: false,

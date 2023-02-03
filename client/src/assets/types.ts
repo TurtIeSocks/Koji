@@ -1,19 +1,160 @@
+/* eslint-disable @typescript-eslint/ban-types */
 import type {
-  Feature,
-  FeatureCollection,
+  Feature as BaseFeature,
+  FeatureCollection as BaseFc,
+  GeoJsonProperties,
   GeoJsonTypes,
+  Geometry,
+  LineString,
   MultiPoint,
+  MultiPolygon,
+  Point,
+  Polygon,
 } from 'geojson'
 
 import type { UsePersist } from '@hooks/usePersist'
 import type { UseStatic } from '@hooks/useStatic'
-import { TABS } from './constants'
+import { CONVERSION_TYPES, RDM_FENCES, RDM_ROUTES, TABS } from './constants'
 
-export type SpecificValueType<T, U> = {
-  [k in keyof T]: T[k] extends U ? k : never
+// UTILITY TYPES ==================================================================================
+
+export type SpecificValueType<T, U, V> = {
+  [k in keyof T]: T[k] extends U
+    ? V extends true
+      ? k
+      : never
+    : V extends true
+    ? never
+    : k
 }[keyof T]
 
-export type OnlyType<T, U> = { [k in SpecificValueType<T, U>]: U }
+/*
+ * OnlyType<T, U, V> - returns a type with only the keys of T that have a value of U
+ */
+export type OnlyType<T, U, V = true> = { [k in SpecificValueType<T, U, V>]: U }
+
+export type StoreNoFn<T> = keyof OnlyType<T, Function, false>
+
+// ================================================================================================
+
+// GEOJSON TYPES ==================================================================================
+
+export type Properties<G extends Geometry | null = Geometry> =
+  GeoJsonProperties & {
+    __leafletId?: number
+    __forward?: G extends Point ? number : undefined
+    __backward?: G extends Point ? number : undefined
+    __start?: G extends LineString ? number : undefined
+    __end?: G extends LineString ? number : undefined
+    __multipoint_id?: G extends Point ? KojiKey : undefined
+    __name?: string
+    __id?: number
+    __geofence_id?: number
+    __mode?: KojiModes
+    __projects?: number[]
+  }
+
+export interface Feature<G extends Geometry | null = Geometry, P = Properties>
+  extends Omit<BaseFeature<G, P>, 'id'> {
+  id: G extends Point
+    ? number
+    : G extends LineString
+    ? `${number}__${number}`
+    : KojiKey | string
+}
+
+export interface FeatureCollection<
+  G extends Geometry | null = Geometry,
+  P = Properties,
+> extends BaseFc<G, P> {
+  features: Feature<G, P>[]
+}
+
+export type GeometryTypes = Exclude<
+  GeoJsonTypes,
+  'Feature' | 'FeatureCollection' | 'GeometryCollection'
+>
+
+// ================================================================================================
+
+// KOJI TYPES =====================================================================================
+
+export type KojiModes =
+  | typeof RDM_FENCES[number]
+  | typeof RDM_ROUTES[number]
+  | 'Unset'
+
+export type KojiKey = `${number}__${KojiModes}__${
+  | 'KOJI'
+  | 'SCANNER'
+  | 'CLIENT'}`
+
+export type BasicKojiEntry = {
+  id: number
+  name: string
+  created_at: Date | string
+  updated_at: Date | string
+}
+
+export interface KojiGeofence extends BasicKojiEntry {
+  mode?: KojiModes
+  area: Feature<Polygon | MultiPolygon>
+}
+
+export interface KojiProject extends BasicKojiEntry {
+  api_endpoint?: string
+  api_key?: string
+  scanner: boolean
+}
+
+export interface KojiRoute extends BasicKojiEntry {
+  geofence_id: number
+  mode: KojiModes
+  description?: string
+  geometry: MultiPoint
+}
+
+export interface AdminGeofence extends KojiGeofence {
+  properties: { key: string; value: string | number | boolean }[]
+  related: number[]
+}
+
+export interface AdminProject extends KojiProject {
+  related: number[]
+}
+
+export interface KojiStats {
+  best_clusters: [number, number][]
+  best_cluster_point_count: number
+  cluster_time: number
+  total_points: number
+  points_covered: number
+  total_clusters: number
+  total_distance: number
+  longest_distance: number
+  fetch_time: number
+}
+
+export interface KojiResponse<T = FeatureCollection> {
+  data: T
+  status_code: number
+  status: string
+  message: string
+  stats?: KojiStats
+}
+
+export interface DbOption
+  extends Omit<BasicKojiEntry, 'created_at' | 'updated_at'> {
+  mode: KojiModes
+  geo_type?: GeometryTypes
+  geofence_id?: number
+}
+
+// ================================================================================================
+
+// GENERAL TYPES ==================================================================================
+
+export type TabOption = typeof TABS[number]
 
 export interface Data {
   gyms: PixiMarker[]
@@ -26,29 +167,6 @@ export interface PixiMarker {
   p: [number, number]
 }
 
-export interface Instance {
-  name: string
-  type: string
-  data: FeatureCollection
-}
-
-export interface KojiResponse<T = FeatureCollection> {
-  data: T
-  status_code: number
-  status: string
-  message: string
-  stats?: {
-    best_clusters: [number, number][]
-    best_cluster_point_count: number
-    cluster_time: number
-    total_points: number
-    points_covered: number
-    total_clusters: number
-    total_distance: number
-    longest_distance: number
-  }
-}
-
 export interface Config {
   start_lat: number
   start_lon: number
@@ -58,23 +176,13 @@ export interface Config {
   dangerous: boolean
 }
 
-export interface Circle {
-  id: string
-  lat: number
-  lng: number
-  radius: number
-  type: 'circle'
-}
-
-export interface Polygon {
-  id: string
-  positions: [number, number][]
-  type: 'polygon'
-}
-
-export type Shape = Circle | Polygon
-
 export type CombinedState = Partial<UsePersist> & Partial<UseStatic>
+
+export type Category = 'pokestop' | 'gym' | 'spawnpoint'
+
+// ================================================================================================
+
+// DATA TYPES =====================================================================================
 
 export type ObjectInput = { lat: number; lon: number }[]
 export type MultiObjectInput = ObjectInput[]
@@ -94,68 +202,29 @@ export interface Poracle {
   display_in_matches?: boolean
 }
 
-export type ToConvert =
+export type Conversions =
   | ObjectInput
   | MultiObjectInput
   | ArrayInput
   | MultiArrayInput
+  | Geometry
+  | Geometry[]
   | Feature
+  | Feature[]
   | FeatureCollection
   | string
   | Poracle
-  | Feature[]
+  | Poracle[]
+
+export type ConversionOptions = typeof CONVERSION_TYPES[number]
+// ================================================================================================
+
+// PROPS ==========================================================================================
 
 export interface PopupProps {
   id: Feature['id']
   properties: Feature['properties']
+  dbRef: DbOption | null
 }
 
-export interface KojiGeofence {
-  id: number
-  name: string
-  mode: string
-  area: Feature
-}
-
-export interface ClientGeofence extends KojiGeofence {
-  properties: { key: string; value: string | number | boolean }[]
-  related: number[]
-}
-
-export interface KojiProject {
-  id: number
-  name: string
-}
-
-export interface ClientProject extends KojiProject {
-  related: number[]
-}
-
-export interface KojiRoute {
-  id: number
-  geofence_id: number
-  name: string
-  mode: string
-  geometry: MultiPoint
-}
-
-export interface KojiStats {
-  best_clusters: [number, number][]
-  best_cluster_point_count: number
-  cluster_time: number
-  total_points: number
-  points_covered: number
-  total_clusters: number
-  total_distance: number
-  longest_distance: number
-  fetch_time: number
-}
-
-export interface Option {
-  id: number
-  type: string
-  name: string
-  geoType?: Exclude<GeoJsonTypes, 'Feature' | 'FeatureCollection'>
-}
-
-export type TabOption = typeof TABS[number]
+// ================================================================================================

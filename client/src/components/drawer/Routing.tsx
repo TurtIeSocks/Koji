@@ -8,6 +8,7 @@ import {
   ListItemText,
 } from '@mui/material'
 import Update from '@mui/icons-material/Update'
+import shallow from 'zustand/shallow'
 
 import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
@@ -20,33 +21,47 @@ import Toggle from './inputs/Toggle'
 
 export default function RoutingTab() {
   const mode = usePersist((s) => s.mode)
-  const layerEditing = useStatic((s) => s.layerEditing)
-  const updateButton = useStatic((s) => s.updateButton)
+  const category = usePersist((s) => s.category)
+
+  const [isEditing, updateButton, scannerType] = useStatic(
+    (s) => [s.isEditing, s.updateButton, s.scannerType],
+    shallow,
+  )
+
+  React.useEffect(() => {
+    if (category === 'pokestop' && scannerType === 'rdm') {
+      usePersist.setState({ save_to_db: false, save_to_scanner: false })
+    }
+  }, [category])
 
   return (
     <List dense sx={{ width: 275 }}>
       <ListSubheader>Calculation Modes</ListSubheader>
+      <MultiOptionList
+        field="mode"
+        buttons={['cluster', 'route', 'bootstrap']}
+        type="select"
+      />
       <MultiOptionList
         field="category"
         buttons={['pokestop', 'gym', 'spawnpoint']}
         disabled={mode === 'bootstrap'}
         type="select"
       />
-      <MultiOptionList
-        field="mode"
-        buttons={['cluster', 'route', 'bootstrap']}
-        type="select"
-      />
       <Divider sx={{ my: 2 }} />
+
       <ListSubheader>Clustering</ListSubheader>
       <NumInput field="radius" />
       <Collapse in={mode !== 'bootstrap'}>
         <NumInput field="min_points" />
         <Toggle field="fast" />
         <Toggle field="only_unique" />
+        {/* <NumInput field="generations" /> */}
+        {/* <NumInput field="devices" disabled={mode !== 'route'} /> */}
       </Collapse>
+      <Divider sx={{ my: 2 }} />
+
       <Collapse in={mode === 'route'}>
-        <Divider sx={{ my: 2 }} />
         <ListSubheader>Routing</ListSubheader>
         <NumInput
           field="routing_time"
@@ -54,17 +69,31 @@ export default function RoutingTab() {
           disabled={mode !== 'route'}
         />
         <NumInput field="route_chunk_size" disabled={mode !== 'route'} />
+        <Divider sx={{ my: 2 }} />
       </Collapse>
 
-      <Divider sx={{ my: 2 }} />
       <ListSubheader>Saving</ListSubheader>
-      <Toggle field="save_to_db" label="Auto Save to Kōji Db" />
-
-      {/* <NumInput field="generations" /> */}
-      {/* <NumInput field="devices" disabled={mode !== 'route'} /> */}
+      <Toggle
+        field="save_to_db"
+        label="Save to Kōji Db"
+        disabled={scannerType === 'rdm' && category === 'pokestop'}
+      />
+      <Toggle
+        field="save_to_scanner"
+        label="Save to Scanner Db"
+        disabled={
+          !useStatic.getState().dangerous ||
+          (scannerType === 'rdm' && category === 'pokestop')
+        }
+      />
+      <Toggle field="skipRendering" />
       <ListItemButton
         color="primary"
-        disabled={Object.values(layerEditing).some((v) => v) || !!updateButton}
+        disabled={
+          isEditing() ||
+          !!updateButton ||
+          !useStatic.getState().geojson.features.length
+        }
         onClick={async () => {
           useStatic.setState({ updateButton: true })
           await clusteringRouting().then(() => {

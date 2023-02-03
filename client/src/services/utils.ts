@@ -1,11 +1,12 @@
 import * as L from 'leaflet'
 import { capitalize } from '@mui/material'
-import type { Feature, FeatureCollection, MultiPolygon, Polygon } from 'geojson'
+import type { MultiPoint, MultiPolygon, Point, Polygon } from 'geojson'
 import union from '@turf/union'
 import bbox from '@turf/bbox'
 import { useStatic } from '@hooks/useStatic'
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon'
 import { useShapes } from '@hooks/useShapes'
+import { Feature, FeatureCollection } from '@assets/types'
 
 export function getMapBounds(map: L.Map) {
   const mapBounds = map.getBounds()
@@ -57,7 +58,7 @@ export function safeParse<T>(value: string): {
 export function collectionToObject(collection: FeatureCollection) {
   return Object.fromEntries(
     collection.features.map((feat) => [
-      `${feat.properties?.__name}_${feat.properties?.__type}`,
+      `${feat.properties?.__name}__${feat.properties?.__mode}`,
       feat,
     ]),
   )
@@ -91,7 +92,7 @@ export function combineByProperty(
         if (merged) {
           featureHash[name] = {
             ...existing,
-            ...merged,
+            ...(merged as Feature<Polygon | MultiPolygon>),
             properties: {
               ...existing.properties,
               ...feat.properties,
@@ -123,14 +124,16 @@ export function splitMultiPolygons(
       coordinates.forEach((polygon, i) => {
         features.push({
           ...feature,
-          id: `${feature.id}_${i}`,
+          id: `${
+            coordinates.length === 1 ? feature.properties.__id || i : i
+          }__${feature.properties?.__mode}__CLIENT`,
           properties: {
             ...feature.properties,
-            __koji_id: undefined,
+            __id: undefined,
             __name:
               coordinates.length === 1
                 ? feature.properties?.__name || ''
-                : `${feature.properties?.__name}_${i}`,
+                : `${feature.properties?.__name}__${i}`,
           },
           geometry: {
             ...feature.geometry,
@@ -199,4 +202,22 @@ export function removeAllOthers(feature: Feature<MultiPolygon>) {
 
 export function getKey() {
   return Math.random().toString(36).substring(2, 10)
+}
+
+export function mpToPoints(geometry: MultiPoint): Feature<Point>[] {
+  return (geometry.coordinates || []).map((c, i) => {
+    return {
+      id: i,
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: c,
+      },
+      properties: {
+        next: geometry.coordinates[
+          i === geometry.coordinates.length - 1 ? 0 : i + 1
+        ],
+      },
+    }
+  })
 }

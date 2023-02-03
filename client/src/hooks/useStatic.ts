@@ -1,12 +1,19 @@
 import create from 'zustand'
-import type { FeatureCollection } from 'geojson'
 import type { AlertProps } from '@mui/material'
 
-import type { ClientProject, KojiStats } from '@assets/types'
+import type {
+  AdminProject,
+  KojiStats,
+  FeatureCollection,
+  StoreNoFn,
+} from '@assets/types'
 import { collectionToObject } from '@services/utils'
+import { ALL_FENCES, ALL_ROUTES } from '@assets/constants'
+
+type CacheKey = StoreNoFn<UseStatic>
 
 export interface UseStatic {
-  networkError: {
+  networkStatus: {
     message: string
     status: number
     severity: AlertProps['severity']
@@ -29,6 +36,7 @@ export interface UseStatic {
     drawMode: boolean
     removalMode: boolean
   }
+  isEditing: () => boolean
   dialogs: {
     convert: boolean
   }
@@ -41,18 +49,15 @@ export interface UseStatic {
     customName: string
     modifier: 'capitalize' | 'lowercase' | 'uppercase' | 'none'
     allProjects: number[]
-    allType: '' | 'AutoQuest' | 'PokemonIv' | 'AutoPokemon' | 'AutoTth'
+    allGeofences: number | string
+    allFenceMode: '' | typeof ALL_FENCES
+    allRouteMode: '' | typeof ALL_ROUTES
     checked: Record<string, boolean>
   }
-  projects: Record<number | string, ClientProject>
+  projects: Record<number | string, AdminProject>
   clickedLocation: [number, number]
   combinePolyMode: boolean
-  setStatic: <
-    T extends keyof Omit<
-      UseStatic,
-      'setStatic' | 'setSelected' | 'setStaticAlt' | 'setGeojson'
-    >,
-  >(
+  setStatic: <T extends CacheKey>(
     key: T,
     init: UseStatic[T] | ((prev: UseStatic[T]) => UseStatic[T]),
   ) => void
@@ -63,7 +68,7 @@ export interface UseStatic {
 }
 
 export const useStatic = create<UseStatic>((set, get) => ({
-  networkError: {
+  networkStatus: {
     message: '',
     status: 0,
     severity: 'info',
@@ -93,6 +98,7 @@ export const useStatic = create<UseStatic>((set, get) => ({
     removalMode: false,
     rotateMode: false,
   },
+  isEditing: () => Object.values(get().layerEditing).some((v) => v),
   forceRedraw: false,
   forceFetch: false,
   importWizard: {
@@ -102,7 +108,9 @@ export const useStatic = create<UseStatic>((set, get) => ({
     customName: '',
     modifier: 'none',
     allProjects: [],
-    allType: '',
+    allGeofences: '',
+    allFenceMode: '',
+    allRouteMode: '',
     checked: {},
   },
   dialogs: {

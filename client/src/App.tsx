@@ -3,10 +3,10 @@ import { CssBaseline, ThemeProvider } from '@mui/material'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 
 import createTheme from '@assets/theme'
-import { Config } from '@assets/types'
+import type { Config } from '@assets/types'
 import { usePersist } from '@hooks/usePersist'
 import { useStatic } from '@hooks/useStatic'
-import { getData } from '@services/fetches'
+import { fetchWrapper } from '@services/fetches'
 
 import Home from '@pages/Home'
 import Map from '@pages/map'
@@ -64,7 +64,7 @@ export default function App() {
   const [error, setError] = React.useState<string>('')
 
   React.useEffect(() => {
-    getData<Config>('/config/').then((res) => {
+    fetchWrapper<Config>('/config/').then((res) => {
       if (res) {
         if (location[0] === 0 && location[1] === 0) {
           setStore('location', [res.start_lat, res.start_lon])

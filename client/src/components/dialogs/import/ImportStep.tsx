@@ -1,21 +1,26 @@
 import * as React from 'react'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import Typography from '@mui/material/Typography'
-import type { FeatureCollection } from 'geojson'
 
 import JsonFile from '@components/drawer/manage/Json'
 import ShapeFile from '@components/drawer/manage/ShapeFile'
 import { Divider } from '@mui/material'
-import InstanceSelect from '@components/drawer/manage/Instance'
+import InstanceSelect from '@components/drawer/inputs/Instance'
 import { useStatic } from '@hooks/useStatic'
 import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
+import type { KojiKey, FeatureCollection } from '@assets/types'
+
 import Nominatim from './Nominatim'
 
 const ImportStep = React.forwardRef<
   HTMLDivElement,
   {
     geojson: FeatureCollection
-    handleChange: (geojson: FeatureCollection, key?: string) => void
+    handleChange: (
+      geojson: FeatureCollection,
+      key?: string,
+      deleted?: string[],
+    ) => void
   }
 >(({ geojson, handleChange }, ref) => {
   const scannerType = useStatic((s) => s.scannerType)
@@ -62,32 +67,34 @@ const ImportStep = React.forwardRef<
       </Grid2>
       <Grid2 xs={4}>
         <InstanceSelect
-          endpoint="/internal/routes/from_scanner"
-          setGeojson={(geo) =>
+          setGeojson={(incoming, deleted) => {
             handleChange(
               {
-                ...geo,
-                features: geo.features.map((feat) => ({
-                  ...feat,
-                  properties: {
-                    ...feat.properties,
-                    name: feat.properties?.__name,
-                    type: feat.properties?.__type,
-                    __scanner: true,
-                  },
-                })),
+                ...incoming,
+                features: incoming.features
+                  .filter(
+                    (feat) => !geojson.features.find((x) => feat.id === x.id),
+                  )
+                  .map((feat) => ({
+                    ...feat,
+                    id: `${feat.properties?.__id}__${feat.properties?.__mode}__SCANNER`,
+                    properties: {
+                      ...feat.properties,
+                      name: feat.properties?.__name,
+                      mode: feat.properties?.__mode,
+                      __scanner: true,
+                    },
+                  })),
               },
               '__scanner',
+              deleted,
             )
-          }
+          }}
           controlled
           filters={scannerType === 'rdm' ? RDM_FENCES : UNOWN_FENCES}
           initialState={geojson.features
             .filter((feat) => feat.properties?.__scanner)
-            .map(
-              (feat) =>
-                `${feat.properties?.__name}__${feat.properties?.__type || ''}`,
-            )}
+            .map((feat) => feat.id as KojiKey)}
         />
       </Grid2>
       <Divider sx={{ width: '95%', my: 1 }} />

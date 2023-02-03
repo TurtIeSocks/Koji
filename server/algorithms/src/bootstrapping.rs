@@ -100,12 +100,12 @@ pub fn as_geojson(feature: Feature, radius: f64, stats: &mut Stats) -> Feature {
             new_feature.set_property("__name", name);
         }
     }
-    if let Some(geofence_id) = feature.property("__koji_id") {
+    if let Some(geofence_id) = feature.property("__id") {
         if let Some(geofence_id) = geofence_id.as_str() {
             new_feature.set_property("__geofence_id", geofence_id);
         }
     }
-    new_feature.set_property("__type", "CirclePokemon");
+    new_feature.set_property("__mode", "CirclePokemon");
     new_feature.bbox = feature.to_single_vec().get_bbox();
     new_feature
 }

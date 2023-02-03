@@ -12,15 +12,17 @@ import Locate from './Locate'
 import MemoizedDrawing from './Drawing'
 import EasyButton from './EasyButton'
 
+const { isEditing } = useStatic.getState()
+
 export default function Interface() {
+  useLayers()
+  usePopupStyle()
+  useSyncGeojson()
   const navigate = useNavigate()
 
   const map = useMapEvents({
     popupopen(e) {
-      const isEditing = Object.values(useStatic.getState().layerEditing).some(
-        (v) => v,
-      )
-      if (isEditing || useStatic.getState().combinePolyMode) {
+      if (isEditing() || useStatic.getState().combinePolyMode) {
         e.popup.close()
       }
     },
@@ -39,10 +41,6 @@ export default function Interface() {
       map.off('moveend', onMove)
     }
   }, [onMove])
-
-  useLayers()
-  usePopupStyle()
-  useSyncGeojson()
 
   return (
     <>

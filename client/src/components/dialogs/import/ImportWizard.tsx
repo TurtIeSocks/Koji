@@ -6,7 +6,7 @@ import StepLabel from '@mui/material/StepLabel'
 import { Code } from '@components/Code'
 
 import { Box, Button, Tab, Tabs, Typography } from '@mui/material'
-import type { FeatureCollection } from 'geojson'
+import type { FeatureCollection } from '@assets/types'
 import { getKey, safeParse } from '@services/utils'
 import CombineByName from '@components/buttons/CombineByName'
 import SplitMultiPolygonsBtn from '@components/buttons/SplitMultiPolygons'
@@ -54,7 +54,11 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
     )
   }
 
-  const handleChange = (newGeojson: FeatureCollection, key = '') => {
+  const handleChange = (
+    newGeojson: FeatureCollection,
+    key = '',
+    deleted: string[] = [],
+  ) => {
     setTempGeojson((prev) => {
       const merged = {
         ...prev,
@@ -62,12 +66,14 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
         features: [
           ...(key
             ? prev.features.filter(
-                (feat) => feat.properties?.[key] === undefined,
+                (feat) =>
+                  !deleted.includes((feat.id as string) || '') &&
+                  feat.properties?.[key] !== undefined,
               )
             : prev.features),
           ...newGeojson.features.map((feat) => ({
             ...feat,
-            id: getKey(),
+            id: key ? feat.id || getKey() : getKey(),
           })),
         ],
       }
@@ -87,7 +93,9 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
       customName: '',
       modifier: 'none',
       allProjects: [],
-      allType: '',
+      allFenceMode: '',
+      allGeofences: '',
+      allRouteMode: '',
       checked: {},
     })
     setTempGeojson({
@@ -177,7 +185,7 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
               </Button>
               <Button
                 color="primary"
-                disabled={step === 3 || !tempGeojson.features.length}
+                disabled={step === 4 || !tempGeojson.features.length}
                 onClick={() => {
                   setStep((prev) => prev + 1)
                   if (tab) setTab(0)
@@ -225,18 +233,29 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
               refGeojson={tempGeojson}
             />
           ),
-          3: <FinishStep filtered={filtered} reset={reset} />,
+          3: (
+            <AssignStep
+              ref={tabRef}
+              handleChange={handleCodeChange}
+              geojson={safe}
+              refGeojson={tempGeojson}
+              routeMode
+            />
+          ),
+          4: <FinishStep filtered={filtered} reset={reset} />,
         }[step] || null}
         <Stepper
           activeStep={step}
           alternativeLabel
           sx={{ mt: 3, maxWidth: '100%' }}
         >
-          {['Import', 'Properties', 'Assign', 'Confirm'].map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
+          {['Import', 'Properties', 'Fences', 'Routes', 'Confirm'].map(
+            (label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ),
+          )}
         </Stepper>
       </TabPanel>
       <TabPanel value={tab} index={1}>

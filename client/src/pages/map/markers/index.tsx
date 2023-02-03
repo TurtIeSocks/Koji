@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Circle, Popup, useMap } from 'react-leaflet'
 import geohash from 'ngeohash'
 
@@ -25,39 +25,59 @@ export default function Markers({
   const geojson = useStatic((s) => s.geojson)
 
   const [markers, setMarkers] = React.useState<PixiMarker[]>([])
+  const [focused, setFocused] = React.useState(true)
+
   const map = useMap()
+
+  const memoSetFocused = React.useCallback(
+    () => setFocused(document.hasFocus()),
+    [],
+  )
 
   usePixi(nativeLeaflet ? [] : markers)
 
   useDeepCompareEffect(() => {
-    const controller = new AbortController()
-    if (enabled && (data === 'area' ? geojson.features.length : true)) {
-      getMarkers(
-        category,
-        getMapBounds(map),
-        data,
-        {
-          ...geojson,
-          features: geojson.features.filter(
-            (feature) =>
-              feature.geometry.type === 'Polygon' ||
-              feature.geometry.type === 'MultiPolygon',
-          ),
-        },
-        last_seen,
-        controller.signal,
-      ).then((res) => {
-        if (res.length) setMarkers(res)
-      })
+    if (focused) {
+      const controller = new AbortController()
+      const filtered = geojson.features.filter((feature) =>
+        feature.geometry.type.includes('Polygon'),
+      )
+      if (enabled && (data === 'area' ? filtered.length : true)) {
+        getMarkers(
+          category,
+          getMapBounds(map),
+          data,
+          {
+            ...geojson,
+            features: filtered,
+          },
+          last_seen,
+          controller.signal,
+        ).then((res) => {
+          if (res.length && res.length !== markers.length) setMarkers(res)
+        })
+      } else {
+        setMarkers([])
+      }
+      return () => controller.abort()
     }
-    return () => controller.abort()
   }, [
     data,
     data === 'area' ? geojson : {},
     data === 'bound' ? location : {},
     enabled,
     last_seen,
+    focused,
   ])
+
+  useEffect(() => {
+    window.addEventListener('focus', memoSetFocused)
+    window.addEventListener('blur', memoSetFocused)
+    return () => {
+      window.removeEventListener('focus', memoSetFocused)
+      window.removeEventListener('blur', memoSetFocused)
+    }
+  }, [memoSetFocused])
 
   return nativeLeaflet ? (
     <>

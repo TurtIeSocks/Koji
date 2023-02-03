@@ -59,7 +59,7 @@ dependencies = [
  "actix-service",
  "actix-utils",
  "ahash",
- "base64",
+ "base64 0.13.1",
  "bitflags",
  "brotli",
  "bytes",
@@ -235,7 +235,7 @@ checksum = "6dda62cf04bc3a9ad2ea8f314f721951cfdb4cdacec4e984d20e77c7bb170991"
 dependencies = [
  "actix-utils",
  "actix-web",
- "base64",
+ "base64 0.13.1",
  "futures-core",
  "futures-util",
  "log",
@@ -305,7 +305,7 @@ dependencies = [
 
 [[package]]
 name = "algorithms"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "geo",
  "geohash",
@@ -355,24 +355,24 @@ checksum = "2cb2f989d18dd141ab8ae82f64d1a8cdd37e0840f73a406896cf5e99502fab61"
 
 [[package]]
 name = "api"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "actix-files",
  "actix-session",
  "actix-web",
  "actix-web-httpauth",
  "algorithms",
- "dotenv",
- "env_logger",
  "geo",
  "geojson",
  "log",
  "migration",
  "model",
  "nominatim",
+ "reqwest",
  "sea-orm",
  "serde",
  "serde_json",
+ "thiserror",
  "url",
 ]
 
@@ -602,6 +602,12 @@ name = "base64"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
+
+[[package]]
+name = "base64"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4a4ddaa51a5bc52a6948f74c06d20aaaddb71924eab79b8c97a8c556e942d6a"
 
 [[package]]
 name = "base64ct"
@@ -870,7 +876,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "344adc371239ef32293cb1c4fe519592fcf21206c79c02854320afcdf3ab4917"
 dependencies = [
  "aes-gcm",
- "base64",
+ "base64 0.13.1",
  "hkdf",
  "hmac",
  "percent-encoding",
@@ -1439,7 +1445,7 @@ dependencies = [
 
 [[package]]
 name = "geo_repair"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "byteorder",
  "geo",
@@ -1824,9 +1830,12 @@ dependencies = [
 
 [[package]]
 name = "koji"
-version = "0.3.5"
+version = "0.4.0"
 dependencies = [
  "api",
+ "dotenv",
+ "env_logger",
+ "log",
 ]
 
 [[package]]
@@ -1960,7 +1969,7 @@ dependencies = [
 
 [[package]]
 name = "migration"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "async-std",
  "sea-orm-migration",
@@ -2011,18 +2020,20 @@ dependencies = [
 
 [[package]]
 name = "model"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "chrono",
  "futures",
  "geo",
  "geo_repair",
  "geojson",
+ "log",
  "num-traits",
  "sea-orm",
  "serde",
  "serde_json",
  "serde_with",
+ "thiserror",
 ]
 
 [[package]]
@@ -2055,7 +2066,7 @@ dependencies = [
 
 [[package]]
 name = "nominatim"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "derive_builder",
  "geojson",
@@ -2385,7 +2396,7 @@ version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "878c6cbf956e03af9aa8204b407b9cbf47c072164800aa918c516cd4b056c50c"
 dependencies = [
- "base64",
+ "base64 0.13.1",
  "byteorder",
  "bytes",
  "fallible-iterator",
@@ -2575,11 +2586,11 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.11.13"
+version = "0.11.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68cc60575865c7831548863cc02356512e3f1dc2f3f82cb837d7fc4cc8f3c97c"
+checksum = "21eed90ec8570952d53b772ecf8f206aa1ec9a3d76b2521c56c42973f2d91ee9"
 dependencies = [
- "base64",
+ "base64 0.21.0",
  "bytes",
  "encoding_rs",
  "futures-core",
@@ -2975,7 +2986,7 @@ version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25bf4a5a814902cd1014dbccfa4d4560fb8432c779471e96e035602519f82eef"
 dependencies = [
- "base64",
+ "base64 0.13.1",
  "chrono",
  "hex",
  "indexmap",
@@ -3262,18 +3273,18 @@ checksum = "222a222a5bfe1bba4a77b45ec488a741b3cb8872e5e499451fd7d0129c9c7c3d"
 
 [[package]]
 name = "thiserror"
-version = "1.0.37"
+version = "1.0.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10deb33631e3c9018b9baf9dcbbc4f737320d2b576bac10f6aefa048fa407e3e"
+checksum = "6a9cd18aa97d5c45c6603caea1da6628790b37f7a34b6ca89522331c5180fed0"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.37"
+version = "1.0.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "982d17546b47146b28f7c22e3d08465f6b8903d0ea13c1660d9d84a6e7adcdbb"
+checksum = "1fb327af4685e4d03fa8cbcf1716380da910eeb2bb8be417e7f9fd3fb164f36f"
 dependencies = [
  "proc-macro2",
  "quote",

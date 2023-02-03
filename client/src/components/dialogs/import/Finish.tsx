@@ -3,7 +3,7 @@ import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import * as React from 'react'
 
 import { useShapes } from '@hooks/useShapes'
-import type { FeatureCollection } from 'geojson'
+import type { FeatureCollection } from '@assets/types'
 import SaveToKoji from '@components/buttons/SaveToKoji'
 
 interface Props {
@@ -19,10 +19,11 @@ export default function FinishStep({ filtered, reset }: Props) {
       properties: {
         ...feat.properties,
         __name: feat.properties?.name,
-        __type: feat.properties?.type,
+        __mode: feat.properties?.mode,
         __projects: feat.properties?.projects,
+        __geofence_id: feat.properties?.geofence_id,
         name: undefined,
-        type: undefined,
+        mode: undefined,
         projects: undefined,
       },
     })),
@@ -37,11 +38,7 @@ export default function FinishStep({ filtered, reset }: Props) {
       justifyContent="space-around"
     >
       <Grid2>
-        <SaveToKoji
-          fc={JSON.stringify(withInternalProps)}
-          variant="outlined"
-          color="success"
-        />
+        <SaveToKoji fc={withInternalProps} variant="outlined" color="success" />
       </Grid2>
       <Grid2>
         <Button

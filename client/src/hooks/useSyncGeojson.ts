@@ -1,9 +1,11 @@
+/* eslint-disable no-console */
 import useDeepCompareEffect from 'use-deep-compare-effect'
-import type { FeatureCollection } from 'geojson'
 
+import { FeatureCollection } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
 
 import { useStatic } from './useStatic'
+import { useDbCache } from './useDbCache'
 
 export default function useSyncGeojson() {
   const points = useShapes((s) => s.Point)
@@ -16,8 +18,10 @@ export default function useSyncGeojson() {
   const geojson = useStatic((s) => s.geojson)
   const setStatic = useStatic((s) => s.setStatic)
 
-  // eslint-disable-next-line no-console
-  console.log('Shape Debug:', useShapes.getState())
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Shape Debug:', useShapes.getState())
+    console.log('Cache Debug:', useDbCache.getState())
+  }
   useDeepCompareEffect(() => {
     const newGeojson: FeatureCollection = {
       type: 'FeatureCollection',

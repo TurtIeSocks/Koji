@@ -1,14 +1,13 @@
 import * as React from 'react'
 import { Dialog, DialogContent, DialogActions, Button } from '@mui/material'
 
-import type { Feature, FeatureCollection } from 'geojson'
-
-import type { ToConvert } from '@assets/types'
+import { CONVERSION_TYPES } from '@assets/constants'
+import type { Conversions, Feature, FeatureCollection } from '@assets/types'
+import MultiOptions from '@components/drawer/inputs/MultiOptions'
+import SplitMultiPolygonsBtn from '@components/buttons/SplitMultiPolygons'
 import { usePersist } from '@hooks/usePersist'
 import { useShapes } from '@hooks/useShapes'
 import { convert } from '@services/fetches'
-import MultiOptions from '@components/drawer/inputs/MultiOptions'
-import SplitMultiPolygonsBtn from '@components/buttons/SplitMultiPolygons'
 
 import DialogHeader from './Header'
 import { Code } from '../Code'
@@ -83,7 +82,7 @@ export default function ExportPolygon({
       ;(async () => {
         try {
           const cleanCode = code.trim()
-          const parsed: ToConvert =
+          const parsed: Conversions =
             cleanCode.startsWith('{') || cleanCode.startsWith('[')
               ? JSON.parse(
                   cleanCode.endsWith(',')
@@ -101,7 +100,7 @@ export default function ExportPolygon({
               ...geojson,
               features: geojson.features.map((f) => ({
                 ...f,
-                id: f.id ?? `${f.properties?.__name}${f.properties?.__type}`,
+                id: f.id ?? `${f.properties?.__name}${f.properties?.__mode}`,
               })),
             })
           }
@@ -150,17 +149,7 @@ export default function ExportPolygon({
           <>
             <MultiOptions
               field="polygonExportMode"
-              buttons={[
-                'array',
-                'multiArray',
-                'feature',
-                'featureCollection',
-                'struct',
-                'multiStruct',
-                'text',
-                'altText',
-                'poracle',
-              ]}
+              buttons={CONVERSION_TYPES}
               type="select"
             />
             <SplitMultiPolygonsBtn

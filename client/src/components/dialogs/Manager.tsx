@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 import * as React from 'react'
 import { Button, Dialog, DialogActions, DialogContent } from '@mui/material'
-import type { FeatureCollection } from 'geojson'
+import type { FeatureCollection } from 'assets/types'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 
 import SplitMultiPolygonsBtn from '@components/buttons/SplitMultiPolygons'
@@ -41,7 +41,7 @@ export default function Manager({ open, setOpen, geojson }: Props) {
           fc={safe}
           setter={(fc) => setCode(JSON.stringify(fc))}
         />
-        <SaveToKoji fc={code} />
+        <SaveToKoji fc={safe} />
         <SaveToScanner fc={code} />
         <Button
           onClick={() => {

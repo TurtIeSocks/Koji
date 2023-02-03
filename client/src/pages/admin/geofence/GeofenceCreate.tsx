@@ -1,12 +1,12 @@
 import * as React from 'react'
 import { Create, SimpleForm, useNotify, useRedirect } from 'react-admin'
 import { Divider, Typography } from '@mui/material'
-import { ClientGeofence } from '@assets/types'
+import { AdminGeofence } from '@assets/types'
 
 import GeofenceCreateButton from './CreateDialog'
 import GeofenceForm from './GeofenceForm'
 
-const transformPayload = async (geofence: ClientGeofence) => {
+const transformPayload = async (geofence: AdminGeofence) => {
   return {
     id: 0,
     name: geofence.name,

@@ -9,6 +9,9 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: u32,
     pub name: String,
+    pub api_endpoint: Option<String>,
+    pub api_key: Option<String>,
+    pub scanner: bool,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
 }
@@ -74,6 +77,18 @@ impl Query {
         project::Entity::find().all(db).await
     }
 
+    pub async fn get_json_cache(db: &DatabaseConnection) -> Result<Vec<sea_orm::JsonValue>, DbErr> {
+        Entity::find()
+            .from_raw_sql(Statement::from_sql_and_values(
+                DbBackend::MySql,
+                r#"SELECT id, name FROM project ORDER BY name"#,
+                vec![],
+            ))
+            .into_json()
+            .all(db)
+            .await
+    }
+
     pub async fn get_related_fences(
         db: &DatabaseConnection,
         model: Model,
@@ -92,6 +107,9 @@ impl Query {
     pub async fn create(db: &DatabaseConnection, new_project: Model) -> Result<Model, DbErr> {
         ActiveModel {
             name: Set(new_project.name.to_owned()),
+            api_endpoint: Set(new_project.api_endpoint.to_owned()),
+            api_key: Set(new_project.api_key.to_owned()),
+            scanner: Set(new_project.scanner.to_owned()),
             created_at: Set(Utc::now()),
             updated_at: Set(Utc::now()),
             ..Default::default()
@@ -106,6 +124,14 @@ impl Query {
         Query::get_related_fences(db, record).await
     }
 
+    pub async fn get_scanner_project(db: &DatabaseConnection) -> Result<Option<Model>, DbErr> {
+        project::Entity::find()
+            .filter(Column::Scanner.eq(true))
+            .filter(Column::ApiEndpoint.is_not_null())
+            .one(db)
+            .await
+    }
+
     pub async fn update(
         db: &DatabaseConnection,
         id: u32,
@@ -113,7 +139,11 @@ impl Query {
     ) -> Result<Model, DbErr> {
         let old_model: Option<Model> = project::Entity::find_by_id(id).one(db).await?;
         let mut old_model: ActiveModel = old_model.unwrap().into();
+
         old_model.name = Set(new_model.name.to_owned());
+        old_model.api_endpoint = Set(new_model.api_endpoint.to_owned());
+        old_model.api_key = Set(new_model.api_key.to_owned());
+        old_model.scanner = Set(new_model.scanner.to_owned());
         old_model.updated_at = Set(Utc::now());
         old_model.update(db).await
     }

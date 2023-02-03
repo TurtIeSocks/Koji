@@ -14,13 +14,15 @@ import Fence from '@mui/icons-material/Fence'
 import Route from '@mui/icons-material/Route'
 
 import { useStatic } from '@hooks/useStatic'
+import { useShapes } from '@hooks/useShapes'
+import { KojiKey } from '@assets/types'
 import RawManager from '@components/dialogs/Manager'
 import ImportWizard from '@components/dialogs/import/ImportWizard'
 import ConvertDialog from '@components/dialogs/Convert'
 
 import ExportRoute from '../../dialogs/ExportRoute'
 import PolygonDialog from '../../dialogs/Polygon'
-import InstanceSelect from './Instance'
+import InstanceSelect from '../inputs/Instance'
 import StyledSubheader from '../../styled/Subheader'
 
 export default function ImportExport() {
@@ -28,6 +30,18 @@ export default function ImportExport() {
   const [exportAll, setExportAll] = React.useState(false)
   const geojson = useStatic((s) => s.geojson)
   const setStatic = useStatic((s) => s.setStatic)
+
+  const points = geojson.features.filter(
+    (feat) => feat.geometry.type === 'Point',
+  )
+  const addPoint =
+    points.length &&
+    points.every(
+      (feat, _, ref) =>
+        feat.properties.__multipoint_id === ref[0].properties.__multipoint_id,
+    )
+      ? (points[0].properties.__multipoint_id as KojiKey)
+      : ''
 
   return (
     <List dense sx={{ width: 275 }}>
@@ -49,38 +63,36 @@ export default function ImportExport() {
         <ListItemText primary="Geofence Input" />
       </ListItemButton>
       <InstanceSelect
-        endpoint="/internal/routes/from_scanner"
         controlled
-        initialState={geojson.features
-          .filter(
-            (feat) =>
-              feat.geometry.type !== 'LineString' &&
-              feat.geometry.type !== 'Point' &&
-              typeof feat.id === 'string' &&
-              feat.id.endsWith('__SCANNER'),
-          )
-          .map(
-            (feat) =>
-              `${feat.properties?.__name}__${feat.properties?.__type || ''}`,
-          )}
+        initialState={[
+          ...(addPoint && addPoint.endsWith('__SCANNER') ? [addPoint] : []),
+          ...geojson.features
+            .filter(
+              (feat) =>
+                feat.geometry.type !== 'LineString' &&
+                feat.geometry.type !== 'Point' &&
+                typeof feat.id === 'string' &&
+                feat.id.endsWith('__SCANNER'),
+            )
+            .map((feat) => feat.id as KojiKey),
+        ]}
         label="Import from Scanner"
       />
       <InstanceSelect
-        endpoint="/internal/routes/from_koji"
         koji
         controlled
-        initialState={geojson.features
-          .filter(
-            (feat) =>
-              feat.geometry.type !== 'LineString' &&
-              feat.geometry.type !== 'Point' &&
-              typeof feat.id === 'string' &&
-              feat.id.endsWith('__KOJI'),
-          )
-          .map(
-            (feat) =>
-              `${feat.properties?.__name}__${feat.properties?.__type || ''}`,
-          )}
+        initialState={[
+          ...(addPoint && addPoint.endsWith('__KOJI') ? [addPoint] : []),
+          ...geojson.features
+            .filter(
+              (feat) =>
+                feat.geometry.type !== 'LineString' &&
+                feat.geometry.type !== 'Point' &&
+                typeof feat.id === 'string' &&
+                feat.id.endsWith('__KOJI'),
+            )
+            .map((feat) => feat.id as KojiKey),
+        ]}
         label="Import from Kōji"
       />
       <Divider sx={{ my: 2 }} />
@@ -104,7 +116,12 @@ export default function ImportExport() {
       </ListItemButton>
       <Divider sx={{ my: 2 }} />
       <StyledSubheader>Other</StyledSubheader>
-      <ListItemButton onClick={() => setOpen('rawManager')}>
+      <ListItemButton
+        onClick={() => {
+          useShapes.getState().setters.activeRoute()
+          return setOpen('rawManager')
+        }}
+      >
         <ListItemIcon>
           <Save />
         </ListItemIcon>

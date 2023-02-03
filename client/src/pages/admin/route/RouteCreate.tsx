@@ -5,12 +5,15 @@ import { KojiRoute } from '@assets/types'
 
 import RouteForm from './RouteForm'
 
-const transformPayload = async (geofence: KojiRoute) => {
+const transformPayload = (route: KojiRoute) => {
   return {
     id: 0,
-    name: geofence.name,
-    mode: geofence.mode,
-    geometry: JSON.parse(JSON.stringify(geofence.geometry)),
+    name: route.name,
+    mode: route.mode,
+    geometry:
+      typeof route.geometry === 'string'
+        ? JSON.parse(route.geometry)
+        : route.geometry,
   }
 }
 

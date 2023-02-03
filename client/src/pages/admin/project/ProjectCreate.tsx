@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Create, useNotify, useRedirect } from 'react-admin'
+import { Create, SimpleForm, useNotify, useRedirect } from 'react-admin'
 
 import ProjectForm from './ProjectForm'
 
@@ -14,7 +14,9 @@ export default function ProjectCreate() {
 
   return (
     <Create title="Create a Project" mutationOptions={{ onSuccess }}>
-      <ProjectForm />
+      <SimpleForm>
+        <ProjectForm />
+      </SimpleForm>
     </Create>
   )
 }

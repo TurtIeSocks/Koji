@@ -1,19 +1,24 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Feature, Polygon as PolygonType, MultiPolygon } from 'geojson'
+import type { Polygon as PolygonType, MultiPolygon } from 'geojson'
 import * as React from 'react'
 import { Polygon } from 'react-leaflet'
 import * as L from 'leaflet'
 
+import { Feature, DbOption } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
 
 import { MemoPolyPopup } from '../popups/Polygon'
 import Popup from '../popups/Styled'
 
+const { isEditing, setStatic } = useStatic.getState()
+
 export function KojiPolygon({
   feature,
+  dbRef,
 }: {
   feature: Feature<PolygonType> | Feature<MultiPolygon>
+  dbRef: DbOption | null
 }) {
   const [loadData, setLoadData] = React.useState(false)
 
@@ -27,11 +32,11 @@ export function KojiPolygon({
           ref.addOneTimeEventListener('click', () => setLoadData(true))
           ref.addEventListener('click', ({ latlng }) => {
             const { lat, lng } = latlng
-            useStatic.getState().setStatic('clickedLocation', [lng, lat])
+            setStatic('clickedLocation', [lng, lat])
           })
           if (!ref.hasEventListeners('mouseover')) {
             ref.on('mouseover', function mouseOver() {
-              if (!useStatic.getState().combinePolyMode) {
+              if (!useStatic.getState().combinePolyMode && !isEditing()) {
                 ref.setStyle({ color: 'red' })
                 // ref.bringToFront()
               }
@@ -87,7 +92,7 @@ export function KojiPolygon({
                   id: feature.id,
                   properties: {
                     ...feature.properties,
-                    leafletId: layer._leaflet_id,
+                    __leafletId: layer._leaflet_id,
                   },
                 } as any) // TODO: fix this
                 originalLayer.remove()
@@ -137,7 +142,7 @@ export function KojiPolygon({
       pane="polygons"
     >
       <Popup>
-        <MemoPolyPopup feature={feature} loadData={loadData} />
+        <MemoPolyPopup feature={feature} loadData={loadData} dbRef={dbRef} />
       </Popup>
     </Polygon>
   )

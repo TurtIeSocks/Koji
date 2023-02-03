@@ -4,22 +4,25 @@ import {
   Edit,
   ReferenceArrayInput,
   SimpleForm,
-  TextInput,
   useRecordContext,
 } from 'react-admin'
 
-import { ClientProject, KojiGeofence } from '@assets/types'
-import { getData } from '@services/fetches'
+import { AdminProject, KojiGeofence } from '@assets/types'
+import { fetchWrapper } from '@services/fetches'
+import ProjectForm from './ProjectForm'
 
-const transformPayload = async (project: ClientProject) => {
+const transformPayload = async (project: AdminProject) => {
   if (Array.isArray(project.related)) {
-    await getData(`/internal/admin/geofence_project/project/${project.id}/`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
+    await fetchWrapper(
+      `/internal/admin/geofence_project/project/${project.id}/`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(project.related),
       },
-      body: JSON.stringify(project.related),
-    })
+    )
   }
   return project
 }
@@ -38,7 +41,7 @@ export default function ProjectEdit() {
   return (
     <Edit mutationMode="pessimistic" transform={transformPayload}>
       <SimpleForm>
-        <TextInput source="name" fullWidth isRequired />
+        <ProjectForm />
         <ReferenceArrayInput
           source="related"
           reference="geofence"

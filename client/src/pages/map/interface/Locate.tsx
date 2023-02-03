@@ -16,6 +16,9 @@ export default function Locate() {
 
   React.useEffect(() => {
     lc.addTo(map)
+    return () => {
+      lc.remove()
+    }
   }, [])
 
   return null

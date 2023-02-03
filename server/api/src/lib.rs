@@ -24,14 +24,7 @@ mod public;
 mod utils;
 
 #[actix_web::main]
-pub async fn main() -> io::Result<()> {
-    dotenv::from_filename(env::var("ENV").unwrap_or(".env".to_string())).ok();
-    // error | warn | info | debug | trace
-    env_logger::init_from_env(
-        env_logger::Env::new()
-            .default_filter_or(env::var("LOG_LEVEL").unwrap_or("info".to_string())),
-    );
-
+pub async fn start() -> io::Result<()> {
     let koji_db_url = env::var("KOJI_DB_URL").expect("Need KOJI_DB_URL env var to run migrations");
     let scanner_db_url = if env::var("DATABASE_URL").is_ok() {
         println!("[WARNING] `DATABASE_URL` is deprecated in favor of `SCANNER_DB_URL`");
@@ -124,6 +117,7 @@ pub async fn main() -> io::Result<()> {
             // increase max payload size to 20MB
             .app_data(web::JsonConfig::default().limit(20_971_520))
             .wrap(middleware::Logger::new("%s | %r - %b bytes in %D ms (%a)"))
+            .wrap(middleware::Compress::default())
             .wrap(
                 SessionMiddleware::builder(CookieSessionStore::default(), Key::from(&[0; 64]))
                     .cookie_secure(false)
@@ -144,7 +138,7 @@ pub async fn main() -> io::Result<()> {
                         web::scope("/routes")
                             .service(private::data::instance::from_koji)
                             .service(private::data::instance::from_scanner)
-                            .service(private::data::instance::route_from_scanner),
+                            .service(private::data::instance::route_from_db),
                     )
                     .service(
                         web::scope("/data")
@@ -158,6 +152,7 @@ pub async fn main() -> io::Result<()> {
                             .service(
                                 web::scope("/geofence")
                                     .service(private::admin::geofence::get_all)
+                                    .service(private::admin::geofence::get_ref)
                                     .service(private::admin::geofence::paginate)
                                     .service(private::admin::geofence::get_one)
                                     .service(private::admin::geofence::create)
@@ -167,6 +162,7 @@ pub async fn main() -> io::Result<()> {
                             .service(
                                 web::scope("/project")
                                     .service(private::admin::project::get_all)
+                                    .service(private::admin::project::get_ref)
                                     .service(private::admin::project::search)
                                     .service(private::admin::project::paginate)
                                     .service(private::admin::project::get_one)
@@ -185,6 +181,7 @@ pub async fn main() -> io::Result<()> {
                             .service(
                                 web::scope("/route")
                                     .service(private::admin::route::get_all)
+                                    .service(private::admin::route::get_ref)
                                     .service(private::admin::route::paginate)
                                     .service(private::admin::route::get_one)
                                     .service(private::admin::route::create)
@@ -214,8 +211,17 @@ pub async fn main() -> io::Result<()> {
                                 .service(public::v1::geofence::all)
                                 .service(public::v1::geofence::save_koji)
                                 .service(public::v1::geofence::save_scanner)
+                                .service(public::v1::geofence::push_to_prod)
                                 .service(public::v1::geofence::specific_return_type)
                                 .service(public::v1::geofence::specific_project),
+                        )
+                        .service(
+                            web::scope("/route")
+                                .service(public::v1::route::all)
+                                .service(public::v1::route::save_koji)
+                                .service(public::v1::route::push_to_prod)
+                                .service(public::v1::route::specific_return_type)
+                                .service(public::v1::route::specific_project),
                         ),
                 ),
             )

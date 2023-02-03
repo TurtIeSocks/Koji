@@ -40,7 +40,7 @@ impl GeometryHelpers for FeatureCollection {
 }
 
 impl EnsureProperties for FeatureCollection {
-    fn ensure_properties(self, name: Option<String>, enum_type: Option<&Type>) -> Self {
+    fn ensure_properties(self, name: Option<String>, enum_type: Option<Type>) -> Self {
         let name = if let Some(n) = name {
             n
         } else {
@@ -56,10 +56,20 @@ impl EnsureProperties for FeatureCollection {
                     } else {
                         name.clone()
                     }),
-                    enum_type,
+                    enum_type.clone(),
                 )
             })
             .collect()
+    }
+}
+
+impl GetBbox for FeatureCollection {
+    fn get_bbox(&self) -> Option<Bbox> {
+        self.clone()
+            .into_iter()
+            .flat_map(|x| x.to_single_vec())
+            .collect::<single_vec::SingleVec>()
+            .get_bbox()
     }
 }
 
@@ -94,16 +104,12 @@ impl ToText for FeatureCollection {
 }
 
 impl ToCollection for FeatureCollection {
-    fn to_collection(self, _name: Option<String>, _enum_type: Option<&Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, _enum_type: Option<Type>) -> FeatureCollection {
         FeatureCollection {
             bbox: if self.bbox.is_some() {
                 self.bbox
             } else {
-                self.clone()
-                    .into_iter()
-                    .flat_map(|x| x.to_single_vec())
-                    .collect::<single_vec::SingleVec>()
-                    .get_bbox()
+                self.get_bbox()
             },
             features: self
                 .features
@@ -112,7 +118,7 @@ impl ToCollection for FeatureCollection {
                     bbox: if feat.bbox.is_some() {
                         feat.bbox
                     } else {
-                        feat.clone().to_single_vec().get_bbox()
+                        feat.get_bbox()
                     },
                     ..feat
                 })
@@ -223,7 +229,7 @@ impl ToPoracleVec for FeatureCollection {
                     }),
                     Value::Polygon(_) => poracle_feat.path = Some(geometry.to_single_vec()),
                     _ => {
-                        println!(
+                        log::warn!(
                             "Poracle format does not support: {:?}",
                             geometry.value.type_name()
                         );
