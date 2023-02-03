@@ -178,7 +178,6 @@ pub fn cluster(
     }
     let mut sorted = helpers::get_sorted(&circle_map);
 
-    log::error!("\nSORT BY: {:?}\n", sort_by);
     match sort_by {
         SortBy::ClusterCount => {
             sorted.sort_by(|a, b| b.1.combine().len().cmp(&a.1.combine().len()));
