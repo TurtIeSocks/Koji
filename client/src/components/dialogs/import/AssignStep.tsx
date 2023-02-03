@@ -342,16 +342,7 @@ const AssignStep = React.forwardRef<
                       <Select
                         size="small"
                         sx={{ width: '80%', mx: 'auto' }}
-                        value={
-                          feature.properties.geofence_id ||
-                          data.geojson.features.find(
-                            (f) =>
-                              f.geometry.type.includes('Polygon') &&
-                              f.properties[nameProp] ===
-                                feature.properties[nameProp],
-                          )?.properties?.[nameProp] ||
-                          ''
-                        }
+                        value={feature.properties.geofence_id || ''}
                         onChange={({ target }) => {
                           const newFeature = {
                             ...feature,
@@ -392,14 +383,16 @@ const AssignStep = React.forwardRef<
                               ? aName.localeCompare(bName)
                               : 0
                           })
-                          .map((t) => (
-                            <MenuItem
-                              key={t.id}
-                              value={t.properties?.[nameProp]}
-                            >
-                              {t.properties?.[nameProp]}
-                            </MenuItem>
-                          ))}
+                          .map((t) => {
+                            return (
+                              <MenuItem
+                                key={t.id}
+                                value={t.properties?.[nameProp]}
+                              >
+                                {t.properties?.[nameProp]}
+                              </MenuItem>
+                            )
+                          })}
                       </Select>
                     ) : (
                       <ProjectsAc

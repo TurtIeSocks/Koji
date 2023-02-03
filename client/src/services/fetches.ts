@@ -348,9 +348,11 @@ export async function save<T>(url: string, code: string): Promise<T | null> {
       })
       throw new Error('Unable to save')
     }
+    const json: KojiResponse<{ updates: number; inserts: number }> =
+      await res.json()
     useStatic.setState({
       networkStatus: {
-        message: 'Saved successfully!',
+        message: `Created ${json.data.inserts} and updated ${json.data.updates}}`,
         status: res.status,
         severity: 'success',
       },

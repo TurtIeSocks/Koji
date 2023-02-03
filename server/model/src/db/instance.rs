@@ -16,7 +16,9 @@ use super::{
     RdmInstanceArea, ToFeatureFromModel,
 };
 
-use sea_orm::{entity::prelude::*, sea_query::Expr, DbBackend, QuerySelect, Set, Statement};
+use sea_orm::{
+    entity::prelude::*, sea_query::Expr, DbBackend, FromQueryResult, QuerySelect, Set, Statement,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -37,6 +39,14 @@ pub struct Model {
 pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}
+
+#[derive(Debug, Serialize, FromQueryResult)]
+pub struct WithGeoType {
+    pub id: u32,
+    pub name: String,
+    pub mode: Type,
+    pub geo_type: String,
+}
 
 impl ToFeatureFromModel for Model {
     fn to_feature(self) -> Result<Feature, ModelError> {
@@ -91,7 +101,7 @@ impl Query {
     }
 
     pub async fn get_json_cache(db: &DatabaseConnection) -> Result<Vec<sea_orm::JsonValue>, DbErr> {
-        Entity::find()
+        let entries = Entity::find()
             .from_raw_sql(Statement::from_sql_and_values(
                 DbBackend::MySql,
                 r#"SELECT id, name, type AS mode,
@@ -105,9 +115,10 @@ impl Query {
                     "#,
                 vec![],
             ))
-            .into_json()
+            .into_model::<WithGeoType>()
             .all(db)
-            .await
+            .await?;
+        Ok(entries.into_iter().map(|entry| json!(entry)).collect())
     }
 
     pub async fn feature_from_name(

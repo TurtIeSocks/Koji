@@ -2,7 +2,7 @@ import * as React from 'react'
 import Button, { ButtonProps } from '@mui/material/Button'
 
 import type { FeatureCollection } from '@assets/types'
-import { refreshKojiCache, save } from '@services/fetches'
+import { getKojiCache, save } from '@services/fetches'
 
 interface Props extends ButtonProps {
   fc: FeatureCollection
@@ -23,8 +23,25 @@ export default function SaveToKoji({ fc, ...rest }: Props) {
     <Button
       onClick={async () =>
         save('/api/v1/geofence/save-koji', JSON.stringify(fences))
-          .then(() => save('/api/v1/route/save-koji', JSON.stringify(routes)))
-          .then(() => refreshKojiCache())
+          .then(() => getKojiCache('geofence'))
+          .then((newFences) =>
+            save(
+              '/api/v1/route/save-koji',
+              JSON.stringify(
+                routes.features.map((feat) => ({
+                  ...feat,
+                  properties: {
+                    ...feat.properties,
+                    __geofence_id: Object.values(newFences || {}).find(
+                      (x) =>
+                        x.name === feat.properties.__geofence_id?.toString(),
+                    )?.id,
+                  },
+                })),
+              ),
+            ),
+          )
+          .then(() => getKojiCache('route'))
       }
       {...rest}
     >

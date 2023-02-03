@@ -67,25 +67,29 @@ const ImportStep = React.forwardRef<
       </Grid2>
       <Grid2 xs={4}>
         <InstanceSelect
-          setGeojson={(incoming, deleted) =>
+          setGeojson={(incoming, deleted) => {
             handleChange(
               {
                 ...incoming,
-                features: incoming.features.map((feat) => ({
-                  ...feat,
-                  id: `${feat.properties?.__id}__${feat.properties?.__mode}__SCANNER`,
-                  properties: {
-                    ...feat.properties,
-                    name: feat.properties?.__name,
-                    mode: feat.properties?.__mode,
-                    __scanner: true,
-                  },
-                })),
+                features: incoming.features
+                  .filter(
+                    (feat) => !geojson.features.find((x) => feat.id === x.id),
+                  )
+                  .map((feat) => ({
+                    ...feat,
+                    id: `${feat.properties?.__id}__${feat.properties?.__mode}__SCANNER`,
+                    properties: {
+                      ...feat.properties,
+                      name: feat.properties?.__name,
+                      mode: feat.properties?.__mode,
+                      __scanner: true,
+                    },
+                  })),
               },
               '__scanner',
               deleted,
             )
-          }
+          }}
           controlled
           filters={scannerType === 'rdm' ? RDM_FENCES : UNOWN_FENCES}
           initialState={geojson.features

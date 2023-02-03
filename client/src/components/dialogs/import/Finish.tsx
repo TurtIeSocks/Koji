@@ -21,6 +21,7 @@ export default function FinishStep({ filtered, reset }: Props) {
         __name: feat.properties?.name,
         __mode: feat.properties?.mode,
         __projects: feat.properties?.projects,
+        __geofence_id: feat.properties?.geofence_id,
         name: undefined,
         mode: undefined,
         projects: undefined,
