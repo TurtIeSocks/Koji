@@ -182,6 +182,23 @@ impl Query {
                             name: Set(name),
                             ..Default::default()
                         };
+                        let default_model = Entity::find()
+                            .filter(Column::Name.eq("Default"))
+                            .one(conn)
+                            .await?;
+                        if let Some(default_model) = default_model {
+                            new_model.pokemon_mode_workers =
+                                Set(default_model.pokemon_mode_workers);
+                            new_model.pokemon_mode_route = Set(default_model.pokemon_mode_route);
+                            new_model.fort_mode_workers = Set(default_model.fort_mode_workers);
+                            new_model.fort_mode_route = Set(default_model.fort_mode_route);
+                            new_model.quest_mode_workers = Set(default_model.quest_mode_workers);
+                            new_model.quest_mode_hours = Set(default_model.quest_mode_hours);
+                            new_model.quest_mode_max_login_queue =
+                                Set(default_model.quest_mode_max_login_queue);
+                            new_model.geofence = Set(default_model.geofence);
+                            new_model.enable_quests = Set(default_model.enable_quests);
+                        };
                         match column {
                             Column::Geofence => new_model.geofence = Set(Some(area)),
                             Column::FortModeRoute => new_model.fort_mode_route = Set(Some(area)),

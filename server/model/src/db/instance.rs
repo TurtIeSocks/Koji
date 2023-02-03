@@ -145,6 +145,34 @@ impl Query {
         }
     }
 
+    async fn get_by_name(conn: &DatabaseConnection, name: String) -> Result<Option<Model>, DbErr> {
+        Entity::find().filter(Column::Name.eq(name)).one(conn).await
+    }
+
+    async fn get_default(
+        conn: &DatabaseConnection,
+        short: &String,
+        mode: &Type,
+    ) -> Result<HashMap<String, Value>, DbErr> {
+        if let Some(default_model) = Query::get_by_name(conn, format!("Default_{}", short)).await? {
+            log::info!("Found default for Default_{}", short);
+            match serde_json::from_str(&default_model.data) {
+                Ok(defaults) => Ok(defaults),
+                Err(err) => Err(DbErr::Custom(err.to_string())),
+            }
+        } else if let Some(default_model) =
+            Query::get_by_name(conn, format!("Default_{}", mode)).await?
+        {
+            log::info!("Found default for Default_{}", mode);
+            match serde_json::from_str(&default_model.data) {
+                Ok(defaults) => Ok(defaults),
+                Err(err) => Err(DbErr::Custom(err.to_string())),
+            }
+        } else {
+            Ok(HashMap::new())
+        }
+    }
+
     async fn upsert_feature(
         conn: &DatabaseConnection,
         feat: Feature,
@@ -226,6 +254,7 @@ impl Query {
                     } else {
                         let name = name.to_string();
                         let is_update = existing.get(&name);
+                        let short = get_mode_acronym(Some(&mode.to_string()));
                         if let Some(entry) = is_update {
                             if entry.r#type == mode {
                                 let mut data: HashMap<String, Value> =
@@ -239,11 +268,9 @@ impl Query {
                                     .await?;
                                 inserts_updates.updates += 1;
                                 Ok(())
-                            } else if let Some(actual_entry) = existing.get(&format!(
-                                "{}_{}",
-                                name,
-                                get_mode_acronym(Some(&mode.to_string()))
-                            )) {
+                            } else if let Some(actual_entry) =
+                                existing.get(&format!("{}_{}", name, short))
+                            {
                                 let mut data: HashMap<String, Value> =
                                     serde_json::from_str(&actual_entry.data).unwrap();
                                 data.insert("area".to_string(), new_area);
@@ -260,11 +287,14 @@ impl Query {
                                     name: Set(name.to_string()),
                                     ..Default::default()
                                 };
+                                let mut data = Query::get_default(conn, &short, &mode).await?;
+                                data.insert("area".to_string(), new_area);
+
                                 active_model
                                     .set_from_json(json!({
-                                        "name": format!("{}_{}", name, get_mode_acronym(Some(&mode.to_string()))),
+                                        "name": format!("{}_{}", name, short),
                                         "type": mode,
-                                        "data": json!({ "area": new_area }).to_string(),
+                                        "data": json!(data).to_string(),
                                     }))
                                     .unwrap();
 
@@ -277,11 +307,14 @@ impl Query {
                                 name: Set(name.to_string()),
                                 ..Default::default()
                             };
+                            let mut data = Query::get_default(conn, &short, &mode).await?;
+                            data.insert("area".to_string(), new_area);
+
                             active_model
                                 .set_from_json(json!({
                                     "name": name,
                                     "type": mode,
-                                    "data": json!({ "area": new_area }).to_string(),
+                                    "data": json!(data).to_string(),
                                 }))
                                 .unwrap();
                             inserts_updates.inserts += 1;
