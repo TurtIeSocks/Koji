@@ -1,7 +1,6 @@
 /* eslint-disable no-console */
 /* eslint-disable no-nested-ternary */
 import type {
-  CombinedState,
   KojiResponse,
   PixiMarker,
   Conversions,
@@ -16,21 +15,12 @@ import { UseDbCache, useDbCache } from '@hooks/useDbCache'
 
 import { fromSnakeCase, getMapBounds } from './utils'
 
-export async function getData<T>(
+export async function fetchWrapper<T>(
   url: string,
   options: RequestInit = {},
-  settings: CombinedState & { area?: Feature } = {},
 ): Promise<T | null> {
   try {
-    const res = Object.keys(settings).length
-      ? await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(settings),
-        })
-      : await fetch(url, options)
+    const res = await fetch(url, options)
     if (!res.ok) {
       useStatic.setState({
         networkStatus: {
@@ -87,7 +77,7 @@ export async function refreshKojiCache() {
 }
 
 export async function getScannerCache() {
-  return getData<KojiResponse<DbOption[]>>(
+  return fetchWrapper<KojiResponse<DbOption[]>>(
     '/internal/routes/from_scanner',
   ).then((res) => {
     if (res) {

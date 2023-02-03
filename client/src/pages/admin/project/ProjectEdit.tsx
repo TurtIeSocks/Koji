@@ -8,18 +8,21 @@ import {
 } from 'react-admin'
 
 import { AdminProject, KojiGeofence } from '@assets/types'
-import { getData } from '@services/fetches'
+import { fetchWrapper } from '@services/fetches'
 import ProjectForm from './ProjectForm'
 
 const transformPayload = async (project: AdminProject) => {
   if (Array.isArray(project.related)) {
-    await getData(`/internal/admin/geofence_project/project/${project.id}/`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
+    await fetchWrapper(
+      `/internal/admin/geofence_project/project/${project.id}/`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(project.related),
       },
-      body: JSON.stringify(project.related),
-    })
+    )
   }
   return project
 }

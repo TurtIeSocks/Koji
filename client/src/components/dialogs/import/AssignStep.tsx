@@ -14,7 +14,7 @@ import {
   UNOWN_ROUTES,
 } from '@assets/constants'
 import ProjectsAc from '@components/drawer/inputs/ProjectsAC'
-import { getData } from '@services/fetches'
+import { fetchWrapper } from '@services/fetches'
 import { useDbCache } from '@hooks/useDbCache'
 
 const AssignStep = React.forwardRef<
@@ -39,7 +39,7 @@ const AssignStep = React.forwardRef<
   const innerRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
-    getData<KojiResponse<Omit<AdminProject, 'related'>[]>>(
+    fetchWrapper<KojiResponse<Omit<AdminProject, 'related'>[]>>(
       '/internal/admin/project/all/',
     ).then((res) => {
       if (res) {

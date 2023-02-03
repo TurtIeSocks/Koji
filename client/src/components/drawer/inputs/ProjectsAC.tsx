@@ -7,7 +7,7 @@ import {
   TextField,
   createFilterOptions,
 } from '@mui/material'
-import { getData } from '@services/fetches'
+import { fetchWrapper } from '@services/fetches'
 import * as React from 'react'
 
 interface NewKojiProject extends KojiProject {
@@ -32,7 +32,7 @@ export default function ProjectsAc({
   const [loading, setLoading] = React.useState(false)
 
   const saveProject = async (newProject: NewKojiProject) => {
-    const res = await getData<KojiResponse<KojiProject>>(
+    const res = await fetchWrapper<KojiResponse<KojiProject>>(
       '/internal/admin/project/',
       {
         method: 'POST',
@@ -52,7 +52,7 @@ export default function ProjectsAc({
 
   const getOptions = async (search = '') => {
     setLoading(true)
-    const res = await getData<KojiResponse<KojiProject[]>>(
+    const res = await fetchWrapper<KojiResponse<KojiProject[]>>(
       `/internal/admin/project/search/?query=${search}`,
     )
     if (res) {

@@ -28,7 +28,7 @@ import ExportPolygon from '@components/dialogs/Polygon'
 import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
 import { useDbCache } from '@hooks/useDbCache'
-import { getData, save } from '@services/fetches'
+import { fetchWrapper, save } from '@services/fetches'
 import {
   removeAllOthers,
   removeThisPolygon,
@@ -106,11 +106,14 @@ export function PolygonPopup({
     if (feature.geometry.coordinates.length && loadData) {
       Promise.allSettled(
         ['pokestop', 'gym', 'spawnpoint'].map((category) =>
-          getData<{ total: number }>(
+          fetchWrapper<{ total: number }>(
             `/internal/data/area_stats/${category}`,
-            undefined,
             {
-              area: feature,
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ area: feature }),
             },
           ).then((data) =>
             setActive((prev) => ({
@@ -276,7 +279,7 @@ export function PolygonPopup({
         <MenuItem
           disabled={name === undefined}
           onClick={() => {
-            getData<KojiResponse<KojiGeofence>>(
+            fetchWrapper<KojiResponse<KojiGeofence>>(
               isKoji
                 ? `/internal/admin/geofence/${dbRef?.id}/`
                 : '/internal/admin/geofence/',
@@ -329,7 +332,7 @@ export function PolygonPopup({
           disabled={!isKoji}
           onClick={async () => {
             remove(feature.geometry.type, feature.id)
-            await getData(`/internal/admin/geofence/${dbRef?.id}/`, {
+            await fetchWrapper(`/internal/admin/geofence/${dbRef?.id}/`, {
               method: 'DELETE',
             }).then(() => {
               handleClose()

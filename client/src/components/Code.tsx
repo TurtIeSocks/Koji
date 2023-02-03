@@ -4,7 +4,7 @@ import { json, jsonParseLinter } from '@codemirror/lang-json'
 import { linter } from '@codemirror/lint'
 
 import { usePersist } from '@hooks/usePersist'
-import { getData } from '@services/fetches'
+import { fetchWrapper } from '@services/fetches'
 
 interface EditProps extends ReactCodeMirrorProps {
   code?: string
@@ -42,7 +42,7 @@ export function Code({
           if (setCode) {
             const newValue = value.state.doc.toString()
             if (newValue.startsWith('http')) {
-              const remoteValue = await getData<object>(newValue)
+              const remoteValue = await fetchWrapper<object>(newValue)
               setCode(JSON.stringify(remoteValue, null, 2))
             } else {
               setCode(newValue)

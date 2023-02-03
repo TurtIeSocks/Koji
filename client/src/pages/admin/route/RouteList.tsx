@@ -13,6 +13,7 @@ import {
   ReferenceField,
 } from 'react-admin'
 import { BulkAssignButton } from '../actions/bulk/AssignButton'
+import { BulkPushToProd, PushToProd } from '../actions/bulk/PushToApi'
 
 function ListActions() {
   return (
@@ -29,6 +30,7 @@ function BulkActions() {
     <>
       <BulkDeleteWithUndoButton resource="route" />
       <BulkAssignButton resource="route" />
+      <BulkPushToProd resource="route" />
     </>
   )
 }
@@ -54,6 +56,7 @@ export default function GeofenceList() {
         <NumberField source="hops" label="Hops" />
         <EditButton />
         <DeleteWithUndoButton />
+        <PushToProd resource="route" />
       </Datagrid>
     </List>
   )

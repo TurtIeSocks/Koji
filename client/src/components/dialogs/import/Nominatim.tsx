@@ -9,7 +9,7 @@ import {
 } from '@mui/material'
 import * as React from 'react'
 import Clear from '@mui/icons-material/Clear'
-import { getData } from '@services/fetches'
+import { fetchWrapper } from '@services/fetches'
 
 export default function Nominatim({
   features,
@@ -28,7 +28,7 @@ export default function Nominatim({
   React.useEffect(() => {
     const controller = new AbortController()
     setLoading(true)
-    getData<KojiResponse<FeatureCollection>>(
+    fetchWrapper<KojiResponse<FeatureCollection>>(
       `/config/nominatim?query=${inputValue}`,
       { signal: controller.signal },
     ).then((res) => {

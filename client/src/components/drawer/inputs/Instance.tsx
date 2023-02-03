@@ -24,7 +24,7 @@ import type {
   FeatureCollection,
 } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
-import { getData } from '@services/fetches'
+import { fetchWrapper } from '@services/fetches'
 import { useDbCache } from '@hooks/useDbCache'
 
 const icon = <CheckBoxOutlineBlank fontSize="small" color="primary" />
@@ -78,7 +78,7 @@ export default function InstanceSelect({
       added.map(
         (a) =>
           featureCache[a] ||
-          getData<KojiResponse<Feature>>(
+          fetchWrapper<KojiResponse<Feature>>(
             `/internal/routes/one/${koji ? 'koji' : 'scanner'}/${
               options[a].id
             }/${options[a].mode || 'unset'}`,

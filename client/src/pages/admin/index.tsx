@@ -52,21 +52,21 @@ export default function AdminPanel() {
         recordRepresentation={(record) => record.name || ''}
       />
       <Resource
-        name="project"
-        icon={AccountTree}
-        list={ProjectList}
-        edit={ProjectEdit}
-        show={ProjectShow}
-        create={ProjectCreate}
-        recordRepresentation={(record) => record.name || ''}
-      />
-      <Resource
         name="route"
         icon={Route}
         list={RouteList}
         edit={RouteEdit}
         show={RouteShow}
         create={RouteCreate}
+        recordRepresentation={(record) => record.name || ''}
+      />
+      <Resource
+        name="project"
+        icon={AccountTree}
+        list={ProjectList}
+        edit={ProjectEdit}
+        show={ProjectShow}
+        create={ProjectCreate}
         recordRepresentation={(record) => record.name || ''}
       />
     </Admin>

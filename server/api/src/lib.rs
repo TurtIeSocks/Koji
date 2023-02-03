@@ -211,6 +211,7 @@ pub async fn start() -> io::Result<()> {
                                 .service(public::v1::geofence::all)
                                 .service(public::v1::geofence::save_koji)
                                 .service(public::v1::geofence::save_scanner)
+                                .service(public::v1::geofence::push_to_prod)
                                 .service(public::v1::geofence::specific_return_type)
                                 .service(public::v1::geofence::specific_project),
                         )
@@ -218,6 +219,7 @@ pub async fn start() -> io::Result<()> {
                             web::scope("/route")
                                 .service(public::v1::route::all)
                                 .service(public::v1::route::save_koji)
+                                .service(public::v1::route::push_to_prod)
                                 .service(public::v1::route::specific_return_type)
                                 .service(public::v1::route::specific_project),
                         ),

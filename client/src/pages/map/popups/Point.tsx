@@ -18,7 +18,7 @@ import { useShapes } from '@hooks/useShapes'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import { RDM_ROUTES, UNOWN_ROUTES } from '@assets/constants'
 import { useStatic } from '@hooks/useStatic'
-import { getData, getKojiCache } from '@services/fetches'
+import { fetchWrapper, getKojiCache } from '@services/fetches'
 import { useDbCache } from '@hooks/useDbCache'
 
 const { add, remove, splitLine, activeRoute, updateProperty } =
@@ -167,7 +167,7 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
               disabled={!isInKoji}
               onClick={async () => {
                 setLoading(true)
-                await getData(`/internal/admin/route/${dbRef?.id}/`, {
+                await fetchWrapper(`/internal/admin/route/${dbRef?.id}/`, {
                   method: 'DELETE',
                 }).then(() => {
                   setLoading(false)
@@ -182,7 +182,7 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
               disabled={!name || !mode || loading || !fenceId}
               onClick={() => {
                 setLoading(true)
-                getData<KojiResponse<Feature<MultiPoint>>>(
+                fetchWrapper<KojiResponse<Feature<MultiPoint>>>(
                   `/api/v1/convert/merge_points`,
                   {
                     method: 'POST',
@@ -200,7 +200,7 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
                 ).then(
                   (mp) =>
                     mp &&
-                    getData<KojiResponse<KojiRoute>>(
+                    fetchWrapper<KojiResponse<KojiRoute>>(
                       isInKoji
                         ? `/internal/admin/route/${dbRef?.id}/`
                         : '/internal/admin/route/',
