@@ -74,7 +74,7 @@ impl ToFeatureFromModel for Model {
             feature.id = Some(geojson::feature::Id::String(format!(
                 "{}__{}__KOJI",
                 id,
-                mode.as_ref().unwrap_or(&"Null".to_string())
+                mode.as_ref().unwrap_or(&"Unset".to_string())
             )));
             feature.set_property("__name", name.clone());
             feature.set_property("__id", id);
