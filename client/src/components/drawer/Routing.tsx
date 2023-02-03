@@ -59,6 +59,14 @@ export default function RoutingTab() {
         {/* <NumInput field="generations" /> */}
         {/* <NumInput field="devices" disabled={mode !== 'route'} /> */}
       </Collapse>
+      <Collapse in={mode === 'cluster'}>
+        <MultiOptionList
+          field="sort_by"
+          buttons={['GeoHash', 'ClusterCount', 'Random']}
+          disabled={mode !== 'cluster'}
+          type="select"
+        />
+      </Collapse>
       <Divider sx={{ my: 2 }} />
 
       <Collapse in={mode === 'route'}>

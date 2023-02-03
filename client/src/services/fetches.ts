@@ -119,6 +119,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
     skipRendering,
     last_seen,
     route_chunk_size,
+    sort_by,
   } = usePersist.getState()
   const { geojson, setStatic } = useStatic.getState()
   const { add, activeRoute } = useShapes.getState().setters
@@ -179,6 +180,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
               only_unique,
               save_to_db,
               save_to_scanner,
+              sort_by,
             }),
           },
         )
