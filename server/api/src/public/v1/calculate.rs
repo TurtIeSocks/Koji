@@ -128,6 +128,7 @@ async fn cluster(
         save_to_scanner,
         last_seen,
         route_chunk_size,
+        sort_by,
         ..
     } = payload.into_inner().init(Some(&mode));
 
@@ -176,6 +177,7 @@ async fn cluster(
         only_unique,
         area,
         &mut stats,
+        sort_by,
     );
 
     if mode.eq("route") && !clusters.is_empty() {

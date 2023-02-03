@@ -3,9 +3,16 @@ use super::utils::debug_hashmap;
 use geo::{Coord, HaversineDestination, HaversineDistance, Point};
 use geohash::encode;
 use model::{
-    api::{args::Stats, single_vec::SingleVec, BBox, Precision},
+    api::{
+        args::{SortBy, Stats},
+        single_vec::SingleVec,
+        BBox, Precision,
+    },
     db::GenericData,
 };
+use rand::rngs::mock::StepRng;
+use shuffle::irs::Irs;
+use shuffle::shuffler::Shuffler;
 
 use std::{
     collections::{HashMap, HashSet},
@@ -31,7 +38,7 @@ impl ClusterCoords for Coord {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct CircleInfo {
     pub coord: Coord,
     pub bbox: BBox,
@@ -112,6 +119,7 @@ pub fn cluster(
     min_points: usize,
     stats: &mut Stats,
     only_unique: bool,
+    sort_by: &SortBy,
 ) -> SingleVec {
     let time = Instant::now();
     // unfortunately, due to the borrower, we have to maintain this separately from the point_map
@@ -168,11 +176,36 @@ pub fn cluster(
             info.meets_min = info.unique.len() >= min_points;
         }
     }
-    let sorted = helpers::get_sorted(&circle_map);
+    let mut sorted = helpers::get_sorted(&circle_map);
+
+    match sort_by {
+        SortBy::ClusterCount => {
+            sorted.sort_by(|a, b| b.1.combine().len().cmp(&a.1.combine().len()));
+        }
+        SortBy::Random => {
+            let mut rng = StepRng::new(2, 13);
+            let mut irs = Irs::default();
+            match irs.shuffle(&mut sorted, &mut rng) {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!("Error while shuffling: {}", e);
+                }
+            }
+        }
+        _ => {}
+    }
 
     if std::env::var("DEBUG").unwrap_or("false".to_string()) == "true" {
         debug_hashmap("circles.txt", &circle_map).expect("Unable to write circles.txt");
         debug_hashmap("points.txt", &point_map).expect("Unable to write points.txt");
+        debug_hashmap(
+            "sorting.txt",
+            &sorted
+                .iter()
+                .map(|x| (&x.0, x.1.combine().len()))
+                .collect::<Vec<(&String, usize)>>(),
+        )
+        .expect("Unable to write sorting.txt");
     }
 
     // stats.points_covered = point_seen_map

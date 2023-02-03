@@ -2,7 +2,11 @@ use super::*;
 
 use geojson::FeatureCollection;
 use model::{
-    api::{args::Stats, single_vec::SingleVec, ToSingleVec},
+    api::{
+        args::{SortBy, Stats},
+        single_vec::SingleVec,
+        ToSingleVec,
+    },
     db::GenericData,
 };
 
@@ -17,6 +21,7 @@ pub fn main(
     only_unique: bool,
     area: FeatureCollection,
     stats: &mut Stats,
+    sort_by: SortBy,
 ) -> SingleVec {
     if fast {
         fast::project_points(data_points.to_single_vec(), radius, min_points, stats)
@@ -30,6 +35,7 @@ pub fn main(
                     min_points,
                     stats,
                     only_unique,
+                    &sort_by,
                 )
             })
             .collect()

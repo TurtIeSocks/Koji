@@ -20,6 +20,7 @@ export interface UsePersist {
   pokestop: boolean
   data: 'all' | 'area' | 'bound'
   mode: 'bootstrap' | 'route' | 'cluster'
+  sort_by: 'GeoHash' | 'Random' | 'ClusterCount'
   radius: number | ''
   min_points: number | ''
   only_unique: boolean
@@ -68,6 +69,7 @@ export const usePersist = create(
       pokestop: true,
       mode: 'cluster',
       data: 'bound',
+      sort_by: 'GeoHash',
       radius: 70,
       generations: 1,
       routing_time: 1,

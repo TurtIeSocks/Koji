@@ -39,6 +39,13 @@ pub enum ReturnTypeArg {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum SortBy {
+    GeoHash,
+    ClusterCount,
+    Random,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum DataPointsArg {
     Array(single_vec::SingleVec),
@@ -67,6 +74,7 @@ pub struct Args {
     pub route_chunk_size: Option<usize>,
     pub simplify: Option<bool>,
     pub geometry_type: Option<String>,
+    pub sort_by: Option<SortBy>,
 }
 
 pub struct ArgsUnwrapped {
@@ -87,6 +95,7 @@ pub struct ArgsUnwrapped {
     pub save_to_scanner: bool,
     pub route_chunk_size: usize,
     pub simplify: bool,
+    pub sort_by: SortBy,
 }
 
 impl Args {
@@ -110,6 +119,7 @@ impl Args {
             route_chunk_size,
             simplify,
             geometry_type,
+            sort_by,
         } = self;
         let enum_type = get_enum_by_geometry_string(geometry_type);
         let (area, default_return_type) = if let Some(area) = area {
@@ -167,6 +177,7 @@ impl Args {
         let save_to_scanner = save_to_scanner.unwrap_or(false);
         let route_chunk_size = route_chunk_size.unwrap_or(0);
         let simplify = simplify.unwrap_or(false);
+        let sort_by = sort_by.unwrap_or(SortBy::GeoHash);
         if let Some(mode) = mode {
             println!(
                 "[{}]: Instance: {} | Custom Area: {} | Custom Data Points: {}\nRadius: | {} Min Points: {} | Generations: {} | Routing Time: {} | Devices: {} | Fast: {}\nOnly Unique: {}, Last Seen: {}\nReturn Type: {:?}",
@@ -191,6 +202,7 @@ impl Args {
             save_to_scanner,
             route_chunk_size,
             simplify,
+            sort_by,
         }
     }
 }
