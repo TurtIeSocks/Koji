@@ -7,7 +7,9 @@ import type {
   Geometry,
   LineString,
   MultiPoint,
+  MultiPolygon,
   Point,
+  Polygon,
 } from 'geojson'
 
 import type { UsePersist } from '@hooks/usePersist'
@@ -96,7 +98,7 @@ export type BasicKojiEntry = {
 
 export interface KojiGeofence extends BasicKojiEntry {
   mode?: KojiModes
-  area: Feature
+  area: Feature<Polygon | MultiPolygon>
 }
 
 export interface KojiProject extends BasicKojiEntry {

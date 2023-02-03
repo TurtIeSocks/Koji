@@ -21,14 +21,14 @@ import type {
   KojiResponse,
   Feature,
   DbOption,
-  KojiKey,
+  // KojiKey,
   KojiModes,
 } from '@assets/types'
 import ExportPolygon from '@components/dialogs/Polygon'
 import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
 import { useDbCache } from '@hooks/useDbCache'
-import { fetchWrapper, save } from '@services/fetches'
+import { fetchWrapper } from '@services/fetches'
 import {
   removeAllOthers,
   removeThisPolygon,
@@ -127,7 +127,7 @@ export function PolygonPopup({
   }, [feature, loadData])
 
   const isKoji = feature.id.endsWith('KOJI')
-  const isScanner = feature.id.endsWith('SCANNER')
+  // const isScanner = feature.id.endsWith('SCANNER')
 
   return feature ? (
     <React.Fragment key={feature.geometry.type}>
@@ -306,21 +306,22 @@ export function PolygonPopup({
                     severity: 'success',
                   },
                 })
-                const { area, mode: newMode, ...rest } = res.data
-                if (area.geometry.type !== 'GeometryCollection') {
-                  const newId = `${rest.id}__${
-                    newMode || 'Unset'
-                  }__KOJI` as const
-                  area.id = newId
-                  setRecord('geofence', rest.id, {
-                    ...rest,
-                    mode: newMode || 'Unset',
-                    geo_type: area.geometry.type,
-                  })
-                  setRecord('feature', newId, area)
-                  remove(feature.geometry.type, feature.id)
-                  add(area)
-                }
+                const { area, mode: newMode = 'Unset', ...rest } = res.data
+                const newId = `${rest.id}__${newMode}__KOJI` as const
+                area.id = newId
+                setRecord('geofence', rest.id, {
+                  ...rest,
+                  mode: newMode,
+                  geo_type: area.geometry.type,
+                })
+                remove(feature.geometry.type, feature.id)
+                add(
+                  {
+                    ...area,
+                    properties: { ...area.properties, ...feature.properties },
+                  },
+                  '__KOJI',
+                )
               }
               handleClose()
             })
@@ -341,7 +342,7 @@ export function PolygonPopup({
         >
           Delete from Kōji
         </MenuItem>
-        <MenuItem
+        {/* <MenuItem
           disabled={name === undefined}
           onClick={async () => {
             await save(
@@ -372,7 +373,7 @@ export function PolygonPopup({
           }}
         >
           Update Scanner
-        </MenuItem>
+        </MenuItem> */}
       </Menu>
 
       {open && (

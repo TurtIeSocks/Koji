@@ -21,6 +21,8 @@ import type {
 } from '@assets/types'
 import { useDbCache } from './useDbCache'
 
+const { setRecord } = useDbCache.getState()
+
 export interface UseShapes {
   test: boolean
   activeRoute: string
@@ -49,7 +51,7 @@ export interface UseShapes {
       source?: '__SCANNER' | '',
     ) => void
     add: (
-      feature: Feature | Feature[],
+      feature?: Feature | Feature[],
       source?: '__SCANNER' | '' | '__KOJI',
     ) => void
     remove: (key: GeometryTypes, id?: number | string) => void
@@ -145,7 +147,6 @@ export const useShapes = create<UseShapes>((set, get) => ({
   },
   setters: {
     add: (feature, source = '') => {
-      const { setRecord } = useDbCache.getState()
       if (!feature) return
       if (Array.isArray(feature)) {
         feature.forEach((f) => get().setters.add(f, source))

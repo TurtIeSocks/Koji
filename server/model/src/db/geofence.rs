@@ -10,7 +10,7 @@ use crate::{
 use super::*;
 
 use geojson::GeoJson;
-use sea_orm::{entity::prelude::*, InsertResult};
+use sea_orm::{entity::prelude::*, InsertResult, UpdateResult};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
@@ -212,6 +212,19 @@ impl Query {
         Query::get_related_projects(db, record).await
     }
 
+    pub async fn update_related(
+        conn: &DatabaseConnection,
+        model: &Model,
+        new_name: String,
+    ) -> Result<UpdateResult, DbErr> {
+        route::Entity::update_many()
+            .col_expr(route::Column::Name, Expr::value(new_name))
+            .filter(route::Column::GeofenceId.eq(model.id.to_owned()))
+            .filter(route::Column::Name.eq(model.name.to_owned()))
+            .exec(conn)
+            .await
+    }
+
     // Updates a Geofence model, removes internally used props
     pub async fn update(
         db: &DatabaseConnection,
@@ -220,19 +233,27 @@ impl Query {
     ) -> Result<Model, DbErr> {
         let old_model = Entity::find_by_id(id).one(db).await?;
         let new_fence = Feature::from_json_value(new_model.area);
-        if let Ok(mut new_feature) = new_fence {
-            new_feature.remove_internal_props();
-            let value = GeoJson::Feature(new_feature).to_json_value();
-            let mut old_model: ActiveModel = old_model.unwrap().into();
-            old_model.name = Set(new_model.name.to_owned());
-            old_model.area = Set(value);
-            old_model.mode = Set(new_model.mode);
-            old_model.updated_at = Set(Utc::now());
-            old_model.update(db).await
+
+        if let Some(old_model) = old_model {
+            if let Ok(mut new_feature) = new_fence {
+                new_feature.remove_internal_props();
+                let value = GeoJson::Feature(new_feature).to_json_value();
+                if old_model.name.ne(&new_model.name) {
+                    Query::update_related(db, &old_model, new_model.name.clone()).await?;
+                };
+                let mut old_model: ActiveModel = old_model.into();
+                old_model.name = Set(new_model.name.to_owned());
+                old_model.area = Set(value);
+                old_model.mode = Set(new_model.mode);
+                old_model.updated_at = Set(Utc::now());
+                old_model.update(db).await
+            } else {
+                Err(DbErr::Custom(
+                    "New area was not a GeoJSON Feature".to_string(),
+                ))
+            }
         } else {
-            Err(DbErr::Custom(
-                "New area was not a GeoJSON Feature".to_string(),
-            ))
+            Err(DbErr::Custom("Could not find geofence model".to_string()))
         }
     }
 
