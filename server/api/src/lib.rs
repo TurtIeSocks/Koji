@@ -42,6 +42,7 @@ pub async fn start() -> io::Result<()> {
     } else {
         100
     };
+
     let unown_db_url = env::var("UNOWN_DB").unwrap_or("".to_string());
 
     let databases = model::KojiDb {
@@ -79,7 +80,6 @@ pub async fn start() -> io::Result<()> {
         Ok(_) => println!("Migrations successful"),
         Err(err) => println!("Migration Error {:?}", err),
     };
-    // geofence::Query::migration_helper(&databases.koji_db).await;
 
     let scanner_type = if databases.unown_db.is_none() {
         "rdm"
