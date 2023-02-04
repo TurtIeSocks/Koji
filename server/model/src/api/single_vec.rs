@@ -1,4 +1,4 @@
-use super::*;
+use super::{collection::Default, *};
 
 pub type SingleVec<T = Precision> = Vec<point_array::PointArray<T>>;
 
@@ -106,19 +106,23 @@ impl ToFeature for SingleVec {
                     self.to_multi_vec().polygon()
                 },
             }),
-            ..Default::default()
+            ..Feature::default()
         }
     }
 }
 
 impl ToCollection for SingleVec {
     fn to_collection(self, _name: Option<String>, enum_type: Option<Type>) -> FeatureCollection {
-        FeatureCollection {
-            bbox: self.get_bbox(),
-            features: vec![
-                self.to_feature(enum_type), // .ensure_properties(name, enum_type)
-            ],
-            foreign_members: None,
+        if self.len() > 1 {
+            FeatureCollection {
+                bbox: self.get_bbox(),
+                features: vec![
+                    self.to_feature(enum_type), // .ensure_properties(name, enum_type)
+                ],
+                foreign_members: None,
+            }
+        } else {
+            FeatureCollection::default()
         }
     }
 }
@@ -137,7 +141,7 @@ impl ToPoracle for SingleVec {
     fn to_poracle(self) -> poracle::Poracle {
         poracle::Poracle {
             path: Some(self.to_single_vec()),
-            ..Default::default()
+            ..poracle::Poracle::default()
         }
     }
 }

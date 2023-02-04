@@ -21,7 +21,7 @@ export default function SaveToKoji({ fc, ...rest }: Props) {
   }
   return (
     <Button
-      onClick={async () =>
+      onClick={() =>
         save('/api/v1/geofence/save-koji', JSON.stringify(fences))
           .then(() => getKojiCache('geofence'))
           .then((newFences) =>
