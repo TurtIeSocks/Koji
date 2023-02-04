@@ -1,19 +1,12 @@
-use super::*;
+use super::{args::UnknownId, *};
 
 use serde_with::skip_serializing_none;
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(untagged)]
-pub enum PoracleId {
-    String(String),
-    Number(u64),
-}
 
 #[skip_serializing_none]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Poracle {
-    pub id: Option<PoracleId>,
+    pub id: Option<UnknownId>,
     pub name: Option<String>,
     pub color: Option<String>,
     pub group: Option<String>,
@@ -27,7 +20,7 @@ pub struct Poracle {
 impl Default for Poracle {
     fn default() -> Poracle {
         Poracle {
-            id: Some(PoracleId::Number(0)),
+            id: Some(UnknownId::Number(0)),
             name: Some("".to_string()),
             color: None,
             group: None,
@@ -157,8 +150,8 @@ impl ToFeature for Poracle {
             feature.set_property(
                 "id",
                 match property {
-                    PoracleId::Number(id) => id,
-                    PoracleId::String(id) => match id.parse::<u64>() {
+                    UnknownId::Number(id) => id,
+                    UnknownId::String(id) => match id.parse::<u32>() {
                         Ok(id) => id,
                         Err(err) => {
                             println!("Parse Error: {:?}", err);

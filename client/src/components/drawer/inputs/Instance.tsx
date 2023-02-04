@@ -81,7 +81,7 @@ export default function InstanceSelect({
           fetchWrapper<KojiResponse<Feature>>(
             `/internal/routes/one/${koji ? 'koji' : 'scanner'}/${
               options[a].id
-            }/${options[a].mode || 'unset'}`,
+            }/${options[a].mode || 'Unset'}`,
           ).then((resp) => {
             return resp?.data
           }),

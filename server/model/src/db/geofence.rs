@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    api::{FeatureHelpers, GeoFormats, ToCollection},
+    api::{args::ApiQueryArgs, FeatureHelpers, GeoFormats, ToCollection},
     error::ModelError,
 };
 
@@ -60,7 +60,7 @@ pub struct GeofenceNoGeometry {
 }
 
 impl ToFeatureFromModel for Model {
-    fn to_feature(self) -> Result<Feature, ModelError> {
+    fn to_feature(self, args: &Option<ApiQueryArgs>) -> Result<Feature, ModelError> {
         let Self {
             area,
             name,
@@ -68,15 +68,36 @@ impl ToFeatureFromModel for Model {
             mode,
             ..
         } = self;
-        let mut feature = Feature::from_json_value(area)?;
-        feature.id = Some(geojson::feature::Id::String(format!(
-            "{}__{}__KOJI",
-            id,
-            mode.as_ref().unwrap_or(&"Null".to_string())
-        )));
-        feature.set_property("__name", name);
-        feature.set_property("__id", id);
-        feature.set_property("__mode", mode);
+        let mut feature = Feature::from_json_value(area.clone())?;
+
+        let mut add_int_props = || {
+            feature.id = Some(geojson::feature::Id::String(format!(
+                "{}__{}__KOJI",
+                id,
+                mode.as_ref().unwrap_or(&"Unset".to_string())
+            )));
+            feature.set_property("__name", name.clone());
+            feature.set_property("__id", id);
+            feature.set_property("__mode", mode.clone());
+        };
+
+        match args {
+            Some(args) => {
+                if args.internal.is_some() {
+                    add_int_props();
+                }
+                if args.id.is_some() {
+                    feature.set_property("id", id);
+                }
+                if args.name.is_some() {
+                    feature.set_property("name", name);
+                }
+                if args.mode.is_some() {
+                    feature.set_property("mode", mode);
+                }
+            }
+            None => add_int_props(),
+        }
         Ok(feature)
     }
 }
@@ -264,14 +285,17 @@ impl Query {
     }
 
     /// Returns all geofence models as a FeatureCollection,
-    pub async fn as_collection(conn: &DatabaseConnection) -> Result<FeatureCollection, DbErr> {
+    pub async fn as_collection(
+        conn: &DatabaseConnection,
+        args: Option<ApiQueryArgs>,
+    ) -> Result<FeatureCollection, DbErr> {
         let items = Entity::find()
             .order_by(Column::Name, Order::Asc)
             .all(conn)
             .await?;
         let items: Vec<Feature> = items
             .into_iter()
-            .filter_map(|item| item.to_feature().ok())
+            .filter_map(|item| item.to_feature(&args).ok())
             .collect();
 
         Ok(items.to_collection(None, None))
@@ -281,13 +305,14 @@ impl Query {
     pub async fn feature_from_name(
         conn: &DatabaseConnection,
         name: &String,
+        args: Option<ApiQueryArgs>,
     ) -> Result<Feature, ModelError> {
         let item = Entity::find()
             .filter(Column::Name.eq(Value::String(Some(Box::new(name.to_string())))))
             .one(conn)
             .await?;
         if let Some(item) = item {
-            item.to_feature()
+            item.to_feature(&args)
         } else {
             Err(ModelError::Database(DbErr::Custom(
                 "Geofence not found".to_string(),
@@ -296,10 +321,14 @@ impl Query {
     }
 
     /// Returns a feature for a route queried by name
-    pub async fn feature(conn: &DatabaseConnection, id: u32) -> Result<Feature, ModelError> {
+    pub async fn feature(
+        conn: &DatabaseConnection,
+        id: u32,
+        args: Option<ApiQueryArgs>,
+    ) -> Result<Feature, ModelError> {
         let item = Entity::find_by_id(id).one(conn).await?;
         if let Some(item) = item {
-            item.to_feature()
+            item.to_feature(&args)
         } else {
             Err(ModelError::Database(DbErr::Custom(
                 "Geofence not found".to_string(),
@@ -463,25 +492,30 @@ impl Query {
     pub async fn by_project(
         conn: &DatabaseConnection,
         project_name: String,
+        args: Option<ApiQueryArgs>,
     ) -> Result<Vec<Feature>, DbErr> {
-        let items = Entity::find()
-            .order_by(Column::Name, Order::Asc)
-            .left_join(project::Entity)
-            .filter(project::Column::Name.eq(project_name))
-            .all(conn)
-            .await?;
+        let items = match project_name.parse::<u32>() {
+            Ok(id) => {
+                Entity::find()
+                    .order_by(Column::Name, Order::Asc)
+                    .left_join(project::Entity)
+                    .filter(project::Column::Id.eq(id))
+                    .all(conn)
+                    .await?
+            }
+            Err(_) => {
+                Entity::find()
+                    .order_by(Column::Name, Order::Asc)
+                    .left_join(project::Entity)
+                    .filter(project::Column::Name.eq(project_name))
+                    .all(conn)
+                    .await?
+            }
+        };
 
         let items: Vec<Feature> = items
             .into_iter()
-            .map(|item| {
-                let feature = Feature::from_json_value(item.area);
-                let feature = if feature.is_ok() {
-                    feature.unwrap()
-                } else {
-                    Feature::default()
-                };
-                feature
-            })
+            .filter_map(|item| item.to_feature(&args).ok())
             .collect();
         Ok(items)
     }
