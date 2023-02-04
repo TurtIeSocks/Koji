@@ -30,3 +30,22 @@ pub enum Type {
     #[sea_orm(string_value = "auto_tth")]
     AutoTth,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "category")]
+pub enum Category {
+    #[sea_orm(string_value = "boolean")]
+    Boolean,
+    #[sea_orm(string_value = "string")]
+    String,
+    #[sea_orm(string_value = "number")]
+    Number,
+    #[sea_orm(string_value = "object")]
+    Object,
+    #[sea_orm(string_value = "array")]
+    Array,
+    #[sea_orm(string_value = "database")]
+    Database,
+    #[sea_orm(string_value = "color")]
+    Color,
+}

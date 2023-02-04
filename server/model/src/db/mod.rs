@@ -14,11 +14,13 @@ use sea_orm::{
 pub mod area;
 pub mod geofence;
 pub mod geofence_project;
+pub mod geofence_property;
 pub mod gym;
 pub mod instance;
 pub mod pokestop;
 pub mod prelude;
 pub mod project;
+pub mod property;
 pub mod route;
 pub mod sea_orm_active_enums;
 pub mod spawnpoint;

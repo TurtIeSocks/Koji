@@ -331,7 +331,10 @@ export async function convert<T = Conversions>(
   }
 }
 
-export async function save<T>(url: string, code: string): Promise<T | null> {
+export async function save(
+  url: string,
+  code: string,
+): Promise<{ updates: number; inserts: number } | null> {
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -359,7 +362,7 @@ export async function save<T>(url: string, code: string): Promise<T | null> {
         severity: 'success',
       },
     })
-    return await res.json()
+    return json.data
   } catch (e) {
     console.error(e)
     return null

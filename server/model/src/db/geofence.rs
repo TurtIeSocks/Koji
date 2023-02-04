@@ -20,6 +20,7 @@ pub struct Model {
     pub id: u32,
     pub name: String,
     pub area: Json,
+    pub geometry: Json,
     pub mode: Option<String>,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
@@ -29,6 +30,8 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::project::Entity")]
     Project,
+    #[sea_orm(has_many = "super::geofence_property::Entity")]
+    GeofenceProperty,
     #[sea_orm(has_many = "super::route::Entity")]
     Route,
 }
@@ -39,6 +42,12 @@ impl Related<project::Entity> for Entity {
     }
     fn via() -> Option<RelationDef> {
         Some(geofence_project::Relation::Geofence.def().rev())
+    }
+}
+
+impl Related<super::geofence_property::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::GeofenceProperty.def()
     }
 }
 
