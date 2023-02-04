@@ -12,6 +12,7 @@ mod m20230203_214735_property_table;
 mod m20230203_224735_property_table_unique;
 mod m20230203_231010_geofence_property_table;
 mod m20230204_153412_insert_property_values;
+mod m20230204_162006_add_geometry_column;
 
 pub struct Migrator;
 
@@ -31,6 +32,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230203_224735_property_table_unique::Migration),
             Box::new(m20230203_231010_geofence_property_table::Migration),
             Box::new(m20230204_153412_insert_property_values::Migration),
+            Box::new(m20230204_162006_add_geometry_column::Migration),
         ]
     }
 }
