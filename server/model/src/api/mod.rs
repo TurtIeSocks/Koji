@@ -125,7 +125,6 @@ pub enum GeoFormats {
 
 impl ToCollection for GeoFormats {
     fn to_collection(self, name: Option<String>, enum_type: Option<Type>) -> FeatureCollection {
-        // let name_clone = name.clone();
         match self {
             GeoFormats::Text(area) => area.to_collection(name, enum_type),
             GeoFormats::SingleArray(area) => area.to_collection(name, enum_type),
@@ -149,7 +148,6 @@ impl ToCollection for GeoFormats {
             .to_collection(name, enum_type),
         }
         .ensure_first_last()
-        // .ensure_properties(name_clone, enum_type)
     }
 }
 

@@ -354,7 +354,7 @@ export async function save<T>(url: string, code: string): Promise<T | null> {
       await res.json()
     useStatic.setState({
       networkStatus: {
-        message: `Created ${json.data.inserts} and updated ${json.data.updates}}`,
+        message: `Created ${json.data.inserts} and updated ${json.data.updates}`,
         status: res.status,
         severity: 'success',
       },
