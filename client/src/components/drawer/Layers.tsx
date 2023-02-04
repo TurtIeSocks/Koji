@@ -14,9 +14,10 @@ export default function Layers() {
       <Toggle field="showArrows" />
       <Divider sx={{ my: 2 }} />
       <ListSubheader disableGutters>Markers</ListSubheader>
-      <Toggle field="pokestop" />
       <Toggle field="gym" />
       <Toggle field="spawnpoint" />
+      <Toggle field="pokestop" />
+      <Toggle field="pokestopRange" />
     </List>
   )
 }
