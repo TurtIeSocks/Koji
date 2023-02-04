@@ -8,7 +8,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        println!("[MIGRATION] Creating Route Table");
+        log::info!("[MIGRATION_06] Creating Route Table");
         manager
             .create_table(
                 Table::create()
@@ -42,6 +42,7 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        log::info!("[MIGRATION_06] Dropping Route Table");
         manager
             .drop_table(Table::drop().table(Route::Table).to_owned())
             .await

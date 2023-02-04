@@ -7,6 +7,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        log::info!("[MIGRATION_04] Fixing Geofence_Project FKs");
         let table = Table::alter()
             .table(GeofenceProject::Table)
             .drop_foreign_key(Alias::new("FK_geofence_id"))
@@ -45,6 +46,7 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        log::info!("[MIGRATION_04] Rolling back Geofence_Project FKs");
         let table = Table::alter()
             .table(GeofenceProject::Table)
             .drop_foreign_key(Alias::new("FK_geofence_id"))

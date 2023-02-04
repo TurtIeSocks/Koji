@@ -9,6 +9,9 @@ mod m20230117_010422_routes_table;
 mod m20230121_184556_add_project_api;
 mod m20230122_134517_route_description;
 mod m20230203_214735_property_table;
+mod m20230203_224735_property_table_unique;
+mod m20230203_231010_geofence_property_table;
+mod m20230204_153412_insert_property_values;
 
 pub struct Migrator;
 
@@ -25,6 +28,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20230121_184556_add_project_api::Migration),
             Box::new(m20230122_134517_route_description::Migration),
             Box::new(m20230203_214735_property_table::Migration),
+            Box::new(m20230203_224735_property_table_unique::Migration),
+            Box::new(m20230203_231010_geofence_property_table::Migration),
+            Box::new(m20230204_153412_insert_property_values::Migration),
         ]
     }
 }

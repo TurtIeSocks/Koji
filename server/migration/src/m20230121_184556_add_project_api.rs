@@ -8,7 +8,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        println!("[MIGRATION] Creating Adding Project API Columns");
+        log::info!("[MIGRATION_07] Adding Project API Columns");
         let table = Table::alter()
             .table(Project::Table)
             .add_column(ColumnDef::new(Project::ApiEndpoint).string())
@@ -25,6 +25,7 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        log::info!("[MIGRATION_07] Removing Project API Columns");
         let table = Table::alter()
             .table(Project::Table)
             .drop_column(Project::ApiEndpoint)

@@ -6,7 +6,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        println!("[MIGRATION] Creating Geofence Table");
+        log::info!("[MIGRATION_01] Creating Geofence Table");
         manager
             .create_table(
                 Table::create()
@@ -34,6 +34,7 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        log::info!("[MIGRATION_01] Dropping Geofence Table");
         manager
             .drop_table(Table::drop().table(Geofence::Table).to_owned())
             .await

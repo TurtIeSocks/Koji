@@ -1,7 +1,4 @@
-use sea_orm_migration::{
-    prelude::*,
-    sea_orm::{ConnectionTrait, Statement},
-};
+use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -9,7 +6,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        println!("[MIGRATION] Creating Property Table");
+        log::info!("[MIGRATION_09] Creating Property Table");
         manager
             .create_table(
                 Table::create()
@@ -37,34 +34,11 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Property::DefaultValue).text())
                     .to_owned(),
             )
-            .await?;
-
-        match manager
-            .get_connection()
-            .execute(Statement::from_string(
-                manager.get_database_backend(),
-                r#"ALTER TABLE property
-                    ADD UNIQUE `unique_index`(`name`, `category`)"#.to_owned(),
-            )).await
-        {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                match self.down(manager).await
-                {
-                    Ok(_) => Err(DbErr::Custom(format!(
-                        "Failed to add unique constraint to (`property.`name`, `property`.`category`), successfully reverted the migration. Full error: {}",
-                        e
-                    ))),
-                    Err(e) => Err(DbErr::Custom(format!(
-                        "Failed to add unique constraint, and failed to drop the property table. You will need to drop it manually.\nError: {}",
-                        e
-                    ))),
-                }
-            }
-        }
+            .await
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        log::info!("[MIGRATION_09] Dropping Property Table");
         manager
             .drop_table(Table::drop().table(Property::Table).to_owned())
             .await

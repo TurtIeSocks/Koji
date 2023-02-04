@@ -77,8 +77,8 @@ pub async fn start() -> io::Result<()> {
         },
     };
     match Migrator::up(&databases.koji_db, None).await {
-        Ok(_) => println!("Migrations successful"),
-        Err(err) => println!("Migration Error {:?}", err),
+        Ok(_) => log::info!("Migrations successful"),
+        Err(err) => log::error!("Migration Error {:?}", err),
     };
 
     let scanner_type = if databases.unown_db.is_none() {
