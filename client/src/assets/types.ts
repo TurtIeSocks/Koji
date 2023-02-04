@@ -164,7 +164,9 @@ export interface Data {
 }
 
 export interface PixiMarker {
-  i: `${'p' | 'g' | 'v' | 'u'}${number}` & { [0]: 'p' | 'g' | 'v' | 'u' }
+  i: `${'p' | 'g' | 'v' | 'u' | 'r'}${number}` & {
+    [0]: 'p' | 'g' | 'v' | 'u' | 'r'
+  }
   p: [number, number]
 }
 

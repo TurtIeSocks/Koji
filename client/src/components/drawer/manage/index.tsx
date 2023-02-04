@@ -20,7 +20,6 @@ import RawManager from '@components/dialogs/Manager'
 import ImportWizard from '@components/dialogs/import/ImportWizard'
 import ConvertDialog from '@components/dialogs/Convert'
 
-import ExportRoute from '../../dialogs/ExportRoute'
 import PolygonDialog from '../../dialogs/Polygon'
 import InstanceSelect from '../inputs/Instance'
 import StyledSubheader from '../../styled/Subheader'
@@ -101,8 +100,8 @@ export default function ImportExport() {
       <StyledSubheader>Export</StyledSubheader>
       <ListItemButton
         onClick={() => {
-          setOpen('polygon')
           setExportAll(true)
+          setOpen('polygon')
         }}
       >
         <ListItemIcon>
@@ -110,7 +109,12 @@ export default function ImportExport() {
         </ListItemIcon>
         Export Polygons
       </ListItemButton>
-      <ListItemButton onClick={() => setOpen('route')}>
+      <ListItemButton
+        onClick={() => {
+          setExportAll(true)
+          setOpen('route')
+        }}
+      >
         <ListItemIcon>
           <Route />
         </ListItemIcon>
@@ -148,14 +152,25 @@ export default function ImportExport() {
         setOpen={setOpen}
         feature={{
           ...geojson,
-          features: geojson.features.filter(
-            (feat) =>
-              feat.geometry.type === 'Polygon' ||
-              feat.geometry.type === 'MultiPolygon',
+          features: geojson.features.filter((feat) =>
+            feat.geometry.type.includes('Polygon'),
           ),
         }}
       />
-      <ExportRoute
+      <PolygonDialog
+        mode={exportAll ? 'exportAll' : 'import'}
+        open={open}
+        setOpen={setOpen}
+        feature={{
+          ...geojson,
+          features: geojson.features.filter(
+            (feat) => feat.geometry.type === 'MultiPoint',
+          ),
+        }}
+        route
+      />
+
+      {/* <ExportRoute
         open={open}
         setOpen={setOpen}
         geojson={{
@@ -166,7 +181,7 @@ export default function ImportExport() {
               feat.geometry.type === 'MultiPoint',
           ),
         }}
-      />
+      /> */}
       <RawManager open={open} setOpen={setOpen} geojson={geojson} />
       <ImportWizard />
       <ConvertDialog />

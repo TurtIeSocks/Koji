@@ -18,6 +18,7 @@ export interface UsePersist {
   spawnpoint: boolean
   gym: boolean
   pokestop: boolean
+  pokestopRange: boolean
   data: 'all' | 'area' | 'bound'
   mode: 'bootstrap' | 'route' | 'cluster'
   sort_by: 'GeoHash' | 'Random' | 'ClusterCount'
@@ -67,6 +68,7 @@ export const usePersist = create(
       spawnpoint: false,
       gym: true,
       pokestop: true,
+      pokestopRange: false,
       mode: 'cluster',
       data: 'bound',
       sort_by: 'GeoHash',

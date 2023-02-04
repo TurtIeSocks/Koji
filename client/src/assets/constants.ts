@@ -35,6 +35,9 @@ export const ICON_SVG = {
         <circle cx="10" cy="10" r="10" fill="green" fill-opacity="0.8" stroke="black" stroke-width="1" />
         <circle cx="10" cy="10" r="1" fill="black" />
       </svg>`,
+  r: `<svg xmlns="http://www.w3.org/2000/svg" height="78" width="78" viewBox="-2 -2 24 24">
+        <circle cx="10" cy="10" r="10" fill="darkgreen" fill-opacity="0.2" stroke="darkgreen" stroke-width="0.25" />
+      </svg>`,
   g: `<svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="-2 -2 24 24">
         <circle cx="10" cy="10" r="10" fill="maroon" fill-opacity="0.8" stroke="black" stroke-width="1" />
         <circle cx="10" cy="10" r="1" fill="black" />
@@ -46,6 +49,7 @@ export const ICON_RADIUS = {
   g: 20,
   v: 10,
   u: 10,
+  r: 70,
 } as const
 
 export const ICON_COLOR = {
@@ -53,6 +57,7 @@ export const ICON_COLOR = {
   g: 'maroon',
   v: 'deeppink',
   u: 'dodgerblue',
+  r: 'darkgreen',
 } as const
 
 export const TABS = [
