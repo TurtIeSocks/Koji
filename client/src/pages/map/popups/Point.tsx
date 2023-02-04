@@ -13,7 +13,7 @@ import geohash from 'ngeohash'
 import type { MultiPoint } from 'geojson'
 
 import { Feature, KojiResponse, KojiRoute, PopupProps } from '@assets/types'
-import ExportRoute from '@components/dialogs/ExportRoute'
+import ExportImport from '@components/dialogs/Polygon'
 import { useShapes } from '@hooks/useShapes'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import { RDM_ROUTES, UNOWN_ROUTES } from '@assets/constants'
@@ -256,16 +256,18 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
         </Grid2>
       </Grid2>
       {open && (
-        <ExportRoute
+        <ExportImport
           open={open}
           setOpen={setOpen}
-          geojson={{
-            type: 'FeatureCollection',
-            features:
-              typeof id === 'string'
-                ? [useShapes.getState().MultiPoint[id?.split('___')[0]]]
-                : Object.values(useShapes.getState().Point),
-          }}
+          route
+          mode="export"
+          feature={
+            typeof id === 'string'
+              ? useShapes.getState().MultiPoint[
+                  feature.properties.__multipoint_id || ''
+                ]
+              : useShapes.getState().getters.getPointsAsMp()
+          }
         />
       )}
     </div>

@@ -1,5 +1,14 @@
 import * as React from 'react'
-import { Dialog, DialogContent, DialogActions, Button } from '@mui/material'
+import {
+  Dialog,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+} from '@mui/material'
+import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
+import useDeepCompareEffect from 'use-deep-compare-effect'
+import distance from '@turf/distance'
 
 import { CONVERSION_TYPES } from '@assets/constants'
 import type { Conversions, Feature, FeatureCollection } from '@assets/types'
@@ -15,6 +24,7 @@ import { Code } from '../Code'
 interface Props {
   open: string
   setOpen: (open: string) => void
+  route?: boolean
 }
 interface Import extends Props {
   mode: 'import'
@@ -37,6 +47,7 @@ export default function ExportPolygon({
   open,
   setOpen,
   feature,
+  route = false,
 }: Import | Export | ExportAll): JSX.Element {
   const polygonExportMode = usePersist((s) => s.polygonExportMode)
   const simplifyPolygons = usePersist((s) => s.simplifyPolygons)
@@ -49,6 +60,11 @@ export default function ExportPolygon({
     type: 'FeatureCollection',
     features: [],
   })
+  const [stats, setStats] = React.useState<{
+    max: number
+    total: number
+    count: number
+  }>({ max: 0, total: 0, count: 0 })
 
   React.useEffect(() => {
     if (mode === 'export' || mode === 'exportAll') {
@@ -114,9 +130,50 @@ export default function ExportPolygon({
     }
   }, [polygonExportMode, code])
 
+  useDeepCompareEffect(() => {
+    if (route && open) {
+      let max = 0
+      let total = 0
+      let count = 0
+      if (feature.type === 'Feature') {
+        if (feature.geometry.type === 'MultiPoint') {
+          const { coordinates } = feature.geometry
+          coordinates.forEach((point, j) => {
+            const next = j ? coordinates[j + 1] : coordinates.at(-1)
+            if (next) {
+              const dis = distance(point, next, { units: 'meters' })
+              if (dis > max) max = dis
+              total += dis
+            }
+            count++
+          })
+        }
+      } else {
+        feature.features.forEach((f) => {
+          if (f.geometry.type === 'MultiPoint') {
+            const { coordinates } = f.geometry
+            coordinates.forEach((point, j) => {
+              const next = j ? coordinates[j + 1] : coordinates.at(-1)
+              if (next) {
+                const dis = distance(point, next, { units: 'meters' })
+                if (dis > max) max = dis
+                total += dis
+              }
+              count++
+            })
+          }
+        })
+      }
+      setCode(JSON.stringify(feature, null, 2))
+      setStats({ max, total, count })
+    } else if (!route) {
+      setStats({ max: 0, total: 0, count: 0 })
+    }
+  }, [route, open, feature])
+
   return (
     <Dialog
-      open={open === 'polygon'}
+      open={open === (route ? 'route' : 'polygon')}
       onClose={() => {
         setOpen('')
         setCode('')
@@ -130,19 +187,66 @@ export default function ExportPolygon({
         }}
       >
         {mode === 'export' || mode === 'exportAll'
-          ? 'Export Polygon'
-          : 'Import Polygon'}
+          ? `Export ${route ? 'Route' : 'Polygon'}`
+          : `Import ${route ? 'Route' : 'Polygon'}`}
       </DialogHeader>
-      <DialogContent sx={{ width: '90vw', height: '60vh', overflow: 'auto' }}>
-        <Code
-          code={code}
-          setCode={setCode}
-          textMode={
-            mode === 'export' || mode === 'exportAll'
-              ? polygonExportMode === 'text' || polygonExportMode === 'altText'
-              : !code.startsWith('{') && !code.startsWith('[')
-          }
-        />
+      <DialogContent
+        sx={{ width: '90vw', minHeight: '60vh', overflow: 'auto' }}
+      >
+        <Grid2 container>
+          <Grid2 xs={route ? 9 : 12} textAlign="left">
+            <Code
+              code={code}
+              setCode={setCode}
+              maxHeight="70vh"
+              textMode={
+                mode === 'export' || mode === 'exportAll'
+                  ? polygonExportMode === 'text' ||
+                    polygonExportMode === 'altText'
+                  : !code.startsWith('{') && !code.startsWith('[')
+              }
+            />
+          </Grid2>
+          {route && (
+            <Grid2 xs={3} container justifyContent="flex-start">
+              <Grid2 xs={12}>
+                <TextField
+                  value={stats.count}
+                  label="Count"
+                  sx={{ width: '90%', my: 2 }}
+                  disabled
+                />
+              </Grid2>
+              <Grid2 xs={12}>
+                <TextField
+                  value={stats.max?.toFixed(2) || 0}
+                  label="Max"
+                  sx={{ width: '90%', my: 2 }}
+                  InputProps={{ endAdornment: 'm' }}
+                  disabled
+                />
+              </Grid2>
+              <Grid2 xs={12}>
+                <TextField
+                  value={(stats.total / (stats.count || 1))?.toFixed(2) || 0}
+                  label="Average"
+                  sx={{ width: '90%', my: 2 }}
+                  InputProps={{ endAdornment: 'm' }}
+                  disabled
+                />
+              </Grid2>
+              <Grid2 xs={12}>
+                <TextField
+                  value={stats.total?.toFixed(2) || 0}
+                  label="Total"
+                  sx={{ width: '90%', my: 2 }}
+                  InputProps={{ endAdornment: 'm' }}
+                  disabled
+                />
+              </Grid2>
+            </Grid2>
+          )}
+        </Grid2>
       </DialogContent>
       <DialogActions>
         {(mode === 'export' || mode === 'exportAll') && (

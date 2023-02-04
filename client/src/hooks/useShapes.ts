@@ -43,6 +43,7 @@ export interface UseShapes {
     getLast: () => Feature<Point> | null
     getGeojson: (types?: GeoJsonTypes[]) => FeatureCollection
     getNewPointId: (id: number) => number
+    getPointsAsMp: () => Feature<MultiPoint>
   }
   setters: {
     combine: () => void
@@ -137,6 +138,24 @@ export const useShapes = create<UseShapes>((set, get) => ({
             ? Object.values(multiPolygons)
             : []),
         ],
+      }
+    },
+    getPointsAsMp: () => {
+      const { Point, MultiPoint } = get()
+      const { __forward, __backward, __mode, __multipoint_id, ...rest } =
+        Object.values(Point)[0]?.properties || {}
+      const id = __multipoint_id || `0__${__mode || 'Unset'}__CLIENT`
+      return {
+        id,
+        type: 'Feature',
+        geometry: {
+          type: 'MultiPoint',
+          coordinates: Object.values(Point).map((p) => p.geometry.coordinates),
+        },
+        properties: {
+          ...(MultiPoint[id]?.properties || {}),
+          ...rest,
+        },
       }
     },
   },
