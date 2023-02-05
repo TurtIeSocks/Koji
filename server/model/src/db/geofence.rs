@@ -3,13 +3,13 @@
 use std::collections::HashMap;
 
 use crate::{
-    api::{args::ApiQueryArgs, FeatureHelpers, GeoFormats, ToCollection},
+    api::{args::ApiQueryArgs, GeoFormats, ToCollection},
     error::ModelError,
 };
 
 use super::*;
 
-use geojson::GeoJson;
+use geojson::{GeoJson, Geometry};
 use sea_orm::{entity::prelude::*, InsertResult, UpdateResult};
 use serde::{Deserialize, Serialize};
 
@@ -18,12 +18,14 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: u32,
+    #[sea_orm(unique)]
     pub name: String,
-    pub area: Json,
-    pub geometry: Json,
-    pub mode: Option<String>,
+    pub area: Option<Json>,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
+    pub mode: Option<String>,
+    pub geometry: Json,
+    pub geo_type: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -71,13 +73,16 @@ pub struct GeofenceNoGeometry {
 impl ToFeatureFromModel for Model {
     fn to_feature(self, args: &Option<ApiQueryArgs>) -> Result<Feature, ModelError> {
         let Self {
-            area,
+            geometry,
             name,
             id,
             mode,
             ..
         } = self;
-        let mut feature = Feature::from_json_value(area.clone())?;
+        let mut feature = Feature {
+            geometry: Some(Geometry::from_json_value(geometry)?),
+            ..Default::default()
+        };
 
         let mut add_int_props = || {
             feature.id = Some(geojson::feature::Id::String(format!(
@@ -213,13 +218,13 @@ impl Query {
     /// Creates a new Geofence model, only used from admin panel when creating a single geofence.
     /// Does not try to remove internal props since they do not exist yet
     pub async fn create(db: &DatabaseConnection, incoming: Model) -> Result<Model, DbErr> {
-        let new_fence = Feature::from_json_value(incoming.area);
+        let new_fence = Geometry::from_json_value(incoming.geometry);
         match new_fence {
             Ok(new_feature) => {
-                let value = GeoJson::Feature(new_feature).to_json_value();
+                let value = GeoJson::Geometry(new_feature).to_json_value();
                 ActiveModel {
                     name: Set(incoming.name.to_owned()),
-                    area: Set(value),
+                    geometry: Set(value),
                     mode: Set(incoming.mode),
                     created_at: Set(Utc::now()),
                     updated_at: Set(Utc::now()),
@@ -262,18 +267,17 @@ impl Query {
         new_model: Model,
     ) -> Result<Model, DbErr> {
         let old_model = Entity::find_by_id(id).one(db).await?;
-        let new_fence = Feature::from_json_value(new_model.area);
+        let new_fence = Geometry::from_json_value(new_model.geometry);
 
         if let Some(old_model) = old_model {
-            if let Ok(mut new_feature) = new_fence {
-                new_feature.remove_internal_props();
-                let value = GeoJson::Feature(new_feature).to_json_value();
+            if let Ok(new_feature) = new_fence {
+                let value = GeoJson::Geometry(new_feature).to_json_value();
                 if old_model.name.ne(&new_model.name) {
                     Query::update_related(db, &old_model, new_model.name.clone()).await?;
                 };
                 let mut old_model: ActiveModel = old_model.into();
                 old_model.name = Set(new_model.name.to_owned());
-                old_model.area = Set(value);
+                old_model.geometry = Set(value);
                 old_model.mode = Set(new_model.mode);
                 old_model.updated_at = Set(Utc::now());
                 old_model.update(db).await
@@ -403,58 +407,62 @@ impl Query {
                 } else {
                     None
                 };
-                feat.remove_internal_props();
-                feat.id = None;
-                let area = GeoJson::Feature(feat).to_json_value();
-                if let Some(area) = area.as_object() {
-                    let area = sea_orm::JsonValue::Object(area.to_owned());
-                    let name = name.to_string();
-                    let is_update = existing.get(&name);
+                if let Some(geometry) = feat.geometry {
+                    let area = GeoJson::Geometry(geometry).to_json_value();
+                    if let Some(area) = area.as_object() {
+                        let area = sea_orm::JsonValue::Object(area.to_owned());
+                        let name = name.to_string();
+                        let is_update = existing.get(&name);
 
-                    if let Some(entry) = is_update {
-                        let old_model: Option<Model> =
-                            Entity::find_by_id(entry.clone()).one(conn).await?;
-                        let mut old_model: ActiveModel = old_model.unwrap().into();
-                        old_model.area = Set(area);
-                        old_model.mode = Set(mode);
-                        old_model.updated_at = Set(Utc::now());
-                        let model = old_model.update(conn).await?;
+                        if let Some(entry) = is_update {
+                            let old_model: Option<Model> =
+                                Entity::find_by_id(entry.clone()).one(conn).await?;
+                            let mut old_model: ActiveModel = old_model.unwrap().into();
+                            old_model.geometry = Set(area);
+                            old_model.mode = Set(mode);
+                            old_model.updated_at = Set(Utc::now());
+                            let model = old_model.update(conn).await?;
 
-                        if let Some(projects) = projects {
-                            Query::insert_related_projects(conn, projects, model.id).await?;
-                        };
-                        inserts_updates.updates += 1;
-                        Ok(())
-                    } else {
-                        let model = ActiveModel {
-                            name: Set(name.to_string()),
-                            area: Set(area),
-                            mode: Set(mode),
-                            created_at: Set(Utc::now()),
-                            updated_at: Set(Utc::now()),
-                            ..Default::default()
+                            if let Some(projects) = projects {
+                                Query::insert_related_projects(conn, projects, model.id).await?;
+                            };
+                            inserts_updates.updates += 1;
+                            Ok(())
+                        } else {
+                            let model = ActiveModel {
+                                name: Set(name.to_string()),
+                                geometry: Set(area),
+                                mode: Set(mode),
+                                created_at: Set(Utc::now()),
+                                updated_at: Set(Utc::now()),
+                                ..Default::default()
+                            }
+                            .insert(conn)
+                            .await?;
+
+                            if let Some(projects) = projects {
+                                Query::insert_related_projects(conn, projects, model.id).await?;
+                            };
+                            inserts_updates.inserts += 1;
+                            Ok(())
                         }
-                        .insert(conn)
-                        .await?;
-
-                        if let Some(projects) = projects {
-                            Query::insert_related_projects(conn, projects, model.id).await?;
-                        };
-                        inserts_updates.inserts += 1;
-                        Ok(())
+                    } else {
+                        let error = format!("[GEOFENCE] unable to serialize the feature: {}", name);
+                        log::warn!("{}", error);
+                        Err(DbErr::Custom(error))
                     }
                 } else {
-                    let error = format!("[AREA] unable to serialize the feature: {}", name);
+                    let error = "[GEOFENCE] Couldn't save geofence, geometry is missing";
                     log::warn!("{}", error);
-                    Err(DbErr::Custom(error))
+                    Err(DbErr::Custom(error.to_string()))
                 }
             } else {
-                let error = "[AREA] Couldn't save area, name property is malformed";
+                let error = "[GEOFENCE] Couldn't save area, name property is malformed";
                 log::warn!("{}", error);
                 Err(DbErr::Custom(error.to_string()))
             }
         } else {
-            let error = "[AREA] Couldn't save area, name not found in GeoJson!";
+            let error = "[GEOFENCE] Couldn't save area, name not found in GeoJson!";
             log::warn!("{}", error);
             Err(DbErr::Custom(error.to_string()))
         }

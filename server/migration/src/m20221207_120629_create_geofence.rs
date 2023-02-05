@@ -49,6 +49,7 @@ pub enum Geofence {
     Mode,
     Area,
     Geometry,
+    GeoType,
     CreatedAt,
     UpdatedAt,
 }
