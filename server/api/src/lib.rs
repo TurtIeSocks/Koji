@@ -10,12 +10,11 @@ use actix_web::{
 };
 use actix_web_httpauth::middleware::HttpAuthentication;
 use geojson::{Feature, FeatureCollection};
-use log::{self, LevelFilter};
+use log;
 use nominatim;
-use sea_orm::{ConnectOptions, Database, DbErr};
 
 use algorithms;
-use migration::{Migrator, MigratorTrait};
+use migration::{DbErr, Migrator, MigratorTrait};
 use model;
 use utils::{auth, is_docker};
 
@@ -25,57 +24,8 @@ mod utils;
 
 #[actix_web::main]
 pub async fn start() -> io::Result<()> {
-    let koji_db_url = env::var("KOJI_DB_URL").expect("Need KOJI_DB_URL env var to run migrations");
-    let scanner_db_url = if env::var("DATABASE_URL").is_ok() {
-        println!("[WARNING] `DATABASE_URL` is deprecated in favor of `SCANNER_DB_URL`");
-        env::var("DATABASE_URL")
-    } else {
-        env::var("SCANNER_DB_URL")
-    }
-    .expect("Need SCANNER_DB_URL env var");
+    let databases = model::utils::get_database_struct().await;
 
-    let max_connections: u32 = if let Ok(parsed) = env::var("MAX_CONNECTIONS")
-        .unwrap_or("100".to_string())
-        .parse()
-    {
-        parsed
-    } else {
-        100
-    };
-
-    let unown_db_url = env::var("UNOWN_DB").unwrap_or("".to_string());
-
-    let databases = model::KojiDb {
-        data_db: {
-            let mut opt = ConnectOptions::new(scanner_db_url);
-            opt.max_connections(max_connections);
-            opt.sqlx_logging_level(LevelFilter::Debug);
-            match Database::connect(opt).await {
-                Ok(db) => db,
-                Err(err) => panic!("Cannot connect to Scanner DB: {}", err),
-            }
-        },
-        koji_db: {
-            let mut opt = ConnectOptions::new(koji_db_url);
-            opt.max_connections(max_connections);
-            opt.sqlx_logging_level(LevelFilter::Debug);
-            match Database::connect(opt).await {
-                Ok(db) => db,
-                Err(err) => panic!("Cannot connect to Koji DB: {}", err),
-            }
-        },
-        unown_db: if unown_db_url.is_empty() {
-            None
-        } else {
-            let mut opt = ConnectOptions::new(unown_db_url);
-            opt.max_connections(max_connections);
-            opt.sqlx_logging_level(LevelFilter::Debug);
-            match Database::connect(opt).await {
-                Ok(db) => Some(db),
-                Err(err) => panic!("Cannot connect to Unown DB: {}", err),
-            }
-        },
-    };
     match Migrator::up(&databases.koji_db, None).await {
         Ok(_) => log::info!("Migrations successful"),
         Err(err) => log::error!("Migration Error {:?}", err),

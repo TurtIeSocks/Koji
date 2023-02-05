@@ -1,13 +1,12 @@
 use super::{error::Error, *};
 
 use model::db::project;
-use sea_orm::DatabaseConnection;
 
 pub async fn update_project_api(
-    db: &DatabaseConnection,
+    db: &KojiDb,
     scanner_type: Option<&String>,
 ) -> Result<reqwest::Response, Error> {
-    let project = project::Query::get_scanner_project(&db).await?;
+    let project = project::Query::get_scanner_project(&db.koji_db).await?;
     if let Some(project) = project {
         send_api_req(project, scanner_type).await
     } else {

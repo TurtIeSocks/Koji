@@ -372,7 +372,6 @@ dependencies = [
  "model",
  "nominatim",
  "reqwest",
- "sea-orm",
  "serde",
  "serde_json",
  "thiserror",

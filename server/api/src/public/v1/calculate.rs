@@ -89,7 +89,7 @@ async fn bootstrap(
         }
     }
     if save_to_scanner {
-        request::update_project_api(&conn.koji_db, Some(scanner_type))
+        request::update_project_api(&conn, Some(scanner_type))
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }
@@ -260,7 +260,7 @@ async fn cluster(
         }
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-        request::update_project_api(&conn.koji_db, Some(scanner_type))
+        request::update_project_api(&conn, Some(scanner_type))
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }
