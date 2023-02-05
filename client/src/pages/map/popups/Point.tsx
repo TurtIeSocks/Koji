@@ -51,7 +51,9 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
       ? remove(feature.geometry.type, feature.id)
       : remove('Point')
 
-  const isInKoji = feature.properties?.__multipoint_id?.endsWith('KOJI')
+  const isInKoji = feature.properties?.__multipoint_id
+    ?.toString()
+    .endsWith('KOJI')
 
   return id !== undefined ? (
     <div>

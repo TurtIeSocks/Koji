@@ -461,7 +461,7 @@ export const useShapes = create<UseShapes>((set, get) => ({
             // @ts-ignore
             newState[key][__leafletId] = {
               ...feature,
-              id: __leafletId,
+              id: __leafletId.toString(),
               properties: rest,
             }
             delete newState[key][id]

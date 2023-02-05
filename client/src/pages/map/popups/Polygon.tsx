@@ -126,7 +126,7 @@ export function PolygonPopup({
     }
   }, [feature, loadData])
 
-  const isKoji = feature.id.endsWith('KOJI')
+  const isKoji = feature.id.toString().endsWith('KOJI')
   // const isScanner = feature.id.endsWith('SCANNER')
 
   return feature ? (
