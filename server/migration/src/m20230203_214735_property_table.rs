@@ -32,6 +32,20 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(Property::DefaultValue).text())
+                    .col(
+                        ColumnDef::new(Property::CreatedAt)
+                            .timestamp()
+                            .not_null()
+                            .extra("DEFAULT CURRENT_TIMESTAMP".to_string()),
+                    )
+                    .col(
+                        ColumnDef::new(Property::UpdatedAt)
+                            .timestamp()
+                            .not_null()
+                            .extra(
+                                "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP".to_string(),
+                            ),
+                    )
                     .to_owned(),
             )
             .await
@@ -52,4 +66,6 @@ pub enum Property {
     Name,
     Category,
     DefaultValue,
+    CreatedAt,
+    UpdatedAt,
 }
