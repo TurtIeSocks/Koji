@@ -51,7 +51,7 @@ const getList = async (
   })
   return {
     data:
-      resource === 'route'
+      resource === 'route' || resource === 'property'
         ? json.data.results
         : json.data.results.map((result: any) => ({
             ...result[0],
@@ -98,7 +98,7 @@ export const dataProvider: typeof defaultProvider = {
           }
         : {
             data:
-              resource === 'route'
+              resource === 'route' || resource === 'property'
                 ? json.data
                 : {
                     ...json.data[0],

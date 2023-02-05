@@ -16,8 +16,8 @@ export default function CodeInput({
 }: {
   source: string
   label?: string
-  conversionType: ConversionOptions
-  geometryType: typeof GEOMETRY_CONVERSION_TYPES[number]
+  conversionType?: ConversionOptions
+  geometryType?: typeof GEOMETRY_CONVERSION_TYPES[number]
 }) {
   const { field } = useInput({ source })
   const [error, setError] = React.useState('')
@@ -38,24 +38,26 @@ export default function CodeInput({
           field.onChange({ target: { value: newCode } })
         }}
         onBlurCapture={async () => {
-          const geofence = safeParse<Conversions>(field.value)
-          await convert(
-            geofence.error ? field.value : geofence.value,
-            conversionType,
-            simplifyPolygons,
-            geometryType,
-          ).then((res) => {
-            if (Array.isArray(res)) {
-              setError(
-                'Warning, multiple features were found, you should only assign one feature!',
-              )
-            } else {
-              field.onChange({
-                target: { value: JSON.stringify(res, null, 2) },
-              })
-              setError('')
-            }
-          })
+          if (geometryType && conversionType) {
+            const geofence = safeParse<Conversions>(field.value)
+            await convert(
+              geofence.error ? field.value : geofence.value,
+              conversionType,
+              simplifyPolygons,
+              geometryType,
+            ).then((res) => {
+              if (Array.isArray(res)) {
+                setError(
+                  'Warning, multiple features were found, you should only assign one feature!',
+                )
+              } else {
+                field.onChange({
+                  target: { value: JSON.stringify(res, null, 2) },
+                })
+                setError('')
+              }
+            })
+          }
         }}
       />
       <Typography color="error">{error}</Typography>

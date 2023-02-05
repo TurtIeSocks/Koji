@@ -126,6 +126,16 @@ export const GEOMETRY_CONVERSION_TYPES = [
   'MultiPolygon',
 ] as const
 
+export const PROPERTY_CATEGORIES = [
+  'Boolean',
+  'String',
+  'Number',
+  'Object',
+  'Array',
+  'Database',
+  'Color',
+] as const
+
 export const COLORS = [
   '#F0F8FF',
   '#FAEBD7',

@@ -14,7 +14,13 @@ import type {
 
 import type { UsePersist } from '@hooks/usePersist'
 import type { UseStatic } from '@hooks/useStatic'
-import { CONVERSION_TYPES, RDM_FENCES, RDM_ROUTES, TABS } from './constants'
+import {
+  CONVERSION_TYPES,
+  PROPERTY_CATEGORIES,
+  RDM_FENCES,
+  RDM_ROUTES,
+  TABS,
+} from './constants'
 
 // UTILITY TYPES ==================================================================================
 
@@ -99,6 +105,11 @@ export type BasicKojiEntry = {
 export interface KojiGeofence extends BasicKojiEntry {
   mode?: KojiModes
   area: Feature<Polygon | MultiPolygon>
+}
+
+export interface KojiProperty extends BasicKojiEntry {
+  category: typeof PROPERTY_CATEGORIES[number]
+  default_value?: string
 }
 
 export interface KojiProject extends BasicKojiEntry {

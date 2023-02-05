@@ -137,6 +137,16 @@ pub async fn start() -> io::Result<()> {
                                     .service(private::admin::route::create)
                                     .service(private::admin::route::update)
                                     .service(private::admin::route::remove),
+                            )
+                            .service(
+                                web::scope("/property")
+                                    .service(private::admin::property::get_all)
+                                    .service(private::admin::property::get_ref)
+                                    .service(private::admin::property::paginate)
+                                    .service(private::admin::property::get_one)
+                                    .service(private::admin::property::create)
+                                    .service(private::admin::property::update)
+                                    .service(private::admin::property::remove),
                             ),
                     ),
             )
