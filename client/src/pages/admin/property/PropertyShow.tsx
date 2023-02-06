@@ -1,18 +1,6 @@
 import * as React from 'react'
-import {
-  ChipField,
-  DateField,
-  FunctionField,
-  ReferenceArrayField,
-  Show,
-  SimpleShowLayout,
-  SingleFieldList,
-  TextField,
-  useRecordContext,
-} from 'react-admin'
-import { ListItemText, Typography } from '@mui/material'
-import { KojiGeofence, KojiProperty } from '@assets/types'
-import { Code } from '@components/Code'
+import { DateField, Show, SimpleShowLayout, TextField } from 'react-admin'
+import { Typography } from '@mui/material'
 
 export default function PropertyShow() {
   return (

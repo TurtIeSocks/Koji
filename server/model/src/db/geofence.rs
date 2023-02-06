@@ -12,6 +12,7 @@ use super::*;
 use geojson::{GeoJson, Geometry};
 use sea_orm::{entity::prelude::*, InsertResult, UpdateResult};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "geofence")]
@@ -25,7 +26,7 @@ pub struct Model {
     pub updated_at: DateTimeUtc,
     pub mode: Option<String>,
     pub geometry: Json,
-    pub geo_type: Option<String>,
+    pub geo_type: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -66,6 +67,7 @@ pub struct GeofenceNoGeometry {
     pub id: u32,
     pub name: String,
     pub mode: Option<String>,
+    pub geo_type: String,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
 }
@@ -127,7 +129,10 @@ impl Query {
         sort_by: Column,
         order_by: Order,
         q: String,
-    ) -> Result<PaginateResults<Vec<(GeofenceNoGeometry, Vec<NameId>)>>, DbErr> {
+    ) -> Result<
+        PaginateResults<Vec<(GeofenceNoGeometry, Vec<NameId>, Vec<sea_orm::JsonValue>)>>,
+        DbErr,
+    > {
         let paginator = Entity::find()
             .order_by(sort_by, order_by)
             .filter(Column::Name.like(format!("%{}%", q).as_str()))
@@ -139,23 +144,25 @@ impl Query {
         let results = future::try_join_all(
             results
                 .into_iter()
-                .map(|result| Query::get_related_projects(db, result)),
+                .map(|result| Query::get_related(db, result)),
         )
         .await?;
 
         Ok(PaginateResults {
             results: results
                 .into_iter()
-                .map(|(fence, related)| {
+                .map(|(fence, projects, properties)| {
                     (
                         GeofenceNoGeometry {
                             id: fence.id,
                             name: fence.name,
                             mode: fence.mode,
+                            geo_type: fence.geo_type,
                             created_at: fence.created_at,
                             updated_at: fence.updated_at,
                         },
-                        related,
+                        projects,
+                        properties,
                     )
                 })
                 .collect(),
@@ -171,15 +178,11 @@ impl Query {
     }
 
     pub async fn get_json_cache(db: &DatabaseConnection) -> Result<Vec<sea_orm::JsonValue>, DbErr> {
-        Entity::find()
-            .from_raw_sql(Statement::from_sql_and_values(
-                DbBackend::MySql,
-                r#"SELECT id, name, mode, JSON_EXTRACT(area, '$.geometry.type') AS geo_type FROM geofence ORDER BY name"#,
-                vec![],
-            ))
-            .into_json()
-            .all(db)
-            .await
+        Ok(Query::get_all_no_fences(db)
+            .await?
+            .into_iter()
+            .map(|x| json!(x))
+            .collect())
     }
 
     /// Returns all Geofence models in the db without their features
@@ -191,6 +194,7 @@ impl Query {
             .column(Column::Id)
             .column(Column::Name)
             .column(Column::Mode)
+            .column(Column::GeoType)
             .column(Column::CreatedAt)
             .column(Column::UpdatedAt)
             .order_by(Column::Name, Order::Asc)
@@ -200,11 +204,11 @@ impl Query {
     }
 
     /// Returns a tuple of the input model and all of its related project models
-    pub async fn get_related_projects(
+    pub async fn get_related(
         db: &DatabaseConnection,
         model: Model,
-    ) -> Result<(Model, Vec<NameId>), DbErr> {
-        let related = model
+    ) -> Result<(Model, Vec<NameId>, Vec<sea_orm::JsonValue>), DbErr> {
+        let projects = model
             .find_related(project::Entity)
             .select_only()
             .column(project::Column::Id)
@@ -212,7 +216,23 @@ impl Query {
             .into_model::<NameId>()
             .all(db)
             .await?;
-        Ok((model, related))
+        let properties = model
+            .find_related(geofence_property::Entity)
+            .join(
+                sea_orm::JoinType::Join,
+                geofence_property::Relation::Property.def(),
+            )
+            .select_only()
+            .column(geofence_property::Column::Value)
+            .column(property::Column::Id)
+            .column(property::Column::Name)
+            .column(property::Column::Category)
+            .filter(geofence_property::Column::GeofenceId.eq(model.id))
+            .into_json()
+            .all(db)
+            .await?;
+
+        Ok((model, projects, properties))
     }
 
     /// Creates a new Geofence model, only used from admin panel when creating a single geofence.
@@ -241,10 +261,13 @@ impl Query {
     }
 
     /// Returns a single Geofence model and it's related projects as tuple
-    pub async fn get_one(db: &DatabaseConnection, id: u32) -> Result<(Model, Vec<NameId>), DbErr> {
+    pub async fn get_one(
+        db: &DatabaseConnection,
+        id: u32,
+    ) -> Result<(Model, Vec<NameId>, Vec<sea_orm::JsonValue>), DbErr> {
         let record = Entity::find_by_id(id).one(db).await?;
         let record = record.unwrap();
-        Query::get_related_projects(db, record).await
+        Query::get_related(db, record).await
     }
 
     pub async fn update_related(

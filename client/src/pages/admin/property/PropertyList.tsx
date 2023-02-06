@@ -5,14 +5,11 @@ import {
   DeleteWithUndoButton,
   EditButton,
   List,
-  NumberField,
   Pagination,
   TextField,
   TopToolbar,
   CreateButton,
 } from 'react-admin'
-import { BulkAssignButton } from '../actions/bulk/AssignButton'
-import { BulkPushToProd, PushToProd } from '../actions/bulk/PushToApi'
 
 function ListActions() {
   return (

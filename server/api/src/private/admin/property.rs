@@ -18,6 +18,8 @@ async fn paginate(
         url.per_page,
         match url.sort_by.to_lowercase().as_str() {
             "id" => property::Column::Id,
+            "category" => property::Column::Category,
+
             _ => property::Column::Name,
         },
         if url.order.to_lowercase().eq("asc") {

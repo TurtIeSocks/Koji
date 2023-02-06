@@ -104,12 +104,20 @@ export type BasicKojiEntry = {
 
 export interface KojiGeofence extends BasicKojiEntry {
   mode?: KojiModes
-  area: Feature<Polygon | MultiPolygon>
+  geometry: Polygon | MultiPolygon
+  geo_type: 'Polygon' | 'MultiPolygon'
 }
 
 export interface KojiProperty extends BasicKojiEntry {
   category: typeof PROPERTY_CATEGORIES[number]
   default_value?: string
+}
+
+export interface KojiGeoProperty
+  extends Omit<KojiProperty, 'created_at' | 'updated_at'> {
+  value: unknown
+  geofence_id: number
+  property_id: number
 }
 
 export interface KojiProject extends BasicKojiEntry {
@@ -126,7 +134,7 @@ export interface KojiRoute extends BasicKojiEntry {
 }
 
 export interface AdminGeofence extends KojiGeofence {
-  properties: { key: string; value: string | number | boolean }[]
+  properties: KojiGeoProperty[]
   related: number[]
 }
 

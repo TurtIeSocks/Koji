@@ -50,6 +50,7 @@ export default function GeofenceList() {
       <Datagrid rowClick="expand" bulkActionButtons={<BulkActions />}>
         <TextField source="name" />
         <TextField source="mode" />
+        <TextField source="geo_type" />
         <NumberField source="related.length" label="Projects" />
         <EditButton />
         <DeleteWithUndoButton />

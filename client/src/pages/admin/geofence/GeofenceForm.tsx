@@ -1,24 +1,62 @@
+/* eslint-disable import/no-extraneous-dependencies */
+/* eslint-disable react/jsx-no-useless-fragment */
 import * as React from 'react'
 import {
   ArrayInput,
+  AutocompleteInput,
+  BooleanInput,
   FormDataConsumer,
+  NumberInput,
+  ReferenceInput,
   SelectInput,
   SimpleFormIterator,
   TextInput,
+  useRecordContext,
 } from 'react-admin'
-import { Box } from '@mui/material'
-import Map from '@components/Map'
-import { GeoJSON } from 'react-leaflet'
+import { ColorInput } from 'react-admin-color-picker'
+import { JsonInput } from 'react-admin-json-view'
+import { Box, useTheme } from '@mui/material'
 import center from '@turf/center'
+
+import Map from '@components/Map'
 import { useStatic } from '@hooks/useStatic'
 import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
 import { safeParse } from '@services/utils'
-import type { Feature } from '@assets/types'
+import type { Feature, KojiProperty } from '@assets/types'
+import GeoJsonWrapper from '@components/GeojsonWrapper'
 
 import CodeInput from '../inputs/CodeInput'
 
+function OptionRenderer() {
+  const record = useRecordContext()
+  return <span>{record.name}</span>
+}
+const inputText = (choice: KojiProperty) => choice.name
+
+const matchSuggestion = (filter: string, choice: KojiProperty) => {
+  return choice.name.toLowerCase().includes(filter.toLowerCase())
+}
+
 export default function GeofenceForm() {
   const scannerType = useStatic((s) => s.scannerType)
+  const theme = useTheme()
+  const [properties, setProperties] = React.useState<
+    Record<string, KojiProperty>
+  >({})
+
+  React.useEffect(() => {
+    fetch('/internal/admin/property/all/')
+      .then((res) => res.json())
+      .then((data) => {
+        const newProperties: Record<string, KojiProperty> = {}
+        data.data.forEach((property: KojiProperty) => {
+          newProperties[property.id] = property
+        })
+        setProperties(newProperties)
+      })
+  }, [])
+
+  // console.log({ properties })
   return (
     <>
       <TextInput source="name" fullWidth required />
@@ -52,22 +90,75 @@ export default function GeofenceForm() {
               zoomControl
               style={{ width: '100%', height: '50vh' }}
             >
-              <GeoJSON data={parsed} />
+              <GeoJsonWrapper
+                data={{ type: 'FeatureCollection', features: [parsed] }}
+              />
             </Map>
           )
         }}
       </FormDataConsumer>
       <Box pt="1em" />
-      <ArrayInput source="properties">
+      <ArrayInput source="properties" sx={{ my: 2 }}>
         <SimpleFormIterator inline>
-          <TextInput source="key" helperText={false} />
-          <TextInput source="value" helperText={false} />
+          <ReferenceInput
+            source="id"
+            reference="property"
+            label="Name"
+            perPage={1000}
+            sort={{ field: 'category', order: 'ASC' }}
+          >
+            <AutocompleteInput
+              optionText={<OptionRenderer />}
+              inputText={inputText}
+              matchSuggestion={matchSuggestion}
+              groupBy={(x: KojiProperty) => x.category}
+              label="Name"
+            />
+          </ReferenceInput>
+          <FormDataConsumer>
+            {({ getSource, scopedFormData }) => {
+              const id: number = scopedFormData?.id || 1
+              // const name = scopedFormData?.name
+              // const category: string = scopedFormData?.category || ''
+              // console.log({ formData, scopedFormData })
+              // console.log({ id, name, category }, properties[id]?.category)
+              return (
+                getSource && (
+                  <>
+                    {
+                      {
+                        boolean: <BooleanInput source={getSource('value')} />,
+                        string: <TextInput source={getSource('value')} />,
+                        number: <NumberInput source={getSource('value')} />,
+                        object: (
+                          <JsonInput
+                            reactJsonOptions={{
+                              theme:
+                                theme.palette.mode === 'dark'
+                                  ? 'chalk'
+                                  : 'flat',
+                            }}
+                            source={getSource('value')}
+                          />
+                        ),
+                        array: <JsonInput source={getSource('value')} />,
+                        color: <ColorInput source={getSource('value')} />,
+                        database: (
+                          <TextInput disabled source={getSource('value')} />
+                        ),
+                      }[properties[id]?.category?.toLowerCase()]
+                    }
+                  </>
+                )
+              )
+            }}
+          </FormDataConsumer>
         </SimpleFormIterator>
       </ArrayInput>
       <CodeInput
-        source="area"
+        source="geometry"
         label="Fence"
-        conversionType="feature"
+        conversionType="geometry"
         geometryType="Polygon"
       />
     </>

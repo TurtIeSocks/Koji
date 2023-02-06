@@ -56,6 +56,7 @@ const getList = async (
         : json.data.results.map((result: any) => ({
             ...result[0],
             related: result[1],
+            properties: result[2],
           })),
     total: json.data.total,
     pageInfo: {
@@ -84,16 +85,11 @@ export const dataProvider: typeof defaultProvider = {
         ? {
             data: {
               ...json.data[0],
-              area: JSON.stringify(json.data[0].area),
-              properties: Object.entries(
-                json.data?.[0]?.area?.properties || {},
-              ).map(([key, value]) => ({
-                key,
-                value,
-              })),
+              geometry: JSON.stringify(json.data[0].geometry),
               related: json.data[1].map(
                 (r: { id: number; name: string }) => r.id,
               ),
+              properties: json.data[2],
             } as any,
           }
         : {
@@ -105,6 +101,7 @@ export const dataProvider: typeof defaultProvider = {
                     related: json.data[1].map(
                       (r: { id: number; name: string }) => r.id,
                     ),
+                    properties: json.data[2],
                   },
           }
     }),

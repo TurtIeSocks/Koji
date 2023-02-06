@@ -127,13 +127,13 @@ export const GEOMETRY_CONVERSION_TYPES = [
 ] as const
 
 export const PROPERTY_CATEGORIES = [
-  'Boolean',
-  'String',
-  'Number',
-  'Object',
-  'Array',
-  'Database',
-  'Color',
+  'boolean',
+  'string',
+  'number',
+  'object',
+  'array',
+  'database',
+  'color',
 ] as const
 
 export const COLORS = [

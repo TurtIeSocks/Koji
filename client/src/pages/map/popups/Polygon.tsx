@@ -292,7 +292,7 @@ export function PolygonPopup({
                   id: isKoji ? dbRef?.id : 0,
                   name,
                   mode,
-                  area: feature,
+                  geometry: feature.geometry,
                   updated_at: new Date(),
                   created_at: new Date(),
                 }),
@@ -306,19 +306,18 @@ export function PolygonPopup({
                     severity: 'success',
                   },
                 })
-                const { area, mode: newMode = 'Unset', ...rest } = res.data
+                const { geometry, mode: newMode = 'Unset', ...rest } = res.data
                 const newId = `${rest.id}__${newMode}__KOJI` as const
-                area.id = newId
                 setRecord('geofence', rest.id, {
                   ...rest,
                   mode: newMode,
-                  geo_type: area.geometry.type,
                 })
                 remove(feature.geometry.type, feature.id)
                 add(
                   {
-                    ...area,
-                    properties: { ...area.properties, ...feature.properties },
+                    ...feature,
+                    id: newId,
+                    geometry,
                   },
                   '__KOJI',
                 )

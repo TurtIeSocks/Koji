@@ -27,13 +27,10 @@ const transformPayload = async (geofence: AdminGeofence) => {
   }
   return {
     ...geofence,
-    area: {
-      ...(typeof geofence.area === 'string'
-        ? JSON.parse(geofence.area)
-        : geofence.area),
-      properties: Object.fromEntries(
-        geofence.properties.map((p) => [p.key, p.value]),
-      ),
+    geometry: {
+      ...(typeof geofence.geometry === 'string'
+        ? JSON.parse(geofence.geometry)
+        : geofence.geometry),
     },
   }
 }
@@ -69,6 +66,7 @@ export default function GeofenceEdit() {
             label="Related Projects"
             fullWidth
             blurOnSelect={false}
+            sx={{ mt: 3 }}
           />
         </ReferenceArrayInput>
       </SimpleForm>

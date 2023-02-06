@@ -22,7 +22,7 @@ export default function PropertyForm() {
         required
         onChange={(e) => setTempState(e.target.value)}
       />
-      {tempState !== 'Database' && (
+      {tempState !== 'database' && (
         <CodeInput source="default_value" label="Default Value" />
       )}
       <Box pt="1em" />

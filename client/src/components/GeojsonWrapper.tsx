@@ -7,7 +7,7 @@ import type { FeatureCollection } from '@assets/types'
 import { getColor, mpToPoints } from '@services/utils'
 
 export default function GeoJsonWrapper({
-  data: fc,
+  data,
   mode,
   ...rest
 }: {
@@ -16,14 +16,24 @@ export default function GeoJsonWrapper({
 } & GeoJSONProps) {
   const map = useMap()
   const featureCollection: FeatureCollection = {
-    ...fc,
-    features: fc.features.flatMap((feat) =>
+    ...data,
+    features: data.features.flatMap((feat) =>
       feat.geometry.type === 'MultiPoint' ? mpToPoints(feat.geometry) : feat,
     ),
   }
   return (
     <GeoJSON
       data={featureCollection}
+      onEachFeature={(feat, layer) => {
+        layer.bindPopup(`
+          <div>
+            <ul>
+              ${Object.entries(feat.properties || {})
+                .map(([k, v]) => `<li>${k.replace('__', '')}: ${v}</li>`)
+                .join('')}
+            </ul>
+          </div>`)
+      }}
       pointToLayer={(feat, latlng) => {
         if (feat.properties?.next) {
           L.polyline(

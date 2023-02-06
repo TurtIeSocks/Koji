@@ -30,33 +30,37 @@ export default function CodeInput({
         width="75vw"
         maxHeight="50vh"
         code={
-          typeof field.value === 'object'
-            ? JSON.stringify(field.value, null, 2)
-            : field.value
+          typeof field.value === 'string' && field.value
+            ? JSON.stringify(JSON.parse(field.value), null, 2)
+            : JSON.stringify(field.value, null, 2)
         }
         setCode={(newCode) => {
           field.onChange({ target: { value: newCode } })
         }}
         onBlurCapture={async () => {
-          if (geometryType && conversionType) {
+          if (conversionType) {
             const geofence = safeParse<Conversions>(field.value)
-            await convert(
-              geofence.error ? field.value : geofence.value,
-              conversionType,
-              simplifyPolygons,
-              geometryType,
-            ).then((res) => {
-              if (Array.isArray(res)) {
-                setError(
-                  'Warning, multiple features were found, you should only assign one feature!',
-                )
-              } else {
-                field.onChange({
-                  target: { value: JSON.stringify(res, null, 2) },
-                })
-                setError('')
-              }
-            })
+            const parsed = geofence.error ? field.value : geofence.value
+
+            const type =
+              parsed?.geometry?.type ||
+              (parsed?.type !== 'Feature'
+                ? parsed?.type || geometryType
+                : geometryType)
+            await convert(parsed, conversionType, simplifyPolygons, type).then(
+              (res) => {
+                if (Array.isArray(res)) {
+                  setError(
+                    'Warning, multiple features were found, you should only assign one feature!',
+                  )
+                } else {
+                  field.onChange({
+                    target: { value: JSON.stringify(res, null, 2) },
+                  })
+                  setError('')
+                }
+              },
+            )
           }
         }}
       />
