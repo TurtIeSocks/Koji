@@ -4,18 +4,17 @@ import * as React from 'react'
 import {
   ArrayInput,
   AutocompleteInput,
-  BooleanInput,
   FormDataConsumer,
-  NumberInput,
   ReferenceInput,
   SelectInput,
   SimpleFormIterator,
   TextInput,
   useRecordContext,
+  useInput,
 } from 'react-admin'
+
 import { ColorInput } from 'react-admin-color-picker'
-import { JsonInput } from 'react-admin-json-view'
-import { Box, useTheme } from '@mui/material'
+import { Box, Switch, TextField } from '@mui/material'
 import center from '@turf/center'
 
 import Map from '@components/Map'
@@ -37,9 +36,99 @@ const matchSuggestion = (filter: string, choice: KojiProperty) => {
   return choice.name.toLowerCase().includes(filter.toLowerCase())
 }
 
+function BoolInputExpanded({
+  source,
+  defaultValue,
+  name,
+  ...props
+}: {
+  source: string
+  name?: string
+  defaultValue: boolean
+}) {
+  const { id, field } = useInput({ source })
+
+  React.useEffect(() => {
+    field.onChange(defaultValue)
+  }, [name, defaultValue])
+
+  return (
+    <Switch
+      id={id}
+      {...props}
+      {...field}
+      onChange={({ target }) => {
+        field.onChange({
+          target: {
+            value: target.checked,
+          },
+        })
+      }}
+      checked={!!(field.value ?? defaultValue)}
+    />
+  )
+}
+
+function TextInputExpanded({
+  source,
+  defaultValue,
+  type = 'text',
+  disabled = false,
+  name,
+  ...props
+}: {
+  source: string
+  defaultValue: string | number
+  type?: HTMLInputElement['type']
+  disabled?: boolean
+  name?: string
+}) {
+  const { id, field } = useInput({ source })
+
+  React.useEffect(() => {
+    field.onChange(defaultValue)
+  }, [type, name, defaultValue])
+
+  return (
+    <TextField
+      id={id}
+      {...props}
+      {...field}
+      disabled={disabled}
+      onChange={({ target }) => {
+        field.onChange({
+          target: {
+            value: type === 'number' ? +target.value || 0 : target.value,
+          },
+        })
+      }}
+      type={type}
+      value={(field.value ?? defaultValue) || (type === 'number' ? 0 : '')}
+    />
+  )
+}
+
+function ColorInputExpanded({
+  source,
+  defaultValue,
+  name,
+  ...props
+}: {
+  source: string
+  defaultValue: string
+  name?: string
+}) {
+  const { field } = useInput({ source, defaultValue })
+
+  React.useEffect(() => {
+    field.onChange(defaultValue)
+  }, [name, defaultValue])
+
+  return <ColorInput {...props} {...field} source={source} />
+}
+
 export default function GeofenceForm() {
   const scannerType = useStatic((s) => s.scannerType)
-  const theme = useTheme()
   const [properties, setProperties] = React.useState<
     Record<string, KojiProperty>
   >({})
@@ -56,7 +145,6 @@ export default function GeofenceForm() {
       })
   }, [])
 
-  // console.log({ properties })
   return (
     <>
       <TextInput source="name" fullWidth required />
@@ -101,7 +189,7 @@ export default function GeofenceForm() {
       <ArrayInput source="properties" sx={{ my: 2 }}>
         <SimpleFormIterator inline>
           <ReferenceInput
-            source="id"
+            source="property_id"
             reference="property"
             label="Name"
             perPage={1000}
@@ -116,35 +204,61 @@ export default function GeofenceForm() {
             />
           </ReferenceInput>
           <FormDataConsumer>
-            {({ getSource, scopedFormData }) => {
-              const id: number = scopedFormData?.id || 1
-              // const name = scopedFormData?.name
-              // const category: string = scopedFormData?.category || ''
-              // console.log({ formData, scopedFormData })
-              // console.log({ id, name, category }, properties[id]?.category)
+            {({ formData, getSource, scopedFormData }) => {
+              const id: number = scopedFormData?.property_id || 1
+              // console.log(scopedFormData)
               return (
                 getSource && (
                   <>
                     {
                       {
-                        boolean: <BooleanInput source={getSource('value')} />,
-                        string: <TextInput source={getSource('value')} />,
-                        number: <NumberInput source={getSource('value')} />,
-                        object: (
-                          <JsonInput
-                            reactJsonOptions={{
-                              theme:
-                                theme.palette.mode === 'dark'
-                                  ? 'chalk'
-                                  : 'flat',
-                            }}
+                        boolean: (
+                          <BoolInputExpanded
                             source={getSource('value')}
+                            name={properties[id]?.name}
+                            defaultValue={!!properties[id]?.default_value}
+                            // editing={!!scopedFormData?.id}
                           />
                         ),
-                        array: <JsonInput source={getSource('value')} />,
-                        color: <ColorInput source={getSource('value')} />,
+                        string: (
+                          <TextInputExpanded
+                            source={getSource('value')}
+                            name={properties[id]?.name}
+                            type="text"
+                            defaultValue={properties[id]?.default_value || ''}
+                            // editing={!!scopedFormData?.id}
+                          />
+                        ),
+                        number: (
+                          <TextInputExpanded
+                            source={getSource('value')}
+                            name={properties[id]?.name}
+                            defaultValue={properties[id]?.default_value || 0}
+                            type="number"
+                            // editing={!!scopedFormData?.id}
+                          />
+                        ),
+                        object: <div>Not Implemented</div>,
+                        array: <div>Not Implemented</div>,
+                        color: (
+                          <ColorInputExpanded
+                            source={getSource('value')}
+                            name={properties[id]?.name}
+                            defaultValue={properties[id]?.default_value || ''}
+                            // editing={!!scopedFormData?.id}
+                          />
+                        ),
                         database: (
-                          <TextInput disabled source={getSource('value')} />
+                          <TextInputExpanded
+                            disabled
+                            type="database"
+                            source={getSource('value')}
+                            name={properties[id]?.name}
+                            defaultValue={
+                              formData?.[properties[id]?.name] || ''
+                            }
+                            // editing={!!scopedFormData?.id}
+                          />
                         ),
                       }[properties[id]?.category?.toLowerCase()]
                     }

@@ -10,6 +10,7 @@ use crate::{
     db::sea_orm_active_enums::Type,
 };
 
+pub mod json;
 pub mod normalize;
 
 pub fn sql_raw(area: &FeatureCollection) -> String {

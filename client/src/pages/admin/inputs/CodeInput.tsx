@@ -23,17 +23,18 @@ export default function CodeInput({
   const [error, setError] = React.useState('')
   const simplifyPolygons = usePersist((s) => s.simplifyPolygons)
 
+  const check =
+    typeof field.value === 'string' && field.value
+      ? safeParse(field.value)
+      : field.value
+
   return (
     <>
       <Typography variant="subtitle2">{label}</Typography>
       <Code
         width="75vw"
         maxHeight="50vh"
-        code={
-          typeof field.value === 'string' && field.value
-            ? JSON.stringify(JSON.parse(field.value), null, 2)
-            : JSON.stringify(field.value, null, 2)
-        }
+        code={check.error ? '' : JSON.stringify(check.value, null, 2)}
         setCode={(newCode) => {
           field.onChange({ target: { value: newCode } })
         }}
@@ -42,13 +43,20 @@ export default function CodeInput({
             const geofence = safeParse<Conversions>(field.value)
             const parsed = geofence.error ? field.value : geofence.value
 
-            const type =
-              parsed?.geometry?.type ||
-              (parsed?.type !== 'Feature'
-                ? parsed?.type || geometryType
-                : geometryType)
-            await convert(parsed, conversionType, simplifyPolygons, type).then(
-              (res) => {
+            if (geofence.error) {
+              field.onChange(parsed)
+            } else {
+              const type =
+                parsed?.geometry?.type ||
+                (parsed?.type !== 'Feature'
+                  ? parsed?.type || geometryType
+                  : geometryType)
+              await convert(
+                parsed,
+                conversionType,
+                simplifyPolygons,
+                type,
+              ).then((res) => {
                 if (Array.isArray(res)) {
                   setError(
                     'Warning, multiple features were found, you should only assign one feature!',
@@ -59,8 +67,8 @@ export default function CodeInput({
                   })
                   setError('')
                 }
-              },
-            )
+              })
+            }
           }
         }}
       />

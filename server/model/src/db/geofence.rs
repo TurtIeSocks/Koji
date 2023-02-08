@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use crate::{
     api::{args::ApiQueryArgs, GeoFormats, ToCollection},
     error::ModelError,
+    utils::json::JsonToModel,
 };
 
 use super::*;
@@ -223,6 +224,7 @@ impl Query {
                 geofence_property::Relation::Property.def(),
             )
             .select_only()
+            .column(geofence_property::Column::PropertyId)
             .column(geofence_property::Column::Value)
             .column(property::Column::Id)
             .column(property::Column::Name)
@@ -236,28 +238,15 @@ impl Query {
     }
 
     /// Creates a new Geofence model, only used from admin panel when creating a single geofence.
-    /// Does not try to remove internal props since they do not exist yet
-    pub async fn create(db: &DatabaseConnection, incoming: Model) -> Result<Model, DbErr> {
-        let new_fence = Geometry::from_json_value(incoming.geometry);
-        match new_fence {
-            Ok(new_feature) => {
-                let value = GeoJson::Geometry(new_feature).to_json_value();
-                ActiveModel {
-                    name: Set(incoming.name.to_owned()),
-                    geometry: Set(value),
-                    mode: Set(incoming.mode),
-                    created_at: Set(Utc::now()),
-                    updated_at: Set(Utc::now()),
-                    ..Default::default()
-                }
-                .insert(db)
-                .await
-            }
-            Err(err) => Err(DbErr::Custom(format!(
-                "New area was not a GeoJSON Feature {:?}",
-                err
-            ))),
-        }
+    pub async fn create(
+        db: &DatabaseConnection,
+        incoming: serde_json::Value,
+    ) -> Result<Model, ModelError> {
+        let active_model = incoming.to_geofence()?;
+        let model = active_model.insert(db).await?;
+        Query::update_related_projects(db, &incoming, model.id).await?;
+        Query::update_related_properties(db, &incoming, model.id).await?;
+        Ok(model)
     }
 
     /// Returns a single Geofence model and it's related projects as tuple
@@ -270,47 +259,74 @@ impl Query {
         Query::get_related(db, record).await
     }
 
-    pub async fn update_related(
+    pub async fn update_related_routes(
         conn: &DatabaseConnection,
-        model: &Model,
+        old_model: &Model,
         new_name: String,
     ) -> Result<UpdateResult, DbErr> {
         route::Entity::update_many()
             .col_expr(route::Column::Name, Expr::value(new_name))
-            .filter(route::Column::GeofenceId.eq(model.id.to_owned()))
-            .filter(route::Column::Name.eq(model.name.to_owned()))
+            .filter(route::Column::GeofenceId.eq(old_model.id.to_owned()))
+            .filter(route::Column::Name.eq(old_model.name.to_owned()))
             .exec(conn)
             .await
     }
 
-    // Updates a Geofence model, removes internally used props
-    pub async fn update(
+    pub async fn update_related_properties(
         db: &DatabaseConnection,
-        id: u32,
-        new_model: Model,
-    ) -> Result<Model, DbErr> {
+        json: &serde_json::Value,
+        geofence_id: u32,
+    ) -> Result<(), ModelError> {
+        if let Some(properties) = json.get("properties") {
+            if let Some(properties) = properties.as_array() {
+                geofence_property::Query::upsert_many(db, properties, Some(geofence_id)).await?;
+            };
+        };
+        Ok(())
+    }
+
+    pub async fn update_related_projects(
+        db: &DatabaseConnection,
+        json: &serde_json::Value,
+        geofence_id: u32,
+    ) -> Result<(), DbErr> {
+        if let Some(projects) = json.get("projects") {
+            if let Some(projects) = projects.as_array() {
+                for id in projects.iter().filter_map(|id| id.as_u64()) {
+                    geofence_project::ActiveModel {
+                        geofence_id: Set(geofence_id),
+                        project_id: Set(id as u32),
+                        ..Default::default()
+                    }
+                    .insert(db)
+                    .await?;
+                }
+            };
+        };
+        Ok(())
+    }
+
+    // Updates a Geofence model, removes internally used props
+    pub async fn update(db: &DatabaseConnection, id: u32, json: Json) -> Result<Model, ModelError> {
         let old_model = Entity::find_by_id(id).one(db).await?;
-        let new_fence = Geometry::from_json_value(new_model.geometry);
+        let mut new_model = json.to_geofence()?;
+
+        let name = new_model.name.as_ref();
 
         if let Some(old_model) = old_model {
-            if let Ok(new_feature) = new_fence {
-                let value = GeoJson::Geometry(new_feature).to_json_value();
-                if old_model.name.ne(&new_model.name) {
-                    Query::update_related(db, &old_model, new_model.name.clone()).await?;
-                };
-                let mut old_model: ActiveModel = old_model.into();
-                old_model.name = Set(new_model.name.to_owned());
-                old_model.geometry = Set(value);
-                old_model.mode = Set(new_model.mode);
-                old_model.updated_at = Set(Utc::now());
-                old_model.update(db).await
-            } else {
-                Err(DbErr::Custom(
-                    "New area was not a GeoJSON Feature".to_string(),
-                ))
-            }
+            if old_model.name.ne(name) {
+                Query::update_related_routes(db, &old_model, name.clone()).await?;
+            };
+            new_model.id = Set(old_model.id);
+            let model = new_model.update(db).await?;
+            Query::update_related_projects(db, &json, model.id).await?;
+            Query::update_related_properties(db, &json, model.id).await?;
+            Ok(model)
         } else {
-            Err(DbErr::Custom("Could not find geofence model".to_string()))
+            Err(ModelError::Geofence(format!(
+                "could not find model to update, ID: {}",
+                id
+            )))
         }
     }
 

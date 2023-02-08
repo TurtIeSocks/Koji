@@ -14,6 +14,8 @@ const transformPayload = async (geofence: AdminGeofence) => {
     geometry: {
       ...JSON.parse(geofence.geometry.toString()),
     },
+    projects: geofence.related, // change this to projects
+    properties: geofence.properties,
   }
 }
 

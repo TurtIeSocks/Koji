@@ -7,6 +7,14 @@ pub enum ModelError {
     Database(DbErr),
     #[error("Geojson Error: {0}")]
     Geojson(geojson::Error),
+    #[error("[PROJECT]: {0}")]
+    Project(String),
+    #[error("[GEOFENCE]: {0}")]
+    Geofence(String),
+    #[error("[GEOFENCE_PROPERTY]: {0}")]
+    GeofenceProperty(String),
+    #[error("[GEOFENCE_PROJECT]: {0}")]
+    GeofenceProject(String),
     #[error("Not Implemented: {0}")]
     NotImplemented(String),
     #[error("{0}")]

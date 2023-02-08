@@ -103,7 +103,7 @@ async fn get_one(
 async fn create(
     conn: web::Data<KojiDb>,
     // id: actix_web::web::Path<u32>,
-    payload: web::Json<geofence::Model>,
+    payload: web::Json<serde_json::Value>,
 ) -> Result<HttpResponse, Error> {
     let payload = payload.into_inner();
     let return_payload = geofence::Query::create(&conn.koji_db, payload)
@@ -123,7 +123,7 @@ async fn create(
 async fn update(
     conn: web::Data<KojiDb>,
     id: actix_web::web::Path<u32>,
-    payload: web::Json<geofence::Model>,
+    payload: web::Json<serde_json::Value>,
 ) -> Result<HttpResponse, Error> {
     let id = id.into_inner();
     let updated_geofence = payload.into_inner();
