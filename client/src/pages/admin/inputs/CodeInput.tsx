@@ -34,7 +34,7 @@ export default function CodeInput({
       <Code
         width="75vw"
         maxHeight="50vh"
-        code={check.error ? '' : JSON.stringify(check.value, null, 2)}
+        code={check.error ? '' : JSON.stringify(check.value || check, null, 2)}
         setCode={(newCode) => {
           field.onChange({ target: { value: newCode } })
         }}

@@ -51,7 +51,17 @@ export default function GeofenceList() {
         <TextField source="name" />
         <TextField source="mode" />
         <TextField source="geo_type" />
-        <NumberField source="related.length" label="Projects" />
+        <NumberField
+          source="projects.length"
+          label="Projects"
+          sortable={false}
+        />
+        <NumberField
+          source="properties.length"
+          label="Properties"
+          sortable={false}
+        />
+        <NumberField source="routes.length" label="Routes" sortable={false} />
         <EditButton />
         <DeleteWithUndoButton />
         <PushToProd resource="geofence" />

@@ -66,10 +66,21 @@ pub struct Total {
 
 #[derive(Debug, Serialize)]
 pub struct PaginateResults<T> {
-    pub results: T,
+    results: T,
     total: usize,
     has_next: bool,
     has_prev: bool,
+}
+
+impl Default for PaginateResults<()> {
+    fn default() -> Self {
+        PaginateResults {
+            results: (),
+            total: 0,
+            has_next: false,
+            has_prev: false,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]

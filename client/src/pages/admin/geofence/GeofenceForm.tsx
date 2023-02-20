@@ -49,7 +49,9 @@ function BoolInputExpanded({
   const { id, field } = useInput({ source })
 
   React.useEffect(() => {
-    field.onChange(defaultValue)
+    if (typeof field.value !== 'boolean') {
+      field.onChange(defaultValue)
+    }
   }, [name, defaultValue])
 
   return (
@@ -86,7 +88,12 @@ function TextInputExpanded({
   const { id, field } = useInput({ source })
 
   React.useEffect(() => {
-    field.onChange(defaultValue)
+    if (
+      !field.value ||
+      typeof field.value !== (type === 'number' ? 'number' : 'string')
+    ) {
+      field.onChange(defaultValue)
+    }
   }, [type, name, defaultValue])
 
   return (
@@ -121,10 +128,17 @@ function ColorInputExpanded({
   const { field } = useInput({ source, defaultValue })
 
   React.useEffect(() => {
-    field.onChange(defaultValue)
+    if (
+      !field.value ||
+      typeof field.value !== 'string' ||
+      !field.value.startsWith('#') ||
+      field.value.startsWith('rgb')
+    ) {
+      field.onChange(defaultValue)
+    }
   }, [name, defaultValue])
 
-  return <ColorInput {...props} {...field} source={source} />
+  return <ColorInput {...props} source={source} />
 }
 
 export default function GeofenceForm() {
@@ -238,7 +252,17 @@ export default function GeofenceForm() {
                             // editing={!!scopedFormData?.id}
                           />
                         ),
-                        object: <div>Not Implemented</div>,
+                        object: (
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <div>Not Implemented</div>
+                          </div>
+                        ),
                         array: <div>Not Implemented</div>,
                         color: (
                           <ColorInputExpanded

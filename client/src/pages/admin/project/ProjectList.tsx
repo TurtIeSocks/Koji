@@ -52,7 +52,7 @@ export default function ProjectList() {
         <BooleanField source="api_endpoint" looseValue />
         <BooleanField source="api_key" looseValue />
         <BooleanField source="scanner" />
-        <NumberField source="related.length" label="Geofences" />
+        <NumberField source="geofences.length" label="Geofences" />
         <EditButton />
         <DeleteWithUndoButton />
       </Datagrid>

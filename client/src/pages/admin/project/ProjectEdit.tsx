@@ -7,25 +7,8 @@ import {
   useRecordContext,
 } from 'react-admin'
 
-import { AdminProject, KojiGeofence } from '@assets/types'
-import { fetchWrapper } from '@services/fetches'
+import { KojiGeofence } from '@assets/types'
 import ProjectForm from './ProjectForm'
-
-const transformPayload = async (project: AdminProject) => {
-  if (Array.isArray(project.related)) {
-    await fetchWrapper(
-      `/internal/admin/geofence_project/project/${project.id}/`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(project.related),
-      },
-    )
-  }
-  return project
-}
 
 function OptionRenderer() {
   const record = useRecordContext()
@@ -39,11 +22,11 @@ const matchSuggestion = (filter: string, choice: KojiGeofence) => {
 
 export default function ProjectEdit() {
   return (
-    <Edit mutationMode="pessimistic" transform={transformPayload}>
+    <Edit mutationMode="pessimistic">
       <SimpleForm>
         <ProjectForm />
         <ReferenceArrayInput
-          source="related"
+          source="geofences"
           reference="geofence"
           label="Geofences"
           perPage={1000}

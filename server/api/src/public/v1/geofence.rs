@@ -19,7 +19,7 @@ async fn all(
     args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
     let args = args.into_inner();
-    let fc = geofence::Query::as_collection(&conn.koji_db, Some(args))
+    let fc = geofence::Query::get_all_collection(&conn.koji_db, Some(args))
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -39,13 +39,11 @@ async fn get_area(
     geofence: actix_web::web::Path<String>,
     args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
-    let geofence = geofence.into_inner();
+    let id = geofence.into_inner();
     let args = args.into_inner();
-    let feature = match geofence.parse::<u32>() {
-        Ok(id) => geofence::Query::feature(&conn.koji_db, id, Some(args)).await,
-        Err(_) => geofence::Query::feature_from_name(&conn.koji_db, &geofence, Some(args)).await,
-    }
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    let feature = geofence::Query::get_one_feature(&conn.koji_db, id, Some(args))
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     println!(
         "[PUBLIC_API] Returning feature for {:?}\n",
@@ -131,12 +129,12 @@ async fn save_scanner(
 async fn push_to_prod(
     conn: web::Data<KojiDb>,
     scanner_type: web::Data<String>,
-    id: actix_web::web::Path<u32>,
+    id: actix_web::web::Path<String>,
 ) -> Result<HttpResponse, Error> {
     let id = id.into_inner();
     let scanner_type = scanner_type.as_ref();
 
-    let feature = geofence::Query::feature(&conn.koji_db, id, None)
+    let feature = geofence::Query::get_one_feature(&conn.koji_db, id, None)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -181,7 +179,7 @@ async fn specific_return_type(
     let args = args.into_inner();
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
 
-    let fc = geofence::Query::as_collection(&conn.koji_db, Some(args))
+    let fc = geofence::Query::get_all_collection(&conn.koji_db, Some(args))
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 

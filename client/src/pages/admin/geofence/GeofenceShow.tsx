@@ -42,7 +42,7 @@ export default function GeofenceShow() {
         <PropertyFields />
         <ReferenceArrayField
           label="Projects"
-          source="related"
+          source="projects"
           reference="project"
         >
           <SingleFieldList>

@@ -80,9 +80,9 @@ impl JsonToModel for Value {
                 } else {
                     None
                 };
-                if let Some(property_id) = project_id {
+                if let Some(project_id) = project_id {
                     Ok(geofence_project::ActiveModel {
-                        project_id: Set(property_id as u32),
+                        project_id: Set(project_id as u32),
                         geofence_id: Set(geofence_id as u32),
                         ..Default::default()
                     })
@@ -125,24 +125,27 @@ impl JsonToModel for Value {
                     None
                 };
                 if let Some(property_id) = property_id {
-                    if let Some(value) = self.get("value") {
-                        let value = if let Some(value) = value.as_str() {
-                            value.to_string()
+                    let value = if let Some(value) = self.get("value") {
+                        if let Some(value) = value.as_str() {
+                            if value.len() > 0 {
+                                Some(value.to_string())
+                            } else {
+                                None
+                            }
+                        } else if value == &Value::Null {
+                            None
                         } else {
-                            value.to_string()
-                        };
-                        Ok(geofence_property::ActiveModel {
-                            property_id: Set(property_id as u32),
-                            geofence_id: Set(geofence_id as u32),
-                            value: Set(Some(value)),
-                            ..Default::default()
-                        })
+                            Some(value.to_string())
+                        }
                     } else {
-                        Err(ModelError::GeofenceProperty(format!(
-                            "value not found: {:?}",
-                            object
-                        )))
-                    }
+                        None
+                    };
+                    Ok(geofence_property::ActiveModel {
+                        property_id: Set(property_id as u32),
+                        geofence_id: Set(geofence_id as u32),
+                        value: Set(value),
+                        ..Default::default()
+                    })
                 } else {
                     Err(ModelError::GeofenceProperty(format!(
                         "property_id not found: {:?}",

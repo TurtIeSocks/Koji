@@ -124,7 +124,7 @@ async fn route_from_db(
         {
             route::Query::feature(&conn.koji_db, id, None).await
         } else {
-            geofence::Query::feature(&conn.koji_db, id, None).await
+            geofence::Query::get_one_feature(&conn.koji_db, id.to_string(), None).await
         }
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;

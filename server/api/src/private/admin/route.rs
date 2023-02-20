@@ -12,7 +12,7 @@ async fn paginate(
 ) -> Result<HttpResponse, Error> {
     let url = url.into_inner().parse();
 
-    let mut routes = route::Query::paginate(
+    let routes = route::Query::paginate(
         &conn.koji_db,
         url.page,
         url.per_page,
@@ -29,17 +29,6 @@ async fn paginate(
     )
     .await
     .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    // ghetto sort
-    if url.sort_by == "hops" {
-        routes.results.sort_by(|a, b| {
-            if url.order == "ASC" {
-                a.hops.cmp(&b.hops)
-            } else {
-                b.hops.cmp(&a.hops)
-            }
-        })
-    }
 
     // ghetto sort
     Ok(HttpResponse::Ok().json(Response {

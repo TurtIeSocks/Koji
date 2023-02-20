@@ -135,11 +135,11 @@ export interface KojiRoute extends BasicKojiEntry {
 
 export interface AdminGeofence extends KojiGeofence {
   properties: KojiGeoProperty[]
-  related: number[]
+  projects: number[]
 }
 
 export interface AdminProject extends KojiProject {
-  related: number[]
+  geofences: number[]
 }
 
 export interface KojiStats {

@@ -1,6 +1,5 @@
 use super::*;
 
-use migration::Order;
 use serde_json::json;
 
 use crate::model::{api::args::Response, db::project, KojiDb};
@@ -12,34 +11,17 @@ async fn paginate(
 ) -> Result<HttpResponse, Error> {
     let url = url.into_inner().parse();
 
-    let mut projects = project::Query::paginate(
+    let projects = project::Query::paginate(
         &conn.koji_db,
         url.page,
         url.per_page,
-        match url.sort_by.to_lowercase().as_str() {
-            "id" => project::Column::Id,
-            _ => project::Column::Name,
-        },
-        if url.order.to_lowercase().eq("asc") {
-            Order::Asc
-        } else {
-            Order::Desc
-        },
+        url.order,
+        url.sort_by,
         url.q,
     )
     .await
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    // ghetto sort
-    if url.sort_by == "related.length" {
-        projects.results.sort_by(|a, b| {
-            if url.order == "ASC" {
-                a.1.len().cmp(&b.1.len())
-            } else {
-                b.1.len().cmp(&a.1.len())
-            }
-        })
-    }
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!(projects)),
         message: "Success".to_string(),
@@ -82,11 +64,11 @@ async fn get_ref(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
 #[get("/{id}/")]
 async fn get_one(
     conn: web::Data<KojiDb>,
-    id: actix_web::web::Path<u32>,
+    id: actix_web::web::Path<String>,
 ) -> Result<HttpResponse, Error> {
     let id = id.into_inner();
 
-    let project = project::Query::get_one(&conn.koji_db, id)
+    let project = project::Query::get_one_json_with_related(&conn.koji_db, id)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 

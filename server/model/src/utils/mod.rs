@@ -1,9 +1,10 @@
 use super::*;
 
+use std::env;
+
 use geojson::Value;
 use log::LevelFilter;
-use sea_orm::{ConnectOptions, Database};
-use std::env;
+use sea_orm::{ConnectOptions, Database, Order};
 
 use crate::{
     api::{EnsurePoints, GetBbox, ToSingleVec},
@@ -155,4 +156,24 @@ pub async fn get_database_struct() -> KojiDb {
             }
         },
     }
+}
+
+pub fn parse_order(order_by: &String) -> Order {
+    if order_by.to_lowercase().eq("asc") {
+        Order::Asc
+    } else {
+        Order::Desc
+    }
+}
+
+pub fn json_related_sort(json: &mut Vec<serde_json::Value>, sort_by: &String, order: String) {
+    json.sort_by(|a, b| {
+        let a = a[sort_by].as_array().unwrap().len();
+        let b = b[sort_by].as_array().unwrap().len();
+        if order == "asc" {
+            a.cmp(&b)
+        } else {
+            b.cmp(&a)
+        }
+    });
 }
