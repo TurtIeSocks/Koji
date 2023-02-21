@@ -54,9 +54,9 @@ async fn paginate(
         order,
         q,
     } = query.into_inner().parse();
-    let path = path.into_inner();
+    let resource = path.into_inner();
 
-    let paginated_results = match path.to_lowercase().as_str() {
+    let paginated_results = match resource.to_lowercase().as_str() {
         "geofence" => {
             db::geofence::Query::paginate(&db.koji_db, page, per_page, order, sort_by, q).await
         }
@@ -85,7 +85,9 @@ async fn get_all(
     db: web::Data<KojiDb>,
     path: actix_web::web::Path<String>,
 ) -> Result<HttpResponse, Error> {
-    let results = match path.to_lowercase().as_str() {
+    let resource = path.into_inner();
+
+    let results = match resource.to_lowercase().as_str() {
         "geofence" => db::geofence::Query::get_json_cache(&db.koji_db).await,
         "project" => db::project::Query::get_json_cache(&db.koji_db).await,
         "property" => db::property::Query::get_json_cache(&db.koji_db).await,

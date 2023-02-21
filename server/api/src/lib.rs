@@ -100,13 +100,14 @@ pub async fn start() -> io::Result<()> {
                     .service(
                         web::scope("/admin")
                             .service(private::admin::paginate)
-                            .service(private::admin::get_one)
                             .service(private::admin::get_all)
+                            .service(private::admin::search)
+                            .service(private::admin::get_one)
                             .service(private::admin::create)
                             .service(private::admin::update)
                             .service(private::admin::remove)
-                            .service(private::admin::search)
                             .service(
+                                // TODO: Consolidate with the above endpoints
                                 web::scope("/geofence_project")
                                     .service(private::geofence_project::get_all)
                                     .service(private::geofence_project::create)

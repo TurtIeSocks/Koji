@@ -41,7 +41,7 @@ export async function fetchWrapper<T>(
 export async function getKojiCache<T extends 'geofence' | 'project' | 'route'>(
   resource: T,
 ): Promise<UseDbCache[T] | null> {
-  const res = await fetch(`/internal/admin/${resource}/ref/`, {
+  const res = await fetch(`/internal/admin/${resource}/all/`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
