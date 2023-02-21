@@ -109,7 +109,6 @@ async fn update(
     let id = id.into_inner();
     let updated_property = payload.into_inner();
 
-    log::warn!("PRE {:?}", updated_property);
     let result = property::Query::upsert(&conn.koji_db, id, updated_property)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;

@@ -84,10 +84,10 @@ async fn get_one(
 #[post("/")]
 async fn create(
     conn: web::Data<KojiDb>,
-    payload: web::Json<project::Model>,
+    payload: web::Json<serde_json::Value>,
 ) -> Result<HttpResponse, Error> {
     let payload = payload.into_inner();
-    let return_payload = project::Query::create(&conn.koji_db, payload)
+    let return_payload = project::Query::upsert(&conn.koji_db, 0, payload)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -104,12 +104,12 @@ async fn create(
 async fn update(
     conn: web::Data<KojiDb>,
     id: actix_web::web::Path<u32>,
-    payload: web::Json<project::Model>,
+    payload: web::Json<serde_json::Value>,
 ) -> Result<HttpResponse, Error> {
     let id = id.into_inner();
     let updated_project = payload.into_inner();
 
-    let result = project::Query::update(&conn.koji_db, id, updated_project)
+    let result = project::Query::upsert(&conn.koji_db, id, updated_project)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 

@@ -138,7 +138,6 @@ impl Query {
         let model = if let Some(old_model) = old_model {
             let category = new_model.category.as_ref();
 
-            log::error!("POST {:?}", new_model);
             if old_model.category.ne(category) {
                 geofence_property::Query::update_values_for_property(
                     db,
