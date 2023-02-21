@@ -53,7 +53,7 @@ export default function GeoJsonWrapper({
         return L.circle(latlng, {
           radius: mode
             ? {
-                ManualQuest: 80,
+                CircleQuest: 80,
                 CircleRaid: 1100,
                 CircleSmartRaid: 1100,
               }[mode] || 70

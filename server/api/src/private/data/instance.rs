@@ -115,7 +115,7 @@ async fn route_from_db(
     } else {
         if instance_type.eq("CirclePokemon")
             || instance_type.eq("CircleSmartPokemon")
-            || instance_type.eq("ManualQuest")
+            || instance_type.eq("CircleQuest")
             || instance_type.eq("CircleRaid")
             || instance_type.eq("CircleSmartRaid")
         {

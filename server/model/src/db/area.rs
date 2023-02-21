@@ -41,10 +41,10 @@ impl ActiveModelBehavior for ActiveModel {}
 
 impl Model {
     fn to_feature(self, mode: String) -> Result<Feature, ModelError> {
-        let area_type = get_enum(Some(mode));
+        let mode = get_enum(Some(mode));
 
-        if area_type != Type::Unset {
-            let coords = match area_type {
+        if mode != Type::Unset {
+            let coords = match mode {
                 Type::AutoQuest | Type::AutoPokemon | Type::AutoTth | Type::PokemonIv => {
                     self.geofence
                 }
@@ -55,14 +55,14 @@ impl Model {
             };
             if let Some(coords) = coords {
                 let mut feature =
-                    coords.parse_scanner_instance(Some(self.name.clone()), Some(area_type.clone()));
+                    coords.parse_scanner_instance(Some(self.name.clone()), Some(mode.clone()));
                 feature.id = Some(geojson::feature::Id::String(format!(
                     "{}__{}__SCANNER",
-                    self.id, area_type
+                    self.id, mode
                 )));
                 feature.set_property("__id", self.id);
                 feature.set_property("__name", self.name);
-                feature.set_property("__mode", area_type.to_string());
+                feature.set_property("__mode", mode.to_string());
                 Ok(feature)
             } else {
                 Err(ModelError::Custom("Unable to determine route".to_string()))
@@ -156,9 +156,7 @@ impl Query {
                             | "circle_smart_pokemon" => Some(area::Column::PokemonModeRoute),
                             "circleraid" | "circle_raid" | "circlesmartraid"
                             | "circle_smart_raid" => Some(area::Column::FortModeRoute),
-                            "manualquest" | "manual_quest" | "circlequest" | "circle_quest" => {
-                                Some(area::Column::QuestModeRoute)
-                            }
+                            "circlequest" | "circle_quest" => Some(area::Column::QuestModeRoute),
                             "autoquest" | "auto_quest" => Some(area::Column::Geofence),
                             _ => None,
                         }

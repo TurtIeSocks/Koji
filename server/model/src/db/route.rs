@@ -5,6 +5,7 @@ use super::*;
 use geojson::{self, GeoJson, Geometry};
 use sea_orm::{entity::prelude::*, FromQueryResult, Order, QueryOrder, QuerySelect};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::collections::HashMap;
 
 use crate::{
@@ -176,15 +177,16 @@ impl Query {
     }
 
     pub async fn get_json_cache(db: &DatabaseConnection) -> Result<Vec<sea_orm::JsonValue>, DbErr> {
-        Entity::find()
-            .from_raw_sql(Statement::from_sql_and_values(
-                DbBackend::MySql,
-                r#"SELECT id, name, geofence_id, mode, JSON_EXTRACT(geometry, '$.type') AS geo_type FROM route ORDER BY name"#,
-                vec![],
-            ))
-            .into_json()
-            .all(db)
-            .await
+        let results = Query::get_all_no_fences(db)
+            .await?
+            .into_iter()
+            .map(|record| {
+                let mut json = json!(record);
+                json["geo_type"] = Json::String("MultiPoint".to_string());
+                json
+            })
+            .collect();
+        Ok(results)
     }
 
     /// Returns all Geofence models in the db without their features
@@ -231,12 +233,10 @@ impl Query {
         }
     }
 
-    /// Returns a single Geofence model and it's related projects as tuple
     pub async fn get_one(db: &DatabaseConnection, id: u32) -> Result<Option<Model>, DbErr> {
         Entity::find_by_id(id).one(db).await
     }
 
-    // Updates a Geofence model, removes internally used props
     pub async fn update(
         db: &DatabaseConnection,
         id: u32,
@@ -260,7 +260,6 @@ impl Query {
         }
     }
 
-    // Deletes a Geofence model from db
     pub async fn delete(db: &DatabaseConnection, id: u32) -> Result<DeleteResult, DbErr> {
         let record = Entity::delete_by_id(id).exec(db).await?;
         Ok(record)

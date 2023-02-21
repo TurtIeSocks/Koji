@@ -97,7 +97,7 @@ export const UNOWN_FENCES = ['AutoQuest'] as const
 export const UNOWN_ROUTES = [
   'CirclePokemon',
   'CircleRaid',
-  'ManualQuest',
+  'CircleQuest',
 ] as const
 
 export const ALL_FENCES = [...new Set([...RDM_FENCES, ...UNOWN_FENCES])]

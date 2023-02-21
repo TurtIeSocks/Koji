@@ -96,7 +96,7 @@ pub fn area_ref(areas: Vec<AreaRef>) -> Vec<sea_orm::JsonValue> {
             normalized.push(json!({
                 "id": area.id,
                 "name": area.name,
-                "mode": "ManualQuest",
+                "mode": "CircleQuest",
                 "geo_type": "MultiPoint",
             }));
         }
