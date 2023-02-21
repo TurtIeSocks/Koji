@@ -65,15 +65,12 @@ async fn save_koji(
 ) -> Result<HttpResponse, Error> {
     let ArgsUnwrapped { area, .. } = payload.into_inner().init(Some("geofence_save"));
 
-    let (inserts, updates) =
-        geofence::Query::upsert_from_geometry(&conn.koji_db, GeoFormats::FeatureCollection(area))
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    println!("Rows Updated: {}, Rows Inserted: {}", updates, inserts);
+    geofence::Query::upsert_from_geometry(&conn.koji_db, GeoFormats::FeatureCollection(area))
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!({ "updates": updates, "inserts": inserts })),
+        data: None,
         message: "Success".to_string(),
         status: "ok".to_string(),
         stats: None,

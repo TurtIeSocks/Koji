@@ -132,9 +132,18 @@ impl Query {
         id: u32,
         new_model: Json,
     ) -> Result<Model, ModelError> {
-        let old_model: Option<Model> = property::Entity::find_by_id(id).one(db).await?;
+        let old_model = Entity::find_by_id(id).one(db).await?;
         let mut new_model = new_model.to_property()?;
 
+        let old_model = if old_model.is_some() {
+            old_model
+        } else {
+            Entity::find()
+                .filter(Column::Name.eq(new_model.name.as_ref()))
+                .filter(Column::Category.eq(new_model.category.as_ref().clone()))
+                .one(db)
+                .await?
+        };
         let model = if let Some(old_model) = old_model {
             let category = new_model.category.as_ref();
 

@@ -127,15 +127,18 @@ impl Query {
             .into_iter()
             .map(|model| (model.id, false))
             .collect::<HashMap<_, _>>();
+
         let models = future::try_join_all(
             incoming
                 .into_iter()
                 .map(|json| Query::upsert(db, json, geofence_id)),
         )
         .await?;
+
         for model in models.iter() {
             existing.entry(model.id).and_modify(|e| *e = true);
         }
+
         let existing: Vec<u32> = existing
             .into_iter()
             .filter_map(|(id, exists)| if !exists { Some(id) } else { None })

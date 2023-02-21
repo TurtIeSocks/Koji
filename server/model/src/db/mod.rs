@@ -159,3 +159,7 @@ pub struct InsertsUpdates<T> {
     updates: usize,
     inserts: usize,
 }
+
+pub trait VecToJson {
+    fn to_json(self) -> Vec<serde_json::Value>;
+}

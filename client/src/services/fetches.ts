@@ -357,7 +357,7 @@ export async function save(
       await res.json()
     useStatic.setState({
       networkStatus: {
-        message: `Created ${json.data.inserts} and updated ${json.data.updates}`,
+        message: `Saved successfully`,
         status: res.status,
         severity: 'success',
       },

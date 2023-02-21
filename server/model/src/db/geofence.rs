@@ -5,13 +5,16 @@ use std::{collections::HashMap, str::FromStr};
 use crate::{
     api::{args::ApiQueryArgs, GeoFormats, ToCollection},
     error::ModelError,
-    utils::{get_enum, json::JsonToModel, json_related_sort, parse_order},
+    utils::{
+        json::{determine_category_by_value, JsonToModel},
+        json_related_sort, parse_order,
+    },
 };
 
 use super::{geofence_property::FullPropertyModel, sea_orm_active_enums::Type, *};
 
 use geojson::{GeoJson, Geometry};
-use sea_orm::{entity::prelude::*, InsertResult, UpdateResult};
+use sea_orm::{entity::prelude::*, UpdateResult};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -73,7 +76,17 @@ pub struct GeofenceNoGeometry {
     // pub updated_at: DateTimeUtc,
 }
 
+impl GeofenceNoGeometry {
+    fn to_json(self) -> Json {
+        json!(self)
+    }
+}
+
 impl Model {
+    fn to_json(self) -> Json {
+        json!(self)
+    }
+
     async fn to_feature(
         self,
         db: &DatabaseConnection,
@@ -146,6 +159,18 @@ impl Model {
             .column(property::Column::Name)
             .column(property::Column::Category)
             .filter(geofence_property::Column::GeofenceId.eq(self.id))
+    }
+}
+
+impl VecToJson for Vec<Model> {
+    fn to_json(self) -> Vec<Json> {
+        self.into_iter().map(|model| model.to_json()).collect()
+    }
+}
+
+impl VecToJson for Vec<GeofenceNoGeometry> {
+    fn to_json(self) -> Vec<Json> {
+        self.into_iter().map(|model| model.to_json()).collect()
     }
 }
 
@@ -233,7 +258,7 @@ impl Query {
 
     /// Returns all Geofence models in the db
     pub async fn get_all_json(db: &DatabaseConnection) -> Result<Vec<Json>, DbErr> {
-        Entity::find().into_json().all(db).await
+        Ok(Query::get_all(db).await?.to_json())
     }
 
     /// Returns all geofence models as a FeatureCollection,
@@ -270,11 +295,7 @@ impl Query {
     }
 
     pub async fn get_json_cache(db: &DatabaseConnection) -> Result<Vec<sea_orm::JsonValue>, DbErr> {
-        Ok(Query::get_all_no_fences(db)
-            .await?
-            .into_iter()
-            .map(|x| json!(x))
-            .collect())
+        Ok(Query::get_all_no_fences(db).await?.to_json())
     }
 
     /// Returns paginated Geofence models
@@ -367,9 +388,39 @@ impl Query {
     ) -> Result<(), ModelError> {
         if let Some(properties) = json.get("properties") {
             if let Some(properties) = properties.as_array() {
+                let mut existing = vec![];
+                let mut new_props = vec![];
+                properties.iter().for_each(|property| {
+                    if let Some(prop_map) = property.as_object() {
+                        if prop_map.contains_key("property_id") {
+                            existing.push(property.clone())
+                        } else {
+                            new_props.push(property.clone())
+                        }
+                    }
+                });
+                let upserted_props = future::try_join_all(
+                    new_props
+                        .clone()
+                        .into_iter()
+                        .map(|result| property::Query::upsert(db, 0, result)),
+                )
+                .await?;
+
+                upserted_props
+                    .into_iter()
+                    .enumerate()
+                    .for_each(|(i, prop)| {
+                        existing.push(json!({
+                            "value": new_props[i]["value"],
+                            "property_id": prop.id,
+                            "geofence_id": geofence_id,
+                        }))
+                    });
+
                 geofence_property::Query::update_properties_by_geofence(
                     db,
-                    properties,
+                    &existing,
                     Some(geofence_id),
                 )
                 .await?;
@@ -392,14 +443,19 @@ impl Query {
         Ok(())
     }
 
-    // Updates a Geofence model, removes internally used props
+    /// Updates or creates a Geofence model, returns a model struct
     pub async fn upsert(db: &DatabaseConnection, id: u32, json: Json) -> Result<Model, ModelError> {
         let old_model = Entity::find_by_id(id).one(db).await?;
         let mut new_model = json.to_geofence()?;
 
-        let model = if let Some(old_model) = old_model {
-            let name = new_model.name.as_ref();
+        let name = new_model.name.as_ref();
 
+        let old_model = if let Some(old_model) = old_model {
+            Ok(old_model)
+        } else {
+            Query::get_one(db, name.to_string()).await
+        };
+        let model = if let Ok(old_model) = old_model {
             if old_model.name.ne(name) {
                 Query::upsert_related_routes(db, &old_model, name.clone()).await?;
             };
@@ -409,20 +465,21 @@ impl Query {
             new_model.insert(db).await?
         };
         if id == 0 {
-            geofence_property::Query::add_name_property(db, id).await?;
+            geofence_property::Query::add_name_property(db, model.id).await?;
         }
         Query::upsert_related_projects(db, &json, model.id).await?;
         Query::upsert_related_properties(db, &json, model.id).await?;
         Ok(model)
     }
 
+    /// Updates or creates a Geofence model, returns a json
     pub async fn upsert_json_return(
         db: &DatabaseConnection,
         id: u32,
         json: Json,
     ) -> Result<Json, ModelError> {
         let result = Query::upsert(db, id, json).await?;
-        Ok(json!(result))
+        Ok(result.to_json())
     }
 
     /// Deletes a Geofence model from db
@@ -431,149 +488,74 @@ impl Query {
         Ok(record)
     }
 
-    async fn insert_related_projects(
-        conn: &DatabaseConnection,
-        projects: Vec<u64>,
-        id: u32,
-    ) -> Result<InsertResult<geofence_project::ActiveModel>, DbErr> {
-        let projects: Vec<geofence_project::ActiveModel> = projects
-            .into_iter()
-            .map(|project| geofence_project::ActiveModel {
-                project_id: Set(project as u32),
-                geofence_id: Set(id),
-                ..Default::default()
-            })
-            .collect();
-        geofence_project::Entity::insert_many(projects)
-            .exec(conn)
-            .await
-    }
-
     async fn upsert_feature(
         conn: &DatabaseConnection,
         feat: Feature,
-        existing: &HashMap<String, u32>,
-        inserts_updates: &mut InsertsUpdates<ActiveModel>,
-    ) -> Result<(), DbErr> {
-        if let Some(name) = feat.property("__name") {
-            if let Some(name) = name.as_str() {
-                let mut feat = feat.clone();
-                feat.id = None;
-                let mode = if let Some(r#type) = feat.property("__mode") {
-                    if let Some(r#type) = r#type.as_str() {
-                        Some(r#type.to_string())
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-                let mode = get_enum(mode);
-                let projects: Option<Vec<u64>> = if let Some(projects) = feat.property("__projects")
-                {
-                    if let Some(projects) = projects.as_array() {
-                        Some(
-                            projects
-                                .iter()
-                                .filter_map(|project| {
-                                    if let Some(project) = project.as_u64() {
-                                        Some(project)
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .collect(),
-                        )
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-                if let Some(geometry) = feat.geometry {
-                    let area = GeoJson::Geometry(geometry).to_json_value();
-                    if let Some(area) = area.as_object() {
-                        let area = sea_orm::JsonValue::Object(area.to_owned());
-                        let name = name.to_string();
-                        let is_update = existing.get(&name);
+        // existing: &HashMap<String, u32>,
+        // inserts_updates: &mut InsertsUpdates<ActiveModel>,
+    ) -> Result<Model, ModelError> {
+        let mut new_map = HashMap::<&str, serde_json::Value>::new();
 
-                        if let Some(entry) = is_update {
-                            let old_model: Option<Model> =
-                                Entity::find_by_id(entry.clone()).one(conn).await?;
-                            let mut old_model: ActiveModel = old_model.unwrap().into();
-                            old_model.geometry = Set(area);
-                            old_model.mode = Set(mode);
-                            old_model.updated_at = Set(Utc::now());
-                            let model = old_model.update(conn).await?;
-
-                            if let Some(projects) = projects {
-                                Query::insert_related_projects(conn, projects, model.id).await?;
-                            };
-                            inserts_updates.updates += 1;
-                            Ok(())
-                        } else {
-                            let model = ActiveModel {
-                                name: Set(name.to_string()),
-                                geometry: Set(area),
-                                mode: Set(mode),
-                                created_at: Set(Utc::now()),
-                                updated_at: Set(Utc::now()),
-                                ..Default::default()
-                            }
-                            .insert(conn)
-                            .await?;
-
-                            if let Some(projects) = projects {
-                                Query::insert_related_projects(conn, projects, model.id).await?;
-                            };
-                            inserts_updates.inserts += 1;
-                            Ok(())
-                        }
-                    } else {
-                        let error = format!("[GEOFENCE] unable to serialize the feature: {}", name);
-                        log::warn!("{}", error);
-                        Err(DbErr::Custom(error))
-                    }
-                } else {
-                    let error = "[GEOFENCE] Couldn't save geofence, geometry is missing";
-                    log::warn!("{}", error);
-                    Err(DbErr::Custom(error.to_string()))
-                }
+        let id = if let Some(id) = feat.property("__id") {
+            if let Some(id) = id.as_u64() {
+                id
             } else {
-                let error = "[GEOFENCE] Couldn't save area, name property is malformed";
-                log::warn!("{}", error);
-                Err(DbErr::Custom(error.to_string()))
+                0
             }
         } else {
-            let error = "[GEOFENCE] Couldn't save area, name not found in GeoJson!";
-            log::warn!("{}", error);
-            Err(DbErr::Custom(error.to_string()))
-        }
+            0
+        } as u32;
+
+        if let Some(name) = feat.property("__name") {
+            if let Some(name) = name.as_str() {
+                new_map.insert("name", serde_json::Value::String(name.to_string()));
+            } else {
+                return Err(ModelError::Geofence("Name is invalid string".to_string()));
+            }
+        } else {
+            return Err(ModelError::Geofence("Missing name property".to_string()));
+        };
+
+        if let Some(geometry) = feat.geometry.clone() {
+            new_map.insert("geometry", GeoJson::Geometry(geometry).to_json_value());
+        } else {
+            return Err(ModelError::Geofence(
+                "Did not find valid Geometry".to_string(),
+            ));
+        };
+
+        if let Some(mode) = feat.property("__mode") {
+            if let Some(mode) = mode.as_str() {
+                new_map.insert("mode", serde_json::Value::String(mode.to_string()));
+            }
+        };
+        if let Some(projects) = feat.property("__projects") {
+            new_map.insert("projects", projects.clone());
+        };
+
+        let properties = feat
+            .properties_iter()
+            .filter_map(|(k, v)| {
+                if k.starts_with("__") {
+                    None
+                } else {
+                    let (category, value) = determine_category_by_value(k, v.clone(), &new_map);
+                    Some(json!({ "name": k, "value": value, "category": category }))
+                }
+            })
+            .collect::<Vec<serde_json::Value>>();
+        new_map.insert("properties", json!(properties));
+
+        Query::upsert(conn, id, json!(new_map)).await
     }
 
     pub async fn upsert_from_geometry(
         conn: &DatabaseConnection,
         area: GeoFormats,
-    ) -> Result<(usize, usize), DbErr> {
-        let existing = Entity::find()
-            .select_only()
-            .column(Column::Id)
-            .column(Column::Name)
-            .into_model::<NameId>()
-            .all(conn)
-            .await?
-            .into_iter()
-            .map(|model| (model.name, model.id))
-            .collect();
-
-        let mut inserts_updates = InsertsUpdates::<ActiveModel> {
-            to_insert: vec![],
-            updates: 0,
-            inserts: 0,
-        };
+    ) -> Result<(), ModelError> {
         match area {
             GeoFormats::Feature(feat) => {
-                Query::upsert_feature(conn, feat, &existing, &mut inserts_updates).await?
+                Query::upsert_feature(conn, feat).await?;
             }
             feat => {
                 let fc = match feat {
@@ -581,11 +563,11 @@ impl Query {
                     geometry => geometry.to_collection(None, None),
                 };
                 for feat in fc.into_iter() {
-                    Query::upsert_feature(conn, feat, &existing, &mut inserts_updates).await?
+                    Query::upsert_feature(conn, feat).await?;
                 }
             }
-        }
-        Ok((inserts_updates.inserts, inserts_updates.updates))
+        };
+        Ok(())
     }
 
     /// Returns all geofence models, as features, that are related to the specified project

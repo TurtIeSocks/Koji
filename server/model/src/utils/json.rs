@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 use geojson::{GeoJson, Geometry};
 use sea_orm::Set;
@@ -353,4 +353,62 @@ pub fn parse_property_value(value: &String, category: &Category) -> Value {
         Category::Array => serde_json::Value::from_str(&value).unwrap(),
         Category::Database => serde_json::Value::Null,
     }
+}
+
+pub fn determine_category_by_value(
+    key: &str,
+    value: Value,
+    db_json: &HashMap<&str, Value>,
+) -> (Category, Option<Value>) {
+    let mut actual_value: Option<Value> = Some(value.clone().into());
+    let mut category = Category::String;
+
+    if db_json.contains_key(key) {
+        category = Category::Database;
+        actual_value = None;
+    } else if let Some(val) = value.as_bool() {
+        category = Category::Boolean;
+        actual_value = Some(val.into());
+    } else if let Some(val) = value.as_f64() {
+        category = Category::Number;
+        actual_value = Some(val.into());
+    } else if let Some(_) = value.as_array() {
+        category = Category::Array;
+    } else if let Some(_) = value.as_object() {
+        category = Category::Object;
+    } else if let Some(value) = value.as_str() {
+        match value.parse::<f64>() {
+            Ok(val) => {
+                category = Category::Number;
+                actual_value = Some(val.into());
+            }
+            Err(_) => {
+                if value == "true" {
+                    category = Category::Boolean;
+                    actual_value = Some(true.into());
+                } else if value == "false" {
+                    category = Category::Boolean;
+                    actual_value = Some(false.into());
+                } else if value.starts_with("#") || value.starts_with("rgb") {
+                    category = Category::Color;
+                    actual_value = Some(value.to_string().into());
+                } else if value.starts_with("{") {
+                    category = Category::Object;
+                    actual_value = match serde_json::from_str::<Value>(value) {
+                        Ok(val) => Some(val.into()),
+                        Err(_) => None,
+                    };
+                } else if value.starts_with("[") {
+                    category = Category::Array;
+                    actual_value = match serde_json::from_str::<Value>(value) {
+                        Ok(val) => Some(val.into()),
+                        Err(_) => None,
+                    };
+                } else {
+                    actual_value = Some(value.to_string().into());
+                }
+            }
+        };
+    }
+    (category, actual_value)
 }
