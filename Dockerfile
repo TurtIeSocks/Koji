@@ -1,10 +1,10 @@
-FROM node:16-alpine as client
+FROM node:18-alpine as client
 WORKDIR /app
 COPY ./client .
 RUN yarn install
 RUN yarn build
 
-FROM rust:1.60 as server
+FROM rust:1.65 as server
 ENV PKG_CONFIG_ALLOW_CROSS=1
 WORKDIR /usr/src/koji
 COPY ./server .
