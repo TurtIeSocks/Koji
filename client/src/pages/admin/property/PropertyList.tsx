@@ -9,6 +9,7 @@ import {
   TextField,
   TopToolbar,
   CreateButton,
+  NumberField,
 } from 'react-admin'
 
 function ListActions() {
@@ -36,6 +37,11 @@ export default function PropertyList() {
         <TextField source="name" />
         <TextField source="category" />
         <TextField source="default_value" />
+        <NumberField
+          source="geofences.length"
+          label="Geofences"
+          sortable={false}
+        />
         <EditButton />
         <DeleteWithUndoButton />
       </Datagrid>

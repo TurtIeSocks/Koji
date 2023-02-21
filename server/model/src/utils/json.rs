@@ -1,9 +1,11 @@
+use std::str::FromStr;
+
 use geojson::{GeoJson, Geometry};
 use sea_orm::Set;
 use serde_json::Value;
 
 use crate::{
-    db::{geofence, geofence_project, geofence_property, project},
+    db::{geofence, geofence_project, geofence_property, project, sea_orm_active_enums::Category},
     error::ModelError,
 };
 
@@ -214,5 +216,18 @@ impl JsonToModel for Value {
                 self
             )))
         }
+    }
+}
+
+pub fn parse_property_value(value: &String, category: &Category) -> Value {
+    match category {
+        Category::String | Category::Color => serde_json::Value::String(value.to_string()),
+        Category::Number => serde_json::Value::Number(
+            serde_json::Number::from_f64(value.parse::<f64>().unwrap_or(0.)).unwrap(),
+        ),
+        Category::Boolean => serde_json::Value::Bool(value.parse::<bool>().unwrap_or(false)),
+        Category::Object => serde_json::Value::from_str(&value).unwrap(),
+        Category::Array => serde_json::Value::from_str(&value).unwrap(),
+        Category::Database => serde_json::Value::Null,
     }
 }

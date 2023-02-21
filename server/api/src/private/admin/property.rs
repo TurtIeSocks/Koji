@@ -1,6 +1,5 @@
 use super::*;
 
-use migration::Order;
 use serde_json::json;
 
 use crate::model::{api::args::Response, db::property, KojiDb};
@@ -16,17 +15,8 @@ async fn paginate(
         &conn.koji_db,
         url.page,
         url.per_page,
-        match url.sort_by.to_lowercase().as_str() {
-            "id" => property::Column::Id,
-            "category" => property::Column::Category,
-
-            _ => property::Column::Name,
-        },
-        if url.order.to_lowercase().eq("asc") {
-            Order::Asc
-        } else {
-            Order::Desc
-        },
+        url.order,
+        url.sort_by,
         url.q,
     )
     .await
@@ -74,11 +64,11 @@ async fn get_ref(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
 #[get("/{id}/")]
 async fn get_one(
     conn: web::Data<KojiDb>,
-    id: actix_web::web::Path<u32>,
+    id: actix_web::web::Path<String>,
 ) -> Result<HttpResponse, Error> {
     let id = id.into_inner();
 
-    let property = property::Query::get_one(&conn.koji_db, id)
+    let property = property::Query::get_one_json(&conn.koji_db, id)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
