@@ -408,6 +408,9 @@ impl Query {
         } else {
             new_model.insert(db).await?
         };
+        if id == 0 {
+            geofence_property::Query::add_name_property(db, id).await?;
+        }
         Query::upsert_related_projects(db, &json, model.id).await?;
         Query::upsert_related_properties(db, &json, model.id).await?;
         Ok(model)

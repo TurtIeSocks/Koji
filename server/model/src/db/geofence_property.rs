@@ -5,7 +5,8 @@ use std::collections::HashMap;
 use crate::utils::json::{parse_property_value, JsonToModel};
 
 use super::{sea_orm_active_enums::Category, *};
-use sea_orm::entity::prelude::*;
+use sea_orm::{entity::prelude::*, UpdateResult};
+use serde_json::json;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "geofence_property")]
@@ -147,5 +148,27 @@ impl Query {
                 .await?;
         }
         Ok(models)
+    }
+
+    pub async fn add_name_property(db: &DatabaseConnection, id: u32) -> Result<Model, ModelError> {
+        let name_property = property::Query::get_or_create_name_record(db).await?;
+        Query::upsert(
+            db,
+            &json!({ "property_id": name_property.id, "geofence_id": id, }),
+            None,
+        )
+        .await
+    }
+
+    pub async fn update_values_for_property(
+        db: &DatabaseConnection,
+        property_id: u32,
+        new_value: &Option<String>,
+    ) -> Result<UpdateResult, DbErr> {
+        Entity::update_many()
+            .filter(Column::PropertyId.eq(property_id))
+            .col_expr(Column::Value, Expr::value(new_value.to_owned()))
+            .exec(db)
+            .await
     }
 }

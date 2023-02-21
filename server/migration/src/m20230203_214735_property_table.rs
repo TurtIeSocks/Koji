@@ -1,4 +1,7 @@
-use sea_orm_migration::prelude::*;
+use sea_orm_migration::{
+    prelude::*,
+    sea_orm::{ConnectionTrait, DbBackend, Statement},
+};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -53,7 +56,16 @@ impl MigrationTrait for Migration {
                     )
                     .to_owned(),
             )
-            .await
+            .await?;
+        manager
+            .get_connection()
+            .query_all(Statement::from_string(
+                DbBackend::MySql,
+                "INSERT INTO property (name, category) VALUES ('name', 'database')".to_string(),
+            ))
+            .await?;
+
+        Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {

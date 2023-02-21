@@ -10,11 +10,9 @@ import {
   SimpleFormIterator,
   TextInput,
   useRecordContext,
-  useInput,
 } from 'react-admin'
 
-import { ColorInput } from 'react-admin-color-picker'
-import { Box, Switch, TextField } from '@mui/material'
+import { Box } from '@mui/material'
 import center from '@turf/center'
 
 import Map from '@components/Map'
@@ -25,6 +23,11 @@ import type { Feature, KojiProperty } from '@assets/types'
 import GeoJsonWrapper from '@components/GeojsonWrapper'
 
 import CodeInput from '../inputs/CodeInput'
+import {
+  BoolInputExpanded,
+  ColorInputExpanded,
+  TextInputExpanded,
+} from '../inputs/Properties'
 
 function OptionRenderer() {
   const record = useRecordContext()
@@ -34,111 +37,6 @@ const inputText = (choice: KojiProperty) => choice.name
 
 const matchSuggestion = (filter: string, choice: KojiProperty) => {
   return choice.name.toLowerCase().includes(filter.toLowerCase())
-}
-
-function BoolInputExpanded({
-  source,
-  defaultValue,
-  name,
-  ...props
-}: {
-  source: string
-  name?: string
-  defaultValue: boolean
-}) {
-  const { id, field } = useInput({ source })
-
-  React.useEffect(() => {
-    if (typeof field.value !== 'boolean') {
-      field.onChange(defaultValue)
-    }
-  }, [name, defaultValue])
-
-  return (
-    <Switch
-      id={id}
-      {...props}
-      {...field}
-      onChange={({ target }) => {
-        field.onChange({
-          target: {
-            value: target.checked,
-          },
-        })
-      }}
-      checked={!!(field.value ?? defaultValue)}
-    />
-  )
-}
-
-function TextInputExpanded({
-  source,
-  defaultValue,
-  type = 'text',
-  disabled = false,
-  name,
-  ...props
-}: {
-  source: string
-  defaultValue: string | number
-  type?: HTMLInputElement['type']
-  disabled?: boolean
-  name?: string
-}) {
-  const { id, field } = useInput({ source })
-
-  React.useEffect(() => {
-    if (
-      !field.value ||
-      typeof field.value !== (type === 'number' ? 'number' : 'string')
-    ) {
-      field.onChange(defaultValue)
-    }
-  }, [type, name, defaultValue])
-
-  return (
-    <TextField
-      id={id}
-      {...props}
-      {...field}
-      disabled={disabled}
-      onChange={({ target }) => {
-        field.onChange({
-          target: {
-            value: type === 'number' ? +target.value || 0 : target.value,
-          },
-        })
-      }}
-      type={type}
-      value={(field.value ?? defaultValue) || (type === 'number' ? 0 : '')}
-    />
-  )
-}
-
-function ColorInputExpanded({
-  source,
-  defaultValue,
-  name,
-  ...props
-}: {
-  source: string
-  defaultValue: string
-  name?: string
-}) {
-  const { field } = useInput({ source, defaultValue })
-
-  React.useEffect(() => {
-    if (
-      !field.value ||
-      typeof field.value !== 'string' ||
-      !field.value.startsWith('#') ||
-      field.value.startsWith('rgb')
-    ) {
-      field.onChange(defaultValue)
-    }
-  }, [name, defaultValue])
-
-  return <ColorInput {...props} source={source} />
 }
 
 export default function GeofenceForm() {
@@ -220,7 +118,7 @@ export default function GeofenceForm() {
           <FormDataConsumer>
             {({ formData, getSource, scopedFormData }) => {
               const id: number = scopedFormData?.property_id || 1
-              // console.log(scopedFormData)
+              const defaultValue = properties[id]?.default_value
               return (
                 getSource && (
                   <>
@@ -231,7 +129,7 @@ export default function GeofenceForm() {
                             source={getSource('value')}
                             name={properties[id]?.name}
                             defaultValue={!!properties[id]?.default_value}
-                            // editing={!!scopedFormData?.id}
+                            label="Value"
                           />
                         ),
                         string: (
@@ -239,17 +137,25 @@ export default function GeofenceForm() {
                             source={getSource('value')}
                             name={properties[id]?.name}
                             type="text"
-                            defaultValue={properties[id]?.default_value || ''}
-                            // editing={!!scopedFormData?.id}
+                            label="Value"
+                            defaultValue={
+                              typeof defaultValue === 'string'
+                                ? defaultValue
+                                : ''
+                            }
                           />
                         ),
                         number: (
                           <TextInputExpanded
                             source={getSource('value')}
                             name={properties[id]?.name}
-                            defaultValue={properties[id]?.default_value || 0}
+                            label="Value"
+                            defaultValue={
+                              typeof defaultValue === 'number'
+                                ? defaultValue
+                                : ''
+                            }
                             type="number"
-                            // editing={!!scopedFormData?.id}
                           />
                         ),
                         object: (
@@ -268,8 +174,12 @@ export default function GeofenceForm() {
                           <ColorInputExpanded
                             source={getSource('value')}
                             name={properties[id]?.name}
-                            defaultValue={properties[id]?.default_value || ''}
-                            // editing={!!scopedFormData?.id}
+                            label="Value"
+                            defaultValue={
+                              typeof defaultValue === 'string'
+                                ? defaultValue
+                                : '#000000'
+                            }
                           />
                         ),
                         database: (
@@ -278,10 +188,10 @@ export default function GeofenceForm() {
                             type="database"
                             source={getSource('value')}
                             name={properties[id]?.name}
+                            label="Value"
                             defaultValue={
                               formData?.[properties[id]?.name] || ''
                             }
-                            // editing={!!scopedFormData?.id}
                           />
                         ),
                       }[properties[id]?.category?.toLowerCase()]

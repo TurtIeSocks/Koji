@@ -8,7 +8,7 @@ use sea_orm::{ConnectOptions, Database, Order};
 
 use crate::{
     api::{EnsurePoints, GetBbox, ToSingleVec},
-    db::sea_orm_active_enums::Type,
+    db::sea_orm_active_enums::{Category, Type},
 };
 
 pub mod json;
@@ -68,6 +68,18 @@ pub fn get_enum_by_geometry(enum_val: &Value) -> Type {
             log::warn!("Invalid Geometry Type: {}", enum_val.type_name());
             Type::Unset
         }
+    }
+}
+
+pub fn get_category_enum(category: String) -> Category {
+    match category.to_lowercase().as_str() {
+        "database" => Category::Database,
+        "boolean" => Category::Boolean,
+        "number" => Category::Number,
+        "object" => Category::Object,
+        "array" => Category::Array,
+        "color" => Category::Color,
+        _ => Category::String,
     }
 }
 

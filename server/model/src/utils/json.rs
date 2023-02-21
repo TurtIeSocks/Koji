@@ -5,11 +5,14 @@ use sea_orm::Set;
 use serde_json::Value;
 
 use crate::{
-    db::{geofence, geofence_project, geofence_property, project, sea_orm_active_enums::Category},
+    db::{
+        geofence, geofence_project, geofence_property, project, property,
+        sea_orm_active_enums::Category,
+    },
     error::ModelError,
 };
 
-use super::get_enum;
+use super::{get_category_enum, get_enum};
 
 pub trait JsonToModel {
     fn to_geofence(&self) -> Result<geofence::ActiveModel, ModelError>;
@@ -19,6 +22,7 @@ pub trait JsonToModel {
         geofence_id: Option<u32>,
     ) -> Result<geofence_property::ActiveModel, ModelError>;
     fn to_geofence_project(&self) -> Result<geofence_project::ActiveModel, ModelError>;
+    fn to_property(&self) -> Result<property::ActiveModel, ModelError>;
 }
 
 impl JsonToModel for Value {
@@ -215,6 +219,59 @@ impl JsonToModel for Value {
             }
         } else {
             Err(ModelError::Project(format!(
+                "model is not an object: {:?}",
+                self
+            )))
+        }
+    }
+
+    fn to_property(&self) -> Result<property::ActiveModel, ModelError> {
+        if let Some(incoming) = self.as_object() {
+            let name = if let Some(name) = incoming.get("name") {
+                name.as_str()
+            } else {
+                None
+            };
+            let category = if let Some(category) = incoming.get("category") {
+                if let Some(category) = category.as_str() {
+                    Some(get_category_enum(category.to_string()))
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            let default_value = if let Some(default_value) = incoming.get("default_value") {
+                if let Some(default_value) = default_value.as_str() {
+                    Some(default_value.to_string())
+                } else {
+                    Some(default_value.to_string())
+                }
+            } else {
+                None
+            };
+            if let Some(name) = name {
+                if let Some(category) = category {
+                    Ok(property::ActiveModel {
+                        name: Set(name.to_string()),
+                        category: Set(category),
+                        default_value: Set(default_value),
+                        ..Default::default()
+                    })
+                } else {
+                    Err(ModelError::Property(format!(
+                        "model does not have a category property: {:?}",
+                        self
+                    )))
+                }
+            } else {
+                Err(ModelError::Property(format!(
+                    "model does not have a name property: {:?}",
+                    self
+                )))
+            }
+        } else {
+            Err(ModelError::Property(format!(
                 "model is not an object: {:?}",
                 self
             )))

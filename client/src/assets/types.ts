@@ -114,7 +114,7 @@ export interface KojiGeofence extends BasicKojiEntry {
 
 export interface KojiProperty extends BasicKojiEntry {
   category: typeof PROPERTY_CATEGORIES[number]
-  default_value?: string
+  default_value: string | number | boolean | null | object | Array<unknown>
 }
 
 export interface KojiGeoProperty

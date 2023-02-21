@@ -46,7 +46,7 @@ impl MigrationTrait for Migration {
                     Some(id) => id as u32,
                     None => continue,
                 },
-                properties: vec![],
+                properties: vec![("name".to_string(), None)],
             };
             if let Some(fence) = fence.as_object() {
                 if let Some(area) = fence.get("area") {

@@ -9,12 +9,14 @@ pub enum ModelError {
     Geojson(geojson::Error),
     #[error("[PROJECT]: {0}")]
     Project(String),
+    #[error("[PROPERTY]: {0}")]
+    Property(String),
     #[error("[GEOFENCE]: {0}")]
     Geofence(String),
-    #[error("[GEOFENCE_PROPERTY]: {0}")]
-    GeofenceProperty(String),
     #[error("[GEOFENCE_PROJECT]: {0}")]
     GeofenceProject(String),
+    #[error("[GEOFENCE_PROPERTY]: {0}")]
+    GeofenceProperty(String),
     #[error("Not Implemented: {0}")]
     NotImplemented(String),
     #[error("{0}")]
