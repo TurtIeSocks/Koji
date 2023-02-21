@@ -17,8 +17,8 @@ pub enum Type {
     #[sea_orm(string_value = "auto_quest")]
     AutoQuest,
     // This is added manually, re-add it if you run the CLI command
-    #[sea_orm(string_value = "manual_quest")]
-    ManualQuest,
+    #[sea_orm(string_value = "circle_quest")]
+    CircleQuest,
     #[sea_orm(string_value = "pokemon_iv")]
     PokemonIv,
     #[sea_orm(string_value = "leveling")]
@@ -27,6 +27,9 @@ pub enum Type {
     AutoPokemon,
     #[sea_orm(string_value = "auto_tth")]
     AutoTth,
+    // Only valid in Kōji database
+    #[sea_orm(string_value = "unset")]
+    Unset,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
@@ -46,4 +49,36 @@ pub enum Category {
     Database,
     #[sea_orm(string_value = "color")]
     Color,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mode")]
+pub enum FenceMode {
+    #[sea_orm(string_value = "auto_quest")]
+    AutoQuest,
+    #[sea_orm(string_value = "auto_pokemon")]
+    AutoPokemon,
+    #[sea_orm(string_value = "auto_tth")]
+    AutoTth,
+    #[sea_orm(string_value = "pokemon_iv")]
+    PokemonIv,
+    #[sea_orm(string_value = "unset")]
+    Unset,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mode")]
+pub enum RouteMode {
+    #[sea_orm(string_value = "circle_pokemon")]
+    CirclePokemon,
+    #[sea_orm(string_value = "circle_smart_pokemon")]
+    CircleSmartPokemon,
+    #[sea_orm(string_value = "circle_raid")]
+    CircleRaid,
+    #[sea_orm(string_value = "circle_smart_raid")]
+    CircleSmartRaid,
+    #[sea_orm(string_value = "circle_quest")]
+    CircleQuest,
+    #[sea_orm(string_value = "unset")]
+    Unset,
 }

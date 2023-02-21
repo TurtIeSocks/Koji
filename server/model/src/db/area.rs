@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use super::*;
+use super::{sea_orm_active_enums::Type, *};
 use sea_orm::entity::prelude::*;
 
 use crate::{
@@ -41,12 +41,16 @@ impl ActiveModelBehavior for ActiveModel {}
 
 impl Model {
     fn to_feature(self, mode: String) -> Result<Feature, ModelError> {
-        if let Some(area_type) = get_enum(Some(mode.to_string())) {
-            let coords = match mode.as_str() {
-                "AutoQuest" | "AutoPokemon" | "AutoTth" | "PokemonIv" => self.geofence,
-                "CirclePokemon" | "CircleSmartPokemon" => self.pokemon_mode_route,
-                "CircleRaid" | "CircleSmartRaid" => self.fort_mode_route,
-                "ManualQuest" => self.quest_mode_route,
+        let area_type = get_enum(Some(mode));
+
+        if area_type != Type::Unset {
+            let coords = match area_type {
+                Type::AutoQuest | Type::AutoPokemon | Type::AutoTth | Type::PokemonIv => {
+                    self.geofence
+                }
+                Type::CirclePokemon | Type::CircleSmartPokemon => self.pokemon_mode_route,
+                Type::CircleRaid | Type::CircleSmartRaid => self.fort_mode_route,
+                Type::CircleQuest => self.quest_mode_route,
                 _ => None,
             };
             if let Some(coords) = coords {
@@ -143,16 +147,18 @@ impl Query {
     ) -> Result<(), DbErr> {
         if let Some(name) = feat.property("__name") {
             if let Some(name) = name.as_str() {
-                let column = if let Some(r#type) = feat.property("__mode").clone() {
-                    if let Some(r#type) = r#type.as_str() {
-                        match r#type.to_lowercase().as_str() {
+                let column = if let Some(mode) = feat.property("__mode").clone() {
+                    if let Some(mode) = mode.as_str() {
+                        match mode.to_lowercase().as_str() {
                             "circlepokemon"
                             | "circle_pokemon"
                             | "circlesmartpokemon"
                             | "circle_smart_pokemon" => Some(area::Column::PokemonModeRoute),
                             "circleraid" | "circle_raid" | "circlesmartraid"
                             | "circle_smart_raid" => Some(area::Column::FortModeRoute),
-                            "manualquest" | "manual_quest" => Some(area::Column::QuestModeRoute),
+                            "manualquest" | "manual_quest" | "circlequest" | "circle_quest" => {
+                                Some(area::Column::QuestModeRoute)
+                            }
                             "autoquest" | "auto_quest" => Some(area::Column::Geofence),
                             _ => None,
                         }

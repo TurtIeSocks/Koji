@@ -58,7 +58,7 @@ pub fn area(areas: Vec<db::area::Model>) -> Vec<Feature> {
     for area in areas.into_iter() {
         to_feature(area.geofence, &area.name, Type::AutoQuest);
         to_feature(area.fort_mode_route, &area.name, Type::CircleRaid);
-        to_feature(area.quest_mode_route, &area.name, Type::ManualQuest);
+        to_feature(area.quest_mode_route, &area.name, Type::CircleQuest);
         to_feature(area.pokemon_mode_route, &area.name, Type::CirclePokemon);
     }
     normalized

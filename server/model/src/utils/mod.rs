@@ -39,34 +39,34 @@ pub fn sql_raw(area: &FeatureCollection) -> String {
     string
 }
 
-pub fn get_enum(instance_type: Option<String>) -> Option<Type> {
+pub fn get_enum(instance_type: Option<String>) -> Type {
     match instance_type {
         Some(instance_type) => match instance_type.as_str() {
-            "AutoQuest" | "auto_quest" => Some(Type::AutoQuest),
-            "CirclePokemon" | "circle_pokemon" => Some(Type::CirclePokemon),
-            "CircleSmartPokemon" | "circle_smart_pokemon" => Some(Type::CircleSmartPokemon),
-            "CircleRaid" | "circle_raid" => Some(Type::CircleRaid),
-            "CircleSmartRaid" | "circle_smart_raid" => Some(Type::CircleSmartRaid),
-            "PokemonIv" | "pokemon_iv" => Some(Type::PokemonIv),
-            "Leveling" | "leveling" => Some(Type::Leveling),
-            "ManualQuest" | "manual_quest" => Some(Type::ManualQuest),
-            "AutoTth" | "auto_tth" => Some(Type::AutoTth),
-            "AutoPokemon" | "auto_pokemon" => Some(Type::AutoPokemon),
-            _ => None,
+            "AutoQuest" | "auto_quest" => Type::AutoQuest,
+            "CirclePokemon" | "circle_pokemon" => Type::CirclePokemon,
+            "CircleSmartPokemon" | "circle_smart_pokemon" => Type::CircleSmartPokemon,
+            "CircleRaid" | "circle_raid" => Type::CircleRaid,
+            "CircleSmartRaid" | "circle_smart_raid" => Type::CircleSmartRaid,
+            "PokemonIv" | "pokemon_iv" => Type::PokemonIv,
+            "Leveling" | "leveling" => Type::Leveling,
+            "ManualQuest" | "manual_quest" | "CircleQuest" | "circle_quest" => Type::CircleQuest,
+            "AutoTth" | "auto_tth" => Type::AutoTth,
+            "AutoPokemon" | "auto_pokemon" => Type::AutoPokemon,
+            _ => Type::Unset,
         },
-        None => None,
+        None => Type::Unset,
     }
 }
 
-pub fn get_enum_by_geometry(enum_val: &Value) -> Option<Type> {
+pub fn get_enum_by_geometry(enum_val: &Value) -> Type {
     match enum_val {
-        Value::Point(_) => Some(Type::Leveling),
-        Value::MultiPoint(_) => Some(Type::CirclePokemon),
-        Value::Polygon(_) => Some(Type::PokemonIv),
-        Value::MultiPolygon(_) => Some(Type::AutoQuest),
+        Value::Point(_) => Type::Leveling,
+        Value::MultiPoint(_) => Type::CircleSmartPokemon,
+        Value::Polygon(_) => Type::PokemonIv,
+        Value::MultiPolygon(_) => Type::AutoQuest,
         _ => {
             log::warn!("Invalid Geometry Type: {}", enum_val.type_name());
-            None
+            Type::Unset
         }
     }
 }
@@ -81,12 +81,12 @@ pub fn get_mode_acronym(instance_type: Option<&String>) -> String {
             "CircleSmartRaid" | "circle_smart_raid" => "CSR",
             "PokemonIv" | "pokemon_iv" => "IV",
             "Leveling" | "leveling" => "L",
-            "ManualQuest" | "manual_quest" => "MQ",
+            "ManualQuest" | "manual_quest" | "CircleQuest" | "circle_quest" => "CQ",
             "AutoTth" | "auto_tth" => "ATTH",
             "AutoPokemon" | "auto_pokemon" => "AP",
-            _ => "",
+            _ => "U",
         },
-        None => "",
+        None => "U",
     }
     .to_string()
 }

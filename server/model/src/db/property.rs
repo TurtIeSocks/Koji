@@ -16,6 +16,8 @@ pub struct Model {
     pub category: Category,
     #[sea_orm(column_type = "Text", nullable)]
     pub default_value: Option<String>,
+    pub created_at: DateTimeUtc,
+    pub updated_at: DateTimeUtc,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

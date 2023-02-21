@@ -142,7 +142,7 @@ async fn cluster(
     let enum_type = if category == "gym" {
         Type::CircleSmartRaid
     } else if category == "pokestop" {
-        Type::ManualQuest
+        Type::CircleQuest
     } else {
         Type::CircleSmartPokemon
     };

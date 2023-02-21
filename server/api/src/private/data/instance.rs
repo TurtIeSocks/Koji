@@ -1,9 +1,6 @@
 use super::*;
 
-use model::{
-    db::{route, NameTypeId},
-    utils::get_enum,
-};
+use model::db::{route, NameTypeId};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -60,7 +57,7 @@ async fn from_koji(
         .map(|instance| NameTypeId {
             id: instance.id,
             name: instance.name,
-            mode: get_enum(instance.mode),
+            mode: instance.mode,
             geo_type: None,
         })
         .collect();
@@ -72,7 +69,7 @@ async fn from_koji(
         fences.push(NameTypeId {
             id: instance.id,
             name: instance.name,
-            mode: get_enum(Some(instance.mode)),
+            mode: instance.mode,
             geo_type: None,
         })
     });

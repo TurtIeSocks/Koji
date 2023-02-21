@@ -5,10 +5,10 @@ use std::{collections::HashMap, str::FromStr};
 use crate::{
     api::{args::ApiQueryArgs, GeoFormats, ToCollection},
     error::ModelError,
-    utils::{json::JsonToModel, json_related_sort, parse_order},
+    utils::{get_enum, json::JsonToModel, json_related_sort, parse_order},
 };
 
-use super::{geofence_property::FullPropertyModel, *};
+use super::{geofence_property::FullPropertyModel, sea_orm_active_enums::Type, *};
 
 use geojson::{GeoJson, Geometry};
 use sea_orm::{entity::prelude::*, InsertResult, UpdateResult};
@@ -22,10 +22,10 @@ pub struct Model {
     pub id: u32,
     #[sea_orm(unique)]
     pub name: String,
-    pub area: Option<Json>,
+    // pub area: Option<Json>,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
-    pub mode: Option<String>,
+    pub mode: Type,
     pub geometry: Json,
     pub geo_type: String,
 }
@@ -67,7 +67,7 @@ impl ActiveModelBehavior for ActiveModel {}
 pub struct GeofenceNoGeometry {
     pub id: u32,
     pub name: String,
-    pub mode: Option<String>,
+    pub mode: Type,
     pub geo_type: String,
     // pub created_at: DateTimeUtc,
     // pub updated_at: DateTimeUtc,
@@ -112,8 +112,7 @@ impl Model {
         if internal {
             feature.id = Some(geojson::feature::Id::String(format!(
                 "{}__{}__KOJI",
-                self.id,
-                self.mode.as_ref().unwrap_or(&"Unset".to_string())
+                self.id, self.mode
             )));
         }
         Ok(feature)
@@ -457,6 +456,7 @@ impl Query {
                 } else {
                     None
                 };
+                let mode = get_enum(mode);
                 let projects: Option<Vec<u64>> = if let Some(projects) = feat.property("__projects")
                 {
                     if let Some(projects) = projects.as_array() {

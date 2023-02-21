@@ -9,6 +9,8 @@ use crate::{
     error::ModelError,
 };
 
+use super::get_enum;
+
 pub trait JsonToModel {
     fn to_geofence(&self) -> Result<geofence::ActiveModel, ModelError>;
     fn to_project(&self) -> Result<project::ActiveModel, ModelError>;
@@ -33,14 +35,15 @@ impl JsonToModel for Value {
                         Ok(geometry) => {
                             let value = GeoJson::Geometry(geometry).to_json_value();
                             let mode = if let Some(mode) = incoming.get("mode") {
-                                mode.as_str().unwrap_or("unset")
+                                Some(mode.as_str().unwrap_or("unset").to_string())
                             } else {
-                                "unset"
+                                None
                             };
+                            let mode = get_enum(mode);
                             Ok(geofence::ActiveModel {
                                 name: Set(name.to_string()),
                                 geometry: Set(value),
-                                mode: Set(Some(mode.to_owned())),
+                                mode: Set(mode),
                                 ..Default::default()
                             })
                         }

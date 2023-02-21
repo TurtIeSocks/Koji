@@ -14,6 +14,8 @@ mod m20230203_231010_geofence_property_table;
 mod m20230204_153412_insert_property_values;
 mod m20230204_162006_add_geometry_column;
 mod m20230205_121524_fix_timestamps;
+mod m20230221_130117_geofence_mode_enums;
+mod m20230221_143509_route_mode_enums;
 
 pub struct Migrator;
 
@@ -35,6 +37,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20230204_153412_insert_property_values::Migration),
             Box::new(m20230204_162006_add_geometry_column::Migration),
             Box::new(m20230205_121524_fix_timestamps::Migration),
+            Box::new(m20230221_130117_geofence_mode_enums::Migration),
+            Box::new(m20230221_143509_route_mode_enums::Migration),
         ]
     }
 }
