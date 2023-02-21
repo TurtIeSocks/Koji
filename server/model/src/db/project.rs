@@ -209,14 +209,24 @@ impl Query {
         Ok(model)
     }
 
+    pub async fn upsert_json_return(
+        db: &DatabaseConnection,
+        id: u32,
+        json: Json,
+    ) -> Result<Json, ModelError> {
+        let result = Query::upsert(db, id, json).await?;
+        Ok(json!(result))
+    }
+
     pub async fn delete(db: &DatabaseConnection, id: u32) -> Result<DeleteResult, DbErr> {
-        let record = project::Entity::delete_by_id(id).exec(db).await?;
+        let record = Entity::delete_by_id(id).exec(db).await?;
         Ok(record)
     }
 
-    pub async fn search(db: &DatabaseConnection, search: String) -> Result<Vec<Model>, DbErr> {
-        Ok(project::Entity::find()
+    pub async fn search(db: &DatabaseConnection, search: String) -> Result<Vec<Json>, DbErr> {
+        Ok(Entity::find()
             .filter(Column::Name.like(format!("%{}%", search).as_str()))
+            .into_json()
             .all(db)
             .await?)
     }

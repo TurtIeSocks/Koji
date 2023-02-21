@@ -1,6 +1,7 @@
 use super::*;
 
 pub mod admin;
-pub mod admin_uni;
-pub mod data;
+pub mod geofence_project;
+pub mod instance;
 pub mod misc;
+pub mod points;

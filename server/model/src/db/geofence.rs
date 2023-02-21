@@ -416,6 +416,15 @@ impl Query {
         Ok(model)
     }
 
+    pub async fn upsert_json_return(
+        db: &DatabaseConnection,
+        id: u32,
+        json: Json,
+    ) -> Result<Json, ModelError> {
+        let result = Query::upsert(db, id, json).await?;
+        Ok(json!(result))
+    }
+
     /// Deletes a Geofence model from db
     pub async fn delete(db: &DatabaseConnection, id: u32) -> Result<DeleteResult, DbErr> {
         let record = Entity::delete_by_id(id).exec(db).await?;
@@ -612,5 +621,13 @@ impl Query {
         .await?;
 
         Ok(items)
+    }
+
+    pub async fn search(db: &DatabaseConnection, search: String) -> Result<Vec<Json>, DbErr> {
+        Ok(Entity::find()
+            .filter(Column::Name.like(format!("%{}%", search).as_str()))
+            .into_json()
+            .all(db)
+            .await?)
     }
 }

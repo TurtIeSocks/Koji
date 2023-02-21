@@ -1,5 +1,6 @@
 use super::*;
 
+use serde::Deserialize;
 use serde_json::json;
 
 use crate::model::{api::args::Response, db::geofence_project, KojiDb};

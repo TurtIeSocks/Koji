@@ -86,67 +86,33 @@ pub async fn start() -> io::Result<()> {
                     .wrap(HttpAuthentication::with_fn(auth::private_validator))
                     .service(
                         web::scope("/routes")
-                            .service(private::data::instance::from_koji)
-                            .service(private::data::instance::from_scanner)
-                            .service(private::data::instance::route_from_db),
+                            .service(private::instance::from_koji)
+                            .service(private::instance::from_scanner)
+                            .service(private::instance::route_from_db),
                     )
                     .service(
                         web::scope("/data")
-                            .service(private::data::points::all)
-                            .service(private::data::points::bound)
-                            .service(private::data::points::by_area)
-                            .service(private::data::points::area_stats),
+                            .service(private::points::all)
+                            .service(private::points::bound)
+                            .service(private::points::by_area)
+                            .service(private::points::area_stats),
                     )
                     .service(
                         web::scope("/admin")
-                            .service(
-                                web::scope("/geofence")
-                                    .service(private::admin::geofence::get_all)
-                                    .service(private::admin::geofence::get_ref)
-                                    .service(private::admin::geofence::paginate)
-                                    .service(private::admin::geofence::get_one)
-                                    .service(private::admin::geofence::create)
-                                    .service(private::admin::geofence::update)
-                                    .service(private::admin::geofence::remove),
-                            )
-                            .service(
-                                web::scope("/project")
-                                    .service(private::admin::project::get_all)
-                                    .service(private::admin::project::get_ref)
-                                    .service(private::admin::project::search)
-                                    .service(private::admin::project::paginate)
-                                    .service(private::admin::project::get_one)
-                                    .service(private::admin::project::create)
-                                    .service(private::admin::project::update)
-                                    .service(private::admin::project::remove),
-                            )
+                            .service(private::admin::paginate)
+                            .service(private::admin::get_one)
+                            .service(private::admin::get_all)
+                            .service(private::admin::create)
+                            .service(private::admin::update)
+                            .service(private::admin::remove)
+                            .service(private::admin::search)
                             .service(
                                 web::scope("/geofence_project")
-                                    .service(private::admin::geofence_project::get_all)
-                                    .service(private::admin::geofence_project::create)
-                                    .service(private::admin::geofence_project::update)
-                                    .service(private::admin::geofence_project::update_by_id)
-                                    .service(private::admin::geofence_project::remove),
-                            )
-                            .service(
-                                web::scope("/route")
-                                    .service(private::admin::route::get_all)
-                                    .service(private::admin::route::get_ref)
-                                    .service(private::admin::route::paginate)
-                                    .service(private::admin::route::get_one)
-                                    .service(private::admin::route::create)
-                                    .service(private::admin::route::update)
-                                    .service(private::admin::route::remove),
-                            )
-                            .service(
-                                web::scope("/property")
-                                    .service(private::admin::property::get_all)
-                                    .service(private::admin::property::get_ref)
-                                    .service(private::admin::property::paginate)
-                                    .service(private::admin::property::get_one)
-                                    .service(private::admin::property::create)
-                                    .service(private::admin::property::update)
-                                    .service(private::admin::property::remove),
+                                    .service(private::geofence_project::get_all)
+                                    .service(private::geofence_project::create)
+                                    .service(private::geofence_project::update)
+                                    .service(private::geofence_project::update_by_id)
+                                    .service(private::geofence_project::remove),
                             ),
                     ),
             )

@@ -7,12 +7,13 @@ use sea_orm::{entity::prelude::*, FromQueryResult, Order, QueryOrder, QuerySelec
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use crate::{
     api::{GeoFormats, ToCollection, ToFeature},
     db::sea_orm_active_enums::Type,
     error::ModelError,
-    utils::get_enum,
+    utils::{get_enum, json::JsonToModel, parse_order},
 };
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
@@ -58,16 +59,6 @@ pub struct RouteNoGeometry {
     pub mode: Type,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Paginated {
-    pub id: u32,
-    pub geofence_id: u32,
-    pub name: String,
-    pub description: Option<String>,
-    pub mode: Type,
-    pub hops: usize,
 }
 
 impl ToFeatureFromModel for Model {
@@ -121,47 +112,46 @@ impl ToFeatureFromModel for Model {
 pub struct Query;
 
 impl Query {
-    /// Returns paginated Geofence models
     pub async fn paginate(
         db: &DatabaseConnection,
         page: u64,
         posts_per_page: u64,
-        sort_by: Column,
-        order_by: Order,
+        order: String,
+        sort_by: String,
         q: String,
-    ) -> Result<PaginateResults<Vec<Paginated>>, DbErr> {
+    ) -> Result<PaginateResults<Vec<Json>>, DbErr> {
+        let column = Column::from_str(&sort_by).unwrap_or(Column::Name);
+
         let paginator = Entity::find()
-            .order_by(sort_by, order_by)
+            .order_by(column, parse_order(&order))
             .filter(Column::Name.like(format!("%{}%", q).as_str()))
             .paginate(db, posts_per_page);
         let total = paginator.num_items_and_pages().await?;
 
-        let results: Vec<Paginated> = match paginator.fetch_page(page).await {
-            Ok(results) => results,
-            Err(err) => {
-                log::warn!("Error paginating, {:?}", err);
-                vec![]
-            }
-        }
-        .into_iter()
-        .map(|model| Paginated {
-            id: model.id,
-            geofence_id: model.geofence_id,
-            name: model.name,
-            description: model.description,
-            hops: match Geometry::from_json_value(model.geometry) {
-                Ok(geometry) => match geometry.value {
-                    geojson::Value::MultiPoint(mp) => mp.len(),
-                    _ => 0,
-                },
-                Err(err) => {
-                    log::warn!("[Route] Error unwrapping geometry, {:?}", err);
-                    0
-                }
-            },
-            mode: model.mode,
-        })
-        .collect();
+        let results: Vec<Json> = paginator
+            .fetch_page(page)
+            .await?
+            .into_iter()
+            .map(|model| {
+                json!({
+                    "id": model.id,
+                    "geofence_id": model.geofence_id,
+                    "name": model.name,
+                    "description": model.description,
+                    "hops": match Geometry::from_json_value(model.geometry) {
+                        Ok(geometry) => match geometry.value {
+                            geojson::Value::MultiPoint(mp) => mp.len(),
+                            _ => 0,
+                        },
+                        Err(err) => {
+                            log::warn!("[Route] Error unwrapping geometry, {:?}", err);
+                            0
+                        }
+                    },
+                    "mode": model.mode,
+                })
+            })
+            .collect();
 
         Ok(PaginateResults {
             results,
@@ -233,8 +223,23 @@ impl Query {
         }
     }
 
-    pub async fn get_one(db: &DatabaseConnection, id: u32) -> Result<Option<Model>, DbErr> {
-        Entity::find_by_id(id).one(db).await
+    pub async fn get_one(db: &DatabaseConnection, id: String) -> Result<Model, ModelError> {
+        let record = match id.parse::<u32>() {
+            Ok(id) => Entity::find_by_id(id).one(db).await?,
+            Err(_) => Entity::find().filter(Column::Name.eq(id)).one(db).await?,
+        };
+        if let Some(record) = record {
+            Ok(record)
+        } else {
+            Err(ModelError::Route("Does not exist".to_string()))
+        }
+    }
+
+    pub async fn get_one_json(db: &DatabaseConnection, id: String) -> Result<Json, ModelError> {
+        match Query::get_one(db, id).await {
+            Ok(record) => Ok(json!(record)),
+            Err(err) => Err(err),
+        }
     }
 
     pub async fn update(
@@ -311,6 +316,28 @@ impl Query {
             .collect();
 
         Ok(items.to_collection(None, None))
+    }
+
+    pub async fn upsert(db: &DatabaseConnection, id: u32, json: Json) -> Result<Model, ModelError> {
+        let old_model = Entity::find_by_id(id).one(db).await?;
+        let mut new_model = json.to_route()?;
+
+        let model = if let Some(old_model) = old_model {
+            new_model.id = Set(old_model.id);
+            new_model.update(db).await?
+        } else {
+            new_model.insert(db).await?
+        };
+        Ok(model)
+    }
+
+    pub async fn upsert_json_return(
+        db: &DatabaseConnection,
+        id: u32,
+        json: Json,
+    ) -> Result<Json, ModelError> {
+        let result = Query::upsert(db, id, json).await?;
+        Ok(json!(result))
     }
 
     async fn upsert_feature(
@@ -467,5 +494,13 @@ impl Query {
             .filter_map(|item| item.to_feature(&args).ok())
             .collect();
         Ok(items)
+    }
+
+    pub async fn search(db: &DatabaseConnection, search: String) -> Result<Vec<Json>, DbErr> {
+        Ok(Entity::find()
+            .filter(Column::Name.like(format!("%{}%", search).as_str()))
+            .into_json()
+            .all(db)
+            .await?)
     }
 }

@@ -17,6 +17,8 @@ pub enum ModelError {
     GeofenceProject(String),
     #[error("[GEOFENCE_PROPERTY]: {0}")]
     GeofenceProperty(String),
+    #[error("[ROUTE]: {0}")]
+    Route(String),
     #[error("Not Implemented: {0}")]
     NotImplemented(String),
     #[error("{0}")]

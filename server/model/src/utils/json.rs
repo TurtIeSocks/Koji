@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use crate::{
     db::{
-        geofence, geofence_project, geofence_property, project, property,
+        geofence, geofence_project, geofence_property, project, property, route,
         sea_orm_active_enums::Category,
     },
     error::ModelError,
@@ -23,6 +23,7 @@ pub trait JsonToModel {
     ) -> Result<geofence_property::ActiveModel, ModelError>;
     fn to_geofence_project(&self) -> Result<geofence_project::ActiveModel, ModelError>;
     fn to_property(&self) -> Result<property::ActiveModel, ModelError>;
+    fn to_route(&self) -> Result<route::ActiveModel, ModelError>;
 }
 
 impl JsonToModel for Value {
@@ -272,6 +273,68 @@ impl JsonToModel for Value {
             }
         } else {
             Err(ModelError::Property(format!(
+                "model is not an object: {:?}",
+                self
+            )))
+        }
+    }
+
+    fn to_route(&self) -> Result<route::ActiveModel, ModelError> {
+        if let Some(incoming) = self.as_object() {
+            let name = if let Some(name) = incoming.get("name") {
+                name.as_str()
+            } else {
+                None
+            };
+            let geofence_id = if let Some(geofence_id) = incoming.get("geofence_id") {
+                geofence_id.as_u64()
+            } else {
+                None
+            };
+            if let Some(name) = name {
+                if let Some(geofence_id) = geofence_id {
+                    if let Some(geometry) = incoming.get("geometry") {
+                        match Geometry::from_json_value(geometry.to_owned()) {
+                            Ok(geometry) => {
+                                let value = GeoJson::Geometry(geometry).to_json_value();
+                                let mode = if let Some(mode) = incoming.get("mode") {
+                                    Some(mode.as_str().unwrap_or("unset").to_string())
+                                } else {
+                                    None
+                                };
+                                let mode = get_enum(mode);
+                                Ok(route::ActiveModel {
+                                    name: Set(name.to_string()),
+                                    geometry: Set(value),
+                                    mode: Set(mode),
+                                    geofence_id: Set(geofence_id as u32),
+                                    ..Default::default()
+                                })
+                            }
+                            Err(err) => {
+                                Err(ModelError::Route(format!("geometry is invalid: {:?}", err)))
+                            }
+                        }
+                    } else {
+                        Err(ModelError::Route(format!(
+                            "model does not have a geometry object: {:?}",
+                            self
+                        )))
+                    }
+                } else {
+                    Err(ModelError::Route(format!(
+                        "model does not have a geofence_id property: {:?}",
+                        self
+                    )))
+                }
+            } else {
+                Err(ModelError::Route(format!(
+                    "model does not have a name property: {:?}",
+                    self
+                )))
+            }
+        } else {
+            Err(ModelError::Route(format!(
                 "model is not an object: {:?}",
                 self
             )))
