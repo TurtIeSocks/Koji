@@ -16,7 +16,7 @@ geojson = "0.24.0"
 geo_repair = { path = "../geo_repair" }
 log = "0.4.17"
 num-traits = "0.2.15"
-sea-orm = { version = "0.9.3", features = [
+sea-orm = { version = "0.11.0", features = [
   "sqlx-mysql",
   "runtime-actix-native-tls",
   "macros",

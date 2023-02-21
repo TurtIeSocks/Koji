@@ -22,7 +22,7 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "instance")]
 pub struct Model {
     #[sea_orm(primary_key)]
@@ -31,7 +31,7 @@ pub struct Model {
     #[sea_orm(unique)]
     pub name: String,
     pub r#type: Type,
-    #[sea_orm(column_type = "Custom(\"LONGTEXT\".to_owned())")]
+    #[sea_orm(column_type = "custom(\"LONGTEXT\")")]
     pub data: String,
 }
 

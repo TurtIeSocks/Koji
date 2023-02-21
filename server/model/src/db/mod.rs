@@ -67,7 +67,7 @@ pub struct Total {
 #[derive(Debug, Serialize)]
 pub struct PaginateResults<T> {
     results: T,
-    total: usize,
+    total: u64,
     has_next: bool,
     has_prev: bool,
 }

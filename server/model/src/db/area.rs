@@ -18,10 +18,10 @@ pub struct Model {
     #[sea_orm(unique)]
     pub name: String,
     pub pokemon_mode_workers: u32,
-    #[sea_orm(column_type = "Custom(\"MEDIUMTEXT\".to_owned())", nullable)]
+    #[sea_orm(column_type = "custom(\"MEDIUMTEXT\")", nullable)]
     pub pokemon_mode_route: Option<String>,
     pub fort_mode_workers: u32,
-    #[sea_orm(column_type = "Custom(\"MEDIUMTEXT\".to_owned())", nullable)]
+    #[sea_orm(column_type = "custom(\"MEDIUMTEXT\")", nullable)]
     pub fort_mode_route: Option<String>,
     pub quest_mode_workers: u32,
     #[sea_orm(column_type = "Text", nullable)]
@@ -30,7 +30,7 @@ pub struct Model {
     #[sea_orm(column_type = "Text", nullable)]
     pub geofence: Option<String>,
     pub enable_quests: i8,
-    #[sea_orm(column_type = "Custom(\"MEDIUMTEXT\".to_owned())", nullable)]
+    #[sea_orm(column_type = "custom(\"MEDIUMTEXT\")", nullable)]
     pub quest_mode_route: Option<String>,
 }
 

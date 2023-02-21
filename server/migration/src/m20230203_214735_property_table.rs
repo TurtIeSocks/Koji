@@ -23,10 +23,15 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(Property::Category)
                             .enumeration(
-                                "category",
+                                Category::Enum,
                                 vec![
-                                    "boolean", "string", "number", "object", "array", "database",
-                                    "color",
+                                    Category::Boolean,
+                                    Category::String,
+                                    Category::Number,
+                                    Category::Object,
+                                    Category::Array,
+                                    Category::Database,
+                                    Category::Color,
                                 ],
                             )
                             .not_null(),
@@ -68,4 +73,24 @@ pub enum Property {
     DefaultValue,
     CreatedAt,
     UpdatedAt,
+}
+
+#[derive(Iden)]
+pub enum Category {
+    #[iden = "category"]
+    Enum,
+    #[iden = "boolean"]
+    Boolean,
+    #[iden = "string"]
+    String,
+    #[iden = "number"]
+    Number,
+    #[iden = "object"]
+    Object,
+    #[iden = "array"]
+    Array,
+    #[iden = "database"]
+    Database,
+    #[iden = "color"]
+    Color,
 }

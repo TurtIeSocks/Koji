@@ -123,8 +123,8 @@ impl Query {
     /// Returns paginated Geofence models
     pub async fn paginate(
         db: &DatabaseConnection,
-        page: usize,
-        posts_per_page: usize,
+        page: u64,
+        posts_per_page: u64,
         sort_by: Column,
         order_by: Order,
         q: String,

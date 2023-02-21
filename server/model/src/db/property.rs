@@ -37,8 +37,8 @@ pub struct Query;
 impl Query {
     pub async fn paginate(
         db: &DatabaseConnection,
-        page: usize,
-        posts_per_page: usize,
+        page: u64,
+        posts_per_page: u64,
         order: String,
         sort_by: String,
         q: String,

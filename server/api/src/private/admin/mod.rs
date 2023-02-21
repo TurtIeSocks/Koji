@@ -11,8 +11,8 @@ pub mod route;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AdminReq {
-    pub page: Option<usize>,
-    pub per_page: Option<usize>,
+    pub page: Option<u64>,
+    pub per_page: Option<u64>,
     pub sort_by: Option<String>,
     pub order: Option<String>,
     pub q: Option<String>,
@@ -24,8 +24,8 @@ pub struct Search {
 }
 
 pub struct AdminReqParsed {
-    pub page: usize,
-    pub per_page: usize,
+    pub page: u64,
+    pub per_page: u64,
     pub sort_by: String,
     pub order: String,
     pub q: String,
