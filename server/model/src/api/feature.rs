@@ -1,5 +1,6 @@
 use geo::{CoordsIter, MultiPolygon};
 use geo_repair::repair::Repair;
+use sea_orm::ActiveEnum;
 
 use super::*;
 
@@ -37,7 +38,7 @@ impl FeatureHelpers for Feature {
         }
         if !self.contains_property("__mode") {
             if let Some(enum_type) = enum_type {
-                self.set_property("__mode", enum_type.to_string());
+                self.set_property("__mode", enum_type.to_value());
             } else if let Some(geometry) = self.geometry.as_ref() {
                 match geometry.value {
                     Value::Point(_) | Value::MultiPoint(_) => {
