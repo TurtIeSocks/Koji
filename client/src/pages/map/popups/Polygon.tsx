@@ -14,6 +14,7 @@ import {
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { MultiPolygon, Polygon } from 'geojson'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
+import intersect from '@turf/intersect'
 
 import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
 import type {
@@ -207,6 +208,7 @@ export function PolygonPopup({
       </Grid2>
       <Menu anchorEl={mapAnchorEl} open={!!mapAnchorEl} onClose={handleClose}>
         <MenuItem
+          dense
           onClick={() => {
             setOpen('polygon')
             handleClose()
@@ -215,6 +217,7 @@ export function PolygonPopup({
           Export
         </MenuItem>
         <MenuItem
+          dense
           onClick={() => {
             remove(feature.geometry.type, feature.id)
             handleClose()
@@ -222,9 +225,34 @@ export function PolygonPopup({
         >
           Remove
         </MenuItem>
+        <MenuItem
+          dense
+          onClick={() => {
+            const { Polygon, MultiPolygon } = useShapes.getState()
+            const all = { ...Polygon, ...MultiPolygon }
+            Object.entries(all).forEach(([key, value]) => {
+              if (intersect(feature, value)) remove(value.geometry.type, key)
+            })
+          }}
+        >
+          Remove Intersecting Polys
+        </MenuItem>
+        <MenuItem
+          dense
+          onClick={() => {
+            const { Polygon, MultiPolygon } = useShapes.getState()
+            const all = { ...Polygon, ...MultiPolygon }
+            Object.entries(all).forEach(([key, value]) => {
+              if (!intersect(feature, value)) remove(value.geometry.type, key)
+            })
+          }}
+        >
+          Remove Non-Intersecting Polys
+        </MenuItem>
         {...feature.geometry.type === 'MultiPolygon'
           ? [
               <MenuItem
+                dense
                 onClick={() => {
                   const split = splitMultiPolygons({
                     type: 'FeatureCollection',
@@ -238,6 +266,7 @@ export function PolygonPopup({
                 Split into Polygons
               </MenuItem>,
               <MenuItem
+                dense
                 onClick={() => {
                   removeThisPolygon(feature as Feature<MultiPolygon>)
                   handleClose()
@@ -246,6 +275,7 @@ export function PolygonPopup({
                 Remove this Polygon
               </MenuItem>,
               <MenuItem
+                dense
                 onClick={() => {
                   removeAllOthers(feature as Feature<MultiPolygon>)
                   handleClose()
@@ -256,6 +286,7 @@ export function PolygonPopup({
             ]
           : [
               <MenuItem
+                dense
                 onClick={() => {
                   remove(feature.geometry.type, feature.id)
                   add({
