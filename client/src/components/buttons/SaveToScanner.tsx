@@ -8,12 +8,16 @@ interface Props extends ButtonProps {
 }
 
 export default function SaveToScanner({ fc, ...rest }: Props) {
+  const [loading, setLoading] = React.useState(false)
   return (
     <Button
-      disabled={!useStatic.getState().dangerous}
-      onClick={() =>
-        save('/api/v1/geofence/save-scanner', fc).then(() => getScannerCache())
-      }
+      disabled={!useStatic.getState().dangerous || loading}
+      onClick={() => {
+        setLoading(true)
+        return save('/api/v1/geofence/save-scanner', fc)
+          .then(() => getScannerCache())
+          .then(() => setLoading(false))
+      }}
       {...rest}
     >
       Save to Scanner

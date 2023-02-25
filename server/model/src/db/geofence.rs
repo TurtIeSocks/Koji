@@ -369,7 +369,7 @@ impl Query {
         })
     }
 
-    pub async fn upsert_related_routes(
+    pub async fn update_related_route_names(
         conn: &DatabaseConnection,
         old_model: &Model,
         new_name: String,
@@ -446,6 +446,7 @@ impl Query {
 
     /// Updates or creates a Geofence model, returns a model struct
     pub async fn upsert(db: &DatabaseConnection, id: u32, json: Json) -> Result<Model, ModelError> {
+        let mut json = json;
         let old_model = Entity::find_by_id(id).one(db).await?;
         let mut new_model = json.to_geofence()?;
 
@@ -458,16 +459,21 @@ impl Query {
         };
         let model = if let Ok(old_model) = old_model {
             if old_model.name.ne(name) {
-                Query::upsert_related_routes(db, &old_model, name.clone()).await?;
+                Query::update_related_route_names(db, &old_model, name.clone()).await?;
             };
             new_model.id = Set(old_model.id);
             new_model.update(db).await?
         } else {
-            new_model.insert(db).await?
+            let model = new_model.insert(db).await?;
+            let prop_name_model = geofence_property::Query::add_name_property(db, model.id).await?;
+            if let Some(properties) = json["properties"].as_array_mut() {
+                properties.push(json!({
+                    "property_id": prop_name_model.property_id,
+                    "geofence_id": prop_name_model.geofence_id,
+                }))
+            }
+            model
         };
-        if id == 0 {
-            geofence_property::Query::add_name_property(db, model.id).await?;
-        }
         Query::upsert_related_projects(db, &json, model.id).await?;
         Query::upsert_related_properties(db, &json, model.id).await?;
         Ok(model)
