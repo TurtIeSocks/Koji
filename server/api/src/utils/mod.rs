@@ -37,7 +37,7 @@ pub async fn load_feature(
     scanner_type: &String,
     conn: &KojiDb,
 ) -> Result<Feature, ModelError> {
-    match geofence::Query::get_one_feature(&conn.koji_db, instance.to_string(), None).await {
+    match geofence::Query::get_one_feature(&conn.koji_db, instance.to_string(), true).await {
         Ok(area) => Ok(area),
         Err(_) => {
             if scanner_type.eq("rdm") {
@@ -46,7 +46,7 @@ pub async fn load_feature(
                 area::Query::feature_from_name(
                     &conn.unown_db.as_ref().unwrap(),
                     &instance,
-                    "AutoQuest".to_string(),
+                    "auto_quest".to_string(),
                 )
                 .await
             }

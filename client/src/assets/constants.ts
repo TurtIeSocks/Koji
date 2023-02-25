@@ -79,25 +79,25 @@ export const ICON_MAP: Record<typeof TABS[number], typeof EditRoad> = {
 }
 
 export const RDM_FENCES = [
-  'AutoPokemon',
-  'AutoQuest',
-  'AutoTth',
-  'PokemonIV',
+  'auto_pokemon',
+  'auto_quest',
+  'auto_tth',
+  'pokemon_iv',
 ] as const
 
 export const RDM_ROUTES = [
-  'CirclePokemon',
-  'CircleSmartPokemon',
-  'CircleRaid',
-  'CircleSmartRaid',
+  'circle_pokemon',
+  'circle_smart_pokemon',
+  'circle_raid',
+  'circle_smart_raid',
 ] as const
 
-export const UNOWN_FENCES = ['AutoQuest'] as const
+export const UNOWN_FENCES = ['auto_quest'] as const
 
 export const UNOWN_ROUTES = [
-  'CirclePokemon',
-  'CircleRaid',
-  'CircleQuest',
+  'circle_pokemon',
+  'circle_raid',
+  'circle_quest',
 ] as const
 
 export const ALL_FENCES = [...new Set([...RDM_FENCES, ...UNOWN_FENCES])]
@@ -127,13 +127,13 @@ export const GEOMETRY_CONVERSION_TYPES = [
 ] as const
 
 export const PROPERTY_CATEGORIES = [
-  'Boolean',
-  'String',
-  'Number',
-  'Object',
-  'Array',
-  'Database',
-  'Color',
+  'boolean',
+  'string',
+  'number',
+  'object',
+  'array',
+  'database',
+  'color',
 ] as const
 
 export const COLORS = [

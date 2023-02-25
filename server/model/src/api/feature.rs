@@ -41,10 +41,10 @@ impl FeatureHelpers for Feature {
             } else if let Some(geometry) = self.geometry.as_ref() {
                 match geometry.value {
                     Value::Point(_) | Value::MultiPoint(_) => {
-                        self.set_property("__mode", "CirclePokemon");
+                        self.set_property("__mode", "circle_pokemon");
                     }
                     Value::Polygon(_) | Value::MultiPolygon(_) => {
-                        self.set_property("__mode", "AutoQuest");
+                        self.set_property("__mode", "auto_quest");
                     }
                     _ => {}
                 }

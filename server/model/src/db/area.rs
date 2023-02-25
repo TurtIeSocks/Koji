@@ -58,11 +58,12 @@ impl Model {
                     coords.parse_scanner_instance(Some(self.name.clone()), Some(mode.clone()));
                 feature.id = Some(geojson::feature::Id::String(format!(
                     "{}__{}__SCANNER",
-                    self.id, mode
+                    self.id,
+                    mode.to_value()
                 )));
                 feature.set_property("__id", self.id);
                 feature.set_property("__name", self.name);
-                feature.set_property("__mode", mode.to_string());
+                feature.set_property("__mode", mode.to_value());
                 Ok(feature)
             } else {
                 Err(ModelError::Custom("Unable to determine route".to_string()))

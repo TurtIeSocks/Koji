@@ -72,7 +72,7 @@ pub fn area_ref(areas: Vec<AreaRef>) -> Vec<sea_orm::JsonValue> {
             normalized.push(json!({
                 "id": area.id,
                 "name": area.name,
-                "mode": "AutoQuest",
+                "mode": "auto_quest",
                 "geo_type": "MultiPolygon",
             }));
         }
@@ -80,7 +80,7 @@ pub fn area_ref(areas: Vec<AreaRef>) -> Vec<sea_orm::JsonValue> {
             normalized.push(json!({
                 "id": area.id,
                 "name": area.name,
-                "mode": "CircleRaid",
+                "mode": "circle_raid",
                 "geo_type": "MultiPoint",
             }));
         }
@@ -88,7 +88,7 @@ pub fn area_ref(areas: Vec<AreaRef>) -> Vec<sea_orm::JsonValue> {
             normalized.push(json!({
                 "id": area.id,
                 "name": area.name,
-                "mode": "CirclePokemon",
+                "mode": "circle_pokemon",
                 "geo_type": "MultiPoint",
             }));
         }
@@ -96,7 +96,7 @@ pub fn area_ref(areas: Vec<AreaRef>) -> Vec<sea_orm::JsonValue> {
             normalized.push(json!({
                 "id": area.id,
                 "name": area.name,
-                "mode": "CircleQuest",
+                "mode": "circle_quest",
                 "geo_type": "MultiPoint",
             }));
         }

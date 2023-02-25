@@ -3,7 +3,7 @@
 use std::{collections::HashMap, str::FromStr};
 
 use crate::{
-    api::{args::ApiQueryArgs, GeoFormats, ToCollection},
+    api::{GeoFormats, ToCollection},
     error::ModelError,
     utils::{
         json::{determine_category_by_value, JsonToModel},
@@ -96,7 +96,7 @@ impl Model {
             vec![
                 json!({ "name": "__id", "value": self.id }),
                 json!({ "name": "__name", "value": self.name }),
-                json!({ "name": "__mode", "value": self.mode }),
+                json!({ "name": "__mode", "value": self.mode.to_value() }),
             ]
         } else {
             self.get_related_properties()
@@ -125,7 +125,8 @@ impl Model {
         if internal {
             feature.id = Some(geojson::feature::Id::String(format!(
                 "{}__{}__KOJI",
-                self.id, self.mode
+                self.id,
+                self.mode.to_value()
             )));
         }
         Ok(feature)
@@ -243,10 +244,10 @@ impl Query {
     pub async fn get_one_feature(
         db: &DatabaseConnection,
         id: String,
-        args: Option<ApiQueryArgs>,
+        internal: bool,
     ) -> Result<Feature, ModelError> {
         match Query::get_one(db, id).await {
-            Ok(record) => record.to_feature(db, args.is_some()).await,
+            Ok(record) => record.to_feature(db, internal).await,
             Err(err) => Err(err),
         }
     }
@@ -264,14 +265,14 @@ impl Query {
     /// Returns all geofence models as a FeatureCollection,
     pub async fn get_all_collection(
         db: &DatabaseConnection,
-        args: Option<ApiQueryArgs>,
+        internal: bool,
     ) -> Result<FeatureCollection, ModelError> {
         let results = Query::get_all(db).await?;
 
         let results = future::try_join_all(
             results
                 .into_iter()
-                .map(|result| result.to_feature(db, args.is_some())),
+                .map(|result| result.to_feature(db, internal)),
         )
         .await?;
 
@@ -488,12 +489,7 @@ impl Query {
         Ok(record)
     }
 
-    async fn upsert_feature(
-        conn: &DatabaseConnection,
-        feat: Feature,
-        // existing: &HashMap<String, u32>,
-        // inserts_updates: &mut InsertsUpdates<ActiveModel>,
-    ) -> Result<Model, ModelError> {
+    async fn upsert_feature(conn: &DatabaseConnection, feat: Feature) -> Result<Model, ModelError> {
         let mut new_map = HashMap::<&str, serde_json::Value>::new();
 
         let id = if let Some(id) = feat.property("__id") {
@@ -574,7 +570,7 @@ impl Query {
     pub async fn by_project(
         conn: &DatabaseConnection,
         project_name: String,
-        args: Option<ApiQueryArgs>,
+        internal: bool,
     ) -> Result<Vec<Feature>, ModelError> {
         let items = match project_name.parse::<u32>() {
             Ok(id) => {
@@ -598,7 +594,7 @@ impl Query {
         let items = future::try_join_all(
             items
                 .into_iter()
-                .map(|result| result.to_feature(conn, args.is_some())),
+                .map(|result| result.to_feature(conn, internal)),
         )
         .await?;
 

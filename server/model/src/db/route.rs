@@ -62,7 +62,7 @@ pub struct RouteNoGeometry {
 }
 
 impl ToFeatureFromModel for Model {
-    fn to_feature(self, args: &Option<ApiQueryArgs>) -> Result<Feature, ModelError> {
+    fn to_feature(self, internal: bool) -> Result<Feature, ModelError> {
         let Self {
             geometry,
             name,
@@ -75,37 +75,24 @@ impl ToFeatureFromModel for Model {
         let geometry = Geometry::from_json_value(geometry)?;
         let mut feature = geometry.to_feature(Some(Type::CirclePokemon));
 
-        let mut add_int_props = || {
+        if internal {
             feature.id = Some(geojson::feature::Id::String(format!(
                 "{}__{}__KOJI",
-                id, mode,
+                id,
+                mode.to_value(),
             )));
-            feature.set_property("__name", name.clone());
-            feature.set_property("__id", id);
-            feature.set_property("__mode", mode.to_string());
-            feature.set_property("__geofence_id", geofence_id.clone());
-        };
-
-        match args {
-            Some(args) => {
-                if args.internal.is_some() {
-                    add_int_props();
-                }
-                if args.id.is_some() {
-                    feature.set_property("id", id);
-                }
-                if args.name.is_some() {
-                    feature.set_property("name", name);
-                }
-                if args.mode.is_some() {
-                    feature.set_property("mode", mode.to_string());
-                }
-                if args.geofence_id.is_some() {
-                    feature.set_property("geofence_id", geofence_id);
-                }
-            }
-            None => add_int_props(),
         }
+        feature.set_property(if internal { "__name" } else { "name" }, name.clone());
+        feature.set_property(if internal { "__id" } else { "id" }, id);
+        feature.set_property(if internal { "__mode" } else { "mode" }, mode.to_value());
+        feature.set_property(
+            if internal {
+                "__geofence_id"
+            } else {
+                "geofence_id"
+            },
+            geofence_id.clone(),
+        );
         Ok(feature)
     }
 }
@@ -274,14 +261,14 @@ impl Query {
     pub async fn feature_from_name(
         conn: &DatabaseConnection,
         name: String,
-        args: Option<ApiQueryArgs>,
+        internal: bool,
     ) -> Result<Feature, ModelError> {
         let item = Entity::find()
             .filter(Column::Name.eq(Value::String(Some(Box::new(name.to_string())))))
             .one(conn)
             .await?;
         if let Some(item) = item {
-            item.to_feature(&args)
+            item.to_feature(internal)
         } else {
             Err(ModelError::Custom("Route not found".to_string()))
         }
@@ -291,11 +278,11 @@ impl Query {
     pub async fn feature(
         conn: &DatabaseConnection,
         id: u32,
-        args: Option<ApiQueryArgs>,
+        internal: bool,
     ) -> Result<Feature, ModelError> {
         let item = Entity::find_by_id(id).one(conn).await?;
         if let Some(item) = item {
-            item.to_feature(&args)
+            item.to_feature(internal)
         } else {
             Err(ModelError::Custom("Route not found".to_string()))
         }
@@ -304,7 +291,7 @@ impl Query {
     /// Returns all route models as a FeatureCollection,
     pub async fn as_collection(
         conn: &DatabaseConnection,
-        args: Option<ApiQueryArgs>,
+        internal: bool,
     ) -> Result<FeatureCollection, DbErr> {
         let items = Entity::find()
             .order_by(Column::Name, Order::Asc)
@@ -312,7 +299,7 @@ impl Query {
             .await?;
         let items: Vec<Feature> = items
             .into_iter()
-            .filter_map(|item| item.to_feature(&args).ok())
+            .filter_map(|item| item.to_feature(internal).ok())
             .collect();
 
         Ok(items.to_collection(None, None))
@@ -480,7 +467,7 @@ impl Query {
     pub async fn by_geofence(
         conn: &DatabaseConnection,
         geofence_name: String,
-        args: Option<ApiQueryArgs>,
+        internal: bool,
     ) -> Result<Vec<Feature>, DbErr> {
         let items = Entity::find()
             .order_by(Column::Name, Order::Asc)
@@ -491,7 +478,7 @@ impl Query {
 
         let items: Vec<Feature> = items
             .into_iter()
-            .filter_map(|item| item.to_feature(&args).ok())
+            .filter_map(|item| item.to_feature(internal).ok())
             .collect();
         Ok(items)
     }

@@ -4,8 +4,8 @@ use std::collections::HashMap;
 
 use crate::{
     api::{
-        args::ApiQueryArgs, text::TextHelpers, GeoFormats, ToCollection, ToMultiStruct, ToMultiVec,
-        ToPointStruct, ToSingleStruct, ToSingleVec,
+        text::TextHelpers, GeoFormats, ToCollection, ToMultiStruct, ToMultiVec, ToPointStruct,
+        ToSingleStruct, ToSingleVec,
     },
     error::ModelError,
     utils::get_mode_acronym,
@@ -49,21 +49,22 @@ pub struct WithGeoType {
 }
 
 impl ToFeatureFromModel for Model {
-    fn to_feature(self, _args: &Option<ApiQueryArgs>) -> Result<Feature, ModelError> {
+    fn to_feature(self, _args: bool) -> Result<Feature, ModelError> {
         let Self {
             id,
             name,
-            r#type,
+            r#type: mode,
             data,
             ..
         } = self;
-        let mut feature = data.parse_scanner_instance(Some(name.clone()), Some(r#type.clone()));
+        let mut feature = data.parse_scanner_instance(Some(name.clone()), Some(mode.clone()));
         feature.id = Some(geojson::feature::Id::String(format!(
             "{}__{}__SCANNER",
-            id, r#type
+            id,
+            mode.to_value(),
         )));
         feature.set_property("__name", name);
-        feature.set_property("__mode", r#type.to_string());
+        feature.set_property("__mode", mode.to_value());
         feature.set_property("__id", id);
         Ok(feature)
     }
@@ -130,7 +131,7 @@ impl Query {
             .one(conn)
             .await?;
         if let Some(item) = item {
-            item.to_feature(&None)
+            item.to_feature(false)
         } else {
             Err(ModelError::Custom("Instance not found".to_string()))
         }
@@ -139,7 +140,7 @@ impl Query {
     pub async fn feature(conn: &DatabaseConnection, id: u32) -> Result<Feature, ModelError> {
         let item = Entity::find_by_id(id).one(conn).await?;
         if let Some(item) = item {
-            item.to_feature(&None)
+            item.to_feature(false)
         } else {
             Err(ModelError::Custom("Instance not found".to_string()))
         }

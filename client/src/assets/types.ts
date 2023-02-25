@@ -171,7 +171,8 @@ export interface DbOption
   mode: KojiModes
   geo_type?: GeometryTypes
   geofence_id?: number
-  related?: number[]
+  geofences?: number[]
+  projects?: KojiProject[]
 }
 
 // ================================================================================================

@@ -32,6 +32,7 @@ const checkedIcon = <CheckBox fontSize="small" color="primary" />
 const partialIcon = (
   <IndeterminateCheckBoxOutlined fontSize="small" color="primary" />
 )
+
 export default function InstanceSelect({
   setGeojson,
   koji = false,
