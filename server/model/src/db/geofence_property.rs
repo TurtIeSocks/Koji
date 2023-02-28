@@ -66,13 +66,19 @@ pub struct FullPropertyModel {
 impl FullPropertyModel {
     pub fn parse_db_value(self, model: &geofence::Model) -> serde_json::Value {
         let model_json = serde_json::to_value(model).unwrap();
-        let parsed_value = if let Some(value) = &self.value {
-            match self.category {
-                Category::Database => model_json[&self.name].clone(),
-                _ => parse_property_value(value, &self.category),
+
+        let parsed_value = match self.category {
+            Category::Database => {
+                let value = model_json[&self.name].clone();
+                value
             }
-        } else {
-            serde_json::Value::Null
+            _ => {
+                if let Some(value) = &self.value {
+                    parse_property_value(value, &self.category)
+                } else {
+                    serde_json::Value::Null
+                }
+            }
         };
         let mut new_json = serde_json::json!(self);
         new_json["value"] = parsed_value;
