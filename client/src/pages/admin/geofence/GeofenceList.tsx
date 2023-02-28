@@ -50,7 +50,18 @@ export default function GeofenceList() {
       <Datagrid rowClick="expand" bulkActionButtons={<BulkActions />}>
         <TextField source="name" />
         <TextField source="mode" />
-        <NumberField source="related.length" label="Projects" />
+        <TextField source="geo_type" />
+        <NumberField
+          source="projects.length"
+          label="Projects"
+          sortable={false}
+        />
+        <NumberField
+          source="properties.length"
+          label="Properties"
+          sortable={false}
+        />
+        <NumberField source="routes.length" label="Routes" sortable={false} />
         <EditButton />
         <DeleteWithUndoButton />
         <PushToProd resource="geofence" />

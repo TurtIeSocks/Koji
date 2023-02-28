@@ -10,12 +10,11 @@ use actix_web::{
 };
 use actix_web_httpauth::middleware::HttpAuthentication;
 use geojson::{Feature, FeatureCollection};
-use log::{self, LevelFilter};
+use log;
 use nominatim;
-use sea_orm::{ConnectOptions, Database, DbErr};
 
 use algorithms;
-use migration::{Migrator, MigratorTrait};
+use migration::{DbErr, Migrator, MigratorTrait};
 use model;
 use utils::{auth, is_docker};
 
@@ -25,61 +24,12 @@ mod utils;
 
 #[actix_web::main]
 pub async fn start() -> io::Result<()> {
-    let koji_db_url = env::var("KOJI_DB_URL").expect("Need KOJI_DB_URL env var to run migrations");
-    let scanner_db_url = if env::var("DATABASE_URL").is_ok() {
-        println!("[WARNING] `DATABASE_URL` is deprecated in favor of `SCANNER_DB_URL`");
-        env::var("DATABASE_URL")
-    } else {
-        env::var("SCANNER_DB_URL")
-    }
-    .expect("Need SCANNER_DB_URL env var");
+    let databases = model::utils::get_database_struct().await;
 
-    let max_connections: u32 = if let Ok(parsed) = env::var("MAX_CONNECTIONS")
-        .unwrap_or("100".to_string())
-        .parse()
-    {
-        parsed
-    } else {
-        100
-    };
-    let unown_db_url = env::var("UNOWN_DB").unwrap_or("".to_string());
-
-    let databases = model::KojiDb {
-        data_db: {
-            let mut opt = ConnectOptions::new(scanner_db_url);
-            opt.max_connections(max_connections);
-            opt.sqlx_logging_level(LevelFilter::Debug);
-            match Database::connect(opt).await {
-                Ok(db) => db,
-                Err(err) => panic!("Cannot connect to Scanner DB: {}", err),
-            }
-        },
-        koji_db: {
-            let mut opt = ConnectOptions::new(koji_db_url);
-            opt.max_connections(max_connections);
-            opt.sqlx_logging_level(LevelFilter::Debug);
-            match Database::connect(opt).await {
-                Ok(db) => db,
-                Err(err) => panic!("Cannot connect to Koji DB: {}", err),
-            }
-        },
-        unown_db: if unown_db_url.is_empty() {
-            None
-        } else {
-            let mut opt = ConnectOptions::new(unown_db_url);
-            opt.max_connections(max_connections);
-            opt.sqlx_logging_level(LevelFilter::Debug);
-            match Database::connect(opt).await {
-                Ok(db) => Some(db),
-                Err(err) => panic!("Cannot connect to Unown DB: {}", err),
-            }
-        },
-    };
     match Migrator::up(&databases.koji_db, None).await {
-        Ok(_) => println!("Migrations successful"),
-        Err(err) => println!("Migration Error {:?}", err),
+        Ok(_) => log::info!("Migrations successful"),
+        Err(err) => log::error!("Migration Error {:?}", err),
     };
-    // geofence::Query::migration_helper(&databases.koji_db).await;
 
     let scanner_type = if databases.unown_db.is_none() {
         "rdm"
@@ -136,57 +86,34 @@ pub async fn start() -> io::Result<()> {
                     .wrap(HttpAuthentication::with_fn(auth::private_validator))
                     .service(
                         web::scope("/routes")
-                            .service(private::data::instance::from_koji)
-                            .service(private::data::instance::from_scanner)
-                            .service(private::data::instance::route_from_db),
+                            .service(private::instance::from_koji)
+                            .service(private::instance::from_scanner)
+                            .service(private::instance::route_from_db),
                     )
                     .service(
                         web::scope("/data")
-                            .service(private::data::points::all)
-                            .service(private::data::points::bound)
-                            .service(private::data::points::by_area)
-                            .service(private::data::points::area_stats),
+                            .service(private::points::all)
+                            .service(private::points::bound)
+                            .service(private::points::by_area)
+                            .service(private::points::area_stats),
                     )
                     .service(
                         web::scope("/admin")
+                            .service(private::admin::paginate)
+                            .service(private::admin::get_all)
+                            .service(private::admin::search)
+                            .service(private::admin::get_one)
+                            .service(private::admin::create)
+                            .service(private::admin::update)
+                            .service(private::admin::remove)
                             .service(
-                                web::scope("/geofence")
-                                    .service(private::admin::geofence::get_all)
-                                    .service(private::admin::geofence::get_ref)
-                                    .service(private::admin::geofence::paginate)
-                                    .service(private::admin::geofence::get_one)
-                                    .service(private::admin::geofence::create)
-                                    .service(private::admin::geofence::update)
-                                    .service(private::admin::geofence::remove),
-                            )
-                            .service(
-                                web::scope("/project")
-                                    .service(private::admin::project::get_all)
-                                    .service(private::admin::project::get_ref)
-                                    .service(private::admin::project::search)
-                                    .service(private::admin::project::paginate)
-                                    .service(private::admin::project::get_one)
-                                    .service(private::admin::project::create)
-                                    .service(private::admin::project::update)
-                                    .service(private::admin::project::remove),
-                            )
-                            .service(
+                                // TODO: Consolidate with the above endpoints
                                 web::scope("/geofence_project")
-                                    .service(private::admin::geofence_project::get_all)
-                                    .service(private::admin::geofence_project::create)
-                                    .service(private::admin::geofence_project::update)
-                                    .service(private::admin::geofence_project::update_by_id)
-                                    .service(private::admin::geofence_project::remove),
-                            )
-                            .service(
-                                web::scope("/route")
-                                    .service(private::admin::route::get_all)
-                                    .service(private::admin::route::get_ref)
-                                    .service(private::admin::route::paginate)
-                                    .service(private::admin::route::get_one)
-                                    .service(private::admin::route::create)
-                                    .service(private::admin::route::update)
-                                    .service(private::admin::route::remove),
+                                    .service(private::geofence_project::get_all)
+                                    .service(private::geofence_project::create)
+                                    .service(private::geofence_project::update)
+                                    .service(private::geofence_project::update_by_id)
+                                    .service(private::geofence_project::remove),
                             ),
                     ),
             )

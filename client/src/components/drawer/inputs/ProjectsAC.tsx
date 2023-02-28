@@ -74,7 +74,7 @@ export default function ProjectsAc({
               const newProjects = Object.fromEntries(
                 [...Object.values(projectObj), val].map((project) => [
                   project.id,
-                  { ...project, related: [] },
+                  { ...project, geofences: [] },
                 ]),
               )
               setValue(

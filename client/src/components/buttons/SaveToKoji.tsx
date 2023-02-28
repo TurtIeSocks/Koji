@@ -9,6 +9,7 @@ interface Props extends ButtonProps {
 }
 
 export default function SaveToKoji({ fc, ...rest }: Props) {
+  const [loading, setLoading] = React.useState(false)
   const routes = {
     type: 'FeatureCollection',
     features: fc.features.filter((feat) => feat.geometry.type === 'MultiPoint'),
@@ -21,8 +22,10 @@ export default function SaveToKoji({ fc, ...rest }: Props) {
   }
   return (
     <Button
-      onClick={() =>
-        save('/api/v1/geofence/save-koji', JSON.stringify(fences))
+      disabled={loading}
+      onClick={() => {
+        setLoading(true)
+        return save('/api/v1/geofence/save-koji', JSON.stringify(fences))
           .then(() => getKojiCache('geofence'))
           .then((newFences) =>
             save(
@@ -41,8 +44,8 @@ export default function SaveToKoji({ fc, ...rest }: Props) {
               ),
             ),
           )
-          .then(() => getKojiCache('route'))
-      }
+          .then(() => getKojiCache('route').then(() => setLoading(false)))
+      }}
       {...rest}
     >
       Save to Kōji

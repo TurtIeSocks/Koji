@@ -7,7 +7,7 @@ import type { FeatureCollection } from '@assets/types'
 import { getColor, mpToPoints } from '@services/utils'
 
 export default function GeoJsonWrapper({
-  data: fc,
+  data,
   mode,
   ...rest
 }: {
@@ -16,14 +16,24 @@ export default function GeoJsonWrapper({
 } & GeoJSONProps) {
   const map = useMap()
   const featureCollection: FeatureCollection = {
-    ...fc,
-    features: fc.features.flatMap((feat) =>
+    ...data,
+    features: data.features.flatMap((feat) =>
       feat.geometry.type === 'MultiPoint' ? mpToPoints(feat.geometry) : feat,
     ),
   }
   return (
     <GeoJSON
       data={featureCollection}
+      onEachFeature={(feat, layer) => {
+        layer.bindPopup(`
+          <div>
+            <ul>
+              ${Object.entries(feat.properties || {})
+                .map(([k, v]) => `<li>${k.replace('__', '')}: ${v}</li>`)
+                .join('')}
+            </ul>
+          </div>`)
+      }}
       pointToLayer={(feat, latlng) => {
         if (feat.properties?.next) {
           L.polyline(
@@ -43,9 +53,9 @@ export default function GeoJsonWrapper({
         return L.circle(latlng, {
           radius: mode
             ? {
-                ManualQuest: 80,
-                CircleRaid: 1100,
-                CircleSmartRaid: 1100,
+                circle_quest: 80,
+                circle_raid: 1100,
+                circle_smart_raid: 1100,
               }[mode] || 70
             : feat.properties?.radius || 70,
         })

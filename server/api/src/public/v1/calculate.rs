@@ -64,7 +64,7 @@ async fn bootstrap(
         if !feat.contains_property("__name") && !instance.is_empty() {
             feat.set_property("__name", instance.clone());
         }
-        feat.set_property("__mode", Type::CircleSmartPokemon.to_string());
+        feat.set_property("__mode", "circle_smart_pokemon");
         if save_to_db {
             route::Query::upsert_from_geometry(&conn.koji_db, GeoFormats::Feature(feat.clone()))
                 .await
@@ -89,7 +89,7 @@ async fn bootstrap(
         }
     }
     if save_to_scanner {
-        request::update_project_api(&conn.koji_db, Some(scanner_type))
+        request::update_project_api(&conn, Some(scanner_type))
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }
@@ -142,7 +142,7 @@ async fn cluster(
     let enum_type = if category == "gym" {
         Type::CircleSmartRaid
     } else if category == "pokestop" {
-        Type::ManualQuest
+        Type::CircleQuest
     } else {
         Type::CircleSmartPokemon
     };
@@ -260,7 +260,7 @@ async fn cluster(
         }
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-        request::update_project_api(&conn.koji_db, Some(scanner_type))
+        request::update_project_api(&conn, Some(scanner_type))
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }

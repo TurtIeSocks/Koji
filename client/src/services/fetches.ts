@@ -41,7 +41,7 @@ export async function fetchWrapper<T>(
 export async function getKojiCache<T extends 'geofence' | 'project' | 'route'>(
   resource: T,
 ): Promise<UseDbCache[T] | null> {
-  const res = await fetch(`/internal/admin/${resource}/ref/`, {
+  const res = await fetch(`/internal/admin/${resource}/all/`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -331,7 +331,10 @@ export async function convert<T = Conversions>(
   }
 }
 
-export async function save<T>(url: string, code: string): Promise<T | null> {
+export async function save(
+  url: string,
+  code: string,
+): Promise<{ updates: number; inserts: number } | null> {
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -354,12 +357,12 @@ export async function save<T>(url: string, code: string): Promise<T | null> {
       await res.json()
     useStatic.setState({
       networkStatus: {
-        message: `Created ${json.data.inserts} and updated ${json.data.updates}`,
+        message: `Saved successfully`,
         status: res.status,
         severity: 'success',
       },
     })
-    return await res.json()
+    return json.data
   } catch (e) {
     console.error(e)
     return null

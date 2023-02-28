@@ -1,16 +1,16 @@
-FROM node:16-alpine as client
+FROM node:18-alpine as client
 WORKDIR /app
 COPY ./client .
 RUN yarn install
 RUN yarn build
 
-FROM rust:1.60 as server
+FROM rust:1.65 as server
 ENV PKG_CONFIG_ALLOW_CROSS=1
 WORKDIR /usr/src/koji
 COPY ./server .
 RUN apt-get update && apt-get install -y
 
-RUN cargo install --path .
+RUN cargo install --path . --locked
 
 FROM debian:bullseye-slim
 RUN apt-get update && apt-get install -y

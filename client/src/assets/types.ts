@@ -14,7 +14,15 @@ import type {
 
 import type { UsePersist } from '@hooks/usePersist'
 import type { UseStatic } from '@hooks/useStatic'
-import { CONVERSION_TYPES, RDM_FENCES, RDM_ROUTES, TABS } from './constants'
+import {
+  CONVERSION_TYPES,
+  PROPERTY_CATEGORIES,
+  RDM_FENCES,
+  RDM_ROUTES,
+  TABS,
+  UNOWN_FENCES,
+  UNOWN_ROUTES,
+} from './constants'
 
 // UTILITY TYPES ==================================================================================
 
@@ -82,6 +90,8 @@ export type GeometryTypes = Exclude<
 export type KojiModes =
   | typeof RDM_FENCES[number]
   | typeof RDM_ROUTES[number]
+  | typeof UNOWN_FENCES[number]
+  | typeof UNOWN_ROUTES[number]
   | 'Unset'
 
 export type KojiKey = `${number}__${KojiModes}__${
@@ -97,8 +107,21 @@ export type BasicKojiEntry = {
 }
 
 export interface KojiGeofence extends BasicKojiEntry {
-  mode?: KojiModes
-  area: Feature<Polygon | MultiPolygon>
+  mode: KojiModes
+  geometry: Polygon | MultiPolygon
+  geo_type: 'Polygon' | 'MultiPolygon'
+}
+
+export interface KojiProperty extends BasicKojiEntry {
+  category: typeof PROPERTY_CATEGORIES[number]
+  default_value: string | number | boolean | null | object | Array<unknown>
+}
+
+export interface KojiGeoProperty
+  extends Omit<KojiProperty, 'created_at' | 'updated_at'> {
+  value: unknown
+  geofence_id: number
+  property_id: number
 }
 
 export interface KojiProject extends BasicKojiEntry {
@@ -115,12 +138,12 @@ export interface KojiRoute extends BasicKojiEntry {
 }
 
 export interface AdminGeofence extends KojiGeofence {
-  properties: { key: string; value: string | number | boolean }[]
-  related: number[]
+  properties: KojiGeoProperty[]
+  projects: number[]
 }
 
 export interface AdminProject extends KojiProject {
-  related: number[]
+  geofences: number[]
 }
 
 export interface KojiStats {
@@ -148,7 +171,8 @@ export interface DbOption
   mode: KojiModes
   geo_type?: GeometryTypes
   geofence_id?: number
-  related?: number[]
+  geofences?: number[]
+  projects?: KojiProject[]
 }
 
 // ================================================================================================

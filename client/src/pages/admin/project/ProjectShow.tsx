@@ -23,7 +23,7 @@ export default function ProjectShow() {
         <BooleanField source="scanner" />
         <ReferenceArrayField
           label="Geofences"
-          source="related"
+          source="geofences"
           reference="geofence"
         >
           <SingleFieldList>

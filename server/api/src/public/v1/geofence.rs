@@ -19,7 +19,7 @@ async fn all(
     args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
     let args = args.into_inner();
-    let fc = geofence::Query::as_collection(&conn.koji_db, Some(args))
+    let fc = geofence::Query::get_all_collection(&conn.koji_db, args.internal.unwrap_or(false))
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -39,13 +39,12 @@ async fn get_area(
     geofence: actix_web::web::Path<String>,
     args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
-    let geofence = geofence.into_inner();
+    let id = geofence.into_inner();
     let args = args.into_inner();
-    let feature = match geofence.parse::<u32>() {
-        Ok(id) => geofence::Query::feature(&conn.koji_db, id, Some(args)).await,
-        Err(_) => geofence::Query::feature_from_name(&conn.koji_db, &geofence, Some(args)).await,
-    }
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    let feature =
+        geofence::Query::get_one_feature(&conn.koji_db, id, args.internal.unwrap_or(false))
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
 
     println!(
         "[PUBLIC_API] Returning feature for {:?}\n",
@@ -67,15 +66,12 @@ async fn save_koji(
 ) -> Result<HttpResponse, Error> {
     let ArgsUnwrapped { area, .. } = payload.into_inner().init(Some("geofence_save"));
 
-    let (inserts, updates) =
-        geofence::Query::upsert_from_geometry(&conn.koji_db, GeoFormats::FeatureCollection(area))
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    println!("Rows Updated: {}, Rows Inserted: {}", updates, inserts);
+    geofence::Query::upsert_from_geometry(&conn.koji_db, GeoFormats::FeatureCollection(area))
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!({ "updates": updates, "inserts": inserts })),
+        data: None,
         message: "Success".to_string(),
         status: "ok".to_string(),
         stats: None,
@@ -131,12 +127,12 @@ async fn save_scanner(
 async fn push_to_prod(
     conn: web::Data<KojiDb>,
     scanner_type: web::Data<String>,
-    id: actix_web::web::Path<u32>,
+    id: actix_web::web::Path<String>,
 ) -> Result<HttpResponse, Error> {
     let id = id.into_inner();
     let scanner_type = scanner_type.as_ref();
 
-    let feature = geofence::Query::feature(&conn.koji_db, id, None)
+    let feature = geofence::Query::get_one_feature(&conn.koji_db, id, false)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -181,7 +177,7 @@ async fn specific_return_type(
     let args = args.into_inner();
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
 
-    let fc = geofence::Query::as_collection(&conn.koji_db, Some(args))
+    let fc = geofence::Query::get_all_collection(&conn.koji_db, args.internal.unwrap_or(false))
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -201,13 +197,11 @@ async fn specific_project(
     let (return_type, project) = url.into_inner();
     let args = args.into_inner();
 
-    println!("Return Type: {}", return_type);
-    println!("Project: {}", project);
-    println!("Args: {:?}", args);
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
-    let features = geofence::Query::by_project(&conn.koji_db, project, Some(args))
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let features =
+        geofence::Query::by_project(&conn.koji_db, project, args.internal.unwrap_or(false))
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
 
     println!(
         "[GEOFENCES_FC_ALL] Returning {} instances\n",

@@ -4,6 +4,8 @@ import { useTheme } from '@mui/material'
 import Architecture from '@mui/icons-material/Architecture'
 import AccountTree from '@mui/icons-material/AccountTree'
 import Route from '@mui/icons-material/Route'
+import ListAlt from '@mui/icons-material/ListAlt'
+
 import { getFullCache } from '@services/fetches'
 
 import { dataProvider } from './dataProvider'
@@ -24,6 +26,11 @@ import RouteEdit from './route/RouteEdit'
 import RouteShow from './route/RouteShow'
 import RouteCreate from './route/RouteCreate'
 
+import PropertyList from './property/PropertyList'
+import PropertyEdit from './property/PropertyEdit'
+import PropertyShow from './property/PropertyShow'
+import PropertyCreate from './property/PropertyCreate'
+
 export default function AdminPanel() {
   const theme = useTheme()
 
@@ -43,6 +50,15 @@ export default function AdminPanel() {
       layout={Layout}
     >
       <Resource
+        name="project"
+        icon={AccountTree}
+        list={ProjectList}
+        edit={ProjectEdit}
+        show={ProjectShow}
+        create={ProjectCreate}
+        recordRepresentation={(record) => record.name || ''}
+      />
+      <Resource
         name="geofence"
         icon={Architecture}
         list={GeofenceList}
@@ -61,12 +77,12 @@ export default function AdminPanel() {
         recordRepresentation={(record) => record.name || ''}
       />
       <Resource
-        name="project"
-        icon={AccountTree}
-        list={ProjectList}
-        edit={ProjectEdit}
-        show={ProjectShow}
-        create={ProjectCreate}
+        name="property"
+        icon={ListAlt}
+        list={PropertyList}
+        edit={PropertyEdit}
+        show={PropertyShow}
+        create={PropertyCreate}
         recordRepresentation={(record) => record.name || ''}
       />
     </Admin>

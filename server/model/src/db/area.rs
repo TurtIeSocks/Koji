@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use super::*;
+use super::{sea_orm_active_enums::Type, *};
 use sea_orm::entity::prelude::*;
 
 use crate::{
@@ -18,10 +18,10 @@ pub struct Model {
     #[sea_orm(unique)]
     pub name: String,
     pub pokemon_mode_workers: u32,
-    #[sea_orm(column_type = "Custom(\"MEDIUMTEXT\".to_owned())", nullable)]
+    #[sea_orm(column_type = "custom(\"MEDIUMTEXT\")", nullable)]
     pub pokemon_mode_route: Option<String>,
     pub fort_mode_workers: u32,
-    #[sea_orm(column_type = "Custom(\"MEDIUMTEXT\".to_owned())", nullable)]
+    #[sea_orm(column_type = "custom(\"MEDIUMTEXT\")", nullable)]
     pub fort_mode_route: Option<String>,
     pub quest_mode_workers: u32,
     #[sea_orm(column_type = "Text", nullable)]
@@ -30,7 +30,7 @@ pub struct Model {
     #[sea_orm(column_type = "Text", nullable)]
     pub geofence: Option<String>,
     pub enable_quests: i8,
-    #[sea_orm(column_type = "Custom(\"MEDIUMTEXT\".to_owned())", nullable)]
+    #[sea_orm(column_type = "custom(\"MEDIUMTEXT\")", nullable)]
     pub quest_mode_route: Option<String>,
 }
 
@@ -41,24 +41,29 @@ impl ActiveModelBehavior for ActiveModel {}
 
 impl Model {
     fn to_feature(self, mode: String) -> Result<Feature, ModelError> {
-        if let Some(area_type) = get_enum(Some(mode.to_string())) {
-            let coords = match mode.as_str() {
-                "AutoQuest" | "AutoPokemon" | "AutoTth" | "PokemonIv" => self.geofence,
-                "CirclePokemon" | "CircleSmartPokemon" => self.pokemon_mode_route,
-                "CircleRaid" | "CircleSmartRaid" => self.fort_mode_route,
-                "ManualQuest" => self.quest_mode_route,
+        let mode = get_enum(Some(mode));
+
+        if mode != Type::Unset {
+            let coords = match mode {
+                Type::AutoQuest | Type::AutoPokemon | Type::AutoTth | Type::PokemonIv => {
+                    self.geofence
+                }
+                Type::CirclePokemon | Type::CircleSmartPokemon => self.pokemon_mode_route,
+                Type::CircleRaid | Type::CircleSmartRaid => self.fort_mode_route,
+                Type::CircleQuest => self.quest_mode_route,
                 _ => None,
             };
             if let Some(coords) = coords {
                 let mut feature =
-                    coords.parse_scanner_instance(Some(self.name.clone()), Some(area_type.clone()));
+                    coords.parse_scanner_instance(Some(self.name.clone()), Some(mode.clone()));
                 feature.id = Some(geojson::feature::Id::String(format!(
                     "{}__{}__SCANNER",
-                    self.id, area_type
+                    self.id,
+                    mode.to_value()
                 )));
                 feature.set_property("__id", self.id);
                 feature.set_property("__name", self.name);
-                feature.set_property("__mode", area_type.to_string());
+                feature.set_property("__mode", mode.to_value());
                 Ok(feature)
             } else {
                 Err(ModelError::Custom("Unable to determine route".to_string()))
@@ -143,16 +148,16 @@ impl Query {
     ) -> Result<(), DbErr> {
         if let Some(name) = feat.property("__name") {
             if let Some(name) = name.as_str() {
-                let column = if let Some(r#type) = feat.property("__mode").clone() {
-                    if let Some(r#type) = r#type.as_str() {
-                        match r#type.to_lowercase().as_str() {
+                let column = if let Some(mode) = feat.property("__mode").clone() {
+                    if let Some(mode) = mode.as_str() {
+                        match mode.to_lowercase().as_str() {
                             "circlepokemon"
                             | "circle_pokemon"
                             | "circlesmartpokemon"
                             | "circle_smart_pokemon" => Some(area::Column::PokemonModeRoute),
                             "circleraid" | "circle_raid" | "circlesmartraid"
                             | "circle_smart_raid" => Some(area::Column::FortModeRoute),
-                            "manualquest" | "manual_quest" => Some(area::Column::QuestModeRoute),
+                            "circlequest" | "circle_quest" => Some(area::Column::QuestModeRoute),
                             "autoquest" | "auto_quest" => Some(area::Column::Geofence),
                             _ => None,
                         }

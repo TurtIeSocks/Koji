@@ -48,7 +48,7 @@ export default function SelectProject({
     const addFeatures = [
       ...new Set(
         added.flatMap((a) =>
-          options[a].related?.map((r) => [
+          options[a].geofences?.map((r) => [
             geofenceCache[r].id,
             `${geofenceCache[r].id}__${geofenceCache[r].mode}__KOJI`,
           ]),
@@ -58,7 +58,7 @@ export default function SelectProject({
     const removeFeature = [
       ...new Set(
         deleted.flatMap((a) =>
-          options[a].related?.map((r) => [
+          options[a].geofences?.map((r) => [
             geofenceCache[r].geo_type,
             `${geofenceCache[r].id}__${geofenceCache[r].mode}__KOJI`,
           ]),
@@ -74,7 +74,7 @@ export default function SelectProject({
           fetchWrapper<KojiResponse<Feature>>(
             `/internal/routes/one/koji/${a[0]}/${
               geofenceCache[a[0]]?.mode || 'Unset'
-            }`,
+            }&internal=true`,
           ).then((resp) => {
             return resp?.data
           }),
@@ -122,17 +122,17 @@ export default function SelectProject({
         renderOption={(props, option, { selected: s }) => {
           const fullOption = options[option]
           const keys =
-            fullOption.related?.map((id) => {
+            fullOption.geofences?.map((id) => {
               const dbFence = geofenceCache[id]
               return `${dbFence.id}__${dbFence.mode}__KOJI` as KojiKey
             }) || []
 
           const allSelected =
-            !!fullOption.related?.length &&
+            !!fullOption.geofences?.length &&
             keys.every((id) => Polygon[id] || MultiPolygon[id])
           const partialSelected =
             allSelected ||
-            fullOption.related?.some((id) => {
+            fullOption.geofences?.some((id) => {
               const dbFence = geofenceCache[id]
               const shapeKey: KojiKey = `${dbFence.id}__${dbFence.mode}__KOJI`
               return dbFence.geo_type === 'Polygon'

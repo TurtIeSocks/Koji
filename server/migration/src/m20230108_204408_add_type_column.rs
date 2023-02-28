@@ -8,6 +8,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        log::info!("[MIGRATION_05] adding mode column to Geofence table");
         manager
             .alter_table(
                 Table::alter()
@@ -19,6 +20,7 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        log::info!("[MIGRATION_05] removing mode column from Geofence table");
         manager
             .alter_table(
                 Table::alter()

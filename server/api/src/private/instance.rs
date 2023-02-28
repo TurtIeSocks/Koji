@@ -1,9 +1,6 @@
 use super::*;
 
-use model::{
-    db::{route, NameTypeId},
-    utils::get_enum,
-};
+use model::db::{route, NameTypeId};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -60,7 +57,7 @@ async fn from_koji(
         .map(|instance| NameTypeId {
             id: instance.id,
             name: instance.name,
-            mode: get_enum(instance.mode),
+            mode: instance.mode,
             geo_type: None,
         })
         .collect();
@@ -72,7 +69,7 @@ async fn from_koji(
         fences.push(NameTypeId {
             id: instance.id,
             name: instance.name,
-            mode: get_enum(Some(instance.mode)),
+            mode: instance.mode,
             geo_type: None,
         })
     });
@@ -107,7 +104,7 @@ async fn route_from_db(
         instance_type,
     } = instance.into_inner();
 
-    let instances = if source.eq("scanner") {
+    let feature = if source.eq("scanner") {
         if scanner_type.eq("rdm") {
             instance::Query::feature(&conn.data_db, id).await
         } else if let Some(unown_db) = conn.unown_db.as_ref() {
@@ -116,22 +113,22 @@ async fn route_from_db(
             Ok(Feature::default())
         }
     } else {
-        if instance_type.eq("CirclePokemon")
-            || instance_type.eq("CircleSmartPokemon")
-            || instance_type.eq("ManualQuest")
-            || instance_type.eq("CircleRaid")
-            || instance_type.eq("CircleSmartRaid")
+        if instance_type.eq("circle_pokemon")
+            || instance_type.eq("circle_smart_pokemon")
+            || instance_type.eq("circle_quest")
+            || instance_type.eq("circle_raid")
+            || instance_type.eq("circle_smart_raid")
         {
-            route::Query::feature(&conn.koji_db, id, None).await
+            route::Query::feature(&conn.koji_db, id, true).await
         } else {
-            geofence::Query::feature(&conn.koji_db, id, None).await
+            geofence::Query::get_one_feature(&conn.koji_db, id.to_string(), true).await
         }
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
     // println!("[INSTANCE_ALL] Returning {} instances\n", instances.len());
     Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(instances)),
+        data: Some(json!(feature)),
         message: "ok".to_string(),
         status_code: 200,
         status: "Success".to_string(),

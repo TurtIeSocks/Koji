@@ -8,14 +8,10 @@ import GeofenceForm from './GeofenceForm'
 
 const transformPayload = async (geofence: AdminGeofence) => {
   return {
+    ...geofence,
     id: 0,
-    name: geofence.name,
-    mode: geofence.mode,
-    area: {
-      ...JSON.parse(geofence.area.toString()),
-      properties: Object.fromEntries(
-        geofence.properties.map((p) => [p.key, p.value]),
-      ),
+    geometry: {
+      ...JSON.parse(geofence.geometry.toString()),
     },
   }
 }

@@ -8,6 +8,14 @@ mod m20230108_204408_add_type_column;
 mod m20230117_010422_routes_table;
 mod m20230121_184556_add_project_api;
 mod m20230122_134517_route_description;
+mod m20230203_214735_property_table;
+mod m20230203_224735_property_table_unique;
+mod m20230203_231010_geofence_property_table;
+mod m20230204_153412_insert_property_values;
+mod m20230204_162006_add_geometry_column;
+mod m20230205_121524_fix_timestamps;
+mod m20230221_130117_geofence_mode_enums;
+mod m20230221_143509_route_mode_enums;
 
 pub struct Migrator;
 
@@ -23,6 +31,14 @@ impl MigratorTrait for Migrator {
             Box::new(m20230117_010422_routes_table::Migration),
             Box::new(m20230121_184556_add_project_api::Migration),
             Box::new(m20230122_134517_route_description::Migration),
+            Box::new(m20230203_214735_property_table::Migration),
+            Box::new(m20230203_224735_property_table_unique::Migration),
+            Box::new(m20230203_231010_geofence_property_table::Migration),
+            Box::new(m20230204_153412_insert_property_values::Migration),
+            Box::new(m20230204_162006_add_geometry_column::Migration),
+            Box::new(m20230205_121524_fix_timestamps::Migration),
+            Box::new(m20230221_130117_geofence_mode_enums::Migration),
+            Box::new(m20230221_143509_route_mode_enums::Migration),
         ]
     }
 }

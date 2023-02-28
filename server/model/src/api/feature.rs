@@ -1,5 +1,6 @@
 use geo::{CoordsIter, MultiPolygon};
 use geo_repair::repair::Repair;
+use sea_orm::ActiveEnum;
 
 use super::*;
 
@@ -37,26 +38,14 @@ impl FeatureHelpers for Feature {
         }
         if !self.contains_property("__mode") {
             if let Some(enum_type) = enum_type {
-                self.set_property("__mode", enum_type.to_string());
-                // match enum_type {
-                //     Type::CirclePokemon | Type::CircleSmartPokemon => {
-                //         self.set_property("radius", 70);
-                //     }
-                //     Type::CircleRaid | Type::CircleSmartRaid => {
-                //         self.set_property("radius", 700);
-                //     }
-                //     Type::ManualQuest => {
-                //         self.set_property("radius", 80);
-                //     }
-                //     _ => {}
-                // }
+                self.set_property("__mode", enum_type.to_value());
             } else if let Some(geometry) = self.geometry.as_ref() {
                 match geometry.value {
                     Value::Point(_) | Value::MultiPoint(_) => {
-                        self.set_property("__mode", "CirclePokemon");
+                        self.set_property("__mode", "circle_pokemon");
                     }
                     Value::Polygon(_) | Value::MultiPolygon(_) => {
-                        self.set_property("__mode", "AutoQuest");
+                        self.set_property("__mode", "auto_quest");
                     }
                     _ => {}
                 }

@@ -50,13 +50,7 @@ const getList = async (
     }),
   })
   return {
-    data:
-      resource === 'route'
-        ? json.data.results
-        : json.data.results.map((result: any) => ({
-            ...result[0],
-            related: result[1],
-          })),
+    data: json.data.results,
     total: json.data.total,
     pageInfo: {
       hasNextPage: json.data.has_next,
@@ -71,42 +65,14 @@ export const dataProvider: typeof defaultProvider = {
     const url = `/internal/admin/${resource}/all/`
     const options = {}
     const { json } = await httpClient(url, options)
-    return {
-      data: json.data,
-      total: json.total,
-    }
+    return json
   },
   getManyReference: getList,
   getList,
   getOne: (resource, params) =>
     httpClient(`/internal/admin/${resource}/${params.id}/`).then(({ json }) => {
-      return resource === 'geofence'
-        ? {
-            data: {
-              ...json.data[0],
-              area: JSON.stringify(json.data[0].area),
-              properties: Object.entries(
-                json.data?.[0]?.area?.properties || {},
-              ).map(([key, value]) => ({
-                key,
-                value,
-              })),
-              related: json.data[1].map(
-                (r: { id: number; name: string }) => r.id,
-              ),
-            } as any,
-          }
-        : {
-            data:
-              resource === 'route'
-                ? json.data
-                : {
-                    ...json.data[0],
-                    related: json.data[1].map(
-                      (r: { id: number; name: string }) => r.id,
-                    ),
-                  },
-          }
+      // console.log(json)
+      return json
     }),
   create: async (resource, params) => {
     const { json } = await httpClient(`/internal/admin/${resource}/`, {

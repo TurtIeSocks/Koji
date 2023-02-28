@@ -8,6 +8,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        log::info!("[MIGRATION_08] Creating Route Description Column");
         let table = Table::alter()
             .table(Route::Table)
             .add_column(ColumnDef::new(Route::Description).string())
@@ -17,6 +18,7 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        log::info!("[MIGRATION_08] Dropping Route Description Column");
         let table = Table::alter()
             .table(Route::Table)
             .drop_column(Route::Description)

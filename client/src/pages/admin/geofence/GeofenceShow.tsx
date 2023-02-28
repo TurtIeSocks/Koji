@@ -10,16 +10,19 @@ import {
   useRecordContext,
 } from 'react-admin'
 import { ListItemText, Typography } from '@mui/material'
-import { KojiGeofence } from '@assets/types'
+import { AdminGeofence, KojiGeofence } from '@assets/types'
 import { Code } from '@components/Code'
 
 function PropertyFields() {
-  const record = useRecordContext<KojiGeofence>()
+  const record = useRecordContext<AdminGeofence>()
   return (
     <>
       <ListItemText secondary="Properties" />
-      {Object.entries(record.area?.properties || {}).map(([k, v]) => (
-        <ListItemText key={k} primary={`${k}: ${v}`} />
+      {record.properties.map((entry) => (
+        <ListItemText
+          key={entry.id}
+          primary={`${entry.name}: ${entry.value}`}
+        />
       ))}
     </>
   )
@@ -34,11 +37,12 @@ export default function GeofenceShow() {
         </Typography>
         <TextField source="name" />
         <TextField source="mode" />
+        <TextField source="geo_type" />
         <TextField source="area.geometry.type" label="Geometry Type" />
         <PropertyFields />
         <ReferenceArrayField
           label="Projects"
-          source="related"
+          source="projects"
           reference="project"
         >
           <SingleFieldList>
@@ -49,9 +53,9 @@ export default function GeofenceShow() {
           label="Area"
           render={(fence) => {
             const parsed: string =
-              typeof fence?.area === 'string'
-                ? JSON.stringify(JSON.parse(fence?.area), null, 2)
-                : JSON.stringify(fence?.area, null, 2)
+              typeof fence?.geometry === 'string'
+                ? JSON.stringify(JSON.parse(fence?.geometry), null, 2)
+                : JSON.stringify(fence?.geometry, null, 2)
             return <Code maxHeight="50vh">{parsed}</Code>
           }}
         />

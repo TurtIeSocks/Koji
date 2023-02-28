@@ -7,36 +7,9 @@ import {
   useRecordContext,
 } from 'react-admin'
 
-import { AdminGeofence, KojiProject } from '@assets/types'
-import { fetchWrapper } from '@services/fetches'
+import type { AdminGeofence, KojiProject } from '@assets/types'
 
 import GeofenceForm from './GeofenceForm'
-
-const transformPayload = async (geofence: AdminGeofence) => {
-  if (Array.isArray(geofence.related)) {
-    await fetchWrapper(
-      `/internal/admin/geofence_project/geofence/${geofence.id}/`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(geofence.related),
-      },
-    )
-  }
-  return {
-    ...geofence,
-    area: {
-      ...(typeof geofence.area === 'string'
-        ? JSON.parse(geofence.area)
-        : geofence.area),
-      properties: Object.fromEntries(
-        geofence.properties.map((p) => [p.key, p.value]),
-      ),
-    },
-  }
-}
 
 function OptionRenderer() {
   const record = useRecordContext()
@@ -48,13 +21,24 @@ const matchSuggestion = (filter: string, choice: KojiProject) => {
   return choice.name.toLowerCase().includes(filter.toLowerCase())
 }
 
+const transformPayload = async (geofence: AdminGeofence) => {
+  return {
+    ...geofence,
+    geometry: {
+      ...(typeof geofence.geometry === 'string'
+        ? JSON.parse(geofence.geometry)
+        : geofence.geometry),
+    },
+  }
+}
+
 export default function GeofenceEdit() {
   return (
     <Edit mutationMode="pessimistic" transform={transformPayload}>
       <SimpleForm>
         <GeofenceForm />
         <ReferenceArrayInput
-          source="related"
+          source="projects"
           reference="project"
           label="Projects"
           perPage={1000}
@@ -69,6 +53,7 @@ export default function GeofenceEdit() {
             label="Related Projects"
             fullWidth
             blurOnSelect={false}
+            sx={{ mt: 3 }}
           />
         </ReferenceArrayInput>
       </SimpleForm>

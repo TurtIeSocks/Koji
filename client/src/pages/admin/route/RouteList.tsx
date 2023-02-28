@@ -53,7 +53,7 @@ export default function GeofenceList() {
         <TextField source="description" />
         <TextField source="mode" />
         <ReferenceField source="geofence_id" reference="geofence" />
-        <NumberField source="hops" label="Hops" />
+        <NumberField source="hops" label="Hops" sortable={false} />
         <EditButton />
         <DeleteWithUndoButton />
         <PushToProd resource="route" />
