@@ -16,7 +16,11 @@ export default function Nominatim({
   handleChange,
 }: {
   features: Feature[]
-  handleChange: (geojson: FeatureCollection, key?: string) => void
+  handleChange: (
+    geojson: FeatureCollection,
+    key?: string,
+    deleted?: string[],
+  ) => void
 }) {
   const [loading, setLoading] = React.useState(false)
   const [results, setResults] = React.useState<FeatureCollection>({
@@ -64,7 +68,11 @@ export default function Nominatim({
             })
           })
         }
-        handleChange(newGeojson, '__nominatim')
+        handleChange(
+          newGeojson,
+          '__nominatim',
+          features.map((f) => f.id.toString()),
+        )
       }}
       inputValue={inputValue}
       onInputChange={(_e, newInputValue) => {
