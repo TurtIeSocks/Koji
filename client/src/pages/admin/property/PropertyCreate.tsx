@@ -17,7 +17,7 @@ export default function PropertyCreate() {
     <Create title="Create a Property" mutationOptions={{ onSuccess }}>
       <SimpleForm>
         <Typography>Create One</Typography>
-        <PropertyForm />
+        <PropertyForm create />
       </SimpleForm>
     </Create>
   )

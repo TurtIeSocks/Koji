@@ -9,10 +9,10 @@ import {
   TextInputExpanded,
 } from '../inputs/Properties'
 
-export default function PropertyForm() {
+export default function PropertyForm({ create }: { create?: boolean }) {
   const record = useRecordContext<KojiProperty>()
 
-  const [tempState, setTempState] = React.useState(record.category)
+  const [tempState, setTempState] = React.useState(record?.category || 'string')
 
   return (
     <>
@@ -79,7 +79,7 @@ export default function PropertyForm() {
           ),
         }[tempState.toLowerCase()]
       }
-      {record.category !== tempState && (
+      {!create && record?.category !== tempState && (
         <Typography color="error">
           Changing the category will reset all values associated with this
           property to the new `default_value`
