@@ -32,6 +32,7 @@ export default function Settings() {
       <ListSubheader disableGutters>Other</ListSubheader>
       <Toggle field="loadingScreen" />
       <Toggle field="simplifyPolygons" />
+      <Toggle field="showRouteIndex" />
       <ListItemButton href="/config/logout">
         <ListItemIcon>
           <Logout color="secondary" />

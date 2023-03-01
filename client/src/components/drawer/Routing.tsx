@@ -22,6 +22,7 @@ import Toggle from './inputs/Toggle'
 export default function RoutingTab() {
   const mode = usePersist((s) => s.mode)
   const category = usePersist((s) => s.category)
+  const fast = usePersist((s) => s.fast)
 
   const [updateButton, scannerType, isEditing] = useStatic(
     (s) => [
@@ -52,6 +53,14 @@ export default function RoutingTab() {
         disabled={mode === 'bootstrap'}
         type="select"
       />
+      <Collapse in={category === 'spawnpoint'}>
+        <MultiOptionList
+          field="tth"
+          buttons={['All', 'Known', 'Unknown']}
+          disabled={mode === 'bootstrap'}
+          type="select"
+        />
+      </Collapse>
       <Divider sx={{ my: 2 }} />
 
       <ListSubheader>Clustering</ListSubheader>
@@ -59,11 +68,13 @@ export default function RoutingTab() {
       <Collapse in={mode !== 'bootstrap'}>
         <NumInput field="min_points" />
         <Toggle field="fast" />
-        <Toggle field="only_unique" />
+        <Collapse in={!fast}>
+          <Toggle field="only_unique" />
+        </Collapse>
         {/* <NumInput field="generations" /> */}
         {/* <NumInput field="devices" disabled={mode !== 'route'} /> */}
       </Collapse>
-      <Collapse in={mode === 'cluster'}>
+      <Collapse in={mode === 'cluster' && !fast}>
         <MultiOptionList
           field="sort_by"
           buttons={['GeoHash', 'ClusterCount', 'Random']}

@@ -120,6 +120,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
     last_seen,
     route_chunk_size,
     sort_by,
+    tth,
   } = usePersist.getState()
   const { geojson, setStatic } = useStatic.getState()
   const { add, activeRoute } = useShapes.getState().setters
@@ -181,6 +182,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
               save_to_db,
               save_to_scanner,
               sort_by,
+              tth,
             }),
           },
         )
@@ -203,15 +205,16 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
         }
         const json = await res.json()
         const fetch_time = Date.now() - startTime
-        if (fenceRef?.name) {
-          setStatic('loading', (prev) => ({
-            ...prev,
-            [fenceRef?.name]: {
-              ...json.stats,
-              fetch_time,
-            },
-          }))
-        }
+        console.log({ fenceRef })
+        setStatic('loading', (prev) => ({
+          ...prev,
+          [fenceRef
+            ? fenceRef?.name
+            : `${area.geometry.type}${area.id ? `-${area.id}` : ''}`]: {
+            ...json.stats,
+            fetch_time,
+          },
+        }))
         console.log(fenceRef?.name)
         Object.entries(json.stats).forEach(([k, v]) =>
           // eslint-disable-next-line no-console

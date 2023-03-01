@@ -129,6 +129,7 @@ async fn cluster(
         last_seen,
         route_chunk_size,
         sort_by,
+        tth,
         ..
     } = payload.into_inner().init(Some(&mode));
 
@@ -157,7 +158,7 @@ async fn cluster(
             .map(|p| GenericData::new("".to_string(), p[0], p[1]))
             .collect()
     } else {
-        utils::points_from_area(&area, &category, &conn, last_seen)
+        utils::points_from_area(&area, &category, &conn, last_seen, tth)
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?
     };

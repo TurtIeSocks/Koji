@@ -15,6 +15,7 @@ export interface UsePersist {
   location: [number, number]
   zoom: number
   category: Category
+  tth: 'All' | 'Known' | 'Unknown'
   spawnpoint: boolean
   gym: boolean
   pokestop: boolean
@@ -37,6 +38,7 @@ export interface UsePersist {
   geojson: FeatureCollection
   route_chunk_size: number | ''
   polygonExportMode: ConversionOptions
+  showRouteIndex: boolean
   geometryType: typeof GEOMETRY_CONVERSION_TYPES[number]
   menuItem: TabOption
   export: {
@@ -65,6 +67,7 @@ export const usePersist = create(
       location: [0, 0],
       zoom: 18,
       category: 'pokestop',
+      tth: 'All',
       spawnpoint: false,
       gym: true,
       pokestop: true,
@@ -87,6 +90,7 @@ export const usePersist = create(
       nativeLeaflet: false,
       devices: 1,
       polygonExportMode: 'feature',
+      showRouteIndex: false,
       geometryType: 'Polygon',
       route_chunk_size: 0,
       menuItem: 'Manage',

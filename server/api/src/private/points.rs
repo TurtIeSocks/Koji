@@ -1,7 +1,7 @@
 use super::*;
 
 use model::{
-    api::args::{Args, ArgsUnwrapped, BoundsArg, Response},
+    api::args::{Args, ArgsUnwrapped, BoundsArg, Response, SpawnpointTth},
     db::{gym, pokestop, spawnpoint},
     KojiDb,
 };
@@ -97,7 +97,7 @@ async fn by_area(
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    let area_data = utils::points_from_area(&area, &category, &conn, last_seen)
+    let area_data = utils::points_from_area(&area, &category, &conn, last_seen, SpawnpointTth::All)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 

@@ -23,11 +23,11 @@ export const ATTRIBUTION = `
 `
 
 export const ICON_SVG = {
-  v: `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="-2 -2 24 24">
+  u: `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="-2 -2 24 24">
         <circle cx="10" cy="10" r="10" fill="deeppink" fill-opacity="0.8" stroke="black" stroke-width="1" />
         <circle cx="10" cy="10" r="1" fill="black" />
       </svg>`,
-  u: `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="-2 -2 24 24">
+  v: `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="-2 -2 24 24">
         <circle cx="10" cy="10" r="10" fill="dodgerblue" fill-opacity="0.8" stroke="black" stroke-width="1" />
         <circle cx="10" cy="10" r="1" fill="black" />
       </svg>`,

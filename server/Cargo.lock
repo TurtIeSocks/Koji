@@ -358,7 +358,7 @@ checksum = "2cb2f989d18dd141ab8ae82f64d1a8cdd37e0840f73a406896cf5e99502fab61"
 
 [[package]]
 name = "api"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "actix-files",
  "actix-session",
@@ -2013,7 +2013,7 @@ dependencies = [
 
 [[package]]
 name = "model"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "chrono",
  "futures",
