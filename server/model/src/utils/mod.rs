@@ -119,7 +119,7 @@ pub fn get_enum_by_geometry_string(input: Option<String>) -> Option<Type> {
 pub async fn get_database_struct() -> KojiDb {
     let koji_db_url = env::var("KOJI_DB_URL").expect("Need KOJI_DB_URL env var to run migrations");
     let scanner_db_url = if env::var("DATABASE_URL").is_ok() {
-        println!("[WARNING] `DATABASE_URL` is deprecated in favor of `SCANNER_DB_URL`");
+        log::warn!("[WARNING] `DATABASE_URL` is deprecated in favor of `SCANNER_DB_URL`");
         env::var("DATABASE_URL")
     } else {
         env::var("SCANNER_DB_URL")

@@ -15,15 +15,17 @@ export function Points() {
   const shapes = useShapes((s) => s.Point)
   const radius = usePersist((s) => s.radius)
   const setActiveMode = usePersist((s) => s.setActiveMode)
+  const showRouteIndex = usePersist((s) => s.showRouteIndex)
   const { getFromKojiKey } = useDbCache.getState()
 
   return (
     <React.Fragment key={setActiveMode}>
-      {Object.entries(shapes).map(([id, feature]) => (
+      {Object.entries(shapes).map(([id, feature], i) => (
         <MemoPoint
           key={id}
           feature={feature}
           radius={radius || 10}
+          index={showRouteIndex ? i + 1 : 0}
           dbRef={getFromKojiKey(feature.properties.__multipoint_id)}
         />
       ))}

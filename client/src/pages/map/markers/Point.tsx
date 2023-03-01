@@ -1,6 +1,6 @@
 import * as React from 'react'
 import type { Point } from 'geojson'
-import { Circle } from 'react-leaflet'
+import { Circle, Tooltip } from 'react-leaflet'
 import * as L from 'leaflet'
 
 import type { Feature, DbOption, KojiKey } from '@assets/types'
@@ -22,12 +22,14 @@ export function KojiPoint({
   radius,
   type = 'Point',
   dbRef,
+  index,
 }: {
   feature: Feature<Point>
   radius: number
   type?: 'Point' | 'MultiPoint'
   dbRef: DbOption | null
   parentId?: KojiKey
+  index?: number
 }) {
   return (
     <Circle
@@ -90,6 +92,7 @@ export function KojiPoint({
           dbRef={dbRef}
         />
       </BasePopup>
+      {!!index && <Tooltip direction="top">{index}</Tooltip>}
     </Circle>
   )
 }

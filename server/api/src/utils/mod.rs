@@ -3,7 +3,7 @@ use super::*;
 use geo::Coord;
 use geojson::{Geometry, Value};
 use model::{
-    api::{collection::Default, single_vec::SingleVec, BBox, ToCollection},
+    api::{args::SpawnpointTth, collection::Default, single_vec::SingleVec, BBox, ToCollection},
     db::{area, geofence, gym, instance, pokestop, spawnpoint, GenericData},
     error::ModelError,
     KojiDb,
@@ -95,12 +95,13 @@ pub async fn points_from_area(
     category: &String,
     conn: &KojiDb,
     last_seen: u32,
+    tth: SpawnpointTth,
 ) -> Result<Vec<GenericData>, DbErr> {
     if !area.features.is_empty() {
         match category.as_str() {
             "gym" => gym::Query::area(&conn.data_db, &area, last_seen).await,
             "pokestop" => pokestop::Query::area(&conn.data_db, &area, last_seen).await,
-            "spawnpoint" => spawnpoint::Query::area(&conn.data_db, &area, last_seen).await,
+            "spawnpoint" => spawnpoint::Query::area(&conn.data_db, &area, last_seen, tth).await,
             _ => Err(DbErr::Custom("Invalid Category".to_string())),
         }
     } else {
