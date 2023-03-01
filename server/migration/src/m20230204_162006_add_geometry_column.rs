@@ -55,7 +55,9 @@ impl MigrationTrait for Migration {
             backend,
             r#"ALTER TABLE `geofence` 
                 ADD COLUMN `geo_type` VARCHAR(20) 
-                    AS (geometry->>'$.type') NOT NULL
+                    AS (
+                        JSON_UNQUOTE(JSON_EXTRACT(geometry, '$.type'))
+                    ) NOT NULL
             "#
             .to_owned(),
         ))
