@@ -20,7 +20,7 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(Geofence::Table)
-                    .add_column(ColumnDef::new(Geofence::Geometry).json())
+                    .add_column_if_not_exists(ColumnDef::new(Geofence::Geometry).json())
                     .to_owned(),
             )
             .await?;
@@ -55,9 +55,9 @@ impl MigrationTrait for Migration {
             backend,
             r#"ALTER TABLE `geofence` 
                 ADD COLUMN `geo_type` VARCHAR(20) 
-                    AS (
+                    GENERATED ALWAYS AS (
                         JSON_UNQUOTE(JSON_EXTRACT(geometry, '$.type'))
-                    ) NOT NULL
+                    ) STORED
             "#
             .to_owned(),
         ))
