@@ -35,9 +35,9 @@ export default function Home() {
         key={darkMode.toString()}
         url={
           darkMode
-            ? tileServer ||
-              'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-            : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png'
+            ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+            : tileServer ||
+              'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png'
         }
       />
       <Box sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}>
