@@ -8,7 +8,7 @@ fn dot(u: &Point, v: &Point) -> f64 {
     u.x() * v.x() + u.y() * v.y()
 }
 
-fn distance_to_segment(p: Point, a: Point, b: Point) -> f64 {
+fn distance_to_segment(p: &Point, a: &Point, b: &Point) -> f64 {
     let v = Point::new(b.x() - a.x(), b.y() - a.y());
     let w = Point::new(p.x() - a.x(), p.y() - a.y());
     let c1 = dot(&w, &v);
@@ -24,7 +24,7 @@ fn distance_to_segment(p: Point, a: Point, b: Point) -> f64 {
     return p.haversine_distance(&pb);
 }
 
-pub fn point_line_distance(input: Vec<Point>, point: Point) -> f64 {
+pub fn point_line_distance(input: &Vec<Point>, point: &Point) -> f64 {
     let mut distance: f64 = std::f64::MAX;
     for (i, line) in input.iter().enumerate() {
         let next = if i == input.len() - 1 {
@@ -32,7 +32,7 @@ pub fn point_line_distance(input: Vec<Point>, point: Point) -> f64 {
         } else {
             input[i + 1]
         };
-        distance = distance.min(distance_to_segment(point, *line, next));
+        distance = distance.min(distance_to_segment(point, line, &next));
     }
     distance
 }
@@ -114,7 +114,11 @@ fn generate_circles(geometry: Geometry, radius: f64) -> Vec<Point> {
     let mut circles: Vec<Point> = vec![];
 
     let polygon = Polygon::<f64>::try_from(geometry).unwrap();
-    let get_points = || polygon.exterior().points().collect::<Vec<Point>>();
+    let external_points = polygon.exterior().points().collect::<Vec<Point>>();
+    let internal_points = polygon
+        .interiors()
+        .iter()
+        .map(|interior| interior.points().collect::<Vec<Point>>());
 
     let x_mod: f64 = 0.75_f64.sqrt();
     let y_mod: f64 = 0.568_f64.sqrt();
@@ -136,8 +140,12 @@ fn generate_circles(geometry: Geometry, radius: f64) -> Vec<Point> {
         while (bearing == 270. && current.x() > end.x())
             || (bearing == 90. && current.x() < start.x())
         {
-            let point_distance = point_line_distance(get_points(), current);
-            if point_distance <= radius || point_distance == 0. || polygon.contains(&current) {
+            if polygon.contains(&current)
+                || point_line_distance(&external_points, &current) <= radius
+                || internal_points
+                    .clone()
+                    .any(|internal| point_line_distance(&internal, &current) <= radius)
+            {
                 circles.push(current);
             }
             current = current.haversine_destination(bearing, x_mod * radius * 2.)

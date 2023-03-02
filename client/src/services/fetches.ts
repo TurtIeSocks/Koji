@@ -205,7 +205,6 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
         }
         const json = await res.json()
         const fetch_time = Date.now() - startTime
-        console.log({ fenceRef })
         setStatic('loading', (prev) => ({
           ...prev,
           [fenceRef
