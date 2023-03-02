@@ -1959,7 +1959,7 @@ dependencies = [
 
 [[package]]
 name = "migration"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "async-std",
  "geojson",

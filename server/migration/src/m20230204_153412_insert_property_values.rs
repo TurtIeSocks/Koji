@@ -52,7 +52,10 @@ impl MigrationTrait for Migration {
                 if let Some(area) = fence.get("area") {
                     let feature = Feature::from_json_value(area.clone());
                     if let Ok(feature) = feature {
-                        for (key, value) in feature.properties_iter() {
+                        'props: for (key, value) in feature.properties_iter() {
+                            if key.eq("name") {
+                                continue 'props;
+                            }
                             let mut actual_value: Option<Value> = Some(value.clone().into());
 
                             if fence.contains_key(key) {

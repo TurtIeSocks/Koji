@@ -50,21 +50,30 @@ export default function Settings() {
       <Toggle field="loadingScreen" />
       <Toggle field="simplifyPolygons" />
       <Toggle field="showRouteIndex" />
-      <ListItem>
-        <Select
-          value={tileServers.length ? tileServer : ''}
-          fullWidth
-          onChange={({ target }) => {
-            usePersist.setState({ tileServer: target.value })
-          }}
-        >
-          {tileServers.map(({ id, name, url }) => (
-            <MenuItem key={id} value={url}>
-              {name}
-            </MenuItem>
-          ))}
-        </Select>
-      </ListItem>
+
+      {tileServers.length ? (
+        <ListItem>
+          <Select
+            value={tileServer}
+            fullWidth
+            onChange={({ target }) => {
+              usePersist.setState({ tileServer: target.value })
+            }}
+          >
+            {tileServers.map(({ id, name, url }) => (
+              <MenuItem key={id} value={url}>
+                {name}
+              </MenuItem>
+            ))}
+          </Select>
+        </ListItem>
+      ) : (
+        <ListItemText
+          primary="Set TileServer"
+          secondary="Upload from the admin panel"
+          sx={{ px: 2 }}
+        />
+      )}
       <ListItemButton href="/config/logout">
         <ListItemIcon>
           <Logout color="secondary" />
