@@ -5,6 +5,7 @@ import Architecture from '@mui/icons-material/Architecture'
 import AccountTree from '@mui/icons-material/AccountTree'
 import Route from '@mui/icons-material/Route'
 import ListAlt from '@mui/icons-material/ListAlt'
+import Map from '@mui/icons-material/Map'
 
 import { getFullCache } from '@services/fetches'
 
@@ -30,6 +31,10 @@ import PropertyList from './property/PropertyList'
 import PropertyEdit from './property/PropertyEdit'
 import PropertyShow from './property/PropertyShow'
 import PropertyCreate from './property/PropertyCreate'
+import TileServerList from './tileserver/TileServerList'
+import TileServerEdit from './tileserver/TileServerEdit'
+import TileServerShow from './tileserver/TileServerShow'
+import TileServerCreate from './tileserver/TileServerCreate'
 
 export default function AdminPanel() {
   const theme = useTheme()
@@ -83,6 +88,15 @@ export default function AdminPanel() {
         edit={PropertyEdit}
         show={PropertyShow}
         create={PropertyCreate}
+        recordRepresentation={(record) => record.name || ''}
+      />
+      <Resource
+        name="tileserver"
+        icon={Map}
+        list={TileServerList}
+        edit={TileServerEdit}
+        show={TileServerShow}
+        create={TileServerCreate}
         recordRepresentation={(record) => record.name || ''}
       />
     </Admin>

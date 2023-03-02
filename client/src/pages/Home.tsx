@@ -1,20 +1,21 @@
 import * as React from 'react'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import { Box, Button, Typography } from '@mui/material'
-import ThemeToggle from '@components/ThemeToggle'
 import Map from '@mui/icons-material/Map'
 import Admin from '@mui/icons-material/AdminPanelSettings'
 import Convert from '@mui/icons-material/PrecisionManufacturing'
 import { MapContainer, TileLayer } from 'react-leaflet'
+import shallow from 'zustand/shallow'
+
+import ThemeToggle from '@components/ThemeToggle'
 import { usePersist } from '@hooks/usePersist'
 import { ATTRIBUTION } from '@assets/constants'
 
 export default function Home() {
-  const [darkMode, location, zoom] = usePersist((s) => [
-    s.darkMode,
-    s.location,
-    s.zoom,
-  ])
+  const [darkMode, location, zoom, tileServer] = usePersist(
+    (s) => [s.darkMode, s.location, s.zoom, s.tileServer],
+    shallow,
+  )
 
   return (
     <MapContainer
@@ -34,7 +35,8 @@ export default function Home() {
         key={darkMode.toString()}
         url={
           darkMode
-            ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+            ? tileServer ||
+              'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
             : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png'
         }
       />

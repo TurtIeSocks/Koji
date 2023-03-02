@@ -7,7 +7,7 @@ use serde_json::Value;
 use crate::{
     db::{
         geofence, geofence_project, geofence_property, project, property, route,
-        sea_orm_active_enums::Category,
+        sea_orm_active_enums::Category, tile_server,
     },
     error::ModelError,
 };
@@ -24,6 +24,7 @@ pub trait JsonToModel {
     fn to_geofence_project(&self) -> Result<geofence_project::ActiveModel, ModelError>;
     fn to_property(&self) -> Result<property::ActiveModel, ModelError>;
     fn to_route(&self) -> Result<route::ActiveModel, ModelError>;
+    fn to_tileserver(&self) -> Result<tile_server::ActiveModel, ModelError>;
 }
 
 impl JsonToModel for Value {
@@ -335,6 +336,45 @@ impl JsonToModel for Value {
             }
         } else {
             Err(ModelError::Route(format!(
+                "model is not an object: {:?}",
+                self
+            )))
+        }
+    }
+
+    fn to_tileserver(&self) -> Result<tile_server::ActiveModel, ModelError> {
+        if let Some(incoming) = self.as_object() {
+            let name = if let Some(name) = incoming.get("name") {
+                name.as_str()
+            } else {
+                None
+            };
+            let url = if let Some(url) = incoming.get("url") {
+                url.as_str()
+            } else {
+                None
+            };
+            if let Some(name) = name {
+                if let Some(url) = url {
+                    Ok(tile_server::ActiveModel {
+                        name: Set(name.to_string()),
+                        url: Set(url.to_string()),
+                        ..Default::default()
+                    })
+                } else {
+                    Err(ModelError::TileServer(format!(
+                        "model does not have a url property: {:?}",
+                        self
+                    )))
+                }
+            } else {
+                Err(ModelError::TileServer(format!(
+                    "model does not have a name property: {:?}",
+                    self
+                )))
+            }
+        } else {
+            Err(ModelError::TileServer(format!(
                 "model is not an object: {:?}",
                 self
             )))
