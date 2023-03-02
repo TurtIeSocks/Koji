@@ -6,6 +6,7 @@ import type {
   KojiStats,
   FeatureCollection,
   StoreNoFn,
+  KojiTileServer,
 } from '@assets/types'
 import { collectionToObject } from '@services/utils'
 import { ALL_FENCES, ALL_ROUTES } from '@assets/constants'
@@ -22,11 +23,11 @@ export interface UseStatic {
   updateButton: boolean
   totalLoadingTime: number
   selected: string[]
+  tileServers: KojiTileServer[]
   kojiRoutes: { name: string; id: number; type: string }[]
   scannerRoutes: { name: string; id: number; type: string }[]
   scannerType: string
   dangerous: boolean
-  tileServer: string
   geojson: FeatureCollection
   layerEditing: {
     cutMode: boolean
@@ -79,6 +80,7 @@ export const useStatic = create<UseStatic>((set, get) => ({
   selected: [],
   scannerRoutes: [],
   kojiRoutes: [],
+  tileServers: [],
   instances: {},
   geofences: {},
   routes: [],
@@ -88,8 +90,6 @@ export const useStatic = create<UseStatic>((set, get) => ({
     type: 'FeatureCollection',
     features: [],
   },
-  tileServer:
-    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
   layerEditing: {
     cutMode: false,
     dragMode: false,

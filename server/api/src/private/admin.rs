@@ -67,6 +67,9 @@ async fn paginate(
             db::property::Query::paginate(&db.koji_db, page, per_page, order, sort_by, q).await
         }
         "route" => db::route::Query::paginate(&db.koji_db, page, per_page, order, sort_by, q).await,
+        "tileserver" => {
+            db::tile_server::Query::paginate(&db.koji_db, page, per_page, order, sort_by, q).await
+        }
         _ => Err(DbErr::Custom("Invalid Resource".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -92,6 +95,7 @@ async fn get_all(
         "project" => db::project::Query::get_json_cache(&db.koji_db).await,
         "property" => db::property::Query::get_json_cache(&db.koji_db).await,
         "route" => db::route::Query::get_json_cache(&db.koji_db).await,
+        "tileserver" => db::tile_server::Query::get_json_cache(&db.koji_db).await,
         _ => Err(DbErr::Custom("Invalid Resource".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -117,6 +121,7 @@ async fn get_one(
         "project" => db::project::Query::get_one_json_with_related(&db.koji_db, id).await,
         "property" => db::property::Query::get_one_json(&db.koji_db, id).await,
         "route" => db::route::Query::get_one_json(&db.koji_db, id).await,
+        "tileserver" => db::tile_server::Query::get_one_json(&db.koji_db, id).await,
         _ => Err(ModelError::Custom("Invalid Resource".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -144,6 +149,7 @@ async fn create(
         "project" => db::project::Query::upsert_json_return(&db.koji_db, 0, payload).await,
         "property" => db::property::Query::upsert_json_return(&db.koji_db, 0, payload).await,
         "route" => db::route::Query::upsert_json_return(&db.koji_db, 0, payload).await,
+        "tileserver" => db::tile_server::Query::upsert_json_return(&db.koji_db, 0, payload).await,
         _ => Err(ModelError::Custom("Invalid Resource".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -171,6 +177,7 @@ async fn update(
         "project" => db::project::Query::upsert_json_return(&db.koji_db, id, payload).await,
         "property" => db::property::Query::upsert_json_return(&db.koji_db, id, payload).await,
         "route" => db::route::Query::upsert_json_return(&db.koji_db, id, payload).await,
+        "tileserver" => db::tile_server::Query::upsert_json_return(&db.koji_db, id, payload).await,
         _ => Err(ModelError::Custom("Invalid Resource".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -196,6 +203,7 @@ async fn remove(
         "project" => db::project::Query::delete(&db.koji_db, id).await,
         "property" => db::property::Query::delete(&db.koji_db, id).await,
         "route" => db::route::Query::delete(&db.koji_db, id).await,
+        "tileserver" => db::tile_server::Query::delete(&db.koji_db, id).await,
         _ => Err(DbErr::Custom("Invalid Resource".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -223,6 +231,7 @@ async fn search(
         "project" => db::project::Query::search(&db.koji_db, search.query).await,
         "property" => db::property::Query::search(&db.koji_db, search.query).await,
         "route" => db::route::Query::search(&db.koji_db, search.query).await,
+        "tileserver" => db::tile_server::Query::search(&db.koji_db, search.query).await,
         _ => Err(DbErr::Custom("Invalid Resource".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;

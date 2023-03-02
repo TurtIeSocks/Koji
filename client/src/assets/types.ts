@@ -137,6 +137,10 @@ export interface KojiRoute extends BasicKojiEntry {
   geometry: MultiPoint
 }
 
+export interface KojiTileServer extends BasicKojiEntry {
+  url: string
+}
+
 export interface AdminGeofence extends KojiGeofence {
   properties: KojiGeoProperty[]
   projects: number[]

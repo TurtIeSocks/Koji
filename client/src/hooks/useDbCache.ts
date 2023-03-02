@@ -45,6 +45,7 @@ export const useDbCache = create<UseDbCache>((set, get) => ({
   geofence: {},
   scanner: {},
   feature: {},
+  tileServer: {},
   getOptions: (...args) => {
     const state = get()
     const returnObj: Record<KojiKey, DbOption> = {}

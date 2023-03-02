@@ -1,7 +1,6 @@
 import * as React from 'react'
 import { usePersist } from '@hooks/usePersist'
 import { MapContainer, TileLayer } from 'react-leaflet'
-import { useStatic } from '@hooks/useStatic'
 import { ATTRIBUTION } from '@assets/constants'
 
 interface Props {
@@ -15,7 +14,7 @@ interface Props {
 const Map = React.forwardRef<L.Map, Props>(
   ({ children, forcedLocation, forcedZoom, style, zoomControl }, ref) => {
     const { location, zoom } = usePersist.getState()
-    const tileServer = useStatic((s) => s.tileServer)
+    const tileServer = usePersist((s) => s.tileServer)
 
     return (
       <MapContainer

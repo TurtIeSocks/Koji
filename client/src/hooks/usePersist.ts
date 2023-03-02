@@ -15,6 +15,7 @@ export interface UsePersist {
   location: [number, number]
   zoom: number
   category: Category
+  tileServer: string
   tth: 'All' | 'Known' | 'Unknown'
   spawnpoint: boolean
   gym: boolean
@@ -67,6 +68,8 @@ export const usePersist = create(
       location: [0, 0],
       zoom: 18,
       category: 'pokestop',
+      tileServer:
+        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
       tth: 'All',
       spawnpoint: false,
       gym: true,

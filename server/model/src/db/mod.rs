@@ -24,6 +24,7 @@ pub mod property;
 pub mod route;
 pub mod sea_orm_active_enums;
 pub mod spawnpoint;
+pub mod tile_server;
 
 trait ToFeatureFromModel {
     fn to_feature(self, internal: bool) -> Result<Feature, ModelError>;

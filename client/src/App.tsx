@@ -70,9 +70,6 @@ export default function App() {
           setStore('location', [res.start_lat, res.start_lon])
         }
         setStatic('scannerType', res.scanner_type)
-        if (res.tile_server) {
-          setStatic('tileServer', res.tile_server)
-        }
         setStatic('dangerous', res.dangerous || false)
         if (!res.logged_in) {
           router.navigate('/login')
