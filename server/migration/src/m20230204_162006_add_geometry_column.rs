@@ -20,7 +20,7 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(Geofence::Table)
-                    .add_column_if_not_exists(ColumnDef::new(Geofence::Geometry).json())
+                    .add_column(ColumnDef::new(Geofence::Geometry).json())
                     .to_owned(),
             )
             .await?;
