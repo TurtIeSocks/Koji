@@ -20,6 +20,7 @@ import { useStatic } from '@hooks/useStatic'
 import { fetchWrapper, getKojiCache } from '@services/fetches'
 import { useDbCache } from '@hooks/useDbCache'
 import { useImportExport } from '@hooks/useExportImport'
+import { usePersist } from '@hooks/usePersist'
 
 const { add, remove, splitLine, activeRoute, updateProperty } =
   useShapes.getState().setters
@@ -175,6 +176,72 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
           }
         >
           Export Route
+        </Grid2>
+        <Grid2
+          xs={12}
+          component={Button}
+          disabled={loading}
+          onClick={async () => {
+            setLoading(true)
+            const { fast, route_chunk_size, routing_time } =
+              usePersist.getState()
+            const { setStatic } = useStatic.getState()
+            setStatic('loading', { [name]: null })
+            setStatic('totalLoadingTime', 0)
+            const start = Date.now()
+            await fetchWrapper<KojiResponse<Feature>>(`/api/v1/calc/reroute`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                data_points: Object.values(useShapes.getState().Point).map(
+                  (p) => [p.geometry.coordinates[1], p.geometry.coordinates[0]],
+                ),
+                return_type: 'feature',
+                fast,
+                route_chunk_size,
+                routing_time,
+                instance: name,
+                mode,
+              }),
+            }).then((res) => {
+              if (res) {
+                useStatic.setState({
+                  networkStatus: {
+                    message: 'Saved successfully!',
+                    status: 200,
+                    severity: 'success',
+                  },
+                })
+                const end = Date.now() - start
+                if (res.stats) {
+                  setStatic('loading', (prev) => ({
+                    ...prev,
+                    [name]: {
+                      ...res.stats,
+                      fetch_time: end,
+                    },
+                  }))
+                }
+                const newFeature = {
+                  ...feature,
+                  ...res.data,
+                  id:
+                    feature.properties?.__multipoint_id ||
+                    feature.id.toString(),
+                  properties: { ...res.data.properties, ...feature.properties },
+                }
+                setStatic('totalLoadingTime', end)
+                removeCheck()
+                activeRoute()
+                add(newFeature)
+              }
+              setLoading(false)
+            })
+          }}
+        >
+          Reroute
         </Grid2>
         <Grid2 xs={12}>
           <ButtonGroup>

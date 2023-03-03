@@ -1,6 +1,6 @@
 [package]
 name = "algorithms"
-version = "0.4.2"
+version = "0.4.3"
 edition = "2021"
 publish = false
 
@@ -9,7 +9,7 @@ name = "algorithms"
 path = "src/lib.rs"
 
 [dependencies]
-geo = "0.22.1"
+geo = "0.23.1"
 geohash = "0.12.0"
 geojson = "0.24.0"
 log = "0.4.17"

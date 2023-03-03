@@ -1,5 +1,6 @@
-use geo::{CoordsIter, MultiPolygon};
+use geo::{algorithm::RemoveRepeatedPoints, CoordsIter, MultiPolygon};
 use geo_repair::repair::Repair;
+use geo_types::MultiPoint;
 use sea_orm::ActiveEnum;
 
 use super::*;
@@ -55,22 +56,16 @@ impl FeatureHelpers for Feature {
     /// Removes the last point if it matches the first point in a multipoint feature
     fn remove_last_coord(self) -> Self {
         if let Some(geometry) = self.geometry {
-            let geometry = match geometry.value {
-                Value::MultiPoint(value) => {
-                    let mut new_value = value;
-                    if let Some(first) = new_value.first() {
-                        if let Some(last) = new_value.last() {
-                            if first == last {
-                                new_value.pop();
-                            }
-                        };
-                    }
+            let geometry = match MultiPoint::<f64>::try_from(&geometry) {
+                Ok(mp) => {
+                    let mp = mp.remove_repeated_points();
+                    let new_value = mp.into_iter().map(|p| vec![p.x(), p.y()]).collect();
                     Geometry {
                         value: Value::MultiPoint(new_value),
                         ..geometry
                     }
                 }
-                _ => geometry,
+                Err(_) => geometry,
             };
             Self {
                 geometry: Some(geometry),

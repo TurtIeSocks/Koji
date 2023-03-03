@@ -141,11 +141,19 @@ async fn cluster(
 
     let mut stats = Stats::new();
     let enum_type = if category == "gym" {
-        Type::CircleSmartRaid
+        if scanner_type == "rdm" {
+            Type::CircleSmartRaid
+        } else {
+            Type::CircleRaid
+        }
     } else if category == "pokestop" {
         Type::CircleQuest
     } else {
-        Type::CircleSmartPokemon
+        if scanner_type == "rdm" {
+            Type::CircleSmartPokemon
+        } else {
+            Type::CirclePokemon
+        }
     };
 
     let area = utils::create_or_find_collection(&instance, scanner_type, &conn, area, &data_points)
@@ -265,6 +273,62 @@ async fn cluster(
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }
+
+    Ok(utils::response::send(
+        feature,
+        return_type,
+        Some(stats),
+        benchmark_mode,
+        Some(instance),
+    ))
+}
+
+#[post("/reroute")]
+async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
+    let ArgsUnwrapped {
+        benchmark_mode,
+        data_points,
+        return_type,
+        routing_time,
+        route_chunk_size,
+        fast,
+        instance,
+        mode,
+        ..
+    } = payload.into_inner().init(Some("reroute"));
+    let mut stats = Stats::new();
+    stats.total_clusters = data_points.len();
+
+    log::info!("Routing for {} seconds...", routing_time);
+
+    let tour = tsp::multi(&data_points, route_chunk_size, routing_time, fast);
+    log::info!("Tour Length {}", tour.len());
+
+    let mut final_clusters = Vec::<PointArray>::new();
+
+    for index in tour.into_iter() {
+        let [lat, lon] = data_points[index];
+        final_clusters.push([lat, lon]);
+    }
+
+    for (i, point) in final_clusters.iter().enumerate() {
+        let point = Point::new(point[1], point[0]);
+        let point2 = if i == final_clusters.len() - 1 {
+            Point::new(final_clusters[0][1], final_clusters[0][0])
+        } else {
+            Point::new(final_clusters[i + 1][1], final_clusters[i + 1][0])
+        };
+        let distance = point.haversine_distance(&point2);
+        stats.total_distance += distance;
+        if distance > stats.longest_distance {
+            stats.longest_distance = distance;
+        }
+    }
+
+    let feature = final_clusters
+        .to_feature(Some(mode.clone()))
+        .remove_last_coord();
+    let feature = feature.to_collection(Some(instance.clone()), Some(mode));
 
     Ok(utils::response::send(
         feature,

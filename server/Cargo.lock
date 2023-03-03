@@ -305,7 +305,7 @@ dependencies = [
 
 [[package]]
 name = "algorithms"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "geo",
  "geohash",
@@ -358,7 +358,7 @@ checksum = "2cb2f989d18dd141ab8ae82f64d1a8cdd37e0840f73a406896cf5e99502fab61"
 
 [[package]]
 name = "api"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "actix-files",
  "actix-session",
@@ -1417,9 +1417,9 @@ dependencies = [
 
 [[package]]
 name = "geo"
-version = "0.22.1"
+version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0943f2fcf1e21429a6d3a9842308ee363a6d9018fda475c47c564156d44eef3"
+checksum = "b39f57e9624b1a17ce621375464e9878c705d0aaadaf25cb44e4e0005a16de2f"
 dependencies = [
  "float_next_after",
  "geo-types",
@@ -1444,7 +1444,7 @@ dependencies = [
 
 [[package]]
 name = "geo_repair"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "byteorder",
  "geo",
@@ -1829,7 +1829,7 @@ dependencies = [
 
 [[package]]
 name = "koji"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "api",
  "dotenv",
@@ -2013,11 +2013,12 @@ dependencies = [
 
 [[package]]
 name = "model"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "chrono",
  "futures",
  "geo",
+ "geo-types",
  "geo_repair",
  "geojson",
  "log",
