@@ -5,7 +5,7 @@ use geojson::{Geometry, Value};
 use model::{
     api::{
         args::{Args, ArgsUnwrapped},
-        GeometryHelpers, ToCollection, ToFeature,
+        FeatureHelpers, GeometryHelpers, ToCollection, ToFeature,
     },
     db::sea_orm_active_enums::Type,
 };
@@ -22,6 +22,11 @@ async fn convert_data(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     } = payload.into_inner().init(Some("convert_data"));
 
     let area = if arg_simplify { area.simplify() } else { area };
+    let area = area
+        .into_iter()
+        .map(|feat| feat.remove_internal_props())
+        .collect();
+
     Ok(utils::response::send(
         area,
         return_type,
