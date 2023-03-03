@@ -167,7 +167,7 @@ export interface KojiResponse<T = FeatureCollection> {
   status_code: number
   status: string
   message: string
-  stats?: KojiStats
+  stats: KojiStats
 }
 
 export interface DbOption

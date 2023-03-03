@@ -125,6 +125,7 @@ pub async fn start() -> io::Result<()> {
                         .service(
                             web::scope("/calc")
                                 .service(public::v1::calculate::bootstrap)
+                                .service(public::v1::calculate::reroute)
                                 .service(public::v1::calculate::cluster),
                         )
                         .service(

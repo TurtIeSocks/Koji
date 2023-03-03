@@ -1,6 +1,6 @@
 [package]
 name = "model"
-version = "0.5.3"
+version = "0.5.4"
 edition = "2021"
 publish = false
 
@@ -11,8 +11,9 @@ path = "src/lib.rs"
 [dependencies]
 chrono = { version = "0.4.19", features = ["serde"] }
 futures = "0.3.25"
-geo = "0.22.1"
+geo = "0.23.1"
 geojson = "0.24.0"
+geo-types = "0.7.8"
 geo_repair = { path = "../geo_repair" }
 log = "0.4.17"
 num-traits = "0.2.15"

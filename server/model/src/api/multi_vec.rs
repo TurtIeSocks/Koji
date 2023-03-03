@@ -8,12 +8,13 @@ impl ValueHelpers for MultiVec {
             Type::AutoQuest | Type::PokemonIv | Type::AutoPokemon | Type::AutoTth => {
                 self.multi_polygon()
             }
-            Type::CirclePokemon
+            Type::Unset
+            | Type::CirclePokemon
             | Type::CircleSmartPokemon
             | Type::CircleRaid
             | Type::CircleSmartRaid
             | Type::CircleQuest => self.multi_point(),
-            Type::Leveling | Type::Unset => self.point(),
+            Type::Leveling => self.point(),
         }
     }
     fn point(self) -> Value {

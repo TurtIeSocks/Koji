@@ -4,7 +4,7 @@ use geojson::JsonValue;
 
 use crate::{
     api::{collection::Default, text::TextHelpers},
-    utils::get_enum_by_geometry_string,
+    utils::{get_enum, get_enum_by_geometry_string},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -100,6 +100,7 @@ pub struct Args {
     pub geometry_type: Option<String>,
     pub sort_by: Option<SortBy>,
     pub tth: Option<SpawnpointTth>,
+    pub mode: Option<String>,
 }
 
 pub struct ArgsUnwrapped {
@@ -122,10 +123,11 @@ pub struct ArgsUnwrapped {
     pub simplify: bool,
     pub sort_by: SortBy,
     pub tth: SpawnpointTth,
+    pub mode: Type,
 }
 
 impl Args {
-    pub fn init(self, mode: Option<&str>) -> ArgsUnwrapped {
+    pub fn init(self, input: Option<&str>) -> ArgsUnwrapped {
         let Args {
             area,
             benchmark_mode,
@@ -147,6 +149,7 @@ impl Args {
             geometry_type,
             sort_by,
             tth,
+            mode,
         } = self;
         let enum_type = get_enum_by_geometry_string(geometry_type);
         let (area, default_return_type) = if let Some(area) = area {
@@ -206,10 +209,11 @@ impl Args {
         let simplify = simplify.unwrap_or(false);
         let sort_by = sort_by.unwrap_or(SortBy::GeoHash);
         let tth = tth.unwrap_or(SpawnpointTth::All);
-        if let Some(mode) = mode {
-            println!(
+        let mode = get_enum(mode);
+        if let Some(input) = input {
+            log::info!(
                 "[{}]: Instance: {} | Custom Area: {} | Custom Data Points: {}\nRadius: | {} Min Points: {} | Generations: {} | Routing Time: {} | Devices: {} | Fast: {}\nOnly Unique: {}, Last Seen: {}\nReturn Type: {:?}",
-                mode.to_uppercase(), instance, !area.features.is_empty(), !data_points.is_empty(), radius, min_points, generations, routing_time, devices, fast, only_unique, last_seen, return_type,
+                input.to_uppercase(), instance, !area.features.is_empty(), !data_points.is_empty(), radius, min_points, generations, routing_time, devices, fast, only_unique, last_seen, return_type,
             );
         };
         ArgsUnwrapped {
@@ -232,6 +236,7 @@ impl Args {
             simplify,
             sort_by,
             tth,
+            mode,
         }
     }
 }
@@ -309,7 +314,7 @@ impl Stats {
                 if replace { "||" } else { "==" }
             )
         };
-        println!(
+        log::info!(
             "\n{}{}{}{}{}{}  {}==\n",
             get_row("[STATS] ".to_string(), false),
             if let Some(area) = area {
