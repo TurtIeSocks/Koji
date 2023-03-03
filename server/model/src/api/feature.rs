@@ -81,8 +81,10 @@ impl FeatureHelpers for Feature {
         }
     }
     /// Removes internally used properties that start with `__`
-    fn remove_internal_props(&mut self) {
-        self.properties = Some(
+    fn remove_internal_props(self) -> Self {
+        let mut mutable_self = self.to_owned();
+        mutable_self.id = None;
+        mutable_self.properties = Some(
             self.properties_iter()
                 .filter_map(|(key, val)| {
                     if key.starts_with("__") {
@@ -93,6 +95,7 @@ impl FeatureHelpers for Feature {
                 })
                 .collect(),
         );
+        mutable_self
     }
 }
 

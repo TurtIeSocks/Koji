@@ -19,15 +19,13 @@ import { KojiKey } from '@assets/types'
 import RawManager from '@components/dialogs/Manager'
 import ImportWizard from '@components/dialogs/import/ImportWizard'
 import ConvertDialog from '@components/dialogs/Convert'
+import { useImportExport } from '@hooks/useExportImport'
 
-import PolygonDialog from '../../dialogs/Polygon'
 import InstanceSelect from '../inputs/Instance'
 import StyledSubheader from '../../styled/Subheader'
 import SelectProject from '../inputs/SelectProject'
 
 export default function ImportExport() {
-  const [open, setOpen] = React.useState('')
-  const [exportAll, setExportAll] = React.useState(false)
   const geojson = useStatic((s) => s.geojson)
   const setStatic = useStatic((s) => s.setStatic)
 
@@ -56,12 +54,28 @@ export default function ImportExport() {
         </ListItemIcon>
         <ListItemText primary="Import Wizard" />
       </ListItemButton>
-      <ListItemButton onClick={() => setOpen('polygon')}>
+      <ListItemButton
+        onClick={() => {
+          useImportExport.setState({ open: 'importPolygon' })
+        }}
+      >
         <ListItemIcon>
           <Code />
         </ListItemIcon>
-        <ListItemText primary="Geofence Input" />
+        <ListItemText primary="Import Polygons" />
       </ListItemButton>
+
+      <ListItemButton
+        onClick={() => {
+          useImportExport.setState({ open: 'importRoute' })
+        }}
+      >
+        <ListItemIcon>
+          <Code />
+        </ListItemIcon>
+        <ListItemText primary="Import Routes" />
+      </ListItemButton>
+
       <InstanceSelect
         controlled
         initialState={[
@@ -100,8 +114,15 @@ export default function ImportExport() {
       <StyledSubheader>Export</StyledSubheader>
       <ListItemButton
         onClick={() => {
-          setExportAll(true)
-          setOpen('polygon')
+          useImportExport.setState({
+            open: 'exportPolygon',
+            feature: {
+              ...geojson,
+              features: geojson.features.filter((feat) =>
+                feat.geometry.type.includes('Polygon'),
+              ),
+            },
+          })
         }}
       >
         <ListItemIcon>
@@ -111,8 +132,15 @@ export default function ImportExport() {
       </ListItemButton>
       <ListItemButton
         onClick={() => {
-          setExportAll(true)
-          setOpen('route')
+          useImportExport.setState({
+            open: 'exportRoute',
+            feature: {
+              ...geojson,
+              features: geojson.features.filter(
+                (feat) => feat.geometry.type === 'MultiPoint',
+              ),
+            },
+          })
         }}
       >
         <ListItemIcon>
@@ -125,7 +153,9 @@ export default function ImportExport() {
       <ListItemButton
         onClick={() => {
           useShapes.getState().setters.activeRoute()
-          return setOpen('rawManager')
+          useStatic.setState((prev) => ({
+            dialogs: { ...prev.dialogs, manager: true },
+          }))
         }}
       >
         <ListItemIcon>
@@ -145,44 +175,7 @@ export default function ImportExport() {
         </ListItemIcon>
         <ListItemText primary="Conversion Playground" />
       </ListItemButton>
-
-      <PolygonDialog
-        mode={exportAll ? 'exportAll' : 'import'}
-        open={open}
-        setOpen={setOpen}
-        feature={{
-          ...geojson,
-          features: geojson.features.filter((feat) =>
-            feat.geometry.type.includes('Polygon'),
-          ),
-        }}
-      />
-      <PolygonDialog
-        mode={exportAll ? 'exportAll' : 'import'}
-        open={open}
-        setOpen={setOpen}
-        feature={{
-          ...geojson,
-          features: geojson.features.filter(
-            (feat) => feat.geometry.type === 'MultiPoint',
-          ),
-        }}
-        route
-      />
-
-      {/* <ExportRoute
-        open={open}
-        setOpen={setOpen}
-        geojson={{
-          ...geojson,
-          features: geojson.features.filter(
-            (feat) =>
-              feat.geometry.type === 'Point' ||
-              feat.geometry.type === 'MultiPoint',
-          ),
-        }}
-      /> */}
-      <RawManager open={open} setOpen={setOpen} geojson={geojson} />
+      <RawManager />
       <ImportWizard />
       <ConvertDialog />
     </List>

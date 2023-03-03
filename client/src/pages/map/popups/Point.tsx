@@ -13,13 +13,13 @@ import geohash from 'ngeohash'
 import type { MultiPoint } from 'geojson'
 
 import { Feature, KojiResponse, KojiRoute, PopupProps } from '@assets/types'
-import ExportImport from '@components/dialogs/Polygon'
 import { useShapes } from '@hooks/useShapes'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import { RDM_ROUTES, UNOWN_ROUTES } from '@assets/constants'
 import { useStatic } from '@hooks/useStatic'
 import { fetchWrapper, getKojiCache } from '@services/fetches'
 import { useDbCache } from '@hooks/useDbCache'
+import { useImportExport } from '@hooks/useExportImport'
 
 const { add, remove, splitLine, activeRoute, updateProperty } =
   useShapes.getState().setters
@@ -31,7 +31,6 @@ interface Props extends PopupProps {
 }
 
 export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
-  const [open, setOpen] = React.useState('')
   const feature = useShapes((s) => s[geoType][id])
   const { setRecord, geofence } = useDbCache.getState()
 
@@ -160,7 +159,21 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
         <Grid2 xs={12} my={1} component={Button} onClick={() => removeCheck()}>
           Remove All
         </Grid2>
-        <Grid2 xs={12} component={Button} onClick={() => setOpen('route')}>
+        <Grid2
+          xs={12}
+          component={Button}
+          onClick={() =>
+            useImportExport.setState({
+              open: 'exportRoute',
+              feature:
+                typeof id === 'string'
+                  ? useShapes.getState().MultiPoint[
+                      feature.properties.__multipoint_id || ''
+                    ]
+                  : useShapes.getState().getters.getPointsAsMp(),
+            })
+          }
+        >
           Export Route
         </Grid2>
         <Grid2 xs={12}>
@@ -257,21 +270,6 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
           </ButtonGroup>
         </Grid2>
       </Grid2>
-      {open && (
-        <ExportImport
-          open={open}
-          setOpen={setOpen}
-          route
-          mode="export"
-          feature={
-            typeof id === 'string'
-              ? useShapes.getState().MultiPoint[
-                  feature.properties.__multipoint_id || ''
-                ]
-              : useShapes.getState().getters.getPointsAsMp()
-          }
-        />
-      )}
     </div>
   ) : null
 }

@@ -25,7 +25,6 @@ import type {
   // KojiKey,
   KojiModes,
 } from '@assets/types'
-import ExportPolygon from '@components/dialogs/Polygon'
 import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
 import { useDbCache } from '@hooks/useDbCache'
@@ -36,6 +35,7 @@ import {
   splitMultiPolygons,
 } from '@services/utils'
 import shallow from 'zustand/shallow'
+import { useImportExport } from '@hooks/useExportImport'
 
 const { add, remove, updateProperty } = useShapes.getState().setters
 const { setRecord } = useDbCache.getState()
@@ -55,7 +55,6 @@ export function PolygonPopup({
       shallow,
     ) || refFeature
 
-  const [open, setOpen] = React.useState('')
   const [active, setActive] = React.useState<{
     spawnpoint: number | null | string
     gym: number | null | string
@@ -210,7 +209,7 @@ export function PolygonPopup({
         <MenuItem
           dense
           onClick={() => {
-            setOpen('polygon')
+            useImportExport.setState({ feature, open: 'exportPolygon' })
             handleClose()
           }}
         >
@@ -405,15 +404,6 @@ export function PolygonPopup({
           Update Scanner
         </MenuItem> */}
       </Menu>
-
-      {open && (
-        <ExportPolygon
-          mode="export"
-          open={open}
-          setOpen={setOpen}
-          feature={feature}
-        />
-      )}
     </React.Fragment>
   ) : null
 }

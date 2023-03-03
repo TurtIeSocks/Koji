@@ -11,6 +11,8 @@ import Main from '@components/styled/Main'
 import Loading from '@components/Loading'
 import NetworkAlert from '@components/notifications/NetworkStatus'
 import { getFullCache } from '@services/fetches'
+import { ExportPolygon, ImportPolygon } from '@components/dialogs/Polygon'
+import { ExportRoute, ImportRoute } from '@components/dialogs/Route'
 
 import Markers from './markers'
 import Interface from './interface'
@@ -66,6 +68,10 @@ export default function MapWrapper() {
           <Polygons />
         </Map>
         <NetworkAlert />
+        <ImportPolygon />
+        <ExportPolygon />
+        <ImportRoute />
+        <ExportRoute />
       </Main>
     </Box>
   )

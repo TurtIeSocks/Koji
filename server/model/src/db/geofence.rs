@@ -92,21 +92,20 @@ impl Model {
         db: &DatabaseConnection,
         internal: bool,
     ) -> Result<Feature, ModelError> {
-        let properties = if internal {
-            vec![
-                json!({ "name": "__id", "value": self.id }),
-                json!({ "name": "__name", "value": self.name }),
-                json!({ "name": "__mode", "value": self.mode.to_value() }),
-            ]
-        } else {
-            self.get_related_properties()
-                .into_model::<FullPropertyModel>()
-                .all(db)
-                .await?
-                .into_iter()
-                .map(|prop| prop.parse_db_value(&self))
-                .collect()
-        };
+        let mut properties = self
+            .get_related_properties()
+            .into_model::<FullPropertyModel>()
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|prop| prop.parse_db_value(&self))
+            .collect::<Vec<serde_json::Value>>();
+
+        if internal {
+            properties.push(json!({ "name": "__id", "value": self.id }));
+            properties.push(json!({ "name": "__name", "value": self.name }));
+            properties.push(json!({ "name": "__mode", "value": self.mode.to_value() }));
+        }
 
         let mut feature = Feature {
             geometry: Some(Geometry::from_json_value(self.geometry)?),
