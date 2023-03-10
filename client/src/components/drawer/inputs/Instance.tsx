@@ -82,7 +82,7 @@ export default function InstanceSelect({
           fetchWrapper<KojiResponse<Feature>>(
             `/internal/routes/one/${koji ? 'koji' : 'scanner'}/${
               options[a].id
-            }/${options[a].mode || 'Unset'}`,
+            }/${options[a].mode || 'unset'}`,
           ).then((resp) => {
             return resp?.data
           }),
@@ -176,10 +176,10 @@ export default function InstanceSelect({
         handleHomeEndKeys
         disableCloseOnSelect
         fullWidth
-        groupBy={(option) => options[option as KojiKey]?.mode || 'Unset'}
+        groupBy={(option) => options[option as KojiKey]?.mode || 'unset'}
         options={Object.keys(options).sort((a, b) =>
-          (options[a as KojiKey].mode || 'Unset').localeCompare(
-            options[b as KojiKey].mode || 'Unset',
+          (options[a as KojiKey].mode || 'unset').localeCompare(
+            options[b as KojiKey].mode || 'unset',
           ),
         )}
         renderTags={(val) => (
@@ -234,12 +234,12 @@ export default function InstanceSelect({
                       ? selected.filter(
                           (v) =>
                             !allValues.includes(v) ||
-                            (options[v]?.mode || 'Unset') !== group,
+                            (options[v]?.mode || 'unset') !== group,
                         )
                       : [
                           ...allValues,
                           ...selected.filter(
-                            (v) => (options[v]?.mode || 'Unset') !== group,
+                            (v) => (options[v]?.mode || 'unset') !== group,
                           ),
                         ],
                   )

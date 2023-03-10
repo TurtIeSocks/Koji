@@ -4,6 +4,7 @@ import distance from '@turf/distance'
 
 import type { Conversions, Feature, FeatureCollection } from '@assets/types'
 import { convert } from '@services/fetches'
+
 import { UsePersist, usePersist } from './usePersist'
 
 export interface UseImportExport {
@@ -87,25 +88,21 @@ export const useImportExport = create<UseImportExport>((set, get) => ({
         geometry,
       ).then((geojson) => {
         if (geojson.type === 'FeatureCollection') {
-          useImportExport.setState({
+          set({
             feature: {
               ...geojson,
               features: geojson.features.map((f) => ({
                 ...f,
-                id:
-                  f.id ??
-                  `${f.properties?.__name || f.geometry.type}__${
-                    f.properties?.__mode || 'Unset'
-                  }`,
+                // id: f.id ?? getKey(),
               })),
             },
           })
         }
       })
-      useImportExport.setState({ error: '' })
+      set({ error: '' })
     } catch (e) {
       if (e instanceof Error) {
-        useImportExport.setState({ error: e.message })
+        set({ error: e.message })
       }
     }
   },

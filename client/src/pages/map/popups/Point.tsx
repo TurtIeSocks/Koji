@@ -19,7 +19,7 @@ import { RDM_ROUTES, UNOWN_ROUTES } from '@assets/constants'
 import { useStatic } from '@hooks/useStatic'
 import { fetchWrapper, getKojiCache } from '@services/fetches'
 import { useDbCache } from '@hooks/useDbCache'
-import { useImportExport } from '@hooks/useExportImport'
+import { useImportExport } from '@hooks/useImportExport'
 import { usePersist } from '@hooks/usePersist'
 
 const { add, remove, splitLine, activeRoute, updateProperty } =

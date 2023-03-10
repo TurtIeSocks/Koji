@@ -92,7 +92,7 @@ export type KojiModes =
   | typeof RDM_ROUTES[number]
   | typeof UNOWN_FENCES[number]
   | typeof UNOWN_ROUTES[number]
-  | 'Unset'
+  | 'unset'
 
 export type KojiKey = `${number}__${KojiModes}__${
   | 'KOJI'

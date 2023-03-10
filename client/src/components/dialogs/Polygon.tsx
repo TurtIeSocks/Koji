@@ -1,6 +1,6 @@
 import * as React from 'react'
 
-import { useImportExport } from '@hooks/useExportImport'
+import { useImportExport } from '@hooks/useImportExport'
 
 import { ImportExportDialog } from './ImportExport'
 

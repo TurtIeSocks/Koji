@@ -10,7 +10,7 @@ import useDeepCompareEffect from 'use-deep-compare-effect'
 import SplitMultiPolygonsBtn from '@components/buttons/SplitMultiPolygons'
 import MultiOptions from '@components/drawer/inputs/MultiOptions'
 import { CONVERSION_TYPES } from '@assets/constants'
-import { useImportExport } from '@hooks/useExportImport'
+import { useImportExport } from '@hooks/useImportExport'
 import ClipboardButton from '@components/drawer/inputs/Clipboard'
 import { useShapes } from '@hooks/useShapes'
 import { usePersist } from '@hooks/usePersist'
@@ -100,10 +100,10 @@ export function ImportExportDialog({
         <Button
           disabled={!!error}
           onClick={() => {
-            reset()
             if (mode === 'Import' && feature.type === 'FeatureCollection') {
               add(feature.features)
             }
+            reset()
           }}
         >
           {mode === 'Import' ? 'Import' : 'Close'}

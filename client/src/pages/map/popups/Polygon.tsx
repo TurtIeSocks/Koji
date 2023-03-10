@@ -35,7 +35,7 @@ import {
   splitMultiPolygons,
 } from '@services/utils'
 import shallow from 'zustand/shallow'
-import { useImportExport } from '@hooks/useExportImport'
+import { useImportExport } from '@hooks/useImportExport'
 
 const { add, remove, updateProperty } = useShapes.getState().setters
 const { setRecord } = useDbCache.getState()
@@ -148,7 +148,7 @@ export function PolygonPopup({
           <Select
             size="small"
             fullWidth
-            value={mode === 'Unset' ? '' : mode || ''}
+            value={mode === 'unset' ? '' : mode || ''}
             onChange={async ({ target }) => setMode(target.value as KojiModes)}
             onBlur={() =>
               updateProperty(feature.geometry.type, feature.id, '__mode', mode)
@@ -336,7 +336,7 @@ export function PolygonPopup({
                     severity: 'success',
                   },
                 })
-                const { geometry, mode: newMode = 'Unset', ...rest } = res.data
+                const { geometry, mode: newMode = 'unset', ...rest } = res.data
                 const newId = `${rest.id}__${newMode}__KOJI` as const
                 setRecord('geofence', rest.id, {
                   ...rest,
