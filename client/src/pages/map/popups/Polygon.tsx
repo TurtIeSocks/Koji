@@ -14,7 +14,6 @@ import {
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { MultiPolygon, Polygon } from 'geojson'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
-import intersect from '@turf/intersect'
 
 import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
 import type {
@@ -22,7 +21,6 @@ import type {
   KojiResponse,
   Feature,
   DbOption,
-  // KojiKey,
   KojiModes,
 } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
@@ -36,6 +34,7 @@ import {
 } from '@services/utils'
 import shallow from 'zustand/shallow'
 import { useImportExport } from '@hooks/useImportExport'
+import { filterPoints, filterPolys } from '@services/geoUtils'
 
 const { add, remove, updateProperty } = useShapes.getState().setters
 const { setRecord } = useDbCache.getState()
@@ -184,9 +183,6 @@ export function PolygonPopup({
         </Grid2>
         <Divider flexItem sx={{ my: 1, color: 'black', width: '90%' }} />
         <Grid2 xs={12}>
-          <Typography variant="h6" gutterBottom>
-            Action Menus
-          </Typography>
           <ButtonGroup>
             <Button
               size="small"
@@ -224,29 +220,17 @@ export function PolygonPopup({
         >
           Remove
         </MenuItem>
-        <MenuItem
-          dense
-          onClick={() => {
-            const { Polygon, MultiPolygon } = useShapes.getState()
-            const all = { ...Polygon, ...MultiPolygon }
-            Object.entries(all).forEach(([key, value]) => {
-              if (intersect(feature, value)) remove(value.geometry.type, key)
-            })
-          }}
-        >
+        <MenuItem dense onClick={() => filterPolys(feature, true)}>
           Remove Intersecting Polys
         </MenuItem>
-        <MenuItem
-          dense
-          onClick={() => {
-            const { Polygon, MultiPolygon } = useShapes.getState()
-            const all = { ...Polygon, ...MultiPolygon }
-            Object.entries(all).forEach(([key, value]) => {
-              if (!intersect(feature, value)) remove(value.geometry.type, key)
-            })
-          }}
-        >
+        <MenuItem dense onClick={() => filterPolys(feature)}>
           Remove Non-Intersecting Polys
+        </MenuItem>
+        <MenuItem dense onClick={() => filterPoints(feature, true)}>
+          Remove Contained Points
+        </MenuItem>
+        <MenuItem dense onClick={() => filterPoints(feature)}>
+          Remove Non-Contained Points
         </MenuItem>
         {...feature.geometry.type === 'MultiPolygon'
           ? [
