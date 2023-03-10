@@ -1,5 +1,5 @@
-use geo::{algorithm::RemoveRepeatedPoints, CoordsIter, MultiPolygon};
-use geo_repair::repair::Repair;
+use geo::algorithm::RemoveRepeatedPoints;
+// use geo_repair::repair::Repair;
 use geo_types::MultiPoint;
 use sea_orm::ActiveEnum;
 
@@ -124,21 +124,26 @@ impl ToMultiVec for Feature {
         if let Some(geometry) = self.geometry {
             match geometry.value {
                 Value::MultiPolygon(_) => {
-                    let mp = MultiPolygon::<Precision>::try_from(geometry.clone()).unwrap();
-                    let repaired = mp.repair();
-                    if let Some(repaired) = repaired {
-                        let local: single_vec::SingleVec = repaired
-                            .exterior_coords_iter()
-                            .map(|coord| [coord.y as Precision, coord.x as Precision])
-                            .collect();
-                        println!("Repaired a Polygon");
-                        return_value.push(local);
-                    } else {
-                        geometry
-                            .to_feature_vec()
-                            .into_iter()
-                            .for_each(|f| return_value.push(f.to_single_vec()))
-                    }
+                    // let mp = MultiPolygon::<Precision>::try_from(geometry.clone()).unwrap();
+                    // let repaired = mp.repair();
+                    geometry
+                        .to_feature_vec()
+                        .into_iter()
+                        .for_each(|f| return_value.push(f.to_single_vec()))
+
+                    // if let Some(repaired) = repaired {
+                    //     let local: single_vec::SingleVec = repaired
+                    //         .exterior_coords_iter()
+                    //         .map(|coord| [coord.y as Precision, coord.x as Precision])
+                    //         .collect();
+                    //     log::info!("Repaired a Polygon");
+                    //     return_value.push(local);
+                    // } else {
+                    //     geometry
+                    //         .to_feature_vec()
+                    //         .into_iter()
+                    //         .for_each(|f| return_value.push(f.to_single_vec()))
+                    // }
                 }
                 Value::GeometryCollection(geometries) => geometries.into_iter().for_each(|g| {
                     let value = g.to_single_vec();

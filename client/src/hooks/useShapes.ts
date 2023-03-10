@@ -144,7 +144,7 @@ export const useShapes = create<UseShapes>((set, get) => ({
       const { Point, MultiPoint } = get()
       const { __forward, __backward, __mode, __multipoint_id, ...rest } =
         Object.values(Point)[0]?.properties || {}
-      const id = __multipoint_id || `0__${__mode || 'Unset'}__CLIENT`
+      const id = __multipoint_id || `0__${__mode || 'unset'}__CLIENT`
       return {
         id,
         type: 'Feature',
@@ -173,11 +173,7 @@ export const useShapes = create<UseShapes>((set, get) => ({
         if (source) {
           setRecord('feature', feature.id as KojiKey, feature)
         }
-        const id =
-          feature.id ??
-          `${feature.properties?.__name}__${
-            feature.properties?.__mode || ''
-          }${source}`
+        const id = feature.id ?? getKey()
         set((state) => ({
           [feature.geometry.type]: {
             ...state[feature.geometry.type],

@@ -73,7 +73,7 @@ export default function SelectProject({
           featureCache[a[1]] ||
           fetchWrapper<KojiResponse<Feature>>(
             `/internal/routes/one/koji/${a[0]}/${
-              geofenceCache[a[0]]?.mode || 'Unset'
+              geofenceCache[a[0]]?.mode || 'unset'
             }&internal=true`,
           ).then((resp) => {
             return resp?.data

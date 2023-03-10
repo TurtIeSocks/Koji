@@ -19,7 +19,7 @@ import { KojiKey } from '@assets/types'
 import RawManager from '@components/dialogs/Manager'
 import ImportWizard from '@components/dialogs/import/ImportWizard'
 import ConvertDialog from '@components/dialogs/Convert'
-import { useImportExport } from '@hooks/useExportImport'
+import { useImportExport } from '@hooks/useImportExport'
 
 import InstanceSelect from '../inputs/Instance'
 import StyledSubheader from '../../styled/Subheader'

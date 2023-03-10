@@ -2,7 +2,7 @@ import * as React from 'react'
 import TextField from '@mui/material/TextField'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 
-import { useImportExport } from '@hooks/useExportImport'
+import { useImportExport } from '@hooks/useImportExport'
 
 import { ImportExportDialog } from './ImportExport'
 
