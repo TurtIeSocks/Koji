@@ -41,15 +41,12 @@ export function KojiLineString({
             opacity,
             pmIgnore: true,
             snapIgnore: true,
-            size: '50m',
+            size: '30m',
             offsets: { end: `${dis / 2}m` },
           })
         }
       }}
-      positions={[
-        [coordinates[0][1], coordinates[0][0]],
-        [coordinates[1][1], coordinates[1][0]],
-      ]}
+      positions={coordinates.map((c) => [c[1], c[0]])}
       color={color}
       opacity={opacity}
       fillOpacity={fillOpacity}

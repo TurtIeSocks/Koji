@@ -2,6 +2,7 @@ import * as React from 'react'
 import type { Point } from 'geojson'
 import { Circle, Tooltip } from 'react-leaflet'
 import * as L from 'leaflet'
+import geohash from 'ngeohash'
 
 import type { Feature, DbOption, KojiKey } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
@@ -92,7 +93,13 @@ export function KojiPoint({
           dbRef={dbRef}
         />
       </BasePopup>
-      {!!index && <Tooltip direction="top">{index}</Tooltip>}
+      {!!index && (
+        <Tooltip direction="top">
+          {index} -
+          {process.env.NODE_ENV === 'development' &&
+            geohash.encode(lat, lon, 9)}
+        </Tooltip>
+      )}
     </Circle>
   )
 }

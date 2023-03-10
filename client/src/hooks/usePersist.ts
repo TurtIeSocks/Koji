@@ -27,17 +27,18 @@ export interface UsePersist {
   radius: number | ''
   min_points: number | ''
   only_unique: boolean
-  generations: number | ''
-  routing_time: number | ''
+  route_split_level: number | ''
+  // generations: number | ''
+  // routing_time: number | ''
   showCircles: boolean
   showLines: boolean
   showPolygons: boolean
   showArrows: boolean
   nativeLeaflet: boolean
   last_seen: Date
-  devices: number | ''
+  // devices: number | ''
   geojson: FeatureCollection
-  route_chunk_size: number | ''
+  // route_chunk_size: number | ''
   polygonExportMode: ConversionOptions
   showRouteIndex: boolean
   geometryType: typeof GEOMETRY_CONVERSION_TYPES[number]
@@ -56,6 +57,8 @@ export interface UsePersist {
   loadingScreen: boolean
   simplifyPolygons: boolean
   setActiveMode: 'hover' | 'click'
+  colorByGeohash: boolean
+  geohashPrecision: number
   setStore: <T extends keyof UsePersist>(key: T, value: UsePersist[T]) => void
 }
 
@@ -79,8 +82,8 @@ export const usePersist = create(
       data: 'bound',
       sort_by: 'GeoHash',
       radius: 70,
-      generations: 1,
-      routing_time: 1,
+      route_split_level: 1,
+      routing_chunk_size: 0,
       min_points: 3,
       only_unique: false,
       save_to_db: false,
@@ -91,11 +94,9 @@ export const usePersist = create(
       showPolygons: true,
       showArrows: true,
       nativeLeaflet: false,
-      devices: 1,
       polygonExportMode: 'feature',
       showRouteIndex: false,
       geometryType: 'Polygon',
-      route_chunk_size: 0,
       menuItem: 'Manage',
       fast: false,
       export: {
@@ -116,6 +117,8 @@ export const usePersist = create(
       loadingScreen: true,
       simplifyPolygons: true,
       setActiveMode: 'hover',
+      colorByGeohash: false,
+      geohashPrecision: 6,
     }),
     {
       name: 'local',

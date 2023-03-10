@@ -31,6 +31,7 @@ function TabPanel({ children, value, index }: TabPanelProps) {
       hidden={value !== index}
       display="block"
       maxHeight="100vh"
+      width={value === index ? '87%' : 0}
       overflow="auto"
     >
       {value === index && children}
@@ -99,7 +100,7 @@ export default function DrawerIndex({ drawerWidth }: Props) {
               flexGrow: 1,
               bgcolor: 'background.paper',
               display: 'flex',
-              height: '100%',
+              width: '100%',
             }}
           >
             <Tabs

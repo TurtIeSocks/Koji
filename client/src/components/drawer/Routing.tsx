@@ -40,7 +40,7 @@ export default function RoutingTab() {
   }, [category])
 
   return (
-    <List dense sx={{ width: 275 }}>
+    <List dense sx={{ height: '90vh' }}>
       <ListSubheader>Calculation Modes</ListSubheader>
       <MultiOptionList
         field="mode"
@@ -71,8 +71,6 @@ export default function RoutingTab() {
         <Collapse in={!fast}>
           <Toggle field="only_unique" />
         </Collapse>
-        {/* <NumInput field="generations" /> */}
-        {/* <NumInput field="devices" disabled={mode !== 'route'} /> */}
       </Collapse>
       <Collapse in={mode === 'cluster' && !fast}>
         <MultiOptionList
@@ -87,11 +85,11 @@ export default function RoutingTab() {
       <Collapse in={mode === 'route'}>
         <ListSubheader>Routing</ListSubheader>
         <NumInput
-          field="routing_time"
-          endAdornment="s"
+          field="route_split_level"
           disabled={mode !== 'route'}
+          min={1}
+          max={12}
         />
-        <NumInput field="route_chunk_size" disabled={mode !== 'route'} />
         <Divider sx={{ my: 2 }} />
       </Collapse>
 

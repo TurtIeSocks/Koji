@@ -20,6 +20,7 @@ import Toggle from './inputs/Toggle'
 import { MultiOptionList } from './inputs/MultiOptions'
 import DateTime from './inputs/DateTime'
 import ListSubheader from '../styled/Subheader'
+import NumInput from './inputs/NumInput'
 
 export default function Settings() {
   const tileServers = useStatic((s) => s.tileServers)
@@ -32,7 +33,7 @@ export default function Settings() {
   }, [])
 
   return (
-    <List sx={{ width: 275 }}>
+    <List>
       <ListSubheader disableGutters>Markers</ListSubheader>
       <MultiOptionList
         field="data"
@@ -42,9 +43,6 @@ export default function Settings() {
         type="select"
       />
       <DateTime field="last_seen" />
-      {process.env.NODE_ENV === 'development' && (
-        <Toggle field="nativeLeaflet" />
-      )}
       <Divider sx={{ my: 2 }} />
       <ListSubheader disableGutters>Other</ListSubheader>
       <Toggle field="loadingScreen" />
@@ -73,6 +71,14 @@ export default function Settings() {
           secondary="Upload from the admin panel"
           sx={{ px: 2 }}
         />
+      )}
+      {process.env.NODE_ENV === 'development' && (
+        <>
+          <ListSubheader disableGutters>Dev Settings</ListSubheader>
+          <Toggle field="nativeLeaflet" />
+          <Toggle field="colorByGeohash" />
+          <NumInput field="geohashPrecision" />
+        </>
       )}
       <ListItemButton href="/config/logout">
         <ListItemIcon>

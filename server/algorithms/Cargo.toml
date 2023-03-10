@@ -18,6 +18,4 @@ model = { path = "../model" }
 rand = "0.8.5"
 rstar = "0.9.3"
 shuffle = "0.1.7"
-time = "0.3.16"
-travelling_salesman = "1.1.22"
 # vrp-pragmatic = "1.18.3"

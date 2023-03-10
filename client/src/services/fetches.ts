@@ -112,13 +112,12 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
     category,
     min_points,
     fast,
-    routing_time,
+    route_split_level,
     only_unique,
     save_to_db,
     save_to_scanner,
     skipRendering,
     last_seen,
-    route_chunk_size,
     sort_by,
     tth,
   } = usePersist.getState()
@@ -172,15 +171,14 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
               instance:
                 fenceRef?.name ||
                 `${area.geometry.type}${area.id ? `-${area.id}` : ''}`,
-              route_chunk_size,
               last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
               radius,
               min_points,
               fast,
-              routing_time,
               only_unique,
               save_to_db,
               save_to_scanner,
+              route_split_level,
               sort_by,
               tth,
             }),
@@ -232,6 +230,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
       .map((f) => f.value),
   )
 
+  console.log({ features })
   setStatic('totalLoadingTime', Date.now() - totalStartTime)
   if (!skipRendering) add(features)
   if (save_to_db) await getKojiCache('route')

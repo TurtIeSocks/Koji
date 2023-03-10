@@ -101,6 +101,7 @@ pub struct Args {
     pub sort_by: Option<SortBy>,
     pub tth: Option<SpawnpointTth>,
     pub mode: Option<String>,
+    pub route_split_level: Option<usize>,
 }
 
 pub struct ArgsUnwrapped {
@@ -114,16 +115,15 @@ pub struct ArgsUnwrapped {
     pub min_points: usize,
     pub radius: Precision,
     pub return_type: ReturnTypeArg,
-    pub routing_time: i64,
     pub only_unique: bool,
     pub last_seen: u32,
     pub save_to_db: bool,
     pub save_to_scanner: bool,
-    pub route_chunk_size: usize,
     pub simplify: bool,
     pub sort_by: SortBy,
     pub tth: SpawnpointTth,
     pub mode: Type,
+    pub route_split_level: usize,
 }
 
 impl Args {
@@ -150,6 +150,7 @@ impl Args {
             sort_by,
             tth,
             mode,
+            route_split_level,
         } = self;
         let enum_type = get_enum_by_geometry_string(geometry_type);
         let (area, default_return_type) = if let Some(area) = area {
@@ -200,20 +201,37 @@ impl Args {
         } else {
             default_return_type
         };
-        let routing_time = routing_time.unwrap_or(1);
         let only_unique = only_unique.unwrap_or(false);
         let last_seen = last_seen.unwrap_or(0);
         let save_to_db = save_to_db.unwrap_or(false);
         let save_to_scanner = save_to_scanner.unwrap_or(false);
-        let route_chunk_size = route_chunk_size.unwrap_or(0);
         let simplify = simplify.unwrap_or(false);
         let sort_by = sort_by.unwrap_or(SortBy::GeoHash);
         let tth = tth.unwrap_or(SpawnpointTth::All);
         let mode = get_enum(mode);
+        let route_split_level = if let Some(route_split_level) = route_split_level {
+            if route_split_level.lt(&13) && route_split_level.gt(&0) {
+                route_split_level
+            } else {
+                log::warn!(
+                    "route_split_level only supports 1-12, {} was provided",
+                    route_split_level
+                );
+                1
+            }
+        } else {
+            1
+        };
+        if route_chunk_size.is_some() {
+            log::warn!("route_chunk_size is now deprecated, please use route_split_level")
+        }
+        if routing_time.is_some() {
+            log::warn!("routing_time is now deprecated, please use route_split_level")
+        }
         if let Some(input) = input {
             log::info!(
-                "[{}]: Instance: {} | Custom Area: {} | Custom Data Points: {}\nRadius: | {} Min Points: {} | Generations: {} | Routing Time: {} | Devices: {} | Fast: {}\nOnly Unique: {}, Last Seen: {}\nReturn Type: {:?}",
-                input.to_uppercase(), instance, !area.features.is_empty(), !data_points.is_empty(), radius, min_points, generations, routing_time, devices, fast, only_unique, last_seen, return_type,
+                "[{}]: Instance: {} | Custom Area: {} | Custom Data Points: {}\nRadius: | {} Min Points: {} | Generations: {} | Routing Split Level: {} | Devices: {} | Fast: {}\nOnly Unique: {}, Last Seen: {}\nReturn Type: {:?}",
+                input.to_uppercase(), instance, !area.features.is_empty(), !data_points.is_empty(), radius, min_points, generations, route_split_level, devices, fast, only_unique, last_seen, return_type,
             );
         };
         ArgsUnwrapped {
@@ -227,16 +245,15 @@ impl Args {
             min_points,
             radius,
             return_type,
-            routing_time,
             only_unique,
             last_seen,
             save_to_db,
             save_to_scanner,
-            route_chunk_size,
             simplify,
             sort_by,
             tth,
             mode,
+            route_split_level,
         }
     }
 }

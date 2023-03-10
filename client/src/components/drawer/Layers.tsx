@@ -6,7 +6,7 @@ import ListSubheader from '../styled/Subheader'
 
 export default function Layers() {
   return (
-    <List dense sx={{ width: 275 }}>
+    <List dense>
       <ListSubheader disableGutters>Vectors</ListSubheader>
       <Toggle field="showCircles" />
       <Toggle field="showLines" />

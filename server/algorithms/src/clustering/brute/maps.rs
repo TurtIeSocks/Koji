@@ -1,4 +1,4 @@
-use crate::clustering::brute::helpers::Helpers;
+use crate::{clustering::brute::helpers::Helpers, utils};
 
 use super::*;
 
@@ -173,7 +173,7 @@ pub fn run(
 
     let mut count = 0;
     // Cleans out empty circles, help with loop times
-    let circle_map: HashMap<String, CircleInfo> = helpers::get_sorted(&circle_map)
+    let circle_map: HashMap<String, CircleInfo> = utils::get_sorted(&circle_map)
         .into_iter()
         .filter(|(_, circle_info)| !circle_info.points.is_empty())
         .filter_map(|(circle_key, circle_info)| {

@@ -12,10 +12,14 @@ export default function NumInput<
   field,
   endAdornment,
   disabled = false,
+  min = 0,
+  max = 9999,
 }: {
   field: T
   disabled?: boolean
   endAdornment?: string
+  min?: number
+  max?: number
 }) {
   const value = usePersist((s) => s[field])
   const setStore = usePersist((s) => s.setStore)
@@ -34,7 +38,7 @@ export default function NumInput<
         size="small"
         onChange={({ target }) => setStore(field, +target.value)}
         sx={{ width: '35%' }}
-        inputProps={{ min: 0, max: 9999 }}
+        inputProps={{ min, max }}
         InputProps={{ endAdornment }}
         disabled={disabled}
       />

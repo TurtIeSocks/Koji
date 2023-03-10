@@ -2,10 +2,7 @@ use crate::utils::request;
 
 use super::*;
 
-use std::{
-    collections::{HashSet, VecDeque},
-    time::Instant,
-};
+use std::{collections::VecDeque, time::Instant};
 
 use algorithms::{bootstrapping, clustering, routing::tsp};
 use geo::{HaversineDistance, Point};
@@ -122,14 +119,13 @@ async fn cluster(
         min_points,
         radius,
         return_type,
-        routing_time,
         only_unique,
         save_to_db,
         save_to_scanner,
         last_seen,
-        route_chunk_size,
         sort_by,
         tth,
+        route_split_level,
         ..
     } = payload.into_inner().init(Some(&mode));
 
@@ -170,7 +166,7 @@ async fn cluster(
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?
     };
-    println!(
+    log::debug!(
         "[{}] Found Data Points: {}",
         mode.to_uppercase(),
         data_points.len()
@@ -190,30 +186,21 @@ async fn cluster(
     );
 
     if mode.eq("route") && !clusters.is_empty() {
-        println!("Cluster Length: {}", clusters.len());
-        println!("Routing for {} seconds...", routing_time);
+        log::info!("Cluster Length: {}", clusters.len());
 
-        let tour = tsp::multi(&clusters, route_chunk_size, routing_time, fast);
-        println!("Tour Length {}", tour.len());
+        let tour = tsp::multi(&clusters, route_split_level);
+        log::info!("Tour Length {}", tour.len());
         let mut final_clusters = VecDeque::<PointArray>::new();
 
         let mut rotate_count: usize = 0;
 
-        let mut hash = HashSet::<usize>::new();
-
-        for (i, index) in tour.into_iter().enumerate() {
-            if hash.contains(&index) {
-                continue;
-            } else {
-                hash.insert(index);
-            }
-            let [lat, lon] = clusters[index];
+        for (i, [lat, lon]) in tour.into_iter().enumerate() {
             if stats.best_clusters.len() >= 1
                 && lat == stats.best_clusters[0][0]
                 && lon == stats.best_clusters[0][1]
             {
                 rotate_count = i;
-                println!("Found Best! {}, {} - {}", lat, lon, index);
+                log::debug!("Found Best! {}, {} - {}", lat, lon, i);
             }
             final_clusters.push_back([lat, lon]);
         }
@@ -240,6 +227,7 @@ async fn cluster(
     let mut feature = clusters
         .to_feature(Some(enum_type.clone()))
         .remove_last_coord();
+
     feature.add_instance_properties(Some(instance.to_string()), Some(enum_type));
     let feature = feature.to_collection(Some(instance.clone()), None);
 
@@ -289,9 +277,7 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         benchmark_mode,
         data_points,
         return_type,
-        routing_time,
-        route_chunk_size,
-        fast,
+        route_split_level,
         instance,
         mode,
         ..
@@ -299,17 +285,8 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     let mut stats = Stats::new();
     stats.total_clusters = data_points.len();
 
-    log::info!("Routing for {} seconds...", routing_time);
-
-    let tour = tsp::multi(&data_points, route_chunk_size, routing_time, fast);
-    log::info!("Tour Length {}", tour.len());
-
-    let mut final_clusters = Vec::<PointArray>::new();
-
-    for index in tour.into_iter() {
-        let [lat, lon] = data_points[index];
-        final_clusters.push([lat, lon]);
-    }
+    let final_clusters = tsp::multi(&data_points, route_split_level);
+    log::info!("Tour Length {}", final_clusters.len());
 
     for (i, point) in final_clusters.iter().enumerate() {
         let point = Point::new(point[1], point[0]);

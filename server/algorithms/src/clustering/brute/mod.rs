@@ -1,3 +1,5 @@
+use crate::utils;
+
 use super::utils::debug_hashmap;
 
 use geo::{Coord, HaversineDestination, HaversineDistance, Point};
@@ -149,7 +151,7 @@ pub fn cluster(
         }
     }
     let mut count = 0;
-    let mut circle_map = helpers::get_sorted(&circle_map)
+    let mut circle_map = utils::get_sorted(&circle_map)
         .into_iter()
         .filter_map(|(circle_key, circle_info)| {
             if circle_info.unique.is_empty() {
@@ -176,7 +178,7 @@ pub fn cluster(
             info.meets_min = info.unique.len() >= min_points;
         }
     }
-    let mut sorted = helpers::get_sorted(&circle_map);
+    let mut sorted = utils::get_sorted(&circle_map);
 
     match sort_by {
         SortBy::ClusterCount => {

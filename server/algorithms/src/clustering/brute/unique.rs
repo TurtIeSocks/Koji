@@ -10,7 +10,7 @@ pub fn run(
 ) {
     let time = Instant::now();
 
-    for (circle_key, circle_info) in helpers::get_sorted(&circle_map) {
+    for (circle_key, circle_info) in utils::get_sorted(&circle_map) {
         // Theoretical box if we only had to account for unique points
         let theoretical_bbox = BBox::new(&circle_info.get_points(point_map, CiKeys::Unique));
 

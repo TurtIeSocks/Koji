@@ -5,15 +5,40 @@
 // TODO: WRITE BETTER TS
 
 import { useEffect, useState } from 'react'
+import geohash from 'ngeohash'
+import seed from 'seedrandom'
+import shallow from 'zustand/shallow'
 
+import 'leaflet-pixi-overlay'
 import * as L from 'leaflet'
 import * as PIXI from 'pixi.js'
-import 'leaflet-pixi-overlay'
 import { useMap } from 'react-leaflet'
 
 import { PixiMarker } from '@assets/types'
 
 import { ICON_SVG } from '../assets/constants'
+import { usePersist } from './usePersist'
+
+const colorMap: Map<string, string> = new Map()
+
+PIXI.settings.FAIL_IF_MAJOR_PERFORMANCE_CAVEAT = false
+
+PIXI.utils.skipHello()
+
+const PIXILoader = PIXI.Loader.shared
+
+function getHashSvg(hash: string) {
+  let color = colorMap.get(hash)
+  if (!color) {
+    const rng = seed(hash)
+    color = `#${rng().toString(16).slice(2, 8)}`
+    colorMap.set(hash, color)
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" id="${hash}" width="15" height="15" viewBox="-2 -2 24 24">
+  <circle cx="10" cy="10" r="10" fill="${color}" fill-opacity="0.8" stroke="black" stroke-width="1" />
+  <circle cx="10" cy="10" r="1" fill="black" />
+</svg>`
+}
 
 function getEncodedIcon(svg: string) {
   const decoded = unescape(encodeURIComponent(svg))
@@ -21,14 +46,11 @@ function getEncodedIcon(svg: string) {
   return `data:image/svg+xml;base64,${base64}`
 }
 
-PIXI.settings.FAIL_IF_MAJOR_PERFORMANCE_CAVEAT = false
-PIXI.utils.skipHello()
-const PIXILoader = PIXI.Loader.shared
-
 export default function usePixi(markers: PixiMarker[]) {
   const [pixiOverlay, setPixiOverlay] = useState(null)
   const [loaded, setLoaded] = useState(false)
   const map = useMap()
+  const { colorByGeohash, geohashPrecision } = usePersist((s) => s, shallow)
 
   if (map.getZoom() === undefined) {
     // this if statement is to avoid getContainer error
@@ -44,16 +66,19 @@ export default function usePixi(markers: PixiMarker[]) {
     }
     let loadingAny = false
     for (let i = 0; i < markers.length; i += 1) {
-      const resolvedMarkerId = markers[i].i[0]
+      const resolvedMarkerId = colorByGeohash
+        ? geohash.encode(...markers[i].p, geohashPrecision)
+        : markers[i].i[0]
       // skip if no ID or already cached
-      if (
-        !PIXILoader.resources[`marker_${resolvedMarkerId}`] &&
-        resolvedMarkerId
-      ) {
+      if (resolvedMarkerId && !PIXILoader.resources[resolvedMarkerId]) {
         loadingAny = true
         PIXILoader.add(
-          `marker_${resolvedMarkerId}`,
-          getEncodedIcon(ICON_SVG[markers[i].i[0]] || ''),
+          resolvedMarkerId,
+          getEncodedIcon(
+            colorByGeohash
+              ? getHashSvg(resolvedMarkerId)
+              : ICON_SVG[markers[i].i[0]] || '',
+          ),
         )
       }
     }
@@ -100,15 +125,13 @@ export default function usePixi(markers: PixiMarker[]) {
       const scale = utils.getScale(16)
       for (let j = 0; j < markers.length; j += 1) {
         const { i, p } = markers[j]
-        const resolvedIconId = i[0]
-        if (
-          PIXILoader.resources[`marker_${resolvedIconId}`] &&
-          PIXILoader.resources[`marker_${resolvedIconId}`].texture
-        ) {
-          const markerTexture =
-            PIXILoader.resources[`marker_${resolvedIconId}`].texture
-          if (markerTexture) {
-            const markerSprite = PIXI.Sprite.from(markerTexture)
+        const resolvedIconId = colorByGeohash
+          ? geohash.encode(...p, geohashPrecision)
+          : i[0]
+        if (PIXILoader.resources[resolvedIconId]) {
+          const { texture } = PIXILoader.resources[resolvedIconId]
+          if (texture) {
+            const markerSprite = PIXI.Sprite.from(texture)
             markerSprite.anchor.set(0.5, 0.5)
             const markerCoords = project(p)
             markerSprite.x = markerCoords.x

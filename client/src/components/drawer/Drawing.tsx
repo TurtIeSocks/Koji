@@ -8,7 +8,7 @@ import NumInput from './inputs/NumInput'
 
 export default function DrawingTab() {
   return (
-    <List dense sx={{ width: 275 }}>
+    <List dense>
       <ListSubheader disableGutters>Drawing</ListSubheader>
       <Toggle field="snappable" />
       <Toggle field="continueDrawing" />

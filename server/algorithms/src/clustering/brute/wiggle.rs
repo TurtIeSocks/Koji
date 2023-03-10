@@ -11,7 +11,7 @@ pub fn run(
     let time = Instant::now();
     let neighbor_distance = 0.75_f64.sqrt() * 2. * radius;
 
-    for (circle_key, circle_info) in helpers::get_sorted(circle_map) {
+    for (circle_key, circle_info) in utils::get_sorted(circle_map) {
         let mut best_neighbor = CircleInfo {
             coord: Coord { x: 0., y: 0. },
             bbox: BBox::new(&vec![circle_info.coord]),
