@@ -70,6 +70,7 @@ export function PolygonPopup({
   const [mode, setMode] = React.useState<KojiModes | ''>(
     dbRef?.mode || feature.properties?.__mode || '',
   )
+  const [area, setArea] = React.useState(0)
 
   const [mapAnchorEl, setMapAnchorEl] = React.useState<null | HTMLElement>(null)
   const [dbAnchorEl, setDbAnchorEl] = React.useState<null | HTMLElement>(null)
@@ -104,6 +105,13 @@ export function PolygonPopup({
 
   useDeepCompareEffect(() => {
     if (feature.geometry.coordinates.length && loadData) {
+      fetchWrapper<KojiResponse<{ area: number }>>('/api/v1/calc/area', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ area: feature }),
+      }).then((res) => res && setArea(res.data.area))
       Promise.allSettled(
         ['pokestop', 'gym', 'spawnpoint'].map((category) =>
           fetchWrapper<{ total: number }>(
@@ -171,6 +179,7 @@ export function PolygonPopup({
               ? `(${feature.geometry.coordinates.length})`
               : ''}
           </Typography>
+          <Typography variant="caption">{area.toLocaleString()} m²</Typography>
         </Grid2>
         <Divider flexItem sx={{ my: 1, color: 'black', width: '90%' }} />
         <Grid2 xs={12}>

@@ -5,8 +5,9 @@ use super::*;
 use std::{collections::VecDeque, time::Instant};
 
 use algorithms::{bootstrapping, clustering, routing::tsp};
-use geo::{HaversineDistance, Point};
+use geo::{ChamberlainDuquetteArea, HaversineDistance, MultiPolygon, Point, Polygon};
 
+use geojson::Value;
 use model::{
     api::{
         args::{Args, ArgsUnwrapped, Response, Stats},
@@ -16,6 +17,7 @@ use model::{
     db::{area, instance, route, sea_orm_active_enums::Type, GenericData},
     KojiDb,
 };
+use serde_json::json;
 
 #[post("/bootstrap")]
 async fn bootstrap(
@@ -314,4 +316,41 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         benchmark_mode,
         Some(instance),
     ))
+}
+
+#[post("/area")]
+async fn calculate_area(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
+    let ArgsUnwrapped { area, .. } = payload.into_inner().init(Some("calculate_area"));
+
+    let mut total_area = 0.;
+
+    for feature in area.into_iter() {
+        if let Some(geometry) = feature.geometry {
+            match geometry.value {
+                Value::MultiPolygon(_) => match MultiPolygon::<f64>::try_from(&geometry) {
+                    Ok(mp) => {
+                        total_area += mp.chamberlain_duquette_unsigned_area();
+                    }
+                    Err(err) => log::error!("Unable to calculate area for MultiPolygon: {}", err),
+                },
+                Value::Polygon(_) => match Polygon::<f64>::try_from(&geometry) {
+                    Ok(poly) => {
+                        total_area += poly.chamberlain_duquette_unsigned_area();
+                    }
+                    Err(err) => log::error!("Unable to calculate area for Polygon: {}", err),
+                },
+                _ => {}
+            }
+        }
+    }
+
+    log::info!("[AREA] Found total area: {}", total_area);
+
+    Ok(HttpResponse::Ok().json(Response {
+        data: Some(json!({ "area": total_area })),
+        message: "Success".to_string(),
+        status: "ok".to_string(),
+        stats: None,
+        status_code: 200,
+    }))
 }
