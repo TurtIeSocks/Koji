@@ -9,13 +9,13 @@ name = "algorithms"
 path = "src/lib.rs"
 
 [dependencies]
-geo = "0.23.1"
+geo = "0.24.0"
 geohash = "0.12.0"
 geojson = "0.24.0"
 log = "0.4.17"
 map_3d = "0.1.5"
 model = { path = "../model" }
 rand = "0.8.5"
-rstar = "0.9.3"
+rstar = "0.10.0"
 shuffle = "0.1.7"
 # vrp-pragmatic = "1.18.3"

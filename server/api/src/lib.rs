@@ -126,7 +126,8 @@ pub async fn start() -> io::Result<()> {
                             web::scope("/calc")
                                 .service(public::v1::calculate::bootstrap)
                                 .service(public::v1::calculate::reroute)
-                                .service(public::v1::calculate::cluster),
+                                .service(public::v1::calculate::cluster)
+                                .service(public::v1::calculate::calculate_area),
                         )
                         .service(
                             web::scope("/convert")
