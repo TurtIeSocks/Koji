@@ -305,7 +305,7 @@ dependencies = [
 
 [[package]]
 name = "algorithms"
-version = "0.4.3"
+version = "0.5.0"
 dependencies = [
  "geo",
  "geohash",
@@ -316,8 +316,6 @@ dependencies = [
  "rand",
  "rstar",
  "shuffle",
- "time 0.3.17",
- "travelling_salesman",
 ]
 
 [[package]]
@@ -358,7 +356,7 @@ checksum = "2cb2f989d18dd141ab8ae82f64d1a8cdd37e0840f73a406896cf5e99502fab61"
 
 [[package]]
 name = "api"
-version = "0.5.4"
+version = "0.6.0"
 dependencies = [
  "actix-files",
  "actix-session",
@@ -1829,7 +1827,7 @@ dependencies = [
 
 [[package]]
 name = "koji"
-version = "0.5.4"
+version = "0.6.0"
 dependencies = [
  "api",
  "dotenv",
@@ -1946,16 +1944,6 @@ name = "memchr"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
-
-[[package]]
-name = "metaheuristics"
-version = "1.1.22"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "589964d07022efb7fc011f8e18626130fd75005056566f4d8647c5f8f6da2de7"
-dependencies = [
- "rand",
- "time 0.3.17",
-]
 
 [[package]]
 name = "migration"
@@ -3432,17 +3420,6 @@ dependencies = [
  "thread_local",
  "tracing",
  "tracing-core",
-]
-
-[[package]]
-name = "travelling_salesman"
-version = "1.1.22"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2a9a0bfa1e1e7744ae33a103267c964d082d5e132d3877feed413707af50088"
-dependencies = [
- "metaheuristics",
- "rand",
- "time 0.3.17",
 ]
 
 [[package]]

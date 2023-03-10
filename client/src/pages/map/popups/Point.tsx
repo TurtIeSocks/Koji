@@ -183,8 +183,7 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
           disabled={loading}
           onClick={async () => {
             setLoading(true)
-            const { fast, route_chunk_size, routing_time } =
-              usePersist.getState()
+            const { fast, route_split_level } = usePersist.getState()
             const { setStatic } = useStatic.getState()
             setStatic('loading', { [name]: null })
             setStatic('totalLoadingTime', 0)
@@ -200,10 +199,9 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
                 ),
                 return_type: 'feature',
                 fast,
-                route_chunk_size,
-                routing_time,
                 instance: name,
                 mode,
+                route_split_level,
               }),
             }).then((res) => {
               if (res) {

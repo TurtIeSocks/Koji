@@ -23,7 +23,6 @@ export default function GeojsonTab() {
             setFromCollection(parsed.value)
           }
         }}
-        width="450px"
         maxHeight="85vh"
       />
     </List>

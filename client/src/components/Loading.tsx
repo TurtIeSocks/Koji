@@ -24,7 +24,7 @@ export default function Loading() {
       category: s.category,
       min_points: s.min_points,
       fast: s.fast,
-      routing_time: s.routing_time,
+      route_split_level: s.route_split_level,
     }),
     shallow,
   )
@@ -86,7 +86,7 @@ export default function Loading() {
             <Typography color="primary">{fromSnakeCase(key)}</Typography>
             <Typography variant="subtitle2">
               {value.toString()}
-              {key === 'routing_time' ? 's' : key === 'radius' ? 'm' : ''}
+              {key === 'radius' ? 'm' : ''}
             </Typography>
           </Grid2>
         ))}
