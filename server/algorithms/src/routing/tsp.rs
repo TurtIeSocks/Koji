@@ -99,7 +99,11 @@ pub fn multi(clusters: &SingleVec, route_split_level: usize) -> SingleVec {
 }
 
 fn directory() -> std::io::Result<String> {
-    let path = std::env::current_dir()?;
+    let mut path = std::env::current_dir()?;
+    path.push("algorithms");
+    path.push("src");
+    path.push("routing");
+    path.push("tsp");
     Ok(path.display().to_string())
 }
 
@@ -130,13 +134,11 @@ pub fn or_tools(clusters: &SingleVec) -> SingleVec {
     let distance_matrix = get_or_tools_distance_matrix(clusters);
 
     if let Ok(dir) = directory() {
-        let full_dir = format!("{}algorithms/src/routing/tsp", dir);
-
-        let mut child = Command::new(&full_dir)
+        let mut child = Command::new(&dir)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
-            .expect("Failed to spawn child process");
+            .expect(&format!("Failed to spawn child process: {}", dir));
 
         let mut stdin = child.stdin.take().expect("Failed to open stdin");
         std::thread::spawn(move || {
