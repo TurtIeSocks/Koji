@@ -7,3 +7,4 @@ target
 docker-compose.yml
 .env.example
 vrp_tests
+.idea
