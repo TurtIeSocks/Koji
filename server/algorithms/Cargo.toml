@@ -1,6 +1,6 @@
 [package]
 name = "algorithms"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 publish = false
 
@@ -17,5 +17,7 @@ map_3d = "0.1.5"
 model = { path = "../model" }
 rand = "0.8.5"
 rstar = "0.10.0"
+s2 = "0.0.12"
+serde = { version = "1.0.136", features = ["derive"] }
 shuffle = "0.1.7"
 # vrp-pragmatic = "1.18.3"
