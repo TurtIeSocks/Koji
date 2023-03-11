@@ -1,10 +1,15 @@
 import * as React from 'react'
-import { Divider, List } from '@mui/material'
+import { Divider, List, ListItem, MenuItem, Select } from '@mui/material'
+
+import { S2_CELL_LEVELS } from '@assets/constants'
+import { usePersist } from '@hooks/usePersist'
 
 import Toggle from './inputs/Toggle'
 import ListSubheader from '../styled/Subheader'
 
 export default function Layers() {
+  const s2cells = usePersist((s) => s.s2cells)
+
   return (
     <List dense>
       <ListSubheader disableGutters>Vectors</ListSubheader>
@@ -18,6 +23,29 @@ export default function Layers() {
       <Toggle field="spawnpoint" />
       <Toggle field="pokestop" />
       <Toggle field="pokestopRange" />
+      <Divider sx={{ my: 2 }} />
+      <ListSubheader disableGutters>S2 Cells</ListSubheader>
+      <ListItem>
+        <Select
+          fullWidth
+          value={s2cells}
+          multiple
+          onChange={({ target }) =>
+            usePersist.setState({
+              s2cells:
+                typeof target.value === 'string'
+                  ? target.value.split(',').map((val) => +val)
+                  : target.value,
+            })
+          }
+        >
+          {S2_CELL_LEVELS.map((level) => (
+            <MenuItem key={level} value={level}>
+              Level {level}
+            </MenuItem>
+          ))}
+        </Select>
+      </ListItem>
     </List>
   )
 }

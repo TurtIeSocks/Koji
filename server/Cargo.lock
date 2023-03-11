@@ -316,6 +316,7 @@ dependencies = [
  "rand",
  "rstar",
  "s2",
+ "serde",
  "shuffle",
 ]
 
