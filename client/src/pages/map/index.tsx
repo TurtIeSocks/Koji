@@ -24,6 +24,7 @@ import {
   Points,
   Polygons,
 } from './markers/Vectors'
+import { S2 } from './markers/S2'
 
 export default function MapWrapper() {
   const drawer = usePersist((s) => s.drawer)
@@ -66,6 +67,7 @@ export default function MapWrapper() {
           <LineStrings />
           <MultiLineStrings />
           <Polygons />
+          <S2 level={13} />
         </Map>
         <NetworkAlert />
         <ImportPolygon />
