@@ -130,7 +130,7 @@ pub fn or_tools(clusters: &SingleVec) -> SingleVec {
     let distance_matrix = get_or_tools_distance_matrix(clusters);
 
     if let Ok(dir) = directory() {
-        let full_dir = format!("{}/algorithms/src/routing/tsp", dir);
+        let full_dir = format!("{}algorithms/src/routing/tsp", dir);
 
         let mut child = Command::new(&full_dir)
             .stdin(Stdio::piped())
