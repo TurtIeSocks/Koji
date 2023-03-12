@@ -6,7 +6,12 @@ import bbox from '@turf/bbox'
 import { useStatic } from '@hooks/useStatic'
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon'
 import { useShapes } from '@hooks/useShapes'
-import { Feature, FeatureCollection } from '@assets/types'
+import {
+  Category,
+  Feature,
+  FeatureCollection,
+  KojiRouteModes,
+} from '@assets/types'
 
 export function getMapBounds(map: L.Map) {
   const mapBounds = map.getBounds()
@@ -233,4 +238,16 @@ export function buildShortcutKey(event: React.KeyboardEvent<HTMLDivElement>) {
 
 export function reverseObject(obj: Record<string, string>) {
   return Object.fromEntries(Object.entries(obj).map(([k, v]) => [v, k]))
+}
+
+export function getRouteType(category: Category): KojiRouteModes {
+  const { scannerType } = useStatic.getState()
+  switch (category) {
+    case 'gym':
+      return scannerType === 'rdm' ? 'circle_smart_raid' : 'circle_raid'
+    case 'pokestop':
+      return 'circle_quest'
+    default:
+      return scannerType === 'rdm' ? 'circle_smart_pokemon' : 'circle_pokemon'
+  }
 }

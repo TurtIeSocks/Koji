@@ -13,7 +13,7 @@ import { useStatic } from '@hooks/useStatic'
 import { useShapes } from '@hooks/useShapes'
 import { UseDbCache, useDbCache } from '@hooks/useDbCache'
 
-import { fromSnakeCase } from './utils'
+import { fromSnakeCase, getRouteType } from './utils'
 
 export async function fetchWrapper<T>(
   url: string,
@@ -147,7 +147,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
       },
       properties: {
         __name: 'bounds',
-        __mode: 'unset',
+        __mode: getRouteType(category),
       },
     })
   }
@@ -176,6 +176,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
     areas.map(async (area) => {
       const fenceRef = getFromKojiKey(area.id as string)
       const routeRef = getRouteByCategory(category, fenceRef?.name)
+      console.log({ fenceRef, routeRef })
       const startTime = Date.now()
       const res = await fetch(
         mode === 'bootstrap'
@@ -253,7 +254,12 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
       )
       console.log(`Total Time: ${fetch_time / 1000}s\n`)
       console.log('-----------------')
-      return json.data
+      return {
+        id: `${area.id.toString().split('__')[0]}__${getRouteType(category)}__${
+          fenceRef || routeRef ? 'KOJI' : 'CLIENT'
+        }}`,
+        ...json.data,
+      }
     }),
   ).then((feats) =>
     feats

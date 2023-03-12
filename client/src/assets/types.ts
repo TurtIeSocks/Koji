@@ -87,12 +87,13 @@ export type GeometryTypes = Exclude<
 
 // KOJI TYPES =====================================================================================
 
-export type KojiModes =
+export type KojiFenceModes =
   | typeof RDM_FENCES[number]
-  | typeof RDM_ROUTES[number]
   | typeof UNOWN_FENCES[number]
+export type KojiRouteModes =
+  | typeof RDM_ROUTES[number]
   | typeof UNOWN_ROUTES[number]
-  | 'unset'
+export type KojiModes = KojiFenceModes | KojiRouteModes | 'unset'
 
 export type KojiKey = `${number}__${KojiModes}__${
   | 'KOJI'

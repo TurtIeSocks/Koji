@@ -37,9 +37,7 @@ function S2Cell({
     const signal = new AbortController()
     fetchWrapper<KojiResponse<S2Response[]>>(`/api/v1/s2/${level}`, {
       method: 'POST',
-      body: JSON.stringify({
-        ...getMapBounds(map),
-      }),
+      body: JSON.stringify(getMapBounds(map)),
       headers: {
         'Content-Type': 'application/json',
       },
