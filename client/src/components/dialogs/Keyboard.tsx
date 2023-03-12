@@ -52,15 +52,9 @@ export function KeyboardShortcuts() {
                     onChange={() => {}}
                     onKeyUp={(e) => {
                       e.preventDefault()
-                      let shortcut = ''
-                      if (e.key === 'Backspace') {
-                        shortcut = ''
-                        return
-                      }
                       if (e.key.length > 1) return
-                      shortcut = buildShortcutKey(e)
+                      const shortcut = buildShortcutKey(e)
                       const reverse = reverseObject(kbShortcuts)
-                      console.log(reverse, shortcut)
                       usePersist.setState((prev) => ({
                         kbShortcuts: {
                           ...prev.kbShortcuts,
