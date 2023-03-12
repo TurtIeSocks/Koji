@@ -10,6 +10,7 @@ import {
   Select,
 } from '@mui/material'
 import Logout from '@mui/icons-material/Logout'
+import Keyboard from '@mui/icons-material/Keyboard'
 
 import { KojiResponse, KojiTileServer } from '@assets/types'
 import { useStatic } from '@hooks/useStatic'
@@ -17,8 +18,6 @@ import { usePersist } from '@hooks/usePersist'
 import { fetchWrapper } from '@services/fetches'
 
 import Toggle from './inputs/Toggle'
-import { MultiOptionList } from './inputs/MultiOptions'
-import DateTime from './inputs/DateTime'
 import ListSubheader from '../styled/Subheader'
 import NumInput from './inputs/NumInput'
 
@@ -34,17 +33,7 @@ export default function Settings() {
 
   return (
     <List>
-      <ListSubheader disableGutters>Markers</ListSubheader>
-      <MultiOptionList
-        field="data"
-        buttons={['all', 'area', 'bound']}
-        label="Query Type"
-        hideLabel
-        type="select"
-      />
-      <DateTime field="last_seen" />
-      <Divider sx={{ my: 2 }} />
-      <ListSubheader disableGutters>Other</ListSubheader>
+      <ListSubheader disableGutters>Settings</ListSubheader>
       <Toggle field="loadingScreen" />
       <Toggle field="simplifyPolygons" />
       <Toggle field="showRouteIndex" />
@@ -58,7 +47,10 @@ export default function Settings() {
           }))
         }
       >
-        Keyboard Shortcuts
+        <ListItemText primary="Keyboard Shortcuts" />
+        <ListItemIcon>
+          <Keyboard />
+        </ListItemIcon>
       </ListItemButton>
       {tileServers.length ? (
         <ListItem>
@@ -85,12 +77,14 @@ export default function Settings() {
       )}
       {process.env.NODE_ENV === 'development' && (
         <>
-          <ListSubheader disableGutters>Dev Settings</ListSubheader>
+          <Divider sx={{ my: 2 }} />
+          <ListSubheader disableGutters>Dev</ListSubheader>
           <Toggle field="nativeLeaflet" />
           <Toggle field="colorByGeohash" />
           <NumInput field="geohashPrecision" />
         </>
       )}
+      <Divider sx={{ my: 2 }} />
       <ListItemButton href="/config/logout">
         <ListItemIcon>
           <Logout color="secondary" />
