@@ -163,6 +163,6 @@ export const KEYBOARD_SHORTCUTS = [
   },
   {
     category: 'other',
-    shortcuts: ['setTileServer'],
+    shortcuts: ['drawer', 'setTileServer', 'theme'],
   },
 ]

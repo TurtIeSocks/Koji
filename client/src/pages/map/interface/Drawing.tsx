@@ -372,6 +372,16 @@ export function Drawing() {
                   })
                 }
                 break
+              case 'theme':
+                usePersist.setState({
+                  darkMode: !usePersist.getState().darkMode,
+                })
+                break
+              case 'drawer':
+                usePersist.setState({
+                  drawer: !usePersist.getState().drawer,
+                })
+                break
               case 'arrows':
                 usePersist.setState({
                   showArrows: !usePersist.getState().showArrows,
