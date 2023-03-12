@@ -55,7 +55,6 @@ export function KeyboardShortcuts() {
                       if (e.key.length > 1) return
                       const shortcut = buildShortcutKey(e)
                       const reverse = reverseObject(kbShortcuts)
-                      console.log(reverse, shortcut)
                       usePersist.setState((prev) => ({
                         kbShortcuts: {
                           ...prev.kbShortcuts,

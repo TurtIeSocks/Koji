@@ -325,28 +325,40 @@ export function Drawing() {
             e.event.preventDefault()
             switch (reverse[shortcut]) {
               case 'drawCircle':
-                map.pm.enableDraw('Circle')
+                if (!map.pm.globalDrawModeEnabled()) {
+                  map.pm.enableDraw('Circle')
+                } else {
+                  map.pm.disableDraw('Circle')
+                }
                 break
               case 'drawRectangle':
-                map.pm.enableDraw('Rectangle')
+                if (!map.pm.globalDrawModeEnabled()) {
+                  map.pm.enableDraw('Rectangle')
+                } else {
+                  map.pm.disableDraw('Rectangle')
+                }
                 break
               case 'drawPolygon':
-                map.pm.enableDraw('Polygon')
+                if (!map.pm.globalDrawModeEnabled()) {
+                  map.pm.enableDraw('Polygon')
+                } else {
+                  map.pm.disableDraw('Polygon')
+                }
                 break
               case 'drag':
-                map.pm.enableGlobalDragMode()
+                map.pm.toggleGlobalDragMode()
                 break
               case 'edit':
-                map.pm.enableGlobalEditMode()
+                map.pm.toggleGlobalEditMode()
                 break
               case 'remove':
-                map.pm.enableGlobalRemovalMode()
+                map.pm.toggleGlobalRemovalMode()
                 break
               case 'rotate':
-                map.pm.enableGlobalRotateMode()
+                map.pm.toggleGlobalRotateMode()
                 break
               case 'cut':
-                map.pm.enableGlobalCutMode()
+                map.pm.toggleGlobalCutMode()
                 break
               case 'setTileServer':
                 {
