@@ -35,7 +35,9 @@ export function ExportButton<T extends BasicKojiEntry>({
     `export-${resource}-${record.id}`,
     () =>
       fetchWrapper<KojiResponse<Feature>>(
-        `/api/v1/${resource}/area/${record.id}`,
+        `/api/v1/${resource === 'project' ? 'geofence' : resource}/${
+          resource === 'project' ? 'feature-collection' : 'area'
+        }/${record.id}`,
       ),
     {
       enabled: false,
@@ -71,7 +73,11 @@ export function BulkExportButton<T extends BasicKojiEntry>({
     () =>
       Promise.all(
         selectedIds.map((id) =>
-          fetchWrapper<KojiResponse<Feature>>(`/api/v1/${resource}/area/${id}`),
+          fetchWrapper<KojiResponse<Feature>>(
+            `/api/v1/${resource === 'project' ? 'geofence' : resource}/${
+              resource === 'project' ? 'feature-collection' : 'area'
+            }/${id}`,
+          ),
         ),
       ),
     {

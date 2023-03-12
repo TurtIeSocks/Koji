@@ -1,3 +1,4 @@
+import { ExportPolygon } from '@components/dialogs/Polygon'
 import * as React from 'react'
 import {
   BooleanField,
@@ -13,6 +14,7 @@ import {
   TopToolbar,
 } from 'react-admin'
 import { BulkAssignButton } from '../actions/AssignButton'
+import { BulkExportButton, ExportButton } from '../actions/Export'
 
 function ListActions() {
   return (
@@ -27,6 +29,7 @@ function BulkActions() {
     <>
       <BulkDeleteWithUndoButton resource="project" />
       <BulkAssignButton resource="project" />
+      <BulkExportButton resource="project" />
     </>
   )
 }
@@ -39,23 +42,27 @@ function AreaPagination() {
 
 export default function ProjectList() {
   return (
-    <List
-      pagination={<AreaPagination />}
-      title="Projects"
-      actions={<ListActions />}
-      perPage={25}
-      sort={defaultSort}
-    >
-      <Datagrid rowClick="expand" bulkActionButtons={<BulkActions />}>
-        <TextField source="name" />
-        <BooleanField source="scanner" />
-        <BooleanField source="api_endpoint" looseValue />
-        <BooleanField source="api_key" looseValue />
-        <BooleanField source="scanner" />
-        <NumberField source="geofences.length" label="Geofences" />
-        <EditButton />
-        <DeleteWithUndoButton />
-      </Datagrid>
-    </List>
+    <>
+      <List
+        pagination={<AreaPagination />}
+        title="Projects"
+        actions={<ListActions />}
+        perPage={25}
+        sort={defaultSort}
+      >
+        <Datagrid rowClick="expand" bulkActionButtons={<BulkActions />}>
+          <TextField source="name" />
+          <BooleanField source="scanner" />
+          <BooleanField source="api_endpoint" looseValue />
+          <BooleanField source="api_key" looseValue />
+          <BooleanField source="scanner" />
+          <NumberField source="geofences.length" label="Geofences" />
+          <EditButton />
+          <DeleteWithUndoButton />
+          <ExportButton resource="project" />
+        </Datagrid>
+      </List>
+      <ExportPolygon />
+    </>
   )
 }
