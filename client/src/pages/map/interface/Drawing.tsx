@@ -325,7 +325,6 @@ export function Drawing() {
           if (key && key.length === 1) shortcut += key.toLowerCase()
           if (kbShortcuts[shortcut]) {
             e.event.preventDefault()
-            console.log('shortcut', shortcut)
             switch (kbShortcuts[shortcut]) {
               case 'drawCircle':
                 map.pm.enableDraw('Circle')
