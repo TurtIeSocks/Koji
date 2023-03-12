@@ -23,10 +23,10 @@ pub fn get_cells(
     };
     let cells = cov.covering(&region);
 
-    cells.0.iter().map(get_polygons).collect()
+    cells.0.iter().map(get_polygon).collect()
 }
 
-pub fn get_polygons(id: &CellID) -> S2Response {
+fn get_polygon(id: &CellID) -> S2Response {
     let cell = Cell::from(id);
     S2Response {
         id: id.to_string(),

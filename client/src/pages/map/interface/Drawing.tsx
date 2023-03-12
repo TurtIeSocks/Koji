@@ -312,6 +312,96 @@ export function Drawing() {
             useStatic.setState({ combinePolyMode: false })
           }
         }}
+        onKeyEvent={(e) => {
+          if (e.eventType === 'keyup' || useStatic.getState().dialogs.keyboard)
+            return
+          const { kbShortcuts, tileServer } = usePersist.getState()
+          const { tileServers } = useStatic.getState()
+          const { key, ctrlKey, shiftKey, altKey } = e.event
+          let shortcut = ''
+          if (ctrlKey) shortcut += 'ctrl+'
+          if (shiftKey) shortcut += 'shift+'
+          if (altKey) shortcut += 'alt+'
+          if (key && key.length === 1) shortcut += key.toLowerCase()
+          if (kbShortcuts[shortcut]) {
+            e.event.preventDefault()
+            console.log('shortcut', shortcut)
+            switch (kbShortcuts[shortcut]) {
+              case 'drawCircle':
+                map.pm.enableDraw('Circle')
+                break
+              case 'drawRectangle':
+                map.pm.enableDraw('Rectangle')
+                break
+              case 'drawPolygon':
+                map.pm.enableDraw('Polygon')
+                break
+              case 'drag':
+                map.pm.enableGlobalDragMode()
+                break
+              case 'edit':
+                map.pm.enableGlobalEditMode()
+                break
+              case 'remove':
+                map.pm.enableGlobalRemovalMode()
+                break
+              case 'rotate':
+                map.pm.enableGlobalRotateMode()
+                break
+              case 'cut':
+                map.pm.enableGlobalCutMode()
+                break
+              case 'setTileServer':
+                {
+                  const index = tileServers.findIndex(
+                    (ts) => ts.url === tileServer,
+                  )
+                  usePersist.setState({
+                    tileServer: tileServers[index + 1]
+                      ? tileServers[index + 1].url
+                      : tileServers[0].url,
+                  })
+                }
+                break
+              case 'arrows':
+                usePersist.setState({
+                  showArrows: !usePersist.getState().showArrows,
+                })
+                break
+              case 'circles':
+                usePersist.setState({
+                  showCircles: !usePersist.getState().showCircles,
+                })
+                break
+              case 'lines':
+                usePersist.setState({
+                  showLines: !usePersist.getState().showLines,
+                })
+                break
+              case 'polygons':
+                usePersist.setState({
+                  showPolygons: !usePersist.getState().showPolygons,
+                })
+                break
+              case 'gyms':
+                usePersist.setState({
+                  gym: !usePersist.getState().gym,
+                })
+                break
+              case 'pokestops':
+                usePersist.setState({
+                  pokestop: !usePersist.getState().pokestop,
+                })
+                break
+              case 'spawnpoints':
+                usePersist.setState({
+                  spawnpoint: !usePersist.getState().spawnpoint,
+                })
+                break
+              default:
+            }
+          }
+        }}
         onActionClick={({ btnName, text }) => {
           if (btnName === 'mergeMode' && text === 'Cancel') {
             revertPolygonsToDefault()
@@ -324,4 +414,4 @@ export function Drawing() {
   )
 }
 
-export default React.memo(Drawing, () => true)
+export default React.memo(Drawing)
