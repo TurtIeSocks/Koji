@@ -46,10 +46,15 @@ export function KeyboardShortcuts() {
                     onChange={() => {}}
                     onKeyUp={(e) => {
                       e.preventDefault()
-                      if (e.key.length > 1) return
                       let shortcut = ''
+                      if (e.key.length > 1) return
+                      if (e.key === 'Backspace') {
+                        shortcut = ''
+                        return
+                      }
                       if (e.ctrlKey) shortcut += 'ctrl+'
                       if (e.altKey) shortcut += 'alt+'
+                      if (e.shiftKey) shortcut += 'shift+'
                       if (e.shiftKey) shortcut += 'shift+'
                       shortcut += e.key.toLowerCase()
                       usePersist.setState((prev) => ({
