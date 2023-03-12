@@ -31,6 +31,7 @@ import PropertyList from './property/PropertyList'
 import PropertyEdit from './property/PropertyEdit'
 import PropertyShow from './property/PropertyShow'
 import PropertyCreate from './property/PropertyCreate'
+
 import TileServerList from './tileserver/TileServerList'
 import TileServerEdit from './tileserver/TileServerEdit'
 import TileServerShow from './tileserver/TileServerShow'
@@ -48,6 +49,7 @@ export default function AdminPanel() {
       basename="/admin"
       title="Kōji Admin"
       dataProvider={dataProvider}
+      disableTelemetry
       theme={{
         ...defaultTheme,
         ...(theme as RaThemeOptions),

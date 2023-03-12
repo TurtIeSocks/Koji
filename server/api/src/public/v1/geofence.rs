@@ -46,7 +46,7 @@ async fn get_area(
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    println!(
+    log::info!(
         "[PUBLIC_API] Returning feature for {:?}\n",
         feature.property("name")
     );

@@ -12,7 +12,7 @@ import {
   TextField,
   TopToolbar,
 } from 'react-admin'
-import { BulkAssignButton } from '../actions/bulk/AssignButton'
+import { BulkAssignButton } from '../actions/AssignButton'
 
 function ListActions() {
   return (

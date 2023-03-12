@@ -33,18 +33,17 @@ async fn all(
     }))
 }
 
-#[get("/area/{area_name}")]
+#[get("/area/{id}")]
 async fn get_area(
     conn: web::Data<KojiDb>,
-    area: actix_web::web::Path<String>,
+    id: actix_web::web::Path<String>,
     args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
-    let area = area.into_inner();
+    let id = id.into_inner();
     let args = args.into_inner();
-    let feature =
-        route::Query::feature_from_name(&conn.koji_db, area, args.internal.unwrap_or(false))
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+    let feature = route::Query::get_one_feature(&conn.koji_db, id, args.internal.unwrap_or(false))
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     log::info!(
         "[PUBLIC_API] Returning feature for {:?}\n",

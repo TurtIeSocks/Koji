@@ -229,6 +229,17 @@ impl Query {
         }
     }
 
+    pub async fn get_one_feature(
+        db: &DatabaseConnection,
+        id: String,
+        internal: bool,
+    ) -> Result<Feature, ModelError> {
+        match Query::get_one(db, id).await {
+            Ok(record) => record.to_feature(internal),
+            Err(err) => Err(err),
+        }
+    }
+
     pub async fn update(
         db: &DatabaseConnection,
         id: u32,

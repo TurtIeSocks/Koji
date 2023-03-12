@@ -12,8 +12,11 @@ import {
   CreateButton,
   ReferenceField,
 } from 'react-admin'
-import { BulkAssignButton } from '../actions/bulk/AssignButton'
-import { BulkPushToProd, PushToProd } from '../actions/bulk/PushToApi'
+import { ExportPolygon } from '@components/dialogs/Polygon'
+
+import { BulkAssignButton } from '../actions/AssignButton'
+import { BulkExportButton, ExportButton } from '../actions/Export'
+import { BulkPushToProd, PushToProd } from '../actions/PushToApi'
 
 function ListActions() {
   return (
@@ -31,6 +34,7 @@ function BulkActions() {
       <BulkDeleteWithUndoButton resource="route" />
       <BulkAssignButton resource="route" />
       <BulkPushToProd resource="route" />
+      <BulkExportButton resource="route" />
     </>
   )
 }
@@ -41,23 +45,27 @@ function AreaPagination() {
 
 export default function GeofenceList() {
   return (
-    <List
-      pagination={<AreaPagination />}
-      title="Routes"
-      perPage={25}
-      actions={<ListActions />}
-      sort={defaultSort}
-    >
-      <Datagrid rowClick="expand" bulkActionButtons={<BulkActions />}>
-        <TextField source="name" />
-        <TextField source="description" />
-        <TextField source="mode" />
-        <ReferenceField source="geofence_id" reference="geofence" />
-        <NumberField source="hops" label="Hops" sortable={false} />
-        <EditButton />
-        <DeleteWithUndoButton />
-        <PushToProd resource="route" />
-      </Datagrid>
-    </List>
+    <>
+      <List
+        pagination={<AreaPagination />}
+        title="Routes"
+        perPage={25}
+        actions={<ListActions />}
+        sort={defaultSort}
+      >
+        <Datagrid rowClick="expand" bulkActionButtons={<BulkActions />}>
+          <TextField source="name" />
+          <TextField source="description" />
+          <TextField source="mode" />
+          <ReferenceField source="geofence_id" reference="geofence" />
+          <NumberField source="hops" label="Hops" sortable={false} />
+          <EditButton />
+          <DeleteWithUndoButton />
+          <PushToProd resource="route" />
+          <ExportButton resource="route" />
+        </Datagrid>
+      </List>
+      <ExportPolygon />
+    </>
   )
 }
