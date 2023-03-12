@@ -7,6 +7,7 @@ import useLayers from '@hooks/useLayers'
 import usePopupStyle from '@hooks/usePopupStyle'
 import useSyncGeojson from '@hooks/useSyncGeojson'
 import { usePersist } from '@hooks/usePersist'
+import { getMapBounds } from '@services/utils'
 
 import Locate from './Locate'
 import MemoizedDrawing from './Drawing'
@@ -33,6 +34,9 @@ export default function Interface() {
     usePersist.setState({
       location: Object.values(map.getCenter()) as [number, number],
       zoom: map.getZoom(),
+    })
+    useStatic.setState({
+      bounds: getMapBounds(map),
     })
   }, [map])
 

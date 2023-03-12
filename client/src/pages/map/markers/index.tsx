@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { Circle, useMap } from 'react-leaflet'
+import { Circle } from 'react-leaflet'
 import geohash from 'ngeohash'
 
 import { ICON_RADIUS, ICON_COLOR } from '@assets/constants'
@@ -8,7 +8,6 @@ import usePixi from '@hooks/usePixi'
 import { useStatic } from '@hooks/useStatic'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import { getMarkers } from '@services/fetches'
-import { getMapBounds } from '@services/utils'
 import { PixiMarker } from '@assets/types'
 import StyledPopup from '../popups/Styled'
 
@@ -28,8 +27,6 @@ export default function Markers({
 
   const [markers, setMarkers] = React.useState<PixiMarker[]>([])
   const [focused, setFocused] = React.useState(true)
-
-  const map = useMap()
 
   usePixi(
     nativeLeaflet && process.env.NODE_ENV === 'development'
@@ -52,17 +49,7 @@ export default function Markers({
         feature.geometry.type.includes('Polygon'),
       )
       if (enabled && (data === 'area' ? filtered.length : true)) {
-        getMarkers(
-          category,
-          getMapBounds(map),
-          data,
-          {
-            ...geojson,
-            features: filtered,
-          },
-          last_seen,
-          controller.signal,
-        ).then((res) => {
+        getMarkers(controller.signal).then((res) => {
           if (res.length && res.length !== markers.length) setMarkers(res)
         })
       } else {

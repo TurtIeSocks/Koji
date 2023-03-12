@@ -110,11 +110,7 @@ export default function RoutingTab() {
       <Toggle field="skipRendering" />
       <ListItemButton
         color="primary"
-        disabled={
-          isEditing ||
-          !!updateButton ||
-          !useStatic.getState().geojson.features.length
-        }
+        disabled={isEditing || !!updateButton}
         onClick={async () => {
           useStatic.setState({ updateButton: true })
           await clusteringRouting().then(() => {

@@ -19,6 +19,12 @@ export interface UseStatic {
     status: number
     severity: AlertProps['severity']
   }
+  bounds: {
+    min_lat: number
+    max_lat: number
+    min_lon: number
+    max_lon: number
+  }
   loading: Record<string, KojiStats | null | false>
   loadingAbort: Record<string, AbortController | null>
   updateButton: boolean
@@ -76,6 +82,12 @@ export const useStatic = create<UseStatic>((set, get) => ({
     message: '',
     status: 0,
     severity: 'info',
+  },
+  bounds: {
+    min_lat: 0,
+    max_lat: 0,
+    min_lon: 0,
+    max_lon: 0,
   },
   loading: {},
   loadingAbort: {},

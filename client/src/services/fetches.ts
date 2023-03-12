@@ -9,11 +9,11 @@ import type {
   DbOption,
 } from '@assets/types'
 import { UsePersist, usePersist } from '@hooks/usePersist'
-import { UseStatic, useStatic } from '@hooks/useStatic'
+import { useStatic } from '@hooks/useStatic'
 import { useShapes } from '@hooks/useShapes'
 import { UseDbCache, useDbCache } from '@hooks/useDbCache'
 
-import { fromSnakeCase, getMapBounds } from './utils'
+import { fromSnakeCase } from './utils'
 
 export async function fetchWrapper<T>(
   url: string,
@@ -121,119 +121,140 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
     sort_by,
     tth,
   } = usePersist.getState()
-  const { geojson, setStatic } = useStatic.getState()
+  const { geojson, setStatic, bounds } = useStatic.getState()
   const { add, activeRoute } = useShapes.getState().setters
   const { getFromKojiKey, getRouteByCategory } = useDbCache.getState()
+
+  const areas = (geojson?.features || []).filter((x) =>
+    x.geometry.type.includes('Polygon'),
+  )
+
+  if (!areas.length) {
+    areas.push({
+      id: 'bounds',
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [bounds.min_lon, bounds.min_lat],
+            [bounds.max_lon, bounds.min_lat],
+            [bounds.max_lon, bounds.max_lat],
+            [bounds.min_lon, bounds.max_lat],
+            [bounds.min_lon, bounds.min_lat],
+          ],
+        ],
+      },
+      properties: {
+        __name: 'bounds',
+        __mode: 'unset',
+      },
+    })
+  }
 
   activeRoute('layer_1')
   useStatic.setState({
     loading: Object.fromEntries(
-      geojson.features
-        .filter((feat) => feat.geometry.type.includes('Polygon'))
-        .map((k) => [
-          getFromKojiKey(k.id as string)?.name ||
-            `${k.geometry.type}${k.id ? `-${k.id}` : ''}`,
-          null,
-        ]),
+      areas.map((k) => [
+        getFromKojiKey(k.id as string)?.name ||
+          `${k.geometry.type}${k.id ? `-${k.id}` : ''}`,
+        null,
+      ]),
     ),
     loadingAbort: Object.fromEntries(
-      geojson.features
-        .filter((feat) => feat.geometry.type.includes('Polygon'))
-        .map((k) => [
-          getFromKojiKey(k.id as string)?.name ||
-            `${k.geometry.type}${k.id ? `-${k.id}` : ''}`,
-          new AbortController(),
-        ]),
+      areas.map((k) => [
+        getFromKojiKey(k.id as string)?.name ||
+          `${k.geometry.type}${k.id ? `-${k.id}` : ''}`,
+        new AbortController(),
+      ]),
     ),
     totalLoadingTime: 0,
   })
 
   const totalStartTime = Date.now()
   const features = await Promise.allSettled<Feature>(
-    (geojson?.features || [])
-      .filter((x) => x.geometry.type.includes('Polygon'))
-      .map(async (area) => {
-        const fenceRef = getFromKojiKey(area.id as string)
-        const routeRef = getRouteByCategory(category, fenceRef?.name)
-        const startTime = Date.now()
-        const res = await fetch(
-          mode === 'bootstrap'
-            ? '/api/v1/calc/bootstrap'
-            : `/api/v1/calc/${mode}/${category}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            signal:
-              useStatic.getState().loadingAbort[
-                getFromKojiKey(area.id as string)?.name ||
-                  `${area.geometry.type}${area.id ? `-${area.id}` : ''}`
-              ]?.signal,
-            body: JSON.stringify({
-              return_type: 'feature',
-              area: {
-                ...area,
-                properties: {
-                  __id: routeRef?.id,
-                  __name: fenceRef?.name,
-                  __geofence_id: fenceRef?.id,
-                  __mode: fenceRef?.mode,
-                },
+    areas.map(async (area) => {
+      const fenceRef = getFromKojiKey(area.id as string)
+      const routeRef = getRouteByCategory(category, fenceRef?.name)
+      const startTime = Date.now()
+      const res = await fetch(
+        mode === 'bootstrap'
+          ? '/api/v1/calc/bootstrap'
+          : `/api/v1/calc/${mode}/${category}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          signal:
+            useStatic.getState().loadingAbort[
+              getFromKojiKey(area.id as string)?.name ||
+                `${area.geometry.type}${area.id ? `-${area.id}` : ''}`
+            ]?.signal,
+          body: JSON.stringify({
+            return_type: 'feature',
+            area: {
+              ...area,
+              properties: {
+                __id: routeRef?.id,
+                __name: fenceRef?.name,
+                __geofence_id: fenceRef?.id,
+                __mode: fenceRef?.mode,
               },
-              instance:
-                fenceRef?.name ||
-                `${area.geometry.type}${area.id ? `-${area.id}` : ''}`,
-              last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
-              radius,
-              min_points,
-              fast,
-              only_unique,
-              save_to_db,
-              save_to_scanner,
-              route_split_level,
-              sort_by,
-              tth,
-            }),
-          },
-        )
-        if (!res.ok) {
-          if (fenceRef?.name) {
-            setStatic('loading', (prev) => ({
-              ...prev,
-              [fenceRef?.name ||
-              `${area.geometry.type}${area.id ? `-${area.id}` : ''}`]: false,
-            }))
-          }
-          useStatic.setState({
-            networkStatus: {
-              message: await res.text(),
-              status: res.status,
-              severity: 'error',
             },
-          })
-          return null
+            instance:
+              fenceRef?.name ||
+              `${area.geometry.type}${area.id ? `-${area.id}` : ''}`,
+            last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+            radius,
+            min_points,
+            fast,
+            only_unique,
+            save_to_db,
+            save_to_scanner,
+            route_split_level,
+            sort_by,
+            tth,
+          }),
+        },
+      )
+      if (!res.ok) {
+        if (fenceRef?.name) {
+          setStatic('loading', (prev) => ({
+            ...prev,
+            [fenceRef?.name ||
+            `${area.geometry.type}${area.id ? `-${area.id}` : ''}`]: false,
+          }))
         }
-        const json = await res.json()
-        const fetch_time = Date.now() - startTime
-        setStatic('loading', (prev) => ({
-          ...prev,
-          [fenceRef
-            ? fenceRef?.name
-            : `${area.geometry.type}${area.id ? `-${area.id}` : ''}`]: {
-            ...json.stats,
-            fetch_time,
+        useStatic.setState({
+          networkStatus: {
+            message: await res.text(),
+            status: res.status,
+            severity: 'error',
           },
-        }))
-        console.log(fenceRef?.name)
-        Object.entries(json.stats).forEach(([k, v]) =>
-          // eslint-disable-next-line no-console
-          console.log(fromSnakeCase(k), v),
-        )
-        console.log(`Total Time: ${fetch_time / 1000}s\n`)
-        console.log('-----------------')
-        return json.data
-      }),
+        })
+        return null
+      }
+      const json = await res.json()
+      const fetch_time = Date.now() - startTime
+      setStatic('loading', (prev) => ({
+        ...prev,
+        [fenceRef
+          ? fenceRef?.name
+          : `${area.geometry.type}${area.id ? `-${area.id}` : ''}`]: {
+          ...json.stats,
+          fetch_time,
+        },
+      }))
+      console.log(fenceRef?.name)
+      Object.entries(json.stats).forEach(([k, v]) =>
+        // eslint-disable-next-line no-console
+        console.log(fromSnakeCase(k), v),
+      )
+      console.log(`Total Time: ${fetch_time / 1000}s\n`)
+      console.log('-----------------')
+      return json.data
+    }),
   ).then((feats) =>
     feats
       .filter(
@@ -243,7 +264,6 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
       .map((f) => f.value),
   )
 
-  console.log({ features })
   setStatic('totalLoadingTime', Date.now() - totalStartTime)
   if (!skipRendering) add(features)
   if (save_to_db) await getKojiCache('route')
@@ -254,14 +274,10 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
   }
 }
 
-export async function getMarkers(
-  category: UsePersist['category'],
-  bounds: ReturnType<typeof getMapBounds>,
-  data: UsePersist['data'],
-  area: UseStatic['geojson'],
-  last_seen: UsePersist['last_seen'],
-  signal: AbortSignal,
-): Promise<PixiMarker[]> {
+export async function getMarkers(signal: AbortSignal): Promise<PixiMarker[]> {
+  const { category, data, last_seen } = usePersist.getState()
+  const { geojson, bounds } = useStatic.getState()
+  if (data === 'area' && !geojson.features.length) return []
   try {
     const res = await fetch(`/internal/data/${data}/${category}`, {
       method: 'POST',
@@ -270,7 +286,15 @@ export async function getMarkers(
       },
       signal,
       body: JSON.stringify({
-        area: data === 'area' ? area : undefined,
+        area:
+          data === 'area'
+            ? {
+                ...geojson,
+                features: geojson.features.filter((feature) =>
+                  feature.geometry.type.includes('Polygon'),
+                ),
+              }
+            : undefined,
         ...(data === 'bound' && bounds),
         last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
       }),
