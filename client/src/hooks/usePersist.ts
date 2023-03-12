@@ -39,6 +39,7 @@ export interface UsePersist {
   // devices: number | ''
   geojson: FeatureCollection
   // route_chunk_size: number | ''
+  kbShortcuts: Record<string, string>
   polygonExportMode: ConversionOptions
   showRouteIndex: boolean
   geometryType: typeof GEOMETRY_CONVERSION_TYPES[number]
@@ -79,6 +80,7 @@ export const usePersist = create(
       gym: true,
       pokestop: true,
       pokestopRange: false,
+      kbShortcuts: {},
       mode: 'cluster',
       data: 'bound',
       sort_by: 'GeoHash',

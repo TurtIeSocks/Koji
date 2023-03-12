@@ -137,3 +137,32 @@ export const PROPERTY_CATEGORIES = [
 ] as const
 
 export const S2_CELL_LEVELS = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+
+export const KEYBOARD_SHORTCUTS = [
+  {
+    category: 'drawing',
+    shortcuts: [
+      'cut',
+      'drag',
+      'drawCircle',
+      'drawPolygon',
+      'drawRectangle',
+      'edit',
+      // 'merge',
+      'remove',
+      'rotate',
+    ],
+  },
+  {
+    category: 'shapes',
+    shortcuts: ['arrows', 'circles', 'lines', 'polygons'],
+  },
+  {
+    category: 'data',
+    shortcuts: ['gyms', 'pokestops', 'spawnpoints'],
+  },
+  {
+    category: 'other',
+    shortcuts: ['setTileServer'],
+  },
+]

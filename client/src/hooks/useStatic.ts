@@ -41,6 +41,7 @@ export interface UseStatic {
   dialogs: {
     convert: boolean
     manager: boolean
+    keyboard: boolean
   }
   forceRedraw: boolean
   forceFetch: boolean
@@ -117,6 +118,7 @@ export const useStatic = create<UseStatic>((set, get) => ({
   dialogs: {
     convert: false,
     manager: false,
+    keyboard: false,
   },
   projects: {},
   clickedLocation: [0, 0],

@@ -48,7 +48,18 @@ export default function Settings() {
       <Toggle field="loadingScreen" />
       <Toggle field="simplifyPolygons" />
       <Toggle field="showRouteIndex" />
-
+      <ListItemButton
+        onClick={() =>
+          useStatic.setState((prev) => ({
+            dialogs: {
+              ...prev.dialogs,
+              keyboard: true,
+            },
+          }))
+        }
+      >
+        Keyboard Shortcuts
+      </ListItemButton>
       {tileServers.length ? (
         <ListItem>
           <Select
