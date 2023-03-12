@@ -221,3 +221,16 @@ export function mpToPoints(geometry: MultiPoint): Feature<Point>[] {
     }
   })
 }
+
+export function buildShortcutKey(event: React.KeyboardEvent<HTMLDivElement>) {
+  let shortcut = ''
+  if (event.ctrlKey) shortcut += 'ctrl+'
+  if (event.altKey) shortcut += 'alt+'
+  if (event.shiftKey) shortcut += 'shift+'
+  shortcut += event.key.toLowerCase()
+  return shortcut
+}
+
+export function reverseObject(obj: Record<string, string>) {
+  return Object.fromEntries(Object.entries(obj).map(([k, v]) => [v, k]))
+}

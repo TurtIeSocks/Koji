@@ -1,11 +1,11 @@
 import * as React from 'react'
-import { TextField, Typography } from '@mui/material'
+import { Button, TextField, Typography } from '@mui/material'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 
 import { KEYBOARD_SHORTCUTS } from '@assets/constants'
 import { usePersist } from '@hooks/usePersist'
 import { useStatic } from '@hooks/useStatic'
-import { fromCamelCase } from '@services/utils'
+import { buildShortcutKey, fromCamelCase, reverseObject } from '@services/utils'
 
 import BaseDialog from './Base'
 
@@ -13,9 +13,6 @@ export function KeyboardShortcuts() {
   const kbShortcuts = usePersist((s) => s.kbShortcuts)
   const open = useStatic((s) => s.dialogs.keyboard)
 
-  const reverse = Object.fromEntries(
-    Object.entries(kbShortcuts).map(([key, action]) => [action, key]),
-  )
   return (
     <BaseDialog
       title="Set Keyboard Shortcuts"
@@ -25,6 +22,15 @@ export function KeyboardShortcuts() {
           dialogs: { ...prev.dialogs, keyboard: false },
         }))
       }
+      Components={{
+        DialogActions: {
+          children: (
+            <Button onClick={() => usePersist.setState({ kbShortcuts: {} })}>
+              Reset
+            </Button>
+          ),
+        },
+      }}
     >
       <Grid2 container>
         {KEYBOARD_SHORTCUTS.map(({ category, shortcuts }) => (
@@ -42,20 +48,19 @@ export function KeyboardShortcuts() {
                 <Grid2 xs={7} sm={4} py={1}>
                   <TextField
                     size="small"
-                    value={reverse[key] || ''}
+                    value={kbShortcuts[key] || ''}
                     onChange={() => {}}
                     onKeyUp={(e) => {
                       e.preventDefault()
                       if (e.key.length > 1) return
-                      let shortcut = ''
-                      if (e.ctrlKey) shortcut += 'ctrl+'
-                      if (e.altKey) shortcut += 'alt+'
-                      if (e.shiftKey) shortcut += 'shift+'
-                      shortcut += e.key.toLowerCase()
+                      const shortcut = buildShortcutKey(e)
+                      const reverse = reverseObject(kbShortcuts)
+                      console.log(reverse, shortcut)
                       usePersist.setState((prev) => ({
                         kbShortcuts: {
                           ...prev.kbShortcuts,
-                          [shortcut]: key,
+                          [key]: shortcut,
+                          [reverse[shortcut]]: prev.kbShortcuts[key],
                         },
                       }))
                     }}

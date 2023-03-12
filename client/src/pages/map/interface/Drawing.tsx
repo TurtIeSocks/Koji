@@ -10,6 +10,7 @@ import type { Feature } from '@assets/types'
 import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
 import { useShapes } from '@hooks/useShapes'
+import { buildShortcutKey, reverseObject } from '@services/utils'
 
 export function Drawing() {
   const snappable = usePersist((s) => s.snappable)
@@ -317,15 +318,12 @@ export function Drawing() {
             return
           const { kbShortcuts, tileServer } = usePersist.getState()
           const { tileServers } = useStatic.getState()
-          const { key, ctrlKey, shiftKey, altKey } = e.event
-          let shortcut = ''
-          if (ctrlKey) shortcut += 'ctrl+'
-          if (shiftKey) shortcut += 'shift+'
-          if (altKey) shortcut += 'alt+'
-          if (key && key.length === 1) shortcut += key.toLowerCase()
-          if (kbShortcuts[shortcut]) {
+
+          const reverse = reverseObject(kbShortcuts)
+          const shortcut = buildShortcutKey(e.event)
+          if (reverse[shortcut]) {
             e.event.preventDefault()
-            switch (kbShortcuts[shortcut]) {
+            switch (reverse[shortcut]) {
               case 'drawCircle':
                 map.pm.enableDraw('Circle')
                 break
