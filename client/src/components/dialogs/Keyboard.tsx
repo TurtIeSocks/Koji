@@ -55,7 +55,6 @@ export function KeyboardShortcuts() {
                       if (e.ctrlKey) shortcut += 'ctrl+'
                       if (e.altKey) shortcut += 'alt+'
                       if (e.shiftKey) shortcut += 'shift+'
-                      if (e.shiftKey) shortcut += 'shift+'
                       shortcut += e.key.toLowerCase()
                       usePersist.setState((prev) => ({
                         kbShortcuts: {
