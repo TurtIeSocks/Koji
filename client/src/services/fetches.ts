@@ -126,9 +126,8 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
   const { getFromKojiKey, getRouteByCategory } = useDbCache.getState()
 
   activeRoute('layer_1')
-  setStatic(
-    'loading',
-    Object.fromEntries(
+  useStatic.setState({
+    loading: Object.fromEntries(
       geojson.features
         .filter((feat) => feat.geometry.type.includes('Polygon'))
         .map((k) => [
@@ -137,8 +136,17 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
           null,
         ]),
     ),
-  )
-  setStatic('totalLoadingTime', 0)
+    loadingAbort: Object.fromEntries(
+      geojson.features
+        .filter((feat) => feat.geometry.type.includes('Polygon'))
+        .map((k) => [
+          getFromKojiKey(k.id as string)?.name ||
+            `${k.geometry.type}${k.id ? `-${k.id}` : ''}`,
+          new AbortController(),
+        ]),
+    ),
+    totalLoadingTime: 0,
+  })
 
   const totalStartTime = Date.now()
   const features = await Promise.allSettled<Feature>(
@@ -157,6 +165,11 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
             headers: {
               'Content-Type': 'application/json',
             },
+            signal:
+              useStatic.getState().loadingAbort[
+                getFromKojiKey(area.id as string)?.name ||
+                  `${area.geometry.type}${area.id ? `-${area.id}` : ''}`
+              ]?.signal,
             body: JSON.stringify({
               return_type: 'feature',
               area: {

@@ -20,6 +20,7 @@ export interface UseStatic {
     severity: AlertProps['severity']
   }
   loading: Record<string, KojiStats | null | false>
+  loadingAbort: Record<string, AbortController | null>
   updateButton: boolean
   totalLoadingTime: number
   selected: string[]
@@ -77,6 +78,7 @@ export const useStatic = create<UseStatic>((set, get) => ({
     severity: 'info',
   },
   loading: {},
+  loadingAbort: {},
   totalLoadingTime: 0,
   updateButton: false,
   selected: [],

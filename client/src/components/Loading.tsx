@@ -13,6 +13,7 @@ import { fromSnakeCase } from '@services/utils'
 
 export default function Loading() {
   const loading = useStatic((s) => s.loading)
+  const loadingAbort = useStatic((s) => s.loadingAbort)
   const totalLoadingTime = useStatic((s) => s.totalLoadingTime)
   const setStatic = useStatic((s) => s.setStatic)
 
@@ -58,7 +59,10 @@ export default function Loading() {
       container
       component={Backdrop}
       open={!!Object.keys(loading).length}
-      onClick={() => setStatic('loading', {})}
+      onClick={() => {
+        Object.values(loadingAbort).forEach((fn) => fn?.abort())
+        return setStatic('loading', {})
+      }}
       sx={{
         color: '#fff',
         zIndex: (theme) => theme.zIndex.drawer + 1,
@@ -107,7 +111,6 @@ export default function Loading() {
               </Typography>
             )}
           </Grid2>
-
           {value ? (
             <Grid2 xs={12} container>
               <Grid2 xs={6} sm={4} container>

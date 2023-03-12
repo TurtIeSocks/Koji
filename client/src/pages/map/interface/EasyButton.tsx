@@ -6,14 +6,16 @@ import { useMap } from 'react-leaflet'
 
 export default function EasyButton(options: L.EasyButtonOptions) {
   const map = useMap()
-  const [easyButton] = React.useState(L.easyButton(options))
+  const easyButton = React.useRef(L.easyButton(options))
 
   React.useEffect(() => {
-    easyButton.addTo(map)
-    return () => {
-      easyButton.remove()
+    if (easyButton.current) {
+      easyButton.current.addTo(map)
+      return () => {
+        easyButton.current.remove()
+      }
     }
-  }, [])
+  }, [options])
 
   return null
 }
