@@ -4,6 +4,8 @@ import { Divider, List, ListItem, MenuItem, Select } from '@mui/material'
 import { S2_CELL_LEVELS } from '@assets/constants'
 import { usePersist } from '@hooks/usePersist'
 
+import { MultiOptionList } from './inputs/MultiOptions'
+import DateTime from './inputs/DateTime'
 import Toggle from './inputs/Toggle'
 import ListSubheader from '../styled/Subheader'
 
@@ -23,6 +25,14 @@ export default function Layers() {
       <Toggle field="spawnpoint" />
       <Toggle field="pokestop" />
       <Toggle field="pokestopRange" />
+      <MultiOptionList
+        field="data"
+        buttons={['all', 'area', 'bound']}
+        label="Query Type"
+        hideLabel
+        type="select"
+      />
+      <DateTime field="last_seen" />
       <Divider sx={{ my: 2 }} />
       <ListSubheader disableGutters>S2 Cells</ListSubheader>
       <ListItem>
