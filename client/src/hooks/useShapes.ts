@@ -399,17 +399,17 @@ export const useShapes = create<UseShapes>((set, get) => ({
         if (key === 'Point' && type === 'Point') {
           newState[key][id] = feature
           newState.LineString = { ...state.LineString }
-          const firstPoint =
-            state.Point[state.Point[id].properties?.__forward || '']
+          // @ts-ignore
+          const firstPoint = state.Point[state.Point[id].properties?.__forward]
           const firstLine = Object.values(state.LineString).find(
             (line) => line.properties?.__end === firstPoint?.id,
           )
           const secondPoint =
-            state.Point[state.Point[id].properties?.__backward || '']
+            // @ts-ignore
+            state.Point[state.Point[id].properties?.__backward]
           const secondLine = Object.values(state.LineString).find(
             (line) => line.properties?.__start === secondPoint?.id,
           )
-
           if (firstLine?.id !== undefined) {
             firstLine.geometry.coordinates = [
               feature.geometry.coordinates,

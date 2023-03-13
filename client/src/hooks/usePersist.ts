@@ -18,6 +18,7 @@ export interface UsePersist {
   tileServer: string
   tth: 'All' | 'Known' | 'Unknown'
   spawnpoint: boolean
+  lineColorRules: { distance: number; color: string }[]
   gym: boolean
   pokestop: boolean
   pokestopRange: boolean
@@ -73,6 +74,11 @@ export const usePersist = create(
       location: [0, 0],
       zoom: 18,
       category: 'pokestop',
+      lineColorRules: [
+        { distance: 500, color: '#197E13' },
+        { distance: 1000, color: '#FFFF0C' },
+        { distance: 1500, color: '#FEA71D' },
+      ],
       tileServer:
         'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
       tth: 'All',

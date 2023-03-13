@@ -12,6 +12,7 @@ import {
   FeatureCollection,
   KojiRouteModes,
 } from '@assets/types'
+import { usePersist } from '@hooks/usePersist'
 
 export function getMapBounds(map: L.Map) {
   const mapBounds = map.getBounds()
@@ -21,16 +22,26 @@ export function getMapBounds(map: L.Map) {
 }
 
 export function getColor(dis: number) {
-  switch (true) {
-    case dis <= 500:
-      return 'green'
-    case dis <= 1000:
-      return 'yellow'
-    case dis <= 1500:
-      return 'orange'
-    default:
-      return 'red'
+  const rules = usePersist((s) => s.lineColorRules)
+  if (rules.length) {
+    for (let i = 0; i < rules.length; i++) {
+      if (dis <= rules[i].distance) {
+        return rules[i].color
+      }
+    }
+  } else {
+    switch (true) {
+      case dis <= 500:
+        return 'green'
+      case dis <= 1000:
+        return 'yellow'
+      case dis <= 1500:
+        return 'orange'
+      default:
+        return 'red'
+    }
   }
+  return 'red'
 }
 
 export function fromCamelCase(str: string, separator = ' '): string {

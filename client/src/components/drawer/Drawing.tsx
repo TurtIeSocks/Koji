@@ -1,10 +1,11 @@
+/* eslint-disable react/no-array-index-key */
 import React from 'react'
-import { List } from '@mui/material'
-
+import { Divider, List } from '@mui/material'
 import ListSubheader from '../styled/Subheader'
 import Toggle from './inputs/Toggle'
 import { MultiOptionList } from './inputs/MultiOptions'
 import NumInput from './inputs/NumInput'
+import { LineColorSelector } from './inputs/LineStringColor'
 
 export default function DrawingTab() {
   return (
@@ -20,6 +21,8 @@ export default function DrawingTab() {
         type="select"
         hideLabel
       />
+      <Divider sx={{ my: 2 }} />
+      <LineColorSelector />
     </List>
   )
 }
