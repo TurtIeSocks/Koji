@@ -87,22 +87,6 @@ export function KojiPolygon({
               }
             })
           }
-          if (!ref.hasEventListeners('pm:cut')) {
-            ref.on('pm:cut', function cut({ layer, originalLayer }) {
-              if (layer instanceof L.Polygon && layer.feature && feature.id) {
-                useShapes.getState().setters.update(type, feature.id, {
-                  ...layer.toGeoJSON(),
-                  id: feature.id,
-                  properties: {
-                    ...feature.properties,
-                    __leafletId: layer._leaflet_id,
-                  },
-                } as any) // TODO: fix this
-                originalLayer.remove()
-                layer.remove()
-              }
-            })
-          }
           if (!ref.hasEventListeners('pm:rotateend')) {
             ref.on('pm:rotateend', function rotateEnd({ layer }) {
               if (layer instanceof L.Polygon && layer.feature && feature.id) {
@@ -153,8 +137,8 @@ export function KojiPolygon({
 
 export const MemoPolygon = React.memo(
   KojiPolygon,
-  (prev, next) =>
-    prev.feature.geometry.type === next.feature.geometry.type &&
-    prev.feature.geometry.coordinates.length ===
-      next.feature.geometry.coordinates.length,
+  (prev, next) => prev.feature.geometry.type === next.feature.geometry.type,
+  //  &&
+  // prev.feature.geometry.coordinates.length ===
+  //   next.feature.geometry.coordinates.length,
 )

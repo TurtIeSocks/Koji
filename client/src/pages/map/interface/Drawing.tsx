@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-param-reassign */
 import * as React from 'react'
 import { FeatureGroup, useMap } from 'react-leaflet'
@@ -47,6 +48,33 @@ export function Drawing() {
           snappable,
           radiusEditCircle: false,
           templineStyle: { radius: radius || 70 },
+        }}
+        onMapCut={({ layer, originalLayer }) => {
+          if (
+            layer instanceof L.Polygon &&
+            originalLayer instanceof L.Polygon &&
+            originalLayer.feature?.id
+          ) {
+            const original = originalLayer.toGeoJSON()
+            const newLayer = layer.toGeoJSON()
+            layer.feature = {
+              ...original,
+              geometry: newLayer.geometry,
+            }
+            useShapes
+              .getState()
+              .setters.update(
+                originalLayer.feature.geometry.type,
+                originalLayer.feature.id,
+                {
+                  ...newLayer,
+                  id: originalLayer.feature.id,
+                  properties: {
+                    ...originalLayer.feature.properties,
+                  },
+                } as any,
+              ) // TODO: fix this
+          }
         }}
         onMount={() => {
           map.pm.Toolbar.changeActionsOfControl('removalMode', [
