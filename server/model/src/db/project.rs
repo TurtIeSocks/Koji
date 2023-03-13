@@ -192,13 +192,23 @@ impl Query {
             .await
     }
 
-    pub async fn upsert(
+    pub async fn upsert_related_geofences(
         db: &DatabaseConnection,
-        id: u32,
-        new_model: Json,
-    ) -> Result<Model, ModelError> {
+        json: &serde_json::Value,
+        geofence_id: u32,
+    ) -> Result<(), DbErr> {
+        if let Some(projects) = json.get("geofences") {
+            if let Some(projects) = projects.as_array() {
+                geofence_project::Query::upsert_related_by_project_id(db, projects, geofence_id)
+                    .await?;
+            };
+        };
+        Ok(())
+    }
+
+    pub async fn upsert(db: &DatabaseConnection, id: u32, json: Json) -> Result<Model, ModelError> {
         let old_model: Option<Model> = Entity::find_by_id(id).one(db).await?;
-        let mut new_model = new_model.to_project()?;
+        let mut new_model = json.to_project()?;
 
         let model = if let Some(old_model) = old_model {
             new_model.id = Set(old_model.id);
@@ -206,6 +216,8 @@ impl Query {
         } else {
             new_model.insert(db).await?
         };
+        Query::upsert_related_geofences(db, &json, model.id).await?;
+
         Ok(model)
     }
 

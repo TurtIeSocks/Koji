@@ -210,4 +210,44 @@ impl Query {
         }
         Ok(())
     }
+
+    pub async fn upsert_related_by_project_id(
+        db: &DatabaseConnection,
+        geofences: &Vec<serde_json::Value>,
+        project_id: u32,
+    ) -> Result<(), DbErr> {
+        let mut existing: HashMap<_, _> = Entity::find()
+            .filter(Column::ProjectId.eq(project_id))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|x| (x.project_id, false))
+            .collect();
+
+        for id in geofences.iter().filter_map(|id| id.as_u64()) {
+            if existing.contains_key(&(id as u32)) {
+                existing.entry(id as u32).and_modify(|f| *f = true);
+            } else {
+                ActiveModel {
+                    geofence_id: Set(id as u32),
+                    project_id: Set(project_id),
+                    ..Default::default()
+                }
+                .insert(db)
+                .await?;
+            }
+        }
+        let existing: Vec<u32> = existing
+            .into_iter()
+            .filter_map(|(id, exists)| if !exists { Some(id) } else { None })
+            .collect();
+        if existing.len() > 0 {
+            Entity::delete_many()
+                .filter(Column::ProjectId.eq(project_id))
+                .filter(Column::GeofenceId.is_in(existing))
+                .exec(db)
+                .await?;
+        }
+        Ok(())
+    }
 }
