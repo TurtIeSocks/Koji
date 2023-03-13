@@ -197,9 +197,9 @@ impl Query {
         json: &serde_json::Value,
         geofence_id: u32,
     ) -> Result<(), DbErr> {
-        if let Some(projects) = json.get("geofences") {
-            if let Some(projects) = projects.as_array() {
-                geofence_project::Query::upsert_related_by_project_id(db, projects, geofence_id)
+        if let Some(geofences) = json.get("geofences") {
+            if let Some(geofences) = geofences.as_array() {
+                geofence_project::Query::upsert_related_by_project_id(db, geofences, geofence_id)
                     .await?;
             };
         };

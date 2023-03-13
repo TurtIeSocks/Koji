@@ -221,7 +221,7 @@ impl Query {
             .all(db)
             .await?
             .into_iter()
-            .map(|x| (x.project_id, false))
+            .map(|x| (x.geofence_id, false))
             .collect();
 
         for id in geofences.iter().filter_map(|id| id.as_u64()) {
