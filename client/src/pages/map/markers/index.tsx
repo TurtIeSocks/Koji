@@ -49,7 +49,7 @@ export default function Markers({
         feature.geometry.type.includes('Polygon'),
       )
       if (enabled && (data === 'area' ? filtered.length : true)) {
-        getMarkers(controller.signal).then((res) => {
+        getMarkers(controller.signal, category).then((res) => {
           if (res.length && res.length !== markers.length) setMarkers(res)
         })
       } else {

@@ -7,6 +7,7 @@ import type {
   Feature,
   FeatureCollection,
   DbOption,
+  Category,
 } from '@assets/types'
 import { UsePersist, usePersist } from '@hooks/usePersist'
 import { useStatic } from '@hooks/useStatic'
@@ -280,8 +281,11 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
   }
 }
 
-export async function getMarkers(signal: AbortSignal): Promise<PixiMarker[]> {
-  const { category, data, last_seen } = usePersist.getState()
+export async function getMarkers(
+  signal: AbortSignal,
+  category: Category,
+): Promise<PixiMarker[]> {
+  const { data, last_seen } = usePersist.getState()
   const { geojson, bounds } = useStatic.getState()
   if (data === 'area' && !geojson.features.length) return []
   try {
