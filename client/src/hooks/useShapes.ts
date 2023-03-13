@@ -440,12 +440,12 @@ export const useShapes = create<UseShapes>((set, get) => ({
             newState[key][parent].geometry = newGeometry
           }
         } else if (key !== type) {
-          // const newId = feature.properties?.__leafletId || feature.id
+          const newId = feature.properties?.__leafletId || feature.id
           // @ts-ignore
-          newState[feature.geometry.type][id] = {
+          newState[feature.geometry.type][newId] = {
             ...feature,
-            // id: newId,
-            // properties: { ...feature.properties },
+            id: newId,
+            properties: { ...feature.properties },
           }
           delete newState[key][id]
         } else if (
