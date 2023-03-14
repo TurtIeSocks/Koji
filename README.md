@@ -45,8 +45,9 @@ git clone https://github.com/TurtIeSocks/Koji.git
 
 2. [Install NodeJS](https://nodejs.dev/en/learn/how-to-install-nodejs/)
 3. [Install Rust](https://www.rust-lang.org/tools/install)
-4. Install OR-Tools
-5. [Check PreReqs](https://developers.google.com/optimization/install/cpp/binary_linux#prerequisites)
+4. Install `curl` for your system if it's not already present
+5. Install OR-Tools
+6. [Check PreReqs](https://developers.google.com/optimization/install/cpp/binary_linux#prerequisites)
 
 For example, on Ubuntu 20.04:
 
@@ -55,37 +56,37 @@ sudo apt update
 sudo apt install -y build-essential cmake lsb-release
 ```
 
-6. Run the install script:
+7. Run the install script:
 
 ```bash
 sudo chmod +x or-tools/install.sh && ./or-tools/install.sh
 ```
 
-7. Copy the env file:
+8. Copy the env file:
 
 ```bash
 cd server && cp .env.example .env
 ```
 
-8. Edit the env file: `nano .env`
+9. Edit the env file: `nano .env`
    - Set the `SCANNER_DB_URL` to your RDM database url
    - Set the `KOJI_DB_URL` to the database you want Kōji to write migrations to
    - Set `KOJI_SECRET` to your preferred secret, this will be used for the bearer token when calling the API and logging into the client
    - Set `START_LAT` and `START_LON` to wherever you want the map to start
-9. Compile the client:
+10. Compile the client:
 
 ```bash
 cd ../client && yarn install && yarn build
 ```
 
-10. Compile the server:
+11. Compile the server:
 
 ```bash
 cd ../server && cargo run -r
 # you might have to also install pkg-config (`apt install pkg-config`)
 ```
 
-11. Optionally install [pm2](https://pm2.keymetrics.io/) to run the server in the background:
+12. Optionally install [pm2](https://pm2.keymetrics.io/) to run the server in the background:
 
 ```bash
   npm install pm2 -g
