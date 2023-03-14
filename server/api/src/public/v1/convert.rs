@@ -51,7 +51,7 @@ async fn simplify(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     ))
 }
 
-#[post("/merge_points")]
+#[post("/merge-points")]
 async fn merge_points(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     let ArgsUnwrapped {
         area, return_type, ..

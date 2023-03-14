@@ -80,28 +80,113 @@ pub enum UnknownId {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Args {
+    /// The area input to be used for data point collection.
+    ///
+    /// Accepts an optional [GeoFormats]
+    ///
+    /// Default: `None`
     pub area: Option<GeoFormats>,
+    /// Only returns stats from the API
+    ///
+    /// Default: `false`
     pub benchmark_mode: Option<bool>,
+    /// Data points to cluster or reroute.
+    /// Overrides any inputted area.
+    ///
+    /// Accepts [DataPointsArg]
     pub data_points: Option<DataPointsArg>,
+    /// Number of devices to use in VRP routing
+    ///
+    /// Default: `1`
+    ///
+    /// Deprecated
     pub devices: Option<usize>,
+    /// Whether to use the fast or slow clustering algorithm
+    ///
+    /// Default: `true`
     pub fast: Option<bool>,
+    /// Number of times to run through a clustering algorithm
+    ///
+    /// Default: `0`
+    ///
+    /// Deprecated
     pub generations: Option<usize>,
-    pub instance: Option<String>,
-    pub min_points: Option<usize>,
-    pub radius: Option<Precision>,
-    pub return_type: Option<String>,
-    pub routing_time: Option<i64>,
-    pub only_unique: Option<bool>,
-    pub last_seen: Option<u32>,
-    pub save_to_db: Option<bool>,
-    pub save_to_scanner: Option<bool>,
-    pub route_chunk_size: Option<usize>,
-    pub simplify: Option<bool>,
+    /// Geometry type used during conversions
+    ///
+    /// Currently unstable and will likely change how it's used
     pub geometry_type: Option<String>,
-    pub sort_by: Option<SortBy>,
-    pub tth: Option<SpawnpointTth>,
+    /// Name used for geofence lookup.
+    /// Tries the Kōji database first.
+    /// Then checks the scanner database if it doesn't find one.
+    pub instance: Option<String>,
+    /// Last seen date timestamp for filtering data points from the database.
+    ///
+    /// Default: `0`
+    pub last_seen: Option<u32>,
+    /// Internally used, unstable
     pub mode: Option<String>,
+    /// Minimum number of points to use in the clustering algorithms
+    ///
+    /// Default: `1`
+    pub min_points: Option<usize>,
+    /// Only counts min_points by the number of unique data_points that a cluster covers.
+    /// Only available when `fast: false`
+    pub only_unique: Option<bool>,
+    /// Radius of the circle to be used in clustering/routing,
+    /// in meters
+    ///
+    /// Default: `70`
+    pub radius: Option<Precision>,
+    /// The return type for the data
+    ///
+    /// Accepts [ReturnTypeArg]
+    ///
+    /// Default: `SingleVec`
+    pub return_type: Option<String>,
+    /// Manual chunking to split TSP routing.
+    ///
+    /// Default: 1
+    ///
+    /// Deprecated
+    pub route_chunk_size: Option<usize>,
+    /// Geohash precision level for splitting up routing into multiple threads
+    ///
+    /// Recommend using 4 for Gyms, 5 for Pokestops, and 6 for Spawnpoints
+    ///
+    /// Default: `1`
     pub route_split_level: Option<usize>,
+    /// Amount of time for the TSP solver to run
+    ///
+    /// Default: `0` (auto)
+    ///
+    /// Deprecated
+    pub routing_time: Option<i64>,
+    /// Saves the calculated route to the Kōji database
+    ///
+    /// Default: `false`
+    pub save_to_db: Option<bool>,
+    /// Saves the calculated route to the scanner database
+    ///
+    /// Default: `false`
+    pub save_to_scanner: Option<bool>,
+    /// Simplifies Polygons and MultiPolygons when converting them
+    ///
+    /// Default: `false`
+    pub simplify: Option<bool>,
+    /// Sorts *clustering* results, not routing results.
+    /// This is just intended to do some simple clustering adjustments,
+    /// when you don't need a full TSP solver
+    ///
+    /// Accepts [SortBy] - case sensitive
+    ///
+    /// Default: `GeoHash`
+    pub sort_by: Option<SortBy>,
+    /// Filter spawnpoints by confirmed, unconfirmed, or all
+    ///
+    /// Accepts [SpawnpointTth] - case sensitive
+    ///
+    /// Default: `All`
+    pub tth: Option<SpawnpointTth>,
 }
 
 pub struct ArgsUnwrapped {

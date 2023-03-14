@@ -263,7 +263,7 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
               onClick={() => {
                 setLoading(true)
                 fetchWrapper<KojiResponse<Feature<MultiPoint>>>(
-                  `/api/v1/convert/merge_points`,
+                  `/api/v1/convert/merge-points`,
                   {
                     method: 'POST',
                     headers: {
