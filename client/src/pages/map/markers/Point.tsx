@@ -81,7 +81,13 @@ export function KojiPoint({
       pmIgnore={type === 'MultiPoint'}
       pane="circles"
       {...properties}
-      color={type === 'Point' ? '#3388ff' : 'red'}
+      color={
+        type === 'Point'
+          ? 'red'
+          : properties?.__multipoint_id?.toString().includes('__SCANNER')
+          ? 'green'
+          : '#3388ff'
+      }
     >
       <BasePopup>
         <MemoPointPopup

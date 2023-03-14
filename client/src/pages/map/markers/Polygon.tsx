@@ -22,9 +22,14 @@ export function KojiPolygon({
 
   const [loadData, setLoadData] = React.useState(false)
 
+  const color = feature?.id.toString().includes('__SCANNER')
+    ? 'green'
+    : '#3388ff'
+
   return (
     <Polygon
       key={`${feature.id}_${feature.geometry.type}_${feature.geometry.coordinates.length}`}
+      color={color}
       ref={(ref) => {
         if (ref && feature.id) {
           ref.feature = feature
@@ -48,7 +53,7 @@ export function KojiPolygon({
           if (!ref.hasEventListeners('mouseout')) {
             ref.on('mouseout', function mouseOut() {
               if (!useStatic.getState().combinePolyMode) {
-                ref.setStyle({ color: '#3388ff' })
+                ref.setStyle({ color })
               }
             })
           }
@@ -57,7 +62,7 @@ export function KojiPolygon({
               if (useStatic.getState().combinePolyMode) {
                 useShapes.setState((prev) => {
                   if (prev.combined[feature.id || '']) {
-                    ref.setStyle({ color: '#3388ff' })
+                    ref.setStyle({ color })
                   } else {
                     ref.setStyle({ color: 'orange' })
                   }
