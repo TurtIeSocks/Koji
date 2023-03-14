@@ -19,3 +19,9 @@ server/algorithms/src/routing/tsp
 # misc
 .idea/*
 .DS_Store
+
+# or-tools
+or-tools/**/*
+!or-tools/tsp
+!or-tools/install.sh
+or-tools.tar.gz
