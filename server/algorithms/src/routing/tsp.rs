@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::process::{Command, Stdio};
 use std::time::Instant;
+use std::vec;
 
 use geo::{Coord, HaversineDistance, Point};
 use geohash::encode;
@@ -134,20 +135,40 @@ pub fn or_tools(clusters: &SingleVec) -> SingleVec {
     let distance_matrix = get_or_tools_distance_matrix(clusters);
 
     if let Ok(dir) = directory() {
-        let mut child = Command::new(&dir)
+        let mut child = match Command::new(&dir)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
-            .expect(&format!("Failed to spawn child process: {}", dir));
+        {
+            Ok(child) => child,
+            Err(err) => {
+                log::error!("[TSP] to spawn child process {}", err);
+                return vec![];
+            }
+        };
 
-        let mut stdin = child.stdin.take().expect("Failed to open stdin");
-        std::thread::spawn(move || {
-            stdin
-                .write_all(distance_matrix.as_bytes())
-                .expect("Failed to write to stdin");
+        let mut stdin = match child.stdin.take() {
+            Some(stdin) => stdin,
+            None => {
+                log::error!("[TSP] Failed to open stdin");
+                return vec![];
+            }
+        };
+
+        std::thread::spawn(move || match stdin.write_all(distance_matrix.as_bytes()) {
+            Ok(_) => {}
+            Err(err) => {
+                log::error!("[TSP] Failed to write to stdin: {}", err)
+            }
         });
 
-        let output = child.wait_with_output().expect("Failed to read stdout");
+        let output = match child.wait_with_output() {
+            Ok(result) => result,
+            Err(err) => {
+                log::error!("[TSP] Failed to read stdout: {}", err);
+                return vec![];
+            }
+        };
         let output = String::from_utf8_lossy(&output.stdout);
         let output = output
             .split(",")
