@@ -75,8 +75,10 @@ export default function Nominatim({
         )
       }}
       inputValue={inputValue}
-      onInputChange={(_e, newInputValue) => {
-        setInputValue(newInputValue)
+      onInputChange={(e, newInputValue) => {
+        if (e && e.type !== 'click') {
+          setInputValue(newInputValue)
+        }
       }}
       renderInput={(params) => (
         <TextField

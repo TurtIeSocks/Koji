@@ -59,6 +59,7 @@ export default function InstanceSelect({
   )
   const [loading, setLoading] = React.useState(false)
   const [selected, setSelected] = React.useState<KojiKey[]>([])
+  const [inputValue, setInputValue] = React.useState('')
 
   React.useEffect(() => {
     if (controlled) setSelected(initialState)
@@ -166,13 +167,19 @@ export default function InstanceSelect({
     >
       <Autocomplete
         value={selected}
+        inputValue={inputValue}
         size="small"
-        onChange={(_e, newValue) => updateState(newValue as KojiKey[])}
         filterOptions={filterOptions}
+        loading={loading}
+        onChange={(_e, newValue) => updateState(newValue as KojiKey[])}
+        onInputChange={(e, newInputValue) => {
+          if (e && e.type !== 'click') {
+            setInputValue(newInputValue)
+          }
+        }}
         selectOnFocus
         clearOnBlur
         multiple
-        loading={loading}
         handleHomeEndKeys
         disableCloseOnSelect
         fullWidth

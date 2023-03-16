@@ -34,6 +34,7 @@ export default function SelectProject({
 
   const [loading, setLoading] = React.useState(false)
   const [selected, setSelected] = React.useState<string[]>([])
+  const [inputValue, setInputValue] = React.useState('')
 
   const filterOptions = createFilterOptions({
     matchFrom: 'any',
@@ -103,7 +104,13 @@ export default function SelectProject({
     <ListItem key={Object.keys(options).join('')} sx={{ py: 1 }}>
       <Autocomplete
         size="small"
+        inputValue={inputValue}
         onChange={(_e, newValue) => newValue && updateState(newValue)}
+        onInputChange={(e, newInputValue) => {
+          if (e && e.type !== 'click') {
+            setInputValue(newInputValue)
+          }
+        }}
         value={selected}
         filterOptions={filterOptions}
         selectOnFocus
