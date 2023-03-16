@@ -1,6 +1,7 @@
 import * as React from 'react'
-import { Button, TextField, Typography } from '@mui/material'
+import { Button, IconButton, TextField, Typography } from '@mui/material'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
+import ClearIcon from '@mui/icons-material/Clear'
 
 import { KEYBOARD_SHORTCUTS } from '@assets/constants'
 import { usePersist } from '@hooks/usePersist'
@@ -25,9 +26,12 @@ export function KeyboardShortcuts() {
       Components={{
         DialogActions: {
           children: (
-            <Button onClick={() => usePersist.setState({ kbShortcuts: {} })}>
-              Reset
-            </Button>
+            <>
+              <Button onClick={() => usePersist.setState({ kbShortcuts: {} })}>
+                Reset
+              </Button>
+              <Grid2 flexGrow={1} />
+            </>
           ),
         },
       }}
@@ -62,6 +66,22 @@ export function KeyboardShortcuts() {
                           [reverse[shortcut]]: prev.kbShortcuts[key],
                         },
                       }))
+                    }}
+                    InputProps={{
+                      endAdornment: (
+                        <IconButton
+                          sx={{ mr: -2 }}
+                          onClick={() =>
+                            usePersist.setState((prev) => {
+                              const clean = structuredClone(prev.kbShortcuts)
+                              delete clean[key]
+                              return { kbShortcuts: clean }
+                            })
+                          }
+                        >
+                          <ClearIcon />
+                        </IconButton>
+                      ),
                     }}
                   />
                 </Grid2>
