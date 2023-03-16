@@ -9,8 +9,9 @@ import {
 import { Typography } from '@mui/material'
 import { KojiRoute } from '@assets/types'
 import { Code } from '@components/Code'
+import RouteMap from './RouteMap'
 
-export default function GeofenceShow() {
+export default function RouteShow() {
   return (
     <Show>
       <SimpleShowLayout>
@@ -21,6 +22,10 @@ export default function GeofenceShow() {
         <TextField source="description" />
         <TextField source="mode" />
         <ReferenceField source="geofence_id" reference="geofence" />
+        <FunctionField<KojiRoute>
+          label="Preview"
+          render={(route) => (route ? <RouteMap formData={route} /> : null)}
+        />
         <FunctionField<KojiRoute>
           label="Geometry"
           render={(fence) => {

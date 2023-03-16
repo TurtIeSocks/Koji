@@ -22,11 +22,11 @@ export function getMapBounds(map: L.Map) {
 }
 
 export function getColor(dis: number) {
-  const rules = usePersist((s) => s.lineColorRules)
-  if (rules.length) {
-    for (let i = 0; i < rules.length; i++) {
-      if (dis <= rules[i].distance) {
-        return rules[i].color
+  const { lineColorRules } = usePersist.getState()
+  if (lineColorRules.length) {
+    for (let i = 0; i < lineColorRules.length; i++) {
+      if (dis <= lineColorRules[i].distance) {
+        return lineColorRules[i].color
       }
     }
   } else {

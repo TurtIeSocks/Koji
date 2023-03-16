@@ -1,12 +1,23 @@
+import * as React from 'react'
+import { useInput } from 'react-admin'
+import useDeepCompareEffect from 'use-deep-compare-effect'
+import { Typography, CircularProgress } from '@mui/material'
+
 import { GEOMETRY_CONVERSION_TYPES } from '@assets/constants'
 import { ConversionOptions, Conversions } from '@assets/types'
 import { Code } from '@components/Code'
 import { usePersist } from '@hooks/usePersist'
-import { Typography } from '@mui/material'
 import { convert } from '@services/fetches'
 import { safeParse } from '@services/utils'
-import * as React from 'react'
-import { useInput } from 'react-admin'
+
+function getSafeString(value: string | object) {
+  if (typeof value === 'string') return value
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch (e) {
+    return ''
+  }
+}
 
 export default function CodeInput({
   source,
@@ -21,57 +32,63 @@ export default function CodeInput({
 }) {
   const { field } = useInput({ source })
   const [error, setError] = React.useState('')
-  const simplifyPolygons = usePersist((s) => s.simplifyPolygons)
+  const [tempValue, setTempValue] = React.useState('')
+  const [loading, setLoading] = React.useState(false)
 
-  const check =
-    typeof field.value === 'string' && field.value
-      ? safeParse(field.value)
-      : field.value
+  const { simplifyPolygons } = usePersist.getState()
+
+  useDeepCompareEffect(() => {
+    setTempValue(getSafeString(field.value))
+  }, [{ value: field.value }])
 
   return (
     <>
       <Typography variant="subtitle2">{label}</Typography>
-      <Code
-        width="75vw"
-        maxHeight="50vh"
-        code={check.error ? '' : JSON.stringify(check.value || check, null, 2)}
-        setCode={(newCode) => {
-          field.onChange({ target: { value: newCode } })
-        }}
-        onBlurCapture={async () => {
-          if (conversionType) {
-            const geofence = safeParse<Conversions>(field.value)
-            const parsed = geofence.error ? field.value : geofence.value
+      {loading ? (
+        <CircularProgress />
+      ) : (
+        <Code
+          width="75vw"
+          maxHeight="50vh"
+          code={tempValue}
+          setCode={(newCode) => setTempValue(newCode)}
+          onBlurCapture={async () => {
+            if (conversionType) {
+              const geofence = safeParse<Conversions>(tempValue)
+              const parsed = geofence.error ? tempValue : geofence.value
 
-            if (geofence.error) {
-              field.onChange(parsed)
-            } else {
-              const type =
-                parsed?.geometry?.type ||
-                (parsed?.type !== 'Feature'
-                  ? parsed?.type || geometryType
-                  : geometryType)
-              await convert(
-                parsed,
-                conversionType,
-                simplifyPolygons,
-                type,
-              ).then((res) => {
-                if (Array.isArray(res)) {
-                  setError(
-                    'Warning, multiple features were found, you should only assign one feature!',
-                  )
-                } else {
-                  field.onChange({
-                    target: { value: JSON.stringify(res, null, 2) },
-                  })
-                  setError('')
-                }
-              })
+              if (parsed) {
+                const type =
+                  typeof parsed === 'object' &&
+                  !Array.isArray(parsed) &&
+                  parsed.type
+                    ? parsed.type
+                    : geometryType
+                setLoading(true)
+                await convert(
+                  parsed,
+                  conversionType,
+                  simplifyPolygons,
+                  type as typeof geometryType,
+                ).then((res) => {
+                  if (Array.isArray(res)) {
+                    setError(
+                      'Warning, multiple features were found, you should only assign one feature!',
+                    )
+                  } else {
+                    field.onChange({
+                      target: { value: res },
+                    })
+                    setError('')
+                  }
+                  setLoading(false)
+                })
+              }
             }
-          }
-        }}
-      />
+          }}
+        />
+      )}
+
       <Typography color="error">{error}</Typography>
     </>
   )

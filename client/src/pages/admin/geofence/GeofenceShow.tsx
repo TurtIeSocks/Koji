@@ -12,6 +12,7 @@ import {
 import { ListItemText, Typography } from '@mui/material'
 import { AdminGeofence, KojiGeofence } from '@assets/types'
 import { Code } from '@components/Code'
+import { GeofenceMap } from './GeofenceMap'
 
 function PropertyFields() {
   const record = useRecordContext<AdminGeofence>()
@@ -49,8 +50,12 @@ export default function GeofenceShow() {
             <ChipField source="name" />
           </SingleFieldList>
         </ReferenceArrayField>
+        <FunctionField<AdminGeofence>
+          label="Preview"
+          render={(fence) => (fence ? <GeofenceMap formData={fence} /> : null)}
+        />
         <FunctionField<KojiGeofence>
-          label="Area"
+          label="Geometry"
           render={(fence) => {
             const parsed: string =
               typeof fence?.geometry === 'string'

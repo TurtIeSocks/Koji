@@ -25,8 +25,6 @@ function ListActions() {
   )
 }
 
-const defaultSort = { field: 'id', order: 'ASC' }
-
 function BulkActions() {
   return (
     <>
@@ -38,19 +36,15 @@ function BulkActions() {
   )
 }
 
-function AreaPagination() {
-  return <Pagination rowsPerPageOptions={[25, 50, 100]} />
-}
-
 export default function GeofenceList() {
   return (
     <>
       <List
-        pagination={<AreaPagination />}
+        pagination={<Pagination rowsPerPageOptions={[25, 50, 100]} />}
         title="Geofences"
         perPage={25}
         actions={<ListActions />}
-        sort={defaultSort}
+        sort={{ field: 'id', order: 'ASC' }}
       >
         <Datagrid rowClick="expand" bulkActionButtons={<BulkActions />}>
           <TextField source="name" />

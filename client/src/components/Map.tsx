@@ -9,10 +9,21 @@ interface Props {
   forcedZoom?: number
   style?: React.CSSProperties
   zoomControl?: boolean
+  renderOwnTileLayer?: boolean
 }
 
 const Map = React.forwardRef<L.Map, Props>(
-  ({ children, forcedLocation, forcedZoom, style, zoomControl }, ref) => {
+  (
+    {
+      children,
+      forcedLocation,
+      forcedZoom,
+      style,
+      zoomControl,
+      renderOwnTileLayer,
+    },
+    ref,
+  ) => {
     const { location, zoom } = usePersist.getState()
     const tileServer = usePersist((s) => s.tileServer)
 
@@ -25,11 +36,13 @@ const Map = React.forwardRef<L.Map, Props>(
         zoomControl={zoomControl}
         style={style}
       >
-        <TileLayer
-          key={tileServer}
-          attribution={ATTRIBUTION}
-          url={tileServer}
-        />
+        {!renderOwnTileLayer && (
+          <TileLayer
+            key={tileServer}
+            attribution={ATTRIBUTION}
+            url={tileServer}
+          />
+        )}
         {children}
       </MapContainer>
     )
