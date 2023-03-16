@@ -5,6 +5,7 @@ import * as L from 'leaflet'
 
 import type { FeatureCollection } from '@assets/types'
 import { getColor, mpToPoints } from '@services/utils'
+import useDeepCompareEffect from 'use-deep-compare-effect'
 
 export default function GeoJsonWrapper({
   data,
@@ -14,25 +15,40 @@ export default function GeoJsonWrapper({
   data: FeatureCollection
   mode?: string
 } & GeoJSONProps) {
-  const map = useMap()
   const featureCollection: FeatureCollection = {
     ...data,
     features: data.features.flatMap((feat) =>
       feat.geometry.type === 'MultiPoint' ? mpToPoints(feat.geometry) : feat,
     ),
   }
+  const map = useMap()
+
+  useDeepCompareEffect(() => {
+    if (featureCollection.features.length) {
+      map.fitBounds(L.geoJSON(featureCollection).getBounds(), {
+        padding: [50, 50],
+      })
+    }
+  }, [featureCollection])
+
   return (
     <GeoJSON
       data={featureCollection}
+      pmIgnore
+      snapIgnore
       onEachFeature={(feat, layer) => {
         layer.bindPopup(`
           <div>
             <ul>
               ${Object.entries(feat.properties || {})
+                .filter(([k]) => k !== 'next')
                 .map(([k, v]) => `<li>${k.replace('__', '')}: ${v}</li>`)
                 .join('')}
             </ul>
           </div>`)
+        if (feat.id) {
+          layer.bindTooltip(`${feat.id}`)
+        }
       }}
       pointToLayer={(feat, latlng) => {
         if (feat.properties?.next) {

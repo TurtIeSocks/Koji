@@ -13,14 +13,10 @@ import {
 } from 'react-admin'
 
 import { Box } from '@mui/material'
-import center from '@turf/center'
 
-import Map from '@components/Map'
 import { useStatic } from '@hooks/useStatic'
 import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
-import { safeParse } from '@services/utils'
-import type { Feature, KojiProperty } from '@assets/types'
-import GeoJsonWrapper from '@components/GeojsonWrapper'
+import type { KojiProperty } from '@assets/types'
 
 import CodeInput from '../inputs/CodeInput'
 import {
@@ -28,6 +24,7 @@ import {
   ColorInputExpanded,
   TextInputExpanded,
 } from '../inputs/Properties'
+import { GeofenceMap } from './GeofenceMap'
 
 function OptionRenderer() {
   const record = useRecordContext()
@@ -69,33 +66,7 @@ export default function GeofenceForm() {
         optionValue="mode"
       />
       <FormDataConsumer>
-        {({ formData }) => {
-          const parsed =
-            typeof formData.area === 'string'
-              ? (() => {
-                  const safe = safeParse<Feature>(formData.area)
-                  if (!safe.error) return safe.value
-                })()
-              : formData.area
-          if (parsed?.geometry === undefined) return null
-
-          const point = center(parsed.geometry)
-          return (
-            <Map
-              forcedLocation={[
-                point.geometry.coordinates[1],
-                point.geometry.coordinates[0],
-              ]}
-              forcedZoom={8}
-              zoomControl
-              style={{ width: '100%', height: '50vh' }}
-            >
-              <GeoJsonWrapper
-                data={{ type: 'FeatureCollection', features: [parsed] }}
-              />
-            </Map>
-          )
-        }}
+        {({ formData }) => <GeofenceMap formData={formData} />}
       </FormDataConsumer>
       <Box pt="1em" />
       <ArrayInput source="properties" sx={{ my: 2 }}>

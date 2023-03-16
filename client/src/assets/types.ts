@@ -225,6 +225,7 @@ export type MultiArrayInput = ArrayInput[]
 export interface Poracle {
   name?: string
   id?: number
+  type?: string
   color?: string
   path?: ArrayInput
   multipath?: MultiArrayInput

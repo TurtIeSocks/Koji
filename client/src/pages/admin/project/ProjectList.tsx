@@ -34,21 +34,15 @@ function BulkActions() {
   )
 }
 
-const defaultSort = { field: 'id', order: 'ASC' }
-
-function AreaPagination() {
-  return <Pagination rowsPerPageOptions={[25, 50, 100]} />
-}
-
 export default function ProjectList() {
   return (
     <>
       <List
-        pagination={<AreaPagination />}
+        pagination={<Pagination rowsPerPageOptions={[25, 50, 100]} />}
         title="Projects"
         actions={<ListActions />}
         perPage={25}
-        sort={defaultSort}
+        sort={{ field: 'id', order: 'ASC' }}
       >
         <Datagrid rowClick="expand" bulkActionButtons={<BulkActions />}>
           <TextField source="name" />
