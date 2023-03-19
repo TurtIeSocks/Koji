@@ -121,6 +121,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
     last_seen,
     sort_by,
     tth,
+    bootstrap_mode,
   } = usePersist.getState()
   const { geojson, setStatic, bounds } = useStatic.getState()
   const { add, activeRoute } = useShapes.getState().setters
@@ -177,7 +178,6 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
     areas.map(async (area) => {
       const fenceRef = getFromKojiKey(area.id as string)
       const routeRef = getRouteByCategory(category, fenceRef?.name)
-      console.log({ fenceRef, routeRef })
       const startTime = Date.now()
       const res = await fetch(
         mode === 'bootstrap'
@@ -217,6 +217,8 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
             route_split_level,
             sort_by,
             tth,
+            bootstrap_mode:
+              typeof bootstrap_mode === 'string' ? 0 : bootstrap_mode,
           }),
         },
       )
