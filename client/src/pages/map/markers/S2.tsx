@@ -1,29 +1,42 @@
 import * as React from 'react'
-import { Polyline, useMap } from 'react-leaflet'
+import { Polygon, Tooltip, useMap } from 'react-leaflet'
 import { KojiResponse } from '@assets/types'
 import { fetchWrapper } from '@services/fetches'
 import { getMapBounds } from '@services/utils'
 import { usePersist } from '@hooks/usePersist'
+import { useShapes } from '@hooks/useShapes'
+import { useStatic } from '@hooks/useStatic'
 
 interface S2Response {
   id: string
   coords: [number, number][]
 }
 
-function BaseCell({ id, coords }: S2Response) {
+function BaseCell({ id, coords, covered }: S2Response & { covered: boolean }) {
   return (
-    <Polyline
-      key={id}
-      positions={[...coords, coords[0]]}
-      color="black"
+    <Polygon
+      key={`${id}${covered}`}
+      pmIgnore
+      snapIgnore
+      positions={coords}
+      color={covered ? 'red' : 'black'}
+      fillOpacity={covered ? 0.2 : 0}
       weight={0.5}
-    />
+      pane="s2"
+    >
+      {process.env.NODE_ENV === 'development' && (
+        <Tooltip direction="center">{id}</Tooltip>
+      )}
+    </Polygon>
   )
 }
 
-const MemoBaseCell = React.memo(BaseCell, (prev, next) => prev.id === next.id)
+const MemoBaseCell = React.memo(
+  BaseCell,
+  (prev, next) => prev.id === next.id && prev.covered === next.covered,
+)
 
-function S2Cell({
+function S2Level({
   level,
   location,
 }: {
@@ -32,6 +45,7 @@ function S2Cell({
 }) {
   const map = useMap()
   const [data, setData] = React.useState<S2Response[]>([])
+  const covered = useShapes((s) => s.s2cellCoverage)
 
   React.useEffect(() => {
     const signal = new AbortController()
@@ -44,6 +58,17 @@ function S2Cell({
       signal: signal.signal,
     }).then((res) => {
       if (res) {
+        if (res.data.length === 10_000) {
+          useStatic.setState({
+            networkStatus: {
+              message: `Loaded the maximum of ${Number(
+                10_000,
+              ).toLocaleString()} Level ${level} S2 cells`,
+              severity: 'warning',
+              status: 200,
+            },
+          })
+        }
         setData(res.data)
       }
     })
@@ -53,14 +78,14 @@ function S2Cell({
   return (
     <>
       {data.map((cell) => (
-        <MemoBaseCell key={cell.id} {...cell} />
+        <MemoBaseCell key={cell.id} {...cell} covered={!!covered[cell.id]} />
       ))}
     </>
   )
 }
 
 const MemoS2Cell = React.memo(
-  S2Cell,
+  S2Level,
   (prev, next) =>
     prev.level === next.level &&
     prev.location.every((v, i) => v === next.location[i]),

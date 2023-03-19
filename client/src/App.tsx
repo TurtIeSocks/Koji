@@ -32,6 +32,11 @@ const router = createBrowserRouter([
     errorElement: <ErrorPage error="500" />,
   },
   {
+    path: '/map/:lat/:lon/:zoom?',
+    element: <Map />,
+    errorElement: <ErrorPage error="500" />,
+  },
+  {
     path: '/admin/*',
     element: <AdminPanel />,
     errorElement: <ErrorPage error="500" />,

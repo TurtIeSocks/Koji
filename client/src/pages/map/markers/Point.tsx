@@ -8,6 +8,7 @@ import type { Feature, DbOption, KojiKey } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
+import { s2Coverage } from '@services/fetches'
 
 import BasePopup from '../popups/Styled'
 import { MemoPointPopup } from '../popups/Point'
@@ -40,6 +41,15 @@ export function KojiPoint({
           circle.removeEventListener('pm:remove')
           circle.on('pm:remove', function remove() {
             useShapes.getState().setters.remove(type, id)
+          })
+          circle.removeEventListener('pm:drag')
+          circle.on('pm:drag', async function drag({ layer }) {
+            if (layer instanceof L.Circle) {
+              const latlng = layer.getLatLng()
+              useShapes.setState({
+                s2cellCoverage: await s2Coverage(id, latlng.lat, latlng.lng),
+              })
+            }
           })
           circle.removeEventListener('pm:dragend')
           circle.on('pm:dragend', function dragend({ layer }) {

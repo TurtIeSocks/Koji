@@ -51,6 +51,7 @@ export interface UsePersist {
     route: [number, number][][]
   }
   s2cells: number[]
+  fillCoveredCells: boolean
   save_to_db: boolean
   save_to_scanner: boolean
   skipRendering: boolean
@@ -91,6 +92,7 @@ export const usePersist = create(
       data: 'bound',
       sort_by: 'GeoHash',
       s2cells: [],
+      fillCoveredCells: false,
       radius: 70,
       route_split_level: 1,
       routing_chunk_size: 0,
