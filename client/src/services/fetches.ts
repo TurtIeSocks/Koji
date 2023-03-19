@@ -11,7 +11,7 @@ import type {
 } from '@assets/types'
 import { UsePersist, usePersist } from '@hooks/usePersist'
 import { useStatic } from '@hooks/useStatic'
-import { useShapes } from '@hooks/useShapes'
+import { UseShapes, useShapes } from '@hooks/useShapes'
 import { UseDbCache, useDbCache } from '@hooks/useDbCache'
 
 import { fromSnakeCase, getRouteType } from './utils'
@@ -415,4 +415,34 @@ export async function save(
     console.error(e)
     return null
   }
+}
+
+export async function s2Coverage(id: Feature['id'], lat: number, lon: number) {
+  const { s2cells, radius, fillCoveredCells } = usePersist.getState()
+  if (fillCoveredCells) {
+    const s2cellCoverage: UseShapes['s2cellCoverage'] = Object.fromEntries(
+      Object.entries(useShapes.getState().s2cellCoverage).filter(
+        ([, v]) => v !== id.toString(),
+      ),
+    )
+    await Promise.allSettled(
+      s2cells.map(async (level) =>
+        fetchWrapper<KojiResponse<string[]>>('/api/v1/s2/circle-coverage', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ lat, lon, radius, level }),
+        }).then((res) => {
+          if (res) {
+            res.data.forEach((cell) => {
+              if (!s2cellCoverage[cell]) s2cellCoverage[cell] = id.toString()
+            })
+          }
+        }),
+      ),
+    )
+    return s2cellCoverage
+  }
+  return {}
 }

@@ -35,6 +35,7 @@ export default function Layers() {
       <DateTime field="last_seen" />
       <Divider sx={{ my: 2 }} />
       <ListSubheader disableGutters>S2 Cells</ListSubheader>
+      <Toggle field="fillCoveredCells" />
       <ListItem>
         <Select
           fullWidth

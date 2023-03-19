@@ -154,7 +154,11 @@ pub async fn start() -> io::Result<()> {
                                 .service(public::v1::route::specific_return_type)
                                 .service(public::v1::route::specific_project),
                         )
-                        .service(web::scope("/s2").service(public::v1::s2::s2_cells)),
+                        .service(
+                            web::scope("/s2")
+                                .service(public::v1::s2::circle_intersection)
+                                .service(public::v1::s2::s2_cells),
+                        ),
                 ),
             )
             .service(

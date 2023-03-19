@@ -1,6 +1,7 @@
 import React from 'react'
 import { Box } from '@mui/material'
 import { Pane } from 'react-leaflet'
+import { useParams } from 'react-router'
 
 import { usePersist } from '@hooks/usePersist'
 
@@ -28,6 +29,7 @@ import {
 import { S2Cells } from './markers/S2'
 
 export default function MapWrapper() {
+  const params = useParams()
   const drawer = usePersist((s) => s.drawer)
   const menuItem = usePersist((s) => s.menuItem)
   const drawerWidth = menuItem === 'Geojson' ? 515 : 345
@@ -44,6 +46,10 @@ export default function MapWrapper() {
       </ErrorBoundary>
       <Main open={drawer} drawerWidth={drawerWidth}>
         <Map
+          forcedLocation={
+            params.lat && params.lon ? [+params.lat, +params.lon] : undefined
+          }
+          forcedZoom={params.zoom ? +params.zoom : undefined}
           style={{
             position: 'absolute',
             maxWidth: '100% !important',
@@ -55,10 +61,11 @@ export default function MapWrapper() {
             right: 0,
           }}
         >
-          <Pane name="circles" style={{ zIndex: 503 }} />
-          <Pane name="lines" style={{ zIndex: 502 }} />
-          <Pane name="arrows" style={{ zIndex: 501 }} />
-          <Pane name="polygons" style={{ zIndex: 500 }} />
+          <Pane name="circles" style={{ zIndex: 504 }} />
+          <Pane name="lines" style={{ zIndex: 503 }} />
+          <Pane name="arrows" style={{ zIndex: 502 }} />
+          <Pane name="polygons" style={{ zIndex: 501 }} />
+          <Pane name="s2" style={{ zIndex: 500 }} />
           <Markers category="pokestop" />
           <Markers category="spawnpoint" />
           <Markers category="gym" />
