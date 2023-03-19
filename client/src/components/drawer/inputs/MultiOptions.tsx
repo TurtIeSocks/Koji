@@ -14,20 +14,20 @@ import { usePersist, type UsePersist } from '@hooks/usePersist'
 import { fromCamelCase, fromSnakeCase } from '@services/utils'
 import { OnlyType } from '@assets/types'
 
-interface Props<
-  T extends keyof OnlyType<UsePersist, string>,
-  K extends UsePersist[T],
-> {
+type FieldType = keyof OnlyType<UsePersist, string | number>
+
+interface Props<T extends FieldType, K extends UsePersist[T]> {
   field: T
   buttons: readonly K[]
   disabled?: boolean
   type?: 'button' | 'select'
   label?: string
   hideLabel?: boolean
+  itemLabel?: (item: K) => string
 }
 
 export default function MultiOptions<
-  T extends keyof OnlyType<UsePersist, string>,
+  T extends FieldType,
   K extends UsePersist[T],
 >({
   field,
@@ -36,6 +36,12 @@ export default function MultiOptions<
   type = 'button',
   label = '',
   hideLabel = !label,
+  itemLabel = (item: number | string) =>
+    typeof item === 'string'
+      ? item.includes('_')
+        ? fromSnakeCase(item)
+        : fromCamelCase(item)
+      : `${item}`,
 }: Props<T, K>) {
   const value = usePersist((s) => s[field])
   const setStore = usePersist((s) => s.setStore)
@@ -52,7 +58,7 @@ export default function MultiOptions<
     >
       {buttons.map((m) => (
         <ToggleButton key={m} value={m} disabled={disabled}>
-          {m.includes('_') ? fromSnakeCase(m) : fromCamelCase(m)}
+          {itemLabel(m)}
         </ToggleButton>
       ))}
     </ToggleButtonGroup>
@@ -73,7 +79,7 @@ export default function MultiOptions<
       >
         {buttons.map((m) => (
           <MenuItem key={m} value={m}>
-            {m.includes('_') ? fromSnakeCase(m) : fromCamelCase(m)}
+            {itemLabel(m)}
           </MenuItem>
         ))}
       </Select>
@@ -81,10 +87,11 @@ export default function MultiOptions<
   )
 }
 
-export function MultiOptionList<
-  T extends keyof OnlyType<UsePersist, string>,
-  K extends UsePersist[T],
->({ field, label, ...rest }: Props<T, K>) {
+export function MultiOptionList<T extends FieldType, K extends UsePersist[T]>({
+  field,
+  label,
+  ...rest
+}: Props<T, K>) {
   const display = label || field
   return (
     <ListItem>

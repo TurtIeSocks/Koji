@@ -13,7 +13,6 @@ import type {
 import { getKey } from '@services/utils'
 import union from '@turf/union'
 import type {
-  DbOption,
   Feature,
   FeatureCollection,
   GeometryTypes,
@@ -28,7 +27,6 @@ export interface UseShapes {
   activeRoute: string
   newRouteCount: number
   s2cellCoverage: Record<string, string>
-  kojiRefCache: Record<string, DbOption>
   firstPoint: keyof UseShapes['Point'] | null
   lastPoint: keyof UseShapes['Point'] | null
   Point: Record<number | string, Feature<Point>>
@@ -81,7 +79,6 @@ export interface UseShapes {
 
 export const useShapes = create<UseShapes>((set, get) => ({
   activeRoute: 'new_route_0',
-  kojiRefCache: {},
   s2cellCoverage: {},
   newRouteCount: 0,
   test: false,

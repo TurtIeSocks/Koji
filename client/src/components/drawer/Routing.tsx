@@ -6,10 +6,12 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  capitalize,
 } from '@mui/material'
 import Update from '@mui/icons-material/Update'
 import shallow from 'zustand/shallow'
 
+import { S2_CELL_LEVELS } from '@assets/constants'
 import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
 import { clusteringRouting } from '@services/fetches'
@@ -23,6 +25,7 @@ export default function RoutingTab() {
   const mode = usePersist((s) => s.mode)
   const category = usePersist((s) => s.category)
   const fast = usePersist((s) => s.fast)
+  const bootstrap_mode = usePersist((s) => s.bootstrap_mode)
 
   const [updateButton, scannerType, isEditing] = useStatic(
     (s) => [
@@ -47,25 +50,38 @@ export default function RoutingTab() {
         buttons={['cluster', 'route', 'bootstrap']}
         type="select"
       />
-      <MultiOptionList
-        field="category"
-        buttons={['pokestop', 'gym', 'spawnpoint']}
-        disabled={mode === 'bootstrap'}
-        type="select"
-      />
-      <Collapse in={category === 'spawnpoint'}>
+      <Collapse in={mode !== 'bootstrap'}>
         <MultiOptionList
-          field="tth"
-          buttons={['All', 'Known', 'Unknown']}
+          field="category"
+          buttons={['pokestop', 'gym', 'spawnpoint']}
           disabled={mode === 'bootstrap'}
           type="select"
         />
+        <Collapse in={category === 'spawnpoint'}>
+          <MultiOptionList
+            field="tth"
+            buttons={['All', 'Known', 'Unknown']}
+            type="select"
+          />
+        </Collapse>
       </Collapse>
-      <Divider sx={{ my: 2 }} />
+      <Collapse in={mode === 'bootstrap'}>
+        <MultiOptionList
+          field="bootstrap_mode"
+          buttons={['radius', ...S2_CELL_LEVELS]}
+          type="select"
+          itemLabel={(item) =>
+            typeof item === 'string' ? capitalize(item) : `S2 Level ${item}`
+          }
+        />
+      </Collapse>
+      <Collapse in={mode !== 'bootstrap' || bootstrap_mode === 'radius'}>
+        <NumInput field="radius" />
+      </Collapse>
 
-      <ListSubheader>Clustering</ListSubheader>
-      <NumInput field="radius" />
       <Collapse in={mode !== 'bootstrap'}>
+        <Divider sx={{ my: 2 }} />
+        <ListSubheader>Clustering</ListSubheader>
         <NumInput field="min_points" />
         <Toggle field="fast" />
         <Collapse in={!fast}>
