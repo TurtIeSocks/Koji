@@ -93,6 +93,7 @@ fn check_neighbors(
 ) {
     let center = s2::latlng::LatLng::from_degrees(lat, lon);
     let center_cell = CellID::from(center).parent(level as u64);
+    covered.lock().unwrap().insert(center_cell.0.to_string());
     let mut next_neighbors: Vec<(f64, f64)> = Vec::new();
     let current_neighbors = center_cell.edge_neighbors();
 

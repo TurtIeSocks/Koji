@@ -425,15 +425,13 @@ export async function s2Coverage(id: Feature['id'], lat: number, lon: number) {
         ([, v]) => v !== id.toString(),
       ),
     )
-    const aborts = s2cells.map(() => new AbortController())
-    await Promise.all(
-      s2cells.map(async (level, i) =>
+    await Promise.allSettled(
+      s2cells.map(async (level) =>
         fetchWrapper<KojiResponse<string[]>>('/api/v1/s2/circle-coverage', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          signal: aborts[i].signal,
           body: JSON.stringify({ lat, lon, radius, level }),
         }).then((res) => {
           if (res) {
@@ -444,8 +442,6 @@ export async function s2Coverage(id: Feature['id'], lat: number, lon: number) {
         }),
       ),
     )
-    aborts.forEach((a) => a.abort())
-
     return s2cellCoverage
   }
   return {}

@@ -52,12 +52,15 @@ export function KojiPoint({
             }
           })
           circle.removeEventListener('pm:dragend')
-          circle.on('pm:dragend', function dragend({ layer }) {
+          circle.on('pm:dragend', async function dragend({ layer }) {
             if (layer instanceof L.Circle) {
               const { lat: newLat, lng: newLon } = circle.getLatLng()
               useShapes.getState().setters.update(type, id, {
                 ...useShapes.getState().Point[id],
                 geometry: { type: 'Point', coordinates: [newLon, newLat] },
+              })
+              useShapes.setState({
+                s2cellCoverage: await s2Coverage(id, newLat, newLon),
               })
             }
           })
