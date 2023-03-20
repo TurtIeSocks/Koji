@@ -1,6 +1,5 @@
 /* eslint-disable no-nested-ternary */
 import * as React from 'react'
-import shallow from 'zustand/shallow'
 import Backdrop from '@mui/material/Backdrop'
 import CircularProgress from '@mui/material/CircularProgress'
 import Divider from '@mui/material/Divider'
@@ -18,17 +17,14 @@ export default function Loading() {
   const setStatic = useStatic((s) => s.setStatic)
 
   const loadingScreen = usePersist((s) => s.loadingScreen)
-  const settings = usePersist(
-    (s) => ({
-      mode: s.mode,
-      radius: s.radius,
-      category: s.category,
-      min_points: s.min_points,
-      fast: s.fast,
-      route_split_level: s.route_split_level,
-    }),
-    shallow,
-  )
+  const settings = usePersist((s) => ({
+    mode: s.mode,
+    radius: s.radius,
+    category: s.category,
+    min_points: s.min_points,
+    fast: s.fast,
+    route_split_level: s.route_split_level,
+  }))
   const [time, setTime] = React.useState(0)
 
   const loadingStarted = Object.keys(loading).length

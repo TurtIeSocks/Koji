@@ -8,7 +8,6 @@ import {
   ListItemText,
 } from '@mui/material'
 import Update from '@mui/icons-material/Update'
-import shallow from 'zustand/shallow'
 
 import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
@@ -24,14 +23,11 @@ export default function RoutingTab() {
   const category = usePersist((s) => s.category)
   const fast = usePersist((s) => s.fast)
 
-  const [updateButton, scannerType, isEditing] = useStatic(
-    (s) => [
-      s.updateButton,
-      s.scannerType,
-      Object.values(s.layerEditing).some((v) => v),
-    ],
-    shallow,
-  )
+  const [updateButton, scannerType, isEditing] = useStatic((s) => [
+    s.updateButton,
+    s.scannerType,
+    Object.values(s.layerEditing).some((v) => v),
+  ])
 
   React.useEffect(() => {
     if (category === 'pokestop' && scannerType === 'rdm') {

@@ -3,7 +3,6 @@ import * as React from 'react'
 import { Button, Dialog, DialogActions, DialogContent } from '@mui/material'
 import type { FeatureCollection } from 'assets/types'
 import useDeepCompareEffect from 'use-deep-compare-effect'
-import shallow from 'zustand/shallow'
 
 import SplitMultiPolygonsBtn from '@components/buttons/SplitMultiPolygons'
 import SaveToKoji from '@components/buttons/SaveToKoji'
@@ -15,7 +14,8 @@ import DialogHeader from './Header'
 import { Code } from '../Code'
 
 export default function Manager() {
-  const { dialogs, geojson } = useStatic((s) => s, shallow)
+  const dialogs = useStatic((s) => s.dialogs)
+  const geojson = useStatic((s) => s.geojson)
   const [code, setCode] = React.useState<string>(
     JSON.stringify(geojson, null, 2),
   )

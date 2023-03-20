@@ -1,5 +1,5 @@
 import * as React from 'react'
-import shallow from 'zustand/shallow'
+import { shallow } from 'zustand/shallow'
 
 import { useShapes } from '@hooks/useShapes'
 import { usePersist } from '@hooks/usePersist'

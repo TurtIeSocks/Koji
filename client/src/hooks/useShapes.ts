@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-import create from 'zustand'
+import { create } from 'zustand'
 import type {
   Point,
   MultiPoint,

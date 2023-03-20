@@ -16,7 +16,7 @@ import { Box } from '@mui/material'
 
 import { useStatic } from '@hooks/useStatic'
 import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
-import type { KojiProperty } from '@assets/types'
+import type { AdminGeofence, KojiProperty } from '@assets/types'
 
 import CodeInput from '../inputs/CodeInput'
 import {
@@ -65,7 +65,7 @@ export default function GeofenceForm() {
         optionText="mode"
         optionValue="mode"
       />
-      <FormDataConsumer>
+      <FormDataConsumer<AdminGeofence>>
         {({ formData }) => <GeofenceMap formData={formData} />}
       </FormDataConsumer>
       <Box pt="1em" />

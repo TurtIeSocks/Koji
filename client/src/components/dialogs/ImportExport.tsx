@@ -4,7 +4,6 @@ import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
 import DialogContent from '@mui/material/DialogContent'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
-import shallow from 'zustand/shallow'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 
 import SplitMultiPolygonsBtn from '@components/buttons/SplitMultiPolygons'
@@ -29,13 +28,16 @@ export function ImportExportDialog({
   shape: 'Polygon' | 'Route'
   children?: React.ReactNode
 }) {
-  const { feature, code, error } = useImportExport((s) => s, shallow)
+  const feature = useImportExport((s) => s.feature)
+  const code = useImportExport((s) => s.code)
+  const error = useImportExport((s) => s.error)
   const { reset, setCode, fireConvert, updateStats } =
     useImportExport.getState()
 
   const add = useShapes((s) => s.setters.add)
 
-  const { polygonExportMode, simplifyPolygons } = usePersist((s) => s, shallow)
+  const polygonExportMode = usePersist((s) => s.polygonExportMode)
+  const simplifyPolygons = usePersist((s) => s.simplifyPolygons)
 
   React.useEffect(() => {
     if (open && code) {

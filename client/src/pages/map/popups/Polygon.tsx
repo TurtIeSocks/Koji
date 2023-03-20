@@ -32,7 +32,7 @@ import {
   removeThisPolygon,
   splitMultiPolygons,
 } from '@services/utils'
-import shallow from 'zustand/shallow'
+import { shallow } from 'zustand/shallow'
 import { useImportExport } from '@hooks/useImportExport'
 import { filterPoints, filterPolys } from '@services/geoUtils'
 
