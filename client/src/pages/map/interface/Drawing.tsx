@@ -11,6 +11,7 @@ import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
 import { useShapes } from '@hooks/useShapes'
 import { buildShortcutKey, reverseObject } from '@services/utils'
+import { VECTOR_COLORS } from '@assets/constants'
 
 export function Drawing() {
   const snappable = usePersist((s) => s.snappable)
@@ -24,7 +25,11 @@ export function Drawing() {
   const revertPolygonsToDefault = () =>
     map.pm.getGeomanLayers().forEach((layer) => {
       if (layer instanceof L.Polygon) {
-        layer.setStyle({ color: '#3388ff' })
+        layer.setStyle({
+          color: `${layer.feature?.id}`.includes('SCANNER')
+            ? VECTOR_COLORS.GREEN
+            : VECTOR_COLORS.BLUE,
+        })
       }
     })
 
@@ -127,6 +132,12 @@ export function Drawing() {
                   text: 'Merge',
                   onClick() {
                     useShapes.getState().setters.combine()
+                  },
+                },
+                {
+                  text: 'Merge All',
+                  onClick() {
+                    useShapes.getState().setters.combine(true)
                   },
                 },
                 'cancel',

@@ -99,9 +99,17 @@ fn check_neighbors(
 
     current_neighbors.iter().for_each(|neighbor| {
         let id = neighbor.0.to_string();
-        if covered.lock().unwrap().contains(&id) {
-            return;
-        }
+        match covered.lock() {
+            Ok(c) => {
+                if c.contains(&id) {
+                    return;
+                }
+            }
+            Err(e) => {
+                log::error!("[S2] Error locking `covered` to check: {}", e)
+            }
+        };
+
         let cell = Cell::from(neighbor);
         let polygon = geo::Polygon::<f64>::new(
             geo::LineString::from(
@@ -117,7 +125,14 @@ fn check_neighbors(
             vec![],
         );
         if polygon.intersects(circle) {
-            covered.lock().unwrap().insert(id);
+            match covered.lock() {
+                Ok(mut c) => {
+                    c.insert(id);
+                }
+                Err(e) => {
+                    log::error!("[S2] Error locking `covered` to insert: {}", e)
+                }
+            }
             next_neighbors.push((
                 cell.center().latitude().deg(),
                 cell.center().longitude().deg(),

@@ -47,7 +47,7 @@ export interface UseShapes {
     getPointsAsMp: () => Feature<MultiPoint>
   }
   setters: {
-    combine: () => void
+    combine: (all?: boolean) => void
     setFromCollection: (
       collection: FeatureCollection,
       source?: '__SCANNER' | '',
@@ -272,7 +272,7 @@ export const useShapes = create<UseShapes>((set, get) => ({
         })
       }
     },
-    combine: () => {
+    combine: (all) => {
       const {
         combined,
         Polygon,
@@ -285,7 +285,16 @@ export const useShapes = create<UseShapes>((set, get) => ({
         properties: {},
         id: getKey(),
       }
-      Object.entries(combined).forEach(([key, value]) => {
+      Object.entries(
+        all
+          ? {
+              ...Object.fromEntries(Object.keys(Polygon).map((k) => [k, true])),
+              ...Object.fromEntries(
+                Object.keys(MultiPolygon).map((k) => [k, true]),
+              ),
+            }
+          : combined,
+      ).forEach(([key, value]) => {
         if (value) {
           const isPolygon = Polygon[key]
           const polygon = isPolygon ? Polygon[key] : MultiPolygon[key]

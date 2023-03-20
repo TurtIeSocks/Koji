@@ -120,8 +120,8 @@ fn generate_circles(geometry: Geometry, radius: f64) -> Vec<Point> {
         .iter()
         .map(|interior| interior.points().collect::<Vec<Point>>());
 
-    let x_mod: f64 = 0.75_f64.sqrt();
-    let y_mod: f64 = 0.568_f64.sqrt();
+    let x_mod = 0.75_f64.sqrt();
+    let y_mod = 0.568_f64.sqrt();
 
     let extremes = polygon.extremes().unwrap();
     let max = Point::new(extremes.x_max.coord.x, extremes.y_max.coord.y);
