@@ -48,8 +48,8 @@ pub fn centroid(coords: &SingleVec) -> PointArray {
     let (mut x, mut y, mut z) = (0.0, 0.0, 0.0);
 
     for loc in coords.iter() {
-        let lat = loc[1].to_radians();
-        let lon = loc[0].to_radians();
+        let lat = loc[0].to_radians();
+        let lon = loc[1].to_radians();
 
         x += lat.cos() * lon.cos();
         y += lat.cos() * lon.sin();
@@ -65,5 +65,5 @@ pub fn centroid(coords: &SingleVec) -> PointArray {
     let lon = y.atan2(x);
     let lat = z.atan2(hyp);
 
-    [lon.to_degrees(), lat.to_degrees()]
+    [lat.to_degrees(), lon.to_degrees()]
 }

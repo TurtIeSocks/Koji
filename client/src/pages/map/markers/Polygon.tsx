@@ -4,6 +4,7 @@ import * as React from 'react'
 import { Polygon } from 'react-leaflet'
 import * as L from 'leaflet'
 
+import { VECTOR_COLORS } from '@assets/constants'
 import { Feature, DbOption } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
@@ -23,8 +24,8 @@ export function KojiPolygon({
   const [loadData, setLoadData] = React.useState(false)
 
   const color = feature?.id.toString().includes('__SCANNER')
-    ? 'green'
-    : '#3388ff'
+    ? VECTOR_COLORS.GREEN
+    : VECTOR_COLORS.BLUE
 
   return (
     <Polygon
@@ -45,7 +46,7 @@ export function KojiPolygon({
                 !useStatic.getState().combinePolyMode &&
                 !Object.values(useStatic.getState().layerEditing).some((v) => v)
               ) {
-                ref.setStyle({ color: 'red' })
+                ref.setStyle({ color: VECTOR_COLORS.RED })
                 // ref.bringToFront()
               }
             })
@@ -64,7 +65,7 @@ export function KojiPolygon({
                   if (prev.combined[feature.id || '']) {
                     ref.setStyle({ color })
                   } else {
-                    ref.setStyle({ color: 'orange' })
+                    ref.setStyle({ color: VECTOR_COLORS.ORANGE })
                   }
                   return {
                     combined: {

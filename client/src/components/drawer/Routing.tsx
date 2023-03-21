@@ -9,7 +9,6 @@ import {
   capitalize,
 } from '@mui/material'
 import Update from '@mui/icons-material/Update'
-import shallow from 'zustand/shallow'
 
 import { S2_CELL_LEVELS } from '@assets/constants'
 import { useStatic } from '@hooks/useStatic'
@@ -27,14 +26,11 @@ export default function RoutingTab() {
   const fast = usePersist((s) => s.fast)
   const bootstrap_mode = usePersist((s) => s.bootstrap_mode)
 
-  const [updateButton, scannerType, isEditing] = useStatic(
-    (s) => [
-      s.updateButton,
-      s.scannerType,
-      Object.values(s.layerEditing).some((v) => v),
-    ],
-    shallow,
-  )
+  const [updateButton, scannerType, isEditing] = useStatic((s) => [
+    s.updateButton,
+    s.scannerType,
+    Object.values(s.layerEditing).some((v) => v),
+  ])
 
   React.useEffect(() => {
     if (category === 'pokestop' && scannerType === 'rdm') {

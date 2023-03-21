@@ -90,7 +90,7 @@ async fn push_to_prod(
     let id = id.into_inner();
     let scanner_type = scanner_type.as_ref();
 
-    let feature = route::Query::feature(&conn.koji_db, id, false)
+    let feature = route::Query::feature(&conn.koji_db, id, true)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 

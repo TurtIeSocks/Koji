@@ -40,6 +40,7 @@ export function KojiMultiPoint({
                 },
                 geometry: { coordinates: first, type: 'Point' },
               }}
+              index={i}
               type="MultiPoint"
               dbRef={dbRef}
             />

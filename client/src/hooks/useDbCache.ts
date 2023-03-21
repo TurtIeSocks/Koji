@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-types */
-import create from 'zustand'
+import { create } from 'zustand'
 import type {
   DbOption,
   KojiKey,

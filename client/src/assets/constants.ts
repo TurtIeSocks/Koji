@@ -12,6 +12,11 @@ import ImportExport from '@mui/icons-material/ImportExport'
 import Settings from '@mui/icons-material/Settings'
 import TravelExplore from '@mui/icons-material/TravelExplore'
 import Layers from '@mui/icons-material/Layers'
+import blue from '@mui/material/colors/blue'
+import green from '@mui/material/colors/green'
+import red from '@mui/material/colors/red'
+import deepPurple from '@mui/material/colors/deepPurple'
+import orange from '@mui/material/colors/orange'
 
 export const ATTRIBUTION = `
   <a href='https://github.com/TurtIeSocks/Koji' noreferrer='true' target='_blank'>
@@ -20,7 +25,7 @@ export const ATTRIBUTION = `
     </svg>
     Kōji - TurtleSocks
   </a>
-`
+` as const
 
 export const ICON_SVG = {
   u: `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="-2 -2 24 24">
@@ -76,7 +81,7 @@ export const ICON_MAP: Record<typeof TABS[number], typeof EditRoad> = {
   Manage: ImportExport,
   Settings,
   Geojson: Map,
-}
+} as const
 
 export const RDM_FENCES = [
   'auto_pokemon',
@@ -167,4 +172,12 @@ export const KEYBOARD_SHORTCUTS = [
     category: 'other',
     shortcuts: ['drawer', 'setTileServer', 'theme'],
   },
-]
+] as const
+
+export const VECTOR_COLORS = {
+  GREEN: green.A700,
+  BLUE: blue[500],
+  RED: red[700],
+  ORANGE: orange.A700,
+  PURPLE: deepPurple[500],
+} as const

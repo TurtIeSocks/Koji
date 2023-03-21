@@ -1,4 +1,4 @@
-import create from 'zustand'
+import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { TabOption, Category, ConversionOptions } from '@assets/types'
 import { GEOMETRY_CONVERSION_TYPES, S2_CELL_LEVELS } from '@assets/constants'

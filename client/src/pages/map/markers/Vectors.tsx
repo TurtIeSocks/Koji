@@ -1,5 +1,5 @@
 import * as React from 'react'
-import shallow from 'zustand/shallow'
+import { shallow } from 'zustand/shallow'
 
 import { useShapes } from '@hooks/useShapes'
 import { usePersist } from '@hooks/usePersist'
@@ -25,7 +25,7 @@ export function Points() {
           key={id}
           feature={feature}
           radius={radius || 10}
-          index={showRouteIndex ? i + 1 : 0}
+          index={showRouteIndex ? i + 1 : NaN}
           dbRef={getFromKojiKey(feature.properties.__multipoint_id)}
         />
       ))}

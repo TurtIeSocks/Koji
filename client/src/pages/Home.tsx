@@ -5,7 +5,7 @@ import Map from '@mui/icons-material/Map'
 import Admin from '@mui/icons-material/AdminPanelSettings'
 import Convert from '@mui/icons-material/PrecisionManufacturing'
 import { MapContainer, TileLayer } from 'react-leaflet'
-import shallow from 'zustand/shallow'
+import { shallow } from 'zustand/shallow'
 
 import ThemeToggle from '@components/ThemeToggle'
 import { usePersist } from '@hooks/usePersist'

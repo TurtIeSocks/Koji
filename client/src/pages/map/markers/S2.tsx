@@ -6,6 +6,7 @@ import { getMapBounds } from '@services/utils'
 import { usePersist } from '@hooks/usePersist'
 import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
+import { VECTOR_COLORS } from '@assets/constants'
 
 interface S2Response {
   id: string
@@ -19,7 +20,7 @@ function BaseCell({ id, coords, covered }: S2Response & { covered: boolean }) {
       pmIgnore
       snapIgnore
       positions={coords}
-      color={covered ? 'red' : 'black'}
+      color={covered ? VECTOR_COLORS.RED : 'black'}
       fillOpacity={covered ? 0.2 : 0}
       weight={0.5}
       pane="s2"

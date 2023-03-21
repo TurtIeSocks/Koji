@@ -146,88 +146,90 @@ impl Query {
         existing: &HashMap<String, u32>,
         inserts_updates: &mut InsertsUpdates<ActiveModel>,
     ) -> Result<(), DbErr> {
-        if let Some(name) = feat.property("__name") {
-            if let Some(name) = name.as_str() {
-                let column = if let Some(mode) = feat.property("__mode").clone() {
-                    if let Some(mode) = mode.as_str() {
-                        match mode.to_lowercase().as_str() {
-                            "circlepokemon"
-                            | "circle_pokemon"
-                            | "circlesmartpokemon"
-                            | "circle_smart_pokemon" => Some(area::Column::PokemonModeRoute),
-                            "circleraid" | "circle_raid" | "circlesmartraid"
-                            | "circle_smart_raid" => Some(area::Column::FortModeRoute),
-                            "circlequest" | "circle_quest" => Some(area::Column::QuestModeRoute),
-                            "autoquest" | "auto_quest" => Some(area::Column::Geofence),
-                            _ => None,
+        let name = if let Some(name) = feat.property("name") {
+            name.as_str()
+        } else if let Some(name) = feat.property("__name") {
+            name.as_str()
+        } else {
+            let error = "[AREA] Couldn't save area, name not found in GeoJson!";
+            log::warn!("{}", error);
+            return Err(DbErr::Custom(error.to_string()));
+        };
+
+        if let Some(name) = name {
+            let column = if let Some(mode) = feat.property("__mode") {
+                if let Some(mode) = mode.as_str() {
+                    match mode.to_lowercase().as_str() {
+                        "circlepokemon"
+                        | "circle_pokemon"
+                        | "circlesmartpokemon"
+                        | "circle_smart_pokemon" => Some(area::Column::PokemonModeRoute),
+                        "circleraid" | "circle_raid" | "circlesmartraid" | "circle_smart_raid" => {
+                            Some(area::Column::FortModeRoute)
                         }
-                    } else {
-                        None
+                        "circlequest" | "circle_quest" => Some(area::Column::QuestModeRoute),
+                        "autoquest" | "auto_quest" => Some(area::Column::Geofence),
+                        _ => None,
                     }
                 } else {
                     None
-                };
-                if let Some(column) = column {
-                    let name = name.to_string();
-                    let area = feat.to_text(" ", ",", false);
-                    let is_update = existing.get(&name);
-
-                    if let Some(id) = is_update {
-                        area::Entity::update_many()
-                            .col_expr(column, Expr::value(area))
-                            .filter(area::Column::Id.eq(id.to_owned()))
-                            .exec(conn)
-                            .await?;
-                        log::info!("[DB] {}.{:?} Area Updated!", name, column);
-                        inserts_updates.updates += 1;
-                        Ok(())
-                    } else {
-                        log::info!("[AREA] Adding new area {}", name);
-                        let mut new_model = ActiveModel {
-                            name: Set(name),
-                            ..Default::default()
-                        };
-                        let default_model = Entity::find()
-                            .filter(Column::Name.eq("Default"))
-                            .one(conn)
-                            .await?;
-                        if let Some(default_model) = default_model {
-                            new_model.pokemon_mode_workers =
-                                Set(default_model.pokemon_mode_workers);
-                            new_model.pokemon_mode_route = Set(default_model.pokemon_mode_route);
-                            new_model.fort_mode_workers = Set(default_model.fort_mode_workers);
-                            new_model.fort_mode_route = Set(default_model.fort_mode_route);
-                            new_model.quest_mode_workers = Set(default_model.quest_mode_workers);
-                            new_model.quest_mode_hours = Set(default_model.quest_mode_hours);
-                            new_model.quest_mode_max_login_queue =
-                                Set(default_model.quest_mode_max_login_queue);
-                            new_model.geofence = Set(default_model.geofence);
-                            new_model.enable_quests = Set(default_model.enable_quests);
-                        };
-                        match column {
-                            Column::Geofence => new_model.geofence = Set(Some(area)),
-                            Column::FortModeRoute => new_model.fort_mode_route = Set(Some(area)),
-                            Column::QuestModeRoute => new_model.quest_mode_route = Set(Some(area)),
-                            Column::PokemonModeRoute => {
-                                new_model.pokemon_mode_route = Set(Some(area))
-                            }
-                            _ => {}
-                        }
-                        inserts_updates.to_insert.push(new_model);
-                        Ok(())
-                    }
-                } else {
-                    let error = format!("[AREA] Couldn't determine column for {}", name);
-                    log::warn!("{}", error);
-                    Err(DbErr::Custom(error))
                 }
             } else {
-                let error = "[AREA] Couldn't save area, name property is malformed";
+                None
+            };
+            if let Some(column) = column {
+                let name = name.to_string();
+                let area = feat.to_text(" ", ",", false);
+                let is_update = existing.get(&name);
+
+                if let Some(id) = is_update {
+                    area::Entity::update_many()
+                        .col_expr(column, Expr::value(area))
+                        .filter(area::Column::Id.eq(id.to_owned()))
+                        .exec(conn)
+                        .await?;
+                    log::info!("[DB] {}.{:?} Area Updated!", name, column);
+                    inserts_updates.updates += 1;
+                    Ok(())
+                } else {
+                    log::info!("[AREA] Adding new area {}", name);
+                    let mut new_model = ActiveModel {
+                        name: Set(name),
+                        ..Default::default()
+                    };
+                    let default_model = Entity::find()
+                        .filter(Column::Name.eq("Default"))
+                        .one(conn)
+                        .await?;
+                    if let Some(default_model) = default_model {
+                        new_model.pokemon_mode_workers = Set(default_model.pokemon_mode_workers);
+                        new_model.pokemon_mode_route = Set(default_model.pokemon_mode_route);
+                        new_model.fort_mode_workers = Set(default_model.fort_mode_workers);
+                        new_model.fort_mode_route = Set(default_model.fort_mode_route);
+                        new_model.quest_mode_workers = Set(default_model.quest_mode_workers);
+                        new_model.quest_mode_hours = Set(default_model.quest_mode_hours);
+                        new_model.quest_mode_max_login_queue =
+                            Set(default_model.quest_mode_max_login_queue);
+                        new_model.geofence = Set(default_model.geofence);
+                        new_model.enable_quests = Set(default_model.enable_quests);
+                    };
+                    match column {
+                        Column::Geofence => new_model.geofence = Set(Some(area)),
+                        Column::FortModeRoute => new_model.fort_mode_route = Set(Some(area)),
+                        Column::QuestModeRoute => new_model.quest_mode_route = Set(Some(area)),
+                        Column::PokemonModeRoute => new_model.pokemon_mode_route = Set(Some(area)),
+                        _ => {}
+                    }
+                    inserts_updates.to_insert.push(new_model);
+                    Ok(())
+                }
+            } else {
+                let error = format!("[AREA] Couldn't determine column for {}", name);
                 log::warn!("{}", error);
-                Err(DbErr::Custom(error.to_string()))
+                Err(DbErr::Custom(error))
             }
         } else {
-            let error = "[AREA] Couldn't save area, name not found in GeoJson!";
+            let error = "[AREA] Couldn't save area, name property is malformed";
             log::warn!("{}", error);
             Err(DbErr::Custom(error.to_string()))
         }

@@ -1,4 +1,4 @@
-import create from 'zustand'
+import { create } from 'zustand'
 import type { AlertProps } from '@mui/material'
 
 import type {

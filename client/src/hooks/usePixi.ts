@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react'
 import geohash from 'ngeohash'
 import seed from 'seedrandom'
-import shallow from 'zustand/shallow'
+import { shallow } from 'zustand/shallow'
 
 import 'leaflet-pixi-overlay'
 import * as L from 'leaflet'
@@ -50,7 +50,13 @@ export default function usePixi(markers: PixiMarker[]) {
   const [pixiOverlay, setPixiOverlay] = useState(null)
   const [loaded, setLoaded] = useState(false)
   const map = useMap()
-  const { colorByGeohash, geohashPrecision } = usePersist((s) => s, shallow)
+  const { colorByGeohash, geohashPrecision } = usePersist(
+    (s) => ({
+      colorByGeohash: s.colorByGeohash,
+      geohashPrecision: s.geohashPrecision,
+    }),
+    shallow,
+  )
 
   if (map.getZoom() === undefined) {
     // this if statement is to avoid getContainer error

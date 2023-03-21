@@ -3,6 +3,7 @@ import { FormDataConsumer, SelectInput, TextInput } from 'react-admin'
 import { Box } from '@mui/material'
 
 import { RDM_ROUTES, UNOWN_ROUTES } from '@assets/constants'
+import type { KojiRoute } from '@assets/types'
 import { useStatic } from '@hooks/useStatic'
 
 import CodeInput from '../inputs/CodeInput'
@@ -23,7 +24,7 @@ export default function RouteForm() {
         optionText="mode"
         optionValue="mode"
       />
-      <FormDataConsumer>
+      <FormDataConsumer<KojiRoute>>
         {({ formData }) => <RouteMap formData={formData} />}
       </FormDataConsumer>
       <Box pt="1em" />

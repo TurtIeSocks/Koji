@@ -63,7 +63,14 @@ async fn bootstrap(
         if !feat.contains_property("__name") && !instance.is_empty() {
             feat.set_property("__name", instance.clone());
         }
-        feat.set_property("__mode", "circle_smart_pokemon");
+        feat.set_property(
+            "__mode",
+            if scanner_type == "rdm" {
+                "circle_smart_pokemon"
+            } else {
+                "circle_pokemon"
+            },
+        );
         if save_to_db {
             route::Query::upsert_from_geometry(&conn.koji_db, GeoFormats::Feature(feat.clone()))
                 .await

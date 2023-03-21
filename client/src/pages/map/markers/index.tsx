@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
 import { Circle } from 'react-leaflet'
 import geohash from 'ngeohash'
+import { shallow } from 'zustand/shallow'
 
 import { ICON_RADIUS, ICON_COLOR } from '@assets/constants'
 import { UsePersist, usePersist } from '@hooks/usePersist'
@@ -16,13 +17,13 @@ export default function Markers({
 }: {
   category: UsePersist['category']
 }) {
-  const enabled = usePersist((s) => s[category])
+  const enabled = usePersist((s) => s[category], shallow)
   const nativeLeaflet = usePersist((s) => s.nativeLeaflet)
-  const location = usePersist((s) => s.location)
   const data = usePersist((s) => s.data)
   const last_seen = usePersist((s) => s.last_seen)
   const pokestopRange = usePersist((s) => s.pokestopRange)
 
+  const bounds = useStatic((s) => s.bounds)
   const geojson = useStatic((s) => s.geojson)
 
   const [markers, setMarkers] = React.useState<PixiMarker[]>([])
@@ -50,7 +51,9 @@ export default function Markers({
       )
       if (enabled && (data === 'area' ? filtered.length : true)) {
         getMarkers(controller.signal, category).then((res) => {
-          if (res.length && res.length !== markers.length) setMarkers(res)
+          if (res.length && res.length !== markers.length) {
+            setMarkers(res)
+          }
         })
       } else {
         setMarkers([])
@@ -60,7 +63,7 @@ export default function Markers({
   }, [
     data,
     data === 'area' ? geojson : {},
-    data === 'bound' ? location : {},
+    data === 'bound' ? bounds : {},
     enabled,
     last_seen,
     focused,

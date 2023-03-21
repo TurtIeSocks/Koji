@@ -4,6 +4,7 @@ import { Circle, Tooltip } from 'react-leaflet'
 import * as L from 'leaflet'
 import geohash from 'ngeohash'
 
+import { VECTOR_COLORS } from '@assets/constants'
 import type { Feature, DbOption, KojiKey } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
@@ -95,11 +96,11 @@ export function KojiPoint({
       pane="circles"
       {...properties}
       color={
-        type === 'Point'
-          ? 'red'
+        type === 'Point' || index === 0
+          ? VECTOR_COLORS.RED
           : properties?.__multipoint_id?.toString().includes('__SCANNER')
-          ? 'green'
-          : '#3388ff'
+          ? VECTOR_COLORS.GREEN
+          : VECTOR_COLORS.BLUE
       }
     >
       <BasePopup>
