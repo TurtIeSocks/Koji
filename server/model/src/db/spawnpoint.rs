@@ -52,13 +52,7 @@ impl Query {
             .column(spawnpoint::Column::DespawnSec)
             .filter(spawnpoint::Column::Lat.between(payload.min_lat, payload.max_lat))
             .filter(spawnpoint::Column::Lon.between(payload.min_lon, payload.max_lon))
-            .filter(
-                Column::Updated.gt(if let Some(last_seen) = payload.last_seen {
-                    last_seen
-                } else {
-                    0
-                }),
-            )
+            .filter(Column::LastSeen.gt(payload.last_seen.unwrap_or(0)))
             .limit(2_000_000)
             .into_model::<Spawnpoint<f64>>()
             .all(conn)

@@ -21,7 +21,7 @@ fn distance_to_segment(p: &Point, a: &Point, b: &Point) -> f64 {
     }
     let b2 = c1 / c2;
     let pb = Point::new(a.x() + b2 * v.x(), a.y() + b2 * v.y());
-    return p.haversine_distance(&pb);
+    p.haversine_distance(&pb)
 }
 
 pub fn point_line_distance(input: &Vec<Point>, point: &Point) -> f64 {

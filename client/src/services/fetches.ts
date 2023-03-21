@@ -285,9 +285,10 @@ export async function getMarkers(
   signal: AbortSignal,
   category: Category,
 ): Promise<PixiMarker[]> {
-  const { data, last_seen } = usePersist.getState()
+  const { data, last_seen: raw } = usePersist.getState()
   const { geojson, bounds } = useStatic.getState()
   if (data === 'area' && !geojson.features.length) return []
+  const last_seen = typeof raw === 'string' ? new Date(raw) : raw
   try {
     const res = await fetch(`/internal/data/${data}/${category}`, {
       method: 'POST',

@@ -35,12 +35,11 @@ export default function Interface() {
       location: Object.values(map.getCenter()) as [number, number],
       zoom: map.getZoom(),
     })
-    useStatic.setState({
-      bounds: getMapBounds(map),
-    })
+    useStatic.setState({ bounds: getMapBounds(map) })
   }, [map])
 
   React.useEffect(() => {
+    useStatic.setState({ bounds: getMapBounds(map) })
     map.on('moveend', onMove)
     return () => {
       map.off('moveend', onMove)
