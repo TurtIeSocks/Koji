@@ -1,29 +1,38 @@
 use super::*;
 
-use algorithms::s2::{circle_coverage, get_cells};
+use algorithms::s2;
 
 use model::api::args::{BoundsArg, Response};
 use serde::Deserialize;
 use serde_json::json;
 
 #[derive(Debug, Clone, Deserialize)]
-struct CircleArgs {
+struct CoverageArgs {
     lat: f64,
     lon: f64,
-    radius: f64,
+    radius: Option<f64>,
+    size: Option<u8>,
     level: u8,
 }
 
-#[post("/circle-coverage")]
-async fn circle_intersection(payload: web::Json<CircleArgs>) -> Result<HttpResponse, Error> {
-    let CircleArgs {
+#[post("/cell-coverage")]
+async fn cell_coverage(payload: web::Json<CoverageArgs>) -> Result<HttpResponse, Error> {
+    let CoverageArgs {
         lat,
         lon,
         radius,
         level,
+        size,
     } = payload.into_inner();
 
-    let result = circle_coverage(lat, lon, radius, level);
+    let result = if let Some(radius) = radius {
+        Some(s2::circle_coverage(lat, lon, radius, level))
+    } else if let Some(size) = size {
+        Some(s2::cell_coverage(lat, lon, size, level))
+    } else {
+        None
+    };
+
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!(result)),
         message: "Success".to_string(),
@@ -40,7 +49,7 @@ async fn s2_cells(
 ) -> Result<HttpResponse, Error> {
     let bounds = payload.into_inner();
     let cell_level = url.into_inner();
-    let cells = get_cells(
+    let cells = s2::get_cells(
         cell_level,
         bounds.min_lat,
         bounds.min_lon,

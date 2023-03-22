@@ -9,6 +9,8 @@ use model::api::args::Stats;
 use s2::{cell::Cell, cellid::CellID, cellunion::CellUnion, rect::Rect, region::RegionCoverer};
 use serde::Serialize;
 
+type Covered = Arc<Mutex<HashSet<String>>>;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct S2Response {
     id: String,
@@ -114,7 +116,7 @@ fn get_polygon(id: &CellID) -> S2Response {
     }
 }
 
-pub fn circle_coverage(lat: f64, lon: f64, radius: f64, level: u8) -> Arc<Mutex<HashSet<String>>> {
+pub fn circle_coverage(lat: f64, lon: f64, radius: f64, level: u8) -> Covered {
     let mut covered = Arc::new(Mutex::new(HashSet::new()));
     let point = geo::Point::new(lon, lat);
     let circle = geo::Polygon::<f64>::new(
@@ -130,13 +132,7 @@ pub fn circle_coverage(lat: f64, lon: f64, radius: f64, level: u8) -> Arc<Mutex<
     covered
 }
 
-fn check_neighbors(
-    lat: f64,
-    lon: f64,
-    level: u8,
-    circle: &geo::Polygon,
-    covered: &mut Arc<Mutex<HashSet<String>>>,
-) {
+fn check_neighbors(lat: f64, lon: f64, level: u8, circle: &geo::Polygon, covered: &mut Covered) {
     let center = s2::latlng::LatLng::from_degrees(lat, lon);
     let center_cell = CellID::from(center).parent(level as u64);
     match covered.lock() {
@@ -357,4 +353,33 @@ pub fn bootstrap(feature: Feature, level: u8, size: u8, stats: &mut Stats) -> Fe
         }),
         ..Default::default()
     }
+}
+
+pub fn cell_coverage(lat: f64, lon: f64, size: u8, level: u8) -> Covered {
+    let covered = Arc::new(Mutex::new(HashSet::new()));
+    let mut center = CellID::from(s2::latlng::LatLng::from_degrees(lat, lon)).parent(level as u64);
+
+    let centering_size = if level % 2 == 0 {
+        size / 2
+    } else {
+        (size / 2) + 1
+    };
+    for i in 0..centering_size {
+        if i != 0 {
+            center = center.edge_neighbors()[2];
+        }
+        center = center.edge_neighbors()[3];
+    }
+    for _ in 0..size {
+        center = center.edge_neighbors()[1];
+        let mut h_cell_id = center.clone();
+        // covered.lock().unwrap().insert(h_cell_id.0.to_string());
+
+        for _ in 0..size {
+            covered.lock().unwrap().insert(h_cell_id.0.to_string());
+            h_cell_id = h_cell_id.edge_neighbors()[0];
+        }
+    }
+
+    covered
 }

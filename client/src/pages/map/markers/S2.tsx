@@ -94,13 +94,17 @@ const MemoS2Cell = React.memo(
 
 export function S2Cells() {
   const s2cells = usePersist((s) => s.s2cells)
+  const bootstrap_mode = usePersist((s) => s.bootstrap_mode)
+  const bootstrap_level = usePersist((s) => s.bootstrap_level)
   const location = usePersist((s) => s.location)
 
   return (
     <>
-      {s2cells.map((level) => (
-        <MemoS2Cell key={level} level={level} location={location} />
-      ))}
+      {(bootstrap_mode === 'Radius' ? s2cells : [bootstrap_level]).map(
+        (level) => (
+          <MemoS2Cell key={level} level={level} location={location} />
+        ),
+      )}
     </>
   )
 }

@@ -424,7 +424,14 @@ export async function save(
 }
 
 export async function s2Coverage(id: Feature['id'], lat: number, lon: number) {
-  const { s2cells, radius, fillCoveredCells } = usePersist.getState()
+  const {
+    s2cells,
+    radius,
+    fillCoveredCells,
+    bootstrap_level,
+    bootstrap_mode,
+    bootstrap_size,
+  } = usePersist.getState()
   if (fillCoveredCells) {
     const s2cellCoverage: UseShapes['s2cellCoverage'] = Object.fromEntries(
       Object.entries(useShapes.getState().s2cellCoverage).filter(
@@ -432,20 +439,27 @@ export async function s2Coverage(id: Feature['id'], lat: number, lon: number) {
       ),
     )
     await Promise.allSettled(
-      s2cells.map(async (level) =>
-        fetchWrapper<KojiResponse<string[]>>('/api/v1/s2/circle-coverage', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ lat, lon, radius, level }),
-        }).then((res) => {
-          if (res) {
-            res.data.forEach((cell) => {
-              if (!s2cellCoverage[cell]) s2cellCoverage[cell] = id.toString()
-            })
-          }
-        }),
+      (bootstrap_mode === 'Radius' ? s2cells : [bootstrap_level]).map(
+        async (level) =>
+          fetchWrapper<KojiResponse<string[]>>('/api/v1/s2/cell-coverage', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              lat,
+              lon,
+              radius: bootstrap_mode === 'Radius' ? radius : undefined,
+              size: bootstrap_mode === 'S2' ? bootstrap_size : undefined,
+              level,
+            }),
+          }).then((res) => {
+            if (res) {
+              res.data.forEach((cell) => {
+                if (!s2cellCoverage[cell]) s2cellCoverage[cell] = id.toString()
+              })
+            }
+          }),
       ),
     )
     return s2cellCoverage
