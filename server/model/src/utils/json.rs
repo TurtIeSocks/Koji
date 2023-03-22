@@ -243,7 +243,7 @@ impl JsonToModel for Value {
             } else {
                 None
             };
-            let default_value = if let Some(default_value) = incoming.get("default_value") {
+            let mut default_value = if let Some(default_value) = incoming.get("default_value") {
                 if let Some(default_value) = default_value.as_str() {
                     Some(default_value.to_string())
                 } else {
@@ -252,6 +252,11 @@ impl JsonToModel for Value {
             } else {
                 None
             };
+            if let Some(value_check) = default_value.as_ref() {
+                if value_check == "null" {
+                    default_value = None;
+                }
+            }
             if let Some(name) = name {
                 if let Some(category) = category {
                     Ok(property::ActiveModel {

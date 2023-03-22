@@ -10,9 +10,6 @@ const transformPayload = async (geofence: AdminGeofence) => {
   return {
     ...geofence,
     id: 0,
-    geometry: {
-      ...JSON.parse(geofence.geometry.toString()),
-    },
   }
 }
 
