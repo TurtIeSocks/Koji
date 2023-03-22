@@ -71,6 +71,7 @@ export function TextInputExpanded({
       id={id}
       {...props}
       {...field}
+      size="small"
       disabled={disabled}
       onChange={({ target }) => {
         field.onChange({

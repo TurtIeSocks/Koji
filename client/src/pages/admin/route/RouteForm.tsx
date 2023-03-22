@@ -24,16 +24,16 @@ export default function RouteForm() {
         optionText="mode"
         optionValue="mode"
       />
-      <FormDataConsumer<KojiRoute>>
-        {({ formData }) => <RouteMap formData={formData} />}
-      </FormDataConsumer>
-      <Box pt="1em" />
       <CodeInput
         source="geometry"
         label="Route"
         conversionType="geometry"
         geometryType="MultiPoint"
       />
+      <Box pt="1em" />
+      <FormDataConsumer<KojiRoute>>
+        {({ formData }) => <RouteMap formData={formData} />}
+      </FormDataConsumer>
     </>
   )
 }

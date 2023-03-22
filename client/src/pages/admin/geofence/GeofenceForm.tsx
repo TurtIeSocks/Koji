@@ -65,10 +65,6 @@ export default function GeofenceForm() {
         optionText="mode"
         optionValue="mode"
       />
-      <FormDataConsumer<AdminGeofence>>
-        {({ formData }) => <GeofenceMap formData={formData} />}
-      </FormDataConsumer>
-      <Box pt="1em" />
       <ArrayInput source="properties" sx={{ my: 2 }}>
         <SimpleFormIterator inline>
           <ReferenceInput
@@ -180,6 +176,10 @@ export default function GeofenceForm() {
         conversionType="geometry"
         geometryType="Polygon"
       />
+      <Box pt="1em" />
+      <FormDataConsumer<AdminGeofence>>
+        {({ formData }) => <GeofenceMap formData={formData} />}
+      </FormDataConsumer>
     </>
   )
 }
