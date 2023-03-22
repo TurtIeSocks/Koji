@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use geo::{HaversineDestination, Intersects, MultiPolygon, Polygon};
+use geo::{HaversineDestination, Intersects, MultiPolygon, Polygon, RemoveRepeatedPoints};
 use geojson::{Feature, Geometry, Value};
 use model::api::args::Stats;
 use s2::{cell::Cell, cellid::CellID, cellunion::CellUnion, rect::Rect, region::RegionCoverer};
@@ -345,12 +345,14 @@ pub fn bootstrap(feature: Feature, level: u8, size: u8, stats: &mut Stats) -> Fe
 
     stats.total_clusters += multi_point.len();
 
+    let mut multi_point: geo::MultiPoint = multi_point
+        .iter()
+        .map(|p| geo::Coord { x: p[0], y: p[1] })
+        .collect();
+    multi_point.remove_repeated_points_mut();
+
     Feature {
-        geometry: Some(Geometry {
-            value: Value::MultiPoint(multi_point),
-            bbox: None,
-            foreign_members: None,
-        }),
+        geometry: Some(Geometry::from(&multi_point)),
         ..Default::default()
     }
 }
@@ -373,8 +375,6 @@ pub fn cell_coverage(lat: f64, lon: f64, size: u8, level: u8) -> Covered {
     for _ in 0..size {
         center = center.edge_neighbors()[1];
         let mut h_cell_id = center.clone();
-        // covered.lock().unwrap().insert(h_cell_id.0.to_string());
-
         for _ in 0..size {
             covered.lock().unwrap().insert(h_cell_id.0.to_string());
             h_cell_id = h_cell_id.edge_neighbors()[0];
