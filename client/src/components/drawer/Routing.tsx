@@ -6,11 +6,10 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  capitalize,
 } from '@mui/material'
 import Update from '@mui/icons-material/Update'
 
-import { S2_CELL_LEVELS } from '@assets/constants'
+import { BOOTSTRAP_LEVELS, S2_CELL_LEVELS } from '@assets/constants'
 import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
 import { clusteringRouting } from '@services/fetches'
@@ -62,22 +61,42 @@ export default function RoutingTab() {
         </Collapse>
       </Collapse>
       <Collapse in={mode === 'bootstrap'}>
+        <Divider sx={{ my: 2 }} />
+        <ListSubheader>Bootstrapping</ListSubheader>
         <MultiOptionList
           field="bootstrap_mode"
-          buttons={['radius', ...S2_CELL_LEVELS]}
+          buttons={['Radius', 'S2']}
+          label="Mode"
+          hideLabel
           type="select"
-          itemLabel={(item) =>
-            typeof item === 'string' ? capitalize(item) : `S2 Level ${item}`
-          }
         />
-      </Collapse>
-      <Collapse in={mode !== 'bootstrap' || bootstrap_mode === 'radius'}>
-        <NumInput field="radius" />
+        <Collapse in={bootstrap_mode === 'Radius'}>
+          <NumInput field="radius" />
+        </Collapse>
+        <Collapse in={bootstrap_mode === 'S2'}>
+          <MultiOptionList
+            field="bootstrap_level"
+            label="Level"
+            hideLabel
+            buttons={S2_CELL_LEVELS}
+            type="select"
+            itemLabel={(v) => `Level ${v}`}
+          />
+          <MultiOptionList
+            field="bootstrap_size"
+            label="Size"
+            hideLabel
+            buttons={BOOTSTRAP_LEVELS}
+            type="select"
+            itemLabel={(v) => `${v}x${v}`}
+          />
+        </Collapse>
       </Collapse>
 
       <Collapse in={mode !== 'bootstrap'}>
         <Divider sx={{ my: 2 }} />
         <ListSubheader>Clustering</ListSubheader>
+        <NumInput field="radius" />
         <NumInput field="min_points" />
         <Toggle field="fast" />
         <Collapse in={!fast}>
@@ -92,9 +111,9 @@ export default function RoutingTab() {
           type="select"
         />
       </Collapse>
-      <Divider sx={{ my: 2 }} />
 
       <Collapse in={mode === 'route'}>
+        <Divider sx={{ my: 2 }} />
         <ListSubheader>Routing</ListSubheader>
         <NumInput
           field="route_split_level"
@@ -102,9 +121,9 @@ export default function RoutingTab() {
           min={1}
           max={12}
         />
-        <Divider sx={{ my: 2 }} />
       </Collapse>
 
+      <Divider sx={{ my: 2 }} />
       <ListSubheader>Saving</ListSubheader>
       <Toggle
         field="save_to_db"

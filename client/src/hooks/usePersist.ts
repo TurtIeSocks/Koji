@@ -1,7 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { TabOption, Category, ConversionOptions } from '@assets/types'
-import { GEOMETRY_CONVERSION_TYPES, S2_CELL_LEVELS } from '@assets/constants'
+import {
+  GEOMETRY_CONVERSION_TYPES,
+  S2_CELL_LEVELS,
+  BOOTSTRAP_LEVELS,
+} from '@assets/constants'
 
 export interface UsePersist {
   // Drawing
@@ -52,7 +56,9 @@ export interface UsePersist {
   save_to_scanner: boolean
   skipRendering: boolean
   fast: boolean
-  bootstrap_mode: 'radius' | typeof S2_CELL_LEVELS[number]
+  bootstrap_mode: 'Radius' | 'S2'
+  bootstrap_level: typeof S2_CELL_LEVELS[number]
+  bootstrap_size: typeof BOOTSTRAP_LEVELS[number]
   // generations: number | ''
   // routing_time: number | ''
   // devices: number | ''
@@ -96,7 +102,9 @@ export const usePersist = create(
       radius: 70,
       route_split_level: 1,
       routing_chunk_size: 0,
-      bootstrap_mode: 'radius',
+      bootstrap_mode: 'Radius',
+      bootstrap_level: 15,
+      bootstrap_size: 9,
       min_points: 3,
       only_unique: false,
       save_to_db: false,

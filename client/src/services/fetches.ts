@@ -122,6 +122,8 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
     sort_by,
     tth,
     bootstrap_mode,
+    bootstrap_level,
+    bootstrap_size,
   } = usePersist.getState()
   const { geojson, setStatic, bounds } = useStatic.getState()
   const { add, activeRoute } = useShapes.getState().setters
@@ -217,8 +219,9 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
             route_split_level,
             sort_by,
             tth,
-            bootstrap_mode:
-              typeof bootstrap_mode === 'string' ? 0 : bootstrap_mode,
+            bootstrap_mode,
+            bootstrap_level,
+            bootstrap_size,
           }),
         },
       )
@@ -274,7 +277,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
   )
 
   setStatic('totalLoadingTime', Date.now() - totalStartTime)
-  if (!skipRendering) add(features)
+  if (!skipRendering) add(features.filter((f) => !!f.geometry))
   if (save_to_db) await getKojiCache('route')
   if (save_to_scanner) await getScannerCache()
   return {

@@ -59,11 +59,11 @@ function S2Level({
       signal: signal.signal,
     }).then((res) => {
       if (res) {
-        if (res.data.length === 10_000) {
+        if (res.data.length === 20_000) {
           useStatic.setState({
             networkStatus: {
               message: `Loaded the maximum of ${Number(
-                10_000,
+                20_000,
               ).toLocaleString()} Level ${level} S2 cells`,
               severity: 'warning',
               status: 200,

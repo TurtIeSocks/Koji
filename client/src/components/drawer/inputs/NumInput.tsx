@@ -7,7 +7,10 @@ import { UsePersist, usePersist } from '@hooks/usePersist'
 import { OnlyType } from '@assets/types'
 
 export default function NumInput<
-  T extends keyof OnlyType<UsePersist, number | ''>,
+  T extends keyof Omit<
+    OnlyType<UsePersist, number | ''>,
+    'bootstrap_level' | 'bootstrap_size'
+  >,
 >({
   field,
   endAdornment,

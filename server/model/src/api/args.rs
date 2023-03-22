@@ -38,18 +38,24 @@ pub enum ReturnTypeArg {
     Poracle,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub enum SortBy {
     GeoHash,
     ClusterCount,
     Random,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub enum SpawnpointTth {
     All,
     Known,
     Unknown,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub enum BootStrapMode {
+    Radius,
+    S2,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -78,7 +84,7 @@ pub enum UnknownId {
     Number(u32),
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Args {
     /// The area input to be used for data point collection.
     ///
@@ -90,12 +96,24 @@ pub struct Args {
     ///
     /// Default: `false`
     pub benchmark_mode: Option<bool>,
+    /// S2 Level to use for bootstrap
+    ///
+    /// Accepts 10-20
+    ///
+    /// Default: `15`
+    pub bootstrap_level: Option<u8>,
     /// Bootstrap mode selection
     ///
-    /// 0, uses specified radius, 1-20, bootstraps by S2 cell level
+    /// Accepts [BootStrapMode]
     ///
     /// Default: `0`
-    pub bootstrap_mode: Option<u8>,
+    pub bootstrap_mode: Option<BootStrapMode>,
+    /// Bootstrap size selection, how many S2 cells to use in a square grid
+    ///
+    /// Accepts [BootStrapMode]
+    ///
+    /// Default: `9`
+    pub bootstrap_size: Option<u8>,
     /// Data points to cluster or reroute.
     /// Overrides any inputted area.
     ///
@@ -198,7 +216,9 @@ pub struct Args {
 pub struct ArgsUnwrapped {
     pub area: FeatureCollection,
     pub benchmark_mode: bool,
-    pub bootstrap_mode: u8,
+    pub bootstrap_level: u8,
+    pub bootstrap_mode: BootStrapMode,
+    pub bootstrap_size: u8,
     pub data_points: single_vec::SingleVec,
     pub devices: usize,
     pub fast: bool,
@@ -223,7 +243,9 @@ impl Args {
         let Args {
             area,
             benchmark_mode,
+            bootstrap_level,
             bootstrap_mode,
+            bootstrap_size,
             data_points,
             devices,
             fast,
@@ -273,7 +295,9 @@ impl Args {
             (FeatureCollection::default(), ReturnTypeArg::SingleArray)
         };
         let benchmark_mode = benchmark_mode.unwrap_or(false);
-        let bootstrap_mode = bootstrap_mode.unwrap_or(0);
+        let bootstrap_mode = bootstrap_mode.unwrap_or(BootStrapMode::Radius);
+        let bootstrap_level = bootstrap_level.unwrap_or(15);
+        let bootstrap_size = bootstrap_size.unwrap_or(9);
         let data_points = if let Some(data_points) = data_points {
             match data_points {
                 DataPointsArg::Struct(data_points) => data_points.to_single_vec(),
@@ -331,7 +355,9 @@ impl Args {
         ArgsUnwrapped {
             area,
             benchmark_mode,
+            bootstrap_level,
             bootstrap_mode,
+            bootstrap_size,
             data_points,
             devices,
             fast,

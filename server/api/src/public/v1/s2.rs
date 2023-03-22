@@ -40,7 +40,7 @@ async fn s2_cells(
 ) -> Result<HttpResponse, Error> {
     let bounds = payload.into_inner();
     let cell_level = url.into_inner();
-    let feature = get_cells(
+    let cells = get_cells(
         cell_level,
         bounds.min_lat,
         bounds.min_lon,
@@ -49,7 +49,7 @@ async fn s2_cells(
     );
 
     Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(feature)),
+        data: Some(json!(cells)),
         message: "Success".to_string(),
         status: "ok".to_string(),
         stats: None,

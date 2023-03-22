@@ -4,13 +4,13 @@ use super::*;
 
 use std::{collections::VecDeque, time::Instant};
 
-use algorithms::{bootstrapping, clustering, routing::tsp};
+use algorithms::{bootstrapping, clustering, routing::tsp, s2};
 use geo::{ChamberlainDuquetteArea, HaversineDistance, MultiPolygon, Point, Polygon};
 
 use geojson::Value;
 use model::{
     api::{
-        args::{Args, ArgsUnwrapped, Response, Stats},
+        args::{Args, ArgsUnwrapped, BootStrapMode, Response, Stats},
         point_array::PointArray,
         FeatureHelpers, GeoFormats, Precision, ToCollection, ToFeature,
     },
@@ -35,6 +35,9 @@ async fn bootstrap(
         return_type,
         save_to_db,
         save_to_scanner,
+        bootstrap_mode,
+        bootstrap_level,
+        bootstrap_size,
         ..
     } = payload.into_inner().init(Some("bootstrap"));
 
@@ -54,7 +57,12 @@ async fn bootstrap(
 
     let mut features: Vec<Feature> = area
         .into_iter()
-        .map(|sub_area| bootstrapping::as_geojson(sub_area, radius, &mut stats))
+        .map(|sub_area| match bootstrap_mode {
+            BootStrapMode::Radius => bootstrapping::as_geojson(sub_area, radius, &mut stats),
+            BootStrapMode::S2 => {
+                s2::bootstrap(sub_area, bootstrap_level, bootstrap_size, &mut stats)
+            }
+        })
         .collect();
 
     stats.cluster_time = time.elapsed().as_secs_f32() as Precision;
