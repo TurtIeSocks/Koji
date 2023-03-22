@@ -7,9 +7,12 @@ import GeofenceCreateButton from './CreateDialog'
 import GeofenceForm from './GeofenceForm'
 
 const transformPayload = async (geofence: AdminGeofence) => {
+  const { geometry: raw, ...rest } = geofence
+  const geometry = typeof raw === 'string' ? JSON.parse(raw) : raw
   return {
-    ...geofence,
+    ...rest,
     id: 0,
+    geometry,
   }
 }
 

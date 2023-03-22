@@ -22,13 +22,11 @@ const matchSuggestion = (filter: string, choice: KojiProject) => {
 }
 
 const transformPayload = async (geofence: AdminGeofence) => {
+  const { geometry: raw, ...rest } = geofence
+  const geometry = typeof raw === 'string' ? JSON.parse(raw) : raw
   return {
-    ...geofence,
-    geometry: {
-      ...(typeof geofence.geometry === 'string'
-        ? JSON.parse(geofence.geometry)
-        : geofence.geometry),
-    },
+    ...rest,
+    geometry,
   }
 }
 

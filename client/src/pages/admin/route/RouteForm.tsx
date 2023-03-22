@@ -1,5 +1,10 @@
 import * as React from 'react'
-import { FormDataConsumer, SelectInput, TextInput } from 'react-admin'
+import {
+  FormDataConsumer,
+  ReferenceInput,
+  SelectInput,
+  TextInput,
+} from 'react-admin'
 import { Box } from '@mui/material'
 
 import { RDM_ROUTES, UNOWN_ROUTES } from '@assets/constants'
@@ -14,7 +19,7 @@ export default function RouteForm() {
 
   return (
     <>
-      <TextInput source="name" fullWidth required />
+      <TextInput source="name" fullWidth isRequired />
       <TextInput source="description" fullWidth />
       <SelectInput
         source="mode"
@@ -24,6 +29,7 @@ export default function RouteForm() {
         optionText="mode"
         optionValue="mode"
       />
+      <ReferenceInput source="geofence_id" reference="geofence" isRequired />
       <CodeInput
         source="geometry"
         label="Route"

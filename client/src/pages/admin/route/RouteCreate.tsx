@@ -6,14 +6,12 @@ import { KojiRoute } from '@assets/types'
 import RouteForm from './RouteForm'
 
 const transformPayload = (route: KojiRoute) => {
+  const { geometry: raw, ...rest } = route
+  const geometry = typeof raw === 'string' ? JSON.parse(raw) : raw
   return {
+    ...rest,
     id: 0,
-    name: route.name,
-    mode: route.mode,
-    geometry:
-      typeof route.geometry === 'string'
-        ? JSON.parse(route.geometry)
-        : route.geometry,
+    geometry,
   }
 }
 
