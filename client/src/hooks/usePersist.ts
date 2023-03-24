@@ -56,9 +56,9 @@ export interface UsePersist {
   save_to_scanner: boolean
   skipRendering: boolean
   fast: boolean
-  bootstrap_mode: 'Radius' | 'S2'
-  bootstrap_level: typeof S2_CELL_LEVELS[number]
-  bootstrap_size: typeof BOOTSTRAP_LEVELS[number]
+  calculation_mode: 'Radius' | 'S2'
+  s2_level: typeof S2_CELL_LEVELS[number]
+  s2_size: typeof BOOTSTRAP_LEVELS[number]
   // generations: number | ''
   // routing_time: number | ''
   // devices: number | ''
@@ -102,9 +102,9 @@ export const usePersist = create(
       radius: 70,
       route_split_level: 1,
       routing_chunk_size: 0,
-      bootstrap_mode: 'Radius',
-      bootstrap_level: 15,
-      bootstrap_size: 9,
+      calculation_mode: 'Radius',
+      s2_level: 15,
+      s2_size: 9,
       min_points: 3,
       only_unique: false,
       save_to_db: false,

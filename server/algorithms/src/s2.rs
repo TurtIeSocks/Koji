@@ -5,7 +5,10 @@ use std::{
 
 use geo::{HaversineDestination, Intersects, MultiPolygon, Polygon, RemoveRepeatedPoints};
 use geojson::{Feature, Geometry, Value};
-use model::api::args::Stats;
+use model::{
+    api::{args::Stats, single_vec::SingleVec},
+    db::GenericData,
+};
 use s2::{cell::Cell, cellid::CellID, cellunion::CellUnion, rect::Rect, region::RegionCoverer};
 use serde::Serialize;
 
@@ -256,16 +259,16 @@ fn crawl_cells(
     (valid, center)
 }
 
-pub fn bootstrap(feature: Feature, level: u8, size: u8, stats: &mut Stats) -> Feature {
-    let bbox = feature.bbox.unwrap();
+pub fn bootstrap(feature: &Feature, level: u8, size: u8, stats: &mut Stats) -> Feature {
+    let bbox = feature.bbox.as_ref().unwrap();
     let mut polygons: Vec<geo::Polygon> = vec![];
-    if let Some(geometry) = feature.geometry {
+    if let Some(geometry) = feature.geometry.as_ref() {
         match geometry.value {
-            Value::Polygon(_) => match Polygon::<f64>::try_from(&geometry) {
+            Value::Polygon(_) => match Polygon::<f64>::try_from(geometry) {
                 Ok(poly) => polygons.push(poly),
                 Err(_) => {}
             },
-            Value::MultiPolygon(_) => match MultiPolygon::<f64>::try_from(&geometry) {
+            Value::MultiPolygon(_) => match MultiPolygon::<f64>::try_from(geometry) {
                 Ok(multi_poly) => multi_poly
                     .0
                     .into_iter()
@@ -382,4 +385,67 @@ pub fn cell_coverage(lat: f64, lon: f64, size: u8, level: u8) -> Covered {
     }
 
     covered
+}
+
+// pub fn unwrap_feature(feature: Feature, level: u8) -> HashSet<u64> {
+//     if let Some(geometry) = feature.geometry {
+//         match geometry.value {
+//             Value::MultiPoint(mp) => {
+//                 let mut cells = HashSet::new();
+//                 for point in mp {
+//                     let cell_id =
+//                         CellID::from(s2::latlng::LatLng::from_degrees(point[1], point[0]))
+//                             .parent(level as u64);
+//                     cells.insert(cell_id.0);
+//                 }
+//                 cells
+//             }
+//             _ => HashSet::new(),
+//         }
+//     } else {
+//         HashSet::new()
+//     }
+// }
+
+pub fn cluster(
+    feature: Feature,
+    data: &Vec<GenericData>,
+    level: u8,
+    size: u8,
+    stats: &mut Stats,
+) -> SingleVec {
+    let all_cells = bootstrap(&feature, level, size, stats);
+    let valid_cells = data
+        .iter()
+        .map(|f| {
+            CellID::from(s2::latlng::LatLng::from_degrees(f.p[0], f.p[1]))
+                .parent(level as u64)
+                .0
+        })
+        .collect::<HashSet<u64>>();
+
+    stats.total_clusters = 0;
+    if let Some(geometry) = all_cells.geometry {
+        match geometry.value {
+            Value::MultiPoint(mp) => mp
+                .into_iter()
+                .filter_map(|point| {
+                    if cell_coverage(point[1], point[0], size, level)
+                        .lock()
+                        .unwrap()
+                        .iter()
+                        .any(|c| valid_cells.contains(&c.parse::<u64>().unwrap()))
+                    {
+                        stats.total_clusters += 1;
+                        Some([point[1], point[0]])
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            _ => vec![],
+        }
+    } else {
+        vec![]
+    }
 }

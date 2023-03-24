@@ -121,9 +121,9 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
     last_seen,
     sort_by,
     tth,
-    bootstrap_mode,
-    bootstrap_level,
-    bootstrap_size,
+    calculation_mode,
+    s2_level,
+    s2_size,
   } = usePersist.getState()
   const { geojson, setStatic, bounds } = useStatic.getState()
   const { add, activeRoute } = useShapes.getState().setters
@@ -219,9 +219,9 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
             route_split_level,
             sort_by,
             tth,
-            bootstrap_mode,
-            bootstrap_level,
-            bootstrap_size,
+            calculation_mode,
+            s2_level,
+            s2_size,
           }),
         },
       )
@@ -428,9 +428,9 @@ export async function s2Coverage(id: Feature['id'], lat: number, lon: number) {
     s2cells,
     radius,
     fillCoveredCells,
-    bootstrap_level,
-    bootstrap_mode,
-    bootstrap_size,
+    s2_level: bootstrap_level,
+    calculation_mode: bootstrap_mode,
+    s2_size: bootstrap_size,
   } = usePersist.getState()
   if (fillCoveredCells) {
     const s2cellCoverage: UseShapes['s2cellCoverage'] = Object.fromEntries(

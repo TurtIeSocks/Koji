@@ -10,7 +10,7 @@ use geo::{ChamberlainDuquetteArea, HaversineDistance, MultiPolygon, Point, Polyg
 use geojson::Value;
 use model::{
     api::{
-        args::{Args, ArgsUnwrapped, BootStrapMode, Response, Stats},
+        args::{Args, ArgsUnwrapped, CalculationMode, Response, Stats},
         point_array::PointArray,
         FeatureHelpers, GeoFormats, Precision, ToCollection, ToFeature,
     },
@@ -35,9 +35,9 @@ async fn bootstrap(
         return_type,
         save_to_db,
         save_to_scanner,
-        bootstrap_mode,
-        bootstrap_level,
-        bootstrap_size,
+        calculation_mode,
+        s2_level,
+        s2_size,
         ..
     } = payload.into_inner().init(Some("bootstrap"));
 
@@ -57,11 +57,9 @@ async fn bootstrap(
 
     let mut features: Vec<Feature> = area
         .into_iter()
-        .map(|sub_area| match bootstrap_mode {
-            BootStrapMode::Radius => bootstrapping::as_geojson(sub_area, radius, &mut stats),
-            BootStrapMode::S2 => {
-                s2::bootstrap(sub_area, bootstrap_level, bootstrap_size, &mut stats)
-            }
+        .map(|sub_area| match calculation_mode {
+            CalculationMode::Radius => bootstrapping::as_geojson(sub_area, radius, &mut stats),
+            CalculationMode::S2 => s2::bootstrap(&sub_area, s2_level, s2_size, &mut stats),
         })
         .collect();
 
@@ -143,6 +141,9 @@ async fn cluster(
         sort_by,
         tth,
         route_split_level,
+        calculation_mode,
+        s2_level,
+        s2_size,
         ..
     } = payload.into_inner().init(Some(&mode));
 
@@ -191,16 +192,22 @@ async fn cluster(
 
     stats.total_points = data_points.len();
 
-    let mut clusters = clustering::main(
-        data_points,
-        fast,
-        radius,
-        min_points,
-        only_unique,
-        area,
-        &mut stats,
-        sort_by,
-    );
+    let mut clusters = match calculation_mode {
+        CalculationMode::Radius => clustering::main(
+            data_points,
+            fast,
+            radius,
+            min_points,
+            only_unique,
+            area,
+            &mut stats,
+            sort_by,
+        ),
+        CalculationMode::S2 => area
+            .into_iter()
+            .flat_map(|feature| s2::cluster(feature, &data_points, s2_level, s2_size, &mut stats))
+            .collect(),
+    };
 
     if mode.eq("route") && !clusters.is_empty() {
         log::info!("Cluster Length: {}", clusters.len());

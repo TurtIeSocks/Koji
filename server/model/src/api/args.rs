@@ -53,7 +53,7 @@ pub enum SpawnpointTth {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub enum BootStrapMode {
+pub enum CalculationMode {
     Radius,
     S2,
 }
@@ -96,24 +96,12 @@ pub struct Args {
     ///
     /// Default: `false`
     pub benchmark_mode: Option<bool>,
-    /// S2 Level to use for bootstrap
-    ///
-    /// Accepts 10-20
-    ///
-    /// Default: `15`
-    pub bootstrap_level: Option<u8>,
     /// Bootstrap mode selection
     ///
     /// Accepts [BootStrapMode]
     ///
     /// Default: `0`
-    pub bootstrap_mode: Option<BootStrapMode>,
-    /// Bootstrap size selection, how many S2 cells to use in a square grid
-    ///
-    /// Accepts [BootStrapMode]
-    ///
-    /// Default: `9`
-    pub bootstrap_size: Option<u8>,
+    pub calculation_mode: Option<CalculationMode>,
     /// Data points to cluster or reroute.
     /// Overrides any inputted area.
     ///
@@ -185,6 +173,18 @@ pub struct Args {
     ///
     /// Deprecated
     pub routing_time: Option<i64>,
+    /// S2 Level to use for calculation mode
+    ///
+    /// Accepts 10-20
+    ///
+    /// Default: `15`
+    pub s2_level: Option<u8>,
+    /// S2 cell size selection, how many S2 cells to use in a square grid
+    ///
+    /// Accepts [BootStrapMode]
+    ///
+    /// Default: `9`
+    pub s2_size: Option<u8>,
     /// Saves the calculated route to the Kōji database
     ///
     /// Default: `false`
@@ -216,9 +216,7 @@ pub struct Args {
 pub struct ArgsUnwrapped {
     pub area: FeatureCollection,
     pub benchmark_mode: bool,
-    pub bootstrap_level: u8,
-    pub bootstrap_mode: BootStrapMode,
-    pub bootstrap_size: u8,
+    pub calculation_mode: CalculationMode,
     pub data_points: single_vec::SingleVec,
     pub devices: usize,
     pub fast: bool,
@@ -229,6 +227,8 @@ pub struct ArgsUnwrapped {
     pub return_type: ReturnTypeArg,
     pub only_unique: bool,
     pub last_seen: u32,
+    pub s2_level: u8,
+    pub s2_size: u8,
     pub save_to_db: bool,
     pub save_to_scanner: bool,
     pub simplify: bool,
@@ -243,9 +243,9 @@ impl Args {
         let Args {
             area,
             benchmark_mode,
-            bootstrap_level,
-            bootstrap_mode,
-            bootstrap_size,
+            s2_level: bootstrap_level,
+            calculation_mode: bootstrap_mode,
+            s2_size: bootstrap_size,
             data_points,
             devices,
             fast,
@@ -295,7 +295,7 @@ impl Args {
             (FeatureCollection::default(), ReturnTypeArg::SingleArray)
         };
         let benchmark_mode = benchmark_mode.unwrap_or(false);
-        let bootstrap_mode = bootstrap_mode.unwrap_or(BootStrapMode::Radius);
+        let bootstrap_mode = bootstrap_mode.unwrap_or(CalculationMode::Radius);
         let bootstrap_level = bootstrap_level.unwrap_or(15);
         let bootstrap_size = bootstrap_size.unwrap_or(9);
         let data_points = if let Some(data_points) = data_points {
@@ -355,9 +355,9 @@ impl Args {
         ArgsUnwrapped {
             area,
             benchmark_mode,
-            bootstrap_level,
-            bootstrap_mode,
-            bootstrap_size,
+            s2_level: bootstrap_level,
+            calculation_mode: bootstrap_mode,
+            s2_size: bootstrap_size,
             data_points,
             devices,
             fast,

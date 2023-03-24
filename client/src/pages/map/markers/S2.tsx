@@ -94,8 +94,8 @@ const MemoS2Cell = React.memo(
 
 export function S2Cells() {
   const s2cells = usePersist((s) => s.s2cells)
-  const bootstrap_mode = usePersist((s) => s.bootstrap_mode)
-  const bootstrap_level = usePersist((s) => s.bootstrap_level)
+  const bootstrap_mode = usePersist((s) => s.calculation_mode)
+  const bootstrap_level = usePersist((s) => s.s2_level)
   const location = usePersist((s) => s.location)
 
   return (

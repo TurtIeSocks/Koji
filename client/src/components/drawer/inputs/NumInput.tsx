@@ -9,7 +9,7 @@ import { OnlyType } from '@assets/types'
 export default function NumInput<
   T extends keyof Omit<
     OnlyType<UsePersist, number | ''>,
-    'bootstrap_level' | 'bootstrap_size'
+    's2_level' | 's2_size'
   >,
 >({
   field,

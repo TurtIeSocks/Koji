@@ -23,7 +23,7 @@ export default function RoutingTab() {
   const mode = usePersist((s) => s.mode)
   const category = usePersist((s) => s.category)
   const fast = usePersist((s) => s.fast)
-  const bootstrap_mode = usePersist((s) => s.bootstrap_mode)
+  const calculation_mode = usePersist((s) => s.calculation_mode)
 
   const [updateButton, scannerType, isEditing] = useStatic((s) => [
     s.updateButton,
@@ -60,43 +60,38 @@ export default function RoutingTab() {
           />
         </Collapse>
       </Collapse>
-      <Collapse in={mode === 'bootstrap'}>
-        <Divider sx={{ my: 2 }} />
-        <ListSubheader>Bootstrapping</ListSubheader>
+      <MultiOptionList
+        field="calculation_mode"
+        buttons={['Radius', 'S2']}
+        label="Strategy"
+        hideLabel
+        type="select"
+      />
+      <Collapse in={calculation_mode === 'Radius'}>
+        <NumInput field="radius" />
+      </Collapse>
+      <Collapse in={calculation_mode === 'S2'}>
         <MultiOptionList
-          field="bootstrap_mode"
-          buttons={['Radius', 'S2']}
-          label="Mode"
+          field="s2_level"
+          label="S2 Level"
           hideLabel
+          buttons={S2_CELL_LEVELS}
           type="select"
+          itemLabel={(v) => `Level ${v}`}
         />
-        <Collapse in={bootstrap_mode === 'Radius'}>
-          <NumInput field="radius" />
-        </Collapse>
-        <Collapse in={bootstrap_mode === 'S2'}>
-          <MultiOptionList
-            field="bootstrap_level"
-            label="Level"
-            hideLabel
-            buttons={S2_CELL_LEVELS}
-            type="select"
-            itemLabel={(v) => `Level ${v}`}
-          />
-          <MultiOptionList
-            field="bootstrap_size"
-            label="Size"
-            hideLabel
-            buttons={BOOTSTRAP_LEVELS}
-            type="select"
-            itemLabel={(v) => `${v}x${v}`}
-          />
-        </Collapse>
+        <MultiOptionList
+          field="s2_size"
+          label="S2 Size"
+          hideLabel
+          buttons={BOOTSTRAP_LEVELS}
+          type="select"
+          itemLabel={(v) => `${v}x${v}`}
+        />
       </Collapse>
 
-      <Collapse in={mode !== 'bootstrap'}>
+      <Collapse in={mode !== 'bootstrap' && calculation_mode === 'Radius'}>
         <Divider sx={{ my: 2 }} />
         <ListSubheader>Clustering</ListSubheader>
-        <NumInput field="radius" />
         <NumInput field="min_points" />
         <Toggle field="fast" />
         <Collapse in={!fast}>

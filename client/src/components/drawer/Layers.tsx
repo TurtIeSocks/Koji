@@ -18,7 +18,7 @@ import ListSubheader from '../styled/Subheader'
 
 export default function Layers() {
   const s2cells = usePersist((s) => s.s2cells)
-  const bootstrap_mode = usePersist((s) => s.bootstrap_mode)
+  const bootstrap_mode = usePersist((s) => s.calculation_mode)
 
   return (
     <List dense>
@@ -45,7 +45,7 @@ export default function Layers() {
       <ListSubheader disableGutters>S2 Cells</ListSubheader>
       <Toggle field="fillCoveredCells" />
       <MultiOptionList
-        field="bootstrap_mode"
+        field="calculation_mode"
         buttons={['Radius', 'S2']}
         label="Mode"
         hideLabel
