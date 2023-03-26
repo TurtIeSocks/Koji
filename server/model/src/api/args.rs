@@ -19,6 +19,7 @@ pub struct BoundsArg {
     pub max_lat: Precision,
     pub max_lon: Precision,
     pub last_seen: Option<u32>,
+    pub ids: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -418,105 +419,12 @@ pub struct ConfigResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Stats {
-    pub best_clusters: single_vec::SingleVec,
-    pub best_cluster_point_count: usize,
-    pub cluster_time: Precision,
-    pub total_points: usize,
-    pub points_covered: usize,
-    pub total_clusters: usize,
-    pub total_distance: Precision,
-    pub longest_distance: Precision,
-}
-
-impl Stats {
-    pub fn new() -> Self {
-        Stats {
-            best_clusters: vec![],
-            best_cluster_point_count: 0,
-            cluster_time: 0.,
-            total_points: 0,
-            points_covered: 0,
-            total_clusters: 0,
-            total_distance: 0.,
-            longest_distance: 0.,
-        }
-    }
-    pub fn log(&self, area: Option<String>) {
-        let width = "=======================================================================";
-        let get_row = |text: String, replace: bool| {
-            format!(
-                "  {}{}{}\n",
-                text,
-                width[..(width.len() - text.len())].replace("=", if replace { " " } else { "=" }),
-                if replace { "||" } else { "==" }
-            )
-        };
-        log::info!(
-            "\n{}{}{}{}{}{}  {}==\n",
-            get_row("[STATS] ".to_string(), false),
-            if let Some(area) = area {
-                if area.is_empty() {
-                    "".to_string()
-                } else {
-                    get_row(format!("|| [AREA]: {}", area), true)
-                }
-            } else {
-                "".to_string()
-            },
-            get_row(
-                format!(
-                    "|| [POINTS] Total: {} | Covered: {}",
-                    self.total_points, self.points_covered,
-                ),
-                true
-            ),
-            get_row(
-                format!(
-                    "|| [CLUSTERS] Time: {}s | Total: {} | Avg Points: {}",
-                    self.cluster_time as f32,
-                    self.total_clusters,
-                    if self.total_clusters > 0 {
-                        self.total_points / self.total_clusters
-                    } else {
-                        0
-                    },
-                ),
-                true
-            ),
-            get_row(
-                format!(
-                    "|| [BEST_CLUSTER] Amount: {:?} | Point Count: {}",
-                    self.best_clusters.len(),
-                    self.best_cluster_point_count,
-                ),
-                true
-            ),
-            get_row(
-                format!(
-                    "|| [DISTANCE] Total {} | Longest {} | Avg: {}",
-                    self.total_distance as f32,
-                    self.longest_distance as f32,
-                    if self.total_clusters > 0 {
-                        (self.total_distance / self.total_clusters as f64) as f32
-                    } else {
-                        0.
-                    },
-                ),
-                true
-            ),
-            width,
-        )
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Response {
     pub message: String,
     pub status: String,
     pub status_code: u16,
     pub data: Option<JsonValue>,
-    pub stats: Option<Stats>,
+    pub stats: Option<stats::Stats>,
 }
 
 impl Response {

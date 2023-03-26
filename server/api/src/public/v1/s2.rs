@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use super::*;
 
 use algorithms::s2;
@@ -15,23 +17,52 @@ struct CoverageArgs {
     level: u8,
 }
 
-#[post("/cell-coverage")]
-async fn cell_coverage(payload: web::Json<CoverageArgs>) -> Result<HttpResponse, Error> {
+#[post("/circle-coverage")]
+async fn circle_coverage(payload: web::Json<CoverageArgs>) -> Result<HttpResponse, Error> {
     let CoverageArgs {
         lat,
         lon,
         radius,
         level,
-        size,
+        ..
     } = payload.into_inner();
 
-    let result = if let Some(radius) = radius {
-        Some(s2::circle_coverage(lat, lon, radius, level))
-    } else if let Some(size) = size {
-        Some(s2::cell_coverage(lat, lon, size, level))
-    } else {
-        None
-    };
+    let result = s2::circle_coverage(lat, lon, radius.unwrap_or(70.), level);
+
+    Ok(HttpResponse::Ok().json(Response {
+        data: Some(json!(result)),
+        message: "Success".to_string(),
+        status: "ok".to_string(),
+        stats: None,
+        status_code: 200,
+    }))
+}
+
+#[post("/cell-coverage")]
+async fn cell_coverage(payload: web::Json<CoverageArgs>) -> Result<HttpResponse, Error> {
+    let CoverageArgs {
+        lat,
+        lon,
+        level,
+        size,
+        ..
+    } = payload.into_inner();
+
+    let result = s2::cell_coverage(lat, lon, size.unwrap_or(15), level);
+
+    Ok(HttpResponse::Ok().json(Response {
+        data: Some(json!(result)),
+        message: "Success".to_string(),
+        status: "ok".to_string(),
+        stats: None,
+        status_code: 200,
+    }))
+}
+
+#[post("/polygons")]
+async fn cell_polygons(payload: web::Json<Vec<String>>) -> Result<HttpResponse, Error> {
+    let cell_ids = payload.into_inner();
+    let result = s2::get_polygons(cell_ids);
 
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!(result)),
@@ -48,6 +79,12 @@ async fn s2_cells(
     url: actix_web::web::Path<u8>,
 ) -> Result<HttpResponse, Error> {
     let bounds = payload.into_inner();
+    let ids = if let Some(ids) = bounds.ids {
+        ids.into_iter().collect::<HashSet<String>>()
+    } else {
+        HashSet::new()
+    };
+
     let cell_level = url.into_inner();
     let cells = s2::get_cells(
         cell_level,
@@ -55,7 +92,20 @@ async fn s2_cells(
         bounds.min_lon,
         bounds.max_lat,
         bounds.max_lon,
-    );
+    )
+    .into_iter()
+    .enumerate()
+    .filter_map(|(i, cell)| {
+        if ids.contains(&cell.id) {
+            log::warn!("Cell {} already exists", cell.id);
+            Some(cell)
+        } else if i < 10_000 {
+            Some(cell)
+        } else {
+            None
+        }
+    })
+    .collect::<Vec<_>>();
 
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!(cells)),

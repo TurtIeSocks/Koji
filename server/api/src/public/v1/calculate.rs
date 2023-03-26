@@ -10,8 +10,9 @@ use geo::{ChamberlainDuquetteArea, HaversineDistance, MultiPolygon, Point, Polyg
 use geojson::Value;
 use model::{
     api::{
-        args::{Args, ArgsUnwrapped, CalculationMode, Response, Stats},
+        args::{Args, ArgsUnwrapped, CalculationMode, Response},
         point_array::PointArray,
+        stats::Stats,
         FeatureHelpers, GeoFormats, Precision, ToCollection, ToFeature,
     },
     db::{area, instance, route, sea_orm_active_enums::Type, GenericData},

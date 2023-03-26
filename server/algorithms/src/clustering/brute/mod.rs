@@ -5,11 +5,7 @@ use super::utils::debug_hashmap;
 use geo::{Coord, HaversineDestination, HaversineDistance, Point};
 use geohash::encode;
 use model::{
-    api::{
-        args::{SortBy, Stats},
-        single_vec::SingleVec,
-        BBox, Precision,
-    },
+    api::{args::SortBy, single_vec::SingleVec, stats::Stats, BBox, Precision},
     db::GenericData,
 };
 use rand::rngs::mock::StepRng;

@@ -6,7 +6,7 @@ use std::{
 use geo::{HaversineDestination, Intersects, MultiPolygon, Polygon, RemoveRepeatedPoints};
 use geojson::{Feature, Geometry, Value};
 use model::{
-    api::{args::Stats, single_vec::SingleVec},
+    api::{single_vec::SingleVec, stats::Stats},
     db::GenericData,
 };
 use s2::{cell::Cell, cellid::CellID, cellunion::CellUnion, rect::Rect, region::RegionCoverer};
@@ -16,7 +16,7 @@ type Covered = Arc<Mutex<HashSet<String>>>;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct S2Response {
-    id: String,
+    pub id: String,
     coords: [[f64; 2]; 4],
 }
 
@@ -85,7 +85,7 @@ pub fn get_cells(
         .iter()
         .enumerate()
         .map_while(|(i, cell)| {
-            if i < 20_000 {
+            if i < 100_000 {
                 Some(get_polygon(cell))
             } else {
                 None
@@ -117,6 +117,19 @@ fn get_polygon(id: &CellID) -> S2Response {
             ],
         ],
     }
+}
+
+pub fn get_polygons(cell_ids: Vec<String>) -> Vec<S2Response> {
+    cell_ids
+        .into_iter()
+        .filter_map(|id| match id.parse::<u64>() {
+            Ok(id) => Some(get_polygon(&CellID(id))),
+            Err(e) => {
+                log::error!("[S2] Error parsing cell id: {}", e);
+                None
+            }
+        })
+        .collect()
 }
 
 pub fn circle_coverage(lat: f64, lon: f64, radius: f64, level: u8) -> Covered {
