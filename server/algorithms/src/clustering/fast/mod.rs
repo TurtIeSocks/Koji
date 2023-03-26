@@ -63,5 +63,4 @@ pub fn cluster(
     stats.set_cluster_time(time.elapsed().as_secs_f32() as Precision);
 
     plane.reverse(output)
-    // output
 }
