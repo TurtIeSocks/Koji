@@ -249,12 +249,35 @@ fn crawl_cells(
                 center = h_cell_id.point();
             }
 
-            if (v == 0 || v == (size - 1)) && (h == 0 || h == (size - 1)) {
-                line_string.push(h_cell_id.coord());
+            if v == 0 && h == 0 {
+                let vertex = Cell::from(&h_cell_id).vertex(3);
+                line_string.push(geo::Coord {
+                    x: vertex.longitude().deg(),
+                    y: vertex.latitude().deg(),
+                });
+            } else if v == 0 && h == (size - 1) {
+                let vertex = Cell::from(&h_cell_id).vertex(0);
+                line_string.push(geo::Coord {
+                    x: vertex.longitude().deg(),
+                    y: vertex.latitude().deg(),
+                });
+            } else if v == (size - 1) && h == (size - 1) {
+                let vertex = Cell::from(&h_cell_id).vertex(1);
+                line_string.push(geo::Coord {
+                    x: vertex.longitude().deg(),
+                    y: vertex.latitude().deg(),
+                });
+            } else if v == (size - 1) && h == 0 {
+                let vertex = Cell::from(&h_cell_id).vertex(2);
+                line_string.push(geo::Coord {
+                    x: vertex.longitude().deg(),
+                    y: vertex.latitude().deg(),
+                });
             }
             h_cell_id = h_cell_id.edge_neighbors()[0];
         }
     }
+    line_string.swap(2, 3);
     let local_poly = geo::Polygon::<f64>::new(geo::LineString::new(line_string.into()), vec![]);
     let valid = if count > 0 {
         if polygons
@@ -295,10 +318,11 @@ pub fn bootstrap(feature: &Feature, level: u8, size: u8, stats: &mut Stats) -> F
     let cells = RegionCoverer {
         max_level: level,
         min_level: level,
-        level_mod: 1,
-        max_cells: 1000,
+        level_mod: 10,
+        max_cells: 5,
     }
     .covering(&region);
+
     let mut visited = HashSet::<u64>::new();
 
     let mut multi_point = vec![];
@@ -360,6 +384,7 @@ pub fn bootstrap(feature: &Feature, level: u8, size: u8, stats: &mut Stats) -> F
     }
 
     stats.total_clusters += multi_point.len();
+    stats.distance(&multi_point.iter().map(|p| [p[0], p[1]]).collect());
 
     let mut multi_point: geo::MultiPoint = multi_point
         .iter()
@@ -438,7 +463,7 @@ pub fn cluster(
         .collect::<HashSet<u64>>();
 
     stats.total_clusters = 0;
-    if let Some(geometry) = all_cells.geometry {
+    let points = if let Some(geometry) = all_cells.geometry {
         match geometry.value {
             Value::MultiPoint(mp) => mp
                 .into_iter()
@@ -460,5 +485,7 @@ pub fn cluster(
         }
     } else {
         vec![]
-    }
+    };
+    stats.distance(&points);
+    points
 }

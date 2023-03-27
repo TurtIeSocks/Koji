@@ -7,7 +7,7 @@ import geohash from 'ngeohash'
 import { VECTOR_COLORS } from '@assets/constants'
 import type { Feature, DbOption, KojiKey } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
-import { useStatic } from '@hooks/useStatic'
+// import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
 import { s2Coverage } from '@services/fetches'
 
@@ -84,8 +84,8 @@ export function KojiPoint({
             circle.on('mouseover', function onClick() {
               if (
                 type === 'MultiPoint' &&
-                properties?.__multipoint_id &&
-                !Object.values(useStatic.getState().layerEditing).some((v) => v)
+                properties?.__multipoint_id
+                // && !Object.values(useStatic.getState().layerEditing).some((v) => v)
               ) {
                 useShapes
                   .getState()

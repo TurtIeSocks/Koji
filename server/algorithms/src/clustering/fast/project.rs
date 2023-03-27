@@ -15,6 +15,20 @@ pub struct Plane {
     points: Vec<Geocentric>,
 }
 
+impl Default for Plane {
+    fn default() -> Self {
+        Plane {
+            center: (0., 0., 0.),
+            x: (0., 0., 0.),
+            y: (0., 0., 0.),
+            z: (0., 0., 0.),
+            radius: 0.,
+            adjusted_radius: 0.,
+            points: vec![],
+        }
+    }
+}
+
 impl Plane {
     fn euclidean_norm2(&self, x: Geocentric) -> f64 {
         x.0 * x.0 + x.1 * x.1 + x.2 * x.2
@@ -57,12 +71,6 @@ impl Plane {
 
     pub fn new(input: SingleVec) -> Plane {
         let mut plane = Plane {
-            center: (0., 0., 0.),
-            x: (0., 0., 0.),
-            y: (0., 0., 0.),
-            z: (0., 0., 0.),
-            radius: 0.,
-            adjusted_radius: 0.,
             points: input
                 .iter()
                 .map(|&[lat, lon]| {
@@ -74,6 +82,7 @@ impl Plane {
                     )
                 })
                 .collect(),
+            ..Default::default()
         };
         let (plane_center_lat, plane_center_lon) = plane.compute_plane_center();
 

@@ -17,9 +17,13 @@ export default function GeoJsonWrapper({
 } & GeoJSONProps) {
   const featureCollection: FeatureCollection = {
     ...data,
-    features: data.features.flatMap((feat) =>
-      feat.geometry.type === 'MultiPoint' ? mpToPoints(feat.geometry) : feat,
-    ),
+    features: data?.features
+      ? data.features.flatMap((feat) =>
+          feat.geometry.type === 'MultiPoint'
+            ? mpToPoints(feat.geometry)
+            : feat,
+        )
+      : [],
   }
   const map = useMap()
 

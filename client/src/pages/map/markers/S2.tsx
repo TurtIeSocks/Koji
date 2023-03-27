@@ -26,6 +26,13 @@ function BaseCell({
       fillOpacity={covered ? 0.2 : 0}
       weight={simple ? 2 : 0.5}
       pane="s2"
+      eventHandlers={{
+        click: () => {
+          if (process.env.NODE_ENV === 'development') {
+            navigator.clipboard.writeText(id)
+          }
+        },
+      }}
     >
       {process.env.NODE_ENV === 'development' && (
         <Tooltip direction="center">{id}</Tooltip>
@@ -106,9 +113,9 @@ export function S2Cells() {
 function SimplifiedCell({ cells }: { cells: string[] }) {
   const features: Feature<PolygonType>[] = cells
     .map((cell) => new S2CellId(cell))
-    .map((id) => {
+    .map((cellId) => {
       const poly = []
-      const cell = new S2Cell(id)
+      const cell = new S2Cell(cellId)
       for (let i = 0; i <= 3; i += 1) {
         const coordinate = cell.getVertex(i)
         const point = new S2Point(coordinate.x, coordinate.y, coordinate.z)
@@ -122,10 +129,11 @@ function SimplifiedCell({ cells }: { cells: string[] }) {
           coordinates: [poly],
         },
         properties: {},
-        id: id.id.toString(),
+        id: cellId.id.toString(),
       }
     })
 
+  // turns multiple polygon features into one
   // @ts-ignore
   const feature = features.reduce((acc, f) => {
     if (!acc) {
