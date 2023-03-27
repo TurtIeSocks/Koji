@@ -431,7 +431,7 @@ export async function getS2Cells(
   level: number,
   signal: AbortSignal,
 ) {
-  // const { s2cellCoverage } = useShapes.getState()
+  const { s2cellCoverage } = useShapes.getState()
   const { s2DisplayMode } = usePersist.getState()
   if (s2DisplayMode === 'none') return []
 
@@ -457,8 +457,9 @@ export async function getS2Cells(
             status: 200,
           },
         })
-        res.data.length = 20_000
-        return res.data
+        return res.data.filter(
+          (c, i) => s2cellCoverage[c.id]?.length || i <= 20_000,
+        )
       }
       return res.data
     }
