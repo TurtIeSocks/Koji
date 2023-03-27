@@ -47,9 +47,16 @@ export function KojiPoint({
           circle.on('pm:drag', async function drag({ layer }) {
             if (layer instanceof L.Circle) {
               const latlng = layer.getLatLng()
-              useShapes.setState({
-                s2cellCoverage: await s2Coverage(id, latlng.lat, latlng.lng),
-              })
+              const coverage = await s2Coverage(id, latlng.lat, latlng.lng)
+              useShapes.setState((prev) => ({
+                s2cellCoverage: coverage,
+                simplifiedS2Cells: {
+                  ...prev.simplifiedS2Cells,
+                  [id]: Object.keys(coverage).filter((c) =>
+                    coverage[c].includes(id.toString()),
+                  ),
+                },
+              }))
             }
           })
           circle.removeEventListener('pm:dragend')
@@ -60,9 +67,16 @@ export function KojiPoint({
                 ...useShapes.getState().Point[id],
                 geometry: { type: 'Point', coordinates: [newLon, newLat] },
               })
-              useShapes.setState({
-                s2cellCoverage: await s2Coverage(id, newLat, newLon),
-              })
+              const coverage = await s2Coverage(id, newLat, newLon)
+              useShapes.setState((prev) => ({
+                s2cellCoverage: coverage,
+                simplifiedS2Cells: {
+                  ...prev.simplifiedS2Cells,
+                  [id]: Object.keys(coverage).filter((c) =>
+                    coverage[c].includes(id.toString()),
+                  ),
+                },
+              }))
             }
           })
           if (usePersist.getState().setActiveMode === 'hover') {

@@ -26,7 +26,8 @@ export interface UseShapes {
   test: boolean
   activeRoute: string
   newRouteCount: number
-  s2cellCoverage: Record<string, string>
+  s2cellCoverage: Record<string, string[]>
+  simplifiedS2Cells: Record<string, string[]>
   firstPoint: keyof UseShapes['Point'] | null
   lastPoint: keyof UseShapes['Point'] | null
   Point: Record<number | string, Feature<Point>>
@@ -80,6 +81,7 @@ export interface UseShapes {
 export const useShapes = create<UseShapes>((set, get) => ({
   activeRoute: 'new_route_0',
   s2cellCoverage: {},
+  simplifiedS2Cells: {},
   newRouteCount: 0,
   test: false,
   firstPoint: null,

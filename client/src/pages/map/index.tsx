@@ -26,7 +26,7 @@ import {
   Points,
   Polygons,
 } from './markers/Vectors'
-import { S2Cells } from './markers/S2'
+import { S2Cells, SimplifiedPolygons } from './markers/S2'
 
 export default function MapWrapper() {
   const params = useParams()
@@ -76,6 +76,7 @@ export default function MapWrapper() {
           <MultiLineStrings />
           <Polygons />
           <S2Cells />
+          <SimplifiedPolygons />
         </Map>
         <NetworkAlert />
         <ImportPolygon />

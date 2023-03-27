@@ -36,6 +36,7 @@
     "leaflet-pixi-overlay": "^1.9.4",
     "leaflet.locatecontrol": "^0.79.0",
     "ngeohash": "^0.6.3",
+    "nodes2ts": "^3.0.0",
     "pixi.js": "^6.5.8",
     "ra-data-simple-rest": "^4.8.4",
     "react": "^18.2.0",

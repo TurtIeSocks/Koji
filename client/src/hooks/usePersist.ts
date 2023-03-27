@@ -40,7 +40,8 @@ export interface UsePersist {
   showPolygons: boolean
   showArrows: boolean
   s2cells: number[]
-  fillCoveredCells: boolean
+  s2DisplayMode: 'all' | 'covered' | 'none'
+  s2FillMode: 'all' | 'simple'
 
   // Clustering
   category: Category
@@ -98,7 +99,8 @@ export const usePersist = create(
       data: 'bound',
       sort_by: 'GeoHash',
       s2cells: [],
-      fillCoveredCells: false,
+      s2DisplayMode: 'none',
+      s2FillMode: 'simple',
       radius: 70,
       route_split_level: 1,
       routing_chunk_size: 0,

@@ -8,13 +8,14 @@ import type {
   FeatureCollection,
   DbOption,
   Category,
+  S2Response,
 } from '@assets/types'
 import { UsePersist, usePersist } from '@hooks/usePersist'
 import { useStatic } from '@hooks/useStatic'
 import { UseShapes, useShapes } from '@hooks/useShapes'
 import { UseDbCache, useDbCache } from '@hooks/useDbCache'
 
-import { fromSnakeCase, getRouteType } from './utils'
+import { fromSnakeCase, getMapBounds, getRouteType } from './utils'
 
 export async function fetchWrapper<T>(
   url: string,
@@ -118,7 +119,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
     save_to_db,
     save_to_scanner,
     skipRendering,
-    last_seen,
+    last_seen: raw,
     sort_by,
     tth,
     calculation_mode,
@@ -132,6 +133,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
   const areas = (geojson?.features || []).filter((x) =>
     x.geometry.type.includes('Polygon'),
   )
+  const last_seen = typeof raw === 'string' ? new Date(raw) : raw
 
   if (!areas.length) {
     areas.push({
@@ -186,6 +188,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
           ? '/api/v1/calc/bootstrap'
           : `/api/v1/calc/${mode}/${category}`,
         {
+          keepalive: true,
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -423,40 +426,88 @@ export async function save(
   }
 }
 
-export async function s2Coverage(id: Feature['id'], lat: number, lon: number) {
+export async function getS2Cells(
+  map: L.Map,
+  level: number,
+  signal: AbortSignal,
+) {
+  // const { s2cellCoverage } = useShapes.getState()
+  const { s2DisplayMode } = usePersist.getState()
+  if (s2DisplayMode === 'none') return []
+
+  return fetchWrapper<KojiResponse<S2Response[]>>(`/api/v1/s2/${level}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      ...getMapBounds(map),
+      // ids: s2DisplayMode === 'all' ? undefined : Object.keys(s2cellCoverage),
+    }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    signal,
+  }).then((res) => {
+    if (res) {
+      if (res.data.length === 20_000) {
+        useStatic.setState({
+          networkStatus: {
+            message: `Loaded the maximum of ${Number(
+              20_000,
+            ).toLocaleString()} Level ${level} S2 cells`,
+            severity: 'warning',
+            status: 200,
+          },
+        })
+      }
+      return res.data
+    }
+  })
+}
+
+export async function s2Coverage(id: number, lat: number, lon: number) {
   const {
     s2cells,
     radius,
-    fillCoveredCells,
     s2_level: bootstrap_level,
-    calculation_mode: bootstrap_mode,
+    calculation_mode,
     s2_size: bootstrap_size,
+    s2DisplayMode,
   } = usePersist.getState()
-  if (fillCoveredCells) {
+  if (s2DisplayMode !== 'none') {
     const s2cellCoverage: UseShapes['s2cellCoverage'] = Object.fromEntries(
-      Object.entries(useShapes.getState().s2cellCoverage).filter(
-        ([, v]) => v !== id.toString(),
-      ),
+      Object.entries(useShapes.getState().s2cellCoverage).map(([k, v]) => [
+        k,
+        v.filter((i) => i !== id.toString()),
+      ]),
     )
+
     await Promise.allSettled(
-      (bootstrap_mode === 'Radius' ? s2cells : [bootstrap_level]).map(
+      (calculation_mode === 'Radius' ? s2cells : [bootstrap_level]).map(
         async (level) =>
-          fetchWrapper<KojiResponse<string[]>>('/api/v1/s2/cell-coverage', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
+          fetchWrapper<KojiResponse<string[]>>(
+            `/api/v1/s2/${
+              calculation_mode === 'Radius' ? 'circle' : 'cell'
+            }-coverage`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                lat,
+                lon,
+                radius: calculation_mode === 'Radius' ? radius : undefined,
+                size: calculation_mode === 'S2' ? bootstrap_size : undefined,
+                level,
+              }),
             },
-            body: JSON.stringify({
-              lat,
-              lon,
-              radius: bootstrap_mode === 'Radius' ? radius : undefined,
-              size: bootstrap_mode === 'S2' ? bootstrap_size : undefined,
-              level,
-            }),
-          }).then((res) => {
+          ).then((res) => {
             if (res) {
-              res.data.forEach((cell) => {
-                if (!s2cellCoverage[cell]) s2cellCoverage[cell] = id.toString()
+              res.data.forEach((c) => {
+                if (s2cellCoverage[c]) {
+                  s2cellCoverage[c] = [...s2cellCoverage[c], id.toString()]
+                } else {
+                  s2cellCoverage[c] = [id.toString()]
+                }
               })
             }
           }),

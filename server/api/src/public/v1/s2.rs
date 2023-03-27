@@ -79,6 +79,7 @@ async fn s2_cells(
     url: actix_web::web::Path<u8>,
 ) -> Result<HttpResponse, Error> {
     let bounds = payload.into_inner();
+    let all = bounds.ids.is_none();
     let ids = if let Some(ids) = bounds.ids {
         ids.into_iter().collect::<HashSet<String>>()
     } else {
@@ -92,20 +93,16 @@ async fn s2_cells(
         bounds.min_lon,
         bounds.max_lat,
         bounds.max_lon,
-    )
-    .into_iter()
-    .enumerate()
-    .filter_map(|(i, cell)| {
-        if ids.contains(&cell.id) {
-            log::warn!("Cell {} already exists", cell.id);
-            Some(cell)
-        } else if i < 10_000 {
-            Some(cell)
-        } else {
-            None
-        }
-    })
-    .collect::<Vec<_>>();
+    );
+
+    let cells = if all {
+        cells
+    } else {
+        cells
+            .into_iter()
+            .filter(|cell| ids.contains(&cell.id))
+            .collect()
+    };
 
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!(cells)),

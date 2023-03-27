@@ -85,7 +85,7 @@ pub fn get_cells(
         .iter()
         .enumerate()
         .map_while(|(i, cell)| {
-            if i < 100_000 {
+            if i < 20_000 {
                 Some(get_polygon(cell))
             } else {
                 None

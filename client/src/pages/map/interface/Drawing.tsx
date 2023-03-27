@@ -12,6 +12,7 @@ import { usePersist } from '@hooks/usePersist'
 import { useShapes } from '@hooks/useShapes'
 import { buildShortcutKey, reverseObject } from '@services/utils'
 import { VECTOR_COLORS } from '@assets/constants'
+import { s2Coverage } from '@services/fetches'
 
 export function Drawing() {
   const snappable = usePersist((s) => s.snappable)
@@ -145,7 +146,7 @@ export function Drawing() {
             })
           }
         }}
-        onCreate={({ layer, shape }) => {
+        onCreate={async ({ layer, shape }) => {
           if (ref.current && ref.current.hasLayer(layer)) {
             const id = ref.current.getLayerId(layer)
             const { setters, getters, setShapes } = useShapes.getState()
@@ -172,7 +173,14 @@ export function Drawing() {
                 if (layer instanceof L.Circle) {
                   const feature = layer.toGeoJSON() as Feature<Point>
                   feature.id = id
-
+                  const { lat, lng } = layer.getLatLng()
+                  const coverage = await s2Coverage(id, lat, lng)
+                  setShapes('simplifiedS2Cells', (prev) => ({
+                    ...prev,
+                    [id]: Object.keys(coverage).filter((c) =>
+                      coverage[c].includes(id.toString()),
+                    ),
+                  }))
                   const first = getters.getFirst()
                   const last = getters.getLast()
 
