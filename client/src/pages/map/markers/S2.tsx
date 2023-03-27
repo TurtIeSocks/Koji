@@ -118,12 +118,14 @@ function SimplifiedCell({
   point: Feature<Point>
   cells: string[]
 }) {
-  const center = S2CellId.fromPoint(
-    S2LatLng.fromDegrees(
-      point.geometry.coordinates[1],
-      point.geometry.coordinates[0],
-    ).toPoint(),
-  )
+  const center = point?.geometry
+    ? S2CellId.fromPoint(
+        S2LatLng.fromDegrees(
+          point.geometry.coordinates[1],
+          point.geometry.coordinates[0],
+        ).toPoint(),
+      ).id.toString()
+    : cells.join('').substring(0, 50)
   const features: Feature<PolygonType>[] = cells
     .map((cell) => new S2CellId(cell))
     .map((cellId) => {
@@ -174,7 +176,7 @@ function SimplifiedCell({
 
   return (
     <BaseCell
-      id={center.id.toString()}
+      id={center}
       coords={feature.geometry.coordinates[0] as [number, number][]}
       covered
       simple

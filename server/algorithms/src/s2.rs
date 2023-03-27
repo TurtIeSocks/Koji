@@ -277,7 +277,9 @@ fn crawl_cells(
             h_cell_id = h_cell_id.edge_neighbors()[0];
         }
     }
-    line_string.swap(2, 3);
+    if line_string.len() == 3 {
+        line_string.swap(2, 3);
+    }
     let local_poly = geo::Polygon::<f64>::new(geo::LineString::new(line_string.into()), vec![]);
     let valid = if count > 0 {
         if polygons
