@@ -25,7 +25,7 @@ export async function fetchWrapper<T>(
     const res = await fetch(url, options)
     if (!res.ok) {
       useStatic.setState({
-        networkStatus: {
+        notification: {
           message: await res.text(),
           status: res.status,
           severity: 'error',
@@ -51,7 +51,7 @@ export async function getKojiCache<T extends 'geofence' | 'project' | 'route'>(
   })
   if (!res.ok) {
     useStatic.setState({
-      networkStatus: {
+      notification: {
         message: await res.text(),
         status: res.status,
         severity: 'error',
@@ -237,7 +237,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
           }))
         }
         useStatic.setState({
-          networkStatus: {
+          notification: {
             message: await res.text(),
             status: res.status,
             severity: 'error',
@@ -332,7 +332,7 @@ export async function getMarkers(
         }[res.status] ||
         ''
       useStatic.setState({
-        networkStatus: {
+        notification: {
           message,
           status: res.status,
           severity: 'error',
@@ -373,7 +373,7 @@ export async function convert<T = Conversions>(
     })
     if (!res.ok) {
       useStatic.setState({
-        networkStatus: {
+        notification: {
           message: await res.text(),
           status: res.status,
           severity: 'error',
@@ -402,7 +402,7 @@ export async function save(
     })
     if (!res.ok) {
       useStatic.setState({
-        networkStatus: {
+        notification: {
           message: await res.text(),
           status: res.status,
           severity: 'error',
@@ -413,7 +413,7 @@ export async function save(
     const json: KojiResponse<{ updates: number; inserts: number }> =
       await res.json()
     useStatic.setState({
-      networkStatus: {
+      notification: {
         message: `Saved successfully`,
         status: res.status,
         severity: 'success',
@@ -449,7 +449,7 @@ export async function getS2Cells(
     if (res) {
       if (res.data.length >= 20_000) {
         useStatic.setState({
-          networkStatus: {
+          notification: {
             message: `Loaded the maximum of ${Number(
               20_000,
             ).toLocaleString()} Level ${level} S2 cells`,
@@ -466,7 +466,7 @@ export async function getS2Cells(
   })
 }
 
-export async function s2Coverage(id: number, lat: number, lon: number) {
+export async function s2Coverage(id: string, lat: number, lon: number) {
   const {
     s2cells,
     radius,
@@ -479,7 +479,7 @@ export async function s2Coverage(id: number, lat: number, lon: number) {
     const s2cellCoverage: UseShapes['s2cellCoverage'] = Object.fromEntries(
       Object.entries(useShapes.getState().s2cellCoverage).map(([k, v]) => [
         k,
-        v.filter((i) => i !== id.toString()),
+        v.filter((i) => i !== id),
       ]),
     )
 

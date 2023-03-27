@@ -4,24 +4,21 @@ import { Typography } from '@mui/material'
 
 import Notification from './Base'
 
-export default function NetworkAlert() {
+export default function GeneralAlert() {
   const { status, severity, message } = useStatic((s) => s.notification)
 
   return (
     <Notification
       CollapseProps={{ in: !!status }}
       AlertProps={{ severity }}
-      title={`Network Status: ${status} ${
+      title={
         {
-          200: 'Success',
-          400: 'Bad Request',
-          401: 'Unauthorized',
-          404: 'Not Found',
-          408: 'Network Timeout',
-          413: 'Payload Too Large',
-          500: 'Server Error',
-        }[status] || 'Unknown Error'
-      }`}
+          error: 'Error:',
+          warning: 'Warning:',
+          info: 'Info:',
+          success: 'Success:',
+        }[severity || 'info']
+      }
     >
       <Typography>{message}</Typography>
     </Notification>

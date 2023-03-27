@@ -49,25 +49,31 @@ export default function useSyncGeojson() {
     Promise.all(
       Object.values(points).map((point) =>
         s2Coverage(
-          point.id,
+          `${point.properties.__multipoint_id}__${point.id}`,
           point.geometry.coordinates[1],
           point.geometry.coordinates[0],
         ),
       ),
     ).then((results) => {
       const s2cellCoverage: UseShapes['s2cellCoverage'] = {}
-      const simplifiedS2Cells: UseShapes['simplifiedS2Cells'] = {}
-
       results.forEach((result) => {
-        Object.assign(s2cellCoverage, result)
-        Object.entries(result).forEach(([s2Id, pointIds]) => {
-          pointIds.forEach((pointId) => {
-            if (!simplifiedS2Cells[pointId]) simplifiedS2Cells[pointId] = []
-            simplifiedS2Cells[pointId].push(s2Id)
-          })
+        Object.entries(result).forEach(([key, value]) => {
+          if (s2cellCoverage[key]) {
+            value.forEach((v) => {
+              if (!s2cellCoverage[key].includes(v)) {
+                s2cellCoverage[key].push(v)
+              }
+            })
+          } else {
+            s2cellCoverage[key] = value
+          }
         })
       })
-      useShapes.setState({ s2cellCoverage, simplifiedS2Cells })
+      useShapes.setState({
+        s2cellCoverage: Object.fromEntries(
+          Object.entries(s2cellCoverage).filter(([, v]) => v.length > 0),
+        ),
+      })
     })
     setStatic('geojson', newGeojson)
   }, [

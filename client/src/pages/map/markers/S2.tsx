@@ -8,7 +8,8 @@ import { usePersist } from '@hooks/usePersist'
 import { useShapes } from '@hooks/useShapes'
 import { VECTOR_COLORS } from '@assets/constants'
 import union from '@turf/union'
-import type { Polygon as PolygonType } from 'geojson'
+import type { Point, Polygon as PolygonType } from 'geojson'
+import { useStatic } from '@hooks/useStatic'
 
 function BaseCell({
   id,
@@ -110,17 +111,32 @@ export function S2Cells() {
   )
 }
 
-function SimplifiedCell({ cells }: { cells: string[] }) {
+function SimplifiedCell({
+  point,
+  cells,
+}: {
+  point: Feature<Point>
+  cells: string[]
+}) {
+  const center = S2CellId.fromPoint(
+    S2LatLng.fromDegrees(
+      point.geometry.coordinates[1],
+      point.geometry.coordinates[0],
+    ).toPoint(),
+  )
   const features: Feature<PolygonType>[] = cells
     .map((cell) => new S2CellId(cell))
     .map((cellId) => {
       const poly = []
       const cell = new S2Cell(cellId)
-      for (let i = 0; i <= 3; i += 1) {
+      for (let i = 0; i < 4; i += 1) {
         const coordinate = cell.getVertex(i)
-        const point = new S2Point(coordinate.x, coordinate.y, coordinate.z)
-        const latLng = S2LatLng.fromPoint(point)
+        const s2Point = new S2Point(coordinate.x, coordinate.y, coordinate.z)
+        const latLng = S2LatLng.fromPoint(s2Point)
         poly.push([latLng.latDegrees, latLng.lngDegrees])
+      }
+      if (poly[0][0] !== poly[3][0] || poly[0][1] !== poly[3][1]) {
+        poly.push(poly[0])
       }
       return {
         type: 'Feature',
@@ -132,21 +148,33 @@ function SimplifiedCell({ cells }: { cells: string[] }) {
         id: cellId.id.toString(),
       }
     })
-
   // turns multiple polygon features into one
   // @ts-ignore
   const feature = features.reduce((acc, f) => {
     if (!acc) {
       return f
     }
-    const combined = union(acc, f)
-    if (combined) return combined
+    try {
+      const combined = union(acc, f)
+      if (combined) return combined
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(e, '\n', f)
+      if (e instanceof Error && process.env.NODE_ENV === 'development')
+        useStatic.setState({
+          notification: {
+            message: e.message,
+            severity: 'warning',
+            status: 1,
+          },
+        })
+    }
     return acc
   }, null as Feature<PolygonType> | null)
 
   return (
     <BaseCell
-      id={feature.id}
+      id={center.id.toString()}
       coords={feature.geometry.coordinates[0] as [number, number][]}
       covered
       simple
@@ -159,13 +187,24 @@ export const MemoSimplifiedCell = React.memo(SimplifiedCell, (prev, next) =>
 )
 
 export function SimplifiedPolygons() {
-  const covered = useShapes((s) => s.simplifiedS2Cells)
+  const s2cellCoverage = useShapes((s) => s.s2cellCoverage)
   const s2FillMode = usePersist((s) => s.s2FillMode)
-
+  const point = useShapes((s) => s.Point)
+  const covered: Record<string, string[]> = {}
+  Object.entries(s2cellCoverage).forEach(([cellId, pointIds]) =>
+    pointIds.forEach((pointId) => {
+      if (!covered[pointId]) covered[pointId] = []
+      covered[pointId].push(cellId)
+    }),
+  )
   return s2FillMode === 'simple' ? (
     <>
       {Object.entries(covered).map(([id, cells]) => (
-        <SimplifiedCell key={id} cells={cells} />
+        <MemoSimplifiedCell
+          key={`${id}${cells.length}`}
+          point={point[id.split('__')[1]]}
+          cells={cells}
+        />
       ))}
     </>
   ) : null

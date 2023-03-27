@@ -14,7 +14,7 @@ import { ALL_FENCES, ALL_ROUTES } from '@assets/constants'
 type CacheKey = StoreNoFn<UseStatic>
 
 export interface UseStatic {
-  networkStatus: {
+  notification: {
     message: string
     status: number
     severity: AlertProps['severity']
@@ -78,7 +78,7 @@ export interface UseStatic {
 }
 
 export const useStatic = create<UseStatic>((set, get) => ({
-  networkStatus: {
+  notification: {
     message: '',
     status: 0,
     severity: 'info',

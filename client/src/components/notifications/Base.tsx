@@ -1,10 +1,13 @@
+import * as React from 'react'
 import Alert, { type AlertProps } from '@mui/material/Alert'
 import Collapse, { type CollapseProps } from '@mui/material/Collapse'
 import IconButton, { type IconButtonProps } from '@mui/material/IconButton'
 import Stack, { type StackProps } from '@mui/material/Stack'
-import * as React from 'react'
 import CloseIcon from '@mui/icons-material/Close'
 import AlertTitle, { type AlertTitleProps } from '@mui/material/AlertTitle'
+
+import { useAlertTimer } from '@hooks/useAlertTimer'
+import { useStatic } from '@hooks/useStatic'
 
 interface Props {
   CollapseProps?: CollapseProps
@@ -25,6 +28,8 @@ export default function Notification({
   children,
   title,
 }: Props) {
+  const setHover = useAlertTimer()
+
   return (
     <Collapse
       sx={{
@@ -49,11 +54,22 @@ export default function Notification({
               aria-label="close"
               color="inherit"
               size="small"
+              onClick={() =>
+                useStatic.setState((prev) => ({
+                  notification: {
+                    ...prev.notification,
+                    message: '',
+                    status: 0,
+                  },
+                }))
+              }
               {...IconButtonProps}
             >
               <CloseIcon fontSize="inherit" />
             </IconButton>
           }
+          onMouseEnter={() => setHover(true)}
+          onMouseLeave={() => setHover(false)}
           {...AlertProps}
           sx={{ mb: 2, zIndex: 10000, ...AlertProps?.sx }}
         >

@@ -47,16 +47,12 @@ export function KojiPoint({
           circle.on('pm:drag', async function drag({ layer }) {
             if (layer instanceof L.Circle) {
               const latlng = layer.getLatLng()
-              const coverage = await s2Coverage(id, latlng.lat, latlng.lng)
-              useShapes.setState((prev) => ({
-                s2cellCoverage: coverage,
-                simplifiedS2Cells: {
-                  ...prev.simplifiedS2Cells,
-                  [id]: Object.keys(coverage).filter((c) =>
-                    coverage[c].includes(id.toString()),
-                  ),
-                },
-              }))
+              const coverage = await s2Coverage(
+                `${properties.__multipoint_id}__${id}`,
+                latlng.lat,
+                latlng.lng,
+              )
+              useShapes.setState({ s2cellCoverage: coverage })
             }
           })
           circle.removeEventListener('pm:dragend')
@@ -67,16 +63,12 @@ export function KojiPoint({
                 ...useShapes.getState().Point[id],
                 geometry: { type: 'Point', coordinates: [newLon, newLat] },
               })
-              const coverage = await s2Coverage(id, newLat, newLon)
-              useShapes.setState((prev) => ({
-                s2cellCoverage: coverage,
-                simplifiedS2Cells: {
-                  ...prev.simplifiedS2Cells,
-                  [id]: Object.keys(coverage).filter((c) =>
-                    coverage[c].includes(id.toString()),
-                  ),
-                },
-              }))
+              const coverage = await s2Coverage(
+                `${properties.__multipoint_id}__${id}`,
+                newLat,
+                newLon,
+              )
+              useShapes.setState({ s2cellCoverage: coverage })
             }
           })
           if (usePersist.getState().setActiveMode === 'hover') {

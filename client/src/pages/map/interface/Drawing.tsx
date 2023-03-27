@@ -12,13 +12,12 @@ import { usePersist } from '@hooks/usePersist'
 import { useShapes } from '@hooks/useShapes'
 import { buildShortcutKey, reverseObject } from '@services/utils'
 import { VECTOR_COLORS } from '@assets/constants'
-import { s2Coverage } from '@services/fetches'
 
 export function Drawing() {
   const snappable = usePersist((s) => s.snappable)
   const continueDrawing = usePersist((s) => s.continueDrawing)
   const radius = usePersist((s) => s.radius)
-
+  const calculationMode = usePersist((s) => s.calculation_mode)
   const map = useMap()
 
   const ref = React.useRef<L.FeatureGroup>(null)
@@ -52,7 +51,9 @@ export function Drawing() {
           continueDrawing,
           snappable,
           radiusEditCircle: false,
-          templineStyle: { radius: radius || 70 },
+          templineStyle: {
+            radius: calculationMode === 'Radius' ? radius || 70 : 100,
+          },
         }}
         onMount={() => {
           map.pm.Toolbar.changeActionsOfControl('removalMode', [
@@ -173,14 +174,6 @@ export function Drawing() {
                 if (layer instanceof L.Circle) {
                   const feature = layer.toGeoJSON() as Feature<Point>
                   feature.id = id
-                  const { lat, lng } = layer.getLatLng()
-                  const coverage = await s2Coverage(id, lat, lng)
-                  setShapes('simplifiedS2Cells', (prev) => ({
-                    ...prev,
-                    [id]: Object.keys(coverage).filter((c) =>
-                      coverage[c].includes(id.toString()),
-                    ),
-                  }))
                   const first = getters.getFirst()
                   const last = getters.getLast()
 

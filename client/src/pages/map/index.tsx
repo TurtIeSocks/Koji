@@ -15,6 +15,7 @@ import { getFullCache } from '@services/fetches'
 import { ExportPolygon, ImportPolygon } from '@components/dialogs/Polygon'
 import { ExportRoute, ImportRoute } from '@components/dialogs/Route'
 import { KeyboardShortcuts } from '@components/dialogs/Keyboard'
+import GeneralAlert from '@components/notifications/General'
 
 import Markers from './markers'
 import Interface from './interface'
@@ -79,6 +80,7 @@ export default function MapWrapper() {
           <SimplifiedPolygons />
         </Map>
         <NetworkAlert />
+        <GeneralAlert />
         <ImportPolygon />
         <ExportPolygon />
         <ImportRoute />
