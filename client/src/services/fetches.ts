@@ -447,7 +447,7 @@ export async function getS2Cells(
     signal,
   }).then((res) => {
     if (res) {
-      if (res.data.length === 20_000) {
+      if (res.data.length >= 20_000) {
         useStatic.setState({
           networkStatus: {
             message: `Loaded the maximum of ${Number(
@@ -457,6 +457,8 @@ export async function getS2Cells(
             status: 200,
           },
         })
+        res.data.length = 20_000
+        return res.data
       }
       return res.data
     }
