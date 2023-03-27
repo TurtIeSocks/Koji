@@ -12,6 +12,8 @@ use model::{
 use s2::{cell::Cell, cellid::CellID, cellunion::CellUnion, rect::Rect, region::RegionCoverer};
 use serde::Serialize;
 
+// use crate::utils::debug_string;
+
 type Covered = Arc<Mutex<HashSet<String>>>;
 
 #[derive(Debug, Clone, Serialize)]
@@ -220,6 +222,7 @@ fn crawl_cells(
     cell_union: &CellUnion,
     polygons: &Vec<Polygon>,
     size: u8,
+    // features: &mut Vec<Feature>,
 ) -> (bool, Vec<f64>) {
     let mut new_cell_id = cell_id.clone();
     let mut center = vec![];
@@ -277,10 +280,18 @@ fn crawl_cells(
             h_cell_id = h_cell_id.edge_neighbors()[0];
         }
     }
-    if line_string.len() == 3 {
+    if line_string.len() == 4 {
+        log::error!("line_string: {:?}", line_string.len());
         line_string.swap(2, 3);
     }
     let local_poly = geo::Polygon::<f64>::new(geo::LineString::new(line_string.into()), vec![]);
+    // features.push(Feature {
+    //     bbox: None,
+    //     geometry: Some(Geometry::from(&local_poly)),
+    //     id: None,
+    //     properties: None,
+    //     foreign_members: None,
+    // });
     let valid = if count > 0 {
         if polygons
             .iter()
@@ -340,50 +351,75 @@ pub fn bootstrap(feature: &Feature, level: u8, size: u8, stats: &mut Stats) -> F
     let mut second = false;
     let mut repeat_check = 0;
     let mut last_report = 0;
+    // let mut features = vec![];
 
-    while visited.len() < cells.0.len() {
-        let (valid, point) = crawl_cells(&current, &mut visited, &cells, &polygons, size);
-        if valid {
-            multi_point.push(point);
-        }
-        for _ in 0..size {
-            current = current.edge_neighbors()[direction];
-        }
-        if first {
-            first = false;
-            second = true;
-            direction += 1;
-        } else if second {
-            second = false;
-            direction += 1;
-        } else if direction_count == current_count {
-            if direction == 3 {
-                direction = 0
+    if size == 1 {
+        multi_point = cells.0.into_iter().map(|cell| cell.point()).collect();
+    } else {
+        while visited.len() < cells.0.len() {
+            let (valid, point) = crawl_cells(
+                &current,
+                &mut visited,
+                &cells,
+                &polygons,
+                size,
+                // &mut features,
+            );
+            if valid {
+                multi_point.push(point);
+            }
+            for _ in 0..size {
+                current = current.edge_neighbors()[direction];
+            }
+            if first {
+                first = false;
+                second = true;
+                direction += 1;
+            } else if second {
+                second = false;
+                direction += 1;
+            } else if direction_count == current_count {
+                if direction == 3 {
+                    direction = 0
+                } else {
+                    direction += 1
+                }
+                if turn {
+                    turn = false;
+                    direction_count += 1;
+                    current_count = 1;
+                } else {
+                    turn = true;
+                    current_count = 1;
+                }
             } else {
-                direction += 1
+                current_count += 1;
             }
-            if turn {
-                turn = false;
-                direction_count += 1;
-                current_count = 1;
+            if last_report == visited.len() {
+                repeat_check += 1;
+                if repeat_check > 10000 {
+                    log::error!("Only {} cells out of {} were able to be checked, breaking after {} repeated iterations", last_report, cells.0.len(), repeat_check);
+                    break;
+                }
             } else {
-                turn = true;
-                current_count = 1;
+                last_report = visited.len();
+                repeat_check = 0;
             }
-        } else {
-            current_count += 1;
-        }
-        if last_report == visited.len() {
-            repeat_check += 1;
-            if repeat_check > 10000 {
-                log::error!("Only {} cells out of {} were able to be checked, breaking after {} repeated iterations", last_report, cells.0.len(), repeat_check);
-                break;
-            }
-        } else {
-            last_report = visited.len();
-            repeat_check = 0;
         }
     }
+
+    // match debug_string(
+    //     "geojson.json",
+    //     &serde_json::to_string_pretty(&FeatureCollection {
+    //         features,
+    //         bbox: None,
+    //         foreign_members: None,
+    //     })
+    //     .unwrap(),
+    // ) {
+    //     Ok(_) => {}
+    //     Err(e) => log::error!("Error writing geojson: {}", e),
+    // }
 
     stats.total_clusters += multi_point.len();
     stats.distance(&multi_point.iter().map(|p| [p[0], p[1]]).collect());
@@ -403,27 +439,26 @@ pub fn bootstrap(feature: &Feature, level: u8, size: u8, stats: &mut Stats) -> F
 pub fn cell_coverage(lat: f64, lon: f64, size: u8, level: u8) -> Covered {
     let covered = Arc::new(Mutex::new(HashSet::new()));
     let mut center = CellID::from(s2::latlng::LatLng::from_degrees(lat, lon)).parent(level as u64);
-
-    let centering_size = if level % 2 == 0 {
-        size / 2
+    if size == 1 {
+        covered.lock().unwrap().insert(center.0.to_string());
     } else {
-        (size / 2) + 1
-    };
-    for i in 0..centering_size {
-        if i != 0 {
-            center = center.edge_neighbors()[2];
+        for i in 0..((size / 2) + 1) {
+            if i != 0 {
+                if if size % 2 == 0 { i != 1 } else { true } {
+                    center = center.edge_neighbors()[2];
+                }
+            }
+            center = center.edge_neighbors()[3];
         }
-        center = center.edge_neighbors()[3];
-    }
-    for _ in 0..size {
-        center = center.edge_neighbors()[1];
-        let mut h_cell_id = center.clone();
         for _ in 0..size {
-            covered.lock().unwrap().insert(h_cell_id.0.to_string());
-            h_cell_id = h_cell_id.edge_neighbors()[0];
+            center = center.edge_neighbors()[1];
+            let mut h_cell_id = center.clone();
+            for _ in 0..size {
+                covered.lock().unwrap().insert(h_cell_id.0.to_string());
+                h_cell_id = h_cell_id.edge_neighbors()[0];
+            }
         }
     }
-
     covered
 }
 

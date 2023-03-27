@@ -11,6 +11,8 @@ import union from '@turf/union'
 import type { Point, Polygon as PolygonType } from 'geojson'
 import { useStatic } from '@hooks/useStatic'
 
+const S2_DEBUG: string[] = []
+
 function BaseCell({
   id,
   coords,
@@ -80,7 +82,12 @@ function S2Level({
         <MemoBaseCell
           key={cell.id}
           {...cell}
-          covered={s2FillMode === 'all' && !!covered[cell.id]?.length}
+          covered={
+            (process.env.NODE_ENV === 'development'
+              ? S2_DEBUG.includes(cell.id)
+              : false) ||
+            (s2FillMode === 'all' && !!covered[cell.id]?.length)
+          }
         />
       ))}
     </>
