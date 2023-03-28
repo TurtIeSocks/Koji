@@ -15,6 +15,7 @@ import { getFullCache } from '@services/fetches'
 import { ExportPolygon, ImportPolygon } from '@components/dialogs/Polygon'
 import { ExportRoute, ImportRoute } from '@components/dialogs/Route'
 import { KeyboardShortcuts } from '@components/dialogs/Keyboard'
+import GeneralAlert from '@components/notifications/General'
 
 import Markers from './markers'
 import Interface from './interface'
@@ -26,7 +27,7 @@ import {
   Points,
   Polygons,
 } from './markers/Vectors'
-import { S2Cells } from './markers/S2'
+import { S2Cells, SimplifiedPolygons } from './markers/S2'
 
 export default function MapWrapper() {
   const params = useParams()
@@ -76,8 +77,10 @@ export default function MapWrapper() {
           <MultiLineStrings />
           <Polygons />
           <S2Cells />
+          <SimplifiedPolygons />
         </Map>
         <NetworkAlert />
+        <GeneralAlert />
         <ImportPolygon />
         <ExportPolygon />
         <ImportRoute />

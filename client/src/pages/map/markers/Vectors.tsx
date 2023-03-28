@@ -16,6 +16,7 @@ export function Points() {
   const radius = usePersist((s) => s.radius)
   const setActiveMode = usePersist((s) => s.setActiveMode)
   const showRouteIndex = usePersist((s) => s.showRouteIndex)
+  const calculation_mode = usePersist((s) => s.calculation_mode)
   const { getFromKojiKey } = useDbCache.getState()
 
   return (
@@ -24,7 +25,7 @@ export function Points() {
         <MemoPoint
           key={id}
           feature={feature}
-          radius={radius || 10}
+          radius={calculation_mode === 'Radius' ? radius || 10 : 100}
           index={showRouteIndex ? i + 1 : NaN}
           dbRef={getFromKojiKey(feature.properties.__multipoint_id)}
         />
@@ -37,6 +38,7 @@ export function MultiPoints() {
   const shapes = useShapes((s) => s.MultiPoint)
   const radius = usePersist((s) => s.radius)
   const setActiveMode = usePersist((s) => s.setActiveMode)
+  const calculation_mode = usePersist((s) => s.calculation_mode)
   const { getFromKojiKey } = useDbCache.getState()
 
   return (
@@ -45,7 +47,7 @@ export function MultiPoints() {
         <MemoMultiPoint
           key={id}
           feature={feature}
-          radius={radius || 10}
+          radius={calculation_mode === 'Radius' ? radius || 10 : 100}
           dbRef={getFromKojiKey(id)}
         />
       ))}

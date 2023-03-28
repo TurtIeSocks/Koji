@@ -323,7 +323,7 @@ export function PolygonPopup({
             ).then((res) => {
               if (res) {
                 useStatic.setState({
-                  networkStatus: {
+                  notification: {
                     message: 'Saved successfully!',
                     status: 200,
                     severity: 'success',

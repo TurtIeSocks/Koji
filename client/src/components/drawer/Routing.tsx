@@ -9,6 +9,7 @@ import {
 } from '@mui/material'
 import Update from '@mui/icons-material/Update'
 
+import { BOOTSTRAP_LEVELS, S2_CELL_LEVELS } from '@assets/constants'
 import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
 import { clusteringRouting } from '@services/fetches'
@@ -22,6 +23,7 @@ export default function RoutingTab() {
   const mode = usePersist((s) => s.mode)
   const category = usePersist((s) => s.category)
   const fast = usePersist((s) => s.fast)
+  const calculation_mode = usePersist((s) => s.calculation_mode)
 
   const [updateButton, scannerType, isEditing] = useStatic((s) => [
     s.updateButton,
@@ -43,25 +45,53 @@ export default function RoutingTab() {
         buttons={['cluster', 'route', 'bootstrap']}
         type="select"
       />
-      <MultiOptionList
-        field="category"
-        buttons={['pokestop', 'gym', 'spawnpoint']}
-        disabled={mode === 'bootstrap'}
-        type="select"
-      />
-      <Collapse in={category === 'spawnpoint'}>
+      <Collapse in={mode !== 'bootstrap'}>
         <MultiOptionList
-          field="tth"
-          buttons={['All', 'Known', 'Unknown']}
+          field="category"
+          buttons={['pokestop', 'gym', 'spawnpoint']}
           disabled={mode === 'bootstrap'}
           type="select"
         />
+        <Collapse in={category === 'spawnpoint'}>
+          <MultiOptionList
+            field="tth"
+            buttons={['All', 'Known', 'Unknown']}
+            type="select"
+          />
+        </Collapse>
       </Collapse>
-      <Divider sx={{ my: 2 }} />
+      <MultiOptionList
+        field="calculation_mode"
+        buttons={['Radius', 'S2']}
+        label="Strategy"
+        hideLabel
+        type="select"
+      />
+      <Collapse in={calculation_mode === 'Radius'}>
+        <NumInput field="radius" />
+      </Collapse>
+      <Collapse in={calculation_mode === 'S2'}>
+        <MultiOptionList
+          field="s2_level"
+          label="S2 Level"
+          hideLabel
+          buttons={S2_CELL_LEVELS}
+          type="select"
+          itemLabel={(v) => `Level ${v}`}
+        />
+        <MultiOptionList
+          field="s2_size"
+          label="S2 Size"
+          hideLabel
+          buttons={BOOTSTRAP_LEVELS}
+          type="select"
+          itemLabel={(v) => `${v}x${v}`}
+        />
+      </Collapse>
 
-      <ListSubheader>Clustering</ListSubheader>
-      <NumInput field="radius" />
-      <Collapse in={mode !== 'bootstrap'}>
+      <Collapse in={mode !== 'bootstrap' && calculation_mode === 'Radius'}>
+        <Divider sx={{ my: 2 }} />
+        <ListSubheader>Clustering</ListSubheader>
         <NumInput field="min_points" />
         <Toggle field="fast" />
         <Collapse in={!fast}>
@@ -76,9 +106,9 @@ export default function RoutingTab() {
           type="select"
         />
       </Collapse>
-      <Divider sx={{ my: 2 }} />
 
       <Collapse in={mode === 'route'}>
+        <Divider sx={{ my: 2 }} />
         <ListSubheader>Routing</ListSubheader>
         <NumInput
           field="route_split_level"
@@ -86,9 +116,9 @@ export default function RoutingTab() {
           min={1}
           max={12}
         />
-        <Divider sx={{ my: 2 }} />
       </Collapse>
 
+      <Divider sx={{ my: 2 }} />
       <ListSubheader>Saving</ListSubheader>
       <Toggle
         field="save_to_db"

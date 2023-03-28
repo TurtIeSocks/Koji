@@ -60,6 +60,7 @@ export type Properties<G extends Geometry | null = Geometry> =
     __geofence_id?: number
     __mode?: KojiModes
     __projects?: number[]
+    __cells?: string[]
   }
 
 export interface Feature<G extends Geometry | null = Geometry, P = Properties>
@@ -211,6 +212,11 @@ export interface Config {
 export type CombinedState = Partial<UsePersist> & Partial<UseStatic>
 
 export type Category = 'pokestop' | 'gym' | 'spawnpoint'
+
+export interface S2Response {
+  id: string
+  coords: [number, number][]
+}
 
 // ================================================================================================
 

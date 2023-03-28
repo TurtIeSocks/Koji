@@ -2,11 +2,7 @@ use super::*;
 
 use geojson::FeatureCollection;
 use model::{
-    api::{
-        args::{SortBy, Stats},
-        single_vec::SingleVec,
-        ToSingleVec,
-    },
+    api::{args::SortBy, single_vec::SingleVec, stats::Stats, ToSingleVec},
     db::GenericData,
 };
 
@@ -24,7 +20,7 @@ pub fn main(
     sort_by: SortBy,
 ) -> SingleVec {
     if fast {
-        fast::project_points(data_points.to_single_vec(), radius, min_points, stats)
+        fast::cluster(data_points.to_single_vec(), radius, min_points, stats)
     } else {
         area.into_iter()
             .flat_map(|feature| {

@@ -4,14 +4,15 @@ use super::*;
 
 use std::{collections::VecDeque, time::Instant};
 
-use algorithms::{bootstrapping, clustering, routing::tsp};
-use geo::{ChamberlainDuquetteArea, HaversineDistance, MultiPolygon, Point, Polygon};
+use algorithms::{bootstrapping, clustering, routing::tsp, s2};
+use geo::{ChamberlainDuquetteArea, MultiPolygon, Polygon};
 
 use geojson::Value;
 use model::{
     api::{
-        args::{Args, ArgsUnwrapped, Response, Stats},
+        args::{Args, ArgsUnwrapped, CalculationMode, Response},
         point_array::PointArray,
+        stats::Stats,
         FeatureHelpers, GeoFormats, Precision, ToCollection, ToFeature,
     },
     db::{area, instance, route, sea_orm_active_enums::Type, GenericData},
@@ -35,6 +36,9 @@ async fn bootstrap(
         return_type,
         save_to_db,
         save_to_scanner,
+        calculation_mode,
+        s2_level,
+        s2_size,
         ..
     } = payload.into_inner().init(Some("bootstrap"));
 
@@ -54,7 +58,10 @@ async fn bootstrap(
 
     let mut features: Vec<Feature> = area
         .into_iter()
-        .map(|sub_area| bootstrapping::as_geojson(sub_area, radius, &mut stats))
+        .map(|sub_area| match calculation_mode {
+            CalculationMode::Radius => bootstrapping::as_geojson(sub_area, radius, &mut stats),
+            CalculationMode::S2 => s2::bootstrap(&sub_area, s2_level, s2_size, &mut stats),
+        })
         .collect();
 
     stats.cluster_time = time.elapsed().as_secs_f32() as Precision;
@@ -135,6 +142,9 @@ async fn cluster(
         sort_by,
         tth,
         route_split_level,
+        calculation_mode,
+        s2_level,
+        s2_size,
         ..
     } = payload.into_inner().init(Some(&mode));
 
@@ -183,16 +193,22 @@ async fn cluster(
 
     stats.total_points = data_points.len();
 
-    let mut clusters = clustering::main(
-        data_points,
-        fast,
-        radius,
-        min_points,
-        only_unique,
-        area,
-        &mut stats,
-        sort_by,
-    );
+    let mut clusters = match calculation_mode {
+        CalculationMode::Radius => clustering::main(
+            data_points,
+            fast,
+            radius,
+            min_points,
+            only_unique,
+            area,
+            &mut stats,
+            sort_by,
+        ),
+        CalculationMode::S2 => area
+            .into_iter()
+            .flat_map(|feature| s2::cluster(feature, &data_points, s2_level, s2_size, &mut stats))
+            .collect(),
+    };
 
     if mode.eq("route") && !clusters.is_empty() {
         log::info!("Cluster Length: {}", clusters.len());
@@ -217,21 +233,10 @@ async fn cluster(
         stats.total_distance = 0.;
         stats.longest_distance = 0.;
 
-        for (i, point) in final_clusters.iter().enumerate() {
-            let point = Point::new(point[1], point[0]);
-            let point2 = if i == final_clusters.len() - 1 {
-                Point::new(final_clusters[0][1], final_clusters[0][0])
-            } else {
-                Point::new(final_clusters[i + 1][1], final_clusters[i + 1][0])
-            };
-            let distance = point.haversine_distance(&point2);
-            stats.total_distance += distance;
-            if distance > stats.longest_distance {
-                stats.longest_distance = distance;
-            }
-        }
         clusters = final_clusters.into();
     }
+
+    stats.distance(&clusters);
 
     let mut feature = clusters
         .to_feature(Some(enum_type.clone()))
@@ -297,19 +302,7 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     let final_clusters = tsp::multi(&data_points, route_split_level);
     log::info!("Tour Length {}", final_clusters.len());
 
-    for (i, point) in final_clusters.iter().enumerate() {
-        let point = Point::new(point[1], point[0]);
-        let point2 = if i == final_clusters.len() - 1 {
-            Point::new(final_clusters[0][1], final_clusters[0][0])
-        } else {
-            Point::new(final_clusters[i + 1][1], final_clusters[i + 1][0])
-        };
-        let distance = point.haversine_distance(&point2);
-        stats.total_distance += distance;
-        if distance > stats.longest_distance {
-            stats.longest_distance = distance;
-        }
-    }
+    stats.distance(&final_clusters);
 
     let feature = final_clusters
         .to_feature(Some(mode.clone()))

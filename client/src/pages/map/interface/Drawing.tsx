@@ -17,7 +17,7 @@ export function Drawing() {
   const snappable = usePersist((s) => s.snappable)
   const continueDrawing = usePersist((s) => s.continueDrawing)
   const radius = usePersist((s) => s.radius)
-
+  const calculationMode = usePersist((s) => s.calculation_mode)
   const map = useMap()
 
   const ref = React.useRef<L.FeatureGroup>(null)
@@ -51,7 +51,9 @@ export function Drawing() {
           continueDrawing,
           snappable,
           radiusEditCircle: false,
-          templineStyle: { radius: radius || 70 },
+          templineStyle: {
+            radius: calculationMode === 'Radius' ? radius || 70 : 100,
+          },
         }}
         onMount={() => {
           map.pm.Toolbar.changeActionsOfControl('removalMode', [
@@ -145,7 +147,7 @@ export function Drawing() {
             })
           }
         }}
-        onCreate={({ layer, shape }) => {
+        onCreate={async ({ layer, shape }) => {
           if (ref.current && ref.current.hasLayer(layer)) {
             const id = ref.current.getLayerId(layer)
             const { setters, getters, setShapes } = useShapes.getState()
@@ -172,7 +174,6 @@ export function Drawing() {
                 if (layer instanceof L.Circle) {
                   const feature = layer.toGeoJSON() as Feature<Point>
                   feature.id = id
-
                   const first = getters.getFirst()
                   const last = getters.getLast()
 

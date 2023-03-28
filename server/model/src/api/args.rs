@@ -19,6 +19,7 @@ pub struct BoundsArg {
     pub max_lat: Precision,
     pub max_lon: Precision,
     pub last_seen: Option<u32>,
+    pub ids: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -38,18 +39,24 @@ pub enum ReturnTypeArg {
     Poracle,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub enum SortBy {
     GeoHash,
     ClusterCount,
     Random,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub enum SpawnpointTth {
     All,
     Known,
     Unknown,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub enum CalculationMode {
+    Radius,
+    S2,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -78,7 +85,7 @@ pub enum UnknownId {
     Number(u32),
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Args {
     /// The area input to be used for data point collection.
     ///
@@ -90,6 +97,12 @@ pub struct Args {
     ///
     /// Default: `false`
     pub benchmark_mode: Option<bool>,
+    /// Bootstrap mode selection
+    ///
+    /// Accepts [BootStrapMode]
+    ///
+    /// Default: `0`
+    pub calculation_mode: Option<CalculationMode>,
     /// Data points to cluster or reroute.
     /// Overrides any inputted area.
     ///
@@ -161,6 +174,18 @@ pub struct Args {
     ///
     /// Deprecated
     pub routing_time: Option<i64>,
+    /// S2 Level to use for calculation mode
+    ///
+    /// Accepts 10-20
+    ///
+    /// Default: `15`
+    pub s2_level: Option<u8>,
+    /// S2 cell size selection, how many S2 cells to use in a square grid
+    ///
+    /// Accepts [BootStrapMode]
+    ///
+    /// Default: `9`
+    pub s2_size: Option<u8>,
     /// Saves the calculated route to the Kōji database
     ///
     /// Default: `false`
@@ -192,6 +217,7 @@ pub struct Args {
 pub struct ArgsUnwrapped {
     pub area: FeatureCollection,
     pub benchmark_mode: bool,
+    pub calculation_mode: CalculationMode,
     pub data_points: single_vec::SingleVec,
     pub devices: usize,
     pub fast: bool,
@@ -202,6 +228,8 @@ pub struct ArgsUnwrapped {
     pub return_type: ReturnTypeArg,
     pub only_unique: bool,
     pub last_seen: u32,
+    pub s2_level: u8,
+    pub s2_size: u8,
     pub save_to_db: bool,
     pub save_to_scanner: bool,
     pub simplify: bool,
@@ -216,6 +244,9 @@ impl Args {
         let Args {
             area,
             benchmark_mode,
+            s2_level: bootstrap_level,
+            calculation_mode: bootstrap_mode,
+            s2_size: bootstrap_size,
             data_points,
             devices,
             fast,
@@ -265,6 +296,9 @@ impl Args {
             (FeatureCollection::default(), ReturnTypeArg::SingleArray)
         };
         let benchmark_mode = benchmark_mode.unwrap_or(false);
+        let bootstrap_mode = bootstrap_mode.unwrap_or(CalculationMode::Radius);
+        let bootstrap_level = bootstrap_level.unwrap_or(15);
+        let bootstrap_size = bootstrap_size.unwrap_or(9);
         let data_points = if let Some(data_points) = data_points {
             match data_points {
                 DataPointsArg::Struct(data_points) => data_points.to_single_vec(),
@@ -322,6 +356,9 @@ impl Args {
         ArgsUnwrapped {
             area,
             benchmark_mode,
+            s2_level: bootstrap_level,
+            calculation_mode: bootstrap_mode,
+            s2_size: bootstrap_size,
             data_points,
             devices,
             fast,
@@ -382,105 +419,12 @@ pub struct ConfigResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Stats {
-    pub best_clusters: single_vec::SingleVec,
-    pub best_cluster_point_count: usize,
-    pub cluster_time: Precision,
-    pub total_points: usize,
-    pub points_covered: usize,
-    pub total_clusters: usize,
-    pub total_distance: Precision,
-    pub longest_distance: Precision,
-}
-
-impl Stats {
-    pub fn new() -> Self {
-        Stats {
-            best_clusters: vec![],
-            best_cluster_point_count: 0,
-            cluster_time: 0.,
-            total_points: 0,
-            points_covered: 0,
-            total_clusters: 0,
-            total_distance: 0.,
-            longest_distance: 0.,
-        }
-    }
-    pub fn log(&self, area: Option<String>) {
-        let width = "=======================================================================";
-        let get_row = |text: String, replace: bool| {
-            format!(
-                "  {}{}{}\n",
-                text,
-                width[..(width.len() - text.len())].replace("=", if replace { " " } else { "=" }),
-                if replace { "||" } else { "==" }
-            )
-        };
-        log::info!(
-            "\n{}{}{}{}{}{}  {}==\n",
-            get_row("[STATS] ".to_string(), false),
-            if let Some(area) = area {
-                if area.is_empty() {
-                    "".to_string()
-                } else {
-                    get_row(format!("|| [AREA]: {}", area), true)
-                }
-            } else {
-                "".to_string()
-            },
-            get_row(
-                format!(
-                    "|| [POINTS] Total: {} | Covered: {}",
-                    self.total_points, self.points_covered,
-                ),
-                true
-            ),
-            get_row(
-                format!(
-                    "|| [CLUSTERS] Time: {}s | Total: {} | Avg Points: {}",
-                    self.cluster_time as f32,
-                    self.total_clusters,
-                    if self.total_clusters > 0 {
-                        self.total_points / self.total_clusters
-                    } else {
-                        0
-                    },
-                ),
-                true
-            ),
-            get_row(
-                format!(
-                    "|| [BEST_CLUSTER] Amount: {:?} | Point Count: {}",
-                    self.best_clusters.len(),
-                    self.best_cluster_point_count,
-                ),
-                true
-            ),
-            get_row(
-                format!(
-                    "|| [DISTANCE] Total {} | Longest {} | Avg: {}",
-                    self.total_distance as f32,
-                    self.longest_distance as f32,
-                    if self.total_clusters > 0 {
-                        (self.total_distance / self.total_clusters as f64) as f32
-                    } else {
-                        0.
-                    },
-                ),
-                true
-            ),
-            width,
-        )
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Response {
     pub message: String,
     pub status: String,
     pub status_code: u16,
     pub data: Option<JsonValue>,
-    pub stats: Option<Stats>,
+    pub stats: Option<stats::Stats>,
 }
 
 impl Response {

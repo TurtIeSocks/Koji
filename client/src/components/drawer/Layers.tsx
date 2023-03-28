@@ -1,7 +1,14 @@
 import * as React from 'react'
-import { Divider, List, ListItem, MenuItem, Select } from '@mui/material'
+import {
+  Collapse,
+  Divider,
+  List,
+  ListItem,
+  MenuItem,
+  Select,
+} from '@mui/material'
 
-import { S2_CELL_LEVELS } from '@assets/constants'
+import { BOOTSTRAP_LEVELS, S2_CELL_LEVELS } from '@assets/constants'
 import { usePersist } from '@hooks/usePersist'
 
 import { MultiOptionList } from './inputs/MultiOptions'
@@ -11,6 +18,8 @@ import ListSubheader from '../styled/Subheader'
 
 export default function Layers() {
   const s2cells = usePersist((s) => s.s2cells)
+  const calculationMode = usePersist((s) => s.calculation_mode)
+  const s2DisplayMode = usePersist((s) => s.s2DisplayMode)
 
   return (
     <List dense>
@@ -35,28 +44,70 @@ export default function Layers() {
       <DateTime field="last_seen" />
       <Divider sx={{ my: 2 }} />
       <ListSubheader disableGutters>S2 Cells</ListSubheader>
-      <Toggle field="fillCoveredCells" />
-      <ListItem>
-        <Select
-          fullWidth
-          value={s2cells}
-          multiple
-          onChange={({ target }) =>
-            usePersist.setState({
-              s2cells:
-                typeof target.value === 'string'
-                  ? target.value.split(',').map((val) => +val)
-                  : target.value,
-            })
-          }
-        >
-          {S2_CELL_LEVELS.map((level) => (
-            <MenuItem key={level} value={level}>
-              Level {level}
-            </MenuItem>
-          ))}
-        </Select>
-      </ListItem>
+      <MultiOptionList
+        field="s2DisplayMode"
+        buttons={['none', 'covered', 'all']}
+        label="Display"
+        hideLabel
+        type="select"
+      />
+      <Collapse in={s2DisplayMode !== 'none'}>
+        <MultiOptionList
+          field="calculation_mode"
+          buttons={['Radius', 'S2']}
+          label="Mode"
+          hideLabel
+          type="select"
+        />
+        <MultiOptionList
+          field="s2FillMode"
+          buttons={['simple', 'all']}
+          label="Fill"
+          hideLabel
+          type="select"
+        />
+      </Collapse>
+      <Collapse in={calculationMode === 'Radius'}>
+        <ListItem>
+          <Select
+            fullWidth
+            value={s2cells}
+            multiple
+            onChange={({ target }) =>
+              usePersist.setState({
+                s2cells:
+                  typeof target.value === 'string'
+                    ? target.value.split(',').map((val) => +val)
+                    : target.value,
+              })
+            }
+          >
+            {S2_CELL_LEVELS.map((level) => (
+              <MenuItem key={level} value={level}>
+                Level {level}
+              </MenuItem>
+            ))}
+          </Select>
+        </ListItem>
+      </Collapse>
+      <Collapse in={calculationMode === 'S2'}>
+        <MultiOptionList
+          field="s2_level"
+          label="S2 Level"
+          hideLabel
+          buttons={S2_CELL_LEVELS}
+          type="select"
+          itemLabel={(v) => `Level ${v}`}
+        />
+        <MultiOptionList
+          field="s2_size"
+          label="S2 Size"
+          hideLabel
+          buttons={BOOTSTRAP_LEVELS}
+          type="select"
+          itemLabel={(v) => `${v}x${v}`}
+        />
+      </Collapse>
     </List>
   )
 }

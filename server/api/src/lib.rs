@@ -156,7 +156,9 @@ pub async fn start() -> io::Result<()> {
                         )
                         .service(
                             web::scope("/s2")
-                                .service(public::v1::s2::circle_intersection)
+                                .service(public::v1::s2::circle_coverage)
+                                .service(public::v1::s2::cell_coverage)
+                                .service(public::v1::s2::cell_polygons)
                                 .service(public::v1::s2::s2_cells),
                         ),
                 ),

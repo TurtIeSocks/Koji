@@ -1,68 +1,75 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type {
-  TabOption,
-  FeatureCollection,
-  Category,
-  ConversionOptions,
-} from '@assets/types'
-import { GEOMETRY_CONVERSION_TYPES } from '@assets/constants'
+import type { TabOption, Category, ConversionOptions } from '@assets/types'
+import {
+  GEOMETRY_CONVERSION_TYPES,
+  S2_CELL_LEVELS,
+  BOOTSTRAP_LEVELS,
+} from '@assets/constants'
 
 export interface UsePersist {
+  // Drawing
+  snappable: boolean
+  continueDrawing: boolean
+  setActiveMode: 'hover' | 'click'
+
+  // Client Settings
   darkMode: boolean
+  menuItem: TabOption
   tab: number
   drawer: boolean
+  tileServer: string
   location: [number, number]
   zoom: number
-  category: Category
-  tileServer: string
-  tth: 'All' | 'Known' | 'Unknown'
+  kbShortcuts: Record<string, string>
+  polygonExportMode: ConversionOptions
+  showRouteIndex: boolean
+  geometryType: typeof GEOMETRY_CONVERSION_TYPES[number]
+  loadingScreen: boolean
+  simplifyPolygons: boolean
+
+  // Layers
   spawnpoint: boolean
-  lineColorRules: { distance: number; color: string }[]
   gym: boolean
   pokestop: boolean
   pokestopRange: boolean
   data: 'all' | 'area' | 'bound'
+  last_seen: Date
+  showCircles: boolean
+  showLines: boolean
+  showPolygons: boolean
+  showArrows: boolean
+  s2cells: number[]
+  s2DisplayMode: 'all' | 'covered' | 'none'
+  s2FillMode: 'all' | 'simple'
+
+  // Clustering
+  category: Category
+  tth: 'All' | 'Known' | 'Unknown'
+  lineColorRules: { distance: number; color: string }[]
   mode: 'bootstrap' | 'route' | 'cluster'
   sort_by: 'GeoHash' | 'Random' | 'ClusterCount'
   radius: number | ''
   min_points: number | ''
   only_unique: boolean
   route_split_level: number | ''
-  // generations: number | ''
-  // routing_time: number | ''
-  showCircles: boolean
-  showLines: boolean
-  showPolygons: boolean
-  showArrows: boolean
-  nativeLeaflet: boolean
-  last_seen: Date
-  // devices: number | ''
-  geojson: FeatureCollection
-  // route_chunk_size: number | ''
-  kbShortcuts: Record<string, string>
-  polygonExportMode: ConversionOptions
-  showRouteIndex: boolean
-  geometryType: typeof GEOMETRY_CONVERSION_TYPES[number]
-  menuItem: TabOption
-  export: {
-    total: number
-    max: number
-    route: [number, number][][]
-  }
-  s2cells: number[]
-  fillCoveredCells: boolean
   save_to_db: boolean
   save_to_scanner: boolean
   skipRendering: boolean
-  snappable: boolean
-  continueDrawing: boolean
   fast: boolean
-  loadingScreen: boolean
-  simplifyPolygons: boolean
-  setActiveMode: 'hover' | 'click'
+  calculation_mode: 'Radius' | 'S2'
+  s2_level: typeof S2_CELL_LEVELS[number]
+  s2_size: typeof BOOTSTRAP_LEVELS[number]
+  // generations: number | ''
+  // routing_time: number | ''
+  // devices: number | ''
+  // route_chunk_size: number | ''
+
+  // Dev
+  nativeLeaflet: boolean
   colorByGeohash: boolean
   geohashPrecision: number
+
   setStore: <T extends keyof UsePersist>(key: T, value: UsePersist[T]) => void
 }
 
@@ -92,10 +99,14 @@ export const usePersist = create(
       data: 'bound',
       sort_by: 'GeoHash',
       s2cells: [],
-      fillCoveredCells: false,
+      s2DisplayMode: 'none',
+      s2FillMode: 'simple',
       radius: 70,
       route_split_level: 1,
       routing_chunk_size: 0,
+      calculation_mode: 'Radius',
+      s2_level: 15,
+      s2_size: 9,
       min_points: 3,
       only_unique: false,
       save_to_db: false,
@@ -111,19 +122,12 @@ export const usePersist = create(
       geometryType: 'Polygon',
       menuItem: 'Manage',
       fast: false,
-      export: {
-        total: 0,
-        max: 0,
-        route: [],
-      },
       last_seen: (() => {
         const date = new Date()
         date.setMinutes(0)
         date.setSeconds(0)
         return date
       })(),
-      geojson: { type: 'FeatureCollection', features: [] },
-      setStore: (key, value) => set({ [key]: value }),
       snappable: true,
       continueDrawing: true,
       loadingScreen: true,
@@ -131,6 +135,7 @@ export const usePersist = create(
       setActiveMode: 'hover',
       colorByGeohash: false,
       geohashPrecision: 6,
+      setStore: (key, value) => set({ [key]: value }),
     }),
     {
       name: 'local',

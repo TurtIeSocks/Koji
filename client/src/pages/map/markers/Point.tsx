@@ -7,7 +7,7 @@ import geohash from 'ngeohash'
 import { VECTOR_COLORS } from '@assets/constants'
 import type { Feature, DbOption, KojiKey } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
-import { useStatic } from '@hooks/useStatic'
+// import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
 import { s2Coverage } from '@services/fetches'
 
@@ -47,9 +47,12 @@ export function KojiPoint({
           circle.on('pm:drag', async function drag({ layer }) {
             if (layer instanceof L.Circle) {
               const latlng = layer.getLatLng()
-              useShapes.setState({
-                s2cellCoverage: await s2Coverage(id, latlng.lat, latlng.lng),
-              })
+              const coverage = await s2Coverage(
+                `${properties.__multipoint_id}__${id}`,
+                latlng.lat,
+                latlng.lng,
+              )
+              useShapes.setState({ s2cellCoverage: coverage })
             }
           })
           circle.removeEventListener('pm:dragend')
@@ -60,9 +63,12 @@ export function KojiPoint({
                 ...useShapes.getState().Point[id],
                 geometry: { type: 'Point', coordinates: [newLon, newLat] },
               })
-              useShapes.setState({
-                s2cellCoverage: await s2Coverage(id, newLat, newLon),
-              })
+              const coverage = await s2Coverage(
+                `${properties.__multipoint_id}__${id}`,
+                newLat,
+                newLon,
+              )
+              useShapes.setState({ s2cellCoverage: coverage })
             }
           })
           if (usePersist.getState().setActiveMode === 'hover') {
@@ -70,8 +76,8 @@ export function KojiPoint({
             circle.on('mouseover', function onClick() {
               if (
                 type === 'MultiPoint' &&
-                properties?.__multipoint_id &&
-                !Object.values(useStatic.getState().layerEditing).some((v) => v)
+                properties?.__multipoint_id
+                // && !Object.values(useStatic.getState().layerEditing).some((v) => v)
               ) {
                 useShapes
                   .getState()

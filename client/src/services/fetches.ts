@@ -8,13 +8,14 @@ import type {
   FeatureCollection,
   DbOption,
   Category,
+  S2Response,
 } from '@assets/types'
 import { UsePersist, usePersist } from '@hooks/usePersist'
 import { useStatic } from '@hooks/useStatic'
 import { UseShapes, useShapes } from '@hooks/useShapes'
 import { UseDbCache, useDbCache } from '@hooks/useDbCache'
 
-import { fromSnakeCase, getRouteType } from './utils'
+import { fromSnakeCase, getMapBounds, getRouteType } from './utils'
 
 export async function fetchWrapper<T>(
   url: string,
@@ -24,7 +25,7 @@ export async function fetchWrapper<T>(
     const res = await fetch(url, options)
     if (!res.ok) {
       useStatic.setState({
-        networkStatus: {
+        notification: {
           message: await res.text(),
           status: res.status,
           severity: 'error',
@@ -50,7 +51,7 @@ export async function getKojiCache<T extends 'geofence' | 'project' | 'route'>(
   })
   if (!res.ok) {
     useStatic.setState({
-      networkStatus: {
+      notification: {
         message: await res.text(),
         status: res.status,
         severity: 'error',
@@ -118,9 +119,12 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
     save_to_db,
     save_to_scanner,
     skipRendering,
-    last_seen,
+    last_seen: raw,
     sort_by,
     tth,
+    calculation_mode,
+    s2_level,
+    s2_size,
   } = usePersist.getState()
   const { geojson, setStatic, bounds } = useStatic.getState()
   const { add, activeRoute } = useShapes.getState().setters
@@ -129,6 +133,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
   const areas = (geojson?.features || []).filter((x) =>
     x.geometry.type.includes('Polygon'),
   )
+  const last_seen = typeof raw === 'string' ? new Date(raw) : raw
 
   if (!areas.length) {
     areas.push({
@@ -177,13 +182,13 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
     areas.map(async (area) => {
       const fenceRef = getFromKojiKey(area.id as string)
       const routeRef = getRouteByCategory(category, fenceRef?.name)
-      console.log({ fenceRef, routeRef })
       const startTime = Date.now()
       const res = await fetch(
         mode === 'bootstrap'
           ? '/api/v1/calc/bootstrap'
           : `/api/v1/calc/${mode}/${category}`,
         {
+          keepalive: true,
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -217,6 +222,9 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
             route_split_level,
             sort_by,
             tth,
+            calculation_mode,
+            s2_level,
+            s2_size,
           }),
         },
       )
@@ -229,7 +237,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
           }))
         }
         useStatic.setState({
-          networkStatus: {
+          notification: {
             message: await res.text(),
             status: res.status,
             severity: 'error',
@@ -272,7 +280,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
   )
 
   setStatic('totalLoadingTime', Date.now() - totalStartTime)
-  if (!skipRendering) add(features)
+  if (!skipRendering) add(features.filter((f) => !!f.geometry))
   if (save_to_db) await getKojiCache('route')
   if (save_to_scanner) await getScannerCache()
   return {
@@ -324,7 +332,7 @@ export async function getMarkers(
         }[res.status] ||
         ''
       useStatic.setState({
-        networkStatus: {
+        notification: {
           message,
           status: res.status,
           severity: 'error',
@@ -365,7 +373,7 @@ export async function convert<T = Conversions>(
     })
     if (!res.ok) {
       useStatic.setState({
-        networkStatus: {
+        notification: {
           message: await res.text(),
           status: res.status,
           severity: 'error',
@@ -394,7 +402,7 @@ export async function save(
     })
     if (!res.ok) {
       useStatic.setState({
-        networkStatus: {
+        notification: {
           message: await res.text(),
           status: res.status,
           severity: 'error',
@@ -405,7 +413,7 @@ export async function save(
     const json: KojiResponse<{ updates: number; inserts: number }> =
       await res.json()
     useStatic.setState({
-      networkStatus: {
+      notification: {
         message: `Saved successfully`,
         status: res.status,
         severity: 'success',
@@ -418,29 +426,94 @@ export async function save(
   }
 }
 
-export async function s2Coverage(id: Feature['id'], lat: number, lon: number) {
-  const { s2cells, radius, fillCoveredCells } = usePersist.getState()
-  if (fillCoveredCells) {
-    const s2cellCoverage: UseShapes['s2cellCoverage'] = Object.fromEntries(
-      Object.entries(useShapes.getState().s2cellCoverage).filter(
-        ([, v]) => v !== id.toString(),
-      ),
-    )
-    await Promise.allSettled(
-      s2cells.map(async (level) =>
-        fetchWrapper<KojiResponse<string[]>>('/api/v1/s2/circle-coverage', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+export async function getS2Cells(
+  map: L.Map,
+  level: number,
+  signal: AbortSignal,
+) {
+  const { s2cellCoverage } = useShapes.getState()
+  const { s2DisplayMode } = usePersist.getState()
+  if (s2DisplayMode === 'none') return []
+
+  return fetchWrapper<KojiResponse<S2Response[]>>(`/api/v1/s2/${level}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      ...getMapBounds(map),
+      // ids: s2DisplayMode === 'all' ? undefined : Object.keys(s2cellCoverage),
+    }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    signal,
+  }).then((res) => {
+    if (res) {
+      if (res.data.length >= 20_000) {
+        useStatic.setState({
+          notification: {
+            message: `Loaded the maximum of ${Number(
+              20_000,
+            ).toLocaleString()} Level ${level} S2 cells`,
+            severity: 'warning',
+            status: 200,
           },
-          body: JSON.stringify({ lat, lon, radius, level }),
-        }).then((res) => {
-          if (res) {
-            res.data.forEach((cell) => {
-              if (!s2cellCoverage[cell]) s2cellCoverage[cell] = id.toString()
-            })
-          }
-        }),
+        })
+        return res.data.filter(
+          (c, i) => s2cellCoverage[c.id]?.length || i <= 20_000,
+        )
+      }
+      return res.data
+    }
+  })
+}
+
+export async function s2Coverage(id: string, lat: number, lon: number) {
+  const {
+    s2cells,
+    radius,
+    s2_level: bootstrap_level,
+    calculation_mode,
+    s2_size: bootstrap_size,
+    s2DisplayMode,
+  } = usePersist.getState()
+  if (s2DisplayMode !== 'none') {
+    const s2cellCoverage: UseShapes['s2cellCoverage'] = Object.fromEntries(
+      Object.entries(useShapes.getState().s2cellCoverage).map(([k, v]) => [
+        k,
+        v.filter((i) => i !== id),
+      ]),
+    )
+
+    await Promise.allSettled(
+      (calculation_mode === 'Radius' ? s2cells : [bootstrap_level]).map(
+        async (level) =>
+          fetchWrapper<KojiResponse<string[]>>(
+            `/api/v1/s2/${
+              calculation_mode === 'Radius' ? 'circle' : 'cell'
+            }-coverage`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                lat,
+                lon,
+                radius: calculation_mode === 'Radius' ? radius : undefined,
+                size: calculation_mode === 'S2' ? bootstrap_size : undefined,
+                level,
+              }),
+            },
+          ).then((res) => {
+            if (res) {
+              res.data.forEach((c) => {
+                if (s2cellCoverage[c]) {
+                  s2cellCoverage[c] = [...s2cellCoverage[c], id.toString()]
+                } else {
+                  s2cellCoverage[c] = [id.toString()]
+                }
+              })
+            }
+          }),
       ),
     )
     return s2cellCoverage

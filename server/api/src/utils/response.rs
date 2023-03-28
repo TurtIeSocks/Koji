@@ -5,7 +5,8 @@ use model::api::ToGeometry;
 use serde_json::json;
 
 use crate::model::api::{
-    args::{Response, ReturnTypeArg, Stats},
+    args::{Response, ReturnTypeArg},
+    stats::Stats,
     GeoFormats, ToMultiStruct, ToMultiVec, ToPoracleVec, ToSingleStruct, ToSingleVec, ToText,
 };
 
