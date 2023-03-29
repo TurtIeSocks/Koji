@@ -26,7 +26,7 @@ pub struct Model {
     pub quest_mode_workers: u32,
     #[sea_orm(column_type = "Text", nullable)]
     pub quest_mode_hours: Option<String>,
-    pub quest_mode_max_login_queue: Option<u16>,
+    // pub quest_mode_max_login_queue: Option<u16>,
     #[sea_orm(column_type = "Text", nullable)]
     pub geofence: Option<String>,
     pub enable_quests: i8,
@@ -208,8 +208,8 @@ impl Query {
                         new_model.fort_mode_route = Set(default_model.fort_mode_route);
                         new_model.quest_mode_workers = Set(default_model.quest_mode_workers);
                         new_model.quest_mode_hours = Set(default_model.quest_mode_hours);
-                        new_model.quest_mode_max_login_queue =
-                            Set(default_model.quest_mode_max_login_queue);
+                        // new_model.quest_mode_max_login_queue =
+                        //     Set(default_model.quest_mode_max_login_queue);
                         new_model.geofence = Set(default_model.geofence);
                         new_model.enable_quests = Set(default_model.enable_quests);
                     };
