@@ -24,10 +24,18 @@ const config: DocsThemeConfig = {
   chat: {
     link: 'https://discord.gg/EYYsKPVawn',
   },
+  feedback: {
+    content: null,
+  },
   docsRepositoryBase:
     'https://github.com/TurtIeSocks/Koji/tree/main/docs/pages',
   footer: {
     text: 'Kōji Docs',
+  },
+  useNextSeoProps() {
+    return {
+      titleTemplate: '%s',
+    }
   },
 }
 
