@@ -1,0 +1,95 @@
+# External Integrations
+
+import { GitHubLogo } from '../components/GitHub'
+
+## ReactMap
+
+- Remove the need to have an `areas.json` file by loading your managed geofences straight from Kōji
+- You must set two config values to use Kōji with ReactMap
+
+1. First set your Kōji Bearer Token:
+
+- `api.kojiOptions.bearerToken`
+- Your Kōji Bearer token
+
+1. Then set ReactMap to call the Kōji API
+
+- `map.general.geoJsonFileName`
+- Example: `http://{koji_ip}/api/v1/geofence/feature-collection/{project_name}`
+- _Tip: You can use unique project names for Multi-Domain setups_
+
+### Supported Features
+
+- Polygons ✔️
+- MultiPolygons ✔️
+
+Repository:
+
+<GitHubLogo title="ReactMap" href="https://github.com/WatWowMap/ReactMap" />
+
+## PoracleJS
+
+- Remove the need to have a `geofence.json` file by loading your managed geofences straight from Kōji
+- You must set two config values to use Kōji with Poracle
+
+1. First set your Kōji Bearer Token:
+
+- `config.geofence.kojiOptions.bearerToken`
+- Your Kōji Bearer token
+
+1. Then set Poracle to call the Kōji API upon startup
+
+- `config.geofence.path`
+- Example: `http://{koji_ip}/api/v1/geofence/poracle/{project_name}`
+
+### Supported Features
+
+- Polygons ✔️
+- MultiPolygons ½ (PoracleWeb and `!area show` does not support MultiPolygons)
+
+Repository:
+
+<GitHubLogo title="PoracleJS" href="https://github.com/KartulUdus/PoracleJS" />
+
+## Golbat
+
+- Remove the need to have a `geofence.json` file by loading your managed geofences straight from Kōji
+- You must set two config values to use Kōji with Golbat
+
+1. First set your Kōji Bearer Token:
+
+- `koji.bearer_token`
+- Your Kōji Bearer token
+
+1. Then set Golbat to call the Kōji API upon startup
+
+- `koji.url`
+- Example: `http://{koji_ip}/api/v1/geofence/feature-collection/{project_name}`
+
+### Supported Features
+
+- Polygons ✔️
+- MultiPolygons ✔️
+
+Repository:
+
+<GitHubLogo title="Golbat" href="https://github.com/UnownHash/Golbat" />
+
+## Flygon
+
+- This integration is in progress!
+
+Repository:
+
+<GitHubLogo title="Flygon" href="https://github.com/UnownHash/Flygon" />
+
+## RealDeviceMap
+
+- [PR 513](https://github.com/RealDeviceMap/RealDeviceMap/pull/513)
+
+Repository:
+
+<GitHubLogo
+  title="RealDeviceMap"
+  href="https://github.com/RealDeviceMap/RealDeviceMap"
+/>

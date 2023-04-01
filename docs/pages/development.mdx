@@ -1,0 +1,27 @@
+# Development
+
+1. After going through the standard setup instructions
+2. Install Cargo Watch:
+
+```bash
+  cargo install cargo-watch
+```
+
+3. Install the VS Code Plugin [Rust Analyzer](https://marketplace.visualstudio.com/items?itemName=matklad.rust-analyzer)
+4. Open one terminal:
+
+```bash
+  cd server
+  # to compile in debug mode (faster recompiling but slower performance)
+  DEBUG=true cargo watch -x run
+  # to compile in release mode (slower recompiling but faster performance)
+  cargo watch -x 'run -r'
+```
+
+5. In a second terminal:
+
+```bash
+  cd client && yarn install && yarn dev
+```
+
+6. A browser will automatically open to `localhost:{PORT}`

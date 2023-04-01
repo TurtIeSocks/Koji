@@ -1,0 +1,151 @@
+# Endpoints
+
+### `/api/v1/geofence/{ReturnType}`
+
+- **Method:** `GET`
+- **URL Params**:
+  - See `ReturnType` enum above
+- **Returns**:
+  - All geofences saved in the Kōji database in the format specified by `ReturnType`
+
+### `/api/v1/geofence/{ReturnType}/{Project_Name}`
+
+- **Method:** `GET`
+- **URL Params**:
+  - See `ReturnType` enum above
+  - Name of a saved project in the Kōji database
+- **Returns**:
+  - The geofences saved in the Kōji database in the format specified by `ReturnType` that are related to the specified `Project_Name`
+
+### `/api/v1/route/{ReturnType}`
+
+- **Method:** `GET`
+- **URL Params**:
+  - See `ReturnType` enum above
+- **Returns**:
+  - All routes saved in the Kōji database in the format specified by `ReturnType`
+
+### `/api/v1/route/{ReturnType}/{Project_Name}`
+
+- **Method:** `GET`
+- **URL Params**:
+  - See `ReturnType` enum above
+  - Name of a saved project in the Kōji database
+- **Returns**:
+  - The routes saved in the Kōji database in the format specified by `ReturnType` that are related to the specified `Project_Name`
+
+## Calculation Endpoints
+
+### `/api/v1/calc/bootstrap`
+
+- **Method:** `POST`
+- **JSON Body**:
+  - **Required**:
+    - `area` OR `instance`
+  - **Optional**:
+    - `radius`
+    - `return_type`
+    - `instance`
+    - `save_to_db`
+    - `save_to_scanner`
+    - `benchmark_mode`
+- **Returns**:
+  - Bootstrap route data for the specified area/instance with the specified radius
+
+### `/api/v1/calc/cluster`
+
+### `/api/v1/calc/route`
+
+- **Method:** `POST`
+- **JSON Body**:
+  - **Required**:
+    - `area` OR `instance` OR `data_points`
+  - **Optional**:
+    - `radius`
+    - `return_type`
+    - `min_points`
+    - `generations`
+    - `devices`
+    - `fast`
+    - `only_unique`
+    - `instance`
+    - `save_to_db`
+    - `save_to_scanner`
+    - `benchmark_mode`
+    - `sort_by`
+    - `tth`
+    - `route_split_level`
+    - `last_seen`
+- **Returns**:
+  - Clustered/routing data for the specified area/instance with the specified radius
+
+### `/api/v1/calc/reroute`
+
+- **Method:** `POST`
+- **JSON Body**:
+  - **Required**:
+    - `data_points`
+  - **Optional**:
+    - `return_type`
+    - `instance`
+    - `save_to_db`
+    - `save_to_scanner`
+    - `benchmark_mode`
+    - `route_split_level`
+- **Returns**:
+  - Rerouted data for the `data_points` specified
+
+### `/api/v1/calc/area`
+
+- **Method:** `POST`
+- **JSON Body**:
+  - **Required**:
+    - `area`
+- **Returns**:
+  - Returns the total area of the specified geofence(s) `{ "area": f64 }`
+
+## Conversions & Helpers
+
+### `/api/v1/convert/data`
+
+- **Method:** `POST`
+- **JSON Body**:
+  - **Required**:
+    - `area`
+  - **Optional**:
+    - `return_type`
+- **Returns**:
+  - Converted data points in any of the supported formats
+
+### `/api/v1/convert/simplify`
+
+- **Method:** `POST`
+- **JSON Body**:
+  - **Required**:
+    - `area`
+  - **Optional**:
+    - `return_type`
+- **Returns**:
+  - Simplify Polygons and MultiPolygons
+
+### `/api/v1/convert/merge-points`
+
+- **Method:** `POST`
+- **JSON Body**:
+  - **Required**:
+    - `area`
+  - **Optional**:
+    - `return_type`
+- **Returns**:
+  - Merges points into a GeoJSON MultiPoint feature
+
+## S2 Cells
+
+### `/api/v1/s2/{cell_level}`
+
+- **Method:** `POST`
+- **JSON Body**:
+  - **Required**:
+    - `BoundsArg`
+- **Returns**:
+  - Returns S2 cells found in the provided bounds at the provided level

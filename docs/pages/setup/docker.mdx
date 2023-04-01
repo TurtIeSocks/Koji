@@ -1,0 +1,77 @@
+# Docker ( Recommended )
+
+## Docker Compose File
+
+1. If you have an existing `docker-compose.yml` file, copy the below service into it. Otherwise create a new file (`touch docker-compose.yml`) and copy the below service into it.
+
+```docker
+version: '2'
+services:
+  koji:
+    image: ghcr.io/turtiesocks/koji:main
+    container_name: koji
+    command: "koji"
+    restart: unless-stopped
+    environment:
+      # Required
+
+      # Your Golbat or RDM database
+      SCANNER_DB_URL: mysql://rdm_user:rdm_password@host:3306/rdm_database
+      # Your Flygon database
+      UNOWN_DB_URL: mysql://flygon_user:flygon_password@host:3306/flygon_database
+      # Your Koji database
+      KOJI_DB_URL: mysql://koji_user:koji_password@127.0.0.1:3306/koji_database
+      # Your Koji API bearer token and client password
+      KOJI_SECRET: your_super_secret
+
+      # Optional
+
+      # Start latitude on initial client load
+      #START_LAT: 0
+      # Start longitude on initial client load
+      #START_LON: 0
+      # Nominatim URl used for searching and importing geofences from OSM
+      #NOMINATIM_URL: "https://nominatim.openstreetmap.org" # highly recommended using your own
+      # Max Database connections
+      #MAX_CONNECTIONS: 100
+      # Logging level
+      #LOG_LEVEL: info # error | warn | info | debug | trace
+      # Memory limit for docker container
+      #mem_limit: 2048G
+      # Memory reservation for docker container
+      #mem_reservation: 256M
+      # CPU limit for docker container
+      #cpus: 2
+    ports:
+      - "8080:8080" # change left one for external port
+```
+
+## Setup
+
+1. After editing, pull the repo
+
+   ```bash
+    docker-compose pull
+   ```
+
+1. Start the containers
+
+   ```bash
+    docker-compose up -d
+   ```
+
+## Updating
+
+Docker:
+
+1. Pull latest
+
+   ```bash
+    docker-compose pull
+   ```
+
+2. Restart the container
+
+   ```bash
+    docker-compose down && docker-compose up -d
+   ```
