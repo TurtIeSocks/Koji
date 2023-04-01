@@ -16,7 +16,7 @@
 - Fully interactive client for creating and editing geofences
 - Admin panel for managing geofences, routes, projects
 - External API to seamlessly integrate into your mapping workflow
-- Kōji gets its namesake from [Kōji Nishino](https://bulbapedia.bulbagarden.net/wiki/K%C5%8Dji_Nishino)
+- Kōji is named after [Kōji Nishino](https://bulbapedia.bulbagarden.net/wiki/K%C5%8Dji_Nishino)
 
 ## Docs
 
