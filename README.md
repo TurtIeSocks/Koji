@@ -1,14 +1,13 @@
 <p align="center">
-  <img width="390" alt="ReactMap_Logo" src="./client/public/favicon.png">
+ <img alt="Kōji logo" src="./client/public/favicon.png">
+</p>
+<p align="center">
+  Graphic by <a href="https://github.com/nileplumb" target="_blank">nileplumb</a>
 </p>
 
 # Kōji
 
-[![GitHub Release](https://img.shields.io/github/release/TurtIeSocks/Koji.svg)](https://github.com/TurtIeSocks/Koji/releases/)
-
-[![GitHub Contributors](https://img.shields.io/github/contributors/TurtIeSocks/Koji.svg)](https://github.com/TurtIeSocks/Koji/graphs/contributors/)
-
-[![Discord](https://img.shields.io/discord/907337201044582452.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/EYYsKPVawn)
+[![GitHub Release](https://img.shields.io/github/release/TurtIeSocks/Koji.svg)](https://github.com/TurtIeSocks/Koji/releases/) [![GitHub Contributors](https://img.shields.io/github/contributors/TurtIeSocks/Koji.svg)](https://github.com/TurtIeSocks/Koji/graphs/contributors/) [![Discord](https://img.shields.io/discord/907337201044582452.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/EYYsKPVawn)
 
 ## What is Kōji?
 
