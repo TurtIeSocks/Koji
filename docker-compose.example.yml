@@ -1,4 +1,4 @@
-version: '2'
+version: "2"
 services:
   koji:
     image: ghcr.io/turtiesocks/koji:main
@@ -16,8 +16,8 @@ services:
       #NOMINATIM_URL: "https://nominatim.openstreetmap.org" # highly recommended using your own
       #MAX_CONNECTIONS: 100
       #LOG_LEVEL: info # error | warn | info | debug | trace
-      #mem_limit: 2048G
-      #mem_reservation: 256M
-      #cpus: 2
+    #mem_limit: 2048G
+    #mem_reservation: 256M
+    #cpus: 2
     ports:
-      - '8080:8080' # change left one for external port
+      - "8080:8080" # change left one for external port

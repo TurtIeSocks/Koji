@@ -1,123 +1,126 @@
+import { Callout } from 'nextra-theme-docs'
+
 # Standard
 
-## Install PreReqs
+## Install Prerequisites
 
 1. [Install NodeJS](https://nodejs.dev/en/learn/how-to-install-nodejs/)
 1. [Install Rust](https://www.rust-lang.org/tools/install)
 1. Install `curl` for your system if it's not already present
-1. Install OR-Tools
-
-## OR-Tools
-
-- [Check PreReqs](https://developers.google.com/optimization/install/cpp/binary_linux#prerequisites)
-
-For example, on Ubuntu 20.04:
-
-```bash
-sudo apt update
-sudo apt install -y build-essential cmake lsb-release
-```
-
-- Run the install script:
-
-```bash
-sudo chmod +x or-tools/install.sh && ./or-tools/install.sh
-```
 
 ## Install
 
-1. Clone this repo:
+1.  Clone this repo:
 
-   ```bash
-    git clone https://github.com/TurtIeSocks/Koji.git
-   ```
+    ```bash
+     git clone https://github.com/TurtIeSocks/Koji.git
+    ```
 
-1. Copy the env file:
+1.  Install OR-Tools:
 
-   ```bash
-     cd server && cp .env.example .env
-   ```
+    <Callout type="warning" emoji="⚠️">
 
-1. Edit the env file: `nano .env`
+    [Check the OR-Tools Prerequisites](https://developers.google.com/optimization/install/cpp/binary_linux#prerequisites)
 
-```bash
-# Required
+    For example, on Ubuntu 20.04:
 
-# Your Golbat or RDM database
-SCANNER_DB_URL="mysql://rdm_user:rdm_password@127.0.0.1:3306/rdm_database"
-# Your Flygon database
-UNOWN_DB_URL="mysql://unown_user:unown_password@127.0.0.1:3306/flygon_database"
-# Your Koji database
-KOJI_DB_URL="mysql://koji_user:koji_password@127.0.0.1:3306/koji_database"
-# Your Koji API bearer token and client password
-KOJI_SECRET="your_super_secret_password"
+        ```bash
+        sudo apt update
+        sudo apt install -y build-essential cmake lsb-release
+        ```
 
-# Optional
-# Host machine
-HOST="0.0.0.0"
-# Host port
-PORT="8080"
-# Start latitude on initial load
-START_LAT="0"
-# Start longitude on initial load
-START_LON="0"
-# Max database connections
-MAX_CONNECTIONS=100
-# Nominatim URl used for searching and importing geofences from OSM
-# highly recommended using your own
-NOMINATIM_URL="https://nominatim.openstreetmap.org"
-# Logging level
-LOG_LEVEL="info" # error | warn | info | debug | trace
-```
+    </Callout>
 
-1. Compile the client:
+        ```bash
+        sudo chmod +x or-tools/install.sh && ./or-tools/install.sh
+        ```
 
-```bash
-  cd ../client && yarn install && yarn build
-```
+1.  Copy the env file:
 
-10. Compile the server:
+    ```bash
+      cd server && cp .env.example .env
+    ```
 
-```bash
-  cd ../server && cargo run -r
-  # you might have to also install pkg-config (`apt install pkg-config`)
-```
+1.  Edit the env file: `nano .env`:
 
-11. Optionally install [PM2](https://pm2.keymetrics.io/) to run the server in the background:
+    ```bash
+    # Required
 
-```bash
-  npm install pm2 -g
-  pm2 start "cargo run -r" --name koji # from the /server folder
-```
+    # Your Golbat or RDM database
+    SCANNER_DB_URL="mysql://rdm_user:rdm_password@127.0.0.1:3306/rdm_database"
+    # Your Flygon database
+    UNOWN_DB_URL="mysql://unown_user:unown_password@127.0.0.1:3306/flygon_database"
+    # Your Koji database
+    KOJI_DB_URL="mysql://koji_user:koji_password@127.0.0.1:3306/koji_database"
+    # Your Koji API bearer token and client password
+    KOJI_SECRET="your_super_secret_password"
+
+    # Optional
+    # Host machine
+    HOST="0.0.0.0"
+    # Host port
+    PORT="8080"
+    # Start latitude on initial load
+    START_LAT="0"
+    # Start longitude on initial load
+    START_LON="0"
+    # Max database connections
+    MAX_CONNECTIONS=100
+    # Nominatim URl used for searching and importing geofences from OSM
+    # highly recommended using your own
+    NOMINATIM_URL="https://nominatim.openstreetmap.org"
+    # Logging level
+    LOG_LEVEL="info" # error | warn | info | debug | trace
+    ```
+
+1.  Compile the client:
+
+    ```bash
+    cd ../client && yarn install && yarn build
+    ```
+
+1.  Compile the server:
+
+    ```bash
+    cd ../server && cargo run -r
+    # you might have to also install pkg-config (`apt install pkg-config`)
+    ```
+
+1.  Optionally install [PM2](https://pm2.keymetrics.io/) to run the server in the background:
+
+    ```bash
+    npm install pm2 -g
+    pm2 start "cargo run -r" --name koji # from the /server folder
+    ```
 
 ## Updating
 
 1. Pull update
 
-```bash
-  git pull
-```
+   ```bash
+   git pull
+   ```
 
-2. Recompile OR-Tools:
+1. Recompile OR-Tools
 
-```bash
-  ./ort-tools/install.sh
-```
+   ```bash
+   ./ort-tools/install.sh
+   ```
 
-3. Recompile Client:
+1. Recompile Client
 
-```bash
-  cd client && yarn install && yarn build
-```
+   ```bash
+   cd client && yarn install && yarn build
+   ```
 
-4. Recompile Server
+1. Recompile Server
 
-```bash
-  cd ../server && cargo run -r
-```
+   ```bash
+   cd ../server && cargo run -r
+   ```
 
-5. If using pm2:
+1. If using pm2
 
-```bash
-  pm2 restart koji
-```
+   ```bash
+   pm2 restart koji
+   ```
