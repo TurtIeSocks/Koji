@@ -27,7 +27,7 @@ import { Callout } from 'nextra-theme-docs'
   - `Cluster` - clusters the points of the selected category in all drawn Polygons on the map
   - `Route` - clusters and routes the points using OR-Tools
 - Category
-  - Selec the category/table for the clustering algorithm to read from the database
+  - Select the category/table for the clustering algorithm to read from the database
 - Strategy
   - `Radius` - clusters based on the selected radius
   - `S2` - clusters based on the selected S2 cell level and size
@@ -43,9 +43,8 @@ import { Callout } from 'nextra-theme-docs'
 - Min Points
   - Minimum number of points that a cluster should have
 - Fast
-  - Uses an exponentially faster algorithm but returns worse results
-- Only unique
-  - 🚧 Experimental 🚧
+  - 🚧 Uses an exponentially faster algorithm but returns worse results
+- Only unique 🚧
   - Counts min points by unique points instead of all points in a Cluster
 
 ### Routing Options
@@ -59,8 +58,7 @@ import { Callout } from 'nextra-theme-docs'
 
 - Save to Kōji Db
   - If the Polygon is saved to the database, this will auto save the calculated routes to the Kōji database under the same name, using the category to auto set the `mode`
-- Save to Scanner Db
-  - 🚧 Experimental 🚧
+- 🚧 Save to Scanner Db 🚧
   - Saves the route to the Scanner database, use with Calculation
 - Skip rendering
   - Does not render the returned route to the map
@@ -183,8 +181,7 @@ From top to bottom:
 
 - Edits existing polygons
 - Enables drag mode for all shapes
-- Enables cut mode, which allows you to cut shapes out of existing polygons
-  - 🚧 Experimental 🚧
+- 🚧 Enables cut mode, which allows you to cut shapes out of existing polygons 🚧
 - Removes shapes, either individually or all for a specified type
 - Rotates shapes
 - Merges selected polygons into one
