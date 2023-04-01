@@ -5,6 +5,7 @@ const config: DocsThemeConfig = {
   logo: <span>Kōji</span>,
   head: (
     <>
+      <link rel="icon" href="/favicon.png" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <meta property="og:title" content="Kōji" />
       <meta property="og:type" content="website" />
@@ -30,7 +31,26 @@ const config: DocsThemeConfig = {
   docsRepositoryBase:
     'https://github.com/TurtIeSocks/Koji/tree/main/docs/pages',
   footer: {
-    text: 'Kōji Docs',
+    text: (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          justifyContent: 'space-around',
+          width: '100%',
+        }}
+      >
+        <div style={{ flexGrow: 1 }}>Kōji Docs</div>
+        <a
+          href="https://github.com/sponsors/TurtIeSocks"
+          referrerPolicy="no-referrer"
+          target="_blank"
+          style={{ flexGrow: 0 }}
+        >
+          Support this Project
+        </a>
+      </div>
+    ),
   },
   useNextSeoProps() {
     return {

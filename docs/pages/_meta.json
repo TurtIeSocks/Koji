@@ -1,7 +1,7 @@
 {
   "index": "Home",
   "setup": "Setup",
-  "usage": "Usage",
+  "client": "Client",
   "api-reference": "API Reference",
   "integrations": "Integrations",
   "development": "Development"
