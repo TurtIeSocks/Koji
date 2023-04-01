@@ -48,7 +48,7 @@ import { Callout } from 'nextra-theme-docs'
 
     # Your Golbat or RDM database
     SCANNER_DB_URL="mysql://rdm_user:rdm_password@127.0.0.1:3306/rdm_database"
-    # Your Flygon database
+    # Your Flygon database (set to "" for RDM use)
     UNOWN_DB_URL="mysql://unown_user:unown_password@127.0.0.1:3306/flygon_database"
     # Your Koji database
     KOJI_DB_URL="mysql://koji_user:koji_password@127.0.0.1:3306/koji_database"
@@ -104,7 +104,7 @@ import { Callout } from 'nextra-theme-docs'
 1. Recompile OR-Tools
 
    ```bash
-   ./ort-tools/install.sh
+   ./or-tools/install.sh
    ```
 
 1. Recompile Client
