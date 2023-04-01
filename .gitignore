@@ -4,6 +4,7 @@ yarn-error.log*
 node_modules/
 .yarn-integrity
 dist
+.next
 
 # config
 .env
