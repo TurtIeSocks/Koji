@@ -305,7 +305,7 @@ dependencies = [
 
 [[package]]
 name = "algorithms"
-version = "0.7.0"
+version = "1.0.0"
 dependencies = [
  "geo",
  "geohash",
@@ -358,7 +358,7 @@ checksum = "2cb2f989d18dd141ab8ae82f64d1a8cdd37e0840f73a406896cf5e99502fab61"
 
 [[package]]
 name = "api"
-version = "0.7.0"
+version = "1.0.0"
 dependencies = [
  "actix-files",
  "actix-session",
@@ -1470,7 +1470,7 @@ dependencies = [
 
 [[package]]
 name = "geo_repair"
-version = "0.4.1"
+version = "1.0.0"
 dependencies = [
  "byteorder",
  "geo",
@@ -1855,7 +1855,7 @@ dependencies = [
 
 [[package]]
 name = "koji"
-version = "0.7.0"
+version = "1.0.0"
 dependencies = [
  "api",
  "dotenv",
@@ -1975,7 +1975,7 @@ checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 
 [[package]]
 name = "migration"
-version = "0.5.2"
+version = "1.0.0"
 dependencies = [
  "async-std",
  "geojson",
@@ -2029,7 +2029,7 @@ dependencies = [
 
 [[package]]
 name = "model"
-version = "0.7.0"
+version = "1.0.0"
 dependencies = [
  "chrono",
  "futures",
@@ -2076,7 +2076,7 @@ dependencies = [
 
 [[package]]
 name = "nominatim"
-version = "0.4.0"
+version = "1.0.0"
 dependencies = [
  "derive_builder",
  "geojson",
