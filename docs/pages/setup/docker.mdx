@@ -1,3 +1,5 @@
+import { Callout } from 'nextra-theme-docs'
+
 # Docker ( Recommended )
 
 ## Docker Compose File
@@ -47,9 +49,22 @@ services:
     #cpus: 2
     ports:
       - '8080:8080' # change left one for external port
+    # Optional: Might be required if your database is also hosted in docker
+    # network_mode: "host"
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
 ```
 
 ## Docker Setup
+
+<Callout type="info" emoji="💡">
+  If this is the first time using GitHub container registry you will need to login. When prompted use your personal access token **not** password. [More info](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-with-a-personal-access-token-classic)
+
+```sh
+docker login ghcr.io -u GITHUB_USERNAME
+```
+
+</Callout>
 
 1. After editing, pull the repo
 
