@@ -44,7 +44,7 @@ export interface UsePersist {
   s2FillMode: 'all' | 'simple'
 
   // Clustering
-  category: Category
+  category: Category | 'fort'
   tth: 'All' | 'Known' | 'Unknown'
   lineColorRules: { distance: number; color: string }[]
   mode: 'bootstrap' | 'route' | 'cluster'

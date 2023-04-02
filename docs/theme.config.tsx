@@ -28,8 +28,7 @@ const config: DocsThemeConfig = {
   feedback: {
     content: null,
   },
-  docsRepositoryBase:
-    'https://github.com/TurtIeSocks/Koji/tree/main/docs/pages',
+  docsRepositoryBase: 'https://github.com/TurtIeSocks/Koji/tree/main/docs',
   footer: {
     text: (
       <div
