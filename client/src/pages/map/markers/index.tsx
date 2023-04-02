@@ -4,19 +4,15 @@ import geohash from 'ngeohash'
 import { shallow } from 'zustand/shallow'
 
 import { ICON_RADIUS, ICON_COLOR } from '@assets/constants'
-import { UsePersist, usePersist } from '@hooks/usePersist'
+import { usePersist } from '@hooks/usePersist'
 import usePixi from '@hooks/usePixi'
 import { useStatic } from '@hooks/useStatic'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import { getMarkers } from '@services/fetches'
-import { PixiMarker } from '@assets/types'
+import { Category, PixiMarker } from '@assets/types'
 import StyledPopup from '../popups/Styled'
 
-export default function Markers({
-  category,
-}: {
-  category: UsePersist['category']
-}) {
+export default function Markers({ category }: { category: Category }) {
   const enabled = usePersist((s) => s[category], shallow)
   const nativeLeaflet = usePersist((s) => s.nativeLeaflet)
   const data = usePersist((s) => s.data)
