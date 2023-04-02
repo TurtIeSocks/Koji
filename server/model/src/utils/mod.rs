@@ -135,7 +135,8 @@ pub async fn get_database_struct() -> KojiDb {
         100
     };
 
-    let unown_db_url = env::var("UNOWN_DB").unwrap_or("".to_string());
+    let unown_db_url =
+        env::var("UNOWN_DB_URL").unwrap_or(env::var("UNOWN_DB").unwrap_or("".to_string()));
 
     KojiDb {
         data_db: {

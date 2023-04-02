@@ -41,6 +41,11 @@ async fn get_area(
 ) -> Result<HttpResponse, Error> {
     let id = geofence.into_inner();
     let args = args.into_inner();
+    let return_type = get_return_type(
+        args.rt.clone().unwrap_or("feature".to_string()),
+        &ReturnTypeArg::Feature,
+    );
+
     let feature =
         geofence::Query::get_one_feature(&conn.koji_db, id, args.internal.unwrap_or(false))
             .await
@@ -50,13 +55,13 @@ async fn get_area(
         "[PUBLIC_API] Returning feature for {:?}\n",
         feature.property("name")
     );
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(feature)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(utils::response::send(
+        feature.to_collection(None, None),
+        return_type,
+        None,
+        false,
+        None,
+    ))
 }
 
 #[post("/save-koji")]
@@ -167,6 +172,41 @@ async fn push_to_prod(
     }))
 }
 
+#[get("/reference")]
+async fn reference_data(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
+    let fences = geofence::Query::get_all_no_fences(&conn.koji_db)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    log::info!("[GEOFENCES_ALL] Returning {} instances\n", fences.len());
+    Ok(HttpResponse::Ok().json(Response {
+        data: Some(json!(fences)),
+        message: "Success".to_string(),
+        status: "ok".to_string(),
+        stats: None,
+        status_code: 200,
+    }))
+}
+
+#[get("/reference/{project}")]
+async fn reference_data_project(
+    conn: web::Data<KojiDb>,
+    url: actix_web::web::Path<String>,
+) -> Result<HttpResponse, Error> {
+    let project = url.into_inner();
+    let fences = geofence::Query::by_project(&conn.koji_db, project)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    Ok(HttpResponse::Ok().json(Response {
+        data: Some(json!(fences)),
+        message: "Success".to_string(),
+        status: "ok".to_string(),
+        stats: None,
+        status_code: 200,
+    }))
+}
+
 #[get("/{return_type}")]
 async fn specific_return_type(
     conn: web::Data<KojiDb>,
@@ -199,7 +239,7 @@ async fn specific_project(
 
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
     let features =
-        geofence::Query::by_project(&conn.koji_db, project, args.internal.unwrap_or(false))
+        geofence::Query::project_as_feature(&conn.koji_db, project, args.internal.unwrap_or(false))
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
 
