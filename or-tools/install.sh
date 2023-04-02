@@ -27,6 +27,7 @@ if [ ! -d "source" ]; then
                 echo "Unsupported OS, contact the developer"
                 exit 1
         fi
+        echo Downloading $url
         curl -L $url -o ortools.tar.gz
         tar -xzf ortools.tar.gz
         mv ./or-tools_* ./source

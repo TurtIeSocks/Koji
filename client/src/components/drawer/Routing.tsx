@@ -48,7 +48,7 @@ export default function RoutingTab() {
       <Collapse in={mode !== 'bootstrap'}>
         <MultiOptionList
           field="category"
-          buttons={['pokestop', 'gym', 'spawnpoint']}
+          buttons={['pokestop', 'gym', 'fort', 'spawnpoint']}
           disabled={mode === 'bootstrap'}
           type="select"
         />

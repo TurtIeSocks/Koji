@@ -1,0 +1,78 @@
+import Image from 'next/image'
+import { Tab, Tabs } from 'nextra-theme-docs'
+
+# Getting Started
+
+## Logging In
+
+<Image src="/images/login.png" alt="login" width={600} height={600} />
+When presented with this screen you login with the `KOJI_SECRET` you set in your
+`.env` or `docker-compose.yml` file.
+
+## Import existing Projects
+
+1. After logging in, click the `Map` button
+1. Open up the drawer, and go to the Import panel
+1. Click the `Import Wizard` button
+1. In the `JSON` section, click `Browse` and select your desired file, such as the `areas.json` file from [ReactMap](https://github.com/WatWowMap/ReactMap) or `geofence.json` from [PoracleJS](https://github.com/KartulUdus/PoracleJS)
+1. No matter what format you use, they will be converted into standard GeoJSON features
+1. Click `Next`
+1. If the features from your file have a `name` property that isn't called `name`, you can select which one Kōji should use in step 2
+
+   <Image
+     src="/images/import_name.png"
+     alt="Import Name Page"
+     width={600}
+     height={600}
+   />
+
+1. You can also select which properties you would like to save to the Kōji database
+1. There are two special actions, "Combine by Name Key" and "Split Multi Polygons"
+
+   - "Combine by Name Key" will combine all features with the same name into one feature (rare)
+   - "Split Multi Polygons" will split any MultiPolygons into multiple Polygons, this might be useful if your integration does not support MultiPolygons
+
+1. Click `Next`
+1. Now you can choose to assign each feature a `mode` and a project to be associated with. If you haven't already created a project, you can add one directly from this menu by typing in the name of the new project and clicking `Add {project_name}`
+
+   <Image
+     src="/images/import_mode.png"
+     alt="Import Mode Page"
+     width={600}
+     height={600}
+   />
+
+1. Click `Next`
+1. Same as above but for routes
+
+1. At any point you can check out the current code generated and a preview of your features on a map
+
+   <Tabs items={['Map', 'Code']}>
+     <Tab>
+       <Image
+         src="/images/import_preview.png"
+         alt="Map Preview"
+         width={600}
+         height={600}
+       />
+     </Tab>
+     <Tab>
+       <Image
+         src="/images/import_code.png"
+         alt="Code Preview"
+         width={600}
+         height={600}
+       />
+     </Tab>
+   </Tabs>
+
+1. Click `Save to Kōji` to save all of the selected routes and fences to the respective tables in the Kōji database
+
+   <Image
+     src="/images/import_save.png"
+     alt="Import Name Page"
+     width={600}
+     height={600}
+   />
+
+1. Repeat for however many projects/files you want to import! The import wizard can import from all sorts of differnet sources, including Nominatim and shape files.

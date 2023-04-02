@@ -1,24 +1,28 @@
+import { Callout } from 'nextra-theme-docs'
+
 # Docker ( Recommended )
 
 ## Docker Compose File
 
+1. Create a new schema in your database for Kōji
+
 1. If you have an existing `docker-compose.yml` file, copy the below service into it. Otherwise create a new file (`touch docker-compose.yml`) and copy the below service into it.
 
-```docker
+```yml
 version: '2'
 services:
   koji:
     image: ghcr.io/turtiesocks/koji:main
     container_name: koji
-    command: "koji"
+    command: 'koji'
     restart: unless-stopped
     environment:
       # Required
 
       # Your Golbat or RDM database
       SCANNER_DB_URL: mysql://rdm_user:rdm_password@host:3306/rdm_database
-      # Your Flygon database
-      UNOWN_DB_URL: mysql://flygon_user:flygon_password@host:3306/flygon_database
+      # Your Flygon database - leave commented out for RDM
+      # UNOWN_DB_URL: mysql://flygon_user:flygon_password@host:3306/flygon_database
       # Your Koji database
       KOJI_DB_URL: mysql://koji_user:koji_password@127.0.0.1:3306/koji_database
       # Your Koji API bearer token and client password
@@ -36,17 +40,31 @@ services:
       #MAX_CONNECTIONS: 100
       # Logging level
       #LOG_LEVEL: info # error | warn | info | debug | trace
-      # Memory limit for docker container
-      #mem_limit: 2048G
-      # Memory reservation for docker container
-      #mem_reservation: 256M
-      # CPU limit for docker container
-      #cpus: 2
+
+    # Memory limit for docker container
+    #mem_limit: 2048G
+    # Memory reservation for docker container
+    #mem_reservation: 256M
+    # CPU limit for docker container
+    #cpus: 2
     ports:
-      - "8080:8080" # change left one for external port
+      - '8080:8080' # change left one for external port
+    # Optional: Might be required if your database is also hosted in docker
+    # network_mode: "host"
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
 ```
 
-## Setup
+## Docker Setup
+
+<Callout type="info" emoji="💡">
+  If this is the first time using GitHub container registry you will need to login. When prompted use your personal access token **not** password. [More info](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-with-a-personal-access-token-classic)
+
+```sh
+docker login ghcr.io -u GITHUB_USERNAME
+```
+
+</Callout>
 
 1. After editing, pull the repo
 
@@ -60,9 +78,7 @@ services:
     docker-compose up -d
    ```
 
-## Updating
-
-Docker:
+## Docker Updating
 
 1. Pull latest
 

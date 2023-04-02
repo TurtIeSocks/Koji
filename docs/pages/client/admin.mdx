@@ -1,0 +1,45 @@
+import { Callout } from 'nextra-theme-docs'
+
+# Admin
+
+## Projects
+
+- Create, edit, and delete your various projects
+- Geofences can be assigned to multiple projects at once
+- Projects are used to determine API endpoints for external Integrations
+- e.g. you name a project `react-map`, the API would be `https://www.koji.com/api/v1/feature-collection/react-map`
+- You can also export entire projects to any of the supported formats
+- Only set a single project as the scanner project
+
+## Geofences
+
+- Create, edit, and delete your various geofences
+- Geofences can be assigned to multiple projects at once
+- Multiple routes can be assigned to a single geofence
+- Multiple properties can be assigned to a single geofences
+- `Sync` button will attempt to sync the geofence with the designed scanner project
+- Create properties in the properties tab before adding them to your geofence
+- Every geofence must have a unique name
+
+## Routes
+
+- Create, edit, and delete your various routes
+- A route must be assigned to a single geofence
+- **Route names do not have to be unique. If a route name shares the same name as its assigned geofence, its name will update if the geofence name is changed**
+- You can sync routes to the scanner project as well
+
+## Properties
+
+- Create, edit, and delete your various properties
+- Properties can be assigned to multiple geofences at once
+- You can set a default value for a property if you want it to be easily assignable to multiple fences without having to set it manually
+- If you set the property category to `database` it will use the value from the respect column in the `geofence` table. Common use case is for the `name` property, so you don't have to keep it updated in two places
+
+## Tileservers
+
+- Create, edit, and delete your various tileservers
+- Tileservers are used for selecting different map tiles from the Kōji client
+
+<Callout type="info" emoji="🚧">
+  This page is still under construction
+</Callout>

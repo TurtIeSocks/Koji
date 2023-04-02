@@ -155,7 +155,7 @@ async fn cluster(
     }
 
     let mut stats = Stats::new();
-    let enum_type = if category == "gym" {
+    let enum_type = if category == "gym" || category == "fort" {
         if scanner_type == "rdm" {
             Type::CircleSmartRaid
         } else {

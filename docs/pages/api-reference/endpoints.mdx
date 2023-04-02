@@ -52,11 +52,13 @@
 - **Returns**:
   - Bootstrap route data for the specified area/instance with the specified radius
 
-### `/api/v1/calc/cluster`
+### `/api/v1/calc/cluster/{category}`
 
-### `/api/v1/calc/route`
+### `/api/v1/calc/route/{category}`
 
 - **Method:** `POST`
+- **URL Params**:
+  - Category: `pokestop`, `gym`, `spawnpoint`, or `fort`
 - **JSON Body**:
   - **Required**:
     - `area` OR `instance` OR `data_points`

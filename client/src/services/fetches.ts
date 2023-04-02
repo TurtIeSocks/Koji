@@ -111,7 +111,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
   const {
     mode,
     radius,
-    category,
+    category: rawCategory,
     min_points,
     fast,
     route_split_level,
@@ -134,6 +134,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
     x.geometry.type.includes('Polygon'),
   )
   const last_seen = typeof raw === 'string' ? new Date(raw) : raw
+  const category = rawCategory === 'fort' ? 'gym' : rawCategory
 
   if (!areas.length) {
     areas.push({
@@ -186,7 +187,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
       const res = await fetch(
         mode === 'bootstrap'
           ? '/api/v1/calc/bootstrap'
-          : `/api/v1/calc/${mode}/${category}`,
+          : `/api/v1/calc/${mode}/${rawCategory}`,
         {
           keepalive: true,
           method: 'POST',

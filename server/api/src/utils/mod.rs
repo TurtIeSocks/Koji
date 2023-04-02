@@ -102,6 +102,11 @@ pub async fn points_from_area(
             "gym" => gym::Query::area(&conn.data_db, &area, last_seen).await,
             "pokestop" => pokestop::Query::area(&conn.data_db, &area, last_seen).await,
             "spawnpoint" => spawnpoint::Query::area(&conn.data_db, &area, last_seen, tth).await,
+            "fort" => {
+                let gyms = gym::Query::area(&conn.data_db, &area, last_seen).await?;
+                let pokestops = pokestop::Query::area(&conn.data_db, &area, last_seen).await?;
+                Ok(gyms.into_iter().chain(pokestops.into_iter()).collect())
+            }
             _ => Err(DbErr::Custom("Invalid Category".to_string())),
         }
     } else {
