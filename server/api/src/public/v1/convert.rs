@@ -33,6 +33,7 @@ async fn convert_data(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         None,
         benchmark_mode,
         Some(instance),
+        None,
     ))
 }
 
@@ -47,6 +48,7 @@ async fn simplify(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         return_type,
         None,
         false,
+        None,
         None,
     ))
 }
@@ -79,6 +81,7 @@ async fn merge_points(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         return_type,
         None,
         false,
+        None,
         None,
     ))
 }

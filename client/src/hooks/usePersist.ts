@@ -106,7 +106,7 @@ export const usePersist = create(
       s2FillMode: 'simple',
       radius: 70,
       route_split_level: 1,
-      cluster_split_level: 1,
+      cluster_split_level: 10,
       // routing_chunk_size: 0,
       calculation_mode: 'Radius',
       s2_level: 15,
