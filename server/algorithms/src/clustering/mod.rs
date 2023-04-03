@@ -27,13 +27,9 @@ pub fn main(
     cluster_split_level: u64,
 ) -> SingleVec {
     match cluster_mode {
-        ClusterMode::BruteForce => bruteforce::multi_thread(
-            &data_points,
-            radius as f32,
-            min_points,
-            cluster_split_level,
-            stats,
-        ),
+        ClusterMode::BruteForce => {
+            bruteforce::multi_thread(&data_points, radius, min_points, cluster_split_level, stats)
+        }
         ClusterMode::Balanced => {
             let mut clusters = vec![];
             for feature in area.into_iter() {

@@ -16,7 +16,7 @@ use crate::s2::ToGeo;
 
 pub fn multi_thread(
     data_points: &Vec<GenericData>,
-    radius: f32,
+    radius: f64,
     min_points: usize,
     cluster_split_level: u64,
     stats: &mut Stats,
@@ -59,7 +59,7 @@ pub fn multi_thread(
 fn cluster(
     key: u64,
     cells: Vec<CellID>,
-    radius: f32,
+    radius: f64,
     min_points: usize,
 ) -> HashMap<CellID, Vec<CellID>> {
     let mut final_clusters: HashMap<&CellID, Vec<&CellID>> = HashMap::new();
@@ -70,7 +70,7 @@ fn cluster(
         log::warn!("Warning, you're running the brute force algorithm with {} points. This will likely result in very heavy CPU and RAM usage.", cells.len());
     }
     let time = Instant::now();
-    let matrix: Vec<Vec<f32>> = cells
+    let matrix: Vec<Vec<bool>> = cells
         .par_iter()
         .map(|first| {
             let first = first.geo_point();
@@ -78,7 +78,7 @@ fn cluster(
                 .par_iter()
                 .map(|second| {
                     let second = second.geo_point();
-                    first.haversine_distance(&second) as f32
+                    first.haversine_distance(&second) <= radius
                 })
                 .collect()
         })
@@ -103,7 +103,7 @@ fn cluster(
                             if block_list.contains(second) {
                                 return None;
                             }
-                            if matrix[i][j] <= radius {
+                            if matrix[i][j] {
                                 Some(second)
                             } else {
                                 None

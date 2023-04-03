@@ -533,5 +533,6 @@ pub fn cluster(
         vec![]
     };
     stats.distance(&points);
+    stats.points_covered = data.len();
     points
 }
