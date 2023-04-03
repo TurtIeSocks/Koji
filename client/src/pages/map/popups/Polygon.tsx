@@ -26,7 +26,7 @@ import type {
 import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
 import { useDbCache } from '@hooks/useDbCache'
-import { fetchWrapper } from '@services/fetches'
+import { clusteringRouting, fetchWrapper } from '@services/fetches'
 import {
   removeAllOthers,
   removeThisPolygon,
@@ -191,6 +191,9 @@ export function PolygonPopup({
           </Typography>
         </Grid2>
         <Divider flexItem sx={{ my: 1, color: 'black', width: '90%' }} />
+        <Grid2 xs={12}>
+          <Button onClick={() => clusteringRouting(feature)}>Recluster</Button>
+        </Grid2>
         <Grid2 xs={12}>
           <ButtonGroup>
             <Button

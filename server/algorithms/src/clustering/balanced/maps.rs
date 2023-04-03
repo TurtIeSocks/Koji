@@ -1,4 +1,4 @@
-use crate::{clustering::brute::helpers::Helpers, utils};
+use crate::{clustering::balanced::helpers::Helpers, utils};
 
 use super::*;
 

@@ -7,5 +7,6 @@
     "editor.autoClosingBrackets": "always",
     "editor.defaultFormatter": "esbenp.prettier-vscode",
   },
-  "editor.formatOnSave": true
+  "editor.formatOnSave": true,
+  "rust-analyzer.showUnlinkedFileNotification": false
 }

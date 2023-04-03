@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::clustering::brute::helpers::Helpers;
+use crate::clustering::balanced::helpers::Helpers;
 
 pub fn run(
     point_map: &mut HashMap<String, PointInfo>,

@@ -22,9 +22,10 @@ pub struct S2Response {
     coords: [[f64; 2]; 4],
 }
 
-trait ToGeo {
+pub trait ToGeo {
     fn polygon(&self) -> geo::Polygon<f64>;
     fn coord(&self) -> geo::Coord;
+    fn geo_point(&self) -> geo::Point;
 }
 
 trait ToGeoJson {
@@ -55,6 +56,14 @@ impl ToGeo for CellID {
             x: cell.center().longitude().deg(),
             y: cell.center().latitude().deg(),
         }
+    }
+
+    fn geo_point(&self) -> geo::Point {
+        let cell = Cell::from(self);
+        geo::Point::new(
+            cell.center().longitude().deg(),
+            cell.center().latitude().deg(),
+        )
     }
 }
 

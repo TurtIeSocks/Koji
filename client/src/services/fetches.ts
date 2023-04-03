@@ -107,14 +107,18 @@ export async function getFullCache() {
   )
 }
 
-export async function clusteringRouting(): Promise<FeatureCollection> {
+export async function clusteringRouting(
+  feature?: Feature,
+): Promise<FeatureCollection> {
   const {
     mode,
     radius,
+    cluster_mode,
     category: rawCategory,
     min_points,
     fast,
     route_split_level,
+    cluster_split_level,
     only_unique,
     save_to_db,
     save_to_scanner,
@@ -130,7 +134,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
   const { add, activeRoute } = useShapes.getState().setters
   const { getFromKojiKey, getRouteByCategory } = useDbCache.getState()
 
-  const areas = (geojson?.features || []).filter((x) =>
+  const areas = ((feature ? [feature] : geojson?.features) || []).filter((x) =>
     x.geometry.type.includes('Polygon'),
   )
   const last_seen = typeof raw === 'string' ? new Date(raw) : raw
@@ -216,11 +220,13 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
             last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
             radius,
             min_points,
+            cluster_mode,
             fast,
             only_unique,
             save_to_db,
             save_to_scanner,
             route_split_level,
+            cluster_split_level,
             sort_by,
             tth,
             calculation_mode,

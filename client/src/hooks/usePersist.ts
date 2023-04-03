@@ -45,6 +45,7 @@ export interface UsePersist {
 
   // Clustering
   category: Category | 'fort'
+  cluster_mode: 'Fast' | 'Balanced' | 'BruteForce'
   tth: 'All' | 'Known' | 'Unknown'
   lineColorRules: { distance: number; color: string }[]
   mode: 'bootstrap' | 'route' | 'cluster'
@@ -53,6 +54,7 @@ export interface UsePersist {
   min_points: number | ''
   only_unique: boolean
   route_split_level: number | ''
+  cluster_split_level: number | ''
   save_to_db: boolean
   save_to_scanner: boolean
   skipRendering: boolean
@@ -82,6 +84,7 @@ export const usePersist = create(
       location: [0, 0],
       zoom: 18,
       category: 'pokestop',
+      cluster_mode: 'Fast',
       lineColorRules: [
         { distance: 500, color: '#197E13' },
         { distance: 1000, color: '#FFFF0C' },
@@ -103,7 +106,8 @@ export const usePersist = create(
       s2FillMode: 'simple',
       radius: 70,
       route_split_level: 1,
-      routing_chunk_size: 0,
+      cluster_split_level: 1,
+      // routing_chunk_size: 0,
       calculation_mode: 'Radius',
       s2_level: 15,
       s2_size: 9,
