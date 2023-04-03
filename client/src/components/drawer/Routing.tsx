@@ -100,7 +100,7 @@ export default function RoutingTab() {
           type="select"
         />
         <Collapse in={cluster_mode === 'BruteForce'}>
-          <NumInput field="cluster_split_level" min={1} max={30} />
+          <NumInput field="cluster_split_level" min={1} max={20} />
         </Collapse>
         <Collapse in={cluster_mode === 'Balanced'}>
           <Toggle field="only_unique" />

@@ -33,7 +33,6 @@ pub fn multi_thread(
             .or_insert(Vec::new());
         handler.push(cell);
     }
-    let mut return_map = HashMap::new();
     let mut handlers = vec![];
     for (key, values) in cell_maps.into_iter() {
         log::debug!("Total {}: {}", key, values.len());
@@ -41,6 +40,7 @@ pub fn multi_thread(
             cluster(key, values, radius, min_points)
         }));
     }
+    let mut return_map = HashMap::new();
     for thread in handlers {
         match thread.join() {
             Ok(results) => return_map.extend(results),
@@ -86,6 +86,7 @@ fn cluster(
     log::debug!("Matrix time: {}", time.elapsed().as_secs_f64());
 
     while highest >= min_points {
+        // let time = Instant::now();
         let mut best = 0;
         let clusters: Vec<(&CellID, Vec<&CellID>)> = cells
             .par_iter()
@@ -100,11 +101,12 @@ fn cluster(
                         .par_iter()
                         .enumerate()
                         .filter_map(|(j, second)| {
-                            if block_list.contains(second) {
-                                return None;
-                            }
                             if matrix[i][j] {
-                                Some(second)
+                                if block_list.contains(second) {
+                                    None
+                                } else {
+                                    Some(second)
+                                }
                             } else {
                                 None
                             }
@@ -114,13 +116,14 @@ fn cluster(
             })
             .collect();
         for (cell, values) in clusters.into_iter() {
-            if values.len() > best {
-                best = values.len();
+            let length = values.len();
+            if length > best {
+                best = length;
             }
-            if block_list.contains(&cell) {
-                continue;
-            }
-            if values.len() >= highest {
+            if length >= highest {
+                if block_list.contains(&cell) {
+                    continue;
+                }
                 for value in values.iter() {
                     block_list.insert(*value);
                 }
@@ -128,8 +131,9 @@ fn cluster(
                 final_clusters.insert(cell, values);
             }
         }
+        // log::debug!("{} | {} | {}", key, highest, time.elapsed().as_secs_f64());
         highest = best;
-        log::debug!("Running {}: {}", key, final_clusters.len());
+        // log::debug!("Running {}: {}", key, final_clusters.len());
     }
 
     log::debug!("Total {}: {}", key, final_clusters.len());
@@ -141,11 +145,14 @@ fn cluster(
 
 fn normalize(cell_map: HashMap<CellID, Vec<CellID>>) -> (usize, SingleVec) {
     let mut return_vec = vec![];
-    let mut covered = 0;
+    let mut covered = HashSet::new();
     for (cell, values) in cell_map.into_iter() {
         let center = Cell::from(cell).center();
         return_vec.push([center.latitude().deg(), center.longitude().deg()]);
-        covered += values.len();
+        covered.insert(cell);
+        for value in values.into_iter() {
+            covered.insert(value);
+        }
     }
-    (covered, return_vec)
+    (covered.len(), return_vec)
 }
