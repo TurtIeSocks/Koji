@@ -476,16 +476,59 @@ impl Query {
     }
 
     pub async fn by_geofence(
-        conn: &DatabaseConnection,
+        db: &DatabaseConnection,
+        geofence: String,
+    ) -> Result<Vec<Json>, DbErr> {
+        match geofence.parse::<u32>() {
+            Ok(id) => {
+                Entity::find()
+                    .order_by(Column::Name, Order::Asc)
+                    .filter(Column::GeofenceId.eq(id))
+                    .select_only()
+                    .column(Column::Id)
+                    .column(Column::Name)
+                    .column(Column::Mode)
+                    .into_json()
+                    .all(db)
+                    .await
+            }
+            Err(_) => {
+                Entity::find()
+                    .order_by(Column::Name, Order::Asc)
+                    .filter(Column::Name.eq(geofence))
+                    .select_only()
+                    .column(Column::Id)
+                    .column(Column::Name)
+                    .column(Column::Mode)
+                    .into_json()
+                    .all(db)
+                    .await
+            }
+        }
+    }
+
+    pub async fn by_geofence_feature(
+        db: &DatabaseConnection,
         geofence_name: String,
         internal: bool,
     ) -> Result<Vec<Feature>, DbErr> {
-        let items = Entity::find()
-            .order_by(Column::Name, Order::Asc)
-            .left_join(geofence::Entity)
-            .filter(geofence::Column::Name.eq(geofence_name))
-            .all(conn)
-            .await?;
+        let items = match geofence_name.parse::<u32>() {
+            Ok(id) => {
+                Entity::find()
+                    .order_by(Column::Name, Order::Asc)
+                    .filter(Column::GeofenceId.eq(id))
+                    .all(db)
+                    .await?
+            }
+            Err(_) => {
+                Entity::find()
+                    .order_by(Column::Name, Order::Asc)
+                    .left_join(geofence::Entity)
+                    .filter(geofence::Column::Name.eq(geofence_name))
+                    .all(db)
+                    .await?
+            }
+        };
 
         let items: Vec<Feature> = items
             .into_iter()

@@ -571,9 +571,43 @@ impl Query {
         Ok(())
     }
 
-    /// Returns all geofence models, as features, that are related to the specified project
+    /// Returns all geofence models, as models, that are related to the specified project
     pub async fn by_project(
-        conn: &DatabaseConnection,
+        db: &DatabaseConnection,
+        project_name: String,
+    ) -> Result<Vec<Json>, DbErr> {
+        match project_name.parse::<u32>() {
+            Ok(id) => {
+                Entity::find()
+                    .order_by(Column::Name, Order::Asc)
+                    .left_join(project::Entity)
+                    .filter(project::Column::Id.eq(id))
+                    .select_only()
+                    .column(Column::Id)
+                    .column(Column::Name)
+                    .column(Column::Mode)
+                    .into_json()
+                    .all(db)
+                    .await
+            }
+            Err(_) => {
+                Entity::find()
+                    .order_by(Column::Name, Order::Asc)
+                    .left_join(project::Entity)
+                    .filter(project::Column::Name.eq(project_name))
+                    .select_only()
+                    .column(Column::Id)
+                    .column(Column::Name)
+                    .column(Column::Mode)
+                    .into_json()
+                    .all(db)
+                    .await
+            }
+        }
+    }
+    /// Returns all geofence models, as features, that are related to the specified project
+    pub async fn project_as_feature(
+        db: &DatabaseConnection,
         project_name: String,
         internal: bool,
     ) -> Result<Vec<Feature>, ModelError> {
@@ -583,7 +617,7 @@ impl Query {
                     .order_by(Column::Name, Order::Asc)
                     .left_join(project::Entity)
                     .filter(project::Column::Id.eq(id))
-                    .all(conn)
+                    .all(db)
                     .await?
             }
             Err(_) => {
@@ -591,7 +625,7 @@ impl Query {
                     .order_by(Column::Name, Order::Asc)
                     .left_join(project::Entity)
                     .filter(project::Column::Name.eq(project_name))
-                    .all(conn)
+                    .all(db)
                     .await?
             }
         };
@@ -599,7 +633,7 @@ impl Query {
         let items = future::try_join_all(
             items
                 .into_iter()
-                .map(|result| result.to_feature(conn, internal)),
+                .map(|result| result.to_feature(db, internal)),
         )
         .await?;
 
