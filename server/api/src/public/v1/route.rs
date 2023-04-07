@@ -41,6 +41,11 @@ async fn get_area(
 ) -> Result<HttpResponse, Error> {
     let id = id.into_inner();
     let args = args.into_inner();
+    let return_type = get_return_type(
+        args.rt.unwrap_or("feature".to_string()),
+        &ReturnTypeArg::Feature,
+    );
+
     let feature = route::Query::get_one_feature(&conn.koji_db, id, args.internal.unwrap_or(false))
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -49,8 +54,43 @@ async fn get_area(
         "[PUBLIC_API] Returning feature for {:?}\n",
         feature.property("name")
     );
+    Ok(utils::response::send(
+        feature.to_collection(None, None),
+        return_type,
+        None,
+        false,
+        None,
+    ))
+}
+
+#[get("/reference")]
+async fn reference_data(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
+    let fences = route::Query::get_all_no_fences(&conn.koji_db)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    log::info!("[ROUTE_REF] Returning {} instances\n", fences.len());
     Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(feature)),
+        data: Some(json!(fences)),
+        message: "Success".to_string(),
+        status: "ok".to_string(),
+        stats: None,
+        status_code: 200,
+    }))
+}
+
+#[get("/reference/{geofence}")]
+async fn reference_data_geofence(
+    conn: web::Data<KojiDb>,
+    url: actix_web::web::Path<String>,
+) -> Result<HttpResponse, Error> {
+    let geofence = url.into_inner();
+    let fences = route::Query::by_geofence(&conn.koji_db, geofence)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    Ok(HttpResponse::Ok().json(Response {
+        data: Some(json!(fences)),
         message: "Success".to_string(),
         status: "ok".to_string(),
         stats: None,
@@ -153,19 +193,22 @@ async fn specific_return_type(
     ))
 }
 
-#[get("/{return_type}/{project_name}")]
-async fn specific_project(
+#[get("/{return_type}/{geofence_name}")]
+async fn specific_geofence(
     conn: web::Data<KojiDb>,
     url: actix_web::web::Path<(String, String)>,
     args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
-    let (return_type, project_name) = url.into_inner();
+    let (return_type, geofence_name) = url.into_inner();
     let args = args.into_inner();
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
-    let features =
-        route::Query::by_geofence(&conn.koji_db, project_name, args.internal.unwrap_or(false))
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+    let features = route::Query::by_geofence_feature(
+        &conn.koji_db,
+        geofence_name,
+        args.internal.unwrap_or(false),
+    )
+    .await
+    .map_err(actix_web::error::ErrorInternalServerError)?;
 
     log::info!(
         "[GEOFENCES_FC_ALL] Returning {} instances\n",

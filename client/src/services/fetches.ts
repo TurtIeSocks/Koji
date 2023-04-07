@@ -193,7 +193,7 @@ export async function clusteringRouting(
           ? '/api/v1/calc/bootstrap'
           : `/api/v1/calc/${mode}/${rawCategory}`,
         {
-          keepalive: true,
+          // keepalive: true,
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

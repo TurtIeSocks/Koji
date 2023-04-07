@@ -76,6 +76,7 @@ pub struct ApiQueryArgs {
     pub name: Option<bool>,
     pub mode: Option<bool>,
     pub geofence_id: Option<bool>,
+    pub rt: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
