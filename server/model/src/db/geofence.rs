@@ -25,7 +25,7 @@ pub struct Model {
     pub id: u32,
     #[sea_orm(unique)]
     pub name: String,
-    // pub area: Option<Json>,
+    pub parent: Option<u32>,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
     pub mode: Type,
@@ -35,6 +35,14 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(
+        belongs_to = "Entity",
+        from = "Column::Parent",
+        to = "Column::Id",
+        on_update = "NoAction",
+        on_delete = "NoAction"
+    )]
+    SelfRef,
     #[sea_orm(has_many = "super::project::Entity")]
     Project,
     #[sea_orm(has_many = "super::geofence_property::Entity")]
@@ -72,6 +80,7 @@ pub struct GeofenceNoGeometry {
     pub name: String,
     pub mode: Type,
     pub geo_type: String,
+    pub parent: Option<u32>,
     // pub created_at: DateTimeUtc,
     // pub updated_at: DateTimeUtc,
 }
@@ -111,15 +120,43 @@ impl Model {
             geometry: Some(Geometry::from_json_value(self.geometry)?),
             ..Default::default()
         };
-        properties.iter().for_each(|prop| {
+        for prop in properties.iter() {
             let key = prop.get("name");
             let val = prop.get("value");
             if let Some(key) = key {
                 if let Some(key) = key.as_str() {
-                    feature.set_property(key, val.unwrap().clone())
+                    if key.eq("parent") {
+                        if let Some(parent_id) = val.unwrap().as_u64() {
+                            let parent = geofence::Entity::find_by_id(parent_id as u32)
+                                .one(db)
+                                .await?;
+                            if let Some(parent) = parent {
+                                let properties = parent
+                                    .get_related_properties()
+                                    .into_model::<FullPropertyModel>()
+                                    .all(db)
+                                    .await?;
+                                if let Some(name) = properties
+                                    .iter()
+                                    .find(|parent_prop| parent_prop.name == "name")
+                                {
+                                    let parsed = name.parse_db_value(&parent);
+                                    feature.set_property(key, parsed);
+                                } else {
+                                    feature.set_property(key, parent.name)
+                                }
+                            } else {
+                                feature.set_property(key, val.unwrap().clone())
+                            }
+                        } else {
+                            feature.set_property(key, val.unwrap().clone())
+                        }
+                    } else {
+                        feature.set_property(key, val.unwrap().clone())
+                    }
                 }
             }
-        });
+        }
 
         if internal {
             feature.id = Some(geojson::feature::Id::String(format!(
@@ -288,6 +325,7 @@ impl Query {
             .column(Column::Name)
             .column(Column::Mode)
             .column(Column::GeoType)
+            .column(Column::Parent)
             .order_by(Column::Name, Order::Asc)
             .into_model::<GeofenceNoGeometry>()
             .all(db)
@@ -347,6 +385,7 @@ impl Query {
                     "name": fence.name,
                     "mode": fence.mode,
                     "geo_type": fence.geo_type,
+                    "parent": fence.parent,
                     // "created_at": fence.created_at,
                     // "updated_at": fence.updated_at,
                     "projects": projects[i],
@@ -586,6 +625,7 @@ impl Query {
                     .column(Column::Id)
                     .column(Column::Name)
                     .column(Column::Mode)
+                    .column(Column::Parent)
                     .into_json()
                     .all(db)
                     .await
@@ -599,6 +639,7 @@ impl Query {
                     .column(Column::Id)
                     .column(Column::Name)
                     .column(Column::Mode)
+                    .column(Column::Parent)
                     .into_json()
                     .all(db)
                     .await
