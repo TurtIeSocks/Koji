@@ -46,6 +46,7 @@ pub enum Geofence {
     Table,
     Id,
     Name,
+    Parent,
     Mode,
     Area,
     Geometry,

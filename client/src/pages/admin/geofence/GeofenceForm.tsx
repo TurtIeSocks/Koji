@@ -65,6 +65,7 @@ export default function GeofenceForm() {
         optionText="mode"
         optionValue="mode"
       />
+      <ReferenceInput source="parent" reference="geofence" />
       <ArrayInput source="properties" sx={{ my: 2 }}>
         <SimpleFormIterator inline>
           <ReferenceInput

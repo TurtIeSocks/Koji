@@ -5,12 +5,12 @@ import {
   DeleteWithUndoButton,
   EditButton,
   List,
-  NumberField,
   Pagination,
   TextField,
   TopToolbar,
   CreateButton,
   SearchInput,
+  ReferenceField,
 } from 'react-admin'
 
 import { ExportPolygon } from '@components/dialogs/Polygon'
@@ -56,19 +56,9 @@ export default function GeofenceList() {
           expand={GeofenceExpand}
         >
           <TextField source="name" />
+          <ReferenceField source="parent" reference="geofence" />
           <TextField source="mode" />
           <TextField source="geo_type" />
-          <NumberField
-            source="projects.length"
-            label="Projects"
-            sortable={false}
-          />
-          <NumberField
-            source="properties.length"
-            label="Properties"
-            sortable={false}
-          />
-          <NumberField source="routes.length" label="Routes" sortable={false} />
           <EditButton />
           <DeleteWithUndoButton />
           <PushToProd resource="geofence" />

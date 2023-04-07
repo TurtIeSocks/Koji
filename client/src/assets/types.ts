@@ -110,6 +110,7 @@ export type BasicKojiEntry = {
 
 export interface KojiGeofence extends BasicKojiEntry {
   mode: KojiModes
+  parent?: number
   geometry: Polygon | MultiPolygon
   geo_type: 'Polygon' | 'MultiPolygon'
 }
@@ -146,6 +147,7 @@ export interface KojiTileServer extends BasicKojiEntry {
 export interface AdminGeofence extends KojiGeofence {
   properties: KojiGeoProperty[]
   projects: number[]
+  routes: number[]
 }
 
 export interface AdminProject extends KojiProject {

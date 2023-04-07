@@ -17,6 +17,7 @@ mod m20230205_121524_fix_timestamps;
 mod m20230221_130117_geofence_mode_enums;
 mod m20230221_143509_route_mode_enums;
 mod m20230301_051446_tile_server_table;
+mod m20230407_045757_parent_column;
 
 pub struct Migrator;
 
@@ -41,6 +42,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230221_130117_geofence_mode_enums::Migration),
             Box::new(m20230221_143509_route_mode_enums::Migration),
             Box::new(m20230301_051446_tile_server_table::Migration),
+            Box::new(m20230407_045757_parent_column::Migration),
         ]
     }
 }

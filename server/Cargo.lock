@@ -1855,7 +1855,7 @@ dependencies = [
 
 [[package]]
 name = "koji"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "api",
  "dotenv",
@@ -1975,7 +1975,7 @@ checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 
 [[package]]
 name = "migration"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "async-std",
  "geojson",
@@ -2029,7 +2029,7 @@ dependencies = [
 
 [[package]]
 name = "model"
-version = "1.0.1"
+version = "1.1.0"
 dependencies = [
  "chrono",
  "futures",
