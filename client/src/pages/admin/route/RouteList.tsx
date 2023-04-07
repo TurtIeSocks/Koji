@@ -11,6 +11,7 @@ import {
   TopToolbar,
   CreateButton,
   ReferenceField,
+  SearchInput,
 } from 'react-admin'
 import { ExportPolygon } from '@components/dialogs/Polygon'
 
@@ -41,6 +42,7 @@ export default function RouteList() {
   return (
     <>
       <List
+        filters={[<SearchInput source="q" alwaysOn />]}
         pagination={<Pagination rowsPerPageOptions={[25, 50, 100]} />}
         title="Routes"
         perPage={25}
