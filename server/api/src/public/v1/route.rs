@@ -60,6 +60,7 @@ async fn get_area(
         None,
         false,
         None,
+        None,
     ))
 }
 
