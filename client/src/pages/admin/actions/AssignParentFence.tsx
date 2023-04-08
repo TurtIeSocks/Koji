@@ -4,11 +4,11 @@ import { Button, useListContext, useNotify } from 'react-admin'
 import { useMutation } from 'react-query'
 import { fetchUtils, useGetMany, useRefresh, useUnselectAll } from 'ra-core'
 import {
+  Autocomplete,
   Dialog,
   DialogActions,
   DialogContent,
-  MenuItem,
-  Select,
+  TextField,
 } from '@mui/material'
 
 import DialogHeader from '@components/dialogs/Header'
@@ -25,9 +25,11 @@ export function AssignParentToFences({ open }: { open: boolean }) {
     ids: [0],
   })
 
-  const options: Record<string, number> = Object.fromEntries(
-    data?.map((x) => [x.name, x.id]) ?? [],
-  )
+  const options: Record<number, string> = {
+    0: 'Remove',
+    ...Object.fromEntries(data?.map((x) => [x.id, x.name]) ?? []),
+  }
+
   const setRaStore = useRaStore((s) => s.setRaStore)
 
   const [selected, setSelected] = React.useState(0)
@@ -84,17 +86,16 @@ export function AssignParentToFences({ open }: { open: boolean }) {
       <DialogContent>
         <Grid2 container minHeight="20vh">
           <Grid2 xs={10}>
-            <Select
-              fullWidth
+            <Autocomplete
               value={selected}
-              onChange={(e) => setSelected(+e.target.value)}
-            >
-              {Object.entries(options).map(([name, id]) => (
-                <MenuItem key={id} value={id}>
-                  {name}
-                </MenuItem>
-              ))}
-            </Select>
+              options={Object.keys(options).map((x) => +x)}
+              renderInput={(params) => <TextField {...params} label="Parent" />}
+              renderOption={(props, option) => (
+                <li {...props}>{options[option]}</li>
+              )}
+              onChange={(_e, value) => setSelected(value === null ? 0 : +value)}
+              getOptionLabel={(option) => options[option]}
+            />
           </Grid2>
         </Grid2>
       </DialogContent>
