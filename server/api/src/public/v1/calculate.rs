@@ -15,7 +15,7 @@ use model::{
         stats::Stats,
         FeatureHelpers, GeoFormats, Precision, ToCollection, ToFeature,
     },
-    db::{area, instance, route, sea_orm_active_enums::Type, GenericData},
+    db::{area, geofence, instance, route, sea_orm_active_enums::Type, GenericData},
     KojiDb,
 };
 use serde_json::json;
@@ -39,18 +39,20 @@ async fn bootstrap(
         calculation_mode,
         s2_level,
         s2_size,
+        parent,
         ..
     } = payload.into_inner().init(Some("bootstrap"));
 
-    if area.features.is_empty() && instance.is_empty() {
+    if area.features.is_empty() && instance.is_empty() && parent.is_none() {
         return Ok(
             HttpResponse::BadRequest().json(Response::send_error("no_area_and_empty_instance"))
         );
     }
 
-    let area = utils::create_or_find_collection(&instance, scanner_type, &conn, area, &vec![])
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let area =
+        utils::create_or_find_collection(&instance, scanner_type, &conn, area, &parent, &vec![])
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
 
     let mut stats = Stats::new();
 
@@ -66,6 +68,14 @@ async fn bootstrap(
 
     stats.cluster_time = time.elapsed().as_secs_f32() as Precision;
 
+    let instance = if let Some(parent) = parent {
+        let model = geofence::Query::get_one(&conn.koji_db, parent.to_string())
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
+        model.name
+    } else {
+        instance
+    };
     for feat in features.iter_mut() {
         if !feat.contains_property("__name") && !instance.is_empty() {
             feat.set_property("__name", instance.clone());
@@ -145,10 +155,12 @@ async fn cluster(
         calculation_mode,
         s2_level,
         s2_size,
+        parent,
         ..
     } = payload.into_inner().init(Some(&mode));
 
-    if area.features.is_empty() && instance.is_empty() && data_points.is_empty() {
+    if area.features.is_empty() && instance.is_empty() && data_points.is_empty() && parent.is_none()
+    {
         return Ok(
             HttpResponse::BadRequest().json(Response::send_error("no_area_instance_data_points"))
         );
@@ -171,9 +183,16 @@ async fn cluster(
         }
     };
 
-    let area = utils::create_or_find_collection(&instance, scanner_type, &conn, area, &data_points)
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let area = utils::create_or_find_collection(
+        &instance,
+        scanner_type,
+        &conn,
+        area,
+        &parent,
+        &data_points,
+    )
+    .await
+    .map_err(actix_web::error::ErrorInternalServerError)?;
 
     let data_points = if !data_points.is_empty() {
         data_points
@@ -242,6 +261,14 @@ async fn cluster(
         .to_feature(Some(enum_type.clone()))
         .remove_last_coord();
 
+    let instance = if let Some(parent) = parent {
+        let model = geofence::Query::get_one(&conn.koji_db, parent.to_string())
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
+        model.name
+    } else {
+        instance
+    };
     feature.add_instance_properties(Some(instance.to_string()), Some(enum_type));
     let feature = feature.to_collection(Some(instance.clone()), None);
 

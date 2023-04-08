@@ -162,6 +162,15 @@ pub enum UnknownId {
     Number(u32),
 }
 
+impl ToString for UnknownId {
+    fn to_string(&self) -> String {
+        match self {
+            UnknownId::Number(id) => id.to_string(),
+            UnknownId::String(id) => id.to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct Args {
     /// The area input to be used for data point collection.
@@ -222,6 +231,10 @@ pub struct Args {
     /// Only counts min_points by the number of unique data_points that a cluster covers.
     /// Only available when `fast: false`
     pub only_unique: Option<bool>,
+    /// The ID or name of the parent property, this will search the database for any properties that have their `parent` property set to this value.
+    ///
+    /// Default: `None`
+    pub parent: Option<UnknownId>,
     /// Radius of the circle to be used in clustering/routing,
     /// in meters
     ///
@@ -304,6 +317,7 @@ pub struct ArgsUnwrapped {
     pub radius: Precision,
     pub return_type: ReturnTypeArg,
     pub only_unique: bool,
+    pub parent: Option<UnknownId>,
     pub last_seen: u32,
     pub s2_level: u8,
     pub s2_size: u8,
@@ -334,6 +348,7 @@ impl Args {
             return_type,
             routing_time,
             only_unique,
+            parent,
             last_seen,
             save_to_db,
             save_to_scanner,
@@ -440,6 +455,7 @@ impl Args {
             devices,
             fast,
             generations,
+            parent,
             instance,
             min_points,
             radius,

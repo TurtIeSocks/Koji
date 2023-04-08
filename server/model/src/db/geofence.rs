@@ -3,7 +3,11 @@
 use std::{collections::HashMap, str::FromStr};
 
 use crate::{
-    api::{args::ApiQueryArgs, GeoFormats, ToCollection},
+    api::{
+        args::{ApiQueryArgs, UnknownId},
+        collection::Default,
+        GeoFormats, ToCollection,
+    },
     error::ModelError,
     utils::{
         json::{determine_category_by_value, JsonToModel},
@@ -160,7 +164,7 @@ impl Model {
 
         let mut feature = Feature {
             geometry: Some(Geometry::from_json_value(self.geometry)?),
-            ..Default::default()
+            ..Feature::default()
         };
         for prop in properties.iter() {
             let key = prop.get("name");
@@ -729,9 +733,20 @@ impl Query {
             if let Some(model) = model {
                 let mut model: ActiveModel = model.into();
                 match column {
-                    Column::Parent => {
-                        model.parent = Set(Some(payload.as_u64().unwrap() as u32));
-                    }
+                    Column::Parent => match payload.as_u64() {
+                        Some(id) => {
+                            if id == 0 {
+                                model.parent = Set(None);
+                            } else {
+                                model.parent = Set(Some(id as u32));
+                            }
+                        }
+                        None => {
+                            return Err(ModelError::Geofence(
+                                "No valid parent_id found".to_string(),
+                            ))
+                        }
+                    },
                     _ => {}
                 }
                 let model = model.update(db).await?;
@@ -742,5 +757,33 @@ impl Query {
         } else {
             Err(ModelError::Geofence("Invalid property".to_string()))
         }
+    }
+
+    pub async fn by_parent(
+        db: &DatabaseConnection,
+        parent: &UnknownId,
+    ) -> Result<FeatureCollection, ModelError> {
+        let parent_id = match parent {
+            UnknownId::Number(id) => id.clone(),
+            UnknownId::String(name) => {
+                let parent = Entity::find().filter(Column::Name.eq(name)).one(db).await?;
+                if let Some(parent) = parent {
+                    parent.id
+                } else {
+                    return Err(ModelError::Geofence("Parent not found".to_string()));
+                }
+            }
+        };
+        let items = Entity::find()
+            .filter(Column::Parent.eq(parent_id))
+            .all(db)
+            .await?;
+        let args = ApiQueryArgs::default();
+
+        let items =
+            future::try_join_all(items.into_iter().map(|result| result.to_feature(db, &args)))
+                .await?;
+
+        Ok(items.to_collection(None, None))
     }
 }

@@ -4,7 +4,7 @@ use geo::Coord;
 use geojson::{Geometry, Value};
 use model::{
     api::{
-        args::{ApiQueryArgs, SpawnpointTth},
+        args::{ApiQueryArgs, SpawnpointTth, UnknownId},
         collection::Default,
         single_vec::SingleVec,
         BBox, ToCollection,
@@ -70,6 +70,7 @@ pub async fn create_or_find_collection(
     scanner_type: &String,
     conn: &KojiDb,
     area: FeatureCollection,
+    parent: &Option<UnknownId>,
     data_points: &SingleVec,
 ) -> Result<FeatureCollection, ModelError> {
     if !data_points.is_empty() {
@@ -94,6 +95,8 @@ pub async fn create_or_find_collection(
         })
     } else if !area.features.is_empty() {
         Ok(area)
+    } else if let Some(parent) = parent {
+        geofence::Query::by_parent(&conn.koji_db, parent).await
     } else if !instance.is_empty() {
         load_collection(instance, scanner_type, conn).await
     } else {

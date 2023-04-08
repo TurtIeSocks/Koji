@@ -281,7 +281,6 @@ fn crawl_cells(
         }
     }
     if line_string.len() == 4 {
-        log::error!("line_string: {:?}", line_string.len());
         line_string.swap(2, 3);
     }
     let local_poly = geo::Polygon::<f64>::new(geo::LineString::new(line_string.into()), vec![]);
