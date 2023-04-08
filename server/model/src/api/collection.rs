@@ -133,17 +133,7 @@ impl ToPoracleVec for FeatureCollection {
         let mut return_vec = vec![];
 
         for (i, feature) in self.into_iter().enumerate() {
-            let mut poracle_feat = poracle::Poracle {
-                name: None,
-                color: None,
-                description: None,
-                display_in_matches: None,
-                group: None,
-                id: None,
-                user_selectable: None,
-                path: None,
-                multipath: None,
-            };
+            let mut poracle_feat = poracle::Poracle::default();
             if feature.contains_property("name") {
                 poracle_feat.name = Some(
                     feature
@@ -156,10 +146,14 @@ impl ToPoracleVec for FeatureCollection {
             }
             if feature.contains_property("id") {
                 poracle_feat.id = Some(UnknownId::Number(
-                    (feature.property("id").unwrap().as_u64().unwrap_or(i as u64)) as u32,
+                    (feature
+                        .property("id")
+                        .unwrap()
+                        .as_f64()
+                        .unwrap_or((i + 1) as f64)) as u32,
                 ));
             } else {
-                poracle_feat.id = Some(UnknownId::Number(i as u32));
+                poracle_feat.id = Some(UnknownId::Number((i + 1) as u32));
             }
             if feature.contains_property("color") {
                 poracle_feat.color = Some(
@@ -190,11 +184,20 @@ impl ToPoracleVec for FeatureCollection {
                         .unwrap_or("")
                         .to_string(),
                 );
+            } else if feature.contains_property("parent") {
+                poracle_feat.group = Some(
+                    feature
+                        .property("parent")
+                        .unwrap()
+                        .as_str()
+                        .unwrap_or("")
+                        .to_string(),
+                );
             }
-            if feature.contains_property("display_in_matches") {
+            if feature.contains_property("displayInMatches") {
                 poracle_feat.display_in_matches = Some(
                     feature
-                        .property("display_in_matches")
+                        .property("displayInMatches")
                         .unwrap()
                         .as_bool()
                         .unwrap_or(true),
@@ -202,10 +205,10 @@ impl ToPoracleVec for FeatureCollection {
             } else {
                 poracle_feat.display_in_matches = Some(true);
             }
-            if feature.contains_property("user_selectable") {
+            if feature.contains_property("userSelectable") {
                 poracle_feat.user_selectable = Some(
                     feature
-                        .property("user_selectable")
+                        .property("userSelectable")
                         .unwrap()
                         .as_bool()
                         .unwrap_or(true),

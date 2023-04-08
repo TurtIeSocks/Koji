@@ -3,7 +3,12 @@ use super::*;
 use geo::Coord;
 use geojson::{Geometry, Value};
 use model::{
-    api::{args::SpawnpointTth, collection::Default, single_vec::SingleVec, BBox, ToCollection},
+    api::{
+        args::{ApiQueryArgs, SpawnpointTth, UnknownId},
+        collection::Default,
+        single_vec::SingleVec,
+        BBox, ToCollection,
+    },
     db::{area, geofence, gym, instance, pokestop, spawnpoint, GenericData},
     error::ModelError,
     KojiDb,
@@ -37,7 +42,13 @@ pub async fn load_feature(
     scanner_type: &String,
     conn: &KojiDb,
 ) -> Result<Feature, ModelError> {
-    match geofence::Query::get_one_feature(&conn.koji_db, instance.to_string(), true).await {
+    match geofence::Query::get_one_feature(
+        &conn.koji_db,
+        instance.to_string(),
+        &ApiQueryArgs::default(),
+    )
+    .await
+    {
         Ok(area) => Ok(area),
         Err(_) => {
             if scanner_type.eq("rdm") {
@@ -59,6 +70,7 @@ pub async fn create_or_find_collection(
     scanner_type: &String,
     conn: &KojiDb,
     area: FeatureCollection,
+    parent: &Option<UnknownId>,
     data_points: &SingleVec,
 ) -> Result<FeatureCollection, ModelError> {
     if !data_points.is_empty() {
@@ -83,6 +95,8 @@ pub async fn create_or_find_collection(
         })
     } else if !area.features.is_empty() {
         Ok(area)
+    } else if let Some(parent) = parent {
+        geofence::Query::by_parent(&conn.koji_db, parent).await
     } else if !instance.is_empty() {
         load_collection(instance, scanner_type, conn).await
     } else {

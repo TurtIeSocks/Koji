@@ -15,7 +15,6 @@ import {
 } from 'react-admin'
 import { ExportPolygon } from '@components/dialogs/Polygon'
 
-import { BulkAssignButton } from '../actions/AssignButton'
 import { BulkExportButton, ExportButton } from '../actions/Export'
 import { BulkPushToProd, PushToProd } from '../actions/PushToApi'
 
@@ -31,7 +30,6 @@ function BulkActions() {
   return (
     <>
       <BulkDeleteWithUndoButton resource="route" />
-      <BulkAssignButton resource="route" />
       <BulkPushToProd resource="route" />
       <BulkExportButton resource="route" />
     </>

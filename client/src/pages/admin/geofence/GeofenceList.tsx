@@ -15,10 +15,11 @@ import {
 
 import { ExportPolygon } from '@components/dialogs/Polygon'
 
-import { BulkAssignButton } from '../actions/AssignButton'
+import { BulkAssignButton } from '../actions/AssignProjectFence'
 import { BulkExportButton, ExportButton } from '../actions/Export'
 import { BulkPushToProd, PushToProd } from '../actions/PushToApi'
 import { GeofenceExpand } from './GeofenceExpand'
+import { BulkAssignFenceButton } from '../actions/AssignParentFence'
 
 function ListActions() {
   return (
@@ -31,6 +32,7 @@ function ListActions() {
 function BulkActions() {
   return (
     <>
+      <BulkAssignFenceButton />
       <BulkDeleteWithUndoButton resource="geofence" />
       <BulkAssignButton resource="geofence" />
       <BulkPushToProd resource="geofence" />

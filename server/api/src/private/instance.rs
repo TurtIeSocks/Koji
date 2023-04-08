@@ -1,6 +1,9 @@
 use super::*;
 
-use model::db::{route, NameTypeId};
+use model::{
+    api::{args::ApiQueryArgs, collection::Default},
+    db::{route, NameTypeId},
+};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -121,7 +124,12 @@ async fn route_from_db(
         {
             route::Query::feature(&conn.koji_db, id, true).await
         } else {
-            geofence::Query::get_one_feature(&conn.koji_db, id.to_string(), true).await
+            geofence::Query::get_one_feature(
+                &conn.koji_db,
+                id.to_string(),
+                &ApiQueryArgs::default(),
+            )
+            .await
         }
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;

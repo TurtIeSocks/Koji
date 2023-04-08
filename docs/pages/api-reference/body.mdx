@@ -1,6 +1,6 @@
-# Types
+# Body
 
-These types are referenced in the [endpoints](./endpoints) section.
+Various types and structs referenced in the [endpoints](./endpoints) section that are part of the http request body.
 
 ## Data Structs, Type Aliases, and Enums
 
@@ -91,6 +91,12 @@ pub struct Args {
     ///
     /// Default: `false`
     pub benchmark_mode: Option<bool>,
+    /// Bootstrap mode selection
+    ///
+    /// Accepts [BootStrapMode]
+    ///
+    /// Default: `0`
+    pub calculation_mode: Option<CalculationMode>,
     /// Data points to cluster or reroute.
     /// Overrides any inputted area.
     ///
@@ -133,6 +139,10 @@ pub struct Args {
     /// Only counts min_points by the number of unique data_points that a cluster covers.
     /// Only available when `fast: false`
     pub only_unique: Option<bool>,
+    /// The ID or name of the parent property, this will search the database for any properties that have their `parent` property set to this value.
+    ///
+    /// Default: `None`
+    pub parent: Option<UnknownId>,
     /// Radius of the circle to be used in clustering/routing,
     /// in meters
     ///
@@ -162,6 +172,18 @@ pub struct Args {
     ///
     /// Deprecated
     pub routing_time: Option<i64>,
+    /// S2 Level to use for calculation mode
+    ///
+    /// Accepts 10-20
+    ///
+    /// Default: `15`
+    pub s2_level: Option<u8>,
+    /// S2 cell size selection, how many S2 cells to use in a square grid
+    ///
+    /// Accepts [BootStrapMode]
+    ///
+    /// Default: `9`
+    pub s2_size: Option<u8>,
     /// Saves the calculated route to the Kōji database
     ///
     /// Default: `false`
@@ -191,7 +213,7 @@ pub struct Args {
 }
 ```
 
-### Return Structs
+## Return Structs
 
 ```rust
 // Standard Response Struct (what you will receive!)
