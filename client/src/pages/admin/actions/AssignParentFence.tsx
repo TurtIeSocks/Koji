@@ -72,12 +72,14 @@ export function AssignParentToFences({ open }: { open: boolean }) {
     },
   )
 
+  const reset = () => {
+    setSelected(0)
+    unSelectAll()
+    setRaStore('bulkAssignParent', false)
+  }
+
   return (
-    <Dialog
-      open={open}
-      onClose={() => setRaStore('bulkAssignParent', false)}
-      maxWidth="xl"
-    >
+    <Dialog open={open} onClose={reset} maxWidth="xl">
       <DialogHeader>Assign Parent to Selected Geofence(s)</DialogHeader>
       <DialogContent>
         <Grid2 container minHeight="20vh">
@@ -97,19 +99,14 @@ export function AssignParentToFences({ open }: { open: boolean }) {
         </Grid2>
       </DialogContent>
       <DialogActions>
-        <Button
-          label="Close"
-          color="secondary"
-          onClick={() => setRaStore('bulkAssignParent', false)}
-        />
+        <Button label="Close" color="secondary" onClick={reset} />
         <Button
           label="Save"
           color="primary"
           onClick={(event) => {
             event.stopPropagation()
             assignProjectsToFence.mutate()
-            unSelectAll()
-            setRaStore('bulkAssignParent', false)
+            reset()
           }}
         />
       </DialogActions>

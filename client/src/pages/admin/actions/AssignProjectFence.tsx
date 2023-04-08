@@ -77,12 +77,14 @@ export function AssignFencesToProjects({ resource, storeKey, open }: Props) {
     },
   )
 
+  const reset = () => {
+    setSelected([])
+    unSelectAll()
+    setRaStore(storeKey, false)
+  }
+
   return (
-    <Dialog
-      open={open}
-      onClose={() => setRaStore(storeKey, false)}
-      maxWidth="xl"
-    >
+    <Dialog open={open} onClose={reset} maxWidth="xl">
       <DialogHeader>
         Assign {capitalize(resource)} to Selected{' '}
         {resource === 'project' ? 'Project' : 'Geofence'}(s)
@@ -107,19 +109,14 @@ export function AssignFencesToProjects({ resource, storeKey, open }: Props) {
         </Grid2>
       </DialogContent>
       <DialogActions>
-        <Button
-          label="Close"
-          color="secondary"
-          onClick={() => setRaStore(storeKey, false)}
-        />
+        <Button label="Close" color="secondary" onClick={reset} />
         <Button
           label="Save"
           color="primary"
           onClick={(event) => {
             event.stopPropagation()
             assignProjectsToFence.mutate()
-            unSelectAll()
-            setRaStore(storeKey, false)
+            reset()
           }}
         />
       </DialogActions>
