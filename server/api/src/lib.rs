@@ -102,6 +102,7 @@ pub async fn start() -> io::Result<()> {
                             .service(private::admin::paginate)
                             .service(private::admin::get_all)
                             .service(private::admin::search)
+                            .service(private::admin::assign)
                             .service(private::admin::get_one)
                             .service(private::admin::create)
                             .service(private::admin::update)
