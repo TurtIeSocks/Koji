@@ -1,6 +1,6 @@
 {
   "name": "koji-docs",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Documentation for Kōji",
   "scripts": {
     "dev": "next dev",

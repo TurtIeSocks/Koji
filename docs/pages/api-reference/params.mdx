@@ -1,0 +1,114 @@
+# Params
+
+Arguments that can be passed to the API via query params.
+
+```rust
+pub struct ApiQueryArgs {
+    /// If true, internal database properties are added with a `__` prefix
+    /// Adds a generated `id` property
+    /// Shouldn't be used outside of development
+    pub internal: Option<bool>,
+
+// -------------------------------------------------------------------------
+// Adds the respective property to the return Feature/FeatureCollection
+    /// If true, the `id` property is added
+    pub id: Option<bool>,
+    /// If true, the `name` property is added
+    pub name: Option<bool>,
+    /// If true, the `mode` property is added
+    pub mode: Option<bool>,
+    /// If true, the `parent` property is added
+    pub parent: Option<bool>,
+
+// -------------------------------------------------------------------------
+// Extras
+    /// custom return type of the API request
+    ///
+    /// Options: [ReturnTypeArg]
+    pub rt: Option<String>,
+    /// If true, the `group` property is set from the parent property
+    pub group: Option<bool>,
+
+// -------------------------------------------------------------------------
+// Name Property Manipulation
+    /// If true, the entire `name` property is set to lowercase
+    pub lowercase: Option<bool>,
+    /// If true, the entire `name` property is set to uppercase
+    pub uppercase: Option<bool>,
+    /// If provided, the `name` property is split at the provided string/character
+    /// each word is capitalized, then rejoined with the same character
+    pub capitalize: Option<String>,
+    /// If true, the first character of the `name` property is capitalized
+    pub capfirst: Option<bool>,
+    /// If true, the `parent` property is added as a prefix to the `name`
+    /// separated by the provided string/character
+    pub parentstart: Option<String>,
+    /// If true, the `parent` property is added as a suffix to the `name`
+    /// separated by the provided string/character
+    pub parentend: Option<String>,
+    /// If the `name` property has the `parent` name as part of its value
+    /// the `parent` name is replaced with the given string/character
+    pub parentreplace: Option<String>,
+    /// Spaces in the `name` property are replaced with the given string/character
+    pub space: Option<String>,
+    /// Underscores in the `name` property are replaced with the given string/character
+    pub underscore: Option<String>,
+    /// Dashes/Hyphens in the `name` property are replaced with the given string/character
+    pub dash: Option<String>,
+    /// Replaces any provided string/character with `""` (empty string)
+    pub replace: Option<String>,
+}
+```
+
+## Name Property Manipulation
+
+Since the name property of a geofence may be presented differently in different projects, in order to cut down on having to maintain multiple copies of the same geofence in the Kōji database, you can manipulate the name property of a geofence at the API level before it is returned to you.
+
+Executed in the following order:
+
+1. replace
+1. parentreplace
+1. parentstart
+1. parentend
+1. underscore
+1. dash
+1. space
+1. capfirst
+1. capitalize
+1. lowercase
+1. uppercase
+1. A trim function is automatically called at the end to remove start and end whitespace
+
+By taking advantage of the execution order you should be able to manipulate the name property in almost any desirable way.
+
+String args can be provided with or without " surrounding them. Surrounding with " will likely be more consistent, depending on the characters.
+
+## Examples
+
+Given the below fences:
+
+| name      | parent | projects            |
+| --------- | ------ | ------------------- |
+| NY        | null   | []                  |
+| North, NY | NY     | [ReactMap, Poracle] |
+| South, NY | NY     | [ReactMap, Poracle] |
+| East, NY  | NY     | [ReactMap, Poracle] |
+| West , NY | NY     | [ReactMap, Poracle] |
+| DC        | null   | []                  |
+| North, DC | DC     | [ReactMap, Poracle] |
+| South, DC | DC     | [ReactMap, Poracle] |
+| East, DC  | DC     | [ReactMap, Poracle] |
+| West , DC | DC     | [ReactMap, Poracle] |
+
+### ReactMap API call: (Project that supports unique names per parent)
+
+`https://my-koji-url.com/api/v1/feature-collection/ReactMap?parentreplace=""&replace=","`
+
+### Result:
+
+Features with their parent property set to "NY" (if a parent property is specified in the admin panel) and a clean name, e.g. `North, NY` => `North`
+
+### Poracle API call: (Project that should have all unique names)
+
+`https://my-koji-url.com/api/v1/poracle/Poracle?group=true&lowercase=true`
+Poracle styled results with the `group` property set from the native `parent` property, names set to lowercase but are otherwise the same

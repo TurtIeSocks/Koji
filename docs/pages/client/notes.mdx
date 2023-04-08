@@ -1,0 +1,25 @@
+# Notes
+
+## Names
+
+### Geofences
+
+Kōji requires that all geofence names be unique. If you attempt to import any fences with names that already exist in the database, the existing ones will be overwritten with the incoming ones. This limitation is in place to make the API more accessible and to save you headaches in the long run, such as when you attempt to assigning referenced properties in the Admin Panel.
+
+Please view [API Params](../api-reference/params) for more information about how you can manipulate the `name` property of a geofence when making API calls.
+
+If the API params are not enough to satisfy the requirements of your project, you can also add an override `name` property to your geofence. More details below in the [Properties](#properties) section.
+
+### Routes
+
+Unlike Geofences, Kōji does not enforce unique names when it comes to creating routes.
+
+Since all routes are required to be associated with a geofence, Kōji has a special built in function for ensuring that keeping them in sync is as painless as possible.
+
+If the routes associated with a geofence share the same name as that geofence, their name will be updated whenever the geofence's name is updated. This is a great way to keep your routes organized and synced up with the scanner.
+
+### Properties
+
+Properties can have duplicate names, however they still must have a unique combination of `name` and `category` values. For example, you can have a property with the name `parent` and the category set to `database` and another with the name `parent` and the category set to `string`. However, you cannot have two properties with the name `parent` and the category `database`.
+
+While it is generally recommended to use the `database` category whenever possible in order to reduce manual edits whenever you change a geofence's property, such as its name, adding an override property such as a string based `name` can sometimes help for unique situations depending on what your project's endpoints are expecting.
