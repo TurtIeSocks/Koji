@@ -192,7 +192,20 @@ export function PolygonPopup({
         </Grid2>
         <Divider flexItem sx={{ my: 1, color: 'black', width: '90%' }} />
         <Grid2 xs={12}>
-          <Button onClick={() => clusteringRouting(feature)}>Recluster</Button>
+          <Button onClick={() => clusteringRouting({ feature })} size="small">
+            Recalculate Area
+          </Button>
+        </Grid2>
+        <Grid2 xs={12}>
+          <Button
+            disabled={!isKoji}
+            onClick={() =>
+              clusteringRouting({ parent: feature.properties.__id || name })
+            }
+            size="small"
+          >
+            Recalculate Children
+          </Button>
         </Grid2>
         <Grid2 xs={12}>
           <ButtonGroup>

@@ -107,9 +107,13 @@ export async function getFullCache() {
   )
 }
 
-export async function clusteringRouting(
-  feature?: Feature,
-): Promise<FeatureCollection> {
+export async function clusteringRouting({
+  feature,
+  parent,
+}: {
+  feature?: Feature
+  parent?: string | number
+} = {}): Promise<FeatureCollection> {
   const {
     mode,
     radius,
@@ -205,15 +209,17 @@ export async function clusteringRouting(
             ]?.signal,
           body: JSON.stringify({
             return_type: 'feature',
-            area: {
-              ...area,
-              properties: {
-                __id: routeRef?.id,
-                __name: fenceRef?.name,
-                __geofence_id: fenceRef?.id,
-                __mode: fenceRef?.mode,
-              },
-            },
+            area: parent
+              ? undefined
+              : {
+                  ...area,
+                  properties: {
+                    __id: routeRef?.id,
+                    __name: fenceRef?.name,
+                    __geofence_id: fenceRef?.id,
+                    __mode: fenceRef?.mode,
+                  },
+                },
             instance:
               fenceRef?.name ||
               `${area.geometry.type}${area.id ? `-${area.id}` : ''}`,
@@ -221,6 +227,7 @@ export async function clusteringRouting(
             radius,
             min_points,
             cluster_mode,
+            parent,
             fast,
             only_unique,
             save_to_db,
