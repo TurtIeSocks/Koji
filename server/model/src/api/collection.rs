@@ -146,7 +146,11 @@ impl ToPoracleVec for FeatureCollection {
             }
             if feature.contains_property("id") {
                 poracle_feat.id = Some(UnknownId::Number(
-                    (feature.property("id").unwrap().as_u64().unwrap_or(i as u64)) as u32,
+                    (feature
+                        .property("id")
+                        .unwrap()
+                        .as_u64()
+                        .unwrap_or((i + 1) as u64)) as u32,
                 ));
             } else {
                 poracle_feat.id = Some(UnknownId::Number(i as u32));

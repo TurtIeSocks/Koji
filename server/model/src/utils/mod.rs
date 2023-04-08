@@ -199,12 +199,16 @@ pub fn clean(param: &String) -> String {
 }
 
 pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<String>) -> String {
-    let mut mutable = string;
+    let mut mutable = string.clone();
+
     if let Some(replacer) = modifiers.replace.as_ref() {
         mutable = mutable.replace(clean(replacer).as_str(), "");
     }
     if parent.is_some() {
         let parent = parent.unwrap();
+        if let Some(replacer) = modifiers.parentreplace.as_ref() {
+            mutable = mutable.replace(&parent, clean(replacer).as_str());
+        }
         if let Some(parent_start) = modifiers.parentstart.as_ref() {
             mutable = format!("{}{}{}", parent, clean(parent_start), mutable,);
         }
@@ -258,5 +262,15 @@ pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<St
     if modifiers.uppercase.is_some() {
         mutable = mutable.to_uppercase();
     }
-    mutable.trim().to_string()
+    mutable.trim().to_string();
+    if mutable == "" {
+        log::warn!(
+            "Empty string detected for {} {:?}, returning the standard name",
+            string,
+            modifiers
+        );
+        string
+    } else {
+        mutable
+    }
 }

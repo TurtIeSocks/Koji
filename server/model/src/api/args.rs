@@ -117,6 +117,8 @@ pub struct ApiQueryArgs {
     pub parentstart: Option<String>,
     /// If true, the `parent` property is added as a suffix to the `name`, separated by the provided string/character
     pub parentend: Option<String>,
+    /// If the `name` property has the `parent` name as part of its value, the `parent` name is replaced with the given string/character
+    pub parentreplace: Option<String>,
     /// Spaces in the `name` property are replaced with the given string/character
     pub space: Option<String>,
     /// Underscores in the `name` property are replaced with the given string/character
@@ -143,6 +145,7 @@ impl Default for ApiQueryArgs {
             capfirst: None,
             parentstart: None,
             parentend: None,
+            parentreplace: None,
             space: None,
             underscore: None,
             dash: None,
