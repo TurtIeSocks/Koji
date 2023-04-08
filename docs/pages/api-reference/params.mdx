@@ -6,11 +6,12 @@ Arguments that can be passed to the API via query params.
 pub struct ApiQueryArgs {
     /// If true, internal database properties are added with a `__` prefix
     /// Adds a generated `id` property
-    /// Shouldn't be used outside of development
+    /// Not encouraged to use outside of development
     pub internal: Option<bool>,
 
 // -------------------------------------------------------------------------
 // Adds the respective property to the return Feature/FeatureCollection
+// It is encouraged to add these properties through the admin panel instead of using these args!
     /// If true, the `id` property is added
     pub id: Option<bool>,
     /// If true, the `name` property is added
@@ -25,6 +26,8 @@ pub struct ApiQueryArgs {
     /// custom return type of the API request
     ///
     /// Options: [ReturnTypeArg]
+    ///
+    /// Transforms the return type of the geometry into the provided type
     pub rt: Option<String>,
     /// If true, the `group` property is set from the parent property
     pub group: Option<bool>,
@@ -62,9 +65,9 @@ pub struct ApiQueryArgs {
 
 ## Name Property Manipulation
 
-Since the name property of a geofence may be presented differently in different projects, in order to cut down on having to maintain multiple copies of the same geofence in the Kōji database, you can manipulate the name property of a geofence at the API level before it is returned to you.
+Since the name property of a geofence may need to be different on a per project basis, in order to cut down on having to maintain multiple copies of the same geofence in the Kōji database, you can manipulate the name property of a geofence at the API level before it is returned to you.
 
-Executed in the following order:
+The manipulations mentioned above are executed in the following order:
 
 1. replace
 1. parentreplace
@@ -81,7 +84,7 @@ Executed in the following order:
 
 By taking advantage of the execution order you should be able to manipulate the name property in almost any desirable way.
 
-String args can be provided with or without " surrounding them. Surrounding with " will likely be more consistent, depending on the characters.
+String args can be provided with or without `"` surrounding them. If you are using a string with has a space or special characters, it is recommended to use `"` to surround the string for consistency.
 
 ## Examples
 
