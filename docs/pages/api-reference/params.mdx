@@ -1,3 +1,5 @@
+import { Callout } from 'nextra-theme-docs'
+
 # Params
 
 Arguments that can be passed to the API via query params.
@@ -86,6 +88,11 @@ By taking advantage of the execution order you should be able to manipulate the 
 
 String args can be provided with or without `"` surrounding them. If you are using a string with has a space or special characters, it is recommended to use `"` to surround the string for consistency.
 
+<Callout type="info" emoji="💡">
+  Remember to respect [URL encoding
+  rules](https://www.w3schools.com/tags/ref_urlencode.asp?_sm_au_=iVVDMg0TSmrMV6Dm)
+</Callout>
+
 ## Examples
 
 Given the below fences:
@@ -96,12 +103,12 @@ Given the below fences:
 | North, NY | NY     | [ReactMap, Poracle] |
 | South, NY | NY     | [ReactMap, Poracle] |
 | East, NY  | NY     | [ReactMap, Poracle] |
-| West , NY | NY     | [ReactMap, Poracle] |
+| West, NY  | NY     | [ReactMap, Poracle] |
 | DC        | null   | []                  |
 | North, DC | DC     | [ReactMap, Poracle] |
 | South, DC | DC     | [ReactMap, Poracle] |
 | East, DC  | DC     | [ReactMap, Poracle] |
-| West , DC | DC     | [ReactMap, Poracle] |
+| West, DC  | DC     | [ReactMap, Poracle] |
 
 ### ReactMap API call: (Project that supports unique names per parent)
 
@@ -111,7 +118,29 @@ Given the below fences:
 
 Features with their parent property set to "NY" (if a parent property is specified in the admin panel) and a clean name, e.g. `North, NY` => `North`
 
+| name  | parent |
+| ----- | ------ |
+| North | NY     |
+| South | NY     |
+| East  | NY     |
+| West  | NY     |
+| North | DC     |
+| South | DC     |
+| East  | DC     |
+| West  | DC     |
+
 ### Poracle API call: (Project that should have all unique names)
 
-`https://my-koji-url.com/api/v1/poracle/Poracle?group=true&lowercase=true`
+`https://my-koji-url.com/api/v1/poracle/Poracle?group=true&lowercase=true&replace=","&space="_"`
 Poracle styled results with the `group` property set from the native `parent` property, names set to lowercase but are otherwise the same
+
+| name     | group |
+| -------- | ----- |
+| north_ny | NY    |
+| south_ny | NY    |
+| east_ny  | NY    |
+| west_ny  | NY    |
+| north_dc | DC    |
+| south_dc | DC    |
+| east_dc  | DC    |
+| west_dc  | DC    |
