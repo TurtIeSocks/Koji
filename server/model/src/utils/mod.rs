@@ -7,7 +7,7 @@ use log::LevelFilter;
 use sea_orm::{ConnectOptions, Database, Order};
 
 use crate::{
-    api::{EnsurePoints, GetBbox, ToSingleVec},
+    api::{args::ApiQueryArgs, EnsurePoints, GetBbox, ToSingleVec},
     db::sea_orm_active_enums::{Category, Type},
 };
 
@@ -189,4 +189,88 @@ pub fn json_related_sort(json: &mut Vec<serde_json::Value>, sort_by: &String, or
             b.cmp(&a)
         }
     });
+}
+
+pub fn clean(param: &String) -> String {
+    if param.starts_with("\"") && param.ends_with("\"") {
+        return param[1..param.len() - 1].to_string();
+    }
+    param.to_string()
+}
+
+pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<String>) -> String {
+    let mut mutable = string.clone();
+
+    if let Some(replacer) = modifiers.replace.as_ref() {
+        mutable = mutable.replace(clean(replacer).as_str(), "");
+    }
+    if parent.is_some() {
+        let parent = parent.unwrap();
+        if let Some(replacer) = modifiers.parentreplace.as_ref() {
+            mutable = mutable.replace(&parent, clean(replacer).as_str());
+        }
+        if let Some(parent_start) = modifiers.parentstart.as_ref() {
+            mutable = format!("{}{}{}", parent, clean(parent_start), mutable,);
+        }
+        if let Some(parent_end) = modifiers.parentend.as_ref() {
+            mutable = format!("{}{}{}", mutable, clean(parent_end), parent,);
+        }
+    }
+    if let Some(replacer) = modifiers.underscore.as_ref() {
+        mutable = mutable.replace("_", clean(replacer).as_str());
+    }
+    if let Some(replacer) = modifiers.dash.as_ref() {
+        mutable = mutable.replace("-", clean(replacer).as_str());
+    }
+    if let Some(replacer) = modifiers.space.as_ref() {
+        mutable = mutable.replace(" ", clean(replacer).as_str());
+    }
+    if modifiers.capfirst.is_some() {
+        mutable = mutable
+            .chars()
+            .enumerate()
+            .map(|(i, c)| {
+                if i == 0 {
+                    c.to_uppercase().to_string()
+                } else {
+                    c.to_string()
+                }
+            })
+            .collect();
+    }
+    if let Some(capitalize) = modifiers.capitalize.as_ref() {
+        mutable = capitalize
+            .split(clean(capitalize).as_str())
+            .map(|word| {
+                word.chars()
+                    .enumerate()
+                    .map(|(i, c)| {
+                        if i == 0 {
+                            c.to_uppercase().to_string()
+                        } else {
+                            c.to_string()
+                        }
+                    })
+                    .collect::<String>()
+            })
+            .collect::<Vec<String>>()
+            .join(clean(capitalize).as_str());
+    }
+    if modifiers.lowercase.is_some() {
+        mutable = mutable.to_lowercase();
+    }
+    if modifiers.uppercase.is_some() {
+        mutable = mutable.to_uppercase();
+    }
+    mutable.trim().to_string();
+    if mutable == "" {
+        log::warn!(
+            "Empty string detected for {} {:?}, returning the standard name",
+            string,
+            modifiers
+        );
+        string
+    } else {
+        mutable
+    }
 }

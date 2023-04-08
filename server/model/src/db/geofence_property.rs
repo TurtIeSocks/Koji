@@ -64,7 +64,7 @@ pub struct FullPropertyModel {
 }
 
 impl FullPropertyModel {
-    pub fn parse_db_value(self, model: &geofence::Model) -> serde_json::Value {
+    pub fn parse_db_value(&self, model: &geofence::Model) -> serde_json::Value {
         let model_json = serde_json::to_value(model).unwrap();
 
         let parsed_value = match self.category {

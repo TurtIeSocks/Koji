@@ -7,6 +7,7 @@ use serde_json::json;
 use model::{
     api::{
         args::{get_return_type, ApiQueryArgs, Args, ArgsUnwrapped, Response, ReturnTypeArg},
+        collection::Default,
         GeoFormats, ToCollection,
     },
     db::{area, geofence, instance, project},
@@ -19,7 +20,7 @@ async fn all(
     args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
     let args = args.into_inner();
-    let fc = geofence::Query::get_all_collection(&conn.koji_db, args.internal.unwrap_or(false))
+    let fc = geofence::Query::get_all_collection(&conn.koji_db, &args)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -46,10 +47,9 @@ async fn get_area(
         &ReturnTypeArg::Feature,
     );
 
-    let feature =
-        geofence::Query::get_one_feature(&conn.koji_db, id, args.internal.unwrap_or(false))
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+    let feature = geofence::Query::get_one_feature(&conn.koji_db, id, &args)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     log::info!(
         "[PUBLIC_API] Returning feature for {:?}\n",
@@ -138,7 +138,7 @@ async fn push_to_prod(
     let id = id.into_inner();
     let scanner_type = scanner_type.as_ref();
 
-    let feature = geofence::Query::get_one_feature(&conn.koji_db, id, true)
+    let feature = geofence::Query::get_one_feature(&conn.koji_db, id, &ApiQueryArgs::default())
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -218,7 +218,7 @@ async fn specific_return_type(
     let args = args.into_inner();
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
 
-    let fc = geofence::Query::get_all_collection(&conn.koji_db, args.internal.unwrap_or(false))
+    let fc = geofence::Query::get_all_collection(&conn.koji_db, &args)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -246,10 +246,9 @@ async fn specific_project(
     let args = args.into_inner();
 
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
-    let features =
-        geofence::Query::project_as_feature(&conn.koji_db, project, args.internal.unwrap_or(false))
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+    let features = geofence::Query::project_as_feature(&conn.koji_db, project, &args)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     println!(
         "[GEOFENCES_FC_ALL] Returning {} instances\n",

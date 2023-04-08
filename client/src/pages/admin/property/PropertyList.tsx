@@ -10,6 +10,7 @@ import {
   TopToolbar,
   CreateButton,
   NumberField,
+  SearchInput,
 } from 'react-admin'
 
 function ListActions() {
@@ -27,6 +28,7 @@ function BulkActions() {
 export default function PropertyList() {
   return (
     <List
+      filters={[<SearchInput source="q" alwaysOn />]}
       pagination={<Pagination rowsPerPageOptions={[25, 50, 100]} />}
       title="Properties"
       perPage={25}

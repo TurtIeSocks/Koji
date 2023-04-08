@@ -36,6 +36,7 @@ const getList = async (
   params: GetListParams,
 ): Promise<GetListResult> => {
   const queryParams = {
+    ...params.filter,
     ...params.pagination,
     page: params.pagination.page - 1,
     sortBy: params.sort.field,

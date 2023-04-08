@@ -68,15 +68,91 @@ pub enum DataPointsArg {
     FeatureCollection(FeatureCollection),
 }
 
+/// `name` property modifiers:
+///
+/// These allow custom modification of the `name` property
+///
+/// Executed in the following order:
+/// - `replace`
+/// - `parentstart`
+/// - `parentend
+/// - `underscore`
+/// - `dash`
+/// - `space`
+/// - `capfirst`
+/// - `capitalize`
+/// - `lowercase`
+/// - `uppercase`
+/// - A `trim` function is always called on the final result to remove any leading or trailing whitespace
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiQueryArgs {
+    /// If true, internal properties are added with a `__` prefix as well as a generated `id` property
     pub internal: Option<bool>,
+    /// If true, the `id` property is added
     pub id: Option<bool>,
+    /// If true, the `name` property is added
     pub name: Option<bool>,
+    /// If true, the `mode` property is added
     pub mode: Option<bool>,
+    /// If true, the `geofence_id` property is added
     pub geofence_id: Option<bool>,
+    /// If true, the `parent` property is added
+    pub parent: Option<bool>,
+    /// custom return type of the API request
+    ///
+    /// Options: [ReturnTypeArg]
     pub rt: Option<String>,
+    /// If true, the `group` property is set from the parent property
+    pub group: Option<bool>,
+    /// If true, the entire `name` property is set to lowercase
+    pub lowercase: Option<bool>,
+    /// If true, the entire `name` property is set to uppercase
+    pub uppercase: Option<bool>,
+    /// If provided, the `name` property is split at the provided string/character, each word is capitalized, then rejoined with the same character
+    pub capitalize: Option<String>,
+    /// If true, the first character of the `name` property is capitalized
+    pub capfirst: Option<bool>,
+    /// If true, the `parent` property is added as a prefix to the `name`, separated by the provided string/character
+    pub parentstart: Option<String>,
+    /// If true, the `parent` property is added as a suffix to the `name`, separated by the provided string/character
+    pub parentend: Option<String>,
+    /// If the `name` property has the `parent` name as part of its value, the `parent` name is replaced with the given string/character
+    pub parentreplace: Option<String>,
+    /// Spaces in the `name` property are replaced with the given string/character
+    pub space: Option<String>,
+    /// Underscores in the `name` property are replaced with the given string/character
+    pub underscore: Option<String>,
+    /// Dashes/Hyphens in the `name` property are replaced with the given string/character
+    pub dash: Option<String>,
+    /// Replaces any provided string/character with `""` (empty string)
+    pub replace: Option<String>,
+}
+
+impl Default for ApiQueryArgs {
+    fn default() -> Self {
+        Self {
+            internal: Some(true),
+            id: None,
+            name: None,
+            mode: None,
+            geofence_id: None,
+            parent: None,
+            rt: None,
+            lowercase: None,
+            uppercase: None,
+            capitalize: None,
+            capfirst: None,
+            parentstart: None,
+            parentend: None,
+            parentreplace: None,
+            space: None,
+            underscore: None,
+            dash: None,
+            replace: None,
+            group: None,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -91,6 +167,15 @@ pub enum ClusterMode {
     Fast,
     Balanced,
     BruteForce,
+}
+
+impl ToString for UnknownId {
+    fn to_string(&self) -> String {
+        match self {
+            UnknownId::Number(id) => id.to_string(),
+            UnknownId::String(id) => id.to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -167,6 +252,10 @@ pub struct Args {
     /// Only counts min_points by the number of unique data_points that a cluster covers.
     /// Only available when `fast: false`
     pub only_unique: Option<bool>,
+    /// The ID or name of the parent property, this will search the database for any properties that have their `parent` property set to this value.
+    ///
+    /// Default: `None`
+    pub parent: Option<UnknownId>,
     /// Radius of the circle to be used in clustering/routing,
     /// in meters
     ///
@@ -250,6 +339,7 @@ pub struct ArgsUnwrapped {
     pub radius: Precision,
     pub return_type: ReturnTypeArg,
     pub only_unique: bool,
+    pub parent: Option<UnknownId>,
     pub last_seen: u32,
     pub s2_level: u8,
     pub s2_size: u8,
@@ -282,6 +372,7 @@ impl Args {
             return_type,
             routing_time,
             only_unique,
+            parent,
             last_seen,
             save_to_db,
             save_to_scanner,
@@ -401,6 +492,7 @@ impl Args {
             data_points,
             devices,
             generations,
+            parent,
             instance,
             min_points,
             radius,

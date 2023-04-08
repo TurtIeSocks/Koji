@@ -53,7 +53,7 @@ export default function ProjectsAc({
   const getOptions = async (search = '') => {
     setLoading(true)
     const res = await fetchWrapper<KojiResponse<KojiProject[]>>(
-      `/internal/admin/project/search/?query=${search}`,
+      `/internal/admin/search/project/?query=${search}`,
     )
     if (res) {
       setProjects(res.data)

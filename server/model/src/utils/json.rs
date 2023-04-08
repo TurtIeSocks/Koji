@@ -45,10 +45,20 @@ impl JsonToModel for Value {
                             } else {
                                 None
                             };
+                            let parent = if let Some(parent) = incoming.get("parent") {
+                                if let Some(parent) = parent.as_u64() {
+                                    Some(parent as u32)
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            };
                             let mode = get_enum(mode);
                             Ok(geofence::ActiveModel {
                                 name: Set(name.to_string()),
                                 geometry: Set(value),
+                                parent: Set(parent),
                                 mode: Set(mode),
                                 ..Default::default()
                             })

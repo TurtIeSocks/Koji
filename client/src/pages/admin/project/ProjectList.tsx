@@ -12,8 +12,9 @@ import {
   Pagination,
   TextField,
   TopToolbar,
+  SearchInput,
 } from 'react-admin'
-import { BulkAssignButton } from '../actions/AssignButton'
+import { BulkAssignButton } from '../actions/AssignProjectFence'
 import { BulkExportButton, ExportButton } from '../actions/Export'
 
 function ListActions() {
@@ -38,6 +39,7 @@ export default function ProjectList() {
   return (
     <>
       <List
+        filters={[<SearchInput source="q" alwaysOn />]}
         pagination={<Pagination rowsPerPageOptions={[25, 50, 100]} />}
         title="Projects"
         actions={<ListActions />}

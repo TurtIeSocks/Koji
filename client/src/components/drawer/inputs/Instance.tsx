@@ -67,8 +67,10 @@ export default function InstanceSelect({
 
   const filterOptions = createFilterOptions({
     matchFrom: 'any',
-    stringify: (option: string) =>
-      `${option}${options[option as KojiKey]?.name}`,
+    ignoreCase: true,
+    stringify: (option: string) => {
+      return `${option.split('__')}${options[option as KojiKey]?.name}`
+    },
   })
 
   const updateState = async (newValue: KojiKey[]) => {

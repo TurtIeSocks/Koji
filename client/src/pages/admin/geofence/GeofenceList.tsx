@@ -5,17 +5,21 @@ import {
   DeleteWithUndoButton,
   EditButton,
   List,
-  NumberField,
   Pagination,
   TextField,
   TopToolbar,
   CreateButton,
+  SearchInput,
+  ReferenceField,
 } from 'react-admin'
+
 import { ExportPolygon } from '@components/dialogs/Polygon'
 
-import { BulkAssignButton } from '../actions/AssignButton'
+import { BulkAssignButton } from '../actions/AssignProjectFence'
 import { BulkExportButton, ExportButton } from '../actions/Export'
 import { BulkPushToProd, PushToProd } from '../actions/PushToApi'
+import { GeofenceExpand } from './GeofenceExpand'
+import { BulkAssignFenceButton } from '../actions/AssignParentFence'
 
 function ListActions() {
   return (
@@ -28,6 +32,7 @@ function ListActions() {
 function BulkActions() {
   return (
     <>
+      <BulkAssignFenceButton />
       <BulkDeleteWithUndoButton resource="geofence" />
       <BulkAssignButton resource="geofence" />
       <BulkPushToProd resource="geofence" />
@@ -40,27 +45,22 @@ export default function GeofenceList() {
   return (
     <>
       <List
+        filters={[<SearchInput source="q" alwaysOn />]}
         pagination={<Pagination rowsPerPageOptions={[25, 50, 100]} />}
         title="Geofences"
         perPage={25}
         actions={<ListActions />}
         sort={{ field: 'id', order: 'ASC' }}
       >
-        <Datagrid rowClick="expand" bulkActionButtons={<BulkActions />}>
+        <Datagrid
+          rowClick="expand"
+          bulkActionButtons={<BulkActions />}
+          expand={GeofenceExpand}
+        >
           <TextField source="name" />
+          <ReferenceField source="parent" reference="geofence" />
           <TextField source="mode" />
           <TextField source="geo_type" />
-          <NumberField
-            source="projects.length"
-            label="Projects"
-            sortable={false}
-          />
-          <NumberField
-            source="properties.length"
-            label="Properties"
-            sortable={false}
-          />
-          <NumberField source="routes.length" label="Routes" sortable={false} />
           <EditButton />
           <DeleteWithUndoButton />
           <PushToProd resource="geofence" />

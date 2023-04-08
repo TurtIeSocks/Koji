@@ -217,7 +217,36 @@ async fn remove(
     }))
 }
 
-#[get("/{resource}/search/")]
+#[patch("/assign/{resource}/{property}/{id}/")]
+async fn assign(
+    db: web::Data<KojiDb>,
+    path: actix_web::web::Path<(String, String, u32)>,
+    payload: web::Json<serde_json::Value>,
+    // url: web::Query<(String, String)>,
+) -> Result<HttpResponse, Error> {
+    // let search = url.into_inner();
+    let payload = payload.into_inner();
+    let (resource, property, id) = path.into_inner();
+
+    let results = match resource.to_lowercase().as_str() {
+        "geofence" => db::geofence::Query::assign(&db.koji_db, id, property, payload).await,
+        // "project" => db::project::Query::search(&db.koji_db, search.query).await,
+        // "property" => db::property::Query::search(&db.koji_db, search.query).await,
+        // "route" => db::route::Query::search(&db.koji_db, search.query).await,
+        // "tileserver" => db::tile_server::Query::search(&db.koji_db, search.query).await,
+        _ => Err(ModelError::Custom("Invalid Resource".to_string())),
+    }
+    .map_err(actix_web::error::ErrorInternalServerError)?;
+    Ok(HttpResponse::Ok().json(Response {
+        data: Some(json!(results)),
+        message: "Success".to_string(),
+        status: "ok".to_string(),
+        stats: None,
+        status_code: 200,
+    }))
+}
+
+#[get("/search/{resource}/")]
 async fn search(
     db: web::Data<KojiDb>,
     path: actix_web::web::Path<String>,
