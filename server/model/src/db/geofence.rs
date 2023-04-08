@@ -3,11 +3,11 @@
 use std::{collections::HashMap, str::FromStr};
 
 use crate::{
-    api::{GeoFormats, ToCollection},
+    api::{args::ApiQueryArgs, GeoFormats, ToCollection},
     error::ModelError,
     utils::{
         json::{determine_category_by_value, JsonToModel},
-        json_related_sort, parse_order,
+        json_related_sort, name_modifier, parse_order,
     },
 };
 
@@ -96,10 +96,36 @@ impl Model {
         json!(self)
     }
 
+    async fn get_parent_name(&self, db: &DatabaseConnection) -> Result<Option<String>, ModelError> {
+        if let Some(parent_id) = self.parent {
+            if let Some(parent) = geofence::Entity::find_by_id(parent_id).one(db).await? {
+                let found_name = if let Some(name) = parent
+                    .get_related_properties()
+                    .into_model::<FullPropertyModel>()
+                    .all(db)
+                    .await?
+                    .iter()
+                    .find(|parent_prop| parent_prop.name == "name")
+                {
+                    let parsed = name.parse_db_value(&parent);
+                    if let Some(parsed) = parsed.as_str() {
+                        parsed.to_string()
+                    } else {
+                        parent.name
+                    }
+                } else {
+                    parent.name
+                };
+                return Ok(Some(found_name));
+            }
+        }
+        Ok(None)
+    }
+
     async fn to_feature(
         self,
         db: &DatabaseConnection,
-        internal: bool,
+        args: &ApiQueryArgs,
     ) -> Result<Feature, ModelError> {
         let mut properties = self
             .get_related_properties()
@@ -109,11 +135,27 @@ impl Model {
             .into_iter()
             .map(|prop| prop.parse_db_value(&self))
             .collect::<Vec<serde_json::Value>>();
+        let parent_name = self.get_parent_name(db).await?;
 
-        if internal {
+        if args.internal.is_some() {
             properties.push(json!({ "name": "__id", "value": self.id }));
             properties.push(json!({ "name": "__name", "value": self.name }));
             properties.push(json!({ "name": "__mode", "value": self.mode.to_value() }));
+        }
+        if args.name.is_some() {
+            properties.push(json!({ "name": "name", "value": self.name }));
+        }
+        if args.id.is_some() {
+            properties.push(json!({ "name": "id", "value": self.id }));
+        }
+        if args.mode.is_some() {
+            properties.push(json!({ "name": "mode", "value": self.mode.to_value() }));
+        }
+        if args.parent.is_some() {
+            properties.push(json!({ "name": "parent", "value": parent_name }));
+        }
+        if args.group.is_some() {
+            properties.push(json!({ "name": "group", "value": parent_name }));
         }
 
         let mut feature = Feature {
@@ -126,31 +168,10 @@ impl Model {
             if let Some(key) = key {
                 if let Some(key) = key.as_str() {
                     if key.eq("parent") {
-                        if let Some(parent_id) = val.unwrap().as_u64() {
-                            let parent = geofence::Entity::find_by_id(parent_id as u32)
-                                .one(db)
-                                .await?;
-                            if let Some(parent) = parent {
-                                let properties = parent
-                                    .get_related_properties()
-                                    .into_model::<FullPropertyModel>()
-                                    .all(db)
-                                    .await?;
-                                if let Some(name) = properties
-                                    .iter()
-                                    .find(|parent_prop| parent_prop.name == "name")
-                                {
-                                    let parsed = name.parse_db_value(&parent);
-                                    feature.set_property(key, parsed);
-                                } else {
-                                    feature.set_property(key, parent.name)
-                                }
-                            } else {
-                                feature.set_property(key, val.unwrap().clone())
-                            }
-                        } else {
-                            feature.set_property(key, val.unwrap().clone())
-                        }
+                        feature.set_property(
+                            if args.group.is_some() { "group" } else { key },
+                            parent_name.clone(),
+                        )
                     } else {
                         feature.set_property(key, val.unwrap().clone())
                     }
@@ -158,7 +179,16 @@ impl Model {
             }
         }
 
-        if internal {
+        if let Some(geofence_name) = feature.property("name") {
+            if let Some(geofence_name) = geofence_name.as_str() {
+                feature.set_property(
+                    "name",
+                    name_modifier(geofence_name.to_string(), args, parent_name),
+                );
+            }
+        }
+
+        if args.internal.is_some() {
             feature.id = Some(geojson::feature::Id::String(format!(
                 "{}__{}__KOJI",
                 self.id,
@@ -280,10 +310,10 @@ impl Query {
     pub async fn get_one_feature(
         db: &DatabaseConnection,
         id: String,
-        internal: bool,
+        args: &ApiQueryArgs,
     ) -> Result<Feature, ModelError> {
         match Query::get_one(db, id).await {
-            Ok(record) => record.to_feature(db, internal).await,
+            Ok(record) => record.to_feature(db, args).await,
             Err(err) => Err(err),
         }
     }
@@ -301,14 +331,14 @@ impl Query {
     /// Returns all geofence models as a FeatureCollection,
     pub async fn get_all_collection(
         db: &DatabaseConnection,
-        internal: bool,
+        args: &ApiQueryArgs,
     ) -> Result<FeatureCollection, ModelError> {
         let results = Query::get_all(db).await?;
 
         let results = future::try_join_all(
             results
                 .into_iter()
-                .map(|result| result.to_feature(db, internal)),
+                .map(|result| result.to_feature(db, args)),
         )
         .await?;
 
@@ -650,7 +680,7 @@ impl Query {
     pub async fn project_as_feature(
         db: &DatabaseConnection,
         project_name: String,
-        internal: bool,
+        args: &ApiQueryArgs,
     ) -> Result<Vec<Feature>, ModelError> {
         let items = match project_name.parse::<u32>() {
             Ok(id) => {
@@ -671,12 +701,9 @@ impl Query {
             }
         };
 
-        let items = future::try_join_all(
-            items
-                .into_iter()
-                .map(|result| result.to_feature(db, internal)),
-        )
-        .await?;
+        let items =
+            future::try_join_all(items.into_iter().map(|result| result.to_feature(db, args)))
+                .await?;
 
         Ok(items)
     }
@@ -687,5 +714,33 @@ impl Query {
             .into_json()
             .all(db)
             .await?)
+    }
+
+    pub async fn assign(
+        db: &DatabaseConnection,
+        id: u32,
+        property: String,
+        payload: serde_json::Value,
+    ) -> Result<Model, ModelError> {
+        let column = Column::from_str(&property);
+
+        if let Ok(column) = column {
+            let model = Entity::find_by_id(id).one(db).await?;
+            if let Some(model) = model {
+                let mut model: ActiveModel = model.into();
+                match column {
+                    Column::Parent => {
+                        model.parent = Set(Some(payload.as_u64().unwrap() as u32));
+                    }
+                    _ => {}
+                }
+                let model = model.update(db).await?;
+                Ok(model)
+            } else {
+                Err(ModelError::Geofence("Model not found".to_string()))
+            }
+        } else {
+            Err(ModelError::Geofence("Invalid property".to_string()))
+        }
     }
 }

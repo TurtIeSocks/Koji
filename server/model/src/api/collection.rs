@@ -133,17 +133,7 @@ impl ToPoracleVec for FeatureCollection {
         let mut return_vec = vec![];
 
         for (i, feature) in self.into_iter().enumerate() {
-            let mut poracle_feat = poracle::Poracle {
-                name: None,
-                color: None,
-                description: None,
-                display_in_matches: None,
-                group: None,
-                id: None,
-                user_selectable: None,
-                path: None,
-                multipath: None,
-            };
+            let mut poracle_feat = poracle::Poracle::default();
             if feature.contains_property("name") {
                 poracle_feat.name = Some(
                     feature
@@ -185,6 +175,15 @@ impl ToPoracleVec for FeatureCollection {
                 poracle_feat.group = Some(
                     feature
                         .property("group")
+                        .unwrap()
+                        .as_str()
+                        .unwrap_or("")
+                        .to_string(),
+                );
+            } else if feature.contains_property("parent") {
+                poracle_feat.group = Some(
+                    feature
+                        .property("parent")
                         .unwrap()
                         .as_str()
                         .unwrap_or("")

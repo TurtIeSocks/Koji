@@ -3,7 +3,12 @@ use super::*;
 use geo::Coord;
 use geojson::{Geometry, Value};
 use model::{
-    api::{args::SpawnpointTth, collection::Default, single_vec::SingleVec, BBox, ToCollection},
+    api::{
+        args::{ApiQueryArgs, SpawnpointTth},
+        collection::Default,
+        single_vec::SingleVec,
+        BBox, ToCollection,
+    },
     db::{area, geofence, gym, instance, pokestop, spawnpoint, GenericData},
     error::ModelError,
     KojiDb,
@@ -37,7 +42,13 @@ pub async fn load_feature(
     scanner_type: &String,
     conn: &KojiDb,
 ) -> Result<Feature, ModelError> {
-    match geofence::Query::get_one_feature(&conn.koji_db, instance.to_string(), true).await {
+    match geofence::Query::get_one_feature(
+        &conn.koji_db,
+        instance.to_string(),
+        &ApiQueryArgs::default(),
+    )
+    .await
+    {
         Ok(area) => Ok(area),
         Err(_) => {
             if scanner_type.eq("rdm") {
