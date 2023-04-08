@@ -149,11 +149,11 @@ impl ToPoracleVec for FeatureCollection {
                     (feature
                         .property("id")
                         .unwrap()
-                        .as_u64()
-                        .unwrap_or((i + 1) as u64)) as u32,
+                        .as_f64()
+                        .unwrap_or((i + 1) as f64)) as u32,
                 ));
             } else {
-                poracle_feat.id = Some(UnknownId::Number(i as u32));
+                poracle_feat.id = Some(UnknownId::Number((i + 1) as u32));
             }
             if feature.contains_property("color") {
                 poracle_feat.color = Some(
@@ -194,10 +194,10 @@ impl ToPoracleVec for FeatureCollection {
                         .to_string(),
                 );
             }
-            if feature.contains_property("display_in_matches") {
+            if feature.contains_property("displayInMatches") {
                 poracle_feat.display_in_matches = Some(
                     feature
-                        .property("display_in_matches")
+                        .property("displayInMatches")
                         .unwrap()
                         .as_bool()
                         .unwrap_or(true),
@@ -205,10 +205,10 @@ impl ToPoracleVec for FeatureCollection {
             } else {
                 poracle_feat.display_in_matches = Some(true);
             }
-            if feature.contains_property("user_selectable") {
+            if feature.contains_property("userSelectable") {
                 poracle_feat.user_selectable = Some(
                     feature
-                        .property("user_selectable")
+                        .property("userSelectable")
                         .unwrap()
                         .as_bool()
                         .unwrap_or(true),
