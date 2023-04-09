@@ -62,6 +62,10 @@ pub struct ApiQueryArgs {
     pub dash: Option<String>,
     /// Replaces any provided string/character with `""` (empty string)
     pub replace: Option<String>,
+    /// Trims x number of characters from the front of the `name` property
+    pub trimstart: Option<u32>,
+    /// Trims x number of characters from the back of the `name` property
+    pub trimend: Option<u32>,
 }
 ```
 
@@ -71,6 +75,8 @@ Since the name property of a geofence may need to be different on a per project 
 
 The manipulations mentioned above are executed in the following order:
 
+1. trimstart
+1. trimend
 1. replace
 1. parentreplace
 1. parentstart

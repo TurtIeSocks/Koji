@@ -200,7 +200,12 @@ pub fn clean(param: &String) -> String {
 
 pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<String>) -> String {
     let mut mutable = string.clone();
-
+    if let Some(trimfront) = modifiers.trimstart {
+        mutable = (&mutable[trimfront..]).to_string();
+    }
+    if let Some(trimback) = modifiers.trimend {
+        mutable = (&mutable[..(mutable.len() - trimback)]).to_string();
+    }
     if let Some(replacer) = modifiers.replace.as_ref() {
         mutable = mutable.replace(clean(replacer).as_str(), "");
     }
@@ -262,7 +267,7 @@ pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<St
     if modifiers.uppercase.is_some() {
         mutable = mutable.to_uppercase();
     }
-    mutable.trim().to_string();
+    mutable = mutable.trim().to_string();
     if mutable == "" {
         log::warn!(
             "Empty string detected for {} {:?}, returning the standard name",

@@ -177,9 +177,12 @@ impl Query {
         Ok(record)
     }
 
-    pub async fn get_or_create_name_record(db: &DatabaseConnection) -> Result<Model, DbErr> {
+    pub async fn get_or_create_db_prop(
+        db: &DatabaseConnection,
+        prop: &str,
+    ) -> Result<Model, DbErr> {
         let record = Entity::find()
-            .filter(property::Column::Name.eq("name"))
+            .filter(property::Column::Name.eq(prop))
             .filter(property::Column::Category.eq("database"))
             .one(db)
             .await?;
@@ -187,7 +190,7 @@ impl Query {
             Ok(record)
         } else {
             ActiveModel {
-                name: Set("name".to_string()),
+                name: Set(prop.to_string()),
                 category: Set(Category::Database),
                 ..Default::default()
             }

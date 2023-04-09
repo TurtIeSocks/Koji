@@ -7,6 +7,7 @@ import Route from '@mui/icons-material/Route'
 import ListAlt from '@mui/icons-material/ListAlt'
 import Map from '@mui/icons-material/Map'
 
+import NetworkAlert from '@components/notifications/NetworkStatus'
 import { getFullCache } from '@services/fetches'
 
 import { dataProvider } from './dataProvider'
@@ -45,62 +46,65 @@ export default function AdminPanel() {
   }, [])
 
   return (
-    <Admin
-      basename="/admin"
-      title="Kōji Admin"
-      dataProvider={dataProvider}
-      disableTelemetry
-      theme={{
-        ...defaultTheme,
-        ...(theme as RaThemeOptions),
-      }}
-      layout={Layout}
-    >
-      <Resource
-        name="project"
-        icon={AccountTree}
-        list={ProjectList}
-        edit={ProjectEdit}
-        show={ProjectShow}
-        create={ProjectCreate}
-        recordRepresentation={(record) => record.name || ''}
-      />
-      <Resource
-        name="geofence"
-        icon={Architecture}
-        list={GeofenceList}
-        edit={GeofenceEdit}
-        show={GeofenceShow}
-        create={GeofenceCreate}
-        recordRepresentation={(record) => record.name || ''}
-      />
-      <Resource
-        name="route"
-        icon={Route}
-        list={RouteList}
-        edit={RouteEdit}
-        show={RouteShow}
-        create={RouteCreate}
-        recordRepresentation={(record) => record.name || ''}
-      />
-      <Resource
-        name="property"
-        icon={ListAlt}
-        list={PropertyList}
-        edit={PropertyEdit}
-        show={PropertyShow}
-        create={PropertyCreate}
-        recordRepresentation={(record) => record.name || ''}
-      />
-      <Resource
-        name="tileserver"
-        icon={Map}
-        list={TileServerList}
-        edit={TileServerEdit}
-        show={TileServerShow}
-        create={TileServerCreate}
-        recordRepresentation={(record) => record.name || ''}
-      />
-    </Admin>
+    <>
+      <Admin
+        basename="/admin"
+        title="Kōji Admin"
+        dataProvider={dataProvider}
+        disableTelemetry
+        theme={{
+          ...defaultTheme,
+          ...(theme as RaThemeOptions),
+        }}
+        layout={Layout}
+      >
+        <Resource
+          name="project"
+          icon={AccountTree}
+          list={ProjectList}
+          edit={ProjectEdit}
+          show={ProjectShow}
+          create={ProjectCreate}
+          recordRepresentation={(record) => record.name || ''}
+        />
+        <Resource
+          name="geofence"
+          icon={Architecture}
+          list={GeofenceList}
+          edit={GeofenceEdit}
+          show={GeofenceShow}
+          create={GeofenceCreate}
+          recordRepresentation={(record) => record.name || ''}
+        />
+        <Resource
+          name="route"
+          icon={Route}
+          list={RouteList}
+          edit={RouteEdit}
+          show={RouteShow}
+          create={RouteCreate}
+          recordRepresentation={(record) => record.name || ''}
+        />
+        <Resource
+          name="property"
+          icon={ListAlt}
+          list={PropertyList}
+          edit={PropertyEdit}
+          show={PropertyShow}
+          create={PropertyCreate}
+          recordRepresentation={(record) => record.name || ''}
+        />
+        <Resource
+          name="tileserver"
+          icon={Map}
+          list={TileServerList}
+          edit={TileServerEdit}
+          show={TileServerShow}
+          create={TileServerCreate}
+          recordRepresentation={(record) => record.name || ''}
+        />
+      </Admin>
+      <NetworkAlert />
+    </>
   )
 }

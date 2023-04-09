@@ -159,11 +159,15 @@ impl Query {
         Ok(models)
     }
 
-    pub async fn add_name_property(db: &DatabaseConnection, id: u32) -> Result<Model, ModelError> {
-        let name_property = property::Query::get_or_create_name_record(db).await?;
+    pub async fn add_db_property(
+        db: &DatabaseConnection,
+        id: u32,
+        prop: &str,
+    ) -> Result<Model, ModelError> {
+        let property = property::Query::get_or_create_db_prop(db, prop).await?;
         Query::upsert(
             db,
-            &json!({ "property_id": name_property.id, "geofence_id": id, }),
+            &json!({ "property_id": property.id, "geofence_id": id, }),
             None,
         )
         .await

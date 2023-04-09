@@ -72,8 +72,16 @@ const AssignStep = React.forwardRef<
     }))
   }, [])
 
-  const all = Object.values(checked).every((val) => val)
-  const some = !all && Object.values(checked).some((val) => val)
+  const all = Object.entries(checked)
+    .filter(([k]) => (routeMode ? k.includes('circle') : !k.includes('circle')))
+    .every(([, val]) => val)
+  const some =
+    !all &&
+    Object.entries(checked)
+      .filter(([k]) =>
+        routeMode ? k.includes('circle') : !k.includes('circle'),
+      )
+      .some(([, val]) => val)
 
   const sorted = React.useMemo(
     () =>
@@ -118,7 +126,12 @@ const AssignStep = React.forwardRef<
               importWizard: {
                 ...prev.importWizard,
                 checked: Object.fromEntries(
-                  Object.keys(checked).map((k) => [k, !all && !some]),
+                  Object.entries(checked).map(([k, v]) => [
+                    k,
+                    (routeMode ? k.includes('circle') : !k.includes('circle'))
+                      ? !all && !some
+                      : v,
+                  ]),
                 ),
               },
             }))
