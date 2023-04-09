@@ -14,8 +14,10 @@ export function KojiMultiPoint({
   },
   radius,
   dbRef,
+  combined,
 }: {
   feature: Feature<MultiPoint>
+  combined?: boolean
   radius: number
   dbRef: DbOption | null
 }) {
@@ -43,6 +45,7 @@ export function KojiMultiPoint({
               index={i}
               type="MultiPoint"
               dbRef={dbRef}
+              combined={combined}
             />
             <MemoLineString
               key={`${first}-${isEnd}-${coordinates.length}`}
@@ -60,4 +63,8 @@ export function KojiMultiPoint({
   )
 }
 
-export const MemoMultiPoint = React.memo(KojiMultiPoint)
+export const MemoMultiPoint = React.memo(
+  KojiMultiPoint,
+  (prev, next) =>
+    prev.combined === next.combined && prev.radius === next.radius,
+)

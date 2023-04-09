@@ -69,6 +69,7 @@ export function ImportExportDialog({
               code={code}
               setCode={setCode}
               maxHeight="70vh"
+              width="100%"
               textMode={
                 mode === 'Export'
                   ? polygonExportMode === 'text' ||
@@ -81,35 +82,43 @@ export function ImportExportDialog({
         </Grid2>
       </DialogContent>
       <DialogActions>
-        {mode === 'Export' && (
-          <>
-            <MultiOptions
-              field="polygonExportMode"
-              buttons={CONVERSION_TYPES}
-              type="select"
-            />
-            <SplitMultiPolygonsBtn
-              fc={
-                feature.type === 'FeatureCollection'
-                  ? feature
-                  : { type: 'FeatureCollection', features: [feature] }
-              }
-              setter={setCode}
-            />
-          </>
-        )}
-        <ClipboardButton text={code} />
-        <Button
-          disabled={!!error}
-          onClick={() => {
-            if (mode === 'Import' && feature.type === 'FeatureCollection') {
-              add(feature.features)
-            }
-            reset()
-          }}
+        <div style={{ flexGrow: 0 }}>
+          {mode === 'Export' && (
+            <>
+              <MultiOptions
+                field="polygonExportMode"
+                buttons={CONVERSION_TYPES}
+                type="select"
+              />
+              {shape === 'Polygon' && (
+                <SplitMultiPolygonsBtn
+                  fc={
+                    feature.type === 'FeatureCollection'
+                      ? feature
+                      : { type: 'FeatureCollection', features: [feature] }
+                  }
+                  setter={setCode}
+                />
+              )}
+            </>
+          )}
+        </div>
+        <div
+          style={{ flexGrow: 1, display: 'flex', justifyContent: 'flex-end' }}
         >
-          {mode === 'Import' ? 'Import' : 'Close'}
-        </Button>
+          <ClipboardButton text={code} />
+          <Button
+            disabled={!!error}
+            onClick={() => {
+              if (mode === 'Import' && feature.type === 'FeatureCollection') {
+                add(feature.features)
+              }
+              reset()
+            }}
+          >
+            {mode === 'Import' ? 'Import' : 'Close'}
+          </Button>
+        </div>
       </DialogActions>
     </Dialog>
   )

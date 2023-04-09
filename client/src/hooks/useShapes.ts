@@ -25,6 +25,7 @@ const { setRecord } = useDbCache.getState()
 export interface UseShapes {
   test: boolean
   activeRoute: string
+  newPoints: number[]
   newRouteCount: number
   s2cellCoverage: Record<string, string[]>
   firstPoint: keyof UseShapes['Point'] | null
@@ -78,9 +79,10 @@ export interface UseShapes {
 }
 
 export const useShapes = create<UseShapes>((set, get) => ({
-  activeRoute: 'new_route_0',
+  activeRoute: '1__unset__CLIENT',
   s2cellCoverage: {},
-  newRouteCount: 0,
+  newPoints: [],
+  newRouteCount: 1,
   test: false,
   firstPoint: null,
   lastPoint: null,
@@ -182,96 +184,98 @@ export const useShapes = create<UseShapes>((set, get) => ({
       }
     },
     activeRoute: (incomingId) => {
-      const newId = incomingId || 'new_route_0'
+      const newId = incomingId || '0__unset__CLIENT'
 
       const { activeRoute, Point, MultiPoint } = get()
-      if (activeRoute !== newId) {
-        const newMultiPoint: Record<string | number, Feature<MultiPoint>> = {
-          ...MultiPoint,
-        }
-        if (Object.values(Point).length) {
-          const { __forward, __backward, ...rest } =
-            Object.values(Point)?.[0]?.properties || {}
 
-          newMultiPoint[activeRoute] = {
-            type: 'Feature',
-            id: activeRoute,
-            properties: MultiPoint[activeRoute]?.properties || rest,
-            geometry: {
-              type: 'MultiPoint',
-              coordinates: Object.values(Point).map(
-                (p) => p.geometry.coordinates,
-              ),
-            },
-          }
-        }
-        const newPoints: Record<
-          string | number,
-          Feature<Point>
-        > = Object.fromEntries(
-          Object.values(MultiPoint[newId]?.geometry?.coordinates || {}).map(
-            (point, i) => [
-              i * 10,
-              {
-                ...MultiPoint[newId],
-                properties: {
-                  ...MultiPoint[newId]?.properties,
-                  __multipoint_id: MultiPoint[newId]?.id as KojiKey,
-                  __forward: i
-                    ? i ===
-                      (MultiPoint[newId]?.geometry?.coordinates?.length || 0) -
-                        1
-                      ? 0
-                      : i * 10 + 10
-                    : 10,
-                  __backward: i
-                    ? i * 10 - 10
-                    : (MultiPoint[newId]?.geometry?.coordinates?.length || 0) *
-                        10 -
-                      10,
-                },
-                id: i * 10,
-                geometry: { type: 'Point', coordinates: point },
-              },
-            ],
-          ),
-        )
-        const newLineString: Record<string | number, Feature<LineString>> = {}
-        Object.entries(newPoints).forEach(([key, point], i) => {
-          const prevPoint = i
-            ? newPoints[+key - 10]
-            : newPoints[Object.values(newPoints).at(-1)?.id || 0]
-          const id = `${+prevPoint.id}__${+point.id}` as const
-          newLineString[id] = {
-            type: 'Feature',
-            id,
-            properties: {
-              __start: +prevPoint.id,
-              __end: +point.id,
-            },
-            geometry: {
-              type: 'LineString',
-              coordinates: [
-                prevPoint.geometry.coordinates,
-                point.geometry.coordinates,
-              ],
-            },
-          }
-        })
-        delete newMultiPoint[newId]
-        set({
-          firstPoint: Object.keys(newPoints).at(0) || null,
-          lastPoint: Object.keys(newPoints).at(-1) || null,
-          activeRoute: newId,
-          Point: newPoints,
-          LineString: newLineString,
-          MultiPoint: newMultiPoint,
-        })
+      const newMultiPoint: Record<string | number, Feature<MultiPoint>> = {
+        ...MultiPoint,
       }
+      if (Object.values(Point).length) {
+        const { __forward, __backward, __multipoint_id, ...rest } =
+          Object.values(Point)?.[0]?.properties || {}
+
+        newMultiPoint[__multipoint_id || activeRoute] = {
+          type: 'Feature',
+          id: __multipoint_id || activeRoute,
+          properties:
+            MultiPoint[__multipoint_id || activeRoute]?.properties || rest,
+          geometry: {
+            type: 'MultiPoint',
+            coordinates: Object.values(Point).map(
+              (p) => p.geometry.coordinates,
+            ),
+          },
+        }
+      }
+      const newPoints: Record<
+        string | number,
+        Feature<Point>
+      > = Object.fromEntries(
+        Object.values(MultiPoint[newId]?.geometry?.coordinates || {}).map(
+          (point, i) => [
+            i * 10,
+            {
+              ...MultiPoint[newId],
+              properties: {
+                ...MultiPoint[newId]?.properties,
+                __multipoint_id: MultiPoint[newId]?.id as KojiKey,
+                __forward: i
+                  ? i ===
+                    (MultiPoint[newId]?.geometry?.coordinates?.length || 0) - 1
+                    ? 0
+                    : i * 10 + 10
+                  : 10,
+                __backward: i
+                  ? i * 10 - 10
+                  : (MultiPoint[newId]?.geometry?.coordinates?.length || 0) *
+                      10 -
+                    10,
+              },
+              id: i * 10,
+              geometry: { type: 'Point', coordinates: point },
+            },
+          ],
+        ),
+      )
+      const newLineString: Record<string | number, Feature<LineString>> = {}
+      Object.entries(newPoints).forEach(([key, point], i) => {
+        const prevPoint = i
+          ? newPoints[+key - 10]
+          : newPoints[Object.values(newPoints).at(-1)?.id || 0]
+        const id = `${+prevPoint.id}__${+point.id}` as const
+        newLineString[id] = {
+          type: 'Feature',
+          id,
+          properties: {
+            __start: +prevPoint.id,
+            __end: +point.id,
+          },
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              prevPoint.geometry.coordinates,
+              point.geometry.coordinates,
+            ],
+          },
+        }
+      })
+      delete newMultiPoint[newId]
+      set({
+        firstPoint: Object.keys(newPoints).at(0) || null,
+        lastPoint: Object.keys(newPoints).at(-1) || null,
+        activeRoute: newId,
+        Point: newPoints,
+        LineString: newLineString,
+        MultiPoint: newMultiPoint,
+        newPoints: [],
+      })
     },
     combine: (all) => {
       const {
         combined,
+        Point,
+        MultiPoint,
         Polygon,
         MultiPolygon,
         setters: { remove, add },
@@ -282,6 +286,16 @@ export const useShapes = create<UseShapes>((set, get) => ({
         properties: {},
         id: getKey(),
       }
+      const mergedMultiPoint: Feature<MultiPoint> = {
+        type: 'Feature',
+        id: getKey(),
+        properties: {},
+        geometry: {
+          type: 'MultiPoint',
+          coordinates: [],
+        },
+      }
+
       Object.entries(
         all
           ? {
@@ -293,7 +307,7 @@ export const useShapes = create<UseShapes>((set, get) => ({
           : combined,
       ).forEach(([key, value]) => {
         if (value) {
-          const isPolygon = Polygon[key]
+          const isPolygon = !!Polygon[key]
           const polygon = isPolygon ? Polygon[key] : MultiPolygon[key]
           if (polygon) {
             remove(isPolygon ? 'Polygon' : 'MultiPolygon', key)
@@ -318,7 +332,44 @@ export const useShapes = create<UseShapes>((set, get) => ({
       if (newPoly.geometry.type === 'Polygon') {
         newPoly.geometry.coordinates = [newPoly.geometry.coordinates[0]]
       }
-      add(newPoly)
+      Object.entries(
+        all
+          ? {
+              ...Object.fromEntries(Object.keys(Point).map((k) => [k, true])),
+              ...Object.fromEntries(
+                Object.keys(MultiPoint).map((k) => [k, true]),
+              ),
+            }
+          : combined,
+      ).forEach(([key, value]) => {
+        if (value) {
+          const isPoint = !!Point[key]
+          const found = isPoint ? Point[key] : MultiPoint[key]
+          if (found) {
+            remove(isPoint ? 'Point' : 'MultiPoint', key)
+            if (isPoint) {
+              mergedMultiPoint.geometry.coordinates.push(
+                Point[key].geometry.coordinates,
+              )
+            } else {
+              mergedMultiPoint.geometry.coordinates.push(
+                ...MultiPoint[key].geometry.coordinates,
+              )
+            }
+            mergedMultiPoint.properties = {
+              ...mergedMultiPoint.properties,
+              ...found.properties,
+              id: mergedMultiPoint.id,
+            }
+          }
+        }
+      })
+      if (newPoly.geometry.coordinates.length) {
+        add(newPoly)
+      }
+      if (mergedMultiPoint.geometry.coordinates.length) {
+        add(mergedMultiPoint)
+      }
 
       set({ combined: {} })
     },

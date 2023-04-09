@@ -241,6 +241,9 @@ export function PolygonPopup({
         <MenuItem dense onClick={() => filterPoints(feature)}>
           Remove Non-Contained Points
         </MenuItem>
+        <MenuItem dense onClick={() => filterPoints(feature, true, true)}>
+          Combine Contained Points
+        </MenuItem>
         {...feature.geometry.type === 'MultiPolygon'
           ? [
               <MenuItem

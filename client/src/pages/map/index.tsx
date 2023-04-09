@@ -44,49 +44,49 @@ export default function MapWrapper() {
       <Loading />
       <ErrorBoundary>
         <DrawerIndex drawerWidth={drawerWidth} />
+        <Main open={drawer} drawerWidth={drawerWidth}>
+          <Map
+            forcedLocation={
+              params.lat && params.lon ? [+params.lat, +params.lon] : undefined
+            }
+            forcedZoom={params.zoom ? +params.zoom : undefined}
+            style={{
+              position: 'absolute',
+              maxWidth: '100% !important',
+              maxHeight: '100% !important',
+              margin: 'auto',
+              top: 0,
+              bottom: 0,
+              left: 0,
+              right: 0,
+            }}
+          >
+            <Pane name="circles" style={{ zIndex: 504 }} />
+            <Pane name="lines" style={{ zIndex: 503 }} />
+            <Pane name="arrows" style={{ zIndex: 502 }} />
+            <Pane name="polygons" style={{ zIndex: 501 }} />
+            <Pane name="s2" style={{ zIndex: 500 }} />
+            <Markers category="pokestop" />
+            <Markers category="spawnpoint" />
+            <Markers category="gym" />
+            <Interface />
+            <Points />
+            <MultiPoints />
+            <LineStrings />
+            <MultiLineStrings />
+            <Polygons />
+            <S2Cells />
+            <SimplifiedPolygons />
+          </Map>
+          <NetworkAlert />
+          <GeneralAlert />
+          <ImportPolygon />
+          <ExportPolygon />
+          <ImportRoute />
+          <ExportRoute />
+          <KeyboardShortcuts />
+        </Main>
       </ErrorBoundary>
-      <Main open={drawer} drawerWidth={drawerWidth}>
-        <Map
-          forcedLocation={
-            params.lat && params.lon ? [+params.lat, +params.lon] : undefined
-          }
-          forcedZoom={params.zoom ? +params.zoom : undefined}
-          style={{
-            position: 'absolute',
-            maxWidth: '100% !important',
-            maxHeight: '100% !important',
-            margin: 'auto',
-            top: 0,
-            bottom: 0,
-            left: 0,
-            right: 0,
-          }}
-        >
-          <Pane name="circles" style={{ zIndex: 504 }} />
-          <Pane name="lines" style={{ zIndex: 503 }} />
-          <Pane name="arrows" style={{ zIndex: 502 }} />
-          <Pane name="polygons" style={{ zIndex: 501 }} />
-          <Pane name="s2" style={{ zIndex: 500 }} />
-          <Markers category="pokestop" />
-          <Markers category="spawnpoint" />
-          <Markers category="gym" />
-          <Interface />
-          <Points />
-          <MultiPoints />
-          <LineStrings />
-          <MultiLineStrings />
-          <Polygons />
-          <S2Cells />
-          <SimplifiedPolygons />
-        </Map>
-        <NetworkAlert />
-        <GeneralAlert />
-        <ImportPolygon />
-        <ExportPolygon />
-        <ImportRoute />
-        <ExportRoute />
-        <KeyboardShortcuts />
-      </Main>
     </Box>
   )
 }

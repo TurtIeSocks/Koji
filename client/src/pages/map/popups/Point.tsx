@@ -183,7 +183,8 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
           disabled={loading}
           onClick={async () => {
             setLoading(true)
-            const { fast, route_split_level } = usePersist.getState()
+            const { fast, route_split_level, save_to_db } =
+              usePersist.getState()
             const { setStatic } = useStatic.getState()
             setStatic('loading', { [name]: null })
             setStatic('totalLoadingTime', 0)
@@ -205,13 +206,15 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
               }),
             }).then((res) => {
               if (res) {
-                useStatic.setState({
-                  notification: {
-                    message: 'Saved successfully!',
-                    status: 200,
-                    severity: 'success',
-                  },
-                })
+                if (save_to_db) {
+                  useStatic.setState({
+                    notification: {
+                      message: 'Saved successfully!',
+                      status: 200,
+                      severity: 'success',
+                    },
+                  })
+                }
                 const end = Date.now() - start
                 if (res.stats) {
                   setStatic('loading', (prev) => ({

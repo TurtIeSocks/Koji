@@ -6,7 +6,14 @@ import { UseShapes, useShapes } from '@hooks/useShapes'
 import { s2Coverage } from '@services/fetches'
 
 import { useStatic } from './useStatic'
-import { useDbCache } from './useDbCache'
+import { UseDbCache, useDbCache } from './useDbCache'
+
+declare global {
+  interface Window {
+    shapes: UseShapes
+    cache: UseDbCache
+  }
+}
 
 export default function useSyncGeojson() {
   const points = useShapes((s) => s.Point)
@@ -15,14 +22,15 @@ export default function useSyncGeojson() {
   const multiLineStrings = useShapes((s) => s.MultiLineString)
   const polygons = useShapes((s) => s.Polygon)
   const multiPolygons = useShapes((s) => s.MultiPolygon)
-
   const geojson = useStatic((s) => s.geojson)
 
   const setStatic = useStatic((s) => s.setStatic)
 
   if (process.env.NODE_ENV === 'development') {
-    console.log('Shape Debug:', useShapes.getState())
-    console.log('Cache Debug:', useDbCache.getState())
+    window.shapes = useShapes.getState()
+    window.cache = useDbCache.getState()
+    // console.log('Shape Debug:', useShapes.getState())
+    // console.log('Cache Debug:', useDbCache.getState())
   }
   useDeepCompareEffect(() => {
     const newGeojson: FeatureCollection = {

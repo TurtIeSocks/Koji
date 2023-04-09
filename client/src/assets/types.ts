@@ -61,6 +61,7 @@ export type Properties<G extends Geometry | null = Geometry> =
     __mode?: KojiModes
     __projects?: number[]
     __cells?: string[]
+    __index?: number
   }
 
 export interface Feature<G extends Geometry | null = Geometry, P = Properties>
