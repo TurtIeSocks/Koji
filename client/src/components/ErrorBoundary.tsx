@@ -59,7 +59,7 @@ export default class ErrorBoundary extends Component<
       <>
         <Notification
           CollapseProps={{ in: this.state.hasError }}
-          title="Kōji encountered an error!"
+          title="Kōji encountered an error and has attempted to recover"
           IconButtonProps={{
             onClick: () => this.setState({ hasError: false }),
           }}

@@ -13,6 +13,7 @@ import {
   KojiRouteModes,
 } from '@assets/types'
 import { usePersist } from '@hooks/usePersist'
+import { VECTOR_COLORS } from '@assets/constants'
 
 export function getMapBounds(map: L.Map) {
   const mapBounds = map.getBounds()
@@ -261,4 +262,22 @@ export function getRouteType(category: Category): KojiRouteModes {
     default:
       return scannerType === 'rdm' ? 'circle_smart_pokemon' : 'circle_pokemon'
   }
+}
+
+export function getPolygonColor(id: string) {
+  return id.includes('__SCANNER') ? VECTOR_COLORS.GREEN : VECTOR_COLORS.BLUE
+}
+
+export function getPointColor(
+  id: string,
+  type: 'Point' | 'MultiPoint',
+  index: number,
+) {
+  return type === 'Point'
+    ? VECTOR_COLORS.RED
+    : index === 0
+    ? VECTOR_COLORS.PURPLE
+    : id.includes('__SCANNER')
+    ? VECTOR_COLORS.GREEN
+    : VECTOR_COLORS.BLUE
 }

@@ -10,8 +10,12 @@ import type { Feature } from '@assets/types'
 import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
 import { useShapes } from '@hooks/useShapes'
-import { buildShortcutKey, reverseObject } from '@services/utils'
-import { VECTOR_COLORS } from '@assets/constants'
+import {
+  buildShortcutKey,
+  getPointColor,
+  getPolygonColor,
+  reverseObject,
+} from '@services/utils'
 
 export function Drawing() {
   const snappable = usePersist((s) => s.snappable)
@@ -22,13 +26,19 @@ export function Drawing() {
 
   const ref = React.useRef<L.FeatureGroup>(null)
 
-  const revertPolygonsToDefault = () =>
+  const revertColors = () =>
     map.pm.getGeomanLayers().forEach((layer) => {
       if (layer instanceof L.Polygon) {
         layer.setStyle({
-          color: `${layer.feature?.id}`.includes('SCANNER')
-            ? VECTOR_COLORS.GREEN
-            : VECTOR_COLORS.BLUE,
+          color: getPolygonColor(`${layer.feature?.id}`),
+        })
+      } else if (layer instanceof L.Circle) {
+        layer.setStyle({
+          color: getPointColor(
+            `${layer.feature?.id}`,
+            layer.feature?.geometry?.type || 'MultiPoint',
+            typeof layer.feature?.id === 'number' ? layer.feature.id / 10 : 0,
+          ),
         })
       }
     })
@@ -89,36 +99,50 @@ export function Drawing() {
             {
               text: 'Finish',
               onClick() {
-                map.pm.disableGlobalRemovalMode()
-                useShapes
-                  .getState()
-                  .setters.activeRoute(
-                    `new_route_${useShapes.getState().newRouteCount + 1}`,
-                  )
-                useShapes
-                  .getState()
-                  .setShapes('newRouteCount', (prev) => prev + 1)
+                map.pm.disableDraw()
+                const {
+                  setters: { activeRoute },
+                } = useShapes.getState()
+
+                activeRoute()
+                useShapes.setState((prev) => ({
+                  newPoints: [],
+                  newRouteCount: prev.newRouteCount + 1,
+                }))
               },
             },
             {
               text: 'New Route',
               onClick() {
-                useShapes
-                  .getState()
-                  .setters.activeRoute(
-                    `new_route_${useShapes.getState().newRouteCount + 1}`,
-                  )
-                useShapes
-                  .getState()
-                  .setShapes('newRouteCount', (prev) => prev + 1)
+                const {
+                  setters: { activeRoute },
+                  newRouteCount,
+                } = useShapes.getState()
+
+                activeRoute(`${newRouteCount + 1}__unset__CLIENT`)
+                useShapes.setState((prev) => ({
+                  newPoints: [],
+                  newRouteCount: prev.newRouteCount + 1,
+                }))
               },
             },
             {
               text: 'Cancel',
               onClick() {
-                map.pm.disableGlobalRemovalMode()
-                useShapes.getState().setters.remove('Point')
-                useShapes.getState().setters.remove('LineString')
+                const {
+                  setters: { remove, activeRoute },
+                  newPoints,
+                } = useShapes.getState()
+                map.pm.disableDraw()
+
+                newPoints.forEach((point) => {
+                  remove('Point', point)
+                })
+                activeRoute()
+                useShapes.setState((prev) => ({
+                  newPoints: [],
+                  newRouteCount: prev.newRouteCount + 1,
+                }))
               },
             },
           ])
@@ -126,7 +150,7 @@ export function Drawing() {
             map.pm.Toolbar.createCustomControl({
               name: 'mergeMode',
               block: 'custom',
-              title: 'Merge Polygons',
+              title: 'Merge Shapes',
               className: 'leaflet-button-merge',
               toggle: true,
               actions: [
@@ -184,6 +208,9 @@ export function Drawing() {
                     if (typeof last?.id === 'number') {
                       feature.properties.__backward = last.id
                     }
+                    feature.properties.__multipoint_id = `${
+                      useShapes.getState().newRouteCount
+                    }__unset__CLIENT`
                   }
                   if (last?.properties) {
                     last.properties.__forward = id
@@ -237,6 +264,7 @@ export function Drawing() {
                     })
                     setters.remove('LineString', `${last.id}__${first.id}`)
                   }
+                  setShapes('newPoints', (prev) => [...prev, id])
                   setShapes('Point', (prev) => ({
                     ...prev,
                     [id]: feature,
@@ -266,15 +294,13 @@ export function Drawing() {
         }}
         onGlobalDrawModeToggled={({ enabled, shape }) => {
           const { showCircles, showPolygons, setStore } = usePersist.getState()
-          const { setters, setShapes, newRouteCount } = useShapes.getState()
 
           switch (shape) {
             case 'Circle':
               if (!showCircles && enabled) {
                 setStore('showCircles', true)
               }
-              setters.activeRoute(`new_route_${newRouteCount + 1}`)
-              setShapes('newRouteCount', (prev) => prev + 1)
+              useShapes.setState({ newPoints: [] })
               break
             case 'Rectangle':
             case 'Polygon':
@@ -315,7 +341,7 @@ export function Drawing() {
             .setStatic('layerEditing', (e) => ({ ...e, rotateMode: enabled }))
         }
         onButtonClick={(e) => {
-          revertPolygonsToDefault()
+          revertColors()
           if (e.btnName === 'mergeMode') {
             useShapes.setState({ combined: {} })
             useStatic.setState((prev) => ({
@@ -435,7 +461,7 @@ export function Drawing() {
         }}
         onActionClick={({ btnName, text }) => {
           if (btnName === 'mergeMode' && text === 'Cancel') {
-            revertPolygonsToDefault()
+            revertColors()
             useStatic.setState({ combinePolyMode: false })
             useShapes.setState({ combined: {} })
           }
