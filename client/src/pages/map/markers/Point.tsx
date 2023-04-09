@@ -7,25 +7,21 @@ import geohash from 'ngeohash'
 import { VECTOR_COLORS } from '@assets/constants'
 import type { Feature, DbOption, KojiKey } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
-// import { useStatic } from '@hooks/useStatic'
+import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
 import { s2Coverage } from '@services/fetches'
+import { getPointColor } from '@services/utils'
 
 import BasePopup from '../popups/Styled'
 import { MemoPointPopup } from '../popups/Point'
 
 export function KojiPoint({
-  feature: {
-    id,
-    properties,
-    geometry: {
-      coordinates: [lon, lat],
-    },
-  },
+  feature,
   radius,
   type = 'Point',
   dbRef,
   index,
+  combined,
 }: {
   feature: Feature<Point>
   radius: number
@@ -33,12 +29,73 @@ export function KojiPoint({
   dbRef: DbOption | null
   parentId?: KojiKey
   index?: number
+  combined?: boolean
 }) {
+  const {
+    id,
+    properties,
+    geometry: {
+      coordinates: [lon, lat],
+    },
+  } = feature
+  const color = combined
+    ? VECTOR_COLORS.ORANGE
+    : getPointColor(`${properties?.__multipoint_id || id}`, type, index || 0)
+
   return (
     <Circle
+      key={`${combined}`}
+      eventHandlers={{
+        mouseover() {
+          if (
+            type === 'MultiPoint' &&
+            properties?.__multipoint_id &&
+            usePersist.getState().setActiveMode === 'hover' &&
+            !useStatic.getState().combinePolyMode
+          ) {
+            useShapes
+              .getState()
+              .setters.activeRoute(properties?.__multipoint_id)
+          }
+        },
+        click({ target }) {
+          if (useStatic.getState().combinePolyMode) {
+            target.closePopup()
+            useShapes.setState((prev) => {
+              const pointId =
+                (type === 'MultiPoint' ? properties?.__multipoint_id : id) || ''
+              if (prev.combined[pointId]) {
+                target.setStyle({ color })
+              } else {
+                target.setStyle({ color: VECTOR_COLORS.ORANGE })
+              }
+              return {
+                combined: {
+                  ...prev.combined,
+                  [pointId]: !prev.combined[pointId],
+                },
+              }
+            })
+          } else if (
+            type === 'MultiPoint' &&
+            properties?.__multipoint_id &&
+            usePersist.getState().setActiveMode === 'click'
+          ) {
+            useShapes
+              .getState()
+              .setters.activeRoute(properties?.__multipoint_id)
+          }
+        },
+      }}
       ref={(circle) => {
         if (circle && id !== undefined) {
-          if (circle.isPopupOpen()) circle.closePopup()
+          circle.feature = feature
+          if (circle.feature?.properties && (index || index === 0)) {
+            circle.feature.properties.__index = index
+          }
+          // if (circle.isPopupOpen()) {
+          //   circle.closePopup()
+          // }
           circle.removeEventListener('pm:remove')
           circle.on('pm:remove', function remove() {
             useShapes.getState().setters.remove(type, id)
@@ -71,28 +128,6 @@ export function KojiPoint({
               useShapes.setState({ s2cellCoverage: coverage })
             }
           })
-          if (usePersist.getState().setActiveMode === 'hover') {
-            circle.removeEventListener('mouseover')
-            circle.on('mouseover', function onClick() {
-              if (
-                type === 'MultiPoint' &&
-                properties?.__multipoint_id
-                // && !Object.values(useStatic.getState().layerEditing).some((v) => v)
-              ) {
-                useShapes
-                  .getState()
-                  .setters.activeRoute(properties?.__multipoint_id)
-              }
-            })
-          } else {
-            circle.on('click', function onClick() {
-              if (type === 'MultiPoint' && properties?.__multipoint_id) {
-                useShapes
-                  .getState()
-                  .setters.activeRoute(properties?.__multipoint_id)
-              }
-            })
-          }
         }
       }}
       radius={radius}
@@ -101,24 +136,20 @@ export function KojiPoint({
       pmIgnore={type === 'MultiPoint'}
       pane="circles"
       {...properties}
-      color={
-        type === 'Point' || index === 0
-          ? VECTOR_COLORS.RED
-          : properties?.__multipoint_id?.toString().includes('__SCANNER')
-          ? VECTOR_COLORS.GREEN
-          : VECTOR_COLORS.BLUE
-      }
+      color={color}
     >
-      <BasePopup>
-        <MemoPointPopup
-          id={id}
-          properties={properties}
-          lat={lat}
-          lon={lon}
-          type={type}
-          dbRef={dbRef}
-        />
-      </BasePopup>
+      {!useStatic.getState().combinePolyMode && (
+        <BasePopup>
+          <MemoPointPopup
+            id={id}
+            properties={properties}
+            lat={lat}
+            lon={lon}
+            type={type}
+            dbRef={dbRef}
+          />
+        </BasePopup>
+      )}
       {!!index && (
         <Tooltip direction="top">
           {index} -
@@ -135,6 +166,7 @@ export const MemoPoint = React.memo(
   (prev, next) =>
     prev.feature.id === next.feature.id &&
     prev.radius === next.radius &&
+    prev.combined === next.combined &&
     prev.feature.geometry.coordinates.every(
       (coord, i) => next.feature.geometry.coordinates[i] === coord,
     ),

@@ -13,6 +13,8 @@ import { MemoMultiLineString } from './MultiLineString'
 
 export function Points() {
   const shapes = useShapes((s) => s.Point)
+  const combined = useShapes((s) => s.combined)
+
   const radius = usePersist((s) => s.radius)
   const setActiveMode = usePersist((s) => s.setActiveMode)
   const showRouteIndex = usePersist((s) => s.showRouteIndex)
@@ -28,6 +30,7 @@ export function Points() {
           radius={calculation_mode === 'Radius' ? radius || 10 : 100}
           index={showRouteIndex ? i + 1 : NaN}
           dbRef={getFromKojiKey(feature.properties.__multipoint_id)}
+          combined={combined[id]}
         />
       ))}
     </React.Fragment>
@@ -36,6 +39,8 @@ export function Points() {
 
 export function MultiPoints() {
   const shapes = useShapes((s) => s.MultiPoint)
+  const combined = useShapes((s) => s.combined)
+
   const radius = usePersist((s) => s.radius)
   const setActiveMode = usePersist((s) => s.setActiveMode)
   const calculation_mode = usePersist((s) => s.calculation_mode)
@@ -49,6 +54,7 @@ export function MultiPoints() {
           feature={feature}
           radius={calculation_mode === 'Radius' ? radius || 10 : 100}
           dbRef={getFromKojiKey(id)}
+          combined={combined[id]}
         />
       ))}
     </React.Fragment>

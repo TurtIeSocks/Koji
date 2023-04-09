@@ -8,6 +8,7 @@ import { VECTOR_COLORS } from '@assets/constants'
 import { Feature, DbOption } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
+import { getPolygonColor } from '@services/utils'
 
 import { MemoPolyPopup } from '../popups/Polygon'
 import Popup from '../popups/Styled'
@@ -23,60 +24,53 @@ export function KojiPolygon({
 
   const [loadData, setLoadData] = React.useState(false)
 
-  const color = feature?.id.toString().includes('__SCANNER')
-    ? VECTOR_COLORS.GREEN
-    : VECTOR_COLORS.BLUE
+  const color = getPolygonColor(`${feature.id}`)
 
   return (
     <Polygon
       key={`${feature.id}_${feature.geometry.type}_${feature.geometry.coordinates.length}`}
       color={color}
+      eventHandlers={{
+        click({ latlng }) {
+          if (!loadData) setLoadData(true)
+          const { lat, lng } = latlng
+          setStatic('clickedLocation', [lng, lat])
+        },
+        mouseover({ target }) {
+          if (
+            !useStatic.getState().combinePolyMode &&
+            !Object.values(useStatic.getState().layerEditing).some((v) => v)
+          ) {
+            target.setStyle({ color: VECTOR_COLORS.RED })
+          }
+        },
+        mouseout({ target }) {
+          if (!useStatic.getState().combinePolyMode) {
+            target.setStyle({ color })
+          }
+        },
+        mousedown({ target }) {
+          if (useStatic.getState().combinePolyMode) {
+            useShapes.setState((prev) => {
+              if (prev.combined[feature.id || '']) {
+                target.setStyle({ color })
+              } else {
+                target.setStyle({ color: VECTOR_COLORS.ORANGE })
+              }
+              return {
+                combined: {
+                  ...prev.combined,
+                  [feature.id || '']: !prev.combined[feature.id || ''],
+                },
+              }
+            })
+          }
+        },
+      }}
       ref={(ref) => {
         if (ref && feature.id) {
           ref.feature = feature
           const { type } = feature.geometry
-          ref.addOneTimeEventListener('click', () => setLoadData(true))
-          ref.addEventListener('click', ({ latlng }) => {
-            const { lat, lng } = latlng
-            setStatic('clickedLocation', [lng, lat])
-          })
-          if (!ref.hasEventListeners('mouseover')) {
-            ref.on('mouseover', function mouseOver() {
-              if (
-                !useStatic.getState().combinePolyMode &&
-                !Object.values(useStatic.getState().layerEditing).some((v) => v)
-              ) {
-                ref.setStyle({ color: VECTOR_COLORS.RED })
-                // ref.bringToFront()
-              }
-            })
-          }
-          if (!ref.hasEventListeners('mouseout')) {
-            ref.on('mouseout', function mouseOut() {
-              if (!useStatic.getState().combinePolyMode) {
-                ref.setStyle({ color })
-              }
-            })
-          }
-          if (!ref.hasEventListeners('mousedown')) {
-            ref.on('mousedown', function mouseDown() {
-              if (useStatic.getState().combinePolyMode) {
-                useShapes.setState((prev) => {
-                  if (prev.combined[feature.id || '']) {
-                    ref.setStyle({ color })
-                  } else {
-                    ref.setStyle({ color: VECTOR_COLORS.ORANGE })
-                  }
-                  return {
-                    combined: {
-                      ...prev.combined,
-                      [feature.id || '']: !prev.combined[feature.id || ''],
-                    },
-                  }
-                })
-              }
-            })
-          }
           if (!ref.hasEventListeners('pm:remove')) {
             ref.on('pm:remove', function remove() {
               useShapes.getState().setters.remove(type, feature.id)

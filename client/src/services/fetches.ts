@@ -138,8 +138,11 @@ export async function clusteringRouting({
   const { add, activeRoute } = useShapes.getState().setters
   const { getFromKojiKey, getRouteByCategory } = useDbCache.getState()
 
-  const areas = ((feature ? [feature] : geojson?.features) || []).filter((x) =>
-    x.geometry.type.includes('Polygon'),
+  const areas = ((feature ? [feature] : geojson?.features) || []).filter(
+    (x) =>
+      x.geometry.type.includes('Polygon') &&
+      x.geometry.type !== 'GeometryCollection' &&
+      x.geometry.coordinates.length,
   )
   const last_seen = typeof raw === 'string' ? new Date(raw) : raw
   const category = rawCategory === 'fort' ? 'gym' : rawCategory
@@ -167,7 +170,7 @@ export async function clusteringRouting({
     })
   }
 
-  activeRoute('layer_1')
+  activeRoute('0__unset__CLIENT')
   useStatic.setState({
     loading: Object.fromEntries(
       areas.map((k) => [

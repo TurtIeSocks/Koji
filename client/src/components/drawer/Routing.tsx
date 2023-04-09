@@ -131,14 +131,20 @@ export default function RoutingTab() {
       <Toggle
         field="save_to_db"
         label="Save to Kōji Db"
-        disabled={scannerType === 'rdm' && category === 'pokestop'}
+        disabled={
+          scannerType === 'rdm' &&
+          category === 'pokestop' &&
+          mode !== 'bootstrap'
+        }
       />
       <Toggle
         field="save_to_scanner"
         label="Save to Scanner Db"
         disabled={
           !useStatic.getState().dangerous ||
-          (scannerType === 'rdm' && category === 'pokestop')
+          (scannerType === 'rdm' &&
+            category === 'pokestop' &&
+            mode !== 'bootstrap')
         }
       />
       <Toggle field="skipRendering" />
