@@ -10,7 +10,7 @@ interface Props extends ButtonProps {
 
 export default function SaveToKoji({ fc, ...rest }: Props) {
   const [loading, setLoading] = React.useState(false)
-  const routes = {
+  const routes: FeatureCollection = {
     type: 'FeatureCollection',
     features: fc.features.filter((feat) => feat.geometry.type === 'MultiPoint'),
   }
@@ -35,10 +35,13 @@ export default function SaveToKoji({ fc, ...rest }: Props) {
                   ...feat,
                   properties: {
                     ...feat.properties,
-                    __geofence_id: Object.values(newFences || {}).find(
-                      (x) =>
-                        x.name === feat.properties.__geofence_id?.toString(),
-                    )?.id,
+                    __geofence_id:
+                      Object.values(newFences || {}).find(
+                        (x) =>
+                          x.name === feat.properties.__geofence_id?.toString(),
+                      )?.id ||
+                      feat.properties.__geofence_id ||
+                      feat.properties.geofence_id,
                   },
                 })),
               ),

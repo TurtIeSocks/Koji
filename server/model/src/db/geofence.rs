@@ -537,7 +537,8 @@ impl Query {
             new_model.update(db).await?
         } else {
             let model = new_model.insert(db).await?;
-            let prop_name_model = geofence_property::Query::add_name_property(db, model.id).await?;
+            let prop_name_model =
+                geofence_property::Query::add_db_property(db, model.id, "name").await?;
             if let Some(properties) = json["properties"].as_array_mut() {
                 properties.push(json!({
                     "property_id": prop_name_model.property_id,
@@ -567,7 +568,11 @@ impl Query {
         Ok(record)
     }
 
-    async fn upsert_feature(conn: &DatabaseConnection, feat: Feature) -> Result<Model, ModelError> {
+    async fn upsert_feature(
+        conn: &DatabaseConnection,
+        feat: Feature,
+        parent_map: &mut HashMap<String, UnknownId>,
+    ) -> Result<Model, ModelError> {
         let mut new_map = HashMap::<&str, serde_json::Value>::new();
 
         let id = if let Some(id) = feat.property("__id") {
@@ -580,9 +585,10 @@ impl Query {
             0
         } as u32;
 
-        if let Some(name) = feat.property("__name") {
+        let name = if let Some(name) = feat.property("__name") {
             if let Some(name) = name.as_str() {
                 new_map.insert("name", serde_json::Value::String(name.to_string()));
+                name.to_string()
             } else {
                 return Err(ModelError::Geofence("Name is invalid string".to_string()));
             }
@@ -607,6 +613,14 @@ impl Query {
             new_map.insert("projects", projects.clone());
         };
 
+        if let Some(parent) = feat.property("__parent") {
+            if let Some(parent) = parent.as_str() {
+                parent_map.insert(name, UnknownId::String(parent.to_string()));
+            } else if let Some(parent) = parent.as_u64() {
+                parent_map.insert(name, UnknownId::Number(parent as u32));
+            }
+        };
+
         let properties = feat
             .properties_iter()
             .filter_map(|(k, v)| {
@@ -627,9 +641,10 @@ impl Query {
         conn: &DatabaseConnection,
         area: GeoFormats,
     ) -> Result<(), ModelError> {
+        let mut parent_map = HashMap::<String, UnknownId>::new();
         match area {
             GeoFormats::Feature(feat) => {
-                Query::upsert_feature(conn, feat).await?;
+                Query::upsert_feature(conn, feat, &mut parent_map).await?;
             }
             feat => {
                 let fc = match feat {
@@ -637,10 +652,35 @@ impl Query {
                     geometry => geometry.to_collection(None, None),
                 };
                 for feat in fc.into_iter() {
-                    Query::upsert_feature(conn, feat).await?;
+                    Query::upsert_feature(conn, feat, &mut parent_map).await?;
                 }
             }
         };
+        if !parent_map.is_empty() {
+            // ensures it exists before running the try_join_all
+            property::Query::get_or_create_db_prop(conn, "parent").await?;
+            future::try_join_all(
+                parent_map
+                    .into_iter()
+                    .map(|(name, parent)| Query::associate_parent(conn, name, parent)),
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn associate_parent(
+        db: &DatabaseConnection,
+        name: String,
+        parent: UnknownId,
+    ) -> Result<(), ModelError> {
+        let model = Query::get_one(db, name).await?;
+        let parent_model = Query::get_one(db, parent.to_string()).await?;
+        let mut new_model: ActiveModel = model.into();
+        new_model.parent = Set(Some(parent_model.id));
+        let model = new_model.update(db).await?;
+        geofence_property::Query::add_db_property(db, model.id, "parent").await?;
         Ok(())
     }
 

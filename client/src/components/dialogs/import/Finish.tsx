@@ -22,9 +22,12 @@ export default function FinishStep({ filtered, reset }: Props) {
         __mode: feat.properties?.mode,
         __projects: feat.properties?.projects,
         __geofence_id: feat.properties?.geofence_id,
+        __parent: feat.properties?.parent,
         name: undefined,
         mode: undefined,
         projects: undefined,
+        geofence_id: undefined,
+        parent: undefined,
       },
     })),
   }

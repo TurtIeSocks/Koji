@@ -73,6 +73,8 @@ pub enum DataPointsArg {
 /// These allow custom modification of the `name` property
 ///
 /// Executed in the following order:
+/// - `trimstart`
+/// - `trimend`
 /// - `replace`
 /// - `parentstart`
 /// - `parentend
@@ -127,6 +129,10 @@ pub struct ApiQueryArgs {
     pub dash: Option<String>,
     /// Replaces any provided string/character with `""` (empty string)
     pub replace: Option<String>,
+    /// Trims x number of characters from the front of the `name` property
+    pub trimstart: Option<usize>,
+    /// Trims x number of characters from the back of the `name` property
+    pub trimend: Option<usize>,
 }
 
 impl Default for ApiQueryArgs {
@@ -151,6 +157,8 @@ impl Default for ApiQueryArgs {
             dash: None,
             replace: None,
             group: None,
+            trimstart: None,
+            trimend: None,
         }
     }
 }
