@@ -72,7 +72,6 @@ export const dataProvider: typeof defaultProvider = {
   getList,
   getOne: (resource, params) =>
     httpClient(`/internal/admin/${resource}/${params.id}/`).then(({ json }) => {
-      // console.log(json)
       return json
     }),
   create: async (resource, params) => {

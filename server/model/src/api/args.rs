@@ -76,21 +76,28 @@ pub enum DataPointsArg {
 /// - `trimstart`
 /// - `trimend`
 /// - `replace`
+/// - `parentreplace`
 /// - `parentstart`
 /// - `parentend
+/// - `lowercase`
+/// - `uppercase`
+/// - `capfirst`
+/// - `capitalize`
 /// - `underscore`
 /// - `dash`
 /// - `space`
-/// - `capfirst`
-/// - `capitalize`
-/// - `lowercase`
-/// - `uppercase`
 /// - A `trim` function is always called on the final result to remove any leading or trailing whitespace
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiQueryArgs {
-    /// If true, internal properties are added with a `__` prefix as well as a generated `id` property
+    /// If true, internal database properties are added with a `__` prefix
+    /// Adds a generated `id` property
+    /// Not encouraged to use outside of development
     pub internal: Option<bool>,
+
+    // -------------------------------------------------------------------------
+    // Adds the respective property to the return Feature/FeatureCollection
+    // It is encouraged to add these properties through the admin panel instead of using these args!
     /// If true, the `id` property is added
     pub id: Option<bool>,
     /// If true, the `name` property is added
@@ -101,12 +108,18 @@ pub struct ApiQueryArgs {
     pub geofence_id: Option<bool>,
     /// If true, the `parent` property is added
     pub parent: Option<bool>,
+
+    // -------------------------------------------------------------------------
+    // Extras
     /// custom return type of the API request
     ///
     /// Options: [ReturnTypeArg]
     pub rt: Option<String>,
     /// If true, the `group` property is set from the parent property
     pub group: Option<bool>,
+
+    // -------------------------------------------------------------------------
+    // Name Property Manipulation
     /// If true, the entire `name` property is set to lowercase
     pub lowercase: Option<bool>,
     /// If true, the entire `name` property is set to uppercase

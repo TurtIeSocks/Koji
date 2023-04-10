@@ -14,6 +14,7 @@ import AdminPanel from '@pages/admin'
 import ErrorPage from '@pages/Error'
 import Login from '@pages/Login'
 import ConvertPage from '@pages/Convert'
+import Playground from '@pages/Playground'
 
 const router = createBrowserRouter([
   {
@@ -44,6 +45,11 @@ const router = createBrowserRouter([
   {
     path: '/convert',
     element: <ConvertPage />,
+    errorElement: <ErrorPage error="500" />,
+  },
+  {
+    path: '/play',
+    element: <Playground />,
     errorElement: <ErrorPage error="500" />,
   },
   {
