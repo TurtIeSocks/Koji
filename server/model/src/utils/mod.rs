@@ -200,11 +200,11 @@ pub fn clean(param: &String) -> String {
 
 pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<String>) -> String {
     let mut mutable = string.clone();
-    if let Some(trimfront) = modifiers.trimstart {
-        mutable = (&mutable[trimfront..]).to_string();
+    if let Some(trimstart) = modifiers.trimstart {
+        mutable = (&mutable[trimstart..]).to_string();
     }
-    if let Some(trimback) = modifiers.trimend {
-        mutable = (&mutable[..(mutable.len() - trimback)]).to_string();
+    if let Some(trimend) = modifiers.trimend {
+        mutable = (&mutable[..(mutable.len() - trimend)]).to_string();
     }
     if let Some(replacer) = modifiers.replace.as_ref() {
         mutable = mutable.replace(clean(replacer).as_str(), "");
@@ -221,14 +221,11 @@ pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<St
             mutable = format!("{}{}{}", mutable, clean(parent_end), parent,);
         }
     }
-    if let Some(replacer) = modifiers.underscore.as_ref() {
-        mutable = mutable.replace("_", clean(replacer).as_str());
+    if modifiers.lowercase.is_some() {
+        mutable = mutable.to_lowercase();
     }
-    if let Some(replacer) = modifiers.dash.as_ref() {
-        mutable = mutable.replace("-", clean(replacer).as_str());
-    }
-    if let Some(replacer) = modifiers.space.as_ref() {
-        mutable = mutable.replace(" ", clean(replacer).as_str());
+    if modifiers.uppercase.is_some() {
+        mutable = mutable.to_uppercase();
     }
     if modifiers.capfirst.is_some() {
         mutable = mutable
@@ -244,7 +241,7 @@ pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<St
             .collect();
     }
     if let Some(capitalize) = modifiers.capitalize.as_ref() {
-        mutable = capitalize
+        mutable = mutable
             .split(clean(capitalize).as_str())
             .map(|word| {
                 word.chars()
@@ -261,11 +258,14 @@ pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<St
             .collect::<Vec<String>>()
             .join(clean(capitalize).as_str());
     }
-    if modifiers.lowercase.is_some() {
-        mutable = mutable.to_lowercase();
+    if let Some(replacer) = modifiers.underscore.as_ref() {
+        mutable = mutable.replace("_", clean(replacer).as_str());
     }
-    if modifiers.uppercase.is_some() {
-        mutable = mutable.to_uppercase();
+    if let Some(replacer) = modifiers.dash.as_ref() {
+        mutable = mutable.replace("-", clean(replacer).as_str());
+    }
+    if let Some(replacer) = modifiers.space.as_ref() {
+        mutable = mutable.replace(" ", clean(replacer).as_str());
     }
     mutable = mutable.trim().to_string();
     if mutable == "" {

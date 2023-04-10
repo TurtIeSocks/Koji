@@ -4,6 +4,7 @@ import { Box, Button, Typography } from '@mui/material'
 import Map from '@mui/icons-material/Map'
 import Admin from '@mui/icons-material/AdminPanelSettings'
 import Convert from '@mui/icons-material/PrecisionManufacturing'
+import Play from '@mui/icons-material/Api'
 import { MapContainer, TileLayer } from 'react-leaflet'
 import { shallow } from 'zustand/shallow'
 
@@ -72,11 +73,12 @@ export default function Home() {
             zIndex={10000}
             flexDirection={{ xs: 'column', sm: 'row' }}
           >
-            {(['Map', 'Admin', 'Convert'] as const).map((page) => {
+            {(['Map', 'Admin', 'Convert', 'Play'] as const).map((page) => {
               const Icon = {
                 Map,
                 Admin,
                 Convert,
+                Play,
               }[page]
               return (
                 <Grid2
