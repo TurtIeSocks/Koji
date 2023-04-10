@@ -11,48 +11,44 @@ pub struct ApiQueryArgs {
     /// Not encouraged to use outside of development
     pub internal: Option<bool>,
 
-// -------------------------------------------------------------------------
-// Adds the respective property to the return Feature/FeatureCollection
-// It is encouraged to add these properties through the admin panel instead of using these args!
+    // -------------------------------------------------------------------------
+    // Adds the respective property to the return Feature/FeatureCollection
+    // It is encouraged to add these properties through the admin panel instead of using these args!
     /// If true, the `id` property is added
     pub id: Option<bool>,
     /// If true, the `name` property is added
     pub name: Option<bool>,
     /// If true, the `mode` property is added
     pub mode: Option<bool>,
+    /// If true, the `geofence_id` property is added
+    pub geofence_id: Option<bool>,
     /// If true, the `parent` property is added
     pub parent: Option<bool>,
 
-// -------------------------------------------------------------------------
-// Extras
+    // -------------------------------------------------------------------------
+    // Extras
     /// custom return type of the API request
     ///
     /// Options: [ReturnTypeArg]
-    ///
-    /// Transforms the return type of the geometry into the provided type
     pub rt: Option<String>,
     /// If true, the `group` property is set from the parent property
     pub group: Option<bool>,
 
-// -------------------------------------------------------------------------
-// Name Property Manipulation
+    // -------------------------------------------------------------------------
+    // Name Property Manipulation
     /// If true, the entire `name` property is set to lowercase
     pub lowercase: Option<bool>,
     /// If true, the entire `name` property is set to uppercase
     pub uppercase: Option<bool>,
-    /// If provided, the `name` property is split at the provided string/character
-    /// each word is capitalized, then rejoined with the same character
+    /// If provided, the `name` property is split at the provided string/character, each word is capitalized, then rejoined with the same character
     pub capitalize: Option<String>,
     /// If true, the first character of the `name` property is capitalized
     pub capfirst: Option<bool>,
-    /// If true, the `parent` property is added as a prefix to the `name`
-    /// separated by the provided string/character
+    /// If true, the `parent` property is added as a prefix to the `name`, separated by the provided string/character
     pub parentstart: Option<String>,
-    /// If true, the `parent` property is added as a suffix to the `name`
-    /// separated by the provided string/character
+    /// If true, the `parent` property is added as a suffix to the `name`, separated by the provided string/character
     pub parentend: Option<String>,
-    /// If the `name` property has the `parent` name as part of its value
-    /// the `parent` name is replaced with the given string/character
+    /// If the `name` property has the `parent` name as part of its value, the `parent` name is replaced with the given string/character
     pub parentreplace: Option<String>,
     /// Spaces in the `name` property are replaced with the given string/character
     pub space: Option<String>,
@@ -63,9 +59,9 @@ pub struct ApiQueryArgs {
     /// Replaces any provided string/character with `""` (empty string)
     pub replace: Option<String>,
     /// Trims x number of characters from the front of the `name` property
-    pub trimstart: Option<u32>,
+    pub trimstart: Option<usize>,
     /// Trims x number of characters from the back of the `name` property
-    pub trimend: Option<u32>,
+    pub trimend: Option<usize>,
 }
 ```
 
@@ -81,13 +77,13 @@ The manipulations mentioned above are executed in the following order:
 1. parentreplace
 1. parentstart
 1. parentend
+1. lowercase
+1. uppercase
+1. capfirst
+1. capitalize
 1. underscore
 1. dash
 1. space
-1. capfirst
-1. capitalize
-1. lowercase
-1. uppercase
 1. A trim function is automatically called at the end to remove start and end whitespace
 
 By taking advantage of the execution order you should be able to manipulate the name property in almost any desirable way.
@@ -150,3 +146,7 @@ Poracle styled results with the `group` property set from the native `parent` pr
 | south_dc | DC    |
 | east_dc  | DC    |
 | west_dc  | DC    |
+
+## Playground
+
+A playground is included as part of the Kōji client. You can check it out yourself at `http://{your_koji_url}/play`
