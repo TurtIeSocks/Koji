@@ -154,7 +154,7 @@ pub async fn get_database_struct() -> KojiDb {
             opt.sqlx_logging_level(LevelFilter::Debug);
             match Database::connect(opt).await {
                 Ok(db) => db,
-                Err(err) => panic!("Cannot connect to Koji DB: {}", err),
+                Err(err) => panic!("Cannot connect to Kōji DB: {}", err),
             }
         },
         unown_db: if unown_db_url.is_empty() {
