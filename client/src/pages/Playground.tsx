@@ -90,8 +90,8 @@ const PROPERTIES = {
 }
 
 const PARAMS = {
-  trimstart: 'boolean',
-  trimend: 'boolean',
+  trimstart: 'number',
+  trimend: 'number',
   replace: 'string',
   parentreplace: 'string',
   parentstart: 'string',
