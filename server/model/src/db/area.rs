@@ -168,8 +168,7 @@ impl Query {
                             Some(area::Column::FortModeRoute)
                         }
                         "circlequest" | "circle_quest" => Some(area::Column::QuestModeRoute),
-                        "autoquest" | "auto_quest" => Some(area::Column::Geofence),
-                        _ => None,
+                        _ => Some(area::Column::Geofence),
                     }
                 } else {
                     None
