@@ -3,8 +3,13 @@ import * as React from 'react'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import Typography from '@mui/material/Typography'
 
-import { AdminProject, KojiResponse, FeatureCollection } from '@assets/types'
-import { Checkbox, Divider, MenuItem, Select } from '@mui/material'
+import {
+  AdminProject,
+  KojiResponse,
+  FeatureCollection,
+  Feature,
+} from '@assets/types'
+import { Checkbox, Divider, MenuItem, Select, TextField } from '@mui/material'
 import ReactWindow from '@components/ReactWindow'
 import { useStatic } from '@hooks/useStatic'
 import {
@@ -275,15 +280,23 @@ const AssignStep = React.forwardRef<
               const feature = data.geojson.features.find(
                 (feat) => feat.id === refFeature.id,
               )
+              const [name, setName] = React.useState(
+                feature?.properties?.name || `Feature_${index}`,
+              )
+
+              React.useEffect(() => {
+                if (name !== feature?.properties?.name) {
+                  if (feature) {
+                    setName(feature.properties?.name || `Feature_${index}`)
+                  }
+                }
+              }, [feature?.properties?.name])
+
               if (!feature) return null
               const isActive = feature && checked[feature.id || '']
 
               return (
-                <Grid2
-                  key={`${feature?.properties?.name}`}
-                  container
-                  style={style}
-                >
+                <Grid2 container style={style}>
                   <Grid2 xs={1}>
                     <Checkbox
                       checked={isActive}
@@ -302,12 +315,29 @@ const AssignStep = React.forwardRef<
                     />
                   </Grid2>
                   <Grid2 xs={3}>
-                    <Typography variant="subtitle2">
-                      {feature.properties?.name || `Feature_${index}`}
-                    </Typography>
-                    <Typography variant="caption">
-                      {feature.geometry.type}
-                    </Typography>
+                    <TextField
+                      value={name}
+                      onChange={({ target }) => {
+                        setName(target.value)
+                      }}
+                      onBlur={() => {
+                        const newFeature: Feature = {
+                          ...feature,
+                          properties: {
+                            ...feature?.properties,
+                            name,
+                          },
+                        }
+                        handleChange({
+                          ...geojson,
+                          features: geojson.features.map((feat) =>
+                            feat.id === feature?.id ? newFeature : feat,
+                          ),
+                        })
+                      }}
+                      size="small"
+                      helperText={feature.geometry.type}
+                    />
                   </Grid2>
                   <Grid2 xs={3}>
                     <Select
