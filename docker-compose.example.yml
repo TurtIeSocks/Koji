@@ -1,4 +1,4 @@
-version: "2"
+version: '2'
 services:
   koji:
     image: ghcr.io/turtiesocks/koji:main
@@ -6,10 +6,10 @@ services:
     restart: unless-stopped
     environment:
       # Required
-      SCANNER_DB_URL: mysql://rdm_user:rdm_password@host:3306/rdm_database
-      # UNOWN_DB_URL: mysql://rdm_user:rdm_password@host:3306/flygon_database
-      KOJI_DB_URL: mysql://koji_user:koji_password@127.0.0.1:3306/koji_database
-      KOJI_SECRET: your_super_secret
+      SCANNER_DB_URL: 'mysql://rdm_user:rdm_password@host:3306/rdm_database'
+      # UNOWN_DB_URL: 'mysql://rdm_user:rdm_password@host:3306/flygon_database'
+      KOJI_DB_URL: 'mysql://koji_user:koji_password@127.0.0.1:3306/koji_database'
+      KOJI_SECRET: 'your_super_secret'
       # Optional
       #START_LAT: 0
       #START_LON: 0
@@ -20,4 +20,4 @@ services:
     #mem_reservation: 256M
     #cpus: 2
     ports:
-      - "8080:8080" # change left one for external port
+      - '8080:8080' # change left one for external port

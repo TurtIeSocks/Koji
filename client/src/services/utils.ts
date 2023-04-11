@@ -10,6 +10,7 @@ import {
   Category,
   Feature,
   FeatureCollection,
+  KojiModes,
   KojiRouteModes,
 } from '@assets/types'
 import { usePersist } from '@hooks/usePersist'
@@ -135,15 +136,25 @@ export function splitMultiPolygons(
   featureCollection: FeatureCollection,
 ): FeatureCollection {
   const features: Feature[] = []
+  const { Polygon } = useShapes.getState()
+  const userIds: Set<string> = new Set([...Object.keys(Polygon)])
+
+  const getId = (id: number, mode: KojiModes) => {
+    let newId = id
+    while (userIds.has(`${newId}__${mode}__CLIENT`)) {
+      newId += 1
+    }
+    const safeId = `${newId}__${mode}__CLIENT`
+    userIds.add(safeId)
+    return safeId
+  }
   featureCollection.features.forEach((feature: Feature) => {
     if (feature.geometry.type === 'MultiPolygon') {
       const { coordinates } = feature.geometry
       coordinates.forEach((polygon, i) => {
         features.push({
           ...feature,
-          id: `${
-            coordinates.length === 1 ? feature.properties.__id || i : i
-          }__${feature.properties?.__mode}__CLIENT`,
+          id: getId(i + 1, feature.properties?.__mode || 'unset'),
           properties: {
             ...feature.properties,
             __id: undefined,
