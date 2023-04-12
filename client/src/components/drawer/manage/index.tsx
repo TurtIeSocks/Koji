@@ -93,6 +93,7 @@ export default function ImportExport() {
         label="Import from Scanner"
       />
       <InstanceSelect
+        fences
         koji
         controlled
         initialState={[
@@ -100,14 +101,30 @@ export default function ImportExport() {
           ...geojson.features
             .filter(
               (feat) =>
-                feat.geometry.type !== 'LineString' &&
-                feat.geometry.type !== 'Point' &&
+                feat.geometry.type.includes('Polygon') &&
                 typeof feat.id === 'string' &&
                 feat.id.endsWith('__KOJI'),
             )
             .map((feat) => feat.id as KojiKey),
         ]}
-        label="Import from Kōji"
+        label="Import Geofences"
+      />
+      <InstanceSelect
+        routes
+        koji
+        controlled
+        initialState={[
+          ...(addPoint && addPoint.endsWith('__KOJI') ? [addPoint] : []),
+          ...geojson.features
+            .filter(
+              (feat) =>
+                feat.geometry.type === 'MultiPoint' &&
+                typeof feat.id === 'string' &&
+                feat.id.endsWith('__KOJI'),
+            )
+            .map((feat) => feat.id as KojiKey),
+        ]}
+        label="Import Routes"
       />
       <SelectProject />
       <Divider sx={{ my: 2 }} />

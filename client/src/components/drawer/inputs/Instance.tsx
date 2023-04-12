@@ -36,6 +36,8 @@ const partialIcon = (
 export default function InstanceSelect({
   setGeojson,
   koji = false,
+  fences = false,
+  routes = false,
   controlled = false,
   // filters = [],
   initialState = [],
@@ -43,6 +45,8 @@ export default function InstanceSelect({
 }: {
   setGeojson?: (collection: FeatureCollection, deleted: string[]) => void
   koji?: boolean
+  fences?: boolean
+  routes?: boolean
   filters?: readonly string[]
   controlled?: boolean
   initialState?: KojiKey[]
@@ -55,7 +59,13 @@ export default function InstanceSelect({
     getFromKojiKey,
   } = useDbCache.getState()
   const options = useDbCache((s) =>
-    koji ? s.getOptions('geofence', 'route') : s.getOptions('scanner'),
+    fences
+      ? s.getOptions('geofence')
+      : routes
+      ? s.getOptions('route')
+      : koji
+      ? s.getOptions('geofence', 'route')
+      : s.getOptions('scanner'),
   )
   const [loading, setLoading] = React.useState(false)
   const [selected, setSelected] = React.useState<KojiKey[]>([])

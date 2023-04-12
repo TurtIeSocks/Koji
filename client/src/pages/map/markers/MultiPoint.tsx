@@ -66,5 +66,8 @@ export function KojiMultiPoint({
 export const MemoMultiPoint = React.memo(
   KojiMultiPoint,
   (prev, next) =>
-    prev.combined === next.combined && prev.radius === next.radius,
+    prev.combined === next.combined &&
+    prev.radius === next.radius &&
+    prev.feature.geometry.coordinates.length ===
+      next.feature.geometry.coordinates.length,
 )
