@@ -1,5 +1,3 @@
-use crate::{clustering::brute::helpers::Helpers, utils};
-
 use super::*;
 
 pub fn run(
@@ -11,7 +9,7 @@ pub fn run(
     let time = Instant::now();
 
     // HashMap of approximate points using trimmed geohashes
-    let mut approx_map = HashMap::<String, Vec<(String, Coord)>>::new();
+    let mut approx_map = HashMap::<String, Vec<(String, Point)>>::new();
     // Set of seen points when using approximate geohashes
     let mut seen_set = HashSet::<String>::new();
 
@@ -22,14 +20,11 @@ pub fn run(
 
     points.into_iter().for_each(|x| {
         // Flip & create the coord
-        let coord = Coord {
-            x: x.p[1],
-            y: x.p[0],
-        };
+        let coord = Point::new(x.p[1], x.p[0]);
         // Precise Geohash
-        let point_key = encode(coord, PRECISION).unwrap();
+        let point_key = encode(coord.into(), PRECISION).unwrap();
         // Approximate Geohash
-        let approx_key = encode(coord, APPROX_PRECISION).unwrap();
+        let approx_key = encode(coord.into(), APPROX_PRECISION).unwrap();
 
         // Insert into master point map
         point_map
@@ -68,11 +63,11 @@ pub fn run(
         .into_iter()
         .map(|x| {
             // Flip & create the coord
-            let coord = Coord { x: x[1], y: x[0] };
+            let coord = Point::new(x[1], x[0]);
             // Precise Geohash
-            let circle_key = encode(coord, PRECISION).unwrap();
+            let circle_key = encode(coord.into(), PRECISION).unwrap();
             // Approximate Geohash
-            let approx_key = encode(coord, APPROX_PRECISION).unwrap();
+            let approx_key = encode(coord.into(), APPROX_PRECISION).unwrap();
             // Circle's bbox
             let mut bbox = BBox::default();
 
@@ -82,9 +77,9 @@ pub fn run(
                     .into_iter()
                     .filter_map(|(point_key, point_coord)| {
                         // Check if the point is actually within the radius of the precise circle
-                        if coord.vincenty_inverse(&point_coord) <= radius {
+                        if coord.haversine_distance(&point_coord) <= radius {
                             // Mark point as seen
-                            seen_set.insert(encode(point_coord.clone(), PRECISION).unwrap());
+                            seen_set.insert(encode(point_coord.clone().into(), PRECISION).unwrap());
                             // Update circle's bbox
                             bbox.update(point_coord);
 
@@ -141,7 +136,7 @@ pub fn run(
                 if circle_key[..(APPROX_PRECISION - factor)]
                     == point_key[..(APPROX_PRECISION - factor)]
                 {
-                    if point_info.coord.vincenty_inverse(&circle_info.coord) <= radius {
+                    if point_info.coord.haversine_distance(&circle_info.coord) <= radius {
                         seen_set.insert(point_key.clone());
 
                         circle_map

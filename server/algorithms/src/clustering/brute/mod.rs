@@ -24,21 +24,18 @@ pub mod unique;
 pub mod wiggle;
 
 trait ClusterCoords {
-    fn midpoint(&self, other: &Self) -> Coord;
+    fn midpoint(&self, other: &Self) -> Point;
 }
 
-impl ClusterCoords for Coord {
-    fn midpoint(&self, other: &Coord) -> Coord {
-        Coord {
-            x: (self.x + other.x) / 2.,
-            y: (self.y + other.y) / 2.,
-        }
+impl ClusterCoords for Point {
+    fn midpoint(&self, other: &Point) -> Point {
+        Point::new((self.x() + other.x()) / 2., (self.y() + other.y()) / 2.)
     }
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct CircleInfo {
-    pub coord: Coord,
+    pub coord: Point,
     pub bbox: BBox,
     pub points: HashSet<String>,
     pub unique: HashSet<String>,
@@ -57,7 +54,7 @@ impl CircleInfo {
         points.extend(self.unique.clone());
         points
     }
-    pub fn get_points(&self, point_map: &HashMap<String, PointInfo>, key: CiKeys) -> Vec<Coord> {
+    pub fn get_points(&self, point_map: &HashMap<String, PointInfo>, key: CiKeys) -> Vec<Point> {
         match key {
             // CiKeys::Points => self.points.clone(),
             CiKeys::Unique => self.unique.clone(),
@@ -71,7 +68,7 @@ impl CircleInfo {
 
 #[derive(Debug, Clone)]
 pub struct PointInfo {
-    pub coord: Coord,
+    pub coord: Point,
     pub circles: HashSet<String>,
     pub points: usize,
 }
@@ -142,6 +139,10 @@ pub fn cluster(
     for info in circle_map.clone().values() {
         if info.meets_min {
             for point in info.combine() {
+                if point == "djn572ywue7v" || point == "djn572ywu" {
+                    log::error!("{:?}", info)
+                };
+
                 point_seen_map.insert(point);
             }
         }
@@ -186,7 +187,7 @@ pub fn cluster(
             match irs.shuffle(&mut sorted, &mut rng) {
                 Ok(_) => {}
                 Err(e) => {
-                    log::error!("Error while shuffling: {}", e);
+                    log::warn!("Error while shuffling: {}", e);
                 }
             }
         }
@@ -217,6 +218,10 @@ pub fn cluster(
     for (i, info) in sorted.iter().enumerate() {
         if info.1.meets_min {
             for point in info.1.combine() {
+                if point == "djn572ywue7v" || point == "djn572ywu" {
+                    log::error!("{:?}", info)
+                };
+
                 point_seen_map.insert(point);
             }
             let point: Point = info.1.coord.into();
@@ -236,7 +241,9 @@ pub fn cluster(
                     stats.best_clusters = vec![];
                     stats.best_cluster_point_count = combined.len();
                 }
-                stats.best_clusters.push([info.1.coord.y, info.1.coord.x]);
+                stats
+                    .best_clusters
+                    .push([info.1.coord.y(), info.1.coord.x()]);
             }
         }
     }
@@ -248,7 +255,7 @@ pub fn cluster(
         .filter_map(|x| {
             if x.1.meets_min {
                 stats.total_clusters += 1;
-                Some([x.1.coord.y, x.1.coord.x])
+                Some([x.1.coord.y(), x.1.coord.x()])
             } else {
                 None
             }

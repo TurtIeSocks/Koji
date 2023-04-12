@@ -10,19 +10,19 @@ pub fn sync_maps(
     remove_at_start: bool,
     min_points: usize,
 ) {
-    let new_key = encode(best_neighbor.coord, PRECISION).unwrap();
+    let new_key = encode(best_neighbor.coord.into(), PRECISION).unwrap();
     if remove_at_start {
         circle_map.remove(&best_neighbor_key);
         circle_map.remove(&circle_key);
     }
     let mut unique = HashSet::new();
     let mut points = HashSet::new();
-    let mut bbox_points: Vec<Coord> = best_neighbor
+    let mut bbox_points: Vec<Point> = best_neighbor
         .points
         .iter()
         .filter_map(|x| {
             if let Some(point) = point_map.get_mut(x) {
-                let distance = point.coord.vincenty_inverse(&best_neighbor.coord);
+                let distance = point.coord.haversine_distance(&best_neighbor.coord);
                 if distance <= radius {
                     point.circles.remove(&circle_key);
                     point.circles.remove(&best_neighbor_key);
@@ -42,7 +42,7 @@ pub fn sync_maps(
         .collect();
     for (key, info) in point_map.clone().into_iter() {
         if key[..APPROX_PRECISION] == new_key[..APPROX_PRECISION] {
-            if info.coord.vincenty_inverse(&best_neighbor.coord) <= radius {
+            if info.coord.haversine_distance(&best_neighbor.coord) <= radius {
                 if info.circles.is_empty() {
                     unique.insert(key);
                 } else {

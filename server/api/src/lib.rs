@@ -31,13 +31,6 @@ pub async fn start() -> io::Result<()> {
         Err(err) => log::error!("Migration Error {:?}", err),
     };
 
-    let scanner_type = if databases.unown_db.is_none() {
-        "rdm"
-    } else {
-        "unown"
-    }
-    .to_string();
-
     let path = || {
         if is_docker().is_ok() {
             "./dist"
@@ -47,23 +40,30 @@ pub async fn start() -> io::Result<()> {
         .to_string()
     };
 
-    let client = nominatim::Client::new(
-        url::Url::parse(
-            env::var("NOMINATIM_URL")
-                .unwrap_or("https://nominatim.openstreetmap.org/".to_string())
-                .as_str(),
-        )
-        .unwrap(),
-        "nominatim-rust/0.1.0 test-suite".to_string(),
-        None,
-    )
-    .unwrap();
-
     HttpServer::new(move || {
+        let client = nominatim::Client::new(
+            url::Url::parse(
+                env::var("NOMINATIM_URL")
+                    .unwrap_or("https://nominatim.openstreetmap.org/".to_string())
+                    .as_str(),
+            )
+            .unwrap(),
+            "nominatim-rust/0.1.0 test-suite".to_string(),
+            None,
+        )
+        .unwrap();
+
+        let scanner_type = if databases.unown_db.is_none() {
+            "rdm"
+        } else {
+            "unown"
+        }
+        .to_string();
+
         App::new()
             .app_data(web::Data::new(databases.clone()))
-            .app_data(web::Data::new(scanner_type.clone()))
-            .app_data(web::Data::new(client.clone()))
+            .app_data(web::Data::new(scanner_type))
+            .app_data(web::Data::new(client))
             // increase max payload size to 20MB
             .app_data(web::JsonConfig::default().limit(20_971_520))
             .wrap(middleware::Logger::new("%s | %r - %b bytes in %D ms (%a)"))
