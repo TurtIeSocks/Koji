@@ -3,14 +3,14 @@ use std::{
     time::Instant,
 };
 
-use geo::HaversineDistance;
+use geo::{HaversineDistance, Point};
 // use geo::Coord;
 use model::{
-    api::{single_vec::SingleVec, stats::Stats, Precision},
+    api::{single_vec::SingleVec, stats::Stats, GetBbox, Precision},
     db::GenericData,
 };
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use s2::{cell::Cell, cellid::CellID, latlng::LatLng};
+use s2::{cell::Cell, cellid::CellID, latlng::LatLng, region::RegionCoverer};
 
 use crate::s2::ToGeo;
 
@@ -49,13 +49,31 @@ pub fn multi_thread(
             }
         }
     }
-    let (covered, normalized) = normalize(return_map);
+    let (covered, normalized) = normalize(merge(return_map, radius));
     stats.total_clusters = normalized.len();
     stats.points_covered = covered;
     stats.cluster_time = time.elapsed().as_secs_f64() as Precision;
     normalized
 }
 
+fn create_matrix(cells: &Vec<CellID>, ref_cells: &Vec<CellID>, radius: f64) -> Vec<Vec<bool>> {
+    let time = Instant::now();
+    let matrix = cells
+        .par_iter()
+        .map(|first| {
+            let first = first.geo_point();
+            ref_cells
+                .par_iter()
+                .map(|second| {
+                    let second = second.geo_point();
+                    first.haversine_distance(&second) <= radius
+                })
+                .collect()
+        })
+        .collect();
+    log::debug!("Matrix time: {}", time.elapsed().as_secs_f64());
+    matrix
+}
 fn cluster(
     key: u64,
     cells: Vec<CellID>,
@@ -69,21 +87,20 @@ fn cluster(
     if cells.len() > 10_000 {
         log::warn!("Warning, you're running the brute force algorithm with {} points. This will likely result in very heavy CPU and RAM usage.", cells.len());
     }
-    let time = Instant::now();
-    let matrix: Vec<Vec<bool>> = cells
-        .par_iter()
-        .map(|first| {
-            let first = first.geo_point();
-            cells
-                .par_iter()
-                .map(|second| {
-                    let second = second.geo_point();
-                    first.haversine_distance(&second) <= radius
-                })
-                .collect()
-        })
-        .collect();
-    log::debug!("Matrix time: {}", time.elapsed().as_secs_f64());
+    let all_s20 = &cells;
+
+    //  RegionCoverer {
+    //     max_level: 20,
+    //     min_level: 20,
+    //     level_mod: 1,
+    //     max_cells: 10000,
+    // }
+    // .covering(&Cell::from(CellID(key)).rect_bound())
+    // .0;
+
+    log::debug!("S2 coverage: {}", all_s20.len());
+
+    let matrix = create_matrix(&cells, &all_s20, radius);
 
     while highest >= min_points {
         // let time = Instant::now();
@@ -97,7 +114,7 @@ fn cluster(
                 }
                 Some((
                     first,
-                    cells
+                    all_s20
                         .par_iter()
                         .enumerate()
                         .filter_map(|(j, second)| {
@@ -140,6 +157,105 @@ fn cluster(
     final_clusters
         .into_iter()
         .map(|(k, v)| (*k, v.into_iter().map(|x| *x).collect()))
+        .collect()
+}
+
+fn merge(cells: HashMap<CellID, Vec<CellID>>, radius: f64) -> HashMap<CellID, Vec<CellID>> {
+    let mut return_map = HashMap::new();
+    let mut blocked = HashSet::new();
+
+    for (key1, cells1) in cells.iter() {
+        let mut best = cells.len();
+        let mut best_cell = key1;
+        if blocked.contains(&key1.0) {
+            continue;
+        }
+        blocked.insert(&key1.0);
+
+        for (key2, cells2) in cells.iter() {
+            if key1.0 == key2.0 || blocked.contains(&key2.0) {
+                continue;
+            }
+            let mut combine: Vec<[f64; 2]> = cells1
+                .iter()
+                .map(|c| {
+                    let point = c.geo_point();
+                    [point.y(), point.x()]
+                })
+                .collect();
+            cells2.iter().for_each(|c| {
+                combine.push({
+                    let point = c.geo_point();
+                    [point.y(), point.x()]
+                });
+            });
+            let bbox = combine.get_bbox().unwrap();
+            let lower_left = Point::new(bbox[0], bbox[1]);
+            let upper_right = Point::new(bbox[2], bbox[3]);
+            let total = cells1.len() + cells2.len();
+            if total > best && lower_left.haversine_distance(&upper_right) <= radius * 2. {
+                best = total;
+                best_cell = key2;
+            }
+        }
+        return_map.insert(*key1, cells1.clone());
+        if best_cell == key1 {
+            continue;
+        } else {
+            blocked.insert(&best_cell.0);
+            return_map.entry(*key1).and_modify(|new_cells| {
+                new_cells.extend(cells.get(best_cell).unwrap());
+            });
+        }
+    }
+    // let x: Vec<&Vec<CellID>> = cells
+    //     .par_iter()
+    //     .enumerate()
+    //     .filter_map(|(i, cells1)| {
+    //         let mut best = cells.len();
+    //         let mut best_cell = i;
+    //         if blocked.contains(&i) {
+    //             return None;
+    //         }
+    //         blocked.insert(&i);
+    //         cells.iter().enumerate().for_each(|(j, cells2)| {
+    //             if i == j || blocked.contains(&j) {
+    //                 return;
+    //             }
+    //             let mut combine: Vec<[f64; 2]> = cells1
+    //                 .iter()
+    //                 .map(|c| {
+    //                     let point = c.geo_point();
+    //                     [point.y(), point.x()]
+    //                 })
+    //                 .collect();
+    //             cells2.iter().for_each(|c| {
+    //                 combine.push({
+    //                     let point = c.geo_point();
+    //                     [point.y(), point.x()]
+    //                 });
+    //             });
+    //             let bbox = combine.get_bbox().unwrap();
+    //             let lower_left = Point::new(bbox[0], bbox[1]);
+    //             let upper_right = Point::new(bbox[2], bbox[3]);
+    //             if lower_left.haversine_distance(&upper_right) <= radius * 2. {
+    //                 best = cells1.len() + cells2.len();
+    //                 best_cell = j;
+    //             }
+    //         });
+    //         if best_cell == i {
+    //             Some(cells1)
+    //         } else {
+    //             blocked.insert(&best_cell);
+    //             let mut values = cells1;
+    //             values.extend(cells.get(best_cell).unwrap().clone());
+    //             Some(values)
+    //         }
+    //     })
+    //     .collect();
+    return_map
+        .into_iter()
+        .map(|(k, v)| (k, v.clone()))
         .collect()
 }
 
