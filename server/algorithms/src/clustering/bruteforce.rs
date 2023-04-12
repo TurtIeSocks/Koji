@@ -10,7 +10,7 @@ use model::{
     db::GenericData,
 };
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use s2::{cell::Cell, cellid::CellID, latlng::LatLng, region::RegionCoverer};
+use s2::{cell::Cell, cellid::CellID, latlng::LatLng};
 
 use crate::s2::ToGeo;
 
