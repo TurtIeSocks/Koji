@@ -1,7 +1,5 @@
 use super::*;
 
-use crate::clustering::balanced::helpers::Helpers;
-
 pub fn run(
     point_map: &HashMap<String, PointInfo>,
     point_seen_map: &mut HashSet<String>,
@@ -39,16 +37,16 @@ pub fn run(
         let mut best_merge_key = "".to_string();
 
         for (circle_key, circle_info) in circle_map.clone().into_iter() {
-            let lower_left = Coord {
-                x: bbox.min_x.min(circle_info.bbox.min_x),
-                y: bbox.min_y.min(circle_info.bbox.min_y),
-            };
+            let lower_left = Point::new(
+                bbox.min_x.min(circle_info.bbox.min_x),
+                bbox.min_y.min(circle_info.bbox.min_y),
+            );
             // UR of the circle and its neighbor
-            let upper_right = Coord {
-                x: bbox.max_x.max(circle_info.bbox.max_x),
-                y: bbox.max_y.max(circle_info.bbox.max_y),
-            };
-            let distance = lower_left.vincenty_inverse(&upper_right);
+            let upper_right = Point::new(
+                bbox.max_x.max(circle_info.bbox.max_x),
+                bbox.max_y.max(circle_info.bbox.max_y),
+            );
+            let distance = lower_left.haversine_distance(&upper_right);
 
             // Checks whether the LL and UR points are within the circle circumference
             if distance <= radius * 2. {
@@ -68,7 +66,7 @@ pub fn run(
                     };
                     best_merge_key = circle_key;
                 }
-            } else if distance <= radius * 2. + 10. {
+            } else if distance <= radius * 2. {
                 // New coord from the midpoint of the LL and UR points
                 let coord = lower_left.midpoint(&upper_right);
                 // Combine the points from the circle and its neighbor, ensuring uniqueness
@@ -104,7 +102,7 @@ pub fn run(
                 point_seen_map.insert(point_key);
             }
         } else {
-            let new_key = encode(best_merge.coord, PRECISION).unwrap();
+            let new_key = encode(best_merge.coord.into(), PRECISION).unwrap();
             circle_map.remove(&best_merge_key);
             circle_map.insert(new_key, best_merge);
             point_seen_map.insert(point_key);

@@ -1,7 +1,5 @@
 use super::*;
 
-use crate::clustering::balanced::helpers::Helpers;
-
 pub fn run(
     point_map: &mut HashMap<String, PointInfo>,
     circle_map: &mut HashMap<String, CircleInfo>,
@@ -36,7 +34,7 @@ pub fn run(
 
         // mutable neighbor to merge with after cycling through all of the neighbors to find the best
         let mut best_neighbor = CircleInfo {
-            coord: Coord { x: 0., y: 0. },
+            coord: Point::new(0., 0.),
             bbox: BBox::default(),
             points: HashSet::new(),
             unique: HashSet::new(),
@@ -49,17 +47,17 @@ pub fn run(
             // get the neighbor ref
             if let Some(found_neighbor) = circle_map.get(&neighbor_key) {
                 // LL of the circle and its neighbor
-                let lower_left = Coord {
-                    x: theoretical_bbox.min_x.min(found_neighbor.bbox.min_x),
-                    y: theoretical_bbox.min_y.min(found_neighbor.bbox.min_y),
-                };
+                let lower_left = Point::new(
+                    theoretical_bbox.min_x.min(found_neighbor.bbox.min_x),
+                    theoretical_bbox.min_y.min(found_neighbor.bbox.min_y),
+                );
                 // UR of the circle and its neighbor
-                let upper_right = Coord {
-                    x: theoretical_bbox.max_x.max(found_neighbor.bbox.max_x),
-                    y: theoretical_bbox.max_y.max(found_neighbor.bbox.max_y),
-                };
+                let upper_right = Point::new(
+                    theoretical_bbox.max_x.max(found_neighbor.bbox.max_x),
+                    theoretical_bbox.max_y.max(found_neighbor.bbox.max_y),
+                );
                 // Distance between the LL and UR points to determine whether they can be merged
-                let distance = lower_left.vincenty_inverse(&upper_right);
+                let distance = lower_left.haversine_distance(&upper_right);
 
                 // Checks whether the LL and UR points are within the circle circumference
                 if distance <= radius * 2. {
@@ -91,7 +89,7 @@ pub fn run(
                     {
                         if new_points.iter().all(|p| {
                             let point_info = point_map.get(p).unwrap();
-                            point_info.coord.vincenty_inverse(&new_coord) <= radius
+                            point_info.coord.haversine_distance(&new_coord) <= radius
                         }) {
                             best_neighbor_key = neighbor_key;
                             best_neighbor.points = new_points;

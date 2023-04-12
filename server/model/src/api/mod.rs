@@ -3,7 +3,7 @@ use super::{
     *,
 };
 
-use geo::Coord;
+use geo::Point;
 use geojson::{Bbox, Geometry, Value};
 use sea_orm::FromQueryResult;
 
@@ -172,7 +172,7 @@ impl Default for BBox {
 }
 
 impl BBox {
-    pub fn new(points: &Vec<Coord>) -> BBox {
+    pub fn new(points: &Vec<Point>) -> BBox {
         let mut base = BBox {
             min_x: f64::INFINITY,
             min_y: f64::INFINITY,
@@ -184,11 +184,11 @@ impl BBox {
         }
         base
     }
-    pub fn update(&mut self, coord: &Coord) {
-        self.min_x = self.min_x.min(coord.x);
-        self.min_y = self.min_y.min(coord.y);
-        self.max_x = self.max_x.max(coord.x);
-        self.max_y = self.max_y.max(coord.y);
+    pub fn update(&mut self, coord: &Point) {
+        self.min_x = self.min_x.min(coord.x());
+        self.min_y = self.min_y.min(coord.y());
+        self.max_x = self.max_x.max(coord.x());
+        self.max_y = self.max_y.max(coord.y());
     }
     pub fn get_poly(&self) -> Vec<Vec<Vec<f64>>> {
         vec![vec![
