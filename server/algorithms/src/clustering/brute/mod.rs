@@ -139,10 +139,6 @@ pub fn cluster(
     for info in circle_map.clone().values() {
         if info.meets_min {
             for point in info.combine() {
-                if point == "djn572ywue7v" || point == "djn572ywu" {
-                    log::error!("{:?}", info)
-                };
-
                 point_seen_map.insert(point);
             }
         }
@@ -218,10 +214,6 @@ pub fn cluster(
     for (i, info) in sorted.iter().enumerate() {
         if info.1.meets_min {
             for point in info.1.combine() {
-                if point == "djn572ywue7v" || point == "djn572ywu" {
-                    log::error!("{:?}", info)
-                };
-
                 point_seen_map.insert(point);
             }
             let point: Point = info.1.coord.into();

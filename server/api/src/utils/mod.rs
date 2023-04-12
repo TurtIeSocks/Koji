@@ -1,6 +1,6 @@
 use super::*;
 
-use geo::Coord;
+use geo::Point;
 use geojson::{Geometry, Value};
 use model::{
     api::{
@@ -74,12 +74,7 @@ pub async fn create_or_find_collection(
     data_points: &SingleVec,
 ) -> Result<FeatureCollection, ModelError> {
     if !data_points.is_empty() {
-        let bbox = BBox::new(
-            &data_points
-                .iter()
-                .map(|p| Coord { x: p[1], y: p[0] })
-                .collect(),
-        );
+        let bbox = BBox::new(&data_points.iter().map(|p| Point::new(p[1], p[0])).collect());
         Ok(FeatureCollection {
             bbox: bbox.get_geojson_bbox(),
             features: vec![Feature {
