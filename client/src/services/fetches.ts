@@ -270,7 +270,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
       return {
         id: `${area.id.toString().split('__')[0]}__${getRouteType(category)}__${
           fenceRef || routeRef ? 'KOJI' : 'CLIENT'
-        }}`,
+        }`,
         ...json.data,
       }
     }),
