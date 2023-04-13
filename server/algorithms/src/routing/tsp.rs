@@ -188,7 +188,6 @@ pub fn or_tools(clusters: &SingleVec) -> SingleVec {
             .collect::<Vec<usize>>();
 
         output.into_iter().for_each(|i| {
-            log::warn!("{:?}", clusters[i]);
             result.push(clusters[i]);
         });
     } else {
