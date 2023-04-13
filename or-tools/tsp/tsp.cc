@@ -16,10 +16,42 @@ namespace operations_research
 {
   struct DataModel
   {
-    std::vector<std::vector<double>> distance_matrix;
+    std::vector<std::vector<int64_t>> distance_matrix;
     const int num_vehicles = 1;
     const RoutingIndexManager::NodeIndex depot{0};
   };
+
+  double haversine(double lat1, double lon1, double lat2, double lon2)
+  {
+    double R = 6372.8; // km
+    double dLat = (lat2 - lat1) * M_PI / 180.0;
+    double dLon = (lon2 - lon1) * M_PI / 180.0;
+    lat1 = lat1 * M_PI / 180.0;
+    lat2 = lat2 * M_PI / 180.0;
+
+    double a = pow(sin(dLat / 2), 2) + pow(sin(dLon / 2), 2) * cos(lat1) * cos(lat2);
+    double c = 2 * asin(sqrt(a));
+    return R * c * 1000; // to reduce rounding issues
+  }
+
+  std::vector<std::vector<int64_t>> distanceMatrix(
+      const std::vector<std::vector<double>> &locations)
+  {
+    std::vector<std::vector<int64_t>> distances =
+        std::vector<std::vector<int64_t>>(
+            locations.size(), std::vector<int64_t>(locations.size(), int64_t{0}));
+    for (int fromNode = 0; fromNode < locations.size(); fromNode++)
+    {
+      for (int toNode = 0; toNode < locations.size(); toNode++)
+      {
+        if (fromNode != toNode)
+          distances[fromNode][toNode] = static_cast<int64_t>(
+              haversine(locations[toNode][0], locations[toNode][1],
+                        locations[fromNode][0], locations[fromNode][1]));
+      }
+    }
+    return distances;
+  }
 
   std::vector<std::vector<double>> GetRoutes(const RoutingIndexManager &manager, const RoutingModel &routing, const Assignment &solution)
   {
@@ -37,10 +69,10 @@ namespace operations_research
     return routes;
   }
 
-  std::vector<std::vector<double>> Tsp(std::vector<std::vector<double>> distance_matrix)
+  std::vector<std::vector<double>> Tsp(std::vector<std::vector<double>> locations)
   {
     DataModel data;
-    data.distance_matrix = distance_matrix;
+    data.distance_matrix = distanceMatrix(locations);
     RoutingIndexManager manager(data.distance_matrix.size(), data.num_vehicles,
                                 data.depot);
     RoutingModel routing(manager);
@@ -74,7 +106,7 @@ int main()
   std::string line;
   while (std::getline(std::cin, line, ',') && !line.empty())
   {
-    if (line == "___")
+    if (line == " ")
     {
       distance_matrix.push_back(row);
       row.clear();
