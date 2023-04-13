@@ -89,7 +89,7 @@ fn cluster(
     }
     let all_s20 = &cells;
 
-    //  RegionCoverer {
+    // s2::region::RegionCoverer {
     //     max_level: 20,
     //     min_level: 20,
     //     level_mod: 1,
@@ -164,8 +164,9 @@ fn merge(cells: HashMap<CellID, Vec<CellID>>, radius: f64) -> HashMap<CellID, Ve
     let mut return_map = HashMap::new();
     let mut blocked = HashSet::new();
 
+    log::debug!("Merging {} clusters", cells.len());
     for (key1, cells1) in cells.iter() {
-        let mut best = cells.len();
+        let mut best = cells1.len();
         let mut best_cell = key1;
         if blocked.contains(&key1.0) {
             continue;
@@ -208,51 +209,8 @@ fn merge(cells: HashMap<CellID, Vec<CellID>>, radius: f64) -> HashMap<CellID, Ve
             });
         }
     }
-    // let x: Vec<&Vec<CellID>> = cells
-    //     .par_iter()
-    //     .enumerate()
-    //     .filter_map(|(i, cells1)| {
-    //         let mut best = cells.len();
-    //         let mut best_cell = i;
-    //         if blocked.contains(&i) {
-    //             return None;
-    //         }
-    //         blocked.insert(&i);
-    //         cells.iter().enumerate().for_each(|(j, cells2)| {
-    //             if i == j || blocked.contains(&j) {
-    //                 return;
-    //             }
-    //             let mut combine: Vec<[f64; 2]> = cells1
-    //                 .iter()
-    //                 .map(|c| {
-    //                     let point = c.geo_point();
-    //                     [point.y(), point.x()]
-    //                 })
-    //                 .collect();
-    //             cells2.iter().for_each(|c| {
-    //                 combine.push({
-    //                     let point = c.geo_point();
-    //                     [point.y(), point.x()]
-    //                 });
-    //             });
-    //             let bbox = combine.get_bbox().unwrap();
-    //             let lower_left = Point::new(bbox[0], bbox[1]);
-    //             let upper_right = Point::new(bbox[2], bbox[3]);
-    //             if lower_left.haversine_distance(&upper_right) <= radius * 2. {
-    //                 best = cells1.len() + cells2.len();
-    //                 best_cell = j;
-    //             }
-    //         });
-    //         if best_cell == i {
-    //             Some(cells1)
-    //         } else {
-    //             blocked.insert(&best_cell);
-    //             let mut values = cells1;
-    //             values.extend(cells.get(best_cell).unwrap().clone());
-    //             Some(values)
-    //         }
-    //     })
-    //     .collect();
+    log::debug!("Result {} clusters", return_map.len());
+
     return_map
         .into_iter()
         .map(|(k, v)| (k, v.clone()))
