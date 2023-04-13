@@ -55,6 +55,7 @@ export function PolygonPopup({
       (s) => ({ ...s.Polygon, ...s.MultiPolygon }[refFeature.id]),
       shallow,
     ) || refFeature
+  const calcMode = usePersist((s) => s.mode)
 
   const [active, setActive] = React.useState<{
     spawnpoint: number | null | string
@@ -66,10 +67,12 @@ export function PolygonPopup({
     pokestop: null,
   })
   const [name, setName] = React.useState(
-    dbRef?.name || feature.properties?.__name || '',
+    dbRef?.name ||
+      feature.properties?.__name ||
+      `${feature?.geometry?.type || ''}${feature?.id ? `-${feature?.id}` : ''}`,
   )
   const [mode, setMode] = React.useState<KojiModes | ''>(
-    dbRef?.mode || feature.properties?.__mode || '',
+    dbRef?.mode || feature.properties?.__mode || 'unset',
   )
   const [area, setArea] = React.useState(0)
 
@@ -195,7 +198,7 @@ export function PolygonPopup({
         <Divider flexItem sx={{ my: 1, color: 'black', width: '90%' }} />
         <Grid2 xs={12}>
           <Button onClick={() => clusteringRouting({ feature })} size="small">
-            Run {capitalize(usePersist.getState().mode)}
+            Run {capitalize(calcMode)}
           </Button>
         </Grid2>
         <Grid2 xs={12}>
@@ -206,7 +209,7 @@ export function PolygonPopup({
             }
             size="small"
           >
-            {capitalize(usePersist.getState().mode)} Children
+            {capitalize(calcMode)} Children
           </Button>
         </Grid2>
         <Grid2 xs={12}>
