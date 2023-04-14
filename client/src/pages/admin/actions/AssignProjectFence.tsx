@@ -3,7 +3,13 @@ import * as React from 'react'
 import { Button, useListContext, useNotify } from 'react-admin'
 import { useMutation } from 'react-query'
 import { fetchUtils, useGetMany, useRefresh, useUnselectAll } from 'ra-core'
-import { Dialog, DialogActions, DialogContent, capitalize } from '@mui/material'
+import {
+  Dialog,
+  DialogActions,
+  DialogContent,
+  Typography,
+  capitalize,
+} from '@mui/material'
 
 import DialogHeader from '@components/dialogs/Header'
 import { useRaStore } from '@hooks/useRaStore'
@@ -83,13 +89,14 @@ export function AssignFencesToProjects({ resource, storeKey, open }: Props) {
     setRaStore(storeKey, false)
   }
 
+  const opposite = resource === 'project' ? 'geofence' : 'project'
+
   return (
-    <Dialog open={open} onClose={reset} maxWidth="xl">
+    <Dialog open={open} onClose={reset} maxWidth="sm">
       <DialogHeader>
-        Assign {capitalize(resource)} to Selected{' '}
-        {resource === 'project' ? 'Project' : 'Geofence'}(s)
+        Assign {capitalize(opposite)}(s) to selected {capitalize(resource)}(s)
       </DialogHeader>
-      <DialogContent>
+      <DialogContent sx={{ my: 3 }}>
         <Grid2 container minHeight="20vh">
           <Grid2 xs={12}>
             <KojiAuto
@@ -101,10 +108,15 @@ export function AssignFencesToProjects({ resource, storeKey, open }: Props) {
               }}
               options={options}
               loading={isLoading}
-              label={`Select ${
-                resource === 'project' ? 'Geofence' : 'Project'
-              }s`}
+              label={`Select ${capitalize(opposite)}s`}
             />
+          </Grid2>
+          <Grid2 xs={12}>
+            <Typography variant="h6" p={4} pb={0}>
+              Choose which {opposite}s you would like to assign to the{' '}
+              {selectedIds.length} selected {resource}s. This will unassign all
+              non-selected {opposite}s from those {resource}s, if any.
+            </Typography>
           </Grid2>
         </Grid2>
       </DialogContent>
