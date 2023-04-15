@@ -86,7 +86,7 @@ export function BulkPushToProd<T extends BasicKojiEntry>({
         )
       },
       onError: () => {
-        notify(`Failed to start quest on ${selectedIds.length} area(s)`, {
+        notify(`Failed to sync ${selectedIds.length} area(s)`, {
           type: 'error',
         })
       },

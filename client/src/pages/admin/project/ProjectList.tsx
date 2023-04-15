@@ -16,6 +16,7 @@ import {
 } from 'react-admin'
 import { BulkAssignButton } from '../actions/AssignProjectFence'
 import { BulkExportButton, ExportButton } from '../actions/Export'
+import { PushToProd } from '../actions/PushToApi'
 
 function ListActions() {
   return (
@@ -54,6 +55,7 @@ export default function ProjectList() {
           <NumberField source="geofences.length" label="Geofences" />
           <EditButton />
           <DeleteWithUndoButton />
+          <PushToProd resource="project" />
           <ExportButton resource="project" />
         </Datagrid>
       </List>
