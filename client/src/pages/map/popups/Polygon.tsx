@@ -56,6 +56,7 @@ export function PolygonPopup({
       shallow,
     ) || refFeature
   const calcMode = usePersist((s) => s.mode)
+  const raw = usePersist((s) => s.last_seen)
 
   const [active, setActive] = React.useState<{
     spawnpoint: number | null | string
@@ -116,6 +117,8 @@ export function PolygonPopup({
         },
         body: JSON.stringify({ area: feature }),
       }).then((res) => res && setArea(res.data.area))
+      const last_seen = typeof raw === 'string' ? new Date(raw) : raw
+
       Promise.allSettled(
         ['pokestop', 'gym', 'spawnpoint'].map((category) =>
           fetchWrapper<{ total: number }>(
@@ -125,7 +128,10 @@ export function PolygonPopup({
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({ area: feature }),
+              body: JSON.stringify({
+                area: feature,
+                last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+              }),
             },
           ).then((data) =>
             setActive((prev) => ({
@@ -136,7 +142,7 @@ export function PolygonPopup({
         ),
       )
     }
-  }, [feature, loadData])
+  }, [feature, loadData, raw])
 
   const isKoji = feature.id.toString().endsWith('KOJI')
   // const isScanner = feature.id.endsWith('SCANNER')
