@@ -35,6 +35,10 @@ const Map = React.forwardRef<L.Map, Props>(
         zoom={forcedZoom ?? zoom}
         zoomControl={zoomControl}
         style={style}
+        maxBounds={[
+          [-90, -210],
+          [90, 210],
+        ]}
       >
         {!renderOwnTileLayer && (
           <TileLayer
