@@ -156,7 +156,12 @@ pub fn or_tools(clusters: &SingleVec) -> SingleVec {
         };
 
         std::thread::spawn(move || match stdin.write_all(distance_matrix.as_bytes()) {
-            Ok(_) => {}
+            Ok(_) => match stdin.flush() {
+                Ok(_) => {}
+                Err(err) => {
+                    log::error!("[TSP] Failed to flush stdin: {}", err);
+                }
+            },
             Err(err) => {
                 log::error!("[TSP] Failed to write to stdin: {}", err)
             }
