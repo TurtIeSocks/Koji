@@ -28,6 +28,7 @@ export interface UseStatic {
   loading: Record<string, KojiStats | null | false>
   loadingAbort: Record<string, AbortController | null>
   updateButton: boolean
+  totalStartTime: number
   totalLoadingTime: number
   selected: string[]
   tileServers: KojiTileServer[]
@@ -91,6 +92,7 @@ export const useStatic = create<UseStatic>((set, get) => ({
   },
   loading: {},
   loadingAbort: {},
+  totalStartTime: 0,
   totalLoadingTime: 0,
   updateButton: false,
   selected: [],

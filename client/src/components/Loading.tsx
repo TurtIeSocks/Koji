@@ -13,6 +13,7 @@ import { fromSnakeCase } from '@services/utils'
 export default function Loading() {
   const loading = useStatic((s) => s.loading)
   const loadingAbort = useStatic((s) => s.loadingAbort)
+  const totalStartTime = useStatic((s) => s.totalStartTime)
   const totalLoadingTime = useStatic((s) => s.totalLoadingTime)
   const setStatic = useStatic((s) => s.setStatic)
 
@@ -37,7 +38,7 @@ export default function Loading() {
     let interval: NodeJS.Timeout
     if (!totalLoadingTime && loadingStarted) {
       interval = setInterval(() => {
-        setTime((t) => t + 0.1)
+        setTime((Date.now() - totalStartTime) / 1000)
       }, 100)
     }
     return () => {
