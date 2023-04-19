@@ -131,15 +131,25 @@ impl Model {
         db: &DatabaseConnection,
         args: &ApiQueryArgs,
     ) -> Result<Feature, ModelError> {
+        let mut has_manual_parent = String::from("");
         let mut properties = self
             .get_related_properties()
             .into_model::<FullPropertyModel>()
             .all(db)
             .await?
             .into_iter()
-            .map(|prop| prop.parse_db_value(&self))
+            .map(|prop| {
+                if prop.name == "parent" && prop.value.is_some() {
+                    has_manual_parent = prop.value.as_ref().unwrap().clone();
+                }
+                prop.parse_db_value(&self)
+            })
             .collect::<Vec<serde_json::Value>>();
-        let parent_name = self.get_parent_name(db).await?;
+        let parent_name = if has_manual_parent.is_empty() {
+            self.get_parent_name(db).await?
+        } else {
+            Some(has_manual_parent)
+        };
 
         if args.internal.is_some() {
             properties.push(json!({ "name": "__id", "value": self.id }));
@@ -172,10 +182,7 @@ impl Model {
             if let Some(key) = key {
                 if let Some(key) = key.as_str() {
                     if key.eq("parent") {
-                        feature.set_property(
-                            if args.group.is_some() { "group" } else { key },
-                            parent_name.clone(),
-                        )
+                        feature.set_property(key, parent_name.clone())
                     } else {
                         feature.set_property(key, val.unwrap().clone())
                     }
