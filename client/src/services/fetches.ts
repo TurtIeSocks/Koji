@@ -163,6 +163,8 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
   }
 
   activeRoute('0__unset__CLIENT')
+  const totalStartTime = Date.now()
+
   useStatic.setState({
     loading: Object.fromEntries(
       areas.map((k) => [
@@ -178,10 +180,10 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
         new AbortController(),
       ]),
     ),
+    totalStartTime,
     totalLoadingTime: 0,
   })
 
-  const totalStartTime = Date.now()
   const features = await Promise.allSettled<Feature>(
     areas.map(async (area) => {
       const fenceRef = getFromKojiKey(area.id as string)
@@ -284,6 +286,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
   )
 
   setStatic('totalLoadingTime', Date.now() - totalStartTime)
+  setStatic('totalStartTime', 0)
   if (!skipRendering) add(features.filter((f) => !!f.geometry))
   if (save_to_db) await getKojiCache('route')
   if (save_to_scanner) await getScannerCache()
