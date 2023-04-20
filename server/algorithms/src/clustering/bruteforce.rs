@@ -63,7 +63,7 @@ fn create_matrix(cells: &Vec<CellID>, ref_cells: &Vec<CellID>, radius: f64) -> V
         .map(|first| {
             let first = first.geo_point();
             ref_cells
-                .par_iter()
+                .iter()
                 .map(|second| {
                     let second = second.geo_point();
                     first.haversine_distance(&second) <= radius
@@ -115,7 +115,7 @@ fn cluster(
                 Some((
                     first,
                     all_s20
-                        .par_iter()
+                        .iter()
                         .enumerate()
                         .filter_map(|(j, second)| {
                             if matrix[i][j] {
