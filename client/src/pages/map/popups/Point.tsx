@@ -41,7 +41,10 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
   const [mode, setMode] = React.useState(
     dbRef?.mode || feature.properties?.__mode || '',
   )
-  const [fenceId, setFenceId] = React.useState(dbRef?.geofence_id || 0)
+  const [fenceId, setFenceId] = React.useState(
+    dbRef?.geofence_id || feature?.properties?.__geofence_id || 0,
+  )
+
   const options = Object.values(geofence)
 
   const [loading, setLoading] = React.useState(false)
