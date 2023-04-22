@@ -15,7 +15,7 @@ import { useStatic } from '@hooks/useStatic'
 import { UseShapes, useShapes } from '@hooks/useShapes'
 import { UseDbCache, useDbCache } from '@hooks/useDbCache'
 
-import { fromSnakeCase, getKey, getMapBounds, getRouteType } from './utils'
+import { fromSnakeCase, getMapBounds, getRouteType } from './utils'
 
 export async function fetchWrapper<T>(
   url: string,
@@ -268,10 +268,13 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
         // eslint-disable-next-line no-console
         console.log(fromSnakeCase(k), v),
       )
+      const newId = `${
+        routeRef ? routeRef.id : area.id.toString().split('__')[0]
+      }__${getRouteType(category)}__${fenceRef || routeRef ? 'KOJI' : 'CLIENT'}`
       console.log(`Total Time: ${fetch_time / 1000}s\n`)
       console.log('-----------------')
       return {
-        id: getKey(),
+        id: newId,
         ...json.data,
         properties: {
           ...json.data.properties,
