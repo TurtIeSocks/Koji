@@ -15,7 +15,7 @@ import { useStatic } from '@hooks/useStatic'
 import { UseShapes, useShapes } from '@hooks/useShapes'
 import { UseDbCache, useDbCache } from '@hooks/useDbCache'
 
-import { fromSnakeCase, getMapBounds, getRouteType } from './utils'
+import { fromSnakeCase, getKey, getMapBounds, getRouteType } from './utils'
 
 export async function fetchWrapper<T>(
   url: string,
@@ -171,6 +171,8 @@ export async function clusteringRouting({
   }
 
   activeRoute('0__unset__CLIENT')
+  const totalStartTime = Date.now()
+
   useStatic.setState({
     loading: Object.fromEntries(
       areas.map((k) => [
@@ -186,15 +188,16 @@ export async function clusteringRouting({
         new AbortController(),
       ]),
     ),
+    totalStartTime,
     totalLoadingTime: 0,
   })
 
-  const totalStartTime = Date.now()
   const features = await Promise.allSettled<Feature>(
     areas.map(async (area) => {
       const fenceRef = getFromKojiKey(area.id as string)
       const routeRef = getRouteByCategory(category, fenceRef?.name)
       const startTime = Date.now()
+
       const res = await fetch(
         mode === 'bootstrap'
           ? '/api/v1/calc/bootstrap'
@@ -281,10 +284,12 @@ export async function clusteringRouting({
       console.log(`Total Time: ${fetch_time / 1000}s\n`)
       console.log('-----------------')
       return {
-        id: `${area.id.toString().split('__')[0]}__${getRouteType(category)}__${
-          fenceRef || routeRef ? 'KOJI' : 'CLIENT'
-        }`,
+        id: getKey(),
         ...json.data,
+        properties: {
+          ...json.data.properties,
+          __geofence_id: fenceRef?.id || undefined,
+        },
       }
     }),
   ).then((feats) =>
@@ -297,6 +302,7 @@ export async function clusteringRouting({
   )
 
   setStatic('totalLoadingTime', Date.now() - totalStartTime)
+  setStatic('totalStartTime', 0)
   if (!skipRendering) add(features.filter((f) => !!f.geometry))
   if (save_to_db) await getKojiCache('route')
   if (save_to_scanner) await getScannerCache()

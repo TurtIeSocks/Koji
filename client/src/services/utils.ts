@@ -252,6 +252,7 @@ export function mpToPoints(geometry: MultiPoint): Feature<Point>[] {
 
 export function buildShortcutKey(event: React.KeyboardEvent<HTMLDivElement>) {
   let shortcut = ''
+  if (!event.key) return shortcut
   if (event.ctrlKey) shortcut += 'ctrl+'
   if (event.altKey) shortcut += 'alt+'
   if (event.shiftKey) shortcut += 'shift+'

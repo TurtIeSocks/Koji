@@ -132,30 +132,7 @@ export default function InstanceSelect({
       })
     }
     if (controlled) setSelected(newValue)
-    if (koji) {
-      const { geofence, route } = useDbCache.getState()
-      const updatedFences = { ...geofence }
-      const updatedRoutes = { ...route }
-
-      cleaned.forEach((c) => {
-        const reference = getFromKojiKey(c.id.toString())
-        if (reference) {
-          if (c.geometry.type.includes('Polygon')) {
-            updatedFences[c.id] = {
-              ...reference,
-              geo_type: c.geometry.type as 'Polygon' | 'MultiPolygon',
-            }
-          } else if (c.geometry.type === 'MultiPoint') {
-            updatedRoutes[c.id] = {
-              ...reference,
-              geo_type: c.geometry.type as 'MultiPoint',
-            }
-          }
-        }
-      })
-      setRecords('route', updatedRoutes)
-      setRecords('geofence', updatedFences)
-    } else {
+    if (!koji) {
       const { scanner } = useDbCache.getState()
       setRecords('scanner', {
         ...scanner,
