@@ -17,16 +17,16 @@ services:
     command: 'koji'
     restart: unless-stopped
     environment:
+      # To escape special characters you must surround the values with single quotes ('')
       # Required
-
       # Your Golbat or RDM database
-      SCANNER_DB_URL: mysql://rdm_user:rdm_password@host:3306/rdm_database
+      SCANNER_DB_URL: 'mysql://rdm_user:rdm_password@host:3306/rdm_database'
       # Your Flygon database - leave commented out for RDM
-      # UNOWN_DB_URL: mysql://flygon_user:flygon_password@host:3306/flygon_database
+      # UNOWN_DB_URL: 'mysql://flygon_user:flygon_password@host:3306/flygon_database'
       # Your Koji database
-      KOJI_DB_URL: mysql://koji_user:koji_password@127.0.0.1:3306/koji_database
+      KOJI_DB_URL: 'mysql://koji_user:koji_password@127.0.0.1:3306/koji_database'
       # Your Koji API bearer token and client password
-      KOJI_SECRET: your_super_secret
+      KOJI_SECRET: 'your_super_secret'
 
       # Optional
 
@@ -35,7 +35,7 @@ services:
       # Start longitude on initial client load
       #START_LON: 0
       # Nominatim URl used for searching and importing geofences from OSM
-      #NOMINATIM_URL: "https://nominatim.openstreetmap.org" # highly recommended using your own
+      #NOMINATIM_URL: 'https://nominatim.openstreetmap.org' # highly recommended using your own
       # Max Database connections
       #MAX_CONNECTIONS: 100
       # Logging level
