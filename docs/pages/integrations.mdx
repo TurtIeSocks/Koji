@@ -27,8 +27,6 @@ import { GitHubLogo } from '../components/GitHub'
 - Polygons ✅
 - MultiPolygons ✅
 
-Repository:
-
 <GitHubLogo title="ReactMap" href="https://github.com/WatWowMap/ReactMap" />
 
 ## PoracleJS
@@ -51,8 +49,6 @@ Repository:
 - Polygons ✅
 - MultiPolygons ½ (PoracleWeb and `!area show` does not support MultiPolygons)
 
-Repository:
-
 <GitHubLogo title="PoracleJS" href="https://github.com/KartulUdus/PoracleJS" />
 
 ## Golbat
@@ -74,8 +70,6 @@ Repository:
 
 - Polygons ✅
 - MultiPolygons ✅
-
-Repository:
 
 <GitHubLogo title="Golbat" href="https://github.com/UnownHash/Golbat" />
 
@@ -109,15 +103,39 @@ Repository:
 - Polygons ✅
 - MultiPolygons ½ (Works, but is downconverted to a Polygon, may produce unexpected results)
 
-Repository:
-
 <GitHubLogo title="Flygon" href="https://github.com/UnownHash/Flygon" />
+
+## Flygon Admin
+
+- Enable buttons in the dashboard panel to make calls to Kōji to calculate clustered and bootstrapped routes.
+- You must set two config values to use Kōji with Flygon Admin
+
+1. First set your Kōji Bearer Token:
+
+   - `koji.bearer_token`
+   - Your Kōji Bearer token
+
+1. Then set the Kōji api_endpoint
+
+   - `koji.api_endpoint`
+   - Example: `http://{koji_ip}`
+
+### Supported Features
+
+- Bootstrap 70m Circles
+- Bootstrap 9x9 S2 Cells
+- Pokemon 70m clustered routes
+- Quest 78m clustered routes
+- Gym 9x9 clustered routes
+
+<GitHubLogo
+  title="Flygon Admin"
+  href="https://github.com/UnownHash/Flygon-Admin"
+/>
 
 ## RealDeviceMap
 
 - [PR 513](https://github.com/RealDeviceMap/RealDeviceMap/pull/513)
-
-Repository:
 
 <GitHubLogo
   title="RealDeviceMap"
@@ -143,8 +161,6 @@ Repository:
 
 - Polygons ✅
 - MultiPolygons ❌
-
-Repository:
 
 <GitHubLogo
   title="rdmGruber"

@@ -1,5 +1,7 @@
 # Development
 
+## Main
+
 1. After going through the standard setup instructions
 2. Install Cargo Watch:
 
@@ -25,3 +27,29 @@
 ```
 
 6. A browser will automatically open to `localhost:{PORT}`
+
+## Docs
+
+1. Setup dependencies:
+
+   ```bash
+     cd docs
+     yarn install
+   ```
+
+1. Run the docs server:
+
+   ```bash
+     yarn dev
+   ```
+
+1. Open the web browser:
+
+   ```bash
+   # When you see this in the console:
+   ready - started server on 0.0.0.0:3000, url: http://localhost:3000
+   # Click the url address to open the docs in your browser
+   # Or you can manually navigate to it in the browser
+   ```
+
+1. When you save your changes, the browser will automatically hot reload to reflect them

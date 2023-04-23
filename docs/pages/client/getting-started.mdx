@@ -1,5 +1,5 @@
 import Image from 'next/image'
-import { Tab, Tabs } from 'nextra-theme-docs'
+import { Tab, Tabs, Callout } from 'nextra-theme-docs'
 
 # Getting Started
 
@@ -9,9 +9,29 @@ import { Tab, Tabs } from 'nextra-theme-docs'
 When presented with this screen you login with the `KOJI_SECRET` you set in your
 `.env` or `docker-compose.yml` file.
 
+## Projects
+
+A "project" in Kōji is how you create custom endpoints for distributing your geofences to the various integrations. Lets quickly walk through the process of setting up a basic project to use with ReactMap.
+
+1. Navigate to the Admin Panel by clicking the `Admin` button on the landing page.
+1. Navigate to the `Projects` panel by clicking `Projects` in the left hand side drawer.
+1. Click `Create` to start your new project.
+1. Give your project a name, such as `ReactMap`.
+
+   <Callout type="info" emoji="💡">
+     If your project is your scanner, you can set `Scanner` to true by clicking
+     the toggle switch.
+   </Callout>
+
+1. If your project supports a refresh endpoint to make it call Kōji again for updated geofences, you can input the API endpoint here, as well as any headers. For this example, we will ignore these though.
+1. Click `Save` to create your new project.
+1. Below we will go through different ways you can import your existing fences and assign them to your new project.
+1. Once you've completed those steps, your geofences assigned to this project will now be accessible at `http://{your_koji_url}/api/v1/geofence/feature-collection/ReactMap`
+1. Projects don't have to be striclty used with external integrations though. Kōji's client can also import geofences by project so it may be convenient to group them for this reason as well.
+
 ## Import existing Projects
 
-1. After logging in, click the `Map` button
+1. After logging in, click the `Map` button on the landing page
 1. Open up the drawer, and go to the Import panel
 1. Click the `Import Wizard` button
 1. In the `JSON` section, click `Browse` and select your desired file, such as the `areas.json` file from [ReactMap](https://github.com/WatWowMap/ReactMap) or `geofence.json` from [PoracleJS](https://github.com/KartulUdus/PoracleJS)
