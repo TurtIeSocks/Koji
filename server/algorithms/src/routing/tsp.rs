@@ -46,7 +46,14 @@ pub fn multi(clusters: &SingleVec, route_split_level: usize) -> SingleVec {
                     }
                 }
             }
-            (utils::centroid(&route), route)
+            (
+                if route.len() > 0 {
+                    utils::centroid(&route)
+                } else {
+                    [0., 0.]
+                },
+                route,
+            )
         })
         .collect();
     let mut centroids = vec![];
@@ -105,23 +112,26 @@ fn directory() -> std::io::Result<String> {
     path.push("src");
     path.push("routing");
     path.push("tsp");
-    Ok(path.display().to_string())
+    if path.exists() {
+        Ok(path.display().to_string())
+    } else {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "TSP solver does not exist, rerun the OR Tools Script",
+        ))
+    }
 }
 
-pub fn get_or_tools_distance_matrix(points: &SingleVec) -> String {
+pub fn stringify_points(points: &SingleVec) -> String {
     points
-        .into_iter()
-        .map(|cluster| {
-            let point = Point::new(cluster[1], cluster[0]);
+        .iter()
+        .enumerate()
+        .map(|(i, cluster)| {
             format!(
-                "{}___,",
-                points
-                    .iter()
-                    .map(|cluster_2| {
-                        let point_2 = Point::new(cluster_2[1], cluster_2[0]);
-                        format!("{},", point.haversine_distance(&point_2))
-                    })
-                    .collect::<String>()
+                "{},{}, {}",
+                cluster[0],
+                cluster[1],
+                if i == points.len() - 1 { "" } else { "," }
             )
         })
         .collect::<String>()
@@ -132,7 +142,7 @@ pub fn or_tools(clusters: &SingleVec) -> SingleVec {
     log::debug!("[TSP] Starting");
     let mut result = vec![];
 
-    let distance_matrix = get_or_tools_distance_matrix(clusters);
+    let stringified_points = stringify_points(clusters);
 
     if let Ok(dir) = directory() {
         let mut child = match Command::new(&dir)
@@ -155,17 +165,19 @@ pub fn or_tools(clusters: &SingleVec) -> SingleVec {
             }
         };
 
-        std::thread::spawn(move || match stdin.write_all(distance_matrix.as_bytes()) {
-            Ok(_) => match stdin.flush() {
-                Ok(_) => {}
+        std::thread::spawn(
+            move || match stdin.write_all(stringified_points.as_bytes()) {
+                Ok(_) => match stdin.flush() {
+                    Ok(_) => {}
+                    Err(err) => {
+                        log::error!("[TSP] Failed to flush stdin: {}", err);
+                    }
+                },
                 Err(err) => {
-                    log::error!("[TSP] Failed to flush stdin: {}", err);
+                    log::error!("[TSP] Failed to write to stdin: {}", err)
                 }
             },
-            Err(err) => {
-                log::error!("[TSP] Failed to write to stdin: {}", err)
-            }
-        });
+        );
 
         let output = match child.wait_with_output() {
             Ok(result) => result,
@@ -180,9 +192,11 @@ pub fn or_tools(clusters: &SingleVec) -> SingleVec {
             .filter_map(|s| s.parse::<usize>().ok())
             .collect::<Vec<usize>>();
 
-        output.iter().for_each(|i| {
-            result.push(clusters[*i]);
+        output.into_iter().for_each(|i| {
+            result.push(clusters[i]);
         });
+    } else {
+        log::error!("[TSP] solver not found, rerun the OR-Tools script to generate it");
     }
     log::debug!("[TSP] Finished in {}s", time.elapsed().as_secs_f32());
     result

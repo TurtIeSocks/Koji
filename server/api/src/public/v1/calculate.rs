@@ -123,6 +123,7 @@ async fn bootstrap(
         Some(stats),
         benchmark_mode,
         Some(instance),
+        None,
     ))
 }
 
@@ -139,8 +140,9 @@ async fn cluster(
     let ArgsUnwrapped {
         area,
         benchmark_mode,
+        cluster_mode,
+        cluster_split_level,
         data_points,
-        fast,
         instance,
         min_points,
         radius,
@@ -215,13 +217,14 @@ async fn cluster(
     let mut clusters = match calculation_mode {
         CalculationMode::Radius => clustering::main(
             data_points,
-            fast,
+            cluster_mode,
             radius,
             min_points,
             only_unique,
             area,
             &mut stats,
             sort_by,
+            cluster_split_level,
         ),
         CalculationMode::S2 => area
             .into_iter()
@@ -309,6 +312,7 @@ async fn cluster(
         Some(stats),
         benchmark_mode,
         Some(instance),
+        Some(min_points),
     ))
 }
 
@@ -342,6 +346,7 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         Some(stats),
         benchmark_mode,
         Some(instance),
+        None,
     ))
 }
 

@@ -27,7 +27,7 @@ impl Stats {
             longest_distance: 0.,
         }
     }
-    pub fn log(&self, area: Option<String>) {
+    pub fn log(&self, area: Option<String>, min_points: Option<usize>) {
         let width = "=======================================================================";
         let get_row = |text: String, replace: bool| {
             format!(
@@ -38,13 +38,13 @@ impl Stats {
             )
         };
         log::info!(
-            "\n{}{}{}{}{}{}  {}==\n",
+            "\n{}{}{}{}{}{}{}  {}==\n",
             get_row("[STATS] ".to_string(), false),
             if let Some(area) = area {
                 if area.is_empty() {
                     "".to_string()
                 } else {
-                    get_row(format!("|| [AREA]: {}", area), true)
+                    get_row(format!("|| [AREA] {}", area), true)
                 }
             } else {
                 "".to_string()
@@ -80,13 +80,21 @@ impl Stats {
             get_row(
                 format!(
                     "|| [DISTANCE] Total {} | Longest {} | Avg: {}",
-                    self.total_distance as f32,
-                    self.longest_distance as f32,
+                    self.total_distance as u32,
+                    self.longest_distance as u32,
                     if self.total_clusters > 0 {
-                        (self.total_distance / self.total_clusters as f64) as f32
+                        (self.total_distance / self.total_clusters as f64) as u32
                     } else {
-                        0.
+                        0
                     },
+                ),
+                true
+            ),
+            get_row(
+                format!(
+                    "|| [MYGOD_SCORE] {}",
+                    self.total_clusters * min_points.unwrap_or(1)
+                        + (self.total_points - self.points_covered)
                 ),
                 true
             ),

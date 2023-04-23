@@ -159,6 +159,7 @@ pub async fn start() -> io::Result<()> {
                                 .service(public::v1::route::specific_return_type)
                                 .service(public::v1::route::specific_geofence),
                         )
+                        .service(web::scope("/project").service(public::v1::project::push_to_prod))
                         .service(
                             web::scope("/s2")
                                 .service(public::v1::s2::circle_coverage)

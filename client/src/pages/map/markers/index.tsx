@@ -19,6 +19,7 @@ export default function Markers({ category }: { category: Category }) {
   const last_seen = usePersist((s) => s.last_seen)
   const pokestopRange = usePersist((s) => s.pokestopRange)
 
+  const updateButton = useStatic((s) => s.updateButton)
   const bounds = useStatic((s) => s.bounds)
   const geojson = useStatic((s) => s.geojson)
 
@@ -40,7 +41,7 @@ export default function Markers({ category }: { category: Category }) {
   )
 
   useDeepCompareEffect(() => {
-    if (focused) {
+    if (focused && !updateButton) {
       const controller = new AbortController()
       const filtered = geojson.features.filter((feature) =>
         feature.geometry.type.includes('Polygon'),

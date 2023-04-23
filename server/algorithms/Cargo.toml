@@ -1,6 +1,6 @@
 [package]
 name = "algorithms"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 publish = false
 
@@ -16,6 +16,7 @@ log = "0.4.17"
 map_3d = "0.1.5"
 model = { path = "../model" }
 rand = "0.8.5"
+rayon = "1.7.0"
 rstar = "0.10.0"
 s2 = "0.0.12"
 serde = { version = "1.0.136", features = ["derive"] }

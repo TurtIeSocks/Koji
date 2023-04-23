@@ -26,7 +26,12 @@ export function GeofenceExpand() {
 
       {(record.properties || []).map((p) => (
         <Grid2 key={p.name} xs={6} sm={4} md={3} lg={2}>
-          <ListItemText primary={p.name} secondary={`${p.value}`} />
+          <ListItemText
+            primary={p.name}
+            secondary={`${
+              p.value || record[p.name as keyof typeof record] || null
+            }`}
+          />
         </Grid2>
       ))}
     </Grid2>

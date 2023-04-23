@@ -10,6 +10,7 @@ import {
   Select,
   TextField,
   Typography,
+  capitalize,
 } from '@mui/material'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { MultiPolygon, Polygon } from 'geojson'
@@ -26,7 +27,7 @@ import type {
 import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
 import { useDbCache } from '@hooks/useDbCache'
-import { fetchWrapper } from '@services/fetches'
+import { clusteringRouting, fetchWrapper } from '@services/fetches'
 import {
   removeAllOthers,
   removeThisPolygon,
@@ -54,6 +55,7 @@ export function PolygonPopup({
       (s) => ({ ...s.Polygon, ...s.MultiPolygon }[refFeature.id]),
       shallow,
     ) || refFeature
+  const calcMode = usePersist((s) => s.mode)
   const raw = usePersist((s) => s.last_seen)
 
   const [active, setActive] = React.useState<{
@@ -66,10 +68,12 @@ export function PolygonPopup({
     pokestop: null,
   })
   const [name, setName] = React.useState(
-    dbRef?.name || feature.properties?.__name || '',
+    dbRef?.name ||
+      feature.properties?.__name ||
+      `${feature?.geometry?.type || ''}${feature?.id ? `-${feature?.id}` : ''}`,
   )
   const [mode, setMode] = React.useState<KojiModes | ''>(
-    dbRef?.mode || feature.properties?.__mode || '',
+    dbRef?.mode || feature.properties?.__mode || 'unset',
   )
   const [area, setArea] = React.useState(0)
 
@@ -198,6 +202,22 @@ export function PolygonPopup({
           </Typography>
         </Grid2>
         <Divider flexItem sx={{ my: 1, color: 'black', width: '90%' }} />
+        <Grid2 xs={12}>
+          <Button onClick={() => clusteringRouting({ feature })} size="small">
+            Run {capitalize(calcMode)}
+          </Button>
+        </Grid2>
+        <Grid2 xs={12}>
+          <Button
+            disabled={!isKoji}
+            onClick={() =>
+              clusteringRouting({ parent: feature.properties.__id || name })
+            }
+            size="small"
+          >
+            {capitalize(calcMode)} Children
+          </Button>
+        </Grid2>
         <Grid2 xs={12}>
           <ButtonGroup>
             <Button

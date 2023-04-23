@@ -107,14 +107,22 @@ export async function getFullCache() {
   )
 }
 
-export async function clusteringRouting(): Promise<FeatureCollection> {
+export async function clusteringRouting({
+  feature,
+  parent,
+}: {
+  feature?: Feature
+  parent?: string | number
+} = {}): Promise<FeatureCollection> {
   const {
     mode,
     radius,
+    cluster_mode,
     category: rawCategory,
     min_points,
     fast,
     route_split_level,
+    cluster_split_level,
     only_unique,
     save_to_db,
     save_to_scanner,
@@ -130,7 +138,7 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
   const { add, activeRoute } = useShapes.getState().setters
   const { getFromKojiKey, getRouteByCategory } = useDbCache.getState()
 
-  const areas = (geojson?.features || []).filter(
+  const areas = ((feature ? [feature] : geojson?.features) || []).filter(
     (x) =>
       x.geometry.type.includes('Polygon') &&
       x.geometry.type !== 'GeometryCollection' &&
@@ -207,26 +215,31 @@ export async function clusteringRouting(): Promise<FeatureCollection> {
             ]?.signal,
           body: JSON.stringify({
             return_type: 'feature',
-            area: {
-              ...area,
-              properties: {
-                __id: routeRef?.id,
-                __name: fenceRef?.name,
-                __geofence_id: fenceRef?.id,
-                __mode: fenceRef?.mode,
-              },
-            },
+            area: parent
+              ? undefined
+              : {
+                  ...area,
+                  properties: {
+                    __id: routeRef?.id,
+                    __name: fenceRef?.name,
+                    __geofence_id: fenceRef?.id,
+                    __mode: fenceRef?.mode,
+                  },
+                },
             instance:
               fenceRef?.name ||
               `${area.geometry.type}${area.id ? `-${area.id}` : ''}`,
             last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
             radius,
             min_points,
+            cluster_mode,
+            parent,
             fast,
             only_unique,
             save_to_db,
             save_to_scanner,
             route_split_level,
+            cluster_split_level,
             sort_by,
             tth,
             calculation_mode,

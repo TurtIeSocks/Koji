@@ -183,6 +183,13 @@ pub enum UnknownId {
     Number(u32),
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum ClusterMode {
+    Fast,
+    Balanced,
+    BruteForce,
+}
+
 impl ToString for UnknownId {
     fn to_string(&self) -> String {
         match self {
@@ -210,6 +217,18 @@ pub struct Args {
     ///
     /// Default: `0`
     pub calculation_mode: Option<CalculationMode>,
+    /// Cluster mode selection
+    ///
+    /// Accepts [ClusterMode]
+    ///
+    /// Default: `Balanced`
+    pub cluster_mode: Option<ClusterMode>,
+    /// BruteForce cluster mode tweak, determines how points are split up for multithreading
+    ///
+    /// Accepts 1-30
+    ///
+    /// Default: `10`
+    pub cluster_split_level: Option<u64>,
     /// Data points to cluster or reroute.
     /// Overrides any inputted area.
     ///
@@ -224,6 +243,8 @@ pub struct Args {
     /// Whether to use the fast or slow clustering algorithm
     ///
     /// Default: `true`
+    ///
+    /// Deprecated
     pub fast: Option<bool>,
     /// Number of times to run through a clustering algorithm
     ///
@@ -329,9 +350,10 @@ pub struct ArgsUnwrapped {
     pub area: FeatureCollection,
     pub benchmark_mode: bool,
     pub calculation_mode: CalculationMode,
+    pub cluster_mode: ClusterMode,
+    pub cluster_split_level: u64,
     pub data_points: single_vec::SingleVec,
     pub devices: usize,
-    pub fast: bool,
     pub generations: usize,
     pub instance: String,
     pub min_points: usize,
@@ -358,6 +380,8 @@ impl Args {
             benchmark_mode,
             s2_level: bootstrap_level,
             calculation_mode: bootstrap_mode,
+            cluster_mode,
+            cluster_split_level,
             s2_size: bootstrap_size,
             data_points,
             devices,
@@ -412,6 +436,18 @@ impl Args {
         let bootstrap_mode = bootstrap_mode.unwrap_or(CalculationMode::Radius);
         let bootstrap_level = bootstrap_level.unwrap_or(15);
         let bootstrap_size = bootstrap_size.unwrap_or(9);
+        let cluster_mode = cluster_mode.unwrap_or({
+            if let Some(fast) = fast {
+                if fast {
+                    ClusterMode::Fast
+                } else {
+                    ClusterMode::Balanced
+                }
+            } else {
+                ClusterMode::Balanced
+            }
+        });
+        let cluster_split_level = cluster_split_level.unwrap_or(10);
         let data_points = if let Some(data_points) = data_points {
             match data_points {
                 DataPointsArg::Struct(data_points) => data_points.to_single_vec(),
@@ -469,12 +505,13 @@ impl Args {
         ArgsUnwrapped {
             area,
             benchmark_mode,
+            cluster_mode,
+            cluster_split_level,
             s2_level: bootstrap_level,
             calculation_mode: bootstrap_mode,
             s2_size: bootstrap_size,
             data_points,
             devices,
-            fast,
             generations,
             parent,
             instance,

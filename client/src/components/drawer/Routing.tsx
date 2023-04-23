@@ -22,7 +22,7 @@ import Toggle from './inputs/Toggle'
 export default function RoutingTab() {
   const mode = usePersist((s) => s.mode)
   const category = usePersist((s) => s.category)
-  const fast = usePersist((s) => s.fast)
+  const cluster_mode = usePersist((s) => s.cluster_mode)
   const calculation_mode = usePersist((s) => s.calculation_mode)
 
   const [updateButton, scannerType, isEditing] = useStatic((s) => [
@@ -93,12 +93,20 @@ export default function RoutingTab() {
         <Divider sx={{ my: 2 }} />
         <ListSubheader>Clustering</ListSubheader>
         <NumInput field="min_points" />
-        <Toggle field="fast" />
-        <Collapse in={!fast}>
+        <MultiOptionList
+          field="cluster_mode"
+          hideLabel
+          buttons={['Fast', 'Balanced', 'BruteForce']}
+          type="select"
+        />
+        <Collapse in={cluster_mode === 'BruteForce'}>
+          <NumInput field="cluster_split_level" min={1} max={20} />
+        </Collapse>
+        <Collapse in={cluster_mode === 'Balanced'}>
           <Toggle field="only_unique" />
         </Collapse>
       </Collapse>
-      <Collapse in={mode === 'cluster' && !fast}>
+      <Collapse in={mode === 'cluster' && cluster_mode === 'Balanced'}>
         <MultiOptionList
           field="sort_by"
           buttons={['GeoHash', 'ClusterCount', 'Random']}
