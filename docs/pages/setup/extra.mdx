@@ -12,7 +12,7 @@ Kōji is currently hardcoded to only allow up to 20MB payloads, however, your re
     }
 ```
 
-### Timeouts
+### Reverse Proxy Timeouts
 
 Nginx may also have a max limit on how long it will wait for a response from Kōji. You can set this higher by adding the following properties:
 
@@ -24,4 +24,6 @@ Nginx may also have a max limit on how long it will wait for a response from Kō
     }
 ```
 
-Unfortunately, if you connect through Kōji over Cloudflare, you will not be able to utilize any time set higher than 100 seconds. This is because Cloudflare has a 100 second timeout on all requests for the free tier. It is recommended to connect through Kōji through direct IP or to write scripts to execute on the server locally that call Kōji's API to avoid this issue.
+### Cloudflare Timeouts
+
+If you connect through Kōji over Cloudflare, you will not be able to utilize any time set higher than 100 seconds with a free tier account. This is because Cloudflare has a 100 second timeout on all requests for the free tier. It is recommended to connect through Kōji through direct IP or to write scripts to execute on the server locally that call Kōji's API to avoid this issue.
