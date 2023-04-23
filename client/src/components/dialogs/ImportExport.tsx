@@ -108,7 +108,7 @@ export function ImportExportDialog({
           style={{ flexGrow: 1, display: 'flex', justifyContent: 'flex-end' }}
         >
           <ClipboardButton text={code} />
-          <DownloadBtn data={feature} variant="text" color="primary" />
+          <DownloadBtn data={code} variant="text" color="primary" />
           <Button
             disabled={!!error}
             onClick={() => {

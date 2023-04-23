@@ -15,7 +15,7 @@ export default function DownloadBtn({
         el.setAttribute(
           'href',
           `data:application/json;chartset=utf-8,${encodeURIComponent(
-            typeof data === 'string' ? data : JSON.stringify(data),
+            typeof data === 'string' ? data : JSON.stringify(data, null, 2),
           )}`,
         )
         el.setAttribute('download', 'geojson.json')
