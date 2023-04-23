@@ -23,3 +23,43 @@ If the routes associated with a geofence share the same name as that geofence, t
 Properties can have duplicate names, however they still must have a unique combination of `name` and `category` values. For example, you can have a property with the name `parent` and the category set to `database` and another with the name `parent` and the category set to `string`. However, you cannot have two properties with the name `parent` and the category `database`.
 
 While it is generally recommended to use the `database` category whenever possible in order to reduce manual edits whenever you change a geofence's property, such as its name, adding an override property such as a string based `name` can sometimes help for unique situations depending on what your project's endpoints are expecting.
+
+## Scanner Integration
+
+### API Syncing
+
+While Kōji does connect directly to your scanner's database, most scanners have their geofences or routes loaded into memory and must reload these in order to make use of the latest changes. Instead of restarting your scanner process, you can setup Kōji to call the refresh endpoint automatically whenever a geofence or route is updated in the scanner database.
+
+1. In the Admin Panel, navigate to the `projects` page.
+1. Edit (or create) a scanner project
+1. Set `scanner` to true
+1. Add the `api_endpoint` value, a hint is provided for both RDM and Flygon scanner endpoints
+1. Add the `api_key` value, a hint is provided for both RDM and Flygon scanner endpoints
+
+Now when you click the `Sync` button, either next to the respect project, geofence, or route, Kōji will automatically call this endpoint after saving the changes to the scanner database, making them immediately available to the scanner to use!
+
+### Default Templates
+
+Since most scanners have many other properties associated with their geofences and routes, Kōji provides a way to automatically add these properties to your geofences and routes when they are created.
+
+- If using Flygon, in the Flygon Admin panel create a new `area` named `Default` and set any properties that you want, such as worker counts, to be added to all geofences and routes that are saved from Kōji.
+- If using RDM, you will need to name the files a little differently. For each available instance mode, you will need to take note of its acronym, below is the code that Kōji uses for your reference:
+
+| Mode                 | Acronym |
+| -------------------- | ------- |
+| auto_quest           | AQ      |
+| circle_pokemon       | CP      |
+| circle_smart_pokemon | CSP     |
+| circle_raid          | CR      |
+| circle_smart_raid    | CSR     |
+| pokemon_iv           | IV      |
+| leveling             | L       |
+| auto_tth             | ATTH    |
+| auto_pokemon         | AP      |
+
+- From the RDM admin panel, you will need to create instances based on this template: `Default_{acronym}`. For example, if you want to set a default `auto_quest` instance, you would create an instance named `Default_AQ`.
+- Now when you save a geofence or route from Kōji, it will automatically add the properties from the `Default_{acronym}` area to the geofence or route.
+
+## Active vs Inactive Routes in the Kōji Client
+
+For performance reasons, the client makes use of active and inactive routes. Only one route can be active at a time. You can set in the drawer whether you want routes to become active from either clicking on them or hovering (default). When a route is active, you can use the Leaflet editing tools on the right to modify the route. When a route is inactive, you cannot make changes to it, other than merging with other routes.
