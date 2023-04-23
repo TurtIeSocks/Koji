@@ -61,7 +61,9 @@ export const useImportExport = create<UseImportExport>((set, get) => ({
         typeof newCode === 'string'
           ? newCode
           : JSON.stringify(
-              polygonExportMode === 'poracle' && Array.isArray(newCode)
+              feature.type === 'Feature' &&
+                polygonExportMode === 'poracle' &&
+                Array.isArray(newCode)
                 ? newCode[0]
                 : newCode,
               null,

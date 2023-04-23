@@ -5,6 +5,7 @@ import * as React from 'react'
 import { useShapes } from '@hooks/useShapes'
 import type { FeatureCollection } from '@assets/types'
 import SaveToKoji from '@components/buttons/SaveToKoji'
+import DownloadBtn from '@components/buttons/Download'
 
 interface Props {
   filtered: FeatureCollection
@@ -56,26 +57,7 @@ export default function FinishStep({ filtered, reset }: Props) {
         </Button>
       </Grid2>
       <Grid2>
-        <Button
-          variant="outlined"
-          color="success"
-          onClick={() => {
-            const el = document.createElement('a')
-            el.setAttribute(
-              'href',
-              `data:application/json;chartset=utf-8,${encodeURIComponent(
-                JSON.stringify(filtered),
-              )}`,
-            )
-            el.setAttribute('download', 'geojson.json')
-            el.style.display = 'none'
-            document.body.appendChild(el)
-            el.click()
-            document.body.removeChild(el)
-          }}
-        >
-          Download
-        </Button>
+        <DownloadBtn data={filtered} />
       </Grid2>
     </Grid2>
   )

@@ -11,6 +11,7 @@ import MultiOptions from '@components/drawer/inputs/MultiOptions'
 import { CONVERSION_TYPES } from '@assets/constants'
 import { useImportExport } from '@hooks/useImportExport'
 import ClipboardButton from '@components/drawer/inputs/Clipboard'
+import DownloadBtn from '@components/buttons/Download'
 import { useShapes } from '@hooks/useShapes'
 import { usePersist } from '@hooks/usePersist'
 
@@ -107,6 +108,7 @@ export function ImportExportDialog({
           style={{ flexGrow: 1, display: 'flex', justifyContent: 'flex-end' }}
         >
           <ClipboardButton text={code} />
+          <DownloadBtn data={feature} variant="text" color="primary" />
           <Button
             disabled={!!error}
             onClick={() => {
