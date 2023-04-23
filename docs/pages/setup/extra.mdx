@@ -1,0 +1,27 @@
+# Extra
+
+## Network Limitations
+
+### Payload Size
+
+Kōji is currently hardcoded to only allow up to 20MB payloads, however, your reverse proxy, such as Nginx, may have a much lower limit by default. You can set this higher by adding the following property:
+
+```nginx
+    location / {
+        client_max_body_size    20M;
+    }
+```
+
+### Timeouts
+
+Nginx may also have a max limit on how long it will wait for a response from Kōji. You can set this higher by adding the following properties:
+
+```nginx
+    location / {
+        proxy_read_timeout      3000;
+        proxy_connect_timeout   3000;
+        proxy_send_timeout      3000;
+    }
+```
+
+Unfortunately, if you connect through Kōji over Cloudflare, you will not be able to utilize any time set higher than 100 seconds. This is because Cloudflare has a 100 second timeout on all requests for the free tier. It is recommended to connect through Kōji through direct IP or to write scripts to execute on the server locally that call Kōji's API to avoid this issue.
