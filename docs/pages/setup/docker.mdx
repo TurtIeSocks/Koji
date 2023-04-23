@@ -91,3 +91,16 @@ docker login ghcr.io -u GITHUB_USERNAME
    ```bash
     docker-compose down && docker-compose up -d
    ```
+
+## Checking out other PRs
+
+To check out other PRs/branches, you can change your `docker-compose.override.yml` file like so:
+
+```yml
+services:
+  ...
+  koji:
+    image: ghcr.io/turtiesocks/koji:{branch_name} # ghcr.io/turtiesocks/koji:another-clustering-algo
+    container_name: koji
+    ...
+```
