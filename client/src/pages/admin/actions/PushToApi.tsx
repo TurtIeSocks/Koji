@@ -11,16 +11,18 @@ import {
 import { useMutation } from 'react-query'
 
 import type { BasicKojiEntry } from '@assets/types'
-import { capitalize } from '@mui/material'
+import { SxProps, capitalize } from '@mui/material'
 import { fetchWrapper } from '@services/fetches'
 
 export function BaseButton({
   onClick,
+  sx,
 }: {
   onClick: React.MouseEventHandler<HTMLButtonElement> | undefined
+  sx?: SxProps
 }) {
   return (
-    <Button label="Sync" size="small" onClick={onClick}>
+    <Button label="Sync" size="small" onClick={onClick} sx={sx}>
       <SyncIcon />
     </Button>
   )
@@ -28,8 +30,10 @@ export function BaseButton({
 
 export function PushToProd<T extends BasicKojiEntry>({
   resource,
+  sx,
 }: {
   resource: string
+  sx?: SxProps
 }) {
   const record = useRecordContext<T>()
   const notify = useNotify()
@@ -52,6 +56,7 @@ export function PushToProd<T extends BasicKojiEntry>({
 
   return (
     <BaseButton
+      sx={sx}
       onClick={(event) => {
         event.stopPropagation()
         sync.mutate()
@@ -62,8 +67,10 @@ export function PushToProd<T extends BasicKojiEntry>({
 
 export function BulkPushToProd<T extends BasicKojiEntry>({
   resource,
+  sx,
 }: {
   resource: string
+  sx?: SxProps
 }) {
   const { selectedIds } = useListContext<T>()
   const unselectAll = useUnselectAll(resource)
@@ -95,6 +102,7 @@ export function BulkPushToProd<T extends BasicKojiEntry>({
 
   return (
     <BaseButton
+      sx={sx}
       onClick={(event) => {
         event.stopPropagation()
         unselectAll()

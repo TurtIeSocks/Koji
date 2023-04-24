@@ -598,10 +598,11 @@ pub struct AdminReq {
     pub sort_by: Option<String>,
     pub order: Option<String>,
     pub search: Option<String>,
-    pub geo_type: Option<String>,
+    pub geotype: Option<String>,
     pub project: Option<u32>,
     pub mode: Option<String>,
     pub parent: Option<u32>,
+    pub geofenceid: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -617,10 +618,11 @@ impl AdminReq {
             per_page: self.per_page.unwrap_or(25),
             sort_by: self.sort_by.unwrap_or("id".to_string()),
             q: self.search.unwrap_or("".to_string()),
-            geo_type: self.geo_type,
+            geotype: self.geotype,
             project: self.project,
             mode: self.mode,
             parent: self.parent,
+            geofenceid: self.geofenceid,
         }
     }
 }
@@ -631,8 +633,9 @@ pub struct AdminReqParsed {
     pub sort_by: String,
     pub order: String,
     pub q: String,
-    pub geo_type: Option<String>,
+    pub geotype: Option<String>,
     pub project: Option<u32>,
     pub mode: Option<String>,
     pub parent: Option<u32>,
+    pub geofenceid: Option<u32>,
 }

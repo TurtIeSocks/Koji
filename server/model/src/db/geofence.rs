@@ -396,7 +396,8 @@ impl Query {
         if let Some(parent) = args.parent {
             paginator = paginator.filter(Column::Parent.eq(parent));
         }
-        if let Some(geo_type) = args.geo_type {
+
+        if let Some(geo_type) = args.geotype {
             paginator = paginator.filter(Column::GeoType.eq(geo_type));
         }
         if let Some(mode) = args.mode {

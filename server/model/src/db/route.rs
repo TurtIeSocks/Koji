@@ -61,6 +61,11 @@ pub struct RouteNoGeometry {
     pub updated_at: DateTimeUtc,
 }
 
+#[derive(Serialize, Deserialize, FromQueryResult)]
+pub struct OnlyGeofenceId {
+    pub geofence_id: u32,
+}
+
 impl ToFeatureFromModel for Model {
     fn to_feature(self, internal: bool) -> Result<Feature, ModelError> {
         let Self {
@@ -105,10 +110,18 @@ impl Query {
     ) -> Result<PaginateResults<Vec<Json>>, DbErr> {
         let column = Column::from_str(&args.sort_by).unwrap_or(Column::Name);
 
-        let paginator = Entity::find()
+        let mut paginator = Entity::find()
             .order_by(column, parse_order(&args.order))
-            .filter(Column::Name.like(format!("%{}%", args.q).as_str()))
-            .paginate(db, args.per_page);
+            .filter(Column::Name.like(format!("%{}%", args.q).as_str()));
+
+        if let Some(geofence_id) = args.geofenceid {
+            paginator = paginator.filter(Column::GeofenceId.eq(geofence_id));
+        }
+        if let Some(mode) = args.mode {
+            paginator = paginator.filter(Column::Mode.eq(mode));
+        }
+
+        let paginator = paginator.paginate(db, args.per_page);
         let total = paginator.num_items_and_pages().await?;
 
         let results: Vec<Json> = paginator
@@ -539,5 +552,25 @@ impl Query {
             .into_json()
             .all(db)
             .await?)
+    }
+
+    pub async fn unique_geofence(db: &DatabaseConnection) -> Result<Vec<Json>, ModelError> {
+        let items = Entity::find()
+            .select_only()
+            .column(Column::GeofenceId)
+            .distinct()
+            .into_model::<OnlyGeofenceId>()
+            .all(db)
+            .await?;
+        let items = geofence::Entity::find()
+            .filter(geofence::Column::Id.is_in(items.into_iter().map(|item| item.geofence_id)))
+            .select_only()
+            .column(geofence::Column::Id)
+            .column(geofence::Column::Name)
+            .distinct()
+            .into_json()
+            .all(db)
+            .await?;
+        Ok(items)
     }
 }

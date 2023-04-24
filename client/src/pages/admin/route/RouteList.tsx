@@ -2,7 +2,6 @@ import * as React from 'react'
 import {
   BulkDeleteWithUndoButton,
   Datagrid,
-  DeleteWithUndoButton,
   EditButton,
   List,
   NumberField,
@@ -11,12 +10,13 @@ import {
   TopToolbar,
   CreateButton,
   ReferenceField,
-  SearchInput,
 } from 'react-admin'
 import { ExportPolygon } from '@components/dialogs/Polygon'
 
-import { BulkExportButton, ExportButton } from '../actions/Export'
+import { BulkExportButton } from '../actions/Export'
 import { BulkPushToProd, PushToProd } from '../actions/PushToApi'
+import { RouteFilter } from './RouteFilter'
+import { ExtraMenuActions } from '../actions/Extras'
 
 function ListActions() {
   return (
@@ -29,8 +29,8 @@ function ListActions() {
 function BulkActions() {
   return (
     <>
-      <BulkDeleteWithUndoButton resource="route" />
       <BulkPushToProd resource="route" />
+      <BulkDeleteWithUndoButton resource="route" size="small" />
       <BulkExportButton resource="route" />
     </>
   )
@@ -40,7 +40,7 @@ export default function RouteList() {
   return (
     <>
       <List
-        filters={[<SearchInput source="q" alwaysOn />]}
+        aside={<RouteFilter />}
         pagination={<Pagination rowsPerPageOptions={[25, 50, 100]} />}
         title="Routes"
         perPage={25}
@@ -54,9 +54,11 @@ export default function RouteList() {
           <ReferenceField source="geofence_id" reference="geofence" />
           <NumberField source="hops" label="Hops" sortable={false} />
           <EditButton />
-          <DeleteWithUndoButton />
-          <PushToProd resource="route" />
-          <ExportButton resource="route" />
+          <PushToProd
+            resource="route"
+            sx={{ display: { xs: 'none', sm: 'flex' } }}
+          />
+          <ExtraMenuActions resource="route" />
         </Datagrid>
       </List>
       <ExportPolygon />

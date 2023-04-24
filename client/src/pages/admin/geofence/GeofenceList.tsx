@@ -2,7 +2,6 @@ import * as React from 'react'
 import {
   BulkDeleteWithUndoButton,
   Datagrid,
-  DeleteWithUndoButton,
   EditButton,
   List,
   Pagination,
@@ -15,10 +14,11 @@ import {
 import { ExportPolygon } from '@components/dialogs/Polygon'
 import { GeofenceFilter } from './GeofenceFilter'
 import { BulkAssignButton } from '../actions/AssignProjectFence'
-import { BulkExportButton, ExportButton } from '../actions/Export'
+import { BulkExportButton } from '../actions/Export'
 import { BulkPushToProd, PushToProd } from '../actions/PushToApi'
 import { GeofenceExpand } from './GeofenceExpand'
 import { BulkAssignFenceButton } from '../actions/AssignParentFence'
+import { ExtraMenuActions } from '../actions/Extras'
 
 function ListActions() {
   return (
@@ -61,9 +61,8 @@ export default function GeofenceList() {
           <TextField source="mode" />
           <TextField source="geo_type" />
           <EditButton />
-          <DeleteWithUndoButton />
           <PushToProd resource="geofence" />
-          <ExportButton resource="geofence" />
+          <ExtraMenuActions resource="geofence" />
         </Datagrid>
       </List>
       <ExportPolygon />

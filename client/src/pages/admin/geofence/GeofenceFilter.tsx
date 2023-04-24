@@ -28,7 +28,7 @@ export function GeofenceFilter() {
     ),
   )
   return (
-    <Card sx={{ order: -1, mt: 9, width: 200 }}>
+    <Card sx={{ order: -1, width: 200 }}>
       <CardContent>
         {/* <SavedQueriesList /> */}
         <FilterLiveSearch />
@@ -51,12 +51,8 @@ export function GeofenceFilter() {
           ))}
         </FilterList>
         <FilterList label="Geography Type" icon={<MapIcon />}>
-          {['Polygon', 'MultiPolygon'].map((geo_type) => (
-            <FilterListItem
-              key={geo_type}
-              label={geo_type}
-              value={{ geo_type }}
-            />
+          {['Polygon', 'MultiPolygon'].map((geotype) => (
+            <FilterListItem key={geotype} label={geotype} value={{ geotype }} />
           ))}
         </FilterList>
         <FilterList label="Mode" icon={<AutoModeIcon />}>

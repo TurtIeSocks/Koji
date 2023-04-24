@@ -39,11 +39,19 @@ async fn paginate(
     }))
 }
 
-#[get("/geofence/parent")]
-async fn parent_list(db: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
-    let results = db::geofence::Query::unique_parents(&db.koji_db)
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+#[get("/{resource}/parent")]
+async fn parent_list(
+    db: web::Data<KojiDb>,
+    path: actix_web::web::Path<String>,
+) -> Result<HttpResponse, Error> {
+    let resource = path.into_inner();
+
+    let results = match resource.to_lowercase().as_str() {
+        "geofence" => db::geofence::Query::unique_parents(&db.koji_db).await,
+        "route" => db::route::Query::unique_geofence(&db.koji_db).await,
+        _ => Err(ModelError::Custom("Invalid Resource".to_string())),
+    }
+    .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!(results)),
