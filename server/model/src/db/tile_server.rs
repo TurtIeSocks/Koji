@@ -5,6 +5,7 @@ use serde_json::json;
 use std::str::FromStr;
 
 use crate::{
+    api::args::AdminReqParsed,
     error::ModelError,
     utils::{json::JsonToModel, parse_order},
 };
@@ -49,22 +50,18 @@ impl Query {
 
     pub async fn paginate(
         db: &DatabaseConnection,
-        page: u64,
-        posts_per_page: u64,
-        order: String,
-        sort_by: String,
-        q: String,
+        args: AdminReqParsed,
     ) -> Result<PaginateResults<Vec<Json>>, DbErr> {
         let paginator = Entity::find()
             .order_by(
-                Column::from_str(&sort_by).unwrap_or(Column::Name),
-                parse_order(&order),
+                Column::from_str(&args.sort_by).unwrap_or(Column::Name),
+                parse_order(&args.order),
             )
-            .filter(Column::Name.like(format!("%{}%", q).as_str()))
-            .paginate(db, posts_per_page);
+            .filter(Column::Name.like(format!("%{}%", args.q).as_str()))
+            .paginate(db, args.per_page);
         let total = paginator.num_items_and_pages().await?;
 
-        let results: Vec<Model> = match paginator.fetch_page(page).await {
+        let results: Vec<Model> = match paginator.fetch_page(args.page).await {
             Ok(results) => results,
             Err(err) => {
                 log::error!("[project] Error paginating, {:?}", err);
@@ -77,8 +74,8 @@ impl Query {
         Ok(PaginateResults {
             results,
             total: total.number_of_items,
-            has_prev: total.number_of_pages == page + 1,
-            has_next: page + 1 < total.number_of_pages,
+            has_prev: total.number_of_pages == args.page + 1,
+            has_next: args.page + 1 < total.number_of_pages,
         })
     }
 

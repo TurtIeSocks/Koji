@@ -9,12 +9,11 @@ import {
   TextField,
   TopToolbar,
   CreateButton,
-  SearchInput,
   ReferenceField,
 } from 'react-admin'
 
 import { ExportPolygon } from '@components/dialogs/Polygon'
-
+import { GeofenceFilter } from './GeofenceFilter'
 import { BulkAssignButton } from '../actions/AssignProjectFence'
 import { BulkExportButton, ExportButton } from '../actions/Export'
 import { BulkPushToProd, PushToProd } from '../actions/PushToApi'
@@ -45,7 +44,7 @@ export default function GeofenceList() {
   return (
     <>
       <List
-        filters={[<SearchInput source="q" alwaysOn />]}
+        aside={<GeofenceFilter />}
         pagination={<Pagination rowsPerPageOptions={[25, 50, 100]} />}
         title="Geofences"
         perPage={25}

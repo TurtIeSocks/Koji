@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use crate::{
-    api::{GeoFormats, ToCollection, ToFeature},
+    api::{args::AdminReqParsed, GeoFormats, ToCollection, ToFeature},
     db::sea_orm_active_enums::Type,
     error::ModelError,
     utils::{get_enum, json::JsonToModel, parse_order},
@@ -101,22 +101,18 @@ pub struct Query;
 impl Query {
     pub async fn paginate(
         db: &DatabaseConnection,
-        page: u64,
-        posts_per_page: u64,
-        order: String,
-        sort_by: String,
-        q: String,
+        args: AdminReqParsed,
     ) -> Result<PaginateResults<Vec<Json>>, DbErr> {
-        let column = Column::from_str(&sort_by).unwrap_or(Column::Name);
+        let column = Column::from_str(&args.sort_by).unwrap_or(Column::Name);
 
         let paginator = Entity::find()
-            .order_by(column, parse_order(&order))
-            .filter(Column::Name.like(format!("%{}%", q).as_str()))
-            .paginate(db, posts_per_page);
+            .order_by(column, parse_order(&args.order))
+            .filter(Column::Name.like(format!("%{}%", args.q).as_str()))
+            .paginate(db, args.per_page);
         let total = paginator.num_items_and_pages().await?;
 
         let results: Vec<Json> = paginator
-            .fetch_page(page)
+            .fetch_page(args.page)
             .await?
             .into_iter()
             .map(|model| {
@@ -143,8 +139,8 @@ impl Query {
         Ok(PaginateResults {
             results,
             total: total.number_of_items,
-            has_prev: total.number_of_pages == page + 1,
-            has_next: page + 1 < total.number_of_pages,
+            has_prev: total.number_of_pages == args.page + 1,
+            has_next: args.page + 1 < total.number_of_pages,
         })
     }
 
