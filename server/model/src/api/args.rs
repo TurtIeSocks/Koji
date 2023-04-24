@@ -597,7 +597,7 @@ pub struct AdminReq {
     pub per_page: Option<u64>,
     pub sort_by: Option<String>,
     pub order: Option<String>,
-    pub search: Option<String>,
+    pub q: Option<String>,
     pub geotype: Option<String>,
     pub project: Option<u32>,
     pub mode: Option<String>,
@@ -617,7 +617,7 @@ impl AdminReq {
             order: self.order.unwrap_or("ASC".to_string()),
             per_page: self.per_page.unwrap_or(25),
             sort_by: self.sort_by.unwrap_or("id".to_string()),
-            q: self.search.unwrap_or("".to_string()),
+            q: self.q.unwrap_or("".to_string()),
             geotype: self.geotype,
             project: self.project,
             mode: self.mode,
@@ -627,6 +627,7 @@ impl AdminReq {
     }
 }
 
+#[derive(Debug)]
 pub struct AdminReqParsed {
     pub page: u64,
     pub per_page: u64,
