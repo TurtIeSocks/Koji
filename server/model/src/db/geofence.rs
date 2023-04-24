@@ -4,7 +4,7 @@ use std::{collections::HashMap, str::FromStr};
 
 use crate::{
     api::{
-        args::{ApiQueryArgs, UnknownId},
+        args::{AdminReqParsed, ApiQueryArgs, UnknownId},
         collection::Default,
         GeoFormats, ToCollection,
     },
@@ -87,6 +87,11 @@ pub struct GeofenceNoGeometry {
     pub parent: Option<u32>,
     // pub created_at: DateTimeUtc,
     // pub updated_at: DateTimeUtc,
+}
+
+#[derive(Serialize, Deserialize, FromQueryResult)]
+pub struct OnlyParent {
+    pub parent: Option<u32>,
 }
 
 impl GeofenceNoGeometry {
@@ -380,21 +385,35 @@ impl Query {
     /// Returns paginated Geofence models
     pub async fn paginate(
         db: &DatabaseConnection,
-        page: u64,
-        posts_per_page: u64,
-        order: String,
-        sort_by: String,
-        q: String,
+        args: AdminReqParsed,
     ) -> Result<PaginateResults<Vec<Json>>, DbErr> {
-        let column = Column::from_str(&sort_by).unwrap_or(Column::Name);
+        let column = Column::from_str(&args.sort_by).unwrap_or(Column::Name);
 
-        let paginator = Entity::find()
-            .order_by(column, parse_order(&order))
-            .filter(Column::Name.like(format!("%{}%", q).as_str()))
-            .paginate(db, posts_per_page);
+        let mut paginator = Entity::find()
+            .order_by(column, parse_order(&args.order))
+            .filter(Column::Name.like(format!("%{}%", args.q).as_str()));
+
+        if let Some(parent) = args.parent {
+            paginator = paginator.filter(Column::Parent.eq(parent));
+        }
+
+        if let Some(geo_type) = args.geotype {
+            paginator = paginator.filter(Column::GeoType.eq(geo_type));
+        }
+        if let Some(mode) = args.mode {
+            paginator = paginator.filter(Column::Mode.eq(mode));
+        }
+        if let Some(project_id) = args.project {
+            paginator = paginator
+                .inner_join(project::Entity)
+                .filter(project::Column::Id.eq(project_id));
+        }
+
+        let paginator = paginator.paginate(db, args.per_page);
+
         let total = paginator.num_items_and_pages().await?;
 
-        let results = paginator.fetch_page(page).await?;
+        let results = paginator.fetch_page(args.page).await?;
 
         let projects = future::try_join_all(
             results
@@ -436,15 +455,19 @@ impl Query {
             })
             .collect();
 
-        if sort_by.contains("length") {
-            json_related_sort(&mut results, &sort_by.replace(".length", ""), order);
+        if args.sort_by.contains("length") {
+            json_related_sort(
+                &mut results,
+                &args.sort_by.replace(".length", ""),
+                args.order,
+            );
         }
 
         Ok(PaginateResults {
             results,
             total: total.number_of_items,
-            has_prev: total.number_of_pages == page + 1,
-            has_next: page + 1 < total.number_of_pages,
+            has_prev: total.number_of_pages == args.page + 1,
+            has_next: args.page + 1 < total.number_of_pages,
         })
     }
 
@@ -832,5 +855,32 @@ impl Query {
                 .await?;
 
         Ok(items.to_collection(None, None))
+    }
+
+    pub async fn unique_parents(db: &DatabaseConnection) -> Result<Vec<Json>, ModelError> {
+        let items = Entity::find()
+            .filter(Column::Parent.is_not_null())
+            .select_only()
+            .column(Column::Parent)
+            .distinct()
+            .into_model::<OnlyParent>()
+            .all(db)
+            .await?;
+        let items = Entity::find()
+            .filter(Column::Id.is_in(items.into_iter().filter_map(|item| {
+                if let Some(parent) = item.parent {
+                    Some(parent)
+                } else {
+                    None
+                }
+            })))
+            .select_only()
+            .column(Column::Id)
+            .column(Column::Name)
+            .distinct()
+            .into_json()
+            .all(db)
+            .await?;
+        Ok(items)
     }
 }

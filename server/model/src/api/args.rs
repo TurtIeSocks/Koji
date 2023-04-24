@@ -589,3 +589,53 @@ impl Response {
         }
     }
 }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminReq {
+    pub page: Option<u64>,
+    pub per_page: Option<u64>,
+    pub sort_by: Option<String>,
+    pub order: Option<String>,
+    pub search: Option<String>,
+    pub geotype: Option<String>,
+    pub project: Option<u32>,
+    pub mode: Option<String>,
+    pub parent: Option<u32>,
+    pub geofenceid: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Search {
+    pub query: String,
+}
+
+impl AdminReq {
+    pub fn parse(self) -> AdminReqParsed {
+        AdminReqParsed {
+            page: self.page.unwrap_or(0),
+            order: self.order.unwrap_or("ASC".to_string()),
+            per_page: self.per_page.unwrap_or(25),
+            sort_by: self.sort_by.unwrap_or("id".to_string()),
+            q: self.search.unwrap_or("".to_string()),
+            geotype: self.geotype,
+            project: self.project,
+            mode: self.mode,
+            parent: self.parent,
+            geofenceid: self.geofenceid,
+        }
+    }
+}
+
+pub struct AdminReqParsed {
+    pub page: u64,
+    pub per_page: u64,
+    pub sort_by: String,
+    pub order: String,
+    pub q: String,
+    pub geotype: Option<String>,
+    pub project: Option<u32>,
+    pub mode: Option<String>,
+    pub parent: Option<u32>,
+    pub geofenceid: Option<u32>,
+}

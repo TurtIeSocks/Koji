@@ -1,44 +1,14 @@
 use super::*;
 
-use model::error::ModelError;
+use model::{api::args::AdminReq, error::ModelError};
 use serde::Deserialize;
 use serde_json::json;
 
 use crate::model::{api::args::Response, db, KojiDb};
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AdminReq {
-    pub page: Option<u64>,
-    pub per_page: Option<u64>,
-    pub sort_by: Option<String>,
-    pub order: Option<String>,
-    pub q: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
 pub struct Search {
     pub query: String,
-}
-
-pub struct AdminReqParsed {
-    pub page: u64,
-    pub per_page: u64,
-    pub sort_by: String,
-    pub order: String,
-    pub q: String,
-}
-
-impl AdminReq {
-    fn parse(self) -> AdminReqParsed {
-        AdminReqParsed {
-            page: self.page.unwrap_or(0),
-            order: self.order.unwrap_or("ASC".to_string()),
-            per_page: self.per_page.unwrap_or(25),
-            sort_by: self.sort_by.unwrap_or("id".to_string()),
-            q: self.q.unwrap_or("".to_string()),
-        }
-    }
 }
 
 #[get("/{resource}/")]
@@ -47,35 +17,44 @@ async fn paginate(
     query: web::Query<AdminReq>,
     path: actix_web::web::Path<String>,
 ) -> Result<HttpResponse, Error> {
-    let AdminReqParsed {
-        page,
-        per_page,
-        sort_by,
-        order,
-        q,
-    } = query.into_inner().parse();
+    let parsed = query.into_inner().parse();
     let resource = path.into_inner();
 
     let paginated_results = match resource.to_lowercase().as_str() {
-        "geofence" => {
-            db::geofence::Query::paginate(&db.koji_db, page, per_page, order, sort_by, q).await
-        }
-        "project" => {
-            db::project::Query::paginate(&db.koji_db, page, per_page, order, sort_by, q).await
-        }
-        "property" => {
-            db::property::Query::paginate(&db.koji_db, page, per_page, order, sort_by, q).await
-        }
-        "route" => db::route::Query::paginate(&db.koji_db, page, per_page, order, sort_by, q).await,
-        "tileserver" => {
-            db::tile_server::Query::paginate(&db.koji_db, page, per_page, order, sort_by, q).await
-        }
+        "geofence" => db::geofence::Query::paginate(&db.koji_db, parsed).await,
+        "project" => db::project::Query::paginate(&db.koji_db, parsed).await,
+        "property" => db::property::Query::paginate(&db.koji_db, parsed).await,
+        "route" => db::route::Query::paginate(&db.koji_db, parsed).await,
+        "tileserver" => db::tile_server::Query::paginate(&db.koji_db, parsed).await,
         _ => Err(DbErr::Custom("Invalid Resource".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!(paginated_results)),
+        message: "Success".to_string(),
+        status: "ok".to_string(),
+        stats: None,
+        status_code: 200,
+    }))
+}
+
+#[get("/{resource}/parent")]
+async fn parent_list(
+    db: web::Data<KojiDb>,
+    path: actix_web::web::Path<String>,
+) -> Result<HttpResponse, Error> {
+    let resource = path.into_inner();
+
+    let results = match resource.to_lowercase().as_str() {
+        "geofence" => db::geofence::Query::unique_parents(&db.koji_db).await,
+        "route" => db::route::Query::unique_geofence(&db.koji_db).await,
+        _ => Err(ModelError::Custom("Invalid Resource".to_string())),
+    }
+    .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    Ok(HttpResponse::Ok().json(Response {
+        data: Some(json!(results)),
         message: "Success".to_string(),
         status: "ok".to_string(),
         stats: None,

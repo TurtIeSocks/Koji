@@ -100,6 +100,7 @@ pub async fn start() -> io::Result<()> {
                     .service(
                         web::scope("/admin")
                             .service(private::admin::paginate)
+                            .service(private::admin::parent_list)
                             .service(private::admin::get_all)
                             .service(private::admin::search)
                             .service(private::admin::assign)
