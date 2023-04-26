@@ -66,19 +66,19 @@ export const useDbCache = create<UseDbCache>((set, get) => ({
       case 'gym':
         return (
           Object.values(route).find(
-            (r) => r.name === name && r.mode.includes('Raid'),
+            (r) => r.name === name && r.mode.includes('raid'),
           ) || null
         )
       case 'pokestop':
         return (
           Object.values(route).find(
-            (r) => r.name === name && r.mode.includes('Quest'),
+            (r) => r.name === name && r.mode.includes('quest'),
           ) || null
         )
       case 'spawnpoint':
         return (
           Object.values(route).find(
-            (r) => r.name === name && r.mode.includes('Pokemon'),
+            (r) => r.name === name && r.mode.includes('pokemon'),
           ) || null
         )
       default:

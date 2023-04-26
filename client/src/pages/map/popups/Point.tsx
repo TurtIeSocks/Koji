@@ -36,13 +36,17 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
   const { setRecord, geofence } = useDbCache.getState()
 
   const [name, setName] = React.useState(
-    dbRef?.name || feature.properties?.__name || '',
+    dbRef?.name === feature?.properties?.__name
+      ? dbRef?.name || feature.properties?.__name || ''
+      : feature.properties?.__name || '',
   )
   const [mode, setMode] = React.useState(
     dbRef?.mode || feature.properties?.__mode || '',
   )
   const [fenceId, setFenceId] = React.useState(
-    dbRef?.geofence_id || feature?.properties?.__geofence_id || 0,
+    dbRef?.name === feature?.properties?.__name
+      ? dbRef?.geofence_id || feature?.properties?.__geofence_id || 0
+      : feature?.properties?.__geofence_id || 0,
   )
 
   const options = Object.values(geofence)
@@ -54,9 +58,8 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
       ? remove(feature.geometry.type, feature.id)
       : remove('Point')
 
-  const isInKoji = feature.properties?.__multipoint_id
-    ?.toString()
-    .endsWith('KOJI')
+  const isInKoji = dbRef?.id && dbRef?.name === feature?.properties?.__name
+  feature.properties?.__multipoint_id?.toString().endsWith('KOJI')
 
   return id !== undefined ? (
     <div>
