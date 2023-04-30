@@ -53,6 +53,12 @@ impl Related<super::property::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Basic {
+    pub name: String,
+    pub value: Json,
+}
+
 #[derive(Clone, Debug, FromQueryResult, Serialize, Deserialize)]
 pub struct FullPropertyModel {
     pub id: u32,
@@ -64,14 +70,18 @@ pub struct FullPropertyModel {
 }
 
 impl FullPropertyModel {
-    pub fn parse_db_value(&self, model: &geofence::Model) -> serde_json::Value {
-        let model_json = serde_json::to_value(model).unwrap();
-
-        let parsed_value = match self.category {
-            Category::Database => {
-                let value = model_json[&self.name].clone();
-                value
-            }
+    pub fn parse_db_value(self, model: &geofence::Model) -> Basic {
+        let parsed_value: Json = match self.category {
+            Category::Database => match self.name.as_str() {
+                "id" => serde_json::Value::from(model.id),
+                "name" => serde_json::Value::from(model.name.to_string()),
+                "mode" => serde_json::Value::from(model.mode.to_value()),
+                "geo_type" => serde_json::Value::from(model.geo_type.to_string()),
+                "parent" => serde_json::Value::from(model.parent),
+                "created_at" => serde_json::Value::from(model.created_at.to_string()),
+                "updated_at" => serde_json::Value::from(model.updated_at.to_string()),
+                _ => serde_json::Value::Null,
+            },
             _ => {
                 if let Some(value) = &self.value {
                     parse_property_value(value, &self.category)
@@ -80,9 +90,10 @@ impl FullPropertyModel {
                 }
             }
         };
-        let mut new_json = serde_json::json!(self);
-        new_json["value"] = parsed_value;
-        new_json
+        Basic {
+            name: self.name,
+            value: parsed_value,
+        }
     }
 }
 
