@@ -339,8 +339,13 @@ impl Query {
                         .all(db)
                         .await?
                         .into_iter()
-                        .map(|prop| prop.parse_db_value(&record))
-                        .collect::<Vec<Basic>>()),
+                        .map(|prop| {
+                            let property_id = prop.property_id.clone();
+                            let mut new_json = json!(prop.parse_db_value(&record));
+                            new_json["property_id"] = property_id.into();
+                            new_json
+                        })
+                        .collect::<Vec<Json>>()),
                 );
                 Ok(json!(json))
             }
