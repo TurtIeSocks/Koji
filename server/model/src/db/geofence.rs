@@ -801,12 +801,26 @@ impl Query {
         log::debug!("db query took {:?}", time.elapsed());
 
         let time = Instant::now();
-        let items =
-            future::try_join_all(items.into_iter().map(|result| result.to_feature(db, args)))
-                .await?;
+        let mut features = Vec::new();
 
+        for chunk in items.chunks(
+            std::env::var("MAX_CONNECTIONS")
+                .unwrap_or("100".to_string())
+                .parse::<usize>()
+                .unwrap_or(100),
+        ) {
+            features.append(
+                &mut future::try_join_all(
+                    chunk
+                        .to_vec()
+                        .into_iter()
+                        .map(|result| result.to_feature(db, args)),
+                )
+                .await?,
+            );
+        }
         log::debug!("feature conversion took {:?}", time.elapsed());
-        Ok(items)
+        Ok(features)
     }
 
     pub async fn search(db: &DatabaseConnection, search: String) -> Result<Vec<Json>, DbErr> {
