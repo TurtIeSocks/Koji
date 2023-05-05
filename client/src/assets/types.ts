@@ -139,6 +139,7 @@ export interface KojiRoute extends BasicKojiEntry {
   mode: KojiModes
   description?: string
   geometry: MultiPoint
+  points: number
 }
 
 export interface KojiTileServer extends BasicKojiEntry {

@@ -603,6 +603,8 @@ pub struct AdminReq {
     pub mode: Option<String>,
     pub parent: Option<u32>,
     pub geofenceid: Option<u32>,
+    pub pointsmin: Option<u32>,
+    pub pointsmax: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -623,6 +625,8 @@ impl AdminReq {
             mode: self.mode,
             parent: self.parent,
             geofenceid: self.geofenceid,
+            pointsmin: self.pointsmin,
+            pointsmax: self.pointsmax,
         }
     }
 }
@@ -639,4 +643,6 @@ pub struct AdminReqParsed {
     pub mode: Option<String>,
     pub parent: Option<u32>,
     pub geofenceid: Option<u32>,
+    pub pointsmin: Option<u32>,
+    pub pointsmax: Option<u32>,
 }

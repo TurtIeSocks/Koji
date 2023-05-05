@@ -1,11 +1,12 @@
 import * as React from 'react'
 import {
   FormDataConsumer,
+  FunctionField,
   ReferenceInput,
   SelectInput,
   TextInput,
 } from 'react-admin'
-import { Box } from '@mui/material'
+import { Box, TextField } from '@mui/material'
 
 import { RDM_ROUTES, UNOWN_ROUTES } from '@assets/constants'
 import type { KojiRoute } from '@assets/types'
@@ -30,6 +31,24 @@ export default function RouteForm() {
         optionValue="mode"
       />
       <ReferenceInput source="geofence_id" reference="geofence" isRequired />
+      <FunctionField<KojiRoute>
+        label="Points"
+        render={(fence) => {
+          const points: number =
+            typeof fence?.geometry === 'string'
+              ? JSON.parse(fence?.geometry || '{}')?.coordinates?.length || 0
+              : fence?.geometry?.coordinates?.length || 0
+          return (
+            <TextField
+              value={points}
+              disabled
+              fullWidth
+              size="small"
+              helperText="Point Count"
+            />
+          )
+        }}
+      />
       <CodeInput
         source="geometry"
         label="Route"

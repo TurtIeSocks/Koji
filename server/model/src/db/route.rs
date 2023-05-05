@@ -26,6 +26,8 @@ pub struct Model {
     pub description: Option<String>,
     pub mode: Type,
     pub geometry: Json,
+    #[sea_orm(column_type = "custom(\"MEDIUMINT UNSIGNED\")", nullable)]
+    pub points: u32,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
 }
@@ -57,6 +59,7 @@ pub struct RouteNoGeometry {
     pub name: String,
     pub description: Option<String>,
     pub mode: Type,
+    pub points: u32,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
 }
@@ -111,6 +114,15 @@ impl Query {
         let column = Column::from_str(&args.sort_by).unwrap_or(Column::Name);
 
         let mut paginator = Entity::find()
+            .select_only()
+            .column(Column::Id)
+            .column(Column::Name)
+            .column(Column::Mode)
+            .column(Column::Points)
+            .column(Column::GeofenceId)
+            .column(Column::Description)
+            .column(Column::CreatedAt)
+            .column(Column::UpdatedAt)
             .order_by(column, parse_order(&args.order))
             .filter(Column::Name.like(format!("%{}%", args.q).as_str()));
 
@@ -120,8 +132,19 @@ impl Query {
         if let Some(mode) = args.mode {
             paginator = paginator.filter(Column::Mode.eq(mode));
         }
+        if let Some(pointsmin) = args.pointsmin {
+            if let Some(pointsmax) = args.pointsmax {
+                paginator = paginator.filter(Column::Points.between(pointsmin, pointsmax));
+            } else {
+                paginator = paginator.filter(Column::Points.gt(pointsmin));
+            }
+        } else if let Some(pointsmax) = args.pointsmax {
+            paginator = paginator.filter(Column::Points.lt(pointsmax));
+        }
 
-        let paginator = paginator.paginate(db, args.per_page);
+        let paginator = paginator
+            .into_model::<RouteNoGeometry>()
+            .paginate(db, args.per_page);
         let total = paginator.num_items_and_pages().await?;
 
         let results: Vec<Json> = paginator
@@ -134,16 +157,7 @@ impl Query {
                     "geofence_id": model.geofence_id,
                     "name": model.name,
                     "description": model.description,
-                    "hops": match Geometry::from_json_value(model.geometry) {
-                        Ok(geometry) => match geometry.value {
-                            geojson::Value::MultiPoint(mp) => mp.len(),
-                            _ => 0,
-                        },
-                        Err(err) => {
-                            log::warn!("[Route] Error unwrapping geometry, {:?}", err);
-                            0
-                        }
-                    },
+                    "points": model.points,
                     "mode": model.mode,
                 })
             })
@@ -184,6 +198,7 @@ impl Query {
             .column(Column::Name)
             .column(Column::Description)
             .column(Column::Mode)
+            .column(Column::Points)
             .column(Column::CreatedAt)
             .column(Column::UpdatedAt)
             .order_by(Column::Name, Order::Asc)
