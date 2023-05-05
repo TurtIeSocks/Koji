@@ -97,6 +97,7 @@ export default function ImportWizard({ onClose }: { onClose?: () => void }) {
       allGeofences: '',
       allRouteMode: '',
       checked: {},
+      allParent: '',
     })
     setTempGeojson({
       type: 'FeatureCollection',
