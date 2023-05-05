@@ -52,7 +52,7 @@ export default function RouteList() {
           <TextField source="description" />
           <TextField source="mode" />
           <ReferenceField source="geofence_id" reference="geofence" />
-          <NumberField source="hops" label="Hops" sortable={false} />
+          <NumberField source="points" label="Points" />
           <EditButton />
           <PushToProd
             resource="route"

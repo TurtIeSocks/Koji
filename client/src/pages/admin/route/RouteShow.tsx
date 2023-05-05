@@ -22,6 +22,7 @@ export default function RouteShow() {
         <TextField source="description" />
         <TextField source="mode" />
         <ReferenceField source="geofence_id" reference="geofence" />
+        <TextField source="points" />
         <FunctionField<KojiRoute>
           label="Preview"
           render={(route) => (route ? <RouteMap formData={route} /> : null)}
