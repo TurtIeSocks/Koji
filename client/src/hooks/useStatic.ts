@@ -63,6 +63,7 @@ export interface UseStatic {
     allGeofences: number | string
     allFenceMode: '' | typeof ALL_FENCES
     allRouteMode: '' | typeof ALL_ROUTES
+    allParent: number | string
     checked: Record<string, boolean>
   }
   projects: Record<number | string, AdminProject>
@@ -126,6 +127,7 @@ export const useStatic = create<UseStatic>((set, get) => ({
     customName: '',
     modifier: 'none',
     allProjects: [],
+    allParent: '',
     allGeofences: '',
     allFenceMode: '',
     allRouteMode: '',

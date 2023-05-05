@@ -36,6 +36,7 @@ const AssignStep = React.forwardRef<
     allGeofences,
     allFenceMode,
     allRouteMode,
+    allParent,
     checked,
     nameProp,
   } = useStatic((s) => s.importWizard)
@@ -112,12 +113,17 @@ const AssignStep = React.forwardRef<
           Feature
         </Typography>
       </Grid2>
-      <Grid2 xs={3} mt={1}>
+      <Grid2 xs={2} mt={1}>
         <Typography variant="h6" align="center">
           Mode
         </Typography>
       </Grid2>
-      <Grid2 xs={5} mt={1}>
+      <Grid2 xs={2} mt={1}>
+        <Typography variant="h6" align="center">
+          Parent
+        </Typography>
+      </Grid2>
+      <Grid2 xs={4} mt={1}>
         <Typography variant="h6" align="center">
           {routeMode ? 'Geofence Parent' : 'Projects'}
         </Typography>
@@ -148,7 +154,7 @@ const AssignStep = React.forwardRef<
           All
         </Typography>
       </Grid2>
-      <Grid2 xs={3} mt={1}>
+      <Grid2 xs={routeMode ? 3 : 2} mt={1}>
         <Select
           value={routeMode ? allRouteMode : allFenceMode}
           size="small"
@@ -191,7 +197,60 @@ const AssignStep = React.forwardRef<
           ))}
         </Select>
       </Grid2>
-      <Grid2 xs={5} mt={1}>
+      {!routeMode && (
+        <Grid2 xs={2}>
+          <Select
+            size="small"
+            sx={{ width: '80%', mx: 'auto' }}
+            value={allParent}
+            onChange={({ target }) => {
+              useStatic.setState((prev) => ({
+                importWizard: {
+                  ...prev.importWizard,
+                  allParent: +target.value || target.value,
+                },
+              }))
+              handleChange({
+                ...geojson,
+                features: geojson.features.map((feature) => ({
+                  ...feature,
+                  properties: {
+                    ...feature.properties,
+                    parent: !feature.geometry.type.includes('Polygon')
+                      ? feature.properties.parent
+                      : +target.value
+                      ? +target.value
+                      : target.value,
+                  },
+                })),
+              })
+            }}
+          >
+            {Object.values(useDbCache.getState().geofence).map((t) => (
+              <MenuItem key={t.id} value={t.name}>
+                {t.name}
+              </MenuItem>
+            ))}
+            {refGeojson.features
+              .filter((feat) => feat.geometry.type.includes('Polygon'))
+              .sort((a, b) => {
+                const aName = a.properties?.[nameProp]
+                const bName = b.properties?.[nameProp]
+                return typeof aName === 'string' && typeof bName === 'string'
+                  ? aName.localeCompare(bName)
+                  : 0
+              })
+              .map((t) => {
+                return (
+                  <MenuItem key={t.id} value={t.properties?.[nameProp]}>
+                    {t.properties?.[nameProp]}
+                  </MenuItem>
+                )
+              })}
+          </Select>
+        </Grid2>
+      )}
+      <Grid2 xs={routeMode ? 5 : 4} mt={1}>
         {routeMode ? (
           <Select
             size="small"
@@ -339,7 +398,7 @@ const AssignStep = React.forwardRef<
                       helperText={feature.geometry.type}
                     />
                   </Grid2>
-                  <Grid2 xs={3}>
+                  <Grid2 xs={allRouteMode ? 3 : 2}>
                     <Select
                       size="small"
                       sx={{ width: '80%' }}
@@ -380,7 +439,64 @@ const AssignStep = React.forwardRef<
                       ))}
                     </Select>
                   </Grid2>
-                  <Grid2 xs={5}>
+                  {!routeMode && (
+                    <Grid2 xs={2}>
+                      <Select
+                        size="small"
+                        sx={{ width: '80%', mx: 'auto' }}
+                        value={feature.properties.parent || ''}
+                        onChange={({ target }) => {
+                          const newFeature = {
+                            ...feature,
+                            properties: {
+                              ...feature.properties,
+                              parent: target.value,
+                            },
+                          }
+                          handleChange({
+                            ...geojson,
+                            features: [
+                              ...geojson.features.filter(
+                                (f) => f.id !== feature.id,
+                              ),
+                              newFeature,
+                            ],
+                          })
+                        }}
+                      >
+                        {Object.values(useDbCache.getState().geofence).map(
+                          (t) => (
+                            <MenuItem key={t.id} value={t.name}>
+                              {t.name}
+                            </MenuItem>
+                          ),
+                        )}
+                        {refGeojson.features
+                          .filter((feat) =>
+                            feat.geometry.type.includes('Polygon'),
+                          )
+                          .sort((a, b) => {
+                            const aName = a.properties?.[nameProp]
+                            const bName = b.properties?.[nameProp]
+                            return typeof aName === 'string' &&
+                              typeof bName === 'string'
+                              ? aName.localeCompare(bName)
+                              : 0
+                          })
+                          .map((t) => {
+                            return (
+                              <MenuItem
+                                key={t.id}
+                                value={t.properties?.[nameProp]}
+                              >
+                                {t.properties?.[nameProp]}
+                              </MenuItem>
+                            )
+                          })}
+                      </Select>
+                    </Grid2>
+                  )}
+                  <Grid2 xs={routeMode ? 5 : 4}>
                     {routeMode ? (
                       <Select
                         size="small"
