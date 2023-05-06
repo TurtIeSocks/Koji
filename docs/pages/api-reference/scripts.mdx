@@ -1,0 +1,147 @@
+# Script Examples
+
+## JavaScript
+
+1. Copy one of the below scripts into a file, e.g. `script.js`
+1. Run `node script.js`
+
+### Synchroneous
+
+This will send one request at a time to Kōji.
+
+```js
+const main = async ({ endpoint, secret, projectName }) => {
+  // Fetches all areas in the given project
+  const areas = await fetch(
+    `http://${endpoint}/api/v1/geofence/reference/${projectName}`,
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        'Content-Type': 'application/json',
+      },
+    },
+  ).then((res) => res.json())
+
+  console.log('Found', areas.data.length, 'area(s)')
+
+  // Loops through all areas and spawns a route for each, one at a time
+  // Good for larger areas, particularly when cluster_mode is set to BruteForce
+  for (let i = 0; i < areas.data.length; i++) {
+    await fetch(`http://${endpoint}/api/v1/calc/route/spawnpoint`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        instance: areas.data[i].name,
+        last_seen: Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 30,
+        radius: 70,
+        min_points: 8,
+        calculation_mode: 'Radius',
+        cluster_mode: 'BruteForce',
+        route_split_level: 1,
+        save_to_db: true,
+        // does not return the data, since it's being saved to db
+        benchmark_mode: true,
+      }),
+    })
+      .then(() =>
+        console.log(
+          `${i + 1} / ${areas.data.length}`,
+          [areas.data[i].name],
+          'done',
+        ),
+      )
+      .catch((err) =>
+        console.error(
+          `${i + 1} / ${areas.data.length}`,
+          [areas.data[i].name],
+          err,
+        ),
+      )
+  }
+}
+
+// replace the below values with your own
+main({
+  endpoint: 'http://127.0.0.1:8080',
+  secret: 'KOJI_SECRET',
+  projectName: 'new_york',
+}).then(() => console.log('done'))
+```
+
+### Asynchroneous
+
+This will send all requests at once to Kōji. Great for smaller areas or when using a single core algorithm.
+
+```js
+const main = async ({ endpoint, secret, projectName }) => {
+  const areas = await fetch(
+    `http://${endpoint}/api/v1/geofence/reference/${projectName}`,
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        'Content-Type': 'application/json',
+      },
+    },
+  ).then((res) => res.json())
+
+  console.log('Found', areas.data.length, 'area(s)')
+
+  await Promise.allSettled(
+    areas.map(async (area, i) => {
+      return fetch(`http://${endpoint}/api/v1/calc/route/pokestop`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${secret}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          instance: area.name,
+          last_seen: 0,
+          radius: 80,
+          min_points: 1,
+          calculation_mode: 'Radius',
+          cluster_mode: 'Balanced',
+          route_split_level: 1,
+          benchmark_mode: true,
+          save_to_db: true,
+        }),
+      })
+        .then(async (res) => {
+          if (res.ok) {
+            const json = await res.json()
+            console.log(
+              'SUCCESS',
+              `${i + 1} / ${areas.length}`,
+              [area.name],
+              'done',
+              json.stats.total_clusters,
+            )
+            return json
+          }
+          console.error(
+            'ERROR',
+            `${i + 1} / ${areas.length}`,
+            [area.name],
+            await res.text(),
+          )
+        })
+        .catch((err) => {
+          console.error('ERROR', `${i + 1} / ${areas.length}`, [area.name], err)
+          return err
+        })
+    }),
+  )
+}
+
+// replace the below values with your own
+main({
+  endpoint: 'http://127.0.0.1:8080',
+  secret: 'KOJI_SECRET',
+  projectName: 'new_york',
+}).then(() => console.log('done'))
+```
