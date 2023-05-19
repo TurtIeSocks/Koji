@@ -66,6 +66,23 @@ async fn bootstrap(
         })
         .collect();
 
+    if parent.is_some() {
+        let mut condensed = vec![];
+        features
+            .into_iter()
+            .for_each(|feat| match feat.geometry.unwrap().value {
+                geojson::Value::MultiPoint(mut points) => condensed.append(&mut points),
+                _ => {}
+            });
+        features = vec![Feature {
+            geometry: Some(geojson::Geometry {
+                bbox: None,
+                foreign_members: None,
+                value: geojson::Value::MultiPoint(condensed),
+            }),
+            ..Default::default()
+        }]
+    }
     stats.cluster_time = time.elapsed().as_secs_f32() as Precision;
 
     let instance = if let Some(parent) = parent {
