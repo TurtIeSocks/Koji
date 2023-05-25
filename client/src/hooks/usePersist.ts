@@ -27,6 +27,7 @@ export interface UsePersist {
   geometryType: typeof GEOMETRY_CONVERSION_TYPES[number]
   loadingScreen: boolean
   simplifyPolygons: boolean
+  scaleMarkers: boolean
 
   // Layers
   spawnpoint: boolean
@@ -90,6 +91,7 @@ export const usePersist = create(
         { distance: 1000, color: '#FFFF0C' },
         { distance: 1500, color: '#FEA71D' },
       ],
+      scaleMarkers: false,
       tileServer:
         'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
       tth: 'All',
