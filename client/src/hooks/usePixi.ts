@@ -22,7 +22,6 @@ import { usePersist } from './usePersist'
 const colorMap: Map<string, string> = new Map()
 
 PIXI.settings.FAIL_IF_MAJOR_PERFORMANCE_CAVEAT = false
-
 PIXI.utils.skipHello()
 
 const PIXILoader = PIXI.Loader.shared
@@ -50,15 +49,12 @@ export default function usePixi(markers: PixiMarker[]) {
   const [pixiOverlay, setPixiOverlay] = useState(null)
   const [loaded, setLoaded] = useState(false)
   const map = useMap()
-  const { colorByGeohash, geohashPrecision } = usePersist(
-    (s) => ({
-      colorByGeohash: s.colorByGeohash,
-      geohashPrecision: s.geohashPrecision,
-    }),
+  const [colorByGeohash, geohashPrecision, scaleMarkers] = usePersist(
+    (s) => [s.colorByGeohash, s.geohashPrecision, s.scaleMarkers],
     shallow,
   )
-
-  if (map.getZoom() === undefined) {
+  const zoom = scaleMarkers ? Math.min(18, map.getZoom()) : 16
+  if (zoom === undefined) {
     // this if statement is to avoid getContainer error
     // map must have zoom prop
     return null
@@ -103,7 +99,7 @@ export default function usePixi(markers: PixiMarker[]) {
     const pixiContainer = new PIXI.Container()
     // @ts-ignore
     const overlay = L.pixiOverlay((utils) => {
-      const scale = utils.getScale(16)
+      const scale = utils.getScale(zoom)
       utils.getContainer().children.forEach((child: any) => {
         child.currentScale = child.scale.x
         child.targetScale = 1 / scale
@@ -128,7 +124,7 @@ export default function usePixi(markers: PixiMarker[]) {
       // @ts-ignore
       const project = utils.latLngToLayerPoint
       // @ts-ignore
-      const scale = utils.getScale(16)
+      const scale = utils.getScale(zoom)
       for (let j = 0; j < markers.length; j += 1) {
         const { i, p } = markers[j]
         const resolvedIconId = colorByGeohash

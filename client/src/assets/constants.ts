@@ -28,24 +28,24 @@ export const ATTRIBUTION = `
 ` as const
 
 export const ICON_SVG = {
-  u: `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="-2 -2 24 24">
-        <circle cx="10" cy="10" r="10" fill="deeppink" fill-opacity="0.8" stroke="black" stroke-width="1" />
-        <circle cx="10" cy="10" r="1" fill="black" />
+  u: `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" fill="deeppink" fill-opacity="0.8" stroke="black" stroke-width="1" />
+        <circle cx="12" cy="12" r="1" fill="black" />
       </svg>`,
-  v: `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="-2 -2 24 24">
-        <circle cx="10" cy="10" r="10" fill="dodgerblue" fill-opacity="0.8" stroke="black" stroke-width="1" />
-        <circle cx="10" cy="10" r="1" fill="black" />
+  v: `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" fill="dodgerblue" fill-opacity="0.8" stroke="black" stroke-width="1" />
+        <circle cx="12" cy="12" r="1" fill="black" />
       </svg>`,
-  p: `<svg xmlns="http://www.w3.org/2000/svg" height="20" width="20" viewBox="-2 -2 24 24">
-        <circle cx="10" cy="10" r="10" fill="green" fill-opacity="0.8" stroke="black" stroke-width="1" />
-        <circle cx="10" cy="10" r="1" fill="black" />
+  p: `<svg xmlns="http://www.w3.org/2000/svg" height="20" width="20" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" fill="green" fill-opacity="0.8" stroke="black" stroke-width="1" />
+        <circle cx="12" cy="12" r="1" fill="black" />
       </svg>`,
-  r: `<svg xmlns="http://www.w3.org/2000/svg" height="78" width="78" viewBox="-2 -2 24 24">
-        <circle cx="10" cy="10" r="10" fill="darkgreen" fill-opacity="0.2" stroke="darkgreen" stroke-width="0.25" />
+  r: `<svg xmlns="http://www.w3.org/2000/svg" height="78" width="78" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" fill="darkgreen" fill-opacity="0.2" stroke="darkgreen" stroke-width="0.25" />
       </svg>`,
-  g: `<svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="-2 -2 24 24">
-        <circle cx="10" cy="10" r="10" fill="maroon" fill-opacity="0.8" stroke="black" stroke-width="1" />
-        <circle cx="10" cy="10" r="1" fill="black" />
+  g: `<svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" fill="maroon" fill-opacity="0.8" stroke="black" stroke-width="1" />
+        <circle cx="12" cy="12" r="1" fill="black" />
       </svg>`,
 } as const
 

@@ -42,6 +42,7 @@ export default function Settings() {
       <Toggle field="loadingScreen" />
       <Toggle field="simplifyPolygons" />
       <Toggle field="showRouteIndex" />
+      <Toggle field="scaleMarkers" />
       <ListItemButton
         onClick={() =>
           useStatic.setState((prev) => ({
