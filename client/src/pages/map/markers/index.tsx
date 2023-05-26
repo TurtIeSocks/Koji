@@ -18,6 +18,7 @@ export default function Markers({ category }: { category: Category }) {
   const data = usePersist((s) => s.data)
   const last_seen = usePersist((s) => s.last_seen)
   const pokestopRange = usePersist((s) => s.pokestopRange)
+  const tth = usePersist((s) => s.tth)
 
   const updateButton = useStatic((s) => s.updateButton)
   const bounds = useStatic((s) => s.bounds)
@@ -47,7 +48,7 @@ export default function Markers({ category }: { category: Category }) {
         feature.geometry.type.includes('Polygon'),
       )
       if (enabled && (data === 'area' ? filtered.length : true)) {
-        getMarkers(controller.signal, category).then((res) => {
+        getMarkers(controller.signal, category, tth).then((res) => {
           if (res.length && res.length !== markers.length) {
             setMarkers(res)
           }
@@ -65,6 +66,7 @@ export default function Markers({ category }: { category: Category }) {
     last_seen,
     focused,
     pokestopRange,
+    tth,
   ])
 
   const memoSetFocused = React.useCallback(

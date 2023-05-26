@@ -318,6 +318,7 @@ export async function clusteringRouting({
 export async function getMarkers(
   signal: AbortSignal,
   category: Category,
+  tth: UsePersist['tth'],
 ): Promise<PixiMarker[]> {
   const { data, last_seen: raw } = usePersist.getState()
   const { geojson, bounds } = useStatic.getState()
@@ -342,6 +343,7 @@ export async function getMarkers(
             : undefined,
         ...(data === 'bound' && bounds),
         last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+        tth,
       }),
     })
     if (!res.ok) {

@@ -20,6 +20,7 @@ pub struct BoundsArg {
     pub max_lon: Precision,
     pub last_seen: Option<u32>,
     pub ids: Option<Vec<String>>,
+    pub tth: Option<SpawnpointTth>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -46,7 +47,7 @@ pub enum SortBy {
     Random,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum SpawnpointTth {
     All,
     Known,

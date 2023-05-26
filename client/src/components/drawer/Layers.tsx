@@ -20,6 +20,7 @@ export default function Layers() {
   const s2cells = usePersist((s) => s.s2cells)
   const calculationMode = usePersist((s) => s.calculation_mode)
   const s2DisplayMode = usePersist((s) => s.s2DisplayMode)
+  const spawnpoint = usePersist((s) => s.spawnpoint)
 
   return (
     <List dense>
@@ -32,6 +33,13 @@ export default function Layers() {
       <ListSubheader disableGutters>Markers</ListSubheader>
       <Toggle field="gym" />
       <Toggle field="spawnpoint" />
+      <Collapse in={spawnpoint}>
+        <MultiOptionList
+          field="tth"
+          buttons={['All', 'Known', 'Unknown']}
+          type="select"
+        />
+      </Collapse>
       <Toggle field="pokestop" />
       <Toggle field="pokestopRange" />
       <MultiOptionList

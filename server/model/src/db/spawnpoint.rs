@@ -27,7 +27,11 @@ impl ActiveModelBehavior for ActiveModel {}
 pub struct Query;
 
 impl Query {
-    pub async fn all(conn: &DatabaseConnection, last_seen: u32) -> Result<Vec<GenericData>, DbErr> {
+    pub async fn all(
+        conn: &DatabaseConnection,
+        last_seen: u32,
+        tth: SpawnpointTth,
+    ) -> Result<Vec<GenericData>, DbErr> {
         let items = spawnpoint::Entity::find()
             .select_only()
             .column(spawnpoint::Column::Lat)
@@ -35,6 +39,11 @@ impl Query {
             .column(spawnpoint::Column::DespawnSec)
             .limit(2_000_000)
             .filter(spawnpoint::Column::LastSeen.gt(last_seen))
+            .filter(match tth {
+                SpawnpointTth::All => Column::Id.is_not_null(),
+                SpawnpointTth::Known => Column::DespawnSec.is_not_null(),
+                SpawnpointTth::Unknown => Column::DespawnSec.is_null(),
+            })
             .into_model::<Spawnpoint>()
             .all(conn)
             .await?;
@@ -53,6 +62,11 @@ impl Query {
             .filter(spawnpoint::Column::Lat.between(payload.min_lat, payload.max_lat))
             .filter(spawnpoint::Column::Lon.between(payload.min_lon, payload.max_lon))
             .filter(Column::LastSeen.gt(payload.last_seen.unwrap_or(0)))
+            .filter(match payload.tth.as_ref().unwrap_or(&SpawnpointTth::All) {
+                SpawnpointTth::All => Column::Id.is_not_null(),
+                SpawnpointTth::Known => Column::DespawnSec.is_not_null(),
+                SpawnpointTth::Unknown => Column::DespawnSec.is_null(),
+            })
             .limit(2_000_000)
             .into_model::<Spawnpoint<f64>>()
             .all(conn)
@@ -92,14 +106,20 @@ impl Query {
         conn: &DatabaseConnection,
         area: &FeatureCollection,
         last_seen: u32,
+        tth: SpawnpointTth,
     ) -> Result<Total, DbErr> {
         let items = spawnpoint::Entity::find()
             .column_as(spawnpoint::Column::Id.count(), "count")
             .from_raw_sql(Statement::from_sql_and_values(
                 DbBackend::MySql,
                 format!(
-                    "SELECT COUNT(*) AS total FROM spawnpoint WHERE last_seen >= {} AND ({})",
+                    "SELECT COUNT(*) AS total FROM spawnpoint WHERE last_seen >= {} AND {} AND ({})",
                     last_seen,
+                    match tth {
+                        SpawnpointTth::All => "1=1".to_string(),
+                        SpawnpointTth::Known => "despawn_sec IS NOT NULL".to_string(),
+                        SpawnpointTth::Unknown => "despawn_sec IS NULL".to_string(),
+                    },
                     utils::sql_raw(area)
                 )
                 .as_str(),

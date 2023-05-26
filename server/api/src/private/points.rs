@@ -1,7 +1,7 @@
 use super::*;
 
 use model::{
-    api::args::{Args, ArgsUnwrapped, BoundsArg, Response, SpawnpointTth},
+    api::args::{Args, ArgsUnwrapped, BoundsArg, Response},
     db::{gym, pokestop, spawnpoint},
     KojiDb,
 };
@@ -13,7 +13,7 @@ async fn all(
     category: actix_web::web::Path<String>,
     payload: web::Json<Args>,
 ) -> Result<HttpResponse, Error> {
-    let ArgsUnwrapped { last_seen, .. } = payload.into_inner().init(Some("all_data"));
+    let ArgsUnwrapped { last_seen, tth, .. } = payload.into_inner().init(Some("all_data"));
     let category = category.into_inner();
     let scanner_type = scanner_type.as_ref();
 
@@ -25,7 +25,7 @@ async fn all(
     let all_data = match category.as_str() {
         "gym" => gym::Query::all(&conn.data_db, last_seen).await,
         "pokestop" => pokestop::Query::all(&conn.data_db, last_seen).await,
-        "spawnpoint" => spawnpoint::Query::all(&conn.data_db, last_seen).await,
+        "spawnpoint" => spawnpoint::Query::all(&conn.data_db, last_seen, tth).await,
         _ => Err(DbErr::Custom("invalid_category".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -80,12 +80,14 @@ async fn by_area(
         area,
         instance,
         last_seen,
+        tth,
         ..
     } = payload.into_inner().init(None);
 
-    println!(
+    log::info!(
         "\n[DATA_AREA] Scanner Type: {} | Category: {}",
-        scanner_type, category
+        scanner_type,
+        category
     );
 
     if area.features.is_empty() && instance.is_empty() {
@@ -98,11 +100,11 @@ async fn by_area(
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    let area_data = utils::points_from_area(&area, &category, &conn, last_seen, SpawnpointTth::All)
+    let area_data = utils::points_from_area(&area, &category, &conn, last_seen, tth)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    println!("[DATA-AREA] Returning {} {}s\n", area_data.len(), category);
+    log::info!("[DATA-AREA] Returning {} {}s\n", area_data.len(), category);
     Ok(HttpResponse::Ok().json(area_data))
 }
 
@@ -120,6 +122,7 @@ async fn area_stats(
         area,
         instance,
         last_seen,
+        tth,
         ..
     } = payload.into_inner().init(None);
 
@@ -142,7 +145,7 @@ async fn area_stats(
     let area_data = match category.as_str() {
         "gym" => gym::Query::stats(&conn.data_db, &area, last_seen).await,
         "pokestop" => pokestop::Query::stats(&conn.data_db, &area, last_seen).await,
-        "spawnpoint" => spawnpoint::Query::stats(&conn.data_db, &area, last_seen).await,
+        "spawnpoint" => spawnpoint::Query::stats(&conn.data_db, &area, last_seen, tth).await,
         _ => Err(DbErr::Custom("Invalid Category".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
