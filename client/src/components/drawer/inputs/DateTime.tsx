@@ -18,7 +18,7 @@ export default function DateTime<T extends keyof OnlyType<UsePersist, Date>>({
   const value = usePersist((s) => s[field])
 
   return (
-    <ListItem>
+    <ListItem sx={{ pb: 0 }}>
       <DateTimePicker
         disabled={disabled}
         disableFuture

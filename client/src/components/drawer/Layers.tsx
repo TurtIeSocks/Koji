@@ -4,6 +4,7 @@ import {
   Divider,
   List,
   ListItem,
+  ListItemText,
   MenuItem,
   Select,
 } from '@mui/material'
@@ -50,6 +51,12 @@ export default function Layers() {
         type="select"
       />
       <DateTime field="last_seen" />
+      <ListItemText
+        inset
+        secondary="Local timezone, sent in UTC to server"
+        secondaryTypographyProps={{ variant: 'caption' }}
+        sx={{ my: 0 }}
+      />
       <Divider sx={{ my: 2 }} />
       <ListSubheader disableGutters>S2 Cells</ListSubheader>
       <MultiOptionList
