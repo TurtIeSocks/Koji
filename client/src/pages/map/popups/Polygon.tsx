@@ -57,6 +57,7 @@ export function PolygonPopup({
     ) || refFeature
   const calcMode = usePersist((s) => s.mode)
   const raw = usePersist((s) => s.last_seen)
+  const tth = usePersist((s) => s.tth)
 
   const [active, setActive] = React.useState<{
     spawnpoint: number | null | string
@@ -131,6 +132,7 @@ export function PolygonPopup({
               body: JSON.stringify({
                 area: feature,
                 last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+                tth,
               }),
             },
           ).then((data) =>
@@ -142,7 +144,7 @@ export function PolygonPopup({
         ),
       )
     }
-  }, [feature, loadData, raw])
+  }, [feature, loadData, raw, tth])
 
   const isKoji = feature.id.toString().endsWith('KOJI')
   // const isScanner = feature.id.endsWith('SCANNER')
