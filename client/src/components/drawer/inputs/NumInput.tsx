@@ -25,7 +25,6 @@ export default function NumInput<
   max?: number
 }) {
   const value = usePersist((s) => s[field])
-  const setStore = usePersist((s) => s.setStore)
 
   return (
     <ListItem disabled={disabled}>
@@ -39,7 +38,9 @@ export default function NumInput<
         value={value || ''}
         type="number"
         size="small"
-        onChange={({ target }) => setStore(field, +target.value)}
+        onChange={({ target }) =>
+          usePersist.setState({ [field]: +target.value })
+        }
         sx={{ width: '35%' }}
         inputProps={{ min, max }}
         InputProps={{ endAdornment }}

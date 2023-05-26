@@ -15,7 +15,6 @@ export default function Toggle<T extends keyof OnlyType<UsePersist, boolean>>({
   label?: string
 }) {
   const value = usePersist((s) => s[field])
-  const setStore = usePersist((s) => s.setStore)
 
   return (
     <ListItem disabled={disabled}>
@@ -27,7 +26,7 @@ export default function Toggle<T extends keyof OnlyType<UsePersist, boolean>>({
       />
       <Switch
         edge="end"
-        onChange={(_e, v) => setStore(field, v)}
+        onChange={(_e, v) => usePersist.setState({ [field]: v })}
         checked={!!value}
         disabled={disabled}
       />

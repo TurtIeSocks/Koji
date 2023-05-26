@@ -43,8 +43,7 @@ export default function MultiOptions<
         : fromCamelCase(item)
       : `${item}`,
 }: Props<T, K>) {
-  const value = usePersist((s) => s[field])
-  const setStore = usePersist((s) => s.setStore)
+  const [value, setValue] = usePersist((s) => [s[field], usePersist.setState])
 
   return type === 'button' ? (
     <ToggleButtonGroup
@@ -52,7 +51,7 @@ export default function MultiOptions<
       color="primary"
       value={value}
       exclusive
-      onChange={(_e, v) => setStore(field, v)}
+      onChange={(_e, v) => setValue({ [field]: v })}
       sx={{ mx: 'auto' }}
       disabled={disabled}
     >
@@ -73,7 +72,7 @@ export default function MultiOptions<
         label={hideLabel ? undefined : label}
         value={value}
         color="primary"
-        onChange={({ target }) => setStore(field, target.value as K)} // Mui y u like this
+        onChange={({ target }) => setValue({ [field]: target.value as K })} // Mui y u like this
         sx={{ mx: 'auto', minWidth: 150 }}
         disabled={disabled}
       >

@@ -16,7 +16,6 @@ export default function DateTime<T extends keyof OnlyType<UsePersist, Date>>({
   disabled?: boolean
 }) {
   const value = usePersist((s) => s[field])
-  const setStore = usePersist((s) => s.setStore)
 
   return (
     <ListItem>
@@ -33,7 +32,9 @@ export default function DateTime<T extends keyof OnlyType<UsePersist, Date>>({
         value={dayjs(value)}
         onChange={(newValue) => {
           if (newValue) {
-            setStore(field, newValue.set('second', 0).set('minute', 0).toDate())
+            usePersist.setState({
+              [field]: newValue.set('second', 0).set('minute', 0).toDate(),
+            })
           }
         }}
       />
