@@ -200,10 +200,14 @@ export function SimplifiedPolygons() {
   const s2FillMode = usePersist((s) => s.s2FillMode)
   const point = useShapes((s) => s.Point)
   const covered: Record<string, string[]> = {}
+  const alreadyCovered: Record<string, boolean> = {}
+
   Object.entries(s2cellCoverage).forEach(([cellId, pointIds]) =>
     pointIds.forEach((pointId) => {
+      if (alreadyCovered[cellId]) return
       if (!covered[pointId]) covered[pointId] = []
       covered[pointId].push(cellId)
+      alreadyCovered[cellId] = true
     }),
   )
   return s2FillMode === 'simple' ? (
