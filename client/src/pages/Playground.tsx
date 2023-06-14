@@ -103,6 +103,7 @@ const PARAMS = {
   underscore: 'string',
   dash: 'string',
   space: 'string',
+  unpolish: 'boolean',
 }
 
 export default function Playground() {

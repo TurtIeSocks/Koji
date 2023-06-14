@@ -87,6 +87,7 @@ pub enum DataPointsArg {
 /// - `underscore`
 /// - `dash`
 /// - `space`
+/// - `unpolish`
 /// - A `trim` function is always called on the final result to remove any leading or trailing whitespace
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -147,6 +148,8 @@ pub struct ApiQueryArgs {
     pub trimstart: Option<usize>,
     /// Trims x number of characters from the back of the `name` property
     pub trimend: Option<usize>,
+    /// If true, the polish characters are converted to ascii
+    pub unpolish: Option<bool>,
 }
 
 impl Default for ApiQueryArgs {
@@ -173,6 +176,7 @@ impl Default for ApiQueryArgs {
             group: None,
             trimstart: None,
             trimend: None,
+            unpolish: None,
         }
     }
 }
