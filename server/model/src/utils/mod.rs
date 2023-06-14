@@ -191,7 +191,7 @@ pub fn json_related_sort(json: &mut Vec<serde_json::Value>, sort_by: &String, or
     });
 }
 
-fn convert_polish_to_ascii(param: &str) -> String {
+fn convert_polish_to_ascii(param: String) -> String {
     let polish_characters: [(char, char); 18] = [
         ('ą', 'a'), ('ć', 'c'), ('ę', 'e'), ('ł', 'l'), ('ń', 'n'), ('ó', 'o'),
         ('ś', 's'), ('ź', 'z'), ('ż', 'z'), ('Ą', 'A'), ('Ć', 'C'), ('Ę', 'E'),
