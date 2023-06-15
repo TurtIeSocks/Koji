@@ -191,6 +191,27 @@ pub fn json_related_sort(json: &mut Vec<serde_json::Value>, sort_by: &String, or
     });
 }
 
+fn convert_polish_to_ascii(param: String) -> String {
+    let polish_characters: [(char, char); 18] = [
+        ('ą', 'a'), ('ć', 'c'), ('ę', 'e'), ('ł', 'l'), ('ń', 'n'), ('ó', 'o'),
+        ('ś', 's'), ('ź', 'z'), ('ż', 'z'), ('Ą', 'A'), ('Ć', 'C'), ('Ę', 'E'),
+        ('Ł', 'L'), ('Ń', 'N'), ('Ó', 'O'), ('Ś', 'S'), ('Ź', 'Z'), ('Ż', 'Z')
+    ];
+
+    let mut result = String::new();
+
+    for c in param.chars() {
+        let converted_char = polish_characters
+            .iter()
+            .find_map(|&(polish, ascii)| if c == polish { Some(ascii) } else { None })
+            .unwrap_or(c);
+
+        result.push(converted_char);
+    }
+
+    result
+}
+
 pub fn clean(param: &String) -> String {
     if param.starts_with("\"") && param.ends_with("\"") {
         return param[1..param.len() - 1].to_string();
@@ -266,6 +287,9 @@ pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<St
     }
     if let Some(replacer) = modifiers.space.as_ref() {
         mutable = mutable.replace(" ", clean(replacer).as_str());
+    }
+    if modifiers.unpolish.is_some() {
+        mutable = convert_polish_to_ascii(mutable);
     }
     mutable = mutable.trim().to_string();
     if mutable == "" {

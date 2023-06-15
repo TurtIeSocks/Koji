@@ -62,6 +62,8 @@ pub struct ApiQueryArgs {
     pub trimstart: Option<usize>,
     /// Trims x number of characters from the back of the `name` property
     pub trimend: Option<usize>,
+    /// If true, the polish characters are converted to ascii
+    pub unpolish: Option<bool>,
 }
 ```
 
@@ -84,6 +86,7 @@ The manipulations mentioned above are executed in the following order:
 1. underscore
 1. dash
 1. space
+1. unpolish
 1. A trim function is automatically called at the end to remove start and end whitespace
 
 By taking advantage of the execution order you should be able to manipulate the name property in almost any desirable way.
