@@ -16,7 +16,7 @@ import { Callout } from 'nextra-theme-docs'
 - Activate
   - DOM event for setting the active route on the map
   - Only one route can be active at a time
-  - This is currently a "hack" to save on performance when multiple
+  - This is currently a "hack" to save on performance when rendering multiple
     Distance Colors
   - Set unlimited rules for coloring the line strings between circles on your routes to easily visualize the distance in meters between each
 
@@ -41,12 +41,20 @@ import { Callout } from 'nextra-theme-docs'
 
 ### Clustering Options
 
+Most these options are up for interpretation on which results are best for your area. Some areas and MITM clients might prefer one result over another so it is recommended you do some testing. If you want a good starting point try **Brute Force**.
+
 - Min Points
   - Minimum number of points that a cluster should have
-- Fast
-  - Uses an exponentially faster algorithm but returns worse results
-- 🚧 Only unique 🚧
-  - Counts min points by unique points instead of all points in a Cluster
+- Cluster Mode
+  - **Fast** - Uses an exponentially faster algorithm but returns worse results
+  - **Balanced** - Middle option between Fast and Brute Force. Includes additional options to custom results
+    - 🚧 Only unique 🚧 - Counts min points by unique points instead of all points in a Cluster
+    - Sort By
+      - Geo Hash - Creates a more human looking route where the next jump is closest in distance
+      - Cluster Count - Prioritizes clusters with larger points of interest. IE - 4 spawn points in one jump will be earlier in the route over a jump that only includes 3 spawn points.
+      - Random - Good old random.
+  - **Brute Force** - Returns large jumps but it optimized on finding clusters. Is multithread optimized and will max available CPU in order to complete the operation as quickly as possible.
+    - Cluster Split Level - Lower number will have better results while higher number will be faster as it is splitting the task over more CPU threads.
 
 ### Routing Options
 
