@@ -578,6 +578,7 @@ impl Query {
             .all(db)
             .await?;
         let items = geofence::Entity::find()
+            .order_by(geofence::Column::Name, Order::Asc)
             .filter(geofence::Column::Id.is_in(items.into_iter().map(|item| item.geofence_id)))
             .select_only()
             .column(geofence::Column::Id)
