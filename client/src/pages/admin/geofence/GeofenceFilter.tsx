@@ -21,7 +21,9 @@ import { fetchWrapper } from '@services/fetches'
 
 export function GeofenceFilter() {
   const { scannerType } = useStatic.getState()
-  const projectData = useGetList<KojiProject>('project')
+  const projectData = useGetList<KojiProject>('project', {
+    sort: { field: 'name', order: 'ASC' },
+  })
   const { data } = useQuery('parents', () =>
     fetchWrapper<KojiResponse<KojiGeofence[]>>(
       '/internal/admin/geofence/parent',

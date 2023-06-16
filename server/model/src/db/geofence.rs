@@ -908,6 +908,7 @@ impl Query {
             .all(db)
             .await?;
         let items = Entity::find()
+            .order_by(Column::Name, Order::Asc)
             .filter(Column::Id.is_in(items.into_iter().filter_map(|item| {
                 if let Some(parent) = item.parent {
                     Some(parent)
