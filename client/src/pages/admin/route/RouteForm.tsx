@@ -31,9 +31,9 @@ export default function RouteForm() {
         optionValue="mode"
       />
       <ReferenceInput source="geofence_id" reference="geofence" isRequired />
-      <FunctionField<KojiRoute>
+      <FunctionField
         label="Points"
-        render={(fence) => {
+        render={(fence: KojiRoute) => {
           const points: number =
             typeof fence?.geometry === 'string'
               ? JSON.parse(fence?.geometry || '{}')?.coordinates?.length || 0
