@@ -37,13 +37,17 @@ import { Callout } from 'nextra-theme-docs'
 
 ## Tileservers
 
+These are completely optional. By default we will use `CartoCDN`.
+
 - Create, edit, and delete your various tileservers
 - Tileservers are used for selecting different map tiles from the Kōji client
-- Currently only tested with: [123FLO321/SwiftTileserverCache](https://github.com/123FLO321/SwiftTileserverCache)
+- Custom Tileservers can be self hosted with: [123FLO321/SwiftTileserverCache](https://github.com/123FLO321/SwiftTileserverCache)
+- Any publicly accessible Tileserver can be used
 
 Example URIs:
 
 ```
+https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png (default)
 https://your_custom_tileserver/tile/pogo_day/{z}/{x}/{y}/2/png
 https://your_custom_tileserver/tile/pogo_day/{z}/{x}/{y}/2/png
 https://your_custom_tileserver/tile/pogo_night/{z}/{x}/{y}/2/png
