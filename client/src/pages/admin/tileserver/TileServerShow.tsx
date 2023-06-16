@@ -13,9 +13,9 @@ export default function TileServerShow() {
         </Typography>
         <TextField source="name" />
         <TextField source="url" />
-        <FunctionField<KojiTileServer>
+        <FunctionField
           label="Preview"
-          render={(tileServer) =>
+          render={(tileServer: KojiTileServer) =>
             tileServer ? <TileServerMap formData={tileServer} /> : null
           }
         />

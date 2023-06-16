@@ -50,13 +50,15 @@ export default function GeofenceShow() {
             <ChipField source="name" />
           </SingleFieldList>
         </ReferenceArrayField>
-        <FunctionField<AdminGeofence>
+        <FunctionField
           label="Preview"
-          render={(fence) => (fence ? <GeofenceMap formData={fence} /> : null)}
+          render={(fence: AdminGeofence) =>
+            fence ? <GeofenceMap formData={fence} /> : null
+          }
         />
-        <FunctionField<KojiGeofence>
+        <FunctionField
           label="Geometry"
-          render={(fence) => {
+          render={(fence: KojiGeofence) => {
             const parsed: string =
               typeof fence?.geometry === 'string'
                 ? JSON.stringify(JSON.parse(fence?.geometry), null, 2)

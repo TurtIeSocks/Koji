@@ -23,17 +23,19 @@ export default function RouteShow() {
         <TextField source="mode" />
         <ReferenceField source="geofence_id" reference="geofence" />
         <TextField source="points" />
-        <FunctionField<KojiRoute>
+        <FunctionField
           label="Preview"
-          render={(route) => (route ? <RouteMap formData={route} /> : null)}
+          render={(route: KojiRoute) =>
+            route ? <RouteMap formData={route} /> : null
+          }
         />
-        <FunctionField<KojiRoute>
+        <FunctionField
           label="Geometry"
-          render={(fence) => {
+          render={(route: KojiRoute) => {
             const parsed: string =
-              typeof fence?.geometry === 'string'
-                ? JSON.stringify(JSON.parse(fence?.geometry), null, 2)
-                : JSON.stringify(fence?.geometry, null, 2)
+              typeof route?.geometry === 'string'
+                ? JSON.stringify(JSON.parse(route?.geometry), null, 2)
+                : JSON.stringify(route?.geometry, null, 2)
             return <Code maxHeight="50vh">{parsed}</Code>
           }}
         />

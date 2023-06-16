@@ -46,11 +46,11 @@ export default function GeofenceForm() {
     fetch('/internal/admin/property/all/')
       .then((res) => res.json())
       .then((data) => {
-        const newProperties: Record<string, KojiProperty> = {}
-        data.data.forEach((property: KojiProperty) => {
-          newProperties[property.id] = property
-        })
-        setProperties(newProperties)
+        setProperties(
+          Object.fromEntries(
+            (data?.data || []).map((x: KojiProperty) => [x.id, x]),
+          ),
+        )
       })
   }, [])
 
@@ -76,7 +76,7 @@ export default function GeofenceForm() {
           <ReferenceInput
             source="property_id"
             reference="property"
-            label="Name"
+            label="Property Name"
             perPage={1000}
             sort={{ field: 'category', order: 'ASC' }}
           >
@@ -85,7 +85,7 @@ export default function GeofenceForm() {
               inputText={inputText}
               matchSuggestion={matchSuggestion}
               groupBy={(x: KojiProperty) => x.category}
-              label="Name"
+              label="Property Name"
             />
           </ReferenceInput>
           <FormDataConsumer>
