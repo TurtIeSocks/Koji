@@ -23,14 +23,16 @@ pub async fn send_api_req(
         let req = reqwest::ClientBuilder::new().build();
         if let Ok(req) = req {
             if let Some(scanner_type) = scanner_type {
-                let req = if scanner_type.eq("rdm") {
-                    if let Some(api_key) = project.api_key {
-                        let split = api_key.split_once(":");
+                let req = if let Some(api_key) = project.api_key {
+                    let split = api_key.split_once(":");
+                    if scanner_type.eq("rdm") {
                         if let Some((username, password)) = split {
                             req.get(endpoint).basic_auth(username, Some(password))
                         } else {
                             req.get(endpoint)
                         }
+                    } else if let Some((key, value)) = split {
+                        req.get(endpoint).header(key, value)
                     } else {
                         req.get(endpoint)
                     }
