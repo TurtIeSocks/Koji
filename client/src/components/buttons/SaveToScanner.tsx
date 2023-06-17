@@ -11,7 +11,7 @@ export default function SaveToScanner({ fc, ...rest }: Props) {
   const [loading, setLoading] = React.useState(false)
   return (
     <Button
-      disabled={!useStatic.getState().dangerous || loading}
+      disabled={useStatic.getState().scannerType === 'rdm' || loading}
       onClick={() => {
         setLoading(true)
         return save('/api/v1/geofence/save-scanner', fc)

@@ -25,7 +25,8 @@ export default function RoutingTab() {
   const cluster_mode = usePersist((s) => s.cluster_mode)
   const calculation_mode = usePersist((s) => s.calculation_mode)
 
-  const [updateButton, isEditing] = useStatic((s) => [
+  const [scannerType, updateButton, isEditing] = useStatic((s) => [
+    s.scannerType,
     s.updateButton,
     Object.values(s.layerEditing).some((v) => v),
   ])
@@ -125,7 +126,7 @@ export default function RoutingTab() {
       <Toggle
         field="save_to_scanner"
         label="Save to Scanner Db"
-        disabled={!useStatic.getState().dangerous}
+        disabled={scannerType === 'rdm'}
       />
       <Toggle field="skipRendering" />
       <ListItemButton
