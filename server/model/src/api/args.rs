@@ -150,6 +150,8 @@ pub struct ApiQueryArgs {
     pub trimend: Option<usize>,
     /// If true, the polish characters are converted to ascii
     pub unpolish: Option<bool>,
+    /// If true, the manual parent property will be ignored
+    pub ignoremanualparent: Option<bool>,
 }
 
 impl Default for ApiQueryArgs {
@@ -177,6 +179,7 @@ impl Default for ApiQueryArgs {
             trimstart: None,
             trimend: None,
             unpolish: None,
+            ignoremanualparent: None,
         }
     }
 }

@@ -64,6 +64,8 @@ pub struct ApiQueryArgs {
     pub trimend: Option<usize>,
     /// If true, the polish characters are converted to ascii
     pub unpolish: Option<bool>,
+    /// If true, the manual parent property will be ignored
+    pub ignoremanualparent: Option<bool>,
 }
 ```
 
@@ -73,6 +75,7 @@ Since the name property of a geofence may need to be different on a per project 
 
 The manipulations mentioned above are executed in the following order:
 
+1. ignoremanualparent
 1. trimstart
 1. trimend
 1. replace
