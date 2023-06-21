@@ -150,7 +150,7 @@ impl Model {
             .await?
             .into_iter()
             .map(|prop| {
-                if prop.name == "parent" && prop.value.is_some() {
+                if prop.name == "parent" && prop.value.is_some() && args.ignoremanualparent.is_none() {
                     has_manual_parent = prop.value.as_ref().unwrap().clone();
                 }
                 prop.parse_db_value(&self)
