@@ -6,6 +6,7 @@ import {
   Button,
   Collapse,
   Divider,
+  IconButton,
   List,
   ListItem,
   ListItemText,
@@ -22,6 +23,7 @@ import { CONVERSION_TYPES } from '@assets/constants'
 import Subheader from '@components/styled/Subheader'
 import { useNavigate } from 'react-router'
 import ArrowBack from '@mui/icons-material/ArrowBack'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 
 interface Props {
   item: string
@@ -104,6 +106,7 @@ const PARAMS = {
   dash: 'string',
   space: 'string',
   unpolish: 'boolean',
+  ignoremanualparent: 'boolean',
 }
 
 export default function Playground() {
@@ -169,7 +172,7 @@ export default function Playground() {
         direction="column"
         xs={12}
         sm={6}
-        md={5}
+        // md={5}
         sx={{
           height: '100vh',
           '& > *': {
@@ -276,10 +279,27 @@ export default function Playground() {
         </Grid>
         <Divider flexItem sx={{ width: '100%' }} />
         <Grid sx={{ flexGrow: 0 }}>
-          <TextField value={url} disabled fullWidth />
+          <TextField
+            value={url}
+            disabled
+            fullWidth
+            InputProps={{
+              endAdornment: (
+                <IconButton
+                  onPointerDown={() =>
+                    navigator.clipboard.writeText(
+                      `${window.location.host}${url}`,
+                    )
+                  }
+                >
+                  <ContentCopyIcon />
+                </IconButton>
+              ),
+            }}
+          />
         </Grid>
       </Grid>
-      <Grid xs={11} sm={6} md={7} textAlign="left">
+      <Grid xs={11} sm={6} textAlign="left">
         <Code
           height="100vh"
           width="100%"
