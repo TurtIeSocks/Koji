@@ -21,6 +21,7 @@ pub struct Model {
     pub scanner: bool,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
+    pub description: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -134,6 +135,7 @@ impl Query {
                     "api_endpoint": project.api_endpoint,
                     "api_key": project.api_key,
                     "scanner": project.scanner,
+                    "description": project.description,
                     // "created_at": fence.created_at,
                     // "updated_at": fence.updated_at,
                     "geofences": geofences[i],

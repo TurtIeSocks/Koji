@@ -46,4 +46,5 @@ pub enum Project {
     Scanner,
     CreatedAt,
     UpdatedAt,
+    Description,
 }

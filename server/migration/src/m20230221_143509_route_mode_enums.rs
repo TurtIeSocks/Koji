@@ -11,7 +11,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        log::info!("[MIGRATION_15] Changing route mode column to an enum");
+        log::info!("[MIGRATION_16] Changing route mode column to an enum");
 
         manager
             .get_connection()

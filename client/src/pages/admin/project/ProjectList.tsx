@@ -49,6 +49,7 @@ export default function ProjectList() {
       >
         <Datagrid rowClick="expand" bulkActionButtons={<BulkActions />}>
           <TextField source="name" />
+          <TextField source="description" />
           <BooleanField source="api_endpoint" looseValue />
           <BooleanField source="api_key" looseValue />
           <BooleanField source="scanner" />

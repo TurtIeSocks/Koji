@@ -6,6 +6,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        log::info!("[MIGRATION_17] creating tileserver table");
         manager
             .create_table(
                 Table::create()
@@ -41,6 +42,7 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        log::info!("[MIGRATION_17] dropping tileserver table");
         manager
             .drop_table(Table::drop().table(TileServer::Table).to_owned())
             .await
