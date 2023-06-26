@@ -216,11 +216,20 @@ impl JsonToModel for Value {
                 } else {
                     None
                 };
+                let description = if let Some(description) = incoming.get("description") {
+                    match description.as_str() {
+                        Some(description) => Some(description.to_string()),
+                        None => None,
+                    }
+                } else {
+                    None
+                };
                 Ok(project::ActiveModel {
                     name: Set(name.to_string()),
                     scanner: Set(scanner),
                     api_endpoint: Set(api_endpoint),
                     api_key: Set(api_key),
+                    description: Set(description),
                     ..Default::default()
                 })
             } else {

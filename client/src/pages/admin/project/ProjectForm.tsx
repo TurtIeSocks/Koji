@@ -8,6 +8,7 @@ export default function ProjectForm() {
   return (
     <>
       <TextInput source="name" fullWidth isRequired />
+      <TextInput source="description" fullWidth />
       <BooleanInput source="scanner" />
       <TextInput
         source="api_endpoint"

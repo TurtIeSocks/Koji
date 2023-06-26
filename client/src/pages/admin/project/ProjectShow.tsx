@@ -18,6 +18,7 @@ export default function ProjectShow() {
           Overview
         </Typography>
         <TextField source="name" />
+        <TextField source="description" />
         <TextField source="api_endpoint" />
         <TextField source="api_key" />
         <BooleanField source="scanner" />

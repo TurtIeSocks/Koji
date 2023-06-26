@@ -132,6 +132,7 @@ export interface KojiProject extends BasicKojiEntry {
   api_endpoint?: string
   api_key?: string
   scanner: boolean
+  description?: string
 }
 
 export interface KojiRoute extends BasicKojiEntry {
