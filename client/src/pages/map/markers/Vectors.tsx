@@ -7,7 +7,7 @@ import { useDbCache } from '@hooks/useDbCache'
 
 import { MemoPoint } from './Point'
 import { KojiLineString } from './LineString'
-import { MemoPolygon } from './Polygon'
+import { KojiPolygon } from './Polygon'
 import { MemoMultiPoint } from './MultiPoint'
 import { MemoMultiLineString } from './MultiLineString'
 
@@ -95,7 +95,7 @@ export function Polygons() {
   return (
     <>
       {Object.entries(shapes).map(([id, feature]) => (
-        <MemoPolygon key={id} feature={feature} dbRef={getFromKojiKey(id)} />
+        <KojiPolygon key={id} feature={feature} dbRef={getFromKojiKey(id)} />
       ))}
     </>
   )
