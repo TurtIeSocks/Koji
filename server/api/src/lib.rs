@@ -73,7 +73,7 @@ pub async fn start() -> io::Result<()> {
                     .cookie_secure(false)
                     .build(),
             )
-            // private api
+            .service(web::resource("/health").route(web::get().to(|| HttpResponse::Ok())))
             .service(
                 web::scope("/config")
                     .service(private::misc::config)
@@ -81,6 +81,7 @@ pub async fn start() -> io::Result<()> {
                     .service(private::misc::logout)
                     .service(private::misc::search_nominatim),
             )
+            // private api
             .service(
                 web::scope("/internal")
                     .wrap(HttpAuthentication::with_fn(auth::private_validator))
