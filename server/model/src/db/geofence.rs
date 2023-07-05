@@ -109,30 +109,6 @@ impl Model {
         json!(self)
     }
 
-    async fn get_parent_name(&self, db: &DatabaseConnection) -> Result<Option<String>, ModelError> {
-        if let Some(parent_id) = self.parent {
-            if let Some(parent) = geofence::Entity::find_by_id(parent_id).one(db).await? {
-                let found_name = if let Some(full_property) = parent
-                    .get_related_properties()
-                    .filter(property::Column::Name.eq("name"))
-                    .into_model::<FullPropertyModel>()
-                    .one(db)
-                    .await?
-                {
-                    if let Some(parsed) = full_property.value {
-                        parsed
-                    } else {
-                        parent.name
-                    }
-                } else {
-                    parent.name
-                };
-                return Ok(Some(found_name));
-            }
-        }
-        Ok(None)
-    }
-
     fn to_feature(
         self,
         property_map: &HashMap<u32, Vec<FullPropertyModel>>,
@@ -155,24 +131,6 @@ impl Model {
                 .collect::<Vec<Basic>>()
         } else {
             vec![]
-            // log::error!("Not Found {}", self.id);
-            // geofence_property::Entity::find()
-            // .from_raw_sql(Statement::from_sql_and_values(
-            //     DbBackend::MySql,
-            //     r#"SELECT geofence_property.id, name, geofence_id, property_id, category, value FROM geofence_property JOIN property ON geofence_property.property_id = property.id WHERE geofence_id = ?"#,
-            //     vec![self.id.into()],
-            // ))
-            // .into_model::<FullPropertyModel>()
-            // .all(db)
-            // .await?
-            // .into_iter()
-            // .map(|prop| {
-            //     if prop.name == "parent" && prop.value.is_some() {
-            //         has_manual_parent = prop.value.as_ref().unwrap().clone();
-            //     }
-            //     prop.parse_db_value(&self)
-            // })
-            // .collect::<Vec<Basic>>()
         };
 
         let parent_name = if has_manual_parent.is_empty() {
