@@ -112,7 +112,7 @@ impl Model {
     fn to_feature(
         self,
         property_map: &HashMap<u32, Vec<FullPropertyModel>>,
-        name_map: &HashMap<u32, Option<String>>,
+        name_map: &HashMap<u32, String>,
         args: &ApiQueryArgs,
     ) -> Result<Feature, ModelError> {
         let mut has_manual_parent = String::from("");
@@ -136,7 +136,7 @@ impl Model {
         let parent_name = if has_manual_parent.is_empty() {
             if let Some(parent_id) = self.parent {
                 if let Some(name) = name_map.get(&parent_id) {
-                    name.clone()
+                    Some(name.clone())
                 } else {
                     None
                 }
@@ -770,10 +770,30 @@ impl Query {
             .await?;
 
         let mut property_map = HashMap::<u32, Vec<FullPropertyModel>>::new();
-        let mut name_map = HashMap::<u32, Option<String>>::new();
+
+        let mut ids = vec![];
+
+        items.iter().for_each(|item| {
+            ids.push(item.id);
+            if let Some(parent_id) = item.parent {
+                ids.push(parent_id);
+            }
+        });
+
+        let mut name_map: HashMap<u32, String> = Entity::find()
+            .filter(Column::Id.is_in(ids.clone()))
+            .select_only()
+            .column(Column::Id)
+            .column(Column::Name)
+            .into_model::<NameId>()
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|model| (model.id, model.name))
+            .collect();
 
         geofence_property::Entity::find()
-            .filter(geofence_property::Column::GeofenceId.is_in(items.iter().map(|item| item.id)))
+            .filter(geofence_property::Column::GeofenceId.is_in(ids))
             .join(
                 sea_orm::JoinType::Join,
                 geofence_property::Relation::Property.def(),
@@ -791,7 +811,9 @@ impl Query {
             .into_iter()
             .for_each(|prop| {
                 if prop.name == "name" {
-                    name_map.insert(prop.geofence_id, prop.value.clone());
+                    if let Some(manual_name) = prop.value.as_ref() {
+                        name_map.insert(prop.geofence_id, manual_name.clone());
+                    }
                 }
                 property_map
                     .entry(prop.geofence_id)
