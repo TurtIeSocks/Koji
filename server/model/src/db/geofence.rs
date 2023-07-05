@@ -799,17 +799,15 @@ impl Query {
                     .push(prop);
             });
 
-        log::info!("db query took {:?}", time.elapsed());
+        log::debug!("db query took {:?}", time.elapsed());
 
         let time = Instant::now();
         let items = items
             .into_iter()
             .filter_map(|result| result.to_feature(&property_map, &name_map, args).ok())
             .collect();
-        // future::try_join_all()
-        // .await?;
 
-        log::info!("feature conversion took {:?}", time.elapsed());
+        log::debug!("feature conversion took {:?}", time.elapsed());
         Ok(items)
     }
 
@@ -881,12 +879,6 @@ impl Query {
             .await?;
         let args = ApiQueryArgs::default();
 
-        // let items = future::try_join_all(
-        //     items
-        //         .into_iter()
-        //         .map(|result| result.to_feature(db, None, &args)),
-        // )
-        // .await?;
         let items: Vec<Feature> = items
             .into_iter()
             .filter_map(|result| {
