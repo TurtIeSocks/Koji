@@ -159,6 +159,10 @@ impl Model {
                 name: "__mode",
                 value: serde_json::Value::from(self.mode.to_value()),
             });
+            properties.push(Basic {
+                name: "__parent",
+                value: serde_json::Value::from(self.parent),
+            });
         }
         if args.name.unwrap_or(false) {
             properties.push(Basic {
@@ -569,12 +573,7 @@ impl Query {
 
         let name = new_model.name.as_ref();
 
-        let old_model = if let Some(old_model) = old_model {
-            Ok(old_model)
-        } else {
-            Query::get_one(db, name.to_string()).await
-        };
-        let model = if let Ok(old_model) = old_model {
+        let model = if let Some(old_model) = old_model {
             if old_model.name.ne(name) {
                 Query::update_related_route_names(db, &old_model, name.clone()).await?;
             };

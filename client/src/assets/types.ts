@@ -58,6 +58,7 @@ export type Properties<G extends Geometry | null = Geometry> =
     __name?: string
     __id?: number
     __geofence_id?: number
+    __parent?: number
     __mode?: KojiModes
     __projects?: number[]
     __cells?: string[]

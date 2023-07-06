@@ -27,7 +27,11 @@ import type {
 import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
 import { useDbCache } from '@hooks/useDbCache'
-import { clusteringRouting, fetchWrapper } from '@services/fetches'
+import {
+  clusteringRouting,
+  fetchWrapper,
+  getKojiCache,
+} from '@services/fetches'
 import {
   removeAllOthers,
   removeThisPolygon,
@@ -58,6 +62,7 @@ export function PolygonPopup({
   const calcMode = usePersist((s) => s.mode)
   const raw = usePersist((s) => s.last_seen)
   const tth = usePersist((s) => s.tth)
+  const geofence = useDbCache((s) => s.geofence)
 
   const [active, setActive] = React.useState<{
     spawnpoint: number | null | string
@@ -76,6 +81,8 @@ export function PolygonPopup({
   const [mode, setMode] = React.useState<KojiModes | ''>(
     dbRef?.mode || feature.properties?.__mode || 'unset',
   )
+  const [parent, setParent] = React.useState(feature.properties?.__parent || 0)
+
   const [area, setArea] = React.useState(0)
 
   const [mapAnchorEl, setMapAnchorEl] = React.useState<null | HTMLElement>(null)
@@ -149,6 +156,8 @@ export function PolygonPopup({
   const isKoji = feature.id.toString().endsWith('KOJI')
   // const isScanner = feature.id.endsWith('SCANNER')
 
+  const options = Object.values(geofence)
+
   return feature ? (
     <React.Fragment key={feature.geometry.type}>
       <Grid2 container minWidth={150}>
@@ -180,6 +189,29 @@ export function PolygonPopup({
             ).map((t) => (
               <MenuItem key={t} value={t}>
                 {t}
+              </MenuItem>
+            ))}
+          </Select>
+        </Grid2>
+        <Grid2 xs={12} py={1}>
+          <Select
+            size="small"
+            fullWidth
+            value={parent}
+            onChange={({ target }) => setParent(+target.value)}
+            onOpen={() => (options.length ? null : getKojiCache('geofence'))}
+            onBlur={() =>
+              updateProperty(
+                feature.geometry.type,
+                feature.id,
+                '__parent',
+                parent,
+              )
+            }
+          >
+            {options.map((t) => (
+              <MenuItem key={t.id} value={t.id}>
+                {t.name}
               </MenuItem>
             ))}
           </Select>
@@ -347,6 +379,7 @@ export function PolygonPopup({
                   id: isKoji ? dbRef?.id : 0,
                   name,
                   mode,
+                  parent,
                   geometry: feature.geometry,
                   updated_at: new Date(),
                   created_at: new Date(),
