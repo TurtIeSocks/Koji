@@ -109,101 +109,88 @@ impl Model {
         json!(self)
     }
 
-    async fn get_parent_name(&self, db: &DatabaseConnection) -> Result<Option<String>, ModelError> {
-        if let Some(parent_id) = self.parent {
-            if let Some(parent) = geofence::Entity::find_by_id(parent_id).one(db).await? {
-                let found_name = if let Some(full_property) = parent
-                    .get_related_properties()
-                    .filter(property::Column::Name.eq("name"))
-                    .into_model::<FullPropertyModel>()
-                    .one(db)
-                    .await?
-                {
-                    if let Some(parsed) = full_property.value {
-                        parsed
-                    } else {
-                        parent.name
-                    }
-                } else {
-                    parent.name
-                };
-                return Ok(Some(found_name));
-            }
-        }
-        Ok(None)
-    }
-
-    async fn to_feature(
+    fn to_feature(
         self,
-        db: &DatabaseConnection,
+        property_map: &HashMap<u32, Vec<FullPropertyModel>>,
+        name_map: &HashMap<u32, String>,
         args: &ApiQueryArgs,
     ) -> Result<Feature, ModelError> {
         let mut has_manual_parent = String::from("");
-        let mut properties = geofence_property::Entity::find()
-            .from_raw_sql(Statement::from_sql_and_values(
-                DbBackend::MySql,
-                r#"SELECT geofence_property.id, name, geofence_id, property_id, category, value FROM geofence_property JOIN property ON geofence_property.property_id = property.id WHERE geofence_id = ?"#,
-                vec![self.id.into()],
-            ))
-            .into_model::<FullPropertyModel>()
-            .all(db)
-            .await?
-            .into_iter()
-            .map(|prop| {
-                if prop.name == "parent" && prop.value.is_some() && args.ignoremanualparent.is_none() {
-                    has_manual_parent = prop.value.as_ref().unwrap().clone();
-                }
-                prop.parse_db_value(&self)
-            })
-            .collect::<Vec<Basic>>();
+        let mut properties = if let Some(properties) = property_map.get(&self.id) {
+            properties
+                .into_iter()
+                .map(|prop| {
+                    if prop.name == "parent"
+                        && prop.value.is_some()
+                        && args.ignoremanualparent.is_none()
+                    {
+                        has_manual_parent = prop.value.as_ref().unwrap().clone();
+                    }
+                    prop.parse_db_value(&self)
+                })
+                .collect::<Vec<Basic>>()
+        } else {
+            vec![]
+        };
 
         let parent_name = if has_manual_parent.is_empty() {
-            self.get_parent_name(db).await?
+            if let Some(parent_id) = self.parent {
+                if let Some(name) = name_map.get(&parent_id) {
+                    Some(name.clone())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
         } else {
             Some(has_manual_parent)
         };
-
         if args.internal.unwrap_or(false) {
             properties.push(Basic {
-                name: "__id".to_string(),
+                name: "__id",
                 value: serde_json::Value::from(self.id),
             });
             properties.push(Basic {
-                name: "__name".to_string(),
+                name: "__name",
                 value: serde_json::Value::from(self.name.to_string()),
             });
             properties.push(Basic {
-                name: "__mode".to_string(),
+                name: "__mode",
                 value: serde_json::Value::from(self.mode.to_value()),
+            });
+            properties.push(Basic {
+                name: "__parent",
+                value: serde_json::Value::from(self.parent),
             });
         }
         if args.name.unwrap_or(false) {
             properties.push(Basic {
-                name: "name".to_string(),
+                name: "name",
                 value: serde_json::Value::from(self.name),
             });
         }
         if args.id.unwrap_or(false) {
             properties.push(Basic {
-                name: "id".to_string(),
+                name: "id",
                 value: serde_json::Value::from(self.id),
             });
         }
         if args.mode.unwrap_or(false) {
             properties.push(Basic {
-                name: "mode".to_string(),
+                name: "mode",
                 value: serde_json::Value::from(self.mode.to_value()),
             });
         }
         if args.group.unwrap_or(false) && parent_name.is_some() {
             properties.push(Basic {
-                name: "group".to_string(),
+                name: "group",
                 value: serde_json::Value::from(parent_name.clone()),
             });
         }
         if args.parent.unwrap_or(false) {
             properties.push(Basic {
-                name: "parent".to_string(),
+                name: "parent",
                 value: serde_json::Value::from(parent_name.clone()),
             });
         }
@@ -359,7 +346,7 @@ impl Query {
         args: &ApiQueryArgs,
     ) -> Result<Feature, ModelError> {
         match Query::get_one(db, id).await {
-            Ok(record) => record.to_feature(db, args).await,
+            Ok(record) => record.to_feature(&HashMap::new(), &HashMap::new(), args),
             Err(err) => Err(err),
         }
     }
@@ -381,12 +368,14 @@ impl Query {
     ) -> Result<FeatureCollection, ModelError> {
         let results = Query::get_all(db).await?;
 
-        let results = future::try_join_all(
-            results
-                .into_iter()
-                .map(|result| result.to_feature(db, args)),
-        )
-        .await?;
+        let results = results
+            .into_iter()
+            .filter_map(|result| {
+                result
+                    .to_feature(&HashMap::new(), &HashMap::new(), args)
+                    .ok()
+            })
+            .collect::<Vec<Feature>>();
 
         Ok(results.to_collection(None, None))
     }
@@ -584,12 +573,7 @@ impl Query {
 
         let name = new_model.name.as_ref();
 
-        let old_model = if let Some(old_model) = old_model {
-            Ok(old_model)
-        } else {
-            Query::get_one(db, name.to_string()).await
-        };
-        let model = if let Ok(old_model) = old_model {
+        let model = if let Some(old_model) = old_model {
             if old_model.name.ne(name) {
                 Query::update_related_route_names(db, &old_model, name.clone()).await?;
             };
@@ -749,37 +733,23 @@ impl Query {
         db: &DatabaseConnection,
         project_name: String,
     ) -> Result<Vec<Json>, DbErr> {
-        match project_name.parse::<u32>() {
-            Ok(id) => {
-                Entity::find()
-                    .order_by(Column::Name, Order::Asc)
-                    .left_join(project::Entity)
-                    .filter(project::Column::Id.eq(id))
-                    .select_only()
-                    .column(Column::Id)
-                    .column(Column::Name)
-                    .column(Column::Mode)
-                    .column(Column::Parent)
-                    .into_json()
-                    .all(db)
-                    .await
-            }
-            Err(_) => {
-                Entity::find()
-                    .order_by(Column::Name, Order::Asc)
-                    .left_join(project::Entity)
-                    .filter(project::Column::Name.eq(project_name))
-                    .select_only()
-                    .column(Column::Id)
-                    .column(Column::Name)
-                    .column(Column::Mode)
-                    .column(Column::Parent)
-                    .into_json()
-                    .all(db)
-                    .await
-            }
-        }
+        Entity::find()
+            .order_by(Column::Name, Order::Asc)
+            .left_join(project::Entity)
+            .filter(match project_name.parse::<u32>() {
+                Ok(id) => project::Column::Id.eq(id),
+                Err(_) => project::Column::Name.eq(project_name),
+            })
+            .select_only()
+            .column(Column::Id)
+            .column(Column::Name)
+            .column(Column::Mode)
+            .column(Column::Parent)
+            .into_json()
+            .all(db)
+            .await
     }
+
     /// Returns all geofence models, as features, that are related to the specified project
     pub async fn project_as_feature(
         db: &DatabaseConnection,
@@ -798,29 +768,68 @@ impl Query {
             .all(db)
             .await?;
 
+        let mut property_map = HashMap::<u32, Vec<FullPropertyModel>>::new();
+
+        let mut ids = vec![];
+
+        items.iter().for_each(|item| {
+            ids.push(item.id);
+            if let Some(parent_id) = item.parent {
+                ids.push(parent_id);
+            }
+        });
+
+        let mut name_map: HashMap<u32, String> = Entity::find()
+            .filter(Column::Id.is_in(ids.clone()))
+            .select_only()
+            .column(Column::Id)
+            .column(Column::Name)
+            .into_model::<NameId>()
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|model| (model.id, model.name))
+            .collect();
+
+        geofence_property::Entity::find()
+            .filter(geofence_property::Column::GeofenceId.is_in(ids))
+            .join(
+                sea_orm::JoinType::Join,
+                geofence_property::Relation::Property.def(),
+            )
+            .select_only()
+            .column(geofence_property::Column::Id)
+            .column(geofence_property::Column::PropertyId)
+            .column(geofence_property::Column::GeofenceId)
+            .column(geofence_property::Column::Value)
+            .column(property::Column::Name)
+            .column(property::Column::Category)
+            .into_model::<FullPropertyModel>()
+            .all(db)
+            .await?
+            .into_iter()
+            .for_each(|prop| {
+                if prop.name == "name" {
+                    if let Some(manual_name) = prop.value.as_ref() {
+                        name_map.insert(prop.geofence_id, manual_name.clone());
+                    }
+                }
+                property_map
+                    .entry(prop.geofence_id)
+                    .or_insert_with(Vec::new)
+                    .push(prop);
+            });
+
         log::debug!("db query took {:?}", time.elapsed());
 
         let time = Instant::now();
-        let mut features = Vec::new();
+        let items = items
+            .into_iter()
+            .filter_map(|result| result.to_feature(&property_map, &name_map, args).ok())
+            .collect();
 
-        for chunk in items.chunks(
-            std::env::var("MAX_CONNECTIONS")
-                .unwrap_or("100".to_string())
-                .parse::<usize>()
-                .unwrap_or(100),
-        ) {
-            features.append(
-                &mut future::try_join_all(
-                    chunk
-                        .to_vec()
-                        .into_iter()
-                        .map(|result| result.to_feature(db, args)),
-                )
-                .await?,
-            );
-        }
         log::debug!("feature conversion took {:?}", time.elapsed());
-        Ok(features)
+        Ok(items)
     }
 
     pub async fn search(db: &DatabaseConnection, search: String) -> Result<Vec<Json>, DbErr> {
@@ -891,9 +900,14 @@ impl Query {
             .await?;
         let args = ApiQueryArgs::default();
 
-        let items =
-            future::try_join_all(items.into_iter().map(|result| result.to_feature(db, &args)))
-                .await?;
+        let items: Vec<Feature> = items
+            .into_iter()
+            .filter_map(|result| {
+                result
+                    .to_feature(&HashMap::new(), &HashMap::new(), &args)
+                    .ok()
+            })
+            .collect();
 
         Ok(items.to_collection(None, None))
     }
