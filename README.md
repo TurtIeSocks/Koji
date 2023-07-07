@@ -19,4 +19,4 @@
 
 ## Docs
 
-Documentation for this project can be found on [here](https://koji.vercel.app/)
+Documentation for this project can be found [here](https://koji.vercel.app/)
