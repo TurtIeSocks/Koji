@@ -81,7 +81,9 @@ export function PolygonPopup({
   const [mode, setMode] = React.useState<KojiModes | ''>(
     dbRef?.mode || feature.properties?.__mode || 'unset',
   )
-  const [parent, setParent] = React.useState(feature.properties?.__parent || 0)
+  const [parent, setParent] = React.useState(
+    feature.properties?.__parent || undefined,
+  )
 
   const [area, setArea] = React.useState(0)
 
@@ -197,8 +199,8 @@ export function PolygonPopup({
           <Select
             size="small"
             fullWidth
-            value={parent}
-            onChange={({ target }) => setParent(+target.value)}
+            value={parent || ''}
+            onChange={({ target }) => setParent(+target.value || undefined)}
             onOpen={() => (options.length ? null : getKojiCache('geofence'))}
             onBlur={() =>
               updateProperty(
@@ -209,6 +211,7 @@ export function PolygonPopup({
               )
             }
           >
+            <MenuItem value={undefined}>None</MenuItem>
             {options.map((t) => (
               <MenuItem key={t.id} value={t.id}>
                 {t.name}
