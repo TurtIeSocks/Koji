@@ -29,7 +29,7 @@ export function GeofenceExpand() {
           <ListItemText
             primary={p.name}
             secondary={`${
-              p.value || record[p.name as keyof typeof record] || null
+              p.value ?? record[p.name as keyof typeof record] ?? null
             }`}
           />
         </Grid2>
