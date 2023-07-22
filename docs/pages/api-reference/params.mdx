@@ -66,6 +66,9 @@ pub struct ApiQueryArgs {
     pub unpolish: Option<bool>,
     /// If true, the manual parent property will be ignored
     pub ignoremanualparent: Option<bool>,
+    /// If true, all non-alphanumeric characters are removed from the `name` property
+    /// (excludes spaces, dashes, and underscores)
+    pub alphanumeric: Option<bool>,
 }
 ```
 
@@ -78,6 +81,7 @@ The manipulations mentioned above are executed in the following order:
 1. ignoremanualparent
 1. trimstart
 1. trimend
+1. alphanumeric
 1. replace
 1. parentreplace
 1. parentstart
