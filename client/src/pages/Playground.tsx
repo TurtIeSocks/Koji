@@ -94,6 +94,7 @@ const PROPERTIES = {
 const PARAMS = {
   trimstart: 'number',
   trimend: 'number',
+  alphanumeric: 'boolean',
   replace: 'string',
   parentreplace: 'string',
   parentstart: 'string',

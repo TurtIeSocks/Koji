@@ -4,6 +4,7 @@ use std::env;
 
 use geojson::Value;
 use log::LevelFilter;
+use regex::Regex;
 use sea_orm::{ConnectOptions, Database, Order};
 
 use crate::{
@@ -193,9 +194,24 @@ pub fn json_related_sort(json: &mut Vec<serde_json::Value>, sort_by: &String, or
 
 fn convert_polish_to_ascii(param: String) -> String {
     let polish_characters: [(char, char); 18] = [
-        ('ą', 'a'), ('ć', 'c'), ('ę', 'e'), ('ł', 'l'), ('ń', 'n'), ('ó', 'o'),
-        ('ś', 's'), ('ź', 'z'), ('ż', 'z'), ('Ą', 'A'), ('Ć', 'C'), ('Ę', 'E'),
-        ('Ł', 'L'), ('Ń', 'N'), ('Ó', 'O'), ('Ś', 'S'), ('Ź', 'Z'), ('Ż', 'Z')
+        ('ą', 'a'),
+        ('ć', 'c'),
+        ('ę', 'e'),
+        ('ł', 'l'),
+        ('ń', 'n'),
+        ('ó', 'o'),
+        ('ś', 's'),
+        ('ź', 'z'),
+        ('ż', 'z'),
+        ('Ą', 'A'),
+        ('Ć', 'C'),
+        ('Ę', 'E'),
+        ('Ł', 'L'),
+        ('Ń', 'N'),
+        ('Ó', 'O'),
+        ('Ś', 'S'),
+        ('Ź', 'Z'),
+        ('Ż', 'Z'),
     ];
 
     let mut result = String::new();
@@ -219,6 +235,11 @@ pub fn clean(param: &String) -> String {
     param.to_string()
 }
 
+fn remove_symbols(param: &String) -> String {
+    let regex = Regex::new(r"[^a-zA-Z0-9\s\-_]").unwrap();
+    regex.replace_all(param, "").to_string()
+}
+
 pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<String>) -> String {
     let mut mutable = string.clone();
     if let Some(trimstart) = modifiers.trimstart {
@@ -226,6 +247,9 @@ pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<St
     }
     if let Some(trimend) = modifiers.trimend {
         mutable = (&mutable[..(mutable.len() - trimend)]).to_string();
+    }
+    if modifiers.alphanumeric.is_some() {
+        mutable = remove_symbols(&mutable);
     }
     if let Some(replacer) = modifiers.replace.as_ref() {
         mutable = mutable.replace(clean(replacer).as_str(), "");

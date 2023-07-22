@@ -152,6 +152,9 @@ pub struct ApiQueryArgs {
     pub unpolish: Option<bool>,
     /// If true, the manual parent property will be ignored
     pub ignoremanualparent: Option<bool>,
+    /// If true, all non-alphanumeric characters are removed from the `name` property
+    /// (excludes spaces, dashes, and underscores)
+    pub alphanumeric: Option<bool>,
 }
 
 impl Default for ApiQueryArgs {
@@ -180,6 +183,7 @@ impl Default for ApiQueryArgs {
             trimend: None,
             unpolish: None,
             ignoremanualparent: None,
+            alphanumeric: None,
         }
     }
 }
