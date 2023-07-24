@@ -35,6 +35,7 @@ export function GeofenceFilter() {
         {/* <SavedQueriesList /> */}
         <FilterLiveSearch />
         <FilterList label="Project" icon={<AccountTree />}>
+          <FilterListItem key="unset" label="unset" value={{ project: 0 }} />
           {(projectData?.data || []).map((project) => (
             <FilterListItem
               key={project.id}
@@ -44,6 +45,7 @@ export function GeofenceFilter() {
           ))}
         </FilterList>
         <FilterList label="Parent" icon={<SupervisedUserCircleIcon />}>
+          <FilterListItem key="unset" label="unset" value={{ parent: 0 }} />
           {(data?.data || []).map((parent) => (
             <FilterListItem
               key={parent.id}

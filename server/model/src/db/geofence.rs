@@ -53,6 +53,8 @@ pub enum Relation {
     SelfRef,
     #[sea_orm(has_many = "super::project::Entity")]
     Project,
+    #[sea_orm(has_many = "super::geofence_project::Entity")]
+    GeofenceProject,
     #[sea_orm(has_many = "super::geofence_property::Entity")]
     GeofenceProperty,
     #[sea_orm(has_many = "super::route::Entity")]
@@ -71,6 +73,12 @@ impl Related<project::Entity> for Entity {
 impl Related<super::geofence_property::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::GeofenceProperty.def()
+    }
+}
+
+impl Related<super::geofence_project::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::GeofenceProject.def()
     }
 }
 
@@ -413,9 +421,12 @@ impl Query {
             .filter(Column::Name.like(format!("%{}%", args.q).as_str()));
 
         if let Some(parent) = args.parent {
-            paginator = paginator.filter(Column::Parent.eq(parent));
+            paginator = if parent == 0 {
+                paginator.filter(Column::Parent.is_null())
+            } else {
+                paginator.filter(Column::Parent.eq(parent))
+            }
         }
-
         if let Some(geo_type) = args.geotype {
             paginator = paginator.filter(Column::GeoType.eq(geo_type));
         }
@@ -423,9 +434,15 @@ impl Query {
             paginator = paginator.filter(Column::Mode.eq(mode));
         }
         if let Some(project_id) = args.project {
-            paginator = paginator
-                .inner_join(project::Entity)
-                .filter(project::Column::Id.eq(project_id));
+            paginator = if project_id == 0 {
+                paginator
+                    .left_join(geofence_project::Entity)
+                    .filter(geofence_project::Column::ProjectId.is_null())
+            } else {
+                paginator
+                    .inner_join(project::Entity)
+                    .filter(project::Column::Id.eq(project_id))
+            }
         }
 
         let paginator = paginator.paginate(db, args.per_page);
