@@ -45,7 +45,7 @@ export default function GeofenceList() {
     <>
       <List
         aside={<GeofenceFilter />}
-        pagination={<Pagination rowsPerPageOptions={[25, 50, 100]} />}
+        pagination={<Pagination rowsPerPageOptions={[25, 50, 100, 500, 1000]} />}
         title="Geofences"
         perPage={25}
         actions={<ListActions />}
