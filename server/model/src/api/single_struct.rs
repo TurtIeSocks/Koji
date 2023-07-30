@@ -1,6 +1,6 @@
 use super::*;
 
-pub type SingleStruct<T = Precision> = Vec<point_struct::PointStruct<T>>;
+pub type SingleStruct = Vec<point_struct::PointStruct>;
 
 impl GetBbox for SingleStruct {
     fn get_bbox(&self) -> Option<Bbox> {

@@ -1,6 +1,6 @@
 use super::*;
 
-pub type PointArray<T = Precision> = [T; 2];
+pub type PointArray = [Precision; 2];
 
 impl ToPointArray for PointArray {
     fn to_point_array(self) -> PointArray {

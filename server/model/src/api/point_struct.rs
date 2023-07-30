@@ -1,9 +1,9 @@
 use super::*;
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
-pub struct PointStruct<T: Float = Precision> {
-    pub lat: T,
-    pub lon: T,
+pub struct PointStruct {
+    pub lat: Precision,
+    pub lon: Precision,
 }
 impl Default for PointStruct {
     fn default() -> PointStruct {

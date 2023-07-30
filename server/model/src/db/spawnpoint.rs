@@ -68,7 +68,7 @@ impl Query {
                 SpawnpointTth::Unknown => Column::DespawnSec.is_null(),
             })
             .limit(2_000_000)
-            .into_model::<Spawnpoint<f64>>()
+            .into_model::<Spawnpoint>()
             .all(conn)
             .await?;
         Ok(utils::normalize::spawnpoint(items))

@@ -1,6 +1,5 @@
 use geojson::{Feature, FeatureCollection};
 use log;
-use num_traits::Float;
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 

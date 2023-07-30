@@ -1,6 +1,6 @@
 use super::*;
 
-pub type MultiStruct<T = Precision> = Vec<Vec<point_struct::PointStruct<T>>>;
+pub type MultiStruct = Vec<Vec<point_struct::PointStruct>>;
 
 impl GetBbox for MultiStruct {
     fn get_bbox(&self) -> Option<Bbox> {

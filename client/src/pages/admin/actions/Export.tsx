@@ -25,6 +25,12 @@ export function BaseButton({
   )
 }
 
+export function getUrl(resource: string, id: number) {
+  return `/api/v1/${resource === 'project' ? 'geofence' : resource}/${
+    resource === 'project' ? 'feature-collection' : 'area'
+  }/${id}?&name=true&parent=true&mode=true`
+}
+
 export function ExportButton<T extends BasicKojiEntry>({
   resource,
 }: {
@@ -33,12 +39,7 @@ export function ExportButton<T extends BasicKojiEntry>({
   const record = useRecordContext<T>()
   const { refetch } = useQuery(
     `export-${resource}-${record.id}`,
-    () =>
-      fetchWrapper<KojiResponse<Feature>>(
-        `/api/v1/${resource === 'project' ? 'geofence' : resource}/${
-          resource === 'project' ? 'feature-collection' : 'area'
-        }/${record.id}`,
-      ),
+    () => fetchWrapper<KojiResponse<Feature>>(getUrl(resource, record.id)),
     {
       enabled: false,
     },
@@ -73,11 +74,7 @@ export function BulkExportButton<T extends BasicKojiEntry>({
     () =>
       Promise.all(
         selectedIds.map((id) =>
-          fetchWrapper<KojiResponse<Feature>>(
-            `/api/v1/${resource === 'project' ? 'geofence' : resource}/${
-              resource === 'project' ? 'feature-collection' : 'area'
-            }/${id}`,
-          ),
+          fetchWrapper<KojiResponse<Feature>>(getUrl(resource, id)),
         ),
       ),
     {
