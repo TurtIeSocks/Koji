@@ -416,10 +416,11 @@ impl Query {
     ) -> Result<PaginateResults<Vec<Json>>, DbErr> {
         let column = Column::from_str(&args.sort_by).unwrap_or(Column::Name);
 
-        let mut paginator = Entity::find()
-            .order_by(column, parse_order(&args.order))
-            .filter(Column::Name.like(format!("%{}%", args.q).as_str()));
+        let mut paginator = Entity::find().order_by(column, parse_order(&args.order));
 
+        if args.q.len() > 0 {
+            paginator = paginator.filter(Column::Name.like(format!("%{}%", args.q).as_str()));
+        }
         if let Some(parent) = args.parent {
             paginator = if parent == 0 {
                 paginator.filter(Column::Parent.is_null())
@@ -585,8 +586,16 @@ impl Query {
     /// Updates or creates a Geofence model, returns a model struct
     pub async fn upsert(db: &DatabaseConnection, id: u32, json: Json) -> Result<Model, ModelError> {
         let mut json = json;
-        let old_model = Entity::find_by_id(id).one(db).await?;
+
         let mut new_model = json.to_geofence()?;
+
+        let old_model = if id == 0 {
+            Query::get_one(db, new_model.name.clone().unwrap())
+                .await
+                .ok()
+        } else {
+            Entity::find_by_id(id).one(db).await?
+        };
 
         let name = new_model.name.as_ref();
 
