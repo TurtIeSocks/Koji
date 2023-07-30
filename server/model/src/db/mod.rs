@@ -84,13 +84,10 @@ impl Default for PaginateResults<()> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
-pub struct Spawnpoint<T = f64>
-where
-    T: Float,
-{
-    pub lat: T,
-    pub lon: T,
+#[derive(Debug, Clone, FromQueryResult)]
+pub struct Spawnpoint {
+    pub lat: f64,
+    pub lon: f64,
     pub despawn_sec: Option<u16>,
 }
 
@@ -109,19 +106,13 @@ pub struct RdmInstance {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct GenericData<T = f64>
-where
-    T: Float,
-{
+pub struct GenericData {
     pub i: String,
-    pub p: [T; 2],
+    pub p: [f64; 2],
 }
 
-impl<T> GenericData<T>
-where
-    T: Float,
-{
-    pub fn new(i: String, lat: T, lon: T) -> Self {
+impl GenericData {
+    pub fn new(i: String, lat: f64, lon: f64) -> Self {
         GenericData { i, p: [lat, lon] }
     }
 }

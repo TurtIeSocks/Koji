@@ -353,10 +353,10 @@ impl Query {
         id: String,
         args: &ApiQueryArgs,
     ) -> Result<Feature, ModelError> {
-        match Query::get_one(db, id).await {
-            Ok(record) => record.to_feature(&HashMap::new(), &HashMap::new(), args),
-            Err(err) => Err(err),
-        }
+        let result = Query::get_one(db, id).await?;
+        let (property_map, name_map) = Query::get_helper_maps(db, &vec![&result]).await?;
+
+        result.to_feature(&property_map, &name_map, args)
     }
 
     /// Returns all Geofence models in the db
@@ -376,13 +376,12 @@ impl Query {
     ) -> Result<FeatureCollection, ModelError> {
         let results = Query::get_all(db).await?;
 
+        let (property_map, helper_map) =
+            Query::get_helper_maps(db, &results.iter().collect()).await?;
+
         let results = results
             .into_iter()
-            .filter_map(|result| {
-                result
-                    .to_feature(&HashMap::new(), &HashMap::new(), args)
-                    .ok()
-            })
+            .filter_map(|result| result.to_feature(&property_map, &helper_map, args).ok())
             .collect::<Vec<Feature>>();
 
         Ok(results.to_collection(None, None))
@@ -776,34 +775,20 @@ impl Query {
             .await
     }
 
-    /// Returns all geofence models, as features, that are related to the specified project
-    pub async fn project_as_feature(
+    async fn get_helper_maps(
         db: &DatabaseConnection,
-        project_name: String,
-        args: &ApiQueryArgs,
-    ) -> Result<Vec<Feature>, ModelError> {
-        let time = Instant::now();
-
-        let items = Entity::find()
-            .order_by(Column::Name, Order::Asc)
-            .filter(match project_name.parse::<u32>() {
-                Ok(id) => project::Column::Id.eq(id),
-                Err(_) => project::Column::Name.eq(project_name),
-            })
-            .left_join(project::Entity)
-            .all(db)
-            .await?;
-
-        let mut property_map = HashMap::<u32, Vec<FullPropertyModel>>::new();
-
+        models: &Vec<&Model>,
+    ) -> Result<(HashMap<u32, Vec<FullPropertyModel>>, HashMap<u32, String>), ModelError> {
         let mut ids = vec![];
 
-        items.iter().for_each(|item| {
+        models.iter().for_each(|item| {
             ids.push(item.id);
             if let Some(parent_id) = item.parent {
                 ids.push(parent_id);
             }
         });
+
+        let mut property_map = HashMap::<u32, Vec<FullPropertyModel>>::new();
 
         let mut name_map: HashMap<u32, String> = Entity::find()
             .filter(Column::Id.is_in(ids.clone()))
@@ -845,6 +830,28 @@ impl Query {
                     .or_insert_with(Vec::new)
                     .push(prop);
             });
+        Ok((property_map, name_map))
+    }
+
+    /// Returns all geofence models, as features, that are related to the specified project
+    pub async fn project_as_feature(
+        db: &DatabaseConnection,
+        project_name: String,
+        args: &ApiQueryArgs,
+    ) -> Result<Vec<Feature>, ModelError> {
+        let time = Instant::now();
+
+        let items = Entity::find()
+            .order_by(Column::Name, Order::Asc)
+            .filter(match project_name.parse::<u32>() {
+                Ok(id) => project::Column::Id.eq(id),
+                Err(_) => project::Column::Name.eq(project_name),
+            })
+            .left_join(project::Entity)
+            .all(db)
+            .await?;
+
+        let (property_map, name_map) = Query::get_helper_maps(db, &items.iter().collect()).await?;
 
         log::debug!("db query took {:?}", time.elapsed());
 

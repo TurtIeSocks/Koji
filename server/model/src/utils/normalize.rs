@@ -7,10 +7,7 @@ use crate::{
     db::{sea_orm_active_enums::Type, AreaRef},
 };
 
-pub fn fort<T>(items: api::single_struct::SingleStruct<T>, prefix: &str) -> Vec<db::GenericData<T>>
-where
-    T: Float,
-{
+pub fn fort(items: api::single_struct::SingleStruct, prefix: &str) -> Vec<db::GenericData> {
     items
         .into_iter()
         .enumerate()
@@ -18,10 +15,7 @@ where
         .collect()
 }
 
-pub fn spawnpoint<T>(items: Vec<db::Spawnpoint<T>>) -> Vec<db::GenericData<T>>
-where
-    T: Float,
-{
+pub fn spawnpoint(items: Vec<db::Spawnpoint>) -> Vec<db::GenericData> {
     items
         .into_iter()
         .enumerate()

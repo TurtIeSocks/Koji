@@ -1,6 +1,6 @@
 use super::*;
 
-pub type MultiVec<T = Precision> = Vec<Vec<point_array::PointArray<T>>>;
+pub type MultiVec = Vec<Vec<point_array::PointArray>>;
 
 impl ValueHelpers for MultiVec {
     fn get_geojson_value(self, enum_type: Type) -> Value {

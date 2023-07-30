@@ -162,9 +162,9 @@ impl Query {
                 Err(err) => Err(DbErr::Custom(err.to_string())),
             }
         } else if let Some(default_model) =
-            Query::get_by_name(conn, format!("Default_{}", mode)).await?
+            Query::get_by_name(conn, format!("Default_{}", mode.to_value())).await?
         {
-            log::info!("Found default for Default_{}", mode);
+            log::info!("Found default for Default_{}", mode.to_value());
             match serde_json::from_str(&default_model.data) {
                 Ok(defaults) => Ok(defaults),
                 Err(err) => Err(DbErr::Custom(err.to_string())),

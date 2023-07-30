@@ -1,6 +1,6 @@
 use super::{collection::Default, *};
 
-pub type SingleVec<T = Precision> = Vec<point_array::PointArray<T>>;
+pub type SingleVec = Vec<point_array::PointArray>;
 
 impl EnsurePoints for SingleVec {
     fn ensure_first_last(self) -> Self {

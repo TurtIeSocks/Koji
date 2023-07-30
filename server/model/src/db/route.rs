@@ -399,7 +399,8 @@ impl Query {
                             if let Some(geometry) = geometry.as_object() {
                                 let geometry = sea_orm::JsonValue::Object(geometry.to_owned());
                                 let name = name.to_string();
-                                let is_update = existing.get(&format!("{}_{}", name, mode));
+                                let is_update =
+                                    existing.get(&format!("{}_{}", name, mode.to_value()));
                                 let update_bool = is_update.is_some();
                                 let mut active_model = if let Some(entry) = is_update {
                                     Entity::find_by_id(entry.id)
@@ -472,7 +473,7 @@ impl Query {
         let existing: HashMap<String, RouteNoGeometry> = Query::get_all_no_fences(conn)
             .await?
             .into_iter()
-            .map(|model| (format!("{}_{}", model.name, model.mode), model))
+            .map(|model| (format!("{}_{}", model.name, model.mode.to_value()), model))
             .collect();
 
         let mut inserts_updates = InsertsUpdates::<ActiveModel> {
