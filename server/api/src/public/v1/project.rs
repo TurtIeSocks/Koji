@@ -39,7 +39,6 @@ async fn push_to_prod(
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    log::error!("Scanner Type: {:?}", project);
     let (inserts, updates) = if project.scanner {
         if scanner_type == "rdm" {
             instance::Query::upsert_from_geometry(
