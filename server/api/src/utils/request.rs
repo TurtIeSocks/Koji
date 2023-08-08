@@ -25,6 +25,7 @@ pub async fn send_api_req(
             if let Some(scanner_type) = scanner_type {
                 let req = if let Some(api_key) = project.api_key {
                     if let Some((username, password)) = api_key.split_once(":") {
+                        let (username, password) = (username.trim(), password.trim());
                         if scanner_type.eq("rdm") {
                             req.get(endpoint).basic_auth(username, Some(password))
                         } else {
