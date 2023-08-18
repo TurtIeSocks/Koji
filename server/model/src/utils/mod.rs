@@ -257,7 +257,7 @@ pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<St
     if parent.is_some() {
         let parent = parent.unwrap();
         if let Some(replacer) = modifiers.parentreplace.as_ref() {
-            mutable = mutable.replace(&parent, clean(replacer).as_str());
+            mutable = mutable.replacen(&parent, clean(replacer).as_str(), 1);
         }
         if let Some(parent_start) = modifiers.parentstart.as_ref() {
             mutable = format!("{}{}{}", parent, clean(parent_start), mutable,);
