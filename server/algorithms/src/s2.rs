@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
 };
 
@@ -9,7 +9,10 @@ use model::{
     api::{single_vec::SingleVec, stats::Stats},
     db::GenericData,
 };
-use s2::{cell::Cell, cellid::CellID, cellunion::CellUnion, rect::Rect, region::RegionCoverer};
+use s2::{
+    cell::Cell, cellid::CellID, cellunion::CellUnion, latlng::LatLng, rect::Rect,
+    region::RegionCoverer,
+};
 use serde::Serialize;
 
 // use crate::utils::debug_string;
@@ -534,4 +537,19 @@ pub fn cluster(
     stats.distance(&points);
     stats.points_covered = data.len();
     points
+}
+
+pub fn create_cell_map(points: SingleVec, split_level: u64) -> HashMap<u64, Vec<CellID>> {
+    let s20cells: Vec<CellID> = points
+        .iter()
+        .map(|point| CellID::from(LatLng::from_degrees(point[0], point[1])).parent(20))
+        .collect();
+    let mut cell_maps = HashMap::new();
+    for cell in s20cells.into_iter() {
+        let handler = cell_maps
+            .entry(cell.parent(split_level).0)
+            .or_insert(Vec::new());
+        handler.push(cell);
+    }
+    cell_maps
 }

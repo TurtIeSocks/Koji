@@ -46,7 +46,7 @@ export interface UsePersist {
 
   // Clustering
   category: Category | 'fort'
-  cluster_mode: 'Fast' | 'Balanced' | 'BruteForce'
+  cluster_mode: 'Fast' | 'Balanced' | 'BruteForce' | 'RTree'
   tth: 'All' | 'Known' | 'Unknown'
   lineColorRules: { distance: number; color: string }[]
   mode: 'bootstrap' | 'route' | 'cluster'

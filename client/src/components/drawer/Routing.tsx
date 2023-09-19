@@ -90,10 +90,12 @@ export default function RoutingTab() {
         <MultiOptionList
           field="cluster_mode"
           hideLabel
-          buttons={['Fast', 'Balanced', 'BruteForce']}
+          buttons={['Fast', 'Balanced', 'BruteForce', 'RTree']}
           type="select"
         />
-        <Collapse in={cluster_mode === 'BruteForce'}>
+        <Collapse
+          in={cluster_mode === 'BruteForce' || cluster_mode === 'RTree'}
+        >
           <NumInput field="cluster_split_level" min={1} max={20} />
         </Collapse>
         <Collapse in={cluster_mode === 'Balanced'}>

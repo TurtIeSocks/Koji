@@ -200,6 +200,7 @@ pub enum ClusterMode {
     Fast,
     Balanced,
     BruteForce,
+    RTree,
 }
 
 impl ToString for UnknownId {

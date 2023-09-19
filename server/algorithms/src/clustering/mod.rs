@@ -14,6 +14,7 @@ use model::{
 mod balanced;
 mod bruteforce;
 mod fast;
+mod rtree;
 
 pub fn main(
     data_points: Vec<GenericData>,
@@ -48,6 +49,16 @@ pub fn main(
         }
         ClusterMode::Fast => {
             let clusters = fast::cluster(data_points.to_single_vec(), radius, min_points, stats);
+            clusters
+        }
+        ClusterMode::RTree => {
+            let clusters = rtree::main(
+                data_points.into_iter().map(|p| p.p).collect(),
+                radius,
+                min_points,
+                cluster_split_level,
+                stats,
+            );
             clusters
         }
     }
