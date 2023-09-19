@@ -1,13 +1,11 @@
 use std::hash::{Hash, Hasher};
 
-use model::api::single_vec::SingleVec;
+use model::api::{single_vec::SingleVec, Precision};
 use rstar::{PointDistance, RTree, RTreeObject, AABB};
 use s2::{cellid::CellID, latlng::LatLng};
 
-pub type Accuracy = f64;
-
-const R: Accuracy = 6378137.0;
-const X: Accuracy = std::f64::consts::PI / 180.0;
+const R: Precision = 6378137.0;
+const X: Precision = std::f64::consts::PI / 180.0;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PointType {
@@ -18,15 +16,15 @@ pub enum PointType {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Point {
-    pub radius: Accuracy,
-    pub center: [Accuracy; 2],
+    pub radius: Precision,
+    pub center: [Precision; 2],
     pub cell_id: CellID,
     pub data_type: PointType,
     pub blocked: bool,
 }
 
 impl Point {
-    pub fn new(radius: Accuracy, center: [Accuracy; 2], data_type: PointType) -> Self {
+    pub fn new(radius: Precision, center: [Precision; 2], data_type: PointType) -> Self {
         Self {
             radius,
             center,
@@ -58,7 +56,7 @@ impl Hash for Point {
 }
 
 impl RTreeObject for Point {
-    type Envelope = AABB<[Accuracy; 2]>;
+    type Envelope = AABB<[Precision; 2]>;
 
     fn envelope(&self) -> Self::Envelope {
         let corner_1 = [self.center[0] - self.radius, self.center[1] - self.radius];
@@ -68,7 +66,7 @@ impl RTreeObject for Point {
 }
 
 impl PointDistance for Point {
-    fn distance_2(&self, other: &[Accuracy; 2]) -> Accuracy {
+    fn distance_2(&self, other: &[Precision; 2]) -> Precision {
         let lat1 = self.center[0] * X;
         let lon1 = self.center[1] * X;
         let lat2 = other[0] * X;

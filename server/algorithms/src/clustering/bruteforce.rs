@@ -10,7 +10,7 @@ use model::{
     db::GenericData,
 };
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use s2::{cell::Cell, cellid::CellID};
+use s2::{cell::Cell, cellid::CellID, latlng::LatLng};
 
 use crate::s2::{create_cell_map, ToGeo};
 
@@ -23,14 +23,22 @@ pub fn multi_thread(
 ) -> SingleVec {
     let time = Instant::now();
     let cell_maps = create_cell_map(
-        data_points.into_iter().map(|x| x.p).collect(),
+        &data_points.into_iter().map(|x| x.p).collect(),
         cluster_split_level,
     );
     let mut handlers = vec![];
     for (key, values) in cell_maps.into_iter() {
         log::debug!("Total {}: {}", key, values.len());
         handlers.push(std::thread::spawn(move || {
-            cluster(key, values, radius, min_points)
+            cluster(
+                key,
+                values
+                    .into_iter()
+                    .map(|x| CellID::from(LatLng::from_degrees(x[0], x[1])).parent(20))
+                    .collect(),
+                radius,
+                min_points,
+            )
         }));
     }
     let mut return_map = HashMap::new();

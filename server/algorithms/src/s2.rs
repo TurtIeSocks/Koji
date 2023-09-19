@@ -6,7 +6,7 @@ use std::{
 use geo::{HaversineDestination, Intersects, MultiPolygon, Polygon, RemoveRepeatedPoints};
 use geojson::{Feature, Geometry, Value};
 use model::{
-    api::{single_vec::SingleVec, stats::Stats},
+    api::{point_array::PointArray, single_vec::SingleVec, stats::Stats},
     db::GenericData,
 };
 use s2::{
@@ -539,17 +539,26 @@ pub fn cluster(
     points
 }
 
-pub fn create_cell_map(points: SingleVec, split_level: u64) -> HashMap<u64, Vec<CellID>> {
+pub fn from_array_to_cell_id(point: &PointArray, parent_level: u64) -> CellID {
+    CellID::from(LatLng::from_degrees(point[0], point[1])).parent(parent_level)
+}
+
+pub fn from_cell_id_to_array(cell_id: CellID) -> PointArray {
+    let center = Cell::from(cell_id).center();
+    [center.latitude().deg(), center.longitude().deg()]
+}
+
+pub fn create_cell_map(points: &SingleVec, split_level: u64) -> HashMap<u64, SingleVec> {
     let s20cells: Vec<CellID> = points
         .iter()
-        .map(|point| CellID::from(LatLng::from_degrees(point[0], point[1])).parent(20))
+        .map(|point| from_array_to_cell_id(point, 20))
         .collect();
     let mut cell_maps = HashMap::new();
-    for cell in s20cells.into_iter() {
+    for (i, cell) in s20cells.into_iter().enumerate() {
         let handler = cell_maps
             .entry(cell.parent(split_level).0)
             .or_insert(Vec::new());
-        handler.push(cell);
+        handler.push(points[i]);
     }
     cell_maps
 }

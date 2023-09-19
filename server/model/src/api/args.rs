@@ -312,7 +312,7 @@ pub struct Args {
     /// Recommend using 4 for Gyms, 5 for Pokestops, and 6 for Spawnpoints
     ///
     /// Default: `1`
-    pub route_split_level: Option<usize>,
+    pub route_split_level: Option<u64>,
     /// Amount of time for the TSP solver to run
     ///
     /// Default: `0` (auto)
@@ -383,7 +383,24 @@ pub struct ArgsUnwrapped {
     pub sort_by: SortBy,
     pub tth: SpawnpointTth,
     pub mode: Type,
-    pub route_split_level: usize,
+    pub route_split_level: u64,
+}
+
+fn validate_s2_cell(value_to_check: Option<u64>, label: &str) -> u64 {
+    if let Some(cell_level) = value_to_check {
+        if cell_level.lt(&20) && cell_level.gt(&0) {
+            cell_level
+        } else {
+            log::warn!(
+                "{} only supports 1-20, {} was provided, defaulting to 1",
+                label,
+                cell_level
+            );
+            1
+        }
+    } else {
+        1
+    }
 }
 
 impl Args {
@@ -460,7 +477,7 @@ impl Args {
                 ClusterMode::Balanced
             }
         });
-        let cluster_split_level = cluster_split_level.unwrap_or(10);
+        let cluster_split_level = validate_s2_cell(cluster_split_level, "cluster_split_level");
         let data_points = if let Some(data_points) = data_points {
             match data_points {
                 DataPointsArg::Struct(data_points) => data_points.to_single_vec(),
@@ -490,19 +507,7 @@ impl Args {
         let sort_by = sort_by.unwrap_or(SortBy::GeoHash);
         let tth = tth.unwrap_or(SpawnpointTth::All);
         let mode = get_enum(mode);
-        let route_split_level = if let Some(route_split_level) = route_split_level {
-            if route_split_level.lt(&13) && route_split_level.gt(&0) {
-                route_split_level
-            } else {
-                log::warn!(
-                    "route_split_level only supports 1-12, {} was provided",
-                    route_split_level
-                );
-                1
-            }
-        } else {
-            1
-        };
+        let route_split_level = validate_s2_cell(route_split_level, "route_split_level");
         if route_chunk_size.is_some() {
             log::warn!("route_chunk_size is now deprecated, please use route_split_level")
         }
