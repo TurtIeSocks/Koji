@@ -7,38 +7,34 @@ use s2::{cellid::CellID, latlng::LatLng};
 const R: Precision = 6378137.0;
 const X: Precision = std::f64::consts::PI / 180.0;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum PointType {
-    Data,
-    // Extra,
-    Cluster,
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct Point {
     pub radius: Precision,
     pub center: [Precision; 2],
     pub cell_id: CellID,
-    pub data_type: PointType,
-    pub blocked: bool,
 }
 
 impl Point {
-    pub fn new(radius: Precision, center: [Precision; 2], data_type: PointType) -> Self {
+    pub fn new(radius: Precision, center: [Precision; 2]) -> Self {
         Self {
             radius,
             center,
             cell_id: CellID::from(LatLng::from_degrees(center[0], center[1])).parent(20),
-            data_type,
-            blocked: false,
         }
     }
 
-    pub fn midpoint(&self, other: &Point) -> Self {
-        let lat = (self.center[0] + other.center[0]) / 2.0;
-        let lon = (self.center[1] + other.center[1]) / 2.0;
-        Self::new(self.radius, [lat, lon], PointType::Cluster)
+    pub fn interpolate(&self, next: &Point, ratio: f64) -> Self {
+        let lat = self.center[0] * (1. - ratio) + next.center[0] * ratio;
+        let lon = self.center[1] * (1. - ratio) + next.center[1] * ratio;
+        let new_point = Self::new(self.radius, [lat, lon]);
+        new_point
     }
+
+    // pub fn midpoint(&self, other: &Point) -> Self {
+    //     let lat = (self.center[0] + other.center[0]) / 2.0;
+    //     let lon = (self.center[1] + other.center[1]) / 2.0;
+    //     Self::new(self.radius, [lat, lon])
+    // }
 }
 
 impl PartialEq for Point {
@@ -83,7 +79,7 @@ impl PointDistance for Point {
 pub fn main(radius: f64, points: SingleVec) -> RTree<Point> {
     let spawnpoints = points
         .into_iter()
-        .map(|p| Point::new(radius, p, PointType::Data))
+        .map(|p| Point::new(radius, p))
         .collect::<Vec<_>>();
     RTree::bulk_load(spawnpoints)
 }

@@ -61,6 +61,7 @@ export default function MapWrapper() {
               right: 0,
             }}
           >
+            <Pane name="dev_markers" style={{ zIndex: 505 }} />
             <Pane name="circles" style={{ zIndex: 504 }} />
             <Pane name="lines" style={{ zIndex: 503 }} />
             <Pane name="arrows" style={{ zIndex: 502 }} />

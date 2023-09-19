@@ -95,6 +95,7 @@ export default function Markers({ category }: { category: Category }) {
               fillOpacity={0.2}
               fillColor="darkgreen"
               color="green"
+              pane="dev_markers"
             />
           )}
           <Circle
@@ -104,6 +105,7 @@ export default function Markers({ category }: { category: Category }) {
             opacity={0.8}
             fillColor={ICON_COLOR[i.i[0]]}
             color="black"
+            pane="dev_markers"
           >
             <StyledPopup>
               <div>
@@ -124,6 +126,7 @@ export default function Markers({ category }: { category: Category }) {
               fillColor: 'black',
               color: 'black',
             }}
+            pane="dev_markers"
           />
         </React.Fragment>
       ))}

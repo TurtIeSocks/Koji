@@ -6,10 +6,9 @@ use std::{
 };
 
 use model::api::{single_vec::SingleVec, stats::Stats, Precision};
-use point::{Point, PointType};
+use point::Point;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rstar::RTree;
-use s2::cellid::CellID;
 
 use crate::s2::create_cell_map;
 
@@ -32,8 +31,8 @@ pub fn main(
     for (key, values) in cell_maps.into_iter() {
         log::debug!("Total {}: {}", key, values.len());
         handlers.push(std::thread::spawn(move || {
-            let mut tree = point::main(radius, values);
-            run_clustering(&mut tree, radius, min_points, time)
+            let tree = point::main(radius, values);
+            run_clustering(tree, radius, min_points, time)
         }));
     }
     for thread in handlers {
@@ -47,101 +46,67 @@ pub fn main(
             }
         }
     }
-
-    // let (mut new_clusters, new_tree) = run_clustering(tree, radius, min_points, time, 1);
-    // println!("new tree size: {}", new_tree.size());
-    // let (clusters_2, tree_2) = run_clustering(new_tree, radius, min_points, time, 2);
-    // new_clusters.extend(clusters_2);
-    // println!("new tree size: {}", tree_2.size());
-    // let (clusters_3, tree_3) = run_clustering(tree_2, radius, min_points, time, 3);
-    // new_clusters.extend(clusters_3);
-    // println!("new tree size: {}", tree_3.size());
-
     stats.points_covered = stats.total_points - missing_count;
     stats.total_clusters = return_set.len();
     stats.cluster_time = time.elapsed().as_secs_f64();
 
-    println!("total time: {}s", time.elapsed().as_secs_f64());
+    println!("total time: {}s", time.elapsed().as_secs_f32());
 
     return_set.into_iter().map(|p| p.center).collect()
 }
 
+fn get_clusters(point: &Point, neighbors: Vec<&Point>, segments: usize, set: &mut HashSet<Point>) {
+    for neighbor in neighbors {
+        for i in 0..=(segments - 1) {
+            let ratio = i as Precision / segments as Precision;
+            let new_point = point.interpolate(neighbor, ratio);
+            set.insert(new_point);
+        }
+    }
+}
+
 fn run_clustering(
-    tree: &mut RTree<Point>,
+    tree: RTree<Point>,
     radius: f64,
     min_points: usize,
     time: Instant,
 ) -> (HashSet<Point>, RTree<Point>) {
-    println!("made tree: {}", time.elapsed().as_secs_f64());
+    println!("made tree: {}", time.elapsed().as_secs_f32());
 
-    let mut initial_clusters = vec![];
+    let mut initial_clusters = HashSet::new();
+
     for point in tree.iter() {
         let neighbors = tree.locate_within_distance(point.center, radius * 2.);
-        let mut lat = 0.0;
-        let mut lon = 0.0;
-        let mut points = HashSet::new();
-        for neighbor in neighbors {
-            lat += neighbor.center[0];
-            lon += neighbor.center[1];
-            points.insert(neighbor.cell_id);
-
-            let midpoint = point.midpoint(&neighbor);
-            initial_clusters.push(midpoint);
-
-            // if iteration > 1 {
-            // let quarter = point.midpoint(&midpoint);
-            // initial_clusters.push(quarter);
-
-            // let three_quarter = midpoint.midpoint(neighbor);
-            // initial_clusters.push(three_quarter);
-
-            // if iteration > 2 {
-            // let eighth = point.midpoint(&quarter);
-            // initial_clusters.push(eighth);
-
-            // let three_eighths = quarter.midpoint(&midpoint);
-            // initial_clusters.push(three_eighths);
-
-            // let five_eighths = midpoint.midpoint(&three_quarter);
-            // initial_clusters.push(five_eighths);
-
-            // let seven_eighths = three_quarter.midpoint(&neighbor);
-            // initial_clusters.push(seven_eighths);
-            //     }
-            // }
-        }
-        let count = points.len();
-        log::info!("Count {}", count);
-
-        let center = if count == 0 {
-            point.center
-        } else {
-            lat /= count as Precision;
-            lon /= count as Precision;
-            [lat, lon]
-        };
-        initial_clusters.push(Point::new(radius, center, PointType::Cluster));
+        get_clusters(
+            point,
+            neighbors.into_iter().collect(),
+            8,
+            &mut initial_clusters,
+        );
+        initial_clusters.insert(*point);
     }
-    println!("looped: {}s", time.elapsed().as_secs_f64());
+    println!("Data {} Clusters {}", tree.size(), initial_clusters.len());
 
-    println!("made second tree: {}", time.elapsed().as_secs_f64());
+    // let cluster_tree = RTree::bulk_load(initial_clusters.into_iter().collect());
+
+    println!("looped: {}s", time.elapsed().as_secs_f32());
+
+    println!("made second tree: {}", time.elapsed().as_secs_f32());
 
     let mut new_clusters = HashSet::<Point>::new();
     let mut block_clusters = HashSet::<&Point>::new();
     let mut block_points = HashSet::<&Point>::new();
 
-    println!("Data {} Clusters {}", tree.size(), initial_clusters.len());
-
-    let cluster_map: HashMap<CellID, Vec<&Point>> = initial_clusters
+    let cluster_map: HashMap<&Point, Vec<&Point>> = initial_clusters
         .par_iter()
         .map(|cluster| {
             let points = tree
                 .locate_all_at_point(&cluster.center)
                 .collect::<Vec<&Point>>();
-            (cluster.cell_id, points)
+            (cluster, points)
         })
         .collect();
-    println!("made map: {}", time.elapsed().as_secs_f64());
+    println!("made map: {}", time.elapsed().as_secs_f32());
 
     let mut highest = 100;
     while highest > min_points {
@@ -154,7 +119,7 @@ fn run_clustering(
                     Some((
                         cluster,
                         cluster_map
-                            .get(&cluster.cell_id)
+                            .get(cluster)
                             .unwrap()
                             .iter()
                             .filter_map(|p| {
@@ -178,7 +143,7 @@ fn run_clustering(
                 best = length;
             }
             if length >= highest {
-                if cluster.blocked || length == 0 {
+                if block_clusters.contains(cluster) || length == 0 {
                     continue;
                 }
                 let mut count = 0;
@@ -197,9 +162,9 @@ fn run_clustering(
             }
         }
         highest = best;
-        println!("Current: {} | {}", highest, new_clusters.len());
+        // println!("Current: {} | {}", highest, new_clusters.len());
     }
-    println!("second loop: {}", time.elapsed().as_secs_f64());
+    println!("second loop: {}", time.elapsed().as_secs_f32());
 
     (
         new_clusters,
