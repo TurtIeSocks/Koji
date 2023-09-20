@@ -27,6 +27,11 @@ impl Stats {
             longest_distance: 0.,
         }
     }
+
+    pub fn get_score(&self, min_points: usize) -> usize {
+        self.total_clusters * min_points + (self.total_points - self.points_covered)
+    }
+
     pub fn log(&self, area: Option<String>, min_points: Option<usize>) {
         let width = "=======================================================================";
         let get_row = |text: String, replace: bool| {
@@ -93,8 +98,7 @@ impl Stats {
             get_row(
                 format!(
                     "|| [MYGOD_SCORE] {}",
-                    self.total_clusters * min_points.unwrap_or(1)
-                        + (self.total_points - self.points_covered)
+                    self.get_score(min_points.unwrap_or(1))
                 ),
                 true
             ),

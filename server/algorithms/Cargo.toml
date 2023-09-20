@@ -12,6 +12,7 @@ path = "src/lib.rs"
 geo = "0.25.0"
 geohash = "0.12.0"
 geojson = "0.24.0"
+hashbrown = "0.14.0"
 log = "0.4.17"
 map_3d = "0.1.5"
 model = { path = "../model" }
