@@ -110,10 +110,10 @@ impl Default for Point {
     }
 }
 
-pub fn main(radius: f64, points: SingleVec) -> RTree<Point> {
+pub fn main(radius: f64, points: &SingleVec) -> RTree<Point> {
     let spawnpoints = points
-        .into_iter()
-        .map(|p| Point::new(radius, p))
+        .iter()
+        .map(|p| Point::new(radius, *p))
         .collect::<Vec<_>>();
     RTree::bulk_load(spawnpoints)
 }
