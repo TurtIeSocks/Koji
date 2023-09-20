@@ -3,10 +3,10 @@ mod point;
 use hashbrown::HashSet;
 use model::api::{single_vec::SingleVec, stats::Stats, Precision};
 use point::Point;
-// use rand::rngs::mock::StepRng;
+use rand::rngs::mock::StepRng;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rstar::RTree;
-// use shuffle::{irs::Irs, shuffler::Shuffler};
+use shuffle::{irs::Irs, shuffler::Shuffler};
 use std::time::Instant;
 
 use crate::s2::create_cell_map;
@@ -15,6 +15,21 @@ struct Comparer {
     cluster: HashSet<Point>,
     missed: usize,
     score: usize,
+}
+
+#[derive(Debug, Clone)]
+struct Cluster<'a> {
+    point: Point,
+    points: Vec<&'a Point>,
+}
+
+impl Default for Cluster<'_> {
+    fn default() -> Self {
+        Self {
+            point: Point::default(),
+            points: vec![],
+        }
+    }
 }
 
 pub fn main(
@@ -106,13 +121,16 @@ fn setup(
 
     let initial_clusters = initial_clusters.into_iter().collect::<Vec<Point>>();
 
-    let mut clusters_with_data: Vec<(&Point, Vec<&Point>)> = initial_clusters
+    let mut clusters_with_data: Vec<Cluster> = initial_clusters
         .par_iter()
         .map(|cluster| {
             let points = tree
                 .locate_all_at_point(&cluster.center)
                 .collect::<Vec<&Point>>();
-            (cluster, points)
+            Cluster {
+                point: *cluster,
+                points,
+            }
         })
         .collect();
     println!(
@@ -126,49 +144,52 @@ fn setup(
     // }
     println!("created cluster map: {}s", time.elapsed().as_secs_f32());
 
-    // let mut rng = StepRng::new(2, 13);
-    // let mut irs = Irs::default();
-    // let mut comparison = Comparer {
-    //     cluster: HashSet::new(),
-    //     missed: 0,
-    //     score: usize::MAX,
-    // };
-    // let mut tries = 0;
+    let mut rng = StepRng::new(2, 13);
+    let mut irs = Irs::default();
+    let mut comparison = Comparer {
+        cluster: HashSet::new(),
+        missed: 0,
+        score: usize::MAX,
+    };
+    let mut tries = 0;
 
-    // while tries < 50 {
-    //     match irs.shuffle(&mut clusters_with_data, &mut rng) {
-    //         Ok(_) => {}
-    //         Err(e) => {
-    //             log::warn!("Error while shuffling: {}", e);
-    //         }
-    //     }
+    while tries < 50 {
+        match irs.shuffle(&mut clusters_with_data, &mut rng) {
+            Ok(_) => {
+                log::info!("Shuffled!")
+            }
+            Err(e) => {
+                log::warn!("Error while shuffling: {}", e);
+            }
+        }
 
-    //     let (new_clusters, missed) =
-    //         clustering(min_points, stats.total_points, &clusters_with_data);
+        let (new_clusters, missed) =
+            clustering(min_points, stats.total_points, &clusters_with_data);
 
-    //     stats.total_clusters = new_clusters.len();
-    //     stats.points_covered = stats.total_points - missed;
-    //     let current_score = stats.get_score(min_points);
-    //     if current_score < comparison.score {
-    //         comparison.cluster = new_clusters;
-    //         comparison.missed = missed;
-    //         comparison.score = current_score;
-    //     }
-    //     tries += 1;
-    // }
+        stats.total_clusters = new_clusters.len();
+        stats.points_covered = stats.total_points - missed;
+        let current_score = stats.get_score(min_points);
+        if current_score < comparison.score {
+            println!("Current Score: {}", current_score);
+            comparison.cluster = new_clusters;
+            comparison.missed = missed;
+            comparison.score = current_score;
+        }
+        tries += 1;
+    }
     // let (new_clusters, missed) = clustering(min_points, stats.total_points, &clusters_with_data);
 
     println!("while loop finished: {}s", time.elapsed().as_secs_f32());
 
     // let missed = tree.iter().count() - block_points.len();
-    clustering(min_points, stats.total_points, &clusters_with_data)
-    // (comparison.cluster, comparison.missed)
+    // clustering(min_points, stats.total_points, &clusters_with_data)
+    (comparison.cluster, comparison.missed)
 }
 
 fn clustering(
     min_points: usize,
     total_points: usize,
-    clusters_with_data: &Vec<(&Point, Vec<&Point>)>,
+    clusters_with_data: &Vec<Cluster>,
 ) -> (HashSet<Point>, usize) {
     let mut highest = 100;
     let mut new_clusters = HashSet::<Point>::new();
@@ -178,13 +199,14 @@ fn clustering(
     while highest > min_points {
         let local_clusters = clusters_with_data
             .par_iter()
-            .filter_map(|(cluster, values)| {
-                if block_clusters.contains(*cluster) {
+            .filter_map(|cluster| {
+                if block_clusters.contains(&cluster.point) {
                     None
                 } else {
                     Some((
-                        *cluster,
-                        values
+                        &cluster.point,
+                        cluster
+                            .points
                             .iter()
                             .filter_map(|p| {
                                 if block_points.contains(p) {
@@ -221,7 +243,7 @@ fn clustering(
                         block_points.insert(point);
                     }
                     block_clusters.insert(cluster);
-                    new_clusters.insert(cluster.clone().to_owned());
+                    new_clusters.insert(**cluster);
                 }
             }
         }

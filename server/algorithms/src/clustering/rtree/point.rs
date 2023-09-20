@@ -8,12 +8,11 @@ use s2::{cellid::CellID, latlng::LatLng};
 const R: Precision = 6378137.0;
 const X: Precision = std::f64::consts::PI / 180.0;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Point {
     pub radius: Precision,
     pub center: [Precision; 2],
     pub cell_id: CellID,
-    pub points: Vec<Self>,
 }
 
 impl Point {
@@ -22,7 +21,6 @@ impl Point {
             radius,
             center,
             cell_id: CellID::from(LatLng::from_degrees(center[0], center[1])).parent(20),
-            points: vec![],
         }
     }
 
@@ -108,7 +106,6 @@ impl Default for Point {
             cell_id: CellID(0),
             center: [0., 0.],
             radius: 70.,
-            points: vec![],
         }
     }
 }
