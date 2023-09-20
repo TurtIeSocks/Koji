@@ -320,6 +320,7 @@ dependencies = [
  "log",
  "map_3d",
  "model",
+ "num_cpus",
  "rand",
  "rayon",
  "rstar",

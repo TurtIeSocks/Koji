@@ -15,6 +15,7 @@ geojson = "0.24.0"
 hashbrown = "0.14.0"
 log = "0.4.17"
 map_3d = "0.1.5"
+num_cpus = "1.13.0"
 model = { path = "../model" }
 rand = "0.8.5"
 rayon = "1.7.0"

@@ -5,12 +5,15 @@ use model::api::{single_vec::SingleVec, stats::Stats, Precision};
 use point::Point;
 use rand::Rng;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use rstar::RTree;
+use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::Instant;
 
 use crate::s2::create_cell_map;
 
 struct Comparer<'a> {
-    cluster: HashSet<&'a Point>,
+    clusters: HashSet<&'a Point>,
     missed: usize,
     score: usize,
 }
@@ -97,25 +100,25 @@ fn get_clusters(point: &Point, neighbors: Vec<&Point>, segments: usize) -> HashS
     set
 }
 
-fn get_initial_clusters(points: &SingleVec, radius: f64, time: Instant) -> Vec<Point> {
-    let double_tree = point::main(radius * 2., points);
-    log::info!(
-        "[RTREE] Generated second tree with double radius: {}",
-        time.elapsed().as_secs_f32()
-    );
+fn get_initial_clusters(tree: &RTree<Point>, time: Instant) -> Vec<Point> {
+    // let tree = point::main(radius * 2., points);
+    // log::info!(
+    //     "[RTREE] Generated second tree with double radius: {}s",
+    //     time.elapsed().as_secs_f32()
+    // );
 
-    let tree_points: Vec<&Point> = double_tree.iter().map(|p| p).collect();
+    let tree_points: Vec<&Point> = tree.iter().map(|p| p).collect();
 
     let clusters = tree_points
         .par_iter()
         .map(|point| {
-            let neighbors = double_tree.locate_all_at_point(&point.center);
+            let neighbors = tree.locate_all_at_point(&point.center);
             get_clusters(point, neighbors.into_iter().collect(), 8)
         })
         .reduce(HashSet::new, |a, b| a.union(&b).cloned().collect());
 
     log::info!(
-        "[RTREE] generated {} potential clusters: {}",
+        "[RTREE] generated {} potential clusters: {}s",
         clusters.len(),
         time.elapsed().as_secs_f32()
     );
@@ -134,7 +137,7 @@ fn setup(
         time.elapsed().as_secs_f32()
     );
 
-    let initial_clusters = get_initial_clusters(&points, radius, time);
+    let initial_clusters = get_initial_clusters(&tree, time);
 
     let clusters_with_data: Vec<Cluster> = initial_clusters
         .par_iter()
@@ -153,17 +156,19 @@ fn setup(
         time.elapsed().as_secs_f32()
     );
 
-    iter_clustering(min_points, points.len(), &clusters_with_data, time)
+    clustering(min_points, points.len(), &clusters_with_data, time)
     // (comparison.cluster, comparison.missed)
 }
 
-fn clustering(
+fn initial_solution(
     min_points: usize,
-    total_points: usize,
     clusters_with_data: &Vec<Cluster>,
     time: Instant,
 ) -> (HashSet<Point>, usize) {
-    log::info!("Starting clustering: {}", time.elapsed().as_secs_f32());
+    log::info!(
+        "Starting initial solution: {}s",
+        time.elapsed().as_secs_f32()
+    );
     let mut new_clusters = HashSet::<&Point>::new();
     let mut blocked_clusters = HashSet::<&Point>::new();
     let mut blocked_points = HashSet::<&Point>::new();
@@ -221,227 +226,113 @@ fn clustering(
             }
         }
         highest = best;
-        // println!("Current: {} | {}", highest, new_clusters.len());
     }
-    log::info!("Finished clustering: {}", time.elapsed().as_secs_f32());
+    log::info!(
+        "Finished initial solution: {}s",
+        time.elapsed().as_secs_f32()
+    );
     (
         new_clusters.into_iter().map(|p| *p).collect(),
-        total_points - blocked_points.len(),
+        blocked_points.len(),
     )
 }
 
-fn iter_clustering(
+fn clustering(
     min_points: usize,
     total_points: usize,
     clusters_with_data: &Vec<Cluster>,
     time: Instant,
 ) -> (HashSet<Point>, usize) {
-    log::info!("Starting clustering: {}", time.elapsed().as_secs_f32());
+    log::info!("Starting clustering: {}s", time.elapsed().as_secs_f32());
 
-    let mut stats = Stats::new();
-    stats.total_points = total_points;
+    let (clusters, covered) = initial_solution(min_points, clusters_with_data, time);
 
-    let mut comparison = Comparer {
-        cluster: HashSet::new(),
-        missed: 0,
-        score: usize::MAX,
+    let comparison = Comparer {
+        clusters: clusters.iter().collect(),
+        missed: total_points - covered,
+        score: clusters.len() * min_points + (total_points - covered),
     };
-
-    let mut rng = rand::thread_rng();
+    let arc = Arc::new(Mutex::new(comparison));
     let length = clusters_with_data.len();
 
-    // let mut highest = 100;
-    let mut new_clusters = HashSet::<&Point>::new();
-    let mut blocked_clusters = HashSet::<usize>::new();
-    let mut blocked_points = HashSet::<&Point>::new();
-    let mut total_iterations = 0;
+    thread::scope(|scope| {
+        for i in 0..num_cpus::get() {
+            let arc_clone = Arc::clone(&arc);
+            scope.spawn(move || {
+                let mut rng = rand::thread_rng();
+                let mut stats = Stats::new();
+                stats.total_points = total_points;
 
-    while total_iterations <= 1_000_000 {
-        // log::info!("Starting iteration {}", total_iterations);
-        let mut fails = 0;
-        while blocked_points.len() != total_points {
-            // log::info!(
-            //     "Looping: {}  | {} | {}",
-            //     comparison.cluster.len(),
-            //     blocked_points.len(),
-            //     fails
-            // );
+                let mut iteration = 0;
 
-            if fails > 100 {
-                // log::info!("Breaking iteration {}", total_iterations);
-                break;
-            }
-            let blocked_point_ref = blocked_points.len();
+                while iteration <= 100_000 {
+                    let mut fails = 0;
+                    let mut new_clusters = HashSet::<&Point>::new();
+                    let mut blocked_clusters = HashSet::<usize>::new();
+                    let mut blocked_points = HashSet::<&Point>::new();
 
-            let mut random_index = rng.gen_range(0..length);
-            while blocked_clusters.contains(&random_index) {
-                // log::info!(
-                //     "Checking index: {} | {}",
-                //     random_index,
-                //     blocked_clusters.contains(&random_index)
-                // );
-                random_index = rng.gen_range(0..length)
-            }
-            // log::info!(
-            //     "Found Index: {}  | {} | {}",
-            //     random_index,
-            //     blocked_points.len(),
-            //     fails
-            // );
-            blocked_clusters.insert(random_index);
+                    log::info!("Thread: {}, Iteration: {}", i, iteration);
+                    while fails < 100 {
+                        let random_index = rng.gen_range(0..length);
+                        if blocked_clusters.contains(&random_index) {
+                            continue;
+                        }
+                        blocked_clusters.insert(random_index);
 
-            let cluster = &clusters_with_data[random_index];
-            let valid_points: Vec<&&Point> = cluster
-                .points
-                .iter()
-                .filter(|p| !blocked_points.contains(*p))
-                .collect();
-            if valid_points.len() >= min_points {
-                for point in valid_points.iter() {
-                    blocked_points.insert(*point);
-                }
-                new_clusters.insert(&cluster.point);
-            }
-            if blocked_point_ref == blocked_points.len() {
-                fails += 1;
-                // break;
-            }
-            // log::info!("Loop finished: {}", time.elapsed().as_secs_f32());
-        }
-        let missed = total_points - blocked_points.len();
-        stats.total_clusters = new_clusters.len();
-        stats.points_covered = total_points - missed;
-        let current_score = stats.get_score(min_points);
-
-        if current_score < comparison.score
-        // && if comparison.cluster.is_empty() {
-        //     true
-        // } else {
-        //     comparison.cluster.len() >= stats.total_clusters
-        // }
-        {
-            log::info!(
-                "Old Score: {} | New Score: {}| Iteration {}",
-                comparison.score,
-                current_score,
-                total_iterations,
-            );
-            log::info!(
-                "Covered: {} | Clusters: {}",
-                stats.points_covered,
-                stats.total_clusters
-            );
-            comparison.cluster = new_clusters.clone();
-            comparison.missed = missed;
-            comparison.score = current_score;
-        }
-        fails = 0;
-        new_clusters.clear();
-        blocked_clusters.clear();
-        blocked_points.clear();
-
-        total_iterations += 1;
-    }
-    log::info!("Finished clustering: {}", time.elapsed().as_secs_f32());
-    (
-        comparison.cluster.into_iter().map(|p| *p).collect(),
-        comparison.missed,
-    )
-}
-
-/*
-    while highest > min_points {
-        let local_clusters = clusters_with_data
-            .par_iter()
-            .filter_map(|cluster| {
-                if block_clusters.contains(&cluster.point) {
-                    None
-                } else {
-                    Some((
-                        &cluster.point,
-                        cluster
+                        let cluster = &clusters_with_data[random_index];
+                        let valid_points: Vec<&&Point> = cluster
                             .points
                             .iter()
-                            .filter_map(|p| {
-                                if block_points.contains(p) {
-                                    None
-                                } else {
-                                    Some(*p)
-                                }
-                            })
-                            .collect::<Vec<&Point>>(),
-                    ))
-                }
-            })
-            .collect::<Vec<(&Point, Vec<&Point>)>>();
-
-        let mut best = 0;
-        for (cluster, points) in local_clusters.iter() {
-            let length = points.len() + 1;
-
-            if length > best {
-                best = length;
-            }
-            if length >= highest {
-                if block_clusters.contains(*cluster) || length == 0 {
-                    continue;
-                }
-                let mut count = 0;
-                for point in points {
-                    if !block_points.contains(*point) {
-                        count += 1;
+                            .filter(|p| !blocked_points.contains(*p))
+                            .collect();
+                        if valid_points.len() >= min_points {
+                            for point in valid_points.iter() {
+                                blocked_points.insert(*point);
+                            }
+                            new_clusters.insert(&cluster.point);
+                            continue;
+                        }
+                        fails += 1;
                     }
-                }
-                if count >= min_points {
-                    for point in points {
-                        block_points.insert(point);
+                    let missed = total_points - blocked_points.len();
+                    stats.total_clusters = new_clusters.len();
+                    stats.points_covered = total_points - missed;
+                    let current_score = stats.get_score(min_points);
+
+                    let mut comparison = arc_clone.lock().unwrap();
+                    let is_better = if current_score == comparison.score {
+                        new_clusters.len() < comparison.clusters.len()
+                    } else {
+                        current_score < comparison.score
+                    };
+                    if is_better {
+                        log::info!(
+                            "Old Score: {} | New Score: {}| Iteration {}",
+                            comparison.score,
+                            current_score,
+                            iteration,
+                        );
+                        log::info!(
+                            "Covered: {} | Clusters: {}",
+                            stats.points_covered,
+                            stats.total_clusters
+                        );
+                        comparison.clusters = new_clusters.clone();
+                        comparison.missed = missed;
+                        comparison.score = current_score;
                     }
-                    block_clusters.insert(cluster);
-                    new_clusters.insert(**cluster);
+                    fails = 0;
+                    iteration += 1;
                 }
-            }
+            });
         }
-        highest = best;
-        // println!("Current: {} | {}", highest, new_clusters.len());
-    }
+    });
 
-*/
+    let final_result = arc.lock().unwrap();
 
-// let mut rng = StepRng::new(2, 13);
-// let mut irs = Irs::default();
-// let mut comparison = Comparer {
-//     cluster: HashSet::new(),
-//     missed: 0,
-//     score: usize::MAX,
-// };
-// let mut tries = 0;
-
-// while tries < 10 {
-//     println!("Starting {} of {}", tries, 10);
-//     match irs.shuffle(&mut clusters_with_data, &mut rng) {
-//         Ok(_) => {
-//             log::info!("Shuffled!")
-//         }
-//         Err(e) => {
-//             log::warn!("Error while shuffling: {}", e);
-//             continue;
-//         }
-//     }
-
-//     let (new_clusters, missed) =
-//         clustering(min_points, stats.total_points, &clusters_with_data);
-
-//     stats.total_clusters = new_clusters.len();
-//     stats.points_covered = stats.total_points - missed;
-//     let current_score = stats.get_score(min_points);
-//     if current_score < comparison.score {
-//         println!("Current Score: {}", current_score);
-//         comparison.cluster = new_clusters;
-//         comparison.missed = missed;
-//         comparison.score = current_score;
-//     }
-//     tries += 1;
-// }
-// let (new_clusters, missed) = clustering(min_points, stats.total_points, &clusters_with_data);
-
-// let missed = tree.iter().count() - block_points.len();
+    log::info!("Finished clustering: {}s", time.elapsed().as_secs_f32());
+    (
+        final_result.clusters.iter().map(|p| **p).collect(),
+        final_result.missed,
+    )
+}
