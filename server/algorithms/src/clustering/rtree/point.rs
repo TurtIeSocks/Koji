@@ -1,11 +1,12 @@
 use std::hash::{Hash, Hasher};
 
-use map_3d::EARTH_RADIUS;
+use geo::Coord;
+use geohash::encode;
 use model::api::{single_vec::SingleVec, Precision};
 use rstar::{PointDistance, RTree, RTreeObject, AABB};
 use s2::{cellid::CellID, latlng::LatLng};
 
-const R: Precision = 6378137.0;
+const EARTH_RADIUS: Precision = 6378137.0;
 const X: Precision = std::f64::consts::PI / 180.0;
 
 #[derive(Debug, Clone, Copy)]
@@ -24,9 +25,9 @@ impl Point {
         }
     }
 
-    pub fn interpolate(&self, next: &Point, ratio: f64) -> Self {
-        let lat = self.center[0] * (1. - ratio) + next.center[0] * ratio;
-        let lon = self.center[1] * (1. - ratio) + next.center[1] * ratio;
+    pub fn interpolate(&self, next: &Self, ratio: f64, wiggle_lat: f64, wiggle_lon: f64) -> Self {
+        let lat = self.center[0] * (1. - ratio) + (next.center[0] + wiggle_lat) * ratio;
+        let lon = self.center[1] * (1. - ratio) + (next.center[1] + wiggle_lon) * ratio;
         let new_point = Self::new(self.radius, [lat, lon]);
         new_point
     }
@@ -48,11 +49,16 @@ impl Point {
         [lat.to_degrees(), lng.to_degrees()]
     }
 
-    // pub fn midpoint(&self, other: &Point) -> Self {
-    //     let lat = (self.center[0] + other.center[0]) / 2.0;
-    //     let lon = (self.center[1] + other.center[1]) / 2.0;
-    //     Self::new(self.radius, [lat, lon])
-    // }
+    pub fn _get_geohash(&self) -> String {
+        encode(
+            Coord {
+                x: self.center[1],
+                y: self.center[0],
+            },
+            12,
+        )
+        .unwrap()
+    }
 }
 
 impl PartialEq for Point {
@@ -75,12 +81,6 @@ impl RTreeObject for Point {
     fn envelope(&self) -> Self::Envelope {
         let corner_1 = self.haversine_destination(225.);
         let corner_2 = self.haversine_destination(45.);
-        // let corner_1 = [self.center[0] - self.radius, self.center[1] - self.radius];
-        // let corner_2 = [self.center[0] + self.radius, self.center[1] + self.radius];
-        // println!(
-        //     "{},{}\n{},{}\n{},{}\n",
-        //     self.center[0], self.center[1], corner_1[0], corner_1[1], corner_2[0], corner_2[1]
-        // );
         AABB::from_corners(corner_1, corner_2)
     }
 }
@@ -92,21 +92,11 @@ impl PointDistance for Point {
         let lat2 = other[0] * X;
         let lon2 = other[1] * X;
         let a = lat1.sin() * lat2.sin() + lat1.cos() * lat2.cos() * (lon2 - lon1).cos();
-        a.acos() * R
+        a.acos() * EARTH_RADIUS
     }
 
     fn contains_point(&self, point: &<Self::Envelope as rstar::Envelope>::Point) -> bool {
         self.distance_2(point) <= self.radius
-    }
-}
-
-impl Default for Point {
-    fn default() -> Self {
-        Self {
-            cell_id: CellID(0),
-            center: [0., 0.],
-            radius: 70.,
-        }
     }
 }
 

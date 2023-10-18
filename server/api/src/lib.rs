@@ -65,7 +65,7 @@ pub async fn start() -> io::Result<()> {
             .app_data(web::Data::new(scanner_type))
             .app_data(web::Data::new(client))
             // increase max payload size to 20MB
-            .app_data(web::JsonConfig::default().limit(20_971_520))
+            .app_data(web::JsonConfig::default().limit(1024 * 1024 * 50))
             .wrap(middleware::Logger::new("%s | %r - %b bytes in %D ms (%a)"))
             .wrap(middleware::Compress::default())
             .wrap(
