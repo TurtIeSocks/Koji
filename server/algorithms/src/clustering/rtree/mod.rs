@@ -217,7 +217,7 @@ fn initial_solution(
         }
         highest = best;
     }
-    log::warn!("Blocked: {} | highest {}", blocked_points.len(), highest);
+    // log::warn!("Blocked: {} | highest {}", blocked_points.len(), highest);
     log::info!(
         "[RTREE] Finished initial solution: {}s",
         time.elapsed().as_secs_f32()
@@ -305,6 +305,6 @@ fn dedupe(
         time.elapsed().as_secs_f32()
     );
 
-    log::warn!("Seen: {}", seen_points.len());
+    // log::warn!("Seen: {}", seen_points.len());
     (solution, seen_points.len())
 }
