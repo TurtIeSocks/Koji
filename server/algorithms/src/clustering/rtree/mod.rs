@@ -61,7 +61,7 @@ pub fn main(
     stats.total_clusters = return_set.len();
     stats.cluster_time = time.elapsed().as_secs_f64();
 
-    log::info!("[RTREE] total time: {}s", time.elapsed().as_secs_f32());
+    log::info!("[RTREE] {}s | finished", time.elapsed().as_secs_f32());
 
     return_set.into_iter().map(|p| p.center).collect()
 }
@@ -91,7 +91,7 @@ fn generate_clusters(point: &Point, neighbors: Vec<&Point>, segments: usize) -> 
     set
 }
 
-fn get_initial_clusters(tree: &RTree<Point>, time: Instant) -> Vec<Point> {
+fn get_initial_clusters(tree: &RTree<Point>) -> Vec<Point> {
     let tree_points: Vec<&Point> = tree.iter().map(|p| p).collect();
 
     let clusters = tree_points
@@ -102,18 +102,6 @@ fn get_initial_clusters(tree: &RTree<Point>, time: Instant) -> Vec<Point> {
         })
         .reduce(HashSet::new, |a, b| a.union(&b).cloned().collect());
 
-    log::info!(
-        "[RTREE] generated {} potential clusters: {}s",
-        clusters.len(),
-        time.elapsed().as_secs_f32()
-    );
-    if clusters
-        .iter()
-        .find(|p| p._get_geohash() == "u14cu1dtdx2s")
-        .is_some()
-    {
-        log::error!("Found point {}", clusters.len());
-    }
     clusters.into_iter().collect::<Vec<Point>>()
 }
 
@@ -124,10 +112,23 @@ fn setup(
     time: Instant,
 ) -> (HashSet<Point>, usize) {
     let point_tree: RTree<Point> = point::main(radius, &points);
-    log::info!("[RTREE] made point tree: {}s", time.elapsed().as_secs_f32());
+    log::info!(
+        "[RTREE] {}s | created point tree",
+        time.elapsed().as_secs_f32()
+    );
 
     let neighbor_tree: RTree<Point> = point::main(radius * 2., &points);
-    let initial_clusters = get_initial_clusters(&neighbor_tree, time);
+    log::info!(
+        "[RTREE] {}s | created neighbor tree",
+        time.elapsed().as_secs_f32()
+    );
+
+    let initial_clusters = get_initial_clusters(&neighbor_tree);
+    log::info!(
+        "[RTREE] {}s | created possible clusters: {}",
+        time.elapsed().as_secs_f32(),
+        initial_clusters.len()
+    );
 
     let clusters_with_data: Vec<Cluster> = initial_clusters
         .par_iter()
@@ -142,12 +143,28 @@ fn setup(
         })
         .collect();
     log::info!(
-        "[RTREE] added data to cluster structs: {}s",
+        "[RTREE] {}s | associated points with clusters",
         time.elapsed().as_secs_f32()
     );
-    let (solution, _) = initial_solution(min_points, clusters_with_data, time);
+    log::info!(
+        "[RTREE] {}s | starting initial solution",
+        time.elapsed().as_secs_f32()
+    );
+    let (solution, _) = initial_solution(min_points, clusters_with_data);
+    log::info!(
+        "[RTREE] {}s | finished initial solution",
+        time.elapsed().as_secs_f32()
+    );
     log::info!("[RTREE] Initial solution size: {}", solution.len());
-    let (solution, seen) = dedupe(solution, min_points, time);
+    log::info!(
+        "[RTREE] {}s | starting deduping",
+        time.elapsed().as_secs_f32()
+    );
+    let (solution, seen) = dedupe(solution, min_points);
+    log::info!(
+        "[RTREE] {}s | finished deduping",
+        time.elapsed().as_secs_f32()
+    );
     log::info!("[RTREE] Deduped solution size: {}", solution.len());
 
     (solution, points.len() - seen)
@@ -156,12 +173,7 @@ fn setup(
 fn initial_solution(
     min_points: usize,
     clusters_with_data: Vec<Cluster>,
-    time: Instant,
 ) -> (HashSet<Cluster>, usize) {
-    log::info!(
-        "[RTREE] Starting initial solution: {}s",
-        time.elapsed().as_secs_f32()
-    );
     let mut new_clusters = HashSet::<Cluster>::new();
     let mut blocked_points = HashSet::<&Point>::new();
 
@@ -218,18 +230,10 @@ fn initial_solution(
         highest = best;
     }
     // log::warn!("Blocked: {} | highest {}", blocked_points.len(), highest);
-    log::info!(
-        "[RTREE] Finished initial solution: {}s",
-        time.elapsed().as_secs_f32()
-    );
     (new_clusters, blocked_points.len())
 }
 
-fn dedupe(
-    initial_solution: HashSet<Cluster>,
-    min_points: usize,
-    time: Instant,
-) -> (HashSet<Point>, usize) {
+fn dedupe(initial_solution: HashSet<Cluster>, min_points: usize) -> (HashSet<Point>, usize) {
     // let mut point_map: HashMap<String, HashSet<String>> = HashMap::new();
     // let mut cluster_map: HashMap<String, HashSet<String>> = HashMap::new();
 
@@ -254,11 +258,6 @@ fn dedupe(
 
     // debug_hashmap("point_map.txt", &point_map).unwrap();
     // debug_hashmap("cluster_map.txt", &cluster_map).unwrap();
-    log::info!(
-        "[RTREE] Starting deduping: {}s",
-        time.elapsed().as_secs_f32()
-    );
-
     let mut seen_points: HashSet<&Point> = HashSet::new();
     let mut solution: HashSet<Point> = initial_solution
         .iter()
@@ -282,10 +281,9 @@ fn dedupe(
             }
         })
         .collect();
-    log::info!("[RTREE] Deduped solution size: {}", solution.len(),);
 
     if min_points == 1 {
-        let mut count = 0;
+        // let mut count = 0;
         for cluster in initial_solution {
             let valid = cluster
                 .points
@@ -295,15 +293,11 @@ fn dedupe(
             if valid {
                 solution.insert(*cluster.point);
                 seen_points.extend(cluster.points.iter());
-                count += 1;
+                // count += 1;
             }
         }
-        log::info!("Extra clusters: {}", count);
+        // log::info!("Extra clusters: {}", count);
     }
-    log::info!(
-        "[RTREE] Finished deduping: {}s",
-        time.elapsed().as_secs_f32()
-    );
 
     // log::warn!("Seen: {}", seen_points.len());
     (solution, seen_points.len())
