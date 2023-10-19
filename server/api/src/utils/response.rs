@@ -16,10 +16,9 @@ pub fn send(
     stats: Option<Stats>,
     benchmark_mode: bool,
     area: Option<String>,
-    min_points: Option<usize>,
 ) -> HttpResponse {
     if let Some(stats) = stats.as_ref() {
-        stats.log(area, min_points);
+        stats.log(area);
     }
     HttpResponse::Ok().json(Response {
         message: "Success".to_string(),

@@ -61,7 +61,6 @@ async fn get_area(
         None,
         false,
         None,
-        None,
     ))
 }
 
@@ -226,14 +225,7 @@ async fn specific_return_type(
         "[GEOFENCES_ALL] Returning {} instances\n",
         fc.features.len()
     );
-    Ok(utils::response::send(
-        fc,
-        return_type,
-        None,
-        false,
-        None,
-        None,
-    ))
+    Ok(utils::response::send(fc, return_type, None, false, None))
 }
 
 #[get("/{return_type}/{project}")]
@@ -259,7 +251,6 @@ async fn specific_project(
         return_type,
         None,
         false,
-        None,
         None,
     ))
 }

@@ -27,7 +27,7 @@ pub fn main(
     sort_by: SortBy,
     cluster_split_level: u64,
 ) -> SingleVec {
-    match cluster_mode {
+    let clusters = match cluster_mode {
         ClusterMode::BruteForce => {
             bruteforce::multi_thread(&data_points, radius, min_points, cluster_split_level, stats)
         }
@@ -61,5 +61,7 @@ pub fn main(
             );
             clusters
         }
-    }
+    };
+    stats.set_score(min_points);
+    clusters
 }

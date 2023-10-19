@@ -12,6 +12,7 @@ pub struct Stats {
     pub total_clusters: usize,
     pub total_distance: Precision,
     pub longest_distance: Precision,
+    pub mygod_score: usize,
 }
 
 impl Stats {
@@ -25,6 +26,7 @@ impl Stats {
             total_clusters: 0,
             total_distance: 0.,
             longest_distance: 0.,
+            mygod_score: 0,
         }
     }
 
@@ -32,7 +34,11 @@ impl Stats {
         self.total_clusters * min_points + (self.total_points - self.points_covered)
     }
 
-    pub fn log(&self, area: Option<String>, min_points: Option<usize>) {
+    pub fn set_score(&mut self, min_points: usize) {
+        self.mygod_score = self.get_score(min_points);
+    }
+
+    pub fn log(&self, area: Option<String>) {
         let width = "=======================================================================";
         let get_row = |text: String, replace: bool| {
             format!(
@@ -95,13 +101,7 @@ impl Stats {
                 ),
                 true
             ),
-            get_row(
-                format!(
-                    "|| [MYGOD_SCORE] {}",
-                    self.get_score(min_points.unwrap_or(1))
-                ),
-                true
-            ),
+            get_row(format!("|| [MYGOD_SCORE] {}", self.mygod_score,), true),
             width,
         )
     }

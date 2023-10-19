@@ -140,7 +140,6 @@ async fn bootstrap(
         Some(stats),
         benchmark_mode,
         Some(instance),
-        None,
     ))
 }
 
@@ -329,7 +328,6 @@ async fn cluster(
         Some(stats),
         benchmark_mode,
         Some(instance),
-        Some(min_points),
     ))
 }
 
@@ -363,7 +361,6 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         Some(stats),
         benchmark_mode,
         Some(instance),
-        None,
     ))
 }
 

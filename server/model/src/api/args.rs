@@ -12,63 +12,6 @@ pub struct Auth {
     pub password: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BoundsArg {
-    pub min_lat: Precision,
-    pub min_lon: Precision,
-    pub max_lat: Precision,
-    pub max_lon: Precision,
-    pub last_seen: Option<u32>,
-    pub ids: Option<Vec<String>>,
-    pub tth: Option<SpawnpointTth>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum ReturnTypeArg {
-    AltText,
-    Text,
-    SingleArray,
-    MultiArray,
-    SingleStruct,
-    MultiStruct,
-    Geometry,
-    GeometryVec,
-    Feature,
-    FeatureVec,
-    FeatureCollection,
-    PoracleSingle,
-    Poracle,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub enum SortBy {
-    GeoHash,
-    ClusterCount,
-    Random,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum SpawnpointTth {
-    All,
-    Known,
-    Unknown,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub enum CalculationMode {
-    Radius,
-    S2,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(untagged)]
-pub enum DataPointsArg {
-    Array(single_vec::SingleVec),
-    Struct(single_struct::SingleStruct),
-    Feature(Feature),
-    FeatureCollection(FeatureCollection),
-}
-
 /// `name` property modifiers:
 ///
 /// These allow custom modification of the `name` property
@@ -186,6 +129,63 @@ impl Default for ApiQueryArgs {
             alphanumeric: None,
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BoundsArg {
+    pub min_lat: Precision,
+    pub min_lon: Precision,
+    pub max_lat: Precision,
+    pub max_lon: Precision,
+    pub last_seen: Option<u32>,
+    pub ids: Option<Vec<String>>,
+    pub tth: Option<SpawnpointTth>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum ReturnTypeArg {
+    AltText,
+    Text,
+    SingleArray,
+    MultiArray,
+    SingleStruct,
+    MultiStruct,
+    Geometry,
+    GeometryVec,
+    Feature,
+    FeatureVec,
+    FeatureCollection,
+    PoracleSingle,
+    Poracle,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub enum SortBy {
+    GeoHash,
+    ClusterCount,
+    Random,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum SpawnpointTth {
+    All,
+    Known,
+    Unknown,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub enum CalculationMode {
+    Radius,
+    S2,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum DataPointsArg {
+    Array(single_vec::SingleVec),
+    Struct(single_struct::SingleStruct),
+    Feature(Feature),
+    FeatureCollection(FeatureCollection),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
