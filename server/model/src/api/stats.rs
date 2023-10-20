@@ -9,6 +9,7 @@ pub struct Stats {
     pub best_clusters: single_vec::SingleVec,
     pub best_cluster_point_count: usize,
     pub cluster_time: Precision,
+    pub route_time: Precision,
     pub total_points: usize,
     pub points_covered: usize,
     pub total_clusters: usize,
@@ -23,6 +24,7 @@ impl Stats {
             best_clusters: vec![],
             best_cluster_point_count: 0,
             cluster_time: 0.,
+            route_time: 0.,
             total_points: 0,
             points_covered: 0,
             total_clusters: 0,
@@ -50,7 +52,7 @@ impl Stats {
             )
         };
         log::info!(
-            "\n{}{}{}{}{}{}{}  {}==\n",
+            "\n{}{}{}{}{}{}{}{}  {}==\n",
             get_row("[STATS] ".to_string(), false),
             if let Some(area) = area {
                 if area.is_empty() {
@@ -70,8 +72,7 @@ impl Stats {
             ),
             get_row(
                 format!(
-                    "|| [CLUSTERS] Time: {}s | Total: {} | Avg Points: {}",
-                    self.cluster_time as f32,
+                    "|| [CLUSTERS] Total: {} | Avg Points: {}",
                     self.total_clusters,
                     if self.total_clusters > 0 {
                         self.total_points / self.total_clusters
@@ -91,7 +92,7 @@ impl Stats {
             ),
             get_row(
                 format!(
-                    "|| [DISTANCE] Total {} | Longest {} | Avg: {}",
+                    "|| [DISTANCE] Total: {} | Longest: {} | Avg: {}",
                     self.total_distance as u32,
                     self.longest_distance as u32,
                     if self.total_clusters > 0 {
@@ -99,6 +100,13 @@ impl Stats {
                     } else {
                         0
                     },
+                ),
+                true
+            ),
+            get_row(
+                format!(
+                    "|| [TIMES] Clustering: {:.4} | Routing: {:.4}",
+                    self.cluster_time, self.route_time,
                 ),
                 true
             ),

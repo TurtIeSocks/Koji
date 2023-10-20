@@ -162,6 +162,7 @@ export interface KojiStats {
   best_clusters: [number, number][]
   best_cluster_point_count: number
   cluster_time: number
+  route_time: number
   total_points: number
   points_covered: number
   total_clusters: number

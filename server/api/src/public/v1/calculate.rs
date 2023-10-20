@@ -248,8 +248,9 @@ async fn cluster(
 
     if mode.eq("route") && !clusters.is_empty() {
         log::info!("Cluster Length: {}", clusters.len());
-
+        let route_time = Instant::now();
         let tour = tsp::multi(&clusters, route_split_level);
+        stats.route_time = route_time.elapsed().as_secs_f32() as Precision;
         log::info!("Tour Length {}", tour.len());
         let mut final_clusters = VecDeque::<PointArray>::new();
 
