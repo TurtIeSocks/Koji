@@ -29,14 +29,24 @@ function BaseDialog({
             label: 'Total',
             value: stats.total?.toFixed(2),
           },
-        ].map((stat, i) => (
-          <Grid2 key={stat.label} xs={12}>
+          {
+            label: 'Covered',
+            value: stats.covered,
+          },
+          {
+            label: 'Score',
+            value: stats.score,
+          },
+        ].map(({ label, value }) => (
+          <Grid2 key={label} xs={12}>
             <TextField
-              value={stat.value || 0}
-              label={stat.label}
+              value={value || 0}
+              label={label}
               sx={{ width: '90%', my: 2 }}
               disabled
-              InputProps={{ endAdornment: i ? 'm' : '' }}
+              InputProps={{
+                endAdornment: label === 'Average' || label === 'Max' ? 'm' : '',
+              }}
             />
           </Grid2>
         ))}

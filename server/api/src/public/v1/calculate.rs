@@ -12,7 +12,7 @@ use model::{
     api::{
         args::{Args, ArgsUnwrapped, CalculationMode},
         point_array::PointArray,
-        FeatureHelpers, GeoFormats, Precision, ToCollection, ToFeature,
+        FeatureHelpers, GeoFormats, Precision, ToCollection, ToFeature, ToSingleVec,
     },
     db::{area, geofence, instance, route, sea_orm_active_enums::Type, GenericData},
     KojiDb,
@@ -331,6 +331,7 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     let ArgsUnwrapped {
         benchmark_mode,
         data_points,
+        clusters,
         return_type,
         route_split_level,
         instance,
@@ -338,6 +339,14 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         ..
     } = payload.into_inner().init(Some("reroute"));
     let mut stats = Stats::new();
+
+    // For legacy compatibility
+    let data_points = if clusters.is_empty() {
+        data_points
+    } else {
+        clusters
+    };
+
     stats.total_clusters = data_points.len();
 
     let final_clusters = tsp::multi(&data_points, route_split_level);
@@ -355,6 +364,106 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         return_type,
         Some(stats),
         benchmark_mode,
+        Some(instance),
+    ))
+}
+
+#[post("/route-stats")]
+async fn route_stats(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
+    let ArgsUnwrapped {
+        clusters,
+        data_points,
+        instance,
+        radius,
+        mode,
+        min_points,
+        ..
+    } = payload.into_inner().init(Some("route-stats"));
+
+    if clusters.is_empty() || data_points.is_empty() {
+        return Ok(HttpResponse::BadRequest()
+            .json(Response::send_error("no_clusters_or_data_points_found")));
+    }
+    let mut stats = Stats::new();
+    stats.cluster_stats(radius, &data_points, &clusters);
+    stats.distance_stats(&clusters);
+    stats.set_score(min_points);
+
+    let feature = clusters.to_feature(Some(mode.clone())).remove_last_coord();
+    let feature = feature.to_collection(Some(instance.clone()), Some(mode));
+
+    Ok(utils::response::send(
+        feature,
+        model::api::args::ReturnTypeArg::Feature,
+        Some(stats),
+        true,
+        Some(instance),
+    ))
+}
+
+#[post("/route-stats/{category}")]
+async fn route_stats_category(
+    scanner_type: web::Data<String>,
+    conn: web::Data<KojiDb>,
+    url: actix_web::web::Path<String>,
+    payload: web::Json<Args>,
+) -> Result<HttpResponse, Error> {
+    let ArgsUnwrapped {
+        clusters,
+        data_points,
+        instance,
+        radius,
+        mode,
+        area,
+        parent,
+        last_seen,
+        tth,
+        min_points,
+        ..
+    } = payload.into_inner().init(Some("route-stats"));
+    let scanner_type = scanner_type.as_ref();
+    let category = url.into_inner();
+
+    let area = utils::create_or_find_collection(
+        &instance,
+        scanner_type,
+        &conn,
+        area,
+        &parent,
+        &data_points,
+    )
+    .await
+    .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    let data_points = if !data_points.is_empty() {
+        data_points
+    } else {
+        utils::points_from_area(&area, &category, &conn, last_seen, tth)
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?
+            .to_single_vec()
+    };
+
+    if clusters.is_empty() || data_points.is_empty() {
+        return Ok(HttpResponse::BadRequest()
+            .json(Response::send_error("no_clusters_or_data_points_found")));
+    }
+
+    let mut stats = Stats::new();
+
+    println!("Hello?\n\n\n\n");
+    stats.cluster_stats(radius, &data_points, &clusters);
+    stats.distance_stats(&clusters);
+
+    stats.set_score(min_points);
+    let feature = clusters.to_feature(Some(mode.clone())).remove_last_coord();
+    let feature = feature.to_collection(Some(instance.clone()), Some(mode));
+
+    Ok(utils::response::send(
+        feature,
+        model::api::args::ReturnTypeArg::Feature,
+        Some(stats),
+        true,
         Some(instance),
     ))
 }

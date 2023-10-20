@@ -98,10 +98,9 @@ export type KojiRouteModes =
   | typeof UNOWN_ROUTES[number]
 export type KojiModes = KojiFenceModes | KojiRouteModes | 'unset'
 
-export type KojiKey = `${number}__${KojiModes}__${
-  | 'KOJI'
-  | 'SCANNER'
-  | 'CLIENT'}`
+export type KojiSource = 'KOJI' | 'SCANNER' | 'CLIENT'
+
+export type KojiKey = `${number}__${KojiModes}__${KojiSource}`
 
 export type BasicKojiEntry = {
   id: number
@@ -169,6 +168,7 @@ export interface KojiStats {
   total_distance: number
   longest_distance: number
   fetch_time: number
+  mygod_score: number
 }
 
 export interface KojiResponse<T = FeatureCollection> {

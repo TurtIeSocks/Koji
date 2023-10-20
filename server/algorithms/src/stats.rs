@@ -147,18 +147,18 @@ impl Stats {
     pub fn cluster_stats(&mut self, radius: f64, points: &SingleVec, clusters: &SingleVec) {
         let time = Instant::now();
         log::info!("starting coverage check for {} points", points.len());
+        self.total_points = points.len();
 
         let tree = point::main(radius, points);
         let clusters: Vec<point::Point> = clusters
-            .iter()
+            .into_iter()
             .map(|c| point::Point::new(radius, *c))
             .collect();
-        // let clusters = self.get_clusters(&clusters);
-        let clusters = clusters
+        let clusters: Vec<Cluster<'_>> = clusters
             .par_iter()
-            .map(|p| {
-                let points = tree.locate_all_at_point(&p.center).into_iter();
-                Cluster::new(p, points, vec![].into_iter())
+            .map(|cluster| {
+                let points = tree.locate_all_at_point(&cluster.center).into_iter();
+                Cluster::new(cluster, points, vec![].into_iter())
             })
             .collect::<Vec<_>>();
         let mut points_covered: HashSet<&&point::Point> = HashSet::new();
@@ -166,14 +166,14 @@ impl Stats {
         let mut best = 0;
 
         for cluster in clusters.iter() {
-            if cluster.points.len() > best {
+            if cluster.all.len() > best {
                 best_clusters.clear();
-                best = cluster.points.len();
+                best = cluster.all.len();
                 best_clusters.push(cluster.point.center);
-            } else if cluster.points.len() == best {
+            } else if cluster.all.len() == best {
                 best_clusters.push(cluster.point.center);
             }
-            points_covered.extend(&cluster.points);
+            points_covered.extend(&cluster.all);
         }
         self.total_clusters = clusters.len();
         self.best_cluster_point_count = best;

@@ -245,6 +245,10 @@ pub struct Args {
     ///
     /// Accepts [DataPointsArg]
     pub data_points: Option<DataPointsArg>,
+    /// Clusters to run through the stat producer.
+    ///
+    /// Accepts [DataPointsArg]
+    pub clusters: Option<DataPointsArg>,
     /// Number of devices to use in VRP routing
     ///
     /// Default: `1`
@@ -363,6 +367,7 @@ pub struct ArgsUnwrapped {
     pub calculation_mode: CalculationMode,
     pub cluster_mode: ClusterMode,
     pub cluster_split_level: u64,
+    pub clusters: single_vec::SingleVec,
     pub data_points: single_vec::SingleVec,
     pub devices: usize,
     pub generations: usize,
@@ -401,6 +406,19 @@ fn validate_s2_cell(value_to_check: Option<u64>, label: &str) -> u64 {
     }
 }
 
+fn resolve_data_points(data_points: Option<DataPointsArg>) -> single_vec::SingleVec {
+    if let Some(data_points) = data_points {
+        match data_points {
+            DataPointsArg::Struct(data_points) => data_points.to_single_vec(),
+            DataPointsArg::Array(data_points) => data_points,
+            DataPointsArg::Feature(data_points) => data_points.to_single_vec(),
+            DataPointsArg::FeatureCollection(data_points) => data_points.to_single_vec(),
+        }
+    } else {
+        vec![]
+    }
+}
+
 impl Args {
     pub fn init(self, input: Option<&str>) -> ArgsUnwrapped {
         let Args {
@@ -411,6 +429,7 @@ impl Args {
             cluster_mode,
             cluster_split_level,
             s2_size: bootstrap_size,
+            clusters,
             data_points,
             devices,
             fast,
@@ -476,16 +495,7 @@ impl Args {
             }
         });
         let cluster_split_level = validate_s2_cell(cluster_split_level, "cluster_split_level");
-        let data_points = if let Some(data_points) = data_points {
-            match data_points {
-                DataPointsArg::Struct(data_points) => data_points.to_single_vec(),
-                DataPointsArg::Array(data_points) => data_points,
-                DataPointsArg::Feature(data_points) => data_points.to_single_vec(),
-                DataPointsArg::FeatureCollection(data_points) => data_points.to_single_vec(),
-            }
-        } else {
-            vec![]
-        };
+        let data_points = resolve_data_points(data_points);
         let devices = devices.unwrap_or(1);
         let fast = fast.unwrap_or(true);
         let generations = generations.unwrap_or(1);
@@ -497,6 +507,7 @@ impl Args {
         } else {
             default_return_type
         };
+        let clusters = resolve_data_points(clusters);
         let only_unique = only_unique.unwrap_or(false);
         let last_seen = last_seen.unwrap_or(0);
         let save_to_db = save_to_db.unwrap_or(false);
@@ -522,6 +533,7 @@ impl Args {
             area,
             benchmark_mode,
             cluster_mode,
+            clusters,
             cluster_split_level,
             s2_level: bootstrap_level,
             calculation_mode: bootstrap_mode,

@@ -276,6 +276,18 @@ export function getRouteType(category: Category): KojiRouteModes {
   }
 }
 
+export function getCategory(mode: KojiModes): Category {
+  switch (mode) {
+    case 'circle_quest':
+      return 'pokestop'
+    case 'circle_raid':
+    case 'circle_smart_raid':
+      return 'gym'
+    default:
+      return 'spawnpoint'
+  }
+}
+
 export function getPolygonColor(id: string) {
   return id.includes('__SCANNER') ? VECTOR_COLORS.GREEN : VECTOR_COLORS.BLUE
 }
