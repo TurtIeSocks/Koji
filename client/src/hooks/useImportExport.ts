@@ -194,7 +194,7 @@ export const useImportExport = create<UseImportExport>((set, get) => ({
       })
     }
     const { Polygon, MultiPolygon } = useShapes.getState()
-    const { radius, tth, last_seen: raw } = usePersist.getState()
+    const { radius, tth, last_seen: raw, min_points } = usePersist.getState()
     const combined = { ...Polygon, ...MultiPolygon }
     const { id, name, mode } =
       feature.type === 'Feature'
@@ -233,6 +233,7 @@ export const useImportExport = create<UseImportExport>((set, get) => ({
             area: sourceArea,
             clusters: points,
             radius,
+            min_points,
             tth,
             last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
           }),
