@@ -1,10 +1,10 @@
-use super::*;
-
 use geo::{HaversineDistance, Point};
+use model::api::{single_vec, Precision};
+use serde::Serialize;
 
 const WIDTH: &str = "=======================================================================";
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Clone)]
 pub struct Stats {
     pub best_clusters: single_vec::SingleVec,
     pub best_cluster_point_count: usize,

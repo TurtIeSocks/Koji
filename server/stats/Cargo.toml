@@ -1,0 +1,28 @@
+[package]
+name = "model"
+version = "1.3.4"
+edition = "2021"
+publish = false
+
+[lib]
+name = "model"
+path = "src/lib.rs"
+
+[dependencies]
+chrono = { version = "0.4.19", features = ["serde"] }
+futures = "0.3.25"
+geo = "0.25.0"
+geojson = "0.24.0"
+geo-types = "0.7.9"
+geo_repair = { path = "../geo_repair" }
+log = "0.4.17"
+regex = "1.5"
+sea-orm = { version = "0.12.1", features = [
+  "sqlx-mysql",
+  "runtime-actix-native-tls",
+  "macros",
+] }
+serde = { version = "1.0.136", features = ["derive"] }
+serde_json = "1.0"
+serde_with = "2.1.0"
+thiserror = "1.0.38"

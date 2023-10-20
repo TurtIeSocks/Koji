@@ -4,7 +4,10 @@ use model::{api::args::AdminReq, error::ModelError};
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::model::{api::args::Response, db, KojiDb};
+use crate::{
+    model::{db, KojiDb},
+    utils::response::Response,
+};
 
 #[derive(Debug, Deserialize)]
 pub struct Search {

@@ -7,10 +7,12 @@ use model::{
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::model::{
-    api::args::Response,
-    db::{area, geofence, instance},
-    KojiDb,
+use crate::{
+    model::{
+        db::{area, geofence, instance},
+        KojiDb,
+    },
+    utils::response::Response,
 };
 
 #[get("/from_scanner")]

@@ -1,7 +1,5 @@
 use super::*;
 
-use geojson::JsonValue;
-
 use crate::{
     api::{collection::Default, text::TextHelpers},
     utils::{get_enum, get_enum_by_geometry_string},
@@ -574,37 +572,6 @@ pub fn get_return_type(return_type: String, default_return_type: &ReturnTypeArg)
         "poracle" => ReturnTypeArg::Poracle,
         "featurecollection" | "feature_collection" => ReturnTypeArg::FeatureCollection,
         _ => default_return_type.clone(),
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ConfigResponse {
-    pub start_lat: Precision,
-    pub start_lon: Precision,
-    pub tile_server: String,
-    pub scanner_type: String,
-    pub logged_in: bool,
-    pub dangerous: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Response {
-    pub message: String,
-    pub status: String,
-    pub status_code: u16,
-    pub data: Option<JsonValue>,
-    pub stats: Option<stats::Stats>,
-}
-
-impl Response {
-    pub fn send_error(message: &str) -> Response {
-        Response {
-            message: message.to_string(),
-            status: "error".to_string(),
-            status_code: 500,
-            data: None,
-            stats: None,
-        }
     }
 }
 

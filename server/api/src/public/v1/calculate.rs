@@ -1,18 +1,17 @@
-use crate::utils::request;
+use crate::utils::{request, response::Response};
 
 use super::*;
 
 use std::{collections::VecDeque, time::Instant};
 
-use algorithms::{bootstrapping, clustering, routing::tsp, s2};
+use algorithms::{bootstrapping, clustering, routing::tsp, s2, stats::Stats};
 use geo::{ChamberlainDuquetteArea, MultiPolygon, Polygon};
 
 use geojson::Value;
 use model::{
     api::{
-        args::{Args, ArgsUnwrapped, CalculationMode, Response},
+        args::{Args, ArgsUnwrapped, CalculationMode},
         point_array::PointArray,
-        stats::Stats,
         FeatureHelpers, GeoFormats, Precision, ToCollection, ToFeature,
     },
     db::{area, geofence, instance, route, sea_orm_active_enums::Type, GenericData},

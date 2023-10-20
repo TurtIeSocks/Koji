@@ -1,8 +1,10 @@
+use crate::stats::Stats;
+
 use super::*;
 
 use geo::{Contains, Extremes, HaversineDestination, HaversineDistance, Point, Polygon};
 use geojson::{Feature, Geometry, Value};
-use model::api::{single_vec::SingleVec, stats::Stats, GetBbox, ToFeatureVec, ToSingleVec};
+use model::api::{single_vec::SingleVec, GetBbox, ToFeatureVec, ToSingleVec};
 
 fn dot(u: &Point, v: &Point) -> f64 {
     u.x() * v.x() + u.y() * v.y()

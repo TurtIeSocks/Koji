@@ -1,5 +1,7 @@
 use std::time::Instant;
 
+use crate::stats::Stats;
+
 use self::rtree::coverage;
 
 use super::*;
@@ -9,7 +11,6 @@ use model::{
     api::{
         args::{ClusterMode, SortBy},
         single_vec::SingleVec,
-        stats::Stats,
         ToSingleVec,
     },
     db::GenericData,

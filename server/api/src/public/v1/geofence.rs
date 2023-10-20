@@ -1,4 +1,4 @@
-use crate::utils::request::send_api_req;
+use crate::utils::{request::send_api_req, response::Response};
 
 use super::*;
 
@@ -6,7 +6,7 @@ use serde_json::json;
 
 use model::{
     api::{
-        args::{get_return_type, ApiQueryArgs, Args, ArgsUnwrapped, Response, ReturnTypeArg},
+        args::{get_return_type, ApiQueryArgs, Args, ArgsUnwrapped, ReturnTypeArg},
         collection::Default,
         GeoFormats, ToCollection,
     },

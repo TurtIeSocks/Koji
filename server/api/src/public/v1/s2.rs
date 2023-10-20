@@ -1,10 +1,12 @@
 use std::collections::HashSet;
 
+use crate::utils::response::Response;
+
 use super::*;
 
 use algorithms::s2;
 
-use model::api::args::{BoundsArg, Response};
+use model::api::args::BoundsArg;
 use serde::Deserialize;
 use serde_json::json;
 

@@ -6,7 +6,7 @@ use std::{
 use geo::{HaversineDestination, Intersects, MultiPolygon, Polygon, RemoveRepeatedPoints};
 use geojson::{Feature, Geometry, Value};
 use model::{
-    api::{point_array::PointArray, single_vec::SingleVec, stats::Stats},
+    api::{point_array::PointArray, single_vec::SingleVec},
     db::GenericData,
 };
 use s2::{
@@ -14,6 +14,8 @@ use s2::{
     region::RegionCoverer,
 };
 use serde::Serialize;
+
+use crate::stats::Stats;
 
 // use crate::utils::debug_string;
 
