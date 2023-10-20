@@ -122,6 +122,8 @@ impl Stats {
     }
 
     pub fn distance_stats(&mut self, points: &SingleVec) {
+        self.total_distance = 0.;
+        self.longest_distance = 0.;
         for (i, point) in points.iter().enumerate() {
             let point = Point::new(point[1], point[0]);
             let point2 = if i == points.len() - 1 {
