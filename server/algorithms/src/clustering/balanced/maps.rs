@@ -1,7 +1,7 @@
 use super::*;
 
 pub fn run(
-    points: &Vec<GenericData>,
+    points: &SingleVec,
     honeycomb: SingleVec,
     radius: f64,
     min_points: usize,
@@ -20,7 +20,7 @@ pub fn run(
 
     points.into_iter().for_each(|x| {
         // Flip & create the coord
-        let coord = Point::new(x.p[1], x.p[0]);
+        let coord = Point::new(x[1], x[0]);
         // Precise Geohash
         let point_key = encode(coord.into(), PRECISION).unwrap();
         // Approximate Geohash

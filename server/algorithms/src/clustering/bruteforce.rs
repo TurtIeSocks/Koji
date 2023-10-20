@@ -5,27 +5,19 @@ use std::{
 
 use geo::{HaversineDistance, Point};
 // use geo::Coord;
-use model::{
-    api::{single_vec::SingleVec, stats::Stats, GetBbox, Precision},
-    db::GenericData,
-};
+use model::api::{single_vec::SingleVec, GetBbox};
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use s2::{cell::Cell, cellid::CellID, latlng::LatLng};
 
 use crate::s2::{create_cell_map, ToGeo};
 
 pub fn multi_thread(
-    data_points: &Vec<GenericData>,
+    data_points: &SingleVec,
     radius: f64,
     min_points: usize,
     cluster_split_level: u64,
-    stats: &mut Stats,
 ) -> SingleVec {
-    let time = Instant::now();
-    let cell_maps = create_cell_map(
-        &data_points.into_iter().map(|x| x.p).collect(),
-        cluster_split_level,
-    );
+    let cell_maps = create_cell_map(data_points, cluster_split_level);
     let mut handlers = vec![];
     for (key, values) in cell_maps.into_iter() {
         log::debug!("Total {}: {}", key, values.len());
@@ -50,10 +42,7 @@ pub fn multi_thread(
             }
         }
     }
-    let (covered, normalized) = normalize(merge(return_map, radius));
-    stats.total_clusters = normalized.len();
-    stats.points_covered = covered;
-    stats.cluster_time = time.elapsed().as_secs_f64() as Precision;
+    let (_, normalized) = normalize(merge(return_map, radius));
     normalized
 }
 

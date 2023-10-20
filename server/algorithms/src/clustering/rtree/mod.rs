@@ -1,8 +1,9 @@
 mod cluster;
+pub mod coverage;
 mod point;
 
 use hashbrown::HashSet;
-use model::api::{single_vec::SingleVec, stats::Stats, Precision};
+use model::api::{single_vec::SingleVec, Precision};
 use point::Point;
 
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -13,11 +14,10 @@ use crate::s2::create_cell_map;
 use cluster::Cluster;
 
 pub fn main(
-    points: SingleVec,
+    points: &SingleVec,
     radius: f64,
     min_points: usize,
     cluster_split_level: u64,
-    stats: &mut Stats,
 ) -> SingleVec {
     let time = Instant::now();
 
@@ -25,9 +25,8 @@ pub fn main(
         "[RTREE] starting algorithm with {} data points",
         points.len()
     );
-    stats.total_points = points.len();
 
-    let (return_set, missing_count) = if cluster_split_level == 1 {
+    let (return_set, _) = if cluster_split_level == 1 {
         setup(points, radius, min_points, time)
     } else {
         let cell_maps = create_cell_map(&points, cluster_split_level);
@@ -36,7 +35,7 @@ pub fn main(
         for (key, values) in cell_maps.into_iter() {
             log::debug!("[RTREE] Total {}: {}", key, values.len());
             handlers.push(std::thread::spawn(move || {
-                setup(values, radius, min_points, time)
+                setup(&values, radius, min_points, time)
             }));
         }
         log::info!("[RTREE] created {} threads", handlers.len());
@@ -56,10 +55,6 @@ pub fn main(
         }
         (return_set, missing_count)
     };
-
-    stats.points_covered = stats.total_points - missing_count;
-    stats.total_clusters = return_set.len();
-    stats.cluster_time = time.elapsed().as_secs_f64();
 
     log::info!("[RTREE] {}s | finished", time.elapsed().as_secs_f32());
 
@@ -106,18 +101,18 @@ fn get_initial_clusters(tree: &RTree<Point>) -> Vec<Point> {
 }
 
 fn setup(
-    points: Vec<[f64; 2]>,
+    points: &SingleVec,
     radius: f64,
     min_points: usize,
     time: Instant,
 ) -> (HashSet<Point>, usize) {
-    let point_tree: RTree<Point> = point::main(radius, &points);
+    let point_tree: RTree<Point> = point::main(radius, points);
     log::info!(
         "[RTREE] {}s | created point tree",
         time.elapsed().as_secs_f32()
     );
 
-    let neighbor_tree: RTree<Point> = point::main(radius * 2., &points);
+    let neighbor_tree: RTree<Point> = point::main(radius * 2., points);
     log::info!(
         "[RTREE] {}s | created neighbor tree",
         time.elapsed().as_secs_f32()

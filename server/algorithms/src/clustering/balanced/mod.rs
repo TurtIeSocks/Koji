@@ -4,10 +4,7 @@ use super::utils::debug_hashmap;
 
 use geo::{Coord, HaversineDestination, HaversineDistance, Point};
 use geohash::encode;
-use model::{
-    api::{args::SortBy, single_vec::SingleVec, stats::Stats, BBox, Precision},
-    db::GenericData,
-};
+use model::api::{args::SortBy, single_vec::SingleVec, BBox};
 use rand::rngs::mock::StepRng;
 use shuffle::irs::Irs;
 use shuffle::shuffler::Shuffler;
@@ -108,15 +105,13 @@ pub fn _dev_log(
 }
 
 pub fn cluster(
-    points: &Vec<GenericData>,
+    points: &SingleVec,
     honeycomb: SingleVec,
     radius: f64,
     min_points: usize,
-    stats: &mut Stats,
     only_unique: bool,
     sort_by: &SortBy,
 ) -> SingleVec {
-    let time = Instant::now();
     // unfortunately, due to the borrower, we have to maintain this separately from the point_map
     let mut point_seen_map: HashSet<String> = HashSet::new();
 
@@ -203,50 +198,10 @@ pub fn cluster(
         .expect("Unable to write sorting.txt");
     }
 
-    // stats.points_covered = point_seen_map
-    //     .iter()
-    //     .fold(0, |acc, y| acc + point_map.get(y).unwrap().points);
-    stats.total_distance = 0.;
-    stats.longest_distance = 0.;
-    stats.total_clusters = 0;
-    point_seen_map.clear();
-
-    for (i, info) in sorted.iter().enumerate() {
-        if info.1.meets_min {
-            for point in info.1.combine() {
-                point_seen_map.insert(point);
-            }
-            let point: Point = info.1.coord.into();
-            let point2: Point = if i == sorted.len() - 1 {
-                sorted[0].1.coord.into()
-            } else {
-                sorted[i + 1].1.coord.into()
-            };
-            let distance = point.haversine_distance(&point2);
-            stats.total_distance += distance;
-            if distance > stats.longest_distance {
-                stats.longest_distance = distance;
-            }
-            let combined = info.1.combine();
-            if combined.len() >= stats.best_cluster_point_count {
-                if combined.len() != stats.best_cluster_point_count {
-                    stats.best_clusters = vec![];
-                    stats.best_cluster_point_count = combined.len();
-                }
-                stats
-                    .best_clusters
-                    .push([info.1.coord.y(), info.1.coord.x()]);
-            }
-        }
-    }
-    stats.points_covered = point_seen_map.len();
-    stats.cluster_time = time.elapsed().as_secs_f32() as Precision;
-
     sorted
         .into_iter()
         .filter_map(|x| {
             if x.1.meets_min {
-                stats.total_clusters += 1;
                 Some([x.1.coord.y(), x.1.coord.x()])
             } else {
                 None

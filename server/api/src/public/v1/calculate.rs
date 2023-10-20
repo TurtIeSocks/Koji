@@ -228,8 +228,6 @@ async fn cluster(
         data_points.len()
     );
 
-    stats.total_points = data_points.len();
-
     let mut clusters = match calculation_mode {
         CalculationMode::Radius => clustering::main(
             data_points,
@@ -258,7 +256,7 @@ async fn cluster(
         let mut rotate_count: usize = 0;
 
         for (i, [lat, lon]) in tour.into_iter().enumerate() {
-            if stats.best_clusters.len() >= 1
+            if stats.best_clusters.len() > 0
                 && lat == stats.best_clusters[0][0]
                 && lon == stats.best_clusters[0][1]
             {
@@ -268,13 +266,9 @@ async fn cluster(
             final_clusters.push_back([lat, lon]);
         }
         final_clusters.rotate_left(rotate_count);
-        stats.total_distance = 0.;
-        stats.longest_distance = 0.;
 
         clusters = final_clusters.into();
     }
-
-    stats.distance(&clusters);
 
     let mut feature = clusters
         .to_feature(Some(enum_type.clone()))

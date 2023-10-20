@@ -2,6 +2,8 @@ use super::*;
 
 use geo::{HaversineDistance, Point};
 
+const WIDTH: &str = "=======================================================================";
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Stats {
     pub best_clusters: single_vec::SingleVec,
@@ -39,12 +41,11 @@ impl Stats {
     }
 
     pub fn log(&self, area: Option<String>) {
-        let width = "=======================================================================";
         let get_row = |text: String, replace: bool| {
             format!(
                 "  {}{}{}\n",
                 text,
-                width[..(width.len() - text.len())].replace("=", if replace { " " } else { "=" }),
+                WIDTH[..(WIDTH.len() - text.len())].replace("=", if replace { " " } else { "=" }),
                 if replace { "||" } else { "==" }
             )
         };
@@ -102,7 +103,7 @@ impl Stats {
                 true
             ),
             get_row(format!("|| [MYGOD_SCORE] {}", self.mygod_score,), true),
-            width,
+            WIDTH,
         )
     }
 
