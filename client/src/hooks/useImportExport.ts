@@ -195,31 +195,36 @@ export const useImportExport = create<UseImportExport>((set, get) => ({
     }
     const { Polygon, MultiPolygon } = useShapes.getState()
     const { radius, tth, last_seen: raw, min_points } = usePersist.getState()
+    const { geofence } = useDbCache.getState()
     const combined = { ...Polygon, ...MultiPolygon }
     const { id, name, mode } =
       feature.type === 'Feature'
         ? getProperties(feature)
         : getProperties(feature.features[0])
     const category = getCategory(mode)
-    const sourceArea = combined[id] ??
+    const sourceArea =
+      combined[id] ??
       Object.values(combined).find(
         (feat) =>
           feat.properties?.__name ===
           (feature.type === 'Feature'
             ? feature.properties.__name
             : feature.features[0].properties.__name),
-      ) ?? [
-        [
-          [minLat, minLon],
-          [maxLat, minLon],
-          [maxLat, maxLon],
-          [minLat, maxLon],
-          [minLat, minLon],
-        ],
-      ]
+      ) ??
+      (Object.values(geofence).find((fence) => fence.name === name)
+        ? undefined
+        : [
+            [
+              [minLat, minLon],
+              [maxLat, minLon],
+              [maxLat, maxLon],
+              [minLat, maxLon],
+              [minLat, minLon],
+            ],
+          ])
     const last_seen = typeof raw === 'string' ? new Date(raw) : raw
 
-    if (sourceArea) {
+    if (sourceArea || name) {
       const res = await fetchWrapper<KojiResponse>(
         `/api/v1/calc/route-stats/${category}`,
         {
