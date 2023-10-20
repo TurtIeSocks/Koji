@@ -1,12 +1,18 @@
+use std::time::Instant;
+
 use geo::{HaversineDistance, Point};
-use model::api::{single_vec, Precision};
+use hashbrown::HashSet;
+use model::api::{single_vec::SingleVec, Precision};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use serde::Serialize;
+
+use crate::clustering::rtree::{cluster::Cluster, point};
 
 const WIDTH: &str = "=======================================================================";
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Stats {
-    pub best_clusters: single_vec::SingleVec,
+    pub best_clusters: SingleVec,
     pub best_cluster_point_count: usize,
     pub cluster_time: Precision,
     pub route_time: Precision,
@@ -115,7 +121,7 @@ impl Stats {
         )
     }
 
-    pub fn distance(&mut self, points: &single_vec::SingleVec) {
+    pub fn distance_stats(&mut self, points: &SingleVec) {
         for (i, point) in points.iter().enumerate() {
             let point = Point::new(point[1], point[0]);
             let point2 = if i == points.len() - 1 {
@@ -131,8 +137,50 @@ impl Stats {
         }
     }
 
-    pub fn set_cluster_time(&mut self, time: Precision) {
-        self.cluster_time = time;
+    pub fn set_cluster_time(&mut self, time: Instant) {
+        self.cluster_time = time.elapsed().as_secs_f64();
         log::debug!("Cluster Time: {}s", self.cluster_time as Precision);
+    }
+
+    pub fn cluster_stats(&mut self, radius: f64, points: &SingleVec, clusters: &SingleVec) {
+        let time = Instant::now();
+        log::info!("starting coverage check for {} points", points.len());
+
+        let tree = point::main(radius, points);
+        let clusters: Vec<point::Point> = clusters
+            .iter()
+            .map(|c| point::Point::new(radius, *c))
+            .collect();
+        // let clusters = self.get_clusters(&clusters);
+        let clusters = clusters
+            .par_iter()
+            .map(|p| {
+                let points = tree.locate_all_at_point(&p.center).into_iter();
+                Cluster::new(p, points, vec![].into_iter())
+            })
+            .collect::<Vec<_>>();
+        let mut points_covered: HashSet<&&point::Point> = HashSet::new();
+        let mut best_clusters = SingleVec::new();
+        let mut best = 0;
+
+        for cluster in clusters.iter() {
+            if cluster.points.len() > best {
+                best_clusters.clear();
+                best = cluster.points.len();
+                best_clusters.push(cluster.point.center);
+            } else if cluster.points.len() == best {
+                best_clusters.push(cluster.point.center);
+            }
+            points_covered.extend(&cluster.points);
+        }
+        self.total_clusters = clusters.len();
+        self.best_cluster_point_count = best;
+        self.best_clusters = best_clusters;
+        self.points_covered = points_covered.len();
+
+        log::info!(
+            "coverage check complete in {}s",
+            time.elapsed().as_secs_f32()
+        );
     }
 }

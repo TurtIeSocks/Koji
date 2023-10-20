@@ -1,6 +1,5 @@
-mod cluster;
-pub mod coverage;
-mod point;
+pub mod cluster;
+pub mod point;
 
 use hashbrown::HashSet;
 use model::api::{single_vec::SingleVec, Precision};

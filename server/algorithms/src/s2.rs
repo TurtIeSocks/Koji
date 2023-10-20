@@ -435,7 +435,7 @@ pub fn bootstrap(feature: &Feature, level: u8, size: u8, stats: &mut Stats) -> F
     // }
 
     stats.total_clusters += multi_point.len();
-    stats.distance(&multi_point.iter().map(|p| [p[0], p[1]]).collect());
+    stats.distance_stats(&multi_point.iter().map(|p| [p[0], p[1]]).collect());
 
     let mut multi_point: geo::MultiPoint = multi_point
         .iter()
@@ -536,7 +536,7 @@ pub fn cluster(
     } else {
         vec![]
     };
-    stats.distance(&points);
+    stats.distance_stats(&points);
     stats.points_covered = data.len();
     points
 }

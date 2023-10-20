@@ -268,6 +268,7 @@ async fn cluster(
         final_clusters.rotate_left(rotate_count);
 
         clusters = final_clusters.into();
+        stats.distance_stats(&clusters);
     }
 
     let mut feature = clusters
@@ -342,7 +343,7 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     let final_clusters = tsp::multi(&data_points, route_split_level);
     log::info!("Tour Length {}", final_clusters.len());
 
-    stats.distance(&final_clusters);
+    stats.distance_stats(&final_clusters);
 
     let feature = final_clusters
         .to_feature(Some(mode.clone()))
