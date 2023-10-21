@@ -129,6 +129,7 @@ impl Stats {
 
     pub fn distance_stats(&mut self, points: &SingleVec) {
         self.start_timer();
+        log::info!("generating distance stats for {} points", points.len());
         self.total_distance = 0.;
         self.longest_distance = 0.;
         for (i, point) in points.iter().enumerate() {
@@ -144,6 +145,10 @@ impl Stats {
                 self.longest_distance = distance;
             }
         }
+        log::info!(
+            "distance stats complete {:.4}s",
+            self.stats_start_time.unwrap().elapsed().as_secs_f32()
+        );
         self.stop_timer();
     }
 
@@ -171,7 +176,6 @@ impl Stats {
 
     pub fn cluster_stats(&mut self, radius: f64, points: &SingleVec, clusters: &SingleVec) {
         self.start_timer();
-        let time = Instant::now();
         log::info!("starting coverage check for {} points", points.len());
         self.total_points = points.len();
 
@@ -199,6 +203,9 @@ impl Stats {
             } else if cluster.all.len() == best {
                 best_clusters.push(cluster.point.center);
             }
+            if tree.contains(cluster.point) {
+                points_covered.insert(&cluster.point);
+            }
             points_covered.extend(&cluster.all);
         }
         self.total_clusters = clusters.len();
@@ -206,9 +213,16 @@ impl Stats {
         self.best_clusters = best_clusters;
         self.points_covered = points_covered.len();
 
+        if self.points_covered > self.total_points {
+            log::warn!(
+                "points covered ({}) is greater than total points ({}), please report this to the developers",
+                self.points_covered,
+                self.total_points
+            );
+        }
         log::info!(
-            "coverage check complete in {}s",
-            time.elapsed().as_secs_f32()
+            "coverage check complete in {:.4}s",
+            self.stats_start_time.unwrap().elapsed().as_secs_f32()
         );
         self.stop_timer();
     }
