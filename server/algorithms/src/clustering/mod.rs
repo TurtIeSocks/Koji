@@ -29,6 +29,7 @@ pub fn main(
     stats: &mut Stats,
     sort_by: SortBy,
     cluster_split_level: u64,
+    max_clusters: usize,
 ) -> SingleVec {
     stats.total_points = data_points.len();
     let time = Instant::now();
@@ -58,7 +59,13 @@ pub fn main(
             clusters
         }
         ClusterMode::RTree => {
-            let clusters = rtree::main(&data_points, radius, min_points, cluster_split_level);
+            let clusters = rtree::main(
+                &data_points,
+                radius,
+                min_points,
+                cluster_split_level,
+                max_clusters,
+            );
             clusters
         }
     };

@@ -173,6 +173,7 @@ async fn cluster(
         s2_level,
         s2_size,
         parent,
+        max_clusters,
         ..
     } = payload.into_inner().init(Some(&mode));
 
@@ -238,6 +239,7 @@ async fn cluster(
             &mut stats,
             sort_by,
             cluster_split_level,
+            max_clusters,
         ),
         CalculationMode::S2 => area
             .into_iter()

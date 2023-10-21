@@ -17,6 +17,7 @@ pub fn main(
     radius: f64,
     min_points: usize,
     cluster_split_level: u64,
+    max_clusters: usize,
 ) -> SingleVec {
     let time = Instant::now();
 
@@ -26,7 +27,7 @@ pub fn main(
     );
 
     let return_set = if cluster_split_level == 1 {
-        setup(points, radius, min_points, time)
+        setup(points, radius, min_points, max_clusters, time)
     } else {
         let cell_maps = create_cell_map(&points, cluster_split_level);
 
@@ -34,7 +35,7 @@ pub fn main(
         for (key, values) in cell_maps.into_iter() {
             log::debug!("[RTREE] Total {}: {}", key, values.len());
             handlers.push(std::thread::spawn(move || {
-                setup(&values, radius, min_points, time)
+                setup(&values, radius, min_points, max_clusters, time)
             }));
         }
         log::info!("[RTREE] created {} threads", handlers.len());
@@ -97,7 +98,13 @@ fn get_initial_clusters(tree: &RTree<Point>) -> Vec<Point> {
     clusters.into_iter().collect::<Vec<Point>>()
 }
 
-fn setup(points: &SingleVec, radius: f64, min_points: usize, time: Instant) -> HashSet<Point> {
+fn setup(
+    points: &SingleVec,
+    radius: f64,
+    min_points: usize,
+    max_clusters: usize,
+    time: Instant,
+) -> HashSet<Point> {
     let point_tree: RTree<Point> = point::main(radius, points);
     log::info!(
         "[RTREE] {}s | created point tree",
@@ -137,7 +144,7 @@ fn setup(points: &SingleVec, radius: f64, min_points: usize, time: Instant) -> H
         "[RTREE] {}s | starting initial solution",
         time.elapsed().as_secs_f32()
     );
-    let solution = initial_solution(min_points, clusters_with_data);
+    let solution = initial_solution(min_points, max_clusters, clusters_with_data);
     log::info!(
         "[RTREE] {}s | finished initial solution",
         time.elapsed().as_secs_f32()
@@ -157,12 +164,16 @@ fn setup(points: &SingleVec, radius: f64, min_points: usize, time: Instant) -> H
     solution
 }
 
-fn initial_solution(min_points: usize, clusters_with_data: Vec<Cluster>) -> HashSet<Cluster> {
+fn initial_solution(
+    min_points: usize,
+    max_clusters: usize,
+    clusters_with_data: Vec<Cluster>,
+) -> HashSet<Cluster> {
     let mut new_clusters = HashSet::<Cluster>::new();
     let mut blocked_points = HashSet::<&Point>::new();
 
     let mut highest = 100;
-    while highest > min_points {
+    while highest > min_points && new_clusters.len() < max_clusters {
         let local_clusters = clusters_with_data
             .par_iter()
             .filter_map(|cluster| {
@@ -185,7 +196,10 @@ fn initial_solution(min_points: usize, clusters_with_data: Vec<Cluster>) -> Hash
             .collect::<Vec<Cluster>>();
 
         let mut best = 0;
-        for cluster in local_clusters.into_iter() {
+        'cluster: for cluster in local_clusters.into_iter() {
+            if new_clusters.len() >= max_clusters {
+                break;
+            }
             let length = cluster.points.len() + 1;
             if length > best {
                 best = length;
@@ -194,21 +208,22 @@ fn initial_solution(min_points: usize, clusters_with_data: Vec<Cluster>) -> Hash
                 if new_clusters.contains(&cluster) || length == 0 {
                     continue;
                 }
-                let mut count = 0;
+                // let mut count = 0;
                 for point in cluster.points.iter() {
-                    if !blocked_points.contains(point) {
-                        count += 1;
-                        if count >= min_points {
-                            break;
-                        }
+                    if blocked_points.contains(point) {
+                        continue 'cluster;
+                        // count += 1;
+                        // if count >= min_points {
+                        //     break;
+                        // }
                     }
                 }
-                if count >= min_points {
-                    for point in cluster.points.iter() {
-                        blocked_points.insert(point);
-                    }
-                    new_clusters.insert(cluster);
+                // if count >= min_points {
+                for point in cluster.points.iter() {
+                    blocked_points.insert(point);
                 }
+                new_clusters.insert(cluster);
+                // }
             }
         }
         highest = best;

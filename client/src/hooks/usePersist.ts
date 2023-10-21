@@ -63,6 +63,7 @@ export interface UsePersist {
   calculation_mode: 'Radius' | 'S2'
   s2_level: typeof S2_CELL_LEVELS[number]
   s2_size: typeof BOOTSTRAP_LEVELS[number]
+  max_clusters: number
   // generations: number | ''
   // routing_time: number | ''
   // devices: number | ''
@@ -113,6 +114,7 @@ export const usePersist = create(
       calculation_mode: 'Radius',
       s2_level: 15,
       s2_size: 9,
+      max_clusters: 0,
       min_points: 3,
       only_unique: false,
       save_to_db: false,

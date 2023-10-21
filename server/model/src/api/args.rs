@@ -255,6 +255,10 @@ pub struct Args {
     ///
     /// Deprecated
     pub devices: Option<usize>,
+    /// The maximum amount of clusters to return
+    ///
+    /// Default: [USIZE::MAX]
+    pub max_clusters: Option<usize>,
     /// Whether to use the fast or slow clustering algorithm
     ///
     /// Default: `true`
@@ -367,6 +371,7 @@ pub struct ArgsUnwrapped {
     pub calculation_mode: CalculationMode,
     pub cluster_mode: ClusterMode,
     pub cluster_split_level: u64,
+    pub max_clusters: usize,
     pub clusters: single_vec::SingleVec,
     pub data_points: single_vec::SingleVec,
     pub devices: usize,
@@ -428,6 +433,7 @@ impl Args {
             calculation_mode: bootstrap_mode,
             cluster_mode,
             cluster_split_level,
+            max_clusters,
             s2_size: bootstrap_size,
             clusters,
             data_points,
@@ -507,6 +513,12 @@ impl Args {
         } else {
             default_return_type
         };
+        let max_clusters = max_clusters.unwrap_or(usize::MAX);
+        let max_clusters = if max_clusters == 0 {
+            usize::MAX
+        } else {
+            max_clusters
+        };
         let clusters = resolve_data_points(clusters);
         let only_unique = only_unique.unwrap_or(false);
         let last_seen = last_seen.unwrap_or(0);
@@ -534,6 +546,7 @@ impl Args {
             benchmark_mode,
             cluster_mode,
             clusters,
+            max_clusters,
             cluster_split_level,
             s2_level: bootstrap_level,
             calculation_mode: bootstrap_mode,
