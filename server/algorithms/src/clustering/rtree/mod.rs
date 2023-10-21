@@ -5,7 +5,10 @@ use hashbrown::HashSet;
 use model::api::{single_vec::SingleVec, Precision};
 use point::Point;
 
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use rayon::{
+    prelude::{IntoParallelRefIterator, ParallelIterator},
+    slice::ParallelSliceMut,
+};
 use rstar::RTree;
 use std::time::Instant;
 
@@ -124,18 +127,30 @@ fn setup(
         initial_clusters.len()
     );
 
-    let clusters_with_data: Vec<Cluster> = initial_clusters
+    let mut clusters_with_data: Vec<Cluster> = initial_clusters
         .par_iter()
-        .map(|cluster| {
+        .filter_map(|cluster| {
             let mut points: Vec<&Point> = point_tree
                 .locate_all_at_point(&cluster.center)
                 .collect::<Vec<&Point>>();
             if point_tree.contains(cluster) && points.is_empty() {
                 points.push(cluster)
             }
-            Cluster::new(cluster, points.into_iter(), vec![].into_iter())
+            if points.is_empty() {
+                log::debug!("Empty");
+                None
+            } else {
+                Some(Cluster::new(
+                    cluster,
+                    points.into_iter(),
+                    vec![].into_iter(),
+                ))
+            }
         })
         .collect();
+
+    clusters_with_data.par_sort_by(|a, b| b.all.len().cmp(&a.all.len()));
+
     log::info!(
         "[RTREE] {}s | associated points with clusters",
         time.elapsed().as_secs_f32()
