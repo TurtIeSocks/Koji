@@ -224,6 +224,17 @@ export const useImportExport = create<UseImportExport>((set, get) => ({
           ])
     const last_seen = typeof raw === 'string' ? new Date(raw) : raw
 
+    set({
+      stats: {
+        max,
+        total,
+        count,
+        covered,
+        score,
+      },
+      code: writeCode ? JSON.stringify(feature, null, 2) : code,
+    })
+
     if (sourceArea || name) {
       const res = await fetchWrapper<KojiResponse>(
         `/api/v1/calc/route-stats/${category}`,
@@ -262,7 +273,6 @@ export const useImportExport = create<UseImportExport>((set, get) => ({
         covered,
         score,
       },
-      code: writeCode ? JSON.stringify(feature, null, 2) : code,
     })
   },
   setCode: (code) => {
