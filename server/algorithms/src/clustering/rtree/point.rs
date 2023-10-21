@@ -4,7 +4,7 @@ use geo::Coord;
 use geohash::encode;
 use model::api::{single_vec::SingleVec, Precision};
 use rstar::{PointDistance, RTree, RTreeObject, AABB};
-use s2::{cellid::CellID, latlng::LatLng};
+use s2::{cell::Cell, cellid::CellID, latlng::LatLng};
 
 const EARTH_RADIUS: Precision = 6378137.0;
 const X: Precision = std::f64::consts::PI / 180.0;
@@ -106,4 +106,16 @@ pub fn main(radius: f64, points: &SingleVec) -> RTree<Point> {
         .map(|p| Point::new(radius, *p))
         .collect::<Vec<_>>();
     RTree::bulk_load(spawnpoints)
+}
+
+pub trait ToPoint {
+    fn to_point(&self, radius: f64) -> Point;
+}
+
+impl ToPoint for CellID {
+    fn to_point(&self, radius: f64) -> Point {
+        let cell: Cell = self.into();
+        let center = cell.center();
+        Point::new(radius, [center.latitude().deg(), center.longitude().deg()])
+    }
 }

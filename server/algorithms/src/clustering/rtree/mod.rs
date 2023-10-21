@@ -2,9 +2,10 @@ pub mod cluster;
 pub mod point;
 
 use hashbrown::HashSet;
-use model::api::{single_vec::SingleVec, Precision};
+use model::api::{single_vec::SingleVec, GetBbox, Precision};
 use point::Point;
 
+use ::s2::cell::Cell;
 use rayon::{
     prelude::{IntoParallelRefIterator, ParallelIterator},
     slice::ParallelSliceMut,
@@ -12,7 +13,7 @@ use rayon::{
 use rstar::RTree;
 use std::time::Instant;
 
-use crate::s2::create_cell_map;
+use crate::{clustering::rtree::point::ToPoint, s2};
 use cluster::Cluster;
 
 pub fn main(
@@ -32,7 +33,7 @@ pub fn main(
     let return_set = if cluster_split_level == 1 {
         setup(points, radius, min_points, max_clusters, time)
     } else {
-        let cell_maps = create_cell_map(&points, cluster_split_level);
+        let cell_maps = s2::create_cell_map(&points, cluster_split_level);
 
         let mut handlers = vec![];
         for (key, values) in cell_maps.into_iter() {
@@ -87,6 +88,34 @@ fn generate_clusters(point: &Point, neighbors: Vec<&Point>, segments: usize) -> 
     set
 }
 
+// fn generate_clusters(point: Point, neighbors: Vec<Point>, segments: usize) -> HashSet<Point> {
+//     let mut set = HashSet::<Point>::new();
+//     for neighbor in neighbors {
+//         let new_point = point.interpolate(&neighbor, 0.5, 0., 0.);
+//         set.insert(new_point);
+
+//         // for i in 0..=(segments - 1) {
+//         //     let ratio = i as Precision / segments as Precision;
+//         //     let new_point = point.interpolate(neighbor, ratio, 0., 0.);
+//         //     set.insert(new_point);
+//         //     for wiggle in vec![0.00025, 0.0001] {
+//         //         let wiggle_lat: f64 = wiggle / 2.;
+//         //         let wiggle_lon = wiggle;
+//         //         let random_point = point.interpolate(neighbor, ratio, wiggle_lat, wiggle_lon);
+//         //         set.insert(random_point);
+//         //         let random_point = point.interpolate(neighbor, ratio, wiggle_lat, -wiggle_lon);
+//         //         set.insert(random_point);
+//         //         let random_point = point.interpolate(neighbor, ratio, -wiggle_lat, wiggle_lon);
+//         //         set.insert(random_point);
+//         //         let random_point = point.interpolate(neighbor, ratio, -wiggle_lat, -wiggle_lon);
+//         //         set.insert(random_point);
+//         //     }
+//         // }
+//     }
+//     set.insert(point.to_owned());
+//     set
+// }
+
 fn get_initial_clusters(tree: &RTree<Point>) -> Vec<Point> {
     let tree_points: Vec<&Point> = tree.iter().map(|p| p).collect();
 
@@ -113,6 +142,46 @@ fn setup(
         "[RTREE] {}s | created point tree",
         time.elapsed().as_secs_f32()
     );
+
+    // let bbox = points.get_bbox().unwrap();
+    // let clusters: HashSet<Point> = s2::get_region_cells(bbox[1], bbox[3], bbox[0], bbox[2], 20)
+    //     .0
+    //     .par_iter()
+    //     .map(|cell| {
+    //         let neighbors: Vec<Point> = cell
+    //             .all_neighbors(20)
+    //             .into_iter()
+    //             .map(|c| c.to_point(radius))
+    //             .collect();
+    //         let point = cell.to_point(radius);
+    //         generate_clusters(point, neighbors, 0)
+    //     })
+    //     .reduce(HashSet::new, |a, b| a.union(&b).cloned().collect());
+    // let clusters: Vec<Point> = clusters.into_iter().collect();
+
+    // log::info!(
+    //     "[RTREE] {}s | generated {} clusters",
+    //     time.elapsed().as_secs_f32(),
+    //     clusters.len()
+    // );
+
+    // let mut clusters_with_data: Vec<Cluster> = clusters
+    //     .par_iter()
+    //     .filter_map(|point| {
+    //         let mut points: Vec<&Point> = point_tree
+    //             .locate_all_at_point(&point.center)
+    //             .collect::<Vec<&Point>>();
+    //         if point_tree.contains(&point) && points.is_empty() {
+    //             points.push(&point)
+    //         }
+    //         if points.is_empty() {
+    //             log::debug!("Empty");
+    //             None
+    //         } else {
+    //             Some(Cluster::new(point, points.into_iter(), vec![].into_iter()))
+    //         }
+    //     })
+    //     .collect();
 
     let neighbor_tree: RTree<Point> = point::main(radius * 2., points);
     log::info!(
@@ -148,13 +217,18 @@ fn setup(
             }
         })
         .collect();
+    log::info!(
+        "[RTREE] {}s | associated points with {} clusters",
+        time.elapsed().as_secs_f32(),
+        clusters_with_data.len()
+    );
 
     clusters_with_data.par_sort_by(|a, b| b.all.len().cmp(&a.all.len()));
-
     log::info!(
-        "[RTREE] {}s | associated points with clusters",
-        time.elapsed().as_secs_f32()
+        "[RTREE] {}s | sorted clusters by points covered",
+        time.elapsed().as_secs_f32(),
     );
+
     log::info!(
         "[RTREE] {}s | starting initial solution",
         time.elapsed().as_secs_f32()

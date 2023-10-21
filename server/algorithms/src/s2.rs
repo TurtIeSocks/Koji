@@ -80,6 +80,23 @@ impl ToGeoJson for CellID {
     }
 }
 
+pub fn get_region_cells(
+    min_lat: f64,
+    max_lat: f64,
+    min_lon: f64,
+    max_lon: f64,
+    cell_size: u8,
+) -> CellUnion {
+    let region = Rect::from_degrees(min_lat, min_lon, max_lat, max_lon);
+    let coverer = RegionCoverer {
+        max_level: cell_size,
+        min_level: cell_size,
+        level_mod: 1,
+        max_cells: 1000,
+    };
+    coverer.covering(&region)
+}
+
 pub fn get_cells(
     cell_size: u8,
     min_lat: f64,
@@ -87,14 +104,7 @@ pub fn get_cells(
     max_lat: f64,
     max_lon: f64,
 ) -> Vec<S2Response> {
-    let region = Rect::from_degrees(min_lat, min_lon, max_lat, max_lon);
-    let cov = RegionCoverer {
-        max_level: cell_size,
-        min_level: cell_size,
-        level_mod: 1,
-        max_cells: 1000,
-    };
-    let cells = cov.covering(&region);
+    let cells = get_region_cells(min_lat, max_lat, min_lon, max_lon, cell_size);
 
     cells
         .0
