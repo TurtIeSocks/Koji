@@ -23,7 +23,7 @@ pub struct Stats {
     pub total_distance: Precision,
     pub longest_distance: Precision,
     pub mygod_score: usize,
-    stats_start_time: Instant,
+    stats_start_time: Option<Instant>,
 }
 
 impl Stats {
@@ -40,7 +40,7 @@ impl Stats {
             total_distance: 0.,
             longest_distance: 0.,
             mygod_score: 0,
-            stats_start_time: Instant::now(),
+            stats_start_time: None,
         }
     }
 
@@ -49,7 +49,9 @@ impl Stats {
     }
 
     pub fn set_score(&mut self, min_points: usize) {
+        self.start_timer();
         self.mygod_score = self.get_score(min_points);
+        self.stop_timer();
     }
 
     pub fn log(&self, area: Option<String>) {
@@ -102,7 +104,7 @@ impl Stats {
             ),
             get_row(
                 format!(
-                    "|| [DISTANCE] Total: {} | Longest: {} | Avg: {}",
+                    "|| [DISTANCE] Total: {}m | Longest: {}m | Avg: {}m",
                     self.total_distance as u32,
                     self.longest_distance as u32,
                     if self.total_clusters > 0 {
@@ -115,7 +117,7 @@ impl Stats {
             ),
             get_row(
                 format!(
-                    "|| [TIMES] Clustering: {:.2} | Routing: {:.2} | Stats: {:.2}",
+                    "|| [TIMES] Clustering: {:.2}s | Routing: {:.2}s | Stats: {:.2}s",
                     self.cluster_time, self.route_time, self.stats_time,
                 ),
                 true
@@ -126,6 +128,7 @@ impl Stats {
     }
 
     pub fn distance_stats(&mut self, points: &SingleVec) {
+        self.start_timer();
         self.total_distance = 0.;
         self.longest_distance = 0.;
         for (i, point) in points.iter().enumerate() {
@@ -141,6 +144,7 @@ impl Stats {
                 self.longest_distance = distance;
             }
         }
+        self.stop_timer();
     }
 
     pub fn set_cluster_time(&mut self, time: Instant) {
@@ -153,12 +157,20 @@ impl Stats {
         log::debug!("Route Time: {}s", self.route_time as Precision);
     }
 
-    pub fn set_stats_time(&mut self) {
-        self.stats_time = self.stats_start_time.elapsed().as_secs_f64();
-        log::debug!("Stats Time: {}s", self.stats_time as Precision);
+    fn start_timer(&mut self) {
+        self.stats_start_time = Some(Instant::now());
+    }
+
+    fn stop_timer(&mut self) {
+        if let Some(timer) = self.stats_start_time {
+            self.stats_time += timer.elapsed().as_secs_f64();
+            self.stats_start_time = None;
+            log::debug!("Stats Time: {}s", self.stats_time as Precision);
+        }
     }
 
     pub fn cluster_stats(&mut self, radius: f64, points: &SingleVec, clusters: &SingleVec) {
+        self.start_timer();
         let time = Instant::now();
         log::info!("starting coverage check for {} points", points.len());
         self.total_points = points.len();
@@ -198,6 +210,7 @@ impl Stats {
             "coverage check complete in {}s",
             time.elapsed().as_secs_f32()
         );
+        self.stop_timer();
     }
 }
 

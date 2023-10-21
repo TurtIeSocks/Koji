@@ -133,7 +133,6 @@ async fn bootstrap(
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }
 
-    stats.set_stats_time();
     Ok(utils::response::send(
         features.to_collection(Some(instance.clone()), None),
         return_type,
@@ -318,7 +317,6 @@ async fn cluster(
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }
 
-    stats.set_stats_time();
     Ok(utils::response::send(
         feature,
         return_type,
@@ -361,7 +359,6 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         .remove_last_coord();
     let feature = feature.to_collection(Some(instance.clone()), Some(mode));
 
-    stats.set_stats_time();
     Ok(utils::response::send(
         feature,
         return_type,
@@ -395,7 +392,6 @@ async fn route_stats(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     let feature = clusters.to_feature(Some(mode.clone())).remove_last_coord();
     let feature = feature.to_collection(Some(instance.clone()), Some(mode));
 
-    stats.set_stats_time();
     Ok(utils::response::send(
         feature,
         model::api::args::ReturnTypeArg::Feature,
@@ -462,7 +458,6 @@ async fn route_stats_category(
     let feature = clusters.to_feature(Some(mode.clone())).remove_last_coord();
     let feature = feature.to_collection(Some(instance.clone()), Some(mode));
 
-    stats.set_stats_time();
     Ok(utils::response::send(
         feature,
         model::api::args::ReturnTypeArg::Feature,
