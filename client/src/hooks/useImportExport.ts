@@ -21,11 +21,19 @@ const DEFAULT = { id: 0, source: 'CLIENT', mode: 'unset' } as ReturnType<
 >
 
 const getProperties = (feature: Feature) => {
+  const { geofence } = useDbCache.getState()
   const parsedId =
     typeof feature?.id === 'string'
       ? useDbCache.getState().parseKojiKey(feature.id)
       : DEFAULT
-  const name = feature?.properties?.__name || `${parsedId.id}`
+  const name =
+    (feature.properties?.__geofence_id
+      ? Object.values(geofence).find(
+          (fence) => fence.id === feature.properties.__geofence_id,
+        )?.name
+      : feature?.properties?.__name) ||
+    feature?.properties?.__name ||
+    `${parsedId.id}`
   const mode = feature?.properties?.__mode || parsedId.mode || 'unset'
   return { name, mode, source: parsedId.source, id: parsedId.id }
 }
