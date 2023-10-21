@@ -133,6 +133,7 @@ async fn bootstrap(
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }
 
+    stats.set_stats_time();
     Ok(utils::response::send(
         features.to_collection(Some(instance.clone()), None),
         return_type,
@@ -268,8 +269,8 @@ async fn cluster(
         final_clusters.rotate_left(rotate_count);
 
         clusters = final_clusters.into();
-        stats.distance_stats(&clusters);
     }
+    stats.distance_stats(&clusters);
 
     let mut feature = clusters
         .to_feature(Some(enum_type.clone()))
@@ -317,6 +318,7 @@ async fn cluster(
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }
 
+    stats.set_stats_time();
     Ok(utils::response::send(
         feature,
         return_type,
@@ -359,6 +361,7 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         .remove_last_coord();
     let feature = feature.to_collection(Some(instance.clone()), Some(mode));
 
+    stats.set_stats_time();
     Ok(utils::response::send(
         feature,
         return_type,
@@ -392,6 +395,7 @@ async fn route_stats(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     let feature = clusters.to_feature(Some(mode.clone())).remove_last_coord();
     let feature = feature.to_collection(Some(instance.clone()), Some(mode));
 
+    stats.set_stats_time();
     Ok(utils::response::send(
         feature,
         model::api::args::ReturnTypeArg::Feature,
@@ -451,7 +455,6 @@ async fn route_stats_category(
 
     let mut stats = Stats::new();
 
-    println!("Hello?\n\n\n\n");
     stats.cluster_stats(radius, &data_points, &clusters);
     stats.distance_stats(&clusters);
 
@@ -459,6 +462,7 @@ async fn route_stats_category(
     let feature = clusters.to_feature(Some(mode.clone())).remove_last_coord();
     let feature = feature.to_collection(Some(instance.clone()), Some(mode));
 
+    stats.set_stats_time();
     Ok(utils::response::send(
         feature,
         model::api::args::ReturnTypeArg::Feature,

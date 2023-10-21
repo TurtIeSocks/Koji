@@ -4,24 +4,26 @@ use geo::{HaversineDistance, Point};
 use hashbrown::HashSet;
 use model::api::{single_vec::SingleVec, Precision};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use serde::Serialize;
+use serde::{ser::SerializeStruct, Serialize};
 
 use crate::clustering::rtree::{cluster::Cluster, point};
 
 const WIDTH: &str = "=======================================================================";
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Clone)]
 pub struct Stats {
     pub best_clusters: SingleVec,
     pub best_cluster_point_count: usize,
     pub cluster_time: Precision,
     pub route_time: Precision,
+    pub stats_time: Precision,
     pub total_points: usize,
     pub points_covered: usize,
     pub total_clusters: usize,
     pub total_distance: Precision,
     pub longest_distance: Precision,
     pub mygod_score: usize,
+    stats_start_time: Instant,
 }
 
 impl Stats {
@@ -31,12 +33,14 @@ impl Stats {
             best_cluster_point_count: 0,
             cluster_time: 0.,
             route_time: 0.,
+            stats_time: 0.,
             total_points: 0,
             points_covered: 0,
             total_clusters: 0,
             total_distance: 0.,
             longest_distance: 0.,
             mygod_score: 0,
+            stats_start_time: Instant::now(),
         }
     }
 
@@ -111,8 +115,8 @@ impl Stats {
             ),
             get_row(
                 format!(
-                    "|| [TIMES] Clustering: {:.4} | Routing: {:.4}",
-                    self.cluster_time, self.route_time,
+                    "|| [TIMES] Clustering: {:.2} | Routing: {:.2} | Stats: {:.2}",
+                    self.cluster_time, self.route_time, self.stats_time,
                 ),
                 true
             ),
@@ -142,6 +146,16 @@ impl Stats {
     pub fn set_cluster_time(&mut self, time: Instant) {
         self.cluster_time = time.elapsed().as_secs_f64();
         log::debug!("Cluster Time: {}s", self.cluster_time as Precision);
+    }
+
+    pub fn set_route_time(&mut self, time: Instant) {
+        self.route_time = time.elapsed().as_secs_f64();
+        log::debug!("Route Time: {}s", self.route_time as Precision);
+    }
+
+    pub fn set_stats_time(&mut self) {
+        self.stats_time = self.stats_start_time.elapsed().as_secs_f64();
+        log::debug!("Stats Time: {}s", self.stats_time as Precision);
     }
 
     pub fn cluster_stats(&mut self, radius: f64, points: &SingleVec, clusters: &SingleVec) {
@@ -184,5 +198,26 @@ impl Stats {
             "coverage check complete in {}s",
             time.elapsed().as_secs_f32()
         );
+    }
+}
+
+impl Serialize for Stats {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_struct("Stats", 11)?;
+        state.serialize_field("best_clusters", &self.best_clusters)?;
+        state.serialize_field("best_cluster_point_count", &self.best_cluster_point_count)?;
+        state.serialize_field("cluster_time", &self.cluster_time)?;
+        state.serialize_field("route_time", &self.route_time)?;
+        state.serialize_field("stats_time", &self.stats_time)?;
+        state.serialize_field("total_points", &self.total_points)?;
+        state.serialize_field("points_covered", &self.points_covered)?;
+        state.serialize_field("total_clusters", &self.total_clusters)?;
+        state.serialize_field("total_distance", &self.total_distance)?;
+        state.serialize_field("longest_distance", &self.longest_distance)?;
+        state.serialize_field("mygod_score", &self.mygod_score)?;
+        state.end()
     }
 }

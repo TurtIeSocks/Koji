@@ -65,7 +65,6 @@ pub fn main(
     stats.set_cluster_time(time);
 
     stats.cluster_stats(radius, &data_points, &clusters);
-    stats.distance_stats(&clusters);
     stats.set_score(min_points);
 
     clusters
