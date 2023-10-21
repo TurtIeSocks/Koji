@@ -25,7 +25,7 @@ pub fn main(
         points.len()
     );
 
-    let (return_set, _) = if cluster_split_level == 1 {
+    let return_set = if cluster_split_level == 1 {
         setup(points, radius, min_points, time)
     } else {
         let cell_maps = create_cell_map(&points, cluster_split_level);
@@ -40,19 +40,17 @@ pub fn main(
         log::info!("[RTREE] created {} threads", handlers.len());
 
         let mut return_set = HashSet::new();
-        let mut missing_count = 0;
         for thread in handlers {
             match thread.join() {
-                Ok((results, missing)) => {
+                Ok(results) => {
                     return_set.extend(results);
-                    missing_count += missing;
                 }
                 Err(e) => {
                     log::error!("[RTREE] error joining thread: {:?}", e)
                 }
             }
         }
-        (return_set, missing_count)
+        return_set
     };
 
     log::info!("[RTREE] {}s | finished", time.elapsed().as_secs_f32());
@@ -99,12 +97,7 @@ fn get_initial_clusters(tree: &RTree<Point>) -> Vec<Point> {
     clusters.into_iter().collect::<Vec<Point>>()
 }
 
-fn setup(
-    points: &SingleVec,
-    radius: f64,
-    min_points: usize,
-    time: Instant,
-) -> (HashSet<Point>, usize) {
+fn setup(points: &SingleVec, radius: f64, min_points: usize, time: Instant) -> HashSet<Point> {
     let point_tree: RTree<Point> = point::main(radius, points);
     log::info!(
         "[RTREE] {}s | created point tree",
@@ -144,7 +137,7 @@ fn setup(
         "[RTREE] {}s | starting initial solution",
         time.elapsed().as_secs_f32()
     );
-    let (solution, _) = initial_solution(min_points, clusters_with_data);
+    let solution = initial_solution(min_points, clusters_with_data);
     log::info!(
         "[RTREE] {}s | finished initial solution",
         time.elapsed().as_secs_f32()
@@ -154,20 +147,17 @@ fn setup(
         "[RTREE] {}s | starting deduping",
         time.elapsed().as_secs_f32()
     );
-    let (solution, seen) = dedupe(solution, min_points);
+    let solution = dedupe(solution, min_points);
     log::info!(
         "[RTREE] {}s | finished deduping",
         time.elapsed().as_secs_f32()
     );
     log::info!("[RTREE] Deduped solution size: {}", solution.len());
 
-    (solution, points.len() - seen)
+    solution
 }
 
-fn initial_solution(
-    min_points: usize,
-    clusters_with_data: Vec<Cluster>,
-) -> (HashSet<Cluster>, usize) {
+fn initial_solution(min_points: usize, clusters_with_data: Vec<Cluster>) -> HashSet<Cluster> {
     let mut new_clusters = HashSet::<Cluster>::new();
     let mut blocked_points = HashSet::<&Point>::new();
 
@@ -223,11 +213,10 @@ fn initial_solution(
         }
         highest = best;
     }
-    // log::warn!("Blocked: {} | highest {}", blocked_points.len(), highest);
-    (new_clusters, blocked_points.len())
+    new_clusters
 }
 
-fn dedupe(initial_solution: HashSet<Cluster>, min_points: usize) -> (HashSet<Point>, usize) {
+fn dedupe(initial_solution: HashSet<Cluster>, min_points: usize) -> HashSet<Point> {
     // let mut point_map: HashMap<String, HashSet<String>> = HashMap::new();
     // let mut cluster_map: HashMap<String, HashSet<String>> = HashMap::new();
 
@@ -252,6 +241,7 @@ fn dedupe(initial_solution: HashSet<Cluster>, min_points: usize) -> (HashSet<Poi
 
     // debug_hashmap("point_map.txt", &point_map).unwrap();
     // debug_hashmap("cluster_map.txt", &cluster_map).unwrap();
+
     let mut seen_points: HashSet<&Point> = HashSet::new();
     let mut solution: HashSet<Point> = initial_solution
         .iter()
@@ -259,10 +249,12 @@ fn dedupe(initial_solution: HashSet<Cluster>, min_points: usize) -> (HashSet<Poi
             let unique_points = cluster
                 .points
                 .iter()
+                .collect::<Vec<&&Point>>()
+                .par_iter()
                 .filter(|p| {
                     initial_solution
                         .iter()
-                        .find(|c| c.point != cluster.point && c.all.contains(*p))
+                        .find(|c| c.point != cluster.point && c.all.contains(**p))
                         .is_none()
                 })
                 .count();
@@ -293,6 +285,5 @@ fn dedupe(initial_solution: HashSet<Cluster>, min_points: usize) -> (HashSet<Poi
         // log::info!("Extra clusters: {}", count);
     }
 
-    // log::warn!("Seen: {}", seen_points.len());
-    (solution, seen_points.len())
+    solution
 }
