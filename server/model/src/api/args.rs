@@ -523,7 +523,7 @@ impl Args {
         let cluster_mode = cluster_mode.unwrap_or({
             if let Some(fast) = fast {
                 if fast {
-                    ClusterMode::Fast
+                    ClusterMode::Fastest
                 } else {
                     ClusterMode::Balanced
                 }
