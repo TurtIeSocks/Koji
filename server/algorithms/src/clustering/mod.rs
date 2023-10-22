@@ -14,7 +14,7 @@ use model::{
     db::GenericData,
 };
 
-mod fast;
+mod fastest;
 pub mod rtree;
 
 pub fn main(
@@ -35,7 +35,7 @@ pub fn main(
 
     let clusters = match cluster_mode {
         ClusterMode::Fastest => {
-            let clusters = fast::cluster(&data_points, radius, min_points);
+            let clusters = fastest::cluster(&data_points, radius, min_points);
             clusters
         }
         _ => {
