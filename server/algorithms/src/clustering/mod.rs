@@ -14,8 +14,6 @@ use model::{
     db::GenericData,
 };
 
-mod balanced;
-mod bruteforce;
 mod fast;
 pub mod rtree;
 
