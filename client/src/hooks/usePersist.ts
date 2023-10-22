@@ -5,6 +5,11 @@ import {
   GEOMETRY_CONVERSION_TYPES,
   S2_CELL_LEVELS,
   BOOTSTRAP_LEVELS,
+  CLUSTERING_MODES,
+  TTH,
+  MODES,
+  SORT_BY,
+  CALC_MODE,
 } from '@assets/constants'
 
 export interface UsePersist {
@@ -46,11 +51,11 @@ export interface UsePersist {
 
   // Clustering
   category: Category | 'fort'
-  cluster_mode: 'Fast' | 'Balanced' | 'BruteForce' | 'RTree'
-  tth: 'All' | 'Known' | 'Unknown'
+  cluster_mode: typeof CLUSTERING_MODES[number]
+  tth: typeof TTH[number]
   lineColorRules: { distance: number; color: string }[]
-  mode: 'bootstrap' | 'route' | 'cluster'
-  sort_by: 'GeoHash' | 'Random' | 'ClusterCount'
+  mode: typeof MODES[number]
+  sort_by: typeof SORT_BY[number]
   radius: number | ''
   min_points: number | ''
   only_unique: boolean
@@ -60,7 +65,7 @@ export interface UsePersist {
   save_to_scanner: boolean
   skipRendering: boolean
   fast: boolean
-  calculation_mode: 'Radius' | 'S2'
+  calculation_mode: typeof CALC_MODE[number]
   s2_level: typeof S2_CELL_LEVELS[number]
   s2_size: typeof BOOTSTRAP_LEVELS[number]
   max_clusters: number

@@ -193,12 +193,43 @@ pub enum UnknownId {
     Number(u32),
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone)]
 pub enum ClusterMode {
+    Fastest,
     Fast,
     Balanced,
+    Better,
+    Best,
     BruteForce,
     RTree,
+}
+
+impl<'de> Deserialize<'de> for ClusterMode {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s: String = serde::Deserialize::deserialize(deserializer)?;
+        match s.to_lowercase().as_str() {
+            "fastest" => Ok(ClusterMode::Fastest),
+            "fast" => Ok(ClusterMode::Fast),
+            "balanced" => Ok(ClusterMode::Balanced),
+            "better" => Ok(ClusterMode::Better),
+            "best" => Ok(ClusterMode::Best),
+            "bruteforce" => {
+                log::warn!("bruteforce is now deprecated, using `best` strategy instead");
+                Ok(ClusterMode::Best)
+            }
+            "rtree" => {
+                log::warn!("rtree is now deprecated, using `balanced` strategy instead");
+                Ok(ClusterMode::Balanced)
+            }
+            _ => Err(serde::de::Error::custom(format!(
+                "unknown cluster mode: {}",
+                s
+            ))),
+        }
+    }
 }
 
 impl ToString for UnknownId {

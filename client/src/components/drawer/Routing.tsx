@@ -9,7 +9,16 @@ import {
 } from '@mui/material'
 import Update from '@mui/icons-material/Update'
 
-import { BOOTSTRAP_LEVELS, S2_CELL_LEVELS } from '@assets/constants'
+import {
+  BOOTSTRAP_LEVELS,
+  CALC_MODE,
+  CATEGORIES,
+  CLUSTERING_MODES,
+  MODES,
+  S2_CELL_LEVELS,
+  SORT_BY,
+  TTH,
+} from '@assets/constants'
 import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
 import { clusteringRouting } from '@services/fetches'
@@ -24,39 +33,31 @@ export default function RoutingTab() {
   const category = usePersist((s) => s.category)
   const cluster_mode = usePersist((s) => s.cluster_mode)
   const calculation_mode = usePersist((s) => s.calculation_mode)
-
-  const [scannerType, updateButton, isEditing] = useStatic((s) => [
-    s.scannerType,
-    s.updateButton,
+  const scannerType = useStatic((s) => s.scannerType)
+  const updateButton = useStatic((s) => s.updateButton)
+  const isEditing = useStatic((s) =>
     Object.values(s.layerEditing).some((v) => v),
-  ])
+  )
 
+  const fastest = cluster_mode === 'Fastest'
   return (
     <List dense sx={{ height: '90vh' }}>
       <ListSubheader>Calculation Modes</ListSubheader>
-      <MultiOptionList
-        field="mode"
-        buttons={['cluster', 'route', 'bootstrap']}
-        type="select"
-      />
+      <MultiOptionList field="mode" buttons={MODES} type="select" />
       <Collapse in={mode !== 'bootstrap'}>
         <MultiOptionList
           field="category"
-          buttons={['pokestop', 'gym', 'fort', 'spawnpoint']}
+          buttons={CATEGORIES}
           disabled={mode === 'bootstrap'}
           type="select"
         />
         <Collapse in={category === 'spawnpoint'}>
-          <MultiOptionList
-            field="tth"
-            buttons={['All', 'Known', 'Unknown']}
-            type="select"
-          />
+          <MultiOptionList field="tth" buttons={TTH} type="select" />
         </Collapse>
       </Collapse>
       <MultiOptionList
         field="calculation_mode"
-        buttons={['Radius', 'S2']}
+        buttons={CALC_MODE}
         label="Strategy"
         hideLabel
         type="select"
@@ -90,25 +91,20 @@ export default function RoutingTab() {
         <MultiOptionList
           field="cluster_mode"
           hideLabel
-          buttons={['Fast', 'Balanced', 'BruteForce', 'RTree']}
+          buttons={CLUSTERING_MODES}
           type="select"
         />
-        <Collapse
-          in={cluster_mode === 'BruteForce' || cluster_mode === 'RTree'}
-        >
+        <Collapse in={!fastest}>
           <NumInput field="cluster_split_level" min={1} max={20} />
         </Collapse>
-        <Collapse in={cluster_mode === 'RTree'}>
+        <Collapse in={!fastest}>
           <NumInput field="max_clusters" min={0} />
         </Collapse>
-        <Collapse in={cluster_mode === 'Balanced'}>
-          <Toggle field="only_unique" />
-        </Collapse>
       </Collapse>
-      <Collapse in={mode === 'cluster' && cluster_mode === 'Balanced'}>
+      <Collapse in={mode === 'cluster' && !fastest}>
         <MultiOptionList
           field="sort_by"
-          buttons={['GeoHash', 'ClusterCount', 'Random']}
+          buttons={SORT_BY}
           disabled={mode !== 'cluster'}
           type="select"
         />

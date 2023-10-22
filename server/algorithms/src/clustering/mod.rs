@@ -36,29 +36,11 @@ pub fn main(
     let data_points = data_points.to_single_vec();
 
     let clusters = match cluster_mode {
-        ClusterMode::BruteForce => {
-            bruteforce::multi_thread(&data_points, radius, min_points, cluster_split_level)
-        }
-        ClusterMode::Balanced => {
-            let mut clusters = vec![];
-            for feature in area.into_iter() {
-                let feature_clusters = balanced::cluster(
-                    &data_points,
-                    bootstrapping::as_vec(feature, radius, stats),
-                    radius,
-                    min_points,
-                    only_unique,
-                    &sort_by,
-                );
-                clusters.extend(feature_clusters);
-            }
-            clusters
-        }
-        ClusterMode::Fast => {
+        ClusterMode::Fastest => {
             let clusters = fast::cluster(&data_points, radius, min_points);
             clusters
         }
-        ClusterMode::RTree => {
+        _ => {
             let clusters = rtree::main(
                 &data_points,
                 radius,

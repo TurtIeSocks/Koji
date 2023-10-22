@@ -183,3 +183,21 @@ export const VECTOR_COLORS = {
   ORANGE: orange.A700,
   PURPLE: deepPurple[500],
 } as const
+
+export const MODES = ['cluster', 'route', 'bootstrap'] as const
+
+export const CATEGORIES = ['pokestop', 'gym', 'fort', 'spawnpoint'] as const
+
+export const TTH = ['All', 'Known', 'Unknown'] as const
+
+export const CALC_MODE = ['Radius', 'S2'] as const
+
+export const CLUSTERING_MODES = [
+  'Fastest',
+  'Fast',
+  'Balanced',
+  'Better',
+  'Best',
+] as const
+
+export const SORT_BY = ['GeoHash', 'ClusterCount', 'Random'] as const
