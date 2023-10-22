@@ -22,8 +22,8 @@ impl<'de> Deserialize<'de> for ClusterMode {
             "better" => Ok(ClusterMode::Better),
             "best" => Ok(ClusterMode::Best),
             "bruteforce" => {
-                log::warn!("bruteforce is now deprecated, using `best` strategy instead");
-                Ok(ClusterMode::Best)
+                log::warn!("bruteforce is now deprecated, using `better` strategy instead");
+                Ok(ClusterMode::Better)
             }
             "rtree" => {
                 log::warn!("rtree is now deprecated, using `balanced` strategy instead");

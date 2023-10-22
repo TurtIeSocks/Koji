@@ -241,17 +241,21 @@ impl<'a> Greedy {
                     if new_clusters.contains(cluster) {
                         None
                     } else {
-                        Some(Cluster::new(
-                            cluster.point,
-                            cluster.all.clone().into_iter(),
-                            cluster.all.iter().filter_map(|p| {
-                                if blocked_points.contains(p) {
-                                    None
-                                } else {
-                                    Some(*p)
-                                }
-                            }),
-                        ))
+                        Some(Cluster {
+                            point: cluster.point,
+                            points: cluster
+                                .all
+                                .iter()
+                                .filter_map(|p| {
+                                    if blocked_points.contains(p) {
+                                        None
+                                    } else {
+                                        Some(*p)
+                                    }
+                                })
+                                .collect(),
+                            all: cluster.all.iter().map(|p| *p).collect(),
+                        })
                     }
                 })
                 .collect::<Vec<Cluster>>();
