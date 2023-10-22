@@ -2,34 +2,28 @@ use std::time::Instant;
 
 use crate::stats::Stats;
 
+use self::greedy::Greedy;
+
 use super::*;
 
-use geojson::FeatureCollection;
 use model::{
-    api::{
-        args::{ClusterMode, SortBy},
-        single_vec::SingleVec,
-        ToSingleVec,
-    },
+    api::{args::SortBy, cluster_mode::ClusterMode, single_vec::SingleVec, ToSingleVec},
     db::GenericData,
 };
 
 mod fastest;
-pub mod rtree;
+mod greedy;
 
 pub fn main(
     data_points: Vec<GenericData>,
     cluster_mode: ClusterMode,
     radius: f64,
     min_points: usize,
-    only_unique: bool,
-    area: FeatureCollection,
     stats: &mut Stats,
     sort_by: SortBy,
     cluster_split_level: u64,
     max_clusters: usize,
 ) -> SingleVec {
-    stats.total_points = data_points.len();
     let time = Instant::now();
     let data_points = data_points.to_single_vec();
 
@@ -39,18 +33,19 @@ pub fn main(
             clusters
         }
         _ => {
-            let clusters = rtree::main(
-                &data_points,
-                radius,
-                min_points,
-                cluster_split_level,
-                max_clusters,
-            );
-            clusters
+            let mut greedy = Greedy::default();
+            greedy
+                .set_cluster_mode(cluster_mode)
+                .set_cluster_split_level(cluster_split_level)
+                .set_max_clusters(max_clusters)
+                .set_min_points(min_points)
+                .set_radius(radius);
+
+            greedy.run(&data_points)
         }
     };
-    stats.set_cluster_time(time);
 
+    stats.set_cluster_time(time);
     stats.cluster_stats(radius, &data_points, &clusters);
     stats.set_score(min_points);
 

@@ -136,9 +136,6 @@ pub struct Args {
     ///
     /// Default: `1`
     pub min_points: Option<usize>,
-    /// Only counts min_points by the number of unique data_points that a cluster covers.
-    /// Only available when `fast: false`
-    pub only_unique: Option<bool>,
     /// The ID or name of the parent property, this will search the database for any properties that have their `parent` property set to this value.
     ///
     /// Default: `None`

@@ -53,7 +53,7 @@ async fn bootstrap(
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    let mut stats = Stats::new();
+    let mut stats = Stats::new(format!("Bootstrap | {:?}", calculation_mode));
 
     let time = Instant::now();
 
@@ -162,7 +162,6 @@ async fn cluster(
         min_points,
         radius,
         return_type,
-        only_unique,
         save_to_db,
         save_to_scanner,
         last_seen,
@@ -184,7 +183,7 @@ async fn cluster(
         );
     }
 
-    let mut stats = Stats::new();
+    let mut stats = Stats::new(format!("{:?} | {:?}", cluster_mode, calculation_mode));
     let enum_type = if category == "gym" || category == "fort" {
         if scanner_type == "rdm" {
             Type::CircleSmartRaid
@@ -234,8 +233,6 @@ async fn cluster(
             cluster_mode,
             radius,
             min_points,
-            only_unique,
-            area,
             &mut stats,
             sort_by,
             cluster_split_level,
@@ -251,7 +248,8 @@ async fn cluster(
         log::info!("Cluster Length: {}", clusters.len());
         let route_time = Instant::now();
         let tour = tsp::multi(&clusters, route_split_level);
-        stats.route_time = route_time.elapsed().as_secs_f32() as Precision;
+        stats.set_route_time(route_time);
+
         log::info!("Tour Length {}", tour.len());
         let mut final_clusters = VecDeque::<PointArray>::new();
 
@@ -340,7 +338,7 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         mode,
         ..
     } = payload.into_inner().init(Some("reroute"));
-    let mut stats = Stats::new();
+    let mut stats = Stats::new(String::from("Reroute"));
 
     // For legacy compatibility
     let data_points = if clusters.is_empty() {
@@ -386,7 +384,7 @@ async fn route_stats(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         return Ok(HttpResponse::BadRequest()
             .json(Response::send_error("no_clusters_or_data_points_found")));
     }
-    let mut stats = Stats::new();
+    let mut stats = Stats::new(format!("Route Stats | {:?}", mode));
     stats.cluster_stats(radius, &data_points, &clusters);
     stats.distance_stats(&clusters);
     stats.set_score(min_points);
@@ -451,7 +449,7 @@ async fn route_stats_category(
             .json(Response::send_error("no_clusters_or_data_points_found")));
     }
 
-    let mut stats = Stats::new();
+    let mut stats = Stats::new(format!("Route Stats | {:?}", mode));
 
     stats.cluster_stats(radius, &data_points, &clusters);
     stats.distance_stats(&clusters);

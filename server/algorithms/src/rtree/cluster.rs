@@ -11,7 +11,7 @@ pub struct Cluster<'a> {
     pub all: HashSet<&'a Point>,
 }
 
-impl<'a> Cluster<'_> {
+impl<'a> Cluster<'a> {
     pub fn new<T, U>(point: &'a Point, all: T, points: U) -> Cluster<'a>
     where
         T: Iterator<Item = &'a Point>,

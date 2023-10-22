@@ -2,12 +2,10 @@ use std::hash::{Hash, Hasher};
 
 use geo::Coord;
 use geohash::encode;
-use model::api::{single_vec::SingleVec, Precision};
-use rstar::{PointDistance, RTree, RTreeObject, AABB};
+use map_3d::EARTH_RADIUS;
+use model::api::Precision;
+use rstar::{PointDistance, RTreeObject, AABB};
 use s2::{cell::Cell, cellid::CellID, latlng::LatLng};
-
-const EARTH_RADIUS: Precision = 6378137.0;
-const X: Precision = std::f64::consts::PI / 180.0;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Point {
@@ -17,18 +15,18 @@ pub struct Point {
 }
 
 impl Point {
-    pub fn new(radius: Precision, center: [Precision; 2]) -> Self {
+    pub fn new(radius: Precision, cell_level: u64, center: [Precision; 2]) -> Self {
         Self {
             radius,
             center,
-            cell_id: CellID::from(LatLng::from_degrees(center[0], center[1])).parent(20),
+            cell_id: CellID::from(LatLng::from_degrees(center[0], center[1])).parent(cell_level),
         }
     }
 
     pub fn interpolate(&self, next: &Self, ratio: f64, wiggle_lat: f64, wiggle_lon: f64) -> Self {
         let lat = self.center[0] * (1. - ratio) + (next.center[0] + wiggle_lat) * ratio;
         let lon = self.center[1] * (1. - ratio) + (next.center[1] + wiggle_lon) * ratio;
-        let new_point = Self::new(self.radius, [lat, lon]);
+        let new_point = Self::new(self.radius, self.cell_id.level(), [lat, lon]);
         new_point
     }
 
@@ -47,6 +45,17 @@ impl Point {
             + center_lng;
 
         [lat.to_degrees(), lng.to_degrees()]
+    }
+
+    fn haversine_distance(&self, other: &[Precision; 2]) -> f64 {
+        let theta1 = self.center[0].to_radians();
+        let theta2 = other[0].to_radians();
+        let delta_theta = (other[0] - self.center[0]).to_radians();
+        let delta_lambda = (other[1] - self.center[1]).to_radians();
+        let a = (delta_theta / 2.).sin().powi(2)
+            + theta1.cos() * theta2.cos() * (delta_lambda / 2.).sin().powi(2);
+        let c = 2. * a.sqrt().asin();
+        EARTH_RADIUS * c
     }
 
     pub fn _get_geohash(&self) -> String {
@@ -87,25 +96,12 @@ impl RTreeObject for Point {
 
 impl PointDistance for Point {
     fn distance_2(&self, other: &[Precision; 2]) -> Precision {
-        let lat1 = self.center[0] * X;
-        let lon1 = self.center[1] * X;
-        let lat2 = other[0] * X;
-        let lon2 = other[1] * X;
-        let a = lat1.sin() * lat2.sin() + lat1.cos() * lat2.cos() * (lon2 - lon1).cos();
-        a.acos() * EARTH_RADIUS
+        self.haversine_distance(other)
     }
 
     fn contains_point(&self, point: &<Self::Envelope as rstar::Envelope>::Point) -> bool {
         self.distance_2(point) <= self.radius
     }
-}
-
-pub fn main(radius: f64, points: &SingleVec) -> RTree<Point> {
-    let spawnpoints = points
-        .iter()
-        .map(|p| Point::new(radius, *p))
-        .collect::<Vec<_>>();
-    RTree::bulk_load(spawnpoints)
 }
 
 pub trait ToPoint {
@@ -116,6 +112,10 @@ impl ToPoint for CellID {
     fn to_point(&self, radius: f64) -> Point {
         let cell: Cell = self.into();
         let center = cell.center();
-        Point::new(radius, [center.latitude().deg(), center.longitude().deg()])
+        Point::new(
+            radius,
+            self.level(),
+            [center.latitude().deg(), center.longitude().deg()],
+        )
     }
 }

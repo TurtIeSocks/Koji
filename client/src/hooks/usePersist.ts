@@ -58,7 +58,6 @@ export interface UsePersist {
   sort_by: typeof SORT_BY[number]
   radius: number | ''
   min_points: number | ''
-  only_unique: boolean
   route_split_level: number | ''
   cluster_split_level: number | ''
   save_to_db: boolean
@@ -121,7 +120,6 @@ export const usePersist = create(
       s2_size: 9,
       max_clusters: 0,
       min_points: 3,
-      only_unique: false,
       save_to_db: false,
       save_to_scanner: false,
       skipRendering: false,

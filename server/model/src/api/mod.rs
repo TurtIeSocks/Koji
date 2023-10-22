@@ -8,6 +8,7 @@ use geojson::{Bbox, Geometry, Value};
 use sea_orm::FromQueryResult;
 
 pub mod args;
+pub mod cluster_mode;
 pub mod collection;
 pub mod feature;
 pub mod geometry;

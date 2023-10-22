@@ -1,4 +1,4 @@
-use super::*;
+use super::{cluster_mode::ClusterMode, *};
 
 use crate::{
     api::{collection::Default, text::TextHelpers},
@@ -193,45 +193,6 @@ pub enum UnknownId {
     Number(u32),
 }
 
-#[derive(Debug, Clone)]
-pub enum ClusterMode {
-    Fastest,
-    Fast,
-    Balanced,
-    Better,
-    Best,
-    BruteForce,
-    RTree,
-}
-
-impl<'de> Deserialize<'de> for ClusterMode {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s: String = serde::Deserialize::deserialize(deserializer)?;
-        match s.to_lowercase().as_str() {
-            "fastest" => Ok(ClusterMode::Fastest),
-            "fast" => Ok(ClusterMode::Fast),
-            "balanced" => Ok(ClusterMode::Balanced),
-            "better" => Ok(ClusterMode::Better),
-            "best" => Ok(ClusterMode::Best),
-            "bruteforce" => {
-                log::warn!("bruteforce is now deprecated, using `best` strategy instead");
-                Ok(ClusterMode::Best)
-            }
-            "rtree" => {
-                log::warn!("rtree is now deprecated, using `balanced` strategy instead");
-                Ok(ClusterMode::Balanced)
-            }
-            _ => Err(serde::de::Error::custom(format!(
-                "unknown cluster mode: {}",
-                s
-            ))),
-        }
-    }
-}
-
 impl ToString for UnknownId {
     fn to_string(&self) -> String {
         match self {
@@ -322,6 +283,7 @@ pub struct Args {
     pub min_points: Option<usize>,
     /// Only counts min_points by the number of unique data_points that a cluster covers.
     /// Only available when `fast: false`
+    /// Deprecated
     pub only_unique: Option<bool>,
     /// The ID or name of the parent property, this will search the database for any properties that have their `parent` property set to this value.
     ///
@@ -411,7 +373,6 @@ pub struct ArgsUnwrapped {
     pub min_points: usize,
     pub radius: Precision,
     pub return_type: ReturnTypeArg,
-    pub only_unique: bool,
     pub parent: Option<UnknownId>,
     pub last_seen: u32,
     pub s2_level: u8,
@@ -457,6 +418,9 @@ fn resolve_data_points(data_points: Option<DataPointsArg>) -> single_vec::Single
 
 impl Args {
     pub fn init(self, input: Option<&str>) -> ArgsUnwrapped {
+        if let Some(input) = input {
+            log::debug!("[{}]: {:?}", input.to_uppercase(), self);
+        };
         let Args {
             area,
             benchmark_mode,
@@ -534,7 +498,6 @@ impl Args {
         let cluster_split_level = validate_s2_cell(cluster_split_level, "cluster_split_level");
         let data_points = resolve_data_points(data_points);
         let devices = devices.unwrap_or(1);
-        let fast = fast.unwrap_or(true);
         let generations = generations.unwrap_or(1);
         let instance = instance.unwrap_or("".to_string());
         let min_points = min_points.unwrap_or(1);
@@ -551,7 +514,6 @@ impl Args {
             max_clusters
         };
         let clusters = resolve_data_points(clusters);
-        let only_unique = only_unique.unwrap_or(false);
         let last_seen = last_seen.unwrap_or(0);
         let save_to_db = save_to_db.unwrap_or(false);
         let save_to_scanner = save_to_scanner.unwrap_or(false);
@@ -566,12 +528,9 @@ impl Args {
         if routing_time.is_some() {
             log::warn!("routing_time is now deprecated, please use route_split_level")
         }
-        if let Some(input) = input {
-            log::info!(
-                "[{}]: Instance: {} | Custom Area: {} | Custom Data Points: {}\nRadius: | {} Min Points: {} | Generations: {} | Routing Split Level: {} | Devices: {} | Fast: {}\nOnly Unique: {}, Last Seen: {}\nReturn Type: {:?}",
-                input.to_uppercase(), instance, !area.features.is_empty(), !data_points.is_empty(), radius, min_points, generations, route_split_level, devices, fast, only_unique, last_seen, return_type,
-            );
-        };
+        if only_unique.is_some() {
+            log::warn!("only_unique is now deprecated and does nothing");
+        }
         ArgsUnwrapped {
             area,
             benchmark_mode,
@@ -590,7 +549,6 @@ impl Args {
             min_points,
             radius,
             return_type,
-            only_unique,
             last_seen,
             save_to_db,
             save_to_scanner,

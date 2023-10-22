@@ -6,7 +6,7 @@ use model::api::{single_vec::SingleVec, Precision};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use serde::{ser::SerializeStruct, Serialize};
 
-use crate::clustering::rtree::{cluster::Cluster, point};
+use crate::rtree::{self, cluster::Cluster, point};
 
 const WIDTH: &str = "=======================================================================";
 
@@ -24,10 +24,11 @@ pub struct Stats {
     pub longest_distance: Precision,
     pub mygod_score: usize,
     stats_start_time: Option<Instant>,
+    label: String,
 }
 
 impl Stats {
-    pub fn new() -> Self {
+    pub fn new(label: String) -> Self {
         Stats {
             best_clusters: vec![],
             best_cluster_point_count: 0,
@@ -41,6 +42,7 @@ impl Stats {
             longest_distance: 0.,
             mygod_score: 0,
             stats_start_time: None,
+            label,
         }
     }
 
@@ -70,7 +72,7 @@ impl Stats {
                 if area.is_empty() {
                     "".to_string()
                 } else {
-                    get_row(format!("|| [AREA] {}", area), true)
+                    get_row(format!("|| [AREA] {} | {}", area, self.label), true)
                 }
             } else {
                 "".to_string()
@@ -179,10 +181,10 @@ impl Stats {
         log::info!("starting coverage check for {} points", points.len());
         self.total_points = points.len();
 
-        let tree = point::main(radius, points);
+        let tree = rtree::spawn(radius, points);
         let clusters: Vec<point::Point> = clusters
             .into_iter()
-            .map(|c| point::Point::new(radius, *c))
+            .map(|c| point::Point::new(radius, 20, *c))
             .collect();
         let clusters: Vec<Cluster<'_>> = clusters
             .par_iter()
