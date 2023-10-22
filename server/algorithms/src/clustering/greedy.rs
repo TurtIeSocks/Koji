@@ -234,28 +234,33 @@ impl<'a> Greedy {
         let mut blocked_points = HashSet::<&Point>::new();
 
         let mut highest = 100;
-        while highest > self.min_points && new_clusters.len() < self.max_clusters {
+        'greedy: while highest > self.min_points && new_clusters.len() < self.max_clusters {
             let local_clusters = clusters_with_data
                 .par_iter()
                 .filter_map(|cluster| {
                     if new_clusters.contains(cluster) {
                         None
                     } else {
-                        Some(Cluster {
-                            point: cluster.point,
-                            points: cluster
-                                .all
-                                .iter()
-                                .filter_map(|p| {
-                                    if blocked_points.contains(p) {
-                                        None
-                                    } else {
-                                        Some(*p)
-                                    }
-                                })
-                                .collect(),
-                            all: cluster.all.iter().map(|p| *p).collect(),
-                        })
+                        let points: HashSet<&Point> = cluster
+                            .all
+                            .iter()
+                            .filter_map(|p| {
+                                if blocked_points.contains(p) {
+                                    None
+                                } else {
+                                    Some(*p)
+                                }
+                            })
+                            .collect();
+                        if points.len() < self.min_points {
+                            None
+                        } else {
+                            Some(Cluster {
+                                point: cluster.point,
+                                points,
+                                all: cluster.all.iter().map(|p| *p).collect(),
+                            })
+                        }
                     }
                 })
                 .collect::<Vec<Cluster>>();
@@ -263,7 +268,7 @@ impl<'a> Greedy {
             let mut best = 0;
             'cluster: for cluster in local_clusters.into_iter() {
                 if new_clusters.len() >= self.max_clusters {
-                    break;
+                    break 'greedy;
                 }
                 let length = cluster.points.len() + 1;
                 if length > best {
