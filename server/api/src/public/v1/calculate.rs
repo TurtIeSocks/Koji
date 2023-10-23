@@ -18,7 +18,7 @@ use model::{
         args::{Args, ArgsUnwrapped, CalculationMode, SortBy},
         FeatureHelpers, GeoFormats, Precision, ToCollection, ToFeature, ToSingleVec,
     },
-    db::{area, geofence, instance, route, sea_orm_active_enums::Type, GenericData},
+    db::{area, geofence, instance, route, sea_orm_active_enums::Type},
     KojiDb,
 };
 use serde_json::json;
@@ -222,15 +222,12 @@ async fn cluster(
 
     let data_points = if !data_points.is_empty() {
         data_points
-            .iter()
-            .map(|p| GenericData::new("".to_string(), p[0], p[1]))
-            .collect()
     } else {
         utils::points_from_area(&area, &category, &conn, last_seen, tth)
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?
-    }
-    .to_single_vec();
+            .to_single_vec()
+    };
 
     log::debug!(
         "[{}] Found Data Points: {}",
