@@ -37,7 +37,7 @@ export default function Settings() {
   }, [])
 
   return (
-    <List>
+    <List dense sx={{ height: '90vh' }}>
       <ListSubheader disableGutters>Settings</ListSubheader>
       <Toggle field="loadingScreen" />
       <Toggle field="simplifyPolygons" />

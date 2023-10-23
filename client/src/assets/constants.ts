@@ -184,7 +184,7 @@ export const VECTOR_COLORS = {
   PURPLE: deepPurple[500],
 } as const
 
-export const MODES = ['cluster', 'route', 'bootstrap'] as const
+export const MODES = ['cluster', 'bootstrap'] as const
 
 export const CATEGORIES = ['pokestop', 'gym', 'fort', 'spawnpoint'] as const
 

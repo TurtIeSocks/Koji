@@ -90,7 +90,7 @@ export const usePersist = create(
       location: [0, 0],
       zoom: 18,
       category: 'pokestop',
-      cluster_mode: 'Fast',
+      cluster_mode: 'Balanced',
       lineColorRules: [
         { distance: 500, color: '#197E13' },
         { distance: 1000, color: '#FFFF0C' },
@@ -107,7 +107,7 @@ export const usePersist = create(
       kbShortcuts: {},
       mode: 'cluster',
       data: 'bound',
-      sort_by: 'GeoHash',
+      sort_by: 'TSP',
       s2cells: [],
       s2DisplayMode: 'none',
       s2FillMode: 'simple',
