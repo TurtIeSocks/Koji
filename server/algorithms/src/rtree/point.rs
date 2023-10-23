@@ -1,4 +1,7 @@
-use std::hash::{Hash, Hasher};
+use std::{
+    fmt::Display,
+    hash::{Hash, Hasher},
+};
 
 use geo::Coord;
 use geohash::encode;
@@ -116,6 +119,19 @@ impl ToPoint for CellID {
             radius,
             self.level(),
             [center.latitude().deg(), center.longitude().deg()],
+        )
+    }
+}
+
+impl Display for Point {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{:.6}, {:.6} | {} | {}",
+            self.center[0],
+            self.center[1],
+            self.cell_id.0,
+            self._get_geohash(),
         )
     }
 }

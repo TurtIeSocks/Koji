@@ -1,4 +1,7 @@
-use std::hash::{Hash, Hasher};
+use std::{
+    fmt::Display,
+    hash::{Hash, Hasher},
+};
 
 use hashbrown::HashSet;
 
@@ -36,5 +39,29 @@ impl Eq for Cluster<'_> {}
 impl Hash for Cluster<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.point.cell_id.hash(state);
+    }
+}
+
+impl Display for Cluster<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut display = format!("\n\n{}\nAll: {} (", self.point, self.all.len());
+        for (i, point) in self.all.iter().enumerate() {
+            display.push_str(&format!(
+                "{}{}",
+                point._get_geohash(),
+                if i == self.all.len() - 1 { "" } else { ", " }
+            ));
+        }
+        display.push_str(&format!(")\nPoints: {} (", self.points.len()));
+        for (i, point) in self.points.iter().enumerate() {
+            display.push_str(&format!(
+                "{}{}",
+                point._get_geohash(),
+                if i == self.all.len() - 1 { "" } else { ", " }
+            ));
+        }
+        display.push_str(")\n");
+
+        write!(f, "{}", display)
     }
 }
