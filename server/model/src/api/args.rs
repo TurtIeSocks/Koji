@@ -162,7 +162,24 @@ pub enum SortBy {
     GeoHash,
     ClusterCount,
     Random,
+    S2Cell,
+    TSP,
 }
+
+impl PartialEq for SortBy {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (SortBy::GeoHash, SortBy::GeoHash) => true,
+            (SortBy::ClusterCount, SortBy::ClusterCount) => true,
+            (SortBy::Random, SortBy::Random) => true,
+            (SortBy::S2Cell, SortBy::S2Cell) => true,
+            (SortBy::TSP, SortBy::TSP) => true,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for SortBy {}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum SpawnpointTth {

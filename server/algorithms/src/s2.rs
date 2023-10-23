@@ -5,10 +5,7 @@ use std::{
 
 use geo::{HaversineDestination, Intersects, MultiPolygon, Polygon, RemoveRepeatedPoints};
 use geojson::{Feature, Geometry, Value};
-use model::{
-    api::{point_array::PointArray, single_vec::SingleVec},
-    db::GenericData,
-};
+use model::api::{point_array::PointArray, single_vec::SingleVec};
 use s2::{
     cell::Cell, cellid::CellID, cellunion::CellUnion, latlng::LatLng, rect::Rect,
     region::RegionCoverer,
@@ -16,8 +13,6 @@ use s2::{
 use serde::Serialize;
 
 use crate::stats::Stats;
-
-// use crate::utils::debug_string;
 
 type Covered = Arc<Mutex<HashSet<String>>>;
 
@@ -507,7 +502,7 @@ pub fn cell_coverage(lat: f64, lon: f64, size: u8, level: u8) -> Covered {
 
 pub fn cluster(
     feature: Feature,
-    data: &Vec<GenericData>,
+    data: &SingleVec,
     level: u8,
     size: u8,
     stats: &mut Stats,
@@ -516,7 +511,7 @@ pub fn cluster(
     let valid_cells = data
         .iter()
         .map(|f| {
-            CellID::from(s2::latlng::LatLng::from_degrees(f.p[0], f.p[1]))
+            CellID::from(s2::latlng::LatLng::from_degrees(f[0], f[1]))
                 .parent(level as u64)
                 .0
         })

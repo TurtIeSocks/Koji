@@ -33,6 +33,8 @@ export default function RoutingTab() {
   const category = usePersist((s) => s.category)
   const cluster_mode = usePersist((s) => s.cluster_mode)
   const calculation_mode = usePersist((s) => s.calculation_mode)
+  const sort_by = usePersist((s) => s.sort_by)
+
   const scannerType = useStatic((s) => s.scannerType)
   const updateButton = useStatic((s) => s.updateButton)
   const isEditing = useStatic((s) =>
@@ -101,7 +103,10 @@ export default function RoutingTab() {
           <NumInput field="max_clusters" min={0} />
         </Collapse>
       </Collapse>
-      <Collapse in={mode === 'cluster' && !fastest}>
+
+      <Divider sx={{ my: 2 }} />
+      <ListSubheader>Routing</ListSubheader>
+      <Collapse in={mode === 'cluster'}>
         <MultiOptionList
           field="sort_by"
           buttons={SORT_BY}
@@ -109,16 +114,8 @@ export default function RoutingTab() {
           type="select"
         />
       </Collapse>
-
-      <Collapse in={mode === 'route'}>
-        <Divider sx={{ my: 2 }} />
-        <ListSubheader>Routing</ListSubheader>
-        <NumInput
-          field="route_split_level"
-          disabled={mode !== 'route'}
-          min={1}
-          max={12}
-        />
+      <Collapse in={sort_by === 'TSP'}>
+        <NumInput field="route_split_level" min={1} max={12} />
       </Collapse>
 
       <Divider sx={{ my: 2 }} />

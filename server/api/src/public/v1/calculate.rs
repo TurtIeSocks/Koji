@@ -4,13 +4,18 @@ use super::*;
 
 use std::{collections::VecDeque, time::Instant};
 
-use algorithms::{bootstrapping, clustering, routing::tsp, s2, stats::Stats};
+use algorithms::{
+    bootstrapping, clustering,
+    routing::{basic, tsp},
+    s2,
+    stats::Stats,
+};
 use geo::{ChamberlainDuquetteArea, MultiPolygon, Polygon};
 
 use geojson::Value;
 use model::{
     api::{
-        args::{Args, ArgsUnwrapped, CalculationMode},
+        args::{Args, ArgsUnwrapped, CalculationMode, SortBy},
         point_array::PointArray,
         FeatureHelpers, GeoFormats, Precision, ToCollection, ToFeature, ToSingleVec,
     },
@@ -220,7 +225,9 @@ async fn cluster(
         utils::points_from_area(&area, &category, &conn, last_seen, tth)
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?
-    };
+    }
+    .to_single_vec();
+
     log::debug!(
         "[{}] Found Data Points: {}",
         mode.to_uppercase(),
@@ -229,12 +236,11 @@ async fn cluster(
 
     let mut clusters = match calculation_mode {
         CalculationMode::Radius => clustering::main(
-            data_points,
+            &data_points,
             cluster_mode,
             radius,
             min_points,
             &mut stats,
-            sort_by,
             cluster_split_level,
             max_clusters,
         ),
@@ -244,11 +250,10 @@ async fn cluster(
             .collect(),
     };
 
-    if mode.eq("route") && !clusters.is_empty() {
+    let route_time = Instant::now();
+    clusters = if (mode.eq("route") || sort_by == SortBy::TSP) && !clusters.is_empty() {
         log::info!("Cluster Length: {}", clusters.len());
-        let route_time = Instant::now();
         let tour = tsp::multi(&clusters, route_split_level);
-        stats.set_route_time(route_time);
 
         log::info!("Tour Length {}", tour.len());
         let mut final_clusters = VecDeque::<PointArray>::new();
@@ -267,8 +272,11 @@ async fn cluster(
         }
         final_clusters.rotate_left(rotate_count);
 
-        clusters = final_clusters.into();
-    }
+        final_clusters.into()
+    } else {
+        basic::sort(&data_points, clusters, radius, sort_by)
+    };
+    stats.set_route_time(route_time);
     stats.distance_stats(&clusters);
 
     let mut feature = clusters

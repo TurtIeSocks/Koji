@@ -3,10 +3,9 @@ use std::time::Instant;
 use geo::{HaversineDistance, Point};
 use hashbrown::HashSet;
 use model::api::{single_vec::SingleVec, Precision};
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use serde::{ser::SerializeStruct, Serialize};
 
-use crate::rtree::{self, cluster::Cluster, point};
+use crate::rtree::{self, cluster::Cluster, cluster_info, point};
 
 const WIDTH: &str = "=======================================================================";
 
@@ -186,13 +185,7 @@ impl Stats {
             .into_iter()
             .map(|c| point::Point::new(radius, 20, *c))
             .collect();
-        let clusters: Vec<Cluster<'_>> = clusters
-            .par_iter()
-            .map(|cluster| {
-                let points = tree.locate_all_at_point(&cluster.center).into_iter();
-                Cluster::new(cluster, points, vec![].into_iter())
-            })
-            .collect::<Vec<_>>();
+        let clusters: Vec<Cluster<'_>> = cluster_info(&tree, &clusters);
         let mut points_covered: HashSet<&&point::Point> = HashSet::new();
         let mut best_clusters = SingleVec::new();
         let mut best = 0;
