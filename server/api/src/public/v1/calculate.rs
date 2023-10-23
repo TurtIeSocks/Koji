@@ -2,11 +2,11 @@ use crate::utils::{request, response::Response};
 
 use super::*;
 
-use std::{collections::VecDeque, time::Instant};
+use std::time::Instant;
 
 use algorithms::{
     bootstrapping, clustering,
-    routing::{basic, tsp},
+    routing::{self, tsp},
     s2,
     stats::Stats,
 };
@@ -16,7 +16,6 @@ use geojson::Value;
 use model::{
     api::{
         args::{Args, ArgsUnwrapped, CalculationMode, SortBy},
-        point_array::PointArray,
         FeatureHelpers, GeoFormats, Precision, ToCollection, ToFeature, ToSingleVec,
     },
     db::{area, geofence, instance, route, sea_orm_active_enums::Type, GenericData},
@@ -187,6 +186,11 @@ async fn cluster(
             HttpResponse::BadRequest().json(Response::send_error("no_area_instance_data_points"))
         );
     }
+    let sort_by = if mode.eq("route") {
+        SortBy::TSP
+    } else {
+        sort_by
+    };
 
     let mut stats = Stats::new(format!("{:?} | {:?}", cluster_mode, calculation_mode));
     let enum_type = if category == "gym" || category == "fort" {
@@ -234,7 +238,7 @@ async fn cluster(
         data_points.len()
     );
 
-    let mut clusters = match calculation_mode {
+    let clusters = match calculation_mode {
         CalculationMode::Radius => clustering::main(
             &data_points,
             cluster_mode,
@@ -249,35 +253,14 @@ async fn cluster(
             .flat_map(|feature| s2::cluster(feature, &data_points, s2_level, s2_size, &mut stats))
             .collect(),
     };
-
-    let route_time = Instant::now();
-    clusters = if (mode.eq("route") || sort_by == SortBy::TSP) && !clusters.is_empty() {
-        log::info!("Cluster Length: {}", clusters.len());
-        let tour = tsp::multi(&clusters, route_split_level);
-
-        log::info!("Tour Length {}", tour.len());
-        let mut final_clusters = VecDeque::<PointArray>::new();
-
-        let mut rotate_count: usize = 0;
-
-        for (i, [lat, lon]) in tour.into_iter().enumerate() {
-            if stats.best_clusters.len() > 0
-                && lat == stats.best_clusters[0][0]
-                && lon == stats.best_clusters[0][1]
-            {
-                rotate_count = i;
-                log::debug!("Found Best! {}, {} - {}", lat, lon, i);
-            }
-            final_clusters.push_back([lat, lon]);
-        }
-        final_clusters.rotate_left(rotate_count);
-
-        final_clusters.into()
-    } else {
-        basic::sort(&data_points, clusters, radius, sort_by)
-    };
-    stats.set_route_time(route_time);
-    stats.distance_stats(&clusters);
+    let clusters = routing::main(
+        &data_points,
+        clusters,
+        sort_by,
+        route_split_level,
+        radius,
+        &mut stats,
+    );
 
     let mut feature = clusters
         .to_feature(Some(enum_type.clone()))

@@ -107,7 +107,7 @@ export const usePersist = create(
       kbShortcuts: {},
       mode: 'cluster',
       data: 'bound',
-      sort_by: 'TSP',
+      sort_by: 'None',
       s2cells: [],
       s2DisplayMode: 'none',
       s2FillMode: 'simple',

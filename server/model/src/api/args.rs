@@ -159,6 +159,7 @@ pub enum ReturnTypeArg {
 
 #[derive(Debug, Deserialize, Clone)]
 pub enum SortBy {
+    None,
     GeoHash,
     ClusterCount,
     Random,
@@ -169,6 +170,7 @@ pub enum SortBy {
 impl PartialEq for SortBy {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
+            (SortBy::None, SortBy::None) => true,
             (SortBy::GeoHash, SortBy::GeoHash) => true,
             (SortBy::ClusterCount, SortBy::ClusterCount) => true,
             (SortBy::Random, SortBy::Random) => true,

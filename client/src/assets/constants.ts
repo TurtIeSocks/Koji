@@ -201,6 +201,7 @@ export const CLUSTERING_MODES = [
 ] as const
 
 export const SORT_BY = [
+  'None',
   'GeoHash',
   'S2Cell',
   'TSP',
