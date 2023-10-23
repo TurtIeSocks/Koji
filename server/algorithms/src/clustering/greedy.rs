@@ -1,3 +1,4 @@
+use colored::Colorize;
 use hashbrown::HashSet;
 use model::api::{cluster_mode::ClusterMode, single_vec::SingleVec, GetBbox, Precision};
 
@@ -20,7 +21,6 @@ pub struct Greedy {
     max_clusters: usize,
     min_points: usize,
     radius: f64,
-    time: Instant,
 }
 
 impl Default for Greedy {
@@ -31,7 +31,6 @@ impl Default for Greedy {
             max_clusters: usize::MAX,
             min_points: 1,
             radius: 70.,
-            time: Instant::now(),
         }
     }
 }
@@ -59,10 +58,8 @@ impl<'a> Greedy {
     }
 
     pub fn run(&'a self, points: &SingleVec) -> SingleVec {
-        log::info!(
-            "[GREEDY] starting algorithm with {} data points",
-            points.len()
-        );
+        let time = Instant::now();
+        log::info!("starting algorithm with {} data points", points.len());
 
         let return_set = if self.cluster_split_level == 1 {
             self.setup(points)
@@ -73,25 +70,25 @@ impl<'a> Greedy {
             std::thread::scope(|s| {
                 let mut handlers = vec![];
                 for (key, values) in cell_maps.iter() {
-                    log::debug!("[GREEDY] Cell: {} | Points: {}", key, values.len());
+                    log::debug!("Cell: {} | Points: {}", key, values.len());
                     let thread = s.spawn(move || self.setup(values));
                     handlers.push(thread);
                 }
                 let handlers: Vec<std::thread::ScopedJoinHandle<'_, HashSet<Point>>> = cell_maps
                     .iter()
                     .map(|(key, values)| {
-                        log::debug!("[GREEDY] Cell: {} | Points: {}", key, values.len());
+                        log::debug!("Cell: {} | Points: {}", key, values.len());
                         s.spawn(move || self.setup(values))
                     })
                     .collect();
-                log::info!("[GREEDY] created {} threads", handlers.len());
+                log::info!("created {} threads", handlers.len());
                 for thread in handlers {
                     match thread.join() {
                         Ok(results) => {
                             return_set.extend(results);
                         }
                         Err(e) => {
-                            log::error!("[GREEDY] error joining thread: {:?}", e)
+                            log::error!("error joining thread: {:?}", e)
                         }
                     }
                 }
@@ -100,7 +97,7 @@ impl<'a> Greedy {
             return_set
         };
 
-        log::info!("[GREEDY] {}s | finished", self.time.elapsed().as_secs_f32());
+        log::info!("finished in {:.2}s", time.elapsed().as_secs_f32());
         return_set.into_iter().map(|p| p.center).collect()
     }
 
@@ -162,30 +159,28 @@ impl<'a> Greedy {
     }
 
     fn setup(&'a self, points: &SingleVec) -> HashSet<Point> {
+        let time = Instant::now();
         let point_tree: RTree<Point> = rtree::spawn(self.radius, points);
-        log::info!(
-            "[GREEDY] {}s | created point tree",
-            self.time.elapsed().as_secs_f32()
-        );
+        log::info!("created point tree in {:.2}s", time.elapsed().as_secs_f32());
 
+        let time = Instant::now();
         let clusters: Vec<Point> = match self.cluster_mode {
             ClusterMode::Better | ClusterMode::Best => self.get_s2_clusters(points),
             ClusterMode::Fast => self.gen_estimated_clusters(&point_tree),
             _ => {
+                let time = Instant::now();
                 let neighbor_tree: RTree<Point> = rtree::spawn(self.radius * 2., points);
-                log::info!(
-                    "[GREEDY] {}s | created neighbor tree",
-                    self.time.elapsed().as_secs_f32()
-                );
+                log::info!("created neighbor tree {:.2}s", time.elapsed().as_secs_f32());
                 self.gen_estimated_clusters(&neighbor_tree)
             }
         };
         log::info!(
-            "[GREEDY] {}s | created possible clusters: {}",
-            self.time.elapsed().as_secs_f32(),
-            clusters.len()
+            "created possible {} clusters in {:.2}s",
+            clusters.len(),
+            time.elapsed().as_secs_f32(),
         );
 
+        let time = Instant::now();
         let mut clusters_with_data: Vec<Cluster> = clusters
             .par_iter()
             .filter_map(|cluster| {
@@ -208,15 +203,16 @@ impl<'a> Greedy {
             })
             .collect();
         log::info!(
-            "[GREEDY] {}s | associated points with {} clusters",
-            self.time.elapsed().as_secs_f32(),
-            clusters_with_data.len()
+            "associated points with {} clusters in {:.2}s",
+            clusters_with_data.len(),
+            time.elapsed().as_secs_f32(),
         );
 
+        let time = Instant::now();
         clusters_with_data.par_sort_by(|a, b| b.all.len().cmp(&a.all.len()));
         log::info!(
-            "[GREEDY] {}s | sorted clusters by points covered",
-            self.time.elapsed().as_secs_f32(),
+            "sorted clusters by points covered in {:.2}s",
+            time.elapsed().as_secs_f32(),
         );
 
         let solution = self.cluster(clusters_with_data);
@@ -226,10 +222,9 @@ impl<'a> Greedy {
     }
 
     fn cluster(&'a self, clusters_with_data: Vec<Cluster<'a>>) -> HashSet<Cluster<'a>> {
-        log::info!(
-            "[GREEDY] {}s | starting initial solution",
-            self.time.elapsed().as_secs_f32()
-        );
+        let time = Instant::now();
+        log::info!("starting initial solution",);
+
         let mut new_clusters = HashSet::<Cluster>::new();
         let mut blocked_points = HashSet::<&Point>::new();
 
@@ -310,9 +305,13 @@ impl<'a> Greedy {
                 stdout
                     .write(
                         format!(
-                            "\r[GREEDY] {:.4}s | Progress: {:.2}%",
-                            self.time.elapsed().as_secs_f32(),
+                            "\r{}{}Z {}  algorithms::clustering::greedy{} Progress: {:.2}% | Clusters: {}",
+                            "[".black(),
+                            chrono::Local::now().format("%Y-%m-%dT%H:%M:%S"),
+                            "INFO".green(),
+                            "]".black(),
                             (current_iteration as f32 / total_iterations as f32) * 100.
+                            , new_clusters.len()
                         )
                         .as_bytes(),
                     )
@@ -324,18 +323,16 @@ impl<'a> Greedy {
         }
 
         log::info!(
-            "[GREEDY] {}s | finished initial solution",
-            self.time.elapsed().as_secs_f32()
+            "finished initial solution in {:.2}s",
+            time.elapsed().as_secs_f32()
         );
-        log::info!("[GREEDY] Initial solution size: {}", new_clusters.len());
+        log::info!("Initial solution size: {}", new_clusters.len());
         new_clusters
     }
 
     fn dedupe(&self, initial_solution: HashSet<Cluster>) -> HashSet<Point> {
-        log::info!(
-            "[GREEDY] {}s | starting deduping",
-            self.time.elapsed().as_secs_f32()
-        );
+        let time = Instant::now();
+        log::info!("starting deduping");
 
         // let mut point_map: HashMap<String, HashSet<String>> = HashMap::new();
         // let mut cluster_map: HashMap<String, HashSet<String>> = HashMap::new();
@@ -405,11 +402,8 @@ impl<'a> Greedy {
             // log::info!("Extra clusters: {}", count);
         }
 
-        log::info!(
-            "[GREEDY] {}s | finished deduping",
-            self.time.elapsed().as_secs_f32()
-        );
-        log::info!("[GREEDY] Deduped solution size: {}", solution.len());
+        log::info!("finished deduping in {:.2}s", time.elapsed().as_secs_f32());
+        log::info!("Deduped solution size: {}", solution.len());
         solution
     }
 }
