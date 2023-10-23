@@ -1,4 +1,3 @@
-use colored::Colorize;
 use hashbrown::HashSet;
 use model::api::{cluster_mode::ClusterMode, single_vec::SingleVec, GetBbox, Precision};
 
@@ -13,6 +12,7 @@ use crate::{
     clustering::rtree::{cluster::Cluster, point::Point},
     rtree::{self, point::ToPoint},
     s2,
+    utils::info_log,
 };
 
 pub struct Greedy {
@@ -304,14 +304,13 @@ impl<'a> Greedy {
             if highest >= self.min_points {
                 stdout
                     .write(
-                        format!(
-                            "\r{}{}Z {}  algorithms::clustering::greedy{} Progress: {:.2}% | Clusters: {}",
-                            "[".black(),
-                            chrono::Local::now().format("%Y-%m-%dT%H:%M:%S"),
-                            "INFO".green(),
-                            "]".black(),
-                            (current_iteration as f32 / total_iterations as f32) * 100.
-                            , new_clusters.len()
+                        info_log(
+                            "algorithms::clustering::greedy",
+                            format!(
+                                "Progress: {:.2}% | Clusters: {}",
+                                (current_iteration as f32 / total_iterations as f32) * 100.,
+                                new_clusters.len()
+                            ),
                         )
                         .as_bytes(),
                     )

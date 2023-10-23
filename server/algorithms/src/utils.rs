@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use std::fs::{create_dir_all, File};
 use std::io::{Result, Write};
 
+use colored::Colorize;
 use model::api::{point_array::PointArray, single_vec::SingleVec};
 
 pub fn debug_hashmap<T, U>(file_name: &str, input: &T) -> Result<()>
@@ -66,4 +67,16 @@ pub fn centroid(coords: &SingleVec) -> PointArray {
     let lat = z.atan2(hyp);
 
     [lat.to_degrees(), lon.to_degrees()]
+}
+
+pub fn info_log(file_name: &str, message: String) -> String {
+    format!(
+        "\r{}{}Z {}  {}{} {}",
+        "[".black(),
+        chrono::Local::now().format("%Y-%m-%dT%H:%M:%S"),
+        "INFO".green(),
+        file_name,
+        "]".black(),
+        message
+    )
 }
