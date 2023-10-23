@@ -23,7 +23,7 @@ pub fn main(
     let time = Instant::now();
     let clusters = match cluster_mode {
         ClusterMode::Fastest => {
-            let clusters = fastest::cluster(&data_points, radius, min_points);
+            let clusters = fastest::main(&data_points, radius, min_points);
             clusters
         }
         _ => {
