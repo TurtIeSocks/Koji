@@ -329,76 +329,55 @@ impl<'a> Greedy {
         new_clusters
     }
 
-    fn dedupe(&self, initial_solution: HashSet<Cluster>) -> HashSet<Point> {
+    fn dedupe(&self, initial: HashSet<Cluster>) -> HashSet<Point> {
         let time = Instant::now();
         log::info!("starting deduping");
 
-        // let mut point_map: HashMap<String, HashSet<String>> = HashMap::new();
-        // let mut cluster_map: HashMap<String, HashSet<String>> = HashMap::new();
-
-        // for cluster in initial_solution.iter() {
-        //     cluster_map.insert(
-        //         cluster.point._get_geohash(),
-        //         cluster.points.iter().map(|p| p._get_geohash()).collect(),
-        //     );
-        //     for point in cluster.points.iter() {
-        //         point_map
-        //             .entry(point._get_geohash())
-        //             .and_modify(|f| {
-        //                 f.insert(cluster.point._get_geohash());
-        //             })
-        //             .or_insert_with(|| {
-        //                 let mut set: HashSet<String> = HashSet::new();
-        //                 set.insert(cluster.point._get_geohash());
-        //                 set
-        //             });
-        //     }
-        // }
-
-        // debug_hashmap("point_map.txt", &point_map).unwrap();
-        // debug_hashmap("cluster_map.txt", &cluster_map).unwrap();
+        // _debug_clusters(&initial, "dedupe");
 
         let mut seen_points: HashSet<&Point> = HashSet::new();
-        let mut solution: HashSet<Point> = initial_solution
+        let mut solution: HashSet<Point> = initial
             .iter()
             .filter_map(|cluster| {
                 let unique_points = cluster
-                    .points
+                    .all
                     .iter()
                     .collect::<Vec<&&Point>>()
                     .par_iter()
                     .filter(|p| {
-                        initial_solution
+                        initial
                             .iter()
                             .find(|c| c.point != cluster.point && c.all.contains(**p))
                             .is_none()
                     })
                     .count();
 
-                if unique_points == 0 {
+                if unique_points == 0 || unique_points < self.min_points {
                     None
                 } else {
-                    seen_points.extend(cluster.points.iter());
+                    seen_points.extend(cluster.all.iter());
                     Some(*cluster.point)
                 }
             })
             .collect();
 
         if self.min_points == 1 {
+            // log::warn!("Extra needed, current size: {}", solution.len());
+
             // let mut count = 0;
-            for cluster in initial_solution {
+            for cluster in initial {
                 let valid = cluster
-                    .points
+                    .all
                     .iter()
                     .find(|p| !seen_points.contains(*p))
                     .is_some();
                 if valid {
                     solution.insert(*cluster.point);
-                    seen_points.extend(cluster.points.iter());
+                    seen_points.extend(cluster.all.iter());
                     // count += 1;
                 }
             }
-            // log::info!("Extra clusters: {}", count);
+            // log::warn!("Extra clusters: {}", count);
         }
 
         log::info!("finished deduping in {:.2}s", time.elapsed().as_secs_f32());
