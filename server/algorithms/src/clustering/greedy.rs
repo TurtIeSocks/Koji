@@ -6,7 +6,7 @@ use rayon::{
     slice::ParallelSliceMut,
 };
 use rstar::RTree;
-use std::time::Instant;
+use std::{io::Write, time::Instant};
 
 use crate::{
     clustering::rtree::{cluster::Cluster, point::Point},
@@ -234,6 +234,10 @@ impl<'a> Greedy {
         let mut blocked_points = HashSet::<&Point>::new();
 
         let mut highest = 100;
+        let mut total_iterations = 0;
+        let mut current_iteration = 0;
+        let mut stdout = std::io::stdout();
+
         'greedy: while highest > self.min_points && new_clusters.len() < self.max_clusters {
             let local_clusters = clusters_with_data
                 .par_iter()
@@ -296,7 +300,27 @@ impl<'a> Greedy {
                     // }
                 }
             }
+            if best + 1 < highest && best > 0 {
+                total_iterations = best * 2 - (self.min_points * 2) + current_iteration;
+            }
+            current_iteration += 1;
             highest = best;
+
+            if highest >= self.min_points {
+                stdout
+                    .write(
+                        format!(
+                            "\r[GREEDY] {:.4}s | Progress: {:.2}%",
+                            self.time.elapsed().as_secs_f32(),
+                            (current_iteration as f32 / total_iterations as f32) * 100.
+                        )
+                        .as_bytes(),
+                    )
+                    .unwrap();
+                stdout.flush().unwrap();
+            } else {
+                stdout.write(format!("\n",).as_bytes()).unwrap();
+            }
         }
 
         log::info!(
