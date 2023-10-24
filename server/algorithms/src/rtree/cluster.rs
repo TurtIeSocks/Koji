@@ -9,13 +9,13 @@ use super::point::Point;
 
 #[derive(Debug, Clone)]
 pub struct Cluster<'a> {
-    pub point: &'a Point,
+    pub point: Point,
     pub points: HashSet<&'a Point>,
     pub all: HashSet<&'a Point>,
 }
 
 impl<'a> Cluster<'a> {
-    pub fn new<T, U>(point: &'a Point, all: T, points: U) -> Cluster<'a>
+    pub fn new<T, U>(point: Point, all: T, points: U) -> Cluster<'a>
     where
         T: Iterator<Item = &'a Point>,
         U: Iterator<Item = &'a Point>,

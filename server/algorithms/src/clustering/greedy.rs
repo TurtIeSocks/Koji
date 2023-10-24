@@ -158,11 +158,11 @@ impl<'a> Greedy {
             .collect()
     }
 
-    fn setup(&'a self, points: &SingleVec) -> HashSet<Point> {
-        let time = Instant::now();
-        let point_tree: RTree<Point> = rtree::spawn(self.radius, points);
-        log::info!("created point tree in {:.2}s", time.elapsed().as_secs_f32());
-
+    fn associate_clusters(
+        &'a self,
+        points: &'a SingleVec,
+        point_tree: &'a RTree<Point>,
+    ) -> Vec<Cluster> {
         let time = Instant::now();
         let clusters: Vec<Point> = match self.cluster_mode {
             ClusterMode::Better | ClusterMode::Best => self.get_s2_clusters(points),
@@ -184,24 +184,25 @@ impl<'a> Greedy {
         let mut clusters_with_data: Vec<Cluster> = clusters
             .par_iter()
             .filter_map(|cluster| {
-                let mut points: Vec<&Point> = point_tree
+                let mut points: Vec<&'a Point> = point_tree
                     .locate_all_at_point(&cluster.center)
                     .collect::<Vec<&Point>>();
-                if point_tree.contains(cluster) && points.is_empty() {
-                    points.push(cluster)
+                if let Some(point) = point_tree.locate_at_point(&cluster.center) {
+                    points.push(point);
                 }
                 if points.is_empty() {
                     log::debug!("Empty");
                     None
                 } else {
                     Some(Cluster::new(
-                        cluster,
+                        *cluster,
                         points.into_iter(),
                         vec![].into_iter(),
                     ))
                 }
             })
             .collect();
+
         log::info!(
             "associated points with {} clusters in {:.2}s",
             clusters_with_data.len(),
@@ -214,6 +215,16 @@ impl<'a> Greedy {
             "sorted clusters by points covered in {:.2}s",
             time.elapsed().as_secs_f32(),
         );
+
+        clusters_with_data
+    }
+
+    fn setup(&'a self, points: &SingleVec) -> HashSet<Point> {
+        let time = Instant::now();
+        let point_tree: RTree<Point> = rtree::spawn(self.radius, points);
+        log::info!("created point tree in {:.2}s", time.elapsed().as_secs_f32());
+
+        let clusters_with_data = self.associate_clusters(points, &point_tree);
 
         let solution = self.cluster(clusters_with_data);
 
@@ -356,7 +367,7 @@ impl<'a> Greedy {
                     None
                 } else {
                     seen_points.extend(cluster.all.iter());
-                    Some(*cluster.point)
+                    Some(cluster.point)
                 }
             })
             .collect();
@@ -372,7 +383,7 @@ impl<'a> Greedy {
                     .find(|p| !seen_points.contains(*p))
                     .is_some();
                 if valid {
-                    solution.insert(*cluster.point);
+                    solution.insert(cluster.point);
                     seen_points.extend(cluster.all.iter());
                     // count += 1;
                 }

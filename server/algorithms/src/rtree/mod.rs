@@ -23,7 +23,7 @@ pub fn cluster_info<'a>(
         .par_iter()
         .map(|cluster| {
             let points = point_tree.locate_all_at_point(&cluster.center).into_iter();
-            cluster::Cluster::new(cluster, points, vec![].into_iter())
+            cluster::Cluster::new(*cluster, points, vec![].into_iter())
         })
         .collect::<Vec<_>>()
 }

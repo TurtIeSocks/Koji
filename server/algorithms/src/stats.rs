@@ -186,7 +186,7 @@ impl Stats {
             .map(|c| point::Point::new(radius, 20, *c))
             .collect();
         let clusters: Vec<Cluster<'_>> = cluster_info(&tree, &clusters);
-        let mut points_covered: HashSet<&&point::Point> = HashSet::new();
+        let mut points_covered: HashSet<&point::Point> = HashSet::new();
         let mut best_clusters = SingleVec::new();
         let mut best = 0;
 
@@ -198,8 +198,8 @@ impl Stats {
             } else if cluster.all.len() == best {
                 best_clusters.push(cluster.point.center);
             }
-            if tree.contains(cluster.point) {
-                points_covered.insert(&cluster.point);
+            if let Some(point) = tree.locate_at_point(&cluster.point.center) {
+                points_covered.insert(point);
             }
             points_covered.extend(&cluster.all);
         }
