@@ -87,11 +87,16 @@ pub fn info_log(file_name: &str, message: String) -> String {
 pub fn _debug_clusters(clusters: &HashSet<Cluster>, file_suffix: &str) {
     let mut point_map: HashMap<String, HashSet<String>> = HashMap::new();
     let mut cluster_map: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut unique_map: HashMap<String, HashSet<String>> = HashMap::new();
 
     for cluster in clusters.iter() {
         cluster_map.insert(
             cluster.point._get_geohash(),
             cluster.all.iter().map(|p| p._get_geohash()).collect(),
+        );
+        unique_map.insert(
+            cluster.point._get_geohash(),
+            cluster.points.iter().map(|p| p._get_geohash()).collect(),
         );
         for point in cluster.all.iter() {
             point_map
@@ -107,6 +112,7 @@ pub fn _debug_clusters(clusters: &HashSet<Cluster>, file_suffix: &str) {
         }
     }
 
-    debug_hashmap(&format!("point_map_{}.txt", file_suffix), &point_map).unwrap();
-    debug_hashmap(&format!("cluster_map_{}.txt", file_suffix), &cluster_map).unwrap();
+    debug_hashmap(&format!("{}_point.txt", file_suffix), &point_map).unwrap();
+    debug_hashmap(&format!("{}_cluster.txt", file_suffix), &cluster_map).unwrap();
+    debug_hashmap(&format!("{}_unique.txt", file_suffix), &unique_map).unwrap();
 }

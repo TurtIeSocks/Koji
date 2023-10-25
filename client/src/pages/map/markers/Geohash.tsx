@@ -13,8 +13,8 @@ export function GeohashMarker({ hash }: { hash: string }) {
       <Circle
         center={[x.latitude, x.longitude]}
         radius={radius || 10}
-        fillOpacity={0.8}
-        opacity={0.8}
+        fillOpacity={0.25}
+        opacity={0.25}
         color="black"
         pane="dev_markers"
         pmIgnore

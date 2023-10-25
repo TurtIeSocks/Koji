@@ -10,6 +10,8 @@ use model::api::Precision;
 use rstar::{PointDistance, RTreeObject, AABB};
 use s2::{cell::Cell, cellid::CellID, latlng::LatLng};
 
+use super::cluster::Cluster;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Point {
     pub radius: Precision,
@@ -133,5 +135,11 @@ impl Display for Point {
             self.cell_id.0,
             self._get_geohash(),
         )
+    }
+}
+
+impl<'a> From<Cluster<'a>> for Point {
+    fn from(cluster: Cluster) -> Self {
+        cluster.point
     }
 }
