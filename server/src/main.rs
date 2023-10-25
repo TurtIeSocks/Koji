@@ -1,3 +1,7 @@
+#[cfg(target_env = "gnu")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 fn main() {
     dotenv::from_filename(std::env::var("ENV").unwrap_or(".env".to_string())).ok();
 
