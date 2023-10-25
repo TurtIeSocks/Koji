@@ -400,6 +400,7 @@ impl<'a> Greedy {
     fn update_unique(&'a self, clusters: &mut Vec<Cluster>) {
         let time = Instant::now();
         log::info!("updating unique");
+
         let cluster_tree = rtree::spawn(
             self.radius,
             &clusters.iter().map(|c| c.point.center).collect(),
@@ -411,11 +412,7 @@ impl<'a> Greedy {
                 .collect::<Vec<&&Point>>()
                 .into_par_iter()
                 .filter_map(|p| {
-                    let mut count = cluster_tree.locate_all_at_point(&p.center).count();
-                    if cluster_tree.contains(p) {
-                        count += 1;
-                    };
-                    if count == 1 {
+                    if cluster_tree.locate_all_at_point(&p.center).count() == 1 {
                         Some(*p)
                     } else {
                         None
@@ -425,7 +422,6 @@ impl<'a> Greedy {
                 .into_iter()
                 .collect();
         });
-
         clusters.retain(|cluster| cluster.points.len() >= self.min_points);
 
         log::info!(
