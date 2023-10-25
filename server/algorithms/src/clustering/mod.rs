@@ -20,6 +20,9 @@ pub fn main(
     cluster_split_level: u64,
     max_clusters: usize,
 ) -> SingleVec {
+    if data_points.is_empty() {
+        return vec![];
+    }
     let time = Instant::now();
     let clusters = match cluster_mode {
         ClusterMode::Fastest => {
