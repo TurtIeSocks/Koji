@@ -1,11 +1,12 @@
 use hashbrown::HashSet;
 use model::api::{cluster_mode::ClusterMode, single_vec::SingleVec, GetBbox, Precision};
 
+use ::s2::cellid::CellID;
 use rayon::{
     prelude::{
         IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
     },
-    slice::{ParallelSlice, ParallelSliceMut},
+    slice::ParallelSliceMut,
 };
 use rstar::RTree;
 use std::{io::Write, time::Instant};
@@ -151,33 +152,31 @@ impl<'a> Greedy {
         clusters.into_iter().collect::<Vec<Point>>()
     }
 
+    fn flat_map_cells(&self, cell: CellID) -> Vec<Point> {
+        let point = cell.to_point(self.radius);
+        if cell.level() == 22 {
+            vec![point]
+        } else {
+            // let mut children: Vec<Point> = cell
+            //     .children()
+            //     .into_par_iter()
+            //     .flat_map(|c| self.flat_map_cells(c))
+            //     .collect();
+            // children.push(point);
+            // children
+            cell.children()
+                .into_par_iter()
+                .flat_map(|c| self.flat_map_cells(c))
+                .collect()
+        }
+    }
+
     fn get_s2_clusters(&self, points: &SingleVec) -> Vec<Point> {
         let bbox = points.get_bbox().unwrap();
-        s2::get_region_cells(bbox[1], bbox[3], bbox[0], bbox[2], 22)
+        s2::get_region_cells(bbox[1], bbox[3], bbox[0], bbox[2], 16)
             .0
-            .par_chunks(1_000_000)
-            .flat_map(|cell| {
-                // let point = cell.to_point(self.radius);
-                // let mut children: Vec<Point> = cell
-                //     .children()
-                //     .into_iter()
-                //     .flat_map(|c| {
-                //         let point = c.to_point(self.radius);
-                //         let mut children: Vec<Point> = cell
-                //             .children()
-                //             .into_iter()
-                //             .map(|c| c.to_point(self.radius))
-                //             .collect();
-                //         children.push(point);
-                //         children
-                //     })
-                //     .collect();
-                // children.push(point);
-                // children
-                cell.into_iter()
-                    .map(|c| c.to_point(self.radius))
-                    .collect::<Vec<Point>>()
-            })
+            .into_par_iter()
+            .flat_map(|cell| self.flat_map_cells(cell))
             .collect()
     }
 
@@ -205,7 +204,7 @@ impl<'a> Greedy {
 
         let time = Instant::now();
         let clusters_with_data: Vec<Cluster> = clusters
-            .par_iter()
+            .into_par_iter()
             .filter_map(|cluster| {
                 let mut points: Vec<&'a Point> = point_tree
                     .locate_all_at_point(&cluster.center)
@@ -218,7 +217,7 @@ impl<'a> Greedy {
                     None
                 } else {
                     Some(Cluster::new(
-                        *cluster,
+                        cluster,
                         points.into_iter(),
                         vec![].into_iter(),
                     ))
