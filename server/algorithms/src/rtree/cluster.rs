@@ -3,15 +3,13 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use hashbrown::HashSet;
-
 use super::point::Point;
 
 #[derive(Debug, Clone)]
 pub struct Cluster<'a> {
     pub point: Point,
-    pub points: HashSet<&'a Point>,
-    pub all: HashSet<&'a Point>,
+    pub points: Vec<&'a Point>,
+    pub all: Vec<&'a Point>,
 }
 
 impl<'a> Cluster<'a> {

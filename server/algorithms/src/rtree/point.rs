@@ -28,7 +28,13 @@ impl Point {
         }
     }
 
-    pub fn interpolate(&self, next: &Self, ratio: f64, wiggle_lat: f64, wiggle_lon: f64) -> Self {
+    pub fn interpolate(
+        &self,
+        next: &Self,
+        ratio: Precision,
+        wiggle_lat: Precision,
+        wiggle_lon: Precision,
+    ) -> Self {
         let lat = self.center[0] * (1. - ratio) + (next.center[0] + wiggle_lat) * ratio;
         let lon = self.center[1] * (1. - ratio) + (next.center[1] + wiggle_lon) * ratio;
         let new_point = Self::new(self.radius, self.cell_id.level(), [lat, lon]);
@@ -52,7 +58,7 @@ impl Point {
         [lat.to_degrees(), lng.to_degrees()]
     }
 
-    fn haversine_distance(&self, other: &[Precision; 2]) -> f64 {
+    fn haversine_distance(&self, other: &[Precision; 2]) -> Precision {
         let theta1 = self.center[0].to_radians();
         let theta2 = other[0].to_radians();
         let delta_theta = (other[0] - self.center[0]).to_radians();
@@ -110,11 +116,11 @@ impl PointDistance for Point {
 }
 
 pub trait ToPoint {
-    fn to_point(&self, radius: f64) -> Point;
+    fn to_point(&self, radius: Precision) -> Point;
 }
 
 impl ToPoint for CellID {
-    fn to_point(&self, radius: f64) -> Point {
+    fn to_point(&self, radius: Precision) -> Point {
         let cell: Cell = self.into();
         let center = cell.center();
         Point::new(

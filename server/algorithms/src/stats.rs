@@ -175,7 +175,7 @@ impl Stats {
         }
     }
 
-    pub fn cluster_stats(&mut self, radius: f64, points: &SingleVec, clusters: &SingleVec) {
+    pub fn cluster_stats(&mut self, radius: Precision, points: &SingleVec, clusters: &SingleVec) {
         self.start_timer();
         log::info!("starting coverage check for {} points", points.len());
         self.total_points = points.len();

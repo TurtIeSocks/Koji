@@ -10,6 +10,7 @@ use rayon::{
 };
 use rstar::RTree;
 use std::{io::Write, time::Instant};
+use sysinfo::{System, SystemExt};
 
 use crate::{
     clustering::rtree::{cluster::Cluster, point::Point},
@@ -23,7 +24,7 @@ pub struct Greedy {
     cluster_split_level: u64,
     max_clusters: usize,
     min_points: usize,
-    radius: f64,
+    radius: Precision,
 }
 
 impl Default for Greedy {
@@ -43,7 +44,7 @@ impl<'a> Greedy {
         self.cluster_mode = cluster_mode;
         self
     }
-    pub fn set_radius(&mut self, radius: f64) -> &mut Self {
+    pub fn set_radius(&mut self, radius: Precision) -> &mut Self {
         self.radius = radius;
         self
     }
@@ -113,7 +114,7 @@ impl<'a> Greedy {
                 set.insert(new_point);
                 if self.cluster_mode == ClusterMode::Balanced {
                     for wiggle in vec![0.00025, 0.0001] {
-                        let wiggle_lat: f64 = wiggle / 2.;
+                        let wiggle_lat: Precision = wiggle / 2.;
                         let wiggle_lon = wiggle;
                         let random_point =
                             point.interpolate(neighbor, ratio, wiggle_lat, wiggle_lon);
@@ -152,18 +153,10 @@ impl<'a> Greedy {
         clusters.into_iter().collect::<Vec<Point>>()
     }
 
-    fn flat_map_cells(&self, cell: CellID) -> Vec<Point> {
-        let point = cell.to_point(self.radius);
-        if cell.level() == 22 {
-            vec![point]
+    fn flat_map_cells(&self, cell: CellID) -> Vec<CellID> {
+        if cell.level() == 21 {
+            cell.children().into_iter().collect()
         } else {
-            // let mut children: Vec<Point> = cell
-            //     .children()
-            //     .into_par_iter()
-            //     .flat_map(|c| self.flat_map_cells(c))
-            //     .collect();
-            // children.push(point);
-            // children
             cell.children()
                 .into_par_iter()
                 .flat_map(|c| self.flat_map_cells(c))
@@ -177,6 +170,7 @@ impl<'a> Greedy {
             .0
             .into_par_iter()
             .flat_map(|cell| self.flat_map_cells(cell))
+            .map(|cell| cell.to_point(self.radius))
             .collect()
     }
 
@@ -185,8 +179,11 @@ impl<'a> Greedy {
         points: &'a SingleVec,
         point_tree: &'a RTree<Point>,
     ) -> Vec<Vec<Cluster>> {
+        let sys = System::new_all();
+        let sys_mem = (sys.available_memory() / 1024 / 1024) as usize;
+
         let time = Instant::now();
-        let clusters: Vec<Point> = match self.cluster_mode {
+        let clusters_with_data: Vec<Cluster> = match self.cluster_mode {
             ClusterMode::Better | ClusterMode::Best => self.get_s2_clusters(points),
             ClusterMode::Fast => self.gen_estimated_clusters(&point_tree),
             _ => {
@@ -195,49 +192,81 @@ impl<'a> Greedy {
                 log::info!("created neighbor tree {:.2}s", time.elapsed().as_secs_f32());
                 self.gen_estimated_clusters(&neighbor_tree)
             }
-        };
+        }
+        .into_par_iter()
+        .filter_map(|cluster| {
+            let mut points: Vec<&'a Point> = point_tree
+                .locate_all_at_point(&cluster.center)
+                .collect::<Vec<&Point>>();
+            if let Some(point) = point_tree.locate_at_point(&cluster.center) {
+                points.push(point);
+            }
+            if points.len() < self.min_points {
+                log::debug!("Empty");
+                None
+            } else {
+                Some(Cluster::new(
+                    cluster,
+                    points.into_iter(),
+                    vec![].into_iter(),
+                ))
+            }
+        })
+        .collect();
+
         log::info!(
-            "created {} possible clusters in {:.2}s",
-            clusters.len(),
+            "associated points with {} clusters in {:.2}s",
+            clusters_with_data.len(),
             time.elapsed().as_secs_f32(),
         );
 
-        let time = Instant::now();
-        let clusters_with_data: Vec<Cluster> = clusters
-            .into_par_iter()
-            .filter_map(|cluster| {
-                let mut points: Vec<&'a Point> = point_tree
-                    .locate_all_at_point(&cluster.center)
-                    .collect::<Vec<&Point>>();
-                if let Some(point) = point_tree.locate_at_point(&cluster.center) {
-                    points.push(point);
+        let size = (clusters_with_data
+            .par_iter()
+            .map(|cluster| {
+                let mut start = std::mem::size_of_val(&cluster);
+
+                for point in cluster.point.center {
+                    start += std::mem::size_of_val(&point);
                 }
-                if points.len() < self.min_points {
-                    log::debug!("Empty");
-                    None
-                } else {
-                    Some(Cluster::new(
-                        cluster,
-                        points.into_iter(),
-                        vec![].into_iter(),
-                    ))
+                for point in cluster.points.iter() {
+                    start += std::mem::size_of_val(point);
                 }
+                for point in cluster.all.iter() {
+                    start += std::mem::size_of_val(point);
+                }
+                start
             })
-            .collect();
-        let filtered_count = clusters_with_data.len();
+            .sum::<usize>()
+            / 1024
+            / 1024)
+            * 2;
+        if size > sys_mem {
+            log::warn!(
+                "Kōji is taking a lot of memory ({}MB), I hope you know what you're doing! If you're getting this warning, try sending smaller areas or not using the `Better` algorithm.",
+                size,
+            );
+        }
+
+        let time = Instant::now();
         let max = clusters_with_data
             .par_iter()
             .map(|cluster| cluster.all.len())
             .max()
             .unwrap_or(100);
+        log::info!(
+            "found best cluster ({}) {:.2}s",
+            max,
+            time.elapsed().as_secs_f32(),
+        );
+
+        let time = Instant::now();
         let mut clustered_clusters: Vec<Vec<Cluster>> = vec![vec![]; max + 1];
 
         for cluster in clusters_with_data.into_iter() {
             clustered_clusters[cluster.all.len()].push(cluster);
         }
         log::info!(
-            "associated points with {} clusters in {:.2}s",
-            filtered_count,
+            "sorted clusters by size in {:.2}s",
             time.elapsed().as_secs_f32(),
         );
 
@@ -297,50 +326,61 @@ impl<'a> Greedy {
         let mut current_iteration = 0;
         let mut stdout = std::io::stdout();
 
+        let mut clusters_of_interest_time = 0.;
+        let mut local_clusters_time = 0.;
+        let mut sorting_time = 0.;
+        let mut iterating_local_time = 0.;
+        let mut logging_time = 0.;
+
         'greedy: while highest >= self.min_points && new_clusters.len() < self.max_clusters {
             let mut clusters_of_interest: Vec<&Cluster<'_>> = vec![];
             current_iteration += 1;
-
+            let time = Instant::now();
             for (max, clusters) in clusters_with_data.iter().enumerate() {
                 if max < highest {
                     continue;
                 }
                 clusters_of_interest.extend(clusters);
             }
+            clusters_of_interest_time += time.elapsed().as_secs_f32();
+
+            let time = Instant::now();
             let mut local_clusters = clusters_of_interest
                 .into_par_iter()
                 .filter_map(|cluster| {
-                    if new_clusters.contains(cluster) {
+                    let mut points: Vec<&Point> = cluster
+                        .all
+                        .iter()
+                        .filter_map(|p| {
+                            if blocked_points.contains(p) {
+                                None
+                            } else {
+                                Some(*p)
+                            }
+                        })
+                        .collect();
+                    if points.len() < highest {
                         None
                     } else {
-                        let points: HashSet<&Point> = cluster
-                            .all
-                            .iter()
-                            .filter_map(|p| {
-                                if blocked_points.contains(p) {
-                                    None
-                                } else {
-                                    Some(*p)
-                                }
-                            })
-                            .collect();
-                        if points.len() < highest {
-                            None
-                        } else {
-                            Some(Cluster {
-                                point: cluster.point,
-                                points,
-                                all: cluster.all.iter().map(|p| *p).collect(),
-                            })
-                        }
+                        points.sort_by(|a, b| a.cell_id.cmp(&b.cell_id));
+                        points.dedup_by(|a, b| a.cell_id == b.cell_id);
+
+                        Some(Cluster {
+                            point: cluster.point,
+                            points: points.into_iter().collect(),
+                            all: cluster.all.iter().map(|p| *p).collect(),
+                        })
                     }
                 })
                 .collect::<Vec<Cluster>>();
+            local_clusters_time += time.elapsed().as_secs_f32();
+
             if local_clusters.is_empty() {
                 highest -= 1;
                 continue;
             }
 
+            let time = Instant::now();
             local_clusters.par_sort_by(|a, b| {
                 if a.points.len() == b.points.len() {
                     b.all.len().cmp(&a.all.len())
@@ -348,7 +388,9 @@ impl<'a> Greedy {
                     b.points.len().cmp(&a.points.len())
                 }
             });
+            sorting_time += time.elapsed().as_secs_f32();
 
+            let time = Instant::now();
             'cluster: for cluster in local_clusters.into_iter() {
                 if new_clusters.len() >= self.max_clusters {
                     break 'greedy;
@@ -366,7 +408,9 @@ impl<'a> Greedy {
                     new_clusters.insert(cluster);
                 }
             }
+            iterating_local_time += time.elapsed().as_secs_f32();
 
+            let time = Instant::now();
             if highest >= self.min_points {
                 stdout
                     .write(
@@ -383,10 +427,13 @@ impl<'a> Greedy {
                     .unwrap();
                 stdout.flush().unwrap();
             }
+            logging_time += time.elapsed().as_secs_f32();
 
             highest -= 1;
         }
         stdout.write(format!("\n",).as_bytes()).unwrap();
+
+        log::debug!("\nInterested Clusters Time: {}\nLocal Clusters Time: {}\n Sorting Time: {}\n Iterating Local Time: {}\n Logging Time: {}", clusters_of_interest_time, local_clusters_time, sorting_time, iterating_local_time, logging_time);
 
         log::info!(
             "finished initial solution in {:.2}s",
@@ -409,8 +456,8 @@ impl<'a> Greedy {
             cluster.points = cluster
                 .all
                 .iter()
-                .collect::<Vec<&&Point>>()
-                .into_par_iter()
+                // .collect::<Vec<&&Point>>()
+                // .into_par_iter()
                 .filter_map(|p| {
                     if cluster_tree.locate_all_at_point(&p.center).count() == 1 {
                         Some(*p)
@@ -418,7 +465,7 @@ impl<'a> Greedy {
                         None
                     }
                 })
-                .collect::<Vec<&Point>>()
+                .collect::<HashSet<&Point>>()
                 .into_iter()
                 .collect();
         });

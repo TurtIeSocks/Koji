@@ -1,13 +1,13 @@
 pub mod cluster;
 pub mod point;
 
-use model::api::single_vec::SingleVec;
+use model::api::{single_vec::SingleVec, Precision};
 use point::Point;
 
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rstar::RTree;
 
-pub fn spawn(radius: f64, points: &SingleVec) -> RTree<Point> {
+pub fn spawn(radius: Precision, points: &SingleVec) -> RTree<Point> {
     let points = points
         .iter()
         .map(|p| Point::new(radius, 20, *p))
