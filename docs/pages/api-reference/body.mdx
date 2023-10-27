@@ -56,8 +56,11 @@ pub enum ReturnType {
 
 // Sort by types, only valid when clustering in non-fast mode:
 pub enum SortBy {
-    GeoHash,      // default, sorts by geohash, fastest alternative to okay routing
+    None,         // default, sorts by whatever the clustering algorithm returns
+    GeoHash,      // sorts by geohash, fastest alternative to okay routing
     ClusterCount, // sorts by the number of data points in each cluster
+    S2Cell,       // sorts by S2 Cell IDs
+    TSP,          // sorts with OR-Tools (best)
     Random,       // randomizes the order of the clusters
 }
 
@@ -108,6 +111,10 @@ pub struct Args {
     ///
     /// Deprecated
     pub devices: Option<usize>,
+    /// The maximum amount of clusters to return
+    ///
+    /// Default: [USIZE::MAX]
+    pub max_clusters: Option<usize>,
     /// Whether to use the fast or slow clustering algorithm
     ///
     /// Default: `true`
