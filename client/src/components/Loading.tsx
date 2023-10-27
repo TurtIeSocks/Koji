@@ -104,7 +104,8 @@ export default function Loading() {
             </Typography>
             {value && (
               <Typography variant="caption">
-                Time: {value.cluster_time.toFixed(3)}s
+                Clustering Time: {value.cluster_time.toFixed(3)}s | Routing
+                Time: {value.route_time.toFixed(3)}s
               </Typography>
             )}
           </Grid2>

@@ -1,7 +1,9 @@
+use crate::utils::response::Response;
+
 use super::*;
 
 use model::{
-    api::args::{Args, ArgsUnwrapped, BoundsArg, Response},
+    api::args::{Args, ArgsUnwrapped, BoundsArg},
     db::{gym, pokestop, spawnpoint},
     KojiDb,
 };

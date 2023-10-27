@@ -1,6 +1,10 @@
 use geo::Coord;
+use hashbrown::HashSet;
+use model::api::single_vec::SingleVec;
 use rstar::PointDistance;
 use std::collections::HashMap;
+
+use crate::project::Plane;
 
 #[derive(Debug, Clone)]
 struct BoundingBox {
@@ -47,6 +51,45 @@ type PointTuple = (i32, i32);
 type PointInfo = (BoundingBox, bool, bool, Vec<String>);
 type ClusterMap = HashMap<PointTuple, PointInfo>;
 
+trait FromKey {
+    fn from_key(&self) -> [f64; 2];
+}
+
+impl FromKey for String {
+    fn from_key(&self) -> [f64; 2] {
+        let mut iter = self.split(',');
+        let lat = iter.next().unwrap().parse::<f64>().unwrap();
+        let lon = iter.next().unwrap().parse::<f64>().unwrap();
+        [lat, lon]
+    }
+}
+
+pub fn main(input: &SingleVec, radius: f64, min_points: usize) -> Vec<[f64; 2]> {
+    let plane = Plane::new(input).radius(radius);
+    let output = plane.project();
+
+    let point_map = cluster(output, min_points);
+
+    let output = {
+        let mut seen_map: HashSet<String> = HashSet::new();
+        let return_value: SingleVec = point_map
+            .into_iter()
+            .filter_map(|(key, values)| {
+                if values.len() >= min_points {
+                    for point in values.into_iter() {
+                        seen_map.insert(point);
+                    }
+                    return Some(key.from_key());
+                }
+                None
+            })
+            .collect();
+        return_value
+    };
+
+    plane.reverse(output)
+}
+
 fn update(point_map: &mut ClusterMap, key: PointTuple, p: Coord) {
     point_map.entry(key).and_modify(|saved| {
         saved.0 = saved.0.update(p);
@@ -54,7 +97,7 @@ fn update(point_map: &mut ClusterMap, key: PointTuple, p: Coord) {
     });
 }
 
-pub fn cluster(points: Vec<Coord>, min_points: usize) -> HashMap<String, Vec<String>> {
+fn cluster(points: Vec<Coord>, min_points: usize) -> HashMap<String, Vec<String>> {
     let sqrt2: f64 = 2.0_f64.sqrt();
     let additive_factor: f64 = sqrt2 / 2.;
     let sqrt2_x_one_point_five_minus_one: f64 = (sqrt2 * 1.5) - 1.;

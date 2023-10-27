@@ -171,6 +171,15 @@ export function Drawing() {
             })
           }
         }}
+        // onDrawStart={({ workingLayer, shape }) => {
+        //   if (shape === 'Circle') {
+        //     workingLayer.on('move', ({ target }) => {
+        //       const latlng = target.getLatLng()
+
+        //       console.log(geohash.encode(latlng.lat, latlng.lng, 12))
+        //     })
+        //   }
+        // }}
         onCreate={async ({ layer, shape }) => {
           if (ref.current && ref.current.hasLayer(layer)) {
             const id = ref.current.getLayerId(layer)

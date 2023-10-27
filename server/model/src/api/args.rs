@@ -1,6 +1,4 @@
-use super::*;
-
-use geojson::JsonValue;
+use super::{cluster_mode::ClusterMode, *};
 
 use crate::{
     api::{collection::Default, text::TextHelpers},
@@ -10,63 +8,6 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Auth {
     pub password: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BoundsArg {
-    pub min_lat: Precision,
-    pub min_lon: Precision,
-    pub max_lat: Precision,
-    pub max_lon: Precision,
-    pub last_seen: Option<u32>,
-    pub ids: Option<Vec<String>>,
-    pub tth: Option<SpawnpointTth>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum ReturnTypeArg {
-    AltText,
-    Text,
-    SingleArray,
-    MultiArray,
-    SingleStruct,
-    MultiStruct,
-    Geometry,
-    GeometryVec,
-    Feature,
-    FeatureVec,
-    FeatureCollection,
-    PoracleSingle,
-    Poracle,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub enum SortBy {
-    GeoHash,
-    ClusterCount,
-    Random,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum SpawnpointTth {
-    All,
-    Known,
-    Unknown,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub enum CalculationMode {
-    Radius,
-    S2,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(untagged)]
-pub enum DataPointsArg {
-    Array(single_vec::SingleVec),
-    Struct(single_struct::SingleStruct),
-    Feature(Feature),
-    FeatureCollection(FeatureCollection),
 }
 
 /// `name` property modifiers:
@@ -188,18 +129,87 @@ impl Default for ApiQueryArgs {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BoundsArg {
+    pub min_lat: Precision,
+    pub min_lon: Precision,
+    pub max_lat: Precision,
+    pub max_lon: Precision,
+    pub last_seen: Option<u32>,
+    pub ids: Option<Vec<String>>,
+    pub tth: Option<SpawnpointTth>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum ReturnTypeArg {
+    AltText,
+    Text,
+    SingleArray,
+    MultiArray,
+    SingleStruct,
+    MultiStruct,
+    Geometry,
+    GeometryVec,
+    Feature,
+    FeatureVec,
+    FeatureCollection,
+    PoracleSingle,
+    Poracle,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub enum SortBy {
+    None,
+    GeoHash,
+    ClusterCount,
+    Random,
+    S2Cell,
+    TSP,
+}
+
+impl PartialEq for SortBy {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (SortBy::None, SortBy::None) => true,
+            (SortBy::GeoHash, SortBy::GeoHash) => true,
+            (SortBy::ClusterCount, SortBy::ClusterCount) => true,
+            (SortBy::Random, SortBy::Random) => true,
+            (SortBy::S2Cell, SortBy::S2Cell) => true,
+            (SortBy::TSP, SortBy::TSP) => true,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for SortBy {}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum SpawnpointTth {
+    All,
+    Known,
+    Unknown,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub enum CalculationMode {
+    Radius,
+    S2,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum DataPointsArg {
+    Array(single_vec::SingleVec),
+    Struct(single_struct::SingleStruct),
+    Feature(Feature),
+    FeatureCollection(FeatureCollection),
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum UnknownId {
     String(String),
     Number(u32),
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum ClusterMode {
-    Fast,
-    Balanced,
-    BruteForce,
 }
 
 impl ToString for UnknownId {
@@ -246,12 +256,20 @@ pub struct Args {
     ///
     /// Accepts [DataPointsArg]
     pub data_points: Option<DataPointsArg>,
+    /// Clusters to run through the stat producer.
+    ///
+    /// Accepts [DataPointsArg]
+    pub clusters: Option<DataPointsArg>,
     /// Number of devices to use in VRP routing
     ///
     /// Default: `1`
     ///
     /// Deprecated
     pub devices: Option<usize>,
+    /// The maximum amount of clusters to return
+    ///
+    /// Default: [USIZE::MAX]
+    pub max_clusters: Option<usize>,
     /// Whether to use the fast or slow clustering algorithm
     ///
     /// Default: `true`
@@ -284,6 +302,7 @@ pub struct Args {
     pub min_points: Option<usize>,
     /// Only counts min_points by the number of unique data_points that a cluster covers.
     /// Only available when `fast: false`
+    /// Deprecated
     pub only_unique: Option<bool>,
     /// The ID or name of the parent property, this will search the database for any properties that have their `parent` property set to this value.
     ///
@@ -311,7 +330,7 @@ pub struct Args {
     /// Recommend using 4 for Gyms, 5 for Pokestops, and 6 for Spawnpoints
     ///
     /// Default: `1`
-    pub route_split_level: Option<usize>,
+    pub route_split_level: Option<u64>,
     /// Amount of time for the TSP solver to run
     ///
     /// Default: `0` (auto)
@@ -364,6 +383,8 @@ pub struct ArgsUnwrapped {
     pub calculation_mode: CalculationMode,
     pub cluster_mode: ClusterMode,
     pub cluster_split_level: u64,
+    pub max_clusters: usize,
+    pub clusters: single_vec::SingleVec,
     pub data_points: single_vec::SingleVec,
     pub devices: usize,
     pub generations: usize,
@@ -371,7 +392,6 @@ pub struct ArgsUnwrapped {
     pub min_points: usize,
     pub radius: Precision,
     pub return_type: ReturnTypeArg,
-    pub only_unique: bool,
     pub parent: Option<UnknownId>,
     pub last_seen: u32,
     pub s2_level: u8,
@@ -382,11 +402,44 @@ pub struct ArgsUnwrapped {
     pub sort_by: SortBy,
     pub tth: SpawnpointTth,
     pub mode: Type,
-    pub route_split_level: usize,
+    pub route_split_level: u64,
+}
+
+fn validate_s2_cell(value_to_check: Option<u64>, label: &str) -> u64 {
+    if let Some(cell_level) = value_to_check {
+        if cell_level.lt(&20) && cell_level.gt(&0) {
+            cell_level
+        } else {
+            log::warn!(
+                "{} only supports 1-20, {} was provided, defaulting to 1",
+                label,
+                cell_level
+            );
+            1
+        }
+    } else {
+        1
+    }
+}
+
+fn resolve_data_points(data_points: Option<DataPointsArg>) -> single_vec::SingleVec {
+    if let Some(data_points) = data_points {
+        match data_points {
+            DataPointsArg::Struct(data_points) => data_points.to_single_vec(),
+            DataPointsArg::Array(data_points) => data_points,
+            DataPointsArg::Feature(data_points) => data_points.to_single_vec(),
+            DataPointsArg::FeatureCollection(data_points) => data_points.to_single_vec(),
+        }
+    } else {
+        vec![]
+    }
 }
 
 impl Args {
     pub fn init(self, input: Option<&str>) -> ArgsUnwrapped {
+        if let Some(input) = input {
+            log::debug!("[{}]: {:?}", input.to_uppercase(), self);
+        };
         let Args {
             area,
             benchmark_mode,
@@ -394,7 +447,9 @@ impl Args {
             calculation_mode: bootstrap_mode,
             cluster_mode,
             cluster_split_level,
+            max_clusters,
             s2_size: bootstrap_size,
+            clusters,
             data_points,
             devices,
             fast,
@@ -451,7 +506,7 @@ impl Args {
         let cluster_mode = cluster_mode.unwrap_or({
             if let Some(fast) = fast {
                 if fast {
-                    ClusterMode::Fast
+                    ClusterMode::Fastest
                 } else {
                     ClusterMode::Balanced
                 }
@@ -459,19 +514,9 @@ impl Args {
                 ClusterMode::Balanced
             }
         });
-        let cluster_split_level = cluster_split_level.unwrap_or(10);
-        let data_points = if let Some(data_points) = data_points {
-            match data_points {
-                DataPointsArg::Struct(data_points) => data_points.to_single_vec(),
-                DataPointsArg::Array(data_points) => data_points,
-                DataPointsArg::Feature(data_points) => data_points.to_single_vec(),
-                DataPointsArg::FeatureCollection(data_points) => data_points.to_single_vec(),
-            }
-        } else {
-            vec![]
-        };
+        let cluster_split_level = validate_s2_cell(cluster_split_level, "cluster_split_level");
+        let data_points = resolve_data_points(data_points);
         let devices = devices.unwrap_or(1);
-        let fast = fast.unwrap_or(true);
         let generations = generations.unwrap_or(1);
         let instance = instance.unwrap_or("".to_string());
         let min_points = min_points.unwrap_or(1);
@@ -481,7 +526,13 @@ impl Args {
         } else {
             default_return_type
         };
-        let only_unique = only_unique.unwrap_or(false);
+        let max_clusters = max_clusters.unwrap_or(usize::MAX);
+        let max_clusters = if max_clusters == 0 {
+            usize::MAX
+        } else {
+            max_clusters
+        };
+        let clusters = resolve_data_points(clusters);
         let last_seen = last_seen.unwrap_or(0);
         let save_to_db = save_to_db.unwrap_or(false);
         let save_to_scanner = save_to_scanner.unwrap_or(false);
@@ -489,35 +540,22 @@ impl Args {
         let sort_by = sort_by.unwrap_or(SortBy::GeoHash);
         let tth = tth.unwrap_or(SpawnpointTth::All);
         let mode = get_enum(mode);
-        let route_split_level = if let Some(route_split_level) = route_split_level {
-            if route_split_level.lt(&13) && route_split_level.gt(&0) {
-                route_split_level
-            } else {
-                log::warn!(
-                    "route_split_level only supports 1-12, {} was provided",
-                    route_split_level
-                );
-                1
-            }
-        } else {
-            1
-        };
+        let route_split_level = validate_s2_cell(route_split_level, "route_split_level");
         if route_chunk_size.is_some() {
             log::warn!("route_chunk_size is now deprecated, please use route_split_level")
         }
         if routing_time.is_some() {
             log::warn!("routing_time is now deprecated, please use route_split_level")
         }
-        if let Some(input) = input {
-            log::info!(
-                "[{}]: Instance: {} | Custom Area: {} | Custom Data Points: {}\nRadius: | {} Min Points: {} | Generations: {} | Routing Split Level: {} | Devices: {} | Fast: {}\nOnly Unique: {}, Last Seen: {}\nReturn Type: {:?}",
-                input.to_uppercase(), instance, !area.features.is_empty(), !data_points.is_empty(), radius, min_points, generations, route_split_level, devices, fast, only_unique, last_seen, return_type,
-            );
-        };
+        if only_unique.is_some() {
+            log::warn!("only_unique is now deprecated and does nothing");
+        }
         ArgsUnwrapped {
             area,
             benchmark_mode,
             cluster_mode,
+            clusters,
+            max_clusters,
             cluster_split_level,
             s2_level: bootstrap_level,
             calculation_mode: bootstrap_mode,
@@ -530,7 +568,6 @@ impl Args {
             min_points,
             radius,
             return_type,
-            only_unique,
             last_seen,
             save_to_db,
             save_to_scanner,
@@ -568,37 +605,6 @@ pub fn get_return_type(return_type: String, default_return_type: &ReturnTypeArg)
         "poracle" => ReturnTypeArg::Poracle,
         "featurecollection" | "feature_collection" => ReturnTypeArg::FeatureCollection,
         _ => default_return_type.clone(),
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ConfigResponse {
-    pub start_lat: Precision,
-    pub start_lon: Precision,
-    pub tile_server: String,
-    pub scanner_type: String,
-    pub logged_in: bool,
-    pub dangerous: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Response {
-    pub message: String,
-    pub status: String,
-    pub status_code: u16,
-    pub data: Option<JsonValue>,
-    pub stats: Option<stats::Stats>,
-}
-
-impl Response {
-    pub fn send_error(message: &str) -> Response {
-        Response {
-            message: message.to_string(),
-            status: "error".to_string(),
-            status_code: 500,
-            data: None,
-            stats: None,
-        }
     }
 }
 

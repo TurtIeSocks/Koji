@@ -69,7 +69,7 @@ impl Plane {
         self.radial_project(dir)
     }
 
-    pub fn new(input: SingleVec) -> Plane {
+    pub fn new(input: &SingleVec) -> Plane {
         let mut plane = Plane {
             points: input
                 .iter()

@@ -84,12 +84,12 @@ impl Query {
             .from_raw_sql(Statement::from_sql_and_values(
                 DbBackend::MySql,
                 format!(
-                    "SELECT lat, lon, despawn_sec FROM spawnpoint WHERE last_seen >= {} AND {} AND ({}) LIMIT 2000000",
+                    "SELECT lat, lon, despawn_sec FROM spawnpoint WHERE last_seen >= {} {} AND ({}) LIMIT 2000000",
                     last_seen,
                     match tth {
-                        SpawnpointTth::All => "1=1".to_string(),
-                        SpawnpointTth::Known => "despawn_sec IS NOT NULL".to_string(),
-                        SpawnpointTth::Unknown => "despawn_sec IS NULL".to_string(),
+                        SpawnpointTth::All => "".to_string(),
+                        SpawnpointTth::Known => "AND despawn_sec IS NOT NULL".to_string(),
+                        SpawnpointTth::Unknown => "AND despawn_sec IS NULL".to_string(),
                     },
                     utils::sql_raw(area)
                 )

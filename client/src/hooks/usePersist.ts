@@ -5,6 +5,11 @@ import {
   GEOMETRY_CONVERSION_TYPES,
   S2_CELL_LEVELS,
   BOOTSTRAP_LEVELS,
+  CLUSTERING_MODES,
+  TTH,
+  MODES,
+  SORT_BY,
+  CALC_MODE,
 } from '@assets/constants'
 
 export interface UsePersist {
@@ -46,23 +51,23 @@ export interface UsePersist {
 
   // Clustering
   category: Category | 'fort'
-  cluster_mode: 'Fast' | 'Balanced' | 'BruteForce'
-  tth: 'All' | 'Known' | 'Unknown'
+  cluster_mode: typeof CLUSTERING_MODES[number]
+  tth: typeof TTH[number]
   lineColorRules: { distance: number; color: string }[]
-  mode: 'bootstrap' | 'route' | 'cluster'
-  sort_by: 'GeoHash' | 'Random' | 'ClusterCount'
+  mode: typeof MODES[number]
+  sort_by: typeof SORT_BY[number]
   radius: number | ''
   min_points: number | ''
-  only_unique: boolean
   route_split_level: number | ''
   cluster_split_level: number | ''
   save_to_db: boolean
   save_to_scanner: boolean
   skipRendering: boolean
   fast: boolean
-  calculation_mode: 'Radius' | 'S2'
+  calculation_mode: typeof CALC_MODE[number]
   s2_level: typeof S2_CELL_LEVELS[number]
   s2_size: typeof BOOTSTRAP_LEVELS[number]
+  max_clusters: number
   // generations: number | ''
   // routing_time: number | ''
   // devices: number | ''
@@ -85,7 +90,7 @@ export const usePersist = create(
       location: [0, 0],
       zoom: 18,
       category: 'pokestop',
-      cluster_mode: 'Fast',
+      cluster_mode: 'Balanced',
       lineColorRules: [
         { distance: 500, color: '#197E13' },
         { distance: 1000, color: '#FFFF0C' },
@@ -102,7 +107,7 @@ export const usePersist = create(
       kbShortcuts: {},
       mode: 'cluster',
       data: 'bound',
-      sort_by: 'GeoHash',
+      sort_by: 'None',
       s2cells: [],
       s2DisplayMode: 'none',
       s2FillMode: 'simple',
@@ -113,8 +118,8 @@ export const usePersist = create(
       calculation_mode: 'Radius',
       s2_level: 15,
       s2_size: 9,
+      max_clusters: 0,
       min_points: 3,
-      only_unique: false,
       save_to_db: false,
       save_to_scanner: false,
       skipRendering: false,

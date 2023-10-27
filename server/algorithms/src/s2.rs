@@ -1,18 +1,18 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
 };
 
 use geo::{HaversineDestination, Intersects, MultiPolygon, Polygon, RemoveRepeatedPoints};
 use geojson::{Feature, Geometry, Value};
-use model::{
-    api::{single_vec::SingleVec, stats::Stats},
-    db::GenericData,
+use model::api::{point_array::PointArray, single_vec::SingleVec};
+use s2::{
+    cell::Cell, cellid::CellID, cellunion::CellUnion, latlng::LatLng, rect::Rect,
+    region::RegionCoverer,
 };
-use s2::{cell::Cell, cellid::CellID, cellunion::CellUnion, rect::Rect, region::RegionCoverer};
 use serde::Serialize;
 
-// use crate::utils::debug_string;
+use crate::stats::Stats;
 
 type Covered = Arc<Mutex<HashSet<String>>>;
 
@@ -75,6 +75,23 @@ impl ToGeoJson for CellID {
     }
 }
 
+pub fn get_region_cells(
+    min_lat: f64,
+    max_lat: f64,
+    min_lon: f64,
+    max_lon: f64,
+    cell_size: u8,
+) -> CellUnion {
+    let region = Rect::from_degrees(min_lat, min_lon, max_lat, max_lon);
+    let coverer = RegionCoverer {
+        max_level: cell_size,
+        min_level: cell_size,
+        level_mod: 1,
+        max_cells: 1000,
+    };
+    coverer.covering(&region)
+}
+
 pub fn get_cells(
     cell_size: u8,
     min_lat: f64,
@@ -82,14 +99,7 @@ pub fn get_cells(
     max_lat: f64,
     max_lon: f64,
 ) -> Vec<S2Response> {
-    let region = Rect::from_degrees(min_lat, min_lon, max_lat, max_lon);
-    let cov = RegionCoverer {
-        max_level: cell_size,
-        min_level: cell_size,
-        level_mod: 1,
-        max_cells: 1000,
-    };
-    let cells = cov.covering(&region);
+    let cells = get_region_cells(min_lat, max_lat, min_lon, max_lon, cell_size);
 
     cells
         .0
@@ -430,7 +440,7 @@ pub fn bootstrap(feature: &Feature, level: u8, size: u8, stats: &mut Stats) -> F
     // }
 
     stats.total_clusters += multi_point.len();
-    stats.distance(&multi_point.iter().map(|p| [p[0], p[1]]).collect());
+    stats.distance_stats(&multi_point.iter().map(|p| [p[0], p[1]]).collect());
 
     let mut multi_point: geo::MultiPoint = multi_point
         .iter()
@@ -492,7 +502,7 @@ pub fn cell_coverage(lat: f64, lon: f64, size: u8, level: u8) -> Covered {
 
 pub fn cluster(
     feature: Feature,
-    data: &Vec<GenericData>,
+    data: &SingleVec,
     level: u8,
     size: u8,
     stats: &mut Stats,
@@ -501,7 +511,7 @@ pub fn cluster(
     let valid_cells = data
         .iter()
         .map(|f| {
-            CellID::from(s2::latlng::LatLng::from_degrees(f.p[0], f.p[1]))
+            CellID::from(s2::latlng::LatLng::from_degrees(f[0], f[1]))
                 .parent(level as u64)
                 .0
         })
@@ -531,7 +541,31 @@ pub fn cluster(
     } else {
         vec![]
     };
-    stats.distance(&points);
+    stats.distance_stats(&points);
     stats.points_covered = data.len();
     points
+}
+
+pub fn from_array_to_cell_id(point: &PointArray, parent_level: u64) -> CellID {
+    CellID::from(LatLng::from_degrees(point[0], point[1])).parent(parent_level)
+}
+
+pub fn from_cell_id_to_array(cell_id: CellID) -> PointArray {
+    let center = Cell::from(cell_id).center();
+    [center.latitude().deg(), center.longitude().deg()]
+}
+
+pub fn create_cell_map(points: &SingleVec, split_level: u64) -> HashMap<u64, SingleVec> {
+    let s20cells: Vec<CellID> = points
+        .iter()
+        .map(|point| from_array_to_cell_id(point, 20))
+        .collect();
+    let mut cell_maps = HashMap::new();
+    for (i, cell) in s20cells.into_iter().enumerate() {
+        let handler = cell_maps
+            .entry(cell.parent(split_level).0)
+            .or_insert(Vec::new());
+        handler.push(points[i]);
+    }
+    cell_maps
 }

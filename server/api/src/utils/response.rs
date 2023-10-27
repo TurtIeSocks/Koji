@@ -1,14 +1,47 @@
 use super::*;
 
 use actix_web::HttpResponse;
-use model::api::ToGeometry;
+use algorithms::stats::Stats;
+use geojson::JsonValue;
+use model::api::{Precision, ToGeometry};
+use serde::Serialize;
 use serde_json::json;
 
 use crate::model::api::{
-    args::{Response, ReturnTypeArg},
-    stats::Stats,
-    GeoFormats, ToMultiStruct, ToMultiVec, ToPoracleVec, ToSingleStruct, ToSingleVec, ToText,
+    args::ReturnTypeArg, GeoFormats, ToMultiStruct, ToMultiVec, ToPoracleVec, ToSingleStruct,
+    ToSingleVec, ToText,
 };
+
+#[derive(Debug, Serialize)]
+pub struct ConfigResponse {
+    pub start_lat: Precision,
+    pub start_lon: Precision,
+    pub tile_server: String,
+    pub scanner_type: String,
+    pub logged_in: bool,
+    pub dangerous: bool,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct Response {
+    pub message: String,
+    pub status: String,
+    pub status_code: u16,
+    pub data: Option<JsonValue>,
+    pub stats: Option<Stats>,
+}
+
+impl Response {
+    pub fn send_error(message: &str) -> Response {
+        Response {
+            message: message.to_string(),
+            status: "error".to_string(),
+            status_code: 500,
+            data: None,
+            stats: None,
+        }
+    }
+}
 
 pub fn send(
     value: FeatureCollection,
@@ -16,10 +49,9 @@ pub fn send(
     stats: Option<Stats>,
     benchmark_mode: bool,
     area: Option<String>,
-    min_points: Option<usize>,
 ) -> HttpResponse {
     if let Some(stats) = stats.as_ref() {
-        stats.log(area, min_points);
+        stats.log(area);
     }
     HttpResponse::Ok().json(Response {
         message: "Success".to_string(),

@@ -1,4 +1,4 @@
-use crate::utils::request::send_api_req;
+use crate::utils::{request::send_api_req, response::Response};
 
 use super::*;
 
@@ -6,7 +6,7 @@ use serde_json::json;
 
 use model::{
     api::{
-        args::{get_return_type, ApiQueryArgs, Args, ArgsUnwrapped, Response, ReturnTypeArg},
+        args::{get_return_type, ApiQueryArgs, Args, ArgsUnwrapped, ReturnTypeArg},
         collection::Default,
         GeoFormats, ToCollection,
     },
@@ -60,7 +60,6 @@ async fn get_area(
         return_type,
         None,
         false,
-        None,
         None,
     ))
 }
@@ -226,14 +225,7 @@ async fn specific_return_type(
         "[GEOFENCES_ALL] Returning {} instances\n",
         fc.features.len()
     );
-    Ok(utils::response::send(
-        fc,
-        return_type,
-        None,
-        false,
-        None,
-        None,
-    ))
+    Ok(utils::response::send(fc, return_type, None, false, None))
 }
 
 #[get("/{return_type}/{project}")]
@@ -259,7 +251,6 @@ async fn specific_project(
         return_type,
         None,
         false,
-        None,
         None,
     ))
 }

@@ -1,21 +1,24 @@
-use crate::utils::request;
+use crate::utils::{request, response::Response};
 
 use super::*;
 
-use std::{collections::VecDeque, time::Instant};
+use std::time::Instant;
 
-use algorithms::{bootstrapping, clustering, routing::tsp, s2};
+use algorithms::{
+    bootstrapping, clustering,
+    routing::{self, tsp},
+    s2,
+    stats::Stats,
+};
 use geo::{ChamberlainDuquetteArea, MultiPolygon, Polygon};
 
 use geojson::Value;
 use model::{
     api::{
-        args::{Args, ArgsUnwrapped, CalculationMode, Response},
-        point_array::PointArray,
-        stats::Stats,
-        FeatureHelpers, GeoFormats, Precision, ToCollection, ToFeature,
+        args::{Args, ArgsUnwrapped, CalculationMode, SortBy},
+        FeatureHelpers, GeoFormats, Precision, ToCollection, ToFeature, ToSingleVec,
     },
-    db::{area, geofence, instance, route, sea_orm_active_enums::Type, GenericData},
+    db::{area, geofence, instance, route, sea_orm_active_enums::Type},
     KojiDb,
 };
 use serde_json::json;
@@ -54,7 +57,7 @@ async fn bootstrap(
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    let mut stats = Stats::new();
+    let mut stats = Stats::new(format!("Bootstrap | {:?}", calculation_mode));
 
     let time = Instant::now();
 
@@ -140,7 +143,6 @@ async fn bootstrap(
         Some(stats),
         benchmark_mode,
         Some(instance),
-        None,
     ))
 }
 
@@ -164,7 +166,6 @@ async fn cluster(
         min_points,
         radius,
         return_type,
-        only_unique,
         save_to_db,
         save_to_scanner,
         last_seen,
@@ -175,6 +176,7 @@ async fn cluster(
         s2_level,
         s2_size,
         parent,
+        max_clusters,
         ..
     } = payload.into_inner().init(Some(&mode));
 
@@ -184,8 +186,13 @@ async fn cluster(
             HttpResponse::BadRequest().json(Response::send_error("no_area_instance_data_points"))
         );
     }
+    let sort_by = if mode.eq("route") {
+        SortBy::TSP
+    } else {
+        sort_by
+    };
 
-    let mut stats = Stats::new();
+    let mut stats = Stats::new(format!("{:?} | {:?}", cluster_mode, calculation_mode));
     let enum_type = if category == "gym" || category == "fort" {
         if scanner_type == "rdm" {
             Type::CircleSmartRaid
@@ -215,67 +222,42 @@ async fn cluster(
 
     let data_points = if !data_points.is_empty() {
         data_points
-            .iter()
-            .map(|p| GenericData::new("".to_string(), p[0], p[1]))
-            .collect()
     } else {
         utils::points_from_area(&area, &category, &conn, last_seen, tth)
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?
+            .to_single_vec()
     };
+
     log::debug!(
         "[{}] Found Data Points: {}",
         mode.to_uppercase(),
         data_points.len()
     );
 
-    stats.total_points = data_points.len();
-
-    let mut clusters = match calculation_mode {
+    let clusters = match calculation_mode {
         CalculationMode::Radius => clustering::main(
-            data_points,
+            &data_points,
             cluster_mode,
             radius,
             min_points,
-            only_unique,
-            area,
             &mut stats,
-            sort_by,
             cluster_split_level,
+            max_clusters,
         ),
         CalculationMode::S2 => area
             .into_iter()
             .flat_map(|feature| s2::cluster(feature, &data_points, s2_level, s2_size, &mut stats))
             .collect(),
     };
-
-    if mode.eq("route") && !clusters.is_empty() {
-        log::info!("Cluster Length: {}", clusters.len());
-
-        let tour = tsp::multi(&clusters, route_split_level);
-        log::info!("Tour Length {}", tour.len());
-        let mut final_clusters = VecDeque::<PointArray>::new();
-
-        let mut rotate_count: usize = 0;
-
-        for (i, [lat, lon]) in tour.into_iter().enumerate() {
-            if stats.best_clusters.len() >= 1
-                && lat == stats.best_clusters[0][0]
-                && lon == stats.best_clusters[0][1]
-            {
-                rotate_count = i;
-                log::debug!("Found Best! {}, {} - {}", lat, lon, i);
-            }
-            final_clusters.push_back([lat, lon]);
-        }
-        final_clusters.rotate_left(rotate_count);
-        stats.total_distance = 0.;
-        stats.longest_distance = 0.;
-
-        clusters = final_clusters.into();
-    }
-
-    stats.distance(&clusters);
+    let clusters = routing::main(
+        &data_points,
+        clusters,
+        sort_by,
+        route_split_level,
+        radius,
+        &mut stats,
+    );
 
     let mut feature = clusters
         .to_feature(Some(enum_type.clone()))
@@ -329,7 +311,6 @@ async fn cluster(
         Some(stats),
         benchmark_mode,
         Some(instance),
-        Some(min_points),
     ))
 }
 
@@ -338,19 +319,28 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     let ArgsUnwrapped {
         benchmark_mode,
         data_points,
+        clusters,
         return_type,
         route_split_level,
         instance,
         mode,
         ..
     } = payload.into_inner().init(Some("reroute"));
-    let mut stats = Stats::new();
+    let mut stats = Stats::new(String::from("Reroute"));
+
+    // For legacy compatibility
+    let data_points = if clusters.is_empty() {
+        data_points
+    } else {
+        clusters
+    };
+
     stats.total_clusters = data_points.len();
 
     let final_clusters = tsp::multi(&data_points, route_split_level);
     log::info!("Tour Length {}", final_clusters.len());
 
-    stats.distance(&final_clusters);
+    stats.distance_stats(&final_clusters);
 
     let feature = final_clusters
         .to_feature(Some(mode.clone()))
@@ -363,7 +353,105 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         Some(stats),
         benchmark_mode,
         Some(instance),
-        None,
+    ))
+}
+
+#[post("/route-stats")]
+async fn route_stats(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
+    let ArgsUnwrapped {
+        clusters,
+        data_points,
+        instance,
+        radius,
+        mode,
+        min_points,
+        ..
+    } = payload.into_inner().init(Some("route-stats"));
+
+    if clusters.is_empty() || data_points.is_empty() {
+        return Ok(HttpResponse::BadRequest()
+            .json(Response::send_error("no_clusters_or_data_points_found")));
+    }
+    let mut stats = Stats::new(format!("Route Stats | {:?}", mode));
+    stats.cluster_stats(radius, &data_points, &clusters);
+    stats.distance_stats(&clusters);
+    stats.set_score(min_points);
+
+    let feature = clusters.to_feature(Some(mode.clone())).remove_last_coord();
+    let feature = feature.to_collection(Some(instance.clone()), Some(mode));
+
+    Ok(utils::response::send(
+        feature,
+        model::api::args::ReturnTypeArg::Feature,
+        Some(stats),
+        true,
+        Some(instance),
+    ))
+}
+
+#[post("/route-stats/{category}")]
+async fn route_stats_category(
+    scanner_type: web::Data<String>,
+    conn: web::Data<KojiDb>,
+    url: actix_web::web::Path<String>,
+    payload: web::Json<Args>,
+) -> Result<HttpResponse, Error> {
+    let ArgsUnwrapped {
+        clusters,
+        data_points,
+        instance,
+        radius,
+        mode,
+        area,
+        parent,
+        last_seen,
+        tth,
+        min_points,
+        ..
+    } = payload.into_inner().init(Some("route-stats"));
+    let scanner_type = scanner_type.as_ref();
+    let category = url.into_inner();
+
+    let area = utils::create_or_find_collection(
+        &instance,
+        scanner_type,
+        &conn,
+        area,
+        &parent,
+        &data_points,
+    )
+    .await
+    .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    let data_points = if !data_points.is_empty() {
+        data_points
+    } else {
+        utils::points_from_area(&area, &category, &conn, last_seen, tth)
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?
+            .to_single_vec()
+    };
+
+    if clusters.is_empty() || data_points.is_empty() {
+        return Ok(HttpResponse::BadRequest()
+            .json(Response::send_error("no_clusters_or_data_points_found")));
+    }
+
+    let mut stats = Stats::new(format!("Route Stats | {:?}", mode));
+
+    stats.cluster_stats(radius, &data_points, &clusters);
+    stats.distance_stats(&clusters);
+
+    stats.set_score(min_points);
+    let feature = clusters.to_feature(Some(mode.clone())).remove_last_coord();
+    let feature = feature.to_collection(Some(instance.clone()), Some(mode));
+
+    Ok(utils::response::send(
+        feature,
+        model::api::args::ReturnTypeArg::Feature,
+        Some(stats),
+        true,
+        Some(instance),
     ))
 }
 

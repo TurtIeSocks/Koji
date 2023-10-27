@@ -1,12 +1,15 @@
 use super::*;
 
-use crate::private::admin::Search;
+use crate::{
+    private::admin::Search,
+    utils::response::{ConfigResponse, Response},
+};
 
 use actix_session::Session;
 use actix_web::http::header;
 
 use geojson::Value;
-use model::api::args::{Auth, ConfigResponse, Response};
+use model::api::args::Auth;
 use serde_json::json;
 
 #[get("/")]

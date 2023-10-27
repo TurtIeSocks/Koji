@@ -65,7 +65,7 @@ pub async fn start() -> io::Result<()> {
             .app_data(web::Data::new(scanner_type))
             .app_data(web::Data::new(client))
             // increase max payload size to 20MB
-            .app_data(web::JsonConfig::default().limit(20_971_520))
+            .app_data(web::JsonConfig::default().limit(1024 * 1024 * 50))
             .wrap(middleware::Logger::new("%s | %r - %b bytes in %D ms (%a)"))
             .wrap(middleware::Compress::default())
             .wrap(
@@ -128,9 +128,11 @@ pub async fn start() -> io::Result<()> {
                         .service(
                             web::scope("/calc")
                                 .service(public::v1::calculate::bootstrap)
+                                .service(public::v1::calculate::route_stats)
+                                .service(public::v1::calculate::route_stats_category)
                                 .service(public::v1::calculate::reroute)
-                                .service(public::v1::calculate::cluster)
-                                .service(public::v1::calculate::calculate_area),
+                                .service(public::v1::calculate::calculate_area)
+                                .service(public::v1::calculate::cluster),
                         )
                         .service(
                             web::scope("/convert")

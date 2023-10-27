@@ -12,18 +12,23 @@
 #include "ortools/constraint_solver/routing_index_manager.h"
 #include "ortools/constraint_solver/routing_parameters.h"
 
+typedef std::vector<std::vector<int64_t>> DistanceMatrix;
+typedef std::vector<std::vector<double>> RawInput;
+
 namespace operations_research
 {
+  const double R = 6372.8; // km
+
   struct DataModel
   {
-    std::vector<std::vector<int64_t>> distance_matrix;
+    DistanceMatrix distance_matrix;
     const int num_vehicles = 1;
     const RoutingIndexManager::NodeIndex depot{0};
   };
 
   double haversine(double lat1, double lon1, double lat2, double lon2)
   {
-    double R = 6372.8; // km
+
     double dLat = (lat2 - lat1) * M_PI / 180.0;
     double dLon = (lon2 - lon1) * M_PI / 180.0;
     lat1 = lat1 * M_PI / 180.0;
@@ -34,12 +39,9 @@ namespace operations_research
     return R * c * 1000; // to reduce rounding issues
   }
 
-  std::vector<std::vector<int64_t>> distanceMatrix(
-      const std::vector<std::vector<double>> &locations)
+  DistanceMatrix distanceMatrix(const RawInput &locations)
   {
-    std::vector<std::vector<int64_t>> distances =
-        std::vector<std::vector<int64_t>>(
-            locations.size(), std::vector<int64_t>(locations.size(), int64_t{0}));
+    DistanceMatrix distances = DistanceMatrix(locations.size(), std::vector<int64_t>(locations.size(), int64_t{0}));
     for (int fromNode = 0; fromNode < locations.size(); fromNode++)
     {
       for (int toNode = 0; toNode < locations.size(); toNode++)
@@ -53,9 +55,9 @@ namespace operations_research
     return distances;
   }
 
-  std::vector<std::vector<double>> GetRoutes(const RoutingIndexManager &manager, const RoutingModel &routing, const Assignment &solution)
+  RawInput GetRoutes(const RoutingIndexManager &manager, const RoutingModel &routing, const Assignment &solution)
   {
-    std::vector<std::vector<double>> routes(manager.num_vehicles());
+    RawInput routes(manager.num_vehicles());
     for (double vehicle_id = 0; vehicle_id < manager.num_vehicles(); ++vehicle_id)
     {
       int64_t index = routing.Start(vehicle_id);
@@ -69,7 +71,7 @@ namespace operations_research
     return routes;
   }
 
-  std::vector<std::vector<double>> Tsp(std::vector<std::vector<double>> locations)
+  RawInput Tsp(RawInput locations)
   {
     DataModel data;
     data.distance_matrix = distanceMatrix(locations);
@@ -100,7 +102,7 @@ namespace operations_research
 
 int main()
 {
-  std::vector<std::vector<double>> distance_matrix;
+  RawInput distance_matrix;
   std::vector<double> row;
 
   std::string line;
@@ -116,7 +118,7 @@ int main()
     row.push_back(value);
   }
 
-  std::vector<std::vector<double>> routes = operations_research::Tsp(distance_matrix);
+  RawInput routes = operations_research::Tsp(distance_matrix);
   for (auto route : routes)
   {
     for (auto node : route)

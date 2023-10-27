@@ -11,5 +11,6 @@
   "rust-analyzer.showUnlinkedFileNotification": false,
   "files.associations": {
     "vector": "cpp"
-  }
+  },
+  "cmake.configureOnOpen": false
 }

@@ -10,7 +10,6 @@ import {
   Select,
   TextField,
   Typography,
-  capitalize,
 } from '@mui/material'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { MultiPolygon, Polygon } from 'geojson'
@@ -59,7 +58,6 @@ export function PolygonPopup({
       (s) => ({ ...s.Polygon, ...s.MultiPolygon }[refFeature.id]),
       shallow,
     ) || refFeature
-  const calcMode = usePersist((s) => s.mode)
   const raw = usePersist((s) => s.last_seen)
   const tth = usePersist((s) => s.tth)
   const geofence = useDbCache((s) => s.geofence)
@@ -241,7 +239,7 @@ export function PolygonPopup({
         <Divider flexItem sx={{ my: 1, color: 'black', width: '90%' }} />
         <Grid2 xs={12}>
           <Button onClick={() => clusteringRouting({ feature })} size="small">
-            Run {capitalize(calcMode)}
+            Run Clustering
           </Button>
         </Grid2>
         <Grid2 xs={12}>
@@ -252,7 +250,7 @@ export function PolygonPopup({
             }
             size="small"
           >
-            {capitalize(calcMode)} Children
+            Cluster Children
           </Button>
         </Grid2>
         <Grid2 xs={12}>

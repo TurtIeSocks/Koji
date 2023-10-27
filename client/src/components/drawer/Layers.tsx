@@ -24,7 +24,7 @@ export default function Layers() {
   const spawnpoint = usePersist((s) => s.spawnpoint)
 
   return (
-    <List dense>
+    <List dense sx={{ height: '90vh' }}>
       <ListSubheader disableGutters>Vectors</ListSubheader>
       <Toggle field="showCircles" />
       <Toggle field="showLines" />

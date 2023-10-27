@@ -6,6 +6,8 @@ import type {
   Feature,
   Category,
   StoreNoFn,
+  KojiModes,
+  KojiSource,
 } from '@assets/types'
 import { ALL_FENCES, ALL_ROUTES } from '@assets/constants'
 
@@ -27,6 +29,11 @@ export interface UseDbCache {
   getFromKojiKey: (key?: KojiKey | string) => DbOption | null
   getRecords: <T extends CacheKey>(key: T) => UseDbCache[T]
   getRouteByCategory: (category: Category, name?: string) => DbOption | null
+  parseKojiKey: (key: string) => {
+    id: number
+    mode: KojiModes
+    source: KojiSource
+  }
   setRecord: <T extends CacheKey>(
     key: T,
     id: keyof UseDbCache[T],
@@ -83,6 +90,18 @@ export const useDbCache = create<UseDbCache>((set, get) => ({
         )
       default:
         return null
+    }
+  },
+  parseKojiKey: (key) => {
+    const [stringId, stringMode, stringSource] = key.split('__')
+    const id = Number(stringId)
+    const mode = stringMode as KojiModes
+    const source = stringSource as KojiSource
+
+    return {
+      id,
+      mode,
+      source,
     }
   },
   getFromKojiKey: (key) => {

@@ -1,54 +1,50 @@
+use std::time::Instant;
+
+use crate::stats::Stats;
+
+use self::greedy::Greedy;
+
 use super::*;
 
-use geojson::FeatureCollection;
-use model::{
-    api::{
-        args::{ClusterMode, SortBy},
-        single_vec::SingleVec,
-        stats::Stats,
-        ToSingleVec,
-    },
-    db::GenericData,
-};
+use model::api::{cluster_mode::ClusterMode, single_vec::SingleVec};
 
-mod balanced;
-mod bruteforce;
-mod fast;
+mod fastest;
+mod greedy;
 
 pub fn main(
-    data_points: Vec<GenericData>,
+    data_points: &SingleVec,
     cluster_mode: ClusterMode,
     radius: f64,
     min_points: usize,
-    only_unique: bool,
-    area: FeatureCollection,
     stats: &mut Stats,
-    sort_by: SortBy,
     cluster_split_level: u64,
+    max_clusters: usize,
 ) -> SingleVec {
-    match cluster_mode {
-        ClusterMode::BruteForce => {
-            bruteforce::multi_thread(&data_points, radius, min_points, cluster_split_level, stats)
-        }
-        ClusterMode::Balanced => {
-            let mut clusters = vec![];
-            for feature in area.into_iter() {
-                let feature_clusters = balanced::cluster(
-                    &data_points,
-                    bootstrapping::as_vec(feature, radius, stats),
-                    radius,
-                    min_points,
-                    stats,
-                    only_unique,
-                    &sort_by,
-                );
-                clusters.extend(feature_clusters);
-            }
-            clusters
-        }
-        ClusterMode::Fast => {
-            let clusters = fast::cluster(data_points.to_single_vec(), radius, min_points, stats);
-            clusters
-        }
+    if data_points.is_empty() {
+        return vec![];
     }
+    let time = Instant::now();
+    let clusters = match cluster_mode {
+        ClusterMode::Fastest => {
+            let clusters = fastest::main(&data_points, radius, min_points);
+            clusters
+        }
+        _ => {
+            let mut greedy = Greedy::default();
+            greedy
+                .set_cluster_mode(cluster_mode)
+                .set_cluster_split_level(cluster_split_level)
+                .set_max_clusters(max_clusters)
+                .set_min_points(min_points)
+                .set_radius(radius);
+
+            greedy.run(&data_points)
+        }
+    };
+
+    stats.set_cluster_time(time);
+    stats.cluster_stats(radius, &data_points, &clusters);
+    stats.set_score(min_points);
+
+    clusters
 }

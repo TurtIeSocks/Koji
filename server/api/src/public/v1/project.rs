@@ -1,15 +1,11 @@
-use crate::utils::request::send_api_req;
+use crate::utils::{request::send_api_req, response::Response};
 
 use super::*;
 
 use serde_json::json;
 
 use model::{
-    api::{
-        args::{ApiQueryArgs, Response},
-        collection::Default,
-        GeoFormats,
-    },
+    api::{args::ApiQueryArgs, collection::Default, GeoFormats},
     db::{area, geofence, instance, project},
     KojiDb,
 };

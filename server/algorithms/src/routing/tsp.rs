@@ -1,43 +1,31 @@
-use std::collections::HashMap;
 use std::io::Write;
 use std::process::{Command, Stdio};
 use std::time::Instant;
 use std::vec;
 
-use geo::{Coord, HaversineDistance, Point};
-use geohash::encode;
+use geo::{HaversineDistance, Point};
+use s2::cellid::CellID;
+use s2::latlng::LatLng;
 
+use crate::s2::create_cell_map;
 use crate::utils;
 use model::api::{point_array::PointArray, single_vec::SingleVec};
 
-pub fn multi(clusters: &SingleVec, route_split_level: usize) -> SingleVec {
+pub fn multi(clusters: &SingleVec, route_split_level: u64) -> SingleVec {
     let time = Instant::now();
 
-    let get_hash = |point: PointArray, modifier: usize| {
-        encode(
-            Coord {
-                x: point[1],
-                y: point[0],
-            },
-            route_split_level + modifier,
-        )
-        .unwrap()
+    let get_cell_id = |point: PointArray| {
+        CellID::from(LatLng::from_degrees(point[0], point[1]))
+            .parent(route_split_level)
+            .0
     };
 
-    let mut point_map: HashMap<String, SingleVec> = HashMap::new();
-    for point in clusters.into_iter() {
-        let key = get_hash(*point, 0);
-        point_map
-            .entry(key)
-            .and_modify(|x| x.push(*point))
-            .or_insert(vec![*point]);
-    }
-
+    let mut point_map = create_cell_map(clusters, route_split_level as u64);
     let merged_routes: Vec<(PointArray, SingleVec)> = point_map
         .iter()
         .enumerate()
-        .map(|(i, (hash, segment))| {
-            log::debug!("Creating thread: {} for hash {}", i + 1, hash);
+        .map(|(i, (cell_id, segment))| {
+            log::debug!("Creating thread: {} for hash {}", i + 1, cell_id);
             let mut route = or_tools(&segment);
             if let Some(last) = route.last() {
                 if let Some(first) = route.first() {
@@ -64,13 +52,13 @@ pub fn multi(clusters: &SingleVec, route_split_level: usize) -> SingleVec {
         .enumerate()
         .for_each(|(_i, (hash, r))| {
             centroids.push(hash);
-            point_map.insert(get_hash(hash, 0), r);
+            point_map.insert(get_cell_id(hash), r);
         });
 
     let clusters: Vec<SingleVec> = or_tools(&centroids)
         .into_iter()
         .filter_map(|c| {
-            let hash = get_hash(c, 0);
+            let hash = get_cell_id(c);
             point_map.remove(&hash)
         })
         .collect();

@@ -123,7 +123,6 @@ export async function clusteringRouting({
     fast,
     route_split_level,
     cluster_split_level,
-    only_unique,
     save_to_db,
     save_to_scanner,
     skipRendering,
@@ -133,6 +132,7 @@ export async function clusteringRouting({
     calculation_mode,
     s2_level,
     s2_size,
+    max_clusters,
   } = usePersist.getState()
   const { geojson, setStatic, bounds } = useStatic.getState()
   const { add, activeRoute } = useShapes.getState().setters
@@ -235,13 +235,13 @@ export async function clusteringRouting({
             cluster_mode,
             parent,
             fast,
-            only_unique,
             save_to_db,
             save_to_scanner,
             route_split_level,
             cluster_split_level,
             sort_by,
             tth,
+            max_clusters,
             calculation_mode,
             s2_level,
             s2_size,

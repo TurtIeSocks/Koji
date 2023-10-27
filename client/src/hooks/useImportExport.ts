@@ -1,12 +1,42 @@
+/* eslint-disable prefer-destructuring */
 /* eslint-disable @typescript-eslint/ban-types */
 import { create } from 'zustand'
 import distance from '@turf/distance'
 
-import type { Conversions, Feature, FeatureCollection } from '@assets/types'
-import { convert } from '@services/fetches'
+import {
+  KojiResponse,
+  type Conversions,
+  type Feature,
+  type FeatureCollection,
+} from '@assets/types'
+import { convert, fetchWrapper } from '@services/fetches'
+import { getCategory } from '@services/utils'
 
 import { UsePersist, usePersist } from './usePersist'
+import { UseDbCache, useDbCache } from './useDbCache'
+import { useShapes } from './useShapes'
 
+const DEFAULT = { id: 0, source: 'CLIENT', mode: 'unset' } as ReturnType<
+  UseDbCache['parseKojiKey']
+>
+
+const getProperties = (feature: Feature) => {
+  const { geofence } = useDbCache.getState()
+  const parsedId =
+    typeof feature?.id === 'string'
+      ? useDbCache.getState().parseKojiKey(feature.id)
+      : DEFAULT
+  const name =
+    (feature.properties?.__geofence_id
+      ? Object.values(geofence).find(
+          (fence) => fence.id === feature.properties.__geofence_id,
+        )?.name
+      : feature?.properties?.__name) ||
+    feature?.properties?.__name ||
+    `${parsedId.id}`
+  const mode = feature?.properties?.__mode || parsedId.mode || 'unset'
+  return { name, mode, source: parsedId.source, id: parsedId.id }
+}
 export interface UseImportExport {
   code: string
   error: string
@@ -16,6 +46,8 @@ export interface UseImportExport {
     max: number
     total: number
     count: number
+    covered: string
+    score: number
   }
   importConvert: (geometry?: UsePersist['geometryType']) => Promise<void>
   exportConvert: () => Promise<void>
@@ -48,6 +80,8 @@ const DEFAULTS: Omit<
     max: 0,
     total: 0,
     count: 0,
+    covered: '0 / 0',
+    score: 0,
   },
 }
 
@@ -115,11 +149,19 @@ export const useImportExport = create<UseImportExport>((set, get) => ({
       await get().importConvert(geometry)
     }
   },
-  updateStats: (writeCode) => {
+  updateStats: async (writeCode) => {
     const { feature, code } = get()
     let max = 0
     let total = 0
     let count = 0
+    let covered = '0 / 0'
+    let score = 0
+    let minLat = Infinity
+    let minLon = Infinity
+    let maxLat = -Infinity
+    let maxLon = -Infinity
+
+    const points: [number, number][] = []
     if (feature.type === 'Feature') {
       if (feature.geometry.type === 'MultiPoint') {
         const { coordinates } = feature.geometry
@@ -130,6 +172,11 @@ export const useImportExport = create<UseImportExport>((set, get) => ({
             if (dis > max) max = dis
             total += dis
           }
+          points.push([point[1], point[0]])
+          if (point[0] < minLon) minLon = point[0]
+          if (point[0] > maxLon) maxLon = point[0]
+          if (point[1] < minLat) minLat = point[1]
+          if (point[1] > maxLat) maxLat = point[1]
           count++
         })
       }
@@ -144,18 +191,96 @@ export const useImportExport = create<UseImportExport>((set, get) => ({
               if (dis > max) max = dis
               total += dis
             }
+            points.push([point[1], point[0]])
+            if (point[0] < minLon) minLon = point[0]
+            if (point[0] > maxLon) maxLon = point[0]
+            if (point[1] < minLat) minLat = point[1]
+            if (point[1] > maxLat) maxLat = point[1]
             count++
           })
         }
       })
+    }
+    const { Polygon, MultiPolygon } = useShapes.getState()
+    const { radius, tth, last_seen: raw, min_points } = usePersist.getState()
+    const { geofence } = useDbCache.getState()
+    const combined = { ...Polygon, ...MultiPolygon }
+    const { id, name, mode } =
+      feature.type === 'Feature'
+        ? getProperties(feature)
+        : getProperties(feature.features[0])
+    const category = getCategory(mode)
+    const sourceArea =
+      combined[id] ??
+      Object.values(combined).find(
+        (feat) =>
+          feat.properties?.__name ===
+          (feature.type === 'Feature'
+            ? feature.properties.__name
+            : feature.features[0].properties.__name),
+      ) ??
+      (Object.values(geofence).find((fence) => fence.name === name)
+        ? undefined
+        : [
+            [
+              [minLat, minLon],
+              [maxLat, minLon],
+              [maxLat, maxLon],
+              [minLat, maxLon],
+              [minLat, minLon],
+            ],
+          ])
+    const last_seen = typeof raw === 'string' ? new Date(raw) : raw
+
+    set({
+      stats: {
+        max,
+        total,
+        count,
+        covered,
+        score,
+      },
+      code: writeCode ? JSON.stringify(feature, null, 2) : code,
+    })
+
+    if (sourceArea || name) {
+      const res = await fetchWrapper<KojiResponse>(
+        `/api/v1/calc/route-stats/${category}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            instance: name,
+            mode,
+            area: sourceArea,
+            clusters: points,
+            radius,
+            min_points,
+            tth,
+            last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+          }),
+        },
+      )
+
+      if (res) {
+        const { stats } = res
+        max = stats.longest_distance
+        total = stats.total_distance
+        count = stats.total_clusters
+        covered = `${stats.points_covered} / ${stats.total_points}`
+        score = stats.mygod_score
+      }
     }
     set({
       stats: {
         max,
         total,
         count,
+        covered,
+        score,
       },
-      code: writeCode ? JSON.stringify(feature, null, 2) : code,
     })
   },
   setCode: (code) => {
