@@ -101,9 +101,9 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
               updateProperty(feature.geometry.type, feature.id, '__mode', mode)
             }
           >
-            {(useStatic.getState().scannerType === 'rdm'
-              ? RDM_ROUTES
-              : UNOWN_ROUTES
+            {(useStatic.getState().scannerType === 'unown'
+              ? UNOWN_ROUTES
+              : RDM_ROUTES
             ).map((t) => (
               <MenuItem key={t} value={t}>
                 {t}

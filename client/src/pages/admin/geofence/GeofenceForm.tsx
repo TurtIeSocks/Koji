@@ -59,7 +59,7 @@ export default function GeofenceForm() {
       <TextInput source="name" fullWidth required />
       <SelectInput
         source="mode"
-        choices={(scannerType === 'rdm' ? RDM_FENCES : UNOWN_FENCES).map(
+        choices={(scannerType === 'unown' ? UNOWN_FENCES : RDM_FENCES).map(
           (mode, i) => ({ id: i, mode }),
         )}
         optionText="mode"

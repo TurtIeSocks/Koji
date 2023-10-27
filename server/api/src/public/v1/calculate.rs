@@ -19,18 +19,15 @@ use model::{
         FeatureHelpers, GeoFormats, Precision, ToCollection, ToFeature, ToSingleVec,
     },
     db::{area, geofence, instance, route, sea_orm_active_enums::Type},
-    KojiDb,
+    KojiDb, ScannerType,
 };
 use serde_json::json;
 
 #[post("/bootstrap")]
 async fn bootstrap(
     conn: web::Data<KojiDb>,
-    scanner_type: web::Data<String>,
     payload: web::Json<Args>,
 ) -> Result<HttpResponse, Error> {
-    let scanner_type = scanner_type.as_ref();
-
     let ArgsUnwrapped {
         area,
         benchmark_mode,
@@ -52,10 +49,9 @@ async fn bootstrap(
         );
     }
 
-    let area =
-        utils::create_or_find_collection(&instance, scanner_type, &conn, area, &parent, &vec![])
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+    let area = utils::create_or_find_collection(&instance, &conn, area, &parent, &vec![])
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     let mut stats = Stats::new(format!("Bootstrap | {:?}", calculation_mode));
 
@@ -89,7 +85,7 @@ async fn bootstrap(
     stats.cluster_time = time.elapsed().as_secs_f32() as Precision;
 
     let instance = if let Some(parent) = parent {
-        let model = geofence::Query::get_one(&conn.koji_db, parent.to_string())
+        let model = geofence::Query::get_one(&conn.koji, parent.to_string())
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
         model.name
@@ -102,37 +98,37 @@ async fn bootstrap(
         }
         feat.set_property(
             "__mode",
-            if scanner_type == "rdm" {
-                "circle_smart_pokemon"
-            } else {
+            if conn.scanner_type == ScannerType::Unown {
                 "circle_pokemon"
+            } else {
+                "circle_smart_pokemon"
             },
         );
         if save_to_db {
-            route::Query::upsert_from_geometry(&conn.koji_db, GeoFormats::Feature(feat.clone()))
+            route::Query::upsert_from_geometry(&conn.koji, GeoFormats::Feature(feat.clone()))
                 .await
                 .map_err(actix_web::error::ErrorInternalServerError)?;
         }
         if save_to_scanner {
-            if scanner_type == "rdm" {
+            if conn.scanner_type == ScannerType::Unown {
+                area::Query::upsert_from_geometry(
+                    &conn.controller,
+                    GeoFormats::Feature(feat.clone()),
+                )
+                .await
+            } else {
                 instance::Query::upsert_from_geometry(
-                    &conn.data_db,
+                    &conn.controller,
                     GeoFormats::Feature(feat.clone()),
                     true,
                 )
                 .await
-            } else if let Some(conn) = conn.unown_db.as_ref() {
-                area::Query::upsert_from_geometry(conn, GeoFormats::Feature(feat.clone())).await
-            } else {
-                Err(DbErr::Custom(
-                    "Scanner not configured correctly".to_string(),
-                ))
             }
             .map_err(actix_web::error::ErrorInternalServerError)?;
         }
     }
     if save_to_scanner {
-        request::update_project_api(&conn, Some(scanner_type))
+        request::update_project_api(&conn, Some(&conn.scanner_type))
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }
@@ -149,12 +145,10 @@ async fn bootstrap(
 #[post("/{mode}/{category}")]
 async fn cluster(
     conn: web::Data<KojiDb>,
-    scanner_type: web::Data<String>,
     url: actix_web::web::Path<(String, String)>,
     payload: web::Json<Args>,
 ) -> Result<HttpResponse, Error> {
     let (mode, category) = url.into_inner();
-    let scanner_type = scanner_type.as_ref();
 
     let ArgsUnwrapped {
         area,
@@ -194,31 +188,24 @@ async fn cluster(
 
     let mut stats = Stats::new(format!("{:?} | {:?}", cluster_mode, calculation_mode));
     let enum_type = if category == "gym" || category == "fort" {
-        if scanner_type == "rdm" {
-            Type::CircleSmartRaid
-        } else {
+        if conn.scanner_type == ScannerType::Unown {
             Type::CircleRaid
+        } else {
+            Type::CircleSmartRaid
         }
     } else if category == "pokestop" {
         Type::CircleQuest
     } else {
-        if scanner_type == "rdm" {
-            Type::CircleSmartPokemon
-        } else {
+        if conn.scanner_type == ScannerType::Unown {
             Type::CirclePokemon
+        } else {
+            Type::CircleSmartPokemon
         }
     };
 
-    let area = utils::create_or_find_collection(
-        &instance,
-        scanner_type,
-        &conn,
-        area,
-        &parent,
-        &data_points,
-    )
-    .await
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    let area = utils::create_or_find_collection(&instance, &conn, area, &parent, &data_points)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     let data_points = if !data_points.is_empty() {
         data_points
@@ -264,7 +251,7 @@ async fn cluster(
         .remove_last_coord();
 
     let instance = if let Some(parent) = parent {
-        let model = geofence::Query::get_one(&conn.koji_db, parent.to_string())
+        let model = geofence::Query::get_one(&conn.koji, parent.to_string())
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
         model.name
@@ -276,31 +263,30 @@ async fn cluster(
 
     if !instance.is_empty() && save_to_db {
         route::Query::upsert_from_geometry(
-            &conn.koji_db,
+            &conn.koji,
             GeoFormats::FeatureCollection(feature.clone()),
         )
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
     }
     if save_to_scanner {
-        if scanner_type == "rdm" {
+        if conn.scanner_type == ScannerType::Unown {
+            area::Query::upsert_from_geometry(
+                &conn.controller,
+                GeoFormats::FeatureCollection(feature.clone()),
+            )
+            .await
+        } else {
             instance::Query::upsert_from_geometry(
-                &conn.data_db,
+                &conn.controller,
                 GeoFormats::FeatureCollection(feature.clone()),
                 true,
             )
             .await
-        } else if let Some(conn) = conn.unown_db.as_ref() {
-            area::Query::upsert_from_geometry(conn, GeoFormats::FeatureCollection(feature.clone()))
-                .await
-        } else {
-            Err(DbErr::Custom(
-                "Scanner not configured correctly".to_string(),
-            ))
         }
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-        request::update_project_api(&conn, Some(scanner_type))
+        request::update_project_api(&conn, Some(&conn.scanner_type))
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }
@@ -391,7 +377,6 @@ async fn route_stats(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
 
 #[post("/route-stats/{category}")]
 async fn route_stats_category(
-    scanner_type: web::Data<String>,
     conn: web::Data<KojiDb>,
     url: actix_web::web::Path<String>,
     payload: web::Json<Args>,
@@ -409,19 +394,11 @@ async fn route_stats_category(
         min_points,
         ..
     } = payload.into_inner().init(Some("route-stats"));
-    let scanner_type = scanner_type.as_ref();
     let category = url.into_inner();
 
-    let area = utils::create_or_find_collection(
-        &instance,
-        scanner_type,
-        &conn,
-        area,
-        &parent,
-        &data_points,
-    )
-    .await
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    let area = utils::create_or_find_collection(&instance, &conn, area, &parent, &data_points)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     let data_points = if !data_points.is_empty() {
         data_points

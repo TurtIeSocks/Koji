@@ -10,7 +10,7 @@ use model::{
         GeoFormats, ToCollection,
     },
     db::{area, instance, project, route},
-    KojiDb,
+    KojiDb, ScannerType,
 };
 
 #[get("/all")]
@@ -19,7 +19,7 @@ async fn all(
     args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
     let args = args.into_inner();
-    let fc = route::Query::as_collection(&conn.koji_db, args.internal.unwrap_or(false))
+    let fc = route::Query::as_collection(&conn.koji, args.internal.unwrap_or(false))
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -46,7 +46,7 @@ async fn get_area(
         &ReturnTypeArg::Feature,
     );
 
-    let feature = route::Query::get_one_feature(&conn.koji_db, id, args.internal.unwrap_or(false))
+    let feature = route::Query::get_one_feature(&conn.koji, id, args.internal.unwrap_or(false))
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -65,7 +65,7 @@ async fn get_area(
 
 #[get("/reference")]
 async fn reference_data(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
-    let fences = route::Query::get_all_no_fences(&conn.koji_db)
+    let fences = route::Query::get_all_no_fences(&conn.koji)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -85,7 +85,7 @@ async fn reference_data_geofence(
     url: actix_web::web::Path<String>,
 ) -> Result<HttpResponse, Error> {
     let geofence = url.into_inner();
-    let fences = route::Query::by_geofence(&conn.koji_db, geofence)
+    let fences = route::Query::by_geofence(&conn.koji, geofence)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -106,7 +106,7 @@ async fn save_koji(
     let ArgsUnwrapped { area, .. } = payload.into_inner().init(Some("geofence_save"));
 
     let (inserts, updates) =
-        route::Query::upsert_from_geometry(&conn.koji_db, GeoFormats::FeatureCollection(area))
+        route::Query::upsert_from_geometry(&conn.koji, GeoFormats::FeatureCollection(area))
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -124,33 +124,27 @@ async fn save_koji(
 #[get("/push/{id}")]
 async fn push_to_prod(
     conn: web::Data<KojiDb>,
-    scanner_type: web::Data<String>,
     id: actix_web::web::Path<u32>,
 ) -> Result<HttpResponse, Error> {
     let id = id.into_inner();
-    let scanner_type = scanner_type.as_ref();
 
-    let feature = route::Query::feature(&conn.koji_db, id, true)
+    let feature = route::Query::feature(&conn.koji, id, true)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    let (inserts, updates) = if scanner_type == "rdm" {
-        instance::Query::upsert_from_geometry(&conn.data_db, GeoFormats::Feature(feature), false)
-            .await
+    let (inserts, updates) = if conn.scanner_type == ScannerType::Unown {
+        area::Query::upsert_from_geometry(&conn.controller, GeoFormats::Feature(feature)).await
     } else {
-        area::Query::upsert_from_geometry(
-            &conn.unown_db.as_ref().unwrap(),
-            GeoFormats::Feature(feature),
-        )
-        .await
+        instance::Query::upsert_from_geometry(&conn.controller, GeoFormats::Feature(feature), false)
+            .await
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    let project = project::Query::get_scanner_project(&conn.koji_db)
+    let project = project::Query::get_scanner_project(&conn.koji)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
     if let Some(project) = project {
-        send_api_req(project, Some(scanner_type))
+        send_api_req(project, Some(&conn.scanner_type))
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }
@@ -175,7 +169,7 @@ async fn specific_return_type(
     let args = args.into_inner();
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
 
-    let fc = route::Query::as_collection(&conn.koji_db, args.internal.unwrap_or(false))
+    let fc = route::Query::as_collection(&conn.koji, args.internal.unwrap_or(false))
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -196,7 +190,7 @@ async fn specific_geofence(
     let args = args.into_inner();
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
     let features = route::Query::by_geofence_feature(
-        &conn.koji_db,
+        &conn.koji,
         geofence_name,
         args.internal.unwrap_or(false),
     )

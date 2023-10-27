@@ -14,9 +14,9 @@ export default function ProjectForm() {
         source="api_endpoint"
         fullWidth
         helperText={
-          scannerType === 'rdm'
-            ? 'Hint! For RDM use this format: http://{host_ip}:{port}/api/set_data?reload_instances=true'
-            : 'http://{host_ip}:{port}/reload'
+          scannerType === 'unown'
+            ? 'Hint! For Unown use this format: http://{host_ip}:{port}/reload'
+            : 'Hint! For RDM use this format: http://{host_ip}:{port}/api/set_data?reload_instances=true'
         }
         sx={{ my: 2 }}
       />
@@ -24,9 +24,9 @@ export default function ProjectForm() {
         source="api_key"
         fullWidth
         helperText={
-          scannerType === 'rdm'
-            ? 'Hint! For RDM use this format: {username}:{password}'
-            : ''
+          scannerType === 'unown'
+            ? 'Hint! For Unown use this format: {header_name}:{api_key}'
+            : 'Hint! For RDM use this format: {username}:{password}'
         }
         sx={{ my: 2 }}
       />

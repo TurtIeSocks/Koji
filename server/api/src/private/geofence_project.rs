@@ -10,7 +10,7 @@ use crate::{
 
 #[get("/all/")]
 async fn get_all(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
-    let items = geofence_project::Query::get_all(&conn.koji_db)
+    let items = geofence_project::Query::get_all(&conn.koji)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -29,7 +29,7 @@ async fn create(
     payload: web::Json<geofence_project::Model>,
 ) -> Result<HttpResponse, Error> {
     let payload = payload.into_inner();
-    let return_payload = geofence_project::Query::create(&conn.koji_db, payload)
+    let return_payload = geofence_project::Query::create(&conn.koji, payload)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -56,7 +56,7 @@ async fn update(
     let payload = payload.into_inner();
 
     let result =
-        geofence_project::Query::update(&conn.koji_db, payload.geofence_id, payload.project_id)
+        geofence_project::Query::update(&conn.koji, payload.geofence_id, payload.project_id)
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -79,7 +79,7 @@ async fn update_by_id(
     let payload = payload.into_inner();
 
     if table == "geofence" || table == "project" {
-        geofence_project::Query::update_by_id(&conn.koji_db, id, table, payload)
+        geofence_project::Query::update_by_id(&conn.koji, id, table, payload)
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }
@@ -100,7 +100,7 @@ async fn remove(
 ) -> Result<HttpResponse, Error> {
     let payload = payload.into_inner();
     let projects =
-        geofence_project::Query::delete(&conn.koji_db, payload.geofence_id, payload.project_id)
+        geofence_project::Query::delete(&conn.koji, payload.geofence_id, payload.project_id)
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
 

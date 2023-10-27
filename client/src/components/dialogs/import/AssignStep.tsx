@@ -104,7 +104,14 @@ const AssignStep = React.forwardRef<
         }),
     [nameProp, routeMode],
   )
-
+  const modes =
+    scannerType === 'unown'
+      ? routeMode
+        ? UNOWN_ROUTES
+        : UNOWN_FENCES
+      : routeMode
+      ? RDM_ROUTES
+      : RDM_FENCES
   return (
     <Grid2 container ref={ref} sx={{ width: '100%' }}>
       <Grid2 xs={1} mt={1} />
@@ -183,14 +190,7 @@ const AssignStep = React.forwardRef<
           }}
         >
           <MenuItem value="" />
-          {(scannerType === 'rdm'
-            ? routeMode
-              ? RDM_ROUTES
-              : RDM_FENCES
-            : routeMode
-            ? UNOWN_ROUTES
-            : UNOWN_FENCES
-          ).map((mode) => (
+          {modes.map((mode) => (
             <MenuItem key={mode} value={mode}>
               {mode}
             </MenuItem>
@@ -425,14 +425,7 @@ const AssignStep = React.forwardRef<
                       }}
                     >
                       <MenuItem value="" />
-                      {(scannerType === 'rdm'
-                        ? routeMode
-                          ? RDM_ROUTES
-                          : RDM_FENCES
-                        : routeMode
-                        ? UNOWN_ROUTES
-                        : UNOWN_FENCES
-                      ).map((instanceType) => (
+                      {modes.map((instanceType) => (
                         <MenuItem key={instanceType} value={instanceType}>
                           {instanceType}
                         </MenuItem>

@@ -91,7 +91,7 @@ const ImportStep = React.forwardRef<
             )
           }}
           controlled
-          filters={scannerType === 'rdm' ? RDM_FENCES : UNOWN_FENCES}
+          filters={scannerType === 'unown' ? UNOWN_FENCES : RDM_FENCES}
           initialState={geojson.features
             .filter((feat) => feat.properties?.__scanner)
             .map((feat) => feat.id as KojiKey)}

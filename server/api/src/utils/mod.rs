@@ -11,7 +11,7 @@ use model::{
     },
     db::{area, geofence, gym, instance, pokestop, spawnpoint, GenericData},
     error::ModelError,
-    KojiDb,
+    KojiDb, ScannerType,
 };
 
 pub mod auth;
@@ -28,22 +28,17 @@ pub fn is_docker() -> io::Result<bool> {
 
 pub async fn load_collection(
     instance: &String,
-    scanner_type: &String,
     conn: &KojiDb,
 ) -> Result<FeatureCollection, ModelError> {
-    match load_feature(instance, scanner_type, conn).await {
+    match load_feature(instance, conn).await {
         Ok(feature) => Ok(feature.to_collection(None, None)),
         Err(err) => Err(err),
     }
 }
 
-pub async fn load_feature(
-    instance: &String,
-    scanner_type: &String,
-    conn: &KojiDb,
-) -> Result<Feature, ModelError> {
+pub async fn load_feature(instance: &String, conn: &KojiDb) -> Result<Feature, ModelError> {
     match geofence::Query::get_one_feature(
-        &conn.koji_db,
+        &conn.koji,
         instance.to_string(),
         &ApiQueryArgs::default(),
     )
@@ -51,15 +46,15 @@ pub async fn load_feature(
     {
         Ok(area) => Ok(area),
         Err(_) => {
-            if scanner_type.eq("rdm") {
-                instance::Query::feature_from_name(&conn.data_db, &instance).await
-            } else {
+            if conn.scanner_type == ScannerType::Unown {
                 area::Query::feature_from_name(
-                    &conn.unown_db.as_ref().unwrap(),
+                    &conn.controller,
                     &instance,
                     "auto_quest".to_string(),
                 )
                 .await
+            } else {
+                instance::Query::feature_from_name(&conn.controller, &instance).await
             }
         }
     }
@@ -67,7 +62,6 @@ pub async fn load_feature(
 
 pub async fn create_or_find_collection(
     instance: &String,
-    scanner_type: &String,
     conn: &KojiDb,
     area: FeatureCollection,
     parent: &Option<UnknownId>,
@@ -91,9 +85,9 @@ pub async fn create_or_find_collection(
     } else if !area.features.is_empty() {
         Ok(area)
     } else if let Some(parent) = parent {
-        geofence::Query::by_parent(&conn.koji_db, parent).await
+        geofence::Query::by_parent(&conn.koji, parent).await
     } else if !instance.is_empty() {
-        load_collection(instance, scanner_type, conn).await
+        load_collection(instance, conn).await
     } else {
         Ok(FeatureCollection::default())
     }
@@ -108,12 +102,12 @@ pub async fn points_from_area(
 ) -> Result<Vec<GenericData>, DbErr> {
     if !area.features.is_empty() {
         match category.as_str() {
-            "gym" => gym::Query::area(&conn.data_db, &area, last_seen).await,
-            "pokestop" => pokestop::Query::area(&conn.data_db, &area, last_seen).await,
-            "spawnpoint" => spawnpoint::Query::area(&conn.data_db, &area, last_seen, tth).await,
+            "gym" => gym::Query::area(&conn.scanner, &area, last_seen).await,
+            "pokestop" => pokestop::Query::area(&conn.scanner, &area, last_seen).await,
+            "spawnpoint" => spawnpoint::Query::area(&conn.scanner, &area, last_seen, tth).await,
             "fort" => {
-                let gyms = gym::Query::area(&conn.data_db, &area, last_seen).await?;
-                let pokestops = pokestop::Query::area(&conn.data_db, &area, last_seen).await?;
+                let gyms = gym::Query::area(&conn.scanner, &area, last_seen).await?;
+                let pokestops = pokestop::Query::area(&conn.scanner, &area, last_seen).await?;
                 Ok(gyms.into_iter().chain(pokestops.into_iter()).collect())
             }
             _ => Err(DbErr::Custom("Invalid Category".to_string())),

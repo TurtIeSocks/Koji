@@ -11,7 +11,7 @@ use model::{
         GeoFormats, ToCollection,
     },
     db::{area, geofence, instance, project},
-    KojiDb,
+    KojiDb, ScannerType,
 };
 
 #[get("/all")]
@@ -20,7 +20,7 @@ async fn all(
     args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
     let args = args.into_inner();
-    let fc = geofence::Query::get_all_collection(&conn.koji_db, &args)
+    let fc = geofence::Query::get_all_collection(&conn.koji, &args)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -47,7 +47,7 @@ async fn get_area(
         &ReturnTypeArg::Feature,
     );
 
-    let feature = geofence::Query::get_one_feature(&conn.koji_db, id, &args)
+    let feature = geofence::Query::get_one_feature(&conn.koji, id, &args)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -71,7 +71,7 @@ async fn save_koji(
 ) -> Result<HttpResponse, Error> {
     let ArgsUnwrapped { area, .. } = payload.into_inner().init(Some("geofence_save"));
 
-    geofence::Query::upsert_from_geometry(&conn.koji_db, GeoFormats::FeatureCollection(area))
+    geofence::Query::upsert_from_geometry(&conn.koji, GeoFormats::FeatureCollection(area))
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -87,33 +87,28 @@ async fn save_koji(
 #[post("/save-scanner")]
 async fn save_scanner(
     conn: web::Data<KojiDb>,
-    scanner_type: web::Data<String>,
     payload: web::Json<Args>,
 ) -> Result<HttpResponse, Error> {
-    let scanner_type = scanner_type.as_ref();
     let ArgsUnwrapped { area, .. } = payload.into_inner().init(Some("geofence_save"));
 
-    let (inserts, updates) = if scanner_type == "rdm" {
+    let (inserts, updates) = if conn.scanner_type == ScannerType::Unown {
+        area::Query::upsert_from_geometry(&conn.controller, GeoFormats::FeatureCollection(area))
+            .await
+    } else {
         instance::Query::upsert_from_geometry(
-            &conn.data_db,
+            &conn.controller,
             GeoFormats::FeatureCollection(area),
             false,
-        )
-        .await
-    } else {
-        area::Query::upsert_from_geometry(
-            &conn.unown_db.as_ref().unwrap(),
-            GeoFormats::FeatureCollection(area),
         )
         .await
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    let project = project::Query::get_scanner_project(&conn.koji_db)
+    let project = project::Query::get_scanner_project(&conn.koji)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
     if let Some(project) = project {
-        send_api_req(project, Some(scanner_type))
+        send_api_req(project, Some(&conn.scanner_type))
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }
@@ -131,33 +126,27 @@ async fn save_scanner(
 #[get("/push/{id}")]
 async fn push_to_prod(
     conn: web::Data<KojiDb>,
-    scanner_type: web::Data<String>,
     id: actix_web::web::Path<String>,
 ) -> Result<HttpResponse, Error> {
     let id = id.into_inner();
-    let scanner_type = scanner_type.as_ref();
 
-    let feature = geofence::Query::get_one_feature(&conn.koji_db, id, &ApiQueryArgs::default())
+    let feature = geofence::Query::get_one_feature(&conn.koji, id, &ApiQueryArgs::default())
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    let (inserts, updates) = if scanner_type == "rdm" {
-        instance::Query::upsert_from_geometry(&conn.data_db, GeoFormats::Feature(feature), false)
-            .await
+    let (inserts, updates) = if conn.scanner_type == ScannerType::Unown {
+        area::Query::upsert_from_geometry(&conn.controller, GeoFormats::Feature(feature)).await
     } else {
-        area::Query::upsert_from_geometry(
-            &conn.unown_db.as_ref().unwrap(),
-            GeoFormats::Feature(feature),
-        )
-        .await
+        instance::Query::upsert_from_geometry(&conn.controller, GeoFormats::Feature(feature), false)
+            .await
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    let project = project::Query::get_scanner_project(&conn.koji_db)
+    let project = project::Query::get_scanner_project(&conn.koji)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
     if let Some(project) = project {
-        send_api_req(project, Some(scanner_type))
+        send_api_req(project, Some(&conn.scanner_type))
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }
@@ -174,7 +163,7 @@ async fn push_to_prod(
 
 #[get("/reference")]
 async fn reference_data(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
-    let fences = geofence::Query::get_all_no_fences(&conn.koji_db)
+    let fences = geofence::Query::get_all_no_fences(&conn.koji)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -194,7 +183,7 @@ async fn reference_data_project(
     url: actix_web::web::Path<String>,
 ) -> Result<HttpResponse, Error> {
     let project = url.into_inner();
-    let fences = geofence::Query::by_project(&conn.koji_db, project)
+    let fences = geofence::Query::by_project(&conn.koji, project)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -217,7 +206,7 @@ async fn specific_return_type(
     let args = args.into_inner();
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
 
-    let fc = geofence::Query::get_all_collection(&conn.koji_db, &args)
+    let fc = geofence::Query::get_all_collection(&conn.koji, &args)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -238,7 +227,7 @@ async fn specific_project(
     let args = args.into_inner();
 
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
-    let features = geofence::Query::project_as_feature(&conn.koji_db, project, &args)
+    let features = geofence::Query::project_as_feature(&conn.koji, project, &args)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
