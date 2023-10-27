@@ -3,7 +3,9 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use super::point::Point;
+use rstar::RTree;
+
+use super::{point::Point, SortDedupe};
 
 #[derive(Debug, Clone)]
 pub struct Cluster<'a> {
@@ -23,6 +25,37 @@ impl<'a> Cluster<'a> {
             all: all.collect(),
             points: points.collect(),
         }
+    }
+
+    pub fn get_size(&self) -> usize {
+        let mut size = std::mem::size_of_val(&self);
+
+        for point in self.point.center {
+            size += std::mem::size_of_val(&point);
+        }
+        for point in self.points.iter() {
+            size += std::mem::size_of_val(point);
+        }
+        for point in self.all.iter() {
+            size += std::mem::size_of_val(point);
+        }
+        size
+    }
+
+    pub fn update_unique(&mut self, tree: &RTree<Point>) {
+        let mut points: Vec<_> = self
+            .all
+            .iter()
+            .filter_map(|p| {
+                if tree.locate_all_at_point(&p.center).count() == 1 {
+                    Some(*p)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        points.sort_dedupe();
+        self.points = points;
     }
 }
 

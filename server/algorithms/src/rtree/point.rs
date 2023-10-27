@@ -7,10 +7,11 @@ use geo::Coord;
 use geohash::encode;
 use map_3d::EARTH_RADIUS;
 use model::api::Precision;
+use rayon::slice::ParallelSliceMut;
 use rstar::{PointDistance, RTreeObject, AABB};
 use s2::{cell::Cell, cellid::CellID, latlng::LatLng};
 
-use super::cluster::Cluster;
+use super::{cluster::Cluster, SortDedupe};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Point {
@@ -147,5 +148,12 @@ impl Display for Point {
 impl<'a> From<Cluster<'a>> for Point {
     fn from(cluster: Cluster) -> Self {
         cluster.point
+    }
+}
+
+impl SortDedupe for Vec<&Point> {
+    fn sort_dedupe(&mut self) {
+        self.par_sort_by(|a, b| a.cell_id.cmp(&b.cell_id));
+        self.dedup_by(|a, b| a.cell_id == b.cell_id);
     }
 }

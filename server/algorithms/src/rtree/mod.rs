@@ -7,6 +7,10 @@ use point::Point;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rstar::RTree;
 
+pub trait SortDedupe {
+    fn sort_dedupe(&mut self);
+}
+
 pub fn spawn(radius: Precision, points: &SingleVec) -> RTree<Point> {
     let points = points
         .iter()

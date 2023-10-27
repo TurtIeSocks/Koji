@@ -14,7 +14,7 @@ use sysinfo::{System, SystemExt};
 
 use crate::{
     clustering::rtree::{cluster::Cluster, point::Point},
-    rtree::{self, point::ToPoint},
+    rtree::{self, point::ToPoint, SortDedupe},
     s2,
     utils::info_log,
 };
@@ -106,34 +106,34 @@ impl<'a> Greedy {
     }
 
     fn generate_clusters(&self, point: &Point, neighbors: Vec<&Point>) -> HashSet<Point> {
-        let mut set = HashSet::<Point>::new();
+        let mut clusters = HashSet::new();
         for neighbor in neighbors.iter() {
             for i in 0..=7 {
                 let ratio = i as Precision / 8 as Precision;
                 let new_point = point.interpolate(neighbor, ratio, 0., 0.);
-                set.insert(new_point);
+                clusters.insert(new_point);
                 if self.cluster_mode == ClusterMode::Balanced {
                     for wiggle in vec![0.00025, 0.0001] {
                         let wiggle_lat: Precision = wiggle / 2.;
                         let wiggle_lon = wiggle;
                         let random_point =
                             point.interpolate(neighbor, ratio, wiggle_lat, wiggle_lon);
-                        set.insert(random_point);
+                        clusters.insert(random_point);
                         let random_point =
                             point.interpolate(neighbor, ratio, wiggle_lat, -wiggle_lon);
-                        set.insert(random_point);
+                        clusters.insert(random_point);
                         let random_point =
                             point.interpolate(neighbor, ratio, -wiggle_lat, wiggle_lon);
-                        set.insert(random_point);
+                        clusters.insert(random_point);
                         let random_point =
                             point.interpolate(neighbor, ratio, -wiggle_lat, -wiggle_lon);
-                        set.insert(random_point);
+                        clusters.insert(random_point);
                     }
                 }
             }
         }
-        set.insert(point.to_owned());
-        set
+        clusters.insert(point.to_owned());
+        clusters
     }
 
     fn gen_estimated_clusters(&self, tree: &RTree<Point>) -> Vec<Point> {
@@ -150,7 +150,7 @@ impl<'a> Greedy {
             })
             .reduce(HashSet::new, |a, b| a.union(&b).cloned().collect());
 
-        clusters.into_iter().collect::<Vec<Point>>()
+        clusters.into_iter().collect()
     }
 
     fn flat_map_cells(&self, cell: CellID) -> Vec<CellID> {
@@ -222,20 +222,7 @@ impl<'a> Greedy {
 
         let size = (clusters_with_data
             .par_iter()
-            .map(|cluster| {
-                let mut start = std::mem::size_of_val(&cluster);
-
-                for point in cluster.point.center {
-                    start += std::mem::size_of_val(&point);
-                }
-                for point in cluster.points.iter() {
-                    start += std::mem::size_of_val(point);
-                }
-                for point in cluster.all.iter() {
-                    start += std::mem::size_of_val(point);
-                }
-                start
-            })
+            .map(|cluster| cluster.get_size())
             .sum::<usize>()
             / 1024
             / 1024)
@@ -362,8 +349,7 @@ impl<'a> Greedy {
                     if points.len() < highest {
                         None
                     } else {
-                        points.sort_by(|a, b| a.cell_id.cmp(&b.cell_id));
-                        points.dedup_by(|a, b| a.cell_id == b.cell_id);
+                        points.sort_dedupe();
 
                         Some(Cluster {
                             point: cluster.point,
@@ -452,23 +438,10 @@ impl<'a> Greedy {
             self.radius,
             &clusters.iter().map(|c| c.point.center).collect(),
         );
-        clusters.par_iter_mut().for_each(|cluster| {
-            cluster.points = cluster
-                .all
-                .iter()
-                // .collect::<Vec<&&Point>>()
-                // .into_par_iter()
-                .filter_map(|p| {
-                    if cluster_tree.locate_all_at_point(&p.center).count() == 1 {
-                        Some(*p)
-                    } else {
-                        None
-                    }
-                })
-                .collect::<HashSet<&Point>>()
-                .into_iter()
-                .collect();
-        });
+        clusters
+            .par_iter_mut()
+            .for_each(|cluster| cluster.update_unique(&cluster_tree));
+
         clusters.retain(|cluster| cluster.points.len() >= self.min_points);
 
         log::info!(
