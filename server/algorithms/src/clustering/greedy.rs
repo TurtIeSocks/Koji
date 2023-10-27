@@ -195,7 +195,7 @@ impl<'a> Greedy {
         }
         .into_par_iter()
         .filter_map(|cluster| {
-            let mut points: Vec<&'a Point> = point_tree
+            let mut points: Vec<&Point> = point_tree
                 .locate_all_at_point(&cluster.center)
                 .collect::<Vec<&Point>>();
             if let Some(point) = point_tree.locate_at_point(&cluster.center) {
@@ -205,11 +205,7 @@ impl<'a> Greedy {
                 log::debug!("Empty");
                 None
             } else {
-                Some(Cluster::new(
-                    cluster,
-                    points.into_iter(),
-                    vec![].into_iter(),
-                ))
+                Some(Cluster::new(cluster, points, vec![]))
             }
         })
         .collect();
@@ -247,7 +243,7 @@ impl<'a> Greedy {
         );
 
         let time = Instant::now();
-        let mut clustered_clusters: Vec<Vec<Cluster>> = vec![vec![]; max + 1];
+        let mut clustered_clusters = vec![vec![]; max + 1];
 
         for cluster in clusters_with_data.into_iter() {
             clustered_clusters[cluster.all.len()].push(cluster);
@@ -271,35 +267,11 @@ impl<'a> Greedy {
 
         self.update_unique(&mut solution);
 
-        solution.into_iter().map(|x| x.into()).collect()
-
-        // let mut seen_points: HashSet<&Point> = HashSet::new();
-
-        // for cluster in solution.iter() {
-        //     let points = point_tree
-        //         .locate_all_at_point(&cluster.center)
-        //         .into_iter()
-        //         .collect::<Vec<&Point>>();
-        //     seen_points.extend(points);
-        // }
-        // let missing = points
-        //     .iter()
-        //     .filter_map(|p| {
-        //         let point = Point::new(self.radius, 20, *p);
-
-        //         if seen_points.contains(&point) {
-        //             None
-        //         } else {
-        //             Some(point)
-        //         }
-        //     })
-        //     .collect::<Vec<Point>>();
-
-        // println!(
-        //     "seen points: {} | missing: {}",
-        //     seen_points.len(),
-        //     missing.len()
-        // );
+        if self.min_points == 1 {
+            self.check_missing(solution, points)
+        } else {
+            solution.into_iter().map(|c| c.into()).collect()
+        }
     }
 
     fn cluster(&'a self, clusters_with_data: Vec<Vec<Cluster<'a>>>) -> HashSet<Cluster<'a>> {
@@ -381,8 +353,7 @@ impl<'a> Greedy {
                 if new_clusters.len() >= self.max_clusters {
                     break 'greedy;
                 }
-                let length = cluster.points.len();
-                if length >= highest {
+                if cluster.points.len() >= highest {
                     for point in cluster.points.iter() {
                         if blocked_points.contains(point) {
                             continue 'cluster;
@@ -419,7 +390,11 @@ impl<'a> Greedy {
         }
         stdout.write(format!("\n",).as_bytes()).unwrap();
 
-        log::debug!("\nInterested Clusters Time: {}\nLocal Clusters Time: {}\n Sorting Time: {}\n Iterating Local Time: {}\n Logging Time: {}", clusters_of_interest_time, local_clusters_time, sorting_time, iterating_local_time, logging_time);
+        log::debug!("Interested Clusters Time: {:.4}", clusters_of_interest_time);
+        log::debug!("Local Clusters Time: {:.4}", local_clusters_time);
+        log::debug!("Sorting Time: {:.4}", sorting_time);
+        log::debug!("Iterating Local Time: {:.4}", iterating_local_time);
+        log::debug!("Logging Time: {:.4}", logging_time);
 
         log::info!(
             "finished initial solution in {:.2}s",
@@ -438,6 +413,7 @@ impl<'a> Greedy {
             self.radius,
             &clusters.iter().map(|c| c.point.center).collect(),
         );
+
         clusters
             .par_iter_mut()
             .for_each(|cluster| cluster.update_unique(&cluster_tree));
@@ -450,6 +426,37 @@ impl<'a> Greedy {
         );
         log::info!("unique solution size: {}", clusters.len());
 
-        // _debug_clusters(&x, "x");
+        // crate::utils::_debug_clusters(&clusters.clone().into_iter().collect(), "x");
+    }
+
+    fn check_missing(&self, clusters: Vec<Cluster>, points: &SingleVec) -> HashSet<Point> {
+        let missing = {
+            let seen_points = clusters
+                .par_iter()
+                .map(|cluster| cluster.all.iter().collect())
+                .reduce(HashSet::new, |a, b| a.union(&b).cloned().collect());
+
+            if seen_points.len() == points.len() {
+                vec![]
+            } else {
+                points
+                    .par_iter()
+                    .filter_map(|p| {
+                        let point = Point::new(self.radius, 20, *p);
+                        if seen_points.contains(&&point) {
+                            None
+                        } else {
+                            Some(point)
+                        }
+                    })
+                    .collect::<Vec<Point>>()
+            }
+        };
+
+        let mut clusters: HashSet<Point> = clusters.into_iter().map(|c| c.into()).collect();
+
+        clusters.extend(missing);
+
+        clusters
     }
 }

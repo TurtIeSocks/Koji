@@ -3,6 +3,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rstar::RTree;
 
 use super::{point::Point, SortDedupe};
@@ -15,16 +16,8 @@ pub struct Cluster<'a> {
 }
 
 impl<'a> Cluster<'a> {
-    pub fn new<T, U>(point: Point, all: T, points: U) -> Cluster<'a>
-    where
-        T: Iterator<Item = &'a Point>,
-        U: Iterator<Item = &'a Point>,
-    {
-        Cluster {
-            point,
-            all: all.collect(),
-            points: points.collect(),
-        }
+    pub fn new(point: Point, all: Vec<&'a Point>, points: Vec<&'a Point>) -> Cluster<'a> {
+        Cluster { point, all, points }
     }
 
     pub fn get_size(&self) -> usize {
@@ -42,10 +35,19 @@ impl<'a> Cluster<'a> {
         size
     }
 
+    pub fn update_all(&mut self, tree: &'a RTree<Point>) {
+        let mut points: Vec<_> = tree
+            .locate_all_at_point(&self.point.center)
+            .into_iter()
+            .collect();
+        points.sort_dedupe();
+        self.all = points;
+    }
+
     pub fn update_unique(&mut self, tree: &RTree<Point>) {
         let mut points: Vec<_> = self
             .all
-            .iter()
+            .par_iter()
             .filter_map(|p| {
                 if tree.locate_all_at_point(&p.center).count() == 1 {
                     Some(*p)
