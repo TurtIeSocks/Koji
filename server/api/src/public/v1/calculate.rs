@@ -5,9 +5,8 @@ use super::*;
 use std::time::Instant;
 
 use algorithms::{
-    bootstrapping, clustering,
+    self, clustering,
     routing::{self, tsp},
-    s2,
     stats::Stats,
 };
 use geo::{ChamberlainDuquetteArea, MultiPolygon, Polygon};
@@ -15,8 +14,8 @@ use geo::{ChamberlainDuquetteArea, MultiPolygon, Polygon};
 use geojson::Value;
 use model::{
     api::{
-        args::{Args, ArgsUnwrapped, CalculationMode, SortBy},
-        FeatureHelpers, GeoFormats, Precision, ToCollection, ToFeature, ToSingleVec,
+        args::{Args, ArgsUnwrapped, SortBy},
+        FeatureHelpers, GeoFormats, ToCollection, ToFeature, ToSingleVec,
     },
     db::{area, geofence, instance, route, sea_orm_active_enums::Type},
     KojiDb, ScannerType,
@@ -40,6 +39,8 @@ async fn bootstrap(
         s2_level,
         s2_size,
         parent,
+        sort_by,
+        route_split_level,
         ..
     } = payload.into_inner().init(Some("bootstrap"));
 
@@ -53,24 +54,27 @@ async fn bootstrap(
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    let mut stats = Stats::new(format!("Bootstrap | {:?}", calculation_mode));
+    let mut stats = Stats::new(format!("Bootstrap | {:?}", calculation_mode), 1);
 
     let time = Instant::now();
 
-    let mut features: Vec<Feature> = area
-        .into_iter()
-        .map(|sub_area| match calculation_mode {
-            CalculationMode::Radius => bootstrapping::as_geojson(sub_area, radius, &mut stats),
-            CalculationMode::S2 => s2::bootstrap(&sub_area, s2_level, s2_size, &mut stats),
-        })
-        .collect();
+    let mut features: Vec<Feature> = algorithms::bootstrap::main(
+        area,
+        calculation_mode,
+        radius,
+        sort_by,
+        s2_level,
+        s2_size,
+        route_split_level,
+        &mut stats,
+    );
 
     if parent.is_some() {
         let mut condensed = vec![];
         features
             .into_iter()
             .for_each(|feat| match feat.geometry.unwrap().value {
-                geojson::Value::MultiPoint(mut points) => condensed.append(&mut points),
+                geojson::Value::MultiPoint(points) => condensed.extend(points),
                 _ => {}
             });
         features = vec![Feature {
@@ -82,7 +86,7 @@ async fn bootstrap(
             ..Default::default()
         }]
     }
-    stats.cluster_time = time.elapsed().as_secs_f32() as Precision;
+    stats.set_cluster_time(time);
 
     let instance = if let Some(parent) = parent {
         let model = geofence::Query::get_one(&conn.koji, parent.to_string())
@@ -186,7 +190,10 @@ async fn cluster(
         sort_by
     };
 
-    let mut stats = Stats::new(format!("{:?} | {:?}", cluster_mode, calculation_mode));
+    let mut stats = Stats::new(
+        format!("{:?} | {:?}", cluster_mode, calculation_mode),
+        min_points,
+    );
     let enum_type = if category == "gym" || category == "fort" {
         if conn.scanner_type == ScannerType::Unown {
             Type::CircleRaid
@@ -207,13 +214,13 @@ async fn cluster(
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    let data_points = if !data_points.is_empty() {
-        data_points
-    } else {
+    let data_points = if data_points.is_empty() {
         utils::points_from_area(&area, &category, &conn, last_seen, tth)
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?
             .to_single_vec()
+    } else {
+        data_points
     };
 
     log::debug!(
@@ -222,25 +229,23 @@ async fn cluster(
         data_points.len()
     );
 
-    let clusters = match calculation_mode {
-        CalculationMode::Radius => clustering::main(
-            &data_points,
-            cluster_mode,
-            radius,
-            min_points,
-            &mut stats,
-            cluster_split_level,
-            max_clusters,
-        ),
-        CalculationMode::S2 => area
-            .into_iter()
-            .flat_map(|feature| s2::cluster(feature, &data_points, s2_level, s2_size, &mut stats))
-            .collect(),
-    };
+    let clusters = clustering::main(
+        &data_points,
+        cluster_mode,
+        radius,
+        min_points,
+        &mut stats,
+        cluster_split_level,
+        max_clusters,
+        calculation_mode,
+        s2_level,
+        s2_size,
+        area,
+    );
     let clusters = routing::main(
         &data_points,
         clusters,
-        sort_by,
+        &sort_by,
         route_split_level,
         radius,
         &mut stats,
@@ -312,7 +317,7 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         mode,
         ..
     } = payload.into_inner().init(Some("reroute"));
-    let mut stats = Stats::new(String::from("Reroute"));
+    let mut stats = Stats::new(String::from("Reroute"), 1);
 
     // For legacy compatibility
     let data_points = if clusters.is_empty() {
@@ -358,10 +363,10 @@ async fn route_stats(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         return Ok(HttpResponse::BadRequest()
             .json(Response::send_error("no_clusters_or_data_points_found")));
     }
-    let mut stats = Stats::new(format!("Route Stats | {:?}", mode));
+    let mut stats = Stats::new(format!("Route Stats | {:?}", mode), min_points);
     stats.cluster_stats(radius, &data_points, &clusters);
     stats.distance_stats(&clusters);
-    stats.set_score(min_points);
+    stats.set_score();
 
     let feature = clusters.to_feature(Some(mode.clone())).remove_last_coord();
     let feature = feature.to_collection(Some(instance.clone()), Some(mode));
@@ -414,12 +419,12 @@ async fn route_stats_category(
             .json(Response::send_error("no_clusters_or_data_points_found")));
     }
 
-    let mut stats = Stats::new(format!("Route Stats | {:?}", mode));
+    let mut stats = Stats::new(format!("Route Stats | {:?}", mode), min_points);
 
     stats.cluster_stats(radius, &data_points, &clusters);
     stats.distance_stats(&clusters);
+    stats.set_score();
 
-    stats.set_score(min_points);
     let feature = clusters.to_feature(Some(mode.clone())).remove_last_coord();
     let feature = feature.to_collection(Some(instance.clone()), Some(mode));
 

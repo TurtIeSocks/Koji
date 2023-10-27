@@ -537,7 +537,7 @@ impl Args {
         let save_to_db = save_to_db.unwrap_or(false);
         let save_to_scanner = save_to_scanner.unwrap_or(false);
         let simplify = simplify.unwrap_or(false);
-        let sort_by = sort_by.unwrap_or(SortBy::GeoHash);
+        let sort_by = sort_by.unwrap_or(SortBy::None);
         let tth = tth.unwrap_or(SpawnpointTth::All);
         let mode = get_enum(mode);
         let route_split_level = validate_s2_cell(route_split_level, "route_split_level");

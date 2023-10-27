@@ -195,6 +195,23 @@ impl ToFeatureVec for Geometry {
     }
 }
 
+impl ToGeometryVec for Geometry {
+    fn to_geometry_vec(self) -> Vec<Geometry> {
+        match self.value {
+            Value::MultiPolygon(val) => val
+                .into_iter()
+                .map(|polygon| Geometry {
+                    bbox: self.bbox.clone(),
+                    value: Value::Polygon(polygon),
+                    foreign_members: None,
+                })
+                .collect(),
+            Value::GeometryCollection(val) => val,
+            _ => vec![self],
+        }
+    }
+}
+
 impl ToCollection for Vec<Geometry> {
     fn to_collection(self, _name: Option<String>, enum_type: Option<Type>) -> FeatureCollection {
         FeatureCollection {

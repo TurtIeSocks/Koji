@@ -81,7 +81,7 @@ fn s2cell(clusters: SingleVec) -> SingleVec {
         .collect()
 }
 
-pub fn sort(points: &SingleVec, clusters: SingleVec, radius: f64, sort_by: SortBy) -> SingleVec {
+pub fn sort(points: &SingleVec, clusters: SingleVec, radius: f64, sort_by: &SortBy) -> SingleVec {
     match sort_by {
         SortBy::Random => random(clusters),
         SortBy::GeoHash => geohash(clusters),

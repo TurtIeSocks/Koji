@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{ops::AddAssign, time::Instant};
 
 use geo::{HaversineDistance, Point};
 use hashbrown::HashSet;
@@ -11,6 +11,10 @@ const WIDTH: &str = "===========================================================
 
 #[derive(Debug, Clone)]
 pub struct Stats {
+    stats_start_time: Option<Instant>,
+    label: String,
+    min_points: usize,
+
     pub best_clusters: SingleVec,
     pub best_cluster_point_count: usize,
     pub cluster_time: Precision,
@@ -22,13 +26,11 @@ pub struct Stats {
     pub total_distance: Precision,
     pub longest_distance: Precision,
     pub mygod_score: usize,
-    stats_start_time: Option<Instant>,
-    label: String,
 }
 
 impl Stats {
-    pub fn new(label: String) -> Self {
-        Stats {
+    pub fn new(label: String, min_points: usize) -> Self {
+        Self {
             best_clusters: vec![],
             best_cluster_point_count: 0,
             cluster_time: 0.,
@@ -42,16 +44,17 @@ impl Stats {
             mygod_score: 0,
             stats_start_time: None,
             label,
+            min_points,
         }
     }
 
-    pub fn get_score(&self, min_points: usize) -> usize {
-        self.total_clusters * min_points + (self.total_points - self.points_covered)
+    pub fn get_score(&self) -> usize {
+        self.total_clusters * self.min_points + (self.total_points - self.points_covered)
     }
 
-    pub fn set_score(&mut self, min_points: usize) {
+    pub fn set_score(&mut self) {
         self.start_timer();
-        self.mygod_score = self.get_score(min_points);
+        self.mygod_score = self.get_score();
         self.stop_timer();
     }
 
@@ -128,17 +131,17 @@ impl Stats {
         )
     }
 
-    pub fn distance_stats(&mut self, points: &SingleVec) {
+    pub fn distance_stats(&mut self, clusters: &SingleVec) {
         self.start_timer();
-        log::info!("generating distance stats for {} points", points.len());
+        log::info!("generating distance stats for {} points", clusters.len());
         self.total_distance = 0.;
         self.longest_distance = 0.;
-        for (i, point) in points.iter().enumerate() {
+        for (i, point) in clusters.iter().enumerate() {
             let point = Point::new(point[1], point[0]);
-            let point2 = if i == points.len() - 1 {
-                Point::new(points[0][1], points[0][0])
+            let point2 = if i == clusters.len() - 1 {
+                Point::new(clusters[0][1], clusters[0][0])
             } else {
-                Point::new(points[i + 1][1], points[i + 1][0])
+                Point::new(clusters[i + 1][1], clusters[i + 1][0])
             };
             let distance = point.haversine_distance(&point2);
             self.total_distance += distance;
@@ -179,41 +182,45 @@ impl Stats {
         self.start_timer();
         log::info!("starting coverage check for {} points", points.len());
         self.total_points = points.len();
-
-        let tree = rtree::spawn(radius, points);
-        let clusters: Vec<point::Point> = clusters
-            .into_iter()
-            .map(|c| point::Point::new(radius, 20, *c))
-            .collect();
-        let clusters: Vec<Cluster<'_>> = cluster_info(&tree, &clusters);
-        let mut points_covered: HashSet<&point::Point> = HashSet::new();
-        let mut best_clusters = SingleVec::new();
-        let mut best = 0;
-
-        for cluster in clusters.iter() {
-            if cluster.all.len() > best {
-                best_clusters.clear();
-                best = cluster.all.len();
-                best_clusters.push(cluster.point.center);
-            } else if cluster.all.len() == best {
-                best_clusters.push(cluster.point.center);
-            }
-            if let Some(point) = tree.locate_at_point(&cluster.point.center) {
-                points_covered.insert(point);
-            }
-            points_covered.extend(&cluster.all);
-        }
         self.total_clusters = clusters.len();
-        self.best_cluster_point_count = best;
-        self.best_clusters = best_clusters;
-        self.points_covered = points_covered.len();
 
-        if self.points_covered > self.total_points {
-            log::warn!(
-                "points covered ({}) is greater than total points ({}), please report this to the developers",
-                self.points_covered,
-                self.total_points
-            );
+        if points.is_empty() {
+        } else {
+            let tree = rtree::spawn(radius, points);
+            let clusters: Vec<point::Point> = clusters
+                .into_iter()
+                .map(|c| point::Point::new(radius, 20, *c))
+                .collect();
+            let clusters: Vec<Cluster<'_>> = cluster_info(&tree, &clusters);
+            let mut points_covered: HashSet<&point::Point> = HashSet::new();
+            let mut best_clusters = SingleVec::new();
+            let mut best = 0;
+
+            for cluster in clusters.iter() {
+                if cluster.all.len() > best {
+                    best_clusters.clear();
+                    best = cluster.all.len();
+                    best_clusters.push(cluster.point.center);
+                } else if cluster.all.len() == best {
+                    best_clusters.push(cluster.point.center);
+                }
+                if let Some(point) = tree.locate_at_point(&cluster.point.center) {
+                    points_covered.insert(point);
+                }
+                points_covered.extend(&cluster.all);
+            }
+
+            self.best_cluster_point_count = best;
+            self.best_clusters = best_clusters;
+            self.points_covered = points_covered.len();
+
+            if self.points_covered > self.total_points {
+                log::warn!(
+                    "points covered ({}) is greater than total points ({}), please report this to the developers",
+                    self.points_covered,
+                    self.total_points
+                );
+            }
         }
         log::info!(
             "coverage check complete in {:.4}s",
@@ -241,5 +248,25 @@ impl Serialize for Stats {
         state.serialize_field("longest_distance", &self.longest_distance)?;
         state.serialize_field("mygod_score", &self.mygod_score)?;
         state.end()
+    }
+}
+
+impl<'a> AddAssign<&'a Self> for Stats {
+    fn add_assign(&mut self, rhs: &'a Self) {
+        if self.best_cluster_point_count < rhs.best_cluster_point_count {
+            self.best_clusters = rhs.best_clusters.clone();
+            self.best_cluster_point_count = rhs.best_cluster_point_count;
+        } else if self.best_cluster_point_count == rhs.best_cluster_point_count {
+            self.best_clusters.extend(rhs.best_clusters.clone());
+        }
+        self.cluster_time += rhs.cluster_time;
+        self.route_time += rhs.route_time;
+        self.stats_time += rhs.stats_time;
+        self.total_points += rhs.total_points;
+        self.points_covered += rhs.points_covered;
+        self.total_clusters += rhs.total_clusters;
+        self.total_distance += rhs.total_distance;
+        self.longest_distance += rhs.longest_distance;
+        self.set_score();
     }
 }
