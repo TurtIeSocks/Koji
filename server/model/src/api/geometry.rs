@@ -166,8 +166,7 @@ impl ToFeatureVec for Geometry {
                 .into_iter()
                 .map(|polygon| {
                     let bbox = polygon
-                        .clone()
-                        .into_iter()
+                        .iter()
                         .flat_map(|x| {
                             x.into_iter()
                                 .map(|y| [y[0] as Precision, y[1] as Precision])
