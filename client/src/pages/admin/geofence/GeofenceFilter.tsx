@@ -61,8 +61,8 @@ export function GeofenceFilter() {
         </FilterList>
         <FilterList label="Mode" icon={<AutoModeIcon />}>
           {[
-            ...(scannerType === 'rdm' ? RDM_FENCES : UNOWN_FENCES),
             'unset',
+            ...(scannerType === 'unown' ? UNOWN_FENCES : RDM_FENCES),
           ].map((mode) => (
             <FilterListItem key={mode} label={mode} value={{ mode }} />
           ))}

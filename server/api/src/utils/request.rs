@@ -4,9 +4,9 @@ use model::db::project;
 
 pub async fn update_project_api(
     db: &KojiDb,
-    scanner_type: Option<&String>,
+    scanner_type: Option<&ScannerType>,
 ) -> Result<reqwest::Response, Error> {
-    let project = project::Query::get_scanner_project(&db.koji_db).await?;
+    let project = project::Query::get_scanner_project(&db.koji).await?;
     if let Some(project) = project {
         send_api_req(project, scanner_type).await
     } else {
@@ -17,7 +17,7 @@ pub async fn update_project_api(
 }
 pub async fn send_api_req(
     project: project::Model,
-    scanner_type: Option<&String>,
+    scanner_type: Option<&ScannerType>,
 ) -> Result<reqwest::Response, Error> {
     if let Some(endpoint) = project.api_endpoint.as_ref() {
         let req = reqwest::ClientBuilder::new().build();
@@ -26,10 +26,10 @@ pub async fn send_api_req(
                 let req = if let Some(api_key) = project.api_key {
                     if let Some((username, password)) = api_key.split_once(":") {
                         let (username, password) = (username.trim(), password.trim());
-                        if scanner_type.eq("rdm") {
-                            req.get(endpoint).basic_auth(username, Some(password))
-                        } else {
+                        if *scanner_type == ScannerType::Unown || !project.scanner {
                             req.get(endpoint).header(username, password)
+                        } else {
+                            req.get(endpoint).basic_auth(username, Some(password))
                         }
                     } else {
                         req.get(endpoint)

@@ -45,35 +45,38 @@ import { Callout } from 'nextra-theme-docs'
 
 1.  Edit the env file: `nano .env`:
 
-    ```bash
-    # To escape special characters you must surround the values with single quotes ('')
-    # Required
+    ```
+        # To escape special characters you must surround the values with single quotes ('')
+        # Commented out variables are optional
 
-    # Your Golbat or RDM database
-    SCANNER_DB_URL='mysql://rdm_user:rdm_password@127.0.0.1:3306/rdm_database'
-    # Your Flygon database - leave commented out for RDM
-    # UNOWN_DB_URL='mysql://unown_user:unown_password@127.0.0.1:3306/flygon_database'
-    # Your Koji database
-    KOJI_DB_URL='mysql://koji_user:koji_password@127.0.0.1:3306/koji_database'
-    # Your Koji API bearer token and client password
-    KOJI_SECRET='your_super_secret_password'
+        # Your Golbat or RDM database
+        SCANNER_DB_URL='mysql://rdm_user:rdm_password@host:3306/rdm_database'
 
-    # Optional
-    # Host machine
-    HOST='0.0.0.0'
-    # Host port
-    PORT='8080'
-    # Start latitude on initial load
-    START_LAT='0'
-    # Start longitude on initial load
-    START_LON='0'
-    # Max database connections
-    MAX_CONNECTIONS=100
-    # Nominatim URl used for searching and importing geofences from OSM
-    # highly recommended using your own
-    NOMINATIM_URL='https://nominatim.openstreetmap.org'
-    # Logging level
-    LOG_LEVEL='info' # error | warn | info | debug | trace
+        # Your Flygon (if using) or RDM database (if you're using a hybrid Golbat/RDM setup)
+        # CONTROLLER_DB_URL='mysql://flygon_user:flygon_password@host:3306/flygon_database'
+
+        # Your Koji database
+        KOJI_DB_URL='mysql://koji_user:koji_password@127.0.0.1:3306/koji_database'
+
+        # Max Database connections
+        # MAX_CONNECTIONS=100
+
+        # Your Koji API bearer token and client password
+        KOJI_SECRET='your_super_secret'
+
+        # Host address
+        # HOST='0.0.0.0'
+        # Host port
+        # PORT='8080'
+
+        # Start latitude on initial client load
+        # START_LAT=0
+        # Start longitude on initial client load
+        # START_LON=0
+        # Nominatim URl used for searching and importing geofences from OSM
+        # NOMINATIM_URL='https://nominatim.openstreetmap.org' # highly recommended using your own
+        # Logging level | error | warn | info | debug | trace
+        # LOG_LEVEL=info
     ```
 
 1.  Compile the client:

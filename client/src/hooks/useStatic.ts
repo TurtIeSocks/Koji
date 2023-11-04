@@ -7,6 +7,7 @@ import type {
   FeatureCollection,
   StoreNoFn,
   KojiTileServer,
+  Config,
 } from '@assets/types'
 import { collectionToObject } from '@services/utils'
 import { ALL_FENCES, ALL_ROUTES } from '@assets/constants'
@@ -34,7 +35,7 @@ export interface UseStatic {
   tileServers: KojiTileServer[]
   kojiRoutes: { name: string; id: number; type: string }[]
   scannerRoutes: { name: string; id: number; type: string }[]
-  scannerType: string
+  scannerType: Config['scanner_type']
   dangerous: boolean
   geojson: FeatureCollection
   layerEditing: {

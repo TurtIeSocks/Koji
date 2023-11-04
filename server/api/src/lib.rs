@@ -26,7 +26,7 @@ mod utils;
 pub async fn start() -> io::Result<()> {
     let databases = model::utils::get_database_struct().await;
 
-    match Migrator::up(&databases.koji_db, None).await {
+    match Migrator::up(&databases.koji, None).await {
         Ok(_) => log::info!("Migrations successful"),
         Err(err) => log::error!("Migration Error {:?}", err),
     };
@@ -53,18 +53,10 @@ pub async fn start() -> io::Result<()> {
         )
         .unwrap();
 
-        let scanner_type = if databases.unown_db.is_none() {
-            "rdm"
-        } else {
-            "unown"
-        }
-        .to_string();
-
         App::new()
             .app_data(web::Data::new(databases.clone()))
-            .app_data(web::Data::new(scanner_type))
             .app_data(web::Data::new(client))
-            // increase max payload size to 20MB
+            // increase max payload size to 50MB
             .app_data(web::JsonConfig::default().limit(1024 * 1024 * 50))
             .wrap(middleware::Logger::new("%s | %r - %b bytes in %D ms (%a)"))
             .wrap(middleware::Compress::default())

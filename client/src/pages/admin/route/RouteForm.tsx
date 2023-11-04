@@ -24,7 +24,7 @@ export default function RouteForm() {
       <TextInput source="description" fullWidth />
       <SelectInput
         source="mode"
-        choices={(scannerType === 'rdm' ? RDM_ROUTES : UNOWN_ROUTES).map(
+        choices={(scannerType === 'unown' ? UNOWN_ROUTES : RDM_ROUTES).map(
           (mode, i) => ({ id: i, mode }),
         )}
         optionText="mode"

@@ -268,11 +268,11 @@ export function getRouteType(category: Category): KojiRouteModes {
   const { scannerType } = useStatic.getState()
   switch (category) {
     case 'gym':
-      return scannerType === 'rdm' ? 'circle_smart_raid' : 'circle_raid'
+      return scannerType === 'unown' ? 'circle_raid' : 'circle_smart_raid'
     case 'pokestop':
       return 'circle_quest'
     default:
-      return scannerType === 'rdm' ? 'circle_smart_pokemon' : 'circle_pokemon'
+      return scannerType === 'unown' ? 'circle_pokemon' : 'circle_smart_pokemon'
   }
 }
 

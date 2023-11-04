@@ -9,12 +9,12 @@ use actix_session::Session;
 use actix_web::http::header;
 
 use geojson::Value;
-use model::api::args::Auth;
+use model::{api::args::Auth, KojiDb};
 use serde_json::json;
 
 #[get("/")]
-async fn config(scanner_type: web::Data<String>, session: Session) -> Result<HttpResponse, Error> {
-    let scanner_type = scanner_type.as_ref().to_string();
+async fn config(conn: web::Data<KojiDb>, session: Session) -> Result<HttpResponse, Error> {
+    let scanner_type = conn.scanner_type.clone();
     let start_lat: f64 = std::env::var("START_LAT")
         .unwrap_or("0.0".to_string())
         .parse()

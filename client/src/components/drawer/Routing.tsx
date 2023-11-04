@@ -124,7 +124,7 @@ export default function RoutingTab() {
       <Toggle
         field="save_to_scanner"
         label="Save to Scanner Db"
-        disabled={scannerType === 'rdm'}
+        disabled={scannerType !== 'unown'}
       />
       <Toggle field="skipRendering" />
       <ListItemButton

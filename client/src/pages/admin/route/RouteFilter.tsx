@@ -30,7 +30,7 @@ export function RouteFilter() {
         <FilterLiveSearch />
         <FilterList label="Mode" icon={<AutoModeIcon />}>
           {[
-            ...(scannerType === 'rdm' ? RDM_ROUTES : UNOWN_ROUTES),
+            ...(scannerType === 'unown' ? UNOWN_ROUTES : RDM_ROUTES),
             'unset',
           ].map((mode) => (
             <FilterListItem key={mode} label={mode} value={{ mode }} />

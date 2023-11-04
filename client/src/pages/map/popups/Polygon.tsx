@@ -183,9 +183,9 @@ export function PolygonPopup({
               updateProperty(feature.geometry.type, feature.id, '__mode', mode)
             }
           >
-            {(useStatic.getState().scannerType === 'rdm'
-              ? RDM_FENCES
-              : UNOWN_FENCES
+            {(useStatic.getState().scannerType === 'unown'
+              ? UNOWN_FENCES
+              : RDM_FENCES
             ).map((t) => (
               <MenuItem key={t} value={t}>
                 {t}

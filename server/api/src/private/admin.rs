@@ -24,11 +24,11 @@ async fn paginate(
     let resource = path.into_inner();
 
     let paginated_results = match resource.to_lowercase().as_str() {
-        "geofence" => db::geofence::Query::paginate(&db.koji_db, parsed).await,
-        "project" => db::project::Query::paginate(&db.koji_db, parsed).await,
-        "property" => db::property::Query::paginate(&db.koji_db, parsed).await,
-        "route" => db::route::Query::paginate(&db.koji_db, parsed).await,
-        "tileserver" => db::tile_server::Query::paginate(&db.koji_db, parsed).await,
+        "geofence" => db::geofence::Query::paginate(&db.koji, parsed).await,
+        "project" => db::project::Query::paginate(&db.koji, parsed).await,
+        "property" => db::property::Query::paginate(&db.koji, parsed).await,
+        "route" => db::route::Query::paginate(&db.koji, parsed).await,
+        "tileserver" => db::tile_server::Query::paginate(&db.koji, parsed).await,
         _ => Err(DbErr::Custom("Invalid Resource".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -50,8 +50,8 @@ async fn parent_list(
     let resource = path.into_inner();
 
     let results = match resource.to_lowercase().as_str() {
-        "geofence" => db::geofence::Query::unique_parents(&db.koji_db).await,
-        "route" => db::route::Query::unique_geofence(&db.koji_db).await,
+        "geofence" => db::geofence::Query::unique_parents(&db.koji).await,
+        "route" => db::route::Query::unique_geofence(&db.koji).await,
         _ => Err(ModelError::Custom("Invalid Resource".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -73,11 +73,11 @@ async fn get_all(
     let resource = path.into_inner();
 
     let results = match resource.to_lowercase().as_str() {
-        "geofence" => db::geofence::Query::get_json_cache(&db.koji_db).await,
-        "project" => db::project::Query::get_json_cache(&db.koji_db).await,
-        "property" => db::property::Query::get_json_cache(&db.koji_db).await,
-        "route" => db::route::Query::get_json_cache(&db.koji_db).await,
-        "tileserver" => db::tile_server::Query::get_json_cache(&db.koji_db).await,
+        "geofence" => db::geofence::Query::get_json_cache(&db.koji).await,
+        "project" => db::project::Query::get_json_cache(&db.koji).await,
+        "property" => db::property::Query::get_json_cache(&db.koji).await,
+        "route" => db::route::Query::get_json_cache(&db.koji).await,
+        "tileserver" => db::tile_server::Query::get_json_cache(&db.koji).await,
         _ => Err(DbErr::Custom("Invalid Resource".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -99,11 +99,11 @@ async fn get_one(
     let (resource, id) = path.into_inner();
 
     let result = match resource.to_lowercase().as_str() {
-        "geofence" => db::geofence::Query::get_one_json_with_related(&db.koji_db, id).await,
-        "project" => db::project::Query::get_one_json_with_related(&db.koji_db, id).await,
-        "property" => db::property::Query::get_one_json(&db.koji_db, id).await,
-        "route" => db::route::Query::get_one_json(&db.koji_db, id).await,
-        "tileserver" => db::tile_server::Query::get_one_json(&db.koji_db, id).await,
+        "geofence" => db::geofence::Query::get_one_json_with_related(&db.koji, id).await,
+        "project" => db::project::Query::get_one_json_with_related(&db.koji, id).await,
+        "property" => db::property::Query::get_one_json(&db.koji, id).await,
+        "route" => db::route::Query::get_one_json(&db.koji, id).await,
+        "tileserver" => db::tile_server::Query::get_one_json(&db.koji, id).await,
         _ => Err(ModelError::Custom("Invalid Resource".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -127,11 +127,11 @@ async fn create(
     let resource = path.into_inner();
 
     let result = match resource.to_lowercase().as_str() {
-        "geofence" => db::geofence::Query::upsert_json_return(&db.koji_db, 0, payload).await,
-        "project" => db::project::Query::upsert_json_return(&db.koji_db, 0, payload).await,
-        "property" => db::property::Query::upsert_json_return(&db.koji_db, 0, payload).await,
-        "route" => db::route::Query::upsert_json_return(&db.koji_db, 0, payload).await,
-        "tileserver" => db::tile_server::Query::upsert_json_return(&db.koji_db, 0, payload).await,
+        "geofence" => db::geofence::Query::upsert_json_return(&db.koji, 0, payload).await,
+        "project" => db::project::Query::upsert_json_return(&db.koji, 0, payload).await,
+        "property" => db::property::Query::upsert_json_return(&db.koji, 0, payload).await,
+        "route" => db::route::Query::upsert_json_return(&db.koji, 0, payload).await,
+        "tileserver" => db::tile_server::Query::upsert_json_return(&db.koji, 0, payload).await,
         _ => Err(ModelError::Custom("Invalid Resource".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -155,11 +155,11 @@ async fn update(
     let payload = payload.into_inner();
 
     let result = match resource.to_lowercase().as_str() {
-        "geofence" => db::geofence::Query::upsert_json_return(&db.koji_db, id, payload).await,
-        "project" => db::project::Query::upsert_json_return(&db.koji_db, id, payload).await,
-        "property" => db::property::Query::upsert_json_return(&db.koji_db, id, payload).await,
-        "route" => db::route::Query::upsert_json_return(&db.koji_db, id, payload).await,
-        "tileserver" => db::tile_server::Query::upsert_json_return(&db.koji_db, id, payload).await,
+        "geofence" => db::geofence::Query::upsert_json_return(&db.koji, id, payload).await,
+        "project" => db::project::Query::upsert_json_return(&db.koji, id, payload).await,
+        "property" => db::property::Query::upsert_json_return(&db.koji, id, payload).await,
+        "route" => db::route::Query::upsert_json_return(&db.koji, id, payload).await,
+        "tileserver" => db::tile_server::Query::upsert_json_return(&db.koji, id, payload).await,
         _ => Err(ModelError::Custom("Invalid Resource".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -181,11 +181,11 @@ async fn remove(
     let (resource, id) = path.into_inner();
 
     let result = match resource.to_lowercase().as_str() {
-        "geofence" => db::geofence::Query::delete(&db.koji_db, id).await,
-        "project" => db::project::Query::delete(&db.koji_db, id).await,
-        "property" => db::property::Query::delete(&db.koji_db, id).await,
-        "route" => db::route::Query::delete(&db.koji_db, id).await,
-        "tileserver" => db::tile_server::Query::delete(&db.koji_db, id).await,
+        "geofence" => db::geofence::Query::delete(&db.koji, id).await,
+        "project" => db::project::Query::delete(&db.koji, id).await,
+        "property" => db::property::Query::delete(&db.koji, id).await,
+        "route" => db::route::Query::delete(&db.koji, id).await,
+        "tileserver" => db::tile_server::Query::delete(&db.koji, id).await,
         _ => Err(DbErr::Custom("Invalid Resource".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -211,7 +211,7 @@ async fn assign(
     let (resource, property, id) = path.into_inner();
 
     let results = match resource.to_lowercase().as_str() {
-        "geofence" => db::geofence::Query::assign(&db.koji_db, id, property, payload).await,
+        "geofence" => db::geofence::Query::assign(&db.koji, id, property, payload).await,
         // "project" => db::project::Query::search(&db.koji_db, search.query).await,
         // "property" => db::property::Query::search(&db.koji_db, search.query).await,
         // "route" => db::route::Query::search(&db.koji_db, search.query).await,
@@ -238,11 +238,11 @@ async fn search(
     let resource = path.into_inner();
 
     let results = match resource.to_lowercase().as_str() {
-        "geofence" => db::geofence::Query::search(&db.koji_db, search.query).await,
-        "project" => db::project::Query::search(&db.koji_db, search.query).await,
-        "property" => db::property::Query::search(&db.koji_db, search.query).await,
-        "route" => db::route::Query::search(&db.koji_db, search.query).await,
-        "tileserver" => db::tile_server::Query::search(&db.koji_db, search.query).await,
+        "geofence" => db::geofence::Query::search(&db.koji, search.query).await,
+        "project" => db::project::Query::search(&db.koji, search.query).await,
+        "property" => db::property::Query::search(&db.koji, search.query).await,
+        "route" => db::route::Query::search(&db.koji, search.query).await,
+        "tileserver" => db::tile_server::Query::search(&db.koji, search.query).await,
         _ => Err(DbErr::Custom("Invalid Resource".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
