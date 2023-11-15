@@ -69,7 +69,7 @@ The UDC algorithm is mostly a classic implementation of the UDC problem and is n
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/main/server/algorithms/src/clustering/greedy.rs)
 
-The Greedy algorithm on the other hand is much more specialized for the task at hand. Compared to its predecessors, it leverages an r-tree algorithm that allows it to run faster than the O(n^2) time complexity that the legacy algorithms could not achieve. This algorithm has three different levels of complexity that user's can select from. `Fast`, `Balanced`, and `Better`. The only difference between these options is the number of potential clusters that are generated based on the input points.
+The Greedy algorithm on the other hand is much more specialized for the task at hand. Compared to its predecessors, it leverages an r-tree algorithm that allows it to run faster than the O(n^2) time complexity that the legacy algorithms could not achieve. This algorithm has three different levels of complexity that user's can select from. `Fast`, `Balanced`, and `Better`. The only difference between these options is the number of potential clusters that are generated based on the input `data_points`.
 
 #### Step 1 - Generate Potential Clusters
 
@@ -88,15 +88,15 @@ let potential_clusters: Vec<Cluster> = match cluster_mode {
 }
 ```
 
-- `Fast`: Generates possible clusters at the provided points and at 8 equal segments between a given point and its neighbors that are within the given radius.
-- `Balanced`: Similar logic to `Fast` but generates the same 8 equal segments between the given point and its neighbors that are within the radius \* 2. Additionally, it adds some "wiggle" points at each of the segments.
-- `Better`: This option leverages the [Rust S2 library](https://github.com/yjh0502/rust-s2) and generates a potential cluster at every level 22 S2 cell that is within the BBOX of the input points. This is the most resource intensive option but produces the best result. This process has been optimized by starting at level 16 and continueing to split cells down to level 22 in parallel using [Rayon](https://github.com/rayon-rs/rayon).
+- `Fast`: Generates possible clusters at the provided `data_points` and at 8 equal segments between a given point and its neighbors that are within the given radius.
+- `Balanced`: Similar logic to `Fast` but generates the same 8 equal segments between the given point and its neighbors that are within the radius \* 2. Additionally, it adds some "wiggle" `data_points` at each of the segments.
+- `Better`: This option leverages the [Rust S2 library](https://github.com/yjh0502/rust-s2) and generates a potential cluster at every level 22 S2 cell that is within the BBOX of the input `data_points`. This is the most resource intensive option but produces the best result. This process has been optimized by starting at level 16 and continueing to split cells down to level 22 in parallel using [Rayon](https://github.com/rayon-rs/rayon).
 
 #### Step 2 - Associate Potential Clusters
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L177-L257)
 
-Now that we have our potential clusters, we want to associate them with the input points. This is where the primary use of the r-tree is implemented and has saved us the most time compared to the legacy algorithms. Even though this step utilizes Rayon to parallelize the workload, it is still the most expensive part of the algorithm and has the most room for improvement. The r-tree is used to find all points that are within the radius of a given potential cluster. This is done in parallel for all potential clusters. We also have to check to see if the cluster exists in the r-tree, in the case that the best cluster is indeed a point itself. If the cluster has less points than the given `min_points` input, we remove this cluster from the list of potential clusters, allowing us to release as much memory as possible and save some time in the clustering step.
+Now that we have our potential clusters, we want to associate them with the input `data_points`. This is where the primary use of the r-tree is implemented and has saved us the most time compared to the legacy algorithms. Even though this step utilizes Rayon to parallelize the workload, it is still the most expensive part of the algorithm and has the most room for improvement. The r-tree is used to find all `data_points` that are within the radius of a given potential cluster. This is done in parallel for all potential clusters. We also have to check to see if the cluster exists in the r-tree, in the case that the best cluster is indeed a point itself. If the cluster has less `data_points` than the given `min_points` input, we remove this cluster from the list of potential clusters, allowing us to release as much memory as possible and save some time in the clustering step.
 
 ```rust
 let clusters_with_data: Vec<Cluster> = potential_clusters
@@ -124,7 +124,7 @@ let clusters_with_data: Vec<Cluster> = potential_clusters
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L233-L254)
 
-In this step we are grouping our clusters by the number of points that they cover. This helps us save some time during the clustering step.
+In this step we are grouping our clusters by the number of `data_points` that they cover. This helps us save some time during the clustering step.
 
 ```rust
 // Finds the max number of points that a cluster covers
@@ -156,8 +156,8 @@ This section is broken down into sub steps and will only contain summarized code
 We start by setting up our mutable variables that help us keep track of where things are during the `while` loop runs.
 
 - `new_clusters`: A HashSet that will hold our picked clusters. The `Cluster` struct implement the `Hash` trait and are hashed based on the S2 Cell ID of the center point. Despite the `Cluster` struct being a complex type, it was unnecessary to use a HashMap because we aren't accessing the data by key, only making sure we aren't inserting duplicates.
-- `blocked_points`: an additional HashSet that is keeping track of points that have already been clustered. This is key because we do not want points associated with each cluster to count towards our `min_points` input comparisons if they have already been clustered.
-- `current`: a var that starts at the max number of points that a cluster covers and is decremented until it reaches our `min_points` input.
+- `blocked_points`: an additional HashSet that is keeping track of `data_points` that have already been clustered. This is key because we do not want `data_points` associated with each cluster to count towards our `min_points` input comparisons if they have already been clustered.
+- `current`: a var that starts at the max number of `data_points` that a cluster covers and is decremented until it reaches our `min_points` input.
 - The rest of the variables are for tracking how much time is spent on each step and for estimating our % complete in the logs.
 
 The rest of the steps occur in the `while` loop.
@@ -166,7 +166,7 @@ The rest of the steps occur in the `while` loop.
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L295-L304)
 
-This step is where we get the clusters that have the number of points that we are currently interested in. Since this algorithm is greedy, we start at the highest and work our way down to the `min_points` input. This is why we grouped our clusters in step 3. This is a very simple loop that checks whether the index of each item is greater than or equal to our `current` var. If it is, we add it to our `clusters_of_interest` Vec. The reason we want greater than or equal to is because we will be further filtering the clusters later on. Just because a cluster didn't end up being viable when `current` is equal to 42, is still may be the best when `current` is equal to 30.
+This step is where we get the clusters that have the number of `data_points` that we are currently interested in. Since this algorithm is greedy, we start at the highest and work our way down to the `min_points` input. This is why we grouped our clusters in step 3. This is a very simple loop that checks whether the index of each item is greater than or equal to our `current` var. If it is, we add it to our `clusters_of_interest` Vec. The reason we want greater than or equal to is because we will be further filtering the clusters later on. Just because a cluster didn't end up being viable when `current` is equal to 42, is still may be the best when `current` is equal to 30.
 
 ```rust
 for (index, clusters) in clusters_with_data.iter().enumerate() {
@@ -181,9 +181,9 @@ for (index, clusters) in clusters_with_data.iter().enumerate() {
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L306-L349)
 
-Now we filter out clusters that are not viable. Iterating through `clusters_of_interest` in parallel, we check how many points for each one have already been clustered, if the total is less than `current`, we discard it. During this step we are ensuring two important Vecs for each cluster, all of the points that it covers and the unique number of points that it could potentially be responsible for.
+Now we filter out clusters that are not viable. Iterating through `clusters_of_interest` in parallel, we check how many `data_points` for each one have already been clustered, if the total is less than `current`, we discard it. During this step we are ensuring two important Vecs for each cluster, all of the `data_points` that it covers and the unique number of points that it could potentially be responsible for.
 
-If the determined `local_clusters` is empty, we subtract one from `current` and start the next iteration. If not, we then sort the clusters in parallel by the number of points that they cover. If the total points between any two given clusters is equal, then we compare the unique number of points that they cover. This is important for the next step because we will be iterating through the clusters in serial and we want to make sure we get the best before we start discarding other clusters.
+If the determined `local_clusters` is empty, we subtract one from `current` and start the next iteration. If not, we then sort the clusters in parallel by the number of `data_points` that they cover. If the total `data_points` between any two given clusters is equal, then we compare the unique number of `data_points` that they cover. This is important for the next step because we will be iterating through the clusters in serial and we want to make sure we get the best before we start discarding other clusters.
 
 ##### Step 4d - Looping and Pushing to our `new_clusters` HashSet
 
@@ -193,7 +193,7 @@ We iterate through our `local_clusters` in serial and push the best cluster to o
 
 - At the start of the loop check to see if the number of clusters we have already saved is greater than or equal to our `max_clusters` input and immediately break the entire `while` loop if so.
 - Next we check every unique point that the cluster is responsible for to see if it has already been clustered, if so, we skip it. This is why sorting them before this step is important.
-- If the cluster passes, then we insert all of the unique points into the `blocked_points` HashSet and the cluster into our `new_clusters` HashSet.
+- If the cluster passes, then we insert all of the unique `data_points` into the `blocked_points` HashSet and the cluster into our `new_clusters` HashSet.
 
 ```rust
 if cluster.points.len() >= current {
@@ -221,8 +221,8 @@ Now that we have our full list of preliminary clusters, we need to make sure tha
 
 1. Create a new r-tree with our potential clusters
 1. Mut iterate through our clusters in parallel
-1. Via the `update_unique` trait, we then iterate through all of the points that the cluster covers and determine if a point is unique to that cluster by how many clusters are found at the point's location in the r-tree. If the number of clusters is equal to one, we know that the point is unique to that cluster.
-1. Filter out the clusters that do not have a unique number of points that is greater than or equal to our `min_points` input.
+1. Via the `update_unique` trait, we then iterate through all of the `data_points` that the cluster covers and determine if a point is unique to that cluster by how many clusters are found at the point's location in the r-tree. If the number of clusters is equal to one, we know that the point is unique to that cluster.
+1. Filter out the clusters that do not have a unique number of `data_points` that is greater than or equal to our `min_points` input.
 
 ```rust
 pub fn update_unique(&mut self, tree: &RTree<Point>) {
@@ -248,9 +248,9 @@ pub fn update_unique(&mut self, tree: &RTree<Point>) {
 
 If the `min_points` input is equal to one, we want to make absolutely sure that no point has been missed as this is most often used in requests that require 100% accuracy. This step is often unnecessary, rarely adds additional clusters, and is generally considered to be a hack that bandaids an unknown issue in the clustering function.
 
-1. First we reduce all points covered by our clusters into a single HashSet
-1. Next if the length of the HashSet does not equal the length of the input points, we know that at least one point has been missed.
-1. We then iterate through the input points, checking to see which ones exist in the HashSet, saving the ones that do not.
+1. First we reduce all `data_points` covered by our clusters into a single HashSet
+1. Next if the length of the HashSet does not equal the length of the input `data_points`, we know that at least one point has been missed.
+1. We then iterate through the input `data_points`, checking to see which ones exist in the HashSet, saving the ones that do not.
 1. We then extend the current clusters with the missing ones.
 
 ## Balanced (Legacy)
@@ -270,7 +270,7 @@ Concept wise, it was very similar to how Greedy operates now and it ran decently
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/6802c1fabaac2942393467ea855c91f3b40ea9a8/server/algorithms/src/clustering/bruteforce.rs)
 
-Shortly before starting work on this algorithm, I had completed the integration with OR-Tools, which utilizes a distance matrix in the TSP wrapper I wrote. I attempted to apply that same logic here as a sort of lookup table for checking which points are within the given `radius` of neighboring points, and since the values weren't reliant on each other, this calculation could be parallelized with Rayon. The core clustering algorithm is very recognizable as it was the base of the Greedy algorithm. However, it was still slower than what I had hoped for and my attempt to write another merge function wasn't exactly successful.
+Shortly before starting work on this algorithm, I had completed the integration with OR-Tools, which utilizes a distance matrix in the TSP wrapper I wrote. I attempted to apply that same logic here as a sort of lookup table for checking which `data_points` are within the given `radius` of neighboring `data_points`, and since the values weren't reliant on each other, this calculation could be parallelized with Rayon. The core clustering algorithm is very recognizable as it was the base of the Greedy algorithm. However, it was still slower than what I had hoped for and my attempt to write another merge function wasn't exactly successful.
 
 <Callout type="warning" emoji="⚠️">
   _The code has now been removed from the repo as it does not provide any
@@ -283,7 +283,7 @@ Now the info you're actually looking for, the results!
 
 ### Notes:
 
-- Distance stats have been excluded from each result as the points were unsorted and it is not relevant for directly comparing the clustering algorithms.
+- Distance stats have been excluded from each result as the `data_points` were unsorted and it is not relevant for directly comparing the clustering algorithms.
 - All algorithms were run on a MacBook Pro M1 with 16GB of RAM and 8 cores.
 - The following inputs were used:
   - `min_points`: 3
@@ -294,133 +294,131 @@ Now the info you're actually looking for, the results!
 
 #### Info
 
-- Points: 11,064
+- Data Points: 11,064
 - Area: 84,432 km²
 
 #### Results
 
 ```
 # Fastest
-      [STATS] =================================================================
-      || [AREA] Aalst | Fastest | Radius                                     ||
-      || [POINTS] Total: 11064 | Covered: 10861                              ||
-      || [CLUSTERS] Total: 1361 | Avg Points: 7                              ||
-      || [BEST_CLUSTER] Amount: 1 | Point Count: 35                          ||
-      || [TIMES] Clustering: 0.02s | Routing: 0.00s | Stats: 0.07s           ||
-      || [MYGOD_SCORE] 4286                                                  ||
-      =========================================================================
+[STATS] =================================================================
+|| [POINTS] Total: 11064 | Covered: 10861                              ||
+|| [CLUSTERS] Total: 1361 | Avg Points: 7                              ||
+|| [BEST_CLUSTER] Amount: 1 | Point Count: 35                          ||
+|| [TIMES] Clustering: 0.02s | Routing: 0.00s | Stats: 0.07s           ||
+|| [MYGOD_SCORE] 4286                                                  ||
+=========================================================================
+
 # Balanced (Legacy)
-      [STATS] =================================================================
-      || [AREA] Aalst | Balanced | Radius                                    ||
-      || [POINTS] Total: 11064 | Covered: 10995                              ||
-      || [CLUSTERS] Total: 1196 | Avg Points: 9                              ||
-      || [BEST_CLUSTER] Amount: 1 | Point Count: 32                          ||
-      || [TIMES] Clustering: 4.11s | Routing: 0.00s | Stats: 0.06s           ||
-      || [MYGOD_SCORE] 3657                                                  ||
-      =========================================================================
+[STATS] =================================================================
+|| [POINTS] Total: 11064 | Covered: 10995                              ||
+|| [CLUSTERS] Total: 1196 | Avg Points: 9                              ||
+|| [BEST_CLUSTER] Amount: 1 | Point Count: 32                          ||
+|| [TIMES] Clustering: 4.11s | Routing: 0.00s | Stats: 0.06s           ||
+|| [MYGOD_SCORE] 3657                                                  ||
+=========================================================================
+
 # Brute Force (Legacy)
-      [STATS] =================================================================
-      || [AREA] Aalst | BruteForce | Radius                                  ||
-      || [POINTS] Total: 11064 | Covered: 10442                              ||
-      || [CLUSTERS] Total: 931 | Avg Points: 11                              ||
-      || [BEST_CLUSTER] Amount: 1 | Point Count: 43                          ||
-      || [TIMES] Clustering: 8.23s | Routing: 0.00s | Stats: 0.06s           ||
-      || [MYGOD_SCORE] 3415                                                  ||
-      =========================================================================
+[STATS] =================================================================
+|| [POINTS] Total: 11064 | Covered: 10442                              ||
+|| [CLUSTERS] Total: 931 | Avg Points: 11                              ||
+|| [BEST_CLUSTER] Amount: 1 | Point Count: 43                          ||
+|| [TIMES] Clustering: 8.23s | Routing: 0.00s | Stats: 0.06s           ||
+|| [MYGOD_SCORE] 3415                                                  ||
+=========================================================================
+
 # Fast
-      [STATS] =================================================================
-      || [AREA] Aalst | Fast | Radius                                        ||
-      || [POINTS] Total: 11064 | Covered: 10629                              ||
-      || [CLUSTERS] Total: 856 | Avg Points: 12                              ||
-      || [BEST_CLUSTER] Amount: 1 | Point Count: 45                          ||
-      || [TIMES] Clustering: 0.41s | Routing: 0.00s | Stats: 0.04s           ||
-      || [MYGOD_SCORE] 3003                                                  ||
-      =========================================================================
+[STATS] =================================================================
+|| [POINTS] Total: 11064 | Covered: 10629                              ||
+|| [CLUSTERS] Total: 856 | Avg Points: 12                              ||
+|| [BEST_CLUSTER] Amount: 1 | Point Count: 45                          ||
+|| [TIMES] Clustering: 0.41s | Routing: 0.00s | Stats: 0.04s           ||
+|| [MYGOD_SCORE] 3003                                                  ||
+=========================================================================
+
 # Balanced
-      [STATS] =================================================================
-      || [AREA] Aalst | Balanced | Radius                                    ||
-      || [POINTS] Total: 11064 | Covered: 10712                              ||
-      || [CLUSTERS] Total: 854 | Avg Points: 12                              ||
-      || [BEST_CLUSTER] Amount: 1 | Point Count: 44                          ||
-      || [TIMES] Clustering: 1.13s | Routing: 0.00s | Stats: 0.05s           ||
-      || [MYGOD_SCORE] 2914                                                  ||
-      =========================================================================
+[STATS] =================================================================
+|| [POINTS] Total: 11064 | Covered: 10712                              ||
+|| [CLUSTERS] Total: 854 | Avg Points: 12                              ||
+|| [BEST_CLUSTER] Amount: 1 | Point Count: 44                          ||
+|| [TIMES] Clustering: 1.13s | Routing: 0.00s | Stats: 0.05s           ||
+|| [MYGOD_SCORE] 2914                                                  ||
+=========================================================================
+
 # Better
-      [STATS] =================================================================
-      || [AREA] Aalst | Better | Radius                                      ||
-      || [POINTS] Total: 11064 | Covered: 10715                              ||
-      || [CLUSTERS] Total: 828 | Avg Points: 12                              ||
-      || [BEST_CLUSTER] Amount: 1 | Point Count: 45                          ||
-      || [TIMES] Clustering: 8.18s | Routing: 0.00s | Stats: 0.05s           ||
-      || [MYGOD_SCORE] 2833                                                  ||
-      =========================================================================
+[STATS] =================================================================
+|| [POINTS] Total: 11064 | Covered: 10715                              ||
+|| [CLUSTERS] Total: 828 | Avg Points: 12                              ||
+|| [BEST_CLUSTER] Amount: 1 | Point Count: 45                          ||
+|| [TIMES] Clustering: 8.18s | Routing: 0.00s | Stats: 0.05s           ||
+|| [MYGOD_SCORE] 2833                                                  ||
+=========================================================================
 ```
 
 ### Medium Fence
 
 #### Info
 
-- Points: 76,692
+- Data Points: 76,692
 - Area: 276,255 km²
 
 #### Results
 
 ```
 # Fastest
-      [STATS] =================================================================
-      || [AREA] Amsterdam | Fastest | Radius                                 ||
-      || [POINTS] Total: 76692 | Covered: 76189                              ||
-      || [CLUSTERS] Total: 9540 | Avg Points: 7                              ||
-      || [BEST_CLUSTER] Amount: 1 | Point Count: 42                          ||
-      || [TIMES] Clustering: 0.10s | Routing: 0.00s | Stats: 0.40s           ||
-      || [MYGOD_SCORE] 29123                                                 ||
-      =========================================================================
+[STATS] =================================================================
+|| [POINTS] Total: 76692 | Covered: 76189                              ||
+|| [CLUSTERS] Total: 9540 | Avg Points: 7                              ||
+|| [BEST_CLUSTER] Amount: 1 | Point Count: 42                          ||
+|| [TIMES] Clustering: 0.10s | Routing: 0.00s | Stats: 0.40s           ||
+|| [MYGOD_SCORE] 29123                                                 ||
+=========================================================================
+
 # Balanced (Legacy)
-      [STATS] =================================================================
-      || [AREA] Amsterdam                                                    ||
-      || [POINTS] Total: 76692 | Covered: 76576                              ||
-      || [CLUSTERS] Total: 8314 | Avg Points: 9                              ||
-      || [BEST_CLUSTER] Amount: 2 | Point Count: 39                          ||
-      || [DISTANCE] Total: 1731728m | Longest: 17861m | Avg: 208m            ||
-      || [TIMES] Clustering: 206.22s | Routing: 0.00s | Stats: 0.50s         ||
-      || [MYGOD_SCORE] 25058                                                 ||
-      =========================================================================
+[STATS] =================================================================
+|| [POINTS] Total: 76692 | Covered: 76576                              ||
+|| [CLUSTERS] Total: 8314 | Avg Points: 9                              ||
+|| [BEST_CLUSTER] Amount: 2 | Point Count: 39                          ||
+|| [DISTANCE] Total: 1731728m | Longest: 17861m | Avg: 208m            ||
+|| [TIMES] Clustering: 206.22s | Routing: 0.00s | Stats: 0.50s         ||
+|| [MYGOD_SCORE] 25058                                                 ||
+=========================================================================
+
 # Brute Force (Legacy)
-      [STATS] =================================================================
-      || [AREA] Amsterdam | BruteForce | Radius                              ||
-      || [POINTS] Total: 76692 | Covered: 72854                              ||
-      || [CLUSTERS] Total: 6563 | Avg Points: 11                             ||
-      || [BEST_CLUSTER] Amount: 1 | Point Count: 52                          ||
-      || [TIMES] Clustering: 489.92s | Routing: 0.00s | Stats: 0.49s         ||
-      || [MYGOD_SCORE] 23527                                                 ||
-      =========================================================================
+[STATS] =================================================================
+|| [POINTS] Total: 76692 | Covered: 72854                              ||
+|| [CLUSTERS] Total: 6563 | Avg Points: 11                             ||
+|| [BEST_CLUSTER] Amount: 1 | Point Count: 52                          ||
+|| [TIMES] Clustering: 489.92s | Routing: 0.00s | Stats: 0.49s         ||
+|| [MYGOD_SCORE] 23527                                                 ||
+=========================================================================
+
 # Fast
-      [STATS] =================================================================
-      || [AREA] Amsterdam | Fast | Radius                                    ||
-      || [POINTS] Total: 76692 | Covered: 73880                              ||
-      || [CLUSTERS] Total: 5836 | Avg Points: 12                             ||
-      || [BEST_CLUSTER] Amount: 1 | Point Count: 53                          ||
-      || [TIMES] Clustering: 2.42s | Routing: 0.00s | Stats: 0.40s           ||
-      || [MYGOD_SCORE] 20320                                                 ||
-      =========================================================================
+[STATS] =================================================================
+|| [POINTS] Total: 76692 | Covered: 73880                              ||
+|| [CLUSTERS] Total: 5836 | Avg Points: 12                             ||
+|| [BEST_CLUSTER] Amount: 1 | Point Count: 53                          ||
+|| [TIMES] Clustering: 2.42s | Routing: 0.00s | Stats: 0.40s           ||
+|| [MYGOD_SCORE] 20320                                                 ||
+=========================================================================
+
 # Balanced
-      [STATS] =================================================================
-      || [AREA] Amsterdam | Balanced | Radius                                ||
-      || [POINTS] Total: 76692 | Covered: 74551                              ||
-      || [CLUSTERS] Total: 5821 | Avg Points: 12                             ||
-      || [BEST_CLUSTER] Amount: 1 | Point Count: 53                          ||
-      || [TIMES] Clustering: 8.20s | Routing: 0.00s | Stats: 0.40s           ||
-      || [MYGOD_SCORE] 19604                                                 ||
-      =========================================================================
+[STATS] =================================================================
+|| [POINTS] Total: 76692 | Covered: 74551                              ||
+|| [CLUSTERS] Total: 5821 | Avg Points: 12                             ||
+|| [BEST_CLUSTER] Amount: 1 | Point Count: 53                          ||
+|| [TIMES] Clustering: 8.20s | Routing: 0.00s | Stats: 0.40s           ||
+|| [MYGOD_SCORE] 19604                                                 ||
+=========================================================================
+
 # Better
-      [STATS] =================================================================
-      || [AREA] Amsterdam | Better | Radius                                  ||
-      || [POINTS] Total: 76692 | Covered: 74641                              ||
-      || [CLUSTERS] Total: 5690 | Avg Points: 13                             ||
-      || [BEST_CLUSTER] Amount: 1 | Point Count: 54                          ||
-      || [TIMES] Clustering: 41.46s | Routing: 0.00s | Stats: 0.40s          ||
-      || [MYGOD_SCORE] 19121                                                 ||
-      =========================================================================
+[STATS] =================================================================
+|| [POINTS] Total: 76692 | Covered: 74641                              ||
+|| [CLUSTERS] Total: 5690 | Avg Points: 13                             ||
+|| [BEST_CLUSTER] Amount: 1 | Point Count: 54                          ||
+|| [TIMES] Clustering: 41.46s | Routing: 0.00s | Stats: 0.40s          ||
+|| [MYGOD_SCORE] 19121                                                 ||
+=========================================================================
 ```
 
 ### Large Fence
@@ -435,41 +433,40 @@ Now the info you're actually looking for, the results!
 
 ```
 # Fastest
-      [STATS] =================================================================
-      || [AREA] Munich | Fastest | Radius                                    ||
-      || [POINTS] Total: 169038 | Covered: 167788                            ||
-      || [CLUSTERS] Total: 21931 | Avg Points: 7                             ||
-      || [BEST_CLUSTER] Amount: 3 | Point Count: 39                          ||
-      || [TIMES] Clustering: 0.20s | Routing: 0.00s | Stats: 0.95s           ||
-      || [MYGOD_SCORE] 67043                                                 ||
-      =========================================================================
+[STATS] =================================================================
+|| [POINTS] Total: 169038 | Covered: 167788                            ||
+|| [CLUSTERS] Total: 21931 | Avg Points: 7                             ||
+|| [BEST_CLUSTER] Amount: 3 | Point Count: 39                          ||
+|| [TIMES] Clustering: 0.20s | Routing: 0.00s | Stats: 0.95s           ||
+|| [MYGOD_SCORE] 67043                                                 ||
+=========================================================================
+
 # Fast
-      [STATS] =================================================================
-      || [AREA] Munich | Fast | Radius                                       ||
-      || [POINTS] Total: 169038 | Covered: 162747                            ||
-      || [CLUSTERS] Total: 13554 | Avg Points: 12                            ||
-      || [BEST_CLUSTER] Amount: 1 | Point Count: 48                          ||
-      || [TIMES] Clustering: 6.48s | Routing: 0.00s | Stats: 0.92s           ||
-      || [MYGOD_SCORE] 46953                                                 ||
-      =========================================================================
+[STATS] =================================================================
+|| [POINTS] Total: 169038 | Covered: 162747                            ||
+|| [CLUSTERS] Total: 13554 | Avg Points: 12                            ||
+|| [BEST_CLUSTER] Amount: 1 | Point Count: 48                          ||
+|| [TIMES] Clustering: 6.48s | Routing: 0.00s | Stats: 0.92s           ||
+|| [MYGOD_SCORE] 46953                                                 ||
+=========================================================================
+
 # Balanced
-      [STATS] =================================================================
-      || [AREA] Munich | Balanced | Radius                                   ||
-      || [POINTS] Total: 169038 | Covered: 164028                            ||
-      || [CLUSTERS] Total: 13358 | Avg Points: 12                            ||
-      || [BEST_CLUSTER] Amount: 1 | Point Count: 47                          ||
-      || [TIMES] Clustering: 21.16s | Routing: 0.00s | Stats: 0.94s          ||
-      || [MYGOD_SCORE] 45084                                                 ||
-      =========================================================================
+[STATS] =================================================================
+|| [POINTS] Total: 169038 | Covered: 164028                            ||
+|| [CLUSTERS] Total: 13358 | Avg Points: 12                            ||
+|| [BEST_CLUSTER] Amount: 1 | Point Count: 47                          ||
+|| [TIMES] Clustering: 21.16s | Routing: 0.00s | Stats: 0.94s          ||
+|| [MYGOD_SCORE] 45084                                                 ||
+=========================================================================
+
 # Better
-      [STATS] =================================================================
-      || [AREA] Munich | Better | Radius                                     ||
-      || [POINTS] Total: 169038 | Covered: 164297                            ||
-      || [CLUSTERS] Total: 13048 | Avg Points: 12                            ||
-      || [BEST_CLUSTER] Amount: 1 | Point Count: 49                          ||
-      || [TIMES] Clustering: 125.90s | Routing: 0.00s | Stats: 0.94s         ||
-      || [MYGOD_SCORE] 43885                                                 ||
-      =========================================================================
+[STATS] =================================================================
+|| [POINTS] Total: 169038 | Covered: 164297                            ||
+|| [CLUSTERS] Total: 13048 | Avg Points: 12                            ||
+|| [BEST_CLUSTER] Amount: 1 | Point Count: 49                          ||
+|| [TIMES] Clustering: 125.90s | Routing: 0.00s | Stats: 0.94s         ||
+|| [MYGOD_SCORE] 43885                                                 ||
+=========================================================================
 ```
 
 ## Conclusion
@@ -568,9 +565,9 @@ Currently this process takes up the bulk of the algorithm time, which feels unne
 
 Implementing a [Genetic Algorithm](https://en.wikipedia.org/wiki/Genetic_algorithm) approach that further optimizes the intial solution.
 
-- This could be accomplished by first associating clusters with each other by utilizing the r-tree nearest neighbor methods and all of their respective points.
+- This could be accomplished by first associating clusters with each other by utilizing the r-tree nearest neighbor methods and all of their respective `data_points`.
 - Once the subgroups have been created, try different combination of clusters and see if the `mygod_score` can be improved at all by trying different combinations of clusters.
 
 #### Example
 
-If you had a group of 14 points with a min_points of 3, but you have one cluster covering the middle 10, then 2 on either side of that cluster. In this situation, replacing the single centric cluster with two clusters to cover all 14 points would result in an improved `mygod_score`.
+If you had a group of 14 `data_points` with a `min_points` of 3, but you have one cluster covering the middle 10, then 2 on either side of that cluster. In this situation, replacing the single centric cluster with two clusters to cover all 14 `data_points` would result in an improved `mygod_score`.
