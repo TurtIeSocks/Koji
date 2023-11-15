@@ -7,7 +7,7 @@ Kōji offers two clustering algorithms, the fastest is a Rust translation of the
 
 ## Goal
 
-The primary goal of Kōji's clustering algorithms is to cover the most number of points with the fewest number of clusters of a given radius. However, many users of this app have slight variations of this goal in mind, which is why Kōji offers many different inputs to customize the final result.
+The primary goal of Kōji's clustering algorithms is to cover the most number of data points with the fewest number of clusters of a given radius. However, many users of this app have slight variations of this goal in mind, which is why Kōji offers many different inputs to customize the final result.
 
 ## Inputs
 
@@ -18,24 +18,15 @@ The points to be clustered.
 - All algorithms accepts `Vec<[f64;2]>`
 - `[Latitude, Longitude]` pairs
 
-### Algorithm
-
-The algorithm to use for clustering.
-
-- **Fastest**: UDC, fastest and scales the best, but produces the worst result
-- **Fast**: Basic implementation of the Greedy algorithm, produces a significantly better result than `Fastest`
-- **Balanced**: A great balance of speed, resource usage, and result quality
-- **Better**: This algorithm can use a large number of resources but produces the best result
-
 ### Radius
 
-The radius of each cluster to encase the points within
+The radius of each cluster to encase the `data_points` within
 
 - Unit is in meters
 
 ### Min Points
 
-The minimum number of points that a cluster must contain to be considered valid
+The minimum number of `data_points` that a cluster must contain to be considered valid
 
 ### Max Clusters
 
@@ -47,13 +38,16 @@ The maximum number of clusters that should be generated
 
 ### Cluster Split Level
 
-This groups points based on their S2 cell level before clustering them. The groups are then ran on separate threads in order to help with parallelizing workloads.
+This groups `data_points` based on their S2 cell level before clustering them. The groups are then ran on separate threads in order to help with parallelizing workloads.
 
-_This was more relevant with the legacy clustering algorithms that were single threaded but can still be useful in some cases_
+<Callout type="warning" emoji="⚠️">
+  _This was more relevant with the legacy clustering algorithms that were single
+  threaded but can still be useful in some cases_
+</Callout>
 
 ## Metrics
 
-In order to compare the performance of multiple algorithms we calculate the `mygod_score`, aptly named after a colleague who came up with it. This score is calculated by multiplying the number of clusters by the `min_points` input added to the difference of the total `input_points` and the number of points that were covered by the algorithm. This incentives the algorithms to cover the maximum number of points possible but only if the clusters cover a number of unique points that is greater than or equal to the set `min_points`. The lower the score, the better the result.
+In order to compare the performance of multiple algorithms we calculate the `mygod_score`, aptly named after a colleague who came up with it. This score is calculated by multiplying the number of clusters by the `min_points` input added to the difference of the total `input_points` and the number of `data_points` that were covered by the algorithm. This incentives the algorithms to cover the maximum number of `data_points` possible but only if the clusters cover a number of unique `data_points` that is greater than or equal to the set `min_points`. The lower the score, the better the result.
 
 ```rust
 pub fn get_score(&self, min_points: usize) -> usize {
@@ -63,21 +57,21 @@ pub fn get_score(&self, min_points: usize) -> usize {
 
 Runtime is not a factor in the `mygod_score` because it is not the primary goal of Kōji's userbase. Though it does make development time less painful and is a small factor for some external integrations that can't be waiting around for more than several minutes for a result. In the future, if the algorithm ever gets to a point where it's final results are near perfect, then time may be added to the `mygod_score` calculation for further refinement.
 
-# Algorithm Details
+## Algorithm Details
 
-## Unit Disc Cover (UDC)
+### Unit Disc Cover (UDC)
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/main/server/algorithms/src/clustering/fastest.rs)
 
-The UDC algorithm is mostly a classic implementation of the UDC problem and is not particularly written for Kōji. While it is much faster, it does not produce a desirable result. It often leads to a lot of overlap between clusters and does not take into account the density of points in a given area. This algorithm is best used when the user is looking for a quick result and does not care about the quality of the result. Since it is less specialized for the task at hand, the inputs are mostly taken into account during pre and post processing functions. On its own, this algorithm does not take into account the spherical nature of the Earth, so as part of the pre-process function, the input points must be projected onto a flat plane that takes the input radius into account. The post-process function then takes the projected points and converts them back to their original spherical coordinates. You can read more about UDC [here](https://en.wikipedia.org/wiki/Disk_covering_problem).
+The UDC algorithm is mostly a classic implementation of the UDC problem and is not particularly written for Kōji. While it is much faster, it does not produce a desirable result. It often leads to a lot of overlap between clusters and does not take into account the density of `data_points` in a given area. This algorithm is best used when the user is looking for a quick result and does not care about the quality of the result. Since it is less specialized for the task at hand, the inputs are mostly taken into account during pre and post processing functions. On its own, this algorithm does not take into account the spherical nature of the Earth, so as part of the pre-process function, the input `data_points` must be projected onto a flat plane that takes the input radius into account. The post-process function then takes the projected `data_points` and converts them back to their original spherical coordinates. You can read more about UDC [here](https://en.wikipedia.org/wiki/Disk_covering_problem).
 
-## Greedy
+### Greedy
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/main/server/algorithms/src/clustering/greedy.rs)
 
 The Greedy algorithm on the other hand is much more specialized for the task at hand. Compared to its predecessors, it leverages an r-tree algorithm that allows it to run faster than the O(n^2) time complexity that the legacy algorithms could not achieve. This algorithm has three different levels of complexity that user's can select from. `Fast`, `Balanced`, and `Better`. The only difference between these options is the number of potential clusters that are generated based on the input points.
 
-## Step 1 - Generate Potential Clusters
+#### Step 1 - Generate Potential Clusters
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L108-L175)
 
@@ -98,7 +92,7 @@ let potential_clusters: Vec<Cluster> = match cluster_mode {
 - `Balanced`: Similar logic to `Fast` but generates the same 8 equal segments between the given point and its neighbors that are within the radius \* 2. Additionally, it adds some "wiggle" points at each of the segments.
 - `Better`: This option leverages the [Rust S2 library](https://github.com/yjh0502/rust-s2) and generates a potential cluster at every level 22 S2 cell that is within the BBOX of the input points. This is the most resource intensive option but produces the best result. This process has been optimized by starting at level 16 and continueing to split cells down to level 22 in parallel using [Rayon](https://github.com/rayon-rs/rayon).
 
-## Step 2 - Associate Potential Clusters
+#### Step 2 - Associate Potential Clusters
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L177-L257)
 
@@ -126,7 +120,7 @@ let clusters_with_data: Vec<Cluster> = potential_clusters
       .collect();
 ```
 
-## Step 3 - Cluster the Clusters
+#### Step 3 - Cluster the Clusters
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L233-L254)
 
@@ -149,13 +143,13 @@ for cluster in clusters_with_data.into_iter() {
 }
 ```
 
-## Step 4 - Clustering
+#### Step 4 - Clustering
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L277-L406)
 
 This section is broken down into sub steps and will only contain summarized code snippets to avoid copying and pasting the entire function, but if you're interested I would encourage you to check out the source above.
 
-### Step 4a - Setup
+##### Step 4a - Setup
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L278-L292)
 
@@ -168,7 +162,7 @@ We start by setting up our mutable variables that help us keep track of where th
 
 The rest of the steps occur in the `while` loop.
 
-### Step 4b - Get Interested Clusters
+##### Step 4b - Get Interested Clusters
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L295-L304)
 
@@ -183,7 +177,7 @@ for (index, clusters) in clusters_with_data.iter().enumerate() {
 }
 ```
 
-### Step 4c - Filtering Clusters
+##### Step 4c - Filtering Clusters
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L306-L349)
 
@@ -191,7 +185,7 @@ Now we filter out clusters that are not viable. Iterating through `clusters_of_i
 
 If the determined `local_clusters` is empty, we subtract one from `current` and start the next iteration. If not, we then sort the clusters in parallel by the number of points that they cover. If the total points between any two given clusters is equal, then we compare the unique number of points that they cover. This is important for the next step because we will be iterating through the clusters in serial and we want to make sure we get the best before we start discarding other clusters.
 
-### Step 4d - Looping and Pushing to our `new_clusters` HashSet
+##### Step 4d - Looping and Pushing to our `new_clusters` HashSet
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L351-L368)
 
@@ -215,11 +209,11 @@ if cluster.points.len() >= current {
 }
 ```
 
-### Step 4e - Decrement `current` and Repeat
+##### Step 4e - Decrement `current` and Repeat
 
 Lastly we subtract 1 from our `current` var and continue to run the next iteration of loop while `current` is greater than or equal to our `min_points` input and the length of `new_clusters` is less than our `max_clusters` input.
 
-## Step 5 - Unique Point Coverage Check
+### Step 5 - Unique Point Coverage Check
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L408-L430)
 
@@ -248,7 +242,7 @@ pub fn update_unique(&mut self, tree: &RTree<Point>) {
 }
 ```
 
-## Step 6 - Check for Missing
+### Step 6 - Check for Missing
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L432-L460)
 
@@ -259,7 +253,7 @@ If the `min_points` input is equal to one, we want to make absolutely sure that 
 1. We then iterate through the input points, checking to see which ones exist in the HashSet, saving the ones that do not.
 1. We then extend the current clusters with the missing ones.
 
-### Balanced (Legacy)
+## Balanced (Legacy)
 
 [Source](https://github.com/TurtIeSocks/Koji/tree/6802c1fabaac2942393467ea855c91f3b40ea9a8/server/algorithms/src/clustering/balanced)
 
@@ -272,7 +266,7 @@ Concept wise, it was very similar to how Greedy operates now and it ran decently
   benefit but the source is still viewable in the link above._
 </Callout>
 
-### Brute Force (Legacy)
+## Brute Force (Legacy)
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/6802c1fabaac2942393467ea855c91f3b40ea9a8/server/algorithms/src/clustering/bruteforce.rs)
 
@@ -283,7 +277,7 @@ Shortly before starting work on this algorithm, I had completed the integration 
   benefit but the source is still viewable in the link above._
 </Callout>
 
-# Result Comparisons
+## Result Comparisons
 
 Now the info you're actually looking for, the results!
 
@@ -296,14 +290,14 @@ Now the info you're actually looking for, the results!
   - `radius`: 70
   - `cluster_split_level`: 1
 
-## Small Fence
+### Small Fence
 
-### Info
+#### Info
 
 - Points: 11,064
 - Area: 84,432 km²
 
-### Results
+#### Results
 
 ```
 # Fastest
@@ -362,14 +356,14 @@ Now the info you're actually looking for, the results!
       =========================================================================
 ```
 
-# Medium Fence
+### Medium Fence
 
-## Info
+#### Info
 
 - Points: 76,692
 - Area: 276,255 km²
 
-## Results
+#### Results
 
 ```
 # Fastest
@@ -429,15 +423,15 @@ Now the info you're actually looking for, the results!
       =========================================================================
 ```
 
-# Large Fence
+### Large Fence
 
-## Info
+#### Info
 
 - Points: 169,038
 - Area: 754,594 km²
 - Both of the legacy algorithms have been excluded from this example due to the amount of time it would take to run them.
 
-## Results
+#### Results
 
 ```
 # Fastest
@@ -478,7 +472,7 @@ Now the info you're actually looking for, the results!
       =========================================================================
 ```
 
-# Conclusion
+## Conclusion
 
 | Fence  | Algorithm       | Time (s) | Score |
 | ------ | --------------- | -------- | ----- |
@@ -514,7 +508,7 @@ The legacy `BruteForce` algorithm, take note of the blue circle that was added t
 demonstrate that it missed a valid cluster.
 
 <Image
-  src="/images/clustering/better.png"
+  src="/images/clustering/brute-force-legacy.png"
   alt="Import Name Page"
   width={600}
   height={600}
@@ -562,21 +556,21 @@ free memory.
   height={600}
 />
 
-# Future work
+## Future work
 
 The two biggest improvements that can be made to the Greedy algorithm are:
 
-## Optimize Potential Cluster Generating
+### Optimize Potential Cluster Generating
 
 Currently this process takes up the bulk of the algorithm time, which feels unnecessary. It also is a huge resource hog that actually makes it impossible to run `Better` on areas that are too big if the machine can't handle it.
 
-## Additional Post processing
+### Additional Post processing
 
 Implementing a [Genetic Algorithm](https://en.wikipedia.org/wiki/Genetic_algorithm) approach that further optimizes the intial solution.
 
 - This could be accomplished by first associating clusters with each other by utilizing the r-tree nearest neighbor methods and all of their respective points.
 - Once the subgroups have been created, try different combination of clusters and see if the `mygod_score` can be improved at all by trying different combinations of clusters.
 
-### Example
+#### Example
 
 If you had a group of 14 points with a min_points of 3, but you have one cluster covering the middle 10, then 2 on either side of that cluster. In this situation, replacing the single centric cluster with two clusters to cover all 14 points would result in an improved `mygod_score`.
