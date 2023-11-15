@@ -260,13 +260,25 @@ The two biggest improvements that can be made to this algorithm are:
 
 ### Balanced (Legacy)
 
-This algorithm
+[Source](https://github.com/TurtIeSocks/Koji/tree/6802c1fabaac2942393467ea855c91f3b40ea9a8/server/algorithms/src/clustering/balanced)
+
+This algorithm was not the first one written for Kōji but it was the first that was committed to the repo. It operated in at least O(n^2) time, was single threaded, and was total spaghetti. The core of it is based on what Kōji calls "Bootstrapping", which generates circles of a given radius inside of a given Polygon or MultiPolygon to cover the entire area, allowing for routes that pick up all Spawnpoints and Forts. Concept wise, it was very similar to how Greedy operates now and it ran decently well for creating Fort routes but did not have the logic required to work well with Spawnpoints. I attempted to take what I learned from translating the UDC algorithm and apply it to this algorithm, particularly when it came to combining clusters since, a honeycomb base allowed me to know which neighboring clusters existed, similar to UDC. However, merging clusters tends to be very tedious work and was prone to errors.
+
+_The code has now been removed from the repo as it does not provide any benefit but the source is still viewable in the link above._
 
 ### Brute Force (Legacy)
 
+[Source](https://github.com/TurtIeSocks/Koji/blob/6802c1fabaac2942393467ea855c91f3b40ea9a8/server/algorithms/src/clustering/bruteforce.rs)
+
+Shortly before starting work on this algorithm, I had completed the integration with OR-Tools, which utilizes a distance matrix in the TSP wrapper I wrote. I attempted to apply that same logic here as a sort of lookup table for checking which points are within the given `radius` of neighboring points, and since the values weren't reliant on each other, this calculation could be parallelized with Rayon. The core clustering algorithm is very recognizable as it was the base of the Greedy algorithm. However, it was still slower than what I had hoped for and my attempt to write another merge function wasn't exactly successful.
+
+_The code has now been removed from the repo as it does not provide any benefit but the source is still viewable in the link above._
+
 # Result Comparisons
 
-## Small Area
+Now the info you're actually looking for, the results! I have provided the `area` for each example because this does impact the `Better` results, due to how many potential clusters are generated. Distance stats have been excluded from each result as the points were unsorted and they are not relevant when comparing the clustering algorithms.
+
+## Small Fence
 
 ### Info
 
@@ -284,6 +296,24 @@ This algorithm
       || [BEST_CLUSTER] Amount: 1 | Point Count: 35                          ||
       || [TIMES] Clustering: 0.02s | Routing: 0.00s | Stats: 0.07s           ||
       || [MYGOD_SCORE] 4286                                                  ||
+      =========================================================================
+# Balanced (Legacy)
+      [STATS] =================================================================
+      || [AREA] Aalst | Balanced | Radius                                    ||
+      || [POINTS] Total: 11064 | Covered: 10995                              ||
+      || [CLUSTERS] Total: 1196 | Avg Points: 9                              ||
+      || [BEST_CLUSTER] Amount: 1 | Point Count: 32                          ||
+      || [TIMES] Clustering: 4.11s | Routing: 0.00s | Stats: 0.06s           ||
+      || [MYGOD_SCORE] 3657                                                  ||
+      =========================================================================
+# Brute Force (Legacy)
+      [STATS] =================================================================
+      || [AREA] Aalst | BruteForce | Radius                                  ||
+      || [POINTS] Total: 11064 | Covered: 10442                              ||
+      || [CLUSTERS] Total: 931 | Avg Points: 11                              ||
+      || [BEST_CLUSTER] Amount: 1 | Point Count: 43                          ||
+      || [TIMES] Clustering: 8.23s | Routing: 0.00s | Stats: 0.06s           ||
+      || [MYGOD_SCORE] 3415                                                  ||
       =========================================================================
 # Fast
       [STATS] =================================================================
@@ -314,7 +344,7 @@ This algorithm
       =========================================================================
 ```
 
-# Medium Area
+# Medium Fence
 
 ## Info
 
@@ -332,6 +362,25 @@ This algorithm
       || [BEST_CLUSTER] Amount: 1 | Point Count: 42                          ||
       || [TIMES] Clustering: 0.10s | Routing: 0.00s | Stats: 0.40s           ||
       || [MYGOD_SCORE] 29123                                                 ||
+      =========================================================================
+# Balanced (Legacy)
+      [STATS] =================================================================
+      || [AREA] Amsterdam                                                    ||
+      || [POINTS] Total: 76692 | Covered: 76576                              ||
+      || [CLUSTERS] Total: 8314 | Avg Points: 9                              ||
+      || [BEST_CLUSTER] Amount: 2 | Point Count: 39                          ||
+      || [DISTANCE] Total: 1731728m | Longest: 17861m | Avg: 208m            ||
+      || [TIMES] Clustering: 206.22s | Routing: 0.00s | Stats: 0.50s         ||
+      || [MYGOD_SCORE] 25058                                                 ||
+      =========================================================================
+# Brute Force (Legacy)
+      [STATS] =================================================================
+      || [AREA] Amsterdam | BruteForce | Radius                              ||
+      || [POINTS] Total: 76692 | Covered: 72854                              ||
+      || [CLUSTERS] Total: 6563 | Avg Points: 11                             ||
+      || [BEST_CLUSTER] Amount: 1 | Point Count: 52                          ||
+      || [TIMES] Clustering: 489.92s | Routing: 0.00s | Stats: 0.49s         ||
+      || [MYGOD_SCORE] 23527                                                 ||
       =========================================================================
 # Fast
       [STATS] =================================================================
@@ -362,12 +411,13 @@ This algorithm
       =========================================================================
 ```
 
-# Large Area
+# Large Fence
 
 ## Info
 
 - Points: 169,038
 - Area: 754,594 km²
+- Both of the legacy algorithms have been excluded from this example due to the amount of time it would take to run them.
 
 ## Results
 
