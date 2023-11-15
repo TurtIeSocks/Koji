@@ -1,4 +1,5 @@
 import { Callout } from 'nextra-theme-docs'
+import Image from 'next/image'
 
 # Clustering Algorithms Overview
 
@@ -504,10 +505,60 @@ Now the info you're actually looking for, the results!
 
 While the different variations of the Greedy algorithm don't scale as well as the UDC algorithm, the results are definitely worth it, especially compared to both of the legacy algorithms, which start to become unweildly on anything but smaller sizes fences.
 
-- The `Fastest` algorithm is great for quick and dirty calculations that want to cover everything and you need the results immediately.
-- The `Fast` algorithm is if you want to take advantage of the Greedy algorithm but still need the results very quickly and can't wait for `Balanced` or `Better`.
-- The `Balanced` algorithm is a great balance of speed and result quality. It is the default algorithm that Kōji uses and is what I would recommend for most users.
-- The `Better` algorithm is for when you want the best result possible and are willing to wait for it. It is the most resource intensive and can take a long time to run on larger fences. I would not recommend running it if your system does not have much free memory.
+<Image
+  src="/images/clustering/balanced-legacy.png"
+  alt="Import Name Page"
+  width={600}
+  height={600}
+/>
+The legacy `Balanced` algorithm showing off its honeycomb approach and inefficiencies.
+
+<Image
+  src="/images/clustering/better.png"
+  alt="Import Name Page"
+  width={600}
+  height={600}
+/>
+The legacy `BruteForce` algorithm, take note of the blue circle that was added to
+demonstrate that it missed a valid cluster.
+
+<Image
+  src="/images/clustering/fastest.png"
+  alt="Import Name Page"
+  width={600}
+  height={600}
+/>
+The `Fastest` algorithm is great for quick and dirty calculations that want to cover
+everything and you need the results immediately.
+
+<Image
+  src="/images/clustering/fast.png"
+  alt="Import Name Page"
+  width={600}
+  height={600}
+/>
+The `Fast` algorithm is if you want to take advantage of the Greedy algorithm but
+still need the results very quickly and can't wait for `Balanced` or `Better`.
+
+<Image
+  src="/images/clustering/balanced.png"
+  alt="Import Name Page"
+  width={600}
+  height={600}
+/>
+The `Balanced` algorithm is a great balance of speed and result quality. It is the
+default algorithm that Kōji uses and is what I would recommend for most users.
+
+<Image
+  src="/images/clustering/better.png"
+  alt="Import Name Page"
+  width={600}
+  height={600}
+/>
+The `Better` algorithm is for when you want the best result possible and are willing
+to wait for it. It is the most resource intensive and can take a long time to run
+on larger fences. I would not recommend running it if your system does not have much
+free memory.
 
 # Future work
 
