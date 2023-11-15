@@ -20,9 +20,7 @@ The points to be clustered.
 
 ### Radius
 
-The radius of each cluster to encase the `data_points` within
-
-- Unit is in meters
+The radius of each cluster to encase the `data_points` within, in meters.
 
 ### Min Points
 
@@ -38,7 +36,7 @@ The maximum number of clusters that should be generated
 
 ### Cluster Split Level
 
-This groups `data_points` based on their S2 cell level before clustering them. The groups are then ran on separate threads in order to help with parallelizing workloads.
+This input groups `data_points` based on their S2 cell level before clustering them. The groups are then run on separate threads in order to help with parallelizing workloads. e.g. if a user inputs a `cluster_split_level` of 10, then all of the `data_points` that are in unique level 10 S2 cells will be split up and clustered separately.
 
 <Callout type="warning" emoji="⚠️">
   _This was more relevant with the legacy clustering algorithms that were single
@@ -63,7 +61,7 @@ Runtime is not a factor in the `mygod_score` because it is not the primary goal 
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/main/server/algorithms/src/clustering/fastest.rs)
 
-The UDC algorithm is mostly a classic implementation of the UDC problem and is not particularly written for Kōji. While it is much faster, it does not produce a desirable result. It often leads to a lot of overlap between clusters and does not take into account the density of `data_points` in a given area. This algorithm is best used when the user is looking for a quick result and does not care about the quality of the result. Since it is less specialized for the task at hand, the inputs are mostly taken into account during pre and post processing functions. On its own, this algorithm does not take into account the spherical nature of the Earth, so as part of the pre-process function, the input `data_points` must be projected onto a flat plane that takes the input radius into account. The post-process function then takes the projected `data_points` and converts them back to their original spherical coordinates. You can read more about UDC [here](https://en.wikipedia.org/wiki/Disk_covering_problem).
+The UDC algorithm is mostly a classic implementation of the UDC problem and is not particularly written for Kōji. While it is much faster, it does not produce an optimal result. It often leads to a lot of overlap between clusters and does not take into account the density of `data_points` in a given area. This algorithm is best used when the user is looking for a quick result and does not care about the quality of the result. Since it is less specialized for the task at hand, the inputs are mostly taken into account during pre and post processing functions. On its own, this algorithm does not take into account the spherical nature of the Earth, so as part of the pre-process function, the input `data_points` must be projected onto a flat plane that takes the input radius into account. The post-process function then takes the projected `data_points` and converts them back to their original spherical coordinates. You can read more about UDC [here](https://en.wikipedia.org/wiki/Disk_covering_problem).
 
 ### Greedy
 
@@ -220,7 +218,7 @@ Lastly we subtract 1 from our `current` var and continue to run the next iterati
 Now that we have our full list of preliminary clusters, we need to make sure that each cluster is responsible for a unique number of points that is greater than or equal to our `min_points` input.
 
 1. Create a new r-tree with our potential clusters
-1. Mut iterate through our clusters in parallel
+1. Iterate through our mutable clusters in parallel
 1. Via the `update_unique` trait, we then iterate through all of the `data_points` that the cluster covers and determine if a point is unique to that cluster by how many clusters are found at the point's location in the r-tree. If the number of clusters is equal to one, we know that the point is unique to that cluster.
 1. Filter out the clusters that do not have a unique number of `data_points` that is greater than or equal to our `min_points` input.
 
@@ -255,33 +253,27 @@ If the `min_points` input is equal to one, we want to make absolutely sure that 
 
 ## Balanced (Legacy)
 
-[Source](https://github.com/TurtIeSocks/Koji/tree/6802c1fabaac2942393467ea855c91f3b40ea9a8/server/algorithms/src/clustering/balanced)
+<Callout type="warning" emoji="⚠️">
+  _The code has now been removed from the codebase as it does not provide any
+  benefit but the source is still
+  [viewable](https://github.com/TurtIeSocks/Koji/tree/6802c1fabaac2942393467ea855c91f3b40ea9a8/server/algorithms/src/clustering/balanced)._
+</Callout>
 
-This algorithm was not the first one written for Kōji but it was the first that was committed to the repo. It operated in at least O(n^2) time, was single threaded, and was total spaghetti. The core of it is based on what Kōji calls "Bootstrapping", which generates circles of a given radius inside of a given Polygon or MultiPolygon to cover the entire area, allowing for routes that pick up all Spawnpoints and Forts.
+This algorithm was not the first one written for Kōji but it was the first that was committed to the codebase. It operated in at least O(n^2) time, was single threaded, and was total spaghetti. The core of it is based on what Kōji calls "Bootstrapping", which generates circles of a given radius inside of a given Polygon or MultiPolygon to cover the entire area, allowing for routes that pick up all Spawnpoints and Forts.
 
 Concept wise, it was very similar to how Greedy operates now and it ran decently well for creating Fort routes but did not have the logic required to work well with Spawnpoints. I attempted to take what I learned from translating the UDC algorithm and apply it to this algorithm, particularly when it came to combining clusters, since a honeycomb base allowed me to predict which neighboring clusters existed, similar to UDC. However, merging clusters tends to be very tedious work and was prone to errors.
 
-<Callout type="warning" emoji="⚠️">
-  _The code has now been removed from the repo as it does not provide any
-  benefit but the source is still viewable in the link above._
-</Callout>
-
 ## Brute Force (Legacy)
 
-[Source](https://github.com/TurtIeSocks/Koji/blob/6802c1fabaac2942393467ea855c91f3b40ea9a8/server/algorithms/src/clustering/bruteforce.rs)
+<Callout type="warning" emoji="⚠️">
+  _The code has now been removed from the codebase as it does not provide any
+  benefit but the source is still
+  [viewable](https://github.com/TurtIeSocks/Koji/blob/6802c1fabaac2942393467ea855c91f3b40ea9a8/server/algorithms/src/clustering/bruteforce.rs)._
+</Callout>
 
 Shortly before starting work on this algorithm, I had completed the integration with OR-Tools, which utilizes a distance matrix in the TSP wrapper I wrote. I attempted to apply that same logic here as a sort of lookup table for checking which `data_points` are within the given `radius` of neighboring `data_points`, and since the values weren't reliant on each other, this calculation could be parallelized with Rayon. The core clustering algorithm is very recognizable as it was the base of the Greedy algorithm. However, it was still slower than what I had hoped for and my attempt to write another merge function wasn't exactly successful.
 
-<Callout type="warning" emoji="⚠️">
-  _The code has now been removed from the repo as it does not provide any
-  benefit but the source is still viewable in the link above._
-</Callout>
-
 ## Result Comparisons
-
-Now the info you're actually looking for, the results!
-
-### Notes:
 
 - Distance stats have been excluded from each result as the `data_points` were unsorted and it is not relevant for directly comparing the clustering algorithms.
 - All algorithms were run on a MacBook Pro M1 with 16GB of RAM and 8 cores.
@@ -559,7 +551,7 @@ The two biggest improvements that can be made to the Greedy algorithm are:
 
 ### Optimize Potential Cluster Generating
 
-Currently this process takes up the bulk of the algorithm time, which feels unnecessary. It also is a huge resource hog that actually makes it impossible to run `Better` on areas that are too big if the machine can't handle it.
+Currently this process takes up the bulk of the algorithm time. It also is a huge resource hog that actually makes it impossible to run `Better` on areas that are too big if the machine can't handle it.
 
 ### Additional Post processing
 
