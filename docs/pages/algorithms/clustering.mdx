@@ -45,7 +45,7 @@ This input groups `data_points` based on their S2 cell level before clustering t
 
 ## Metrics
 
-To compare the performance of multiple algorithms the normalized `mygod_score` system is used, aptly named after a colleague who came up with it. This score is calculated by multiplying the number of clusters by the `min_points` input added to the difference of the total `input_points` and the number of `data_points` that were covered by the algorithm. This incentives the algorithms to cover the maximum number of `data_points` possible but only if the clusters cover a number of unique `data_points` that is greater than or equal to the set `min_points`. The lower the score, the better the result.
+To compare the performance of multiple algorithms the normalized `mygod_score` system is used, aptly named after a colleague who came up with it. This score is calculated by multiplying the number of clusters by the `min_points` input added to the difference of the total `input_points` and the number of `data_points` that were covered by the algorithm. This incentiveses the algorithms to cover the maximum number of `data_points` possible but only if the clusters cover a number of unique `data_points` that is greater than or equal to the set `min_points`. The lower the score, the better the result.
 
 ```rust
 pub fn get_score(&self, min_points: usize) -> usize {
