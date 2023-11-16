@@ -94,7 +94,7 @@ let potential_clusters: Vec<Cluster> = match cluster_mode {
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L177-L257)
 
-Now that the potential clusters have been generated, they need to be associated with the input `data_points`. This is where the primary use of the r-tree is implemented and has saved us the most time compared to the legacy algorithms. Even though this step utilizes Rayon to parallelize the workload, it is still the most expensive part of the algorithm and has the most room for improvement. The r-tree is used to find all `data_points` that are within the radius of a given potential cluster. This is done in parallel for all potential clusters. We also have to check to see if the cluster exists in the r-tree, in the case that the best cluster is indeed a point itself. If the cluster has less `data_points` than the given `min_points` input, the cluster is removed from the list of potential clusters, allowing us to release as much memory as possible and save some time in the clustering step.
+Now that the potential clusters have been generated, they need to be associated with the input `data_points`. This is where the primary use of the r-tree is implemented and has saved us the most time compared to the legacy algorithms. Even though this step utilizes Rayon to parallelize the workload, it is still the most expensive part of the algorithm and has the most room for improvement. The r-tree is used to find all `data_points` that are within the radius of a given potential cluster. This is done in parallel for all potential clusters. It also has to check to see if the cluster exists in the r-tree, in the case that the best cluster is indeed a point itself. If the cluster has less `data_points` than the given `min_points` input, the cluster is removed from the list of potential clusters, allowing us to release as much memory as possible and save some time in the clustering step.
 
 ```rust
 let clusters_with_data: Vec<Cluster> = potential_clusters
@@ -151,7 +151,7 @@ This section is broken down into sub steps and will only contain summarized code
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L278-L292)
 
-We start by setting up the mutable variables that help us keep track of where things are during the `while` loop runs.
+Start by setting up the mutable variables that help us keep track of where things are during the `while` loop runs.
 
 - `new_clusters`: A HashSet that will hold the picked clusters. The `Cluster` struct implement the `Hash` trait and are hashed based on the S2 Cell ID of the center point. Despite the `Cluster` struct being a complex type, it was unnecessary to use a HashMap because it's not necessary to access the data by key, only making sure that duplicates are not inserted.
 - `blocked_points`: an additional HashSet that is keeping track of `data_points` that have already been clustered, to ensure that the algorithm is not double counting `data_points` that are covered by multiple clusters.
@@ -187,7 +187,7 @@ If the determined `local_clusters` is empty, it subtracts one from `current` and
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L351-L368)
 
-We iterate through `local_clusters` in serial and push the best cluster to the `new_clusters` HashSet.
+Iterate through `local_clusters` in serial and push the best cluster to the `new_clusters` HashSet.
 
 - At the start of the loop, it checks to see if the number of clusters it has already saved is greater than or equal to the `max_clusters` input and immediately break the entire `while` loop if so.
 - Next it checks every unique point that the cluster is responsible for to see if it has already been clustered, if so, skips it. This is why sorting them before this step is important.
@@ -248,8 +248,8 @@ If the `min_points` input is equal to one, it wants to make absolutely sure that
 
 1. First it reduces all `data_points` covered by the clusters into a single HashSet
 1. Next if the length of the HashSet does not equal the length of the input `data_points`, it knows that at least one point has been missed.
-1. We then iterate through the input `data_points`, checking to see which ones exist in the HashSet, saving the ones that do not.
-1. We then extend the current clusters with the missing ones.
+1. Then iterate through the input `data_points`, checking to see which ones exist in the HashSet, saving the ones that do not.
+1. Finally, extend the current clusters with the missing ones.
 
 ## Balanced (Legacy)
 
