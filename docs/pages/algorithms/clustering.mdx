@@ -45,7 +45,7 @@ This input groups `data_points` based on their S2 cell level before clustering t
 
 ## Metrics
 
-In order to compare the performance of multiple algorithms we calculate the `mygod_score`, aptly named after a colleague who came up with it. This score is calculated by multiplying the number of clusters by the `min_points` input added to the difference of the total `input_points` and the number of `data_points` that were covered by the algorithm. This incentives the algorithms to cover the maximum number of `data_points` possible but only if the clusters cover a number of unique `data_points` that is greater than or equal to the set `min_points`. The lower the score, the better the result.
+To compare the performance of multiple algorithms the normalized `mygod_score` system is used, aptly named after a colleague who came up with it. This score is calculated by multiplying the number of clusters by the `min_points` input added to the difference of the total `input_points` and the number of `data_points` that were covered by the algorithm. This incentives the algorithms to cover the maximum number of `data_points` possible but only if the clusters cover a number of unique `data_points` that is greater than or equal to the set `min_points`. The lower the score, the better the result.
 
 ```rust
 pub fn get_score(&self, min_points: usize) -> usize {
@@ -94,7 +94,7 @@ let potential_clusters: Vec<Cluster> = match cluster_mode {
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L177-L257)
 
-Now that we have our potential clusters, we want to associate them with the input `data_points`. This is where the primary use of the r-tree is implemented and has saved us the most time compared to the legacy algorithms. Even though this step utilizes Rayon to parallelize the workload, it is still the most expensive part of the algorithm and has the most room for improvement. The r-tree is used to find all `data_points` that are within the radius of a given potential cluster. This is done in parallel for all potential clusters. We also have to check to see if the cluster exists in the r-tree, in the case that the best cluster is indeed a point itself. If the cluster has less `data_points` than the given `min_points` input, we remove this cluster from the list of potential clusters, allowing us to release as much memory as possible and save some time in the clustering step.
+Now that the potential clusters have been generated, they need to be associated with the input `data_points`. This is where the primary use of the r-tree is implemented and has saved us the most time compared to the legacy algorithms. Even though this step utilizes Rayon to parallelize the workload, it is still the most expensive part of the algorithm and has the most room for improvement. The r-tree is used to find all `data_points` that are within the radius of a given potential cluster. This is done in parallel for all potential clusters. We also have to check to see if the cluster exists in the r-tree, in the case that the best cluster is indeed a point itself. If the cluster has less `data_points` than the given `min_points` input, the cluster is removed from the list of potential clusters, allowing us to release as much memory as possible and save some time in the clustering step.
 
 ```rust
 let clusters_with_data: Vec<Cluster> = potential_clusters
@@ -122,7 +122,7 @@ let clusters_with_data: Vec<Cluster> = potential_clusters
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L233-L254)
 
-In this step we are grouping our clusters by the number of `data_points` that they cover. This helps us save some time during the clustering step.
+In this step the clusters are being grouped by the number of `data_points` that they cover. This helps us save some time during the clustering step.
 
 ```rust
 // Finds the max number of points that a cluster covers
@@ -145,18 +145,18 @@ for cluster in clusters_with_data.into_iter() {
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L277-L406)
 
-This section is broken down into sub steps and will only contain summarized code snippets to avoid copying and pasting the entire function, but if you're interested I would encourage you to check out the source above.
+This section is broken down into sub steps and will only contain summarized code snippets to avoid copying and pasting the entire function, each section will have links to the original source code.
 
 ##### Step 4a - Setup
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L278-L292)
 
-We start by setting up our mutable variables that help us keep track of where things are during the `while` loop runs.
+We start by setting up the mutable variables that help us keep track of where things are during the `while` loop runs.
 
-- `new_clusters`: A HashSet that will hold our picked clusters. The `Cluster` struct implement the `Hash` trait and are hashed based on the S2 Cell ID of the center point. Despite the `Cluster` struct being a complex type, it was unnecessary to use a HashMap because we aren't accessing the data by key, only making sure we aren't inserting duplicates.
-- `blocked_points`: an additional HashSet that is keeping track of `data_points` that have already been clustered. This is key because we do not want `data_points` associated with each cluster to count towards our `min_points` input comparisons if they have already been clustered.
-- `current`: a var that starts at the max number of `data_points` that a cluster covers and is decremented until it reaches our `min_points` input.
-- The rest of the variables are for tracking how much time is spent on each step and for estimating our % complete in the logs.
+- `new_clusters`: A HashSet that will hold the picked clusters. The `Cluster` struct implement the `Hash` trait and are hashed based on the S2 Cell ID of the center point. Despite the `Cluster` struct being a complex type, it was unnecessary to use a HashMap because it's not necessary to access the data by key, only making sure that duplicates are not inserted.
+- `blocked_points`: an additional HashSet that is keeping track of `data_points` that have already been clustered, to ensure that the algorithm is not double counting `data_points` that are covered by multiple clusters.
+- `current`: a var that starts at the max number of `data_points` that a cluster covers and is decremented until it reaches the `min_points` input.
+- The rest of the variables are for tracking how much time is spent on each step and for estimating the % complete in the logs.
 
 The rest of the steps occur in the `while` loop.
 
@@ -164,7 +164,7 @@ The rest of the steps occur in the `while` loop.
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L295-L304)
 
-This step is where we get the clusters that have the number of `data_points` that we are currently interested in. Since this algorithm is greedy, we start at the highest and work our way down to the `min_points` input. This is why we grouped our clusters in step 3. This is a very simple loop that checks whether the index of each item is greater than or equal to our `current` var. If it is, we add it to our `clusters_of_interest` Vec. The reason we want greater than or equal to is because we will be further filtering the clusters later on. Just because a cluster didn't end up being viable when `current` is equal to 42, is still may be the best when `current` is equal to 30.
+This step is where clusters that have the number of `data_points` that the current iteration is interested in are filtered. Since this algorithm is greedy, it starts at the highest and works its way down to the `min_points` input. This is why the algorithm grouped its potential clusters in step 3. This is a very simple loop that checks whether the index of each item is greater than or equal to the `current` var. If it is, it's added to the `clusters_of_interest` Vec. The reason to go with greater than or equal to is because the algorithm will continue to filter the clusters later on. Just because a cluster didn't end up being viable when `current` is equal to 42, is still may be the best when `current` is equal to 30.
 
 ```rust
 for (index, clusters) in clusters_with_data.iter().enumerate() {
@@ -179,19 +179,19 @@ for (index, clusters) in clusters_with_data.iter().enumerate() {
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L306-L349)
 
-Now we filter out clusters that are not viable. Iterating through `clusters_of_interest` in parallel, we check how many `data_points` for each one have already been clustered, if the total is less than `current`, we discard it. During this step we are ensuring two important Vecs for each cluster, all of the `data_points` that it covers and the unique number of points that it could potentially be responsible for.
+The algorithm will now filter out clusters that are not viable. Iterating through `clusters_of_interest` in parallel, it checks how many `data_points` for each one have already been clustered, if the total is less than `current`, it is discarded. During this step it is ensuring two important Vecs for each cluster, all of the `data_points` that it covers and the unique number of points that it could potentially be responsible for.
 
-If the determined `local_clusters` is empty, we subtract one from `current` and start the next iteration. If not, we then sort the clusters in parallel by the number of `data_points` that they cover. If the total `data_points` between any two given clusters is equal, then we compare the unique number of `data_points` that they cover. This is important for the next step because we will be iterating through the clusters in serial and we want to make sure we get the best before we start discarding other clusters.
+If the determined `local_clusters` is empty, it subtracts one from `current` and start the next iteration. If not, it then sorts the clusters in parallel by the number of `data_points` that they cover. If the total `data_points` between any two given clusters is equal, then it compares the unique number of `data_points` that they cover. This is important for the next step because it will be iterating through the clusters in serial and it's important to get the best cluster before it starts discarding.
 
-##### Step 4d - Looping and Pushing to our `new_clusters` HashSet
+##### Step 4d - Looping and Pushing to the `new_clusters` HashSet
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L351-L368)
 
-We iterate through our `local_clusters` in serial and push the best cluster to our `new_clusters` HashSet.
+We iterate through `local_clusters` in serial and push the best cluster to the `new_clusters` HashSet.
 
-- At the start of the loop check to see if the number of clusters we have already saved is greater than or equal to our `max_clusters` input and immediately break the entire `while` loop if so.
-- Next we check every unique point that the cluster is responsible for to see if it has already been clustered, if so, we skip it. This is why sorting them before this step is important.
-- If the cluster passes, then we insert all of the unique `data_points` into the `blocked_points` HashSet and the cluster into our `new_clusters` HashSet.
+- At the start of the loop, it checks to see if the number of clusters it has already saved is greater than or equal to the `max_clusters` input and immediately break the entire `while` loop if so.
+- Next it checks every unique point that the cluster is responsible for to see if it has already been clustered, if so, skips it. This is why sorting them before this step is important.
+- If the cluster passes, then it inserts all of the unique `data_points` into the `blocked_points` HashSet and the cluster into the `new_clusters` HashSet.
 
 ```rust
 if cluster.points.len() >= current {
@@ -209,18 +209,18 @@ if cluster.points.len() >= current {
 
 ##### Step 4e - Decrement `current` and Repeat
 
-Lastly we subtract 1 from our `current` var and continue to run the next iteration of loop while `current` is greater than or equal to our `min_points` input and the length of `new_clusters` is less than our `max_clusters` input.
+Lastly it subtracts 1 from the `current` var and continue to run the next iteration of loop while `current` is greater than or equal to the `min_points` input and the length of `new_clusters` is less than the `max_clusters` input.
 
 ### Step 5 - Unique Point Coverage Check
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L408-L430)
 
-Now that we have our full list of preliminary clusters, we need to make sure that each cluster is responsible for a unique number of points that is greater than or equal to our `min_points` input.
+Now that the algorithm has gathered the full list of preliminary clusters, it needs to make sure that each cluster is responsible for a unique number of points that is greater than or equal to the `min_points` input.
 
-1. Create a new r-tree with our potential clusters
-1. Iterate through our mutable clusters in parallel
-1. Via the `update_unique` trait, we then iterate through all of the `data_points` that the cluster covers and determine if a point is unique to that cluster by how many clusters are found at the point's location in the r-tree. If the number of clusters is equal to one, we know that the point is unique to that cluster.
-1. Filter out the clusters that do not have a unique number of `data_points` that is greater than or equal to our `min_points` input.
+1. Create a new r-tree with the potential clusters
+1. Iterate through the mutable clusters in parallel
+1. Via the `update_unique` trait, it then iterate through all of the `data_points` that the cluster covers and determine if a point is unique to that cluster by how many clusters are found at the point's location in the r-tree. If the number of clusters is equal to one, it knows that the point is unique to that cluster.
+1. Filter out the clusters that do not have a unique number of `data_points` that is greater than or equal to the `min_points` input.
 
 ```rust
 pub fn update_unique(&mut self, tree: &RTree<Point>) {
@@ -244,10 +244,10 @@ pub fn update_unique(&mut self, tree: &RTree<Point>) {
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L432-L460)
 
-If the `min_points` input is equal to one, we want to make absolutely sure that no point has been missed as this is most often used in requests that require 100% accuracy. This step is often unnecessary, rarely adds additional clusters, and is generally considered to be a hack that bandaids an unknown issue in the clustering function.
+If the `min_points` input is equal to one, it wants to make absolutely sure that no point has been missed as this is most often used in requests that require 100% accuracy. This step is often unnecessary, and is currently considered a bandaid that fixes a possible issue with the earlier clustering process.
 
-1. First we reduce all `data_points` covered by our clusters into a single HashSet
-1. Next if the length of the HashSet does not equal the length of the input `data_points`, we know that at least one point has been missed.
+1. First it reduces all `data_points` covered by the clusters into a single HashSet
+1. Next if the length of the HashSet does not equal the length of the input `data_points`, it knows that at least one point has been missed.
 1. We then iterate through the input `data_points`, checking to see which ones exist in the HashSet, saving the ones that do not.
 1. We then extend the current clusters with the missing ones.
 
@@ -261,7 +261,7 @@ If the `min_points` input is equal to one, we want to make absolutely sure that 
 
 This algorithm was not the first one written for Kōji but it was the first that was committed to the codebase. It operated in at least O(n^2) time, was single threaded, and was total spaghetti. The core of it is based on what Kōji calls "Bootstrapping", which generates circles of a given radius inside of a given Polygon or MultiPolygon to cover the entire area, allowing for routes that pick up all Spawnpoints and Forts.
 
-Concept wise, it was very similar to how Greedy operates now and it ran decently well for creating Fort routes but did not have the logic required to work well with Spawnpoints. I attempted to take what I learned from translating the UDC algorithm and apply it to this algorithm, particularly when it came to combining clusters, since a honeycomb base allowed me to predict which neighboring clusters existed, similar to UDC. However, merging clusters tends to be very tedious work and was prone to errors.
+Concept wise, it was very similar to how Greedy operates now and it ran decently well for creating Fort routes but did not have the logic required to work well with Spawnpoints. It attempted to take what was learned from translating the UDC algorithm and apply it to this algorithm, particularly when it came to combining clusters, since a honeycomb base allowed me to predict which neighboring clusters existed, similar to UDC. However, merging clusters tends to be very tedious work and was prone to errors.
 
 ## Brute Force (Legacy)
 
@@ -271,7 +271,7 @@ Concept wise, it was very similar to how Greedy operates now and it ran decently
   [viewable](https://github.com/TurtIeSocks/Koji/blob/6802c1fabaac2942393467ea855c91f3b40ea9a8/server/algorithms/src/clustering/bruteforce.rs)._
 </Callout>
 
-Shortly before starting work on this algorithm, I had completed the integration with OR-Tools, which utilizes a distance matrix in the TSP wrapper I wrote. I attempted to apply that same logic here as a sort of lookup table for checking which `data_points` are within the given `radius` of neighboring `data_points`, and since the values weren't reliant on each other, this calculation could be parallelized with Rayon. The core clustering algorithm is very recognizable as it was the base of the Greedy algorithm. However, it was still slower than what I had hoped for and my attempt to write another merge function wasn't exactly successful.
+Shortly before starting work on this algorithm, I had completed the integration with OR-Tools, which utilizes a distance matrix in the C++ wrapper. I attempted to apply that same logic here as a sort of lookup table for checking which `data_points` are within the given `radius` of neighboring `data_points`, and since the values weren't reliant on each other, this calculation could be parallelized with Rayon. The core clustering algorithm is very recognizable as it was the base of the Greedy algorithm. However, it was still slower than what I had hoped for and my attempt to write another merge function wasn't very successful.
 
 ## Result Comparisons
 
@@ -463,24 +463,24 @@ Shortly before starting work on this algorithm, I had completed the integration 
 
 ## Conclusion
 
-| Fence  | Algorithm       | Time (s) | Score |
-| ------ | --------------- | -------- | ----- |
-| Small  | Fastest         | 0.02     | 4286  |
-| Small  | Balanced (L)    | 4.11     | 3657  |
-| Small  | Brute Force (L) | 8.23     | 3415  |
-| Small  | Fast            | 0.41     | 3003  |
-| Small  | Balanced        | 1.13     | 2914  |
-| Small  | Better          | 8.18     | 2833  |
-| Medium | Fastest         | 0.10     | 29123 |
-| Medium | Balanced (L)    | 206.22   | 25058 |
-| Medium | Brute Force (L) | 489.92   | 23527 |
-| Medium | Fast            | 2.42     | 20320 |
-| Medium | Balanced        | 8.20     | 19604 |
-| Medium | Better          | 41.46    | 19121 |
-| Large  | Fastest         | 0.20     | 67043 |
-| Large  | Fast            | 6.48     | 46953 |
-| Large  | Balanced        | 21.16    | 45084 |
-| Large  | Better          | 125.90   | 43885 |
+| Fence  | Algorithm       | Time (s) | Score  |
+| ------ | --------------- | -------- | ------ |
+| Small  | Fastest         | 0.02     | 4,286  |
+| Small  | Balanced (L)    | 4.11     | 3,657  |
+| Small  | Brute Force (L) | 8.23     | 3,415  |
+| Small  | Fast            | 0.41     | 3,003  |
+| Small  | Balanced        | 1.13     | 2,914  |
+| Small  | Better          | 8.18     | 2,833  |
+| Medium | Fastest         | 0.10     | 29,123 |
+| Medium | Balanced (L)    | 206.22   | 25,058 |
+| Medium | Brute Force (L) | 489.92   | 23,527 |
+| Medium | Fast            | 2.42     | 20,320 |
+| Medium | Balanced        | 8.20     | 19,604 |
+| Medium | Better          | 41.46    | 19,121 |
+| Large  | Fastest         | 0.20     | 67,043 |
+| Large  | Fast            | 6.48     | 46,953 |
+| Large  | Balanced        | 21.16    | 45,084 |
+| Large  | Better          | 125.90   | 43,885 |
 
 While the different variations of the Greedy algorithm don't scale as well as the UDC algorithm, the results are definitely worth it, especially compared to both of the legacy algorithms, which start to become unweildly on anything but smaller sizes fences.
 
@@ -524,7 +524,7 @@ still need the results very quickly and can't wait for `Balanced` or `Better`.
 />
 
 The `Balanced` algorithm is a great balance of speed and result quality. It is the
-default algorithm that Kōji uses and is what I would recommend for most users.
+default algorithm that Kōji uses and is recommended for most users.
 
 <Image
   src="/images/clustering/balanced.png"
@@ -535,8 +535,7 @@ default algorithm that Kōji uses and is what I would recommend for most users.
 
 The `Better` algorithm is for when you want the best result possible and are willing
 to wait for it. It is the most resource intensive and can take a long time to run
-on larger fences. I would not recommend running it if your system does not have much
-free memory.
+on larger fences. Not recommend for systems that do not have much free memory.
 
 <Image
   src="/images/clustering/better.png"
