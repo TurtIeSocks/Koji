@@ -561,4 +561,4 @@ Implementing a [Genetic Algorithm](https://en.wikipedia.org/wiki/Genetic_algorit
 
 #### Example
 
-If you had a group of 14 `data_points` with a `min_points` of 3, but you have one cluster covering the middle 10, then 2 on either side of that cluster. In this situation, replacing the single centric cluster with two clusters to cover all 14 `data_points` would result in an improved `mygod_score`.
+If you had a group of 14 `data_points` and set `min_points` to 3, you may end up with one centric cluster that is covering 10 of the points, leaving 2 that do meet the minimum number of points on either side. In this situation, replacing the single centric cluster with two clusters to cover all 14 `data_points` would result in an improved `mygod_score`.
