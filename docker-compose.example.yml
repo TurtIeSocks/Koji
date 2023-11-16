@@ -1,23 +1,49 @@
-version: '2'
+version: "2"
 services:
   koji:
     image: ghcr.io/turtiesocks/koji:main
     container_name: koji
     restart: unless-stopped
     environment:
-      # Required
-      SCANNER_DB_URL: 'mysql://rdm_user:rdm_password@host:3306/rdm_database'
-      # CONTROLLER_DB_URL: 'mysql://rdm_user:rdm_password@host:3306/flygon_database'
-      KOJI_DB_URL: 'mysql://koji_user:koji_password@127.0.0.1:3306/koji_database'
-      KOJI_SECRET: 'your_super_secret'
-      # Optional
-      #START_LAT: 0
-      #START_LON: 0
-      #NOMINATIM_URL: "https://nominatim.openstreetmap.org" # highly recommended using your own
-      #MAX_CONNECTIONS: 100
-      #LOG_LEVEL: info # error | warn | info | debug | trace
-    #mem_limit: 2048G
-    #mem_reservation: 256M
-    #cpus: 2
+      # To escape special characters you must surround the values with single quotes ('')
+      # Commented out variables are optional
+
+      # Your Golbat or RDM database
+      SCANNER_DB_URL: "mysql://rdm_user:rdm_password@host:3306/rdm_database"
+
+      # Your Dragonite (if using) or RDM database (if you're using a hybrid Golbat/RDM setup)
+      # CONTROLLER_DB_URL: 'mysql://dragonite_user:dragonite_password@host:3306/dragonite_database'
+
+      # Your Koji database
+      KOJI_DB_URL: "mysql://koji_user:koji_password@127.0.0.1:3306/koji_database"
+
+      # Max Database connections
+      # MAX_CONNECTIONS: 100
+
+      # Your Koji API bearer token and client password
+      KOJI_SECRET: "your_super_secret"
+
+      # Start latitude on initial client load
+      # START_LAT: 0
+      # Start longitude on initial client load
+      # START_LON: 0
+      # Nominatim URl used for searching and importing geofences from OSM
+      # NOMINATIM_URL: 'https://nominatim.openstreetmap.org' # highly recommended using your own
+      # Logging level | error | warn | info | debug | trace
+      # LOG_LEVEL: info
+
+    # Memory limit for docker container
+    # mem_limit: 2048G
+    # Memory reservation for docker container
+    # mem_reservation: 256M
+    # CPU limit for docker container
+    # cpus: 2
+
     ports:
-      - '8080:8080' # change left one for external port
+      - "8080:8080" # change left one for external port
+
+
+    # If you want to use a non docker database enable following lines and
+    # change the Database URL to 'host.docker.internal'
+    #extra_hosts:
+    #  - "host.docker.internal:host-gateway"

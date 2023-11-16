@@ -93,71 +93,16 @@ import { GitHubLogo } from '../components/GitHub'
 - MultiPolygons ½ (Works, but is downconverted to a Polygon, may produce unexpected results)
 - Auto quest, Pokemon, and fort route calculations, both in the admin panel and used server side
 
-<GitHubLogo title="Dragonite" href="https://github.com/UnownHash/Dragonite-Public" />
-
-## Flygon
-
-- Syncs all geofences from Kōji to Flygon in the given project at startup
-- You must set two config values to use Kōji with Flygon
-
-1. First set your Kōji Bearer Token:
-
-   - `koji.bearer_token`
-   - Your Kōji Bearer token
-
-1. Then set the Kōji url
-
-   - `koji.url`
-   - Example: `http://{koji_ip}`
-
-1. Then set the Kōji project name that you want Flygon to use when calling the API
-
-   - `koji.project_name`
-   - Example: `project_name`
-
-1. Lastly, since Flygon loads all of the areas at startup and overwrites them in the database at startup, there's a config option to enable or disable this behavior.
-
-   - `koji.load_at_startup`
-   - `true` or `false`
-
-### Supported Features
-
-- Polygons ✅
-- MultiPolygons ½ (Works, but is downconverted to a Polygon, may produce unexpected results)
-
-<GitHubLogo title="Flygon" href="https://github.com/UnownHash/Flygon" />
-
-## Flygon Admin
-
-- Enable buttons in the dashboard panel to make calls to Kōji to calculate clustered and bootstrapped routes.
-- You must set two config values to use Kōji with Flygon Admin
-
-1. First set your Kōji Bearer Token:
-
-   - `koji.bearer_token`
-   - Your Kōji Bearer token
-
-1. Then set the Kōji api_endpoint
-
-   - `koji.api_endpoint`
-   - Example: `http://{koji_ip}`
-
-### Supported Features
-
-- Bootstrap 70m Circles
-- Bootstrap 9x9 S2 Cells
-- Pokemon 70m clustered routes
-- Quest 78m clustered routes
-- Gym 9x9 clustered routes
-
 <GitHubLogo
-  title="Flygon Admin"
-  href="https://github.com/UnownHash/Flygon-Admin"
+  title="Dragonite"
+  href="https://github.com/UnownHash/Dragonite-Public"
 />
 
 ## RealDeviceMap
 
-- [PR 513](https://github.com/RealDeviceMap/RealDeviceMap/pull/513)
+- RealDeviceMap (RDM) is marked as depreciated and support will be removed in the future.
+
+* [PR 513](https://github.com/RealDeviceMap/RealDeviceMap/pull/513)
 
 <GitHubLogo
   title="RealDeviceMap"

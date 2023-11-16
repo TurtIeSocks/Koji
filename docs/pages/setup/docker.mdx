@@ -14,7 +14,6 @@ services:
   koji:
     image: ghcr.io/turtiesocks/koji:main
     container_name: koji
-    command: 'koji'
     restart: unless-stopped
     environment:
       # To escape special characters you must surround the values with single quotes ('')
@@ -23,8 +22,8 @@ services:
       # Your Golbat or RDM database
       SCANNER_DB_URL: 'mysql://rdm_user:rdm_password@host:3306/rdm_database'
 
-      # Your Flygon (if using) or RDM database (if you're using a hybrid Golbat/RDM setup)
-      # CONTROLLER_DB_URL: 'mysql://flygon_user:flygon_password@host:3306/flygon_database'
+      # Your Dragonite (if using) or RDM database (if you're using a hybrid Golbat/RDM setup)
+      # CONTROLLER_DB_URL: 'mysql://dragonite_user:dragonite_password@host:3306/dragonite_database'
 
       # Your Koji database
       KOJI_DB_URL: 'mysql://koji_user:koji_password@127.0.0.1:3306/koji_database'
@@ -55,10 +54,10 @@ services:
       - '8080:8080' # change left one for external port
 
 
-    # Optional: Might be required if your database is also hosted in docker
-    # network_mode: "host"
-    # extra_hosts:
-    #   - "host.docker.internal:host-gateway"
+    # If you want to use a non docker database enable following lines and
+    # change the Database URL to 'host.docker.internal'
+    #extra_hosts:
+    #  - "host.docker.internal:host-gateway"
 ```
 
 ## Docker Setup
