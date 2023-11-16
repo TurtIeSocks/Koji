@@ -158,7 +158,7 @@ Start by setting up the mutable variables that help us keep track of where thing
 - `current`: a var that starts at the max number of `data_points` that a cluster covers and is decremented until it reaches the `min_points` input.
 - The rest of the variables are for tracking how much time is spent on each step and for estimating the % complete in the logs.
 
-The rest of the steps occur in the `while` loop.
+The remaining steps occur in the `while` loop.
 
 ##### Step 4b - Get Interested Clusters
 
@@ -187,7 +187,7 @@ If the determined `local_clusters` is empty, it subtracts one from `current` and
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L351-L368)
 
-Iterate through `local_clusters` in serial and push the best cluster to the `new_clusters` HashSet.
+Iterate through `local_clusters` in serial and pushes the best clusters to the `new_clusters` HashSet.
 
 - At the start of the loop, it checks to see if the number of clusters it has already saved is greater than or equal to the `max_clusters` input and immediately break the entire `while` loop if so.
 - Next it checks every unique point that the cluster is responsible for to see if it has already been clustered, if so, skips it. This is why sorting them before this step is important.
@@ -209,7 +209,7 @@ if cluster.points.len() >= current {
 
 ##### Step 4e - Decrement `current` and Repeat
 
-Lastly it subtracts 1 from the `current` var and continue to run the next iteration of loop while `current` is greater than or equal to the `min_points` input and the length of `new_clusters` is less than the `max_clusters` input.
+Lastly, it subtracts 1 from the `current` var and continue to run the next iteration of loop while `current` is greater than or equal to the `min_points` input and the length of `new_clusters` is less than the `max_clusters` input.
 
 ### Step 5 - Unique Point Coverage Check
 
@@ -273,7 +273,7 @@ Concept wise, it was very similar to how Greedy operates now and it ran decently
 
 Shortly before starting work on this algorithm, I had completed the integration with OR-Tools, which utilizes a distance matrix in the C++ wrapper. I attempted to apply that same logic here as a sort of lookup table for checking which `data_points` are within the given `radius` of neighboring `data_points`, and since the values weren't reliant on each other, this calculation could be parallelized with Rayon. The core clustering algorithm is very recognizable as it was the base of the Greedy algorithm. However, it was still slower than what I had hoped for and my attempt to write another merge function wasn't very successful.
 
-## Result Comparisons
+## Result Comparison
 
 - Distance stats have been excluded from each result as the `data_points` were unsorted and it is not relevant for directly comparing the clustering algorithms.
 - All algorithms were run on a MacBook Pro M1 with 16GB of RAM and 8 cores.
