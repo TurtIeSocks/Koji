@@ -211,7 +211,7 @@ if cluster.points.len() >= current {
 
 Lastly, it subtracts 1 from the `current` var and continue to run the next iteration of loop while `current` is greater than or equal to the `min_points` input and the length of `new_clusters` is less than the `max_clusters` input.
 
-### Step 5 - Unique Point Coverage Check
+#### Step 5 - Unique Point Coverage Check
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L408-L430)
 
@@ -240,7 +240,7 @@ pub fn update_unique(&mut self, tree: &RTree<Point>) {
 }
 ```
 
-### Step 6 - Check for Missing
+#### Step 6 - Check for Missing
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L432-L460)
 
@@ -251,7 +251,7 @@ If the `min_points` input is equal to one, it wants to make absolutely sure that
 1. Then iterate through the input `data_points`, checking to see which ones exist in the HashSet, saving the ones that do not.
 1. Finally, extend the current clusters with the missing ones.
 
-## Balanced (Legacy)
+### Balanced (Legacy)
 
 <Callout type="warning" emoji="⚠️">
   _The code has now been removed from the codebase as it does not provide any
@@ -263,7 +263,7 @@ This algorithm was not the first one written for Kōji but it was the first that
 
 Concept wise, it was very similar to how Greedy operates now and it ran decently well for creating Fort routes but did not have the logic required to work well with Spawnpoints. It attempted to take what was learned from translating the UDC algorithm and apply it to this algorithm, particularly when it came to combining clusters, since a honeycomb base allowed me to predict which neighboring clusters existed, similar to UDC. However, merging clusters tends to be very tedious work and was prone to errors.
 
-## Brute Force (Legacy)
+### Brute Force (Legacy)
 
 <Callout type="warning" emoji="⚠️">
   _The code has now been removed from the codebase as it does not provide any
