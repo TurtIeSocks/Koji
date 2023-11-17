@@ -100,7 +100,7 @@ API Key: X-Poracle-Secret:{config.server.apiSecret}
 
 ### Project Setup
 
-Use these values if Koji and Dragonite are on the **same** network.
+Use these values for your "scanner project" if Koji and Dragonite are on the **same** network.
 
 ```yml
 API endpoint: http://{drago_host_ip}:{drago_port}/reload
@@ -125,7 +125,7 @@ API key: Leave empty. Dragonite currently does not support authentication
 
 ### Project Setup
 
-Use these values if Koji and Dragonite are on **different** networks. This will proxy the request through Dragonite Admin to Dragonite utilizing the api_secret value.
+Use these values for your "scanner project" if Koji and Dragonite are on **different** networks. This will proxy the request through Dragonite Admin to Dragonite utilizing the api_secret value.
 
 ```yml
 API endpoint: http://{drago_admin_host_ip}:{drago_admin_port}/api/reload
