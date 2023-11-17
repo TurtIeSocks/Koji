@@ -42,6 +42,9 @@ services:
     ports:
       - "8080:8080" # change left one for external port
 
+    networks:
+      default:
+        name: scanner
 
     # If you want to use a non docker database enable following lines and
     # change the Database URL to 'host.docker.internal'
