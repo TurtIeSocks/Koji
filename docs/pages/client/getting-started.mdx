@@ -30,8 +30,8 @@ A "project" in Kōji is how you create custom endpoints for distributing your ge
 1. Projects don't have to be striclty used with external integrations though. Kōji's client can also import geofences by project so it may be convenient to group them for this reason as well.
 
    <Callout type="info" emoji="💡">
-     Please see [Integrations](/integrations) configuration assistance with a
-     specific project.
+     Please [Integrations](/integrations) for assistance with a specific
+     project.
    </Callout>
 
 ## Import existing Projects
@@ -100,4 +100,38 @@ A "project" in Kōji is how you create custom endpoints for distributing your ge
      height={600}
    />
 
-1. Repeat for however many projects/files you want to import! The import wizard can import from all sorts of differnet sources, including Nominatim and shape files.
+1. Repeat for however many projects/files you want to import! The import wizard can import from all sorts of different sources, including Nominatim and shape files.
+
+## Dragonite Quick Start
+
+1. Complete the above steps to initialize Kōji
+1. If you are starting from scratch and have no existing areas
+   1. Visit the Kōji Map
+   1. Create a fence
+   1. Name it and save to Kōji database
+1. Visit the Kōji Map
+1. Load your fence (if it isn't present)
+1. Go to the Calculation tab
+1. Select Bootstrap Mode
+   1. Strategy: Radius (for pokemon), S2 (for forts)
+   1. Save to Kōji Db: Enabled
+   1. Save to Scanner db: Enabled
+   1. Skip Rendering: Enabled
+1. Click update
+1. Once complete navigate to the Admin portal of Kōji
+1. Click "Sync" on the geofence. This will create the Area in Dragonite if it doesn't exist.
+1. Click "Sync" on the route. This will push the bootstrap route into Dragonite.
+1. Then I add that new fence to my Dragonite project (and to my consumer (poracle/RM/golbat) project if I don't want to split it up).
+
+**In dragonite admin:**
+
+1. Edit the area and set the desired worked count
+
+**Back in koji:**
+
+1. Wait a few hours/a day for the bootstrap to update
+1. Load the fence up into Kōji again, run pokemon route (again with save to koji and save to scanner dbs selected) - if I'm doing multiple, I load the fence names into a script (check docs) and call it via api.
+
+**Back in dragonite admin:**
+
+1. Go back into Dragonite Admin, update worker count to appropriate amount, enable quests and set quest hours
