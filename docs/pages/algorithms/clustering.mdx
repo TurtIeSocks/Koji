@@ -45,7 +45,7 @@ This input groups `data_points` based on their S2 cell level before clustering t
 
 ## Metrics
 
-To compare the performance of multiple algorithms the normalized `mygod_score` system is used, aptly named after a colleague who came up with it. This score is calculated by multiplying the number of clusters by the `min_points` input added to the difference of the total `input_points` and the number of `data_points` that were covered by the algorithm. This incentiveses the algorithms to cover the maximum number of `data_points` possible but only if the clusters cover a number of unique `data_points` that is greater than or equal to the set `min_points`. The lower the score, the better the result.
+To compare the performance of multiple algorithms the normalized `mygod_score` system is used, aptly named after a colleague who came up with it. This score is calculated by multiplying the number of clusters by the `min_points` input added to the difference of the total `data_points` and the number of `data_points` that were covered by the algorithm. This incentiveses the algorithms to cover the maximum number of `data_points` possible but only if the clusters cover a number of unique `data_points` that is greater than or equal to the set `min_points`. The lower the score, the better the result.
 
 ```rust
 pub fn get_score(&self, min_points: usize) -> usize {
@@ -53,7 +53,7 @@ pub fn get_score(&self, min_points: usize) -> usize {
 }
 ```
 
-Runtime is not a factor in the `mygod_score` because it is not the primary goal of Kōji's userbase. Though it does make development time less painful and is a small factor for some external integrations that can't be waiting around for more than several minutes for a result. In the future, if the algorithm ever gets to a point where it's final results are near perfect, then time may be added to the `mygod_score` calculation for further refinement.
+Runtime is not a factor in the `mygod_score` because it is not the primary goal of Kōji's userbase. Though it does make development time less painful and is a small factor for some external integrations that can't be waiting around for more than several minutes for a result. In the future, if the algorithm ever gets to a point where its final results are near perfect, then time may be added to the `mygod_score` calculation for further refinement.
 
 ## Algorithm Details
 
@@ -67,7 +67,7 @@ The UDC algorithm is mostly a classic implementation of the UDC problem and is n
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/main/server/algorithms/src/clustering/greedy.rs)
 
-The Greedy algorithm on the other hand is much more specialized for the task at hand. Compared to its predecessors, it leverages an r-tree algorithm that allows it to run faster than the O(n^2) time complexity that the legacy algorithms could not achieve. This algorithm has three different levels of complexity that user's can select from. `Fast`, `Balanced`, and `Better`. The only difference between these options is the number of potential clusters that are generated based on the input `data_points`.
+The Greedy algorithm on the other hand is much more specialized for the task at hand. Compared to its predecessors, it leverages an r-tree algorithm that allows it to run faster than the O(n^2) time complexity that the legacy algorithms could not achieve. This algorithm has three different levels of complexity that user's can select from. `Fast`, `Balanced`, and `Better`. The only difference between these options is the number of potential clusters that are generated.
 
 #### Step 1 - Generate Potential Clusters
 
@@ -87,7 +87,7 @@ let potential_clusters: Vec<Cluster> = match cluster_mode {
 ```
 
 - `Fast`: Generates possible clusters at the provided `data_points` and at 8 equal segments between a given point and its neighbors that are within the given radius.
-- `Balanced`: Similar logic to `Fast` but generates the same 8 equal segments between the given point and its neighbors that are within the radius \* 2. Additionally, it adds some "wiggle" `data_points` at each of the segments.
+- `Balanced`: Similar logic to `Fast` but generates the same 8 equal segments between the given point and its neighbors that are within the radius \* 2. Additionally, it creates some additional "wiggle" clusters at each of the segments.
 - `Better`: This option leverages the [Rust S2 library](https://github.com/yjh0502/rust-s2) and generates a potential cluster at every level 22 S2 cell that is within the BBOX of the input `data_points`. This is the most resource intensive option but produces the best result. This process has been optimized by starting at level 16 and continueing to split cells down to level 22 in parallel using [Rayon](https://github.com/rayon-rs/rayon).
 
 #### Step 2 - Associate Potential Clusters
