@@ -13,7 +13,7 @@ This will send one request at a time to Kōji.
 const main = async ({ endpoint, secret, projectName }) => {
   // Fetches all areas in the given project
   const areas = await fetch(
-    `http://${endpoint}/api/v1/geofence/reference/${projectName}`,
+    `${endpoint}/api/v1/geofence/reference/${projectName}`,
     {
       method: 'GET',
       headers: {
@@ -28,7 +28,7 @@ const main = async ({ endpoint, secret, projectName }) => {
   // Loops through all areas and spawns a route for each, one at a time
   // Good for larger areas, particularly when cluster_mode is set to BruteForce
   for (let i = 0; i < areas.data.length; i++) {
-    await fetch(`http://${endpoint}/api/v1/calc/route/spawnpoint`, {
+    await fetch(`${endpoint}/api/v1/calc/route/spawnpoint`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${secret}`,
@@ -79,7 +79,7 @@ This will send all requests at once to Kōji. Great for smaller areas or when us
 ```js
 const main = async ({ endpoint, secret, projectName }) => {
   const areas = await fetch(
-    `http://${endpoint}/api/v1/geofence/reference/${projectName}`,
+    `${endpoint}/api/v1/geofence/reference/${projectName}`,
     {
       method: 'GET',
       headers: {
@@ -93,7 +93,7 @@ const main = async ({ endpoint, secret, projectName }) => {
 
   await Promise.allSettled(
     areas.map(async (area, i) => {
-      return fetch(`http://${endpoint}/api/v1/calc/route/pokestop`, {
+      return fetch(`${endpoint}/api/v1/calc/route/pokestop`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${secret}`,
