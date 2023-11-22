@@ -117,12 +117,13 @@ namespace operations_research
     searchParameters.set_first_solution_strategy(
         FirstSolutionStrategy::PATH_CHEAPEST_ARC);
 
-    if (locations.size() > 500)
+    if (locations.size() > 1000)
     {
       searchParameters.set_local_search_metaheuristic(
           LocalSearchMetaheuristic::GUIDED_LOCAL_SEARCH);
-      const int64_t time = floor(locations.size() / 100);
+      const int64_t time = std::min(pow(locations.size() / 1000, 2.75), 3600.0);
       searchParameters.mutable_time_limit()->set_seconds(time);
+      // LOG(INFO) << "Time limit: " << time;
     }
     // searchParameters.set_log_search(true);
 
