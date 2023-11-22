@@ -117,6 +117,15 @@ namespace operations_research
     searchParameters.set_first_solution_strategy(
         FirstSolutionStrategy::PATH_CHEAPEST_ARC);
 
+    if (locations.size() > 500)
+    {
+      searchParameters.set_local_search_metaheuristic(
+          LocalSearchMetaheuristic::GUIDED_LOCAL_SEARCH);
+      const int64_t time = floor(locations.size() / 100);
+      searchParameters.mutable_time_limit()->set_seconds(time);
+    }
+    // searchParameters.set_log_search(true);
+
     const Assignment *solution = routing.SolveWithParameters(searchParameters);
 
     return GetRoutes(manager, routing, *solution);
