@@ -3,6 +3,8 @@ import { GitHubLogo } from '../components/GitHub'
 
 # External Integrations
 
+In Kōji's architecture, various external integrations primarily leverage HTTP `GET` requests for data retrieval. These integrations can be configured to fetch the latest updates either during the initialization phase of a process or based on a predefined schedule. Additionally, Kōji supports an event-driven approach where it can proactively trigger updates in external services. This mechanism enables synchronization with Kōji's latest state changes, enhancing the responsiveness and efficiency of the integrated systems.
+
 ## ReactMap
 
 - Remove the need to have an `areas.json` file by loading your managed geofences straight from Kōji
@@ -44,6 +46,15 @@ import { GitHubLogo } from '../components/GitHub'
    - `config.geofence.path`
    - Example: `http://{koji_ip}/api/v1/geofence/poracle/{project_name}`
 
+### Project setup
+
+This is configured inside your Kōji `/admin/project` and will allow hot reloading of your areas within PoracleJS.
+
+```yml
+API Endpoint: http://{poraclejs_ip}:{port}/api/geofence/reload
+API Key: X-Poracle-Secret:{config.server.apiSecret}
+```
+
 ### Supported Features
 
 - Polygons ✅
@@ -73,10 +84,9 @@ import { GitHubLogo } from '../components/GitHub'
 
 <GitHubLogo title="Golbat" href="https://github.com/UnownHash/Golbat" />
 
-## Flygon
+## Dragonite
 
-- Syncs all geofences from Kōji to Flygon in the given project at startup
-- You must set two config values to use Kōji with Flygon
+- You must set two config values to use Kōji with Dragonite
 
 1. First set your Kōji Bearer Token:
 
@@ -88,54 +98,50 @@ import { GitHubLogo } from '../components/GitHub'
    - `koji.url`
    - Example: `http://{koji_ip}`
 
-1. Then set the Kōji project name that you want Flygon to use when calling the API
+### Project Setup
 
-   - `koji.project_name`
-   - Example: `project_name`
+Use these values for your "scanner project" if Koji and Dragonite are on the **same** network.
 
-1. Lastly, since Flygon loads all of the areas at startup and overwrites them in the database at startup, there's a config option to enable or disable this behavior.
-
-   - `koji.load_at_startup`
-   - `true` or `false`
+```yml
+API endpoint: http://{drago_host_ip}:{drago_port}/reload
+API key: Leave empty. Dragonite currently does not support authentication
+```
 
 ### Supported Features
 
 - Polygons ✅
-- MultiPolygons ½ (Works, but is downconverted to a Polygon, may produce unexpected results)
-
-<GitHubLogo title="Flygon" href="https://github.com/UnownHash/Flygon" />
-
-## Flygon Admin
-
-- Enable buttons in the dashboard panel to make calls to Kōji to calculate clustered and bootstrapped routes.
-- You must set two config values to use Kōji with Flygon Admin
-
-1. First set your Kōji Bearer Token:
-
-   - `koji.bearer_token`
-   - Your Kōji Bearer token
-
-1. Then set the Kōji api_endpoint
-
-   - `koji.api_endpoint`
-   - Example: `http://{koji_ip}`
-
-### Supported Features
-
-- Bootstrap 70m Circles
-- Bootstrap 9x9 S2 Cells
-- Pokemon 70m clustered routes
-- Quest 78m clustered routes
-- Gym 9x9 clustered routes
+- MultiPolygons ½ (Works, but is down converted to a Polygon, may produce unexpected results)
+- Auto quest, Pokemon, and fort route calculations, both in the admin panel and used server side
 
 <GitHubLogo
-  title="Flygon Admin"
-  href="https://github.com/UnownHash/Flygon-Admin"
+  title="Dragonite"
+  href="https://github.com/UnownHash/Dragonite-Public"
+/>
+
+## Dragonite Admin
+
+- Outbound requests from Dragonite Admin are proxied through Dragonite
+- Inbound requests from Kōji can be received by Dragonite Admin to update routes and geofences
+
+### Project Setup
+
+Use these values for your "scanner project" if Koji and Dragonite are on **different** networks. This will proxy the request through Dragonite Admin to Dragonite utilizing the api_secret value.
+
+```yml
+API endpoint: http://{drago_admin_host_ip}:{drago_admin_port}/api/reload
+API key: X-Dragonite-Admin-Secret:{your_api_secret_value}
+```
+
+<GitHubLogo
+  title="Dragonite"
+  href="https://github.com/UnownHash/Dragonite-Public"
 />
 
 ## RealDeviceMap
 
-- [PR 513](https://github.com/RealDeviceMap/RealDeviceMap/pull/513)
+- RealDeviceMap (RDM) is marked as depreciated and support will be removed in the future.
+
+* [PR 513](https://github.com/RealDeviceMap/RealDeviceMap/pull/513)
 
 <GitHubLogo
   title="RealDeviceMap"

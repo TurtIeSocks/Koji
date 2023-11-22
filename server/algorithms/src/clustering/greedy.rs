@@ -285,8 +285,8 @@ impl<'a> Greedy {
         let mut new_clusters = HashSet::<Cluster>::new();
         let mut blocked_points = HashSet::<&Point>::new();
 
-        let mut highest = clusters_with_data.len() - 1;
-        let total_iterations = highest - self.min_points + 1;
+        let mut current = clusters_with_data.len() - 1;
+        let total_iterations = current - self.min_points + 1;
         let mut current_iteration = 0;
         let mut stdout = std::io::stdout();
 
@@ -296,12 +296,12 @@ impl<'a> Greedy {
         let mut iterating_local_time = 0.;
         let mut logging_time = 0.;
 
-        'greedy: while highest >= self.min_points && new_clusters.len() < self.max_clusters {
+        'greedy: while current >= self.min_points && new_clusters.len() < self.max_clusters {
             let mut clusters_of_interest: Vec<&Cluster<'_>> = vec![];
             current_iteration += 1;
             let time = Instant::now();
-            for (max, clusters) in clusters_with_data.iter().enumerate() {
-                if max < highest {
+            for (index, clusters) in clusters_with_data.iter().enumerate() {
+                if index < current {
                     continue;
                 }
                 clusters_of_interest.extend(clusters);
@@ -323,7 +323,7 @@ impl<'a> Greedy {
                             }
                         })
                         .collect();
-                    if points.len() < highest {
+                    if points.len() < current {
                         None
                     } else {
                         points.sort_dedupe();
@@ -339,7 +339,7 @@ impl<'a> Greedy {
             local_clusters_time += time.elapsed().as_secs_f32();
 
             if local_clusters.is_empty() {
-                highest -= 1;
+                current -= 1;
                 continue;
             }
 
@@ -358,7 +358,7 @@ impl<'a> Greedy {
                 if new_clusters.len() >= self.max_clusters {
                     break 'greedy;
                 }
-                if cluster.points.len() >= highest {
+                if cluster.points.len() >= current {
                     for point in cluster.points.iter() {
                         if blocked_points.contains(point) {
                             continue 'cluster;
@@ -373,7 +373,7 @@ impl<'a> Greedy {
             iterating_local_time += time.elapsed().as_secs_f32();
 
             let time = Instant::now();
-            if highest >= self.min_points {
+            if current >= self.min_points {
                 stdout
                     .write(
                         info_log(
@@ -391,7 +391,7 @@ impl<'a> Greedy {
             }
             logging_time += time.elapsed().as_secs_f32();
 
-            highest -= 1;
+            current -= 1;
         }
         stdout.write(format!("\n",).as_bytes()).unwrap();
 

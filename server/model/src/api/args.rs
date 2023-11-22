@@ -443,12 +443,12 @@ impl Args {
         let Args {
             area,
             benchmark_mode,
-            s2_level: bootstrap_level,
-            calculation_mode: bootstrap_mode,
+            s2_level,
+            calculation_mode,
             cluster_mode,
             cluster_split_level,
             max_clusters,
-            s2_size: bootstrap_size,
+            s2_size,
             clusters,
             data_points,
             devices,
@@ -500,9 +500,9 @@ impl Args {
             (FeatureCollection::default(), ReturnTypeArg::SingleArray)
         };
         let benchmark_mode = benchmark_mode.unwrap_or(false);
-        let bootstrap_mode = bootstrap_mode.unwrap_or(CalculationMode::Radius);
-        let bootstrap_level = bootstrap_level.unwrap_or(15);
-        let bootstrap_size = bootstrap_size.unwrap_or(9);
+        let calculation_mode = calculation_mode.unwrap_or(CalculationMode::Radius);
+        let s2_level = s2_level.unwrap_or(15);
+        let s2_size = s2_size.unwrap_or(9);
         let cluster_mode = cluster_mode.unwrap_or({
             if let Some(fast) = fast {
                 if fast {
@@ -557,9 +557,9 @@ impl Args {
             clusters,
             max_clusters,
             cluster_split_level,
-            s2_level: bootstrap_level,
-            calculation_mode: bootstrap_mode,
-            s2_size: bootstrap_size,
+            s2_level,
+            calculation_mode,
+            s2_size,
             data_points,
             devices,
             generations,

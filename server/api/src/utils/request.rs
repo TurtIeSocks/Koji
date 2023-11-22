@@ -26,7 +26,7 @@ pub async fn send_api_req(
                 let req = if let Some(api_key) = project.api_key {
                     if let Some((username, password)) = api_key.split_once(":") {
                         let (username, password) = (username.trim(), password.trim());
-                        if *scanner_type == ScannerType::Unown {
+                        if *scanner_type == ScannerType::Unown || !project.scanner {
                             req.get(endpoint).header(username, password)
                         } else {
                             req.get(endpoint).basic_auth(username, Some(password))

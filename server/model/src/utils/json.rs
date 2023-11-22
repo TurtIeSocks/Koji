@@ -328,11 +328,22 @@ impl JsonToModel for Value {
                                     None
                                 };
                                 let mode = get_enum(mode);
+                                let description =
+                                    if let Some(description) = incoming.get("description") {
+                                        if let Some(description) = description.as_str() {
+                                            Some(description.to_string())
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        None
+                                    };
                                 Ok(route::ActiveModel {
                                     name: Set(name.to_string()),
                                     geometry: Set(value),
                                     mode: Set(mode),
                                     geofence_id: Set(geofence_id as u32),
+                                    description: Set(description),
                                     ..Default::default()
                                 })
                             }
