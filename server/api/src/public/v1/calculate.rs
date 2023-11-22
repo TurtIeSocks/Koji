@@ -4,11 +4,7 @@ use super::*;
 
 use std::time::Instant;
 
-use algorithms::{
-    self, clustering,
-    routing::{self, tsp},
-    stats::Stats,
-};
+use algorithms::{self, clustering, routing, stats::Stats};
 use geo::{ChamberlainDuquetteArea, MultiPolygon, Polygon};
 
 use geojson::Value;
@@ -315,27 +311,30 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         route_split_level,
         instance,
         mode,
+        sort_by,
+        radius,
         ..
     } = payload.into_inner().init(Some("reroute"));
     let mut stats = Stats::new(String::from("Reroute"), 1);
 
     // For legacy compatibility
-    let data_points = if clusters.is_empty() {
-        data_points
+    let clusters = if clusters.is_empty() {
+        data_points.clone()
     } else {
         clusters
     };
+    stats.total_clusters = clusters.len();
 
-    stats.total_clusters = data_points.len();
+    let clusters = routing::main(
+        &data_points,
+        clusters,
+        &sort_by,
+        route_split_level,
+        radius,
+        &mut stats,
+    );
 
-    let final_clusters = tsp::multi(&data_points, route_split_level);
-    log::info!("Tour Length {}", final_clusters.len());
-
-    stats.distance_stats(&final_clusters);
-
-    let feature = final_clusters
-        .to_feature(Some(mode.clone()))
-        .remove_last_coord();
+    let feature = clusters.to_feature(Some(mode.clone())).remove_last_coord();
     let feature = feature.to_collection(Some(instance.clone()), Some(mode));
 
     Ok(utils::response::send(
