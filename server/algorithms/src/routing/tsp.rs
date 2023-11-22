@@ -12,6 +12,7 @@ use crate::utils;
 use model::api::{point_array::PointArray, single_vec::SingleVec};
 
 pub fn multi(clusters: &SingleVec, route_split_level: u64) -> SingleVec {
+    log::info!("Starting TSP...");
     let time = Instant::now();
 
     let get_cell_id = |point: PointArray| {
