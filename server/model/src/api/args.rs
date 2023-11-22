@@ -526,11 +526,14 @@ impl Args {
         } else {
             default_return_type
         };
-        let max_clusters = max_clusters.unwrap_or(usize::MAX);
-        let max_clusters = if max_clusters == 0 {
-            usize::MAX
+        let max_clusters = if let Some(max_clusters) = max_clusters {
+            if max_clusters == 0 {
+                usize::MAX
+            } else {
+                max_clusters
+            }
         } else {
-            max_clusters
+            usize::MAX
         };
         let clusters = resolve_data_points(clusters);
         let last_seen = last_seen.unwrap_or(0);

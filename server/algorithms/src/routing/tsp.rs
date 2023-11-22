@@ -15,6 +15,11 @@ pub fn multi(clusters: &SingleVec, route_split_level: u64) -> SingleVec {
     log::info!("Starting TSP...");
     let time = Instant::now();
 
+    if route_split_level < 2 {
+        let routed = or_tools(clusters);
+        log::info!("[TSP] time: {}", time.elapsed().as_secs_f32());
+        return routed;
+    }
     let get_cell_id = |point: PointArray| {
         CellID::from(LatLng::from_degrees(point[0], point[1]))
             .parent(route_split_level)
@@ -141,8 +146,8 @@ pub fn or_tools(clusters: &SingleVec) -> SingleVec {
         {
             Ok(child) => child,
             Err(err) => {
-                log::error!("[TSP] to spawn child process {}", err);
-                return vec![];
+                log::error!("[TSP] failed to spawn child process {}", err);
+                return clusters.clone();
             }
         };
 
@@ -150,7 +155,7 @@ pub fn or_tools(clusters: &SingleVec) -> SingleVec {
             Some(stdin) => stdin,
             None => {
                 log::error!("[TSP] Failed to open stdin");
-                return vec![];
+                return clusters.clone();
             }
         };
 
@@ -172,7 +177,7 @@ pub fn or_tools(clusters: &SingleVec) -> SingleVec {
             Ok(result) => result,
             Err(err) => {
                 log::error!("[TSP] Failed to read stdout: {}", err);
-                return vec![];
+                return clusters.clone();
             }
         };
         let output = String::from_utf8_lossy(&output.stdout);
@@ -186,6 +191,7 @@ pub fn or_tools(clusters: &SingleVec) -> SingleVec {
         });
     } else {
         log::error!("[TSP] solver not found, rerun the OR-Tools script to generate it");
+        result.extend(clusters);
     }
     log::debug!("[TSP] Finished in {}s", time.elapsed().as_secs_f32());
     result

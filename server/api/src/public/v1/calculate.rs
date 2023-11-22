@@ -180,7 +180,7 @@ async fn cluster(
             HttpResponse::BadRequest().json(Response::send_error("no_area_instance_data_points"))
         );
     }
-    let sort_by = if mode.eq("route") {
+    let sort_by = if mode.eq("route") && sort_by == SortBy::None {
         SortBy::TSP
     } else {
         sort_by
