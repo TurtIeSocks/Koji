@@ -6,6 +6,7 @@
 #include <vector>
 #include <iostream>
 #include <string>
+#include <thread>
 
 #include "ortools/constraint_solver/routing.h"
 #include "ortools/constraint_solver/routing_enums.pb.h"
@@ -39,18 +40,42 @@ namespace operations_research
     return R * c * 1000; // to reduce rounding issues
   }
 
-  DistanceMatrix distanceMatrix(const RawInput &locations)
+  void computeDistances(const RawInput &locations, DistanceMatrix &distances, int start, int end)
   {
-    DistanceMatrix distances = DistanceMatrix(locations.size(), std::vector<int64_t>(locations.size(), int64_t{0}));
-    for (int fromNode = 0; fromNode < locations.size(); fromNode++)
+    for (int fromNode = start; fromNode < end; ++fromNode)
     {
-      for (int toNode = 0; toNode < locations.size(); toNode++)
+      for (int toNode = 0; toNode < locations.size(); ++toNode)
       {
         if (fromNode != toNode)
+        {
           distances[fromNode][toNode] = static_cast<int64_t>(
               haversine(locations[toNode][0], locations[toNode][1],
                         locations[fromNode][0], locations[fromNode][1]));
+        }
       }
+    }
+  }
+
+  DistanceMatrix distanceMatrix(const RawInput &locations)
+  {
+    auto start = std::chrono::high_resolution_clock::now();
+
+    int numThreads = std::thread::hardware_concurrency();
+
+    std::vector<std::thread> threads(numThreads);
+    DistanceMatrix distances = DistanceMatrix(locations.size(), std::vector<int64_t>(locations.size(), int64_t{0}));
+
+    int chunkSize = locations.size() / numThreads;
+    for (int i = 0; i < numThreads; ++i)
+    {
+      int start = i * chunkSize;
+      int end = (i == numThreads - 1) ? locations.size() : start + chunkSize;
+      threads[i] = std::thread(computeDistances, std::ref(locations), std::ref(distances), start, end);
+    }
+
+    for (auto &thread : threads)
+    {
+      thread.join();
     }
     return distances;
   }
@@ -88,7 +113,6 @@ namespace operations_research
         });
 
     routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index);
-
     RoutingSearchParameters searchParameters = DefaultRoutingSearchParameters();
     searchParameters.set_first_solution_strategy(
         FirstSolutionStrategy::PATH_CHEAPEST_ARC);
