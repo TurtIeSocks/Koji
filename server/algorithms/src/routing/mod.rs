@@ -18,7 +18,7 @@ pub fn main(
 ) -> SingleVec {
     let route_time = Instant::now();
     let clusters = if sort_by == &SortBy::TSP && !clusters.is_empty() {
-        let tour = tsp::multi(&clusters, route_split_level);
+        let tour = tsp::multi(clusters, route_split_level);
         let mut final_clusters = VecDeque::<PointArray>::new();
 
         let mut rotate_count = 0;
