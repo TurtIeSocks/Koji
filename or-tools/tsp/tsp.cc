@@ -27,6 +27,11 @@ namespace operations_research
     const RoutingIndexManager::NodeIndex depot{0};
   };
 
+  //! @brief Computes the distance between two nodes using the Haversine formula.
+  //! @param[in] lat1 Latitude of the first node.
+  //! @param[in] lon1 Longitude of the first node.
+  //! @param[in] lat2 Latitude of the second node.
+  //! @param[in] lon2 Longitude of the second node.
   double haversine(double lat1, double lon1, double lat2, double lon2)
   {
 
@@ -40,6 +45,11 @@ namespace operations_research
     return R * c * 1000; // to reduce rounding issues
   }
 
+  //! @brief Computes the distance matrix between all nodes.
+  //! @param[in] locations The locations of the nodes.
+  //! @param[out] distances The distance matrix between all nodes.
+  //! @param[in] start The index of the first node to compute.
+  //! @param[in] end The index of the last node to compute.
   void computeDistances(const RawInput &locations, DistanceMatrix &distances, int start, int end)
   {
     for (int fromNode = start; fromNode < end; ++fromNode)
@@ -56,6 +66,8 @@ namespace operations_research
     }
   }
 
+  //! @brief Computes the distance matrix between all nodes.
+  //! @param[in] locations The [Lat, Lng] pairs.
   DistanceMatrix distanceMatrix(const RawInput &locations)
   {
     auto start = std::chrono::high_resolution_clock::now();
@@ -80,6 +92,10 @@ namespace operations_research
     return distances;
   }
 
+  //! @brief Returns the routes of the solution.
+  //! @param[in] manager The manager of the routing problem.
+  //! @param[in] routing The routing model.
+  //! @param[in] solution The solution of the routing problem.
   RawInput GetRoutes(const RoutingIndexManager &manager, const RoutingModel &routing, const Assignment &solution)
   {
     RawInput routes(manager.num_vehicles());
@@ -96,6 +112,8 @@ namespace operations_research
     return routes;
   }
 
+  //! @brief Solves the TSP problem.
+  //! @param[in] locations The [Lat, Lng] pairs.
   RawInput Tsp(RawInput locations)
   {
     DataModel data;
@@ -113,6 +131,7 @@ namespace operations_research
         });
 
     routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index);
+
     RoutingSearchParameters searchParameters = DefaultRoutingSearchParameters();
     searchParameters.set_first_solution_strategy(
         FirstSolutionStrategy::PATH_CHEAPEST_ARC);
@@ -121,7 +140,7 @@ namespace operations_research
     {
       searchParameters.set_local_search_metaheuristic(
           LocalSearchMetaheuristic::GUIDED_LOCAL_SEARCH);
-      const int64_t time = std::min(pow(locations.size() / 1000, 2.75), 3600.0);
+      int64_t time = std::max(std::min(pow(locations.size() / 1000, 2.75), 3600.0), 3.0);
       searchParameters.mutable_time_limit()->set_seconds(time);
       // LOG(INFO) << "Time limit: " << time;
     }
