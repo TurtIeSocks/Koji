@@ -14,7 +14,7 @@ use model::api::{point_array::PointArray, single_vec::SingleVec};
 
 use super::basic::ClusterSorting;
 
-pub fn multi(clusters: SingleVec, route_split_level: u64) -> SingleVec {
+pub fn run(clusters: SingleVec, route_split_level: u64) -> SingleVec {
     log::info!("starting TSP...");
     let time = Instant::now();
 
@@ -116,7 +116,7 @@ fn directory() -> std::io::Result<String> {
     }
 }
 
-pub fn stringify_points(points: &SingleVec) -> String {
+fn stringify_points(points: &SingleVec) -> String {
     points
         .iter()
         .enumerate()
@@ -186,7 +186,7 @@ fn spawn_tsp(dir: String, clusters: &SingleVec) -> Result<SingleVec, std::io::Er
     Ok(output.into_iter().map(|i| clusters[i]).collect())
 }
 
-pub fn or_tools(clusters: SingleVec) -> SingleVec {
+fn or_tools(clusters: SingleVec) -> SingleVec {
     if let Ok(dir) = directory() {
         match spawn_tsp(dir, &clusters) {
             Ok(result) => result,
