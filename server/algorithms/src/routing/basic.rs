@@ -20,6 +20,8 @@ pub trait ClusterSorting {
     fn sort_s2_mut(&mut self);
     fn sort_point_count(&self, points: &SingleVec, radius: f64) -> Self;
     fn sort_point_count_mut(&mut self, points: &SingleVec, radius: f64);
+    fn sort_lat_lng(&self) -> Self;
+    fn sort_lat_lng_mut(&mut self);
 }
 
 impl ClusterSorting for SingleVec {
@@ -110,6 +112,20 @@ impl ClusterSorting for SingleVec {
 
     fn sort_s2_mut(&mut self) {
         *self = self.sort_s2()
+    }
+
+    fn sort_lat_lng(&self) -> Self {
+        let mut points = self.clone();
+        points.sort_lat_lng_mut();
+        points
+    }
+
+    fn sort_lat_lng_mut(&mut self) {
+        self.sort_by(|a, b| {
+            b[0].partial_cmp(&a[0])
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then(b[1].partial_cmp(&a[1]).unwrap_or(std::cmp::Ordering::Equal))
+        })
     }
 }
 
