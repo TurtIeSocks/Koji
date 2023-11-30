@@ -143,8 +143,8 @@ impl<'a> BootstrapS2<'a> {
             cell.all_neighbors(self.level)
         } else {
             cell.all_neighbors(self.level)
-                .par_iter()
-                .flat_map(|neighbor| self.get_neighbors(*neighbor, iteration - 2))
+                .into_iter()
+                .flat_map(|neighbor| self.get_neighbors(neighbor, iteration - 2))
                 .collect()
         }
     }
@@ -221,10 +221,17 @@ impl<'a> BootstrapS2<'a> {
 
     fn run(&self) -> SingleVec {
         log::info!("Starting S2 bootstrapping");
+
+        let time = Instant::now();
         let polygons = self.build_polygons();
         let bbox = self.feature.bbox.as_ref().unwrap();
         let region = Rect::from_degrees(bbox[1], bbox[0], bbox[3], bbox[2]);
+        log::info!(
+            "Created polygons & region in {:.4}",
+            time.elapsed().as_secs_f32()
+        );
 
+        let time = Instant::now();
         let cells = RegionCoverer {
             max_level: self.level as u8,
             min_level: self.level as u8,
@@ -232,9 +239,11 @@ impl<'a> BootstrapS2<'a> {
             max_cells: 100000,
         }
         .covering(&region);
+        log::info!("Created cells in {:.4}", time.elapsed().as_secs_f32());
 
+        let time = Instant::now();
         let cell_grids = if self.size == 1 {
-            cells.0.into_par_iter().map(|cell| vec![cell]).collect()
+            cells.0
         } else {
             let lo = CellID::from(region.lo()).parent(self.level);
             let hi = CellID::from(region.hi()).parent(self.level);
@@ -249,33 +258,43 @@ impl<'a> BootstrapS2<'a> {
             let [north, east] = hi.point_array();
             let [mut current_north, mut current_east] = lo.point_array();
 
+            let mut time_east = 0.;
+            let mut time_west = 0.;
+            let mut time_north = 0.;
+
             while current_north < north {
                 let mut current_west = current_lng;
                 [current_north, current_east] = current_lng.point_array();
 
                 loop {
+                    let time = Instant::now();
                     traversing += 1;
                     current_west.traverse_mut(Dir::W, self.size);
                     if self
-                        .get_neighbors(current_west, self.size.max(2) - 2)
+                        .get_neighbors(current_west, self.size - 2)
                         .into_par_iter()
                         .find_any(|cell| cells.contains_cellid(cell))
                         .is_none()
                     {
+                        time_west += time.elapsed().as_secs_f32();
                         break;
                     }
+                    time_west += time.elapsed().as_secs_f32();
                     log::debug!("traversing W: {traversing}");
                 }
                 current_lng = current_west;
                 [current_north, current_east] = current_lng.point_array();
                 while current_east < east {
+                    let time = Instant::now();
                     [current_north, current_east] = current_lng.point_array();
                     traversing += 1;
-                    let cell_grid = self.get_neighbors(current_lng, self.size.max(2) - 2);
-                    cell_grids.push(cell_grid);
+                    // let cell_grid = self.get_neighbors(current_lng, self.size - 2);
+                    cell_grids.push(current_lng);
                     current_lng.traverse_mut(Dir::E, self.size);
                     log::debug!("traversing E: {traversing}");
+                    time_east += time.elapsed().as_secs_f32();
                 }
+                let time = Instant::now();
                 current_lat.traverse_mut(Dir::N, self.size);
                 current_lng = current_lat;
 
@@ -284,20 +303,33 @@ impl<'a> BootstrapS2<'a> {
                     next_log_at += 10_000;
                 }
                 log::debug!("traversing N: {traversing}");
+                time_north += time.elapsed().as_secs_f32();
             }
+            log::debug!(
+                "time_east: {:.4}, time_west: {:.4}, time_north: {:.4}",
+                time_east,
+                time_west,
+                time_north
+            );
 
             cell_grids
         };
-
         log::info!(
-            "Filtering out cells that don't intersect with the feature: {}",
+            "Created cell grids in {:.4}, total: {}",
+            time.elapsed().as_secs_f32(),
             cell_grids.len()
         );
 
+        let time = Instant::now();
         let mut cell_grids = cell_grids
             .into_par_iter()
-            .filter_map(|grid| {
+            .filter_map(|cell| {
                 // return Some(self.find_center_cell(&grid).point_array());
+                let grid = if self.size == 1 {
+                    vec![cell]
+                } else {
+                    self.get_neighbors(cell, self.size - 2)
+                };
                 let grid_poly = self.get_grid_polygon(&grid);
                 if polygons
                     .par_iter()
@@ -315,6 +347,11 @@ impl<'a> BootstrapS2<'a> {
             let center = region.center();
             cell_grids.push([center.lat.deg(), center.lng.deg()])
         }
+        log::info!(
+            "Filtered cell grids in {:.4}, total: {}",
+            time.elapsed().as_secs_f32(),
+            cell_grids.len()
+        );
         // cell_grids.clear();
         // cell_grids.push(lo.point_array());
         // cell_grids.push(hi.point_array());
