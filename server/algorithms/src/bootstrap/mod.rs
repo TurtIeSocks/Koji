@@ -31,7 +31,7 @@ pub fn main(
                 features.push(new_radius.feature());
             }
             CalculationMode::S2 => {
-                let mut new_s2 = s2::BootstrapS2::new(&feature, s2_level, s2_size);
+                let mut new_s2 = s2::BootstrapS2::new(&feature, s2_level as u64, s2_size);
                 new_s2.sort(&sort_by, route_split_level);
 
                 *stats += &new_s2.stats;

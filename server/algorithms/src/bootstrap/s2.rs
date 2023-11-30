@@ -1,32 +1,95 @@
-use std::time::Instant;
+#![allow(dead_code, unused)]
+use std::{fmt::Display, time::Instant};
 
-use crate::{
-    routing,
-    s2::{get_region_cells, ToPointArray},
-    stats::Stats,
-};
+use crate::{routing, rtree, s2::ToPointArray, stats::Stats};
 
-use geo::{Intersects, MultiPolygon, Polygon, RemoveRepeatedPoints};
+use geo::{ConcaveHull, ConvexHull, Intersects, MultiPolygon, Polygon, Simplify};
 use geojson::{Feature, Value};
 use hashbrown::HashSet;
 use model::{
-    api::{args::SortBy, point_array::PointArray, single_vec::SingleVec, Precision, ToFeature},
+    api::{args::SortBy, single_vec::SingleVec, Precision, ToFeature},
     db::sea_orm_active_enums::Type,
 };
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use s2::{cell::Cell, cellid::CellID, cellunion::CellUnion};
+use rayon::{
+    iter::IntoParallelIterator,
+    prelude::{IntoParallelRefIterator, ParallelIterator},
+};
+use s2::{cell::Cell, cellid::CellID, rect::Rect, region::RegionCoverer};
+
+enum Dir {
+    N,
+    E,
+    S,
+    W,
+}
+
+impl Display for Dir {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Dir::N => "North",
+                Dir::E => "East",
+                Dir::S => "South",
+                Dir::W => "West",
+            }
+        )
+    }
+}
+trait Traverse {
+    fn traverse(self, dir: Dir, count: u8) -> Self;
+    fn traverse_mut(&mut self, dir: Dir, count: u8);
+}
+
+impl Traverse for CellID {
+    fn traverse(self, dir: Dir, count: u8) -> Self {
+        let mut new_cell = self;
+        new_cell.traverse_mut(dir, count);
+        new_cell
+    }
+
+    fn traverse_mut(&mut self, dir: Dir, count: u8) {
+        for _ in 0..count {
+            let [lat, lng] = self.point_array();
+            let neighbors = self.edge_neighbors();
+            let mut direction = 0;
+            let mut largest = match dir {
+                Dir::E | Dir::W => lng,
+                Dir::N | Dir::S => lat,
+            };
+
+            for (j, neighbor) in neighbors.iter().enumerate() {
+                let [next_lat, next_lng] = neighbor.point_array();
+                if match dir {
+                    Dir::N => largest < next_lat,
+                    Dir::S => largest > next_lat,
+                    Dir::E => largest < next_lng,
+                    Dir::W => largest > next_lng,
+                } {
+                    largest = match dir {
+                        Dir::E | Dir::W => next_lng,
+                        Dir::N | Dir::S => next_lat,
+                    };
+                    direction = j;
+                }
+            }
+            *self = neighbors[direction];
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct BootstrapS2<'a> {
     feature: &'a Feature,
     result: SingleVec,
-    level: u8,
+    level: u64,
     size: u8,
     pub stats: Stats,
 }
 
 impl<'a> BootstrapS2<'a> {
-    pub fn new(feature: &'a Feature, level: u8, size: u8) -> Self {
+    pub fn new(feature: &'a Feature, level: u64, size: u8) -> Self {
         let mut new_bootstrap = Self {
             feature,
             result: vec![],
@@ -75,184 +138,186 @@ impl<'a> BootstrapS2<'a> {
         new_feature
     }
 
-    fn run(&self) -> SingleVec {
-        let bbox = self.feature.bbox.as_ref().unwrap();
-        let mut polygons: Vec<geo::Polygon> = vec![];
+    fn get_neighbors(&self, cell: CellID, iteration: u8) -> Vec<CellID> {
+        if iteration <= 1 {
+            cell.all_neighbors(self.level)
+        } else {
+            cell.all_neighbors(self.level)
+                .par_iter()
+                .flat_map(|neighbor| self.get_neighbors(*neighbor, iteration - 2))
+                .collect()
+        }
+    }
+
+    fn build_polygons(&self) -> Vec<geo::Polygon> {
         if let Some(geometry) = self.feature.geometry.as_ref() {
             match geometry.value {
                 Value::Polygon(_) => match Polygon::<Precision>::try_from(geometry) {
-                    Ok(poly) => polygons.push(poly),
-                    Err(_) => (),
+                    Ok(poly) => vec![poly],
+                    Err(_) => vec![],
                 },
                 Value::MultiPolygon(_) => match MultiPolygon::<Precision>::try_from(geometry) {
-                    Ok(multi_poly) => multi_poly
-                        .0
-                        .into_iter()
-                        .for_each(|poly| polygons.push(poly)),
-                    Err(_) => (),
+                    Ok(multi_poly) => multi_poly.0.into_iter().collect(),
+                    Err(_) => vec![],
                 },
-                _ => (),
+                _ => vec![],
             }
-        }
-        log::warn!("BBOX {:?}", bbox);
-        let cells = get_region_cells(bbox[1], bbox[3], bbox[0], bbox[2], self.level);
-
-        log::info!("Cells {}", cells.0.len());
-        let mut visited = HashSet::<u64>::new();
-
-        let mut multi_point = vec![];
-
-        let mut current = CellID::from(s2::latlng::LatLng::from_degrees(
-            (bbox[1] + bbox[3]) / 2.,
-            (bbox[0] + bbox[2]) / 2.,
-        ))
-        .parent(self.level as u64);
-        let mut direction = 0;
-        let mut direction_count = 2;
-        let mut current_count = 1;
-        let mut turn = false;
-        let mut first = true;
-        let mut second = false;
-        let mut repeat_check = 0;
-        let mut last_report = 0;
-
-        if self.size == 1 {
-            multi_point = cells.0.into_iter().map(|cell| cell.point_array()).collect();
         } else {
-            while visited.len() < cells.0.len() {
-                let (valid, point) = self.crawl_cells(&current, &mut visited, &cells, &polygons);
-                if valid {
-                    multi_point.push(point);
-                }
-                for _ in 0..self.size {
-                    current = current.edge_neighbors()[direction];
-                }
-                if first {
-                    first = false;
-                    second = true;
-                    direction += 1;
-                } else if second {
-                    second = false;
-                    direction += 1;
-                } else if direction_count == current_count {
-                    if direction == 3 {
-                        direction = 0
-                    } else {
-                        direction += 1
-                    }
-                    if turn {
-                        turn = false;
-                        direction_count += 1;
-                        current_count = 1;
-                    } else {
-                        turn = true;
-                        current_count = 1;
-                    }
-                } else {
-                    current_count += 1;
-                }
-                if last_report == visited.len() {
-                    repeat_check += 1;
-                    if repeat_check > 10_000 {
-                        log::error!("Only {} cells out of {} were able to be checked, breaking after {} repeated iterations", last_report, cells.0.len(), repeat_check);
-                        break;
-                    }
-                } else {
-                    last_report = visited.len();
-                    repeat_check = 0;
-                }
-            }
+            vec![]
         }
-
-        let mut multi_point: geo::MultiPoint = multi_point
-            .into_iter()
-            .map(|p| geo::Coord { x: p[1], y: p[0] })
-            .collect();
-        multi_point.remove_repeated_points_mut();
-
-        multi_point.into_iter().map(|p| [p.y(), p.x()]).collect()
     }
 
-    fn crawl_cells(
-        &self,
-        cell_id: &CellID,
-        visited: &mut HashSet<u64>,
-        cell_union: &CellUnion,
-        polygons: &Vec<Polygon>,
-    ) -> (bool, PointArray) {
-        let mut new_cell_id = cell_id.clone();
-        let mut center = [0., 0.];
-        let mut count = 0;
-        let mut line_string = vec![];
+    fn find_center_cell(&self, cells: &Vec<CellID>) -> CellID {
+        let mut lat_sum = 0.;
+        let mut lon_sum = 0.;
 
-        for v in 0..self.size {
-            new_cell_id = new_cell_id.edge_neighbors()[1];
-            let mut h_cell_id = new_cell_id.clone();
-            for h in 0..self.size {
-                if cell_union.contains_cellid(&h_cell_id) {
-                    visited.insert(h_cell_id.0);
-                    count += 1;
-                }
-                if self.size % 2 == 0 {
-                    if v == ((self.size / 2) - 1) && h == ((self.size / 2) - 1) {
-                        center = h_cell_id.point_array();
-                    }
-                    if v == (self.size / 2) && h == (self.size / 2) {
-                        let second_center = h_cell_id.point_array();
-                        center = [
-                            (center[0] + second_center[0]) / 2.,
-                            (center[1] + second_center[1]) / 2.,
-                        ];
-                    }
-                } else if v == ((self.size - 1) / 2) && h == ((self.size - 1) / 2) {
-                    center = h_cell_id.point_array();
-                }
+        for cell in cells.iter() {
+            let point = cell.point_array();
+            lat_sum += point[0];
+            lon_sum += point[1];
+        }
+        CellID::from(s2::latlng::LatLng::from_degrees(
+            lat_sum / cells.len() as f64,
+            lon_sum / cells.len() as f64,
+        ))
+    }
 
-                if v == 0 && h == 0 {
-                    let vertex = Cell::from(&h_cell_id).vertex(3);
-                    line_string.push(geo::Coord {
-                        x: vertex.longitude().deg(),
-                        y: vertex.latitude().deg(),
-                    });
-                } else if v == 0 && h == (self.size - 1) {
-                    let vertex = Cell::from(&h_cell_id).vertex(0);
-                    line_string.push(geo::Coord {
-                        x: vertex.longitude().deg(),
-                        y: vertex.latitude().deg(),
-                    });
-                } else if v == (self.size - 1) && h == (self.size - 1) {
-                    let vertex = Cell::from(&h_cell_id).vertex(1);
-                    line_string.push(geo::Coord {
-                        x: vertex.longitude().deg(),
-                        y: vertex.latitude().deg(),
-                    });
-                } else if v == (self.size - 1) && h == 0 {
-                    let vertex = Cell::from(&h_cell_id).vertex(2);
-                    line_string.push(geo::Coord {
-                        x: vertex.longitude().deg(),
-                        y: vertex.latitude().deg(),
-                    });
-                }
-                h_cell_id = h_cell_id.edge_neighbors()[0];
+    fn get_grid_polygon(&self, cells: &Vec<CellID>) -> geo::Polygon {
+        let time = Instant::now();
+
+        let mut points = HashSet::new();
+        for cell in cells.iter() {
+            let cell = Cell::from(*cell);
+            for i in 0..4 {
+                let point = cell.vertex(i);
+                let point = rtree::point::Point::new(
+                    0.,
+                    20,
+                    [point.latitude().deg(), point.longitude().deg()],
+                );
+                points.insert(point);
             }
         }
-        if line_string.len() == 4 {
-            line_string.swap(2, 3);
+
+        let line_string_points: Vec<geo::Point<f64>> = points
+            .into_iter()
+            .map(|p| geo::Point::new(p.center[1], p.center[0]))
+            .collect();
+
+        let polygon = Polygon::new(geo::LineString::from(line_string_points), vec![]).convex_hull();
+        // .simplify(&0.0001);
+
+        // if polygon.exterior().points().count() != 5 {
+        // log::info!(
+        //     "{} | {}",
+        //     polygon.exterior().points().count(),
+        //     Feature::from(geojson::Geometry::from(&polygon)).to_string()
+        // );
+        // }
+
+        log::debug!("get_grid_polygon took: {:.4}", time.elapsed().as_secs_f32());
+        polygon
+    }
+
+    fn run(&self) -> SingleVec {
+        log::info!("Starting S2 bootstrapping");
+        let polygons = self.build_polygons();
+        let bbox = self.feature.bbox.as_ref().unwrap();
+        let region = Rect::from_degrees(bbox[1], bbox[0], bbox[3], bbox[2]);
+
+        let cells = RegionCoverer {
+            max_level: self.level as u8,
+            min_level: self.level as u8,
+            level_mod: 1,
+            max_cells: 100000,
         }
-        let local_poly = geo::Polygon::<f64>::new(geo::LineString::new(line_string.into()), vec![]);
-        let valid = if count > 0 {
-            if polygons
-                .par_iter()
-                .find_any(|polygon| polygon.intersects(&local_poly))
-                .is_some()
-            {
-                true
-            } else {
-                false
-            }
+        .covering(&region);
+
+        let cell_grids = if self.size == 1 {
+            cells.0.into_par_iter().map(|cell| vec![cell]).collect()
         } else {
-            false
+            let lo = CellID::from(region.lo()).parent(self.level);
+            let hi = CellID::from(region.hi()).parent(self.level);
+
+            let mut cell_grids = vec![];
+
+            let mut traversing = 0;
+            let mut current_lat = lo;
+            let mut current_lng = current_lat;
+            let mut next_log_at = 10_000;
+
+            let [north, east] = hi.point_array();
+            let [mut current_north, mut current_east] = lo.point_array();
+
+            while current_north < north {
+                let mut current_west = current_lng;
+                [current_north, current_east] = current_lng.point_array();
+
+                loop {
+                    traversing += 1;
+                    current_west.traverse_mut(Dir::W, self.size);
+                    if self
+                        .get_neighbors(current_west, self.size.max(2) - 2)
+                        .into_par_iter()
+                        .find_any(|cell| cells.contains_cellid(cell))
+                        .is_none()
+                    {
+                        break;
+                    }
+                    log::debug!("traversing W: {traversing}");
+                }
+                current_lng = current_west;
+                [current_north, current_east] = current_lng.point_array();
+                while current_east < east {
+                    [current_north, current_east] = current_lng.point_array();
+                    traversing += 1;
+                    let cell_grid = self.get_neighbors(current_lng, self.size.max(2) - 2);
+                    cell_grids.push(cell_grid);
+                    current_lng.traverse_mut(Dir::E, self.size);
+                    log::debug!("traversing E: {traversing}");
+                }
+                current_lat.traverse_mut(Dir::N, self.size);
+                current_lng = current_lat;
+
+                if traversing > next_log_at {
+                    log::info!("still building S2 bootstrapping, current: {traversing}");
+                    next_log_at += 10_000;
+                }
+                log::debug!("traversing N: {traversing}");
+            }
+
+            cell_grids
         };
-        (valid, center)
+
+        log::info!(
+            "Filtering out cells that don't intersect with the feature: {}",
+            cell_grids.len()
+        );
+
+        let mut cell_grids = cell_grids
+            .into_par_iter()
+            .filter_map(|grid| {
+                // return Some(self.find_center_cell(&grid).point_array());
+                let grid_poly = self.get_grid_polygon(&grid);
+                if polygons
+                    .par_iter()
+                    .find_any(|polygon| polygon.intersects(&grid_poly))
+                    .is_some()
+                {
+                    Some(self.find_center_cell(&grid).point_array())
+                } else {
+                    None
+                }
+            })
+            .collect::<SingleVec>();
+
+        if cell_grids.is_empty() {
+            let center = region.center();
+            cell_grids.push([center.lat.deg(), center.lng.deg()])
+        }
+        // cell_grids.clear();
+        // cell_grids.push(lo.point_array());
+        // cell_grids.push(hi.point_array());
+        cell_grids
     }
 }

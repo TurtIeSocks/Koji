@@ -92,11 +92,12 @@ pub fn get_region_cells(
     cell_size: u8,
 ) -> CellUnion {
     let region = Rect::from_degrees(min_lat, min_lon, max_lat, max_lon);
+
     RegionCoverer {
         max_level: cell_size,
         min_level: cell_size,
         level_mod: 1,
-        max_cells: 1000,
+        max_cells: 100000,
     }
     .covering(&region)
 }
@@ -116,7 +117,7 @@ pub fn get_cells(
         .enumerate()
         .map_while(|(i, cell)| {
             if i < 100_000 {
-                Some(get_polygon(cell))
+                Some(get_client_polygon(cell))
             } else {
                 None
             }
@@ -124,28 +125,32 @@ pub fn get_cells(
         .collect()
 }
 
-fn get_polygon(id: &CellID) -> S2Response {
+pub fn get_polygon(id: &CellID) -> [[f64; 2]; 4] {
     let cell = Cell::from(id);
+    [
+        [
+            cell.vertex(0).latitude().deg(),
+            cell.vertex(0).longitude().deg(),
+        ],
+        [
+            cell.vertex(1).latitude().deg(),
+            cell.vertex(1).longitude().deg(),
+        ],
+        [
+            cell.vertex(2).latitude().deg(),
+            cell.vertex(2).longitude().deg(),
+        ],
+        [
+            cell.vertex(3).latitude().deg(),
+            cell.vertex(3).longitude().deg(),
+        ],
+    ]
+}
+
+fn get_client_polygon(id: &CellID) -> S2Response {
     S2Response {
         id: id.0.to_string(),
-        coords: [
-            [
-                cell.vertex(0).latitude().deg(),
-                cell.vertex(0).longitude().deg(),
-            ],
-            [
-                cell.vertex(1).latitude().deg(),
-                cell.vertex(1).longitude().deg(),
-            ],
-            [
-                cell.vertex(2).latitude().deg(),
-                cell.vertex(2).longitude().deg(),
-            ],
-            [
-                cell.vertex(3).latitude().deg(),
-                cell.vertex(3).longitude().deg(),
-            ],
-        ],
+        coords: get_polygon(id),
     }
 }
 
@@ -153,7 +158,7 @@ pub fn get_polygons(cell_ids: Vec<String>) -> Vec<S2Response> {
     cell_ids
         .into_par_iter()
         .filter_map(|id| match id.parse::<u64>() {
-            Ok(id) => Some(get_polygon(&CellID(id))),
+            Ok(id) => Some(get_client_polygon(&CellID(id))),
             Err(e) => {
                 log::error!("[S2] Error parsing cell id: {}", e);
                 None
