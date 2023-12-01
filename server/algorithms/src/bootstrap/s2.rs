@@ -176,6 +176,7 @@ impl<'a> BootstrapS2<'a> {
             cells.0
         } else {
             let origin_low = CellID::from(region.lo()).parent(self.level);
+            // let origin_low = CellID::from(region.lo()).parent(self.level);
             let lo = CellID::from(region.lo())
                 .parent(self.level)
                 .traverse(Dir::S, self.size)
@@ -186,6 +187,12 @@ impl<'a> BootstrapS2<'a> {
                 log::error!("origin: {} | lo: {}", origin_low.face(), lo.face());
             }
             let origin_hi = CellID::from(region.hi()).parent(self.level);
+            // if origin_low == lo {
+            //     log::info!("origin: {} | lo: {}", origin_low.face(), lo.face());
+            // } else {
+            //     log::error!("origin: {} | lo: {}", origin_low.face(), lo.face());
+            // }
+            // let origin_hi = CellID::from(region.hi()).parent(self.level);
             let hi = CellID::from(region.hi())
                 .parent(self.level)
                 .traverse(Dir::N, self.size)
@@ -195,6 +202,11 @@ impl<'a> BootstrapS2<'a> {
             } else {
                 log::error!("origin: {} | hi: {}", origin_hi.face(), hi.face());
             }
+            // if origin_hi == hi {
+            //     log::info!("origin: {} | hi: {}", origin_hi.face(), hi.face());
+            // } else {
+            //     log::error!("origin: {} | hi: {}", origin_hi.face(), hi.face());
+            // }
 
             let mut cell_grids = vec![];
 

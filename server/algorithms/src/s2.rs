@@ -215,7 +215,7 @@ pub trait BuildGrid {
 
 impl BuildGrid for CellID {
     fn build_grid(&self, size: u8) -> Vec<CellID> {
-        let get_to_start = ((size as f32 / 2.).floor() as u8) + 1;
+        let get_to_start = (size as f32 / 2.).floor() as u8;
         let mut starting_cell = self
             .traverse(Dir::W, get_to_start)
             .traverse(Dir::S, get_to_start);
