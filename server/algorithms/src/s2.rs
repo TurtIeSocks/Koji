@@ -85,6 +85,7 @@ impl ToGeoJson for CellID {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum Dir {
     N,
     E,

@@ -162,51 +162,35 @@ impl<'a> BootstrapS2<'a> {
         );
 
         let time = Instant::now();
-        let cells = RegionCoverer {
+        let coverer = RegionCoverer {
             max_level: self.level as u8,
             min_level: self.level as u8,
             level_mod: 1,
             max_cells: 100000,
-        }
-        .covering(&region);
-        log::info!("Created cells in {:.4}", time.elapsed().as_secs_f32());
+        };
 
         let time = Instant::now();
         let cell_grids = if self.size == 1 {
-            cells.0
+            coverer.covering(&region).0
         } else {
-            let origin_low = CellID::from(region.lo()).parent(self.level);
-            // let origin_low = CellID::from(region.lo()).parent(self.level);
+            let modifier = 1;
             let lo = CellID::from(region.lo())
                 .parent(self.level)
-                .traverse(Dir::S, self.size)
-                .traverse(Dir::W, self.size);
-            if origin_low == lo {
-                log::info!("origin: {} | lo: {}", origin_low.face(), lo.face());
-            } else {
-                log::error!("origin: {} | lo: {}", origin_low.face(), lo.face());
-            }
-            let origin_hi = CellID::from(region.hi()).parent(self.level);
-            // if origin_low == lo {
-            //     log::info!("origin: {} | lo: {}", origin_low.face(), lo.face());
-            // } else {
-            //     log::error!("origin: {} | lo: {}", origin_low.face(), lo.face());
-            // }
-            // let origin_hi = CellID::from(region.hi()).parent(self.level);
+                .traverse(Dir::S, self.size * modifier)
+                .traverse(Dir::W, self.size * modifier)
+                .point_array();
             let hi = CellID::from(region.hi())
                 .parent(self.level)
-                .traverse(Dir::N, self.size)
-                .traverse(Dir::E, self.size);
-            if origin_hi == hi {
-                log::info!("origin: {} | hi: {}", origin_hi.face(), hi.face());
-            } else {
-                log::error!("origin: {} | hi: {}", origin_hi.face(), hi.face());
-            }
-            // if origin_hi == hi {
-            //     log::info!("origin: {} | hi: {}", origin_hi.face(), hi.face());
-            // } else {
-            //     log::error!("origin: {} | hi: {}", origin_hi.face(), hi.face());
-            // }
+                .traverse(Dir::N, self.size * modifier)
+                .traverse(Dir::E, self.size * modifier)
+                .point_array();
+
+            let region = Rect::from_degrees(lo[0], lo[1], hi[0], hi[1]);
+            let cells = coverer.covering(&region);
+            log::info!("Created cells in {:.4}", time.elapsed().as_secs_f32());
+
+            let lo = CellID::from(region.lo()).parent(self.level);
+            let hi = CellID::from(region.hi()).parent(self.level);
 
             let mut cell_grids = vec![];
 
@@ -222,55 +206,60 @@ impl<'a> BootstrapS2<'a> {
             let mut time_west = 0.;
             let mut time_north = 0.;
 
-            while current_north < north {
-                let mut current_west = current_lng;
-                [current_north, current_east] = current_lng.point_array();
+            let mut current = CellID::from(region.center()).parent(self.level as u64);
+            let mut direction = Dir::N;
+            let mut direction_count = 2;
+            let mut current_count = 1;
+            let mut turn = false;
+            let mut first = true;
+            let mut second = false;
+            let mut repeat_check = 0;
+            let mut last_report = 0;
 
-                loop {
-                    let time = Instant::now();
-                    traversing += 1;
-                    current_west.traverse_mut(Dir::W, self.size);
-                    if current_west
-                        .build_grid(self.size)
-                        .into_par_iter()
-                        .find_any(|cell| cells.contains_cellid(cell))
-                        .is_none()
-                    {
-                        time_west += time.elapsed().as_secs_f32();
-                        break;
+            while repeat_check < 5000 {
+                traversing += 1;
+                if cells.contains_cellid(&current) {
+                    cell_grids.push(current);
+                }
+                current.traverse_mut(direction, self.size);
+                if first {
+                    first = false;
+                    second = true;
+                    direction = Dir::E;
+                } else if second {
+                    second = false;
+                    direction = Dir::S;
+                } else if direction_count == current_count {
+                    match direction {
+                        Dir::N => direction = Dir::E,
+                        Dir::E => direction = Dir::S,
+                        Dir::S => direction = Dir::W,
+                        Dir::W => direction = Dir::N,
                     }
-                    time_west += time.elapsed().as_secs_f32();
-                    log::debug!("traversing W: {traversing}");
+                    if turn {
+                        turn = false;
+                        direction_count += 1;
+                        current_count = 1;
+                    } else {
+                        turn = true;
+                        current_count = 1;
+                    }
+                } else {
+                    current_count += 1;
                 }
-                current_lng = current_west;
-                [current_north, current_east] = current_lng.point_array();
-                while current_east < east {
-                    let time = Instant::now();
-                    [current_north, current_east] = current_lng.point_array();
-                    traversing += 1;
-                    cell_grids.push(current_lng);
-                    current_lng.traverse_mut(Dir::E, self.size);
-                    log::debug!("traversing E: {traversing}");
-                    time_east += time.elapsed().as_secs_f32();
+                if last_report == cell_grids.len() {
+                    repeat_check += 1;
+                } else {
+                    last_report = cell_grids.len();
+                    repeat_check = 0;
                 }
-                let time = Instant::now();
-                current_lat.traverse_mut(Dir::N, self.size);
-                current_lng = current_lat;
-
                 if traversing > next_log_at {
-                    log::info!("still building S2 bootstrapping, current: {traversing}");
+                    log::info!(
+                        "still building S2 bootstrapping, current: {traversing} | {repeat_check}"
+                    );
                     next_log_at += 10_000;
                 }
-                log::debug!("traversing N: {traversing}");
-                time_north += time.elapsed().as_secs_f32();
             }
-            log::debug!(
-                "time_east: {:.4}, time_west: {:.4}, time_north: {:.4}",
-                time_east,
-                time_west,
-                time_north
-            );
-
             cell_grids
         };
         log::info!(
@@ -283,7 +272,10 @@ impl<'a> BootstrapS2<'a> {
         let mut cell_grids = cell_grids
             .into_par_iter()
             .filter_map(|cell| {
-                // return Some(self.find_center_cell(&vec![cell]).point_array());
+                // return Some(
+                //     self.find_center_cell(&cell.build_grid(self.size))
+                //         .point_array(),
+                // );
                 let grid = if self.size == 1 {
                     vec![cell]
                 } else {
@@ -311,7 +303,6 @@ impl<'a> BootstrapS2<'a> {
             time.elapsed().as_secs_f32(),
             cell_grids.len()
         );
-        // cell_grids.clear();
         cell_grids
     }
 }
