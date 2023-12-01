@@ -1,7 +1,11 @@
 #![allow(dead_code, unused)]
 use std::{fmt::Display, time::Instant};
 
-use crate::{routing, rtree, s2::ToPointArray, stats::Stats};
+use crate::{
+    routing, rtree,
+    s2::{BuildGrid, Dir, ToPointArray, Traverse},
+    stats::Stats,
+};
 
 use geo::{ConcaveHull, ConvexHull, Intersects, MultiPolygon, Polygon, Simplify};
 use geojson::{Feature, Value};
@@ -11,73 +15,10 @@ use model::{
     db::sea_orm_active_enums::Type,
 };
 use rayon::{
-    iter::IntoParallelIterator,
+    iter::{Either, IntoParallelIterator},
     prelude::{IntoParallelRefIterator, ParallelIterator},
 };
 use s2::{cell::Cell, cellid::CellID, rect::Rect, region::RegionCoverer};
-
-enum Dir {
-    N,
-    E,
-    S,
-    W,
-}
-
-impl Display for Dir {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Dir::N => "North",
-                Dir::E => "East",
-                Dir::S => "South",
-                Dir::W => "West",
-            }
-        )
-    }
-}
-trait Traverse {
-    fn traverse(self, dir: Dir, count: u8) -> Self;
-    fn traverse_mut(&mut self, dir: Dir, count: u8);
-}
-
-impl Traverse for CellID {
-    fn traverse(self, dir: Dir, count: u8) -> Self {
-        let mut new_cell = self;
-        new_cell.traverse_mut(dir, count);
-        new_cell
-    }
-
-    fn traverse_mut(&mut self, dir: Dir, count: u8) {
-        for _ in 0..count {
-            let [lat, lng] = self.point_array();
-            let neighbors = self.edge_neighbors();
-            let mut direction = 0;
-            let mut largest = match dir {
-                Dir::E | Dir::W => lng,
-                Dir::N | Dir::S => lat,
-            };
-
-            for (j, neighbor) in neighbors.iter().enumerate() {
-                let [next_lat, next_lng] = neighbor.point_array();
-                if match dir {
-                    Dir::N => largest < next_lat,
-                    Dir::S => largest > next_lat,
-                    Dir::E => largest < next_lng,
-                    Dir::W => largest > next_lng,
-                } {
-                    largest = match dir {
-                        Dir::E | Dir::W => next_lng,
-                        Dir::N | Dir::S => next_lat,
-                    };
-                    direction = j;
-                }
-            }
-            *self = neighbors[direction];
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct BootstrapS2<'a> {
@@ -136,17 +77,6 @@ impl<'a> BootstrapS2<'a> {
         }
         new_feature.set_property("__mode", "CirclePokemon");
         new_feature
-    }
-
-    fn get_neighbors(&self, cell: CellID, iteration: u8) -> Vec<CellID> {
-        if iteration <= 1 {
-            cell.all_neighbors(self.level)
-        } else {
-            cell.all_neighbors(self.level)
-                .into_iter()
-                .flat_map(|neighbor| self.get_neighbors(neighbor, iteration - 2))
-                .collect()
-        }
     }
 
     fn build_polygons(&self) -> Vec<geo::Polygon> {
@@ -245,8 +175,26 @@ impl<'a> BootstrapS2<'a> {
         let cell_grids = if self.size == 1 {
             cells.0
         } else {
-            let lo = CellID::from(region.lo()).parent(self.level);
-            let hi = CellID::from(region.hi()).parent(self.level);
+            let origin_low = CellID::from(region.lo()).parent(self.level);
+            let lo = CellID::from(region.lo())
+                .parent(self.level)
+                .traverse(Dir::S, self.size)
+                .traverse(Dir::W, self.size);
+            if origin_low == lo {
+                log::info!("origin: {} | lo: {}", origin_low.face(), lo.face());
+            } else {
+                log::error!("origin: {} | lo: {}", origin_low.face(), lo.face());
+            }
+            let origin_hi = CellID::from(region.hi()).parent(self.level);
+            let hi = CellID::from(region.hi())
+                .parent(self.level)
+                .traverse(Dir::N, self.size)
+                .traverse(Dir::E, self.size);
+            if origin_hi == hi {
+                log::info!("origin: {} | hi: {}", origin_hi.face(), hi.face());
+            } else {
+                log::error!("origin: {} | hi: {}", origin_hi.face(), hi.face());
+            }
 
             let mut cell_grids = vec![];
 
@@ -270,8 +218,8 @@ impl<'a> BootstrapS2<'a> {
                     let time = Instant::now();
                     traversing += 1;
                     current_west.traverse_mut(Dir::W, self.size);
-                    if self
-                        .get_neighbors(current_west, self.size - 2)
+                    if current_west
+                        .build_grid(self.size)
                         .into_par_iter()
                         .find_any(|cell| cells.contains_cellid(cell))
                         .is_none()
@@ -288,7 +236,6 @@ impl<'a> BootstrapS2<'a> {
                     let time = Instant::now();
                     [current_north, current_east] = current_lng.point_array();
                     traversing += 1;
-                    // let cell_grid = self.get_neighbors(current_lng, self.size - 2);
                     cell_grids.push(current_lng);
                     current_lng.traverse_mut(Dir::E, self.size);
                     log::debug!("traversing E: {traversing}");
@@ -324,11 +271,11 @@ impl<'a> BootstrapS2<'a> {
         let mut cell_grids = cell_grids
             .into_par_iter()
             .filter_map(|cell| {
-                // return Some(self.find_center_cell(&grid).point_array());
+                // return Some(self.find_center_cell(&vec![cell]).point_array());
                 let grid = if self.size == 1 {
                     vec![cell]
                 } else {
-                    self.get_neighbors(cell, self.size - 2)
+                    cell.build_grid(self.size)
                 };
                 let grid_poly = self.get_grid_polygon(&grid);
                 if polygons
@@ -353,8 +300,6 @@ impl<'a> BootstrapS2<'a> {
             cell_grids.len()
         );
         // cell_grids.clear();
-        // cell_grids.push(lo.point_array());
-        // cell_grids.push(hi.point_array());
         cell_grids
     }
 }

@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    fmt::Display,
     sync::{Arc, Mutex},
 };
 
@@ -81,6 +82,154 @@ impl ToGeoJson for CellID {
         let cell = Cell::from(self);
         let center = cell.center();
         vec![center.longitude().deg(), center.latitude().deg()]
+    }
+}
+
+pub enum Dir {
+    N,
+    E,
+    S,
+    W,
+}
+
+impl Display for Dir {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Dir::N => "North",
+                Dir::E => "East",
+                Dir::S => "South",
+                Dir::W => "West",
+            }
+        )
+    }
+}
+pub trait Traverse {
+    fn traverse(self, dir: Dir, count: u8) -> Self;
+    fn traverse_mut(&mut self, dir: Dir, count: u8);
+}
+
+impl Traverse for CellID {
+    fn traverse(self, dir: Dir, count: u8) -> Self {
+        let mut new_cell = self;
+        new_cell.traverse_mut(dir, count);
+        new_cell
+    }
+
+    fn traverse_mut(&mut self, dir: Dir, count: u8) {
+        for _ in 0..count {
+            let neighbors = self.edge_neighbors();
+            let lng_match = self.point_array()[1] / 45.;
+            let lng_match = if lng_match < -3. {
+                lng_match.ceil() as i8
+            } else {
+                lng_match.floor() as i8
+            };
+            *self = match self.face() {
+                0 | 1 => match dir {
+                    Dir::N => neighbors[2],
+                    Dir::E => neighbors[1],
+                    Dir::S => neighbors[0],
+                    Dir::W => neighbors[3],
+                },
+                2 => match lng_match {
+                    -1 | 0 => match dir {
+                        Dir::N => neighbors[1],
+                        Dir::E => neighbors[0],
+                        Dir::S => neighbors[3],
+                        Dir::W => neighbors[2],
+                    },
+                    1 | 2 => match dir {
+                        Dir::N => neighbors[2],
+                        Dir::E => neighbors[1],
+                        Dir::S => neighbors[0],
+                        Dir::W => neighbors[3],
+                    },
+                    -2 => match dir {
+                        Dir::N => neighbors[0],
+                        Dir::E => neighbors[3],
+                        Dir::S => neighbors[2],
+                        Dir::W => neighbors[1],
+                    },
+                    -3 | 3 => match dir {
+                        Dir::N => neighbors[3],
+                        Dir::E => neighbors[2],
+                        Dir::S => neighbors[1],
+                        Dir::W => neighbors[0],
+                    },
+                    _ => {
+                        log::error!("invalid on face 2: {}", lng_match);
+                        panic!()
+                    }
+                },
+                3 | 4 => match dir {
+                    Dir::N => neighbors[3],
+                    Dir::E => neighbors[2],
+                    Dir::S => neighbors[1],
+                    Dir::W => neighbors[0],
+                },
+                5 => match lng_match {
+                    -1 | 0 => match dir {
+                        Dir::N => neighbors[2],
+                        Dir::E => neighbors[1],
+                        Dir::S => neighbors[0],
+                        Dir::W => neighbors[3],
+                    },
+                    1 | 2 => match dir {
+                        Dir::N => neighbors[1],
+                        Dir::E => neighbors[0],
+                        Dir::S => neighbors[3],
+                        Dir::W => neighbors[2],
+                    },
+                    -2 => match dir {
+                        Dir::N => neighbors[3],
+                        Dir::E => neighbors[2],
+                        Dir::S => neighbors[1],
+                        Dir::W => neighbors[0],
+                    },
+                    -3 | 3 => match dir {
+                        Dir::N => neighbors[0],
+                        Dir::E => neighbors[3],
+                        Dir::S => neighbors[2],
+                        Dir::W => neighbors[1],
+                    },
+                    _ => {
+                        log::error!("invalid on face 5: {}", lng_match);
+                        panic!()
+                    }
+                },
+                _ => {
+                    log::error!("invalid face: {}", self.face());
+                    panic!()
+                }
+            };
+        }
+    }
+}
+
+pub trait BuildGrid {
+    fn build_grid(&self, size: u8) -> Vec<CellID>;
+}
+
+impl BuildGrid for CellID {
+    fn build_grid(&self, size: u8) -> Vec<CellID> {
+        let get_to_start = ((size as f32 / 2.).floor() as u8) + 1;
+        let mut starting_cell = self
+            .traverse(Dir::W, get_to_start)
+            .traverse(Dir::S, get_to_start);
+        let mut neighbors = vec![];
+        for _ in 0..size {
+            let mut h_cell = starting_cell;
+            neighbors.push(h_cell);
+            for _ in 1..size {
+                h_cell.traverse_mut(Dir::E, 1);
+                neighbors.push(h_cell);
+            }
+            starting_cell.traverse_mut(Dir::N, 1);
+        }
+        neighbors
     }
 }
 
@@ -251,25 +400,21 @@ fn check_neighbors(lat: f64, lon: f64, level: u8, circle: &geo::Polygon, covered
 
 pub fn cell_coverage(lat: f64, lon: f64, size: u8, level: u8) -> Covered {
     let covered = Arc::new(Mutex::new(HashSet::new()));
-    let mut center = CellID::from(s2::latlng::LatLng::from_degrees(lat, lon)).parent(level as u64);
+    let center = CellID::from(s2::latlng::LatLng::from_degrees(lat, lon)).parent(level as u64);
+
     if size == 1 {
         covered.lock().unwrap().insert(center.0);
     } else {
-        for i in 0..((size / 2) + 1) {
-            if i != 0 {
-                if if size % 2 == 0 { i != 1 } else { true } {
-                    center = center.edge_neighbors()[2];
+        let neighbors = center.build_grid(size);
+        for neighbor in neighbors {
+            match covered.lock() {
+                Ok(mut c) => {
+                    c.insert(neighbor.0);
                 }
-            }
-            center = center.edge_neighbors()[3];
-        }
-        for _ in 0..size {
-            center = center.edge_neighbors()[1];
-            let mut h_cell_id = center.clone();
-            for _ in 0..size {
-                covered.lock().unwrap().insert(h_cell_id.0);
-                h_cell_id = h_cell_id.edge_neighbors()[0];
-            }
+                Err(e) => {
+                    log::error!("[S2] Error locking `covered` to insert: {}", e)
+                }
+            };
         }
     }
     covered
