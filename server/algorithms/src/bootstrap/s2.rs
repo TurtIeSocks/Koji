@@ -74,7 +74,7 @@ impl<'a> BootstrapS2<'a> {
         if let Some(geofence_id) = self.feature.property("__id") {
             new_feature.set_property("__geofence_id", geofence_id.clone());
         }
-        new_feature.set_property("__mode", "CirclePokemon");
+        new_feature.set_property("__mode", "CircleRaid");
         new_feature
     }
 
