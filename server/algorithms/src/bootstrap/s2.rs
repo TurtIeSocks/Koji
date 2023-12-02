@@ -1,5 +1,4 @@
-#![allow(dead_code, unused)]
-use std::{fmt::Display, time::Instant};
+use std::time::Instant;
 
 use crate::{
     routing, rtree,
@@ -7,7 +6,7 @@ use crate::{
     stats::Stats,
 };
 
-use geo::{ConcaveHull, ConvexHull, Intersects, MultiPolygon, Polygon, Simplify};
+use geo::{ConvexHull, Intersects, MultiPolygon, Polygon};
 use geojson::{Feature, Value};
 use hashbrown::HashSet;
 use model::{
@@ -15,7 +14,7 @@ use model::{
     db::sea_orm_active_enums::Type,
 };
 use rayon::{
-    iter::{Either, IntoParallelIterator},
+    iter::IntoParallelIterator,
     prelude::{IntoParallelRefIterator, ParallelIterator},
 };
 use s2::{cell::Cell, cellid::CellID, rect::Rect, region::RegionCoverer};
@@ -161,15 +160,13 @@ impl<'a> BootstrapS2<'a> {
             time.elapsed().as_secs_f32()
         );
 
-        let time = Instant::now();
+        let mut time = Instant::now();
         let coverer = RegionCoverer {
             max_level: self.level as u8,
             min_level: self.level as u8,
             level_mod: 1,
             max_cells: 100000,
         };
-
-        let time = Instant::now();
         let cell_grids = if self.size == 1 {
             coverer.covering(&region).0
         } else {
@@ -188,23 +185,12 @@ impl<'a> BootstrapS2<'a> {
             let region = Rect::from_degrees(lo[0], lo[1], hi[0], hi[1]);
             let cells = coverer.covering(&region);
             log::info!("Created cells in {:.4}", time.elapsed().as_secs_f32());
-
-            let lo = CellID::from(region.lo()).parent(self.level);
-            let hi = CellID::from(region.hi()).parent(self.level);
+            time = Instant::now();
 
             let mut cell_grids = vec![];
 
             let mut traversing = 0;
-            let mut current_lat = lo;
-            let mut current_lng = current_lat;
             let mut next_log_at = 10_000;
-
-            let [north, east] = hi.point_array();
-            let [mut current_north, mut current_east] = lo.point_array();
-
-            let mut time_east = 0.;
-            let mut time_west = 0.;
-            let mut time_north = 0.;
 
             let mut current = CellID::from(region.center()).parent(self.level as u64);
             let mut direction = Dir::N;

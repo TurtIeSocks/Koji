@@ -52,8 +52,6 @@ async fn bootstrap(
 
     let mut stats = Stats::new(format!("Bootstrap | {:?}", calculation_mode), 1);
 
-    let time = Instant::now();
-
     let mut features: Vec<Feature> = algorithms::bootstrap::main(
         area,
         calculation_mode,
@@ -82,7 +80,6 @@ async fn bootstrap(
             ..Default::default()
         }]
     }
-    stats.set_cluster_time(time);
 
     let instance = if let Some(parent) = parent {
         let model = geofence::Query::get_one(&conn.koji, parent.to_string())
