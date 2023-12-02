@@ -1,6 +1,6 @@
 use model;
 
-pub mod bootstrapping;
+pub mod bootstrap;
 pub mod clustering;
 mod project;
 pub mod routing;

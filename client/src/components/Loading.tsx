@@ -10,22 +10,11 @@ import { usePersist } from '@hooks/usePersist'
 import { useStatic } from '@hooks/useStatic'
 import { fromSnakeCase } from '@services/utils'
 
-export default function Loading() {
+function TimerComponent() {
   const loading = useStatic((s) => s.loading)
-  const loadingAbort = useStatic((s) => s.loadingAbort)
   const totalStartTime = useStatic((s) => s.totalStartTime)
   const totalLoadingTime = useStatic((s) => s.totalLoadingTime)
-  const setStatic = useStatic((s) => s.setStatic)
 
-  const loadingScreen = usePersist((s) => s.loadingScreen)
-  const settings = usePersist((s) => ({
-    mode: s.mode,
-    radius: s.radius,
-    category: s.category,
-    min_points: s.min_points,
-    fast: s.fast,
-    route_split_level: s.route_split_level,
-  }))
   const [time, setTime] = React.useState(0)
 
   const loadingStarted = Object.keys(loading).length
@@ -49,6 +38,33 @@ export default function Loading() {
     }
   }, [loadingStarted, totalLoadingTime])
 
+  return (
+    <Typography variant="h3" color="secondary">
+      {totalLoadingTime
+        ? 'Stats'
+        : `Loading... ${loadingStatus.toFixed(2)}% | ${time.toFixed(1)}s`}
+    </Typography>
+  )
+}
+
+export default function Loading() {
+  const loading = useStatic((s) => s.loading)
+  const loadingAbort = useStatic((s) => s.loadingAbort)
+  const totalLoadingTime = useStatic((s) => s.totalLoadingTime)
+  const setStatic = useStatic((s) => s.setStatic)
+
+  const loadingScreen = usePersist((s) => s.loadingScreen)
+  const settings = usePersist((s) => ({
+    mode: s.mode,
+    radius: s.radius,
+    category: s.category,
+    min_points: s.min_points,
+    fast: s.fast,
+    route_split_level: s.route_split_level,
+  }))
+
+  const loadingStarted = Object.keys(loading).length
+
   if (!loadingScreen) return null
 
   return loadingStarted ? (
@@ -70,11 +86,7 @@ export default function Loading() {
       }}
     >
       <Grid2 xs={12} sm={totalLoadingTime ? 4 : 12}>
-        <Typography variant="h3" color="secondary">
-          {totalLoadingTime
-            ? 'Stats'
-            : `Loading... ${loadingStatus.toFixed(2)}% | ${time.toFixed(1)}s`}
-        </Typography>
+        <TimerComponent />
       </Grid2>
       <Grid2
         xs={12}

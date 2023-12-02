@@ -106,6 +106,10 @@ pub trait ToGeometry {
     fn to_geometry(self) -> Geometry;
 }
 
+pub trait ToGeometryVec {
+    fn to_geometry_vec(self) -> Vec<Geometry>;
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum GeoFormats {

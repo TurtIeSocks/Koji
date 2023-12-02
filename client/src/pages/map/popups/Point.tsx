@@ -189,11 +189,12 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
           disabled={loading}
           onClick={async () => {
             setLoading(true)
-            const { fast, route_split_level, save_to_db } =
+            const { route_split_level, save_to_scanner, save_to_db, sort_by } =
               usePersist.getState()
             const { setStatic } = useStatic.getState()
             setStatic('loading', { [name]: null })
             setStatic('totalLoadingTime', 0)
+            setStatic('totalStartTime', Date.now())
             const start = Date.now()
             await fetchWrapper<KojiResponse<Feature>>(`/api/v1/calc/reroute`, {
               method: 'POST',
@@ -201,14 +202,16 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                data_points: Object.values(useShapes.getState().Point).map(
-                  (p) => [p.geometry.coordinates[1], p.geometry.coordinates[0]],
-                ),
+                clusters: Object.values(useShapes.getState().Point).map((p) => [
+                  p.geometry.coordinates[1],
+                  p.geometry.coordinates[0],
+                ]),
                 return_type: 'feature',
-                fast,
                 instance: name,
                 mode,
                 route_split_level,
+                save_to_scanner,
+                sort_by,
               }),
             }).then((res) => {
               if (res) {

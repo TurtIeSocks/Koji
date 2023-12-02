@@ -11,14 +11,14 @@ pub mod tsp;
 pub fn main(
     data_points: &SingleVec,
     clusters: SingleVec,
-    sort_by: SortBy,
+    sort_by: &SortBy,
     route_split_level: u64,
     radius: f64,
     stats: &mut Stats,
 ) -> SingleVec {
     let route_time = Instant::now();
-    let clusters = if sort_by == SortBy::TSP && !clusters.is_empty() {
-        let tour = tsp::multi(&clusters, route_split_level);
+    let clusters = if sort_by == &SortBy::TSP && !clusters.is_empty() {
+        let tour = tsp::run(clusters, route_split_level);
         let mut final_clusters = VecDeque::<PointArray>::new();
 
         let mut rotate_count = 0;

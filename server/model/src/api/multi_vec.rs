@@ -1,3 +1,5 @@
+use geo::RemoveRepeatedPoints;
+
 use super::*;
 
 pub type MultiVec = Vec<Vec<point_array::PointArray>>;
@@ -21,13 +23,19 @@ impl ValueHelpers for MultiVec {
         Value::Point(vec![self[0][0][1], self[0][0][0]])
     }
     fn multi_point(self) -> Value {
+        let mut multi_point: geo::MultiPoint<Precision> = self
+            .into_iter()
+            .flat_map(|poly| {
+                poly.into_iter()
+                    .map(|[lat, lon]| geo::Coord { x: lon, y: lat })
+                    .collect::<Vec<geo::Coord>>()
+            })
+            .collect();
+        multi_point.remove_repeated_points_mut();
         Value::MultiPoint(
-            self.into_iter()
-                .flat_map(|poly| {
-                    poly.into_iter()
-                        .map(|[lat, lon]| vec![lon, lat])
-                        .collect::<Vec<Vec<f64>>>()
-                })
+            multi_point
+                .into_iter()
+                .map(|coord| vec![coord.x(), coord.y()])
                 .collect(),
         )
     }

@@ -153,23 +153,28 @@ impl<'a> Greedy {
         clusters.into_iter().collect()
     }
 
-    fn flat_map_cells(&self, cell: CellID) -> Vec<CellID> {
+    fn flat_map_cells(&self, cell: CellID, point_tree: &'a RTree<Point>) -> Vec<CellID> {
         if cell.level() == 21 {
             cell.children().into_iter().collect()
-        } else {
+        } else if point_tree
+            .locate_at_point(&cell.to_point(self.radius).center)
+            .is_some()
+        {
             cell.children()
                 .into_par_iter()
-                .flat_map(|c| self.flat_map_cells(c))
+                .flat_map(|c| self.flat_map_cells(c, point_tree))
                 .collect()
+        } else {
+            vec![]
         }
     }
 
-    fn get_s2_clusters(&self, points: &SingleVec) -> Vec<Point> {
+    fn get_s2_clusters(&self, points: &SingleVec, point_tree: &'a RTree<Point>) -> Vec<Point> {
         let bbox = points.get_bbox().unwrap();
         s2::get_region_cells(bbox[1], bbox[3], bbox[0], bbox[2], 16)
             .0
             .into_par_iter()
-            .flat_map(|cell| self.flat_map_cells(cell))
+            .flat_map(|cell| self.flat_map_cells(cell, point_tree))
             .map(|cell| cell.to_point(self.radius))
             .collect()
     }
@@ -184,8 +189,8 @@ impl<'a> Greedy {
 
         let time = Instant::now();
         let clusters_with_data: Vec<Cluster> = match self.cluster_mode {
-            ClusterMode::Better | ClusterMode::Best => self.get_s2_clusters(points),
-            ClusterMode::Fast => self.gen_estimated_clusters(&point_tree),
+            ClusterMode::Better | ClusterMode::Best => self.get_s2_clusters(points, point_tree),
+            ClusterMode::Fast => self.gen_estimated_clusters(point_tree),
             _ => {
                 let time = Instant::now();
                 let neighbor_tree: RTree<Point> = rtree::spawn(self.radius * 2., points);

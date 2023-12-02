@@ -526,18 +526,21 @@ impl Args {
         } else {
             default_return_type
         };
-        let max_clusters = max_clusters.unwrap_or(usize::MAX);
-        let max_clusters = if max_clusters == 0 {
-            usize::MAX
+        let max_clusters = if let Some(max_clusters) = max_clusters {
+            if max_clusters == 0 {
+                usize::MAX
+            } else {
+                max_clusters
+            }
         } else {
-            max_clusters
+            usize::MAX
         };
         let clusters = resolve_data_points(clusters);
         let last_seen = last_seen.unwrap_or(0);
         let save_to_db = save_to_db.unwrap_or(false);
         let save_to_scanner = save_to_scanner.unwrap_or(false);
         let simplify = simplify.unwrap_or(false);
-        let sort_by = sort_by.unwrap_or(SortBy::GeoHash);
+        let sort_by = sort_by.unwrap_or(SortBy::None);
         let tth = tth.unwrap_or(SpawnpointTth::All);
         let mode = get_enum(mode);
         let route_split_level = validate_s2_cell(route_split_level, "route_split_level");

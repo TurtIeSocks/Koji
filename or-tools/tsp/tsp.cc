@@ -6,6 +6,7 @@
 #include <vector>
 #include <iostream>
 #include <string>
+#include <thread>
 
 #include "ortools/constraint_solver/routing.h"
 #include "ortools/constraint_solver/routing_enums.pb.h"
@@ -26,6 +27,11 @@ namespace operations_research
     const RoutingIndexManager::NodeIndex depot{0};
   };
 
+  //! @brief Computes the distance between two nodes using the Haversine formula.
+  //! @param[in] lat1 Latitude of the first node.
+  //! @param[in] lon1 Longitude of the first node.
+  //! @param[in] lat2 Latitude of the second node.
+  //! @param[in] lon2 Longitude of the second node.
   double haversine(double lat1, double lon1, double lat2, double lon2)
   {
 
@@ -39,22 +45,57 @@ namespace operations_research
     return R * c * 1000; // to reduce rounding issues
   }
 
-  DistanceMatrix distanceMatrix(const RawInput &locations)
+  //! @brief Computes the distance matrix between all nodes.
+  //! @param[in] locations The locations of the nodes.
+  //! @param[out] distances The distance matrix between all nodes.
+  //! @param[in] start The index of the first node to compute.
+  //! @param[in] end The index of the last node to compute.
+  void computeDistances(const RawInput &locations, DistanceMatrix &distances, int start, int end)
   {
-    DistanceMatrix distances = DistanceMatrix(locations.size(), std::vector<int64_t>(locations.size(), int64_t{0}));
-    for (int fromNode = 0; fromNode < locations.size(); fromNode++)
+    for (int fromNode = start; fromNode < end; ++fromNode)
     {
-      for (int toNode = 0; toNode < locations.size(); toNode++)
+      for (int toNode = 0; toNode < locations.size(); ++toNode)
       {
         if (fromNode != toNode)
+        {
           distances[fromNode][toNode] = static_cast<int64_t>(
               haversine(locations[toNode][0], locations[toNode][1],
                         locations[fromNode][0], locations[fromNode][1]));
+        }
       }
+    }
+  }
+
+  //! @brief Computes the distance matrix between all nodes.
+  //! @param[in] locations The [Lat, Lng] pairs.
+  DistanceMatrix distanceMatrix(const RawInput &locations)
+  {
+    auto start = std::chrono::high_resolution_clock::now();
+
+    int numThreads = std::thread::hardware_concurrency();
+
+    std::vector<std::thread> threads(numThreads);
+    DistanceMatrix distances = DistanceMatrix(locations.size(), std::vector<int64_t>(locations.size(), int64_t{0}));
+
+    int chunkSize = locations.size() / numThreads;
+    for (int i = 0; i < numThreads; ++i)
+    {
+      int start = i * chunkSize;
+      int end = (i == numThreads - 1) ? locations.size() : start + chunkSize;
+      threads[i] = std::thread(computeDistances, std::ref(locations), std::ref(distances), start, end);
+    }
+
+    for (auto &thread : threads)
+    {
+      thread.join();
     }
     return distances;
   }
 
+  //! @brief Returns the routes of the solution.
+  //! @param[in] manager The manager of the routing problem.
+  //! @param[in] routing The routing model.
+  //! @param[in] solution The solution of the routing problem.
   RawInput GetRoutes(const RoutingIndexManager &manager, const RoutingModel &routing, const Assignment &solution)
   {
     RawInput routes(manager.num_vehicles());
@@ -71,6 +112,8 @@ namespace operations_research
     return routes;
   }
 
+  //! @brief Solves the TSP problem.
+  //! @param[in] locations The [Lat, Lng] pairs.
   RawInput Tsp(RawInput locations)
   {
     DataModel data;
@@ -92,6 +135,16 @@ namespace operations_research
     RoutingSearchParameters searchParameters = DefaultRoutingSearchParameters();
     searchParameters.set_first_solution_strategy(
         FirstSolutionStrategy::PATH_CHEAPEST_ARC);
+
+    if (locations.size() > 1000)
+    {
+      searchParameters.set_local_search_metaheuristic(
+          LocalSearchMetaheuristic::GUIDED_LOCAL_SEARCH);
+      int64_t time = std::max(std::min(pow(locations.size() / 1000, 2.75), 3600.0), 3.0);
+      searchParameters.mutable_time_limit()->set_seconds(time);
+      // LOG(INFO) << "Time limit: " << time;
+    }
+    // searchParameters.set_log_search(true);
 
     const Assignment *solution = routing.SolveWithParameters(searchParameters);
 

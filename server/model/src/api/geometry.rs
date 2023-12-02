@@ -166,8 +166,7 @@ impl ToFeatureVec for Geometry {
                 .into_iter()
                 .map(|polygon| {
                     let bbox = polygon
-                        .clone()
-                        .into_iter()
+                        .iter()
                         .flat_map(|x| {
                             x.into_iter()
                                 .map(|y| [y[0] as Precision, y[1] as Precision])
@@ -191,6 +190,23 @@ impl ToFeatureVec for Geometry {
                 .map(|geometry| geometry.to_feature(None))
                 .collect(),
             _ => vec![self.to_feature(None)],
+        }
+    }
+}
+
+impl ToGeometryVec for Geometry {
+    fn to_geometry_vec(self) -> Vec<Geometry> {
+        match self.value {
+            Value::MultiPolygon(val) => val
+                .into_iter()
+                .map(|polygon| Geometry {
+                    bbox: self.bbox.clone(),
+                    value: Value::Polygon(polygon),
+                    foreign_members: None,
+                })
+                .collect(),
+            Value::GeometryCollection(val) => val,
+            _ => vec![self],
         }
     }
 }

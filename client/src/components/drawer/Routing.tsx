@@ -104,18 +104,11 @@ export default function RoutingTab() {
         </Collapse>
       </Collapse>
 
-      <Collapse in={mode === 'cluster'}>
-        <Divider sx={{ my: 2 }} />
-        <ListSubheader>Routing</ListSubheader>
-        <MultiOptionList
-          field="sort_by"
-          buttons={SORT_BY}
-          disabled={mode !== 'cluster'}
-          type="select"
-        />
-        <Collapse in={sort_by === 'TSP'}>
-          <NumInput field="route_split_level" min={1} max={12} />
-        </Collapse>
+      <Divider sx={{ my: 2 }} />
+      <ListSubheader>Routing</ListSubheader>
+      <MultiOptionList field="sort_by" buttons={SORT_BY} type="select" />
+      <Collapse in={sort_by === 'TSP'}>
+        <NumInput field="route_split_level" min={1} max={12} />
       </Collapse>
 
       <Divider sx={{ my: 2 }} />

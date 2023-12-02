@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::Write;
 use std::process::{Command, Stdio};
 use std::time::Instant;
@@ -11,42 +12,47 @@ use crate::s2::create_cell_map;
 use crate::utils;
 use model::api::{point_array::PointArray, single_vec::SingleVec};
 
-pub fn multi(clusters: &SingleVec, route_split_level: u64) -> SingleVec {
+use super::basic::ClusterSorting;
+
+pub fn run(clusters: SingleVec, route_split_level: u64) -> SingleVec {
+    log::info!("starting TSP...");
     let time = Instant::now();
 
+    if route_split_level < 2 {
+        return or_tools(clusters);
+    }
     let get_cell_id = |point: PointArray| {
         CellID::from(LatLng::from_degrees(point[0], point[1]))
             .parent(route_split_level)
             .0
     };
-
-    let mut point_map = create_cell_map(clusters, route_split_level as u64);
-    let merged_routes: Vec<(PointArray, SingleVec)> = point_map
-        .iter()
-        .enumerate()
-        .map(|(i, (cell_id, segment))| {
-            log::debug!("Creating thread: {} for hash {}", i + 1, cell_id);
-            let mut route = or_tools(&segment);
-            if let Some(last) = route.last() {
-                if let Some(first) = route.first() {
-                    if first == last {
-                        route.pop();
+    let merged_routes: Vec<(PointArray, SingleVec)> =
+        create_cell_map(&clusters, route_split_level as u64)
+            .into_iter()
+            .enumerate()
+            .map(|(i, (cell_id, segment))| {
+                log::debug!("Creating thread: {} for hash {}", i + 1, cell_id);
+                let mut route = or_tools(segment);
+                if let Some(last) = route.last() {
+                    if let Some(first) = route.first() {
+                        if first == last {
+                            route.pop();
+                        }
                     }
                 }
-            }
-            (
-                if route.len() > 0 {
-                    utils::centroid(&route)
-                } else {
-                    [0., 0.]
-                },
-                route,
-            )
-        })
-        .collect();
+                (
+                    if route.len() > 0 {
+                        utils::centroid(&route)
+                    } else {
+                        [0., 0.]
+                    },
+                    route,
+                )
+            })
+            .collect();
     let mut centroids = vec![];
 
-    point_map.clear();
+    let mut point_map = HashMap::<u64, SingleVec>::new();
     merged_routes
         .into_iter()
         .enumerate()
@@ -55,7 +61,7 @@ pub fn multi(clusters: &SingleVec, route_split_level: u64) -> SingleVec {
             point_map.insert(get_cell_id(hash), r);
         });
 
-    let clusters: Vec<SingleVec> = or_tools(&centroids)
+    let clusters: Vec<SingleVec> = or_tools(centroids)
         .into_iter()
         .filter_map(|c| {
             let hash = get_cell_id(c);
@@ -90,7 +96,7 @@ pub fn multi(clusters: &SingleVec, route_split_level: u64) -> SingleVec {
         final_routes.append(current);
     }
 
-    log::info!("[TSP] time: {}", time.elapsed().as_secs_f32());
+    log::info!("full tsp time: {}", time.elapsed().as_secs_f32());
     final_routes
 }
 
@@ -110,7 +116,7 @@ fn directory() -> std::io::Result<String> {
     }
 }
 
-pub fn stringify_points(points: &SingleVec) -> String {
+fn stringify_points(points: &SingleVec) -> String {
     points
         .iter()
         .enumerate()
@@ -122,70 +128,75 @@ pub fn stringify_points(points: &SingleVec) -> String {
                 if i == points.len() - 1 { "" } else { "," }
             )
         })
-        .collect::<String>()
+        .collect()
 }
 
-pub fn or_tools(clusters: &SingleVec) -> SingleVec {
+fn spawn_tsp(dir: String, clusters: &SingleVec) -> Result<SingleVec, std::io::Error> {
+    log::info!("spawning TSP child process");
     let time = Instant::now();
-    log::debug!("[TSP] Starting");
-    let mut result = vec![];
+    let clusters = clusters.sort_s2();
+    let stringified_points = stringify_points(&clusters);
+    let mut child = match Command::new(&dir)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(err) => return Err(err),
+    };
 
-    let stringified_points = stringify_points(clusters);
+    let mut stdin = match child.stdin.take() {
+        Some(stdin) => stdin,
+        None => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "Failed to open stdin",
+            ));
+        }
+    };
 
-    if let Ok(dir) = directory() {
-        let mut child = match Command::new(&dir)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .spawn()
-        {
-            Ok(child) => child,
-            Err(err) => {
-                log::error!("[TSP] to spawn child process {}", err);
-                return vec![];
-            }
-        };
-
-        let mut stdin = match child.stdin.take() {
-            Some(stdin) => stdin,
-            None => {
-                log::error!("[TSP] Failed to open stdin");
-                return vec![];
-            }
-        };
-
-        std::thread::spawn(
-            move || match stdin.write_all(stringified_points.as_bytes()) {
-                Ok(_) => match stdin.flush() {
-                    Ok(_) => {}
-                    Err(err) => {
-                        log::error!("[TSP] Failed to flush stdin: {}", err);
-                    }
-                },
+    std::thread::spawn(
+        move || match stdin.write_all(stringified_points.as_bytes()) {
+            Ok(_) => match stdin.flush() {
+                Ok(_) => {}
                 Err(err) => {
-                    log::error!("[TSP] Failed to write to stdin: {}", err)
+                    log::error!("failed to flush stdin: {}", err);
                 }
             },
-        );
+            Err(err) => {
+                log::error!("failed to write to stdin: {}", err)
+            }
+        },
+    );
 
-        let output = match child.wait_with_output() {
+    let output = match child.wait_with_output() {
+        Ok(result) => result,
+        Err(err) => return Err(err),
+    };
+    let output = String::from_utf8_lossy(&output.stdout);
+    let output = output
+        .split(",")
+        .filter_map(|s| s.parse::<usize>().ok())
+        .collect::<Vec<usize>>();
+
+    log::info!(
+        "TSP child process finished in {}s",
+        time.elapsed().as_secs_f32()
+    );
+    Ok(output.into_iter().map(|i| clusters[i]).collect())
+}
+
+fn or_tools(clusters: SingleVec) -> SingleVec {
+    if let Ok(dir) = directory() {
+        match spawn_tsp(dir, &clusters) {
             Ok(result) => result,
             Err(err) => {
-                log::error!("[TSP] Failed to read stdout: {}", err);
-                return vec![];
+                log::error!("TSP failed to spawn child process {}", err);
+                clusters
             }
-        };
-        let output = String::from_utf8_lossy(&output.stdout);
-        let output = output
-            .split(",")
-            .filter_map(|s| s.parse::<usize>().ok())
-            .collect::<Vec<usize>>();
-
-        output.into_iter().for_each(|i| {
-            result.push(clusters[i]);
-        });
+        }
     } else {
-        log::error!("[TSP] solver not found, rerun the OR-Tools script to generate it");
+        log::error!("TSP solver not found, rerun the OR-Tools script to generate it");
+        clusters
     }
-    log::debug!("[TSP] Finished in {}s", time.elapsed().as_secs_f32());
-    result
 }
