@@ -2,8 +2,6 @@ use crate::utils::{request, response::Response};
 
 use super::*;
 
-use std::time::Instant;
-
 use algorithms::{self, clustering, routing, stats::Stats};
 use geo::{ChamberlainDuquetteArea, MultiPolygon, Polygon};
 
