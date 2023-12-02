@@ -1,8 +1,8 @@
-use std::{collections::VecDeque, time::Instant};
+use std::time::Instant;
 
-use model::api::{args::SortBy, point_array::PointArray, single_vec::SingleVec};
+use model::api::{args::SortBy, single_vec::SingleVec};
 
-use crate::stats::Stats;
+use crate::{stats::Stats, utils::rotate_to_best};
 
 pub mod basic;
 pub mod tsp;
@@ -18,26 +18,12 @@ pub fn main(
 ) -> SingleVec {
     let route_time = Instant::now();
     let clusters = if sort_by == &SortBy::TSP && !clusters.is_empty() {
-        let tour = tsp::run(clusters, route_split_level);
-        let mut final_clusters = VecDeque::<PointArray>::new();
-
-        let mut rotate_count = 0;
-        for (i, [lat, lon]) in tour.into_iter().enumerate() {
-            if stats.best_clusters.len() > 0
-                && lat == stats.best_clusters[0][0]
-                && lon == stats.best_clusters[0][1]
-            {
-                rotate_count = i;
-                log::debug!("Found Best! {}, {} - {}", lat, lon, i);
-            }
-            final_clusters.push_back([lat, lon]);
-        }
-        final_clusters.rotate_left(rotate_count);
-
-        final_clusters.into()
+        tsp::run(clusters, route_split_level)
     } else {
         basic::sort(&data_points, clusters, radius, sort_by)
     };
+    let clusters = rotate_to_best(clusters, stats);
+
     stats.set_route_time(route_time);
     stats.distance_stats(&clusters);
 

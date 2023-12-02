@@ -1,13 +1,16 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fmt::Debug;
 use std::fs::{create_dir_all, File};
 use std::io::{Result, Write};
 
 use colored::Colorize;
+use geo::Coord;
+use geohash::encode;
 use hashbrown::HashSet;
 use model::api::{point_array::PointArray, single_vec::SingleVec};
 
 use crate::rtree::cluster::Cluster;
+use crate::stats::Stats;
 
 pub fn debug_hashmap<T, U>(file_name: &str, input: &T) -> Result<()>
 where
@@ -115,4 +118,25 @@ pub fn _debug_clusters(clusters: &HashSet<Cluster>, file_suffix: &str) {
     debug_hashmap(&format!("{}_point.txt", file_suffix), &point_map).unwrap();
     debug_hashmap(&format!("{}_cluster.txt", file_suffix), &cluster_map).unwrap();
     debug_hashmap(&format!("{}_unique.txt", file_suffix), &unique_map).unwrap();
+}
+
+pub fn rotate_to_best(clusters: SingleVec, stats: &Stats) -> SingleVec {
+    let mut final_clusters = VecDeque::<PointArray>::new();
+
+    let best_cluster_set = stats
+        .best_clusters
+        .iter()
+        .map(|x| encode(Coord { x: x[1], y: x[0] }, 12).unwrap())
+        .collect::<HashSet<String>>();
+    let mut rotate_count = 0;
+    for (i, [lat, lon]) in clusters.into_iter().enumerate() {
+        if best_cluster_set.contains(&encode(Coord { x: lon, y: lat }, 12).unwrap()) {
+            rotate_count = i;
+            log::debug!("Found Best! {}, {} - {}", lat, lon, i);
+        }
+        final_clusters.push_back([lat, lon]);
+    }
+    final_clusters.rotate_left(rotate_count);
+
+    final_clusters.into()
 }
