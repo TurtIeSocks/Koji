@@ -34,6 +34,10 @@ export interface UsePersist {
   simplifyPolygons: boolean
   scaleMarkers: boolean
 
+  // Settings
+  pokestopMaxAreaAutoCalc: number
+  gymMaxAreaAutoCalc: number
+  spawnpointMaxAreaAutoCalc: number
   // Layers
   spawnpoint: boolean
   gym: boolean
@@ -146,6 +150,9 @@ export const usePersist = create(
       setActiveMode: 'hover',
       colorByGeohash: false,
       geohashPrecision: 6,
+      pokestopMaxAreaAutoCalc: 100,
+      gymMaxAreaAutoCalc: 100,
+      spawnpointMaxAreaAutoCalc: 100,
       setStore: (key, value) => set({ [key]: value }),
     }),
     {

@@ -11,6 +11,7 @@ import {
   TextField,
   Typography,
   capitalize,
+  styled,
 } from '@mui/material'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import useDeepCompareEffect from 'use-deep-compare-effect'
@@ -46,12 +47,45 @@ import { usePersist } from '@hooks/usePersist'
 const { add, remove, updateProperty } = useShapes.getState().setters
 const { setRecord } = useDbCache.getState()
 
+export const LoadingButton = styled(Button, {
+  shouldForwardProp: (prop) => prop !== 'fetched' && prop !== 'loading',
+})<{ fetched?: boolean; loading?: boolean }>(({ fetched, loading }) => ({
+  minWidth: 0,
+  '.MuiButton-endIcon': {
+    display: fetched ? 'inherit' : 'none',
+    marginRight: '-2px',
+    marginLeft: '8px',
+  },
+  '.MuiButton-startIcon': {
+    display: loading ? 'inherit' : 'none',
+    marginRight: '8px',
+    marginLeft: '-2px',
+  },
+}))
+LoadingButton.defaultProps = {
+  fetched: false,
+  loading: false,
+  size: 'small',
+  disableRipple: true,
+  endIcon: <RefreshIcon fontSize="small" />,
+  startIcon: <CircularProgress size={20} />,
+}
+
 const MemoStat = React.memo(
-  ({ category, id }: { category: Category; id: Feature['id'] }) => {
+  ({
+    category,
+    id,
+    area,
+  }: {
+    category: Category
+    id: Feature['id']
+    area: number
+  }) => {
     const [stats, setStats] = React.useState<number | null>(null)
     const [loading, setLoading] = React.useState(false)
     const tth = usePersist((s) => s.tth)
     const raw = usePersist((s) => s.last_seen)
+    const autoLoad = usePersist((s) => s[`${category}MaxAreaAutoCalc`])
     const feature = useShapes((s) => ({ ...s.Polygon, ...s.MultiPolygon }[id]))
 
     const getStats = React.useCallback(() => {
@@ -74,34 +108,22 @@ const MemoStat = React.memo(
     }, [tth, raw, feature])
 
     React.useEffect(() => {
-      if (stats !== null && !loading) getStats()
-    }, [tth, raw, feature])
+      if ((stats !== null || (area > 0 && area < autoLoad)) && !loading) {
+        getStats()
+      }
+    }, [getStats, area, autoLoad])
 
     return (
       <Typography variant="subtitle2">
-        {capitalize(category)}s: {stats?.toLocaleString() || ''}
-        <Button
+        {capitalize(category)}s: {loading ? '' : stats?.toLocaleString() || ''}
+        <LoadingButton
           size="small"
           onClick={getStats}
-          disableRipple
-          sx={{ minWidth: 0 }}
-          endIcon={
-            <RefreshIcon
-              fontSize="small"
-              sx={{
-                display: typeof stats === 'number' ? 'block' : 'none',
-              }}
-            />
-          }
-          startIcon={
-            <CircularProgress
-              size={20}
-              sx={{ display: loading ? 'block' : 'none' }}
-            />
-          }
+          fetched={stats !== null}
+          loading={loading}
         >
           {typeof stats === 'number' || loading ? '' : 'Get'}
-        </Button>
+        </LoadingButton>
       </Typography>
     )
   },
@@ -159,7 +181,7 @@ export function PolygonPopup({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ area: feature }),
-      }).then((res) => res && setArea(res.data.area))
+      }).then((res) => res && setArea(res.data.area / 1000000))
     }
   }, [feature])
 
@@ -234,13 +256,15 @@ export function PolygonPopup({
               ? `(${feature.geometry.coordinates.length})`
               : ''}
           </Typography>
-          <Typography variant="caption">{area.toLocaleString()} m²</Typography>
+          <Typography variant="caption">
+            {+area.toFixed(2).toLocaleString()} km²
+          </Typography>
         </Grid2>
         <Divider flexItem sx={{ my: 1, color: 'black', width: '90%' }} />
         <Grid2 xs={12}>
-          <MemoStat category="pokestop" id={refFeature.id} />
-          <MemoStat category="gym" id={refFeature.id} />
-          <MemoStat category="spawnpoint" id={refFeature.id} />
+          <MemoStat category="pokestop" id={refFeature.id} area={area} />
+          <MemoStat category="gym" id={refFeature.id} area={area} />
+          <MemoStat category="spawnpoint" id={refFeature.id} area={area} />
         </Grid2>
         <Divider flexItem sx={{ my: 1, color: 'black', width: '90%' }} />
         <Grid2 xs={12}>

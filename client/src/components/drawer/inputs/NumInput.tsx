@@ -13,24 +13,26 @@ export default function NumInput<
   >,
 >({
   field,
+  label,
   endAdornment,
   disabled = false,
   min = 0,
   max = 9999,
 }: {
   field: T
+  label?: string
   disabled?: boolean
   endAdornment?: string
   min?: number
   max?: number
 }) {
   const value = usePersist((s) => s[field])
-
   return (
     <ListItem disabled={disabled}>
       <ListItemText
         primary={
-          field.includes('_') ? fromSnakeCase(field) : fromCamelCase(field)
+          label ??
+          (field.includes('_') ? fromSnakeCase(field) : fromCamelCase(field))
         }
       />
       <TextField
