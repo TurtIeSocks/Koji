@@ -10,7 +10,10 @@ import {
   Select,
   TextField,
   Typography,
+  capitalize,
+  styled,
 } from '@mui/material'
+import RefreshIcon from '@mui/icons-material/Refresh'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { MultiPolygon, Polygon } from 'geojson'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
@@ -22,6 +25,7 @@ import type {
   Feature,
   DbOption,
   KojiModes,
+  Category,
 } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
 import { useStatic } from '@hooks/useStatic'
@@ -36,7 +40,6 @@ import {
   removeThisPolygon,
   splitMultiPolygons,
 } from '@services/utils'
-import { shallow } from 'zustand/shallow'
 import { useImportExport } from '@hooks/useImportExport'
 import { filterPoints, filterPolys } from '@services/geoUtils'
 import { usePersist } from '@hooks/usePersist'
@@ -44,33 +47,100 @@ import { usePersist } from '@hooks/usePersist'
 const { add, remove, updateProperty } = useShapes.getState().setters
 const { setRecord } = useDbCache.getState()
 
+export const LoadingButton = styled(Button, {
+  shouldForwardProp: (prop) => prop !== 'fetched' && prop !== 'loading',
+})<{ fetched?: boolean; loading?: boolean }>(({ fetched, loading }) => ({
+  minWidth: 0,
+  '.MuiButton-endIcon': {
+    display: fetched ? 'inherit' : 'none',
+    marginRight: '-2px',
+    marginLeft: '8px',
+  },
+  '.MuiButton-startIcon': {
+    display: loading ? 'inherit' : 'none',
+    marginRight: '8px',
+    marginLeft: '-2px',
+  },
+}))
+LoadingButton.defaultProps = {
+  fetched: false,
+  loading: false,
+  size: 'small',
+  disableRipple: true,
+  endIcon: <RefreshIcon fontSize="small" />,
+  startIcon: <CircularProgress size={20} />,
+}
+
+const MemoStat = React.memo(
+  ({
+    category,
+    id,
+    area,
+  }: {
+    category: Category
+    id: Feature['id']
+    area: number
+  }) => {
+    const [stats, setStats] = React.useState<number | null>(null)
+    const [loading, setLoading] = React.useState(false)
+    const tth = usePersist((s) => s.tth)
+    const raw = usePersist((s) => s.last_seen)
+    const autoLoad = usePersist((s) => s[`${category}MaxAreaAutoCalc`])
+    const feature = useShapes((s) => ({ ...s.Polygon, ...s.MultiPolygon }[id]))
+
+    const getStats = React.useCallback(() => {
+      setLoading(true)
+      setStats((prev) => (prev === null ? 0 : null))
+      const last_seen = typeof raw === 'string' ? new Date(raw) : raw
+      fetchWrapper<{ total: number }>(`/internal/data/area_stats/${category}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          area: feature,
+          last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+          tth,
+        }),
+      })
+        .then((data) => setStats(data?.total ?? 0))
+        .finally(() => setLoading(false))
+    }, [tth, raw, feature])
+
+    React.useEffect(() => {
+      if ((stats !== null || (area > 0 && area < autoLoad)) && !loading) {
+        getStats()
+      }
+    }, [getStats, area, autoLoad])
+
+    return (
+      <Typography variant="subtitle2">
+        {capitalize(category)}s: {loading ? '' : stats?.toLocaleString() || ''}
+        <LoadingButton
+          size="small"
+          onClick={getStats}
+          fetched={stats !== null}
+          loading={loading}
+        >
+          {typeof stats === 'number' || loading ? '' : 'Get'}
+        </LoadingButton>
+      </Typography>
+    )
+  },
+)
+
 export function PolygonPopup({
   feature: refFeature,
-  loadData,
   dbRef,
 }: {
   feature: Feature<Polygon | MultiPolygon>
-  loadData: boolean
   dbRef: DbOption | null
 }) {
   const feature =
-    useShapes(
-      (s) => ({ ...s.Polygon, ...s.MultiPolygon }[refFeature.id]),
-      shallow,
-    ) || refFeature
-  const raw = usePersist((s) => s.last_seen)
-  const tth = usePersist((s) => s.tth)
+    useShapes((s) => ({ ...s.Polygon, ...s.MultiPolygon }[refFeature.id])) ||
+    refFeature
   const geofence = useDbCache((s) => s.geofence)
 
-  const [active, setActive] = React.useState<{
-    spawnpoint: number | null | string
-    gym: number | null | string
-    pokestop: number | null | string
-  }>({
-    spawnpoint: null,
-    gym: null,
-    pokestop: null,
-  })
   const [name, setName] = React.useState(
     dbRef?.name ||
       feature.properties?.__name ||
@@ -103,55 +173,17 @@ export function PolygonPopup({
     setDbAnchorEl(null)
   }
 
-  const getState = (category: keyof typeof active) => {
-    switch (typeof active[category]) {
-      case 'number':
-        return active[category]?.toLocaleString()
-      case 'string':
-        return active[category]
-      case 'object':
-        return <CircularProgress size={10} />
-      default:
-        return 'Loading'
-    }
-  }
-
   useDeepCompareEffect(() => {
-    if (feature.geometry.coordinates.length && loadData) {
+    if (feature.geometry.coordinates.length) {
       fetchWrapper<KojiResponse<{ area: number }>>('/api/v1/calc/area', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ area: feature }),
-      }).then((res) => res && setArea(res.data.area))
-      const last_seen = typeof raw === 'string' ? new Date(raw) : raw
-
-      Promise.allSettled(
-        ['pokestop', 'gym', 'spawnpoint'].map((category) =>
-          fetchWrapper<{ total: number }>(
-            `/internal/data/area_stats/${category}`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                area: feature,
-                last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
-                tth,
-              }),
-            },
-          ).then((data) =>
-            setActive((prev) => ({
-              ...prev,
-              [category]: data?.total ?? (data || 0),
-            })),
-          ),
-        ),
-      )
+      }).then((res) => res && setArea(res.data.area / 1000000))
     }
-  }, [feature, loadData, raw, tth])
+  }, [feature])
 
   const isKoji = feature.id.toString().endsWith('KOJI')
   // const isScanner = feature.id.endsWith('SCANNER')
@@ -224,17 +256,15 @@ export function PolygonPopup({
               ? `(${feature.geometry.coordinates.length})`
               : ''}
           </Typography>
-          <Typography variant="caption">{area.toLocaleString()} m²</Typography>
+          <Typography variant="caption">
+            {+area.toFixed(2).toLocaleString()} km²
+          </Typography>
         </Grid2>
         <Divider flexItem sx={{ my: 1, color: 'black', width: '90%' }} />
         <Grid2 xs={12}>
-          <Typography variant="subtitle2">
-            Pokestops: {getState('pokestop')}
-          </Typography>
-          <Typography variant="subtitle2">Gyms: {getState('gym')}</Typography>
-          <Typography variant="subtitle2">
-            Spawnpoints: {getState('spawnpoint')}
-          </Typography>
+          <MemoStat category="pokestop" id={refFeature.id} area={area} />
+          <MemoStat category="gym" id={refFeature.id} area={area} />
+          <MemoStat category="spawnpoint" id={refFeature.id} area={area} />
         </Grid2>
         <Divider flexItem sx={{ my: 1, color: 'black', width: '90%' }} />
         <Grid2 xs={12}>
@@ -470,7 +500,6 @@ export function PolygonPopup({
 export const MemoPolyPopup = React.memo(
   PolygonPopup,
   (prev, next) =>
-    prev.loadData === next.loadData &&
     prev.feature.geometry.type === next.feature.geometry.type &&
     prev.feature.geometry.coordinates.length ===
       next.feature.geometry.coordinates.length,

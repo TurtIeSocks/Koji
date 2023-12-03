@@ -62,6 +62,7 @@ export default function Settings() {
         <ListItem>
           <Select
             value={tileServer}
+            size="small"
             fullWidth
             onChange={({ target }) => {
               usePersist.setState({ tileServer: target.value })
@@ -81,6 +82,11 @@ export default function Settings() {
           sx={{ px: 2 }}
         />
       )}
+      <Divider sx={{ my: 2 }} />
+      <ListSubheader disableGutters>Max Area to Auto Calc (km²)</ListSubheader>
+      <NumInput field="pokestopMaxAreaAutoCalc" label="Pokestops" />
+      <NumInput field="gymMaxAreaAutoCalc" label="Gyms" />
+      <NumInput field="spawnpointMaxAreaAutoCalc" label="Spawnpoints" />
       {process.env.NODE_ENV === 'development' && (
         <>
           <Divider sx={{ my: 2 }} />

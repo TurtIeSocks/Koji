@@ -22,8 +22,6 @@ export function KojiPolygon({
 }) {
   const { setStatic } = useStatic.getState()
 
-  const [loadData, setLoadData] = React.useState(false)
-
   const color = getPolygonColor(`${feature.id}`)
 
   return (
@@ -32,7 +30,6 @@ export function KojiPolygon({
       color={color}
       eventHandlers={{
         click({ latlng }) {
-          if (!loadData) setLoadData(true)
           const { lat, lng } = latlng
           setStatic('clickedLocation', [lng, lat])
         },
@@ -145,7 +142,7 @@ export function KojiPolygon({
       pane="polygons"
     >
       <Popup>
-        <MemoPolyPopup feature={feature} loadData={loadData} dbRef={dbRef} />
+        <MemoPolyPopup feature={feature} dbRef={dbRef} />
       </Popup>
     </Polygon>
   )
