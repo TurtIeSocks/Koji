@@ -353,14 +353,17 @@ async fn route_stats(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         ..
     } = payload.into_inner().init(Some("route-stats"));
 
-    if clusters.is_empty() || data_points.is_empty() {
+    if clusters.is_empty() && data_points.is_empty() {
         return Ok(HttpResponse::BadRequest()
             .json(Response::send_error("no_clusters_or_data_points_found")));
     }
     let mut stats = Stats::new(format!("Route Stats | {:?}", mode), min_points);
-    stats.cluster_stats(radius, &data_points, &clusters);
+
     stats.distance_stats(&clusters);
-    stats.set_score();
+    if !data_points.is_empty() {
+        stats.cluster_stats(radius, &data_points, &clusters);
+        stats.set_score();
+    }
 
     let feature = clusters.to_feature(Some(mode.clone())).remove_last_coord();
     let feature = feature.to_collection(Some(instance.clone()), Some(mode));
@@ -408,16 +411,18 @@ async fn route_stats_category(
             .to_single_vec()
     };
 
-    if clusters.is_empty() || data_points.is_empty() {
+    if clusters.is_empty() && data_points.is_empty() {
         return Ok(HttpResponse::BadRequest()
             .json(Response::send_error("no_clusters_or_data_points_found")));
     }
 
     let mut stats = Stats::new(format!("Route Stats | {:?}", mode), min_points);
 
-    stats.cluster_stats(radius, &data_points, &clusters);
     stats.distance_stats(&clusters);
-    stats.set_score();
+    if !data_points.is_empty() {
+        stats.cluster_stats(radius, &data_points, &clusters);
+        stats.set_score();
+    }
 
     let feature = clusters.to_feature(Some(mode.clone())).remove_last_coord();
     let feature = feature.to_collection(Some(instance.clone()), Some(mode));

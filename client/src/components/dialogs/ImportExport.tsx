@@ -61,9 +61,7 @@ export function ImportExportDialog({
       <DialogHeader action={reset}>
         {mode} {shape}
       </DialogHeader>
-      <DialogContent
-        sx={{ width: '90vw', minHeight: '60vh', overflow: 'auto' }}
-      >
+      <DialogContent>
         <Grid2 container>
           <Grid2 xs={children ? 9 : 12} textAlign="left">
             <Code
