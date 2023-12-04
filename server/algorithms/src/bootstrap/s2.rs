@@ -10,7 +10,7 @@ use geo::{ConvexHull, Intersects, MultiPolygon, Polygon};
 use geojson::{Feature, Value};
 use hashbrown::HashSet;
 use model::{
-    api::{args::SortBy, single_vec::SingleVec, Precision, ToFeature},
+    api::{single_vec::SingleVec, sort_by::SortBy, Precision, ToFeature},
     db::sea_orm_active_enums::Type,
 };
 use rayon::{

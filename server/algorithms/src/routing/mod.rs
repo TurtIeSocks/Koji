@@ -1,11 +1,19 @@
 use std::time::Instant;
 
-use model::api::{args::SortBy, single_vec::SingleVec};
+use model::api::{single_vec::SingleVec, sort_by::SortBy};
 
-use crate::{stats::Stats, utils::rotate_to_best};
+use crate::{
+    stats::Stats,
+    utils::{get_plugin_list, rotate_to_best},
+};
 
-pub mod basic;
-pub mod tsp;
+use self::{
+    plugin_manager::PluginManager,
+    sorting::{SortGeohash, SortLatLng, SortPointCount, SortRandom, SortS2},
+};
+
+pub mod plugin_manager;
+pub mod sorting;
 // pub mod vrp;
 
 pub fn main(
@@ -17,10 +25,26 @@ pub fn main(
     stats: &mut Stats,
 ) -> SingleVec {
     let route_time = Instant::now();
-    let clusters = if sort_by == &SortBy::TSP && !clusters.is_empty() {
-        tsp::run(clusters, route_split_level)
-    } else {
-        basic::sort(&data_points, clusters, radius, sort_by)
+    let clusters = match sort_by {
+        SortBy::PointCount => clusters.sort_point_count(&data_points, radius),
+        SortBy::LatLon => clusters.sort_lat_lng(),
+        SortBy::GeoHash => clusters.sort_geohash(),
+        SortBy::S2Cell => clusters.sort_s2(),
+        SortBy::Random => clusters.sort_random(),
+        SortBy::Unset => clusters,
+        SortBy::Custom(plugin) => {
+            if let Ok(plugin_manager) =
+                PluginManager::new(plugin, route_split_level, radius, &clusters)
+            {
+                if let Ok(sorted_clusters) = plugin_manager.run() {
+                    sorted_clusters
+                } else {
+                    clusters
+                }
+            } else {
+                clusters
+            }
+        }
     };
     let clusters = rotate_to_best(clusters, stats);
 
@@ -28,4 +52,8 @@ pub fn main(
     stats.distance_stats(&clusters);
 
     clusters
+}
+
+pub fn routing_plugins() -> Vec<String> {
+    get_plugin_list("algorithms/src/routing/plugins").unwrap_or(vec![])
 }

@@ -5,7 +5,7 @@ use crate::{routing, stats::Stats};
 use geo::{Contains, Extremes, HaversineDestination, HaversineDistance, Point, Polygon};
 use geojson::{Feature, Geometry, Value};
 use model::{
-    api::{args::SortBy, single_vec::SingleVec, Precision, ToFeature, ToGeometryVec},
+    api::{single_vec::SingleVec, sort_by::SortBy, Precision, ToFeature, ToGeometryVec},
     db::sea_orm_active_enums::Type,
 };
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};

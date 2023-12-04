@@ -8,6 +8,7 @@ use crate::{
 use actix_session::Session;
 use actix_web::http::header;
 
+use algorithms::routing;
 use geojson::Value;
 use model::{api::args::Auth, KojiDb};
 use serde_json::json;
@@ -23,7 +24,11 @@ async fn config(conn: web::Data<KojiDb>, session: Session) -> Result<HttpRespons
         .unwrap_or("0.0".to_string())
         .parse()
         .unwrap();
+
     let tile_server = std::env::var("TILE_SERVER").unwrap_or("".to_string());
+    let route_plugins = routing::routing_plugins();
+
+    log::error!("Plugins: {:?}", route_plugins);
     Ok(HttpResponse::Ok().json(ConfigResponse {
         start_lat,
         start_lon,
@@ -35,6 +40,7 @@ async fn config(conn: web::Data<KojiDb>, session: Session) -> Result<HttpRespons
             false
         },
         dangerous: std::env::var("DANGEROUS").is_ok(),
+        route_plugins,
     }))
 }
 

@@ -153,25 +153,55 @@ namespace operations_research
 
 }
 
-int main()
+std::vector<std::string> split(const std::string &s, char delimiter)
 {
-  RawInput distance_matrix;
-  std::vector<double> row;
-
-  std::string line;
-  while (std::getline(std::cin, line, ',') && !line.empty())
+  std::vector<std::string> tokens;
+  std::string token;
+  std::istringstream tokenStream(s);
+  while (std::getline(tokenStream, token, delimiter))
   {
-    if (line == " ")
+    tokens.push_back(token);
+  }
+  return tokens;
+}
+
+int main(int argc, char *argv[])
+{
+  std::map<std::string, std::string> args;
+  RawInput points;
+
+  for (int i = 1; i < argc; ++i)
+  {
+    std::string arg = argv[i];
+    if (arg.find("--") == 0)
     {
-      distance_matrix.push_back(row);
-      row.clear();
-      continue;
+      std::string key = arg.substr(2);
+      if (key == "input")
+      {
+        std::string pointsStr = argv[++i];
+        std::vector<std::string> pointStrings = split(pointsStr, ' ');
+        for (const auto &pointStr : pointStrings)
+        {
+          auto coordinates = split(pointStr, ',');
+          if (coordinates.size() == 2)
+          {
+            double lat = std::stod(coordinates[0]);
+            double lng = std::stod(coordinates[1]);
+            points.push_back({lat, lng});
+          }
+        }
+      }
+      else
+      {
+        if (i + 1 < argc)
+        {
+          args[key] = argv[++i];
+        }
+      }
     }
-    double value = std::stod(line);
-    row.push_back(value);
   }
 
-  RawInput routes = operations_research::Tsp(distance_matrix);
+  RawInput routes = operations_research::Tsp(points);
   for (auto route : routes)
   {
     for (auto node : route)

@@ -8,7 +8,8 @@ use geo::{ChamberlainDuquetteArea, MultiPolygon, Polygon};
 use geojson::Value;
 use model::{
     api::{
-        args::{Args, ArgsUnwrapped, SortBy},
+        args::{Args, ArgsUnwrapped},
+        sort_by::SortBy,
         FeatureHelpers, GeoFormats, ToCollection, ToFeature, ToSingleVec,
     },
     db::{area, geofence, instance, route, sea_orm_active_enums::Type},
@@ -175,8 +176,8 @@ async fn cluster(
             HttpResponse::BadRequest().json(Response::send_error("no_area_instance_data_points"))
         );
     }
-    let sort_by = if mode.eq("route") && sort_by == SortBy::None {
-        SortBy::TSP
+    let sort_by = if mode.eq("route") && sort_by == SortBy::Unset {
+        SortBy::Custom(String::from("tsp"))
     } else {
         sort_by
     };
@@ -313,10 +314,10 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     let mut stats = Stats::new(String::from("Reroute"), 1);
 
     // For legacy compatibility
-    let clusters = if clusters.is_empty() {
-        data_points.clone()
+    let (clusters, data_points) = if clusters.is_empty() {
+        (data_points, vec![])
     } else {
-        clusters
+        (clusters, data_points)
     };
     stats.total_clusters = clusters.len();
 

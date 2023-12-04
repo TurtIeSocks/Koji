@@ -38,4 +38,4 @@ mkdir examples/koji
 cp ../tsp/tsp.cc ./examples/koji/koji.cc
 cp ../tsp/CMakeLists.txt ./examples/koji/CMakeLists.txt
 make build SOURCE=examples/koji/koji.cc
-mv ./examples/koji/build/bin/koji ../../server/algorithms/src/routing/tsp
+mv ./examples/koji/build/bin/koji ../../server/algorithms/src/routing/plugins/tsp

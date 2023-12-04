@@ -1,8 +1,5 @@
 use geojson::{Feature, FeatureCollection};
-use model::api::{
-    args::{CalculationMode, SortBy},
-    Precision,
-};
+use model::api::{args::CalculationMode, sort_by::SortBy, Precision};
 
 use crate::stats::Stats;
 

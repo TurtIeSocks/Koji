@@ -82,6 +82,7 @@ export default function App() {
         }
         setStatic('scannerType', res.scanner_type)
         setStatic('dangerous', res.dangerous || false)
+        setStatic('route_plugins', res.route_plugins || [])
         if (!res.logged_in) {
           router.navigate('/login')
         }

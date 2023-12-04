@@ -40,6 +40,11 @@ export default function RoutingTab() {
   const isEditing = useStatic((s) =>
     Object.values(s.layerEditing).some((v) => v),
   )
+  const routePlugins = useStatic((s) => s.route_plugins)
+
+  const sortByOptions = React.useMemo(() => {
+    return [...SORT_BY, ...routePlugins]
+  }, [routePlugins])
 
   const fastest = cluster_mode === 'Fastest'
   return (
@@ -106,8 +111,8 @@ export default function RoutingTab() {
 
       <Divider sx={{ my: 2 }} />
       <ListSubheader>Routing</ListSubheader>
-      <MultiOptionList field="sort_by" buttons={SORT_BY} type="select" />
-      <Collapse in={sort_by === 'TSP'}>
+      <MultiOptionList field="sort_by" buttons={sortByOptions} type="select" />
+      <Collapse in={!SORT_BY.some((sort) => sort === sort_by)}>
         <NumInput field="route_split_level" min={1} max={12} />
       </Collapse>
 

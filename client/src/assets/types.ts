@@ -214,6 +214,7 @@ export interface Config {
   scanner_type: 'rdm' | 'unown' | 'hybrid'
   logged_in: boolean
   dangerous: boolean
+  route_plugins: string[]
 }
 
 export type CombinedState = Partial<UsePersist> & Partial<UseStatic>

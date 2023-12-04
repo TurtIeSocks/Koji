@@ -19,6 +19,7 @@ pub mod point_struct;
 pub mod poracle;
 pub mod single_struct;
 pub mod single_vec;
+pub mod sort_by;
 pub mod text;
 
 pub type Precision = f64;

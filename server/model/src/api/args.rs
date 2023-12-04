@@ -1,4 +1,4 @@
-use super::{cluster_mode::ClusterMode, *};
+use super::{cluster_mode::ClusterMode, sort_by::SortBy, *};
 
 use crate::{
     api::{collection::Default, text::TextHelpers},
@@ -156,32 +156,6 @@ pub enum ReturnTypeArg {
     PoracleSingle,
     Poracle,
 }
-
-#[derive(Debug, Deserialize, Clone)]
-pub enum SortBy {
-    None,
-    GeoHash,
-    ClusterCount,
-    Random,
-    S2Cell,
-    TSP,
-}
-
-impl PartialEq for SortBy {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (SortBy::None, SortBy::None) => true,
-            (SortBy::GeoHash, SortBy::GeoHash) => true,
-            (SortBy::ClusterCount, SortBy::ClusterCount) => true,
-            (SortBy::Random, SortBy::Random) => true,
-            (SortBy::S2Cell, SortBy::S2Cell) => true,
-            (SortBy::TSP, SortBy::TSP) => true,
-            _ => false,
-        }
-    }
-}
-
-impl Eq for SortBy {}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum SpawnpointTth {
@@ -540,7 +514,7 @@ impl Args {
         let save_to_db = save_to_db.unwrap_or(false);
         let save_to_scanner = save_to_scanner.unwrap_or(false);
         let simplify = simplify.unwrap_or(false);
-        let sort_by = sort_by.unwrap_or(SortBy::None);
+        let sort_by = sort_by.unwrap_or(SortBy::Unset);
         let tth = tth.unwrap_or(SpawnpointTth::All);
         let mode = get_enum(mode);
         let route_split_level = validate_s2_cell(route_split_level, "route_split_level");

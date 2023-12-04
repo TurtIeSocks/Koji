@@ -59,7 +59,7 @@ export interface UsePersist {
   tth: typeof TTH[number]
   lineColorRules: { distance: number; color: string }[]
   mode: typeof MODES[number]
-  sort_by: typeof SORT_BY[number]
+  sort_by: typeof SORT_BY[number] | string
   radius: number | ''
   min_points: number | ''
   route_split_level: number | ''
