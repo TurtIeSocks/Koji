@@ -28,7 +28,6 @@ async fn config(conn: web::Data<KojiDb>, session: Session) -> Result<HttpRespons
     let tile_server = std::env::var("TILE_SERVER").unwrap_or("".to_string());
     let route_plugins = routing::routing_plugins();
 
-    log::error!("Plugins: {:?}", route_plugins);
     Ok(HttpResponse::Ok().json(ConfigResponse {
         start_lat,
         start_lon,
