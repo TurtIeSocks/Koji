@@ -33,16 +33,18 @@ pub fn main(
         SortBy::Random => clusters.sort_random(),
         SortBy::Unset => clusters,
         SortBy::Custom(plugin) => {
-            if let Ok(plugin_manager) =
-                PluginManager::new(plugin, route_split_level, radius, &clusters)
-            {
-                if let Ok(sorted_clusters) = plugin_manager.run() {
-                    sorted_clusters
-                } else {
+            match PluginManager::new(plugin, route_split_level, radius, &clusters) {
+                Ok(plugin_manager) => match plugin_manager.run() {
+                    Ok(sorted_clusters) => sorted_clusters,
+                    Err(e) => {
+                        log::error!("Error while running plugin: {}", e);
+                        clusters
+                    }
+                },
+                Err(e) => {
+                    log::error!("Plugin not found: {}", e);
                     clusters
                 }
-            } else {
-                clusters
             }
         }
     };

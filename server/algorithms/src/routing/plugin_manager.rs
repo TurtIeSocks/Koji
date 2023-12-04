@@ -13,9 +13,11 @@ use crate::s2::create_cell_map;
 use crate::utils::{self, stringify_points};
 use model::api::{point_array::PointArray, single_vec::SingleVec};
 
+#[derive(Debug)]
 pub struct PluginManager<'a> {
     plugin: String,
     plugin_path: String,
+    interpreter: String,
     route_split_level: u64,
     radius: f64,
     clusters: &'a SingleVec,
@@ -46,24 +48,30 @@ impl<'a> PluginManager<'a> {
             ));
         };
 
+        let interpreter = match plugin.split(".").last() {
+            Some("py") => "python3",
+            Some("js") => "node",
+            Some("ts") => "ts-node",
+            val => {
+                if plugin == val.unwrap_or("") {
+                    ""
+                } else {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        "Unrecognized plugin, please create a PR to add support for it",
+                    ));
+                }
+            }
+        };
         Ok(PluginManager {
             plugin: plugin.to_string(),
             plugin_path,
+            interpreter: interpreter.to_string(),
             route_split_level,
             radius,
             clusters,
         })
     }
-
-    // pub fn run(self) -> SingleVec {
-    //     match self.error_wrapper() {
-    //         Ok(result) => result,
-    //         Err(err) => {
-    //             log::error!("{} failed: {}", self.plugin, err);
-    //             self.clusters
-    //         }
-    //     }
-    // }
 
     pub fn run(self) -> Result<SingleVec, std::io::Error> {
         log::info!("starting {}...", self.plugin);
@@ -148,7 +156,11 @@ impl<'a> PluginManager<'a> {
             final_routes.append(current);
         }
 
-        log::info!("full tsp time: {}", time.elapsed().as_secs_f32());
+        log::info!(
+            "full {} time: {}",
+            self.plugin,
+            time.elapsed().as_secs_f32()
+        );
         Ok(final_routes)
     }
 
@@ -157,7 +169,16 @@ impl<'a> PluginManager<'a> {
         let time = Instant::now();
         let clusters = points.clone().sort_s2();
         let stringified_points = stringify_points(&clusters);
-        let mut child = match Command::new(&self.plugin_path)
+
+        let mut child = if self.interpreter.is_empty() {
+            Command::new(&self.plugin_path)
+        } else {
+            Command::new(&self.interpreter)
+        };
+        if !self.interpreter.is_empty() {
+            child.arg(&self.plugin_path);
+        }
+        let mut child = match child
             .args(&["--input", &stringified_points])
             .args(&["--radius", &self.radius.to_string()])
             .args(&["--route_split_level", &self.route_split_level.to_string()])
@@ -174,7 +195,7 @@ impl<'a> PluginManager<'a> {
             None => {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::NotFound,
-                    "Failed to open stdin",
+                    "failed to open stdin",
                 ));
             }
         };
@@ -198,16 +219,26 @@ impl<'a> PluginManager<'a> {
             Err(err) => return Err(err),
         };
         let output = String::from_utf8_lossy(&output.stdout);
-        let output = output
+        let output_indexes = output
             .split(",")
-            .filter_map(|s| s.parse::<usize>().ok())
+            .filter_map(|s| s.trim().parse::<usize>().ok())
             .collect::<Vec<usize>>();
 
-        log::info!(
-            "{} child process finished in {}s",
-            self.plugin,
-            time.elapsed().as_secs_f32()
-        );
-        Ok(output.into_iter().map(|i| clusters[i]).collect())
+        if output_indexes.is_empty() {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!(
+                    "no valid output from child process {}, output should return comma separated indexes of the input clusters in the order they should be routed",
+                    output
+                ),
+            ))
+        } else {
+            log::info!(
+                "{} child process finished in {}s",
+                self.plugin,
+                time.elapsed().as_secs_f32()
+            );
+            Ok(output_indexes.into_iter().map(|i| clusters[i]).collect())
+        }
     }
 }

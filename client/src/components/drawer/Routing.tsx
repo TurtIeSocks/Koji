@@ -111,7 +111,19 @@ export default function RoutingTab() {
 
       <Divider sx={{ my: 2 }} />
       <ListSubheader>Routing</ListSubheader>
-      <MultiOptionList field="sort_by" buttons={sortByOptions} type="select" />
+      <MultiOptionList
+        field="sort_by"
+        buttons={sortByOptions}
+        type="select"
+        itemLabel={(item) => {
+          if (item === 'tsp') return 'TSP'
+          if (item.includes('.')) {
+            const [plugin, ext] = item.split('.')
+            return `${plugin} (${ext})`
+          }
+          return item
+        }}
+      />
       <Collapse in={!SORT_BY.some((sort) => sort === sort_by)}>
         <NumInput field="route_split_level" min={1} max={12} />
       </Collapse>
