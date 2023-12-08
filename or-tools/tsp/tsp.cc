@@ -15,6 +15,7 @@
 
 typedef std::vector<std::vector<int64_t>> DistanceMatrix;
 typedef std::vector<std::vector<double>> RawInput;
+typedef std::vector<int> RawOutput;
 
 namespace operations_research
 {
@@ -96,17 +97,17 @@ namespace operations_research
   //! @param[in] manager The manager of the routing problem.
   //! @param[in] routing The routing model.
   //! @param[in] solution The solution of the routing problem.
-  RawInput GetRoutes(const RoutingIndexManager &manager, const RoutingModel &routing, const Assignment &solution)
+  RawOutput GetRoutes(const RoutingIndexManager &manager, const RoutingModel &routing, const Assignment &solution)
   {
-    RawInput routes(manager.num_vehicles());
-    for (double vehicle_id = 0; vehicle_id < manager.num_vehicles(); ++vehicle_id)
+    RawOutput routes(manager.num_vehicles());
+    for (int vehicle_id = 0; vehicle_id < manager.num_vehicles(); ++vehicle_id)
     {
       int64_t index = routing.Start(vehicle_id);
-      routes[vehicle_id].push_back(manager.IndexToNode(index).value());
+      routes.push_back(manager.IndexToNode(index).value());
       while (!routing.IsEnd(index))
       {
         index = solution.Value(routing.NextVar(index));
-        routes[vehicle_id].push_back(manager.IndexToNode(index).value());
+        routes.push_back(manager.IndexToNode(index).value());
       }
     }
     return routes;
@@ -114,7 +115,7 @@ namespace operations_research
 
   //! @brief Solves the TSP problem.
   //! @param[in] locations The [Lat, Lng] pairs.
-  RawInput Tsp(RawInput locations)
+  RawOutput Tsp(RawInput locations)
   {
     DataModel data;
     data.distance_matrix = distanceMatrix(locations);
@@ -165,10 +166,23 @@ std::vector<std::string> split(const std::string &s, char delimiter)
   return tokens;
 }
 
+double stodpre(std::string const &str, std::size_t const p)
+{
+  std::stringstream sstrm;
+  sstrm << std::setprecision(p) << std::fixed << str << std::endl;
+
+  LOG(INFO) << "Stream: " << sstrm.str();
+  double d;
+  sstrm >> d;
+
+  return d;
+}
+
 int main(int argc, char *argv[])
 {
   std::map<std::string, std::string> args;
   RawInput points;
+  std::vector<std::string> stringPoints;
 
   for (int i = 1; i < argc; ++i)
   {
@@ -188,6 +202,7 @@ int main(int argc, char *argv[])
             double lat = std::stod(coordinates[0]);
             double lng = std::stod(coordinates[1]);
             points.push_back({lat, lng});
+            stringPoints.push_back(pointStr);
           }
         }
       }
@@ -201,14 +216,11 @@ int main(int argc, char *argv[])
     }
   }
 
-  RawInput routes = operations_research::Tsp(points);
-  for (auto route : routes)
+  RawOutput routes = operations_research::Tsp(points);
+
+  for (auto point : routes)
   {
-    for (auto node : route)
-    {
-      std::cout << node << ",";
-    }
-    std::cout << std::endl;
+    std::cout << stringPoints[point] << " ";
   }
 
   return EXIT_SUCCESS;

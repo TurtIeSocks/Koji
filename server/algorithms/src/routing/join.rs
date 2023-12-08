@@ -24,7 +24,7 @@ pub fn join(plugin: &Plugin, input: Vec<SingleVec>) -> SingleVec {
         point_map.insert(get_cell_id(center), points.clone());
     }
     let clusters: Vec<SingleVec> = plugin
-        .run::<JoinFunction>(&centroids, None)
+        .run_multi::<JoinFunction>(&centroids, None)
         .unwrap_or(vec![])
         .into_iter()
         .filter_map(|c| {

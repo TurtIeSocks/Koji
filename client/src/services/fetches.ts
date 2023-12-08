@@ -135,6 +135,7 @@ export async function clusteringRouting({
     max_clusters,
     routing_args,
     clustering_args,
+    bootstrap_args,
   } = usePersist.getState()
   const { geojson, setStatic, bounds } = useStatic.getState()
   const { add, activeRoute } = useShapes.getState().setters
@@ -249,6 +250,7 @@ export async function clusteringRouting({
             s2_size,
             routing_args,
             clustering_args,
+            bootstrap_args,
           }),
         },
       )

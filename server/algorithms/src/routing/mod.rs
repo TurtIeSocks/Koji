@@ -33,7 +33,7 @@ pub fn main(
         SortBy::Custom(plugin) => {
             let clusters = clusters.sort_s2();
             match Plugin::new(plugin, Folder::Routing, route_split_level, routing_args) {
-                Ok(plugin_manager) => match plugin_manager.run(&clusters, Some(join::join)) {
+                Ok(plugin_manager) => match plugin_manager.run_multi(&clusters, Some(join::join)) {
                     Ok(sorted_clusters) => sorted_clusters,
                     Err(e) => {
                         log::error!("Error while running plugin: {}", e);

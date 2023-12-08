@@ -68,12 +68,13 @@ export interface UsePersist {
   save_to_scanner: boolean
   skipRendering: boolean
   fast: boolean
-  calculation_mode: typeof CALC_MODE[number]
+  calculation_mode: typeof CALC_MODE[number] | string
   s2_level: typeof S2_CELL_LEVELS[number]
   s2_size: typeof BOOTSTRAP_LEVELS[number]
   max_clusters: number
   routing_args: string
   clustering_args: string
+  bootstrap_args: string
   // generations: number | ''
   // routing_time: number | ''
   // devices: number | ''
@@ -157,6 +158,7 @@ export const usePersist = create(
       spawnpointMaxAreaAutoCalc: 100,
       routing_args: '',
       clustering_args: '',
+      bootstrap_args: '',
       setStore: (key, value) => set({ [key]: value }),
     }),
     {

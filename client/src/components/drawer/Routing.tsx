@@ -50,6 +50,7 @@ export default function RoutingTab() {
   )
   const routePlugins = useStatic((s) => s.route_plugins)
   const clusteringPlugins = useStatic((s) => s.clustering_plugins)
+  const bootstrapPlugins = useStatic((s) => s.bootstrap_plugins)
 
   const sortByOptions = React.useMemo(() => {
     return [...SORT_BY, ...routePlugins]
@@ -57,6 +58,15 @@ export default function RoutingTab() {
   const clusterOptions = React.useMemo(() => {
     return [...CLUSTERING_MODES, ...clusteringPlugins]
   }, [clusteringPlugins])
+  const bootstrapOptions = React.useMemo(() => {
+    return [...CALC_MODE, ...bootstrapPlugins]
+  }, [bootstrapPlugins])
+
+  React.useEffect(() => {
+    if (!CALC_MODE.some((x) => x === calculation_mode)) {
+      usePersist.setState({ calculation_mode: 'Radius' })
+    }
+  }, [mode])
 
   const fastest = cluster_mode === 'Fastest'
   return (
@@ -76,11 +86,18 @@ export default function RoutingTab() {
       </Collapse>
       <MultiOptionList
         field="calculation_mode"
-        buttons={CALC_MODE}
+        buttons={mode === 'bootstrap' ? bootstrapOptions : CALC_MODE}
         label="Strategy"
         hideLabel
         type="select"
       />
+      <Collapse
+        in={
+          !CALC_MODE.some((x) => x === calculation_mode) && mode === 'bootstrap'
+        }
+      >
+        <UserTextInput field="bootstrap_args" helperText="--x 1 --y abc" />
+      </Collapse>
       <Collapse in={calculation_mode === 'Radius'}>
         <UserTextInput field="radius" />
       </Collapse>

@@ -13,7 +13,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 pub enum Folder {
     Routing,
     Clustering,
-    // Bootstrap,
+    Bootstrap,
 }
 
 impl Display for Folder {
@@ -21,7 +21,7 @@ impl Display for Folder {
         match self {
             Folder::Routing => write!(f, "routing"),
             Folder::Clustering => write!(f, "clustering"),
-            // Folder::Bootstrap => write!(f, "bootstrap"),
+            Folder::Bootstrap => write!(f, "bootstrap"),
         }
     }
 }
@@ -36,6 +36,21 @@ pub struct Plugin {
 }
 
 pub type JoinFunction = fn(&Plugin, Vec<SingleVec>) -> SingleVec;
+
+trait ParseCoord {
+    fn parse_next_coord(&mut self) -> Option<f64>;
+}
+
+impl ParseCoord for std::str::Split<'_, &str> {
+    fn parse_next_coord(&mut self) -> Option<f64> {
+        if let Some(coord) = self.next() {
+            if let Ok(coord) = coord.parse::<f64>() {
+                return Some(coord);
+            }
+        }
+        None
+    }
+}
 
 impl Plugin {
     pub fn new(
@@ -89,18 +104,22 @@ impl Plugin {
         })
     }
 
-    pub fn run<T>(&self, points: &SingleVec, joiner: Option<T>) -> Result<SingleVec, std::io::Error>
+    pub fn run_multi<T>(
+        &self,
+        points: &SingleVec,
+        joiner: Option<T>,
+    ) -> Result<SingleVec, std::io::Error>
     where
         T: Fn(&Self, Vec<SingleVec>) -> SingleVec,
     {
         let handlers = if self.split_level == 0 {
-            vec![self.spawn(&points)?]
+            vec![self.run(utils::stringify_points(&points))?]
         } else {
             create_cell_map(&points, self.split_level)
                 .into_values()
                 .collect::<Vec<SingleVec>>()
                 .into_par_iter()
-                .filter_map(|x| self.spawn(&x).ok())
+                .filter_map(|x| self.run(utils::stringify_points(&x)).ok())
                 .collect()
         };
         if let Some(joiner) = joiner {
@@ -110,11 +129,10 @@ impl Plugin {
         }
     }
 
-    fn spawn(&self, points: &SingleVec) -> Result<SingleVec, std::io::Error> {
+    pub fn run(&self, input: String) -> Result<SingleVec, std::io::Error> {
         log::info!("spawning {} child process", self.plugin);
 
         let time = Instant::now();
-        let stringified_points = utils::stringify_points(&points);
 
         let mut child = if self.interpreter.is_empty() {
             Command::new(&self.plugin_path)
@@ -128,7 +146,7 @@ impl Plugin {
             child.arg(arg);
         }
         let mut child = match child
-            .args(&["--input", &stringified_points])
+            .args(&["--input", &input])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
@@ -147,7 +165,7 @@ impl Plugin {
             }
         };
 
-        match stdin.write_all(stringified_points.as_bytes()) {
+        match stdin.write_all(input.as_bytes()) {
             Ok(_) => match stdin.flush() {
                 Ok(_) => {}
                 Err(err) => {
@@ -164,10 +182,22 @@ impl Plugin {
             Err(err) => return Err(err),
         };
         let output = String::from_utf8_lossy(&output.stdout);
+        // let mut output_indexes = output
+        //     .split(",")
+        //     .filter_map(|s| s.trim().parse::<usize>().ok())
+        //     .collect::<Vec<usize>>();
         let mut output_indexes = output
-            .split(",")
-            .filter_map(|s| s.trim().parse::<usize>().ok())
-            .collect::<Vec<usize>>();
+            .split_ascii_whitespace()
+            .filter_map(|s| {
+                let mut iter: std::str::Split<'_, &str> = s.trim().split(",");
+                let lat = iter.parse_next_coord();
+                let lng = iter.parse_next_coord();
+                if lat.is_none() || lng.is_none() {
+                    return None;
+                }
+                Some([lat.unwrap(), lng.unwrap()])
+            })
+            .collect::<SingleVec>();
         if let Some(first) = output_indexes.first() {
             if let Some(last) = output_indexes.last() {
                 if first == last {
@@ -189,7 +219,8 @@ impl Plugin {
                 self.plugin,
                 time.elapsed().as_secs_f32()
             );
-            Ok(output_indexes.into_iter().map(|i| points[i]).collect())
+            // Ok(output_indexes.into_iter().map(|i| points[i]).collect())
+            Ok(output_indexes)
         }
     }
 }

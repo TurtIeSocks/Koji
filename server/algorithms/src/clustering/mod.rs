@@ -11,7 +11,7 @@ use self::greedy::Greedy;
 use super::*;
 
 use geojson::FeatureCollection;
-use model::api::{args::CalculationMode, cluster_mode::ClusterMode, single_vec::SingleVec};
+use model::api::{calc_mode::CalculationMode, cluster_mode::ClusterMode, single_vec::SingleVec};
 
 mod fastest;
 mod greedy;
@@ -64,7 +64,7 @@ pub fn main(
                     clustering_args,
                 ) {
                     Ok(plugin_manager) => {
-                        match plugin_manager.run::<JoinFunction>(data_points, None) {
+                        match plugin_manager.run_multi::<JoinFunction>(data_points, None) {
                             Ok(sorted_clusters) => sorted_clusters,
                             Err(e) => {
                                 log::error!("Error while running plugin: {}", e);

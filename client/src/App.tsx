@@ -84,6 +84,7 @@ export default function App() {
         setStatic('dangerous', res.dangerous || false)
         setStatic('route_plugins', res.route_plugins || [])
         setStatic('clustering_plugins', res.clustering_plugins || [])
+        setStatic('bootstrap_plugins', res.bootstrap_plugins || false)
         if (!res.logged_in) {
           router.navigate('/login')
         }

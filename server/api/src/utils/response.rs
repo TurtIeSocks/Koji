@@ -22,6 +22,7 @@ pub struct ConfigResponse {
     pub dangerous: bool,
     pub route_plugins: Vec<String>,
     pub clustering_plugins: Vec<String>,
+    pub bootstrap_plugins: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Clone)]

@@ -216,6 +216,7 @@ export interface Config {
   dangerous: boolean
   route_plugins: string[]
   clustering_plugins: string[]
+  bootstrap_plugins: string[]
 }
 
 export type CombinedState = Partial<UsePersist> & Partial<UseStatic>
