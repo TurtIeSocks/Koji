@@ -166,18 +166,6 @@ std::vector<std::string> split(const std::string &s, char delimiter)
   return tokens;
 }
 
-double stodpre(std::string const &str, std::size_t const p)
-{
-  std::stringstream sstrm;
-  sstrm << std::setprecision(p) << std::fixed << str << std::endl;
-
-  LOG(INFO) << "Stream: " << sstrm.str();
-  double d;
-  sstrm >> d;
-
-  return d;
-}
-
 int main(int argc, char *argv[])
 {
   std::map<std::string, std::string> args;
@@ -206,12 +194,9 @@ int main(int argc, char *argv[])
           }
         }
       }
-      else
+      else if (i + 1 < argc)
       {
-        if (i + 1 < argc)
-        {
-          args[key] = argv[++i];
-        }
+        args[key] = argv[++i];
       }
     }
   }
