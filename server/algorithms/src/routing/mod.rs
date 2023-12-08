@@ -2,17 +2,14 @@ use std::time::Instant;
 
 use model::api::{single_vec::SingleVec, sort_by::SortBy};
 
+use self::sorting::{SortGeohash, SortLatLng, SortPointCount, SortRandom, SortS2};
 use crate::{
+    plugin::{Folder, Plugin},
     stats::Stats,
     utils::{get_plugin_list, rotate_to_best},
 };
 
-use self::{
-    plugin_manager::PluginManager,
-    sorting::{SortGeohash, SortLatLng, SortPointCount, SortRandom, SortS2},
-};
-
-pub mod plugin_manager;
+mod join;
 pub mod sorting;
 // pub mod vrp;
 
@@ -33,8 +30,9 @@ pub fn main(
         SortBy::Random => clusters.sort_random(),
         SortBy::Unset => clusters,
         SortBy::Custom(plugin) => {
-            match PluginManager::new(plugin, route_split_level, radius, &clusters) {
-                Ok(plugin_manager) => match plugin_manager.run() {
+            let clusters = clusters.sort_s2();
+            match Plugin::new(plugin, Folder::Routing, route_split_level, radius) {
+                Ok(plugin_manager) => match plugin_manager.run(&clusters, Some(join::join)) {
                     Ok(sorted_clusters) => sorted_clusters,
                     Err(e) => {
                         log::error!("Error while running plugin: {}", e);

@@ -381,18 +381,18 @@ pub struct ArgsUnwrapped {
 
 fn validate_s2_cell(value_to_check: Option<u64>, label: &str) -> u64 {
     if let Some(cell_level) = value_to_check {
-        if cell_level.lt(&20) && cell_level.gt(&0) {
+        if cell_level.le(&20) && cell_level.ge(&0) {
             cell_level
         } else {
             log::warn!(
-                "{} only supports 1-20, {} was provided, defaulting to 1",
+                "{} only supports 0-20, {} was provided, defaulting to 0",
                 label,
                 cell_level
             );
-            1
+            0
         }
     } else {
-        1
+        0
     }
 }
 
