@@ -55,7 +55,7 @@ export interface UsePersist {
 
   // Clustering
   category: Category | 'fort'
-  cluster_mode: typeof CLUSTERING_MODES[number]
+  cluster_mode: typeof CLUSTERING_MODES[number] | string
   tth: typeof TTH[number]
   lineColorRules: { distance: number; color: string }[]
   mode: typeof MODES[number]
@@ -73,6 +73,7 @@ export interface UsePersist {
   s2_size: typeof BOOTSTRAP_LEVELS[number]
   max_clusters: number
   routing_args: string
+  clustering_args: string
   // generations: number | ''
   // routing_time: number | ''
   // devices: number | ''
@@ -155,6 +156,7 @@ export const usePersist = create(
       gymMaxAreaAutoCalc: 100,
       spawnpointMaxAreaAutoCalc: 100,
       routing_args: '',
+      clustering_args: '',
       setStore: (key, value) => set({ [key]: value }),
     }),
     {

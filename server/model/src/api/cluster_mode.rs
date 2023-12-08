@@ -7,6 +7,7 @@ pub enum ClusterMode {
     Balanced,
     Better,
     Best,
+    Custom(String),
 }
 
 impl<'de> Deserialize<'de> for ClusterMode {
@@ -29,10 +30,7 @@ impl<'de> Deserialize<'de> for ClusterMode {
                 log::warn!("rtree is now deprecated, using `balanced` strategy instead");
                 Ok(ClusterMode::Balanced)
             }
-            _ => Err(serde::de::Error::custom(format!(
-                "unknown cluster mode: {}",
-                s
-            ))),
+            _ => Ok(ClusterMode::Custom(s)),
         }
     }
 }
@@ -60,6 +58,7 @@ impl ToString for ClusterMode {
             ClusterMode::Balanced => "Balanced",
             ClusterMode::Better => "Better",
             ClusterMode::Best => "Best",
+            ClusterMode::Custom(s) => s,
         }
         .to_string()
     }

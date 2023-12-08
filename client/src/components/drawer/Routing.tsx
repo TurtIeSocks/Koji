@@ -28,6 +28,14 @@ import UserTextInput from './inputs/NumInput'
 import { MultiOptionList } from './inputs/MultiOptions'
 import Toggle from './inputs/Toggle'
 
+const formatPluginName = (item: string) => {
+  if (item === 'tsp') return 'TSP'
+  if (item.includes('.')) {
+    const [plugin, ext] = item.split('.')
+    return `${plugin} (${ext})`
+  }
+  return item
+}
 export default function RoutingTab() {
   const mode = usePersist((s) => s.mode)
   const category = usePersist((s) => s.category)
@@ -41,10 +49,14 @@ export default function RoutingTab() {
     Object.values(s.layerEditing).some((v) => v),
   )
   const routePlugins = useStatic((s) => s.route_plugins)
+  const clusteringPlugins = useStatic((s) => s.clustering_plugins)
 
   const sortByOptions = React.useMemo(() => {
     return [...SORT_BY, ...routePlugins]
   }, [routePlugins])
+  const clusterOptions = React.useMemo(() => {
+    return [...CLUSTERING_MODES, ...clusteringPlugins]
+  }, [clusteringPlugins])
 
   const fastest = cluster_mode === 'Fastest'
   return (
@@ -98,14 +110,18 @@ export default function RoutingTab() {
         <MultiOptionList
           field="cluster_mode"
           hideLabel
-          buttons={CLUSTERING_MODES}
+          buttons={clusterOptions}
           type="select"
+          itemLabel={formatPluginName}
         />
         <Collapse in={!fastest}>
           <UserTextInput field="cluster_split_level" min={1} max={20} />
         </Collapse>
         <Collapse in={!fastest}>
           <UserTextInput field="max_clusters" min={0} />
+        </Collapse>
+        <Collapse in={!CLUSTERING_MODES.some((m) => m === cluster_mode)}>
+          <UserTextInput field="clustering_args" helperText="--x 1 --y abc" />
         </Collapse>
       </Collapse>
 
@@ -115,14 +131,7 @@ export default function RoutingTab() {
         field="sort_by"
         buttons={sortByOptions}
         type="select"
-        itemLabel={(item) => {
-          if (item === 'tsp') return 'TSP'
-          if (item.includes('.')) {
-            const [plugin, ext] = item.split('.')
-            return `${plugin} (${ext})`
-          }
-          return item
-        }}
+        itemLabel={formatPluginName}
       />
       <Collapse in={!SORT_BY.some((sort) => sort === sort_by)}>
         <UserTextInput field="route_split_level" min={1} max={12} />

@@ -21,6 +21,7 @@ pub struct ConfigResponse {
     pub logged_in: bool,
     pub dangerous: bool,
     pub route_plugins: Vec<String>,
+    pub clustering_plugins: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Clone)]

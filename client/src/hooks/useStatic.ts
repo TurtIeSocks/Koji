@@ -33,6 +33,7 @@ export interface UseStatic {
   totalLoadingTime: number
   selected: string[]
   route_plugins: string[]
+  clustering_plugins: string[]
   tileServers: KojiTileServer[]
   kojiRoutes: { name: string; id: number; type: string }[]
   scannerRoutes: { name: string; id: number; type: string }[]
@@ -112,6 +113,7 @@ export const useStatic = create<UseStatic>((set, get) => ({
     features: [],
   },
   route_plugins: [],
+  clustering_plugins: [],
   layerEditing: {
     cutMode: false,
     dragMode: false,

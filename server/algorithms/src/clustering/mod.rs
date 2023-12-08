@@ -1,6 +1,10 @@
 use std::{time::Instant, vec};
 
-use crate::stats::Stats;
+use crate::{
+    plugin::{Folder, JoinFunction, Plugin},
+    stats::Stats,
+    utils,
+};
 
 use self::greedy::Greedy;
 
@@ -25,6 +29,7 @@ pub fn main(
     s2_level: u8,
     s2_size: u8,
     collection: FeatureCollection,
+    clustering_args: &str,
 ) -> SingleVec {
     if data_points.is_empty() {
         return vec![];
@@ -40,7 +45,7 @@ pub fn main(
                 let clusters = fastest::main(&data_points, radius, min_points);
                 clusters
             }
-            _ => {
+            ClusterMode::Balanced | ClusterMode::Fast | ClusterMode::Better | ClusterMode::Best => {
                 let mut greedy = Greedy::default();
                 greedy
                     .set_cluster_mode(cluster_mode)
@@ -51,6 +56,28 @@ pub fn main(
 
                 greedy.run(&data_points)
             }
+            ClusterMode::Custom(plugin) => {
+                match Plugin::new(
+                    &plugin,
+                    Folder::Clustering,
+                    cluster_split_level,
+                    clustering_args,
+                ) {
+                    Ok(plugin_manager) => {
+                        match plugin_manager.run::<JoinFunction>(data_points, None) {
+                            Ok(sorted_clusters) => sorted_clusters,
+                            Err(e) => {
+                                log::error!("Error while running plugin: {}", e);
+                                vec![]
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("Plugin not found: {}", e);
+                        vec![]
+                    }
+                }
+            }
         },
     };
 
@@ -59,4 +86,8 @@ pub fn main(
     stats.set_score();
 
     clusters
+}
+
+pub fn clustering_plugins() -> Vec<String> {
+    utils::get_plugin_list("algorithms/src/clustering/plugins").unwrap_or(vec![])
 }

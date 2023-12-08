@@ -12,7 +12,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 #[derive(Debug)]
 pub enum Folder {
     Routing,
-    // Clustering,
+    Clustering,
     // Bootstrap,
 }
 
@@ -20,7 +20,7 @@ impl Display for Folder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Folder::Routing => write!(f, "routing"),
-            // Folder::Clustering => write!(f, "clustering"),
+            Folder::Clustering => write!(f, "clustering"),
             // Folder::Bootstrap => write!(f, "bootstrap"),
         }
     }
@@ -179,7 +179,7 @@ impl Plugin {
             Err(std::io::Error::new(
                     std::io::ErrorKind::NotFound,
                     format!(
-                        "no valid output from child process {}, output should return comma separated indexes of the input clusters in the order they should be routed",
+                        "no valid output from child process \n{}\noutput should return comma separated indexes of the input clusters in the order they should be routed",
                         output
                     ),
                 ))

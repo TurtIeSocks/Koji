@@ -6,7 +6,7 @@ use self::sorting::{SortGeohash, SortLatLng, SortPointCount, SortRandom, SortS2}
 use crate::{
     plugin::{Folder, Plugin},
     stats::Stats,
-    utils::{get_plugin_list, rotate_to_best},
+    utils,
 };
 
 mod join;
@@ -47,7 +47,7 @@ pub fn main(
             }
         }
     };
-    let clusters = rotate_to_best(clusters, stats);
+    let clusters = utils::rotate_to_best(clusters, stats);
 
     stats.set_route_time(route_time);
     stats.distance_stats(&clusters);
@@ -56,5 +56,5 @@ pub fn main(
 }
 
 pub fn routing_plugins() -> Vec<String> {
-    get_plugin_list("algorithms/src/routing/plugins").unwrap_or(vec![])
+    utils::get_plugin_list("algorithms/src/routing/plugins").unwrap_or(vec![])
 }
