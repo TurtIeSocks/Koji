@@ -15,6 +15,7 @@ pub fn main(
     s2_size: u8,
     route_split_level: u64,
     stats: &mut Stats,
+    routing_args: &str,
 ) -> Vec<Feature> {
     let mut features = vec![];
 
@@ -22,14 +23,14 @@ pub fn main(
         match calculation_mode {
             CalculationMode::Radius => {
                 let mut new_radius = radius::BootstrapRadius::new(&feature, radius);
-                new_radius.sort(&sort_by, route_split_level);
+                new_radius.sort(&sort_by, route_split_level, routing_args);
 
                 *stats += &new_radius.stats;
                 features.push(new_radius.feature());
             }
             CalculationMode::S2 => {
                 let mut new_s2 = s2::BootstrapS2::new(&feature, s2_level as u64, s2_size);
-                new_s2.sort(&sort_by, route_split_level);
+                new_s2.sort(&sort_by, route_split_level, routing_args);
 
                 *stats += &new_s2.stats;
                 features.push(new_s2.feature());

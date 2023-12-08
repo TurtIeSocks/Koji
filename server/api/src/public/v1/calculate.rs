@@ -36,6 +36,7 @@ async fn bootstrap(
         parent,
         sort_by,
         route_split_level,
+        routing_args,
         ..
     } = payload.into_inner().init(Some("bootstrap"));
 
@@ -60,6 +61,7 @@ async fn bootstrap(
         s2_size,
         route_split_level,
         &mut stats,
+        &routing_args,
     );
 
     if parent.is_some() {
@@ -162,6 +164,7 @@ async fn cluster(
         sort_by,
         tth,
         route_split_level,
+        routing_args,
         calculation_mode,
         s2_level,
         s2_size,
@@ -241,6 +244,7 @@ async fn cluster(
         route_split_level,
         radius,
         &mut stats,
+        &routing_args,
     );
 
     let mut feature = clusters
@@ -309,6 +313,7 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         mode,
         sort_by,
         radius,
+        routing_args,
         ..
     } = payload.into_inner().init(Some("reroute"));
     let mut stats = Stats::new(String::from("Reroute"), 1);
@@ -328,6 +333,7 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         route_split_level,
         radius,
         &mut stats,
+        &routing_args,
     );
 
     let feature = clusters.to_feature(Some(mode.clone())).remove_last_coord();

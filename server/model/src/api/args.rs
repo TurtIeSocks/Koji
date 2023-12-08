@@ -299,6 +299,10 @@ pub struct Args {
     ///
     /// Deprecated
     pub route_chunk_size: Option<usize>,
+    /// Args to be applied to a custom routing plugin
+    ///
+    /// Default: `''`
+    pub routing_args: Option<String>,
     /// Geohash precision level for splitting up routing into multiple threads
     ///
     /// Recommend using 4 for Gyms, 5 for Pokestops, and 6 for Spawnpoints
@@ -377,6 +381,7 @@ pub struct ArgsUnwrapped {
     pub tth: SpawnpointTth,
     pub mode: Type,
     pub route_split_level: u64,
+    pub routing_args: String,
 }
 
 fn validate_s2_cell(value_to_check: Option<u64>, label: &str) -> u64 {
@@ -445,6 +450,7 @@ impl Args {
             tth,
             mode,
             route_split_level,
+            routing_args,
         } = self;
         let enum_type = get_enum_by_geometry_string(geometry_type);
         let (area, default_return_type) = if let Some(area) = area {
@@ -518,6 +524,7 @@ impl Args {
         let tth = tth.unwrap_or(SpawnpointTth::All);
         let mode = get_enum(mode);
         let route_split_level = validate_s2_cell(route_split_level, "route_split_level");
+        let routing_args = routing_args.unwrap_or("".to_string());
         if route_chunk_size.is_some() {
             log::warn!("route_chunk_size is now deprecated, please use route_split_level")
         }
@@ -553,6 +560,7 @@ impl Args {
             tth,
             mode,
             route_split_level,
+            routing_args,
         }
     }
 }

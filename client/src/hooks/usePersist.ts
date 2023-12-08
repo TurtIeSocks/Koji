@@ -72,6 +72,7 @@ export interface UsePersist {
   s2_level: typeof S2_CELL_LEVELS[number]
   s2_size: typeof BOOTSTRAP_LEVELS[number]
   max_clusters: number
+  routing_args: string
   // generations: number | ''
   // routing_time: number | ''
   // devices: number | ''
@@ -116,8 +117,8 @@ export const usePersist = create(
       s2DisplayMode: 'none',
       s2FillMode: 'simple',
       radius: 70,
-      route_split_level: 1,
-      cluster_split_level: 10,
+      route_split_level: 0,
+      cluster_split_level: 0,
       // routing_chunk_size: 0,
       calculation_mode: 'Radius',
       s2_level: 15,
@@ -153,6 +154,7 @@ export const usePersist = create(
       pokestopMaxAreaAutoCalc: 100,
       gymMaxAreaAutoCalc: 100,
       spawnpointMaxAreaAutoCalc: 100,
+      routing_args: '',
       setStore: (key, value) => set({ [key]: value }),
     }),
     {

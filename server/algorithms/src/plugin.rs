@@ -12,7 +12,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 #[derive(Debug)]
 pub enum Folder {
     Routing,
-    // Sorting,
+    // Clustering,
     // Bootstrap,
 }
 
@@ -20,7 +20,7 @@ impl Display for Folder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Folder::Routing => write!(f, "routing"),
-            // Folder::Sorting => write!(f, "sorting"),
+            // Folder::Clustering => write!(f, "clustering"),
             // Folder::Bootstrap => write!(f, "bootstrap"),
         }
     }
@@ -30,7 +30,7 @@ impl Display for Folder {
 pub struct Plugin {
     plugin_path: String,
     interpreter: String,
-    radius: f64,
+    args: Vec<String>,
     pub plugin: String,
     pub split_level: u64,
 }
@@ -42,7 +42,7 @@ impl Plugin {
         plugin: &str,
         folder: Folder,
         route_split_level: u64,
-        radius: f64,
+        routing_args: &str,
     ) -> std::io::Result<Self> {
         let path = format!("algorithms/src/{folder}/plugins/{plugin}");
         let path = Path::new(path.as_str());
@@ -82,7 +82,10 @@ impl Plugin {
             plugin_path,
             interpreter: interpreter.to_string(),
             split_level: route_split_level,
-            radius,
+            args: routing_args
+                .split_ascii_whitespace()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>(),
         })
     }
 
@@ -121,10 +124,11 @@ impl Plugin {
         if !self.interpreter.is_empty() {
             child.arg(&self.plugin_path);
         }
+        for arg in self.args.iter() {
+            child.arg(arg);
+        }
         let mut child = match child
             .args(&["--input", &stringified_points])
-            .args(&["--radius", &self.radius.to_string()])
-            .args(&["--route_split_level", &self.split_level.to_string()])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()

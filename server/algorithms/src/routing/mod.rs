@@ -20,6 +20,7 @@ pub fn main(
     route_split_level: u64,
     radius: f64,
     stats: &mut Stats,
+    routing_args: &str,
 ) -> SingleVec {
     let route_time = Instant::now();
     let clusters = match sort_by {
@@ -31,7 +32,7 @@ pub fn main(
         SortBy::Unset => clusters,
         SortBy::Custom(plugin) => {
             let clusters = clusters.sort_s2();
-            match Plugin::new(plugin, Folder::Routing, route_split_level, radius) {
+            match Plugin::new(plugin, Folder::Routing, route_split_level, routing_args) {
                 Ok(plugin_manager) => match plugin_manager.run(&clusters, Some(join::join)) {
                     Ok(sorted_clusters) => sorted_clusters,
                     Err(e) => {

@@ -24,7 +24,7 @@ import { usePersist } from '@hooks/usePersist'
 import { clusteringRouting } from '@services/fetches'
 
 import ListSubheader from '../styled/Subheader'
-import NumInput from './inputs/NumInput'
+import UserTextInput from './inputs/NumInput'
 import { MultiOptionList } from './inputs/MultiOptions'
 import Toggle from './inputs/Toggle'
 
@@ -70,7 +70,7 @@ export default function RoutingTab() {
         type="select"
       />
       <Collapse in={calculation_mode === 'Radius'}>
-        <NumInput field="radius" />
+        <UserTextInput field="radius" />
       </Collapse>
       <Collapse in={calculation_mode === 'S2'}>
         <MultiOptionList
@@ -94,7 +94,7 @@ export default function RoutingTab() {
       <Collapse in={mode !== 'bootstrap' && calculation_mode === 'Radius'}>
         <Divider sx={{ my: 2 }} />
         <ListSubheader>Clustering</ListSubheader>
-        <NumInput field="min_points" />
+        <UserTextInput field="min_points" />
         <MultiOptionList
           field="cluster_mode"
           hideLabel
@@ -102,10 +102,10 @@ export default function RoutingTab() {
           type="select"
         />
         <Collapse in={!fastest}>
-          <NumInput field="cluster_split_level" min={1} max={20} />
+          <UserTextInput field="cluster_split_level" min={1} max={20} />
         </Collapse>
         <Collapse in={!fastest}>
-          <NumInput field="max_clusters" min={0} />
+          <UserTextInput field="max_clusters" min={0} />
         </Collapse>
       </Collapse>
 
@@ -125,7 +125,12 @@ export default function RoutingTab() {
         }}
       />
       <Collapse in={!SORT_BY.some((sort) => sort === sort_by)}>
-        <NumInput field="route_split_level" min={1} max={12} />
+        <UserTextInput field="route_split_level" min={1} max={12} />
+      </Collapse>
+      <Collapse
+        in={!SORT_BY.some((sort) => sort === sort_by) && sort_by !== 'tsp'}
+      >
+        <UserTextInput field="routing_args" helperText="--x 1 --y abc" />
       </Collapse>
 
       <Divider sx={{ my: 2 }} />
