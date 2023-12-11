@@ -25,6 +25,9 @@ pub async fn public_validator(
     if logged_in(&req) {
         return Ok(req);
     }
+    if env::var("KOJI_SECRET").unwrap_or("".to_string()).is_empty() {
+        return Ok(req);
+    }
     if let Some(credentials) = credentials {
         if credentials.token() == env::var("KOJI_SECRET").unwrap_or("".to_string()) {
             return Ok(req);
