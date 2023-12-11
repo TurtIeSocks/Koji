@@ -117,6 +117,7 @@ pub async fn start() -> io::Result<()> {
                 web::scope("/api").service(
                     web::scope("/v1")
                         .wrap(HttpAuthentication::with_fn(auth::public_validator))
+                        .service(web::resource("/health").route(web::get().to(|| HttpResponse::Ok())))
                         .service(
                             web::scope("/calc")
                                 .service(public::v1::calculate::bootstrap)
