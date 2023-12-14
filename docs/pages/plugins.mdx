@@ -218,3 +218,11 @@ Set your options like so in the Kōji client drawer:
   width={300}
   height={300}
 />
+
+## Returning Results to Kōji
+
+The results of your plugin must be returned to Kōji via stdout. The results must be a stringified list of points of `n` length: `lat,lng lat,lng lat,lng ...`. In Python for example, this is as simple as printing the results. While Kōji attempts to filter out any unnecessary or invalid text that was logged, it's best not to log anything other than the final results.
+
+## Plugin Example
+
+You can already view a live plugin example as the OR-Tools integration (TSP) has been reworker to be used with this plugin system. You can view the source code [here](https://github.com/TurtIeSocks/Koji/blob/main/or-tools/tsp/tsp.cc).
