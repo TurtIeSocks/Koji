@@ -8,6 +8,9 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 pub fn join(plugin: &Plugin, input: Vec<SingleVec>) -> SingleVec {
+    if plugin.split_level == 0 {
+        return input.into_iter().flatten().collect();
+    }
     let time = Instant::now();
     let mut point_map = HashMap::<u64, SingleVec>::new();
 

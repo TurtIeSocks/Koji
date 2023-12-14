@@ -47,6 +47,7 @@ export default function UserTextInput<
         }
         label={isNumber ? undefined : finalLabel}
         sx={{ width: isNumber ? '35%' : '100%' }}
+        multiline={!isNumber}
         inputProps={{ min: min || 0, max: max || 9999 }}
         InputProps={{ endAdornment }}
         disabled={disabled}

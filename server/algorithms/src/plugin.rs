@@ -7,7 +7,7 @@ use std::time::Instant;
 use crate::s2::create_cell_map;
 use crate::utils;
 use model::api::single_vec::SingleVec;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rayon::iter::{Either, IntoParallelIterator, ParallelIterator};
 
 #[derive(Debug)]
 pub enum Folder {
@@ -59,10 +59,57 @@ impl Plugin {
         route_split_level: u64,
         routing_args: &str,
     ) -> std::io::Result<Self> {
-        let path = format!("algorithms/src/{folder}/plugins/{plugin}");
-        let path = Path::new(path.as_str());
-        let plugin_path = if path.exists() {
-            path.display().to_string()
+        let mut plugin_path = format!("algorithms/src/{folder}/plugins/{plugin}");
+        let mut interpreter = match plugin.split(".").last() {
+            Some("py") => "python3",
+            Some("js") => "node",
+            Some("sh") => "bash",
+            Some("ts") => "ts-node",
+            val => {
+                if plugin == val.unwrap_or("") {
+                    &plugin_path
+                } else {
+                    ""
+                }
+            }
+        }
+        .to_string();
+        let args = routing_args
+            .split_whitespace()
+            .skip_while(|arg| !arg.starts_with("--"))
+            .map(|arg| arg.to_string())
+            .collect::<Vec<String>>();
+
+        for (index, pre_arg) in routing_args
+            .split_whitespace()
+            .take_while(|arg| !arg.starts_with("--"))
+            .enumerate()
+        {
+            log::info!("[PLUGIN PARSER] {index} | pre_arg: {}", pre_arg);
+            if index == 0 {
+                interpreter = pre_arg.to_string();
+            } else if index == 1 {
+                plugin_path = format!("algorithms/src/{folder}/plugins/{pre_arg}");
+            } else {
+                log::warn!("Unrecognized argument: {pre_arg} for plugin: {plugin}")
+            }
+        }
+
+        if interpreter.is_empty() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "Unrecognized plugin, please create a PR to add support for it",
+            ));
+        };
+        let path = Path::new(&plugin_path);
+        if path.is_dir() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("{plugin} is a directory, not a file, something may not be right with the provided args"),
+            ));
+        } else if path.exists() {
+            plugin_path = path.display().to_string();
+            log::info!("{interpreter} {plugin_path} {}", args.join(" "));
         } else {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
@@ -75,32 +122,14 @@ impl Plugin {
                     }
                 ),
             ));
-        };
+        }
 
-        let interpreter = match plugin.split(".").last() {
-            Some("py") => "python3",
-            Some("js") => "node",
-            Some("ts") => "ts-node",
-            val => {
-                if plugin == val.unwrap_or("") {
-                    ""
-                } else {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "Unrecognized plugin, please create a PR to add support for it",
-                    ));
-                }
-            }
-        };
         Ok(Plugin {
             plugin: plugin.to_string(),
             plugin_path,
-            interpreter: interpreter.to_string(),
+            interpreter,
             split_level: route_split_level,
-            args: routing_args
-                .split_ascii_whitespace()
-                .map(|s| s.to_string())
-                .collect::<Vec<String>>(),
+            args,
         })
     }
 
@@ -134,18 +163,12 @@ impl Plugin {
 
         let time = Instant::now();
 
-        let mut child = if self.interpreter.is_empty() {
-            Command::new(&self.plugin_path)
-        } else {
-            Command::new(&self.interpreter)
-        };
-        if !self.interpreter.is_empty() {
+        let mut child = Command::new(&self.interpreter);
+        if self.plugin_path != self.interpreter {
             child.arg(&self.plugin_path);
-        }
-        for arg in self.args.iter() {
-            child.arg(arg);
-        }
+        };
         let mut child = match child
+            .args(self.args.iter())
             .args(&["--input", &input])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -186,30 +209,39 @@ impl Plugin {
         //     .split(",")
         //     .filter_map(|s| s.trim().parse::<usize>().ok())
         //     .collect::<Vec<usize>>();
-        let mut output_indexes = output
+        let (invalid, mut output_result): (Vec<&str>, SingleVec) = output
             .split_ascii_whitespace()
-            .filter_map(|s| {
+            .into_iter()
+            .collect::<Vec<_>>()
+            .into_par_iter()
+            .partition_map(|s| {
                 let mut iter: std::str::Split<'_, &str> = s.trim().split(",");
                 let lat = iter.parse_next_coord();
                 let lng = iter.parse_next_coord();
                 if lat.is_none() || lng.is_none() {
-                    return None;
+                    Either::Left(s)
+                } else {
+                    Either::Right([lat.unwrap(), lng.unwrap()])
                 }
-                Some([lat.unwrap(), lng.unwrap()])
-            })
-            .collect::<SingleVec>();
-        if let Some(first) = output_indexes.first() {
-            if let Some(last) = output_indexes.last() {
+            });
+        if let Some(first) = output_result.first() {
+            if let Some(last) = output_result.last() {
                 if first == last {
-                    output_indexes.pop();
+                    output_result.pop();
                 }
             }
         }
-        if output_indexes.is_empty() {
+        if !invalid.is_empty() {
+            log::warn!(
+                "Some invalid results were returned from the plugin: `{}`",
+                invalid.join(", ")
+            );
+        }
+        if output_result.is_empty() {
             Err(std::io::Error::new(
                     std::io::ErrorKind::NotFound,
                     format!(
-                        "no valid output from child process \n{}\noutput should return comma separated indexes of the input clusters in the order they should be routed",
+                        "no valid output from child process \n{}\noutput should return points in the following format: `lat,lng lat,lng`",
                         output
                     ),
                 ))
@@ -220,7 +252,7 @@ impl Plugin {
                 time.elapsed().as_secs_f32()
             );
             // Ok(output_indexes.into_iter().map(|i| points[i]).collect())
-            Ok(output_indexes)
+            Ok(output_result)
         }
     }
 }
