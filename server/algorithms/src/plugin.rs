@@ -67,7 +67,7 @@ impl Plugin {
             ));
         }
         let mut interpreter = match plugin.split(".").last() {
-            Some("py") => "python3",
+            Some("py") => "python",
             Some("js") => "node",
             Some("sh") => "bash",
             Some("ts") => "ts-node",

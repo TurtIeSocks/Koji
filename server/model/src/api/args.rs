@@ -531,8 +531,15 @@ impl Args {
         let mode = get_enum(mode);
         let route_split_level = validate_s2_cell(route_split_level, "route_split_level");
         let routing_args = routing_args.unwrap_or("".to_string());
-        let clustering_args = clustering_args.unwrap_or("".to_string());
-        let bootstrapping_args = bootstrapping_args.unwrap_or("".to_string());
+
+        let mut clustering_args = clustering_args.unwrap_or("".to_string());
+        clustering_args += &format!(" --radius {}", radius);
+        clustering_args += &format!(" --min_points {}", min_points);
+        clustering_args += &format!(" --max_clusters {}", max_clusters);
+
+        let mut bootstrapping_args = bootstrapping_args.unwrap_or("".to_string());
+        bootstrapping_args += &format!(" --radius {}", radius);
+
         if route_chunk_size.is_some() {
             log::warn!("route_chunk_size is now deprecated, please use route_split_level")
         }
