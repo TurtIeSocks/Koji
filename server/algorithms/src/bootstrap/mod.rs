@@ -22,7 +22,7 @@ pub fn main(
     route_split_level: u64,
     stats: &mut Stats,
     routing_args: &str,
-    bootstrap_args: &str,
+    bootstrapping_rags: &str,
 ) -> Vec<Feature> {
     let mut features = vec![];
 
@@ -43,7 +43,7 @@ pub fn main(
                 features.push(new_s2.feature());
             }
             CalculationMode::Custom(plugin) => {
-                match Plugin::new(plugin, Folder::Bootstrap, 0, bootstrap_args) {
+                match Plugin::new(plugin, Folder::Bootstrap, 0, bootstrapping_rags) {
                     Ok(plugin_manager) => {
                         let time = Instant::now();
                         match plugin_manager.run(feature.to_string()) {

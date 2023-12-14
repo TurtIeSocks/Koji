@@ -74,7 +74,7 @@ export interface UsePersist {
   max_clusters: number
   routing_args: string
   clustering_args: string
-  bootstrap_args: string
+  bootstrapping_args: string
   // generations: number | ''
   // routing_time: number | ''
   // devices: number | ''
@@ -158,7 +158,7 @@ export const usePersist = create(
       spawnpointMaxAreaAutoCalc: 100,
       routing_args: '',
       clustering_args: '',
-      bootstrap_args: '',
+      bootstrapping_args: '',
       setStore: (key, value) => set({ [key]: value }),
     }),
     {

@@ -37,7 +37,7 @@ async fn bootstrap(
         sort_by,
         route_split_level,
         routing_args,
-        bootstrap_args,
+        bootstrapping_args,
         ..
     } = payload.into_inner().init(Some("bootstrap"));
 
@@ -63,7 +63,7 @@ async fn bootstrap(
         route_split_level,
         &mut stats,
         &routing_args,
-        &bootstrap_args,
+        &bootstrapping_args,
     );
 
     if parent.is_some() {

@@ -57,9 +57,15 @@ impl Plugin {
         plugin: &str,
         folder: Folder,
         route_split_level: u64,
-        routing_args: &str,
+        input_args: &str,
     ) -> std::io::Result<Self> {
         let mut plugin_path = format!("algorithms/src/{folder}/plugins/{plugin}");
+        if !Path::new(&plugin_path).exists() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("plugin {plugin} does not exist"),
+            ));
+        }
         let mut interpreter = match plugin.split(".").last() {
             Some("py") => "python3",
             Some("js") => "node",
@@ -74,13 +80,13 @@ impl Plugin {
             }
         }
         .to_string();
-        let args = routing_args
+        let args = input_args
             .split_whitespace()
             .skip_while(|arg| !arg.starts_with("--"))
             .map(|arg| arg.to_string())
             .collect::<Vec<String>>();
 
-        for (index, pre_arg) in routing_args
+        for (index, pre_arg) in input_args
             .split_whitespace()
             .take_while(|arg| !arg.starts_with("--"))
             .enumerate()

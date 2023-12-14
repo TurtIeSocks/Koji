@@ -96,7 +96,7 @@ export default function RoutingTab() {
           !CALC_MODE.some((x) => x === calculation_mode) && mode === 'bootstrap'
         }
       >
-        <UserTextInput field="bootstrap_args" helperText="--x 1 --y abc" />
+        <UserTextInput field="bootstrapping_args" helperText="--x 1 --y abc" />
       </Collapse>
       <Collapse in={calculation_mode === 'Radius'}>
         <UserTextInput field="radius" />

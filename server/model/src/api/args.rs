@@ -204,7 +204,7 @@ pub struct Args {
     /// Args to be applied to a custom bootstrapping plugin
     ///
     /// Default: `''`
-    pub bootstrap_args: Option<String>,
+    pub bootstrapping_args: Option<String>,
     /// Bootstrap mode selection
     ///
     /// Accepts [BootStrapMode]
@@ -385,7 +385,7 @@ pub struct ArgsUnwrapped {
     pub route_split_level: u64,
     pub routing_args: String,
     pub clustering_args: String,
-    pub bootstrap_args: String,
+    pub bootstrapping_args: String,
 }
 
 fn validate_s2_cell(value_to_check: Option<u64>, label: &str) -> u64 {
@@ -456,7 +456,7 @@ impl Args {
             route_split_level,
             routing_args,
             clustering_args,
-            bootstrap_args,
+            bootstrapping_args,
         } = self;
         let enum_type = get_enum_by_geometry_string(geometry_type);
         let (area, default_return_type) = if let Some(area) = area {
@@ -532,7 +532,7 @@ impl Args {
         let route_split_level = validate_s2_cell(route_split_level, "route_split_level");
         let routing_args = routing_args.unwrap_or("".to_string());
         let clustering_args = clustering_args.unwrap_or("".to_string());
-        let bootstrap_args = bootstrap_args.unwrap_or("".to_string());
+        let bootstrapping_args = bootstrapping_args.unwrap_or("".to_string());
         if route_chunk_size.is_some() {
             log::warn!("route_chunk_size is now deprecated, please use route_split_level")
         }
@@ -570,7 +570,7 @@ impl Args {
             route_split_level,
             routing_args,
             clustering_args,
-            bootstrap_args,
+            bootstrapping_args,
         }
     }
 }
