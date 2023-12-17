@@ -44,7 +44,7 @@ services:
       # LOG_LEVEL: info
 
     # Memory limit for docker container
-    # mem_limit: 2048G
+    # mem_limit: 2048M
     # Memory reservation for docker container
     # mem_reservation: 256M
     # CPU limit for docker container
@@ -53,14 +53,14 @@ services:
     ports:
       - '8080:8080' # change left one for external port
 
-    networks:
-      default:
-        name: scanner
-
     # If you want to use a non docker database enable following lines and
     # change the Database URL to 'host.docker.internal'
     #extra_hosts:
     #  - "host.docker.internal:host-gateway"
+
+networks:
+  default:
+    name: scanner
 ```
 
 ## Docker Setup
