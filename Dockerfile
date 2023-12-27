@@ -28,5 +28,5 @@ RUN cat ortools.tar.gz | tar -xzf - && \
     cp /tsp/tsp.cc ./examples/koji/koji.cc && \
     cp /tsp/CMakeLists.txt ./examples/koji/CMakeLists.txt && \
     make build SOURCE=examples/koji/koji.cc && \
-    mv ./examples/koji/build/bin/koji /algorithms/src/routing/tsp
+    mv ./examples/koji/build/bin/koji /algorithms/src/routing/plugins/tsp
 CMD koji
