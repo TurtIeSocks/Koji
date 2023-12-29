@@ -205,7 +205,8 @@ int main(int argc, char *argv[])
 
   for (auto point : routes)
   {
-    std::cout << stringPoints[point] << " ";
+    std::cout << stringPoints[point] << std::endl
+              << std::flush;
   }
 
   return EXIT_SUCCESS;
