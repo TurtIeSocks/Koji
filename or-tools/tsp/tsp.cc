@@ -137,7 +137,7 @@ namespace operations_research
     searchParameters.set_first_solution_strategy(
         FirstSolutionStrategy::PATH_CHEAPEST_ARC);
 
-    if (locations.size() > 1000)
+    if (locations.size() > 2000)
     {
       searchParameters.set_local_search_metaheuristic(
           LocalSearchMetaheuristic::GUIDED_LOCAL_SEARCH);
