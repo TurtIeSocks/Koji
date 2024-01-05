@@ -24,6 +24,15 @@ In Kōji's architecture, various external integrations primarily leverage HTTP `
      You can use unique project names for Multi-Domain setups!
    </Callout>
 
+### Project setup
+
+This is configured inside your Kōji `/admin/project` and will allow hot reloading of your areas within ReactMap.
+
+```yml
+API Endpoint: http://{reactmap_ip}:{port}/api/v1/area/reload
+API Key: react-map-secret:{config.api.reactMapSecret}
+```
+
 ### Supported Features
 
 - Polygons ✅
@@ -33,7 +42,7 @@ In Kōji's architecture, various external integrations primarily leverage HTTP `
 
 ## PoracleJS
 
-- Remove the need to have a `geofence.json` file by loading your managed geofences straight from Kōji
+- Remove the need to have a `geofence.json` file by loading your managed geofences straight from Kōji.
 - You must set two config values to use Kōji with Poracle
 
 1. First set your Kōji Bearer Token:
