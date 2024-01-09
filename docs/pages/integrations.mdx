@@ -86,6 +86,15 @@ API Key: X-Poracle-Secret:{config.server.apiSecret}
    - `koji.url`
    - Example: `http://{koji_ip}/api/v1/geofence/feature-collection/{project_name}`
 
+### Project setup
+
+This is configured inside your Kōji `/admin/project` and will allow hot reloading of your areas within Golbat.
+
+```yml
+API Endpoint: http://{golbat_ip}:{port}/api/reload-geojson
+API Key: x-golbat-secret:{golbat_config.api_secret}
+```
+
 ### Supported Features
 
 - Polygons ✅
