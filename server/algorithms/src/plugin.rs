@@ -283,9 +283,10 @@ impl Plugin {
                 ))
         } else {
             log::info!(
-                "{} child process finished in {}s",
+                "{} child process finished in {}s with {} points",
                 self.plugin,
-                time.elapsed().as_secs_f32()
+                time.elapsed().as_secs_f32(),
+                results.len()
             );
             // Ok(output_indexes.into_iter().map(|i| points[i]).collect())
             Ok(results)
