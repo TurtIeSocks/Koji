@@ -23,7 +23,7 @@ async fn all(
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    log::info!("[PUBLIC_API] Returning {} routes\n", fc.features.len());
+    log::info!("[PUBLIC_API] Returning {} routes", fc.features.len());
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!(fc)),
         message: "Success".to_string(),
@@ -51,7 +51,7 @@ async fn get_area(
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     log::info!(
-        "[PUBLIC_API] Returning feature for {:?}\n",
+        "[PUBLIC_API] Returning feature for {:?}",
         feature.property("name")
     );
     Ok(utils::response::send(
@@ -69,7 +69,7 @@ async fn reference_data(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> 
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    log::info!("[ROUTE_REF] Returning {} instances\n", fences.len());
+    log::info!("[ROUTE_REF] Returning {} instances", fences.len());
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!(fences)),
         message: "Success".to_string(),
@@ -173,10 +173,7 @@ async fn specific_return_type(
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    log::info!(
-        "[GEOFENCES_ALL] Returning {} instances\n",
-        fc.features.len()
-    );
+    log::info!("[GEOFENCES_ALL] Returning {} instances", fc.features.len());
     Ok(utils::response::send(fc, return_type, None, false, None))
 }
 
@@ -197,10 +194,7 @@ async fn specific_geofence(
     .await
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    log::info!(
-        "[GEOFENCES_FC_ALL] Returning {} instances\n",
-        features.len()
-    );
+    log::info!("[GEOFENCES_FC_ALL] Returning {} instances", features.len());
     Ok(utils::response::send(
         features.to_collection(None, None),
         return_type,

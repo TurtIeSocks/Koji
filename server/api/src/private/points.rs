@@ -18,7 +18,7 @@ async fn all(
     let category = category.into_inner();
 
     log::info!(
-        "\n[DATA_ALL] Scanner Type: {} | Category: {}",
+        "[DATA_ALL] Scanner Type: {} | Category: {}",
         conn.scanner_type,
         category
     );
@@ -31,7 +31,7 @@ async fn all(
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    log::info!("[DATA-ALL] Returning {} {}s\n", all_data.len(), category);
+    log::info!("[DATA-ALL] Returning {} {}s", all_data.len(), category);
     Ok(HttpResponse::Ok().json(all_data))
 }
 
@@ -45,7 +45,7 @@ async fn bound(
     let payload = payload.into_inner();
 
     log::info!(
-        "\n[DATA_BOUND] Scanner Type: {} | Category: {}",
+        "[DATA_BOUND] Scanner Type: {} | Category: {}",
         conn.scanner_type,
         category
     );
@@ -58,11 +58,7 @@ async fn bound(
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    log::info!(
-        "[DATA-BOUND] Returning {} {}s\n",
-        bound_data.len(),
-        category
-    );
+    log::info!("[DATA-BOUND] Returning {} {}s", bound_data.len(), category);
     Ok(HttpResponse::Ok().json(bound_data))
 }
 
@@ -83,7 +79,7 @@ async fn by_area(
     } = payload.into_inner().init(None);
 
     log::info!(
-        "\n[DATA_AREA] Scanner Type: {} | Category: {}",
+        "[DATA_AREA] Scanner Type: {} | Category: {}",
         conn.scanner_type,
         category
     );
@@ -101,7 +97,7 @@ async fn by_area(
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    log::info!("[DATA-AREA] Returning {} {}s\n", area_data.len(), category);
+    log::info!("[DATA-AREA] Returning {} {}s", area_data.len(), category);
     Ok(HttpResponse::Ok().json(area_data))
 }
 
@@ -122,7 +118,7 @@ async fn area_stats(
     } = payload.into_inner().init(None);
 
     log::info!(
-        "\n[DATA_AREA] Scanner Type: {} | Category: {}",
+        "[DATA_AREA] Scanner Type: {} | Category: {}",
         conn.scanner_type,
         category
     );
@@ -146,7 +142,7 @@ async fn area_stats(
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
     log::info!(
-        "[DATA-AREA] Returning {} Total: {}\n",
+        "[DATA-AREA] Returning {} Total: {}",
         category,
         area_data.total
     );

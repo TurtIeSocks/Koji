@@ -204,7 +204,7 @@ impl BBox {
             vec![self.max_x, self.min_y],
             vec![self.min_x, self.min_y],
         ]]
-        // println!(
+        // log::info!(
         //     "{}, {}\n{}, {}\n{}, {}\n{}, {}\n{}, {}\n",
         //     self.min_y,
         //     self.min_x,

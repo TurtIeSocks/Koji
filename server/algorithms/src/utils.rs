@@ -29,7 +29,7 @@ where
     content = content.trim_end_matches(",").to_string();
     let mut output = File::create(path)?;
     write!(output, "{}", content)?;
-    // println!("Saved {} to file with {} coords", file_name, input.len());
+    // log::info!("Saved {} to file with {} coords", file_name, input.len());
     Ok(())
 }
 
@@ -38,7 +38,7 @@ pub fn debug_string(file_name: &str, input: &String) -> std::io::Result<()> {
     let path = format!("./debug_files/{}", file_name);
     let mut output = File::create(path)?;
     write!(output, "{}", input)?;
-    // println!("Saved {} to file with {} coords", file_name, input.len());
+    // log::info!("Saved {} to file with {} coords", file_name, input.len());
     Ok(())
 }
 
