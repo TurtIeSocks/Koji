@@ -119,7 +119,11 @@ impl Plugin {
         }
         if path.exists() {
             plugin_path = path.display().to_string();
-            log::info!("{interpreter} {plugin_path} {}", args.join(" "));
+            if interpreter == plugin_path {
+                log::info!("{interpreter} {}", args.join(" "));
+            } else {
+                log::info!("{interpreter} {plugin_path} {}", args.join(" "));
+            }
         } else {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
