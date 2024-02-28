@@ -20,10 +20,10 @@ services:
       # Commented out variables are optional
 
       # Your Golbat or RDM database
-      SCANNER_DB_URL: 'mysql://rdm_user:rdm_password@host:3306/rdm_database'
+      SCANNER_DB_URL: 'mysql://golbat_user:golbat_password@host:3306/golbat_database'
 
-      # Your Dragonite (if using) or RDM database (if you're using a hybrid Golbat/RDM setup)
-      # CONTROLLER_DB_URL: 'mysql://dragonite_user:dragonite_password@host:3306/dragonite_database'
+      # Your Dragonite or RDM database (if you're using a hybrid Golbat/RDM setup)
+      CONTROLLER_DB_URL: 'mysql://dragonite_user:dragonite_password@host:3306/dragonite_database'
 
       # Your Koji database
       KOJI_DB_URL: 'mysql://koji_user:koji_password@127.0.0.1:3306/koji_database'
