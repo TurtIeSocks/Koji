@@ -44,6 +44,9 @@ trait ParseCoord {
 impl ParseCoord for std::str::Split<'_, &str> {
     fn parse_next_coord(&mut self) -> Option<f64> {
         if let Some(coord) = self.next() {
+            if coord.contains(" ") {
+                return coord.split(",").parse_next_coord();
+            }
             if let Ok(coord) = coord.parse::<f64>() {
                 return Some(coord);
             }
@@ -217,13 +220,27 @@ impl Plugin {
         for line in reader.lines() {
             match line {
                 Ok(line) => {
-                    let mut iter: std::str::Split<'_, &str> = line.trim().split(",");
-                    let lat = iter.parse_next_coord();
-                    let lng = iter.parse_next_coord();
-                    if lat.is_none() || lng.is_none() {
-                        invalid.push(line)
+                    if line.contains(" ") {
+                        let mut iter: std::str::Split<'_, &str> = line.trim().split(" ");
+                        while let Some(line) = iter.next() {
+                            let mut coord: std::str::Split<'_, &str> = line.trim().split(",");
+                            let lat = coord.parse_next_coord();
+                            let lng = coord.parse_next_coord();
+                            if lat.is_none() || lng.is_none() {
+                                invalid.push(line.to_string())
+                            } else {
+                                results.push([lat.unwrap(), lng.unwrap()])
+                            }
+                        }
                     } else {
-                        results.push([lat.unwrap(), lng.unwrap()])
+                        let mut iter: std::str::Split<'_, &str> = line.trim().split(",");
+                        let lat = iter.parse_next_coord();
+                        let lng = iter.parse_next_coord();
+                        if lat.is_none() || lng.is_none() {
+                            invalid.push(line)
+                        } else {
+                            results.push([lat.unwrap(), lng.unwrap()])
+                        }
                     }
                 }
                 Err(e) => {
