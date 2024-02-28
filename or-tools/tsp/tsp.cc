@@ -172,29 +172,26 @@ int main(int argc, char *argv[])
   RawInput points;
   std::vector<std::string> stringPoints;
 
+  std::string line;
+  while (std::getline(std::cin, line, ' ') && !line.empty())
+  {
+    auto coordinates = split(line, ',');
+    if (coordinates.size() == 2)
+    {
+      double lat = std::stod(coordinates[0]);
+      double lng = std::stod(coordinates[1]);
+      points.push_back({lat, lng});
+      stringPoints.push_back(line);
+    }
+  }
+
   for (int i = 1; i < argc; ++i)
   {
     std::string arg = argv[i];
     if (arg.find("--") == 0)
     {
       std::string key = arg.substr(2);
-      if (key == "input")
-      {
-        std::string pointsStr = argv[++i];
-        std::vector<std::string> pointStrings = split(pointsStr, ' ');
-        for (const auto &pointStr : pointStrings)
-        {
-          auto coordinates = split(pointStr, ',');
-          if (coordinates.size() == 2)
-          {
-            double lat = std::stod(coordinates[0]);
-            double lng = std::stod(coordinates[1]);
-            points.push_back({lat, lng});
-            stringPoints.push_back(pointStr);
-          }
-        }
-      }
-      else if (i + 1 < argc)
+      if (i + 1 < argc)
       {
         args[key] = argv[++i];
       }

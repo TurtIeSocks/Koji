@@ -10,7 +10,7 @@ Kōji has an integrated plugin system to extend three of its core algorithms:
 
 ## How to Use
 
-Plugins are loaded from the respective `plugins` directory found in each of the three algorithm directories. A plugin can be a single file or a directory containing any number of files or directories. You can pass in your own arguments via the Kōji client or the API. Each arg should be separated by a space, keys starting with `--` and the respective values following the keys. For example, `--arg1 value1 --arg2 value2`. An `--input` arg is appended by Kōji, the values of which are described below in each respective section.
+Plugins are loaded from the respective `plugins` directory found in each of the three algorithm directories. A plugin can be a single file or a directory containing any number of files or directories. You can pass in your own arguments via the Kōji client or the API. Each arg should be separated by a space, keys starting with `--` and the respective values following the keys. For example, `--arg1 value1 --arg2 value2`. Due to limits on the length of an input argument, the coordinates or GeoJSON Feature will be passed via stdin from Kōji to your plugin.
 
 ### Single File
 
@@ -18,8 +18,8 @@ A plugin file can either be executable or a script that is run by an interpreter
 
 - `.sh` will be executed with Bash
 - `.js` will be executed with Node
-- `.ts` will be executed with TS-Node
-- `.py` will be executed with Python
+- `.ts` will be executed with [tsx](https://www.npmjs.com/package/tsx)
+- `.py` will be executed with Python3
 - Extension-less, executable binaries
 
 If you would like to use a different interpreter for a plugin you can add it to the respective args. For example, if you would like to use Bun, you can prefix your input arguments with `bun file.ts`.
@@ -82,36 +82,38 @@ Below are some examples demonstrating how the input args are parsed and passed a
 - Min Points: 3
 - Max Clusters: 500
 
-Result: `python cluster.py --foo 1 --bar 2  --radius 70 --min_points 3 --max_clusters 500 --input 40.780374,-73.969161 40.252042,-73.882841 40.256022,-74.105120`
+Result: `python3 cluster.py --foo 1 --bar 2  --radius 70 --min_points 3 --max_clusters 500`
+Stdin: `40.780374,-73.969161 40.252042,-73.882841 40.256022,-74.105120`
 
 #### Example 2
 
 - Entry: `my_plugin/routing.js`
 - Args: `node my_plugin/routing.js --baz 10 --qux hello!`
 
-Result: `node my_plugin/routing.js --baz 10 --qux hello! --input 40.780374,-73.969161 40.252042,-73.882841 40.256022,-74.105120`
+Result: `node my_plugin/routing.js --baz 10 --qux hello!`
+Stdin: `40.780374,-73.969161 40.252042,-73.882841 40.256022,-74.105120`
 
 #### Example 3
 
 - Entry: `test.ts`
 - Args: `bun`
 
-Result: `bun test.ts --input 40.780374,-73.969161 40.252042,-73.882841 40.256022,-74.105120`
+Result: `bun test.ts`
+Stdin: `40.780374,-73.969161 40.252042,-73.882841 40.256022,-74.105120`
 
 The main takeaway is that the first and second arguments are optional. Once Kōji finds the first argument that is prefixed by `--`, it now assumes that the rest of the arguments are meant to be passed to the plugin. If your plugin is only a single file, you can omit the interpreter and file path, or you can just omit the file path, however you can not omit the interpreter and try to use a custom file path.
 
 ## Clustering
 
-### Input Value
+### stdin Value
 
-The input value for a clustering plugin is a stringified list of points of `n` length: `lat,lng lat,lng lat,lng ...`. These are the points that are to be clustered, e.g. spawnpoints or forts.
+The stdin value for a clustering plugin is a stringified list of points of `n` length: `lat,lng lat,lng lat,lng ...`. These are the points that are to be clustered, e.g. spawnpoints or forts.
 
 ### Automatically Appended Args:
 
 - radius
 - min_points
 - max_clusters
-- input
 
 ### Example Usage
 
@@ -144,13 +146,9 @@ Set your options like so in the Kōji client drawer:
 
 ## Routing
 
-### Input Value
+### stdin Value
 
-The input value for the routing plugin is a stringified list of points of `n` length: `lat,lng lat,lng lat,lng ...`. These are the cluster values.
-
-### Automatically Appended Args:
-
-- input
+The stdin value for the routing plugin is a stringified list of points of `n` length: `lat,lng lat,lng lat,lng ...`. These are the cluster values.
 
 ### Example Usage
 
@@ -183,14 +181,13 @@ Set your options like so in the Kōji client drawer:
 
 ## Bootstrapping
 
-### Input Value
+### stdin Value
 
-The input value for the bootstrapping plugin is a GeoJSON Feature of either a Polygon or MultiPolygon type. This is the area that will be used to constrain the points that the bootstrap algorithm generates.
+The stdin value for the bootstrapping plugin is a GeoJSON Feature of either a Polygon or MultiPolygon type. This is the area that will be used to constrain the points that the bootstrap algorithm generates.
 
 ### Automatically Appended Args:
 
 - radius
-- input
 
 ### Example Usage
 

@@ -1,5 +1,5 @@
 use std::fmt::Display;
-use std::io::{self, BufRead, BufReader};
+use std::io::{self, BufRead, BufReader, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::Instant;
@@ -67,7 +67,7 @@ impl Plugin {
             ));
         }
         let mut interpreter = match plugin.split(".").last() {
-            Some("py") => "python",
+            Some("py") => "python3",
             Some("js") => "node",
             Some("sh") => "bash",
             Some("ts") => "ts-node",
@@ -113,7 +113,8 @@ impl Plugin {
                 std::io::ErrorKind::NotFound,
                 format!("{plugin} is a directory, not a file, something may not be right with the provided args"),
             ));
-        } else if path.exists() {
+        }
+        if path.exists() {
             plugin_path = path.display().to_string();
             log::info!("{interpreter} {plugin_path} {}", args.join(" "));
         } else {
@@ -175,7 +176,6 @@ impl Plugin {
         };
         let mut child = match child
             .args(self.args.iter())
-            .args(&["--input", &input])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
@@ -183,6 +183,28 @@ impl Plugin {
             Ok(child) => child,
             Err(err) => return Err(err),
         };
+
+        let mut stdin = match child.stdin.take() {
+            Some(stdin) => stdin,
+            None => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "Failed to open stdin",
+                ));
+            }
+        };
+
+        std::thread::spawn(move || match stdin.write_all(input.as_bytes()) {
+            Ok(_) => match stdin.flush() {
+                Ok(_) => {}
+                Err(err) => {
+                    log::error!("failed to flush stdin: {}", err);
+                }
+            },
+            Err(err) => {
+                log::error!("failed to write to stdin: {}", err)
+            }
+        });
 
         let stdout = child
             .stdout
