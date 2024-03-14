@@ -10,7 +10,7 @@ use geo::{ConvexHull, Intersects, MultiPolygon, Polygon};
 use geojson::{Feature, Value};
 use hashbrown::HashSet;
 use model::{
-    api::{args::SortBy, single_vec::SingleVec, Precision, ToFeature},
+    api::{single_vec::SingleVec, sort_by::SortBy, Precision, ToFeature},
     db::sea_orm_active_enums::Type,
 };
 use rayon::{
@@ -48,8 +48,7 @@ impl<'a> BootstrapS2<'a> {
         new_bootstrap
     }
 
-    pub fn sort(&mut self, sort_by: &SortBy, route_split_level: u64) {
-        let time = Instant::now();
+    pub fn sort(&mut self, sort_by: &SortBy, route_split_level: u64, routing_args: &str) {
         self.result = routing::main(
             &vec![],
             self.result.clone(),
@@ -57,8 +56,8 @@ impl<'a> BootstrapS2<'a> {
             route_split_level,
             0.,
             &mut self.stats,
+            routing_args,
         );
-        self.stats.set_route_time(time);
     }
 
     pub fn result(self) -> SingleVec {

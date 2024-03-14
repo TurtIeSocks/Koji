@@ -154,7 +154,7 @@ impl ToFeature for Poracle {
                     UnknownId::String(id) => match id.parse::<u32>() {
                         Ok(id) => id,
                         Err(err) => {
-                            println!("Parse Error: {:?}", err);
+                            log::error!("Parse Error: {:?}", err);
                             0
                         }
                     },

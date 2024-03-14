@@ -1,8 +1,7 @@
 use crate::client::Client;
 use crate::error::Error;
 use crate::serde_utils::{
-    serialize_as_string, serialize_bool_as_string,
-    serialize_vector_as_string_opt,
+    serialize_as_string, serialize_bool_as_string, serialize_vector_as_string_opt,
 };
 use crate::types::Response;
 use crate::util::RequestBuilderHelper;
@@ -97,10 +96,7 @@ impl Client {
     /// always have a similar enough address to the coordinate you were
     /// requesting. For example, in dense city areas it may belong to a
     /// completely different street.
-    pub async fn reverse(
-        &self,
-        query: ReverseQuery,
-    ) -> Result<Response, Error> {
+    pub async fn reverse(&self, query: ReverseQuery) -> Result<Response, Error> {
         let mut url = self.base_url.join("reverse")?;
         url.set_query(Some(&serde_urlencoded::to_string(&query).unwrap()));
 
@@ -114,7 +110,7 @@ impl Client {
 
         let text = response.text().await?;
 
-        println!("{}", text);
+        log::info!("{}", text);
 
         Ok(serde_json::from_str(&text)?)
     }

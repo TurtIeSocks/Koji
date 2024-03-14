@@ -113,7 +113,7 @@ impl Query {
         let results: Vec<Model> = match paginator.fetch_page(args.page).await {
             Ok(results) => results,
             Err(err) => {
-                println!("[project] Error paginating, {:?}", err);
+                log::error!("[project] Error paginating, {:?}", err);
                 vec![]
             }
         };

@@ -1,4 +1,4 @@
-use super::{cluster_mode::ClusterMode, *};
+use super::{calc_mode::CalculationMode, cluster_mode::ClusterMode, sort_by::SortBy, *};
 
 use crate::{
     api::{collection::Default, text::TextHelpers},
@@ -157,43 +157,11 @@ pub enum ReturnTypeArg {
     Poracle,
 }
 
-#[derive(Debug, Deserialize, Clone)]
-pub enum SortBy {
-    None,
-    GeoHash,
-    ClusterCount,
-    Random,
-    S2Cell,
-    TSP,
-}
-
-impl PartialEq for SortBy {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (SortBy::None, SortBy::None) => true,
-            (SortBy::GeoHash, SortBy::GeoHash) => true,
-            (SortBy::ClusterCount, SortBy::ClusterCount) => true,
-            (SortBy::Random, SortBy::Random) => true,
-            (SortBy::S2Cell, SortBy::S2Cell) => true,
-            (SortBy::TSP, SortBy::TSP) => true,
-            _ => false,
-        }
-    }
-}
-
-impl Eq for SortBy {}
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum SpawnpointTth {
     All,
     Known,
     Unknown,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub enum CalculationMode {
-    Radius,
-    S2,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -233,12 +201,20 @@ pub struct Args {
     ///
     /// Default: `false`
     pub benchmark_mode: Option<bool>,
+    /// Args to be applied to a custom bootstrapping plugin
+    ///
+    /// Default: `''`
+    pub bootstrapping_args: Option<String>,
     /// Bootstrap mode selection
     ///
     /// Accepts [BootStrapMode]
     ///
     /// Default: `0`
     pub calculation_mode: Option<CalculationMode>,
+    /// Args to be applied to a custom clustering plugin
+    ///
+    /// Default: `''`
+    pub clustering_args: Option<String>,
     /// Cluster mode selection
     ///
     /// Accepts [ClusterMode]
@@ -325,6 +301,10 @@ pub struct Args {
     ///
     /// Deprecated
     pub route_chunk_size: Option<usize>,
+    /// Args to be applied to a custom routing plugin
+    ///
+    /// Default: `''`
+    pub routing_args: Option<String>,
     /// Geohash precision level for splitting up routing into multiple threads
     ///
     /// Recommend using 4 for Gyms, 5 for Pokestops, and 6 for Spawnpoints
@@ -403,22 +383,25 @@ pub struct ArgsUnwrapped {
     pub tth: SpawnpointTth,
     pub mode: Type,
     pub route_split_level: u64,
+    pub routing_args: String,
+    pub clustering_args: String,
+    pub bootstrapping_args: String,
 }
 
 fn validate_s2_cell(value_to_check: Option<u64>, label: &str) -> u64 {
     if let Some(cell_level) = value_to_check {
-        if cell_level.lt(&20) && cell_level.gt(&0) {
+        if cell_level.le(&20) && cell_level.ge(&0) {
             cell_level
         } else {
             log::warn!(
-                "{} only supports 1-20, {} was provided, defaulting to 1",
+                "{} only supports 0-20, {} was provided, defaulting to 0",
                 label,
                 cell_level
             );
-            1
+            0
         }
     } else {
-        1
+        0
     }
 }
 
@@ -471,6 +454,9 @@ impl Args {
             tth,
             mode,
             route_split_level,
+            routing_args,
+            clustering_args,
+            bootstrapping_args,
         } = self;
         let enum_type = get_enum_by_geometry_string(geometry_type);
         let (area, default_return_type) = if let Some(area) = area {
@@ -540,10 +526,20 @@ impl Args {
         let save_to_db = save_to_db.unwrap_or(false);
         let save_to_scanner = save_to_scanner.unwrap_or(false);
         let simplify = simplify.unwrap_or(false);
-        let sort_by = sort_by.unwrap_or(SortBy::None);
+        let sort_by = sort_by.unwrap_or(SortBy::Unset);
         let tth = tth.unwrap_or(SpawnpointTth::All);
         let mode = get_enum(mode);
         let route_split_level = validate_s2_cell(route_split_level, "route_split_level");
+        let routing_args = routing_args.unwrap_or("".to_string());
+
+        let mut clustering_args = clustering_args.unwrap_or("".to_string());
+        clustering_args += &format!(" --radius {}", radius);
+        clustering_args += &format!(" --min_points {}", min_points);
+        clustering_args += &format!(" --max_clusters {}", max_clusters);
+
+        let mut bootstrapping_args = bootstrapping_args.unwrap_or("".to_string());
+        bootstrapping_args += &format!(" --radius {}", radius);
+
         if route_chunk_size.is_some() {
             log::warn!("route_chunk_size is now deprecated, please use route_split_level")
         }
@@ -579,6 +575,9 @@ impl Args {
             tth,
             mode,
             route_split_level,
+            routing_args,
+            clustering_args,
+            bootstrapping_args,
         }
     }
 }

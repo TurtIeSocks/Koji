@@ -1,0 +1,84 @@
+# Plugin Examples
+
+## C++
+
+The TSP routing method is actually a plugin and can be viewed in the codebase [here](https://github.com/TurtIeSocks/Koji/blob/main/or-tools/tsp/tsp.cc).
+
+## Python
+
+```py
+import argparse
+
+def parse_points(points_str):
+    points = []
+    for point in points_str.split():
+        lat, lng = map(float, point.split(","))
+        points.append((lat, lng))
+    return points
+
+def main():
+    # Parse Arguments
+    parser = argparse.ArgumentParser(description="Route Points")
+    parser.add_argument(
+        "--radius",
+        type=int,
+        help="Radius of the cluster",
+    )
+    parser.add_argument(
+        "--split-level",
+        type=int,
+        help="A way to split stuff",
+    )
+    args = parser.parse_args()
+
+    # Read points from stdin:
+    points_str = input()
+    points = parse_points(points_str)
+
+    # Do something with the points and args here #
+
+    for point in points:
+        print(f"{point[0]},{point[1]}")
+
+if __name__ == "__main__":
+    main()
+```
+
+## JavaScript
+
+```js
+// Parse input args
+const args = []
+for (let i = 2; i < process.argv.length; i++) {
+  if (process.argv[i].startsWith('--')) {
+    if (process.argv[i + 1]) {
+      const arg = process.argv[i]
+      const value = process.argv[++i]
+      const maybeNumber = +value
+      args.push({ [arg]: Number.isInteger(maybeNumber) ? maybeNumber : value })
+    }
+  }
+}
+
+process.stdin.on('data', function (data) {
+  // Parse the stdin from Kōji
+  const coords = data
+    .toString()
+    .trim()
+    .split(' ')
+    .map((coord) => coord.split(',').map(Number))
+
+  // Do something with coords and args //
+
+  // Send results back to Kōji
+
+  // You can return points individually like this
+  for (const point of coords) {
+    process.stdout.write(`${point.join(',')}`)
+  }
+
+  // Or you can return them as a single string
+  const result = coords.map((coord) => coord.join(',')).join(' ')
+  process.stdout.write(result)
+})
+```

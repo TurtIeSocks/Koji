@@ -24,10 +24,18 @@ import { usePersist } from '@hooks/usePersist'
 import { clusteringRouting } from '@services/fetches'
 
 import ListSubheader from '../styled/Subheader'
-import NumInput from './inputs/NumInput'
+import UserTextInput from './inputs/NumInput'
 import { MultiOptionList } from './inputs/MultiOptions'
 import Toggle from './inputs/Toggle'
 
+const formatPluginName = (item: string) => {
+  if (item === 'tsp') return 'TSP'
+  if (item.includes('.')) {
+    const [plugin, ext] = item.split('.')
+    return `${plugin} (${ext})`
+  }
+  return item
+}
 export default function RoutingTab() {
   const mode = usePersist((s) => s.mode)
   const category = usePersist((s) => s.category)
@@ -40,6 +48,25 @@ export default function RoutingTab() {
   const isEditing = useStatic((s) =>
     Object.values(s.layerEditing).some((v) => v),
   )
+  const routePlugins = useStatic((s) => s.route_plugins)
+  const clusteringPlugins = useStatic((s) => s.clustering_plugins)
+  const bootstrapPlugins = useStatic((s) => s.bootstrap_plugins)
+
+  const sortByOptions = React.useMemo(() => {
+    return [...SORT_BY, ...routePlugins]
+  }, [routePlugins])
+  const clusterOptions = React.useMemo(() => {
+    return [...CLUSTERING_MODES, ...clusteringPlugins]
+  }, [clusteringPlugins])
+  const bootstrapOptions = React.useMemo(() => {
+    return [...CALC_MODE, ...bootstrapPlugins]
+  }, [bootstrapPlugins])
+
+  React.useEffect(() => {
+    if (!CALC_MODE.some((x) => x === calculation_mode)) {
+      usePersist.setState({ calculation_mode: 'Radius' })
+    }
+  }, [mode])
 
   const fastest = cluster_mode === 'Fastest'
   return (
@@ -59,13 +86,20 @@ export default function RoutingTab() {
       </Collapse>
       <MultiOptionList
         field="calculation_mode"
-        buttons={CALC_MODE}
+        buttons={mode === 'bootstrap' ? bootstrapOptions : CALC_MODE}
         label="Strategy"
         hideLabel
         type="select"
       />
+      <Collapse
+        in={
+          !CALC_MODE.some((x) => x === calculation_mode) && mode === 'bootstrap'
+        }
+      >
+        <UserTextInput field="bootstrapping_args" helperText="--x 1 --y abc" />
+      </Collapse>
       <Collapse in={calculation_mode === 'Radius'}>
-        <NumInput field="radius" />
+        <UserTextInput field="radius" />
       </Collapse>
       <Collapse in={calculation_mode === 'S2'}>
         <MultiOptionList
@@ -89,26 +123,40 @@ export default function RoutingTab() {
       <Collapse in={mode !== 'bootstrap' && calculation_mode === 'Radius'}>
         <Divider sx={{ my: 2 }} />
         <ListSubheader>Clustering</ListSubheader>
-        <NumInput field="min_points" />
+        <UserTextInput field="min_points" />
         <MultiOptionList
           field="cluster_mode"
           hideLabel
-          buttons={CLUSTERING_MODES}
+          buttons={clusterOptions}
           type="select"
+          itemLabel={formatPluginName}
         />
         <Collapse in={!fastest}>
-          <NumInput field="cluster_split_level" min={1} max={20} />
+          <UserTextInput field="cluster_split_level" min={1} max={20} />
         </Collapse>
         <Collapse in={!fastest}>
-          <NumInput field="max_clusters" min={0} />
+          <UserTextInput field="max_clusters" min={0} />
+        </Collapse>
+        <Collapse in={!CLUSTERING_MODES.some((m) => m === cluster_mode)}>
+          <UserTextInput field="clustering_args" helperText="--x 1 --y abc" />
         </Collapse>
       </Collapse>
 
       <Divider sx={{ my: 2 }} />
       <ListSubheader>Routing</ListSubheader>
-      <MultiOptionList field="sort_by" buttons={SORT_BY} type="select" />
-      <Collapse in={sort_by === 'TSP'}>
-        <NumInput field="route_split_level" min={1} max={12} />
+      <MultiOptionList
+        field="sort_by"
+        buttons={sortByOptions}
+        type="select"
+        itemLabel={formatPluginName}
+      />
+      <Collapse in={!SORT_BY.some((sort) => sort === sort_by)}>
+        <UserTextInput field="route_split_level" min={1} max={12} />
+      </Collapse>
+      <Collapse
+        in={!SORT_BY.some((sort) => sort === sort_by) && sort_by !== 'tsp'}
+      >
+        <UserTextInput field="routing_args" helperText="--x 1 --y abc" />
       </Collapse>
 
       <Divider sx={{ my: 2 }} />

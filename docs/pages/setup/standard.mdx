@@ -88,45 +88,32 @@ import { Callout } from 'nextra-theme-docs'
 1.  Compile the server:
 
     ```bash
-    cd ../server && cargo run -r
     # you might have to also install pkg-config (`apt install pkg-config`)
+    cd ../server && cargo install --path . --force
     ```
 
 1.  Optionally install [PM2](https://pm2.keymetrics.io/) to run the server in the background:
 
     ```bash
     npm install pm2 -g
-    pm2 start "cargo run -r" --name koji # from the /server folder
+    pm2 start koji # from the /server folder
     ```
 
 ## Updating
 
-1. Pull update
+```bash
+# pull latest
+git pull
 
-   ```bash
-   git pull
-   ```
+# recompile OR-Tools
+./or-tools/install.sh
 
-1. Recompile OR-Tools
+# recompile client
+cd client && yarn install && yarn build
 
-   ```bash
-   ./or-tools/install.sh
-   ```
+# recompile server
+cd ../server && cargo install --path . --force
 
-1. Recompile Client
-
-   ```bash
-   cd client && yarn install && yarn build
-   ```
-
-1. Recompile Server
-
-   ```bash
-   cd ../server && cargo run -r
-   ```
-
-1. If using pm2
-
-   ```bash
-   pm2 restart koji
-   ```
+# if using PM2
+pm2 restart koji
+```

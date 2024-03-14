@@ -26,6 +26,13 @@ interface Props<T extends FieldType, K extends UsePersist[T]> {
   itemLabel?: (item: K) => string
 }
 
+const defaultLabel = (item: string | number) =>
+  typeof item === 'string'
+    ? item.includes('_')
+      ? fromSnakeCase(item)
+      : fromCamelCase(item)
+    : `${item}`
+
 export default function MultiOptions<
   T extends FieldType,
   K extends UsePersist[T],
@@ -36,14 +43,9 @@ export default function MultiOptions<
   type = 'button',
   label = '',
   hideLabel = !label,
-  itemLabel = (item: number | string) =>
-    typeof item === 'string'
-      ? item.includes('_')
-        ? fromSnakeCase(item)
-        : fromCamelCase(item)
-      : `${item}`,
+  itemLabel = defaultLabel,
 }: Props<T, K>) {
-  const [value, setValue] = usePersist((s) => [s[field], usePersist.setState])
+  const value = usePersist((s) => s[field])
 
   return type === 'button' ? (
     <ToggleButtonGroup
@@ -51,7 +53,7 @@ export default function MultiOptions<
       color="primary"
       value={value}
       exclusive
-      onChange={(_e, v) => setValue({ [field]: v })}
+      onChange={(_e, v) => usePersist.setState({ [field]: v })}
       sx={{ mx: 'auto' }}
       disabled={disabled}
     >
@@ -72,7 +74,9 @@ export default function MultiOptions<
         label={hideLabel ? undefined : label}
         value={value}
         color="primary"
-        onChange={({ target }) => setValue({ [field]: target.value as K })} // Mui y u like this
+        onChange={({ target }) =>
+          usePersist.setState({ [field]: target.value as K })
+        } // Mui y u like this
         sx={{ mx: 'auto', minWidth: 150 }}
         disabled={disabled}
       >

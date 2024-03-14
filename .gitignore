@@ -15,7 +15,8 @@ docker-compose.yml
 server/target
 vrp_tests
 server/debug_files/*
-server/algorithms/src/routing/tsp
+server/algorithms/src/**/plugins/**/*
+!server/algorithms/src/**/plugins/.gitkeep
 
 # misc
 .idea/*

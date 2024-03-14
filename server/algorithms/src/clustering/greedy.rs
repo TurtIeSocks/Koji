@@ -31,7 +31,7 @@ impl Default for Greedy {
     fn default() -> Self {
         Greedy {
             cluster_mode: ClusterMode::Balanced,
-            cluster_split_level: 1,
+            cluster_split_level: 0,
             max_clusters: usize::MAX,
             min_points: 1,
             radius: 70.,
@@ -65,7 +65,7 @@ impl<'a> Greedy {
         let time = Instant::now();
         log::info!("starting algorithm with {} data points", points.len());
 
-        let return_set = if self.cluster_split_level == 1 {
+        let return_set = if self.cluster_split_level == 0 {
             self.setup(points)
         } else {
             let cell_maps = s2::create_cell_map(&points, self.cluster_split_level);

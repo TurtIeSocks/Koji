@@ -15,6 +15,7 @@
 
 typedef std::vector<std::vector<int64_t>> DistanceMatrix;
 typedef std::vector<std::vector<double>> RawInput;
+typedef std::vector<int> RawOutput;
 
 namespace operations_research
 {
@@ -96,17 +97,17 @@ namespace operations_research
   //! @param[in] manager The manager of the routing problem.
   //! @param[in] routing The routing model.
   //! @param[in] solution The solution of the routing problem.
-  RawInput GetRoutes(const RoutingIndexManager &manager, const RoutingModel &routing, const Assignment &solution)
+  RawOutput GetRoutes(const RoutingIndexManager &manager, const RoutingModel &routing, const Assignment &solution)
   {
-    RawInput routes(manager.num_vehicles());
-    for (double vehicle_id = 0; vehicle_id < manager.num_vehicles(); ++vehicle_id)
+    RawOutput routes(manager.num_vehicles());
+    for (int vehicle_id = 0; vehicle_id < manager.num_vehicles(); ++vehicle_id)
     {
       int64_t index = routing.Start(vehicle_id);
-      routes[vehicle_id].push_back(manager.IndexToNode(index).value());
+      routes.push_back(manager.IndexToNode(index).value());
       while (!routing.IsEnd(index))
       {
         index = solution.Value(routing.NextVar(index));
-        routes[vehicle_id].push_back(manager.IndexToNode(index).value());
+        routes.push_back(manager.IndexToNode(index).value());
       }
     }
     return routes;
@@ -114,7 +115,7 @@ namespace operations_research
 
   //! @brief Solves the TSP problem.
   //! @param[in] locations The [Lat, Lng] pairs.
-  RawInput Tsp(RawInput locations)
+  RawOutput Tsp(RawInput locations)
   {
     DataModel data;
     data.distance_matrix = distanceMatrix(locations);
@@ -136,7 +137,7 @@ namespace operations_research
     searchParameters.set_first_solution_strategy(
         FirstSolutionStrategy::PATH_CHEAPEST_ARC);
 
-    if (locations.size() > 1000)
+    if (locations.size() > 2000)
     {
       searchParameters.set_local_search_metaheuristic(
           LocalSearchMetaheuristic::GUIDED_LOCAL_SEARCH);
@@ -153,32 +154,56 @@ namespace operations_research
 
 }
 
-int main()
+std::vector<std::string> split(const std::string &s, char delimiter)
 {
-  RawInput distance_matrix;
-  std::vector<double> row;
+  std::vector<std::string> tokens;
+  std::string token;
+  std::istringstream tokenStream(s);
+  while (std::getline(tokenStream, token, delimiter))
+  {
+    tokens.push_back(token);
+  }
+  return tokens;
+}
+
+int main(int argc, char *argv[])
+{
+  std::map<std::string, std::string> args;
+  RawInput points;
+  std::vector<std::string> stringPoints;
 
   std::string line;
-  while (std::getline(std::cin, line, ',') && !line.empty())
+  while (std::getline(std::cin, line, ' ') && !line.empty())
   {
-    if (line == " ")
+    auto coordinates = split(line, ',');
+    if (coordinates.size() == 2)
     {
-      distance_matrix.push_back(row);
-      row.clear();
-      continue;
+      double lat = std::stod(coordinates[0]);
+      double lng = std::stod(coordinates[1]);
+      points.push_back({lat, lng});
+      stringPoints.push_back(line);
     }
-    double value = std::stod(line);
-    row.push_back(value);
   }
 
-  RawInput routes = operations_research::Tsp(distance_matrix);
-  for (auto route : routes)
+  for (int i = 1; i < argc; ++i)
   {
-    for (auto node : route)
+    std::string arg = argv[i];
+    if (arg.find("--") == 0)
     {
-      std::cout << node << ",";
+      std::string key = arg.substr(2);
+      if (i + 1 < argc)
+      {
+        args[key] = argv[++i];
+      }
     }
-    std::cout << std::endl;
+  }
+
+  RawOutput routes = operations_research::Tsp(points);
+
+  for (auto point : routes)
+  {
+    std::cout << stringPoints[point] << std::endl
+              << std::flush;
   }
 
   return EXIT_SUCCESS;

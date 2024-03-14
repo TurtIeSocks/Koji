@@ -8,7 +8,8 @@ use geo::{ChamberlainDuquetteArea, MultiPolygon, Polygon};
 use geojson::Value;
 use model::{
     api::{
-        args::{Args, ArgsUnwrapped, SortBy},
+        args::{Args, ArgsUnwrapped},
+        sort_by::SortBy,
         FeatureHelpers, GeoFormats, ToCollection, ToFeature, ToSingleVec,
     },
     db::{area, geofence, instance, route, sea_orm_active_enums::Type},
@@ -35,6 +36,8 @@ async fn bootstrap(
         parent,
         sort_by,
         route_split_level,
+        routing_args,
+        bootstrapping_args,
         ..
     } = payload.into_inner().init(Some("bootstrap"));
 
@@ -59,6 +62,8 @@ async fn bootstrap(
         s2_size,
         route_split_level,
         &mut stats,
+        &routing_args,
+        &bootstrapping_args,
     );
 
     if parent.is_some() {
@@ -91,14 +96,16 @@ async fn bootstrap(
         if !feat.contains_property("__name") && !instance.is_empty() {
             feat.set_property("__name", instance.clone());
         }
-        feat.set_property(
-            "__mode",
-            if conn.scanner_type == ScannerType::Unown {
-                "circle_pokemon"
-            } else {
-                "circle_smart_pokemon"
-            },
-        );
+        if !feat.contains_property("__mode") {
+            feat.set_property(
+                "__mode",
+                if conn.scanner_type == ScannerType::Unown {
+                    "circle_pokemon"
+                } else {
+                    "circle_smart_pokemon"
+                },
+            );
+        }
         if save_to_db {
             route::Query::upsert_from_geometry(&conn.koji, GeoFormats::Feature(feat.clone()))
                 .await
@@ -161,11 +168,13 @@ async fn cluster(
         sort_by,
         tth,
         route_split_level,
+        routing_args,
         calculation_mode,
         s2_level,
         s2_size,
         parent,
         max_clusters,
+        clustering_args,
         ..
     } = payload.into_inner().init(Some(&mode));
 
@@ -175,8 +184,8 @@ async fn cluster(
             HttpResponse::BadRequest().json(Response::send_error("no_area_instance_data_points"))
         );
     }
-    let sort_by = if mode.eq("route") && sort_by == SortBy::None {
-        SortBy::TSP
+    let sort_by = if mode.eq("route") && sort_by == SortBy::Unset {
+        SortBy::Custom(String::from("tsp"))
     } else {
         sort_by
     };
@@ -232,6 +241,7 @@ async fn cluster(
         s2_level,
         s2_size,
         area,
+        &clustering_args,
     );
     let clusters = routing::main(
         &data_points,
@@ -240,6 +250,7 @@ async fn cluster(
         route_split_level,
         radius,
         &mut stats,
+        &routing_args,
     );
 
     let mut feature = clusters
@@ -308,15 +319,16 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         mode,
         sort_by,
         radius,
+        routing_args,
         ..
     } = payload.into_inner().init(Some("reroute"));
     let mut stats = Stats::new(String::from("Reroute"), 1);
 
     // For legacy compatibility
-    let clusters = if clusters.is_empty() {
-        data_points.clone()
+    let (clusters, data_points) = if clusters.is_empty() {
+        (data_points, vec![])
     } else {
-        clusters
+        (clusters, data_points)
     };
     stats.total_clusters = clusters.len();
 
@@ -327,6 +339,7 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         route_split_level,
         radius,
         &mut stats,
+        &routing_args,
     );
 
     let feature = clusters.to_feature(Some(mode.clone())).remove_last_coord();

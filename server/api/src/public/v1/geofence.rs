@@ -24,7 +24,7 @@ async fn all(
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    println!("[PUBLIC_API] Returning {} instances\n", fc.features.len());
+    log::info!("[PUBLIC_API] Returning {} instances", fc.features.len());
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!(fc)),
         message: "Success".to_string(),
@@ -52,7 +52,7 @@ async fn get_area(
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     log::info!(
-        "[PUBLIC_API] Returning feature for {:?}\n",
+        "[PUBLIC_API] Returning feature for {:?}",
         feature.property("name")
     );
     Ok(utils::response::send(
@@ -112,7 +112,7 @@ async fn save_scanner(
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
     }
-    println!("Rows Updated: {}, Rows Inserted: {}", updates, inserts);
+    log::info!("Rows Updated: {}, Rows Inserted: {}", updates, inserts);
 
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!({ "updates": updates, "inserts": inserts })),
@@ -167,7 +167,7 @@ async fn reference_data(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> 
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    log::info!("[GEOFENCES_ALL] Returning {} instances\n", fences.len());
+    log::info!("[GEOFENCES_ALL] Returning {} instances", fences.len());
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!(fences)),
         message: "Success".to_string(),
@@ -210,10 +210,7 @@ async fn specific_return_type(
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    println!(
-        "[GEOFENCES_ALL] Returning {} instances\n",
-        fc.features.len()
-    );
+    log::info!("[GEOFENCES_ALL] Returning {} instances", fc.features.len());
     Ok(utils::response::send(fc, return_type, None, false, None))
 }
 
@@ -231,10 +228,7 @@ async fn specific_project(
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    println!(
-        "[GEOFENCES_FC_ALL] Returning {} instances\n",
-        features.len()
-    );
+    log::info!("[GEOFENCES_FC_ALL] Returning {} instances", features.len());
     Ok(utils::response::send(
         features.to_collection(None, None),
         return_type,

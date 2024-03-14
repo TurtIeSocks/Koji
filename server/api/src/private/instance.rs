@@ -18,7 +18,7 @@ use crate::{
 
 #[get("/from_scanner")]
 async fn from_scanner(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
-    log::info!("\n[INSTANCE-ALL] Scanner Type: {}", conn.scanner_type);
+    log::info!("[INSTANCE-ALL] Scanner Type: {}", conn.scanner_type);
 
     let instances = if conn.scanner_type == ScannerType::Unown {
         area::Query::all(&conn.controller).await
@@ -27,7 +27,7 @@ async fn from_scanner(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    log::info!("[INSTANCE_ALL] Returning {} instances\n", instances.len());
+    log::info!("[INSTANCE_ALL] Returning {} instances", instances.len());
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!(instances)),
         message: "ok".to_string(),
@@ -39,7 +39,7 @@ async fn from_scanner(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
 
 #[get("/from_koji")]
 async fn from_koji(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
-    log::info!("\n[INSTANCE-ALL] Scanner Type: {}", conn.scanner_type);
+    log::info!("[INSTANCE-ALL] Scanner Type: {}", conn.scanner_type);
 
     let fences = geofence::Query::get_all_no_fences(&conn.koji)
         .await
@@ -66,7 +66,7 @@ async fn from_koji(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
         })
     });
 
-    log::info!("[INSTANCE_ALL] Returning {} instances\n", fences.len());
+    log::info!("[INSTANCE_ALL] Returning {} instances", fences.len());
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!(fences)),
         message: "ok".to_string(),

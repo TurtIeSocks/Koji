@@ -31,7 +31,7 @@ impl ToMultiVec for SingleStruct {
 
 impl ToPointStruct for SingleStruct {
     fn to_struct(self) -> point_struct::PointStruct {
-        println!("`to_struct()` was called on a SingleVec and this was likely unintentional, did you mean to map over the values first?");
+        log::warn!("`to_struct()` was called on a SingleVec and this was likely unintentional, did you mean to map over the values first?");
         point_struct::PointStruct {
             lat: self[0].lat,
             lon: self[0].lon,

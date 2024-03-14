@@ -8,6 +8,7 @@ use geojson::{Bbox, Geometry, Value};
 use sea_orm::FromQueryResult;
 
 pub mod args;
+pub mod calc_mode;
 pub mod cluster_mode;
 pub mod collection;
 pub mod feature;
@@ -19,6 +20,7 @@ pub mod point_struct;
 pub mod poracle;
 pub mod single_struct;
 pub mod single_vec;
+pub mod sort_by;
 pub mod text;
 
 pub type Precision = f64;
@@ -202,7 +204,7 @@ impl BBox {
             vec![self.max_x, self.min_y],
             vec![self.min_x, self.min_y],
         ]]
-        // println!(
+        // log::info!(
         //     "{}, {}\n{}, {}\n{}, {}\n{}, {}\n{}, {}\n",
         //     self.min_y,
         //     self.min_x,

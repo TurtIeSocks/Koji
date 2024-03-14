@@ -5,7 +5,7 @@ use crate::{routing, stats::Stats};
 use geo::{Contains, Extremes, HaversineDestination, HaversineDistance, Point, Polygon};
 use geojson::{Feature, Geometry, Value};
 use model::{
-    api::{args::SortBy, single_vec::SingleVec, Precision, ToFeature, ToGeometryVec},
+    api::{single_vec::SingleVec, sort_by::SortBy, Precision, ToFeature, ToGeometryVec},
     db::sea_orm_active_enums::Type,
 };
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -37,8 +37,7 @@ impl<'a> BootstrapRadius<'a> {
         new_bootstrap
     }
 
-    pub fn sort(&mut self, sort_by: &SortBy, route_split_level: u64) {
-        let time = Instant::now();
+    pub fn sort(&mut self, sort_by: &SortBy, route_split_level: u64, routing_args: &str) {
         self.result = routing::main(
             &vec![],
             self.result.clone(),
@@ -46,8 +45,8 @@ impl<'a> BootstrapRadius<'a> {
             route_split_level,
             self.radius,
             &mut self.stats,
+            routing_args,
         );
-        self.stats.set_route_time(time);
     }
 
     pub fn result(self) -> SingleVec {

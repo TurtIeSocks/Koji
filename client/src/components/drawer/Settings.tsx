@@ -22,7 +22,7 @@ import { fetchWrapper } from '@services/fetches'
 
 import Toggle from './inputs/Toggle'
 import ListSubheader from '../styled/Subheader'
-import NumInput from './inputs/NumInput'
+import UserTextInput from './inputs/NumInput'
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -84,16 +84,16 @@ export default function Settings() {
       )}
       <Divider sx={{ my: 2 }} />
       <ListSubheader disableGutters>Max Area to Auto Calc (km²)</ListSubheader>
-      <NumInput field="pokestopMaxAreaAutoCalc" label="Pokestops" />
-      <NumInput field="gymMaxAreaAutoCalc" label="Gyms" />
-      <NumInput field="spawnpointMaxAreaAutoCalc" label="Spawnpoints" />
+      <UserTextInput field="pokestopMaxAreaAutoCalc" label="Pokestops" />
+      <UserTextInput field="gymMaxAreaAutoCalc" label="Gyms" />
+      <UserTextInput field="spawnpointMaxAreaAutoCalc" label="Spawnpoints" />
       {process.env.NODE_ENV === 'development' && (
         <>
           <Divider sx={{ my: 2 }} />
           <ListSubheader disableGutters>Dev</ListSubheader>
           <Toggle field="nativeLeaflet" />
           <Toggle field="colorByGeohash" />
-          <NumInput field="geohashPrecision" />
+          <UserTextInput field="geohashPrecision" />
         </>
       )}
       <Divider sx={{ my: 2 }} />

@@ -7,7 +7,7 @@ import { usePersist } from '@hooks/usePersist'
 import ListSubheader from '../styled/Subheader'
 import Toggle from './inputs/Toggle'
 import { MultiOptionList } from './inputs/MultiOptions'
-import NumInput from './inputs/NumInput'
+import UserTextInput from './inputs/NumInput'
 import { LineColorSelector } from './inputs/LineStringColor'
 
 export default function DrawingTab() {
@@ -17,7 +17,7 @@ export default function DrawingTab() {
       <ListSubheader disableGutters>Drawing</ListSubheader>
       <Toggle field="snappable" />
       <Toggle field="continueDrawing" />
-      <NumInput field="radius" disabled={calculationMode === 'S2'} />
+      <UserTextInput field="radius" disabled={calculationMode === 'S2'} />
       <MultiOptionList
         field="setActiveMode"
         label="Activate"
