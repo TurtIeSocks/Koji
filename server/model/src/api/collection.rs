@@ -1,3 +1,5 @@
+use self::utils::sql_raw;
+
 use super::{args::UnknownId, multi_vec::MultiVec, *};
 
 pub trait Default {
@@ -245,5 +247,11 @@ impl ToPoracleVec for FeatureCollection {
             return_vec.push(poracle_feat);
         }
         return_vec
+    }
+}
+
+impl ToSql for FeatureCollection {
+    fn to_sql(self) -> String {
+        format!("SELECT * FROM {{database.table}} WHERE{}", sql_raw(&self))
     }
 }

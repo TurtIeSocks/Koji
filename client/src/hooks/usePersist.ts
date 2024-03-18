@@ -144,6 +144,7 @@ export const usePersist = create(
         const date = new Date()
         date.setMinutes(0)
         date.setSeconds(0)
+        date.setMonth(date.getMonth() - 1)
         return date
       })(),
       snappable: true,

@@ -3,7 +3,7 @@ use super::*;
 use actix_web::HttpResponse;
 use algorithms::stats::Stats;
 use geojson::JsonValue;
-use model::api::{Precision, ToGeometry};
+use model::api::{Precision, ToGeometry, ToSql};
 use serde::Serialize;
 use serde_json::json;
 
@@ -88,7 +88,8 @@ pub fn send(
             ReturnTypeArg::FeatureVec => GeoFormats::FeatureVec(value.features),
             ReturnTypeArg::FeatureCollection => GeoFormats::FeatureCollection(value),
             ReturnTypeArg::Poracle => GeoFormats::Poracle(value.to_poracle_vec()),
-            ReturnTypeArg::PoracleSingle => GeoFormats::PoracleSingle(value.to_poracle_vec().first().unwrap().clone())
+            ReturnTypeArg::PoracleSingle => GeoFormats::PoracleSingle(value.to_poracle_vec().first().unwrap().clone()),
+            ReturnTypeArg::Sql => GeoFormats::Text(value.to_sql()),
         }))},
         stats,
     })

@@ -112,6 +112,10 @@ pub trait ToGeometryVec {
     fn to_geometry_vec(self) -> Vec<Geometry>;
 }
 
+pub trait ToSql {
+    fn to_sql(self) -> String;
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum GeoFormats {

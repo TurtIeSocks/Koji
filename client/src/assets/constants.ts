@@ -122,6 +122,7 @@ export const CONVERSION_TYPES = [
   'text',
   'altText',
   'poracle',
+  'sql',
 ] as const
 
 export const GEOMETRY_CONVERSION_TYPES = [

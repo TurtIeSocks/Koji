@@ -155,6 +155,7 @@ pub enum ReturnTypeArg {
     FeatureCollection,
     PoracleSingle,
     Poracle,
+    Sql,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -606,6 +607,7 @@ pub fn get_return_type(return_type: String, default_return_type: &ReturnTypeArg)
         "featurevec" | "feature_vec" => ReturnTypeArg::FeatureVec,
         "poracle" => ReturnTypeArg::Poracle,
         "featurecollection" | "feature_collection" => ReturnTypeArg::FeatureCollection,
+        "sql" => ReturnTypeArg::Sql,
         _ => default_return_type.clone(),
     }
 }
