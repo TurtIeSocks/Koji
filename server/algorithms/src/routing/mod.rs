@@ -9,6 +9,7 @@ use crate::{
     utils,
 };
 
+mod hilbert;
 mod join;
 pub mod sorting;
 // pub mod vrp;
@@ -29,6 +30,7 @@ pub fn main(
         SortBy::GeoHash => clusters.sort_geohash(),
         SortBy::S2Cell => clusters.sort_s2(),
         SortBy::Random => clusters.sort_random(),
+        SortBy::Hilbert => hilbert::run(clusters),
         SortBy::Unset => clusters,
         SortBy::Custom(plugin) => {
             let clusters = clusters.sort_s2();

@@ -8,6 +8,7 @@ pub enum SortBy {
     Random,
     S2Cell,
     LatLon,
+    Hilbert,
     Custom(String),
 }
 
@@ -42,6 +43,7 @@ impl<'de> Deserialize<'de> for SortBy {
             "s2" | "s2cell" => Ok(SortBy::S2Cell),
             "latlon" => Ok(SortBy::LatLon),
             "" | "none" | "unset" => Ok(SortBy::Unset),
+            "hilbert" => Ok(SortBy::Hilbert),
             // This is for backwards compatibility since the custom below would end up with a value of "TSP"
             "tsp" => Ok(SortBy::Custom("tsp".to_string())),
             _ => Ok(SortBy::Custom(s)),
