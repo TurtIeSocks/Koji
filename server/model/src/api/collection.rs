@@ -39,6 +39,21 @@ impl GeometryHelpers for FeatureCollection {
             })
             .collect()
     }
+
+    fn to_f32(self) -> Self {
+        self.into_iter()
+            .map(|feat| {
+                if let Some(geometry) = feat.geometry {
+                    Feature {
+                        geometry: Some(geometry.to_f32()),
+                        ..feat
+                    }
+                } else {
+                    feat
+                }
+            })
+            .collect()
+    }
 }
 
 impl EnsureProperties for FeatureCollection {

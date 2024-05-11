@@ -89,6 +89,7 @@ const PROPERTIES = {
   mode: 'boolean',
   parent: 'boolean',
   group: 'boolean',
+  fullcoords: 'boolean',
 }
 
 const PARAMS = {

@@ -15,6 +15,8 @@ use crate::{
     },
 };
 
+use self::api::GeometryHelpers;
+
 use super::{
     geofence_property::{Basic, FullPropertyModel},
     sea_orm_active_enums::Type,
@@ -202,9 +204,14 @@ impl Model {
                 value: serde_json::Value::from(parent_name.clone()),
             });
         }
+        let geometry = Geometry::from_json_value(self.geometry)?;
 
         let mut feature = Feature {
-            geometry: Some(Geometry::from_json_value(self.geometry)?),
+            geometry: Some(if args.internal.is_some() || args.fullcoords.is_some() {
+                geometry
+            } else {
+                geometry.to_f32()
+            }),
             ..Feature::default()
         };
         for prop in properties.into_iter() {
