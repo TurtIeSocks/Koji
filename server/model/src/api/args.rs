@@ -60,6 +60,8 @@ pub struct ApiQueryArgs {
     pub rt: Option<String>,
     /// If true, the `group` property is set from the parent property
     pub group: Option<bool>,
+    /// If true, the full 64 bit coordinates are used
+    pub fullcoords: Option<bool>,
 
     // -------------------------------------------------------------------------
     // Name Property Manipulation
@@ -108,6 +110,7 @@ impl Default for ApiQueryArgs {
             geofence_id: None,
             parent: None,
             rt: None,
+            fullcoords: None,
             lowercase: None,
             uppercase: None,
             capitalize: None,

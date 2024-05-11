@@ -37,6 +37,24 @@ impl EnsurePoints for Geometry {
     }
 }
 
+fn trim_precision(data: Vec<Vec<Vec<f64>>>) -> Vec<Vec<Vec<f64>>> {
+    let mut formatted_data = Vec::new();
+
+    for outer_vec in data {
+        let mut formatted_outer_vec = Vec::new();
+        for inner_vec in outer_vec {
+            let mut formatted_inner_vec = Vec::new();
+            for num in inner_vec {
+                formatted_inner_vec.push(format!("{:.6}", num).parse().unwrap());
+            }
+            formatted_outer_vec.push(formatted_inner_vec);
+        }
+        formatted_data.push(formatted_outer_vec);
+    }
+
+    formatted_data
+}
+
 impl GeometryHelpers for Geometry {
     fn simplify(self) -> Self {
         let mut geometry = match self.value {
@@ -48,6 +66,21 @@ impl GeometryHelpers for Geometry {
                     .unwrap()
                     .simplify(&0.0001),
             ),
+            _ => self,
+        };
+        geometry.bbox = geometry.get_bbox();
+        geometry
+    }
+    fn to_f32(self) -> Self {
+        let mut geometry = match self.value {
+            Value::Polygon(value) => Geometry::from(geojson::Value::Polygon(trim_precision(value))),
+            Value::MultiPolygon(value) => {
+                let mut formatted_data: Vec<Vec<Vec<Vec<f64>>>> = Vec::new();
+                for outer_vec in value {
+                    formatted_data.push(trim_precision(outer_vec))
+                }
+                Geometry::from(geojson::Value::MultiPolygon(formatted_data))
+            }
             _ => self,
         };
         geometry.bbox = geometry.get_bbox();
