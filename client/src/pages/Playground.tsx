@@ -107,6 +107,9 @@ const PARAMS = {
   underscore: 'string',
   dash: 'string',
   space: 'string',
+  exclude: 'string',
+  excludeparents: 'string',
+  excludeproperties: 'string',
   unpolish: 'boolean',
   ignoremanualparent: 'boolean',
 }
