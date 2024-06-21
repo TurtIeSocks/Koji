@@ -60,10 +60,16 @@ impl Stats {
 
     pub fn log(&self, area: Option<String>) {
         let get_row = |text: String, replace: bool| {
+            let safe_text: String = if text.len() > WIDTH.len() - 4 {
+                text[..(WIDTH.len() - 4)].to_string()
+            } else {
+                text
+            };
             format!(
                 "  {}{}{}\n",
-                text,
-                WIDTH[..(WIDTH.len() - text.len())].replace("=", if replace { " " } else { "=" }),
+                safe_text,
+                WIDTH[..(WIDTH.len() - safe_text.len())]
+                    .replace("=", if replace { " " } else { "=" }),
                 if replace { "||" } else { "==" }
             )
         };
