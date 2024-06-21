@@ -11,7 +11,7 @@ use crate::{
     error::ModelError,
     utils::{
         json::{determine_category_by_value, JsonToModel},
-        json_related_sort, name_modifier, parse_order,
+        json_related_sort, name_modifier, parse_order, separate_by_comma,
     },
 };
 
@@ -126,6 +126,7 @@ impl Model {
         args: &ApiQueryArgs,
     ) -> Result<Feature, ModelError> {
         let mut has_manual_parent = String::from("");
+
         let mut properties = if let Some(properties) = property_map.get(&self.id) {
             properties
                 .into_iter()
@@ -143,6 +144,20 @@ impl Model {
             vec![]
         };
 
+        log::info!("{:?} {}", args.exclude, self.name);
+        if separate_by_comma(&args.exclude).contains(&self.name) {
+            return Err(ModelError::Geofence("Excluded name".to_string()));
+        }
+        if properties
+            .iter()
+            .find(|prop| {
+                separate_by_comma(&args.excludeproperties).contains(&prop.name.to_string())
+            })
+            .is_some()
+        {
+            return Err(ModelError::Geofence("Excluded property".to_string()));
+        }
+
         let parent_name = if has_manual_parent.is_empty() {
             if let Some(parent_id) = self.parent {
                 if let Some(name) = name_map.get(&parent_id) {
@@ -156,6 +171,15 @@ impl Model {
         } else {
             Some(has_manual_parent)
         };
+
+        if parent_name.is_some()
+            && separate_by_comma(&args.excludeparents)
+                .iter()
+                .any(|parent| parent_name.as_ref().unwrap().eq(parent))
+        {
+            return Err(ModelError::Geofence("Excluded parent".to_string()));
+        }
+
         if args.internal.unwrap_or(false) {
             properties.push(Basic {
                 name: "__id",

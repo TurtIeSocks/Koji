@@ -69,6 +69,16 @@ pub struct ApiQueryArgs {
     /// If true, all non-alphanumeric characters are removed from the `name` property
     /// (excludes spaces, dashes, and underscores)
     pub alphanumeric: Option<bool>,
+    /// Exclude areas with the specified properties, no matter the value or type.
+    ///
+    /// Property keys separated by a comma
+    pub excludeproperties: Option<String>,
+    /// Excludes areas with the specified parent names
+    ///
+    /// A list of parents names separated by a comma that are to be excluded by the API query
+    pub excludeparents: Option<String>,
+    /// A list of names separated by a comma that are to be excluded by the API query
+    pub exclude: Option<String>,
 }
 ```
 

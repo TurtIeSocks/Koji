@@ -227,6 +227,14 @@ pub fn json_related_sort(json: &mut Vec<serde_json::Value>, sort_by: &String, or
     });
 }
 
+pub fn separate_by_comma(param: &Option<String>) -> Vec<String> {
+    if let Some(param) = param {
+        param.split(",").map(|x| x.to_string()).collect()
+    } else {
+        vec![]
+    }
+}
+
 fn convert_polish_to_ascii(param: String) -> String {
     let polish_characters: [(char, char); 18] = [
         ('ą', 'a'),
