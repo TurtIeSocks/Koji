@@ -144,7 +144,6 @@ impl Model {
             vec![]
         };
 
-        log::info!("{:?} {}", args.exclude, self.name);
         if separate_by_comma(&args.exclude).contains(&self.name) {
             return Err(ModelError::Geofence("Excluded name".to_string()));
         }
