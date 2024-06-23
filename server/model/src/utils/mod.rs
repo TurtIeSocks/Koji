@@ -160,6 +160,8 @@ pub async fn get_database_struct() -> KojiDb {
         "trace" => LevelFilter::Trace,
         _ => LevelFilter::Info,
     };
+    let enable_logging = log_level == LevelFilter::Trace || log_level == LevelFilter::Debug;
+
     let controller_connection = {
         let url = if controller_db_url.is_empty() {
             scanner_db_url.clone()
@@ -169,6 +171,7 @@ pub async fn get_database_struct() -> KojiDb {
         let mut opt = ConnectOptions::new(url);
         opt.max_connections(max_connections);
         opt.sqlx_logging_level(log_level);
+        opt.sqlx_logging(enable_logging);
         match Database::connect(opt).await {
             Ok(db) => db,
             Err(err) => panic!("Cannot connect to Controller DB: {}", err),
@@ -199,6 +202,7 @@ pub async fn get_database_struct() -> KojiDb {
             let mut opt = ConnectOptions::new(scanner_db_url);
             opt.max_connections(max_connections);
             opt.sqlx_logging_level(log_level);
+            opt.sqlx_logging(enable_logging);
             match Database::connect(opt).await {
                 Ok(db) => db,
                 Err(err) => panic!("Cannot connect to Scanner DB: {}", err),
@@ -208,6 +212,7 @@ pub async fn get_database_struct() -> KojiDb {
             let mut opt = ConnectOptions::new(koji_db_url);
             opt.max_connections(max_connections);
             opt.sqlx_logging_level(log_level);
+            opt.sqlx_logging(enable_logging);
             match Database::connect(opt).await {
                 Ok(db) => db,
                 Err(err) => panic!("Cannot connect to Kōji DB: {}", err),
