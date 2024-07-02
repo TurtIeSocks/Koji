@@ -23,7 +23,6 @@ server/algorithms/src/**/plugins/**/*
 .DS_Store
 
 # or-tools
-or-tools/**/*
-!or-tools/tsp
-!or-tools/install.sh
+or-tools/*
+!or-tools/src
 or-tools.tar.gz
