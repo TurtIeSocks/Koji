@@ -73,10 +73,7 @@ namespace operations_research
   //! @param[in] locations The [Lat, Lng] pairs.
   DistanceMatrix distanceMatrix(const RawInput &locations)
   {
-    auto start = std::chrono::high_resolution_clock::now();
-
     int numThreads = std::thread::hardware_concurrency();
-
     std::vector<std::thread> threads(numThreads);
     DistanceMatrix distances = DistanceMatrix(locations.size(), std::vector<int64_t>(locations.size(), int64_t{0}));
 
@@ -143,7 +140,7 @@ namespace operations_research
     {
       searchParameters.set_local_search_metaheuristic(
           LocalSearchMetaheuristic::GUIDED_LOCAL_SEARCH);
-      int64_t time = std::max(std::min(pow(locations.size() / 1000, 2.75), 3600.0), 3.0);
+      int64_t time = std::max(std::min(pow(locations.size() / 1000, 4), 3600.0), 3.0);
       searchParameters.mutable_time_limit()->set_seconds(time);
       // LOG(INFO) << "Time limit: " << time;
     }
@@ -171,7 +168,6 @@ std::vector<std::string> split(const std::string &s, char delimiter)
 int main(int argc, char *argv[])
 {
   set_memory_limit();
-  // LOG(INFO) << "Memory Set To: " << mem_limit;
 
   std::map<std::string, std::string> args;
   RawInput points;

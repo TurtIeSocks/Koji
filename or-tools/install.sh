@@ -2,8 +2,8 @@
 
 os=$OSTYPE
 cpu=$(uname -p)
-minor_version="9.10"
-patch_version="4067"
+minor_version="9.5"
+patch_version="2237"
 full_version="${minor_version}.${patch_version}"
 
 echo Installing or-tools v${full_version}
@@ -27,7 +27,11 @@ if [ ! -d "${full_version}" ]; then
                 if [[ "$cpu" == "arm" ]]; then
                         cpu="arm64"
                 fi
-                url="https://github.com/google/or-tools/releases/download/v${minor_version}/or-tools_${cpu}_macOS-14.4.1_cpp_v${full_version}.tar.gz"
+                macos_version="14.4.1"
+                if [[ "$minor_version" == "9.5" ]]; then
+                        macos_version="13.0.1"
+                fi
+                url="https://github.com/google/or-tools/releases/download/v${minor_version}/or-tools_${cpu}_macOS-${macos_version}_cpp_v${full_version}.tar.gz"
         else
                 echo "Unsupported OS, contact the developer"
                 exit 1

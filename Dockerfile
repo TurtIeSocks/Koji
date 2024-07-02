@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y
 RUN apt install -y curl build-essential cmake lsb-release
 RUN ldconfig
 COPY ./or-tools/src ./src
-RUN curl -L https://github.com/google/or-tools/releases/download/v9.10/or-tools_amd64_debian-11_cpp_v9.10.4067.tar.gz -o ortools.tar.gz
+RUN curl -L https://github.com/google/or-tools/releases/download/v9.5/or-tools_amd64_debian-11_cpp_v9.5.2237.tar.gz -o ortools.tar.gz
 RUN cat ortools.tar.gz | tar -xzf - && \
     mv or-tools_* or-tools && \
     cd or-tools && \ 
