@@ -26,8 +26,8 @@ RUN cat ortools.tar.gz | tar -xzf - && \
     mv ./examples/koji_tsp/build/bin/koji_tsp /algorithms/src/routing/plugins/tsp
 
 FROM debian:bullseye-slim as runner
-COPY --from=or-tools /algorithms .
-COPY --from=or-tools /or-tools .
+COPY --from=or-tools /algorithms ./algorithms
+COPY --from=or-tools /or-tools ./or-tools
 COPY --from=client /app/dist ./dist
 COPY --from=server /usr/local/cargo/bin/koji /usr/local/bin/koji
 
