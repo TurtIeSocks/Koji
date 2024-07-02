@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# add output as the first arg
 os=$OSTYPE
 cpu=$(uname -p)
 minor_version="9.10"
@@ -40,10 +40,16 @@ if [ ! -d "${full_version}" ]; then
 fi
 
 # check if folder exists and remove if so
-if [ -d "./${full_version}/examples/koji-tsp" ]; then
-        rm -r ./${full_version}/examples/koji-tsp
+if [ -d "./${full_version}/examples/koji_tsp" ]; then
+        rm -r ./${full_version}/examples/koji_tsp
 fi
-cp -r ./src/tsp ./${full_version}/examples/koji-tsp
+cp -r ./src/tsp ./${full_version}/examples/koji_tsp
 cd $full_version
-make build SOURCE=examples/koji-tsp/koji-tsp.cc
-mv ./examples/koji-tsp/build/bin/koji-tsp ../../server/algorithms/src/routing/plugins/tsp
+make build SOURCE=examples/koji_tsp
+
+if [ $# -eq 0 ]; then
+        echo hi
+        # mv ./examples/koji_tsp/build/bin/koji_tsp ../../server/algorithms/src/routing/plugins/tsp
+        # else
+        # mv ./${full_version}/examples/koji_tsp/build/bin/koji_tsp /algorithms/src/routing/plugins/tsp
+fi
