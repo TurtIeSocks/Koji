@@ -13,6 +13,8 @@
 #include "ortools/constraint_solver/routing_index_manager.h"
 #include "ortools/constraint_solver/routing_parameters.h"
 
+#include "memory_limit.h"
+
 typedef std::vector<std::vector<int64_t>> DistanceMatrix;
 typedef std::vector<std::vector<double>> RawInput;
 typedef std::vector<int> RawOutput;
@@ -168,6 +170,9 @@ std::vector<std::string> split(const std::string &s, char delimiter)
 
 int main(int argc, char *argv[])
 {
+  set_memory_limit();
+  // LOG(INFO) << "Memory Set To: " << mem_limit;
+
   std::map<std::string, std::string> args;
   RawInput points;
   std::vector<std::string> stringPoints;

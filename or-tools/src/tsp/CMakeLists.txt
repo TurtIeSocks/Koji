@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.18)
 
 option(CMAKE_EXPORT_COMPILE_COMMANDS "Export compile command" OFF)
 
-project(koji VERSION 1.0 LANGUAGES CXX)
+project(koji-tsp VERSION 1.0 LANGUAGES CXX)
 message(STATUS "${PROJECT_NAME} version: ${PROJECT_VERSION}")
 #message(STATUS "major: ${PROJECT_VERSION_MAJOR}")
 #message(STATUS "minor: ${PROJECT_VERSION_MINOR}")
@@ -68,7 +68,7 @@ endif()
 
 find_package(ortools REQUIRED CONFIG)
 
-add_executable(${PROJECT_NAME} koji.cc)
+add_executable(${PROJECT_NAME} koji-tsp.cc memory_limit.cc)
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 #target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 target_link_libraries(${PROJECT_NAME} PRIVATE ortools::ortools)
