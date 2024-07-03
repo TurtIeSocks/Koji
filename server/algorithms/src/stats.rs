@@ -17,6 +17,8 @@ pub struct Stats {
 
     pub best_clusters: SingleVec,
     pub best_cluster_point_count: usize,
+    pub worst_cluster_point_count: usize,
+    pub worst_cluster_count: usize,
     pub cluster_time: Precision,
     pub route_time: Precision,
     pub stats_time: Precision,
@@ -33,6 +35,8 @@ impl Stats {
         Self {
             best_clusters: vec![],
             best_cluster_point_count: 0,
+            worst_cluster_point_count: 0,
+            worst_cluster_count: 0,
             cluster_time: 0.,
             route_time: 0.,
             stats_time: 0.,
@@ -106,9 +110,11 @@ impl Stats {
             ),
             get_row(
                 format!(
-                    "|| [BEST_CLUSTER] Amount: {:?} | Point Count: {}",
-                    self.best_clusters.len(),
+                    "|| [COVERAGE] Best: {} ({}) | Worst: {} ({})",
                     self.best_cluster_point_count,
+                    self.best_clusters.len(),
+                    self.worst_cluster_point_count,
+                    self.worst_cluster_count,
                 ),
                 true
             ),
@@ -200,7 +206,9 @@ impl Stats {
             let clusters: Vec<Cluster<'_>> = cluster_info(&tree, &clusters);
             let mut points_covered: HashSet<&point::Point> = HashSet::new();
             let mut best_clusters = SingleVec::new();
-            let mut best = 0;
+            let mut best = usize::MIN;
+            let mut worst = usize::MAX;
+            let mut worst_count = 0;
 
             for cluster in clusters.iter() {
                 if cluster.all.len() > best {
@@ -210,13 +218,24 @@ impl Stats {
                 } else if cluster.all.len() == best {
                     best_clusters.push(cluster.point.center);
                 }
+                if cluster.all.len() < worst {
+                    worst = cluster.all.len();
+                    worst_count = 1;
+                } else if cluster.all.len() == worst {
+                    worst_count += 1;
+                }
                 if let Some(point) = tree.locate_at_point(&cluster.point.center) {
                     points_covered.insert(point);
                 }
                 points_covered.extend(&cluster.all);
             }
+            if worst == usize::MAX {
+                worst = 0;
+            }
 
             self.best_cluster_point_count = best;
+            self.worst_cluster_point_count = worst;
+            self.worst_cluster_count = worst_count;
             self.best_clusters = best_clusters;
             self.points_covered = points_covered.len();
 
@@ -244,6 +263,7 @@ impl Serialize for Stats {
         let mut state = serializer.serialize_struct("Stats", 11)?;
         state.serialize_field("best_clusters", &self.best_clusters)?;
         state.serialize_field("best_cluster_point_count", &self.best_cluster_point_count)?;
+        state.serialize_field("worst_cluster_point_count", &self.worst_cluster_point_count)?;
         state.serialize_field("cluster_time", &self.cluster_time)?;
         state.serialize_field("route_time", &self.route_time)?;
         state.serialize_field("stats_time", &self.stats_time)?;
