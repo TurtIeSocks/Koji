@@ -211,17 +211,17 @@ impl Stats {
             let mut worst_count = 0;
 
             for cluster in clusters.iter() {
-                if cluster.all.len() > best {
+                let length = cluster.all.len();
+                if length > best {
                     best_clusters.clear();
-                    best = cluster.all.len();
+                    best = length;
                     best_clusters.push(cluster.point.center);
-                } else if cluster.all.len() == best {
+                } else if length == best {
                     best_clusters.push(cluster.point.center);
-                }
-                if cluster.all.len() < worst {
-                    worst = cluster.all.len();
+                } else if length < worst {
+                    worst = length;
                     worst_count = 1;
-                } else if cluster.all.len() == worst {
+                } else if length == worst {
                     worst_count += 1;
                 }
                 if let Some(point) = tree.locate_at_point(&cluster.point.center) {
