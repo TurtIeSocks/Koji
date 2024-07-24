@@ -195,6 +195,7 @@ export const TTH = ['All', 'Known', 'Unknown'] as const
 export const CALC_MODE = ['Radius', 'S2'] as const
 
 export const CLUSTERING_MODES = [
+  'Honeycomb',
   'Fastest',
   'Fast',
   'Balanced',

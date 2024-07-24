@@ -45,7 +45,11 @@ pub fn main(
                 let clusters = fastest::main(&data_points, radius, min_points);
                 clusters
             }
-            ClusterMode::Balanced | ClusterMode::Fast | ClusterMode::Better | ClusterMode::Best => {
+            ClusterMode::Honeycomb
+            | ClusterMode::Balanced
+            | ClusterMode::Fast
+            | ClusterMode::Better
+            | ClusterMode::Best => {
                 let mut greedy = Greedy::default();
                 greedy
                     .set_cluster_mode(cluster_mode)

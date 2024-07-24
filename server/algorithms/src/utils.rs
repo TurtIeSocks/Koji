@@ -101,7 +101,7 @@ pub fn _debug_clusters(clusters: &HashSet<Cluster>, file_suffix: &str) {
         );
         unique_map.insert(
             cluster.point._get_geohash(),
-            cluster.points.iter().map(|p| p._get_geohash()).collect(),
+            cluster.unique.iter().map(|p| p._get_geohash()).collect(),
         );
         for point in cluster.all.iter() {
             point_map

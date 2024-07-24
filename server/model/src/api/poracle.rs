@@ -65,10 +65,10 @@ impl ToSingleVec for Poracle {
 
 impl ToMultiVec for Poracle {
     fn to_multi_vec(self) -> multi_vec::MultiVec {
-        if let Some(multipath) = self.multipath.as_ref() {
-            multipath.to_vec()
-        } else if let Some(path) = self.path.as_ref() {
-            vec![path.to_vec()]
+        if let Some(multipath) = self.multipath {
+            multipath
+        } else if let Some(path) = self.path {
+            vec![path]
         } else {
             vec![]
         }

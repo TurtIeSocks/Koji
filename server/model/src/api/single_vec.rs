@@ -22,7 +22,7 @@ impl GetBbox for SingleVec {
     /// \[min_lon, min_lat, max_lon, max_lat\]
     fn get_bbox(&self) -> Option<Vec<Precision>> {
         let mut bbox = if self.is_empty() {
-            vec![]
+            vec![0., 0., 0., 0.]
         } else {
             vec![
                 Precision::INFINITY,
