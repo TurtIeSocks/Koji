@@ -30,6 +30,7 @@ pub fn main(
     s2_size: u8,
     collection: FeatureCollection,
     clustering_args: &str,
+    center_clusters: bool,
 ) -> SingleVec {
     if data_points.is_empty() {
         return vec![];
@@ -84,9 +85,13 @@ pub fn main(
             }
         },
     };
-
+    let clusters = if center_clusters {
+        sec::with_data(radius, data_points, &clusters)
+    } else {
+        clusters
+    };
     stats.set_cluster_time(time);
-    stats.cluster_stats(radius, &data_points, &clusters);
+    stats.cluster_stats(radius, data_points, &clusters);
     stats.set_score();
 
     clusters

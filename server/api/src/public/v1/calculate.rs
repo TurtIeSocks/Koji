@@ -175,6 +175,7 @@ async fn cluster(
         parent,
         max_clusters,
         clustering_args,
+        center_clusters,
         ..
     } = payload.into_inner().init(Some(&mode));
 
@@ -242,6 +243,7 @@ async fn cluster(
         s2_size,
         area,
         &clustering_args,
+        center_clusters,
     );
     let clusters = routing::main(
         &data_points,

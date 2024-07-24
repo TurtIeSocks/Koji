@@ -233,6 +233,11 @@ impl Stats {
                 worst = 0;
             }
 
+            // for point in tree.iter() {
+            //     if !points_covered.contains(&point) {
+            //         log::debug!("point not covered: {}", point);
+            //     }
+            // }
             self.best_cluster_point_count = best;
             self.worst_cluster_point_count = worst;
             self.worst_cluster_count = worst_count;

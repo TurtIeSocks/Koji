@@ -117,6 +117,7 @@ export async function clusteringRouting({
   const {
     mode,
     radius,
+    center_clusters,
     cluster_mode,
     category: rawCategory,
     min_points,
@@ -234,6 +235,7 @@ export async function clusteringRouting({
               `${area.geometry.type}${area.id ? `-${area.id}` : ''}`,
             last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
             radius,
+            center_clusters,
             min_points,
             cluster_mode,
             parent,

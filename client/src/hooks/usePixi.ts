@@ -6,7 +6,6 @@
 
 import { useEffect, useState } from 'react'
 import geohash from 'ngeohash'
-import seed from 'seedrandom'
 import { shallow } from 'zustand/shallow'
 
 import 'leaflet-pixi-overlay'
@@ -15,11 +14,10 @@ import * as PIXI from 'pixi.js'
 import { useMap } from 'react-leaflet'
 
 import { PixiMarker } from '@assets/types'
+import { getDataPointColor } from '@services/utils'
 
 import { ICON_SVG } from '../assets/constants'
 import { usePersist } from './usePersist'
-
-const colorMap: Map<string, string> = new Map()
 
 PIXI.settings.FAIL_IF_MAJOR_PERFORMANCE_CAVEAT = false
 PIXI.utils.skipHello()
@@ -27,14 +25,10 @@ PIXI.utils.skipHello()
 const PIXILoader = PIXI.Loader.shared
 
 function getHashSvg(hash: string) {
-  let color = colorMap.get(hash)
-  if (!color) {
-    const rng = seed(hash)
-    color = `#${rng().toString(16).slice(2, 8)}`
-    colorMap.set(hash, color)
-  }
   return `<svg xmlns="http://www.w3.org/2000/svg" id="${hash}" width="15" height="15" viewBox="-2 -2 24 24">
-  <circle cx="10" cy="10" r="10" fill="${color}" fill-opacity="0.8" stroke="black" stroke-width="1" />
+  <circle cx="10" cy="10" r="10" fill="${getDataPointColor(
+    hash,
+  )}" fill-opacity="0.8" stroke="black" stroke-width="1" />
   <circle cx="10" cy="10" r="1" fill="black" />
 </svg>`
 }

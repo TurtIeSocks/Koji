@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { Circle } from 'react-leaflet'
+import { Circle, useMap } from 'react-leaflet'
 import geohash from 'ngeohash'
 import { shallow } from 'zustand/shallow'
 
@@ -10,8 +10,12 @@ import { useStatic } from '@hooks/useStatic'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import { getMarkers } from '@services/fetches'
 import { Category, PixiMarker } from '@assets/types'
+import { getDataPointColor } from '@services/utils'
+
 import StyledPopup from '../popups/Styled'
-// import { GeohashMarker } from './Geohash'
+import { GeohashMarker } from './Geohash'
+
+const DEBUG_HASHES: string[] = []
 
 export default function Markers({ category }: { category: Category }) {
   const enabled = usePersist((s) => s[category], shallow)
@@ -20,10 +24,13 @@ export default function Markers({ category }: { category: Category }) {
   const last_seen = usePersist((s) => s.last_seen)
   const pokestopRange = usePersist((s) => s.pokestopRange)
   const tth = usePersist((s) => s.tth)
+  const colorByGeoHash = usePersist((s) => s.colorByGeohash)
+  const geohashPrecision = usePersist((s) => s.geohashPrecision)
 
   const updateButton = useStatic((s) => s.updateButton)
   const bounds = useStatic((s) => s.bounds)
   const geojson = useStatic((s) => s.geojson)
+  const showCenterCircle = useMap().getZoom() > 15
 
   const [markers, setMarkers] = React.useState<PixiMarker[]>([])
   const [focused, setFocused] = React.useState(true)
@@ -84,63 +91,78 @@ export default function Markers({ category }: { category: Category }) {
     }
   }, [memoSetFocused])
 
-  return nativeLeaflet ? (
+  return (
     <>
-      {/* <GeohashMarker hash="u14cu1dtdx2s" /> */}
-      {markers.map((i) => {
-        const hash = geohash.encode(...i.p, 12)
-        return (
-          <React.Fragment key={hash}>
-            {pokestopRange && (
-              <Circle
-                center={i.p}
-                radius={70}
-                opacity={0.2}
-                fillOpacity={0.2}
-                fillColor="darkgreen"
-                color="green"
-                pane="dev_markers"
-                pmIgnore
-                snapIgnore
-              />
-            )}
-            <Circle
-              center={i.p}
-              radius={ICON_RADIUS[i.i[0]]}
-              fillOpacity={0.8}
-              opacity={0.8}
-              fillColor={hash === 'u14cu1d9f6s1' ? 'pink' : ICON_COLOR[i.i[0]]}
-              color="black"
-              pane="dev_markers"
-              pmIgnore
-              snapIgnore
-            >
-              <StyledPopup>
-                <div>
-                  Lat: {i.p[0]}
-                  <br />
-                  Lng: {i.p[1]}
-                  <br />
-                  Hash: {geohash.encode(...i.p, 9)}
-                  <br />
-                  Hash: {geohash.encode(...i.p, 12)}
-                </div>
-              </StyledPopup>
-            </Circle>
-            <Circle
-              center={i.p}
-              radius={1}
-              pathOptions={{
-                fillColor: 'black',
-                color: 'black',
-              }}
-              pane="dev_markers"
-              pmIgnore
-              snapIgnore
-            />
-          </React.Fragment>
-        )
-      })}
+      {DEBUG_HASHES.map((hash) => (
+        <GeohashMarker key={hash} hash={hash} />
+      ))}
+      {nativeLeaflet ? (
+        <>
+          {markers.map((i) => {
+            const uniqueHash = geohash.encode(...i.p, 12)
+            const groupHash = geohash.encode(...i.p, geohashPrecision)
+            return (
+              <React.Fragment
+                key={`${uniqueHash}${geohashPrecision}${colorByGeoHash}`}
+              >
+                {pokestopRange && (
+                  <Circle
+                    center={i.p}
+                    radius={70}
+                    opacity={0.2}
+                    fillOpacity={0.2}
+                    fillColor="darkgreen"
+                    color="green"
+                    pane="dev_markers"
+                    pmIgnore
+                    snapIgnore
+                  />
+                )}
+                <Circle
+                  center={i.p}
+                  radius={ICON_RADIUS[i.i[0]]}
+                  fillOpacity={0.8}
+                  opacity={0.8}
+                  fillColor={
+                    colorByGeoHash
+                      ? getDataPointColor(groupHash)
+                      : ICON_COLOR[i.i[0]]
+                  }
+                  color="black"
+                  pane="dev_markers"
+                  pmIgnore
+                  snapIgnore
+                >
+                  <StyledPopup>
+                    <div>
+                      Lat: {i.p[0]}
+                      <br />
+                      Lng: {i.p[1]}
+                      <br />
+                      Hash: {groupHash}
+                      <br />
+                      Hash: {uniqueHash}
+                    </div>
+                  </StyledPopup>
+                </Circle>
+                {showCenterCircle && (
+                  <Circle
+                    center={i.p}
+                    radius={1}
+                    pathOptions={{
+                      fillColor: 'black',
+                      color: 'black',
+                    }}
+                    pane="dev_markers"
+                    pmIgnore
+                    snapIgnore
+                  />
+                )}
+              </React.Fragment>
+            )
+          })}
+        </>
+      ) : null}
     </>
-  ) : null
+  )
 }
