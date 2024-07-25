@@ -72,3 +72,10 @@ pub fn main(
 pub fn bootstrap_plugins() -> Vec<String> {
     utils::get_plugin_list("algorithms/src/bootstrap/plugins").unwrap_or(vec![])
 }
+
+pub fn all_bootstrap_options() -> Vec<String> {
+    let mut options = bootstrap_plugins();
+    options.push("radius".to_string());
+    options.push("s2".to_string());
+    options
+}
