@@ -100,3 +100,14 @@ pub fn main(
 pub fn clustering_plugins() -> Vec<String> {
     utils::get_plugin_list("algorithms/src/clustering/plugins").unwrap_or(vec![])
 }
+
+pub fn all_clustering_options() -> Vec<String> {
+    let mut options = clustering_plugins();
+    options.push("honeycomb".to_string());
+    options.push("fastest".to_string());
+    options.push("balanced".to_string());
+    options.push("fast".to_string());
+    options.push("better".to_string());
+    options.push("best".to_string());
+    options
+}

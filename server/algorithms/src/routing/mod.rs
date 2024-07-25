@@ -58,3 +58,13 @@ pub fn main(
 pub fn routing_plugins() -> Vec<String> {
     utils::get_plugin_list("algorithms/src/routing/plugins").unwrap_or(vec![])
 }
+
+pub fn all_routing_options() -> Vec<String> {
+    let mut options = routing_plugins();
+    options.push("point_count".to_string());
+    options.push("latlon".to_string());
+    options.push("geohash".to_string());
+    options.push("s2".to_string());
+    options.push("random".to_string());
+    options
+}

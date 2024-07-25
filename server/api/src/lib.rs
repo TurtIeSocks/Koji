@@ -117,7 +117,9 @@ pub async fn start() -> io::Result<()> {
                 web::scope("/api").service(
                     web::scope("/v1")
                         .wrap(HttpAuthentication::with_fn(auth::public_validator))
-                        .service(web::resource("/health").route(web::get().to(|| HttpResponse::Ok())))
+                        .service(
+                            web::resource("/health").route(web::get().to(|| HttpResponse::Ok())),
+                        )
                         .service(
                             web::scope("/calc")
                                 .service(public::v1::calculate::bootstrap)
@@ -163,7 +165,8 @@ pub async fn start() -> io::Result<()> {
                                 .service(public::v1::s2::cell_coverage)
                                 .service(public::v1::s2::cell_polygons)
                                 .service(public::v1::s2::s2_cells),
-                        ),
+                        )
+                        .service(web::scope("/info").service(public::v1::info::main)),
                 ),
             )
             .service(
