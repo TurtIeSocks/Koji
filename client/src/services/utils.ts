@@ -3,6 +3,8 @@ import { capitalize } from '@mui/material'
 import type { MultiPoint, MultiPolygon, Point, Polygon } from 'geojson'
 import union from '@turf/union'
 import bbox from '@turf/bbox'
+import seed from 'seedrandom'
+
 import { useStatic } from '@hooks/useStatic'
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon'
 import { useShapes } from '@hooks/useShapes'
@@ -304,4 +306,16 @@ export function getPointColor(
     : id.includes('__SCANNER')
     ? VECTOR_COLORS.GREEN
     : VECTOR_COLORS.BLUE
+}
+
+const colorMap: Map<string, string> = new Map()
+const rng = seed()
+
+export function getDataPointColor(hash: string) {
+  let color = colorMap.get(hash)
+  if (!color) {
+    color = `#${rng().toString(16).slice(2, 8)}`
+    colorMap.set(hash, color)
+  }
+  return color
 }

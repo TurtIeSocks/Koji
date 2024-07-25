@@ -140,6 +140,7 @@ export default function RoutingTab() {
         <Collapse in={!CLUSTERING_MODES.some((m) => m === cluster_mode)}>
           <UserTextInput field="clustering_args" helperText="--x 1 --y abc" />
         </Collapse>
+        <Toggle field="center_clusters" label="Center Clusters" />
       </Collapse>
 
       <Divider sx={{ my: 2 }} />
