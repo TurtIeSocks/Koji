@@ -41,7 +41,11 @@ import {
   splitMultiPolygons,
 } from '@services/utils'
 import { useImportExport } from '@hooks/useImportExport'
-import { filterPoints, filterPolys } from '@services/geoUtils'
+import {
+  filterPoints,
+  filterPolys,
+  getFeatureCutouts,
+} from '@services/geoUtils'
 import { usePersist } from '@hooks/usePersist'
 
 const { add, remove, updateProperty } = useShapes.getState().setters
@@ -311,6 +315,18 @@ export function PolygonPopup({
           }}
         >
           Export
+        </MenuItem>
+        <MenuItem
+          dense
+          onClick={() => {
+            useImportExport.setState({
+              feature: getFeatureCutouts(feature),
+              open: 'exportPolygon',
+            })
+            handleClose()
+          }}
+        >
+          Export Cutouts
         </MenuItem>
         <MenuItem
           dense

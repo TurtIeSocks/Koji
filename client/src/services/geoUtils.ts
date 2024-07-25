@@ -105,3 +105,43 @@ export function filterPolys(
       remove(value.geometry.type, key)
   })
 }
+
+export function getFeatureCutouts(
+  feature: Feature<Polygon | MultiPolygon>,
+): Feature {
+  const polygons: Polygon[] = []
+
+  if (feature.geometry.type === 'Polygon') {
+    feature.geometry.coordinates.forEach((polygon, i) => {
+      if (i > 0) {
+        polygons.push({
+          type: 'Polygon',
+          coordinates: [polygon],
+        })
+      }
+    })
+  } else if (feature.geometry.type === 'MultiPolygon') {
+    feature.geometry.coordinates.forEach((multi) => {
+      multi.forEach((polygon, i) => {
+        if (i > 0) {
+          polygons.push({
+            type: 'Polygon',
+            coordinates: [polygon],
+          })
+        }
+      })
+    })
+  }
+  return {
+    type: 'Feature',
+    id: `${feature.id}-cutouts`,
+    properties: feature.properties,
+    geometry:
+      polygons.length > 1
+        ? {
+            type: 'MultiPolygon',
+            coordinates: polygons.map((p) => p.coordinates),
+          }
+        : polygons[0],
+  }
+}
