@@ -11,13 +11,13 @@ use super::{point::Point, SortDedupe};
 #[derive(Debug, Clone)]
 pub struct Cluster<'a> {
     pub point: Point,
-    pub points: Vec<&'a Point>,
+    pub unique: Vec<&'a Point>,
     pub all: Vec<&'a Point>,
 }
 
 impl<'a> Cluster<'a> {
-    pub fn new(point: Point, all: Vec<&'a Point>, points: Vec<&'a Point>) -> Cluster<'a> {
-        Cluster { point, all, points }
+    pub fn new(point: Point, all: Vec<&'a Point>, unique: Vec<&'a Point>) -> Cluster<'a> {
+        Cluster { point, all, unique }
     }
 
     pub fn get_size(&self) -> usize {
@@ -26,7 +26,7 @@ impl<'a> Cluster<'a> {
         for point in self.point.center {
             size += std::mem::size_of_val(&point);
         }
-        for point in self.points.iter() {
+        for point in self.unique.iter() {
             size += std::mem::size_of_val(point);
         }
         for point in self.all.iter() {
@@ -35,7 +35,7 @@ impl<'a> Cluster<'a> {
         size
     }
 
-    pub fn update_all(&mut self, tree: &'a RTree<Point>) {
+    pub fn set_all(&mut self, tree: &'a RTree<Point>) {
         let mut points: Vec<_> = tree
             .locate_all_at_point(&self.point.center)
             .into_iter()
@@ -44,12 +44,13 @@ impl<'a> Cluster<'a> {
         self.all = points;
     }
 
-    pub fn update_unique(&mut self, tree: &RTree<Point>) {
+    pub fn set_unique(&mut self, tree: &RTree<Point>) {
         let mut points: Vec<_> = self
             .all
             .par_iter()
             .filter_map(|p| {
-                if tree.locate_all_at_point(&p.center).count() == 1 {
+                let points = tree.locate_all_at_point(&p.center).count();
+                if points == 1 {
                     Some(*p)
                 } else {
                     None
@@ -57,7 +58,7 @@ impl<'a> Cluster<'a> {
             })
             .collect();
         points.sort_dedupe();
-        self.points = points;
+        self.unique = points;
     }
 }
 
@@ -85,8 +86,8 @@ impl Display for Cluster<'_> {
                 if i == self.all.len() - 1 { "" } else { ", " }
             ));
         }
-        display.push_str(&format!(")\nPoints: {} (", self.points.len()));
-        for (i, point) in self.points.iter().enumerate() {
+        display.push_str(&format!(")\nPoints: {} (", self.unique.len()));
+        for (i, point) in self.unique.iter().enumerate() {
             display.push_str(&format!(
                 "{}{}",
                 point._get_geohash(),

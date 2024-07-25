@@ -59,7 +59,7 @@ impl Point {
         [lat.to_degrees(), lng.to_degrees()]
     }
 
-    fn haversine_distance(&self, other: &[Precision; 2]) -> Precision {
+    pub fn haversine_distance(&self, other: &[Precision; 2]) -> Precision {
         let theta1 = self.center[0].to_radians();
         let theta2 = other[0].to_radians();
         let delta_theta = (other[0] - self.center[0]).to_radians();
