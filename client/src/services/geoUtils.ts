@@ -111,27 +111,19 @@ export function getFeatureCutouts(
 ): Feature {
   const polygons: Polygon[] = []
 
+  const push = (positions: Position[], index: number) =>
+    index > 0 &&
+    polygons.push({
+      type: 'Polygon',
+      coordinates: [positions],
+    })
+
   if (feature.geometry.type === 'Polygon') {
-    feature.geometry.coordinates.forEach((polygon, i) => {
-      if (i > 0) {
-        polygons.push({
-          type: 'Polygon',
-          coordinates: [polygon],
-        })
-      }
-    })
+    feature.geometry.coordinates.forEach(push)
   } else if (feature.geometry.type === 'MultiPolygon') {
-    feature.geometry.coordinates.forEach((multi) => {
-      multi.forEach((polygon, i) => {
-        if (i > 0) {
-          polygons.push({
-            type: 'Polygon',
-            coordinates: [polygon],
-          })
-        }
-      })
-    })
+    feature.geometry.coordinates.forEach((multi) => multi.forEach(push))
   }
+
   return {
     type: 'Feature',
     id: `${feature.id}-cutouts`,
