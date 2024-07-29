@@ -134,6 +134,9 @@ export function getFeatureCutouts(
             type: 'MultiPolygon',
             coordinates: polygons.map((p) => p.coordinates),
           }
-        : polygons[0],
+        : polygons[0] || {
+            type: '',
+            coordinates: [],
+          },
   }
 }

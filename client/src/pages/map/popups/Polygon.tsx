@@ -318,6 +318,11 @@ export function PolygonPopup({
         </MenuItem>
         <MenuItem
           dense
+          disabled={
+            feature.geometry.type === 'MultiPolygon'
+              ? feature.geometry.coordinates.every((c) => c.length < 2)
+              : feature.geometry.coordinates.length < 2
+          }
           onClick={() => {
             useImportExport.setState({
               feature: getFeatureCutouts(feature),
