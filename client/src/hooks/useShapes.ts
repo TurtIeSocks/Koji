@@ -19,6 +19,7 @@ import type {
   KojiKey,
 } from '@assets/types'
 import { useDbCache } from './useDbCache'
+import { usePersist } from './usePersist'
 
 const { setRecord } = useDbCache.getState()
 
@@ -280,6 +281,8 @@ export const useShapes = create<UseShapes>((set, get) => ({
         MultiPolygon,
         setters: { remove, add },
       } = get()
+      const { keepCutoutsOnMerge } = usePersist.getState()
+
       let newPoly: Feature<Polygon | MultiPolygon> = {
         geometry: { type: 'MultiPolygon', coordinates: [] },
         type: 'Feature',
@@ -329,8 +332,14 @@ export const useShapes = create<UseShapes>((set, get) => ({
           }
         }
       })
-      if (newPoly.geometry.type === 'Polygon') {
-        newPoly.geometry.coordinates = [newPoly.geometry.coordinates[0]]
+      if (!keepCutoutsOnMerge) {
+        if (newPoly.geometry.type === 'Polygon') {
+          newPoly.geometry.coordinates = [newPoly.geometry.coordinates[0]]
+        } else if (newPoly.geometry.type === 'MultiPolygon') {
+          newPoly.geometry.coordinates = newPoly.geometry.coordinates.map(
+            (p) => [p[0]],
+          )
+        }
       }
       Object.entries(
         all

@@ -17,6 +17,7 @@ export interface UsePersist {
   snappable: boolean
   continueDrawing: boolean
   setActiveMode: 'hover' | 'click'
+  keepCutoutsOnMerge: boolean
 
   // Client Settings
   darkMode: boolean
@@ -95,6 +96,7 @@ export const usePersist = create(
       darkMode: true,
       tab: 0,
       drawer: false,
+      keepCutoutsOnMerge: false,
       location: [0, 0],
       zoom: 18,
       category: 'pokestop',
