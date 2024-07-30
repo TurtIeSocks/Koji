@@ -15,8 +15,6 @@ use crate::{
     },
 };
 
-use self::api::GeometryHelpers;
-
 use super::{
     geofence_property::{Basic, FullPropertyModel},
     sea_orm_active_enums::Type,
@@ -27,6 +25,7 @@ use geojson::{GeoJson, Geometry};
 use sea_orm::{entity::prelude::*, UpdateResult};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use utils::TrimPrecision;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "geofence")]
@@ -233,7 +232,7 @@ impl Model {
             geometry: Some(if args.internal.is_some() || args.fullcoords.is_some() {
                 geometry
             } else {
-                geometry.to_f32()
+                geometry.trim_precision(6)
             }),
             ..Feature::default()
         };
