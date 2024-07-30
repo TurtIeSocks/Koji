@@ -17,6 +17,7 @@ export default function DrawingTab() {
       <ListSubheader disableGutters>Drawing</ListSubheader>
       <Toggle field="snappable" />
       <Toggle field="continueDrawing" />
+      <Toggle field="keepCutoutsOnMerge" />
       <UserTextInput field="radius" disabled={calculationMode === 'S2'} />
       <MultiOptionList
         field="setActiveMode"
