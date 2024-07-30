@@ -63,9 +63,9 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
 
   return id !== undefined ? (
     <div>
-      Lat: {lat.toFixed(6)}
+      Lat: {lat}
       <br />
-      Lng: {lon.toFixed(6)}
+      Lng: {lon}
       <br />
       {process.env.NODE_ENV === 'development' && (
         <>
