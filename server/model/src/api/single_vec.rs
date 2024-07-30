@@ -1,3 +1,5 @@
+use utils::TrimPrecision;
+
 use super::{collection::Default, *};
 
 pub type SingleVec = Vec<point_array::PointArray>;
@@ -46,7 +48,7 @@ impl GetBbox for SingleVec {
                 bbox[3] = point[0]
             }
         }
-        Some(bbox)
+        Some(bbox.into_iter().map(|e| e.trim_precision(6)).collect())
     }
 }
 

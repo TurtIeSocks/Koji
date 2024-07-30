@@ -3,8 +3,10 @@ import Button, { type ButtonProps } from '@mui/material/Button'
 
 export default function DownloadBtn({
   data,
+  name,
   ...props
-}: ButtonProps & { data: object | string }) {
+}: ButtonProps & { data: object | string; name?: string }) {
+  const safeName = name || 'geojson.json'
   return (
     <Button
       variant="outlined"
@@ -18,7 +20,12 @@ export default function DownloadBtn({
             typeof data === 'string' ? data : JSON.stringify(data, null, 2),
           )}`,
         )
-        el.setAttribute('download', 'geojson.json')
+        el.setAttribute(
+          'download',
+          (safeName.endsWith('.json') ? safeName : `${safeName}.json`)
+            .replaceAll(' ', '-')
+            .toLocaleLowerCase(),
+        )
         el.style.display = 'none'
         document.body.appendChild(el)
         el.click()

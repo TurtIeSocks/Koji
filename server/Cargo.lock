@@ -431,7 +431,7 @@ checksum = "2cb2f989d18dd141ab8ae82f64d1a8cdd37e0840f73a406896cf5e99502fab61"
 
 [[package]]
 name = "api"
-version = "1.5.0"
+version = "1.5.1"
 dependencies = [
  "actix-files",
  "actix-session",
@@ -2084,7 +2084,7 @@ dependencies = [
 
 [[package]]
 name = "koji"
-version = "1.4.2"
+version = "1.5.1"
 dependencies = [
  "api",
  "dotenv",
@@ -2312,7 +2312,7 @@ dependencies = [
 
 [[package]]
 name = "model"
-version = "1.5.0"
+version = "1.5.1"
 dependencies = [
  "chrono",
  "futures",

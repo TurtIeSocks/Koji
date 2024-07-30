@@ -8,6 +8,7 @@ use model::{
         FeatureHelpers, GeometryHelpers, ToCollection, ToFeature,
     },
     db::sea_orm_active_enums::Type,
+    utils::TrimPrecision,
 };
 
 #[post("/data")]
@@ -21,11 +22,11 @@ async fn convert_data(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         ..
     } = payload.into_inner().init(Some("convert_data"));
 
-    let area = if arg_simplify { area.simplify() } else { area };
-    let area = area
+    let area = if arg_simplify { area.simplify() } else { area }
         .into_iter()
         .map(|feat| feat.remove_internal_props())
-        .collect();
+        .collect::<FeatureCollection>()
+        .trim_precision(6);
 
     Ok(utils::response::send(
         area,

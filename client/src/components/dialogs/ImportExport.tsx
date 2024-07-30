@@ -4,7 +4,6 @@ import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
 import DialogContent from '@mui/material/DialogContent'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
-import useDeepCompareEffect from 'use-deep-compare-effect'
 
 import SplitMultiPolygonsBtn from '@components/buttons/SplitMultiPolygons'
 import MultiOptions from '@components/drawer/inputs/MultiOptions'
@@ -32,6 +31,8 @@ export function ImportExportDialog({
   const feature = useImportExport((s) => s.feature)
   const code = useImportExport((s) => s.code)
   const error = useImportExport((s) => s.error)
+  const fileName = useImportExport((s) => s.fileName)
+
   const { reset, setCode, fireConvert, updateStats } =
     useImportExport.getState()
 
@@ -46,7 +47,7 @@ export function ImportExportDialog({
     }
   }, [polygonExportMode, open, code, simplifyPolygons])
 
-  useDeepCompareEffect(() => {
+  React.useEffect(() => {
     if (open) {
       if (shape === 'Route') {
         updateStats(mode === 'Export')
@@ -106,7 +107,16 @@ export function ImportExportDialog({
           style={{ flexGrow: 1, display: 'flex', justifyContent: 'flex-end' }}
         >
           <ClipboardButton text={code} />
-          <DownloadBtn data={code} variant="text" color="primary" />
+          <DownloadBtn
+            data={code}
+            variant="text"
+            color="primary"
+            name={
+              fileName ||
+              (feature.type === 'Feature' &&
+                (feature.properties?.__name || feature.properties?.name))
+            }
+          />
           <Button
             disabled={!!error}
             onClick={() => {

@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import { create } from 'zustand'
 import distance from '@turf/distance'
+import type { Position } from 'geojson'
 
 import {
   KojiResponse,
@@ -25,7 +26,7 @@ const getProperties = (feature: Feature) => {
   const parsedId =
     typeof feature?.id === 'string'
       ? useDbCache.getState().parseKojiKey(feature.id)
-      : DEFAULT
+      : { ...DEFAULT }
   const name =
     (feature.properties?.__geofence_id
       ? Object.values(geofence).find(
@@ -37,11 +38,14 @@ const getProperties = (feature: Feature) => {
   const mode = feature?.properties?.__mode || parsedId.mode || 'unset'
   return { name, mode, source: parsedId.source, id: parsedId.id }
 }
+
 export interface UseImportExport {
   code: string
   error: string
   open: 'importPolygon' | 'importRoute' | 'exportPolygon' | 'exportRoute' | ''
   feature: Feature | FeatureCollection
+  skipSend: boolean
+  fileName: string
   stats: {
     max: number
     total: number
@@ -76,6 +80,8 @@ const DEFAULTS: Omit<
     type: 'FeatureCollection',
     features: [],
   },
+  fileName: '',
+  skipSend: false,
   stats: {
     max: 0,
     total: 0,
@@ -88,10 +94,11 @@ const DEFAULTS: Omit<
 export const useImportExport = create<UseImportExport>((set, get) => ({
   ...DEFAULTS,
   exportConvert: async () => {
-    const { feature, setCode } = get()
+    const { feature } = get()
     const { polygonExportMode, simplifyPolygons } = usePersist.getState()
-    convert(feature, polygonExportMode, simplifyPolygons).then((newCode) => {
-      setCode(
+    const newCode = await convert(feature, polygonExportMode, simplifyPolygons)
+    set({
+      code:
         typeof newCode === 'string'
           ? newCode
           : JSON.stringify(
@@ -103,7 +110,7 @@ export const useImportExport = create<UseImportExport>((set, get) => ({
               null,
               2,
             ),
-      )
+      skipSend: true,
     })
   },
   importConvert: async (geometry) => {
@@ -117,24 +124,23 @@ export const useImportExport = create<UseImportExport>((set, get) => ({
                 : cleanCode,
             )
           : cleanCode
-      await convert<FeatureCollection>(
+      const geojson = await convert<FeatureCollection>(
         parsed,
         'featureCollection',
         usePersist.getState().simplifyPolygons,
         geometry,
-      ).then((geojson) => {
-        if (geojson.type === 'FeatureCollection') {
-          set({
-            feature: {
-              ...geojson,
-              features: geojson.features.map((f) => ({
-                ...f,
-                // id: f.id ?? getKey(),
-              })),
-            },
-          })
-        }
-      })
+      )
+      if (geojson.type === 'FeatureCollection') {
+        set({
+          feature: {
+            ...geojson,
+            features: geojson.features.map((f) => ({
+              ...f,
+              // id: f.id ?? getKey(),
+            })),
+          },
+        })
+      }
       set({ error: '' })
     } catch (e) {
       if (e instanceof Error) {
@@ -143,11 +149,14 @@ export const useImportExport = create<UseImportExport>((set, get) => ({
     }
   },
   fireConvert: async (mode, geometry) => {
+    const { skipSend } = get()
+    if (skipSend) return
     if (mode === 'Export') {
       await get().exportConvert()
     } else {
       await get().importConvert(geometry)
     }
+    set({ skipSend: false })
   },
   updateStats: async (writeCode) => {
     const { feature, code } = get()
@@ -162,42 +171,29 @@ export const useImportExport = create<UseImportExport>((set, get) => ({
     let maxLon = -Infinity
 
     const points: [number, number][] = []
+
+    const update = (pos: Position, j: number, coordinates: Position[]) => {
+      const next = j ? coordinates[j + 1] : coordinates.at(-1)
+      if (next) {
+        const dis = distance(pos, next, { units: 'meters' })
+        if (dis > max) max = dis
+        total += dis
+      }
+      points.push([pos[1], pos[0]])
+      if (pos[0] < minLon) minLon = pos[0]
+      if (pos[0] > maxLon) maxLon = pos[0]
+      if (pos[1] < minLat) minLat = pos[1]
+      if (pos[1] > maxLat) maxLat = pos[1]
+      count++
+    }
     if (feature.type === 'Feature') {
       if (feature.geometry.type === 'MultiPoint') {
-        const { coordinates } = feature.geometry
-        coordinates.forEach((point, j) => {
-          const next = j ? coordinates[j + 1] : coordinates.at(-1)
-          if (next) {
-            const dis = distance(point, next, { units: 'meters' })
-            if (dis > max) max = dis
-            total += dis
-          }
-          points.push([point[1], point[0]])
-          if (point[0] < minLon) minLon = point[0]
-          if (point[0] > maxLon) maxLon = point[0]
-          if (point[1] < minLat) minLat = point[1]
-          if (point[1] > maxLat) maxLat = point[1]
-          count++
-        })
+        feature.geometry.coordinates.forEach(update)
       }
     } else {
       feature.features.forEach((f) => {
         if (f.geometry.type === 'MultiPoint') {
-          const { coordinates } = f.geometry
-          coordinates.forEach((point, j) => {
-            const next = j ? coordinates[j + 1] : coordinates.at(-1)
-            if (next) {
-              const dis = distance(point, next, { units: 'meters' })
-              if (dis > max) max = dis
-              total += dis
-            }
-            points.push([point[1], point[0]])
-            if (point[0] < minLon) minLon = point[0]
-            if (point[0] > maxLon) maxLon = point[0]
-            if (point[1] < minLat) minLat = point[1]
-            if (point[1] > maxLat) maxLat = point[1]
-            count++
-          })
+          f.geometry.coordinates.forEach(update)
         }
       })
     }

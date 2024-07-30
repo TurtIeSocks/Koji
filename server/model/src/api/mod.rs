@@ -48,7 +48,6 @@ pub trait ValueHelpers {
 
 pub trait GeometryHelpers {
     fn simplify(self) -> Self;
-    fn to_f32(self) -> Self;
 }
 
 pub trait FeatureHelpers {

@@ -1,4 +1,5 @@
 use geo::{MultiPolygon, Polygon, Simplify};
+use utils::TrimPrecision;
 
 use super::*;
 
@@ -37,22 +38,24 @@ impl EnsurePoints for Geometry {
     }
 }
 
-fn trim_precision(data: Vec<Vec<Vec<f64>>>) -> Vec<Vec<Vec<f64>>> {
-    let mut formatted_data = Vec::new();
+impl TrimPrecision for Vec<Vec<Vec<f64>>> {
+    fn trim_precision(self, precision: u32) -> Self {
+        let mut formatted_data = Vec::new();
 
-    for outer_vec in data {
-        let mut formatted_outer_vec = Vec::new();
-        for inner_vec in outer_vec {
-            let mut formatted_inner_vec = Vec::new();
-            for num in inner_vec {
-                formatted_inner_vec.push(format!("{:.6}", num).parse().unwrap());
+        for outer_vec in self {
+            let mut formatted_outer_vec = Vec::new();
+            for inner_vec in outer_vec {
+                let mut formatted_inner_vec = Vec::new();
+                for num in inner_vec {
+                    formatted_inner_vec.push(num.trim_precision(precision));
+                }
+                formatted_outer_vec.push(formatted_inner_vec);
             }
-            formatted_outer_vec.push(formatted_inner_vec);
+            formatted_data.push(formatted_outer_vec);
         }
-        formatted_data.push(formatted_outer_vec);
-    }
 
-    formatted_data
+        formatted_data
+    }
 }
 
 impl GeometryHelpers for Geometry {
@@ -71,13 +74,18 @@ impl GeometryHelpers for Geometry {
         geometry.bbox = geometry.get_bbox();
         geometry
     }
-    fn to_f32(self) -> Self {
+}
+
+impl TrimPrecision for Geometry {
+    fn trim_precision(self, precision: u32) -> Self {
         let mut geometry = match self.value {
-            Value::Polygon(value) => Geometry::from(geojson::Value::Polygon(trim_precision(value))),
+            Value::Polygon(value) => {
+                Geometry::from(geojson::Value::Polygon(value.trim_precision(precision)))
+            }
             Value::MultiPolygon(value) => {
                 let mut formatted_data: Vec<Vec<Vec<Vec<f64>>>> = Vec::new();
                 for outer_vec in value {
-                    formatted_data.push(trim_precision(outer_vec))
+                    formatted_data.push(outer_vec.trim_precision(precision))
                 }
                 Geometry::from(geojson::Value::MultiPolygon(formatted_data))
             }

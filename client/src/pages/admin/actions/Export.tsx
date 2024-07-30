@@ -9,7 +9,12 @@ import {
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { useQuery } from 'react-query'
 
-import { BasicKojiEntry, Feature, KojiResponse } from '@assets/types'
+import type {
+  BasicKojiEntry,
+  Feature,
+  FeatureCollection,
+  KojiResponse,
+} from '@assets/types'
 import { fetchWrapper } from '@services/fetches'
 import { useImportExport } from '@hooks/useImportExport'
 
@@ -39,7 +44,10 @@ export function ExportButton<T extends BasicKojiEntry>({
   const record = useRecordContext<T>()
   const { refetch } = useQuery(
     `export-${resource}-${record.id}`,
-    () => fetchWrapper<KojiResponse<Feature>>(getUrl(resource, record.id)),
+    () =>
+      fetchWrapper<KojiResponse<Feature | FeatureCollection>>(
+        getUrl(resource, record.id),
+      ),
     {
       enabled: false,
     },
@@ -54,6 +62,12 @@ export function ExportButton<T extends BasicKojiEntry>({
             useImportExport.setState({
               open: 'exportPolygon',
               feature: res.data.data,
+              fileName:
+                res.data.data.type === 'Feature'
+                  ? res.data.data.properties?.__name ||
+                    res.data.data.properties?.name ||
+                    ''
+                  : record.name,
             })
           }
         })

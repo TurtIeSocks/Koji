@@ -1,3 +1,5 @@
+use utils::TrimPrecision;
+
 use self::utils::sql_raw;
 
 use super::{args::UnknownId, multi_vec::MultiVec, *};
@@ -39,13 +41,15 @@ impl GeometryHelpers for FeatureCollection {
             })
             .collect()
     }
+}
 
-    fn to_f32(self) -> Self {
+impl TrimPrecision for FeatureCollection {
+    fn trim_precision(self, precision: u32) -> Self {
         self.into_iter()
             .map(|feat| {
                 if let Some(geometry) = feat.geometry {
                     Feature {
-                        geometry: Some(geometry.to_f32()),
+                        geometry: Some(geometry.trim_precision(precision)),
                         ..feat
                     }
                 } else {
