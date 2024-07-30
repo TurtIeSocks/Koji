@@ -324,14 +324,11 @@ export function PolygonPopup({
               : feature.geometry.coordinates.length < 2
           }
           onClick={() => {
-            useImportExport.setState({
-              feature: getFeatureCutouts(feature),
-              open: 'exportPolygon',
-            })
+            add(getFeatureCutouts(feature))
             handleClose()
           }}
         >
-          Export Cutouts
+          Create Shape from Cutouts
         </MenuItem>
         <MenuItem
           dense
