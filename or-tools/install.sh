@@ -22,6 +22,9 @@ if [ ! -d "${full_version}" ]; then
                 distro=${distro//\"/}
                 version=${version//\"/}
                 echo Found distro $distro $version
+                if [[ "$version" == "24"* ]]; then
+                        version="22.10"
+                fi
                 url="https://github.com/google/or-tools/releases/download/v${minor_version}/or-tools_amd64_${distro}-${version}_cpp_v${full_version}.tar.gz"
         elif [[ "$os" == "darwin"* ]]; then
                 if [[ "$cpu" == "arm" ]]; then
