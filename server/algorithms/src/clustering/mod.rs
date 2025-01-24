@@ -39,7 +39,7 @@ pub fn main(
     let clusters = match calculation_mode {
         CalculationMode::S2 => collection
             .into_iter()
-            .flat_map(|feature| s2::cluster(feature, data_points, s2_level, s2_size))
+            .flat_map(|feature| s2::cluster(feature, data_points, s2_level, s2_size, min_points))
             .collect(),
         _ => match cluster_mode {
             ClusterMode::Fastest => {
