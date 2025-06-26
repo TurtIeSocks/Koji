@@ -2,10 +2,10 @@ use std::time::Instant;
 
 use crate::{routing, stats::Stats};
 
-use geo::{Contains, Extremes, HaversineDestination, HaversineDistance, Point, Polygon};
+use geo::{Contains, Destination, Distance, Extremes, Haversine, Point, Polygon};
 use geojson::{Feature, Geometry, Value};
 use model::{
-    api::{single_vec::SingleVec, sort_by::SortBy, Precision, ToFeature, ToGeometryVec},
+    api::{Precision, ToFeature, ToGeometryVec, single_vec::SingleVec, sort_by::SortBy},
     db::sea_orm_active_enums::Type,
 };
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -106,10 +106,9 @@ impl<'a> BootstrapRadius<'a> {
         let max = Point::new(extremes.x_max.coord.x, extremes.y_max.coord.y);
         let min = Point::new(extremes.x_min.coord.x, extremes.y_min.coord.y);
 
-        let start = max.haversine_destination(90., self.radius * 1.5);
-        let end = min
-            .haversine_destination(270., self.radius * 1.5)
-            .haversine_destination(180., self.radius);
+        let start = Haversine.destination(max, 90.0, self.radius * 1.5);
+        let end = Haversine.destination(min, 270., self.radius * 1.5);
+        let end = Haversine.destination(end, 180., self.radius);
 
         let mut row = 0;
         let mut bearing = 270.;
@@ -127,16 +126,16 @@ impl<'a> BootstrapRadius<'a> {
                 {
                     circles.push(current);
                 }
-                current = current.haversine_destination(bearing, x_mod * self.radius * 2.)
+                current = Haversine.destination(current, bearing, x_mod * self.radius * 2.)
             }
-            current = current.haversine_destination(180., y_mod * self.radius * 2.);
+            current = Haversine.destination(current, 180., y_mod * self.radius * 2.);
 
             if row % 2 == 1 {
                 bearing = 270.;
             } else {
                 bearing = 90.;
             }
-            current = current.haversine_destination(bearing, x_mod * self.radius * 3.);
+            current = Haversine.destination(current, bearing, x_mod * self.radius * 3.);
 
             row += 1;
         }
@@ -153,15 +152,15 @@ fn distance_to_segment(p: &Point, a: &Point, b: &Point) -> Precision {
     let w = Point::new(p.x() - a.x(), p.y() - a.y());
     let c1 = dot(&w, &v);
     if c1 <= 0.0 {
-        return p.haversine_distance(&a);
+        return Haversine.distance(*p, *a);
     }
     let c2 = dot(&v, &v);
     if c2 <= c1 {
-        return p.haversine_distance(&b);
+        return Haversine.distance(*p, *b);
     }
     let b2 = c1 / c2;
     let pb = Point::new(a.x() + b2 * v.x(), a.y() + b2 * v.y());
-    p.haversine_distance(&pb)
+    Haversine.distance(*p, pb)
 }
 
 fn point_line_distance(input: &Vec<Point>, point: &Point) -> Precision {

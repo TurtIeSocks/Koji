@@ -19,7 +19,7 @@ pub fn multi_attempt<I: Iterator<Item = Point>>(
     let points: Vec<_> = points.collect();
     let mut circle = Circle::None;
     let mut attempt = 0;
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     for i in 0..max_attempts {
         attempt = i;

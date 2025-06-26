@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use geo::{HaversineDestination, Intersects};
+use geo::{Destination, Haversine, Intersects};
 use model::api::{point_array::PointArray, single_vec::SingleVec};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use s2::{
@@ -323,7 +323,7 @@ pub fn circle_coverage(lat: f64, lon: f64, radius: f64, level: u8) -> Covered {
     let circle = geo::Polygon::<f64>::new(
         geo::LineString::from(
             (0..60)
-                .map(|i| point.haversine_destination((i * 6) as f64, radius))
+                .map(|i| Haversine.destination(point, (i * 6) as f64, radius))
                 .collect::<Vec<geo::Point>>(),
         ),
         vec![],

@@ -4,19 +4,11 @@ version = "1.5.1"
 edition = "2024"
 
 [workspace]
-members = [
-  ".",
-  "algorithms",
-  "api",
-  "geo_repair",
-  "migration",
-  "model",
-  "nominatim",
-]
+members = [".", "algorithms", "api", "migration", "model", "nominatim"]
 
 [dependencies]
 api = { path = "api" }
 dotenv = "0.15.0"
-env_logger = "0.10.0"
-log = "0.4.20"
-mimalloc = "0.1.39"
+env_logger = "0.11.8"
+log = "0.4.27"
+mimalloc = "0.1.47"

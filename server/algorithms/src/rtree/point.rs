@@ -3,15 +3,14 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use geo::Coord;
+use geo::{Coord, HaversineMeasure};
 use geohash::encode;
-use map_3d::EARTH_RADIUS;
 use model::api::Precision;
 use rayon::slice::ParallelSliceMut;
-use rstar::{PointDistance, RTreeObject, AABB};
+use rstar::{AABB, PointDistance, RTreeObject};
 use s2::{cell::Cell, cellid::CellID, latlng::LatLng};
 
-use super::{cluster::Cluster, SortDedupe};
+use super::{SortDedupe, cluster::Cluster};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Point {
@@ -19,6 +18,8 @@ pub struct Point {
     pub center: [Precision; 2],
     pub cell_id: CellID,
 }
+
+const EARTH_RADIUS: f64 = HaversineMeasure::GRS80_MEAN_RADIUS.radius();
 
 impl Point {
     pub fn new(radius: Precision, cell_level: u64, center: [Precision; 2]) -> Self {

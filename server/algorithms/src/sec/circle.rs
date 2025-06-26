@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use geo::{HaversineDistance, Point};
+use geo::{Distance, Haversine, Point};
 
 use super::*;
 
@@ -55,12 +55,12 @@ impl Circle {
             Circle::One(a) => a.x() == point.x() && a.y() == point.y(),
             Circle::Two(a, b) => {
                 let center = utils::midpoint(&a, &b);
-                let dis = center.haversine_distance(&point);
+                let dis = Haversine.distance(center, point);
                 dis <= radius
             }
             Circle::Three(a, b, c) => {
                 let (circle, radius) = utils::smallest_three_point_circle(a, b, c);
-                circle.haversine_distance(&point) <= radius
+                Haversine.distance(circle, point) <= radius
             }
         }
     }
@@ -69,7 +69,7 @@ impl Circle {
         match self {
             Circle::None => 0.,
             Circle::One(_) => 0.,
-            Circle::Two(a, b) => a.haversine_distance(b) / 2.,
+            Circle::Two(a, b) => Haversine.distance(*a, *b) / 2.,
             Circle::Three(a, b, c) => utils::smallest_three_point_circle(a, b, c).1,
         }
     }
