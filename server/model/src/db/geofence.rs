@@ -5,7 +5,6 @@ use std::{collections::HashMap, str::FromStr, time::Instant};
 use crate::{
     api::{
         args::{AdminReqParsed, ApiQueryArgs, UnknownId},
-        collection::Default,
         GeoFormats, ToCollection,
     },
     error::ModelError,

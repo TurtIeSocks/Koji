@@ -1,6 +1,6 @@
 use utils::TrimPrecision;
 
-use super::{collection::Default, *};
+use super::*;
 
 pub type SingleVec = Vec<point_array::PointArray>;
 

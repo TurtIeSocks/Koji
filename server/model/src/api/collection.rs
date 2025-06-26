@@ -4,20 +4,6 @@ use self::utils::sql_raw;
 
 use super::{args::UnknownId, multi_vec::MultiVec, *};
 
-pub trait Default {
-    fn default() -> Self;
-}
-
-impl Default for FeatureCollection {
-    fn default() -> FeatureCollection {
-        FeatureCollection {
-            bbox: None,
-            foreign_members: None,
-            features: vec![],
-        }
-    }
-}
-
 impl EnsurePoints for FeatureCollection {
     fn ensure_first_last(self) -> Self {
         self.into_iter()

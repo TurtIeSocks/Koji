@@ -1,10 +1,7 @@
 use serde::{Deserializer, Serializer};
 use std::str::FromStr;
 
-pub fn serialize_vector_as_string<T, S>(
-    vec: &[T],
-    s: S,
-) -> Result<S::Ok, S::Error>
+pub fn serialize_vector_as_string<T, S>(vec: &[T], s: S) -> Result<S::Ok, S::Error>
 where
     T: ToString,
     S: Serializer,
@@ -30,7 +27,7 @@ where
     S: Serializer,
 {
     match vec {
-        Some(ref vec) => {
+        Some(vec) => {
             let mut string = String::new();
 
             for item in vec {
@@ -45,10 +42,7 @@ where
     }
 }
 
-pub fn serialize_as_string_opt<T, S>(
-    t: &Option<T>,
-    s: S,
-) -> Result<S::Ok, S::Error>
+pub fn serialize_as_string_opt<T, S>(t: &Option<T>, s: S) -> Result<S::Ok, S::Error>
 where
     T: ToString,
     S: Serializer,
@@ -59,10 +53,7 @@ where
     }
 }
 
-pub fn serialize_bool_as_string<S>(
-    boolean: &bool,
-    s: S,
-) -> Result<S::Ok, S::Error>
+pub fn serialize_bool_as_string<S>(boolean: &bool, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
@@ -88,16 +79,12 @@ where
     d.deserialize_string(string_visitor::FromStrVisitor::<T>::default())
 }
 
-pub fn deserialize_from_string_opt<'de, T, D>(
-    d: D,
-) -> Result<Option<T>, D::Error>
+pub fn deserialize_from_string_opt<'de, T, D>(d: D) -> Result<Option<T>, D::Error>
 where
     T: FromStr,
     D: Deserializer<'de>,
 {
-    d.deserialize_option(
-        opt_string_visitor::OptionFromStrVisitor::<T>::default(),
-    )
+    d.deserialize_option(opt_string_visitor::OptionFromStrVisitor::<T>::default())
 }
 
 mod string_visitor {
@@ -150,9 +137,7 @@ mod string_visitor {
                 Ok(s) => s
                     .parse()
                     .map_err(|_| E::custom(format!("cannot be parsed: {}", s))),
-                Err(_) => {
-                    Err(Error::invalid_value(Unexpected::Bytes(v), &self))
-                }
+                Err(_) => Err(Error::invalid_value(Unexpected::Bytes(v), &self)),
             }
         }
     }

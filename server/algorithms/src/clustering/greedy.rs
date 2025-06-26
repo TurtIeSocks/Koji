@@ -211,7 +211,7 @@ impl<'a> Greedy {
         &'a self,
         points: &'a SingleVec,
         point_tree: &'a RTree<Point>,
-    ) -> Vec<Vec<Cluster>> {
+    ) -> Vec<Vec<Cluster<'a>>> {
         let sys = System::new_all();
         let sys_mem = (sys.available_memory() / 1024 / 1024) as usize;
 
