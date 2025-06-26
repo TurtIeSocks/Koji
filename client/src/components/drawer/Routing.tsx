@@ -120,6 +120,12 @@ export default function RoutingTab() {
         />
       </Collapse>
 
+      <Collapse in={mode !== 'bootstrap' && calculation_mode === 'S2'}>
+        <Divider sx={{ my: 2 }} />
+        <ListSubheader>Clustering</ListSubheader>
+        <UserTextInput field="min_points" />
+      </Collapse>
+
       <Collapse in={mode !== 'bootstrap' && calculation_mode === 'Radius'}>
         <Divider sx={{ my: 2 }} />
         <ListSubheader>Clustering</ListSubheader>
