@@ -27,9 +27,9 @@ pub trait ToGeo {
     fn geo_point(&self) -> geo::Point;
 }
 
-trait ToGeoJson {
-    fn point(&self) -> Vec<f64>;
-}
+// trait ToGeoJson {
+//     fn point(&self) -> Vec<f64>;
+// }
 
 pub trait ToPointArray {
     fn point_array(&self) -> PointArray;
@@ -77,13 +77,13 @@ impl ToGeo for CellID {
     }
 }
 
-impl ToGeoJson for CellID {
-    fn point(&self) -> Vec<f64> {
-        let cell = Cell::from(self);
-        let center = cell.center();
-        vec![center.longitude().deg(), center.latitude().deg()]
-    }
-}
+// impl ToGeoJson for CellID {
+//     fn point(&self) -> Vec<f64> {
+//         let cell = Cell::from(self);
+//         let center = cell.center();
+//         vec![center.longitude().deg(), center.latitude().deg()]
+//     }
+// }
 
 #[derive(Debug, Clone, Copy)]
 pub enum Dir {

@@ -5,7 +5,6 @@ use geojson::{Geometry, Value};
 use model::{
     api::{
         args::{ApiQueryArgs, SpawnpointTth, UnknownId},
-        collection::Default,
         single_vec::SingleVec,
         BBox, ToCollection,
     },

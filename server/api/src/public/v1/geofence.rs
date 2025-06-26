@@ -7,7 +7,6 @@ use serde_json::json;
 use model::{
     api::{
         args::{get_return_type, ApiQueryArgs, Args, ArgsUnwrapped, ReturnTypeArg},
-        collection::Default,
         GeoFormats, ToCollection,
     },
     db::{area, geofence, instance, project},

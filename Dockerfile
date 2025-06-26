@@ -4,7 +4,7 @@ COPY ./client .
 RUN yarn install
 RUN yarn build
 
-FROM rust:1.71 as server
+FROM rust:1.87 as server
 ENV PKG_CONFIG_ALLOW_CROSS=1
 WORKDIR /usr/src/koji
 COPY ./server .

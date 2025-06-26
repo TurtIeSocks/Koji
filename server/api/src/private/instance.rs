@@ -1,7 +1,7 @@
 use super::*;
 
 use model::{
-    api::{args::ApiQueryArgs, collection::Default},
+    api::args::ApiQueryArgs,
     db::{route, NameTypeId},
     ScannerType,
 };

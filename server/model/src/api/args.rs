@@ -1,7 +1,7 @@
 use super::{calc_mode::CalculationMode, cluster_mode::ClusterMode, sort_by::SortBy, *};
 
 use crate::{
-    api::{collection::Default, text::TextHelpers},
+    api::text::TextHelpers,
     utils::{get_enum, get_enum_by_geometry_string},
 };
 
