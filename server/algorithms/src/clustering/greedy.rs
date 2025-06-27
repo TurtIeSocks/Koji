@@ -1,6 +1,6 @@
 use geojson::{Feature, Geometry};
 use hashbrown::HashSet;
-use model::api::{cluster_mode::ClusterMode, single_vec::SingleVec, GetBbox, Precision};
+use model::api::{GetBbox, Precision, cluster_mode::ClusterMode, single_vec::SingleVec};
 
 use ::s2::cellid::CellID;
 use rayon::{
@@ -11,12 +11,12 @@ use rayon::{
 };
 use rstar::RTree;
 use std::{io::Write, time::Instant};
-use sysinfo::{System, SystemExt};
+use sysinfo::System;
 
 use crate::{
     bootstrap::radius,
     clustering::rtree::{cluster::Cluster, point::Point},
-    rtree::{self, point::ToPoint, SortDedupe},
+    rtree::{self, SortDedupe, point::ToPoint},
     s2,
     utils::info_log,
 };

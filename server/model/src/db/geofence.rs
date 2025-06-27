@@ -4,12 +4,12 @@ use std::{collections::HashMap, str::FromStr, time::Instant};
 
 use crate::{
     api::{
-        args::{AdminReqParsed, ApiQueryArgs, UnknownId},
         GeoFormats, ToCollection,
+        args::{AdminReqParsed, ApiQueryArgs, UnknownId},
     },
     error::ModelError,
     utils::{
-        json::{determine_category_by_value, JsonToModel},
+        json::{JsonToModel, determine_category_by_value},
         json_related_sort, name_modifier, parse_order, separate_by_comma,
     },
 };
@@ -20,8 +20,9 @@ use super::{
     *,
 };
 
+use futures::future;
 use geojson::{GeoJson, Geometry};
-use sea_orm::{entity::prelude::*, UpdateResult};
+use sea_orm::{UpdateResult, entity::prelude::*};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use utils::TrimPrecision;
@@ -341,14 +342,16 @@ impl Query {
                 }
                 json.insert(
                     "projects".to_string(),
-                    json!(record
-                        .get_related_projects()
-                        .into_model::<NameId>()
-                        .all(db)
-                        .await?
-                        .into_iter()
-                        .map(|p| p.id)
-                        .collect::<Vec<u32>>()),
+                    json!(
+                        record
+                            .get_related_projects()
+                            .into_model::<NameId>()
+                            .all(db)
+                            .await?
+                            .into_iter()
+                            .map(|p| p.id)
+                            .collect::<Vec<u32>>()
+                    ),
                 );
                 json.insert(
                     "routes".to_string(),
@@ -356,19 +359,21 @@ impl Query {
                 );
                 json.insert(
                     "properties".to_string(),
-                    json!(record
-                        .get_related_properties()
-                        .into_model::<FullPropertyModel>()
-                        .all(db)
-                        .await?
-                        .into_iter()
-                        .map(|prop| {
-                            let property_id = prop.property_id.clone();
-                            let mut new_json = json!(prop.parse_db_value(&record));
-                            new_json["property_id"] = property_id.into();
-                            new_json
-                        })
-                        .collect::<Vec<Json>>()),
+                    json!(
+                        record
+                            .get_related_properties()
+                            .into_model::<FullPropertyModel>()
+                            .all(db)
+                            .await?
+                            .into_iter()
+                            .map(|prop| {
+                                let property_id = prop.property_id.clone();
+                                let mut new_json = json!(prop.parse_db_value(&record));
+                                new_json["property_id"] = property_id.into();
+                                new_json
+                            })
+                            .collect::<Vec<Json>>()
+                    ),
                 );
                 Ok(json!(json))
             }
@@ -673,11 +678,7 @@ impl Query {
         let mut new_map = HashMap::<&str, serde_json::Value>::new();
 
         let id = if let Some(id) = feat.property("__id") {
-            if let Some(id) = id.as_u64() {
-                id
-            } else {
-                0
-            }
+            if let Some(id) = id.as_u64() { id } else { 0 }
         } else {
             0
         } as u32;
@@ -925,7 +926,7 @@ impl Query {
                         None => {
                             return Err(ModelError::Geofence(
                                 "No valid parent_id found".to_string(),
-                            ))
+                            ));
                         }
                     },
                     _ => {}

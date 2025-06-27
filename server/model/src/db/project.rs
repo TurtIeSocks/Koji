@@ -6,6 +6,7 @@ use crate::{
 };
 
 use super::*;
+use futures::future;
 use sea_orm::entity::prelude::*;
 use serde_json::json;
 use std::str::FromStr;
@@ -82,14 +83,16 @@ impl Query {
                 let json = json.as_object_mut().unwrap();
                 json.insert(
                     "geofences".to_string(),
-                    json!(record
-                        .get_related_geofences()
-                        .into_model::<NameId>()
-                        .all(db)
-                        .await?
-                        .into_iter()
-                        .map(|p| p.id)
-                        .collect::<Vec<u32>>()),
+                    json!(
+                        record
+                            .get_related_geofences()
+                            .into_model::<NameId>()
+                            .all(db)
+                            .await?
+                            .into_iter()
+                            .map(|p| p.id)
+                            .collect::<Vec<u32>>()
+                    ),
                 );
                 Ok(json!(json))
             }

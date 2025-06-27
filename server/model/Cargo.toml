@@ -9,20 +9,19 @@ name = "model"
 path = "src/lib.rs"
 
 [dependencies]
-chrono = { version = "0.4.31", features = ["serde"] }
-futures = "0.3.28"
-geo = "0.26.0"
-geojson = "0.24.1"
-geo-types = "0.7.11"
-geo_repair = { path = "../geo_repair" }
-log = "0.4.20"
-regex = "1.10.2"
-sea-orm = { version = "0.12.4", features = [
+chrono = { version = "0.4.41", features = ["serde"] }
+futures = "0.3.31"
+geo = "0.30.0"
+geojson = "0.24.2"
+geo-types = "0.7.16"
+log = "0.4.27"
+regex = "1.11.1"
+sea-orm = { version = "1.1.12", features = [
   "sqlx-mysql",
   "runtime-actix-native-tls",
   "macros",
 ] }
-serde = { version = "1.0.189", features = ["derive"] }
-serde_json = "1.0.107"
-serde_with = "3.4.0"
-thiserror = "1.0.50"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+serde_with = "3.13.0"
+thiserror = "2.0.12"

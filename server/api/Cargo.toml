@@ -9,19 +9,19 @@ name = "api"
 path = "src/lib.rs"
 
 [dependencies]
-actix-web = "4.4.0"
-actix-files = "0.6.2"
-actix-session = { version = "0.8.0", features = ["cookie-session"] }
-actix-web-httpauth = "0.8.1"
+actix-web = "4.11.0"
+actix-files = "0.6.6"
+actix-session = { version = "0.10.1", features = ["cookie-session"] }
+actix-web-httpauth = "0.8.2"
 algorithms = { path = "../algorithms" }
-geo = "0.26.0"
-geojson = "0.24.1"
-log = "0.4.20"
+geo = "0.30.0"
+geojson = "0.24.2"
+log = "0.4.27"
 migration = { path = "../migration" }
 model = { path = "../model" }
 nominatim = { path = "../nominatim" }
-reqwest = "0.11.22"
-serde = { version = "1.0.189", features = ["derive"] }
-serde_json = "1.0.107"
-thiserror = "1.0.50"
-url = "2.4.1"
+reqwest = "0.12.20"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+thiserror = "2.0.12"
+url = "2.5.4"

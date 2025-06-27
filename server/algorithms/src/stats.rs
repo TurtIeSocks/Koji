@@ -1,9 +1,9 @@
 use std::{ops::AddAssign, time::Instant};
 
-use geo::{HaversineDistance, Point};
+use geo::{Distance, Haversine, Point};
 use hashbrown::HashSet;
-use model::api::{single_vec::SingleVec, Precision};
-use serde::{ser::SerializeStruct, Serialize};
+use model::api::{Precision, single_vec::SingleVec};
+use serde::{Serialize, ser::SerializeStruct};
 
 use crate::rtree::{self, cluster::Cluster, cluster_info, point};
 
@@ -155,7 +155,7 @@ impl Stats {
             } else {
                 Point::new(clusters[i + 1][1], clusters[i + 1][0])
             };
-            let distance = point.haversine_distance(&point2);
+            let distance = Haversine.distance(point, point2);
             self.total_distance += distance;
             if distance > self.longest_distance {
                 self.longest_distance = distance;

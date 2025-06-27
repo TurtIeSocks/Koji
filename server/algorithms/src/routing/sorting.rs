@@ -1,13 +1,12 @@
 use geo::Coord;
 use geohash::encode;
 use model::api::single_vec::SingleVec;
-use rand::rngs::mock::StepRng;
+use rand::{rngs::mock::StepRng, seq::SliceRandom};
 use rayon::{
     iter::{IntoParallelRefIterator, ParallelIterator},
     slice::ParallelSliceMut,
 };
 use s2::{cellid::CellID, latlng::LatLng};
-use shuffle::{irs::Irs, shuffler::Shuffler};
 
 use crate::rtree::{self, cluster, point};
 
@@ -25,13 +24,7 @@ impl SortRandom for SingleVec {
 
     fn sort_random_mut(&mut self) {
         let mut rng = StepRng::new(2, 13);
-        let mut irs = Irs::default();
-        match irs.shuffle(self, &mut rng) {
-            Ok(_) => {}
-            Err(e) => {
-                log::warn!("Error while shuffling: {}", e);
-            }
-        }
+        self.shuffle(&mut rng);
     }
 }
 

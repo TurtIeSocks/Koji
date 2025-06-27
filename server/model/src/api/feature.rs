@@ -1,5 +1,4 @@
 use geo::algorithm::RemoveRepeatedPoints;
-// use geo_repair::repair::Repair;
 use geo_types::MultiPoint;
 use sea_orm::ActiveEnum;
 

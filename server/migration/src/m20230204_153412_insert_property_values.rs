@@ -53,7 +53,7 @@ impl MigrationTrait for Migration {
                     let feature = Feature::from_json_value(area.clone());
                     if let Ok(feature) = feature {
                         'props: for (key, value) in feature.properties_iter() {
-                            if key.eq("name") {
+                            if key == "Name" {
                                 continue 'props;
                             }
                             let mut actual_value: Option<Value> = Some(value.clone().into());

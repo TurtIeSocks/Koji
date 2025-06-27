@@ -1,6 +1,6 @@
 use crate::plugin::{JoinFunction, Plugin};
 use crate::utils;
-use geo::{HaversineDistance, Point};
+use geo::{Distance, Haversine, Point};
 use model::api::{point_array::PointArray, single_vec::SingleVec};
 use s2::cellid::CellID;
 use s2::latlng::LatLng;
@@ -53,7 +53,7 @@ pub fn join(plugin: &Plugin, input: Vec<SingleVec>) -> SingleVec {
             let current_point = Point::new(current_point[1], current_point[0]);
             for (_next_index, next_point) in next.iter().enumerate() {
                 let next_point = Point::new(next_point[1], next_point[0]);
-                let distance = current_point.haversine_distance(&next_point);
+                let distance = Haversine.distance(current_point, next_point);
                 if distance < shortest {
                     shortest = distance;
                     shortest_current_index = current_index;

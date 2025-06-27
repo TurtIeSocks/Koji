@@ -4,11 +4,9 @@ use crate::error::ModelError;
 
 use super::*;
 
-use chrono::Utc;
-use futures::future;
 use sea_orm::{
-    prelude::DateTimeUtc, sea_query::Expr, DbBackend, DeleteResult, DeriveEntityModel,
-    FromQueryResult, Order, QueryOrder, QuerySelect, Set, Statement,
+    DbBackend, DeleteResult, DeriveEntityModel, FromQueryResult, Order, QueryOrder, QuerySelect,
+    Set, Statement, prelude::DateTimeUtc, sea_query::Expr,
 };
 
 pub mod area;
