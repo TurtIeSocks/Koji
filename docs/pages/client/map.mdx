@@ -1,5 +1,3 @@
-import { Callout } from 'nextra-theme-docs'
-
 # Map
 
 ## Drawer
@@ -38,6 +36,61 @@ import { Callout } from 'nextra-theme-docs'
   - S2 cell level that the clustering algorithms should use
 - S2 size
   - How many cells to cluster together per hop, e.g. `9x9`
+
+## Recommended Settings
+
+Below are three community–tuned example configurations you can apply under **Calculations** to get up and running quickly. Feel free to tweak them for your scanner density or area size.
+
+---
+
+### 1. Area Bootstrap — Ideal for initial spawnpoint discovery
+
+| Field     | Value         |
+|-----------|---------------|
+| Mode      | `Bootstrap`   |
+| Strategy  | `Radius`      |
+| Radius    | `70`          |
+| Sort by   | `None`        |
+| **Note**  | No optimization—sequential route, longer scan time. |
+
+---
+
+### 2. Spawnpoint Clustering — Generates TSP-optimized spawnpoint routes
+
+| Field               | Value        |
+|---------------------|--------------|
+| Mode                | `Cluster`    |
+| Category            | `Spawnpoint` |
+| Tth                 | `All`        |
+| Strategy            | `Radius`     |
+| Radius              | `70`         |
+| Min points          | `3`          |
+| Cluster mode        | `Balanced`   |
+| Cluster split level | `1`          |
+| Center clusters     | Off          |
+| Sort by             | `TSP`        |
+| Route split level   | `1`          |
+
+---
+
+### 3. Pokéstop Quest Scan — Efficient fort/quest scanning
+
+| Field               | Value        |
+|---------------------|--------------|
+| Mode                | `Cluster`    |
+| Category            | `Pokestop`   |
+| Strategy            | `Radius`     |
+| Radius              | `80`         |
+| Min points          | `1`          |
+| Cluster mode        | `Balanced`   |
+| Cluster split level | `1`          |
+| Center clusters     | Off          |
+| Sort by             | `TSP`        |
+| Route split level   | `1`          |
+
+---
+
+> **Tip:** These examples balance coverage and optimization—adjust the radius, min-points, or routing to dial in performance for your network and area size.
 
 ### Clustering Options
 
