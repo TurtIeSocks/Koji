@@ -52,8 +52,6 @@ async fn cell_coverage(payload: web::Json<CoverageArgs>) -> Result<HttpResponse,
 
     let result = s2::cell_coverage(lat, lon, size.unwrap_or(15), level);
     let locked = result
-        .lock()
-        .unwrap()
         .iter()
         .map(|cell| cell.to_string())
         .collect::<Vec<String>>();

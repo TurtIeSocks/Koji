@@ -13,7 +13,7 @@ use s2::{
 };
 use serde::Serialize;
 
-type Covered = Arc<Mutex<HashSet<u64>>>;
+type Covered = HashSet<u64>;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct S2Response {
@@ -317,7 +317,7 @@ pub fn get_polygons(cell_ids: Vec<String>) -> Vec<S2Response> {
         .collect()
 }
 
-pub fn circle_coverage(lat: f64, lon: f64, radius: f64, level: u8) -> Covered {
+pub fn circle_coverage(lat: f64, lon: f64, radius: f64, level: u8) -> Arc<Mutex<Covered>> {
     let mut covered = Arc::new(Mutex::new(HashSet::new()));
     let point = geo::Point::new(lon, lat);
     let circle = geo::Polygon::<f64>::new(
@@ -333,7 +333,13 @@ pub fn circle_coverage(lat: f64, lon: f64, radius: f64, level: u8) -> Covered {
     covered
 }
 
-fn check_neighbors(lat: f64, lon: f64, level: u8, circle: &geo::Polygon, covered: &mut Covered) {
+fn check_neighbors(
+    lat: f64,
+    lon: f64,
+    level: u8,
+    circle: &geo::Polygon,
+    covered: &mut Arc<Mutex<Covered>>,
+) {
     let center = s2::latlng::LatLng::from_degrees(lat, lon);
     let center_cell = CellID::from(center).parent(level as u64);
     match covered.lock() {
@@ -400,22 +406,15 @@ fn check_neighbors(lat: f64, lon: f64, level: u8, circle: &geo::Polygon, covered
 }
 
 pub fn cell_coverage(lat: f64, lon: f64, size: u8, level: u8) -> Covered {
-    let covered = Arc::new(Mutex::new(HashSet::new()));
+    let mut covered = HashSet::new();
     let center = CellID::from(s2::latlng::LatLng::from_degrees(lat, lon)).parent(level as u64);
 
     if size == 1 {
-        covered.lock().unwrap().insert(center.0);
+        covered.insert(center.0);
     } else {
         let neighbors = center.build_grid(size);
         for neighbor in neighbors {
-            match covered.lock() {
-                Ok(mut c) => {
-                    c.insert(neighbor.0);
-                }
-                Err(e) => {
-                    log::error!("[S2] Error locking `covered` to insert: {}", e)
-                }
-            };
+            covered.insert(neighbor.0);
         }
     }
     covered
