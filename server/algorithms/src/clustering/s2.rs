@@ -15,16 +15,14 @@ pub fn cluster(
     min_points: usize,
 ) -> SingleVec {
     let lvl = level as u64;
+    let min_points = min_points.max(1);
 
     let all_cells = bootstrap::s2::BootstrapS2::new(&feature, lvl, size).result();
-    if min_points == 0 || data.is_empty() {
-        return all_cells;
-    }
 
     let mut counts: HashMap<u64, usize> = HashMap::with_capacity(data.len() * 2);
     for f in data.iter() {
         let cell_id = CellID::from(s2::latlng::LatLng::from_degrees(f[0], f[1]))
-            .parent(level as u64)
+            .parent(lvl)
             .0;
         *counts.entry(cell_id).or_insert(0) += 1;
     }
