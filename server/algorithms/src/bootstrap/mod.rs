@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use geojson::{Feature, FeatureCollection};
-use model::api::{calc_mode::CalculationMode, sort_by::SortBy, Precision, ToFeature};
+use model::api::{Precision, ToFeature, calc_mode::CalculationMode, sort_by::SortBy};
 
 use crate::{
     plugin::{Folder, Plugin},
@@ -36,7 +36,7 @@ pub fn main(
                 features.push(new_radius.feature());
             }
             CalculationMode::S2 => {
-                let mut new_s2 = s2::BootstrapS2::new(&feature, s2_level as u64, s2_size);
+                let mut new_s2 = s2::BootstrapS2::new(&feature, s2_level, s2_size);
                 new_s2.sort(&sort_by, route_split_level, routing_args);
 
                 *stats += &new_s2.stats;
