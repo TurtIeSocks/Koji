@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     fmt::Display,
     sync::{Arc, Mutex},
 };
@@ -105,132 +105,6 @@ impl Display for Dir {
                 Dir::W => "West",
             }
         )
-    }
-}
-pub trait Traverse {
-    fn traverse(self, dir: Dir, count: u8) -> Self;
-    fn traverse_mut(&mut self, dir: Dir, count: u8);
-}
-
-impl Traverse for CellID {
-    fn traverse(self, dir: Dir, count: u8) -> Self {
-        let mut new_cell = self;
-        new_cell.traverse_mut(dir, count);
-        new_cell
-    }
-
-    fn traverse_mut(&mut self, dir: Dir, count: u8) {
-        for _ in 0..count {
-            let neighbors = self.edge_neighbors();
-            let lng_match = self.point_array()[1] / 45.;
-            let lng_match = if lng_match < -3. {
-                lng_match.ceil() as i8
-            } else {
-                lng_match.floor() as i8
-            };
-            *self = match self.face() {
-                0 | 1 => match dir {
-                    Dir::N => neighbors[2],
-                    Dir::E => neighbors[1],
-                    Dir::S => neighbors[0],
-                    Dir::W => neighbors[3],
-                },
-                2 => match lng_match {
-                    -1 | 0 => match dir {
-                        Dir::N => neighbors[1],
-                        Dir::E => neighbors[0],
-                        Dir::S => neighbors[3],
-                        Dir::W => neighbors[2],
-                    },
-                    1 | 2 => match dir {
-                        Dir::N => neighbors[2],
-                        Dir::E => neighbors[1],
-                        Dir::S => neighbors[0],
-                        Dir::W => neighbors[3],
-                    },
-                    -2 => match dir {
-                        Dir::N => neighbors[0],
-                        Dir::E => neighbors[3],
-                        Dir::S => neighbors[2],
-                        Dir::W => neighbors[1],
-                    },
-                    -3 | 3 => match dir {
-                        Dir::N => neighbors[3],
-                        Dir::E => neighbors[2],
-                        Dir::S => neighbors[1],
-                        Dir::W => neighbors[0],
-                    },
-                    _ => {
-                        log::error!("invalid on face 2: {}", lng_match);
-                        panic!()
-                    }
-                },
-                3 | 4 => match dir {
-                    Dir::N => neighbors[3],
-                    Dir::E => neighbors[2],
-                    Dir::S => neighbors[1],
-                    Dir::W => neighbors[0],
-                },
-                5 => match lng_match {
-                    -1 | 0 => match dir {
-                        Dir::N => neighbors[2],
-                        Dir::E => neighbors[1],
-                        Dir::S => neighbors[0],
-                        Dir::W => neighbors[3],
-                    },
-                    1 | 2 => match dir {
-                        Dir::N => neighbors[1],
-                        Dir::E => neighbors[0],
-                        Dir::S => neighbors[3],
-                        Dir::W => neighbors[2],
-                    },
-                    -2 => match dir {
-                        Dir::N => neighbors[3],
-                        Dir::E => neighbors[2],
-                        Dir::S => neighbors[1],
-                        Dir::W => neighbors[0],
-                    },
-                    -3 | 3 => match dir {
-                        Dir::N => neighbors[0],
-                        Dir::E => neighbors[3],
-                        Dir::S => neighbors[2],
-                        Dir::W => neighbors[1],
-                    },
-                    _ => {
-                        log::error!("invalid on face 5: {}", lng_match);
-                        panic!()
-                    }
-                },
-                _ => {
-                    log::error!("invalid face: {}", self.face());
-                    panic!()
-                }
-            };
-        }
-    }
-}
-
-pub trait BuildGrid {
-    fn build_grid(&self, size: u8) -> Vec<CellID>;
-}
-
-impl BuildGrid for CellID {
-    fn build_grid(&self, size: u8) -> Vec<CellID> {
-        let get_to_start = (size as f32 / 2.).floor() as u8;
-        let mut starting_cell = self
-            .traverse(Dir::W, get_to_start)
-            .traverse(Dir::S, get_to_start);
-        let mut neighbors = vec![];
-        for _ in 0..size {
-            let mut h_cell = starting_cell;
-            neighbors.push(h_cell);
-            for _ in 1..size {
-                h_cell.traverse_mut(Dir::E, 1);
-                neighbors.push(h_cell);
-            }
-            starting_cell.traverse_mut(Dir::N, 1);
-        }
-        neighbors
     }
 }
 
@@ -405,6 +279,37 @@ fn check_neighbors(
     }
 }
 
+/// Build the SIZE x SIZE set (SIZE^2) around `center` at `level` by expanding (SIZE-1)/2 rings
+/// with (SIZE-1)-neighborhood (includes diagonals). This matches a Chebyshev radius of (SIZE-1)/2.
+pub fn s2_grid(center: CellID, level: u8, size: u8) -> HashSet<CellID> {
+    let mut visited: HashSet<CellID> = HashSet::with_capacity((size * size) as usize);
+    let mut frontier: VecDeque<CellID> = VecDeque::new();
+
+    visited.insert(center);
+    frontier.push_back(center);
+
+    let level = level as u64;
+    for _ in 0..cell_index(size) {
+        let mut next: Vec<CellID> = Vec::new();
+        while let Some(cid) = frontier.pop_front() {
+            // neighbors at the requested level (docs: includes diagonals)
+            for n in cid.all_neighbors(level) {
+                if visited.insert(n) {
+                    next.push(n);
+                }
+            }
+        }
+        // advance to the next ring
+        frontier.extend(next);
+    }
+
+    visited
+}
+
+pub fn cell_index(size: u8) -> usize {
+    ((size - 1) / 2) as usize
+}
+
 pub fn cell_coverage(lat: f64, lon: f64, size: u8, level: u8) -> Covered {
     let mut covered = HashSet::new();
     let center = CellID::from(s2::latlng::LatLng::from_degrees(lat, lon)).parent(level as u64);
@@ -412,7 +317,7 @@ pub fn cell_coverage(lat: f64, lon: f64, size: u8, level: u8) -> Covered {
     if size == 1 {
         covered.insert(center.0);
     } else {
-        let neighbors = center.build_grid(size);
+        let neighbors = s2_grid(center, level, size);
         for neighbor in neighbors {
             covered.insert(neighbor.0);
         }
