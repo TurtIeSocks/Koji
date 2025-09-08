@@ -4,8 +4,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use geo::{Destination, Haversine, Intersects};
-use model::api::{point_array::PointArray, single_vec::SingleVec};
+use geo::{Coord, Destination, Haversine, Intersects, LineString, Polygon};
+use model::api::{Precision, point_array::PointArray, single_vec::SingleVec};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use s2::{
     cell::Cell, cellid::CellID, cellunion::CellUnion, latlng::LatLng, rect::Rect,
@@ -282,32 +282,50 @@ fn check_neighbors(
 /// Build the SIZE x SIZE set (SIZE^2) around `center` at `level` by expanding (SIZE-1)/2 rings
 /// with (SIZE-1)-neighborhood (includes diagonals). This matches a Chebyshev radius of (SIZE-1)/2.
 pub fn s2_grid(center: CellID, level: u8, size: u8) -> HashSet<CellID> {
+    let half = (size / 2) as usize;
+    if half == 0 {
+        return std::iter::once(center).collect();
+    }
+
     let mut visited: HashSet<CellID> = HashSet::with_capacity((size * size) as usize);
     let mut frontier: VecDeque<CellID> = VecDeque::new();
 
     visited.insert(center);
     frontier.push_back(center);
 
-    let level = level as u64;
-    for _ in 0..cell_index(size) {
+    for _ in 0..half {
         let mut next: Vec<CellID> = Vec::new();
         while let Some(cid) = frontier.pop_front() {
-            // neighbors at the requested level (docs: includes diagonals)
-            for n in cid.all_neighbors(level) {
+            for n in cid.all_neighbors(level as u64) {
                 if visited.insert(n) {
                     next.push(n);
                 }
             }
         }
-        // advance to the next ring
         frontier.extend(next);
     }
 
     visited
 }
 
-pub fn cell_index(size: u8) -> usize {
-    ((size - 1) / 2) as usize
+/// True if the S2 cell (by ID) intersects the given polygon.
+/// Build a planar polygon from the cell's 4 vertices in (lon, lat) order.
+pub fn cell_intersects_polygon(id: CellID, poly: &Polygon<Precision>) -> bool {
+    let cell = Cell::from(&id);
+
+    let mut ring: Vec<Coord<Precision>> = Vec::with_capacity(5);
+    for k in 0..4 {
+        let p = cell.vertex(k);
+        let ll = LatLng::from(&p);
+        ring.push(Coord {
+            x: ll.lng.deg(),
+            y: ll.lat.deg(),
+        });
+    }
+    ring.push(ring[0]);
+
+    let cell_poly = Polygon::new(LineString::from(ring), vec![]);
+    poly.intersects(&cell_poly)
 }
 
 pub fn cell_coverage(lat: f64, lon: f64, size: u8, level: u8) -> Covered {
