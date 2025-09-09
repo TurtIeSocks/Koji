@@ -74,12 +74,6 @@ impl<'a> Greedy {
 
             let mut return_set = HashSet::new();
             std::thread::scope(|s| {
-                let mut handlers = vec![];
-                for (key, values) in cell_maps.iter() {
-                    log::debug!("Cell: {} | Points: {}", key, values.len());
-                    let thread = s.spawn(move || self.setup(values));
-                    handlers.push(thread);
-                }
                 let handlers: Vec<std::thread::ScopedJoinHandle<'_, HashSet<Point>>> = cell_maps
                     .iter()
                     .map(|(key, values)| {
@@ -109,27 +103,22 @@ impl<'a> Greedy {
 
     fn generate_clusters(&self, point: &Point, neighbors: Vec<&Point>) -> HashSet<Point> {
         let mut clusters = HashSet::new();
+        const WIGGLES: [f64; 2] = [0.00025, 0.0001];
+
         for neighbor in neighbors.iter() {
             for i in 0..=7 {
                 let ratio = i as Precision / 8 as Precision;
                 let new_point = point.interpolate(neighbor, ratio, 0., 0.);
                 clusters.insert(new_point);
                 if self.cluster_mode == ClusterMode::Balanced {
-                    for wiggle in vec![0.00025, 0.0001] {
-                        let wiggle_lat: Precision = wiggle / 2.;
-                        let wiggle_lon = wiggle;
-                        let random_point =
-                            point.interpolate(neighbor, ratio, wiggle_lat, wiggle_lon);
-                        clusters.insert(random_point);
-                        let random_point =
-                            point.interpolate(neighbor, ratio, wiggle_lat, -wiggle_lon);
-                        clusters.insert(random_point);
-                        let random_point =
-                            point.interpolate(neighbor, ratio, -wiggle_lat, wiggle_lon);
-                        clusters.insert(random_point);
-                        let random_point =
-                            point.interpolate(neighbor, ratio, -wiggle_lat, -wiggle_lon);
-                        clusters.insert(random_point);
+                    for wiggle in WIGGLES {
+                        let lat: Precision = wiggle / 2.;
+                        let lon = wiggle;
+
+                        clusters.insert(point.interpolate(neighbor, ratio, lat, lon));
+                        clusters.insert(point.interpolate(neighbor, ratio, lat, -lon));
+                        clusters.insert(point.interpolate(neighbor, ratio, -lat, lon));
+                        clusters.insert(point.interpolate(neighbor, ratio, -lat, -lon));
                     }
                 }
             }
