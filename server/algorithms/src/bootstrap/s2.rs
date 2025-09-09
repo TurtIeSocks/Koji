@@ -15,6 +15,7 @@ use s2::{
     latlng::LatLng,
     rect::Rect,
     region::RegionCoverer,
+    s1::{Angle, Deg},
 };
 
 #[derive(Debug)]
@@ -104,13 +105,14 @@ impl<'a> BootstrapS2<'a> {
             .flat_map(|poly| self.centers_for_polygon(&poly))
             .collect();
 
-        log::info!("Bootstrapped S2 in {:.4}", time.elapsed().as_secs_f32());
+        log::info!("Bootstrapped S2 in {:.4}s", time.elapsed().as_secs_f32());
 
         results
     }
 
     /// Core implementation operating on geo-types::Polygon<f64>.
     pub fn centers_for_polygon(&self, poly: &Polygon<Precision>) -> Vec<[Precision; 2]> {
+        let time = Instant::now();
         // 1) Bounding box and S2 Rect (note: simple case, no antimeridian split).
         let bbox = poly
             .bounding_rect()
@@ -119,7 +121,12 @@ impl<'a> BootstrapS2<'a> {
         let lat_hi = bbox.max().y;
         let lng_lo = bbox.min().x;
         let lng_hi = bbox.max().x;
-        let rect = Rect::from_degrees(lat_lo, lng_lo, lat_hi, lng_hi);
+        let expand_angle = Angle::from(Deg(0.1));
+
+        let rect = Rect::from_degrees(lat_lo, lng_lo, lat_hi, lng_hi).expanded(&LatLng {
+            lat: expand_angle,
+            lng: expand_angle,
+        });
 
         // 2) RegionCoverer at the requested level.
         let rc = RegionCoverer {
@@ -130,11 +137,22 @@ impl<'a> BootstrapS2<'a> {
         };
         let cover = rc.covering(&rect);
 
-        cover
+        log::info!(
+            "Created region coverer in {:.4}s",
+            time.elapsed().as_secs_f32()
+        );
+
+        log::info!("Checking {} cells", cover.0.len());
+        let time = Instant::now();
+
+        let covered_set = cover
             .0
             .into_iter()
-            .map(|id| self.block_center_cell(id))
-            .collect::<HashSet<CellID>>()
+            .filter_map(|id| self.block_center_cell(id))
+            .collect::<HashSet<CellID>>();
+        log::info!("Created centers in {:.4}s", time.elapsed().as_secs_f32());
+
+        covered_set
             .into_par_iter()
             .filter_map(|id| {
                 // 4) Build the size×size neighborhood via ring expansion (Chebyshev radius = half).
@@ -159,7 +177,11 @@ impl<'a> BootstrapS2<'a> {
     /// reconstructing a cell and taking its parent at level L.
     ///
     /// Requires: 0 <= L <= MAX_LEVEL and `id.level() == L`.
-    fn block_center_cell(&self, id: CellID) -> CellID {
+    fn block_center_cell(&self, id: CellID) -> Option<CellID> {
+        if self.size == 1 {
+            return Some(id);
+        }
+
         let (face, i_leaf, j_leaf, _orient) = id.face_ij_orientation();
         let shift = (MAX_LEVEL as i32 - self.level as i32) as i32;
 
@@ -173,6 +195,7 @@ impl<'a> BootstrapS2<'a> {
         // Integer block indices, then snap to the block center.
         let block_i = i_l.div_euclid(size_i32);
         let block_j = j_l.div_euclid(size_i32);
+
         let center_i_l = block_i * size_i32 + half;
         let center_j_l = block_j * size_i32 + half;
 
@@ -180,7 +203,27 @@ impl<'a> BootstrapS2<'a> {
         let center_i_leaf = center_i_l << shift;
         let center_j_leaf = center_j_l << shift;
 
-        CellID::from_face_ij(face, center_i_leaf, center_j_leaf).parent(self.level as u64)
+        let center =
+            CellID::from_face_ij(face, center_i_leaf, center_j_leaf).parent(self.level as u64);
+
+        let (off_i, off_j) = cells_to_nearest_face_edges(center);
+        let f_i = (off_i - half) % size_i32;
+        let f_j = (off_j - half) % size_i32;
+
+        if f_i == 0 && f_j == 0 {
+            return Some(center);
+        }
+
+        if center.face() != face {
+            return None;
+        }
+
+        let center_i = (center_i_l + f_i) << shift;
+        let center_j = (center_j_l + f_j) << shift;
+
+        let final_center = CellID::from_face_ij(face, center_i, center_j).parent(self.level as u64);
+
+        Some(final_center)
     }
 }
 
@@ -188,4 +231,42 @@ impl<'a> BootstrapS2<'a> {
 fn cell_center_latlng(id: CellID) -> LatLng {
     let p = Cell::from(id).center();
     LatLng::from(&p)
+}
+
+pub fn cells_to_nearest_face_edges(id: CellID) -> (i32, i32) {
+    // S2 constants
+    const MAX_SIZE: i32 = 1 << MAX_LEVEL; // leaf resolution per axis on a face
+
+    let level = id.level();
+    let size: i32 = 1 << (MAX_LEVEL - level as u64); // “width” of this cell in leaf-ij units
+
+    // Get face-ij for the cell center at leaf resolution.
+    // Most Rust ports expose something like `to_face_ij_orientation()`.
+    // Signature usually: (face: i32, i: i32, j: i32, orientation: u8)
+    let (_face, i_leaf, j_leaf, _o) = id.face_ij_orientation();
+
+    // Snap to this cell’s lower-left corner (origin) at its level.
+    // Equivalent to: i0 = floor(i_leaf / size) * size
+    let i0 = i_leaf & !(size - 1);
+    let j0 = j_leaf & !(size - 1);
+
+    // Count whole cells to each face edge (same level).
+    // Left (i=0) vs right (i = MAX_SIZE - size)
+    let to_west = i0 / size;
+    let to_east = (MAX_SIZE - size - i0) / size;
+
+    // Bottom (j=0) vs top (j = MAX_SIZE - size)
+    let to_south = j0 / size;
+    let to_north = (MAX_SIZE - size - j0) / size;
+
+    // Nearest side per axis
+    let i_cells = if to_west <= to_east { to_west } else { to_east };
+
+    let j_cells = if to_south <= to_north {
+        to_south
+    } else {
+        to_north
+    };
+
+    (i_cells, j_cells)
 }
