@@ -1,7 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Debug;
 use std::fs;
-use std::fs::{create_dir_all, File};
+use std::fs::{File, create_dir_all};
 use std::io::Write;
 use std::path::Path;
 
@@ -150,7 +150,11 @@ pub fn get_plugin_list(path: &str) -> std::io::Result<Vec<String>> {
         .map(|res| res.map(|e| e.path().display().to_string()))
         .filter_map(|path| {
             if let Ok(ext) = path {
-                let plugin = ext.split("/").last().unwrap_or("").to_string();
+                let plugin = ext
+                    .split(std::path::MAIN_SEPARATOR_STR)
+                    .last()
+                    .unwrap_or("")
+                    .to_string();
                 if plugin == ".gitkeep" {
                     None
                 } else {
