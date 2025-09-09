@@ -11,6 +11,7 @@ import ChevronLeft from '@mui/icons-material/ChevronLeft'
 import Add from '@mui/icons-material/Add'
 import geohash from 'ngeohash'
 import type { MultiPoint } from 'geojson'
+import { S2CellId, S2LatLng } from 'nodes2ts'
 
 import { Feature, KojiResponse, KojiRoute, PopupProps } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
@@ -34,6 +35,7 @@ interface Props extends PopupProps {
 export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
   const feature = useShapes((s) => s[geoType][id])
   const { setRecord, geofence } = useDbCache.getState()
+  const s2level = usePersist((s) => s.s2_level)
 
   const [name, setName] = React.useState(
     dbRef?.name === feature?.properties?.__name
@@ -61,6 +63,10 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
   const isInKoji = dbRef?.id && dbRef?.name === feature?.properties?.__name
   feature.properties?.__multipoint_id?.toString().endsWith('KOJI')
 
+  const cell = S2CellId.fromPoint(
+    S2LatLng.fromDegrees(lon, lat).toPoint(),
+  ).parentL(s2level)
+
   return id !== undefined ? (
     <div>
       Lat: {lat}
@@ -75,6 +81,7 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
           <br />
           Hash: {geohash.encode(lat, lon, 12)}
           <br />
+          S2: {cell.id.toString()} ({cell.face})
         </>
       )}
       <br />

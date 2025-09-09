@@ -19,6 +19,7 @@ function BaseCell({
   covered,
   simple,
 }: S2Response & { covered: boolean; simple?: boolean }) {
+  // const { face } = new S2CellId(id.toString())
   return (
     <Polygon
       key={`${id}${covered}`}
@@ -30,15 +31,24 @@ function BaseCell({
       weight={simple ? 2 : 0.5}
       pane="s2"
       eventHandlers={{
-        click: () => {
+        click: async () => {
           if (process.env.NODE_ENV === 'development') {
-            navigator.clipboard.writeText(id)
+            await navigator.clipboard.writeText(id)
+            useStatic.setState({
+              notification: {
+                message: 'ID copied!',
+                severity: 'success',
+                status: 200,
+              },
+            })
           }
         },
       }}
     >
       {process.env.NODE_ENV === 'development' && (
-        <Tooltip direction="center">{id}</Tooltip>
+        <Tooltip direction="center">
+          {id} {/** ({face}) */}
+        </Tooltip>
       )}
     </Polygon>
   )
