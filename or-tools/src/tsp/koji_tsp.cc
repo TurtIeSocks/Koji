@@ -1,5 +1,3 @@
-// This file must be compiled in the same directory as OR-Tools
-
 #include <cmath>
 #include <cstdint>
 #include <sstream>
@@ -7,6 +5,9 @@
 #include <iostream>
 #include <string>
 #include <thread>
+#include <utility>
+#include <cstdlib>
+#include <charconv>
 
 #include "ortools/constraint_solver/routing.h"
 #include "ortools/constraint_solver/routing_enums.pb.h"
@@ -15,9 +16,11 @@
 
 #include "memory_limit.h"
 
-typedef std::vector<std::vector<int64_t>> DistanceMatrix;
-typedef std::vector<std::vector<double>> RawInput;
-typedef std::vector<int> RawOutput;
+using namespace std;
+
+typedef vector<vector<size_t>> DistanceMatrix;
+using RawInput = vector<pair<double, double>>;
+using RawOutput = vector<size_t>;
 
 namespace operations_research
 {
@@ -62,8 +65,8 @@ namespace operations_research
         if (fromNode != toNode)
         {
           distances[fromNode][toNode] = static_cast<int64_t>(
-              haversine(locations[toNode][0], locations[toNode][1],
-                        locations[fromNode][0], locations[fromNode][1]));
+              haversine(locations[toNode].first, locations[toNode].second,
+                        locations[fromNode].first, locations[fromNode].second));
         }
       }
     }
@@ -73,16 +76,16 @@ namespace operations_research
   //! @param[in] locations The [Lat, Lng] pairs.
   DistanceMatrix distanceMatrix(const RawInput &locations)
   {
-    int numThreads = std::thread::hardware_concurrency();
-    std::vector<std::thread> threads(numThreads);
-    DistanceMatrix distances = DistanceMatrix(locations.size(), std::vector<int64_t>(locations.size(), int64_t{0}));
+    int numThreads = thread::hardware_concurrency();
+    vector<thread> threads(numThreads);
+    DistanceMatrix distances = DistanceMatrix(locations.size(), vector<size_t>(locations.size(), size_t{0}));
 
     int chunkSize = locations.size() / numThreads;
     for (int i = 0; i < numThreads; ++i)
     {
       int start = i * chunkSize;
       int end = (i == numThreads - 1) ? locations.size() : start + chunkSize;
-      threads[i] = std::thread(computeDistances, std::ref(locations), std::ref(distances), start, end);
+      threads[i] = thread(computeDistances, std::ref(locations), std::ref(distances), start, end);
     }
 
     for (auto &thread : threads)
@@ -153,59 +156,79 @@ namespace operations_research
 
 }
 
-std::vector<std::string> split(const std::string &s, char delimiter)
+// Assumed aliases from your codebase
+static inline bool parseCoord(const string &tok, double &lat, double &lng)
 {
-  std::vector<std::string> tokens;
-  std::string token;
-  std::istringstream tokenStream(s);
-  while (std::getline(tokenStream, token, delimiter))
-  {
-    tokens.push_back(token);
-  }
-  return tokens;
+  // Find comma once; avoid split + temporary strings
+  size_t comma = tok.find(',');
+  if (comma == string::npos)
+    return false;
+
+  // Use strtod for speed and to avoid extra allocations.
+  // Works directly on the internal char buffer.
+  const char *s = tok.c_str();
+  char *endptr = nullptr;
+
+  lat = strtod(s, &endptr);
+  if (endptr != s + static_cast<long>(comma))
+    return false; // must end exactly at ','
+
+  s = tok.c_str() + comma + 1;
+  lng = strtod(s, &endptr);
+  if (*endptr != '\0')
+    return false;
+
+  return true;
 }
 
 int main(int argc, char *argv[])
 {
+  ios::sync_with_stdio(false);
+  cin.tie(nullptr);
+
   set_memory_limit();
 
-  std::map<std::string, std::string> args;
-  RawInput points;
-  std::vector<std::string> stringPoints;
+  unordered_map<string, string> args;
+  args.reserve(static_cast<size_t>(argc)); // small but avoids a couple rehashes
 
-  std::string line;
-  while (std::getline(std::cin, line, ' ') && !line.empty())
+  RawInput points;
+  vector<string> stringPoints;
+
+  // Read whitespace-separated tokens from stdin: "lat,lng"
+  // This is faster than getline + istringstream.
+  string tok;
+  while (std::cin >> tok)
   {
-    auto coordinates = split(line, ',');
-    if (coordinates.size() == 2)
+    double lat, lng;
+    if (parseCoord(tok, lat, lng))
     {
-      double lat = std::stod(coordinates[0]);
-      double lng = std::stod(coordinates[1]);
-      points.push_back({lat, lng});
-      stringPoints.push_back(line);
+      points.emplace_back(lat, lng);
+      stringPoints.emplace_back(std::move(tok));
     }
+    // else: silently skip malformed tokens (matches original "size == 2" gate)
   }
 
+  // Parse CLI args: --key value
   for (int i = 1; i < argc; ++i)
   {
-    std::string arg = argv[i];
-    if (arg.find("--") == 0)
+    string_view sv(argv[i]);
+    if (sv.size() > 2 && sv.substr(0, 2) == "--"sv)
     {
-      std::string key = arg.substr(2);
+      sv.remove_prefix(2);
       if (i + 1 < argc)
       {
-        args[key] = argv[++i];
+        args.emplace(string(sv), string(argv[++i]));
       }
     }
   }
 
+  // Solve TSP
   RawOutput routes = operations_research::Tsp(points);
 
-  for (auto point : routes)
+  // Output without per-line flushing
+  for (size_t idx : routes)
   {
-    std::cout << stringPoints[point] << std::endl
-              << std::flush;
+    std::cout << stringPoints[idx] << '\n';
   }
-
   return EXIT_SUCCESS;
 }
