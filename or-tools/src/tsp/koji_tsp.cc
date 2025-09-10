@@ -15,85 +15,17 @@
 #include "ortools/constraint_solver/routing_parameters.h"
 
 #include "memory_limit.h"
+#include "distance_matrix.h"
 
 using namespace std;
 
-typedef vector<vector<size_t>> DistanceMatrix;
 using RawInput = vector<pair<double, double>>;
 using RawOutput = vector<size_t>;
 
 namespace operations_research
 {
-  const double R = 6372.8; // km
-
-  struct DataModel
-  {
-    DistanceMatrix distance_matrix;
-    const int num_vehicles = 1;
-    const RoutingIndexManager::NodeIndex depot{0};
-  };
-
-  //! @brief Computes the distance between two nodes using the Haversine formula.
-  //! @param[in] lat1 Latitude of the first node.
-  //! @param[in] lon1 Longitude of the first node.
-  //! @param[in] lat2 Latitude of the second node.
-  //! @param[in] lon2 Longitude of the second node.
-  double haversine(double lat1, double lon1, double lat2, double lon2)
-  {
-
-    double dLat = (lat2 - lat1) * M_PI / 180.0;
-    double dLon = (lon2 - lon1) * M_PI / 180.0;
-    lat1 = lat1 * M_PI / 180.0;
-    lat2 = lat2 * M_PI / 180.0;
-
-    double a = pow(sin(dLat / 2), 2) + pow(sin(dLon / 2), 2) * cos(lat1) * cos(lat2);
-    double c = 2 * asin(sqrt(a));
-    return R * c * 1000; // to reduce rounding issues
-  }
-
-  //! @brief Computes the distance matrix between all nodes.
-  //! @param[in] locations The locations of the nodes.
-  //! @param[out] distances The distance matrix between all nodes.
-  //! @param[in] start The index of the first node to compute.
-  //! @param[in] end The index of the last node to compute.
-  void computeDistances(const RawInput &locations, DistanceMatrix &distances, int start, int end)
-  {
-    for (int fromNode = start; fromNode < end; ++fromNode)
-    {
-      for (int toNode = 0; toNode < locations.size(); ++toNode)
-      {
-        if (fromNode != toNode)
-        {
-          distances[fromNode][toNode] = static_cast<int64_t>(
-              haversine(locations[toNode].first, locations[toNode].second,
-                        locations[fromNode].first, locations[fromNode].second));
-        }
-      }
-    }
-  }
-
-  //! @brief Computes the distance matrix between all nodes.
-  //! @param[in] locations The [Lat, Lng] pairs.
-  DistanceMatrix distanceMatrix(const RawInput &locations)
-  {
-    int numThreads = thread::hardware_concurrency();
-    vector<thread> threads(numThreads);
-    DistanceMatrix distances = DistanceMatrix(locations.size(), vector<size_t>(locations.size(), size_t{0}));
-
-    int chunkSize = locations.size() / numThreads;
-    for (int i = 0; i < numThreads; ++i)
-    {
-      int start = i * chunkSize;
-      int end = (i == numThreads - 1) ? locations.size() : start + chunkSize;
-      threads[i] = thread(computeDistances, std::ref(locations), std::ref(distances), start, end);
-    }
-
-    for (auto &thread : threads)
-    {
-      thread.join();
-    }
-    return distances;
-  }
+  const int num_vehicles = 1;
+  const RoutingIndexManager::NodeIndex depot{0};
 
   //! @brief Returns the routes of the solution.
   //! @param[in] manager The manager of the routing problem.
@@ -119,18 +51,17 @@ namespace operations_research
   //! @param[in] locations The [Lat, Lng] pairs.
   RawOutput Tsp(RawInput locations)
   {
-    DataModel data;
-    data.distance_matrix = distanceMatrix(locations);
-    RoutingIndexManager manager(data.distance_matrix.size(), data.num_vehicles,
-                                data.depot);
+    auto dm = distanceMatrix(locations);
+    RoutingIndexManager manager(dm.n, num_vehicles,
+                                depot);
     RoutingModel routing(manager);
 
     const int transit_callback_index = routing.RegisterTransitCallback(
-        [&data, &manager](int64_t from_index, int64_t to_index) -> int64_t
+        [&dm, &manager](int64_t from_index, int64_t to_index) -> int64_t
         {
           auto from_node = manager.IndexToNode(from_index).value();
           auto to_node = manager.IndexToNode(to_index).value();
-          return data.distance_matrix[from_node][to_node];
+          return dm.at(from_node, to_node);
         });
 
     routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index);
