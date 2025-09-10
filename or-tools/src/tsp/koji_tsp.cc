@@ -19,7 +19,6 @@
 
 using namespace std;
 
-using RawInput = vector<pair<double, double>>;
 using RawOutput = vector<size_t>;
 
 namespace operations_research
