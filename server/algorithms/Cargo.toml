@@ -9,20 +9,20 @@ name = "algorithms"
 path = "src/lib.rs"
 
 [dependencies]
-chrono = "0.4.41"
+chrono = "0.4.42"
 colored = "3.0.0"
-geo = "0.30.0"
+geo = "0.31.0"
 geohash = "0.13.1"
 geojson = "0.24.2"
-hashbrown = "0.15.4"
-log = "0.4.27"
+hashbrown = "0.16.0"
+log = "0.4.28"
 map_3d = "0.1.5"
 model = { path = "../model" }
-rand = { version = "0.9.1", default-features = false }
-rayon = "1.10.0"
+rand = { version = "0.9.2", default-features = false }
+rayon = "1.11.0"
 rstar = "0.12.2"
 s2 = "0.0.13"
-serde = { version = "1.0.219", features = ["derive"] }
+serde = { version = "1.0.225", features = ["derive"] }
 # serde_json = "1.0.94"
 # vrp-pragmatic = "1.18.3"
-sysinfo = "0.35.2"
+sysinfo = "0.37.0"

@@ -62,12 +62,12 @@ impl GeometryHelpers for Geometry {
     fn simplify(self) -> Self {
         let mut geometry = match self.value {
             Value::Polygon(_) => {
-                Geometry::from(&Polygon::<f64>::try_from(self).unwrap().simplify(&0.0001))
+                Geometry::from(&Polygon::<f64>::try_from(self).unwrap().simplify(0.0001))
             }
             Value::MultiPolygon(_) => Geometry::from(
                 &MultiPolygon::<f64>::try_from(self)
                     .unwrap()
-                    .simplify(&0.0001),
+                    .simplify(0.0001),
             ),
             _ => self,
         };
