@@ -4,6 +4,7 @@
 #include <vector>
 #include <cstdint>
 #include <utility> // for std::pair
+#include <cstddef>
 
 using RawInput = std::vector<std::pair<double, double>>;
 
