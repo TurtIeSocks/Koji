@@ -7,13 +7,13 @@ use geo::{ChamberlainDuquetteArea, MultiPolygon, Polygon};
 
 use geojson::Value;
 use model::{
+    KojiDb, ScannerType,
     api::{
+        FeatureHelpers, GeoFormats, ToCollection, ToFeature, ToSingleVec,
         args::{Args, ArgsUnwrapped},
         sort_by::SortBy,
-        FeatureHelpers, GeoFormats, ToCollection, ToFeature, ToSingleVec,
     },
     db::{area, geofence, instance, route, sea_orm_active_enums::Type},
-    KojiDb, ScannerType,
 };
 use serde_json::json;
 
@@ -30,6 +30,7 @@ async fn bootstrap(
         return_type,
         save_to_db,
         save_to_scanner,
+        save_to_scanner_only,
         calculation_mode,
         s2_level,
         s2_size,
@@ -111,7 +112,7 @@ async fn bootstrap(
                 .await
                 .map_err(actix_web::error::ErrorInternalServerError)?;
         }
-        if save_to_scanner {
+        if save_to_scanner || save_to_scanner_only {
             if conn.scanner_type == ScannerType::Unown {
                 area::Query::upsert_from_geometry(
                     &conn.controller,
@@ -164,6 +165,7 @@ async fn cluster(
         return_type,
         save_to_db,
         save_to_scanner,
+        save_to_scanner_only,
         last_seen,
         sort_by,
         tth,
@@ -278,7 +280,7 @@ async fn cluster(
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
     }
-    if save_to_scanner {
+    if save_to_scanner || save_to_scanner_only {
         if conn.scanner_type == ScannerType::Unown {
             area::Query::upsert_from_geometry(
                 &conn.controller,
@@ -294,7 +296,9 @@ async fn cluster(
             .await
         }
         .map_err(actix_web::error::ErrorInternalServerError)?;
+    }
 
+    if save_to_scanner {
         request::update_project_api(&conn, Some(&conn.scanner_type))
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
