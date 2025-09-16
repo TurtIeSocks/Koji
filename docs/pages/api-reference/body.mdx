@@ -194,8 +194,16 @@ pub struct Args {
     pub save_to_db: Option<bool>,
     /// Saves the calculated route to the scanner database
     ///
+    /// Calls the reload api at the end if present
+    ///
     /// Default: `false`
     pub save_to_scanner: Option<bool>,
+    /// Saves the calculated route to the scanner database
+    ///
+    /// Does not call the reload api at the end
+    ///
+    /// Default: `false`
+    pub save_to_scanner_only: Option<bool>,
     /// Simplifies Polygons and MultiPolygons when converting them
     ///
     /// Default: `false`

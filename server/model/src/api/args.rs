@@ -352,8 +352,16 @@ pub struct Args {
     pub save_to_db: Option<bool>,
     /// Saves the calculated route to the scanner database
     ///
+    /// Calls the reload api at the end if present
+    ///
     /// Default: `false`
     pub save_to_scanner: Option<bool>,
+    /// Saves the calculated route to the scanner database
+    ///
+    /// Does not call the reload api at the end
+    ///
+    /// Default: `false`
+    pub save_to_scanner_only: Option<bool>,
     /// Simplifies Polygons and MultiPolygons when converting them
     ///
     /// Default: `false`
@@ -399,6 +407,7 @@ pub struct ArgsUnwrapped {
     pub s2_size: u8,
     pub save_to_db: bool,
     pub save_to_scanner: bool,
+    pub save_to_scanner_only: bool,
     pub simplify: bool,
     pub sort_by: SortBy,
     pub tth: SpawnpointTth,
@@ -469,6 +478,7 @@ impl Args {
             last_seen,
             save_to_db,
             save_to_scanner,
+            save_to_scanner_only,
             route_chunk_size,
             simplify,
             geometry_type,
@@ -549,6 +559,7 @@ impl Args {
         let last_seen = last_seen.unwrap_or(0);
         let save_to_db = save_to_db.unwrap_or(false);
         let save_to_scanner = save_to_scanner.unwrap_or(false);
+        let save_to_scanner_only = save_to_scanner_only.unwrap_or(false);
         let simplify = simplify.unwrap_or(false);
         let sort_by = sort_by.unwrap_or(SortBy::Unset);
         let tth = tth.unwrap_or(SpawnpointTth::All);
@@ -594,6 +605,7 @@ impl Args {
             last_seen,
             save_to_db,
             save_to_scanner,
+            save_to_scanner_only,
             simplify,
             sort_by,
             tth,
