@@ -9,6 +9,7 @@ use colored::Colorize;
 use geo::Coord;
 use geohash::encode;
 use hashbrown::HashSet;
+use model::api::Precision;
 use model::api::{point_array::PointArray, single_vec::SingleVec};
 
 use crate::rtree::cluster::Cluster;
@@ -53,7 +54,7 @@ where
         .collect()
 }
 
-pub fn centroid(coords: &SingleVec) -> PointArray {
+pub fn centroid(coords: &[[Precision; 2]]) -> PointArray {
     let (mut x, mut y, mut z) = (0.0, 0.0, 0.0);
 
     for loc in coords.iter() {
@@ -65,7 +66,7 @@ pub fn centroid(coords: &SingleVec) -> PointArray {
         z += lat.sin();
     }
 
-    let number_of_locations = coords.len() as f64;
+    let number_of_locations = coords.len() as Precision;
     x /= number_of_locations;
     y /= number_of_locations;
     z /= number_of_locations;

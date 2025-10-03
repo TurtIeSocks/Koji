@@ -8,7 +8,7 @@ use geohash::encode;
 use model::api::Precision;
 use rayon::slice::ParallelSliceMut;
 use rstar::{AABB, PointDistance, RTreeObject};
-use s2::{cell::Cell, cellid::CellID, latlng::LatLng};
+use s2::{cellid::CellID, latlng::LatLng};
 
 use super::{SortDedupe, cluster::Cluster};
 
@@ -117,21 +117,21 @@ impl PointDistance for Point {
     }
 }
 
-pub trait ToPoint {
-    fn to_point(&self, radius: Precision) -> Point;
-}
+// pub trait ToPoint {
+//     fn to_point(&self, radius: Precision) -> Point;
+// }
 
-impl ToPoint for CellID {
-    fn to_point(&self, radius: Precision) -> Point {
-        let cell: Cell = self.into();
-        let center = cell.center();
-        Point::new(
-            radius,
-            self.level(),
-            [center.latitude().deg(), center.longitude().deg()],
-        )
-    }
-}
+// impl ToPoint for CellID {
+//     fn to_point(&self, radius: Precision) -> Point {
+//         let cell: Cell = self.into();
+//         let center = cell.center();
+//         Point::new(
+//             radius,
+//             self.level(),
+//             [center.latitude().deg(), center.longitude().deg()],
+//         )
+//     }
+// }
 
 impl Display for Point {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

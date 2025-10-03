@@ -1,12 +1,10 @@
 use geojson::{Feature, Geometry};
 use hashbrown::HashSet;
+use macros::time;
 use model::api::{GetBbox, Precision, cluster_mode::ClusterMode, single_vec::SingleVec};
 
-use ::s2::cellid::CellID;
 use rayon::{
-    prelude::{
-        IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
-    },
+    prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator},
     slice::ParallelSliceMut,
 };
 use rstar::RTree;
@@ -15,10 +13,12 @@ use sysinfo::System;
 
 use crate::{
     bootstrap::radius,
-    clustering::rtree::{cluster::Cluster, point::Point},
-    rtree::{self, SortDedupe, point::ToPoint},
-    s2,
-    utils::info_log,
+    clustering::{
+        candidates,
+        rtree::{cluster::Cluster, point::Point},
+    },
+    rtree::{self, SortDedupe},
+    s2, utils,
 };
 
 pub struct Greedy {
@@ -101,76 +101,7 @@ impl<'a> Greedy {
         return_set.into_iter().map(|p| p.center).collect()
     }
 
-    fn generate_clusters(&self, point: &Point, neighbors: Vec<&Point>) -> HashSet<Point> {
-        let mut clusters = HashSet::new();
-        const WIGGLES: [f64; 2] = [0.00025, 0.0001];
-
-        for neighbor in neighbors.iter() {
-            for i in 0..=7 {
-                let ratio = i as Precision / 8 as Precision;
-                let new_point = point.interpolate(neighbor, ratio, 0., 0.);
-                clusters.insert(new_point);
-                if self.cluster_mode == ClusterMode::Balanced {
-                    for wiggle in WIGGLES {
-                        let lat: Precision = wiggle / 2.;
-                        let lon = wiggle;
-
-                        clusters.insert(point.interpolate(neighbor, ratio, lat, lon));
-                        clusters.insert(point.interpolate(neighbor, ratio, lat, -lon));
-                        clusters.insert(point.interpolate(neighbor, ratio, -lat, lon));
-                        clusters.insert(point.interpolate(neighbor, ratio, -lat, -lon));
-                    }
-                }
-            }
-        }
-        clusters.insert(point.to_owned());
-        clusters
-    }
-
-    fn gen_estimated_clusters(&self, tree: &RTree<Point>) -> Vec<Point> {
-        let tree_points: Vec<&Point> = tree.iter().map(|p| p).collect();
-
-        let clusters = tree_points
-            .par_iter()
-            .map(|point| {
-                let neighbors = tree
-                    .locate_all_at_point(&point.center)
-                    .into_iter()
-                    .collect();
-                self.generate_clusters(point, neighbors)
-            })
-            .reduce(HashSet::new, |a, b| a.union(&b).cloned().collect());
-
-        clusters.into_iter().collect()
-    }
-
-    fn flat_map_cells(&self, cell: CellID, point_tree: &'a RTree<Point>) -> Vec<CellID> {
-        if cell.level() == 21 {
-            cell.children().into_iter().collect()
-        } else if point_tree
-            .locate_at_point(&cell.to_point(self.radius).center)
-            .is_some()
-        {
-            cell.children()
-                .into_par_iter()
-                .flat_map(|c| self.flat_map_cells(c, point_tree))
-                .collect()
-        } else {
-            vec![]
-        }
-    }
-
-    fn get_s2_clusters(&self, points: &SingleVec, point_tree: &'a RTree<Point>) -> Vec<Point> {
-        let bbox = points.get_bbox().unwrap();
-        s2::get_region_cells(bbox[1], bbox[3], bbox[0], bbox[2], 16)
-            .0
-            .into_par_iter()
-            .flat_map(|cell| self.flat_map_cells(cell, point_tree))
-            .map(|cell| cell.to_point(self.radius))
-            .collect()
-    }
-
-    fn get_honeycomb_clusters(&self, points: &SingleVec) -> Vec<Point> {
+    fn get_honeycomb_clusters(&self, points: &SingleVec) -> SingleVec {
         let bbox = points.get_bbox();
         let bbox_unwrap = bbox.clone().unwrap();
 
@@ -189,11 +120,11 @@ impl<'a> Greedy {
             }),
             ..Default::default()
         };
-        radius::BootstrapRadius::new(&feat, self.radius)
-            .result()
-            .into_iter()
-            .map(|p| Point::new(self.radius, 20, p))
-            .collect()
+        radius::BootstrapRadius::new(&feat, self.radius).result()
+    }
+
+    fn gen_clusters(&self, density: usize, points: &'a SingleVec) -> SingleVec {
+        candidates::generate_clusters_from_points(points, self.radius, density)
     }
 
     fn associate_clusters(
@@ -207,28 +138,29 @@ impl<'a> Greedy {
         let time = Instant::now();
         let clusters_with_data: Vec<Cluster> = match self.cluster_mode {
             ClusterMode::Honeycomb => self.get_honeycomb_clusters(points),
-            ClusterMode::Better | ClusterMode::Best => self.get_s2_clusters(points, point_tree),
-            ClusterMode::Fast => self.gen_estimated_clusters(point_tree),
-            _ => {
-                let time = Instant::now();
-                let neighbor_tree: RTree<Point> = rtree::spawn(self.radius * 2., points);
-                log::info!("created neighbor tree {:.2}s", time.elapsed().as_secs_f32());
-                self.gen_estimated_clusters(&neighbor_tree)
-            }
+            ClusterMode::Fast => self.gen_clusters(128, points),
+            ClusterMode::Balanced => self.gen_clusters(512, points),
+            ClusterMode::Better => self.gen_clusters(1024, points),
+            ClusterMode::Best => self.gen_clusters(2048, points),
+            _ => vec![],
         }
         .into_par_iter()
         .filter_map(|cluster| {
             let mut points: Vec<&Point> = point_tree
-                .locate_all_at_point(&cluster.center)
+                .locate_all_at_point(&cluster)
                 .collect::<Vec<&Point>>();
-            if let Some(point) = point_tree.locate_at_point(&cluster.center) {
+            if let Some(point) = point_tree.locate_at_point(&cluster) {
                 points.push(point);
             }
             if points.len() < self.min_points {
                 // log::debug!("Empty");
                 None
             } else {
-                Some(Cluster::new(cluster, points, vec![]))
+                Some(Cluster::new(
+                    Point::new(self.radius, 20, cluster),
+                    points,
+                    vec![],
+                ))
             }
         })
         .collect();
@@ -239,23 +171,30 @@ impl<'a> Greedy {
             time.elapsed().as_secs_f32(),
         );
 
+        const BYTE: usize = 1024;
+
         let size = (clusters_with_data
-            .par_iter()
+            .iter()
             .map(|cluster| cluster.get_size())
             .sum::<usize>()
-            / 1024
-            / 1024)
+            / BYTE
+            / BYTE)
             * 2;
         if size > sys_mem {
+            let (size, label) = if size > BYTE {
+                (size as f32 / BYTE as f32, "GB")
+            } else {
+                (size as f32, "MB")
+            };
             log::warn!(
-                "Kōji is taking a lot of memory ({}MB), I hope you know what you're doing! If you're getting this warning, try sending smaller areas or not using the `Better` algorithm.",
+                "Kōji is taking a lot of memory ({:.2}{label}), I hope you know what you're doing! If you're getting this warning, try sending smaller areas or not using the `Better` algorithm.",
                 size,
             );
         }
 
         let time = Instant::now();
         let max = clusters_with_data
-            .par_iter()
+            .iter()
             .map(|cluster| cluster.all.len())
             .max()
             .unwrap_or(100);
@@ -286,7 +225,7 @@ impl<'a> Greedy {
 
         let clusters_with_data = self.associate_clusters(points, &point_tree);
 
-        let mut solution = self.cluster(clusters_with_data).into_iter().collect();
+        let mut solution = self.cluster(&clusters_with_data).into_iter().collect();
 
         self.update_unique(&mut solution);
 
@@ -297,9 +236,8 @@ impl<'a> Greedy {
         }
     }
 
-    fn cluster(&'a self, clusters_with_data: Vec<Vec<Cluster<'a>>>) -> HashSet<Cluster<'a>> {
-        let time = Instant::now();
-        log::info!("starting initial solution",);
+    #[time()]
+    fn cluster(&'a self, clusters_with_data: &'a Vec<Vec<Cluster<'a>>>) -> HashSet<Cluster<'a>> {
         let mut new_clusters = HashSet::<Cluster>::new();
         let mut blocked_points = HashSet::<&Point>::new();
 
@@ -313,11 +251,13 @@ impl<'a> Greedy {
         let mut sorting_time = 0.;
         let mut iterating_local_time = 0.;
         let mut logging_time = 0.;
+        let capacity = clusters_with_data.iter().map(|c| c.len()).sum::<usize>();
+        let mut clusters_of_interest: Vec<&Cluster<'_>> = Vec::with_capacity(capacity);
 
         'greedy: while current >= self.min_points && new_clusters.len() < self.max_clusters {
-            let mut clusters_of_interest: Vec<&Cluster<'_>> = vec![];
             current_iteration += 1;
             let time = Instant::now();
+            clusters_of_interest.clear();
             for (index, clusters) in clusters_with_data.iter().enumerate() {
                 if index < current {
                     continue;
@@ -328,7 +268,7 @@ impl<'a> Greedy {
 
             let time = Instant::now();
             let mut local_clusters = clusters_of_interest
-                .into_par_iter()
+                .par_iter()
                 .filter_map(|cluster| {
                     let mut points: Vec<&Point> = cluster
                         .all
@@ -394,7 +334,7 @@ impl<'a> Greedy {
             if current >= self.min_points {
                 stdout
                     .write(
-                        info_log(
+                        utils::info_log(
                             "algorithms::clustering::greedy",
                             format!(
                                 "Progress: {:.2}% | Clusters: {}",
@@ -419,54 +359,42 @@ impl<'a> Greedy {
         log::debug!("Iterating Local Time: {:.4}", iterating_local_time);
         log::debug!("Logging Time: {:.4}", logging_time);
 
-        log::info!(
-            "finished initial solution in {:.2}s",
-            time.elapsed().as_secs_f32()
-        );
         log::info!("initial solution size: {}", new_clusters.len());
 
         new_clusters
     }
 
+    #[time()]
     fn update_unique(&'a self, clusters: &mut Vec<Cluster>) {
-        let time = Instant::now();
-        log::info!("updating unique");
-
         let cluster_tree = rtree::spawn(
             self.radius,
             &clusters.iter().map(|c| c.point.center).collect(),
         );
 
         clusters
-            .par_iter_mut()
+            .iter_mut()
             .for_each(|cluster| cluster.set_unique(&cluster_tree));
 
         clusters.retain(|cluster| cluster.unique.len() >= self.min_points);
 
-        log::info!(
-            "finished updating unique in {:.2}s",
-            time.elapsed().as_secs_f32()
-        );
         log::info!("unique solution size: {}", clusters.len());
 
         // crate::utils::_debug_clusters(&clusters.clone().into_iter().collect(), "x");
     }
 
+    #[time()]
     fn check_missing(&self, clusters: Vec<Cluster>, points: &SingleVec) -> HashSet<Point> {
-        let time = Instant::now();
-        log::info!("checking coverage");
-
         let missing = {
             let seen_points = clusters
-                .par_iter()
+                .iter()
                 .map(|cluster| cluster.all.iter().collect())
-                .reduce(HashSet::new, |a, b| a.union(&b).cloned().collect());
+                .fold(HashSet::new(), |a, b| a.union(&b).cloned().collect());
 
             if seen_points.len() == points.len() {
                 vec![]
             } else {
                 points
-                    .par_iter()
+                    .iter()
                     .filter_map(|p| {
                         let point = Point::new(self.radius, 20, *p);
                         if seen_points.contains(&&point) {
@@ -483,10 +411,6 @@ impl<'a> Greedy {
 
         clusters.extend(missing);
 
-        log::info!(
-            "finished checking coverage in {:.2}s",
-            time.elapsed().as_secs_f32()
-        );
         log::info!("final solution size: {}", clusters.len());
 
         clusters

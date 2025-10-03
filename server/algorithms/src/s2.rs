@@ -49,10 +49,8 @@ impl ToGeo for CellID {
             geo::LineString::from(
                 (0..4)
                     .map(|i| {
-                        geo::Point::new(
-                            cell.vertex(i).longitude().deg(),
-                            cell.vertex(i).latitude().deg(),
-                        )
+                        let v = cell.vertex(i);
+                        geo::Point::new(v.longitude().deg(), v.latitude().deg())
                     })
                     .collect::<Vec<geo::Point>>(),
             ),
