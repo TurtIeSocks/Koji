@@ -4,7 +4,15 @@ version = "1.5.3"
 edition = "2024"
 
 [workspace]
-members = [".", "algorithms", "api", "migration", "model", "nominatim"]
+members = [
+  ".",
+  "algorithms",
+  "api",
+  "macros",
+  "migration",
+  "model",
+  "nominatim",
+]
 
 [dependencies]
 api = { path = "api" }
@@ -12,3 +20,6 @@ dotenv = "0.15.0"
 env_logger = "0.11.8"
 log = "0.4.28"
 mimalloc = "0.1.48"
+
+[workspace.dependencies]
+macros = { path = "macros" }
