@@ -1,4 +1,4 @@
-use std::{ops::AddAssign, time::Instant};
+use std::{collections::HashMap, ops::AddAssign, time::Instant};
 
 use geo::{Distance, Haversine, Point};
 use hashbrown::HashSet;
@@ -28,6 +28,7 @@ pub struct Stats {
     pub total_distance: Precision,
     pub longest_distance: Precision,
     pub mygod_score: usize,
+    pub cluster_stats: HashMap<usize, usize>,
 }
 
 impl Stats {
@@ -49,6 +50,7 @@ impl Stats {
             stats_start_time: None,
             label,
             min_points,
+            cluster_stats: HashMap::new(),
         }
     }
 
@@ -203,12 +205,21 @@ impl Stats {
                 .into_iter()
                 .map(|c| point::Point::new(radius, 20, *c))
                 .collect();
-            let clusters: Vec<Cluster<'_>> = cluster_info(&tree, &clusters);
+            let mut clusters: Vec<Cluster<'_>> = cluster_info(&tree, &clusters);
+
+            let cluster_tree =
+                rtree::spawn(radius, &clusters.iter().map(|c| c.point.center).collect());
+
+            clusters
+                .iter_mut()
+                .for_each(|cluster| cluster.set_unique(&cluster_tree));
+
             let mut points_covered: HashSet<&point::Point> = HashSet::new();
             let mut best_clusters = SingleVec::new();
             let mut best = usize::MIN;
             let mut worst = usize::MAX;
             let mut worst_count = 0;
+            let mut cluster_stats = HashMap::new();
 
             for cluster in clusters.iter() {
                 let length = cluster.all.len();
@@ -224,25 +235,27 @@ impl Stats {
                 } else if length == worst {
                     worst_count += 1;
                 }
+                cluster_stats
+                    .entry(cluster.unique.len())
+                    .and_modify(|a| *a += 1)
+                    .or_insert(1);
+
                 if let Some(point) = tree.locate_at_point(&cluster.point.center) {
                     points_covered.insert(point);
                 }
                 points_covered.extend(&cluster.all);
             }
+
             if worst == usize::MAX {
                 worst = 0;
             }
 
-            // for point in tree.iter() {
-            //     if !points_covered.contains(&point) {
-            //         log::debug!("point not covered: {}", point);
-            //     }
-            // }
             self.best_cluster_point_count = best;
             self.worst_cluster_point_count = worst;
             self.worst_cluster_count = worst_count;
             self.best_clusters = best_clusters;
             self.points_covered = points_covered.len();
+            self.cluster_stats = cluster_stats;
 
             if self.points_covered > self.total_points {
                 log::warn!(
@@ -278,6 +291,7 @@ impl Serialize for Stats {
         state.serialize_field("total_distance", &self.total_distance)?;
         state.serialize_field("longest_distance", &self.longest_distance)?;
         state.serialize_field("mygod_score", &self.mygod_score)?;
+        state.serialize_field("cluster_stats", &self.cluster_stats)?;
         state.end()
     }
 }
@@ -298,6 +312,13 @@ impl<'a> AddAssign<&'a Self> for Stats {
         self.total_clusters += rhs.total_clusters;
         self.total_distance += rhs.total_distance;
         self.longest_distance += rhs.longest_distance;
+
+        rhs.cluster_stats.iter().for_each(|(k, v)| {
+            self.cluster_stats
+                .entry(*k)
+                .and_modify(|a| *a += v)
+                .or_insert(*v);
+        });
         self.set_score();
     }
 }
