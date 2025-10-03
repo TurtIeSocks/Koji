@@ -6,7 +6,7 @@ use std::{
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rstar::RTree;
 
-use super::{point::Point, SortDedupe};
+use super::{SortDedupe, point::Point};
 
 #[derive(Debug, Clone)]
 pub struct Cluster<'a> {
@@ -15,23 +15,20 @@ pub struct Cluster<'a> {
     pub all: Vec<&'a Point>,
 }
 
+const CLUSTER_SIZE: usize = std::mem::size_of::<Cluster<'_>>();
+const POINT_SIZE: usize = std::mem::size_of::<&Point>();
+
 impl<'a> Cluster<'a> {
     pub fn new(point: Point, all: Vec<&'a Point>, unique: Vec<&'a Point>) -> Cluster<'a> {
         Cluster { point, all, unique }
     }
 
     pub fn get_size(&self) -> usize {
-        let mut size = std::mem::size_of_val(&self);
+        let mut size = CLUSTER_SIZE;
 
-        for point in self.point.center {
-            size += std::mem::size_of_val(&point);
-        }
-        for point in self.unique.iter() {
-            size += std::mem::size_of_val(point);
-        }
-        for point in self.all.iter() {
-            size += std::mem::size_of_val(point);
-        }
+        size += self.unique.capacity() * POINT_SIZE;
+        size += self.all.capacity() * POINT_SIZE;
+
         size
     }
 
@@ -50,11 +47,7 @@ impl<'a> Cluster<'a> {
             .par_iter()
             .filter_map(|p| {
                 let points = tree.locate_all_at_point(&p.center).count();
-                if points == 1 {
-                    Some(*p)
-                } else {
-                    None
-                }
+                if points == 1 { Some(*p) } else { None }
             })
             .collect();
         points.sort_dedupe();
