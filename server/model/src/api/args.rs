@@ -384,6 +384,10 @@ pub struct Args {
     ///
     /// Default: `false`
     pub center_clusters: Option<bool>,
+    /// Post Process Clusters
+    ///
+    /// Default: `false`
+    pub genetic_post_processing: Option<bool>,
 }
 
 pub struct ArgsUnwrapped {
@@ -417,6 +421,7 @@ pub struct ArgsUnwrapped {
     pub clustering_args: String,
     pub bootstrapping_args: String,
     pub center_clusters: bool,
+    pub genetic_post_processing: bool,
 }
 
 fn validate_s2_cell(value_to_check: Option<u64>, label: &str) -> u64 {
@@ -490,6 +495,7 @@ impl Args {
             clustering_args,
             bootstrapping_args,
             center_clusters,
+            genetic_post_processing,
         } = self;
         let enum_type = get_enum_by_geometry_string(geometry_type);
         let (area, default_return_type) = if let Some(area) = area {
@@ -555,6 +561,7 @@ impl Args {
             usize::MAX
         };
         let center_clusters = center_clusters.unwrap_or(false);
+        let genetic_post_processing = genetic_post_processing.unwrap_or_default();
         let clusters = resolve_data_points(clusters);
         let last_seen = last_seen.unwrap_or(0);
         let save_to_db = save_to_db.unwrap_or(false);
@@ -615,6 +622,7 @@ impl Args {
             clustering_args,
             bootstrapping_args,
             center_clusters,
+            genetic_post_processing,
         }
     }
 }

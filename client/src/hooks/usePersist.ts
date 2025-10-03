@@ -77,6 +77,7 @@ export interface UsePersist {
   clustering_args: string
   bootstrapping_args: string
   center_clusters: boolean
+  genetic_post_processing: boolean
   // generations: number | ''
   // routing_time: number | ''
   // devices: number | ''
@@ -127,6 +128,7 @@ export const usePersist = create(
       center_clusters: false,
       // routing_chunk_size: 0,
       calculation_mode: 'Radius',
+      genetic_post_processing: false,
       s2_level: 15,
       s2_size: 9,
       max_clusters: 0,
