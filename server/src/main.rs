@@ -1,6 +1,6 @@
 #[cfg(target_os = "linux")]
 #[global_allocator]
-static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+static A: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 fn main() {
     dotenv::from_filename(std::env::var("ENV").unwrap_or(".env".to_string())).ok();

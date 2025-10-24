@@ -19,7 +19,7 @@ api = { path = "api" }
 dotenv = "0.15.0"
 env_logger = "0.11.8"
 log = "0.4.28"
-mimalloc = "0.1.48"
+tikv-jemallocator = "0.6"
 
 [workspace.dependencies]
 macros = { path = "macros" }
