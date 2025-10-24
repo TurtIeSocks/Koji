@@ -132,8 +132,10 @@ impl<'a> Greedy {
         points: &'a SingleVec,
         point_tree: &'a RTree<Point>,
     ) -> Vec<Vec<Cluster<'a>>> {
+        const BYTE: usize = 1024;
+
         let sys = System::new_all();
-        let sys_mem = (sys.available_memory() / 1024 / 1024) as usize;
+        let sys_mem = sys.available_memory() as usize / BYTE / BYTE;
 
         let time = Instant::now();
         let clusters_with_data: Vec<Cluster> = match self.cluster_mode {
@@ -170,8 +172,6 @@ impl<'a> Greedy {
             clusters_with_data.len(),
             time.elapsed().as_secs_f32(),
         );
-
-        const BYTE: usize = 1024;
 
         let size = (clusters_with_data
             .iter()
