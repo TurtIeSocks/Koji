@@ -147,10 +147,10 @@ export default function RoutingTab() {
           <UserTextInput field="clustering_args" helperText="--x 1 --y abc" />
         </Collapse>
         <Toggle field="center_clusters" label="Center Clusters" />
-        <Toggle
+        {/* <Toggle
           field="genetic_post_processing"
           label="Genetic Post Processing"
-        />
+        /> */}
       </Collapse>
 
       <Divider sx={{ my: 2 }} />
