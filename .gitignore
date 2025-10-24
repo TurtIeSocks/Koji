@@ -17,6 +17,7 @@ vrp_tests
 server/debug_files/*
 server/algorithms/src/**/plugins/**/*
 !server/algorithms/src/**/plugins/.gitkeep
+target/
 
 # misc
 .idea/*
