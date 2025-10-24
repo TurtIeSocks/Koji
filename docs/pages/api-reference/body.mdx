@@ -72,11 +72,26 @@ pub enum DataPointsArg {
     FeatureCollection(FeatureCollection),
 }
 
-// Spawnpoint Args:
 pub enum SpawnpointTth {
   All,      // All spawnpoints
   Known,    // Only spawnpoints with known TTH
   Unknown,  // Only spawnpoints with unknown TTH
+}
+
+pub enum CalculationMode {
+    Radius,
+    S2,
+    Custom(String),
+}
+
+pub enum ClusterMode {
+    Honeycomb,
+    Fastest,
+    Fast,
+    Balanced,
+    Better,
+    Best,
+    Custom(String),
 }
 ```
 
@@ -94,37 +109,45 @@ pub struct Args {
     ///
     /// Default: `false`
     pub benchmark_mode: Option<bool>,
+    /// Args to be applied to a custom bootstrapping plugin
+    ///
+    /// Default: `''`
+    pub bootstrapping_args: Option<String>,
     /// Bootstrap mode selection
     ///
     /// Accepts [BootStrapMode]
     ///
     /// Default: `0`
     pub calculation_mode: Option<CalculationMode>,
+    /// Args to be applied to a custom clustering plugin
+    ///
+    /// Default: `''`
+    pub clustering_args: Option<String>,
+    /// Cluster mode selection
+    ///
+    /// Accepts [ClusterMode]
+    ///
+    /// Default: `Balanced`
+    pub cluster_mode: Option<ClusterMode>,
+    /// BruteForce cluster mode tweak, determines how points are split up for multithreading
+    ///
+    /// Accepts 1-30
+    ///
+    /// Default: `10`
+    pub cluster_split_level: Option<u64>,
     /// Data points to cluster or reroute.
     /// Overrides any inputted area.
     ///
     /// Accepts [DataPointsArg]
     pub data_points: Option<DataPointsArg>,
-    /// Number of devices to use in VRP routing
+    /// Clusters to run through the stat producer.
     ///
-    /// Default: `1`
-    ///
-    /// Deprecated
-    pub devices: Option<usize>,
+    /// Accepts [DataPointsArg]
+    pub clusters: Option<DataPointsArg>,
     /// The maximum amount of clusters to return
     ///
     /// Default: [USIZE::MAX]
     pub max_clusters: Option<usize>,
-    /// Whether to use the fast or slow clustering algorithm
-    ///
-    /// Default: `true`
-    pub fast: Option<bool>,
-    /// Number of times to run through a clustering algorithm
-    ///
-    /// Default: `0`
-    ///
-    /// Deprecated
-    pub generations: Option<usize>,
     /// Geometry type used during conversions
     ///
     /// Currently unstable and will likely change how it's used
@@ -137,8 +160,6 @@ pub struct Args {
     ///
     /// Default: `0`
     pub last_seen: Option<u32>,
-    /// Internally used, unstable
-    pub mode: Option<String>,
     /// Minimum number of points to use in the clustering algorithms
     ///
     /// Default: `1`
@@ -158,24 +179,16 @@ pub struct Args {
     ///
     /// Default: `SingleVec`
     pub return_type: Option<String>,
-    /// Manual chunking to split TSP routing.
+    /// Args to be applied to a custom routing plugin
     ///
-    /// Default: 1
-    ///
-    /// Deprecated
-    pub route_chunk_size: Option<usize>,
+    /// Default: `''`
+    pub routing_args: Option<String>,
     /// Geohash precision level for splitting up routing into multiple threads
     ///
     /// Recommend using 4 for Gyms, 5 for Pokestops, and 6 for Spawnpoints
     ///
     /// Default: `1`
-    pub route_split_level: Option<usize>,
-    /// Amount of time for the TSP solver to run
-    ///
-    /// Default: `0` (auto)
-    ///
-    /// Deprecated
-    pub routing_time: Option<i64>,
+    pub route_split_level: Option<u64>,
     /// S2 Level to use for calculation mode
     ///
     /// Accepts 10-20

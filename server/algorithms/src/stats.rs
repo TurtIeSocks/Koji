@@ -1,18 +1,44 @@
-use std::{ops::AddAssign, time::Instant};
+use std::{collections::HashMap, ops::AddAssign, time::Instant};
 
 use geo::{Distance, Haversine, Point};
 use hashbrown::HashSet;
 use model::api::{Precision, single_vec::SingleVec};
-use serde::{Serialize, ser::SerializeStruct};
+use serde::Serialize;
 
 use crate::rtree::{self, cluster::Cluster, cluster_info, point};
 
 const WIDTH: &str = "=======================================================================";
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+pub struct ClusterStats {
+    unique: HashMap<usize, usize>,
+    all: HashMap<usize, usize>,
+}
+
+impl ClusterStats {
+    fn new() -> Self {
+        ClusterStats {
+            all: HashMap::new(),
+            unique: HashMap::new(),
+        }
+    }
+
+    fn increment(&mut self, unique: usize, all: usize) {
+        self.all.entry(all).and_modify(|a| *a += 1).or_insert(1);
+        self.unique
+            .entry(unique)
+            .and_modify(|a| *a += 1)
+            .or_insert(1);
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct Stats {
+    #[serde(skip_serializing)]
     stats_start_time: Option<Instant>,
+    #[serde(skip_serializing)]
     label: String,
+    #[serde(skip_serializing)]
     min_points: usize,
 
     pub best_clusters: SingleVec,
@@ -28,6 +54,7 @@ pub struct Stats {
     pub total_distance: Precision,
     pub longest_distance: Precision,
     pub mygod_score: usize,
+    pub cluster_stats: ClusterStats,
 }
 
 impl Stats {
@@ -49,6 +76,7 @@ impl Stats {
             stats_start_time: None,
             label,
             min_points,
+            cluster_stats: ClusterStats::new(),
         }
     }
 
@@ -203,7 +231,15 @@ impl Stats {
                 .into_iter()
                 .map(|c| point::Point::new(radius, 20, *c))
                 .collect();
-            let clusters: Vec<Cluster<'_>> = cluster_info(&tree, &clusters);
+            let mut clusters: Vec<Cluster<'_>> = cluster_info(&tree, &clusters);
+
+            let cluster_tree =
+                rtree::spawn(radius, &clusters.iter().map(|c| c.point.center).collect());
+
+            clusters
+                .iter_mut()
+                .for_each(|cluster| cluster.set_unique(&cluster_tree));
+
             let mut points_covered: HashSet<&point::Point> = HashSet::new();
             let mut best_clusters = SingleVec::new();
             let mut best = usize::MIN;
@@ -224,20 +260,19 @@ impl Stats {
                 } else if length == worst {
                     worst_count += 1;
                 }
+                self.cluster_stats
+                    .increment(cluster.unique.len(), cluster.all.len());
+
                 if let Some(point) = tree.locate_at_point(&cluster.point.center) {
                     points_covered.insert(point);
                 }
                 points_covered.extend(&cluster.all);
             }
+
             if worst == usize::MAX {
                 worst = 0;
             }
 
-            // for point in tree.iter() {
-            //     if !points_covered.contains(&point) {
-            //         log::debug!("point not covered: {}", point);
-            //     }
-            // }
             self.best_cluster_point_count = best;
             self.worst_cluster_point_count = worst;
             self.worst_cluster_count = worst_count;
@@ -260,28 +295,6 @@ impl Stats {
     }
 }
 
-impl Serialize for Stats {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut state = serializer.serialize_struct("Stats", 11)?;
-        state.serialize_field("best_clusters", &self.best_clusters)?;
-        state.serialize_field("best_cluster_point_count", &self.best_cluster_point_count)?;
-        state.serialize_field("worst_cluster_point_count", &self.worst_cluster_point_count)?;
-        state.serialize_field("cluster_time", &self.cluster_time)?;
-        state.serialize_field("route_time", &self.route_time)?;
-        state.serialize_field("stats_time", &self.stats_time)?;
-        state.serialize_field("total_points", &self.total_points)?;
-        state.serialize_field("points_covered", &self.points_covered)?;
-        state.serialize_field("total_clusters", &self.total_clusters)?;
-        state.serialize_field("total_distance", &self.total_distance)?;
-        state.serialize_field("longest_distance", &self.longest_distance)?;
-        state.serialize_field("mygod_score", &self.mygod_score)?;
-        state.end()
-    }
-}
-
 impl<'a> AddAssign<&'a Self> for Stats {
     fn add_assign(&mut self, rhs: &'a Self) {
         if self.best_cluster_point_count < rhs.best_cluster_point_count {
@@ -298,6 +311,18 @@ impl<'a> AddAssign<&'a Self> for Stats {
         self.total_clusters += rhs.total_clusters;
         self.total_distance += rhs.total_distance;
         self.longest_distance += rhs.longest_distance;
+
+        macro_rules! merge_stat_field {
+            ($dst:expr, $src:expr, $field:ident) => {{
+                $src.$field.iter().for_each(|(k, v)| {
+                    $dst.$field.entry(*k).and_modify(|a| *a += v).or_insert(*v);
+                });
+            }};
+        }
+
+        merge_stat_field!(self.cluster_stats, rhs.cluster_stats, all);
+        merge_stat_field!(self.cluster_stats, rhs.cluster_stats, unique);
+
         self.set_score();
     }
 }

@@ -13,7 +13,9 @@ use super::*;
 use geojson::FeatureCollection;
 use model::api::{calc_mode::CalculationMode, cluster_mode::ClusterMode, single_vec::SingleVec};
 
+mod candidates;
 mod fastest;
+// mod genetic;
 mod greedy;
 mod s2;
 
@@ -31,6 +33,7 @@ pub fn main(
     collection: FeatureCollection,
     clustering_args: &str,
     center_clusters: bool,
+    _genetic_post_processing: bool,
 ) -> SingleVec {
     if data_points.is_empty() {
         return vec![];
@@ -90,6 +93,18 @@ pub fn main(
     } else {
         clusters
     };
+    // let clusters = if genetic_post_processing {
+    //     let optimizer = genetic::GeneticClusterOptimizer::new(
+    //         data_points.clone(),
+    //         min_points,
+    //         max_clusters,
+    //         radius,
+    //     );
+    //     optimizer.optimize(clusters)
+    // } else {
+    //     clusters
+    // };
+
     stats.set_cluster_time(time);
     stats.cluster_stats(radius, data_points, &clusters);
     stats.set_score();
