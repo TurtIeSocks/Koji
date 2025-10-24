@@ -2300,7 +2300,7 @@ dependencies = [
 
 [[package]]
 name = "koji"
-version = "1.5.3"
+version = "1.5.4"
 dependencies = [
  "api",
  "dotenv",
@@ -2416,7 +2416,7 @@ dependencies = [
 
 [[package]]
 name = "macros"
-version = "0.1.0"
+version = "1.5.4"
 dependencies = [
  "proc-macro2",
  "quote",
