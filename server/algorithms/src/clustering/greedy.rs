@@ -3,6 +3,7 @@ use hashbrown::HashSet;
 use macros::time;
 use model::api::{GetBbox, Precision, cluster_mode::ClusterMode, single_vec::SingleVec};
 
+use ::s2::cellid::CellID;
 use rayon::{
     prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator},
     slice::ParallelSliceMut,
@@ -18,7 +19,8 @@ use crate::{
         rtree::{cluster::Cluster, point::Point},
     },
     rtree::{self, SortDedupe},
-    s2, utils,
+    s2::{self, ToPointArray},
+    utils,
 };
 
 pub struct Greedy {
@@ -123,6 +125,30 @@ impl<'a> Greedy {
         radius::BootstrapRadius::new(&feat, self.radius).result()
     }
 
+    fn flat_map_cells(&self, cell: CellID, point_tree: &'a RTree<Point>) -> Vec<CellID> {
+        if cell.level() == 21 {
+            cell.children().into_iter().collect()
+        } else if point_tree.locate_at_point(&cell.point_array()).is_some() {
+            cell.children()
+                .into_iter()
+                .flat_map(|c| self.flat_map_cells(c, point_tree))
+                .collect()
+        } else {
+            vec![]
+        }
+    }
+
+    #[time()]
+    fn get_s2_clusters(&self, points: &SingleVec, point_tree: &'a RTree<Point>) -> SingleVec {
+        let bbox = points.get_bbox().unwrap();
+        s2::get_region_cells(bbox[1], bbox[3], bbox[0], bbox[2], 16)
+            .0
+            .into_par_iter()
+            .flat_map(|cell| self.flat_map_cells(cell, point_tree))
+            .map(|cell| cell.point_array())
+            .collect()
+    }
+
     fn gen_clusters(&self, density: usize, points: &'a SingleVec) -> SingleVec {
         candidates::generate_clusters_from_points(points, self.radius, density)
     }
@@ -142,8 +168,14 @@ impl<'a> Greedy {
             ClusterMode::Honeycomb => self.get_honeycomb_clusters(points),
             ClusterMode::Fast => self.gen_clusters(BYTE / 2, points),
             ClusterMode::Balanced => self.gen_clusters(BYTE, points),
-            ClusterMode::Better => self.gen_clusters(BYTE * 3, points),
-            ClusterMode::Best => self.gen_clusters(BYTE * 6, points),
+            ClusterMode::Better | ClusterMode::Best => {
+                let mut pcs = self.get_s2_clusters(points, point_tree);
+
+                if self.cluster_mode == ClusterMode::Best {
+                    pcs.extend_from_slice(&self.gen_clusters(BYTE * 6, points));
+                }
+                pcs
+            }
             _ => vec![],
         }
         .into_par_iter()
