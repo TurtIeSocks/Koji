@@ -140,30 +140,20 @@ impl<'a> Greedy {
         let time = Instant::now();
         let clusters_with_data: Vec<Cluster> = match self.cluster_mode {
             ClusterMode::Honeycomb => self.get_honeycomb_clusters(points),
-            ClusterMode::Fast => self.gen_clusters(128, points),
-            ClusterMode::Balanced => self.gen_clusters(512, points),
-            ClusterMode::Better => self.gen_clusters(1024, points),
-            ClusterMode::Best => self.gen_clusters(2048, points),
+            ClusterMode::Fast => self.gen_clusters(BYTE / 2, points),
+            ClusterMode::Balanced => self.gen_clusters(BYTE, points),
+            ClusterMode::Better => self.gen_clusters(BYTE * 3, points),
+            ClusterMode::Best => self.gen_clusters(BYTE * 6, points),
             _ => vec![],
         }
         .into_par_iter()
         .filter_map(|cluster| {
-            let mut points: Vec<&Point> = point_tree
-                .locate_all_at_point(&cluster)
-                .collect::<Vec<&Point>>();
-            if let Some(point) = point_tree.locate_at_point(&cluster) {
-                points.push(point);
-            }
-            if points.len() < self.min_points {
-                // log::debug!("Empty");
-                None
-            } else {
-                Some(Cluster::new(
-                    Point::new(self.radius, 20, cluster),
-                    points,
-                    vec![],
-                ))
-            }
+            let iter = point_tree.locate_all_at_point(&cluster);
+            let mut points = Vec::with_capacity(iter.size_hint().0);
+            points.extend(iter);
+
+            (points.len() >= self.min_points)
+                .then(|| Cluster::new(Point::new(self.radius, 20, cluster), points, vec![]))
         })
         .collect();
 
