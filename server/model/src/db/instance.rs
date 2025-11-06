@@ -196,7 +196,9 @@ impl Query {
                     | Type::CircleSmartPokemon
                     | Type::CircleRaid
                     | Type::CircleSmartRaid
-                    | Type::CircleQuest => {
+                    | Type::CircleQuest
+                    | Type::CircleStation
+                    | Type::CircleSmartStation => {
                         RdmInstanceArea::Single(feat.clone().to_single_vec().to_single_struct())
                     }
                     Type::Leveling => {

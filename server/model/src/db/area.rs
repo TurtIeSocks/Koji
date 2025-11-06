@@ -49,6 +49,7 @@ impl Model {
                 Type::CirclePokemon | Type::CircleSmartPokemon => self.pokemon_mode_route,
                 Type::CircleRaid | Type::CircleSmartRaid => self.fort_mode_route,
                 Type::CircleQuest => self.quest_mode_route,
+                Type::CircleStation | Type::CircleSmartStation => self.fort_mode_route,
                 _ => None,
             };
             if let Some(coords) = coords {

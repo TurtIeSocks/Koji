@@ -82,6 +82,12 @@ export const useDbCache = create<UseDbCache>((set, get) => ({
             (r) => r.name === name && r.mode.includes('quest'),
           ) || null
         )
+      case 'station':
+        return (
+          Object.values(route).find(
+            (r) => r.name === name && r.mode.includes('station'),
+          ) || null
+        )
       case 'spawnpoint':
         return (
           Object.values(route).find(

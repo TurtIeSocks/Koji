@@ -1,6 +1,7 @@
 /*
   p - pokestop
   g - gym
+  s - station
   v - verified spawnpoint
   u - unverified spawnpoint
 
@@ -47,11 +48,16 @@ export const ICON_SVG = {
         <circle cx="12" cy="12" r="10" fill="maroon" fill-opacity="0.8" stroke="black" stroke-width="1" />
         <circle cx="12" cy="12" r="1" fill="black" />
       </svg>`,
+  s: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" fill="purple" fill-opacity="0.8" stroke="black" stroke-width="1" />
+        <circle cx="12" cy="12" r="1" fill="black" />
+      </svg>`,
 } as const
 
 export const ICON_RADIUS = {
   p: 15,
   g: 20,
+  s: 15,
   v: 10,
   u: 10,
   r: 70,
@@ -60,6 +66,7 @@ export const ICON_RADIUS = {
 export const ICON_COLOR = {
   p: 'green',
   g: 'maroon',
+  s: 'purple',
   v: 'deeppink',
   u: 'dodgerblue',
   r: 'darkgreen',
@@ -95,6 +102,8 @@ export const RDM_ROUTES = [
   'circle_smart_pokemon',
   'circle_raid',
   'circle_smart_raid',
+  'circle_station',
+  'circle_smart_station',
 ] as const
 
 export const UNOWN_FENCES = ['auto_quest'] as const
@@ -103,6 +112,7 @@ export const UNOWN_ROUTES = [
   'circle_pokemon',
   'circle_raid',
   'circle_quest',
+  'circle_station',
 ] as const
 
 export const ALL_FENCES = [...new Set([...RDM_FENCES, ...UNOWN_FENCES])]
@@ -170,7 +180,7 @@ export const KEYBOARD_SHORTCUTS = [
   },
   {
     category: 'data',
-    shortcuts: ['gyms', 'pokestops', 'spawnpoints'],
+    shortcuts: ['gyms', 'pokestops', 'spawnpoints', 'stations'],
   },
   {
     category: 'other',
@@ -188,7 +198,7 @@ export const VECTOR_COLORS = {
 
 export const MODES = ['cluster', 'bootstrap'] as const
 
-export const CATEGORIES = ['pokestop', 'gym', 'fort', 'spawnpoint'] as const
+export const CATEGORIES = ['pokestop', 'gym', 'fort', 'spawnpoint', 'station'] as const
 
 export const TTH = ['All', 'Known', 'Unknown'] as const
 

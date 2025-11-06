@@ -204,6 +204,12 @@ async fn cluster(
         } else {
             Type::CircleSmartRaid
         }
+    } else if category == "station" {
+        if conn.scanner_type == ScannerType::Unown {
+            Type::CircleStation
+        } else {
+            Type::CircleSmartStation
+        }
     } else if category == "pokestop" {
         Type::CircleQuest
     } else {
