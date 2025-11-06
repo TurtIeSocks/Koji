@@ -39,10 +39,12 @@ export interface UsePersist {
   pokestopMaxAreaAutoCalc: number
   gymMaxAreaAutoCalc: number
   spawnpointMaxAreaAutoCalc: number
+  stationMaxAreaAutoCalc: number
   // Layers
   spawnpoint: boolean
   gym: boolean
   pokestop: boolean
+  station: boolean
   pokestopRange: boolean
   data: 'all' | 'area' | 'bound'
   last_seen: Date
@@ -114,6 +116,7 @@ export const usePersist = create(
       spawnpoint: false,
       gym: true,
       pokestop: true,
+      station: false,
       pokestopRange: false,
       kbShortcuts: {},
       mode: 'cluster',
@@ -163,6 +166,7 @@ export const usePersist = create(
       pokestopMaxAreaAutoCalc: 100,
       gymMaxAreaAutoCalc: 100,
       spawnpointMaxAreaAutoCalc: 100,
+      stationMaxAreaAutoCalc: 100,
       routing_args: '',
       clustering_args: '',
       bootstrapping_args: '',

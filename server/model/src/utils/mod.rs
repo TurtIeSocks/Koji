@@ -62,6 +62,8 @@ pub fn get_enum(instance_type: Option<String>) -> Type {
             "CircleSmartPokemon" | "circle_smart_pokemon" => Type::CircleSmartPokemon,
             "CircleRaid" | "circle_raid" => Type::CircleRaid,
             "CircleSmartRaid" | "circle_smart_raid" => Type::CircleSmartRaid,
+            "CircleStation" | "circle_station" => Type::CircleStation,
+            "CircleSmartStation" | "circle_smart_station" => Type::CircleSmartStation,
             "PokemonIv" | "pokemon_iv" => Type::PokemonIv,
             "Leveling" | "leveling" => Type::Leveling,
             "CircleQuest" | "circle_quest" => Type::CircleQuest,

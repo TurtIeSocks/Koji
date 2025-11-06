@@ -10,3 +10,4 @@ pub use super::project::Entity as Project;
 pub use super::property::Entity as Property;
 pub use super::route::Entity as Route;
 pub use super::spawnpoint::Entity as Spawnpoint;
+pub use super::station::Entity as Station;
