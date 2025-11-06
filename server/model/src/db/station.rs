@@ -3,6 +3,7 @@ use super::*;
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "station")]
@@ -45,12 +46,17 @@ pub struct Query;
 
 impl Query {
     pub async fn all(conn: &DatabaseConnection, last_seen: u32) -> Result<Vec<GenericData>, DbErr> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as u32;
         let items = Entity::find()
             .select_only()
             .column(Column::Lat)
             .column(Column::Lon)
             .filter(Column::Updated.gt(last_seen))
             .filter(Column::IsInactive.eq(false))
+            .filter(Column::EndTime.gt(now))
             .limit(2_000_000)
             .into_model::<api::point_struct::PointStruct>()
             .all(conn)
@@ -62,6 +68,10 @@ impl Query {
         conn: &DatabaseConnection,
         payload: &api::args::BoundsArg,
     ) -> Result<Vec<GenericData>, DbErr> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as u32;
         let items = Entity::find()
             .select_only()
             .column(Column::Lat)
@@ -76,6 +86,7 @@ impl Query {
                 }),
             )
             .filter(Column::IsInactive.eq(false))
+            .filter(Column::EndTime.gt(now))
             .limit(2_000_000)
             .into_model::<api::point_struct::PointStruct>()
             .all(conn)
@@ -88,10 +99,14 @@ impl Query {
         area: &FeatureCollection,
         last_seen: u32,
     ) -> Result<Vec<GenericData>, DbErr> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as u32;
         let items = Entity::find()
             .from_raw_sql(Statement::from_sql_and_values(
                 DbBackend::MySql,
-                format!("SELECT lat, lon FROM station WHERE is_inactive = 0 AND updated >= {} AND ({}) LIMIT 2000000", last_seen, utils::sql_raw(area)).as_str(),
+                format!("SELECT lat, lon FROM station WHERE is_inactive = 0 AND updated >= {} AND end_time > {} AND ({}) LIMIT 2000000", last_seen, now, utils::sql_raw(area)).as_str(),
                 vec![],
             ))
             .into_model::<api::point_struct::PointStruct>()
@@ -105,11 +120,15 @@ impl Query {
         area: &FeatureCollection,
         last_seen: u32,
     ) -> Result<Total, DbErr> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as u32;
         let items = Entity::find()
             .column_as(Column::Id.count(), "count")
             .from_raw_sql(Statement::from_sql_and_values(
                 DbBackend::MySql,
-                format!("SELECT COUNT(*) AS total FROM station WHERE is_inactive = 0 AND updated >= {} AND ({})", last_seen, utils::sql_raw(area)).as_str(),
+                format!("SELECT COUNT(*) AS total FROM station WHERE is_inactive = 0 AND updated >= {} AND end_time > {} AND ({})", last_seen, now, utils::sql_raw(area)).as_str(),
                 vec![],
             ))
             .into_model::<Total>()
