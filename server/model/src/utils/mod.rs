@@ -54,6 +54,34 @@ pub fn sql_raw(area: &FeatureCollection) -> String {
     string
 }
 
+pub fn sql_raw_bbox(area: &FeatureCollection) -> String {
+    let mut string = "".to_string();
+    for (i, feature) in area.into_iter().enumerate() {
+        let bbox = if let Some(bbox) = feature.bbox.clone() {
+            bbox
+        } else {
+            feature.clone().to_single_vec().get_bbox().unwrap()
+        };
+        if let Some(geometry) = feature.geometry.clone() {
+            match geometry.value {
+                Value::Polygon(_) | Value::MultiPolygon(_) => {
+                    string = format!(
+                        "{}{} (lon BETWEEN {} AND {} AND lat BETWEEN {} AND {})",
+                        string,
+                        if i == 0 { "" } else { "\nOR" },
+                        bbox[0],
+                        bbox[2],
+                        bbox[1],
+                        bbox[3]
+                    );
+                }
+                _ => {}
+            }
+        }
+    }
+    string
+}
+
 pub fn get_enum(instance_type: Option<String>) -> Type {
     match instance_type {
         Some(instance_type) => match instance_type.as_str() {

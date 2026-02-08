@@ -1,10 +1,12 @@
+use geo::{Contains, MultiPolygon, Point, Polygon};
+use geojson::{FeatureCollection, Value};
 use serde_json::json;
 
 use super::*;
 
 use crate::{
     api::text::TextHelpers,
-    db::{sea_orm_active_enums::Type, AreaRef},
+    db::{sea_orm_active_enums::Type, AreaRef, Spawnpoint},
 };
 
 pub fn fort(items: api::single_struct::SingleStruct, prefix: &str) -> Vec<db::GenericData> {
@@ -31,6 +33,94 @@ pub fn spawnpoint(items: Vec<db::Spawnpoint>) -> Vec<db::GenericData> {
             )
         })
         .collect()
+}
+
+pub fn spawnpoint_filtered(items: Vec<Spawnpoint>, area: &FeatureCollection) -> Vec<db::GenericData> {
+    let polygons: Vec<(Vec<Polygon<f64>>, Vec<MultiPolygon<f64>>)> = area
+        .features
+        .iter()
+        .filter_map(|feature| {
+            feature.geometry.as_ref().map(|geometry| {
+                let mut polys = Vec::new();
+                let mut multi_polys = Vec::new();
+                match &geometry.value {
+                    Value::Polygon(_) => {
+                        if let Ok(poly) = Polygon::try_from(geometry) {
+                            polys.push(poly);
+                        }
+                    }
+                    Value::MultiPolygon(_) => {
+                        if let Ok(mp) = MultiPolygon::try_from(geometry) {
+                            multi_polys.push(mp);
+                        }
+                    }
+                    _ => {}
+                }
+                (polys, multi_polys)
+            })
+        })
+        .collect();
+
+    items
+        .into_iter()
+        .filter(|item| {
+            let point = Point::new(item.lon, item.lat);
+            polygons.iter().any(|(polys, multi_polys)| {
+                polys.iter().any(|poly| poly.contains(&point))
+                    || multi_polys.iter().any(|mp| mp.contains(&point))
+            })
+        })
+        .enumerate()
+        .map(|(i, item)| {
+            db::GenericData::new(
+                format!(
+                    "{}{}",
+                    if item.despawn_sec.is_some() { "v" } else { "u" },
+                    i
+                ),
+                item.lat,
+                item.lon,
+            )
+        })
+        .collect()
+}
+
+pub fn count_spawnpoints_in_area(items: &[Spawnpoint], area: &FeatureCollection) -> i32 {
+    let polygons: Vec<(Vec<Polygon<f64>>, Vec<MultiPolygon<f64>>)> = area
+        .features
+        .iter()
+        .filter_map(|feature| {
+            feature.geometry.as_ref().map(|geometry| {
+                let mut polys = Vec::new();
+                let mut multi_polys = Vec::new();
+                match &geometry.value {
+                    Value::Polygon(_) => {
+                        if let Ok(poly) = Polygon::try_from(geometry) {
+                            polys.push(poly);
+                        }
+                    }
+                    Value::MultiPolygon(_) => {
+                        if let Ok(mp) = MultiPolygon::try_from(geometry) {
+                            multi_polys.push(mp);
+                        }
+                    }
+                    _ => {}
+                }
+                (polys, multi_polys)
+            })
+        })
+        .collect();
+
+    items
+        .iter()
+        .filter(|item| {
+            let point = Point::new(item.lon, item.lat);
+            polygons.iter().any(|(polys, multi_polys)| {
+                polys.iter().any(|poly| poly.contains(&point))
+                    || multi_polys.iter().any(|mp| mp.contains(&point))
+            })
+        })
+        .count() as i32
 }
 
 pub fn instance(instance: db::instance::Model) -> Feature {
