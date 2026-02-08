@@ -84,14 +84,14 @@ impl Query {
             .from_raw_sql(Statement::from_sql_and_values(
                 DbBackend::MySql,
                 format!(
-                    "SELECT lat, lon, despawn_sec FROM spawnpoint WHERE last_seen >= {} {} AND ({}) LIMIT 2000000",
+                    "SELECT lat, lon, despawn_sec FROM spawnpoint WHERE last_seen >= {} {} AND ({})",
                     last_seen,
                     match tth {
                         SpawnpointTth::All => "".to_string(),
                         SpawnpointTth::Known => "AND despawn_sec IS NOT NULL".to_string(),
                         SpawnpointTth::Unknown => "AND despawn_sec IS NULL".to_string(),
                     },
-                    utils::sql_raw(area)
+                    utils::sql_raw_bbox(area)
                 )
                 .as_str(),
                 vec![],
@@ -99,7 +99,7 @@ impl Query {
             .into_model::<Spawnpoint>()
             .all(conn)
             .await?;
-        Ok(utils::normalize::spawnpoint(items))
+        Ok(utils::normalize::spawnpoint_filtered(items, area))
     }
 
     pub async fn stats(
@@ -109,29 +109,25 @@ impl Query {
         tth: SpawnpointTth,
     ) -> Result<Total, DbErr> {
         let items = spawnpoint::Entity::find()
-            .column_as(spawnpoint::Column::Id.count(), "count")
             .from_raw_sql(Statement::from_sql_and_values(
                 DbBackend::MySql,
                 format!(
-                    "SELECT COUNT(*) AS total FROM spawnpoint WHERE last_seen >= {} AND {} AND ({})",
+                    "SELECT lat, lon, despawn_sec FROM spawnpoint WHERE last_seen >= {} {} AND ({})",
                     last_seen,
                     match tth {
-                        SpawnpointTth::All => "1=1".to_string(),
-                        SpawnpointTth::Known => "despawn_sec IS NOT NULL".to_string(),
-                        SpawnpointTth::Unknown => "despawn_sec IS NULL".to_string(),
+                        SpawnpointTth::All => "".to_string(),
+                        SpawnpointTth::Known => "AND despawn_sec IS NOT NULL".to_string(),
+                        SpawnpointTth::Unknown => "AND despawn_sec IS NULL".to_string(),
                     },
-                    utils::sql_raw(area)
+                    utils::sql_raw_bbox(area)
                 )
                 .as_str(),
                 vec![],
             ))
-            .into_model::<Total>()
-            .one(conn)
+            .into_model::<Spawnpoint>()
+            .all(conn)
             .await?;
-        Ok(if let Some(item) = items {
-            item
-        } else {
-            Total { total: 0 }
-        })
+        let total = utils::normalize::count_spawnpoints_in_area(&items, area);
+        Ok(Total { total })
     }
 }

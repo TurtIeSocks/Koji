@@ -1,7 +1,7 @@
 use geo::Coord;
 use geohash::encode;
 use model::api::single_vec::SingleVec;
-use rand::{rngs::mock::StepRng, seq::SliceRandom};
+use rand::{SeedableRng, rngs::SmallRng, seq::SliceRandom};
 use rayon::{
     iter::{IntoParallelRefIterator, ParallelIterator},
     slice::ParallelSliceMut,
@@ -23,7 +23,7 @@ impl SortRandom for SingleVec {
     }
 
     fn sort_random_mut(&mut self) {
-        let mut rng = StepRng::new(2, 13);
+        let mut rng = SmallRng::seed_from_u64(42);
         self.shuffle(&mut rng);
     }
 }

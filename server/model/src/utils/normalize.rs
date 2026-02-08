@@ -1,11 +1,66 @@
+use geo::{Contains, MultiPolygon, Point, Polygon};
+use geojson::{FeatureCollection, Value};
 use serde_json::json;
 
 use super::*;
 
 use crate::{
     api::text::TextHelpers,
-    db::{sea_orm_active_enums::Type, AreaRef},
+    db::{sea_orm_active_enums::Type, AreaRef, Spawnpoint},
 };
+
+pub trait HasLatLon {
+    fn lat(&self) -> f64;
+    fn lon(&self) -> f64;
+}
+
+impl HasLatLon for Spawnpoint {
+    fn lat(&self) -> f64 { self.lat }
+    fn lon(&self) -> f64 { self.lon }
+}
+
+impl HasLatLon for api::point_struct::PointStruct {
+    fn lat(&self) -> f64 { self.lat }
+    fn lon(&self) -> f64 { self.lon }
+}
+
+pub struct AreaPolygons {
+    polys: Vec<Polygon<f64>>,
+    multi_polys: Vec<MultiPolygon<f64>>,
+}
+
+impl AreaPolygons {
+    pub fn from_collection(area: &FeatureCollection) -> Self {
+        let mut polys = Vec::new();
+        let mut multi_polys = Vec::new();
+
+        for feature in &area.features {
+            if let Some(geometry) = &feature.geometry {
+                match &geometry.value {
+                    Value::Polygon(_) => {
+                        if let Ok(poly) = Polygon::try_from(geometry) {
+                            polys.push(poly);
+                        }
+                    }
+                    Value::MultiPolygon(_) => {
+                        if let Ok(mp) = MultiPolygon::try_from(geometry) {
+                            multi_polys.push(mp);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        Self { polys, multi_polys }
+    }
+
+    pub fn contains(&self, lat: f64, lon: f64) -> bool {
+        let point = Point::new(lon, lat);
+        self.polys.iter().any(|poly| poly.contains(&point))
+            || self.multi_polys.iter().any(|mp| mp.contains(&point))
+    }
+}
 
 pub fn fort(items: api::single_struct::SingleStruct, prefix: &str) -> Vec<db::GenericData> {
     items
@@ -13,6 +68,28 @@ pub fn fort(items: api::single_struct::SingleStruct, prefix: &str) -> Vec<db::Ge
         .enumerate()
         .map(|(i, item)| db::GenericData::new(format!("{}{}", prefix, i), item.lat, item.lon))
         .collect()
+}
+
+pub fn fort_filtered(
+    items: api::single_struct::SingleStruct,
+    area: &FeatureCollection,
+    prefix: &str,
+) -> Vec<db::GenericData> {
+    let polygons = AreaPolygons::from_collection(area);
+    items
+        .into_iter()
+        .filter(|item| polygons.contains(item.lat(), item.lon()))
+        .enumerate()
+        .map(|(i, item)| db::GenericData::new(format!("{}{}", prefix, i), item.lat, item.lon))
+        .collect()
+}
+
+pub fn count_in_area<T: HasLatLon>(items: &[T], area: &FeatureCollection) -> i32 {
+    let polygons = AreaPolygons::from_collection(area);
+    items
+        .iter()
+        .filter(|item| polygons.contains(item.lat(), item.lon()))
+        .count() as i32
 }
 
 pub fn spawnpoint(items: Vec<db::Spawnpoint>) -> Vec<db::GenericData> {
@@ -31,6 +108,30 @@ pub fn spawnpoint(items: Vec<db::Spawnpoint>) -> Vec<db::GenericData> {
             )
         })
         .collect()
+}
+
+pub fn spawnpoint_filtered(items: Vec<Spawnpoint>, area: &FeatureCollection) -> Vec<db::GenericData> {
+    let polygons = AreaPolygons::from_collection(area);
+    items
+        .into_iter()
+        .filter(|item| polygons.contains(item.lat(), item.lon()))
+        .enumerate()
+        .map(|(i, item)| {
+            db::GenericData::new(
+                format!(
+                    "{}{}",
+                    if item.despawn_sec.is_some() { "v" } else { "u" },
+                    i
+                ),
+                item.lat,
+                item.lon,
+            )
+        })
+        .collect()
+}
+
+pub fn count_spawnpoints_in_area(items: &[Spawnpoint], area: &FeatureCollection) -> i32 {
+    count_in_area(items, area)
 }
 
 pub fn instance(instance: db::instance::Model) -> Feature {

@@ -71,7 +71,7 @@ pub struct FullPropertyModel {
 }
 
 impl FullPropertyModel {
-    pub fn parse_db_value(&self, model: &geofence::Model) -> Basic {
+    pub fn parse_db_value(&self, model: &geofence::Model) -> Basic<'_> {
         let parsed_value: Json = match self.category {
             Category::Database => match self.name.as_str() {
                 "id" => serde_json::Value::from(model.id),
