@@ -3,7 +3,7 @@ use hashbrown::HashSet;
 use macros::time;
 use model::api::{GetBbox, Precision, cluster_mode::ClusterMode, single_vec::SingleVec};
 
-use ::s2::cellid::CellID;
+use ::s2::{cellid::CellID, latlng::LatLng};
 use rayon::{
     prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator},
     slice::ParallelSliceMut,
@@ -407,22 +407,25 @@ impl<'a> Greedy {
     #[time()]
     fn check_missing(&self, clusters: Vec<Cluster>, points: &SingleVec) -> HashSet<Point> {
         let missing = {
-            let seen_points = clusters
-                .iter()
-                .map(|cluster| cluster.all.iter().collect())
-                .fold(HashSet::new(), |a, b| a.union(&b).cloned().collect());
+            let mut seen_cell_ids: HashSet<CellID> = HashSet::with_capacity(points.len());
+            for cluster in clusters.iter() {
+                for p in cluster.all.iter() {
+                    seen_cell_ids.insert(p.cell_id);
+                }
+            }
 
-            if seen_points.len() == points.len() {
+            if seen_cell_ids.len() == points.len() {
                 vec![]
             } else {
                 points
-                    .iter()
+                    .into_par_iter()
                     .filter_map(|p| {
-                        let point = Point::new(self.radius, 20, *p);
-                        if seen_points.contains(&&point) {
+                        let cell_id =
+                            CellID::from(LatLng::from_degrees(p[0], p[1])).parent(20);
+                        if seen_cell_ids.contains(&cell_id) {
                             None
                         } else {
-                            Some(point)
+                            Some(Point::new(self.radius, 20, *p))
                         }
                     })
                     .collect::<Vec<Point>>()
