@@ -114,7 +114,9 @@ impl Plugin {
         if path.is_dir() {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
-                format!("{plugin} is a directory, not a file, something may not be right with the provided args"),
+                format!(
+                    "{plugin} is a directory, not a file, something may not be right with the provided args"
+                ),
             ));
         }
         if path.exists() {
@@ -165,6 +167,7 @@ impl Plugin {
                 .filter_map(|x| self.run(utils::stringify_points(&x)).ok())
                 .collect()
         };
+
         if let Some(joiner) = joiner {
             Ok(joiner(self, handlers))
         } else {
@@ -259,7 +262,7 @@ impl Plugin {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::Other,
                     format!("child process exited with status: {}", status),
-                ))
+                ));
             }
         }
 
@@ -279,12 +282,12 @@ impl Plugin {
         }
         if results.is_empty() {
             Err(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    format!(
-                        "no valid output from child process \n{}\noutput should return points in the following format: `lat,lng lat,lng`",
-                        invalid.join(", ")
-                    ),
-                ))
+                std::io::ErrorKind::NotFound,
+                format!(
+                    "no valid output from child process \n{}\noutput should return points in the following format: `lat,lng lat,lng`",
+                    invalid.join(", ")
+                ),
+            ))
         } else {
             log::info!(
                 "{} child process finished in {}s with {} points",

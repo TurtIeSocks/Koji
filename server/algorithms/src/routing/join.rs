@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 pub fn join(plugin: &Plugin, input: Vec<SingleVec>) -> SingleVec {
-    if plugin.split_level == 0 {
+    if plugin.split_level == 0 || input.len() < 3 {
         return input.into_iter().flatten().collect();
     }
     let time = Instant::now();
