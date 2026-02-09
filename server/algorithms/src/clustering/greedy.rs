@@ -407,12 +407,11 @@ impl<'a> Greedy {
     #[time()]
     fn check_missing(&self, clusters: Vec<Cluster>, points: &SingleVec) -> HashSet<Point> {
         let missing = {
-            let mut seen_cell_ids: HashSet<CellID> = HashSet::with_capacity(points.len());
-            for cluster in clusters.iter() {
-                for p in cluster.all.iter() {
-                    seen_cell_ids.insert(p.cell_id);
-                }
-            }
+            let seen_cell_ids: HashSet<CellID> = clusters
+                .iter()
+                .flat_map(|c| c.all.iter())
+                .map(|p| p.cell_id)
+                .collect();
 
             if seen_cell_ids.len() == points.len() {
                 vec![]
@@ -420,8 +419,7 @@ impl<'a> Greedy {
                 points
                     .into_par_iter()
                     .filter_map(|p| {
-                        let cell_id =
-                            CellID::from(LatLng::from_degrees(p[0], p[1])).parent(20);
+                        let cell_id = CellID::from(LatLng::from_degrees(p[0], p[1])).parent(20);
                         if seen_cell_ids.contains(&cell_id) {
                             None
                         } else {
