@@ -6,7 +6,7 @@ use super::*;
 
 use crate::{
     api::text::TextHelpers,
-    db::{sea_orm_active_enums::Type, AreaRef, Spawnpoint},
+    db::{AreaRef, Spawnpoint, sea_orm_active_enums::Type},
 };
 
 pub trait HasLatLon {
@@ -15,13 +15,21 @@ pub trait HasLatLon {
 }
 
 impl HasLatLon for Spawnpoint {
-    fn lat(&self) -> f64 { self.lat }
-    fn lon(&self) -> f64 { self.lon }
+    fn lat(&self) -> f64 {
+        self.lat
+    }
+    fn lon(&self) -> f64 {
+        self.lon
+    }
 }
 
 impl HasLatLon for api::point_struct::PointStruct {
-    fn lat(&self) -> f64 { self.lat }
-    fn lon(&self) -> f64 { self.lon }
+    fn lat(&self) -> f64 {
+        self.lat
+    }
+    fn lon(&self) -> f64 {
+        self.lon
+    }
 }
 
 pub struct AreaPolygons {
@@ -37,16 +45,14 @@ impl AreaPolygons {
         for feature in &area.features {
             if let Some(geometry) = &feature.geometry {
                 match &geometry.value {
-                    Value::Polygon(_) => {
-                        if let Ok(poly) = Polygon::try_from(geometry) {
-                            polys.push(poly);
-                        }
-                    }
-                    Value::MultiPolygon(_) => {
-                        if let Ok(mp) = MultiPolygon::try_from(geometry) {
-                            multi_polys.push(mp);
-                        }
-                    }
+                    Value::Polygon(_) => match Polygon::try_from(geometry) {
+                        Ok(poly) => polys.push(poly),
+                        Err(e) => log::warn!("Failed to convert Polygon: {}", e),
+                    },
+                    Value::MultiPolygon(_) => match MultiPolygon::try_from(geometry) {
+                        Ok(mp) => multi_polys.push(mp),
+                        Err(e) => log::warn!("Failed to convert MultiPolygon: {}", e),
+                    },
                     _ => {}
                 }
             }
@@ -110,7 +116,10 @@ pub fn spawnpoint(items: Vec<db::Spawnpoint>) -> Vec<db::GenericData> {
         .collect()
 }
 
-pub fn spawnpoint_filtered(items: Vec<Spawnpoint>, area: &FeatureCollection) -> Vec<db::GenericData> {
+pub fn spawnpoint_filtered(
+    items: Vec<Spawnpoint>,
+    area: &FeatureCollection,
+) -> Vec<db::GenericData> {
     let polygons = AreaPolygons::from_collection(area);
     items
         .into_iter()
@@ -128,10 +137,6 @@ pub fn spawnpoint_filtered(items: Vec<Spawnpoint>, area: &FeatureCollection) -> 
             )
         })
         .collect()
-}
-
-pub fn count_spawnpoints_in_area(items: &[Spawnpoint], area: &FeatureCollection) -> i32 {
-    count_in_area(items, area)
 }
 
 pub fn instance(instance: db::instance::Model) -> Feature {
