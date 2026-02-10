@@ -1,6 +1,6 @@
 use super::*;
 
-use std::env;
+use std::{env, fmt::Write};
 
 use geojson::Value;
 use log::LevelFilter;
@@ -8,7 +8,7 @@ use regex::Regex;
 use sea_orm::{ConnectOptions, ConnectionTrait, Database, Order, Statement};
 
 use crate::{
-    api::{args::ApiQueryArgs, EnsurePoints, GetBbox, ToSingleVec},
+    api::{EnsurePoints, GetBbox, ToSingleVec, args::ApiQueryArgs},
     db::sea_orm_active_enums::{Category, Type},
 };
 
@@ -41,10 +41,15 @@ pub fn sql_raw(area: &FeatureCollection) -> String {
             let geo = geometry.ensure_first_last();
             match geo.value {
                 Value::Polygon(_) | Value::MultiPolygon(_) => {
-                    string = format!("{}{} (\n\tlon BETWEEN {} AND {}\n\tAND lat BETWEEN {} AND {}\n\tAND ST_CONTAINS(\n\t\tST_GeomFromGeoJSON('{}', 2, 0),\n\t\tPOINT(lon, lat)\n\t)\n)",
+                    string = format!(
+                        "{}{} (\n\tlon BETWEEN {} AND {}\n\tAND lat BETWEEN {} AND {}\n\tAND ST_CONTAINS(\n\t\tST_GeomFromGeoJSON('{}', 2, 0),\n\t\tPOINT(lon, lat)\n\t)\n)",
                         string,
                         if i == 0 { "" } else { "\nOR" },
-                        bbox[0], bbox[2], bbox[1], bbox[3], geo.to_string()
+                        bbox[0],
+                        bbox[2],
+                        bbox[1],
+                        bbox[3],
+                        geo.to_string()
                     );
                 }
                 _ => {}
@@ -55,19 +60,21 @@ pub fn sql_raw(area: &FeatureCollection) -> String {
 }
 
 pub fn sql_raw_bbox(area: &FeatureCollection) -> String {
-    let mut string = "".to_string();
+    let mut string = String::new();
     for (i, feature) in area.into_iter().enumerate() {
-        let bbox = if let Some(bbox) = feature.bbox.clone() {
+        let bbox = if let Some(bbox) = feature.bbox.as_ref() {
+            bbox.clone()
+        } else if let Some(bbox) = feature.clone().to_single_vec().get_bbox() {
             bbox
         } else {
-            feature.clone().to_single_vec().get_bbox().unwrap()
+            continue;
         };
-        if let Some(geometry) = feature.geometry.clone() {
+        if let Some(geometry) = &feature.geometry {
             match geometry.value {
                 Value::Polygon(_) | Value::MultiPolygon(_) => {
-                    string = format!(
-                        "{}{} (lon BETWEEN {} AND {} AND lat BETWEEN {} AND {})",
+                    let _ = write!(
                         string,
+                        "{} (lon BETWEEN {} AND {} AND lat BETWEEN {} AND {})",
                         if i == 0 { "" } else { "\nOR" },
                         bbox[0],
                         bbox[2],
@@ -277,11 +284,7 @@ pub fn json_related_sort(json: &mut Vec<serde_json::Value>, sort_by: &String, or
     json.sort_by(|a, b| {
         let a = a[sort_by].as_array().unwrap().len();
         let b = b[sort_by].as_array().unwrap().len();
-        if order == "asc" {
-            a.cmp(&b)
-        } else {
-            b.cmp(&a)
-        }
+        if order == "asc" { a.cmp(&b) } else { b.cmp(&a) }
     });
 }
 

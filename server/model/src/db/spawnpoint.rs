@@ -74,13 +74,13 @@ impl Query {
         Ok(utils::normalize::spawnpoint(items))
     }
 
-    pub async fn area(
+    async fn query_area(
         conn: &DatabaseConnection,
         area: &FeatureCollection,
         last_seen: u32,
         tth: SpawnpointTth,
-    ) -> Result<Vec<GenericData>, DbErr> {
-        let items = spawnpoint::Entity::find()
+    ) -> Result<Vec<Spawnpoint>, DbErr> {
+        spawnpoint::Entity::find()
             .from_raw_sql(Statement::from_sql_and_values(
                 DbBackend::MySql,
                 format!(
@@ -98,7 +98,16 @@ impl Query {
             ))
             .into_model::<Spawnpoint>()
             .all(conn)
-            .await?;
+            .await
+    }
+
+    pub async fn area(
+        conn: &DatabaseConnection,
+        area: &FeatureCollection,
+        last_seen: u32,
+        tth: SpawnpointTth,
+    ) -> Result<Vec<GenericData>, DbErr> {
+        let items = Self::query_area(conn, area, last_seen, tth).await?;
         Ok(utils::normalize::spawnpoint_filtered(items, area))
     }
 
@@ -108,26 +117,8 @@ impl Query {
         last_seen: u32,
         tth: SpawnpointTth,
     ) -> Result<Total, DbErr> {
-        let items = spawnpoint::Entity::find()
-            .from_raw_sql(Statement::from_sql_and_values(
-                DbBackend::MySql,
-                format!(
-                    "SELECT lat, lon, despawn_sec FROM spawnpoint WHERE last_seen >= {} {} AND ({})",
-                    last_seen,
-                    match tth {
-                        SpawnpointTth::All => "".to_string(),
-                        SpawnpointTth::Known => "AND despawn_sec IS NOT NULL".to_string(),
-                        SpawnpointTth::Unknown => "AND despawn_sec IS NULL".to_string(),
-                    },
-                    utils::sql_raw_bbox(area)
-                )
-                .as_str(),
-                vec![],
-            ))
-            .into_model::<Spawnpoint>()
-            .all(conn)
-            .await?;
-        let total = utils::normalize::count_spawnpoints_in_area(&items, area);
+        let items = Self::query_area(conn, area, last_seen, tth).await?;
+        let total = utils::normalize::count_in_area(&items, area);
         Ok(Total { total })
     }
 }
