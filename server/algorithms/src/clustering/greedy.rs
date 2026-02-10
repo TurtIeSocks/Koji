@@ -5,6 +5,7 @@ use model::api::{GetBbox, Precision, cluster_mode::ClusterMode, single_vec::Sing
 
 use ::s2::{cellid::CellID, latlng::LatLng};
 use rayon::{
+    iter::IntoParallelRefMutIterator,
     prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator},
     slice::ParallelSliceMut,
 };
@@ -394,7 +395,7 @@ impl<'a> Greedy {
         );
 
         clusters
-            .iter_mut()
+            .par_iter_mut()
             .for_each(|cluster| cluster.set_unique(&cluster_tree));
 
         clusters.retain(|cluster| cluster.unique.len() >= self.min_points);
