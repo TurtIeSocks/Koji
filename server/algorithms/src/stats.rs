@@ -3,6 +3,7 @@ use std::{collections::HashMap, ops::AddAssign, time::Instant};
 use geo::{Distance, Haversine, Point};
 use hashbrown::HashSet;
 use model::api::{Precision, single_vec::SingleVec};
+use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::Serialize;
 
 use crate::rtree::{self, cluster::Cluster, cluster_info, point};
@@ -237,7 +238,7 @@ impl Stats {
                 rtree::spawn(radius, &clusters.iter().map(|c| c.point.center).collect());
 
             clusters
-                .iter_mut()
+                .par_iter_mut()
                 .for_each(|cluster| cluster.set_unique(&cluster_tree));
 
             let mut points_covered: HashSet<&point::Point> = HashSet::new();
