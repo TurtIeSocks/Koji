@@ -1,7 +1,7 @@
-node_modules
+client/node_modules
 dist
 .env
-target
+server/target
 .github
 .vscode
 docker-compose.yml

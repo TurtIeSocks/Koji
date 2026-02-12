@@ -5,6 +5,7 @@ node_modules/
 .yarn-integrity
 dist
 .next
+logs/*.log
 
 # config
 .env
