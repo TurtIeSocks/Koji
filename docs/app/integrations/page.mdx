@@ -152,7 +152,7 @@ API Key: x-golbat-secret:{golbat_config.api_secret}
 - `koji.bearer_token`
 - Your Kōji Bearer token
 
-#### Then set the Kōji url
+#### Then set the Kōji URL
 
 - `koji.url`
 - Example: `http://{koji_ip}`
@@ -161,7 +161,7 @@ API Key: x-golbat-secret:{golbat_config.api_secret}
 
 ### Project Setup
 
-Use these values for your "scanner project" if Koji and Dragonite are on the **same** network.
+Use these values for your "scanner project" if Kōji and Dragonite are on the **same** network.
 
 ```yml
 API endpoint: http://{drago_host_ip}:{drago_port}/reload
@@ -186,7 +186,7 @@ API key: Leave empty. Dragonite currently does not support authentication
 
 ### Project Setup
 
-Use these values for your "scanner project" if Koji and Dragonite are on **different** networks. This will proxy the request through Dragonite Admin to Dragonite utilizing the api_secret value.
+Use these values for your "scanner project" if Kōji and Dragonite are on **different** networks. This will proxy the request through Dragonite Admin to Dragonite utilizing the `api_secret` value.
 
 ```yml
 API endpoint: http://{drago_admin_host_ip}:{drago_admin_port}/api/reload
@@ -200,7 +200,7 @@ API key: X-Dragonite-Admin-Secret:{your_api_secret_value}
 
 ## RealDeviceMap
 
-- RealDeviceMap (RDM) is marked as depreciated and support will be removed in the future.
+- RealDeviceMap (RDM) is marked as deprecated and support will be removed in the future.
 
 * [PR 513](https://github.com/RealDeviceMap/RealDeviceMap/pull/513)
 

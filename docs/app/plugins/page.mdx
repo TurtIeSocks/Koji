@@ -27,7 +27,7 @@ If you would like to use a different interpreter for a plugin you can add it to 
 
 ### Directory
 
-A directory can also be used a plugin. The directory name will be used as the plugin name and you must add the relative path from the plugin folder to the plugin entry point to your input arguments. For example, `bun my_plugin/index.ts`.
+A directory can also be used as a plugin. The directory name will be used as the plugin name and you must add the relative path from the plugin folder to the plugin entry point to your input arguments. For example, `bun my_plugin/index.ts`.
 
 ### Example Folder Structure & Usage
 
@@ -107,7 +107,7 @@ Stdin: `40.780374,-73.969161 40.252042,-73.882841 40.256022,-74.105120`
 Result: `bun test.ts`
 Stdin: `40.780374,-73.969161 40.252042,-73.882841 40.256022,-74.105120`
 
-The main takeaway is that the first and second arguments are optional. Once Kōji finds the first argument that is prefixed by `--`, it now assumes that the rest of the arguments are meant to be passed to the plugin. If your plugin is only a single file, you can omit the interpreter and file path, or you can just omit the file path, however you can not omit the interpreter and try to use a custom file path.
+The main takeaway is that the first and second arguments are optional. Once Kōji finds the first argument that is prefixed by `--`, it now assumes that the rest of the arguments are meant to be passed to the plugin. If your plugin is only a single file, you can omit the interpreter and file path, or you can just omit the file path, however you cannot omit the interpreter and try to use a custom file path.
 
 ## Clustering
 

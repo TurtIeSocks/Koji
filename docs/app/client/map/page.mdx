@@ -9,15 +9,15 @@ import { Callout, Table } from 'nextra/components'
 - Snappable
   - Drawing and editing Polygons snaps them to other Polygons when hovering near them
 - Continue Drawing
-  - Keeps the current drawing mode activates after completing a shape
+  - Keeps the current drawing mode active after completing a shape
 - Radius
   - Global radius of the circles drawn
   - Sets all current and future circles
 - Activate
   - DOM event for setting the active route on the map
   - Only one route can be active at a time
-  - This is currently a "hack" to save on performance when rendering multiple
-    Distance Colors
+  - This is currently a "hack" to save on performance when rendering multiple routes
+- Distance Colors
   - Set unlimited rules for coloring the line strings between circles on your routes to easily visualize the distance in meters between each
 
 ### Calculations
@@ -243,25 +243,25 @@ Below are three community–tuned example configurations you can apply under **C
 
 ### Clustering Options
 
-Most these options are up for interpretation on which results are best for your area. Some areas and MITM clients might prefer one result over another so it is recommended you do some testing. If you want a good starting point try **Brute Force**.
+Most of these options are up for interpretation based on which results are best for your area. Some areas and MITM clients might prefer one result over another, so it is recommended you do some testing. If you want a good starting point, try **Brute Force**.
 
 - Min Points
   - Minimum number of points that a cluster should have
 - Cluster Mode
   - **Fast** - Uses an exponentially faster algorithm but returns worse results
-  - **Balanced** - Middle option between Fast and Brute Force. Includes additional options to custom results
+  - **Balanced** - Middle option between Fast and Brute Force. Includes additional options to customize results
     - 🚧 Only unique 🚧 - Counts min points by unique points instead of all points in a Cluster
     - Sort By
       - Geo Hash - Creates a more human looking route where the next jump is closest in distance
       - Cluster Count - Prioritizes clusters with larger points of interest. IE - 4 spawn points in one jump will be earlier in the route over a jump that only includes 3 spawn points.
       - Random - Good old random.
-  - **Brute Force** - Returns large jumps but it optimized on finding clusters. Is multithread optimized and will max available CPU in order to complete the operation as quickly as possible.
+  - **Brute Force** - Returns larger jumps but is optimized for finding clusters. It is multithreaded and will max available CPU in order to complete the operation as quickly as possible.
     - Cluster Split Level - Lower number will have better results while higher number will be faster as it is splitting the task over more CPU threads.
 
 ### Routing Options
 
 - Route Split level
-  - GeoHash Precision Level to split the route into smaller chunks for multithreading
+  - GeoHash precision level to split the route into smaller chunks for multithreading
   - `1` returns the most ideal routes
   - Higher levels will split the route into more chunks, which process much faster but may not be as ideal
 
@@ -299,7 +299,7 @@ Most these options are up for interpretation on which results are best for your 
 - Pokestop Ranges
   - Shows the radius around the Pokestops that nearby Pokemon can be picked up from
 - Query Type
-  - `Bound` - loads markers based off of the current map bounds (screen)
+  - `Bound` - loads markers based on the current map bounds (screen)
   - `Area` - only loads markers within the drawn polygons
   - `All` - loads all markers from the database, be careful with this one
 - Last Seen
@@ -339,7 +339,7 @@ Most these options are up for interpretation on which results are best for your 
       edit fences directly from Kōji after initial setup!
     </Callout>
 - Import from Kōji
-  - Loads routes and geofences from the Kōji geofence
+  - Loads routes and geofences from the Kōji database
 - Select Project
   - Loads all geofences associated with a specific project
 
@@ -350,7 +350,7 @@ Most these options are up for interpretation on which results are best for your 
 - Export Routes
   - Exports the currently drawn routes to a smart code editor
     <Callout type="info" emoji="💡">
-      You can export an individual route or geofence by exporting it from it's
+      You can export an individual route or geofence by exporting it from its
       Leaflet popup!
     </Callout>
 - Other
@@ -386,9 +386,9 @@ Most these options are up for interpretation on which results are best for your 
 
 From top to bottom:
 
-- Draws a rectangular polygons
+- Draws a rectangular polygon
 - Draws a polygon
-- Draws a circles
+- Draws circles
 
 - Edits existing polygons
 - Enables drag mode for all shapes

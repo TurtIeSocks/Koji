@@ -6,7 +6,7 @@ import { Steps, Table } from 'nextra/components'
 
 ### Geofences
 
-Kōji requires that all geofence names be unique. If you attempt to import any fences with names that already exist in the database, the existing ones will be overwritten with the incoming ones. This limitation is in place to make the API more accessible and to save you headaches in the long run, such as when you attempt to assigning referenced properties in the Admin Panel.
+Kōji requires that all geofence names be unique. If you attempt to import any fences with names that already exist in the database, the existing ones will be overwritten with the incoming ones. This limitation is in place to make the API more accessible and to save you headaches in the long run, such as when you attempt to assign referenced properties in the Admin Panel.
 
 Please view [API Params](../api-reference/params) for more information about how you can manipulate the `name` property of a geofence when making API calls.
 
@@ -16,7 +16,7 @@ If the API params are not enough to satisfy the requirements of your project, yo
 
 Unlike Geofences, Kōji does not enforce unique names when it comes to creating routes.
 
-Since all routes are required to be associated with a geofence, Kōji has a special built in function for ensuring that keeping them in sync is as painless as possible.
+Since all routes are required to be associated with a geofence, Kōji has a special built-in function to keep them in sync as painlessly as possible.
 
 If the routes associated with a geofence share the same name as that geofence, their name will be updated whenever the geofence's name is updated. This is a great way to keep your routes organized and synced up with the scanner.
 
@@ -30,7 +30,7 @@ While it is generally recommended to use the `database` category whenever possib
 
 ### API Syncing
 
-While Kōji does connect directly to your scanner's database, most scanners have their geofences or routes loaded into memory and must reload these in order to make use of the latest changes. Instead of restarting your scanner process, you can setup Kōji to call the refresh endpoint automatically whenever a geofence or route is updated in the scanner database.
+While Kōji does connect directly to your scanner's database, most scanners have their geofences or routes loaded into memory and must reload these in order to make use of the latest changes. Instead of restarting your scanner process, you can set up Kōji to call the refresh endpoint automatically whenever a geofence or route is updated in the scanner database.
 
 <Steps>
 
@@ -46,7 +46,7 @@ While Kōji does connect directly to your scanner's database, most scanners have
 
 </Steps>
 
-Now when you click the `Sync` button, either next to the respect project, geofence, or route, Kōji will automatically call this endpoint after saving the changes to the scanner database, making them immediately available to the scanner to use!
+Now when you click the `Sync` button, either next to the respective project, geofence, or route, Kōji will automatically call this endpoint after saving the changes to the scanner database, making them immediately available to the scanner.
 
 ### Default Templates
 

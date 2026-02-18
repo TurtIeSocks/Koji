@@ -3,7 +3,7 @@ import Image from 'next/image'
 
 # Clustering Algorithms Overview
 
-Kōji offers two clustering algorithms, the fastest is a Rust translation of the `FastCover-PP` algorithm by [ghoshanirban](https://github.com/ghoshanirban/UnitDiskCoverAlgorithms), the other is a Greedy algorithm that leverages the r-tree implentation from the [rstar](https://docs.rs/rstar/0.11.0/rstar/struct.RTree.html) crate. The latter algorithm offers different levels of complexity that vary in time, resource usage, and final performance.
+Kōji offers two clustering algorithms, the fastest is a Rust translation of the `FastCover-PP` algorithm by [ghoshanirban](https://github.com/ghoshanirban/UnitDiskCoverAlgorithms), the other is a Greedy algorithm that leverages the r-tree implementation from the [rstar](https://docs.rs/rstar/0.11.0/rstar/struct.RTree.html) crate. The latter algorithm offers different levels of complexity that vary in time, resource usage, and final performance.
 
 ## Goal
 
@@ -45,7 +45,7 @@ This input groups `data_points` based on their S2 cell level before clustering t
 
 ## Metrics
 
-To compare the performance of multiple algorithms the normalized `mygod_score` system is used, aptly named after a colleague who came up with it. This score is calculated by multiplying the number of clusters by the `min_points` input added to the difference of the total `data_points` and the number of `data_points` that were covered by the algorithm. This incentiveses the algorithms to cover the maximum number of `data_points` possible but only if the clusters cover a number of unique `data_points` that is greater than or equal to the set `min_points`. The lower the score, the better the result.
+To compare the performance of multiple algorithms the normalized `mygod_score` system is used, aptly named after a colleague who came up with it. This score is calculated by multiplying the number of clusters by the `min_points` input added to the difference of the total `data_points` and the number of `data_points` that were covered by the algorithm. This incentivizes the algorithms to cover the maximum number of `data_points` possible but only if the clusters cover a number of unique `data_points` that is greater than or equal to the set `min_points`. The lower the score, the better the result.
 
 ```rust
 pub fn get_score(&self, min_points: usize) -> usize {
@@ -67,7 +67,7 @@ The UDC algorithm is mostly a classic implementation of the UDC problem and is n
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/main/server/algorithms/src/clustering/greedy.rs)
 
-The Greedy algorithm on the other hand is much more specialized for the task at hand. Compared to its predecessors, it leverages an r-tree algorithm that allows it to run faster than the O(n^2) time complexity that the legacy algorithms could not achieve. This algorithm has three different levels of complexity that user's can select from. `Fast`, `Balanced`, and `Better`. The only difference between these options is the number of potential clusters that are generated.
+The Greedy algorithm on the other hand is much more specialized for the task at hand. Compared to its predecessors, it leverages an r-tree algorithm that allows it to run faster than the O(n^2) time complexity that the legacy algorithms could not achieve. This algorithm has three different levels of complexity that users can select from. `Fast`, `Balanced`, and `Better`. The only difference between these options is the number of potential clusters that are generated.
 
 #### Step 1 - Generate Potential Clusters
 
@@ -88,7 +88,7 @@ let potential_clusters: Vec<Cluster> = match cluster_mode {
 
 - `Fast`: Generates possible clusters at the provided `data_points` and at 8 equal segments between a given point and its neighbors that are within the given radius.
 - `Balanced`: Similar logic to `Fast` but generates the same 8 equal segments between the given point and its neighbors that are within the radius \* 2. Additionally, it creates some additional "wiggle" clusters at each of the segments.
-- `Better`: This option leverages the [Rust S2 library](https://github.com/yjh0502/rust-s2) and generates a potential cluster at every level 22 S2 cell that is within the BBOX of the input `data_points`. This is the most resource intensive option but produces the best result. This process has been optimized by starting at level 16 and continueing to split cells down to level 22 in parallel using [Rayon](https://github.com/rayon-rs/rayon).
+- `Better`: This option leverages the [Rust S2 library](https://github.com/yjh0502/rust-s2) and generates a potential cluster at every level 22 S2 cell that is within the BBOX of the input `data_points`. This is the most resource intensive option but produces the best result. This process has been optimized by starting at level 16 and continuing to split cells down to level 22 in parallel using [Rayon](https://github.com/rayon-rs/rayon).
 
 #### Step 2 - Associate Potential Clusters
 
@@ -153,7 +153,7 @@ This section is broken down into sub steps and will only contain summarized code
 
 Start by setting up the mutable variables that help us keep track of where things are during the `while` loop runs.
 
-- `new_clusters`: A HashSet that will hold the picked clusters. The `Cluster` struct implement the `Hash` trait and are hashed based on the S2 Cell ID of the center point. Despite the `Cluster` struct being a complex type, it was unnecessary to use a HashMap because it's not necessary to access the data by key, only making sure that duplicates are not inserted.
+- `new_clusters`: A HashSet that will hold the picked clusters. The `Cluster` struct implements the `Hash` trait and is hashed based on the S2 Cell ID of the center point. Despite the `Cluster` struct being a complex type, it was unnecessary to use a HashMap because it's not necessary to access the data by key, only making sure that duplicates are not inserted.
 - `blocked_points`: an additional HashSet that is keeping track of `data_points` that have already been clustered, to ensure that the algorithm is not double counting `data_points` that are covered by multiple clusters.
 - `current`: a var that starts at the max number of `data_points` that a cluster covers and is decremented until it reaches the `min_points` input.
 - The rest of the variables are for tracking how much time is spent on each step and for estimating the % complete in the logs.
@@ -164,7 +164,7 @@ The remaining steps occur in the `while` loop.
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L295-L304)
 
-This step is where clusters that have the number of `data_points` that the current iteration is interested in are filtered. Since this algorithm is greedy, it starts at the highest and works its way down to the `min_points` input. This is why the algorithm grouped its potential clusters in step 3. This is a very simple loop that checks whether the index of each item is greater than or equal to the `current` var. If it is, it's added to the `clusters_of_interest` Vec. The reason to go with greater than or equal to is because the algorithm will continue to filter the clusters later on. Just because a cluster didn't end up being viable when `current` is equal to 42, is still may be the best when `current` is equal to 30.
+This step is where clusters that have the number of `data_points` that the current iteration is interested in are filtered. Since this algorithm is greedy, it starts at the highest and works its way down to the `min_points` input. This is why the algorithm grouped its potential clusters in step 3. This is a very simple loop that checks whether the index of each item is greater than or equal to the `current` var. If it is, it's added to the `clusters_of_interest` Vec. The reason to go with greater than or equal to is because the algorithm will continue to filter the clusters later on. Just because a cluster didn't end up being viable when `current` is equal to 42, it may still be the best when `current` is equal to 30.
 
 ```rust
 for (index, clusters) in clusters_with_data.iter().enumerate() {
@@ -181,7 +181,7 @@ for (index, clusters) in clusters_with_data.iter().enumerate() {
 
 The algorithm will now filter out clusters that are not viable. Iterating through `clusters_of_interest` in parallel, it checks how many `data_points` for each one have already been clustered, if the total is less than `current`, it is discarded. During this step it is ensuring two important Vecs for each cluster, all of the `data_points` that it covers and the unique number of points that it could potentially be responsible for.
 
-If the determined `local_clusters` is empty, it subtracts one from `current` and start the next iteration. If not, it then sorts the clusters in parallel by the number of `data_points` that they cover. If the total `data_points` between any two given clusters is equal, then it compares the unique number of `data_points` that they cover. This is important for the next step because it will be iterating through the clusters in serial and it's important to get the best cluster before it starts discarding.
+If the determined `local_clusters` is empty, it subtracts one from `current` and starts the next iteration. If not, it then sorts the clusters in parallel by the number of `data_points` that they cover. If the total `data_points` between any two given clusters is equal, then it compares the unique number of `data_points` that they cover. This is important for the next step because it will be iterating through the clusters in serial and it's important to get the best cluster before it starts discarding.
 
 ##### Step 4d - Looping and Pushing to the `new_clusters` HashSet
 
@@ -251,7 +251,7 @@ pub fn update_unique(&mut self, tree: &RTree<Point>) {
 
 [Source](https://github.com/TurtIeSocks/Koji/blob/c69cc3c59481fe0f259ec7079a735af71c886c4c/server/algorithms/src/clustering/greedy.rs#L432-L460)
 
-If the `min_points` input is equal to one, it wants to make absolutely sure that no point has been missed as this is most often used in requests that require 100% accuracy. This step is often unnecessary, and is currently considered a bandaid that fixes a possible issue with the earlier clustering process.
+If the `min_points` input is equal to one, it wants to make absolutely sure that no point has been missed as this is most often used in requests that require 100% accuracy. This step is often unnecessary, and is currently considered a band-aid that fixes a possible issue with the earlier clustering process.
 
 <Steps>
 
@@ -586,13 +586,13 @@ Shortly before starting work on this algorithm, I had completed the integration 
   </tbody>
 </Table>
 
-While the different variations of the Greedy algorithm don't scale as well as the UDC algorithm, the results are definitely worth it, especially compared to both of the legacy algorithms, which start to become unweildly on anything but smaller sizes fences.
+While the different variations of the Greedy algorithm don't scale as well as the UDC algorithm, the results are definitely worth it, especially compared to both of the legacy algorithms, which start to become unwieldy on anything but smaller fences.
 
 The legacy `Balanced` algorithm showing off its honeycomb approach and inefficiencies.
 
 <Image
   src="/images/clustering/balanced-legacy.png"
-  alt="Import Name Page"
+  alt="Legacy balanced clustering visualization"
   width={600}
   height={600}
 />
@@ -602,7 +602,7 @@ demonstrate that it missed a valid cluster.
 
 <Image
   src="/images/clustering/brute-force-legacy.png"
-  alt="Import Name Page"
+  alt="Legacy brute-force clustering visualization"
   width={600}
   height={600}
 />
@@ -612,7 +612,7 @@ everything and you need the results immediately.
 
 <Image
   src="/images/clustering/fastest.png"
-  alt="Import Name Page"
+  alt="Fastest clustering visualization"
   width={600}
   height={600}
 />
@@ -622,7 +622,7 @@ still need the results very quickly and can't wait for `Balanced` or `Better`.
 
 <Image
   src="/images/clustering/fast.png"
-  alt="Import Name Page"
+  alt="Fast clustering visualization"
   width={600}
   height={600}
 />
@@ -632,23 +632,23 @@ default algorithm that Kōji uses and is recommended for most users.
 
 <Image
   src="/images/clustering/balanced.png"
-  alt="Import Name Page"
+  alt="Balanced clustering visualization"
   width={600}
   height={600}
 />
 
 The `Better` algorithm is for when you want the best result possible and are willing
 to wait for it. It is the most resource intensive and can take a long time to run
-on larger fences. Not recommend for systems that do not have much free memory.
+on larger fences. Not recommended for systems that do not have much free memory.
 
 <Image
   src="/images/clustering/better.png"
-  alt="Import Name Page"
+  alt="Better clustering visualization"
   width={600}
   height={600}
 />
 
-## Future work
+## Future Work
 
 The two biggest improvements that can be made to the Greedy algorithm are:
 
@@ -658,11 +658,11 @@ Currently this process takes up the bulk of the algorithm time. It also is a hug
 
 ### Additional Post processing
 
-Implementing a [Genetic Algorithm](https://en.wikipedia.org/wiki/Genetic_algorithm) approach that further optimizes the intial solution.
+Implementing a [Genetic Algorithm](https://en.wikipedia.org/wiki/Genetic_algorithm) approach that further optimizes the initial solution.
 
 - This could be accomplished by first associating clusters with each other by utilizing the r-tree nearest neighbor methods and all of their respective `data_points`.
-- Once the subgroups have been created, try different combination of clusters and see if the `mygod_score` can be improved at all by trying different combinations of clusters.
+- Once the subgroups have been created, try different combinations of clusters and see if the `mygod_score` can be improved at all by trying different combinations of clusters.
 
 #### Example
 
-If you had a group of 14 `data_points` and set `min_points` to 3, you may end up with one centric cluster that is covering 10 of the points, leaving 2 that do meet the minimum number of points on either side. In this situation, replacing the single centric cluster with two clusters to cover all 14 `data_points` would result in an improved `mygod_score`.
+If you had a group of 14 `data_points` and set `min_points` to 3, you may end up with one centric cluster that is covering 10 of the points, leaving 2 that do not meet the minimum number of points on either side. In this situation, replacing the single centric cluster with two clusters to cover all 14 `data_points` would result in an improved `mygod_score`.
