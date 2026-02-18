@@ -2,10 +2,12 @@
   "name": "koji-docs",
   "version": "1.0.4",
   "description": "Documentation for Kōji",
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "postbuild": "pagefind --site .next/server/app --output-path public/_pagefind"
   },
   "repository": {
     "type": "git",
@@ -16,16 +18,19 @@
   "bugs": {
     "url": "https://github.com/TurtIeSocks/Koji/issues"
   },
-  "homepage": "",
+  "homepage": "https://koji.vercel.app/",
   "dependencies": {
-    "next": "^13.0.6",
-    "nextra": "latest",
-    "nextra-theme-docs": "latest",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "next": "16.1.6",
+    "nextra": "4.6.1",
+    "nextra-theme-docs": "4.6.1",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
   },
   "devDependencies": {
-    "@types/node": "18.11.10",
-    "typescript": "^4.9.3"
+    "@types/node": "25.2.3",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "pagefind": "^1.4.0",
+    "typescript": "5.9.3"
   }
 }

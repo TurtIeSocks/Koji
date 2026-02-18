@@ -1,5 +1,5 @@
 import Image from 'next/image'
-import { Tab, Tabs, Callout } from 'nextra-theme-docs'
+import { Tabs, Callout } from 'nextra/components'
 
 # Getting Started
 
@@ -73,22 +73,22 @@ A "project" in Kōji is how you create custom endpoints for distributing your ge
 1. At any point you can check out the current code generated and a preview of your features on a map
 
    <Tabs items={['Map', 'Code']}>
-     <Tab>
+     <Tabs.Tab>
        <Image
          src="/images/import_preview.png"
          alt="Map Preview"
          width={600}
          height={600}
        />
-     </Tab>
-     <Tab>
+     </Tabs.Tab>
+     <Tabs.Tab>
        <Image
          src="/images/import_code.png"
          alt="Code Preview"
          width={600}
          height={600}
        />
-     </Tab>
+     </Tabs.Tab>
    </Tabs>
 
 1. Click `Save to Kōji` to save all of the selected routes and fences to the respective tables in the Kōji database

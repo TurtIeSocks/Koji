@@ -1,0 +1,6 @@
+export default {
+  'getting-started': 'Getting Started',
+  map: 'Map',
+  admin: 'Admin',
+  notes: 'Notes',
+}

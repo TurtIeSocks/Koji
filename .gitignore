@@ -28,3 +28,6 @@ target/
 or-tools/*
 !or-tools/src
 or-tools.tar.gz
+
+# docs
+docs/public/_pagefind
