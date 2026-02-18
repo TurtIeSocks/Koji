@@ -1,268 +1,198 @@
-# Body
+# Request Bodies
 
-Various types and structs referenced in the [endpoints](./endpoints) section that are part of the http request body.
+This page documents request body fields that are actually used by each endpoint implementation.
 
-## Data Structs, Type Aliases, and Enums
+## Shared Types
 
-```rust
-pub type PointArray<T = f64> = [T; 2]; // [lat, lon]
-pub type SingleVec<T = f64> = Vec<PointArray<T>>;
-pub type MultiVec<T = f64> = Vec<Vec<PointArray<T>>>;
+### `area`
 
-pub struct PointStruct<T: Float = f64> {
-    pub lat: T,
-    pub lon: T,
-}
-pub type SingleStruct<T = f64> = Vec<PointStruct<T>>;
-pub type MultiStruct<T = f64> = Vec<Vec<PointStruct<T>>>;
+`area` accepts Koji geo input formats. In practice, use one of:
 
-pub struct BoundsArg {
-    pub min_lat: f64,
-    pub min_lon: f64,
-    pub max_lat: f64,
-    pub max_lon: f64,
-}
+- GeoJSON `FeatureCollection`
+- GeoJSON `Feature`
+- Coordinate arrays (`[[lat, lon]]` or `[[[lat, lon]]]`)
 
-// Accepted Area Inputs and Outputs:
-pub enum GeoFormats {
-    Bounds(BoundsArg),
-    Text(String),
-    // can be either:
-      // lat,lon\nlat,lon
-      // or lat lon,lat lon
-    SingleArray(SingleVec),
-    MultiArray(MultiVec),
-    SingleStruct(SingleStruct),
-    MultiStruct(MultiStruct),
-    Feature(Feature),
-    FeatureVec(Vec<Feature>),
-    FeatureCollection(FeatureCollection),
-    Poracle(Poracle),
-}
+### `data_points` and `clusters`
 
-// Return Types:
-pub enum ReturnType {
-  AltText,            // lat lon,lat lon
-  Text,               // lat,lon\nlat,lon
-  SingleArray,        // [[lat, lon]]
-  MultiArray,         // [[[lat, lon]]]
-  SingleStruct,       // [{lat: lat, lon: lon}]
-  MultiStruct,        // [[{lat: lat, lon: lon}]]
-  Feature,            // GeoJSON Feature ([lon, lat])
-  FeatureVec,         // [Feature]
-  FeatureCollection,  // GeoJSON FeatureCollection
-  Poracle             // Poracle Geo Format ([lat, lon])
-}
+Accepted forms resolve into a list of points (`[lat, lon]`):
 
-// Sort by types, only valid when clustering in non-fast mode:
-pub enum SortBy {
-    None,         // default, sorts by whatever the clustering algorithm returns
-    GeoHash,      // sorts by geohash, fastest alternative to okay routing
-    ClusterCount, // sorts by the number of data points in each cluster
-    S2Cell,       // sorts by S2 Cell IDs
-    TSP,          // sorts with OR-Tools (best)
-    Random,       // randomizes the order of the clusters
-}
+- `[[lat, lon], ...]`
+- `[{ "lat": number, "lon": number }, ...]`
+- GeoJSON `Feature`
+- GeoJSON `FeatureCollection`
 
-// Data Input Types:
-pub enum DataPointsArg {
-    Array(SingleVec),
-    Struct(SingleStruct),
-    Feature(Feature),
-    FeatureCollection(FeatureCollection),
-}
+## Calculation Endpoints
 
-pub enum SpawnpointTth {
-  All,      // All spawnpoints
-  Known,    // Only spawnpoints with known TTH
-  Unknown,  // Only spawnpoints with unknown TTH
-}
+### `POST /api/v1/calc/bootstrap`
 
-pub enum CalculationMode {
-    Radius,
-    S2,
-    Custom(String),
-}
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `area` | GeoFormats | No | empty | One of `area`, `instance`, or `parent` must resolve to input area. |
+| `instance` | string | No | `""` | Area lookup key in Koji/scanner DB. |
+| `parent` | string \| number | No | `null` | Loads all geofences by parent when present. |
+| `benchmark_mode` | boolean | No | `false` | If `true`, returns stats only (`data: null`). |
+| `radius` | number | No | `70` | Meters. |
+| `return_type` | string | No | inferred | See return type values in `params`. |
+| `calculation_mode` | string | No | `radius` | `radius`, `s2`, or custom plugin name. |
+| `s2_level` | integer | No | `15` | Used when calculation mode relies on S2. |
+| `s2_size` | integer | No | `9` | S2 grid size for S2-based bootstrap. |
+| `sort_by` | string | No | `unset` | Route ordering strategy. |
+| `route_split_level` | integer | No | `0` | Validated to `0..20`. |
+| `routing_args` | string | No | `""` | Extra args for routing plugin. |
+| `bootstrapping_args` | string | No | `""` | Extra args for bootstrap plugin (radius is appended automatically). |
+| `save_to_db` | boolean | No | `false` | Saves generated route to Koji DB. |
+| `save_to_scanner` | boolean | No | `false` | Saves to scanner/controller DB and triggers project update API. |
+| `save_to_scanner_only` | boolean | No | `false` | Saves to scanner/controller DB without project update API call. |
 
-pub enum ClusterMode {
-    Honeycomb,
-    Fastest,
-    Fast,
-    Balanced,
-    Better,
-    Best,
-    Custom(String),
-}
+### `POST /api/v1/calc/{mode}/{category}`
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `area` | GeoFormats | No | empty | Used when `data_points` is not supplied. |
+| `data_points` | point list/formats | No | empty | If empty, points are queried from DB by `category` and area. |
+| `instance` | string | No | `""` | Area lookup key. |
+| `parent` | string \| number | No | `null` | Parent-based area lookup. |
+| `benchmark_mode` | boolean | No | `false` | Stats-only response toggle. |
+| `cluster_mode` | string | No | `balanced` | `honeycomb`, `fastest`, `fast`, `balanced`, `better`, `best`, custom. |
+| `cluster_split_level` | integer | No | `0` | Validated to `0..20`. |
+| `max_clusters` | integer | No | unlimited | `0` becomes unlimited. |
+| `radius` | number | No | `70` | Meters. |
+| `min_points` | integer | No | `1` | Minimum points per cluster target. |
+| `last_seen` | integer | No | `0` | Timestamp filter for DB point queries. |
+| `tth` | string | No | `all` | Spawnpoint filter: `all`, `known`, `unknown`. |
+| `sort_by` | string | No | `unset` | When `mode=route` and unset, server forces `tsp`. |
+| `route_split_level` | integer | No | `0` | Validated to `0..20`. |
+| `calculation_mode` | string | No | `radius` | `radius`, `s2`, or custom plugin. |
+| `s2_level` | integer | No | `15` | S2 parameter. |
+| `s2_size` | integer | No | `9` | S2 parameter. |
+| `routing_args` | string | No | `""` | Extra routing plugin args. |
+| `clustering_args` | string | No | `""` | Extra clustering plugin args (radius/min/max are appended automatically). |
+| `center_clusters` | boolean | No | `false` | Re-centers cluster coordinates. |
+| `genetic_post_processing` | boolean | No | `false` | Additional post-processing step. |
+| `return_type` | string | No | inferred | See return type values in `params`. |
+| `save_to_db` | boolean | No | `false` | Saves output route to Koji DB. |
+| `save_to_scanner` | boolean | No | `false` | Saves to scanner/controller DB and triggers project update API. |
+| `save_to_scanner_only` | boolean | No | `false` | Saves to scanner/controller DB without project update API call. |
+
+### `POST /api/v1/calc/reroute`
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `clusters` | point list/formats | No | empty | Preferred reroute input. |
+| `data_points` | point list/formats | No | empty | Legacy fallback when `clusters` is empty. |
+| `instance` | string | No | `""` | Added to output metadata. |
+| `mode` | string | No | `unset` | Route mode label/type (example: `circle_pokemon`). |
+| `radius` | number | No | `70` | Meters. |
+| `sort_by` | string | No | `unset` | Ordering strategy. |
+| `route_split_level` | integer | No | `0` | Validated to `0..20`. |
+| `routing_args` | string | No | `""` | Extra routing plugin args. |
+| `benchmark_mode` | boolean | No | `false` | Stats-only response toggle. |
+| `return_type` | string | No | inferred | See return type values in `params`. |
+
+### `POST /api/v1/calc/route-stats`
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `clusters` | point list/formats | Conditionally | empty | Must provide `clusters` or `data_points`; both empty returns `400`. |
+| `data_points` | point list/formats | Conditionally | empty | Used for coverage stats if provided. |
+| `instance` | string | No | `""` | Added to output metadata. |
+| `mode` | string | No | `unset` | Added to output metadata. |
+| `radius` | number | No | `70` | Used for coverage computation. |
+| `min_points` | integer | No | `1` | Used in score computation. |
+
+### `POST /api/v1/calc/route-stats/{category}`
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `clusters` | point list/formats | Conditionally | empty | Must provide clusters or resolvable data points; both empty returns `400`. |
+| `data_points` | point list/formats | No | empty | If empty, server loads points by `category` from area lookup. |
+| `area` | GeoFormats | No | empty | Used when server must query points by category. |
+| `instance` | string | No | `""` | Area lookup key. |
+| `parent` | string \| number | No | `null` | Parent-based area lookup. |
+| `last_seen` | integer | No | `0` | Point query timestamp filter. |
+| `tth` | string | No | `all` | Spawnpoint filter for spawnpoint category. |
+| `mode` | string | No | `unset` | Added to output metadata. |
+| `radius` | number | No | `70` | Used for coverage computation. |
+| `min_points` | integer | No | `1` | Used in score computation. |
+
+### `POST /api/v1/calc/area`
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `area` | GeoFormats | Yes | empty | Sums geodesic area across Polygon and MultiPolygon geometry. |
+
+## Conversion Endpoints
+
+### `POST /api/v1/convert/data`
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `area` | GeoFormats | Yes | empty | Input geometry to convert. |
+| `simplify` | boolean | No | `false` | Simplifies polygon/multipolygon before conversion. |
+| `return_type` | string | No | inferred | Output format. |
+| `benchmark_mode` | boolean | No | `false` | If `true`, data is omitted. |
+| `instance` | string | No | `""` | Included in output metadata where relevant. |
+
+### `POST /api/v1/convert/simplify`
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `area` | GeoFormats | Yes | empty | Input geometry to simplify. |
+| `return_type` | string | No | inferred | Output format. |
+
+### `POST /api/v1/convert/merge-points`
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `area` | GeoFormats | Yes | empty | Point features are merged into one MultiPoint feature. |
+| `return_type` | string | No | inferred | Output format. |
+
+## Geofence and Route Save Endpoints
+
+### `POST /api/v1/geofence/save-koji`
+### `POST /api/v1/geofence/save-scanner`
+### `POST /api/v1/route/save-koji`
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `area` | GeoFormats | Yes | Upsert payload written to target database. |
+
+## S2 Endpoints
+
+### `POST /api/v1/s2/circle-coverage`
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `lat` | number | Yes | - | Center latitude. |
+| `lon` | number | Yes | - | Center longitude. |
+| `level` | integer | Yes | - | S2 cell level. |
+| `radius` | number | No | `70` | Radius in meters. |
+
+### `POST /api/v1/s2/cell-coverage`
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `lat` | number | Yes | - | Center latitude. |
+| `lon` | number | Yes | - | Center longitude. |
+| `level` | integer | Yes | - | S2 cell level. |
+| `size` | integer | No | `15` | Coverage size. |
+
+### `POST /api/v1/s2/polygons`
+
+Body type:
+
+```json
+["1152921504606846977", "1152921504606846979"]
 ```
 
-## API Args
+### `POST /api/v1/s2/{cell_level}`
 
-```rust
-pub struct Args {
-    /// The area input to be used for data point collection.
-    ///
-    /// Accepts an optional [GeoFormats]
-    ///
-    /// Default: `None`
-    pub area: Option<GeoFormats>,
-    /// Only returns stats from the API
-    ///
-    /// Default: `false`
-    pub benchmark_mode: Option<bool>,
-    /// Args to be applied to a custom bootstrapping plugin
-    ///
-    /// Default: `''`
-    pub bootstrapping_args: Option<String>,
-    /// Bootstrap mode selection
-    ///
-    /// Accepts [BootStrapMode]
-    ///
-    /// Default: `0`
-    pub calculation_mode: Option<CalculationMode>,
-    /// Args to be applied to a custom clustering plugin
-    ///
-    /// Default: `''`
-    pub clustering_args: Option<String>,
-    /// Cluster mode selection
-    ///
-    /// Accepts [ClusterMode]
-    ///
-    /// Default: `Balanced`
-    pub cluster_mode: Option<ClusterMode>,
-    /// BruteForce cluster mode tweak, determines how points are split up for multithreading
-    ///
-    /// Accepts 1-30
-    ///
-    /// Default: `10`
-    pub cluster_split_level: Option<u64>,
-    /// Data points to cluster or reroute.
-    /// Overrides any inputted area.
-    ///
-    /// Accepts [DataPointsArg]
-    pub data_points: Option<DataPointsArg>,
-    /// Clusters to run through the stat producer.
-    ///
-    /// Accepts [DataPointsArg]
-    pub clusters: Option<DataPointsArg>,
-    /// The maximum amount of clusters to return
-    ///
-    /// Default: [USIZE::MAX]
-    pub max_clusters: Option<usize>,
-    /// Geometry type used during conversions
-    ///
-    /// Currently unstable and will likely change how it's used
-    pub geometry_type: Option<String>,
-    /// Name used for geofence lookup.
-    /// Tries the Kōji database first.
-    /// Then checks the scanner database if it doesn't find one.
-    pub instance: Option<String>,
-    /// Last seen date timestamp for filtering data points from the database.
-    ///
-    /// Default: `0`
-    pub last_seen: Option<u32>,
-    /// Minimum number of points to use in the clustering algorithms
-    ///
-    /// Default: `1`
-    pub min_points: Option<usize>,
-    /// The ID or name of the parent property, this will search the database for any properties that have their `parent` property set to this value.
-    ///
-    /// Default: `None`
-    pub parent: Option<UnknownId>,
-    /// Radius of the circle to be used in clustering/routing,
-    /// in meters
-    ///
-    /// Default: `70`
-    pub radius: Option<Precision>,
-    /// The return type for the data
-    ///
-    /// Accepts [ReturnTypeArg]
-    ///
-    /// Default: `SingleVec`
-    pub return_type: Option<String>,
-    /// Args to be applied to a custom routing plugin
-    ///
-    /// Default: `''`
-    pub routing_args: Option<String>,
-    /// Geohash precision level for splitting up routing into multiple threads
-    ///
-    /// Recommend using 4 for Gyms, 5 for Pokestops, and 6 for Spawnpoints
-    ///
-    /// Default: `1`
-    pub route_split_level: Option<u64>,
-    /// S2 Level to use for calculation mode
-    ///
-    /// Accepts 10-20
-    ///
-    /// Default: `15`
-    pub s2_level: Option<u8>,
-    /// S2 cell size selection, how many S2 cells to use in a square grid
-    ///
-    /// Accepts [BootStrapMode]
-    ///
-    /// Default: `9`
-    pub s2_size: Option<u8>,
-    /// Saves the calculated route to the Kōji database
-    ///
-    /// Default: `false`
-    pub save_to_db: Option<bool>,
-    /// Saves the calculated route to the scanner database
-    ///
-    /// Calls the reload api at the end if present
-    ///
-    /// Default: `false`
-    pub save_to_scanner: Option<bool>,
-    /// Saves the calculated route to the scanner database
-    ///
-    /// Does not call the reload api at the end
-    ///
-    /// Default: `false`
-    pub save_to_scanner_only: Option<bool>,
-    /// Simplifies Polygons and MultiPolygons when converting them
-    ///
-    /// Default: `false`
-    pub simplify: Option<bool>,
-    /// Sorts *clustering* results, not routing results.
-    /// This is just intended to do some simple clustering adjustments,
-    /// when you don't need a full TSP solver
-    ///
-    /// Accepts [SortBy] - case sensitive
-    ///
-    /// Default: `GeoHash`
-    pub sort_by: Option<SortBy>,
-    /// Filter spawnpoints by confirmed, unconfirmed, or all
-    ///
-    /// Accepts [SpawnpointTth] - case sensitive
-    ///
-    /// Default: `All`
-    pub tth: Option<SpawnpointTth>,
-    /// If true, attempts to center clusters based on the points they cover
-    ///
-    /// Default: `false`
-    pub center_clusters: Option<bool>,
-}
-```
-
-## Return Structs
-
-```rust
-// Standard Response Struct (what you will receive!)
-  pub struct Response {
-      pub message: String,
-      pub status: String,
-      pub status_code: u16,
-      pub data: GeoFormats,
-      pub stats: Stats,
-  }
-
-// Benchmark/Stats
-  pub struct Stats {
-      pub best_clusters: SingleVec,
-      pub best_cluster_point_count: usize,
-      pub cluster_time: f32,
-      pub total_points: usize,
-      pub points_covered: usize,
-      pub total_clusters: usize,
-      pub total_distance: f64,
-      pub longest_distance: f64,
-  }
-```
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `min_lat` | number | Yes | - | Bounds min latitude. |
+| `min_lon` | number | Yes | - | Bounds min longitude. |
+| `max_lat` | number | Yes | - | Bounds max latitude. |
+| `max_lon` | number | Yes | - | Bounds max longitude. |
+| `ids` | string[] | No | all cells | If provided, filters output to matching ids only. |
+| `last_seen` | integer | No | unused | Accepted but not used in this endpoint. |
+| `tth` | string | No | unused | Accepted but not used in this endpoint. |

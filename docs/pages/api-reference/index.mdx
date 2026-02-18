@@ -1,0 +1,39 @@
+# API Reference
+
+This reference documents the public API served under `/api/v1`.
+
+## Base URL
+
+- Local default: `http://127.0.0.1:8080/api/v1`
+
+## Authentication
+
+- Public v1 routes use Bearer auth only when `KOJI_SECRET` is set on the server.
+- When required, send: `Authorization: Bearer <KOJI_SECRET>`.
+
+## Response Envelope
+
+Most endpoints return this JSON envelope:
+
+```json
+{
+  "message": "Success",
+  "status": "ok",
+  "status_code": 200,
+  "data": {},
+  "stats": null
+}
+```
+
+Notes:
+
+- `data` is omitted (`null`) when `benchmark_mode=true` on calculation endpoints.
+- `stats` is present for calculation/stat endpoints and `null` elsewhere.
+- `/api/v1/info/` returns a raw JSON object (not this envelope).
+
+## Pages
+
+- [Endpoints](./endpoints): Full route list and behavior.
+- [Request Bodies](./body): Exact request fields actually used by each endpoint.
+- [Query and Path Params](./params): Query/path details and return type options.
+- [Scripts and cURL](./scripts): Working request examples.

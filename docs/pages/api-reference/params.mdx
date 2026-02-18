@@ -1,172 +1,123 @@
-import { Callout } from 'nextra-theme-docs'
+# Query and Path Params
 
-# Params
+## Authentication Header
 
-Arguments that can be passed to the API via query params.
+`Authorization: Bearer <KOJI_SECRET>`
 
-```rust
-pub struct ApiQueryArgs {
-    /// If true, internal database properties are added with a `__` prefix
-    /// Adds a generated `id` property
-    /// Not encouraged to use outside of development
-    pub internal: Option<bool>,
+- Required only when server env `KOJI_SECRET` is set.
+- Ignored if session-authenticated in UI context.
 
-    // -------------------------------------------------------------------------
-    // Adds the respective property to the return Feature/FeatureCollection
-    // It is encouraged to add these properties through the admin panel instead of using these args!
-    /// If true, the `id` property is added
-    pub id: Option<bool>,
-    /// If true, the `name` property is added
-    pub name: Option<bool>,
-    /// If true, the `mode` property is added
-    pub mode: Option<bool>,
-    /// If true, the `geofence_id` property is added
-    pub geofence_id: Option<bool>,
-    /// If true, the `parent` property is added
-    pub parent: Option<bool>,
+## Return Type Values
 
-    // -------------------------------------------------------------------------
-    // Extras
-    /// custom return type of the API request
-    ///
-    /// Options: [ReturnTypeArg]
-    pub rt: Option<String>,
-    /// If true, the `group` property is set from the parent property
-    pub group: Option<bool>,
+These values are accepted in path `/{return_type}` and in body `return_type`/query `rt`.
 
-    // -------------------------------------------------------------------------
-    // Name Property Manipulation
-    /// If true, the entire `name` property is set to lowercase
-    pub lowercase: Option<bool>,
-    /// If true, the entire `name` property is set to uppercase
-    pub uppercase: Option<bool>,
-    /// If provided, the `name` property is split at the provided string/character, each word is capitalized, then rejoined with the same character
-    pub capitalize: Option<String>,
-    /// If true, the first character of the `name` property is capitalized
-    pub capfirst: Option<bool>,
-    /// If true, the `parent` property is added as a prefix to the `name`, separated by the provided string/character
-    pub parentstart: Option<String>,
-    /// If true, the `parent` property is added as a suffix to the `name`, separated by the provided string/character
-    pub parentend: Option<String>,
-    /// If the `name` property has the `parent` name as part of its value, the `parent` name is replaced with the given string/character
-    pub parentreplace: Option<String>,
-    /// Spaces in the `name` property are replaced with the given string/character
-    pub space: Option<String>,
-    /// Underscores in the `name` property are replaced with the given string/character
-    pub underscore: Option<String>,
-    /// Dashes/Hyphens in the `name` property are replaced with the given string/character
-    pub dash: Option<String>,
-    /// Replaces any provided string/character with `""` (empty string)
-    pub replace: Option<String>,
-    /// Trims x number of characters from the front of the `name` property
-    pub trimstart: Option<usize>,
-    /// Trims x number of characters from the back of the `name` property
-    pub trimend: Option<usize>,
-    /// If true, the polish characters are converted to ascii
-    pub unpolish: Option<bool>,
-    /// If true, the manual parent property will be ignored
-    pub ignoremanualparent: Option<bool>,
-    /// If true, all non-alphanumeric characters are removed from the `name` property
-    /// (excludes spaces, dashes, and underscores)
-    pub alphanumeric: Option<bool>,
-    /// Exclude areas with the specified properties, no matter the value or type.
-    ///
-    /// Property keys separated by a comma
-    pub excludeproperties: Option<String>,
-    /// Excludes areas with the specified parent names
-    ///
-    /// A list of parents names separated by a comma that are to be excluded by the API query
-    pub excludeparents: Option<String>,
-    /// A list of names separated by a comma that are to be excluded by the API query
-    pub exclude: Option<String>,
-}
-```
+| Value | Output |
+| --- | --- |
+| `alt_text` | Text with `lat lon,lat lon` style |
+| `text` | Text with `lat,lon` lines |
+| `array` | Uses single or multi array based on inferred default |
+| `single_array` | `[[lat, lon], ...]` |
+| `multi_array` | `[[[lat, lon], ...], ...]` |
+| `struct` | Uses single or multi struct based on inferred default |
+| `single_struct` | `[{"lat":...,"lon":...}]` |
+| `multi_struct` | `[[{"lat":...,"lon":...}]]` |
+| `geometry` | GeoJSON geometry (or list if multiple features) |
+| `geometry_vec` | List of GeoJSON geometries |
+| `feature` | GeoJSON feature (or list if multiple features) |
+| `feature_vec` | List of GeoJSON features |
+| `feature_collection` | GeoJSON FeatureCollection |
+| `poracle` | Poracle format |
+| `sql` | SQL predicate text |
 
-## Name Property Manipulation
+Aliases accepted by server include camel/compact versions (example: `featurecollection`, `geometryvec`).
 
-Since the name property of a geofence may need to be different on a per project basis, in order to cut down on having to maintain multiple copies of the same geofence in the Kōji database, you can manipulate the name property of a geofence at the API level before it is returned to you.
+## Geofence Query Params (`ApiQueryArgs`)
 
-The manipulations mentioned above are executed in the following order:
+Used by:
 
-1. ignoremanualparent
-1. trimstart
-1. trimend
-1. alphanumeric
-1. replace
-1. parentreplace
-1. parentstart
-1. parentend
-1. lowercase
-1. uppercase
-1. capfirst
-1. capitalize
-1. underscore
-1. dash
-1. space
-1. unpolish
-1. A trim function is automatically called at the end to remove start and end whitespace
+- `GET /api/v1/geofence/all`
+- `GET /api/v1/geofence/area/{geofence}`
+- `GET /api/v1/geofence/{return_type}`
+- `GET /api/v1/geofence/{return_type}/{project}`
 
-By taking advantage of the execution order you should be able to manipulate the name property in almost any desirable way.
+### Visibility and shape
 
-String args can be provided with or without `"` surrounding them. If you are using a string with has a space or special characters, it is recommended to use `"` to surround the string for consistency.
+| Param | Type | Purpose |
+| --- | --- | --- |
+| `internal` | boolean | Include internal `__` properties and generated ids. |
+| `id` | boolean | Include `id` property. |
+| `name` | boolean | Include `name` property. |
+| `mode` | boolean | Include `mode` property. |
+| `geofence_id` | boolean | Include `geofence_id` property. |
+| `parent` | boolean | Include `parent` property. |
+| `rt` | string | Return type override. |
+| `group` | boolean | Set `group` from `parent`. |
+| `fullcoords` | boolean | Keep full floating-point precision. |
 
-<Callout type="info" emoji="💡">
-  Remember to respect [URL encoding
-  rules](https://www.w3schools.com/tags/ref_urlencode.asp?_sm_au_=iVVDMg0TSmrMV6Dm)
-</Callout>
+### Name manipulation
 
-## Examples
+Applied in server order to the `name` property:
 
-Given the below fences:
+`ignoremanualparent` -> `trimstart` -> `trimend` -> `alphanumeric` -> `replace` -> `parentreplace` -> `parentstart` -> `parentend` -> `lowercase` -> `uppercase` -> `capfirst` -> `capitalize` -> `underscore` -> `dash` -> `space` -> `unpolish` -> final trim.
 
-| name      | parent | projects            |
-| --------- | ------ | ------------------- |
-| NY        | null   | []                  |
-| North, NY | NY     | [ReactMap, Poracle] |
-| South, NY | NY     | [ReactMap, Poracle] |
-| East, NY  | NY     | [ReactMap, Poracle] |
-| West, NY  | NY     | [ReactMap, Poracle] |
-| DC        | null   | []                  |
-| North, DC | DC     | [ReactMap, Poracle] |
-| South, DC | DC     | [ReactMap, Poracle] |
-| East, DC  | DC     | [ReactMap, Poracle] |
-| West, DC  | DC     | [ReactMap, Poracle] |
+Examples assume `name="North, NY"` and `parent="NY"` unless stated otherwise.
 
-### ReactMap API call: (Project that supports unique names per parent)
+| Param | Type | Purpose | Example |
+| --- | --- | --- | --- |
+| `lowercase` | boolean | Force lowercase name. | `lowercase=true` -> `north, ny` |
+| `uppercase` | boolean | Force uppercase name. | `uppercase=true` -> `NORTH, NY` |
+| `capitalize` | string | Capitalize words split by provided separator. | `capitalize="_"` on `north_ny` -> `North_Ny` |
+| `capfirst` | boolean | Capitalize first character only. | `capfirst=true` on `north, ny` -> `North, ny` |
+| `parentstart` | string | Prefix name with parent joined by string. | `parentstart=" - "` -> `NY - North, NY` |
+| `parentend` | string | Suffix name with parent joined by string. | `parentend=" - "` -> `North, NY - NY` |
+| `parentreplace` | string | Replace parent substring in name with string. | `parentreplace=""` -> `North,` |
+| `space` | string | Replace spaces with string. | `space="_"` -> `North,_NY` |
+| `underscore` | string | Replace underscores with string. | `underscore=" "` on `North_NY` -> `North NY` |
+| `dash` | string | Replace dashes with string. | `dash=" "` on `North-NY` -> `North NY` |
+| `replace` | string | Remove occurrences of substring. | `replace=","` -> `North NY` |
+| `trimstart` | integer | Trim N chars from start. | `trimstart=7` -> ` NY` |
+| `trimend` | integer | Trim N chars from end. | `trimend=4` -> `North` |
+| `unpolish` | boolean | Convert Polish chars to ASCII. | `unpolish=true` on `Łódź` -> `Lodz` |
+| `ignoremanualparent` | boolean | Ignore manual parent property. | `ignoremanualparent=true` uses DB parent over manual override. |
+| `alphanumeric` | boolean | Remove non-alphanumeric chars except spaces/dash/underscore. | `alphanumeric=true` on `North, NY!` -> `North NY` |
 
-`https://my-koji-url.com/api/v1/feature-collection/ReactMap?parentreplace=""&replace=","`
+### Filtering
 
-### Result:
+| Param | Type | Purpose |
+| --- | --- | --- |
+| `excludeproperties` | string | Comma-separated property keys to exclude. |
+| `excludeparents` | string | Comma-separated parent names to exclude. |
+| `exclude` | string | Comma-separated names to exclude. |
 
-Features with their parent property set to "NY" (if a parent property is specified in the admin panel) and a clean name, e.g. `North, NY` => `North`
+## Route Query Params
 
-| name  | parent |
-| ----- | ------ |
-| North | NY     |
-| South | NY     |
-| East  | NY     |
-| West  | NY     |
-| North | DC     |
-| South | DC     |
-| East  | DC     |
-| West  | DC     |
+Used by route endpoints:
 
-### Poracle API call: (Project that should have all unique names)
+- `GET /api/v1/route/all`
+- `GET /api/v1/route/area/{id}`
+- `GET /api/v1/route/{return_type}`
+- `GET /api/v1/route/{return_type}/{geofence_name}`
 
-`https://my-koji-url.com/api/v1/poracle/Poracle?group=true&lowercase=true&replace=","&space="_"`
-Poracle styled results with the `group` property set from the native `parent` property, names set to lowercase but are otherwise the same
+| Param | Type | Purpose |
+| --- | --- | --- |
+| `internal` | boolean | Include internal fields in route responses. |
+| `rt` | string | Return type override (only used by `/route/area/{id}`). |
 
-| name     | group |
-| -------- | ----- |
-| north_ny | NY    |
-| south_ny | NY    |
-| east_ny  | NY    |
-| west_ny  | NY    |
-| north_dc | DC    |
-| south_dc | DC    |
-| east_dc  | DC    |
-| west_dc  | DC    |
+## Path Params
 
-## Playground
-
-A playground is included as part of the Kōji client. You can check it out yourself at `http://{your_koji_url}/play`
+| Endpoint | Param | Type | Notes |
+| --- | --- | --- | --- |
+| `/api/v1/geofence/area/{geofence}` | `geofence` | string | Geofence id/name lookup. |
+| `/api/v1/geofence/reference/{project}` | `project` | string | Project name/id used by DB query. |
+| `/api/v1/geofence/{return_type}` | `return_type` | string | See return type table. |
+| `/api/v1/geofence/{return_type}/{project}` | `return_type`, `project` | string | Return format + project filter. |
+| `/api/v1/geofence/push/{id}` | `id` | string | Geofence id to push to scanner/controller DB. |
+| `/api/v1/route/area/{id}` | `id` | string | Route id/name lookup. |
+| `/api/v1/route/reference/{geofence}` | `geofence` | string | Geofence name filter. |
+| `/api/v1/route/{return_type}` | `return_type` | string | See return type table. |
+| `/api/v1/route/{return_type}/{geofence_name}` | `return_type`, `geofence_name` | string | Return format + geofence filter. |
+| `/api/v1/route/push/{id}` | `id` | integer | Numeric Koji route id. |
+| `/api/v1/project/push/{id}` | `id` | string | Project id/name in Koji DB. |
+| `/api/v1/calc/{mode}/{category}` | `mode`, `category` | string | `category`: `gym`, `pokestop`, `spawnpoint`, `fort`. |
+| `/api/v1/calc/route-stats/{category}` | `category` | string | Same category rules as above. |
+| `/api/v1/s2/{cell_level}` | `cell_level` | integer | S2 cell level to generate. |
