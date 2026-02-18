@@ -1,0 +1,899 @@
+import { Table } from 'nextra/components'
+
+# Request Bodies
+
+This page documents request body fields that are actually used by each endpoint implementation.
+
+## Shared Types
+
+### `area`
+
+`area` accepts Koji geo input formats. In practice, use one of:
+
+- GeoJSON `FeatureCollection`
+- GeoJSON `Feature`
+- Coordinate arrays (`[[lat, lon]]` or `[[[lat, lon]]]`)
+
+### `data_points` and `clusters`
+
+Accepted forms resolve into a list of points (`[lat, lon]`):
+
+- `[[lat, lon], ...]`
+- `[{ "lat": number, "lon": number }, ...]`
+- GeoJSON `Feature`
+- GeoJSON `FeatureCollection`
+
+## Calculation Endpoints
+
+### `POST /api/v1/calc/bootstrap`
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Required</Table.Th>
+      <Table.Th>Default</Table.Th>
+      <Table.Th>Notes</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`area`</Table.Td>
+      <Table.Td>GeoFormats</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>empty</Table.Td>
+      <Table.Td>One of `area`, `instance`, or `parent` must resolve to input area.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`instance`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`""`</Table.Td>
+      <Table.Td>Area lookup key in Koji/scanner DB.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`parent`</Table.Td>
+      <Table.Td>string | number</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`null`</Table.Td>
+      <Table.Td>Loads all geofences by parent when present.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`benchmark_mode`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`false`</Table.Td>
+      <Table.Td>If `true`, returns stats only (`data: null`).</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`radius`</Table.Td>
+      <Table.Td>number</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`70`</Table.Td>
+      <Table.Td>Meters.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`return_type`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>inferred</Table.Td>
+      <Table.Td>See return type values in `params`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`calculation_mode`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`radius`</Table.Td>
+      <Table.Td>`radius`, `s2`, or custom plugin name.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`s2_level`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`15`</Table.Td>
+      <Table.Td>Used when calculation mode relies on S2.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`s2_size`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`9`</Table.Td>
+      <Table.Td>S2 grid size for S2-based bootstrap.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`sort_by`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`unset`</Table.Td>
+      <Table.Td>Route ordering strategy.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`route_split_level`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`0`</Table.Td>
+      <Table.Td>Validated to `0..20`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`routing_args`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`""`</Table.Td>
+      <Table.Td>Extra args for routing plugin.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`bootstrapping_args`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`""`</Table.Td>
+      <Table.Td>Extra args for bootstrap plugin (radius is appended automatically).</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`save_to_db`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`false`</Table.Td>
+      <Table.Td>Saves generated route to Koji DB.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`save_to_scanner`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`false`</Table.Td>
+      <Table.Td>Saves to scanner/controller DB and triggers project update API.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`save_to_scanner_only`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`false`</Table.Td>
+      <Table.Td>Saves to scanner/controller DB without project update API call.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+### `POST /api/v1/calc/{mode}/{category}`
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Required</Table.Th>
+      <Table.Th>Default</Table.Th>
+      <Table.Th>Notes</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`area`</Table.Td>
+      <Table.Td>GeoFormats</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>empty</Table.Td>
+      <Table.Td>Used when `data_points` is not supplied.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`data_points`</Table.Td>
+      <Table.Td>point list/formats</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>empty</Table.Td>
+      <Table.Td>If empty, points are queried from DB by `category` and area.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`instance`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`""`</Table.Td>
+      <Table.Td>Area lookup key.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`parent`</Table.Td>
+      <Table.Td>string | number</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`null`</Table.Td>
+      <Table.Td>Parent-based area lookup.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`benchmark_mode`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`false`</Table.Td>
+      <Table.Td>Stats-only response toggle.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`cluster_mode`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`balanced`</Table.Td>
+      <Table.Td>`honeycomb`, `fastest`, `fast`, `balanced`, `better`, `best`, custom.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`cluster_split_level`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`0`</Table.Td>
+      <Table.Td>Validated to `0..20`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`max_clusters`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>unlimited</Table.Td>
+      <Table.Td>`0` becomes unlimited.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`radius`</Table.Td>
+      <Table.Td>number</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`70`</Table.Td>
+      <Table.Td>Meters.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`min_points`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`1`</Table.Td>
+      <Table.Td>Minimum points per cluster target.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`last_seen`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`0`</Table.Td>
+      <Table.Td>Timestamp filter for DB point queries.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`tth`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`all`</Table.Td>
+      <Table.Td>Spawnpoint filter: `all`, `known`, `unknown`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`sort_by`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`unset`</Table.Td>
+      <Table.Td>When `mode=route` and unset, server forces `tsp`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`route_split_level`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`0`</Table.Td>
+      <Table.Td>Validated to `0..20`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`calculation_mode`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`radius`</Table.Td>
+      <Table.Td>`radius`, `s2`, or custom plugin.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`s2_level`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`15`</Table.Td>
+      <Table.Td>S2 parameter.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`s2_size`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`9`</Table.Td>
+      <Table.Td>S2 parameter.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`routing_args`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`""`</Table.Td>
+      <Table.Td>Extra routing plugin args.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`clustering_args`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`""`</Table.Td>
+      <Table.Td>Extra clustering plugin args (radius/min/max are appended automatically).</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`center_clusters`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`false`</Table.Td>
+      <Table.Td>Re-centers cluster coordinates.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`genetic_post_processing`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`false`</Table.Td>
+      <Table.Td>Additional post-processing step.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`return_type`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>inferred</Table.Td>
+      <Table.Td>See return type values in `params`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`save_to_db`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`false`</Table.Td>
+      <Table.Td>Saves output route to Koji DB.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`save_to_scanner`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`false`</Table.Td>
+      <Table.Td>Saves to scanner/controller DB and triggers project update API.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`save_to_scanner_only`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`false`</Table.Td>
+      <Table.Td>Saves to scanner/controller DB without project update API call.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+### `POST /api/v1/calc/reroute`
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Required</Table.Th>
+      <Table.Th>Default</Table.Th>
+      <Table.Th>Notes</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`clusters`</Table.Td>
+      <Table.Td>point list/formats</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>empty</Table.Td>
+      <Table.Td>Preferred reroute input.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`data_points`</Table.Td>
+      <Table.Td>point list/formats</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>empty</Table.Td>
+      <Table.Td>Legacy fallback when `clusters` is empty.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`instance`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`""`</Table.Td>
+      <Table.Td>Added to output metadata.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`mode`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`unset`</Table.Td>
+      <Table.Td>Route mode label/type (example: `circle_pokemon`).</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`radius`</Table.Td>
+      <Table.Td>number</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`70`</Table.Td>
+      <Table.Td>Meters.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`sort_by`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`unset`</Table.Td>
+      <Table.Td>Ordering strategy.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`route_split_level`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`0`</Table.Td>
+      <Table.Td>Validated to `0..20`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`routing_args`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`""`</Table.Td>
+      <Table.Td>Extra routing plugin args.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`benchmark_mode`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`false`</Table.Td>
+      <Table.Td>Stats-only response toggle.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`return_type`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>inferred</Table.Td>
+      <Table.Td>See return type values in `params`.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+### `POST /api/v1/calc/route-stats`
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Required</Table.Th>
+      <Table.Th>Default</Table.Th>
+      <Table.Th>Notes</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`clusters`</Table.Td>
+      <Table.Td>point list/formats</Table.Td>
+      <Table.Td>Conditionally</Table.Td>
+      <Table.Td>empty</Table.Td>
+      <Table.Td>Must provide `clusters` or `data_points`; both empty returns `400`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`data_points`</Table.Td>
+      <Table.Td>point list/formats</Table.Td>
+      <Table.Td>Conditionally</Table.Td>
+      <Table.Td>empty</Table.Td>
+      <Table.Td>Used for coverage stats if provided.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`instance`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`""`</Table.Td>
+      <Table.Td>Added to output metadata.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`mode`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`unset`</Table.Td>
+      <Table.Td>Added to output metadata.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`radius`</Table.Td>
+      <Table.Td>number</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`70`</Table.Td>
+      <Table.Td>Used for coverage computation.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`min_points`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`1`</Table.Td>
+      <Table.Td>Used in score computation.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+### `POST /api/v1/calc/route-stats/{category}`
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Required</Table.Th>
+      <Table.Th>Default</Table.Th>
+      <Table.Th>Notes</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`clusters`</Table.Td>
+      <Table.Td>point list/formats</Table.Td>
+      <Table.Td>Conditionally</Table.Td>
+      <Table.Td>empty</Table.Td>
+      <Table.Td>Must provide clusters or resolvable data points; both empty returns `400`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`data_points`</Table.Td>
+      <Table.Td>point list/formats</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>empty</Table.Td>
+      <Table.Td>If empty, server loads points by `category` from area lookup.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`area`</Table.Td>
+      <Table.Td>GeoFormats</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>empty</Table.Td>
+      <Table.Td>Used when server must query points by category.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`instance`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`""`</Table.Td>
+      <Table.Td>Area lookup key.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`parent`</Table.Td>
+      <Table.Td>string | number</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`null`</Table.Td>
+      <Table.Td>Parent-based area lookup.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`last_seen`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`0`</Table.Td>
+      <Table.Td>Point query timestamp filter.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`tth`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`all`</Table.Td>
+      <Table.Td>Spawnpoint filter for spawnpoint category.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`mode`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`unset`</Table.Td>
+      <Table.Td>Added to output metadata.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`radius`</Table.Td>
+      <Table.Td>number</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`70`</Table.Td>
+      <Table.Td>Used for coverage computation.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`min_points`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`1`</Table.Td>
+      <Table.Td>Used in score computation.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+### `POST /api/v1/calc/area`
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Required</Table.Th>
+      <Table.Th>Default</Table.Th>
+      <Table.Th>Notes</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`area`</Table.Td>
+      <Table.Td>GeoFormats</Table.Td>
+      <Table.Td>Yes</Table.Td>
+      <Table.Td>empty</Table.Td>
+      <Table.Td>Sums geodesic area across Polygon and MultiPolygon geometry.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+## Conversion Endpoints
+
+### `POST /api/v1/convert/data`
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Required</Table.Th>
+      <Table.Th>Default</Table.Th>
+      <Table.Th>Notes</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`area`</Table.Td>
+      <Table.Td>GeoFormats</Table.Td>
+      <Table.Td>Yes</Table.Td>
+      <Table.Td>empty</Table.Td>
+      <Table.Td>Input geometry to convert.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`simplify`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`false`</Table.Td>
+      <Table.Td>Simplifies polygon/multipolygon before conversion.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`return_type`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>inferred</Table.Td>
+      <Table.Td>Output format.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`benchmark_mode`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`false`</Table.Td>
+      <Table.Td>If `true`, data is omitted.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`instance`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`""`</Table.Td>
+      <Table.Td>Included in output metadata where relevant.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+### `POST /api/v1/convert/simplify`
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Required</Table.Th>
+      <Table.Th>Default</Table.Th>
+      <Table.Th>Notes</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`area`</Table.Td>
+      <Table.Td>GeoFormats</Table.Td>
+      <Table.Td>Yes</Table.Td>
+      <Table.Td>empty</Table.Td>
+      <Table.Td>Input geometry to simplify.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`return_type`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>inferred</Table.Td>
+      <Table.Td>Output format.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+### `POST /api/v1/convert/merge-points`
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Required</Table.Th>
+      <Table.Th>Default</Table.Th>
+      <Table.Th>Notes</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`area`</Table.Td>
+      <Table.Td>GeoFormats</Table.Td>
+      <Table.Td>Yes</Table.Td>
+      <Table.Td>empty</Table.Td>
+      <Table.Td>Point features are merged into one MultiPoint feature.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`return_type`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>inferred</Table.Td>
+      <Table.Td>Output format.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+## Geofence and Route Save Endpoints
+
+### `POST /api/v1/geofence/save-koji`
+### `POST /api/v1/geofence/save-scanner`
+### `POST /api/v1/route/save-koji`
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Required</Table.Th>
+      <Table.Th>Notes</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`area`</Table.Td>
+      <Table.Td>GeoFormats</Table.Td>
+      <Table.Td>Yes</Table.Td>
+      <Table.Td>Upsert payload written to target database.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+## S2 Endpoints
+
+### `POST /api/v1/s2/circle-coverage`
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Required</Table.Th>
+      <Table.Th>Default</Table.Th>
+      <Table.Th>Notes</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`lat`</Table.Td>
+      <Table.Td>number</Table.Td>
+      <Table.Td>Yes</Table.Td>
+      <Table.Td>-</Table.Td>
+      <Table.Td>Center latitude.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`lon`</Table.Td>
+      <Table.Td>number</Table.Td>
+      <Table.Td>Yes</Table.Td>
+      <Table.Td>-</Table.Td>
+      <Table.Td>Center longitude.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`level`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>Yes</Table.Td>
+      <Table.Td>-</Table.Td>
+      <Table.Td>S2 cell level.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`radius`</Table.Td>
+      <Table.Td>number</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`70`</Table.Td>
+      <Table.Td>Radius in meters.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+### `POST /api/v1/s2/cell-coverage`
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Required</Table.Th>
+      <Table.Th>Default</Table.Th>
+      <Table.Th>Notes</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`lat`</Table.Td>
+      <Table.Td>number</Table.Td>
+      <Table.Td>Yes</Table.Td>
+      <Table.Td>-</Table.Td>
+      <Table.Td>Center latitude.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`lon`</Table.Td>
+      <Table.Td>number</Table.Td>
+      <Table.Td>Yes</Table.Td>
+      <Table.Td>-</Table.Td>
+      <Table.Td>Center longitude.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`level`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>Yes</Table.Td>
+      <Table.Td>-</Table.Td>
+      <Table.Td>S2 cell level.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`size`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`15`</Table.Td>
+      <Table.Td>Coverage size.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+### `POST /api/v1/s2/polygons`
+
+Body type:
+
+```json
+["1152921504606846977", "1152921504606846979"]
+```
+
+### `POST /api/v1/s2/{cell_level}`
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Required</Table.Th>
+      <Table.Th>Default</Table.Th>
+      <Table.Th>Notes</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`min_lat`</Table.Td>
+      <Table.Td>number</Table.Td>
+      <Table.Td>Yes</Table.Td>
+      <Table.Td>-</Table.Td>
+      <Table.Td>Bounds min latitude.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`min_lon`</Table.Td>
+      <Table.Td>number</Table.Td>
+      <Table.Td>Yes</Table.Td>
+      <Table.Td>-</Table.Td>
+      <Table.Td>Bounds min longitude.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`max_lat`</Table.Td>
+      <Table.Td>number</Table.Td>
+      <Table.Td>Yes</Table.Td>
+      <Table.Td>-</Table.Td>
+      <Table.Td>Bounds max latitude.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`max_lon`</Table.Td>
+      <Table.Td>number</Table.Td>
+      <Table.Td>Yes</Table.Td>
+      <Table.Td>-</Table.Td>
+      <Table.Td>Bounds max longitude.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`ids`</Table.Td>
+      <Table.Td>string[]</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>all cells</Table.Td>
+      <Table.Td>If provided, filters output to matching ids only.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`last_seen`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>unused</Table.Td>
+      <Table.Td>Accepted but not used in this endpoint.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`tth`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>unused</Table.Td>
+      <Table.Td>Accepted but not used in this endpoint.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>

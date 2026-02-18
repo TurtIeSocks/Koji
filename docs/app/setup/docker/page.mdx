@@ -1,0 +1,128 @@
+import { Callout, Steps } from 'nextra/components'
+
+# Docker ( Recommended )
+
+## Docker Compose File
+
+<Steps>
+
+#### Create a new schema in your database for Kōji.
+
+#### If you have an existing `docker-compose.yml` file, copy the below service into it. Otherwise create a new file (`touch docker-compose.yml`) and copy the below service into it.
+
+</Steps>
+
+See [Environment](/setup/environment) for a full variable reference and defaults.
+
+```yml
+version: '2'
+services:
+  koji:
+    image: ghcr.io/turtiesocks/koji:main
+    container_name: koji
+    restart: unless-stopped
+    environment:
+      # To escape special characters you must surround the values with single quotes ('')
+      # Commented out variables are optional
+
+      # Your Golbat or RDM database
+      SCANNER_DB_URL: 'mysql://golbat_user:golbat_password@host:3306/golbat_database'
+
+      # Your Dragonite or RDM database (if you're using a hybrid Golbat/RDM setup)
+      CONTROLLER_DB_URL: 'mysql://dragonite_user:dragonite_password@host:3306/dragonite_database'
+
+      # Your Koji database
+      KOJI_DB_URL: 'mysql://koji_user:koji_password@127.0.0.1:3306/koji_database'
+
+      # Max Database connections
+      # MAX_CONNECTIONS: 100
+
+      # Your Koji API bearer token and client password
+      KOJI_SECRET: 'your_super_secret'
+
+      # Start latitude on initial client load
+      # START_LAT: 0
+      # Start longitude on initial client load
+      # START_LON: 0
+      # Nominatim URL used for searching and importing geofences from OSM
+      # NOMINATIM_URL: 'https://nominatim.openstreetmap.org' # highly recommended using your own
+      # Logging level | error | warn | info | debug | trace
+      # LOG_LEVEL: info
+
+    # Memory limit for docker container
+    # mem_limit: 2048M
+    # Memory reservation for docker container
+    # mem_reservation: 256M
+    # CPU limit for docker container
+    # cpus: 2
+
+    ports:
+      - '8080:8080' # change left one for external port
+
+    # If you want to use a non docker database enable following lines and
+    # change the Database URL to 'host.docker.internal'
+    #extra_hosts:
+    #  - "host.docker.internal:host-gateway"
+
+networks:
+  default:
+    name: scanner
+```
+
+## Docker Setup
+
+<Callout type="info" emoji="💡">
+  If this is the first time using GitHub container registry you will need to login. When prompted use your personal access token **not** password. [More info](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-with-a-personal-access-token-classic)
+
+```sh
+docker login ghcr.io -u GITHUB_USERNAME
+```
+
+</Callout>
+
+<Steps>
+
+#### After editing, pull the repo:
+
+```bash
+docker-compose pull
+```
+
+#### Start the containers:
+
+```bash
+docker-compose up -d
+```
+
+</Steps>
+
+## Docker Updating
+
+<Steps>
+
+#### Pull latest:
+
+```bash
+docker-compose pull
+```
+
+#### Restart the container:
+
+```bash
+docker-compose down && docker-compose up -d
+```
+
+</Steps>
+
+## Checking out other PRs
+
+To check out other PRs/branches, you can change your `docker-compose.override.yml` file like so:
+
+```yml
+services:
+  ...
+  koji:
+    image: ghcr.io/turtiesocks/koji:{branch_name} # ghcr.io/turtiesocks/koji:another-clustering-algo
+    container_name: koji
+    ...
+```

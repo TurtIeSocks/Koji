@@ -1,0 +1,71 @@
+import { Cards, Steps } from 'nextra/components'
+
+# Development
+
+<Cards>
+  <Cards.Card title="Repository Architecture" href="/development/repository" arrow />
+</Cards>
+
+## Main
+
+<Steps>
+
+#### After going through the standard setup instructions
+
+#### Install Cargo Watch:
+
+```bash
+  cargo install cargo-watch
+```
+
+#### Install the VS Code Plugin [Rust Analyzer](https://marketplace.visualstudio.com/items?itemName=matklad.rust-analyzer)
+
+#### Open one terminal:
+
+```bash
+  cd server
+  # to compile in debug mode (faster recompiling but slower performance)
+  DEBUG=true cargo watch -x run
+  # to compile in release mode (slower recompiling but faster performance)
+  cargo watch -x 'run -r'
+```
+
+#### In a second terminal:
+
+```bash
+  cd client && yarn install && yarn dev
+```
+
+#### A browser will automatically open to `localhost:{PORT}`
+
+</Steps>
+
+## Docs
+
+<Steps>
+
+#### Setup dependencies:
+
+```bash
+  cd docs
+  yarn install
+```
+
+#### Run the docs server:
+
+```bash
+  yarn dev
+```
+
+#### Open the web browser:
+
+```bash
+# When you see this in the console:
+ready - started server on 0.0.0.0:3000, url: http://localhost:3000
+# Click the url address to open the docs in your browser
+# Or you can manually navigate to it in the browser
+```
+
+#### When you save your changes, the browser will automatically hot reload to reflect them
+
+</Steps>

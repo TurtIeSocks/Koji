@@ -1,0 +1,126 @@
+# Scripts and cURL
+
+For UI/internal session endpoints (`/config/*` and `/internal/*`), see [Internal and Config API](./internal).
+
+## cURL: Health
+
+```bash
+curl -sS "http://127.0.0.1:8080/api/v1/health"
+```
+
+## cURL: List Geofence References by Project
+
+```bash
+curl -sS \
+  -H "Authorization: Bearer KOJI_SECRET" \
+  "http://127.0.0.1:8080/api/v1/geofence/reference/my_project"
+```
+
+## cURL: Calculate Route for Spawnpoints
+
+```bash
+curl -sS -X POST \
+  -H "Authorization: Bearer KOJI_SECRET" \
+  -H "Content-Type: application/json" \
+  "http://127.0.0.1:8080/api/v1/calc/route/spawnpoint" \
+  -d '{
+    "instance": "downtown",
+    "last_seen": 0,
+    "radius": 70,
+    "min_points": 8,
+    "calculation_mode": "radius",
+    "cluster_mode": "better",
+    "route_split_level": 1,
+    "save_to_db": true,
+    "benchmark_mode": false,
+    "return_type": "feature_collection"
+  }'
+```
+
+## cURL: Route Stats (with DB-loaded points)
+
+```bash
+curl -sS -X POST \
+  -H "Authorization: Bearer KOJI_SECRET" \
+  -H "Content-Type: application/json" \
+  "http://127.0.0.1:8080/api/v1/calc/route-stats/spawnpoint" \
+  -d '{
+    "instance": "downtown",
+    "radius": 70,
+    "min_points": 8,
+    "clusters": [[40.7128, -74.0060], [40.7150, -74.0010]]
+  }'
+```
+
+## cURL: Save Geofences to Scanner
+
+```bash
+curl -sS -X POST \
+  -H "Authorization: Bearer KOJI_SECRET" \
+  -H "Content-Type: application/json" \
+  "http://127.0.0.1:8080/api/v1/geofence/save-scanner" \
+  -d '{
+    "area": {
+      "type": "FeatureCollection",
+      "features": []
+    }
+  }'
+```
+
+## JavaScript: Sync All Project Geofences to Scanner
+
+```js
+const syncProject = async ({ baseUrl, secret, project }) => {
+  const res = await fetch(`${baseUrl}/api/v1/project/push/${project}`, {
+    headers: {
+      Authorization: `Bearer ${secret}`,
+    },
+  })
+
+  if (!res.ok) {
+    throw new Error(await res.text())
+  }
+
+  return res.json()
+}
+
+syncProject({
+  baseUrl: 'http://127.0.0.1:8080',
+  secret: 'KOJI_SECRET',
+  project: 'my_project',
+}).then(console.log)
+```
+
+## JavaScript: Parallel Route Generation per Area
+
+```js
+const buildRoutes = async ({ baseUrl, secret, project }) => {
+  const refs = await fetch(`${baseUrl}/api/v1/geofence/reference/${project}`, {
+    headers: { Authorization: `Bearer ${secret}` },
+  }).then((r) => r.json())
+
+  const areas = refs.data || []
+
+  return Promise.allSettled(
+    areas.map((a) =>
+      fetch(`${baseUrl}/api/v1/calc/route/pokestop`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${secret}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          instance: a.name,
+          radius: 80,
+          min_points: 1,
+          calculation_mode: 'radius',
+          cluster_mode: 'balanced',
+          route_split_level: 1,
+          benchmark_mode: true,
+          save_to_db: true,
+        }),
+      }),
+    ),
+  )
+}
+```

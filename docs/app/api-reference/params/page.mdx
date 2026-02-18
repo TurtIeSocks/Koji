@@ -1,0 +1,431 @@
+import { Table } from 'nextra/components'
+
+# Query and Path Params
+
+## Authentication Header
+
+`Authorization: Bearer <KOJI_SECRET>`
+
+- Required only when server env `KOJI_SECRET` is set.
+- Ignored if session-authenticated in UI context.
+
+## Return Type Values
+
+These values are accepted in path `/{return_type}` and in body `return_type`/query `rt`.
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Value</Table.Th>
+      <Table.Th>Output</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`alt_text`</Table.Td>
+      <Table.Td>Text with `lat lon,lat lon` style</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`text`</Table.Td>
+      <Table.Td>Text with `lat,lon` lines</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`array`</Table.Td>
+      <Table.Td>Uses single or multi array based on inferred default</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`single_array`</Table.Td>
+      <Table.Td>`[[lat, lon], ...]`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`multi_array`</Table.Td>
+      <Table.Td>`[[[lat, lon], ...], ...]`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`struct`</Table.Td>
+      <Table.Td>Uses single or multi struct based on inferred default</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`single_struct`</Table.Td>
+      <Table.Td>`[{"lat":...,"lon":...}]`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`multi_struct`</Table.Td>
+      <Table.Td>`[[{"lat":...,"lon":...}]]`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`geometry`</Table.Td>
+      <Table.Td>GeoJSON geometry (or list if multiple features)</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`geometry_vec`</Table.Td>
+      <Table.Td>List of GeoJSON geometries</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`feature`</Table.Td>
+      <Table.Td>GeoJSON feature (or list if multiple features)</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`feature_vec`</Table.Td>
+      <Table.Td>List of GeoJSON features</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`feature_collection`</Table.Td>
+      <Table.Td>GeoJSON FeatureCollection</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`poracle`</Table.Td>
+      <Table.Td>Poracle format</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`sql`</Table.Td>
+      <Table.Td>SQL predicate text</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+Aliases accepted by server include camel/compact versions (example: `featurecollection`, `geometryvec`).
+
+## Geofence Query Params (`ApiQueryArgs`)
+
+Used by:
+
+- `GET /api/v1/geofence/all`
+- `GET /api/v1/geofence/area/{geofence}`
+- `GET /api/v1/geofence/{return_type}`
+- `GET /api/v1/geofence/{return_type}/{project}`
+
+### Visibility and shape
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Param</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Purpose</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`internal`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>Include internal `__` properties and generated ids.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`id`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>Include `id` property.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`name`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>Include `name` property.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`mode`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>Include `mode` property.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`geofence_id`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>Include `geofence_id` property.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`parent`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>Include `parent` property.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`rt`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Return type override.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`group`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>Set `group` from `parent`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`fullcoords`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>Keep full floating-point precision.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+### Name manipulation
+
+Applied in server order to the `name` property:
+
+`ignoremanualparent` -> `trimstart` -> `trimend` -> `alphanumeric` -> `replace` -> `parentreplace` -> `parentstart` -> `parentend` -> `lowercase` -> `uppercase` -> `capfirst` -> `capitalize` -> `underscore` -> `dash` -> `space` -> `unpolish` -> final trim.
+
+Examples assume `name="North, NY"` and `parent="NY"` unless stated otherwise.
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Param</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Purpose</Table.Th>
+      <Table.Th>Example</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`lowercase`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>Force lowercase name.</Table.Td>
+      <Table.Td>`lowercase=true` -&gt; `north, ny`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`uppercase`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>Force uppercase name.</Table.Td>
+      <Table.Td>`uppercase=true` -&gt; `NORTH, NY`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`capitalize`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Capitalize words split by provided separator.</Table.Td>
+      <Table.Td>`capitalize="_"` on `north_ny` -&gt; `North_Ny`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`capfirst`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>Capitalize first character only.</Table.Td>
+      <Table.Td>`capfirst=true` on `north, ny` -&gt; `North, ny`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`parentstart`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Prefix name with parent joined by string.</Table.Td>
+      <Table.Td>`parentstart=" - "` -&gt; `NY - North, NY`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`parentend`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Suffix name with parent joined by string.</Table.Td>
+      <Table.Td>`parentend=" - "` -&gt; `North, NY - NY`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`parentreplace`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Replace parent substring in name with string.</Table.Td>
+      <Table.Td>`parentreplace=""` -&gt; `North,`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`space`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Replace spaces with string.</Table.Td>
+      <Table.Td>`space="_"` -&gt; `North,_NY`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`underscore`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Replace underscores with string.</Table.Td>
+      <Table.Td>`underscore=" "` on `North_NY` -&gt; `North NY`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`dash`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Replace dashes with string.</Table.Td>
+      <Table.Td>`dash=" "` on `North-NY` -&gt; `North NY`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`replace`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Remove occurrences of substring.</Table.Td>
+      <Table.Td>`replace=","` -&gt; `North NY`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`trimstart`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>Trim N chars from start.</Table.Td>
+      <Table.Td>`trimstart=7` -&gt; ` NY`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`trimend`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>Trim N chars from end.</Table.Td>
+      <Table.Td>`trimend=4` -&gt; `North`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`unpolish`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>Convert Polish chars to ASCII.</Table.Td>
+      <Table.Td>`unpolish=true` on `Łódź` -&gt; `Lodz`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`ignoremanualparent`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>Ignore manual parent property.</Table.Td>
+      <Table.Td>`ignoremanualparent=true` uses DB parent over manual override.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`alphanumeric`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>Remove non-alphanumeric chars except spaces/dash/underscore.</Table.Td>
+      <Table.Td>`alphanumeric=true` on `North, NY!` -&gt; `North NY`</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+### Filtering
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Param</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Purpose</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`excludeproperties`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Comma-separated property keys to exclude.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`excludeparents`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Comma-separated parent names to exclude.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`exclude`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Comma-separated names to exclude.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+## Route Query Params
+
+Used by route endpoints:
+
+- `GET /api/v1/route/all`
+- `GET /api/v1/route/area/{id}`
+- `GET /api/v1/route/{return_type}`
+- `GET /api/v1/route/{return_type}/{geofence_name}`
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Param</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Purpose</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`internal`</Table.Td>
+      <Table.Td>boolean</Table.Td>
+      <Table.Td>Include internal fields in route responses.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`rt`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Return type override (only used by `/route/area/{id}`).</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+## Path Params
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Endpoint</Table.Th>
+      <Table.Th>Param</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Notes</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`/api/v1/geofence/area/{geofence}`</Table.Td>
+      <Table.Td>`geofence`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Geofence id/name lookup.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`/api/v1/geofence/reference/{project}`</Table.Td>
+      <Table.Td>`project`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Project name/id used by DB query.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`/api/v1/geofence/{return_type}`</Table.Td>
+      <Table.Td>`return_type`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>See return type table.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`/api/v1/geofence/{return_type}/{project}`</Table.Td>
+      <Table.Td>`return_type`, `project`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Return format + project filter.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`/api/v1/geofence/push/{id}`</Table.Td>
+      <Table.Td>`id`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Geofence id to push to scanner/controller DB.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`/api/v1/route/area/{id}`</Table.Td>
+      <Table.Td>`id`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Route id/name lookup.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`/api/v1/route/reference/{geofence}`</Table.Td>
+      <Table.Td>`geofence`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Geofence name filter.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`/api/v1/route/{return_type}`</Table.Td>
+      <Table.Td>`return_type`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>See return type table.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`/api/v1/route/{return_type}/{geofence_name}`</Table.Td>
+      <Table.Td>`return_type`, `geofence_name`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Return format + geofence filter.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`/api/v1/route/push/{id}`</Table.Td>
+      <Table.Td>`id`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>Numeric Koji route id.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`/api/v1/project/push/{id}`</Table.Td>
+      <Table.Td>`id`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Project id/name in Koji DB.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`/api/v1/calc/{mode}/{category}`</Table.Td>
+      <Table.Td>`mode`, `category`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>`category`: `gym`, `pokestop`, `spawnpoint`, `fort`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`/api/v1/calc/route-stats/{category}`</Table.Td>
+      <Table.Td>`category`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Same category rules as above.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`/api/v1/s2/{cell_level}`</Table.Td>
+      <Table.Td>`cell_level`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>S2 cell level to generate.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>

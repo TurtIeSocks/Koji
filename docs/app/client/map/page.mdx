@@ -1,0 +1,403 @@
+import { Callout, Table } from 'nextra/components'
+
+# Map
+
+## Drawer
+
+### Drawing Options
+
+- Snappable
+  - Drawing and editing Polygons snaps them to other Polygons when hovering near them
+- Continue Drawing
+  - Keeps the current drawing mode active after completing a shape
+- Radius
+  - Global radius of the circles drawn
+  - Sets all current and future circles
+- Activate
+  - DOM event for setting the active route on the map
+  - Only one route can be active at a time
+  - This is currently a "hack" to save on performance when rendering multiple routes
+- Distance Colors
+  - Set unlimited rules for coloring the line strings between circles on your routes to easily visualize the distance in meters between each
+
+### Calculations
+
+- Mode
+  - `Bootstrap` - creates systematic patterns to cover all drawn Polygons on the map in a uniform manner
+  - `Cluster` - clusters the points of the selected category in all drawn Polygons on the map
+  - `Route` - clusters and routes the points using OR-Tools
+- Category
+  - Select the category/table for the clustering algorithm to read from the database
+  - `Fort` will include both Pokestops and Gyms
+- Strategy
+  - `Radius` - clusters based on the selected radius
+  - `S2` - clusters based on the selected S2 cell level and size
+- Radius
+  - Radius that the clustering algorithms should use
+- S2 level
+  - S2 cell level that the clustering algorithms should use
+- S2 size
+  - How many cells to cluster together per hop, e.g. `9x9`
+
+## Recommended Settings
+
+Below are three community–tuned example configurations you can apply under **Calculations** to get up and running quickly. Feel free to tweak them for your scanner density or area size.
+
+---
+
+### 1. Area Bootstrap — Ideal for initial spawnpoint discovery
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Value</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>Mode</Table.Td>
+      <Table.Td>`Bootstrap`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Strategy</Table.Td>
+      <Table.Td>`Radius`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Radius</Table.Td>
+      <Table.Td>`70`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Sort by</Table.Td>
+      <Table.Td>`None`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>**Note**</Table.Td>
+      <Table.Td>No optimization—sequential route, longer scan time.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+---
+
+### 2. Spawnpoint Clustering — Generates TSP-optimized spawnpoint routes
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Value</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>Mode</Table.Td>
+      <Table.Td>`Cluster`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Category</Table.Td>
+      <Table.Td>`Spawnpoint`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Tth</Table.Td>
+      <Table.Td>`All`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Strategy</Table.Td>
+      <Table.Td>`Radius`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Radius</Table.Td>
+      <Table.Td>`70`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Min points</Table.Td>
+      <Table.Td>`3`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Cluster mode</Table.Td>
+      <Table.Td>`Balanced`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Cluster split level</Table.Td>
+      <Table.Td>`1`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Center clusters</Table.Td>
+      <Table.Td>Off</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Sort by</Table.Td>
+      <Table.Td>`TSP`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Route split level</Table.Td>
+      <Table.Td>`1`</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+---
+
+### 3. Pokéstop Quest Scan — Efficient fort/quest scanning
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Value</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>Mode</Table.Td>
+      <Table.Td>`Better`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Category</Table.Td>
+      <Table.Td>`Pokestop`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Strategy</Table.Td>
+      <Table.Td>`Radius`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Radius</Table.Td>
+      <Table.Td>`80`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Min points</Table.Td>
+      <Table.Td>`1`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Cluster mode</Table.Td>
+      <Table.Td>`Balanced`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Cluster split level</Table.Td>
+      <Table.Td>`1`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Center clusters</Table.Td>
+      <Table.Td>Off</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Sort by</Table.Td>
+      <Table.Td>`TSP`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Route split level</Table.Td>
+      <Table.Td>`1`</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+---
+
+### 4. Fort Scanning — S2 cell–based fort (Pokéstop & Gym) scanning
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Value</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>Mode</Table.Td>
+      <Table.Td>`Cluster`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Category</Table.Td>
+      <Table.Td>`Fort`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Strategy</Table.Td>
+      <Table.Td>`S2`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>S2 level</Table.Td>
+      <Table.Td>`15`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>S2 size</Table.Td>
+      <Table.Td>`9x9`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Min points</Table.Td>
+      <Table.Td>`1`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Sort by</Table.Td>
+      <Table.Td>`TSP`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Route split level</Table.Td>
+      <Table.Td>`1`</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+> **Tip:** These examples balance coverage and optimization—adjust the radius, min-points, or routing to dial in performance for your network and area size.
+
+### Clustering Options
+
+Most of these options are up for interpretation based on which results are best for your area. Some areas and MITM clients might prefer one result over another, so it is recommended you do some testing. If you want a good starting point, try **Brute Force**.
+
+- Min Points
+  - Minimum number of points that a cluster should have
+- Cluster Mode
+  - **Fast** - Uses an exponentially faster algorithm but returns worse results
+  - **Balanced** - Middle option between Fast and Brute Force. Includes additional options to customize results
+    - 🚧 Only unique 🚧 - Counts min points by unique points instead of all points in a Cluster
+    - Sort By
+      - Geo Hash - Creates a more human looking route where the next jump is closest in distance
+      - Cluster Count - Prioritizes clusters with larger points of interest. IE - 4 spawn points in one jump will be earlier in the route over a jump that only includes 3 spawn points.
+      - Random - Good old random.
+  - **Brute Force** - Returns larger jumps but is optimized for finding clusters. It is multithreaded and will max available CPU in order to complete the operation as quickly as possible.
+    - Cluster Split Level - Lower number will have better results while higher number will be faster as it is splitting the task over more CPU threads.
+
+### Routing Options
+
+- Route Split level
+  - GeoHash precision level to split the route into smaller chunks for multithreading
+  - `1` returns the most ideal routes
+  - Higher levels will split the route into more chunks, which process much faster but may not be as ideal
+
+### Saving
+
+- Save to Kōji Db
+  - If the Polygon is saved to the database, this will auto save the calculated routes to the Kōji database under the same name, using the category to auto set the `mode`
+- 🚧 Save to Scanner Db 🚧
+  - Saves the route to the Scanner database, use with Calculation
+- Skip rendering
+  - Does not render the returned route to the map
+  - This can be useful if you're bootstrapping large locations for example. If the returned route may freeze the browser, you can skip rendering and just save the route to the database
+- Update
+  - Starts the clustering
+
+### Layers
+
+- Show circles
+  - Shows the circles that are drawn on the map
+- Show polygons
+  - Shows the polygons that are drawn on the map
+- Show lines
+  - Shows the lines between each of the circles
+- Show arrows
+  - Shows directional arrows on the lines indicating which direction they are going
+
+### Markers
+
+- Gyms
+  - Shows the gyms on the map
+- Pokestops
+  - Shows the pokestops on the map
+- Spawnpoints
+  - Shows the spawnpoints on the map
+- Pokestop Ranges
+  - Shows the radius around the Pokestops that nearby Pokemon can be picked up from
+- Query Type
+  - `Bound` - loads markers based on the current map bounds (screen)
+  - `Area` - only loads markers within the drawn polygons
+  - `All` - loads all markers from the database, be careful with this one
+- Last Seen
+  - Filters data by their `last_seen` or `updated` timestamp
+
+### S2 Cells
+
+- Display
+  - `All` - displays all S2 cells currently within map bounds
+  - `Covered` - displays S2 cells that are currently being covered by circles
+  - `None` - does not display S2 cells
+- Mode - determines how cell coverage should be evaluated
+  - `Radius` - uses the circle radius to cover cells, allows multiple levels to be selected
+  - `S2` - takes into account level and size, e.g. 9x9, only single level can be selected
+- Fill
+  - `Simple` - slightly better performance, only fills the outer border of the covered S2 cells
+  - `All` - fills every individual cell, e.g. all 81 cells when in 9x9 mode
+- S2 Level
+  - Same as above
+- S2 Size
+  - Same as above
+
+### Importing
+
+- Import Wizard
+  - Opens up the import wizard dialog that can walk you through uploading and importing fences and routes from a variety of sources
+- Import Polygons
+  - Opens up a smart code editor that allows you to import geofences in a variety of formats
+- Import Routes
+  - Opens up a smart code editor that allows you to import routes in a variety of formats
+- Import from Scanner
+  - Lets you load in routes and geofences from the scanner database to preview in Kōji
+    <Callout type="info" emoji="💡">
+      It's recommended to import your fences and routes from the scanner
+      database via the Import Wizard, then only use this import selector to
+      preview what your scanner is currently using. You should only load and
+      edit fences directly from Kōji after initial setup!
+    </Callout>
+- Import from Kōji
+  - Loads routes and geofences from the Kōji database
+- Select Project
+  - Loads all geofences associated with a specific project
+
+### Exporting
+
+- Export Polygons
+  - Exports the currently drawn polygons to a smart code editor
+- Export Routes
+  - Exports the currently drawn routes to a smart code editor
+    <Callout type="info" emoji="💡">
+      You can export an individual route or geofence by exporting it from its
+      Leaflet popup!
+    </Callout>
+- Other
+  - JSON Manager
+    - Opens up a JSON manager that allows you to import and export
+      all of your fences and routes in a single JSON file
+  - Conversion Playground
+    - Opens up a smart code editor that allows you to convert fences and routes
+      between a variety of formats
+
+### Geojson preview
+
+- Displays a live GeoJSON of all shapes on the map
+
+### Settings
+
+- Loading screen
+  - Displays a loading screen while the clustering and routing algorithms are running
+  - Displays various stats when the API requests finish
+- Simplify Polygons
+  - Simplifies imported polygons to reduce the number of points
+- Show Route Index
+  - Displays the index of points in a ToolTip as you hover over them
+- Keyboard Shortcuts
+  - Lets you customize various keyboard shortcuts for the map
+- TileServer
+  - Lets you customize the tile server used for the map
+  - This option is only available after you upload different styles to the Kōji admin panel
+- Logout
+  - Logs you out of Kōji
+
+## Leaflet Controls
+
+From top to bottom:
+
+- Draws a rectangular polygon
+- Draws a polygon
+- Draws circles
+
+- Edits existing polygons
+- Enables drag mode for all shapes
+- 🚧 Enables cut mode, which allows you to cut shapes out of existing polygons 🚧
+- Removes shapes, either individually or all for a specified type
+- Rotates shapes
+
+- Merges selected geofences or routes into one
+
+- Navigates to the admin panel
+- Zoom Controls
+- Set location

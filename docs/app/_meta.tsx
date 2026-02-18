@@ -1,0 +1,10 @@
+export default {
+  index: 'Home',
+  setup: 'Setup',
+  client: 'Client',
+  'api-reference': 'API Reference',
+  plugins: 'Plugins',
+  algorithms: 'Algorithms',
+  integrations: 'Integrations',
+  development: 'Development',
+}
