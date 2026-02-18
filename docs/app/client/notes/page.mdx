@@ -1,3 +1,5 @@
+import { Steps } from 'nextra/components'
+
 # Notes
 
 ## Names
@@ -30,11 +32,19 @@ While it is generally recommended to use the `database` category whenever possib
 
 While Kōji does connect directly to your scanner's database, most scanners have their geofences or routes loaded into memory and must reload these in order to make use of the latest changes. Instead of restarting your scanner process, you can setup Kōji to call the refresh endpoint automatically whenever a geofence or route is updated in the scanner database.
 
-1. In the Admin Panel, navigate to the `projects` page.
-1. Edit (or create) a scanner project
-1. Set `scanner` to true
-1. Add the `api_endpoint` value, a hint is provided for both RDM and Dragonite scanner endpoints
-1. Add the `api_key` value, a hint is provided for both RDM and Dragonite scanner endpoints
+<Steps>
+
+#### In the Admin Panel, navigate to the `projects` page.
+
+#### Edit (or create) a scanner project.
+
+#### Set `scanner` to `true`.
+
+#### Add the `api_endpoint` value. A hint is provided for both RDM and Dragonite scanner endpoints.
+
+#### Add the `api_key` value. A hint is provided for both RDM and Dragonite scanner endpoints.
+
+</Steps>
 
 Now when you click the `Sync` button, either next to the respect project, geofence, or route, Kōji will automatically call this endpoint after saving the changes to the scanner database, making them immediately available to the scanner to use!
 

@@ -1,4 +1,4 @@
-import { Callout } from 'nextra/components'
+import { Callout, Steps } from 'nextra/components'
 import Image from 'next/image'
 
 # Clustering Algorithms Overview
@@ -217,10 +217,17 @@ Lastly, it subtracts 1 from the `current` var and continue to run the next itera
 
 Now that the algorithm has gathered the full list of preliminary clusters, it needs to make sure that each cluster is responsible for a unique number of points that is greater than or equal to the `min_points` input.
 
-1. Create a new r-tree with the potential clusters
-1. Iterate through the mutable clusters in parallel
-1. Via the `update_unique` trait, it then iterate through all of the `data_points` that the cluster covers and determine if a point is unique to that cluster by how many clusters are found at the point's location in the r-tree. If the number of clusters is equal to one, it knows that the point is unique to that cluster.
-1. Filter out the clusters that do not have a unique number of `data_points` that is greater than or equal to the `min_points` input.
+<Steps>
+
+#### Create a new r-tree with the potential clusters.
+
+#### Iterate through the mutable clusters in parallel.
+
+#### Via the `update_unique` trait, iterate through all of the `data_points` that the cluster covers and determine if a point is unique to that cluster by how many clusters are found at the point's location in the r-tree. If the number of clusters is equal to one, it knows that the point is unique to that cluster.
+
+#### Filter out the clusters that do not have a unique number of `data_points` that is greater than or equal to the `min_points` input.
+
+</Steps>
 
 ```rust
 pub fn update_unique(&mut self, tree: &RTree<Point>) {
@@ -246,10 +253,17 @@ pub fn update_unique(&mut self, tree: &RTree<Point>) {
 
 If the `min_points` input is equal to one, it wants to make absolutely sure that no point has been missed as this is most often used in requests that require 100% accuracy. This step is often unnecessary, and is currently considered a bandaid that fixes a possible issue with the earlier clustering process.
 
-1. First it reduces all `data_points` covered by the clusters into a single HashSet
-1. Next if the length of the HashSet does not equal the length of the input `data_points`, it knows that at least one point has been missed.
-1. Then iterate through the input `data_points`, checking to see which ones exist in the HashSet, saving the ones that do not.
-1. Finally, extend the current clusters with the missing ones.
+<Steps>
+
+#### First it reduces all `data_points` covered by the clusters into a single `HashSet`.
+
+#### Next if the length of the `HashSet` does not equal the length of the input `data_points`, it knows that at least one point has been missed.
+
+#### Then iterate through the input `data_points`, checking to see which ones exist in the `HashSet`, saving the ones that do not.
+
+#### Finally, extend the current clusters with the missing ones.
+
+</Steps>
 
 ### Balanced (Legacy)
 

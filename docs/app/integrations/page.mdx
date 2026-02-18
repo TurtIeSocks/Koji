@@ -1,4 +1,4 @@
-import { Callout } from 'nextra/components'
+import { Callout, Steps } from 'nextra/components'
 import { GitHubLogo } from '../../components/GitHub'
 
 # External Integrations
@@ -10,19 +10,23 @@ In Kōji's architecture, various external integrations primarily leverage HTTP `
 - Remove the need to have an `areas.json` file by loading your managed geofences straight from Kōji
 - You must set two config values to use Kōji with ReactMap
 
-1. First set your Kōji Bearer Token:
+<Steps>
 
-   - `api.kojiOptions.bearerToken`
-   - Your Kōji Bearer token
+#### First set your Kōji Bearer Token:
 
-1. Then set ReactMap to call the Kōji API
+- `api.kojiOptions.bearerToken`
+- Your Kōji Bearer token
 
-   - `map.general.geoJsonFileName`
-   - Example: `http://{koji_ip}/api/v1/geofence/feature-collection/{project_name}`
+#### Then set ReactMap to call the Kōji API
 
-   <Callout type="info" emoji="💡">
-     You can use unique project names for Multi-Domain setups!
-   </Callout>
+- `map.general.geoJsonFileName`
+- Example: `http://{koji_ip}/api/v1/geofence/feature-collection/{project_name}`
+
+<Callout type="info" emoji="💡">
+  You can use unique project names for Multi-Domain setups!
+</Callout>
+
+</Steps>
 
 ### Project setup
 
@@ -45,15 +49,19 @@ API Key: react-map-secret:{config.api.reactMapSecret}
 - Remove the need to have a `geofence.json` file by loading your managed geofences straight from Kōji.
 - You must set two config values to use Kōji with Poracle
 
-1. First set your Kōji Bearer Token:
+<Steps>
 
-   - `config.geofence.kojiOptions.bearerToken`
-   - Your Kōji Bearer token
+#### First set your Kōji Bearer Token:
 
-1. Then set Poracle to call the Kōji API upon startup
+- `config.geofence.kojiOptions.bearerToken`
+- Your Kōji Bearer token
 
-   - `config.geofence.path`
-   - Example: `http://{koji_ip}/api/v1/geofence/poracle/{project_name}`
+#### Then set Poracle to call the Kōji API upon startup
+
+- `config.geofence.path`
+- Example: `http://{koji_ip}/api/v1/geofence/poracle/{project_name}`
+
+</Steps>
 
 ### Project setup
 
@@ -76,15 +84,19 @@ API Key: X-Poracle-Secret:{config.server.apiSecret}
 - Remove the need to have a `geofence.json` file by loading your managed geofences straight from Kōji
 - You must set two config values to use Kōji with Golbat
 
-1. First set your Kōji Bearer Token:
+<Steps>
 
-   - `koji.bearer_token`
-   - Your Kōji Bearer token
+#### First set your Kōji Bearer Token:
 
-1. Then set Golbat to call the Kōji API upon startup
+- `koji.bearer_token`
+- Your Kōji Bearer token
 
-   - `koji.url`
-   - Example: `http://{koji_ip}/api/v1/geofence/feature-collection/{project_name}`
+#### Then set Golbat to call the Kōji API upon startup
+
+- `koji.url`
+- Example: `http://{koji_ip}/api/v1/geofence/feature-collection/{project_name}`
+
+</Steps>
 
 ### Project setup
 
@@ -106,15 +118,19 @@ API Key: x-golbat-secret:{golbat_config.api_secret}
 
 - You must set two config values to use Kōji with Dragonite
 
-1. First set your Kōji Bearer Token:
+<Steps>
 
-   - `koji.bearer_token`
-   - Your Kōji Bearer token
+#### First set your Kōji Bearer Token:
 
-1. Then set the Kōji url
+- `koji.bearer_token`
+- Your Kōji Bearer token
 
-   - `koji.url`
-   - Example: `http://{koji_ip}`
+#### Then set the Kōji url
+
+- `koji.url`
+- Example: `http://{koji_ip}`
+
+</Steps>
 
 ### Project Setup
 
@@ -171,15 +187,19 @@ API key: X-Dragonite-Admin-Secret:{your_api_secret_value}
 - Remove the need to have a `geofence.json` file by loading your managed geofences straight from Kōji
 - You must set two config values to use Kōji with rdmGruber
 
-1. First set your Kōji Bearer Token:
+<Steps>
 
-   - `config.kojiOptions.bearerToken`
-   - Your Kōji Bearer token
+#### First set your Kōji Bearer Token:
 
-1. Then set rdmGruber to call the Kōji API upon startup
+- `config.kojiOptions.bearerToken`
+- Your Kōji Bearer token
 
-   - `config.kojiOptions.url`
-   - Example: `http://{koji_ip}/api/v1/geofence/poracle/{rdmGruber_project_name}`
+#### Then set rdmGruber to call the Kōji API upon startup
+
+- `config.kojiOptions.url`
+- Example: `http://{koji_ip}/api/v1/geofence/poracle/{rdmGruber_project_name}`
+
+</Steps>
 
 ### Supported Features
 

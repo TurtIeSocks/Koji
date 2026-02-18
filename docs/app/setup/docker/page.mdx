@@ -1,12 +1,16 @@
-import { Callout } from 'nextra/components'
+import { Callout, Steps } from 'nextra/components'
 
 # Docker ( Recommended )
 
 ## Docker Compose File
 
-1. Create a new schema in your database for Kōji
+<Steps>
 
-1. If you have an existing `docker-compose.yml` file, copy the below service into it. Otherwise create a new file (`touch docker-compose.yml`) and copy the below service into it.
+#### Create a new schema in your database for Kōji.
+
+#### If you have an existing `docker-compose.yml` file, copy the below service into it. Otherwise create a new file (`touch docker-compose.yml`) and copy the below service into it.
+
+</Steps>
 
 ```yml
 version: '2'
@@ -74,31 +78,39 @@ docker login ghcr.io -u GITHUB_USERNAME
 
 </Callout>
 
-1. After editing, pull the repo
+<Steps>
 
-   ```bash
-    docker-compose pull
-   ```
+#### After editing, pull the repo:
 
-1. Start the containers
+```bash
+docker-compose pull
+```
 
-   ```bash
-    docker-compose up -d
-   ```
+#### Start the containers:
+
+```bash
+docker-compose up -d
+```
+
+</Steps>
 
 ## Docker Updating
 
-1. Pull latest
+<Steps>
 
-   ```bash
-    docker-compose pull
-   ```
+#### Pull latest:
 
-2. Restart the container
+```bash
+docker-compose pull
+```
 
-   ```bash
-    docker-compose down && docker-compose up -d
-   ```
+#### Restart the container:
+
+```bash
+docker-compose down && docker-compose up -d
+```
+
+</Steps>
 
 ## Checking out other PRs
 
