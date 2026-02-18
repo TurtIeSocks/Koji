@@ -1,0 +1,145 @@
+import { Callout, Table } from 'nextra/components'
+
+# Environment
+
+This page documents runtime environment variables used by Kōji server code.
+
+## How Env Is Loaded
+
+Kōji loads `.env` by default. You can point to a different file by setting the `ENV` variable before starting the server.
+
+```bash
+ENV=.env.production koji
+```
+
+## Variables
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Variable</Table.Th>
+      <Table.Th>Required</Table.Th>
+      <Table.Th>Default</Table.Th>
+      <Table.Th>Used For</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`SCANNER_DB_URL`</Table.Td>
+      <Table.Td>Yes</Table.Td>
+      <Table.Td>None</Table.Td>
+      <Table.Td>Primary scanner database connection.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`CONTROLLER_DB_URL`</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>Empty (falls back to scanner DB)</Table.Td>
+      <Table.Td>Controller/instance DB connection for hybrid setups.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`KOJI_DB_URL`</Table.Td>
+      <Table.Td>Yes</Table.Td>
+      <Table.Td>None</Table.Td>
+      <Table.Td>Kōji application database connection.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`KOJI_SECRET`</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>Empty</Table.Td>
+      <Table.Td>Bearer token for `/api/v1/*` and admin login password.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`HOST`</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`0.0.0.0`</Table.Td>
+      <Table.Td>HTTP bind host.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`PORT`</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`8080`</Table.Td>
+      <Table.Td>HTTP bind port.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`MAX_CONNECTIONS`</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`100`</Table.Td>
+      <Table.Td>DB pool max connections.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`LOG_LEVEL`</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`info`</Table.Td>
+      <Table.Td>Server and SQL log level (`error|warn|info|debug|trace`).</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`START_LAT`</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`0.0`</Table.Td>
+      <Table.Td>Initial client map latitude from `/config`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`START_LON`</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`0.0`</Table.Td>
+      <Table.Td>Initial client map longitude from `/config`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`NOMINATIM_URL`</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`https://nominatim.openstreetmap.org/`</Table.Td>
+      <Table.Td>Nominatim service URL for search/import.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`TILE_SERVER`</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>Empty</Table.Td>
+      <Table.Td>Optional default tile server value exposed via `/config`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`DANGEROUS`</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>Unset</Table.Td>
+      <Table.Td>Boolean-like flag: if set, `/config` returns `dangerous=true`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`ENV`</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>`.env`</Table.Td>
+      <Table.Td>Selects which env file dotenv loads at startup.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+## Deprecated Aliases
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Deprecated</Table.Th>
+      <Table.Th>Replacement</Table.Th>
+      <Table.Th>Notes</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`DATABASE_URL`</Table.Td>
+      <Table.Td>`SCANNER_DB_URL`</Table.Td>
+      <Table.Td>Still accepted with warning log.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`UNOWN_DB_URL`</Table.Td>
+      <Table.Td>`CONTROLLER_DB_URL`</Table.Td>
+      <Table.Td>Still accepted with warning log.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`UNOWN_DB`</Table.Td>
+      <Table.Td>`CONTROLLER_DB_URL`</Table.Td>
+      <Table.Td>Still accepted with warning log.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+<Callout type="warning" emoji="⚠️">
+  If `KOJI_SECRET` is empty, public `/api/v1/*` endpoints do not require Bearer auth.
+</Callout>

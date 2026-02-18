@@ -6,11 +6,11 @@ import { Callout } from 'nextra/components'
 
 ### Payload Size
 
-Kōji is currently hardcoded to only allow up to 20MB payloads, however, your reverse proxy, such as Nginx, may have a much lower limit by default. You can set this higher by adding the following property:
+Kōji is currently hardcoded to only allow up to 50MB payloads, however, your reverse proxy, such as Nginx, may have a much lower limit by default. You can set this higher by adding the following property:
 
 ```nginx
     location / {
-        client_max_body_size    20M;
+        client_max_body_size    50M;
     }
 ```
 

@@ -1,0 +1,232 @@
+import { Callout, Table } from 'nextra/components'
+
+# Internal and Config API
+
+These routes are used by the Kōji web client and admin UI.
+
+<Callout type="warning" emoji="⚠️">
+  These endpoints are implementation-facing. They are not part of the stable
+  public `/api/v1` contract and may change between releases.
+</Callout>
+
+## Auth Model
+
+- `/api/v1/*`:
+  - Uses Bearer auth if `KOJI_SECRET` is set.
+  - Also accepts logged-in session cookie from `/config/login`.
+- `/internal/*`:
+  - Requires logged-in session cookie.
+  - Bearer token alone is not accepted.
+
+## Config Routes (`/config`)
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Method</Table.Th>
+      <Table.Th>Path</Table.Th>
+      <Table.Th>Purpose</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/config/`</Table.Td>
+      <Table.Td>Returns runtime config (start coords, plugin lists, scanner type, login status, tile server, dangerous flag).</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/config/login`</Table.Td>
+      <Table.Td>Creates a logged-in session when `{ \"password\": KOJI_SECRET }` matches.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/config/logout`</Table.Td>
+      <Table.Td>Clears current session and redirects to `/`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/config/nominatim?query=...`</Table.Td>
+      <Table.Td>Nominatim search proxy (returns polygon/multipolygon results only).</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+## Internal Instance Routes (`/internal/routes`)
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Method</Table.Th>
+      <Table.Th>Path</Table.Th>
+      <Table.Th>Purpose</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/internal/routes/from_scanner`</Table.Td>
+      <Table.Td>List area/instance references from scanner/controller DB.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/internal/routes/from_koji`</Table.Td>
+      <Table.Td>List geofence/route references from Kōji DB.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/internal/routes/one/{source}/{id}/{instance_type}`</Table.Td>
+      <Table.Td>Load a single instance/route/geofence feature from scanner or Kōji source.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+## Internal Data Routes (`/internal/data`)
+
+`category` values: `gym`, `pokestop`, `spawnpoint`.
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Method</Table.Th>
+      <Table.Th>Path</Table.Th>
+      <Table.Th>Purpose</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/internal/data/all/{category}`</Table.Td>
+      <Table.Td>Return all points for category, filtered by request args (`last_seen`, `tth`).</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/internal/data/bound/{category}`</Table.Td>
+      <Table.Td>Return category points within lat/lon bounds.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/internal/data/area/{category}`</Table.Td>
+      <Table.Td>Return category points for a provided/derived area.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/internal/data/area_stats/{category}`</Table.Td>
+      <Table.Td>Return summarized area stats by category.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+## Internal Admin Routes (`/internal/admin`)
+
+Supported `resource` values: `geofence`, `project`, `property`, `route`, `tileserver`.
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Method</Table.Th>
+      <Table.Th>Path</Table.Th>
+      <Table.Th>Purpose</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/internal/admin/{resource}/`</Table.Td>
+      <Table.Td>Paginated list.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/internal/admin/{resource}/all/`</Table.Td>
+      <Table.Td>Unpaginated JSON cache list.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/internal/admin/{resource}/{id}/`</Table.Td>
+      <Table.Td>Get one item by id.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/internal/admin/{resource}/`</Table.Td>
+      <Table.Td>Create resource.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`PATCH`</Table.Td>
+      <Table.Td>`/internal/admin/{resource}/{id}/`</Table.Td>
+      <Table.Td>Update resource.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`DELETE`</Table.Td>
+      <Table.Td>`/internal/admin/{resource}/{id}/`</Table.Td>
+      <Table.Td>Delete resource.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/internal/admin/search/{resource}/?query=...`</Table.Td>
+      <Table.Td>Search by query text.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+### Relationship Helpers
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Method</Table.Th>
+      <Table.Th>Path</Table.Th>
+      <Table.Th>Purpose</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/internal/admin/{resource}/parent`</Table.Td>
+      <Table.Td>Unique parent list (`geofence` and `route` resources).</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`PATCH`</Table.Td>
+      <Table.Td>`/internal/admin/assign/geofence/{property}/{id}/`</Table.Td>
+      <Table.Td>Assign relationship payload for geofence.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+### Geofence/Project Mapping (`/internal/admin/geofence_project`)
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Method</Table.Th>
+      <Table.Th>Path</Table.Th>
+      <Table.Th>Purpose</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/internal/admin/geofence_project/all/`</Table.Td>
+      <Table.Td>List mapping rows.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/internal/admin/geofence_project/`</Table.Td>
+      <Table.Td>Create one mapping row.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`PATCH`</Table.Td>
+      <Table.Td>`/internal/admin/geofence_project/`</Table.Td>
+      <Table.Td>Update mapping by geofence/project ids.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`PATCH`</Table.Td>
+      <Table.Td>`/internal/admin/geofence_project/{table}/{id}/`</Table.Td>
+      <Table.Td>Bulk update by `table` (`geofence` or `project`) and id.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`DELETE`</Table.Td>
+      <Table.Td>`/internal/admin/geofence_project/`</Table.Td>
+      <Table.Td>Delete mapping by geofence/project ids.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
