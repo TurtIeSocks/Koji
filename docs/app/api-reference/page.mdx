@@ -1,3 +1,5 @@
+import { Cards } from 'nextra/components'
+
 # API Reference
 
 This reference documents the public API served under `/api/v1`.
@@ -33,7 +35,25 @@ Notes:
 
 ## Pages
 
-- [Endpoints](./endpoints): Full route list and behavior.
-- [Request Bodies](./body): Exact request fields actually used by each endpoint.
-- [Query and Path Params](./params): Query/path details and return type options.
-- [Scripts and cURL](./scripts): Working request examples.
+<Cards>
+  <Cards.Card
+    title="Endpoints"
+    href="./endpoints"
+    arrow
+  />
+  <Cards.Card
+    title="Request Bodies"
+    href="./body"
+    arrow
+  />
+  <Cards.Card
+    title="Query and Path Params"
+    href="./params"
+    arrow
+  />
+  <Cards.Card
+    title="Scripts and cURL"
+    href="./scripts"
+    arrow
+  />
+</Cards>

@@ -5,6 +5,33 @@ import { GitHubLogo } from '../../components/GitHub'
 
 In Kōji's architecture, various external integrations primarily leverage HTTP `GET` requests for data retrieval. These integrations can be configured to fetch the latest updates either during the initialization phase of a process or based on a predefined schedule. Additionally, Kōji supports an event-driven approach where it can proactively trigger updates in external services. This mechanism enables synchronization with Kōji's latest state changes, enhancing the responsiveness and efficiency of the integrated systems.
 
+```mermaid
+graph TD;
+subgraph Consumers
+R[ReactMap]
+P[PoracleJS]
+G[Golbat]
+D[Dragonite]
+A[Dragonite Admin]
+RG[rdmGruber]
+end
+K[Koji API]
+S[(Scanner/Controller DB)]
+R --> K
+P --> K
+G --> K
+D --> K
+A --> K
+RG --> K
+K --> S
+K --> R
+K --> P
+K --> G
+K --> D
+K --> A
+K --> RG
+```
+
 ## ReactMap
 
 - Remove the need to have an `areas.json` file by loading your managed geofences straight from Kōji

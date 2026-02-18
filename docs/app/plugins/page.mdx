@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import { FileTree } from 'nextra/components'
 
 # Plugins
 
@@ -30,45 +31,50 @@ A directory can also be used a plugin. The directory name will be used as the pl
 
 ### Example Folder Structure & Usage
 
-```bash
-.
-├── client
-├── docs
-├── or-tools
-└── server
-    ├── algorithms
-    │   ├── clustering
-    │   │   └── src
-    │   │       └── plugins
-    │   │           ├── plugin_1
-    │   │           │   │   # clustering_args = `python3 plugin_1/clustering_plugin.py`
-    │   │           │   └── clustering_plugin.py
-    │   │           │       # clustering_args = `` - executed automatically with Node by Kōji
-    │   │           ├── plugin_2.js
-    │   │           │       # clustering_args = `` - executed automatically Kōji
-    │   │           └── plugin_3_binary
-    │   ├── routing
-    │   │   └── src
-    │   │       └── plugins
-    │   │           ├── plugin_1
-    │   │           │   │   # routing_args = `bash plugin_1/my_custom_plugin.sh`
-    │   │           │   └── my_custom_plugin.sh
-    │   │           │       # routing_args = `bun plugin_2.ts`
-    │   │           ├── plugin_2.ts
-    │   │           │       # routing_args = `` - executed automatically by Kōji
-    │   │           └── plugin_3_binary
-    │   └── bootstrapping
-    │       └── src
-    │           └── plugins
-    │               ├── plugin_1
-    │               │   │   # bootstrapping_args = `node plugin_1/bootstrapping_plugin.js`
-    │               │   └── bootstrapping_plugin.js
-    │               │       # bootstrapping_args = `` - executed automatically by Kōji
-    │               ├── plugin_2.sh
-    │               │       # bootstrapping_args = `` - executed automatically by Kōji
-    │               └── plugin_3_binary
-    └── src
-```
+<FileTree>
+  <FileTree.Folder name="server" defaultOpen>
+    <FileTree.Folder name="algorithms" defaultOpen>
+      <FileTree.Folder name="clustering" defaultOpen>
+        <FileTree.Folder name="src" defaultOpen>
+          <FileTree.Folder name="plugins" defaultOpen>
+            <FileTree.Folder name="plugin_1" defaultOpen>
+              <FileTree.File name="clustering_plugin.py" />
+            </FileTree.Folder>
+            <FileTree.File name="plugin_2.js" />
+            <FileTree.File name="plugin_3_binary" />
+          </FileTree.Folder>
+        </FileTree.Folder>
+      </FileTree.Folder>
+      <FileTree.Folder name="routing" defaultOpen>
+        <FileTree.Folder name="src" defaultOpen>
+          <FileTree.Folder name="plugins" defaultOpen>
+            <FileTree.Folder name="plugin_1" defaultOpen>
+              <FileTree.File name="my_custom_plugin.sh" />
+            </FileTree.Folder>
+            <FileTree.File name="plugin_2.ts" />
+            <FileTree.File name="plugin_3_binary" />
+          </FileTree.Folder>
+        </FileTree.Folder>
+      </FileTree.Folder>
+      <FileTree.Folder name="bootstrapping" defaultOpen>
+        <FileTree.Folder name="src" defaultOpen>
+          <FileTree.Folder name="plugins" defaultOpen>
+            <FileTree.Folder name="plugin_1" defaultOpen>
+              <FileTree.File name="bootstrapping_plugin.js" />
+            </FileTree.Folder>
+            <FileTree.File name="plugin_2.sh" />
+            <FileTree.File name="plugin_3_binary" />
+          </FileTree.Folder>
+        </FileTree.Folder>
+      </FileTree.Folder>
+    </FileTree.Folder>
+    <FileTree.Folder name="src" />
+  </FileTree.Folder>
+</FileTree>
+
+- `clustering_args="python3 plugin_1/clustering_plugin.py"` for a plugin in a directory.
+- `routing_args="bash plugin_1/my_custom_plugin.sh"` when explicitly setting an interpreter.
+- `bootstrapping_args="node plugin_1/bootstrapping_plugin.js"` for nested plugin entry points.
 
 ### Parsing Examples
 
