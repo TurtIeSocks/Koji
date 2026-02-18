@@ -1,0 +1,44 @@
+import { Callout, Steps } from 'nextra/components'
+
+# External Plugins
+
+External plugins are maintained outside the main Kōji repository and can be used through Kōji's plugin system.
+
+## [`tsp-mt`](https://github.com/TurtIeSocks/tsp-mt)
+
+High-performance multi-threaded TSP solver for geographic coordinates, designed to run as a routing plugin.
+
+- Repository: [github.com/TurtIeSocks/tsp-mt](https://github.com/TurtIeSocks/tsp-mt)
+
+### Setup
+
+<Steps>
+
+#### Clone and build `tsp-mt`:
+
+```bash
+git clone https://github.com/TurtIeSocks/tsp-mt.git
+cd tsp-mt
+cargo build --release --features fetch-lkh
+```
+
+#### Copy the built binary into Kōji's routing plugins directory:
+
+```bash
+cp target/release/tsp-mt /path/to/Koji/server/algorithms/src/routing/plugins/
+```
+
+#### Configure Kōji to use the plugin:
+
+- Set `sort_by` to `tsp-mt`.
+- Add any extra CLI flags in `routing_args` as needed.
+
+#### If you did not embed LKH at build time, pass the LKH executable path:
+
+- Example: `routing_args="--lkh-exe /path/to/LKH"`
+
+#
+
+  </Steps>
+
+<Callout type="info">To use it with Dragonite you have to replace the existing `tsp` plugin. Delete the old one and rename `tsp-mt` => `tsp`.</Callout>
