@@ -1,4 +1,4 @@
-import { Steps } from 'nextra/components'
+import { Steps, Table } from 'nextra/components'
 
 # Notes
 
@@ -55,17 +55,52 @@ Since most scanners have many other properties associated with their geofences a
 - If using Dragonite, in the Dragonite Admin panel create a new `area` named `Default` and set any properties that you want, such as worker counts, to be added to all geofences and routes that are saved from Kōji.
 - If using RDM, you will need to name the files a little differently. For each available instance mode, you will need to take note of its acronym, below is the code that Kōji uses for your reference:
 
-| Mode                 | Acronym |
-| -------------------- | ------- |
-| auto_quest           | AQ      |
-| circle_pokemon       | CP      |
-| circle_smart_pokemon | CSP     |
-| circle_raid          | CR      |
-| circle_smart_raid    | CSR     |
-| pokemon_iv           | IV      |
-| leveling             | L       |
-| auto_tth             | ATTH    |
-| auto_pokemon         | AP      |
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Mode</Table.Th>
+      <Table.Th>Acronym</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>auto_quest</Table.Td>
+      <Table.Td>AQ</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>circle_pokemon</Table.Td>
+      <Table.Td>CP</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>circle_smart_pokemon</Table.Td>
+      <Table.Td>CSP</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>circle_raid</Table.Td>
+      <Table.Td>CR</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>circle_smart_raid</Table.Td>
+      <Table.Td>CSR</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>pokemon_iv</Table.Td>
+      <Table.Td>IV</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>leveling</Table.Td>
+      <Table.Td>L</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>auto_tth</Table.Td>
+      <Table.Td>ATTH</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>auto_pokemon</Table.Td>
+      <Table.Td>AP</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
 
 - From the RDM admin panel, you will need to create instances based on this template: `Default_{acronym}`. For example, if you want to set a default `auto_quest` instance, you would create an instance named `Default_AQ`.
 - Now when you save a geofence or route from Kōji, it will automatically add the properties from the `Default_{acronym}` area to the geofence or route.

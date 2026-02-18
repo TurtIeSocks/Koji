@@ -1,24 +1,76 @@
+import { Table } from 'nextra/components'
+
 # Endpoints
 
 All routes below are mounted under `/api/v1`.
 
 ## Health and Metadata
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/health` | API health check. Returns `200 OK`. |
-| `GET` | `/info/` | Lists available routing, clustering, and bootstrap algorithm options. |
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Method</Table.Th>
+      <Table.Th>Path</Table.Th>
+      <Table.Th>Description</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/health`</Table.Td>
+      <Table.Td>API health check. Returns `200 OK`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/info/`</Table.Td>
+      <Table.Td>Lists available routing, clustering, and bootstrap algorithm options.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
 
 ## Calculation (`/calc`)
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `POST` | `/calc/bootstrap` | Builds bootstrap points from `area`, `instance`, or `parent`, optionally saves to DB/scanner. |
-| `POST` | `/calc/{mode}/{category}` | Clusters and routes points for a category. Typical `mode`: `cluster` or `route`. |
-| `POST` | `/calc/reroute` | Re-routes existing clusters/data points without re-clustering. |
-| `POST` | `/calc/route-stats` | Computes distance/coverage stats for provided route clusters. |
-| `POST` | `/calc/route-stats/{category}` | Computes stats; if `data_points` omitted, loads points from area by category. |
-| `POST` | `/calc/area` | Computes geodesic area for polygon/multipolygon features. |
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Method</Table.Th>
+      <Table.Th>Path</Table.Th>
+      <Table.Th>Description</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/calc/bootstrap`</Table.Td>
+      <Table.Td>Builds bootstrap points from `area`, `instance`, or `parent`, optionally saves to DB/scanner.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/calc/{mode}/{category}`</Table.Td>
+      <Table.Td>Clusters and routes points for a category. Typical `mode`: `cluster` or `route`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/calc/reroute`</Table.Td>
+      <Table.Td>Re-routes existing clusters/data points without re-clustering.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/calc/route-stats`</Table.Td>
+      <Table.Td>Computes distance/coverage stats for provided route clusters.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/calc/route-stats/{category}`</Table.Td>
+      <Table.Td>Computes stats; if `data_points` omitted, loads points from area by category.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/calc/area`</Table.Td>
+      <Table.Td>Computes geodesic area for polygon/multipolygon features.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
 
 `category` accepted values (validated by server):
 
@@ -29,50 +81,195 @@ All routes below are mounted under `/api/v1`.
 
 ## Conversion (`/convert`)
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `POST` | `/convert/data` | Converts `area` between supported geo formats; optional simplify and internal prop cleanup. |
-| `POST` | `/convert/simplify` | Simplifies polygon and multipolygon geometry. |
-| `POST` | `/convert/merge-points` | Merges point features into a single GeoJSON MultiPoint feature. |
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Method</Table.Th>
+      <Table.Th>Path</Table.Th>
+      <Table.Th>Description</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/convert/data`</Table.Td>
+      <Table.Td>Converts `area` between supported geo formats; optional simplify and internal prop cleanup.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/convert/simplify`</Table.Td>
+      <Table.Td>Simplifies polygon and multipolygon geometry.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/convert/merge-points`</Table.Td>
+      <Table.Td>Merges point features into a single GeoJSON MultiPoint feature.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
 
 ## Geofence (`/geofence`)
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/geofence/all` | Returns all geofences as FeatureCollection envelope data. |
-| `GET` | `/geofence/area/{geofence}` | Returns one geofence, format controlled by query `rt` (default `feature`). |
-| `GET` | `/geofence/reference` | Returns geofence reference list (no fence geometry payload). |
-| `GET` | `/geofence/reference/{project}` | Returns geofence references filtered by project. |
-| `GET` | `/geofence/{return_type}` | Returns all geofences in requested return type. |
-| `GET` | `/geofence/{return_type}/{project}` | Returns project geofences in requested return type. |
-| `POST` | `/geofence/save-koji` | Upserts provided geofences into Koji DB. |
-| `POST` | `/geofence/save-scanner` | Upserts provided geofences into scanner/controller DB and triggers project API call. |
-| `GET` | `/geofence/push/{id}` | Pushes one Koji geofence to scanner/controller DB and triggers project API call. |
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Method</Table.Th>
+      <Table.Th>Path</Table.Th>
+      <Table.Th>Description</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/geofence/all`</Table.Td>
+      <Table.Td>Returns all geofences as FeatureCollection envelope data.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/geofence/area/{geofence}`</Table.Td>
+      <Table.Td>Returns one geofence, format controlled by query `rt` (default `feature`).</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/geofence/reference`</Table.Td>
+      <Table.Td>Returns geofence reference list (no fence geometry payload).</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/geofence/reference/{project}`</Table.Td>
+      <Table.Td>Returns geofence references filtered by project.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/geofence/{return_type}`</Table.Td>
+      <Table.Td>Returns all geofences in requested return type.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/geofence/{return_type}/{project}`</Table.Td>
+      <Table.Td>Returns project geofences in requested return type.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/geofence/save-koji`</Table.Td>
+      <Table.Td>Upserts provided geofences into Koji DB.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/geofence/save-scanner`</Table.Td>
+      <Table.Td>Upserts provided geofences into scanner/controller DB and triggers project API call.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/geofence/push/{id}`</Table.Td>
+      <Table.Td>Pushes one Koji geofence to scanner/controller DB and triggers project API call.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
 
 ## Route (`/route`)
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/route/all` | Returns all routes as FeatureCollection envelope data. |
-| `GET` | `/route/area/{id}` | Returns one route, format controlled by query `rt` (default `feature`). |
-| `GET` | `/route/reference` | Returns route reference list (no fence geometry payload). |
-| `GET` | `/route/reference/{geofence}` | Returns route references filtered by geofence name. |
-| `GET` | `/route/{return_type}` | Returns all routes in requested return type. |
-| `GET` | `/route/{return_type}/{geofence_name}` | Returns routes by geofence in requested return type. |
-| `POST` | `/route/save-koji` | Upserts provided routes into Koji DB. |
-| `GET` | `/route/push/{id}` | Pushes one Koji route to scanner/controller DB and triggers project API call. |
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Method</Table.Th>
+      <Table.Th>Path</Table.Th>
+      <Table.Th>Description</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/route/all`</Table.Td>
+      <Table.Td>Returns all routes as FeatureCollection envelope data.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/route/area/{id}`</Table.Td>
+      <Table.Td>Returns one route, format controlled by query `rt` (default `feature`).</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/route/reference`</Table.Td>
+      <Table.Td>Returns route reference list (no fence geometry payload).</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/route/reference/{geofence}`</Table.Td>
+      <Table.Td>Returns route references filtered by geofence name.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/route/{return_type}`</Table.Td>
+      <Table.Td>Returns all routes in requested return type.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/route/{return_type}/{geofence_name}`</Table.Td>
+      <Table.Td>Returns routes by geofence in requested return type.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/route/save-koji`</Table.Td>
+      <Table.Td>Upserts provided routes into Koji DB.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/route/push/{id}`</Table.Td>
+      <Table.Td>Pushes one Koji route to scanner/controller DB and triggers project API call.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
 
 ## Project (`/project`)
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/project/push/{id}` | Pushes every geofence in a project to scanner/controller DB and triggers project API call. |
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Method</Table.Th>
+      <Table.Th>Path</Table.Th>
+      <Table.Th>Description</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`GET`</Table.Td>
+      <Table.Td>`/project/push/{id}`</Table.Td>
+      <Table.Td>Pushes every geofence in a project to scanner/controller DB and triggers project API call.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
 
 ## S2 (`/s2`)
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `POST` | `/s2/circle-coverage` | Returns S2 cells covering a circle centered at `lat/lon`. |
-| `POST` | `/s2/cell-coverage` | Returns neighboring S2 cell ids around `lat/lon`. |
-| `POST` | `/s2/polygons` | Returns polygon geometry for provided S2 cell ids. |
-| `POST` | `/s2/{cell_level}` | Returns S2 cells within bounds, optional id filter. |
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Method</Table.Th>
+      <Table.Th>Path</Table.Th>
+      <Table.Th>Description</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/s2/circle-coverage`</Table.Td>
+      <Table.Td>Returns S2 cells covering a circle centered at `lat/lon`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/s2/cell-coverage`</Table.Td>
+      <Table.Td>Returns neighboring S2 cell ids around `lat/lon`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/s2/polygons`</Table.Td>
+      <Table.Td>Returns polygon geometry for provided S2 cell ids.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`POST`</Table.Td>
+      <Table.Td>`/s2/{cell_level}`</Table.Td>
+      <Table.Td>Returns S2 cells within bounds, optional id filter.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>

@@ -1,4 +1,4 @@
-import { Callout, Steps } from 'nextra/components'
+import { Callout, Steps, Table } from 'nextra/components'
 import Image from 'next/image'
 
 # Clustering Algorithms Overview
@@ -477,24 +477,114 @@ Shortly before starting work on this algorithm, I had completed the integration 
 
 ## Conclusion
 
-| Fence  | Algorithm       | Time (s) | Score  |
-| ------ | --------------- | -------- | ------ |
-| Small  | Fastest         | 0.02     | 4,286  |
-| Small  | Balanced (L)    | 4.11     | 3,657  |
-| Small  | Brute Force (L) | 8.23     | 3,415  |
-| Small  | Fast            | 0.41     | 3,003  |
-| Small  | Balanced        | 1.13     | 2,914  |
-| Small  | Better          | 8.18     | 2,833  |
-| Medium | Fastest         | 0.10     | 29,123 |
-| Medium | Balanced (L)    | 206.22   | 25,058 |
-| Medium | Brute Force (L) | 489.92   | 23,527 |
-| Medium | Fast            | 2.42     | 20,320 |
-| Medium | Balanced        | 8.20     | 19,604 |
-| Medium | Better          | 41.46    | 19,121 |
-| Large  | Fastest         | 0.20     | 67,043 |
-| Large  | Fast            | 6.48     | 46,953 |
-| Large  | Balanced        | 21.16    | 45,084 |
-| Large  | Better          | 125.90   | 43,885 |
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Fence</Table.Th>
+      <Table.Th>Algorithm</Table.Th>
+      <Table.Th>Time (s)</Table.Th>
+      <Table.Th>Score</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>Small</Table.Td>
+      <Table.Td>Fastest</Table.Td>
+      <Table.Td>0.02</Table.Td>
+      <Table.Td>4,286</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Small</Table.Td>
+      <Table.Td>Balanced (L)</Table.Td>
+      <Table.Td>4.11</Table.Td>
+      <Table.Td>3,657</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Small</Table.Td>
+      <Table.Td>Brute Force (L)</Table.Td>
+      <Table.Td>8.23</Table.Td>
+      <Table.Td>3,415</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Small</Table.Td>
+      <Table.Td>Fast</Table.Td>
+      <Table.Td>0.41</Table.Td>
+      <Table.Td>3,003</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Small</Table.Td>
+      <Table.Td>Balanced</Table.Td>
+      <Table.Td>1.13</Table.Td>
+      <Table.Td>2,914</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Small</Table.Td>
+      <Table.Td>Better</Table.Td>
+      <Table.Td>8.18</Table.Td>
+      <Table.Td>2,833</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Medium</Table.Td>
+      <Table.Td>Fastest</Table.Td>
+      <Table.Td>0.10</Table.Td>
+      <Table.Td>29,123</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Medium</Table.Td>
+      <Table.Td>Balanced (L)</Table.Td>
+      <Table.Td>206.22</Table.Td>
+      <Table.Td>25,058</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Medium</Table.Td>
+      <Table.Td>Brute Force (L)</Table.Td>
+      <Table.Td>489.92</Table.Td>
+      <Table.Td>23,527</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Medium</Table.Td>
+      <Table.Td>Fast</Table.Td>
+      <Table.Td>2.42</Table.Td>
+      <Table.Td>20,320</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Medium</Table.Td>
+      <Table.Td>Balanced</Table.Td>
+      <Table.Td>8.20</Table.Td>
+      <Table.Td>19,604</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Medium</Table.Td>
+      <Table.Td>Better</Table.Td>
+      <Table.Td>41.46</Table.Td>
+      <Table.Td>19,121</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Large</Table.Td>
+      <Table.Td>Fastest</Table.Td>
+      <Table.Td>0.20</Table.Td>
+      <Table.Td>67,043</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Large</Table.Td>
+      <Table.Td>Fast</Table.Td>
+      <Table.Td>6.48</Table.Td>
+      <Table.Td>46,953</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Large</Table.Td>
+      <Table.Td>Balanced</Table.Td>
+      <Table.Td>21.16</Table.Td>
+      <Table.Td>45,084</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Large</Table.Td>
+      <Table.Td>Better</Table.Td>
+      <Table.Td>125.90</Table.Td>
+      <Table.Td>43,885</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
 
 While the different variations of the Greedy algorithm don't scale as well as the UDC algorithm, the results are definitely worth it, especially compared to both of the legacy algorithms, which start to become unweildly on anything but smaller sizes fences.
 

@@ -1,4 +1,4 @@
-import { Callout } from 'nextra/components'
+import { Callout, Table } from 'nextra/components'
 
 # Map
 
@@ -47,63 +47,197 @@ Below are three community–tuned example configurations you can apply under **C
 
 ### 1. Area Bootstrap — Ideal for initial spawnpoint discovery
 
-| Field     | Value         |
-|-----------|---------------|
-| Mode      | `Bootstrap`   |
-| Strategy  | `Radius`      |
-| Radius    | `70`          |
-| Sort by   | `None`        |
-| **Note**  | No optimization—sequential route, longer scan time. |
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Value</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>Mode</Table.Td>
+      <Table.Td>`Bootstrap`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Strategy</Table.Td>
+      <Table.Td>`Radius`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Radius</Table.Td>
+      <Table.Td>`70`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Sort by</Table.Td>
+      <Table.Td>`None`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>**Note**</Table.Td>
+      <Table.Td>No optimization—sequential route, longer scan time.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
 
 ---
 
 ### 2. Spawnpoint Clustering — Generates TSP-optimized spawnpoint routes
 
-| Field               | Value        |
-|---------------------|--------------|
-| Mode                | `Cluster`    |
-| Category            | `Spawnpoint` |
-| Tth                 | `All`        |
-| Strategy            | `Radius`     |
-| Radius              | `70`         |
-| Min points          | `3`          |
-| Cluster mode        | `Balanced`   |
-| Cluster split level | `1`          |
-| Center clusters     | Off          |
-| Sort by             | `TSP`        |
-| Route split level   | `1`          |
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Value</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>Mode</Table.Td>
+      <Table.Td>`Cluster`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Category</Table.Td>
+      <Table.Td>`Spawnpoint`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Tth</Table.Td>
+      <Table.Td>`All`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Strategy</Table.Td>
+      <Table.Td>`Radius`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Radius</Table.Td>
+      <Table.Td>`70`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Min points</Table.Td>
+      <Table.Td>`3`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Cluster mode</Table.Td>
+      <Table.Td>`Balanced`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Cluster split level</Table.Td>
+      <Table.Td>`1`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Center clusters</Table.Td>
+      <Table.Td>Off</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Sort by</Table.Td>
+      <Table.Td>`TSP`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Route split level</Table.Td>
+      <Table.Td>`1`</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
 
 ---
 
 ### 3. Pokéstop Quest Scan — Efficient fort/quest scanning
 
-| Field               | Value        |
-|---------------------|--------------|
-| Mode                | `Better`    |
-| Category            | `Pokestop`   |
-| Strategy            | `Radius`     |
-| Radius              | `80`         |
-| Min points          | `1`          |
-| Cluster mode        | `Balanced`   |
-| Cluster split level | `1`          |
-| Center clusters     | Off          |
-| Sort by             | `TSP`        |
-| Route split level   | `1`          |
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Value</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>Mode</Table.Td>
+      <Table.Td>`Better`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Category</Table.Td>
+      <Table.Td>`Pokestop`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Strategy</Table.Td>
+      <Table.Td>`Radius`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Radius</Table.Td>
+      <Table.Td>`80`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Min points</Table.Td>
+      <Table.Td>`1`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Cluster mode</Table.Td>
+      <Table.Td>`Balanced`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Cluster split level</Table.Td>
+      <Table.Td>`1`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Center clusters</Table.Td>
+      <Table.Td>Off</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Sort by</Table.Td>
+      <Table.Td>`TSP`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Route split level</Table.Td>
+      <Table.Td>`1`</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
 
 ---
 
 ### 4. Fort Scanning — S2 cell–based fort (Pokéstop & Gym) scanning
 
-| Field             | Value      |
-|-------------------|------------|
-| Mode              | `Cluster`  |
-| Category          | `Fort`     |
-| Strategy          | `S2`       |
-| S2 level          | `15`       |
-| S2 size           | `9x9`      |
-| Min points        | `1`        |
-| Sort by           | `TSP`      |
-| Route split level | `1`        |
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Field</Table.Th>
+      <Table.Th>Value</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>Mode</Table.Td>
+      <Table.Td>`Cluster`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Category</Table.Td>
+      <Table.Td>`Fort`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Strategy</Table.Td>
+      <Table.Td>`S2`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>S2 level</Table.Td>
+      <Table.Td>`15`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>S2 size</Table.Td>
+      <Table.Td>`9x9`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Min points</Table.Td>
+      <Table.Td>`1`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Sort by</Table.Td>
+      <Table.Td>`TSP`</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>Route split level</Table.Td>
+      <Table.Td>`1`</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
 
 > **Tip:** These examples balance coverage and optimization—adjust the radius, min-points, or routing to dial in performance for your network and area size.
 
