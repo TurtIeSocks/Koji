@@ -86,6 +86,7 @@ export default function Settings() {
       <ListSubheader disableGutters>Max Area to Auto Calc (km²)</ListSubheader>
       <UserTextInput field="pokestopMaxAreaAutoCalc" label="Pokestops" />
       <UserTextInput field="gymMaxAreaAutoCalc" label="Gyms" />
+      <UserTextInput field="stationMaxAreaAutoCalc" label="Stations" />
       <UserTextInput field="spawnpointMaxAreaAutoCalc" label="Spawnpoints" />
       {process.env.NODE_ENV === 'development' && (
         <>
