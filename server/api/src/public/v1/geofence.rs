@@ -83,6 +83,26 @@ async fn save_koji(
     }))
 }
 
+#[delete("/{id}")]
+async fn remove(
+    conn: web::Data<KojiDb>,
+    id: actix_web::web::Path<u32>,
+) -> Result<HttpResponse, Error> {
+    let id = id.into_inner();
+
+    let result = geofence::Query::delete(&conn.koji, id)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    Ok(HttpResponse::Ok().json(Response {
+        data: Some(json!(result.rows_affected)),
+        message: "Success".to_string(),
+        status: "ok".to_string(),
+        stats: None,
+        status_code: 200,
+    }))
+}
+
 #[post("/save-scanner")]
 async fn save_scanner(
     conn: web::Data<KojiDb>,

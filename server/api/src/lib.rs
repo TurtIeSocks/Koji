@@ -142,6 +142,7 @@ pub async fn start() -> io::Result<()> {
                                 .service(public::v1::geofence::reference_data_project)
                                 .service(public::v1::geofence::save_koji)
                                 .service(public::v1::geofence::save_scanner)
+                                .service(public::v1::geofence::remove)
                                 .service(public::v1::geofence::push_to_prod)
                                 .service(public::v1::geofence::get_area)
                                 .service(public::v1::geofence::specific_return_type)
