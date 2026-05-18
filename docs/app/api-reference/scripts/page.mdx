@@ -67,6 +67,14 @@ curl -sS -X POST \
   }'
 ```
 
+## cURL: Delete a Geofence
+
+```bash
+curl -sS -X DELETE \
+  -H "Authorization: Bearer KOJI_SECRET" \
+  "http://127.0.0.1:8080/api/v1/geofence/42"
+```
+
 ## JavaScript: Sync All Project Geofences to Scanner
 
 ```js
