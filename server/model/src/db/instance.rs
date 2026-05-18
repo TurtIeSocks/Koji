@@ -197,8 +197,7 @@ impl Query {
                     | Type::CircleRaid
                     | Type::CircleSmartRaid
                     | Type::CircleQuest
-                    | Type::CircleStation
-                    | Type::CircleSmartStation => {
+                    | Type::CircleStation => {
                         RdmInstanceArea::Single(feat.clone().to_single_vec().to_single_struct())
                     }
                     Type::Leveling => {

@@ -16,8 +16,7 @@ impl ValueHelpers for MultiVec {
             | Type::CircleRaid
             | Type::CircleSmartRaid
             | Type::CircleQuest
-            | Type::CircleStation
-            | Type::CircleSmartStation => self.multi_point(),
+            | Type::CircleStation => self.multi_point(),
             Type::Leveling => self.point(),
         }
     }
