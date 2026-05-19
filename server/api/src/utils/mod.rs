@@ -106,6 +106,7 @@ pub async fn points_from_area(
             "station" => station::Query::area(&conn.scanner, &area, last_seen).await,
             "spawnpoint" => spawnpoint::Query::area(&conn.scanner, &area, last_seen, tth).await,
             "fort" => {
+                // "fort" aggregates gym + pokestop + station results
                 let gyms = gym::Query::area(&conn.scanner, &area, last_seen).await?;
                 let pokestops = pokestop::Query::area(&conn.scanner, &area, last_seen).await?;
                 let stations = station::Query::area(&conn.scanner, &area, last_seen).await?;

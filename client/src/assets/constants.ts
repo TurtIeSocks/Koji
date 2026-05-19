@@ -49,7 +49,7 @@ export const ICON_SVG = {
         <circle cx="12" cy="12" r="1" fill="black" />
       </svg>`,
   s: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="10" fill="purple" fill-opacity="0.8" stroke="black" stroke-width="1" />
+        <rect x="2" y="2" width="20" height="20" fill="purple" fill-opacity="0.8" stroke="black" stroke-width="1" />
         <circle cx="12" cy="12" r="1" fill="black" />
       </svg>`,
 } as const

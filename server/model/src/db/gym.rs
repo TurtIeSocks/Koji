@@ -108,7 +108,7 @@ impl Query {
         let items = Entity::find()
             .from_raw_sql(Statement::from_sql_and_values(
                 DbBackend::MySql,
-                format!("SELECT lat, lon FROM gym WHERE enabled = 1 AND deleted = 0 AND updated >= {} AND ({})", last_seen, sql_raw_bbox(area)).as_str(),
+                format!("SELECT lat, lon FROM gym WHERE enabled = 1 AND deleted = 0 AND updated > {} AND ({})", last_seen, sql_raw_bbox(area)).as_str(),
                 vec![],
             ))
             .into_model::<api::point_struct::PointStruct>()
@@ -125,7 +125,7 @@ impl Query {
         let items = Entity::find()
             .from_raw_sql(Statement::from_sql_and_values(
                 DbBackend::MySql,
-                format!("SELECT lat, lon FROM gym WHERE enabled = 1 AND deleted = 0 AND updated >= {} AND ({})", last_seen, sql_raw_bbox(area)).as_str(),
+                format!("SELECT lat, lon FROM gym WHERE enabled = 1 AND deleted = 0 AND updated > {} AND ({})", last_seen, sql_raw_bbox(area)).as_str(),
                 vec![],
             ))
             .into_model::<api::point_struct::PointStruct>()

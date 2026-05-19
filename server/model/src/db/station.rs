@@ -42,14 +42,18 @@ pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}
 
+fn now_secs() -> u32 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as u32
+}
+
 pub struct Query;
 
 impl Query {
     pub async fn all(conn: &DatabaseConnection, last_seen: u32) -> Result<Vec<GenericData>, DbErr> {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as u32;
+        let now = now_secs();
         let items = Entity::find()
             .select_only()
             .column(Column::Lat)
@@ -68,23 +72,14 @@ impl Query {
         conn: &DatabaseConnection,
         payload: &api::args::BoundsArg,
     ) -> Result<Vec<GenericData>, DbErr> {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as u32;
+        let now = now_secs();
         let items = Entity::find()
             .select_only()
             .column(Column::Lat)
             .column(Column::Lon)
             .filter(Column::Lat.between(payload.min_lat, payload.max_lat))
             .filter(Column::Lon.between(payload.min_lon, payload.max_lon))
-            .filter(
-                Column::Updated.gt(if let Some(last_seen) = payload.last_seen {
-                    last_seen
-                } else {
-                    0
-                }),
-            )
+            .filter(Column::Updated.gt(payload.last_seen.unwrap_or(0)))
             .filter(Column::IsInactive.eq(false))
             .filter(Column::EndTime.gt(now))
             .limit(2_000_000)
@@ -99,20 +94,17 @@ impl Query {
         area: &FeatureCollection,
         last_seen: u32,
     ) -> Result<Vec<GenericData>, DbErr> {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as u32;
+        let now = now_secs();
         let items = Entity::find()
             .from_raw_sql(Statement::from_sql_and_values(
                 DbBackend::MySql,
-                format!("SELECT lat, lon FROM station WHERE is_inactive = 0 AND updated >= {} AND end_time > {} AND ({}) LIMIT 2000000", last_seen, now, utils::sql_raw(area)).as_str(),
+                format!("SELECT lat, lon FROM station WHERE is_inactive = 0 AND updated > {} AND end_time > {} AND ({})", last_seen, now, utils::sql_raw_bbox(area)).as_str(),
                 vec![],
             ))
             .into_model::<api::point_struct::PointStruct>()
             .all(conn)
             .await?;
-        Ok(utils::normalize::fort(items, "s"))
+        Ok(utils::normalize::fort_filtered(items, area, "s"))
     }
 
     pub async fn stats(
@@ -120,24 +112,17 @@ impl Query {
         area: &FeatureCollection,
         last_seen: u32,
     ) -> Result<Total, DbErr> {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as u32;
+        let now = now_secs();
         let items = Entity::find()
-            .column_as(Column::Id.count(), "count")
             .from_raw_sql(Statement::from_sql_and_values(
                 DbBackend::MySql,
-                format!("SELECT COUNT(*) AS total FROM station WHERE is_inactive = 0 AND updated >= {} AND end_time > {} AND ({})", last_seen, now, utils::sql_raw(area)).as_str(),
+                format!("SELECT lat, lon FROM station WHERE is_inactive = 0 AND updated > {} AND end_time > {} AND ({})", last_seen, now, utils::sql_raw_bbox(area)).as_str(),
                 vec![],
             ))
-            .into_model::<Total>()
-            .one(conn)
+            .into_model::<api::point_struct::PointStruct>()
+            .all(conn)
             .await?;
-        Ok(if let Some(item) = items {
-            item
-        } else {
-            Total { total: 0 }
-        })
+        let total = utils::normalize::count_in_area(&items, area);
+        Ok(Total { total })
     }
 }
