@@ -19,6 +19,8 @@ pub enum Type {
     // This is added manually, re-add it if you run the CLI command
     #[sea_orm(string_value = "circle_quest")]
     CircleQuest,
+    #[sea_orm(string_value = "circle_station")]
+    CircleStation,
     #[sea_orm(string_value = "pokemon_iv")]
     PokemonIv,
     #[sea_orm(string_value = "leveling")]
@@ -44,6 +46,7 @@ impl Serialize for Type {
             Type::CirclePokemon => serializer.serialize_str("circle_pokemon"),
             Type::CircleQuest => serializer.serialize_str("circle_quest"),
             Type::CircleRaid => serializer.serialize_str("circle_raid"),
+            Type::CircleStation => serializer.serialize_str("circle_station"),
             Type::CircleSmartPokemon => serializer.serialize_str("circle_smart_pokemon"),
             Type::CircleSmartRaid => serializer.serialize_str("circle_smart_raid"),
             Type::Leveling => serializer.serialize_str("leveling"),
@@ -132,6 +135,8 @@ pub enum RouteMode {
     CircleSmartRaid,
     #[sea_orm(string_value = "circle_quest")]
     CircleQuest,
+    #[sea_orm(string_value = "circle_station")]
+    CircleStation,
     #[sea_orm(string_value = "unset")]
     Unset,
 }
@@ -145,6 +150,7 @@ impl Serialize for RouteMode {
             RouteMode::CirclePokemon => serializer.serialize_str("circle_pokemon"),
             RouteMode::CircleQuest => serializer.serialize_str("circle_quest"),
             RouteMode::CircleRaid => serializer.serialize_str("circle_raid"),
+            RouteMode::CircleStation => serializer.serialize_str("circle_station"),
             RouteMode::CircleSmartPokemon => serializer.serialize_str("circle_smart_pokemon"),
             RouteMode::CircleSmartRaid => serializer.serialize_str("circle_smart_raid"),
             RouteMode::Unset => serializer.serialize_str("unset"),

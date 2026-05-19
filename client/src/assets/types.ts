@@ -198,11 +198,12 @@ export interface Data {
   gyms: PixiMarker[]
   pokestops: PixiMarker[]
   spawnpoints: PixiMarker[]
+  stations: PixiMarker[]
 }
 
 export interface PixiMarker {
-  i: `${'p' | 'g' | 'v' | 'u' | 'r'}${number}` & {
-    [0]: 'p' | 'g' | 'v' | 'u' | 'r'
+  i: `${'p' | 'g' | 'v' | 'u' | 'r' | 's'}${number}` & {
+    [0]: 'p' | 'g' | 'v' | 'u' | 'r' | 's'
   }
   p: [number, number]
 }
@@ -221,7 +222,7 @@ export interface Config {
 
 export type CombinedState = Partial<UsePersist> & Partial<UseStatic>
 
-export type Category = 'pokestop' | 'gym' | 'spawnpoint'
+export type Category = 'pokestop' | 'gym' | 'spawnpoint' | 'station'
 
 export interface S2Response {
   id: string

@@ -4,7 +4,7 @@ use super::*;
 
 use model::{
     api::args::{Args, ArgsUnwrapped, BoundsArg},
-    db::{gym, pokestop, spawnpoint},
+    db::{gym, pokestop, spawnpoint, station},
     KojiDb,
 };
 
@@ -26,6 +26,7 @@ async fn all(
     let all_data = match category.as_str() {
         "gym" => gym::Query::all(&conn.scanner, last_seen).await,
         "pokestop" => pokestop::Query::all(&conn.scanner, last_seen).await,
+        "station" => station::Query::all(&conn.scanner, last_seen).await,
         "spawnpoint" => spawnpoint::Query::all(&conn.scanner, last_seen, tth).await,
         _ => Err(DbErr::Custom("invalid_category".to_string())),
     }
@@ -53,6 +54,7 @@ async fn bound(
     let bound_data = match category.as_str() {
         "gym" => gym::Query::bound(&conn.scanner, &payload).await,
         "pokestop" => pokestop::Query::bound(&conn.scanner, &payload).await,
+        "station" => station::Query::bound(&conn.scanner, &payload).await,
         "spawnpoint" => spawnpoint::Query::bound(&conn.scanner, &payload).await,
         _ => Err(DbErr::Custom("invalid_category".to_string())),
     }
@@ -136,6 +138,7 @@ async fn area_stats(
     let area_data = match category.as_str() {
         "gym" => gym::Query::stats(&conn.scanner, &area, last_seen).await,
         "pokestop" => pokestop::Query::stats(&conn.scanner, &area, last_seen).await,
+        "station" => station::Query::stats(&conn.scanner, &area, last_seen).await,
         "spawnpoint" => spawnpoint::Query::stats(&conn.scanner, &area, last_seen, tth).await,
         _ => Err(DbErr::Custom("Invalid Category".to_string())),
     }

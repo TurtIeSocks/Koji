@@ -204,6 +204,8 @@ async fn cluster(
         } else {
             Type::CircleSmartRaid
         }
+    } else if category == "station" {
+        Type::CircleStation
     } else if category == "pokestop" {
         Type::CircleQuest
     } else {

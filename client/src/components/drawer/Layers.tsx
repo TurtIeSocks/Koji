@@ -43,6 +43,7 @@ export default function Layers() {
       </Collapse>
       <Toggle field="pokestop" />
       <Toggle field="pokestopRange" />
+      <Toggle field="station" />
       <MultiOptionList
         field="data"
         buttons={['all', 'area', 'bound']}

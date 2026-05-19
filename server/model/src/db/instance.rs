@@ -205,6 +205,9 @@ impl Query {
                     Type::AutoQuest | Type::PokemonIv | Type::AutoPokemon | Type::AutoTth => {
                         RdmInstanceArea::Multi(feat.clone().to_multi_vec().to_multi_struct())
                     }
+                    Type::CircleStation => {
+                        return Err(DbErr::Custom("Stations are not supported on RDM".to_string()))
+                    }
                     Type::Unset => return Err(DbErr::Custom("Instance type not set".to_string())),
                 };
                 let new_area = json!(area);

@@ -273,6 +273,8 @@ export function getRouteType(category: Category): KojiRouteModes {
       return scannerType === 'unown' ? 'circle_raid' : 'circle_smart_raid'
     case 'pokestop':
       return 'circle_quest'
+    case 'station':
+      return 'circle_station'
     default:
       return scannerType === 'unown' ? 'circle_pokemon' : 'circle_smart_pokemon'
   }
@@ -285,6 +287,8 @@ export function getCategory(mode: KojiModes): Category {
     case 'circle_raid':
     case 'circle_smart_raid':
       return 'gym'
+    case 'circle_station':
+      return 'station'
     default:
       return 'spawnpoint'
   }

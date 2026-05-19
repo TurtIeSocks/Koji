@@ -15,7 +15,8 @@ impl ValueHelpers for MultiVec {
             | Type::CircleSmartPokemon
             | Type::CircleRaid
             | Type::CircleSmartRaid
-            | Type::CircleQuest => self.multi_point(),
+            | Type::CircleQuest
+            | Type::CircleStation => self.multi_point(),
             Type::Leveling => self.point(),
         }
     }

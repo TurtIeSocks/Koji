@@ -22,6 +22,7 @@ pub mod property;
 pub mod route;
 pub mod sea_orm_active_enums;
 pub mod spawnpoint;
+pub mod station;
 pub mod tile_server;
 
 trait ToFeatureFromModel {
