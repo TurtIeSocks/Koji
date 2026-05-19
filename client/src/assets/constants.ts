@@ -102,7 +102,6 @@ export const RDM_ROUTES = [
   'circle_smart_pokemon',
   'circle_raid',
   'circle_smart_raid',
-  'circle_station',
 ] as const
 
 export const UNOWN_FENCES = ['auto_quest'] as const
