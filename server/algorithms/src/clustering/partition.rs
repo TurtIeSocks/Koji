@@ -220,7 +220,7 @@ pub(crate) fn adaptive_partition(
 
     loop {
         let mut next_frontier: HashMap<u64, SingleVec> = HashMap::new();
-        for (cell_id_raw, cell_points) in frontier.into_iter() {
+        for (cell_id_raw, cell_points) in frontier {
             let cell = CellID(cell_id_raw);
             let est = estimate_cost(&cell_points, mode, budget);
             let at_max_level = cell.level() >= max_level;
@@ -250,7 +250,7 @@ pub(crate) fn adaptive_partition(
 }
 
 pub(crate) fn select_effective_mode(
-    requested: ClusterMode,
+    mut requested: ClusterMode,
     points: &[PointArray],
     budget: usize,
 ) -> ClusterMode {
@@ -259,23 +259,22 @@ pub(crate) fn select_effective_mode(
         "select_effective_mode is only meaningful for Better/Best; got {:?}",
         requested,
     );
-    let mut current = requested;
     loop {
-        let est = estimate_cost(points, &current, budget);
-        if matches!(current, ClusterMode::Fast) || est <= budget {
-            return current;
+        let est = estimate_cost(points, &requested, budget);
+        if matches!(requested, ClusterMode::Fast) || est <= budget {
+            return requested;
         }
-        let next = match current {
+        let next = match requested {
             ClusterMode::Best => ClusterMode::Better,
             ClusterMode::Better => ClusterMode::Balanced,
             ClusterMode::Balanced => ClusterMode::Fast,
-            _ => return current,
+            _ => return requested,
         };
         log::warn!(
             "chunk over budget for {:?} (est={}, budget={}), downgrading to {:?}",
-            current, est, budget, next,
+            requested, est, budget, next,
         );
-        current = next;
+        requested = next;
     }
 }
 
@@ -283,9 +282,7 @@ pub(crate) fn select_effective_mode(
 mod tests {
     use super::*;
     use model::api::Precision;
-    use rand::SeedableRng;
-    use rand::rngs::SmallRng;
-    use rand::Rng;
+    use rand::{Rng, SeedableRng, rngs::SmallRng};
 
     pub(super) fn random_points_in_bbox(n: usize, bbox: [Precision; 4], seed: u64) -> SingleVec {
         let [min_lat, min_lon, max_lat, max_lon] = bbox;
