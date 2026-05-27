@@ -1,17 +1,25 @@
 use std::collections::HashMap;
 use std::collections::HashSet as StdHashSet;
-use std::sync::OnceLock;
 
+use ::s2::cell::Cell;
+use ::s2::cellid::CellID;
+use ::s2::latlng::LatLng;
+use model::api::Precision;
 use model::api::cluster_mode::ClusterMode;
 use model::api::point_array::PointArray;
 use model::api::single_vec::SingleVec;
-use ::s2::cellid::CellID;
-use ::s2::latlng::LatLng;
+use rstar::{AABB, RTree};
 use sysinfo::System;
 
+use crate::clustering::candidates;
+use crate::clustering::rtree::point::Point;
+use crate::s2::create_cell_map;
+
 /// Bytes assumed per candidate when converting memory budget → candidate count.
-/// PointArray (16 bytes) + Cluster<Point> overhead (avg Vec<&Point> tail).
-pub(crate) const BYTES_PER_CANDIDATE: usize = 256;
+/// PointArray (16 bytes) + Cluster<Point> overhead. Empirical: ~864 bytes for a
+/// cluster with 100-point Vec<&Point> tail; rounded up to 1024 for safety so
+/// auto-budget under-allocates rather than over-allocates on dense workloads.
+pub(crate) const BYTES_PER_CANDIDATE: usize = 1024;
 
 pub(crate) const DEFAULT_START_LEVEL: u64 = 6;
 pub(crate) const DEFAULT_MAX_LEVEL: u64 = 18;
@@ -32,41 +40,49 @@ pub(crate) struct PartitionConfig {
 #[derive(Debug, Default)]
 pub(crate) struct PartitionStats {
     pub total_chunks: usize,
-    /// Counts downgrades by (from, to) pair. Keys are Debug-formatted ClusterMode strings
-    /// because `ClusterMode` does not implement `Hash` (it contains `Custom(String)`
-    /// and would require widening the `model` crate's derives).
-    pub downgrades: HashMap<(String, String), usize>,
+    /// Counts downgrades by (from_tag, to_tag) pair, keyed by stable ClusterMode tags.
+    pub downgrades: HashMap<(&'static str, &'static str), usize>,
 }
-
-static CONFIG: OnceLock<PartitionConfig> = OnceLock::new();
 
 impl PartitionConfig {
     pub(crate) fn load() -> PartitionConfig {
-        *CONFIG.get_or_init(|| {
-            let sys = System::new_all();
-            let threads = rayon::current_num_threads().max(1) as u64;
-            let mem_per_thread = sys.available_memory() / threads;
-            let auto_budget = (mem_per_thread / BYTES_PER_CANDIDATE as u64) as usize;
+        let sys = System::new_all();
+        let threads = rayon::current_num_threads().max(1) as u64;
+        let mem_per_thread = sys.available_memory() / threads;
+        let auto_budget = (mem_per_thread / BYTES_PER_CANDIDATE as u64) as usize;
 
-            let budget = std::env::var("KOJI_MAX_CANDIDATES_PER_CHUNK")
-                .ok()
-                .and_then(|s| s.parse::<usize>().ok())
-                .unwrap_or(auto_budget);
-            let start_level = std::env::var("KOJI_PARTITION_START_LEVEL")
-                .ok()
-                .and_then(|s| s.parse::<u64>().ok())
-                .unwrap_or(DEFAULT_START_LEVEL);
-            let max_level = std::env::var("KOJI_PARTITION_MAX_LEVEL")
-                .ok()
-                .and_then(|s| s.parse::<u64>().ok())
-                .unwrap_or(DEFAULT_MAX_LEVEL);
+        let budget = std::env::var("KOJI_MAX_CANDIDATES_PER_CHUNK")
+            .ok()
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or(auto_budget);
+        let start_level = std::env::var("KOJI_PARTITION_START_LEVEL")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(DEFAULT_START_LEVEL);
+        let max_level = std::env::var("KOJI_PARTITION_MAX_LEVEL")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(DEFAULT_MAX_LEVEL);
 
-            log::info!(
-                "PartitionConfig: budget={}, start_level={}, max_level={}",
-                budget, start_level, max_level
-            );
-            PartitionConfig { budget, start_level, max_level }
-        })
+        log::info!(
+            "PartitionConfig: budget={}, start_level={}, max_level={}",
+            budget, start_level, max_level
+        );
+        PartitionConfig { budget, start_level, max_level }
+    }
+}
+
+/// Stable string tag for a ClusterMode variant — used as HashMap key so callers don't
+/// depend on `Debug` formatting, which can change. Custom plugins collapse to "Custom".
+pub(crate) fn mode_tag(mode: &ClusterMode) -> &'static str {
+    match mode {
+        ClusterMode::Honeycomb => "Honeycomb",
+        ClusterMode::Fastest => "Fastest",
+        ClusterMode::Fast => "Fast",
+        ClusterMode::Balanced => "Balanced",
+        ClusterMode::Better => "Better",
+        ClusterMode::Best => "Best",
+        ClusterMode::Custom(_) => "Custom",
     }
 }
 
@@ -91,7 +107,7 @@ pub(crate) fn scaled_grid_density(s2_cost: usize, budget: usize) -> usize {
 
 pub(crate) fn estimate_cost(
     points: &[PointArray],
-    mode: ClusterMode,
+    mode: &ClusterMode,
     budget: usize,
 ) -> usize {
     let s2_cost = distinct_l16_cells(points).saturating_mul(4096); // 4^(22-16)
@@ -102,9 +118,6 @@ pub(crate) fn estimate_cost(
     };
     s2_cost.saturating_add(grid_cost)
 }
-
-use ::s2::cell::Cell;
-use model::api::Precision;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct LatLonBBox {
@@ -153,12 +166,6 @@ pub(crate) fn contains_latlng(cell: CellID, p: PointArray) -> bool {
     derived == cell
 }
 
-use crate::s2::create_cell_map;
-
-use crate::clustering::rtree::point::Point;
-use crate::clustering::candidates;
-use rstar::{RTree, AABB};
-
 pub(crate) fn gather_halo(
     cell: CellID,
     all_points_tree: &RTree<Point>,
@@ -183,7 +190,7 @@ pub(crate) fn gather_halo(
 pub(crate) fn adaptive_partition(
     points: &SingleVec,
     budget: usize,
-    mode: ClusterMode,
+    mode: &ClusterMode,
     start_level: u64,
     max_level: u64,
 ) -> Vec<Chunk> {
@@ -197,13 +204,19 @@ pub(crate) fn adaptive_partition(
         let mut next_frontier: HashMap<u64, SingleVec> = HashMap::new();
         for (cell_id_raw, cell_points) in frontier.into_iter() {
             let cell = CellID(cell_id_raw);
-            let est = estimate_cost(&cell_points, mode.clone(), budget);
+            let est = estimate_cost(&cell_points, mode, budget);
             if est <= budget || cell.level() >= max_level {
+                if est > budget && cell.level() >= max_level {
+                    log::warn!(
+                        "partition: accepting chunk at max_level={} with est={} > budget={} (irreducible)",
+                        cell.level(), est, budget,
+                    );
+                }
                 accepted.push(Chunk { cell, owned: cell_points });
             } else {
                 let children = create_cell_map(&cell_points, cell.level() + 1);
                 for (k, v) in children {
-                    next_frontier.entry(k).or_insert_with(Vec::new).extend(v);
+                    next_frontier.entry(k).or_default().extend(v);
                 }
             }
         }
@@ -222,9 +235,8 @@ pub(crate) fn select_effective_mode(
 ) -> ClusterMode {
     let mut current = requested;
     loop {
-        if matches!(current, ClusterMode::Fast)
-            || estimate_cost(points, current.clone(), budget) <= budget
-        {
+        let est = estimate_cost(points, &current, budget);
+        if matches!(current, ClusterMode::Fast) || est <= budget {
             return current;
         }
         let next = match current {
@@ -235,10 +247,7 @@ pub(crate) fn select_effective_mode(
         };
         log::warn!(
             "chunk over budget for {:?} (est={}, budget={}), downgrading to {:?}",
-            current,
-            estimate_cost(points, current.clone(), budget),
-            budget,
-            next,
+            current, est, budget, next,
         );
         current = next;
     }
@@ -343,16 +352,16 @@ mod tests {
     #[test]
     fn estimate_cost_better_excludes_grid() {
         let points = dense_cluster([0., 0.], 100, 50.0, 2);
-        let est_better = estimate_cost(&points, ClusterMode::Better, 10_000_000);
-        let est_best = estimate_cost(&points, ClusterMode::Best, 10_000_000);
+        let est_better = estimate_cost(&points, &ClusterMode::Better, 10_000_000);
+        let est_best = estimate_cost(&points, &ClusterMode::Best, 10_000_000);
         assert!(est_best >= est_better, "Best must be >= Better");
     }
 
     #[test]
     fn estimate_cost_best_scales_with_budget() {
         let points = vec![[0.0, 0.0]];
-        let est_small = estimate_cost(&points, ClusterMode::Best, 100);
-        let est_large = estimate_cost(&points, ClusterMode::Best, 100_000_000);
+        let est_small = estimate_cost(&points, &ClusterMode::Best, 100);
+        let est_large = estimate_cost(&points, &ClusterMode::Best, 100_000_000);
         assert!(est_small < est_large, "larger budget should allow larger grid");
     }
 
@@ -384,7 +393,7 @@ mod tests {
     fn partition_small_bbox_single_chunk() {
         // 1000 points in roughly 1km² → should fit in one chunk at start_level=6.
         let pts = random_points_in_bbox(1000, [37.78, -122.43, 37.79, -122.42], 42);
-        let chunks = adaptive_partition(&pts, usize::MAX, ClusterMode::Better, 6, 18);
+        let chunks = adaptive_partition(&pts, usize::MAX, &ClusterMode::Better, 6, 18);
         assert_eq!(chunks.len(), 1, "small bbox should be one chunk, got {}", chunks.len());
     }
 
@@ -392,7 +401,7 @@ mod tests {
     fn partition_subdivides_when_over_budget() {
         // Force subdivision with a tiny budget.
         let pts = sparse_grid(20, 20, [-30., -60., 30., 60.]);
-        let chunks = adaptive_partition(&pts, 1, ClusterMode::Better, 6, 18);
+        let chunks = adaptive_partition(&pts, 1, &ClusterMode::Better, 6, 18);
         assert!(chunks.len() > 1, "tiny budget should produce many chunks");
     }
 
@@ -400,7 +409,7 @@ mod tests {
     fn partition_halts_at_max_level() {
         // Dense cluster + extremely tight budget → at least one chunk at max_level=18.
         let pts = dense_cluster([0., 0.], 5_000, 50.0, 11);
-        let chunks = adaptive_partition(&pts, 1, ClusterMode::Best, 6, 18);
+        let chunks = adaptive_partition(&pts, 1, &ClusterMode::Best, 6, 18);
         assert!(
             chunks.iter().any(|c| c.cell.level() == 18),
             "expected at least one chunk to reach max_level"
@@ -410,7 +419,7 @@ mod tests {
     #[test]
     fn partition_preserves_all_points() {
         let pts = random_points_in_bbox(500, [0., 0., 5., 5.], 99);
-        let chunks = adaptive_partition(&pts, 1_000_000, ClusterMode::Better, 6, 18);
+        let chunks = adaptive_partition(&pts, 1_000_000, &ClusterMode::Better, 6, 18);
         let total: usize = chunks.iter().map(|c| c.owned.len()).sum();
         assert_eq!(total, pts.len(), "no points should be dropped during partition");
     }
@@ -470,7 +479,7 @@ mod tests {
         let mut greedy = Greedy::default();
         greedy.set_cluster_mode(ClusterMode::Better).set_radius(70.0);
 
-        let chunks = adaptive_partition(&pts, usize::MAX, ClusterMode::Better, 6, 18);
+        let chunks = adaptive_partition(&pts, usize::MAX, &ClusterMode::Better, 6, 18);
         assert!(chunks.len() >= 2, "two distant clusters should produce >=2 chunks");
 
         let tree = crate::rtree::spawn(70.0, &pts);

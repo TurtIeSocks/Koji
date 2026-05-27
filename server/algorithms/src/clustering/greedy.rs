@@ -85,8 +85,9 @@ impl<'a> Greedy {
         return_set.into_iter().map(|p| p.center).collect()
     }
 
+    #[time()]
     fn run_partitioned(&'a self, points: &SingleVec) -> HashSet<Point> {
-        use crate::clustering::partition::{adaptive_partition, PartitionConfig, PartitionStats};
+        use crate::clustering::partition::{adaptive_partition, mode_tag, PartitionConfig, PartitionStats};
         use rayon::prelude::*;
 
         let config = PartitionConfig::load();
@@ -94,13 +95,15 @@ impl<'a> Greedy {
         let chunks = adaptive_partition(
             points,
             config.budget,
-            self.cluster_mode.clone(),
+            &self.cluster_mode,
             config.start_level,
             config.max_level,
         );
 
-        let mut stats = PartitionStats::default();
-        stats.total_chunks = chunks.len();
+        let mut stats = PartitionStats {
+            total_chunks: chunks.len(),
+            downgrades: Default::default(),
+        };
 
         let chunk_results: Vec<(HashSet<Point>, Option<(ClusterMode, ClusterMode)>)> = chunks
             .par_iter()
@@ -111,7 +114,7 @@ impl<'a> Greedy {
         for (chunk_solution, downgrade) in chunk_results {
             solution.extend(chunk_solution);
             if let Some((from, to)) = downgrade {
-                let key = (format!("{:?}", from), format!("{:?}", to));
+                let key = (mode_tag(&from), mode_tag(&to));
                 *stats.downgrades.entry(key).or_insert(0) += 1;
             }
         }
@@ -123,27 +126,46 @@ impl<'a> Greedy {
         );
 
         if self.min_points == 1 {
-            let seen_cell_ids: HashSet<CellID> = solution
-                .iter()
-                .map(|p| p.cell_id)
-                .collect();
-            if seen_cell_ids.len() != points.len() {
-                let missing: Vec<Point> = points
-                    .into_par_iter()
-                    .filter_map(|p| {
-                        let cell_id = CellID::from(LatLng::from_degrees(p[0], p[1])).parent(20);
-                        if seen_cell_ids.contains(&cell_id) {
-                            None
-                        } else {
-                            Some(Point::new(self.radius, 20, *p))
-                        }
-                    })
-                    .collect();
-                solution.extend(missing);
-            }
+            let seen_cell_ids: HashSet<CellID> = solution.iter().map(|p| p.cell_id).collect();
+            let missing = self.recover_missing_points(&seen_cell_ids, points);
+            solution.extend(missing);
             log::info!("final solution size: {}", solution.len());
         }
         solution
+    }
+
+    fn recover_missing_points(
+        &self,
+        seen_cell_ids: &HashSet<CellID>,
+        points: &SingleVec,
+    ) -> Vec<Point> {
+        if seen_cell_ids.len() == points.len() {
+            return vec![];
+        }
+        points
+            .into_par_iter()
+            .filter_map(|p| {
+                let cell_id = CellID::from(LatLng::from_degrees(p[0], p[1])).parent(20);
+                if seen_cell_ids.contains(&cell_id) {
+                    None
+                } else {
+                    Some(Point::new(self.radius, 20, *p))
+                }
+            })
+            .collect()
+    }
+
+    fn bucket_clusters_by_size(&self, clusters_with_data: Vec<Cluster<'a>>) -> Vec<Vec<Cluster<'a>>> {
+        let max = clusters_with_data
+            .iter()
+            .map(|cluster| cluster.all.len())
+            .max()
+            .unwrap_or(0);
+        let mut clustered_clusters = vec![vec![]; max + 1];
+        for cluster in clusters_with_data.into_iter() {
+            clustered_clusters[cluster.all.len()].push(cluster);
+        }
+        clustered_clusters
     }
 
     fn get_honeycomb_clusters(&self, points: &SingleVec) -> SingleVec {
@@ -208,13 +230,12 @@ impl<'a> Greedy {
             ClusterMode::Honeycomb => self.get_honeycomb_clusters(points),
             ClusterMode::Fast => self.gen_clusters(BYTE / 2, points),
             ClusterMode::Balanced => self.gen_clusters(BYTE, points),
-            ClusterMode::Better | ClusterMode::Best => {
+            ClusterMode::Better => self.get_s2_clusters(points, point_tree),
+            ClusterMode::Best => {
                 let mut pcs = self.get_s2_clusters(points, point_tree);
-                if matches!(mode, ClusterMode::Best) {
-                    let density = grid_density_override.unwrap_or(BYTE * 6);
-                    if density > 0 {
-                        pcs.extend_from_slice(&self.gen_clusters(density, points));
-                    }
+                let density = grid_density_override.unwrap_or(BYTE * 6);
+                if density > 0 {
+                    pcs.extend_from_slice(&self.gen_clusters(density, points));
                 }
                 pcs
             }
@@ -257,16 +278,7 @@ impl<'a> Greedy {
             })
             .collect();
 
-        let max = clusters_with_data
-            .iter()
-            .map(|cluster| cluster.all.len())
-            .max()
-            .unwrap_or(100);
-        let mut clustered_clusters = vec![vec![]; max + 1];
-        for cluster in clusters_with_data.into_iter() {
-            clustered_clusters[cluster.all.len()].push(cluster);
-        }
-        clustered_clusters
+        self.bucket_clusters_by_size(clusters_with_data)
     }
 
     pub(crate) fn solve_chunk(
@@ -350,30 +362,7 @@ impl<'a> Greedy {
             );
         }
 
-        let time = Instant::now();
-        let max = clusters_with_data
-            .iter()
-            .map(|cluster| cluster.all.len())
-            .max()
-            .unwrap_or(100);
-        log::info!(
-            "found best cluster ({}) {:.2}s",
-            max,
-            time.elapsed().as_secs_f32(),
-        );
-
-        let time = Instant::now();
-        let mut clustered_clusters = vec![vec![]; max + 1];
-
-        for cluster in clusters_with_data.into_iter() {
-            clustered_clusters[cluster.all.len()].push(cluster);
-        }
-        log::info!(
-            "sorted clusters by size in {:.2}s",
-            time.elapsed().as_secs_f32(),
-        );
-
-        clustered_clusters
+        self.bucket_clusters_by_size(clusters_with_data)
     }
 
     fn setup(&'a self, points: &SingleVec) -> HashSet<Point> {
@@ -542,36 +531,17 @@ impl<'a> Greedy {
 
     #[time()]
     fn check_missing(&self, clusters: Vec<Cluster>, points: &SingleVec) -> HashSet<Point> {
-        let missing = {
-            let seen_cell_ids: HashSet<CellID> = clusters
-                .iter()
-                .flat_map(|c| c.all.iter())
-                .map(|p| p.cell_id)
-                .collect();
+        let seen_cell_ids: HashSet<CellID> = clusters
+            .iter()
+            .flat_map(|c| c.all.iter())
+            .map(|p| p.cell_id)
+            .collect();
+        let missing = self.recover_missing_points(&seen_cell_ids, points);
 
-            if seen_cell_ids.len() == points.len() {
-                vec![]
-            } else {
-                points
-                    .into_par_iter()
-                    .filter_map(|p| {
-                        let cell_id = CellID::from(LatLng::from_degrees(p[0], p[1])).parent(20);
-                        if seen_cell_ids.contains(&cell_id) {
-                            None
-                        } else {
-                            Some(Point::new(self.radius, 20, *p))
-                        }
-                    })
-                    .collect::<Vec<Point>>()
-            }
-        };
+        let mut result: HashSet<Point> = clusters.into_iter().map(|c| c.into()).collect();
+        result.extend(missing);
 
-        let mut clusters: HashSet<Point> = clusters.into_iter().map(|c| c.into()).collect();
-
-        clusters.extend(missing);
-
-        log::info!("final solution size: {}", clusters.len());
-
-        clusters
+        log::info!("final solution size: {}", result.len());
+        result
     }
 }
