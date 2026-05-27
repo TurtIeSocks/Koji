@@ -133,8 +133,8 @@ impl<'a> Greedy {
             let seen_cell_ids: HashSet<CellID> = solution.iter().map(|p| p.cell_id).collect();
             let missing = self.recover_missing_points(&seen_cell_ids, points);
             solution.extend(missing);
-            log::info!("final solution size: {}", solution.len());
         }
+        log::info!("final solution size: {}", solution.len());
         solution
     }
 

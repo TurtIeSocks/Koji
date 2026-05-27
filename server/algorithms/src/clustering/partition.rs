@@ -216,11 +216,12 @@ pub(crate) fn adaptive_partition(
         return vec![];
     }
     let mut frontier: HashMap<u64, SingleVec> = create_cell_map(points, start_level);
-    let mut accepted: Vec<Chunk> = Vec::new();
+    let mut accepted: Vec<Chunk> = Vec::with_capacity(frontier.len());
+    let mut next_frontier: HashMap<u64, SingleVec> = HashMap::with_capacity(frontier.len() * 4);
 
     loop {
-        let mut next_frontier: HashMap<u64, SingleVec> = HashMap::new();
-        for (cell_id_raw, cell_points) in frontier {
+        next_frontier.clear();
+        for (cell_id_raw, cell_points) in frontier.drain() {
             let cell = CellID(cell_id_raw);
             let est = estimate_cost(&cell_points, mode, budget);
             let at_max_level = cell.level() >= max_level;
@@ -244,7 +245,7 @@ pub(crate) fn adaptive_partition(
         if next_frontier.is_empty() {
             break;
         }
-        frontier = next_frontier;
+        std::mem::swap(&mut frontier, &mut next_frontier);
     }
     accepted
 }
