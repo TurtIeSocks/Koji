@@ -1,9 +1,12 @@
 use std::collections::HashMap;
+use std::collections::HashSet as StdHashSet;
 use std::sync::OnceLock;
 
 use model::api::cluster_mode::ClusterMode;
+use model::api::point_array::PointArray;
 use model::api::single_vec::SingleVec;
 use ::s2::cellid::CellID;
+use ::s2::latlng::LatLng;
 use sysinfo::System;
 
 /// Bytes assumed per candidate when converting memory budget → candidate count.
@@ -62,6 +65,39 @@ impl PartitionConfig {
             PartitionConfig { budget, start_level, max_level }
         })
     }
+}
+
+/// Existing `BYTE` constant is local to greedy.rs (`const BYTE: usize = 1024`).
+/// We mirror it here rather than expose it: this is the BYTE × 6 grid-density ceiling
+/// used by Best mode in greedy::associate_clusters.
+pub(crate) const BYTE_TIMES_SIX: usize = 1024 * 6;
+
+pub(crate) fn distinct_l16_cells(points: &[PointArray]) -> usize {
+    points
+        .iter()
+        .map(|p| CellID::from(LatLng::from_degrees(p[0], p[1])).parent(16))
+        .collect::<StdHashSet<_>>()
+        .len()
+}
+
+pub(crate) fn scaled_grid_density(s2_cost: usize, budget: usize) -> usize {
+    let remaining = budget.saturating_sub(s2_cost);
+    let density = (remaining as f64).sqrt() as usize;
+    density.min(BYTE_TIMES_SIX)
+}
+
+pub(crate) fn estimate_cost(
+    points: &[PointArray],
+    mode: ClusterMode,
+    budget: usize,
+) -> usize {
+    let s2_cost = distinct_l16_cells(points).saturating_mul(4096); // 4^(22-16)
+    let grid_cost = if matches!(mode, ClusterMode::Best) {
+        scaled_grid_density(s2_cost, budget).pow(2)
+    } else {
+        0
+    };
+    s2_cost.saturating_add(grid_cost)
 }
 
 #[cfg(test)]
@@ -136,5 +172,43 @@ mod tests {
 
         let grid = sparse_grid(5, 5, [0., 0., 10., 10.]);
         assert_eq!(grid.len(), 25);
+    }
+
+    #[test]
+    fn distinct_l16_cells_dedupes() {
+        let points = vec![[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]];
+        assert_eq!(distinct_l16_cells(&points), 1);
+
+        let points = dense_cluster([0., 0.], 10, 1.0, 1);  // 10 points, ~1m radius
+        let n = distinct_l16_cells(&points);
+        assert!(n >= 1 && n <= 10, "expected dedup count between 1 and 10, got {}", n);
+    }
+
+    #[test]
+    fn scaled_grid_density_caps_correctly() {
+        // s2_cost dominates -> density 0
+        assert_eq!(scaled_grid_density(1_000_000, 500_000), 0);
+        // tiny s2 cost, huge budget -> capped at BYTE * 6
+        let big = scaled_grid_density(0, 100_000_000_000);
+        assert_eq!(big, BYTE_TIMES_SIX);
+        // moderate: sqrt(remaining) used
+        let mid = scaled_grid_density(0, 1_000_000);
+        assert_eq!(mid, 1000);
+    }
+
+    #[test]
+    fn estimate_cost_better_excludes_grid() {
+        let points = dense_cluster([0., 0.], 100, 50.0, 2);
+        let est_better = estimate_cost(&points, ClusterMode::Better, 10_000_000);
+        let est_best = estimate_cost(&points, ClusterMode::Best, 10_000_000);
+        assert!(est_best >= est_better, "Best must be >= Better");
+    }
+
+    #[test]
+    fn estimate_cost_best_scales_with_budget() {
+        let points = vec![[0.0, 0.0]];
+        let est_small = estimate_cost(&points, ClusterMode::Best, 100);
+        let est_large = estimate_cost(&points, ClusterMode::Best, 100_000_000);
+        assert!(est_small < est_large, "larger budget should allow larger grid");
     }
 }
