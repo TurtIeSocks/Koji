@@ -227,6 +227,38 @@ impl<'a> Greedy {
         clustered_clusters
     }
 
+    pub(crate) fn solve_chunk(
+        &'a self,
+        chunk: &crate::clustering::partition::Chunk,
+        all_points_tree: &RTree<Point>,
+        budget: usize,
+    ) -> (HashSet<Point>, Option<(ClusterMode, ClusterMode)>) {
+        use crate::clustering::partition::{gather_halo, select_effective_mode, contains_latlng};
+
+        let halo = gather_halo(chunk.cell, all_points_tree, self.radius);
+        let combined: SingleVec = chunk
+            .owned
+            .iter()
+            .cloned()
+            .chain(halo.iter().map(|p| p.center))
+            .collect();
+
+        let effective_mode = select_effective_mode(self.cluster_mode.clone(), &combined, budget);
+        let downgrade = (effective_mode != self.cluster_mode)
+            .then(|| (self.cluster_mode.clone(), effective_mode.clone()));
+
+        let point_tree: RTree<Point> = crate::rtree::spawn(self.radius, &combined);
+        let clusters_with_data =
+            self.associate_clusters_for_chunk(&combined, &point_tree, effective_mode, budget);
+
+        let mut solution: Vec<Cluster> = self.cluster(&clusters_with_data).into_iter().collect();
+        self.update_unique(&mut solution);
+
+        solution.retain(|cluster| contains_latlng(chunk.cell, cluster.point.center));
+        let result: HashSet<Point> = solution.into_iter().map(|c| c.into()).collect();
+        (result, downgrade)
+    }
+
     fn associate_clusters(
         &'a self,
         points: &'a SingleVec,

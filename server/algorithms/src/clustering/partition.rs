@@ -454,4 +454,32 @@ mod tests {
             "halo should NOT include the inside point"
         );
     }
+
+    #[test]
+    fn ownership_filter_drops_foreign_centers() {
+        use crate::clustering::greedy::Greedy;
+
+        // Two non-adjacent dense clusters; partition should produce >=2 chunks.
+        // Each chunk's solve_chunk result must contain ONLY centers parenting to its cell.
+        let mut pts = dense_cluster([10.0, 20.0], 100, 50.0, 1);
+        pts.extend(dense_cluster([40.0, 80.0], 100, 50.0, 2));
+
+        let mut greedy = Greedy::default();
+        greedy.set_cluster_mode(ClusterMode::Better).set_radius(70.0);
+
+        let chunks = adaptive_partition(&pts, usize::MAX, ClusterMode::Better, 6, 18);
+        assert!(chunks.len() >= 2, "two distant clusters should produce >=2 chunks");
+
+        let tree = crate::rtree::spawn(70.0, &pts);
+        for chunk in &chunks {
+            let (solution, _downgrade) = greedy.solve_chunk(chunk, &tree, usize::MAX);
+            for p in &solution {
+                assert!(
+                    contains_latlng(chunk.cell, p.center),
+                    "cluster center {:?} must be inside owned cell {:?}",
+                    p.center, chunk.cell
+                );
+            }
+        }
+    }
 }
