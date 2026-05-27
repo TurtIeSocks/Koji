@@ -152,6 +152,31 @@ pub(crate) fn contains_latlng(cell: CellID, p: PointArray) -> bool {
 
 use crate::s2::create_cell_map;
 
+use crate::clustering::rtree::point::Point;
+use crate::clustering::candidates;
+use rstar::{RTree, AABB};
+
+pub(crate) fn gather_halo(
+    cell: CellID,
+    all_points_tree: &RTree<Point>,
+    radius_meters: Precision,
+) -> Vec<Point> {
+    let bbox = cell_bbox_lat_lon(cell);
+    let radius_deg = candidates::meters_to_degrees(radius_meters, bbox.center_lat());
+    let expanded = bbox.expand(radius_deg);
+
+    let envelope = AABB::from_corners(
+        [expanded.min_lat, expanded.min_lon],
+        [expanded.max_lat, expanded.max_lon],
+    );
+
+    all_points_tree
+        .locate_in_envelope_intersecting(&envelope)
+        .filter(|p| !contains_latlng(cell, p.center))
+        .cloned()
+        .collect()
+}
+
 pub(crate) fn adaptive_partition(
     points: &SingleVec,
     budget: usize,
@@ -356,5 +381,32 @@ mod tests {
         let chunks = adaptive_partition(&pts, 1_000_000, ClusterMode::Better, 6, 18);
         let total: usize = chunks.iter().map(|c| c.owned.len()).sum();
         assert_eq!(total, pts.len(), "no points should be dropped during partition");
+    }
+
+    #[test]
+    fn gather_halo_includes_nearby_points_outside_cell() {
+        use crate::clustering::rtree::point::Point;
+        use crate::rtree;
+
+        // Pick a level-12 cell; place one point inside, one just outside (within radius).
+        let inside = [37.7749, -122.4194];
+        let cell = CellID::from(LatLng::from_degrees(inside[0], inside[1])).parent(12);
+        let bbox = cell_bbox_lat_lon(cell);
+
+        // Point just past the east edge (10 meters past, well under default 70m radius).
+        let outside = [bbox.max_lat - 0.00001, bbox.max_lon + 0.00005];
+
+        let all_points: SingleVec = vec![inside, outside];
+        let tree = rtree::spawn(70.0, &all_points);
+
+        let halo = gather_halo(cell, &tree, 70.0);
+        assert!(
+            halo.iter().any(|p: &Point| (p.center[1] - outside[1]).abs() < 1e-6),
+            "halo should include the just-outside point"
+        );
+        assert!(
+            !halo.iter().any(|p: &Point| (p.center[1] - inside[1]).abs() < 1e-6),
+            "halo should NOT include the inside point"
+        );
     }
 }
