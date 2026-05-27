@@ -253,10 +253,10 @@ impl<'a> Greedy {
         effective_mode: ClusterMode,
         budget: usize,
     ) -> Vec<Vec<Cluster<'a>>> {
-        use crate::clustering::partition::{distinct_l16_cells, scaled_grid_density};
+        use crate::clustering::partition::{s2_walk_cost, scaled_grid_density};
 
         let grid_density = if matches!(effective_mode, ClusterMode::Best) {
-            let s2_cost = distinct_l16_cells(points).saturating_mul(4096);
+            let s2_cost = s2_walk_cost(points);
             Some(scaled_grid_density(s2_cost, budget))
         } else {
             None

@@ -54,6 +54,14 @@ pub(crate) struct PartitionStats {
     pub downgrades: HashMap<(&'static str, &'static str), usize>,
 }
 
+/// Read `key` from env, parse as T, fall back to `default` if missing/malformed.
+fn load_env_or<T: std::str::FromStr>(key: &str, default: T) -> T {
+    std::env::var(key)
+        .ok()
+        .and_then(|s| s.parse::<T>().ok())
+        .unwrap_or(default)
+}
+
 impl PartitionConfig {
     pub(crate) fn load() -> PartitionConfig {
         let sys = System::new_all();
@@ -61,18 +69,9 @@ impl PartitionConfig {
         let mem_per_thread = sys.available_memory() / threads;
         let auto_budget = (mem_per_thread / BYTES_PER_CANDIDATE as u64) as usize;
 
-        let budget = std::env::var("KOJI_MAX_CANDIDATES_PER_CHUNK")
-            .ok()
-            .and_then(|s| s.parse::<usize>().ok())
-            .unwrap_or(auto_budget);
-        let start_level = std::env::var("KOJI_PARTITION_START_LEVEL")
-            .ok()
-            .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(DEFAULT_START_LEVEL);
-        let max_level = std::env::var("KOJI_PARTITION_MAX_LEVEL")
-            .ok()
-            .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(DEFAULT_MAX_LEVEL);
+        let budget = load_env_or("KOJI_MAX_CANDIDATES_PER_CHUNK", auto_budget);
+        let start_level = load_env_or("KOJI_PARTITION_START_LEVEL", DEFAULT_START_LEVEL);
+        let max_level = load_env_or("KOJI_PARTITION_MAX_LEVEL", DEFAULT_MAX_LEVEL);
 
         LOG_ONCE.call_once(|| {
             log::info!(
@@ -112,12 +111,22 @@ pub(crate) fn scaled_grid_density(s2_cost: usize, budget: usize) -> usize {
     density.min(BYTE * 6)
 }
 
+/// Worst-case candidate count from the S2 cell walk used by Better/Best modes.
+///
+/// `get_s2_clusters` descends from level 16 → level 22 per occupied ancestor,
+/// so each distinct level-16 cell touched by the input contributes up to 4^6 = 4096
+/// candidate leaves. Real output is usually smaller due to per-level point-tree
+/// filtering, but this is the honest upper bound used by the partition budget.
+pub(crate) fn s2_walk_cost(points: &[PointArray]) -> usize {
+    distinct_l16_cells(points).saturating_mul(4096)
+}
+
 pub(crate) fn estimate_cost(
     points: &[PointArray],
     mode: &ClusterMode,
     budget: usize,
 ) -> usize {
-    let s2_cost = distinct_l16_cells(points).saturating_mul(4096); // 4^(22-16)
+    let s2_cost = s2_walk_cost(points);
     let grid_cost = if matches!(mode, ClusterMode::Best) {
         scaled_grid_density(s2_cost, budget).pow(2)
     } else {
@@ -152,20 +161,22 @@ impl LatLonBBox {
 pub(crate) fn cell_bbox_lat_lon(cell: CellID) -> LatLonBBox {
     let c = Cell::from(&cell);
     // Use vertex extremes; avoids rect_bound() API churn between s2 versions.
-    let mut min_lat = Precision::INFINITY;
-    let mut max_lat = Precision::NEG_INFINITY;
-    let mut min_lon = Precision::INFINITY;
-    let mut max_lon = Precision::NEG_INFINITY;
+    let mut bb = LatLonBBox {
+        min_lat: Precision::INFINITY,
+        max_lat: Precision::NEG_INFINITY,
+        min_lon: Precision::INFINITY,
+        max_lon: Precision::NEG_INFINITY,
+    };
     for i in 0..4 {
         let v = c.vertex(i);
         let lat = v.latitude().deg();
         let lon = v.longitude().deg();
-        if lat < min_lat { min_lat = lat; }
-        if lat > max_lat { max_lat = lat; }
-        if lon < min_lon { min_lon = lon; }
-        if lon > max_lon { max_lon = lon; }
+        bb.min_lat = bb.min_lat.min(lat);
+        bb.max_lat = bb.max_lat.max(lat);
+        bb.min_lon = bb.min_lon.min(lon);
+        bb.max_lon = bb.max_lon.max(lon);
     }
-    LatLonBBox { min_lat, max_lat, min_lon, max_lon }
+    bb
 }
 
 pub(crate) fn contains_latlng(cell: CellID, p: PointArray) -> bool {
