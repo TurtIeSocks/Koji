@@ -505,4 +505,27 @@ mod tests {
         let result = greedy.run(&pts);
         assert!(!result.is_empty(), "Best mode should produce some clusters");
     }
+
+    #[test]
+    #[ignore]  // run with: cargo test -p algorithms -- --ignored
+    fn manual_smoke_huge_bbox_better_mode() {
+        use crate::clustering::greedy::Greedy;
+        use std::time::Instant;
+
+        let pts = random_points_in_bbox(50_000, [-45., -90., 45., 90.], 12345);
+        let mut greedy = Greedy::default();
+        greedy.set_cluster_mode(ClusterMode::Better).set_radius(70.0);
+
+        let t = Instant::now();
+        let result = greedy.run(&pts);
+        let elapsed = t.elapsed();
+
+        eprintln!(
+            "manual_smoke: {} input pts → {} clusters in {:.2}s",
+            pts.len(),
+            result.len(),
+            elapsed.as_secs_f32()
+        );
+        assert!(!result.is_empty());
+    }
 }
