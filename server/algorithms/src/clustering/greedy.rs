@@ -154,6 +154,79 @@ impl<'a> Greedy {
         candidates::generate_clusters_from_points(points, self.radius, density)
     }
 
+    fn generate_candidates_for_mode(
+        &self,
+        points: &'a SingleVec,
+        point_tree: &'a RTree<Point>,
+        mode: ClusterMode,
+        grid_density_override: Option<usize>,
+    ) -> SingleVec {
+        const BYTE: usize = 1024;
+        match mode {
+            ClusterMode::Honeycomb => self.get_honeycomb_clusters(points),
+            ClusterMode::Fast => self.gen_clusters(BYTE / 2, points),
+            ClusterMode::Balanced => self.gen_clusters(BYTE, points),
+            ClusterMode::Better | ClusterMode::Best => {
+                let mut pcs = self.get_s2_clusters(points, point_tree);
+                if matches!(mode, ClusterMode::Best) {
+                    let density = grid_density_override.unwrap_or(BYTE * 6);
+                    if density > 0 {
+                        pcs.extend_from_slice(&self.gen_clusters(density, points));
+                    }
+                }
+                pcs
+            }
+            _ => vec![],
+        }
+    }
+
+    fn associate_clusters_for_chunk(
+        &'a self,
+        points: &'a SingleVec,
+        point_tree: &'a RTree<Point>,
+        effective_mode: ClusterMode,
+        budget: usize,
+    ) -> Vec<Vec<Cluster<'a>>> {
+        use crate::clustering::partition::{distinct_l16_cells, scaled_grid_density};
+
+        let grid_density = if matches!(effective_mode, ClusterMode::Best) {
+            let s2_cost = distinct_l16_cells(points).saturating_mul(4096);
+            Some(scaled_grid_density(s2_cost, budget))
+        } else {
+            None
+        };
+
+        let raw_candidates = self.generate_candidates_for_mode(
+            points,
+            point_tree,
+            effective_mode,
+            grid_density,
+        );
+
+        let clusters_with_data: Vec<Cluster> = raw_candidates
+            .into_par_iter()
+            .filter_map(|cluster| {
+                let iter = point_tree.locate_all_at_point(&cluster);
+                let mut points = Vec::with_capacity(iter.size_hint().0);
+                points.extend(iter);
+
+                (points.len() >= self.min_points)
+                    .then(|| Cluster::new(Point::new(self.radius, 20, cluster), points, vec![]))
+            })
+            .collect();
+
+        let max = clusters_with_data
+            .iter()
+            .map(|cluster| cluster.all.len())
+            .max()
+            .unwrap_or(100);
+        let mut clustered_clusters = vec![vec![]; max + 1];
+        for cluster in clusters_with_data.into_iter() {
+            clustered_clusters[cluster.all.len()].push(cluster);
+        }
+        clustered_clusters
+    }
+
     fn associate_clusters(
         &'a self,
         points: &'a SingleVec,
@@ -165,30 +238,18 @@ impl<'a> Greedy {
         let sys_mem = sys.available_memory() as usize / BYTE / BYTE;
 
         let time = Instant::now();
-        let clusters_with_data: Vec<Cluster> = match self.cluster_mode {
-            ClusterMode::Honeycomb => self.get_honeycomb_clusters(points),
-            ClusterMode::Fast => self.gen_clusters(BYTE / 2, points),
-            ClusterMode::Balanced => self.gen_clusters(BYTE, points),
-            ClusterMode::Better | ClusterMode::Best => {
-                let mut pcs = self.get_s2_clusters(points, point_tree);
+        let clusters_with_data: Vec<Cluster> = self
+            .generate_candidates_for_mode(points, point_tree, self.cluster_mode.clone(), None)
+            .into_par_iter()
+            .filter_map(|cluster| {
+                let iter = point_tree.locate_all_at_point(&cluster);
+                let mut points = Vec::with_capacity(iter.size_hint().0);
+                points.extend(iter);
 
-                if self.cluster_mode == ClusterMode::Best {
-                    pcs.extend_from_slice(&self.gen_clusters(BYTE * 6, points));
-                }
-                pcs
-            }
-            _ => vec![],
-        }
-        .into_par_iter()
-        .filter_map(|cluster| {
-            let iter = point_tree.locate_all_at_point(&cluster);
-            let mut points = Vec::with_capacity(iter.size_hint().0);
-            points.extend(iter);
-
-            (points.len() >= self.min_points)
-                .then(|| Cluster::new(Point::new(self.radius, 20, cluster), points, vec![]))
-        })
-        .collect();
+                (points.len() >= self.min_points)
+                    .then(|| Cluster::new(Point::new(self.radius, 20, cluster), points, vec![]))
+            })
+            .collect();
 
         log::info!(
             "associated points with {} clusters in {:.2}s",
