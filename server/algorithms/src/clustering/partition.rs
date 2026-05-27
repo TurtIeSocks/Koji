@@ -150,6 +150,43 @@ pub(crate) fn contains_latlng(cell: CellID, p: PointArray) -> bool {
     derived == cell
 }
 
+use crate::s2::create_cell_map;
+
+pub(crate) fn adaptive_partition(
+    points: &SingleVec,
+    budget: usize,
+    mode: ClusterMode,
+    start_level: u64,
+    max_level: u64,
+) -> Vec<Chunk> {
+    if points.is_empty() {
+        return vec![];
+    }
+    let mut frontier: HashMap<u64, SingleVec> = create_cell_map(points, start_level);
+    let mut accepted: Vec<Chunk> = Vec::new();
+
+    loop {
+        let mut next_frontier: HashMap<u64, SingleVec> = HashMap::new();
+        for (cell_id_raw, cell_points) in frontier.into_iter() {
+            let cell = CellID(cell_id_raw);
+            let est = estimate_cost(&cell_points, mode.clone(), budget);
+            if est <= budget || cell.level() >= max_level {
+                accepted.push(Chunk { cell, owned: cell_points });
+            } else {
+                let children = create_cell_map(&cell_points, cell.level() + 1);
+                for (k, v) in children {
+                    next_frontier.entry(k).or_insert_with(Vec::new).extend(v);
+                }
+            }
+        }
+        if next_frontier.is_empty() {
+            break;
+        }
+        frontier = next_frontier;
+    }
+    accepted
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -284,5 +321,40 @@ mod tests {
         assert!(bb.min_lon.is_finite() && bb.max_lon.is_finite());
         assert!(bb.min_lat <= bb.max_lat);
         assert!(bb.min_lon <= bb.max_lon);
+    }
+
+    #[test]
+    fn partition_small_bbox_single_chunk() {
+        // 1000 points in roughly 1km² → should fit in one chunk at start_level=6.
+        let pts = random_points_in_bbox(1000, [37.78, -122.43, 37.79, -122.42], 42);
+        let chunks = adaptive_partition(&pts, usize::MAX, ClusterMode::Better, 6, 18);
+        assert_eq!(chunks.len(), 1, "small bbox should be one chunk, got {}", chunks.len());
+    }
+
+    #[test]
+    fn partition_subdivides_when_over_budget() {
+        // Force subdivision with a tiny budget.
+        let pts = sparse_grid(20, 20, [-30., -60., 30., 60.]);
+        let chunks = adaptive_partition(&pts, 1, ClusterMode::Better, 6, 18);
+        assert!(chunks.len() > 1, "tiny budget should produce many chunks");
+    }
+
+    #[test]
+    fn partition_halts_at_max_level() {
+        // Dense cluster + extremely tight budget → at least one chunk at max_level=18.
+        let pts = dense_cluster([0., 0.], 5_000, 50.0, 11);
+        let chunks = adaptive_partition(&pts, 1, ClusterMode::Best, 6, 18);
+        assert!(
+            chunks.iter().any(|c| c.cell.level() == 18),
+            "expected at least one chunk to reach max_level"
+        );
+    }
+
+    #[test]
+    fn partition_preserves_all_points() {
+        let pts = random_points_in_bbox(500, [0., 0., 5., 5.], 99);
+        let chunks = adaptive_partition(&pts, 1_000_000, ClusterMode::Better, 6, 18);
+        let total: usize = chunks.iter().map(|c| c.owned.len()).sum();
+        assert_eq!(total, pts.len(), "no points should be dropped during partition");
     }
 }
