@@ -62,6 +62,12 @@ impl<'a> Greedy {
         self
     }
     pub fn set_cluster_split_level(&mut self, cluster_split_level: u64) -> &mut Self {
+        if cluster_split_level != 0 {
+            log::warn!(
+                "cluster_split_level is deprecated and will be ignored. \
+                 Adaptive S2 partitioning is now automatic for Better/Best modes."
+            );
+        }
         self.cluster_split_level = cluster_split_level;
         self
     }
@@ -70,38 +76,74 @@ impl<'a> Greedy {
         let time = Instant::now();
         log::info!("starting algorithm with {} data points", points.len());
 
-        let return_set = if self.cluster_split_level == 0 {
-            self.setup(points)
-        } else {
-            let cell_maps = s2::create_cell_map(&points, self.cluster_split_level);
-
-            let mut return_set = HashSet::new();
-            std::thread::scope(|s| {
-                let handlers: Vec<std::thread::ScopedJoinHandle<'_, HashSet<Point>>> = cell_maps
-                    .iter()
-                    .map(|(key, values)| {
-                        log::debug!("Cell: {} | Points: {}", key, values.len());
-                        s.spawn(move || self.setup(values))
-                    })
-                    .collect();
-                log::info!("created {} threads", handlers.len());
-                for thread in handlers {
-                    match thread.join() {
-                        Ok(results) => {
-                            return_set.extend(results);
-                        }
-                        Err(e) => {
-                            log::error!("error joining thread: {:?}", e)
-                        }
-                    }
-                }
-            });
-
-            return_set
+        let return_set = match self.cluster_mode {
+            ClusterMode::Better | ClusterMode::Best => self.run_partitioned(points),
+            _ => self.setup(points),
         };
 
         log::info!("finished in {:.2}s", time.elapsed().as_secs_f32());
         return_set.into_iter().map(|p| p.center).collect()
+    }
+
+    fn run_partitioned(&'a self, points: &SingleVec) -> HashSet<Point> {
+        use crate::clustering::partition::{adaptive_partition, PartitionConfig, PartitionStats};
+        use rayon::prelude::*;
+
+        let config = PartitionConfig::load();
+        let all_points_tree: RTree<Point> = crate::rtree::spawn(self.radius, points);
+        let chunks = adaptive_partition(
+            points,
+            config.budget,
+            self.cluster_mode.clone(),
+            config.start_level,
+            config.max_level,
+        );
+
+        let mut stats = PartitionStats::default();
+        stats.total_chunks = chunks.len();
+
+        let chunk_results: Vec<(HashSet<Point>, Option<(ClusterMode, ClusterMode)>)> = chunks
+            .par_iter()
+            .map(|chunk| self.solve_chunk(chunk, &all_points_tree, config.budget))
+            .collect();
+
+        let mut solution: HashSet<Point> = HashSet::new();
+        for (chunk_solution, downgrade) in chunk_results {
+            solution.extend(chunk_solution);
+            if let Some((from, to)) = downgrade {
+                let key = (format!("{:?}", from), format!("{:?}", to));
+                *stats.downgrades.entry(key).or_insert(0) += 1;
+            }
+        }
+
+        log::info!(
+            "partition: {} chunks, downgrades: {:?}",
+            stats.total_chunks,
+            stats.downgrades,
+        );
+
+        if self.min_points == 1 {
+            let seen_cell_ids: HashSet<CellID> = solution
+                .iter()
+                .map(|p| p.cell_id)
+                .collect();
+            if seen_cell_ids.len() != points.len() {
+                let missing: Vec<Point> = points
+                    .into_par_iter()
+                    .filter_map(|p| {
+                        let cell_id = CellID::from(LatLng::from_degrees(p[0], p[1])).parent(20);
+                        if seen_cell_ids.contains(&cell_id) {
+                            None
+                        } else {
+                            Some(Point::new(self.radius, 20, *p))
+                        }
+                    })
+                    .collect();
+                solution.extend(missing);
+            }
+            log::info!("final solution size: {}", solution.len());
+        }
+        solution
     }
 
     fn get_honeycomb_clusters(&self, points: &SingleVec) -> SingleVec {

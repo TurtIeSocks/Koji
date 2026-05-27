@@ -32,7 +32,10 @@ pub(crate) struct PartitionConfig {
 #[derive(Debug, Default)]
 pub(crate) struct PartitionStats {
     pub total_chunks: usize,
-    pub downgrades: HashMap<(ClusterMode, ClusterMode), usize>,
+    /// Counts downgrades by (from, to) pair. Keys are Debug-formatted ClusterMode strings
+    /// because `ClusterMode` does not implement `Hash` (it contains `Custom(String)`
+    /// and would require widening the `model` crate's derives).
+    pub downgrades: HashMap<(String, String), usize>,
 }
 
 static CONFIG: OnceLock<PartitionConfig> = OnceLock::new();
@@ -481,5 +484,25 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn greedy_better_completes_huge_random_bbox() {
+        use crate::clustering::greedy::Greedy;
+        let pts = random_points_in_bbox(10_000, [-10., -10., 10., 10.], 42);
+        let mut greedy = Greedy::default();
+        greedy.set_cluster_mode(ClusterMode::Better).set_radius(70.0);
+        let result = greedy.run(&pts);
+        assert!(!result.is_empty(), "Better mode should produce some clusters");
+    }
+
+    #[test]
+    fn greedy_best_completes_huge_random_bbox() {
+        use crate::clustering::greedy::Greedy;
+        let pts = random_points_in_bbox(5_000, [-5., -5., 5., 5.], 42);
+        let mut greedy = Greedy::default();
+        greedy.set_cluster_mode(ClusterMode::Best).set_radius(70.0);
+        let result = greedy.run(&pts);
+        assert!(!result.is_empty(), "Best mode should produce some clusters");
     }
 }
