@@ -17,6 +17,7 @@ mod candidates;
 mod fastest;
 // mod genetic;
 mod greedy;
+mod partition;
 mod s2;
 
 pub fn main(
