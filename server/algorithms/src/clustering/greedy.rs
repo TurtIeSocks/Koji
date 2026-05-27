@@ -293,12 +293,9 @@ impl<'a> Greedy {
         use crate::clustering::partition::{gather_halo, select_effective_mode, contains_latlng};
 
         let halo = gather_halo(chunk.cell, all_points_tree, self.radius);
-        let combined: SingleVec = chunk
-            .owned
-            .iter()
-            .cloned()
-            .chain(halo.iter().map(|p| p.center))
-            .collect();
+        let mut combined: SingleVec = Vec::with_capacity(chunk.owned.len() + halo.len());
+        combined.extend(chunk.owned.iter().copied());
+        combined.extend(halo.iter().map(|p| p.center));
 
         let effective_mode = select_effective_mode(self.cluster_mode.clone(), &combined, budget);
         let downgrade = (effective_mode != self.cluster_mode)

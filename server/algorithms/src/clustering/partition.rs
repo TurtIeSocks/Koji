@@ -25,7 +25,8 @@ pub(crate) const BYTE: usize = 1024;
 /// PointArray (16 bytes) + Cluster<Point> overhead. Empirical: ~864 bytes for a
 /// cluster with 100-point Vec<&Point> tail; rounded up to 1024 for safety so
 /// auto-budget under-allocates rather than over-allocates on dense workloads.
-pub(crate) const BYTES_PER_CANDIDATE: usize = BYTE;
+/// Independent from BYTE (same numeric value today but different semantics).
+pub(crate) const BYTES_PER_CANDIDATE: usize = 1024;
 
 pub(crate) const DEFAULT_START_LEVEL: u64 = 6;
 pub(crate) const DEFAULT_MAX_LEVEL: u64 = 18;
@@ -211,8 +212,11 @@ pub(crate) fn adaptive_partition(
         for (cell_id_raw, cell_points) in frontier.into_iter() {
             let cell = CellID(cell_id_raw);
             let est = estimate_cost(&cell_points, mode, budget);
-            if est <= budget || cell.level() >= max_level {
-                if est > budget && cell.level() >= max_level {
+            let at_max_level = cell.level() >= max_level;
+            let within_budget = est <= budget;
+
+            if within_budget || at_max_level {
+                if at_max_level && !within_budget {
                     log::warn!(
                         "partition: accepting chunk at max_level={} with est={} > budget={} (irreducible)",
                         cell.level(), est, budget,
@@ -239,6 +243,11 @@ pub(crate) fn select_effective_mode(
     points: &[PointArray],
     budget: usize,
 ) -> ClusterMode {
+    debug_assert!(
+        matches!(requested, ClusterMode::Better | ClusterMode::Best),
+        "select_effective_mode is only meaningful for Better/Best; got {:?}",
+        requested,
+    );
     let mut current = requested;
     loop {
         let est = estimate_cost(points, &current, budget);
