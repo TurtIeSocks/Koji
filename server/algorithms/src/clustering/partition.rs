@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::collections::HashSet as StdHashSet;
+use std::sync::Once;
 
 use ::s2::cell::Cell;
 use ::s2::cellid::CellID;
@@ -15,14 +16,23 @@ use crate::clustering::candidates;
 use crate::clustering::rtree::point::Point;
 use crate::s2::create_cell_map;
 
+/// Shared 1024 constant used as both a unit byte size (1 KiB) and a candidate
+/// grid-density base in greedy.rs. Centralized here to keep all `1024` magic
+/// numbers in clustering on a single source of truth.
+pub(crate) const BYTE: usize = 1024;
+
 /// Bytes assumed per candidate when converting memory budget → candidate count.
 /// PointArray (16 bytes) + Cluster<Point> overhead. Empirical: ~864 bytes for a
 /// cluster with 100-point Vec<&Point> tail; rounded up to 1024 for safety so
 /// auto-budget under-allocates rather than over-allocates on dense workloads.
-pub(crate) const BYTES_PER_CANDIDATE: usize = 1024;
+pub(crate) const BYTES_PER_CANDIDATE: usize = BYTE;
 
 pub(crate) const DEFAULT_START_LEVEL: u64 = 6;
 pub(crate) const DEFAULT_MAX_LEVEL: u64 = 18;
+
+/// Guards PartitionConfig::load logging so each process logs the resolved
+/// config exactly once, regardless of how many partitioned runs happen.
+static LOG_ONCE: Once = Once::new();
 
 #[derive(Debug, Clone)]
 pub(crate) struct Chunk {
@@ -39,7 +49,6 @@ pub(crate) struct PartitionConfig {
 
 #[derive(Debug, Default)]
 pub(crate) struct PartitionStats {
-    pub total_chunks: usize,
     /// Counts downgrades by (from_tag, to_tag) pair, keyed by stable ClusterMode tags.
     pub downgrades: HashMap<(&'static str, &'static str), usize>,
 }
@@ -64,10 +73,12 @@ impl PartitionConfig {
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or(DEFAULT_MAX_LEVEL);
 
-        log::info!(
-            "PartitionConfig: budget={}, start_level={}, max_level={}",
-            budget, start_level, max_level
-        );
+        LOG_ONCE.call_once(|| {
+            log::info!(
+                "PartitionConfig: budget={}, start_level={}, max_level={}",
+                budget, start_level, max_level
+            );
+        });
         PartitionConfig { budget, start_level, max_level }
     }
 }
@@ -86,11 +97,6 @@ pub(crate) fn mode_tag(mode: &ClusterMode) -> &'static str {
     }
 }
 
-/// Existing `BYTE` constant is local to greedy.rs (`const BYTE: usize = 1024`).
-/// We mirror it here rather than expose it: this is the BYTE × 6 grid-density ceiling
-/// used by Best mode in greedy::associate_clusters.
-pub(crate) const BYTE_TIMES_SIX: usize = 1024 * 6;
-
 pub(crate) fn distinct_l16_cells(points: &[PointArray]) -> usize {
     points
         .iter()
@@ -102,7 +108,7 @@ pub(crate) fn distinct_l16_cells(points: &[PointArray]) -> usize {
 pub(crate) fn scaled_grid_density(s2_cost: usize, budget: usize) -> usize {
     let remaining = budget.saturating_sub(s2_cost);
     let density = (remaining as f64).sqrt() as usize;
-    density.min(BYTE_TIMES_SIX)
+    density.min(BYTE * 6)
 }
 
 pub(crate) fn estimate_cost(
@@ -343,7 +349,7 @@ mod tests {
         assert_eq!(scaled_grid_density(1_000_000, 500_000), 0);
         // tiny s2 cost, huge budget -> capped at BYTE * 6
         let big = scaled_grid_density(0, 100_000_000_000);
-        assert_eq!(big, BYTE_TIMES_SIX);
+        assert_eq!(big, BYTE * 6);
         // moderate: sqrt(remaining) used
         let mid = scaled_grid_density(0, 1_000_000);
         assert_eq!(mid, 1000);

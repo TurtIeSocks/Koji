@@ -17,6 +17,7 @@ use crate::{
     bootstrap::radius,
     clustering::{
         candidates,
+        partition::BYTE,
         rtree::{cluster::Cluster, point::Point},
     },
     rtree::{self, SortDedupe},
@@ -91,6 +92,12 @@ impl<'a> Greedy {
         use rayon::prelude::*;
 
         let config = PartitionConfig::load();
+        // Global rtree shared (read-only) across all chunks for halo gathering.
+        // Each chunk's solve_chunk also builds a chunk-local rtree because cluster() and
+        // update_unique() take &'a RTree<Point> bound to chunk-scoped (owned + halo) points.
+        // This means peak rtree memory is roughly 2x points; acceptable for the bounded
+        // candidate budget per chunk. Long-term refactor could fold these into one tree
+        // with cell-level indexing.
         let all_points_tree: RTree<Point> = crate::rtree::spawn(self.radius, points);
         let chunks = adaptive_partition(
             points,
@@ -100,17 +107,14 @@ impl<'a> Greedy {
             config.max_level,
         );
 
-        let mut stats = PartitionStats {
-            total_chunks: chunks.len(),
-            downgrades: Default::default(),
-        };
+        let mut stats = PartitionStats::default();
 
         let chunk_results: Vec<(HashSet<Point>, Option<(ClusterMode, ClusterMode)>)> = chunks
             .par_iter()
             .map(|chunk| self.solve_chunk(chunk, &all_points_tree, config.budget))
             .collect();
 
-        let mut solution: HashSet<Point> = HashSet::new();
+        let mut solution: HashSet<Point> = HashSet::with_capacity(chunks.len() * 32);
         for (chunk_solution, downgrade) in chunk_results {
             solution.extend(chunk_solution);
             if let Some((from, to)) = downgrade {
@@ -121,7 +125,7 @@ impl<'a> Greedy {
 
         log::info!(
             "partition: {} chunks, downgrades: {:?}",
-            stats.total_chunks,
+            chunks.len(),
             stats.downgrades,
         );
 
@@ -225,7 +229,6 @@ impl<'a> Greedy {
         mode: ClusterMode,
         grid_density_override: Option<usize>,
     ) -> SingleVec {
-        const BYTE: usize = 1024;
         match mode {
             ClusterMode::Honeycomb => self.get_honeycomb_clusters(points),
             ClusterMode::Fast => self.gen_clusters(BYTE / 2, points),
@@ -318,8 +321,6 @@ impl<'a> Greedy {
         points: &'a SingleVec,
         point_tree: &'a RTree<Point>,
     ) -> Vec<Vec<Cluster<'a>>> {
-        const BYTE: usize = 1024;
-
         let sys = System::new_all();
         let sys_mem = sys.available_memory() as usize / BYTE / BYTE;
 
