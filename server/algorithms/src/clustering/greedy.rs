@@ -27,7 +27,6 @@ use crate::{
 
 pub struct Greedy {
     cluster_mode: ClusterMode,
-    cluster_split_level: u64,
     max_clusters: usize,
     min_points: usize,
     radius: Precision,
@@ -37,7 +36,6 @@ impl Default for Greedy {
     fn default() -> Self {
         Greedy {
             cluster_mode: ClusterMode::Balanced,
-            cluster_split_level: 0,
             max_clusters: usize::MAX,
             min_points: 1,
             radius: 70.,
@@ -69,7 +67,7 @@ impl<'a> Greedy {
                  Adaptive S2 partitioning is now automatic for Better/Best modes."
             );
         }
-        self.cluster_split_level = cluster_split_level;
+        let _ = cluster_split_level; // value intentionally discarded; field removed.
         self
     }
 
