@@ -100,6 +100,56 @@ pub(crate) fn estimate_cost(
     s2_cost.saturating_add(grid_cost)
 }
 
+use ::s2::cell::Cell;
+use model::api::Precision;
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct LatLonBBox {
+    pub min_lat: Precision,
+    pub max_lat: Precision,
+    pub min_lon: Precision,
+    pub max_lon: Precision,
+}
+
+impl LatLonBBox {
+    pub fn center_lat(&self) -> Precision {
+        0.5 * (self.min_lat + self.max_lat)
+    }
+
+    pub fn expand(&self, radius_deg: Precision) -> LatLonBBox {
+        LatLonBBox {
+            min_lat: self.min_lat - radius_deg,
+            max_lat: self.max_lat + radius_deg,
+            min_lon: self.min_lon - radius_deg,
+            max_lon: self.max_lon + radius_deg,
+        }
+    }
+}
+
+pub(crate) fn cell_bbox_lat_lon(cell: CellID) -> LatLonBBox {
+    let c = Cell::from(&cell);
+    // Use vertex extremes; avoids rect_bound() API churn between s2 versions.
+    let mut min_lat = Precision::INFINITY;
+    let mut max_lat = Precision::NEG_INFINITY;
+    let mut min_lon = Precision::INFINITY;
+    let mut max_lon = Precision::NEG_INFINITY;
+    for i in 0..4 {
+        let v = c.vertex(i);
+        let lat = v.latitude().deg();
+        let lon = v.longitude().deg();
+        if lat < min_lat { min_lat = lat; }
+        if lat > max_lat { max_lat = lat; }
+        if lon < min_lon { min_lon = lon; }
+        if lon > max_lon { max_lon = lon; }
+    }
+    LatLonBBox { min_lat, max_lat, min_lon, max_lon }
+}
+
+pub(crate) fn contains_latlng(cell: CellID, p: PointArray) -> bool {
+    let derived = CellID::from(LatLng::from_degrees(p[0], p[1])).parent(cell.level());
+    derived == cell
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -210,5 +260,29 @@ mod tests {
         let est_small = estimate_cost(&points, ClusterMode::Best, 100);
         let est_large = estimate_cost(&points, ClusterMode::Best, 100_000_000);
         assert!(est_small < est_large, "larger budget should allow larger grid");
+    }
+
+    #[test]
+    fn contains_latlng_owns_only_its_cell() {
+        // Pick a stable lat/lon, get its level-10 parent.
+        let center = LatLng::from_degrees(37.7749, -122.4194);  // SF
+        let owning_cell = CellID::from(center).parent(10);
+
+        // The lat/lon itself must be contained.
+        assert!(contains_latlng(owning_cell, [37.7749, -122.4194]));
+
+        // A point on the opposite side of the world is not contained.
+        assert!(!contains_latlng(owning_cell, [-37.7749, 57.5806]));
+    }
+
+    #[test]
+    fn cell_bbox_lat_lon_is_finite_and_ordered() {
+        let center = LatLng::from_degrees(0., 0.);
+        let cell = CellID::from(center).parent(8);
+        let bb = cell_bbox_lat_lon(cell);
+        assert!(bb.min_lat.is_finite() && bb.max_lat.is_finite());
+        assert!(bb.min_lon.is_finite() && bb.max_lon.is_finite());
+        assert!(bb.min_lat <= bb.max_lat);
+        assert!(bb.min_lon <= bb.max_lon);
     }
 }
