@@ -212,6 +212,35 @@ pub(crate) fn adaptive_partition(
     accepted
 }
 
+pub(crate) fn select_effective_mode(
+    requested: ClusterMode,
+    points: &[PointArray],
+    budget: usize,
+) -> ClusterMode {
+    let mut current = requested;
+    loop {
+        if matches!(current, ClusterMode::Fast)
+            || estimate_cost(points, current.clone(), budget) <= budget
+        {
+            return current;
+        }
+        let next = match current {
+            ClusterMode::Best => ClusterMode::Better,
+            ClusterMode::Better => ClusterMode::Balanced,
+            ClusterMode::Balanced => ClusterMode::Fast,
+            _ => return current,
+        };
+        log::warn!(
+            "chunk over budget for {:?} (est={}, budget={}), downgrading to {:?}",
+            current,
+            estimate_cost(points, current.clone(), budget),
+            budget,
+            next,
+        );
+        current = next;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -381,6 +410,22 @@ mod tests {
         let chunks = adaptive_partition(&pts, 1_000_000, ClusterMode::Better, 6, 18);
         let total: usize = chunks.iter().map(|c| c.owned.len()).sum();
         assert_eq!(total, pts.len(), "no points should be dropped during partition");
+    }
+
+    #[test]
+    fn fallback_ladder_keeps_mode_when_under_budget() {
+        let pts = random_points_in_bbox(10, [0., 0., 0.001, 0.001], 1);
+        let mode = select_effective_mode(ClusterMode::Best, &pts, usize::MAX);
+        assert_eq!(mode, ClusterMode::Best);
+    }
+
+    #[test]
+    fn fallback_ladder_walks_down_to_fast() {
+        // Force a chunk that is over budget even at Fast (impossible in practice,
+        // but we set budget = 0 to verify ladder reaches floor).
+        let pts = random_points_in_bbox(50, [-30., -60., 30., 60.], 7);
+        let mode = select_effective_mode(ClusterMode::Best, &pts, 0);
+        assert_eq!(mode, ClusterMode::Fast, "ladder must terminate at Fast");
     }
 
     #[test]
