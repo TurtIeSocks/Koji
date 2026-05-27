@@ -97,6 +97,8 @@ pub(crate) fn mode_tag(mode: &ClusterMode) -> &'static str {
     }
 }
 
+/// Count the number of distinct level-16 S2 cells touched by the input points.
+/// Used as the leading factor in the S2 walk cost estimate (see `s2_walk_cost`).
 pub(crate) fn distinct_l16_cells(points: &[PointArray]) -> usize {
     points
         .iter()
@@ -105,6 +107,12 @@ pub(crate) fn distinct_l16_cells(points: &[PointArray]) -> usize {
         .len()
 }
 
+/// Pick a grid density for Best mode that fits the remaining candidate budget.
+///
+/// `s2_cost` is the prior commitment from `s2_walk_cost`. Returns 0 if the S2
+/// walk already saturates the budget (effectively collapsing Best to Better for
+/// this chunk). Capped at `BYTE * 6` so we never exceed the original `Best`
+/// density even when the budget is huge.
 pub(crate) fn scaled_grid_density(s2_cost: usize, budget: usize) -> usize {
     let remaining = budget.saturating_sub(s2_cost);
     let density = (remaining as f64).sqrt() as usize;
@@ -179,11 +187,21 @@ pub(crate) fn cell_bbox_lat_lon(cell: CellID) -> LatLonBBox {
     bb
 }
 
+/// Ownership predicate: does `p` belong to `cell` at the cell's own level?
+///
+/// Used both during partition (implicitly via `create_cell_map`) and during the
+/// post-solve ownership filter in `Greedy::solve_chunk`. Both sides apply the
+/// same deterministic `LatLng → parent(level)` rule so a cluster center is
+/// owned by exactly one chunk.
 pub(crate) fn contains_latlng(cell: CellID, p: PointArray) -> bool {
     let derived = CellID::from(LatLng::from_degrees(p[0], p[1])).parent(cell.level());
     derived == cell
 }
 
+/// Collect halo points: those that intersect `cell`'s bbox expanded by `radius_meters`
+/// but do NOT belong to `cell`. Halo points participate in a chunk's solve as
+/// coverage targets but never own cluster centers, so adjacent chunks can place
+/// edge clusters fairly without producing duplicates.
 pub(crate) fn gather_halo(
     cell: CellID,
     all_points_tree: &RTree<Point>,
@@ -205,6 +223,15 @@ pub(crate) fn gather_halo(
         .collect()
 }
 
+/// Top-down BFS partitioner. Buckets points by S2 cell at `start_level`, then
+/// for each bucket: accept the chunk if its estimated candidate cost ≤ `budget`
+/// or if it has reached `max_level`; otherwise subdivide into the cell's children
+/// and re-evaluate. Returns the accepted chunks; their union covers all input
+/// points without duplication.
+///
+/// Termination: bounded loop depth = `max_level - start_level`. At `max_level`,
+/// over-budget chunks are accepted with a warn log and handled later by
+/// `select_effective_mode`'s downgrade ladder.
 pub(crate) fn adaptive_partition(
     points: &SingleVec,
     budget: usize,
@@ -212,6 +239,12 @@ pub(crate) fn adaptive_partition(
     start_level: u64,
     max_level: u64,
 ) -> Vec<Chunk> {
+    debug_assert!(
+        start_level <= max_level,
+        "start_level ({}) must be <= max_level ({})",
+        start_level,
+        max_level,
+    );
     if points.is_empty() {
         return vec![];
     }
@@ -250,6 +283,12 @@ pub(crate) fn adaptive_partition(
     accepted
 }
 
+/// Stepwise mode downgrade ladder: `Best → Better → Balanced → Fast`.
+///
+/// Returns the highest-quality mode whose estimated cost fits `budget`, or
+/// `Fast` if even that exceeds budget (Fast is the floor; pathological chunks
+/// always complete). Each downgrade is logged at WARN. Only meaningful when
+/// called with Better or Best — checked by debug_assert.
 pub(crate) fn select_effective_mode(
     mut requested: ClusterMode,
     points: &[PointArray],
