@@ -67,7 +67,6 @@ impl<'a> Greedy {
                  Adaptive S2 partitioning is now automatic for Better/Best modes."
             );
         }
-        let _ = cluster_split_level; // value intentionally discarded; field removed.
         self
     }
 
