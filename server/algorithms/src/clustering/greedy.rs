@@ -143,8 +143,11 @@ impl<'a> Greedy {
             })
             .collect();
 
-        // Lossless merge + mygod_score-positive gap-fill.
-        let solution_vec = self.merge_redundant_clusters(solution_vec, &all_points_tree);
+        // Post-greedy gap-fill: each new cluster covering > min_points
+        // previously-uncovered points is a strict mygod_score win.
+        // (merge_redundant_clusters was removed from this path: SEC-per-pair
+        // cost dominates wall-clock on non-dense inputs for ≈0.4% mygod gain.
+        // The fn is still defined and available behind future opt-in flags.)
         let solution_vec = self.fill_coverage_gaps(solution_vec, points, &all_points_tree);
 
         let mut final_solution: HashSet<Point> =
