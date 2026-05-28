@@ -89,11 +89,8 @@ impl<'a> Greedy {
         use rayon::prelude::*;
 
         let config = PartitionConfig::load();
-        // Global rtree built once. All chunk candidate-coverage queries hit this
-        // tree, so a cluster's covered-point count is always computed against the
-        // full input — no per-chunk locality bias. Each chunk still builds its
-        // own small rtree solely to bound the S2 candidate walk (chunk_tree is
-        // dropped before the cluster is added to the global pool).
+        // Global rtree built once for halo gathering and gap-fill. Per-chunk
+        // candidate generation + greedy uses chunk-local data (bounded memory).
         let all_points_tree: RTree<Point> = crate::rtree::spawn(self.radius, points);
         let chunks = adaptive_partition(
             points,
@@ -104,56 +101,128 @@ impl<'a> Greedy {
         );
 
         let mut stats = PartitionStats::default();
-        let mut downgrade_pairs: Vec<(ClusterMode, ClusterMode)> = Vec::new();
 
-        // Per chunk: generate raw candidate cluster centers (S2 walk and/or grid)
-        // bounded by chunk extent + halo for memory, then filter against the
-        // GLOBAL point tree so each Cluster<'a> carries its true global coverage.
-        // Result is a single flat Vec<Cluster<'a>> over the full input.
-        let (all_clusters, chunk_downgrades): (Vec<Vec<Cluster<'_>>>, Vec<Option<(ClusterMode, ClusterMode)>>) = chunks
+        // Per-chunk greedy: each chunk builds its own (owned + halo) rtree,
+        // generates candidates bounded to chunk extent, runs greedy + update_unique
+        // locally, then drops the chunk-local rtree. Memory peak per chunk is
+        // bounded by the budget; flat global Vec<Cluster> never holds all
+        // candidates simultaneously.
+        let chunk_results: Vec<(HashSet<Point>, Option<(ClusterMode, ClusterMode)>)> = chunks
             .par_iter()
-            .map(|chunk| self.generate_chunk_clusters(chunk, &all_points_tree, config.budget))
-            .unzip();
-        let flat_clusters: Vec<Cluster<'_>> = all_clusters.into_iter().flatten().collect();
-        for dg in chunk_downgrades.into_iter().flatten() {
-            downgrade_pairs.push(dg);
-        }
-        for (from, to) in &downgrade_pairs {
-            let key = (mode_tag(from), mode_tag(to));
-            *stats.downgrades.entry(key).or_insert(0) += 1;
+            .map(|chunk| self.solve_chunk_local(chunk, &all_points_tree, config.budget))
+            .collect();
+
+        let mut solution: HashSet<Point> = HashSet::with_capacity(chunks.len() * 32);
+        for (chunk_solution, downgrade) in chunk_results {
+            solution.extend(chunk_solution);
+            if let Some((from, to)) = downgrade {
+                let key = (mode_tag(&from), mode_tag(&to));
+                *stats.downgrades.entry(key).or_insert(0) += 1;
+            }
         }
 
         log::info!(
-            "partition: {} chunks, downgrades: {:?}, total candidate clusters: {}",
+            "partition: {} chunks, downgrades: {:?}, post-chunk centers: {}",
             chunks.len(),
             stats.downgrades,
-            flat_clusters.len(),
+            solution.len(),
         );
 
-        // Single global greedy on the full candidate pool. No chunk-level greedy
-        // means no chunk-boundary quality loss: the greedy sees every cluster's
-        // global coverage and picks the optimal subset directly.
-        let bucketed = self.bucket_clusters_by_size(flat_clusters);
-        let mut consolidated: Vec<Cluster> = self.cluster(&bucketed).into_iter().collect();
-        self.update_unique(&mut consolidated);
+        // Convert HashSet<Point> back to Vec<Cluster> for the merge + gap-fill
+        // passes. Each Cluster's `all` is recomputed against the GLOBAL tree so
+        // these passes see correct coverage counts even though earlier greedy
+        // ran chunk-locally.
+        let solution_vec: Vec<Cluster<'_>> = solution
+            .into_iter()
+            .filter_map(|p| {
+                let mut covered: Vec<&Point> = all_points_tree
+                    .locate_all_at_point(&p.center)
+                    .collect();
+                covered.sort_dedupe();
+                (!covered.is_empty()).then(|| Cluster::new(p, covered, vec![]))
+            })
+            .collect();
 
-        // Post-greedy merge + gap-fill. merge: cluster pairs within 2*radius
-        // where SEC of union fits within radius become one cluster (lossless;
-        // saves min_points per merge). fill: previously-uncovered points
-        // become candidate centers; new cluster covering ≥ min_points other
-        // uncovered points is a strict mygod_score win.
-        let consolidated = self.merge_redundant_clusters(consolidated, &all_points_tree);
-        let consolidated = self.fill_coverage_gaps(consolidated, points, &all_points_tree);
+        // Lossless merge + mygod_score-positive gap-fill.
+        let solution_vec = self.merge_redundant_clusters(solution_vec, &all_points_tree);
+        let solution_vec = self.fill_coverage_gaps(solution_vec, points, &all_points_tree);
 
-        let mut solution: HashSet<Point> = consolidated.into_iter().map(|c| c.into()).collect();
+        let mut final_solution: HashSet<Point> =
+            solution_vec.into_iter().map(|c| c.into()).collect();
 
         if self.min_points == 1 {
-            let seen_cell_ids: HashSet<CellID> = solution.iter().map(|p| p.cell_id).collect();
+            let seen_cell_ids: HashSet<CellID> =
+                final_solution.iter().map(|p| p.cell_id).collect();
             let missing = self.recover_missing_points(&seen_cell_ids, points);
-            solution.extend(missing);
+            final_solution.extend(missing);
         }
-        log::info!("final solution size: {}", solution.len());
-        solution
+        log::info!("final solution size: {}", final_solution.len());
+        final_solution
+    }
+
+    /// Solve a single partition chunk locally and return its cluster centers.
+    /// Greedy runs chunk-locally to bound memory: only the chunk's owned + halo
+    /// points + candidates ever live in memory at once. Result is the set of
+    /// cluster centers owned by this chunk (ownership = cell-of-center).
+    fn solve_chunk_local(
+        &'a self,
+        chunk: &crate::clustering::partition::Chunk,
+        all_points_tree: &'a RTree<Point>,
+        budget: usize,
+    ) -> (HashSet<Point>, Option<(ClusterMode, ClusterMode)>) {
+        use crate::clustering::partition::{
+            contains_latlng, gather_halo, s2_walk_cost, scaled_grid_density,
+            select_effective_mode,
+        };
+
+        let halo = gather_halo(chunk.cell, all_points_tree, self.radius);
+        let mut combined: SingleVec = Vec::with_capacity(chunk.owned.len() + halo.len());
+        combined.extend(chunk.owned.iter().copied());
+        combined.extend(halo.iter().map(|p| p.center));
+
+        let effective_mode = select_effective_mode(self.cluster_mode.clone(), &combined, budget);
+        let downgrade = (effective_mode != self.cluster_mode)
+            .then(|| (self.cluster_mode.clone(), effective_mode.clone()));
+
+        let grid_density = if matches!(effective_mode, ClusterMode::Best) {
+            let s2_cost = s2_walk_cost(&combined);
+            Some(scaled_grid_density(s2_cost, budget))
+        } else {
+            None
+        };
+
+        // chunk_tree scoped so it drops before this fn returns — its memory is
+        // released before the next chunk runs on the same thread.
+        let chunk_tree: RTree<Point> = crate::rtree::spawn(self.radius, &combined);
+        let raw_candidates = self.generate_candidates_for_mode(
+            &combined,
+            &chunk_tree,
+            effective_mode,
+            grid_density,
+        );
+
+        let clusters_with_data: Vec<Cluster> = raw_candidates
+            .into_par_iter()
+            .filter_map(|center| {
+                let iter = chunk_tree.locate_all_at_point(&center);
+                let mut covered = Vec::with_capacity(iter.size_hint().0);
+                covered.extend(iter);
+                (covered.len() >= self.min_points).then(|| {
+                    Cluster::new(Point::new(self.radius, 20, center), covered, vec![])
+                })
+            })
+            .collect();
+
+        let bucketed = self.bucket_clusters_by_size(clusters_with_data);
+        let mut solution: Vec<Cluster> = self.cluster(&bucketed).into_iter().collect();
+        self.update_unique(&mut solution);
+
+        // Ownership filter: a chunk only emits cluster centers whose location
+        // parents to this chunk's owning cell. Adjacent chunks emit their own;
+        // the global merge + gap-fill passes downstream stitch the boundaries.
+        solution.retain(|c| contains_latlng(chunk.cell, c.point.center));
+        let result: HashSet<Point> = solution.into_iter().map(|c| c.into()).collect();
+        (result, downgrade)
     }
 
     /// Post-greedy merge: walk pairs of nearby cluster centers (within 2*radius)
@@ -383,56 +452,6 @@ impl<'a> Greedy {
         // covered uncovered points by construction); other clusters' unique is
         // unchanged for the same reason.
         solution
-    }
-
-    /// Generate raw candidate clusters for one partition chunk, filtered against
-    /// the GLOBAL point tree so coverage counts reflect the entire input set.
-    /// Returns `(clusters, optional_downgrade)`. The chunk-local rtree built to
-    /// bound the S2 walk is dropped before this function returns; the returned
-    /// `Cluster<'a>`s reference only `all_points_tree`.
-    fn generate_chunk_clusters(
-        &'a self,
-        chunk: &crate::clustering::partition::Chunk,
-        all_points_tree: &'a RTree<Point>,
-        budget: usize,
-    ) -> (Vec<Cluster<'a>>, Option<(ClusterMode, ClusterMode)>) {
-        use crate::clustering::partition::{gather_halo, s2_walk_cost, scaled_grid_density, select_effective_mode};
-
-        let halo = gather_halo(chunk.cell, all_points_tree, self.radius);
-        let mut combined: SingleVec = Vec::with_capacity(chunk.owned.len() + halo.len());
-        combined.extend(chunk.owned.iter().copied());
-        combined.extend(halo.iter().map(|p| p.center));
-
-        let effective_mode = select_effective_mode(self.cluster_mode.clone(), &combined, budget);
-        let downgrade = (effective_mode != self.cluster_mode)
-            .then(|| (self.cluster_mode.clone(), effective_mode.clone()));
-
-        let grid_density = if matches!(effective_mode, ClusterMode::Best) {
-            let s2_cost = s2_walk_cost(&combined);
-            Some(scaled_grid_density(s2_cost, budget))
-        } else {
-            None
-        };
-
-        // chunk_tree exists only to bound the S2 walk's flat_map_cells descent.
-        // Drop it after generate_candidates_for_mode by scoping it tightly.
-        let raw_candidates: SingleVec = {
-            let chunk_tree: RTree<Point> = crate::rtree::spawn(self.radius, &combined);
-            self.generate_candidates_for_mode(&combined, &chunk_tree, effective_mode, grid_density)
-        };
-
-        let clusters: Vec<Cluster<'a>> = raw_candidates
-            .into_par_iter()
-            .filter_map(|center| {
-                let iter = all_points_tree.locate_all_at_point(&center);
-                let mut covered = Vec::with_capacity(iter.size_hint().0);
-                covered.extend(iter);
-                (covered.len() >= self.min_points)
-                    .then(|| Cluster::new(Point::new(self.radius, 20, center), covered, vec![]))
-            })
-            .collect();
-
-        (clusters, downgrade)
     }
 
     fn recover_missing_points(

@@ -119,17 +119,16 @@ pub(crate) fn scaled_grid_density(s2_cost: usize, budget: usize) -> usize {
     density.min(BYTE * 6)
 }
 
-/// Expected (not worst-case) candidate count from the S2 cell walk used by Better/Best modes.
+/// Worst-case candidate count from the S2 cell walk used by Better/Best modes.
 ///
-/// `get_s2_clusters` descends from level 16 → level 22 per occupied ancestor, so the
-/// theoretical worst case is 4^6 = 4096 leaves per L16 cell. In practice the per-level
-/// `point_tree.locate_at_point` filter prunes aggressively for realistic point densities:
-/// each input point covers roughly `(radius / l22_size)^2 ≈ (70m / 5m)^2 ≈ 200` leaves,
-/// shared across nearby points. Using the worst-case 4096 was over-pessimistic and forced
-/// quality-destroying over-partitioning on medium-density inputs (e.g. ~20 pts/km²).
-/// 256 is calibrated against the New Hampshire benchmark to keep the partition shallow
-/// while still triggering for genuinely huge bboxes. Tunable via env if needed.
-pub(crate) const S2_WALK_COST_PER_L16: usize = 256;
+/// `get_s2_clusters` descends from level 16 → level 22 per occupied ancestor, so each
+/// L16 cell can contribute up to 4^6 = 4096 candidate leaves. The per-level point-tree
+/// filter prunes much of this on medium-density inputs, but on dense inputs (urban,
+/// pokemon-spawn-style data) the descent runs close to worst case. We use the worst-case
+/// value as the partition-budget estimator so peak memory is bounded even on dense data;
+/// for medium-density inputs this triggers more partitioning than strictly necessary
+/// (a few % quality cost) but is the only way to prevent OOM on dense huge bboxes.
+pub(crate) const S2_WALK_COST_PER_L16: usize = 4096;
 
 pub(crate) fn s2_walk_cost(points: &[PointArray]) -> usize {
     distinct_l16_cells(points).saturating_mul(S2_WALK_COST_PER_L16)
