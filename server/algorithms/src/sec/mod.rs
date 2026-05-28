@@ -1,5 +1,5 @@
 mod circle;
-mod sec;
+pub(crate) mod sec;
 mod state;
 mod utils;
 

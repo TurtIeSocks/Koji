@@ -613,14 +613,19 @@ mod tests {
             .filter(|p| cluster_tree.locate_at_point(p).is_some())
             .count();
         let coverage_pct = covered as f64 * 100.0 / pts.len() as f64;
+        // mygod_score = clusters * min_points + uncovered_points (lower = better).
+        // Source of truth: stats.rs::Stats::get_score.
+        let uncovered = pts.len() - covered;
+        let mygod_score = result.len() * 5 + uncovered; // min_points=5
 
         eprintln!(
-            "bench_nh_{label}: mode={} radius=70 min_points=5 -> {} clusters, {:.2}% coverage ({}/{}) in {:.2}s",
+            "bench_nh_{label}: mode={} radius=70 min_points=5 -> {} clusters, {:.2}% coverage ({}/{}), mygod_score={} in {:.2}s",
             label,
             result.len(),
             coverage_pct,
             covered,
             pts.len(),
+            mygod_score,
             elapsed.as_secs_f32()
         );
     }

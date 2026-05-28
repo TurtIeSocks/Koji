@@ -1,7 +1,7 @@
 use geojson::{Feature, Geometry};
 use hashbrown::HashSet;
 use macros::time;
-use model::api::{GetBbox, Precision, cluster_mode::ClusterMode, single_vec::SingleVec};
+use model::api::{GetBbox, Precision, cluster_mode::ClusterMode, point_array::PointArray, single_vec::SingleVec};
 
 use ::s2::{cellid::CellID, latlng::LatLng};
 use rayon::{
@@ -136,6 +136,15 @@ impl<'a> Greedy {
         let bucketed = self.bucket_clusters_by_size(flat_clusters);
         let mut consolidated: Vec<Cluster> = self.cluster(&bucketed).into_iter().collect();
         self.update_unique(&mut consolidated);
+
+        // Post-greedy merge + gap-fill. merge: cluster pairs within 2*radius
+        // where SEC of union fits within radius become one cluster (lossless;
+        // saves min_points per merge). fill: previously-uncovered points
+        // become candidate centers; new cluster covering ≥ min_points other
+        // uncovered points is a strict mygod_score win.
+        let consolidated = self.merge_redundant_clusters(consolidated, &all_points_tree);
+        let consolidated = self.fill_coverage_gaps(consolidated, points, &all_points_tree);
+
         let mut solution: HashSet<Point> = consolidated.into_iter().map(|c| c.into()).collect();
 
         if self.min_points == 1 {
@@ -144,6 +153,235 @@ impl<'a> Greedy {
             solution.extend(missing);
         }
         log::info!("final solution size: {}", solution.len());
+        solution
+    }
+
+    /// Post-greedy merge: walk pairs of nearby cluster centers (within 2*radius)
+    /// and replace any pair whose union of covered points fits within `radius` of
+    /// the pair's midpoint with a single cluster at that midpoint. Lossless —
+    /// coverage is preserved by construction.
+    ///
+    /// The mygod_score formula (`clusters * min_points + uncovered_points`, source
+    /// of truth: stats.rs::Stats::get_score) drops by exactly `min_points` per
+    /// successful merge: one fewer cluster, zero new uncovered points.
+    ///
+    /// Greedy avoidance: each cluster is considered exactly once in index order.
+    /// When two clusters merge they're both marked removed; later iterations skip
+    /// them. A single pass per `run`; cheap (~O(n*k) where k is average neighbor
+    /// count, typically 1-3 for non-degenerate point distributions).
+    fn merge_redundant_clusters(
+        &self,
+        mut solution: Vec<Cluster<'a>>,
+        all_points_tree: &'a RTree<Point>,
+    ) -> Vec<Cluster<'a>> {
+        use ::s2::cellid::CellID;
+        use rstar::AABB;
+
+        if solution.len() < 2 {
+            return solution;
+        }
+
+        // Tree over cluster centers (radius=2*self.radius so envelope queries find
+        // any cluster center within 2r of the query point — the only candidates
+        // geometrically able to merge).
+        let centers: SingleVec = solution.iter().map(|c| c.point.center).collect();
+        let center_tree: RTree<Point> = crate::rtree::spawn(self.radius * 2.0, &centers);
+
+        let id_to_idx: hashbrown::HashMap<CellID, usize> = solution
+            .iter()
+            .enumerate()
+            .map(|(i, c)| (c.point.cell_id, i))
+            .collect();
+
+        let mut removed: HashSet<CellID> = HashSet::with_capacity(solution.len() / 8);
+        let mut additions: Vec<Cluster<'a>> = Vec::new();
+        let mut attempted_merges: usize = 0;
+        let mut successful_merges: usize = 0;
+
+        for i in 0..solution.len() {
+            let cluster = &solution[i];
+            if removed.contains(&cluster.point.cell_id) {
+                continue;
+            }
+
+            // Find candidate neighbors: cluster centers within 2*radius envelope.
+            // Filter out self + already-removed.
+            let neighbors: Vec<&Point> = center_tree
+                .locate_in_envelope_intersecting(&AABB::from_point(cluster.point.center))
+                .filter(|p| {
+                    p.cell_id != cluster.point.cell_id && !removed.contains(&p.cell_id)
+                })
+                .collect();
+
+            for neighbor in neighbors {
+                attempted_merges += 1;
+                let nb_idx = match id_to_idx.get(&neighbor.cell_id) {
+                    Some(idx) => *idx,
+                    None => continue,
+                };
+                let nb_cluster = &solution[nb_idx];
+
+                // Compute SEC of the union of points (de-duped). multi_attempt
+                // returns Centered iff the SEC radius is within self.radius,
+                // i.e. the merge is geometrically possible without coverage loss.
+                let union_points: Vec<&Point> = cluster
+                    .all
+                    .iter()
+                    .chain(nb_cluster.all.iter())
+                    .copied()
+                    .collect();
+                let mut union_dedup: Vec<&Point> = union_points;
+                union_dedup.sort_dedupe();
+
+                let sec_result = crate::sec::sec::multi_attempt(
+                    union_dedup
+                        .iter()
+                        .map(|p| geo::Point::new(p.center[1], p.center[0])),
+                    self.radius,
+                    16,
+                );
+                let merge_center: PointArray = match sec_result {
+                    crate::sec::sec::SmallestEnclosingCircle::Centered(g) => {
+                        [g.y(), g.x()]
+                    }
+                    _ => continue, // SEC won't fit — lossy merges hurt mygod_score
+                };
+
+                // Verify against rtree (planar vs geodesic distance differ).
+                let mid_coverage: HashSet<CellID> = all_points_tree
+                    .locate_all_at_point(&merge_center)
+                    .map(|p| p.cell_id)
+                    .collect();
+                let union_ids: HashSet<CellID> =
+                    union_dedup.iter().map(|p| p.cell_id).collect();
+                if !union_ids.is_subset(&mid_coverage) {
+                    continue;
+                }
+
+                // Build merged cluster.
+                let new_pt = Point::new(self.radius, 20, merge_center);
+                let mut new_all: Vec<&Point> = all_points_tree
+                    .locate_all_at_point(&merge_center)
+                    .collect();
+                new_all.sort_dedupe();
+                additions.push(Cluster::new(new_pt, new_all, vec![]));
+
+                removed.insert(cluster.point.cell_id);
+                removed.insert(nb_cluster.point.cell_id);
+                successful_merges += 1;
+                break;
+            }
+        }
+
+        log::info!(
+            "merge_pass: {} attempts, {} successful merges, -{} clusters",
+            attempted_merges, successful_merges, successful_merges,
+        );
+
+        // Rebuild final solution: kept clusters + new merged clusters.
+        solution.retain(|c| !removed.contains(&c.point.cell_id));
+        solution.extend(additions);
+
+        // Recompute `unique` for the merged solution so downstream callers see
+        // correct uniqueness counts.
+        self.update_unique(&mut solution);
+        solution
+    }
+
+    /// Add clusters centered on previously-uncovered points when a single cluster
+    /// at that point would cover MORE than `min_points` other uncovered points.
+    ///
+    /// mygod_score math: adding a cluster covering `k` previously-uncovered
+    /// points changes (clusters * min_points + uncovered) by
+    ///   +min_points (one more cluster) - k (covered points removed from uncovered)
+    /// Net negative iff k > min_points. We use strict `>` so we only add when
+    /// it's a clear win; `=` would be neutral.
+    ///
+    /// Processes uncovered points in arbitrary order (rayon par_iter is unsafe
+    /// here because each addition affects later points' "still uncovered" set);
+    /// future work could sort by local density to maximize coverage per cluster.
+    fn fill_coverage_gaps(
+        &self,
+        mut solution: Vec<Cluster<'a>>,
+        all_points: &SingleVec,
+        all_points_tree: &'a RTree<Point>,
+    ) -> Vec<Cluster<'a>> {
+        if all_points.is_empty() || self.min_points == 0 {
+            return solution;
+        }
+
+        // Build a tree of current cluster centers so we can ask "is point p
+        // already covered?" (within radius of some cluster center).
+        let center_coords: SingleVec =
+            solution.iter().map(|c| c.point.center).collect();
+        let center_tree: RTree<Point> = crate::rtree::spawn(self.radius, &center_coords);
+
+        // Initial set of uncovered point cell_ids (level 20, dedupes nearby
+        // duplicates the way the rest of the algorithm does).
+        let mut still_uncovered: HashSet<::s2::cellid::CellID> = all_points
+            .iter()
+            .filter_map(|p| {
+                if center_tree.locate_at_point(p).is_some() {
+                    None
+                } else {
+                    let cell_id = ::s2::cellid::CellID::from(
+                        ::s2::latlng::LatLng::from_degrees(p[0], p[1]),
+                    )
+                    .parent(20);
+                    Some(cell_id)
+                }
+            })
+            .collect();
+
+        if still_uncovered.is_empty() {
+            return solution;
+        }
+
+        let initial_uncovered = still_uncovered.len();
+        let mut additions: Vec<Cluster<'a>> = Vec::new();
+
+        // Iterate input order; for each point still uncovered, try as candidate.
+        // Sort-by-local-density would do better but adds O(n log n) over each
+        // uncovered point; this single-pass version is the cheap baseline.
+        for p in all_points {
+            let cell_id = ::s2::cellid::CellID::from(
+                ::s2::latlng::LatLng::from_degrees(p[0], p[1]),
+            )
+            .parent(20);
+            if !still_uncovered.contains(&cell_id) {
+                continue;
+            }
+
+            // Find points within self.radius of `p` that are STILL uncovered.
+            let candidates: Vec<&Point> = all_points_tree
+                .locate_all_at_point(p)
+                .filter(|q| still_uncovered.contains(&q.cell_id))
+                .collect();
+
+            if candidates.len() > self.min_points {
+                // Strict mygod_score win. Place cluster, mark covered.
+                let new_pt = Point::new(self.radius, 20, *p);
+                let mut all_vec: Vec<&Point> = candidates;
+                all_vec.sort_dedupe();
+                for q in &all_vec {
+                    still_uncovered.remove(&q.cell_id);
+                }
+                additions.push(Cluster::new(new_pt, all_vec, vec![]));
+            }
+        }
+
+        log::info!(
+            "fill_coverage_gaps: {} uncovered -> +{} new clusters ({} still uncovered)",
+            initial_uncovered,
+            additions.len(),
+            still_uncovered.len(),
+        );
+
+        solution.extend(additions);
+        // No update_unique here; callers will run check_missing / final conversion.
+        // The added clusters' unique = all (no overlap with existing since they
+        // covered uncovered points by construction); other clusters' unique is
+        // unchanged for the same reason.
         solution
     }
 
@@ -369,9 +607,15 @@ impl<'a> Greedy {
 
         let clusters_with_data = self.associate_clusters(points, &point_tree);
 
-        let mut solution = self.cluster(&clusters_with_data).into_iter().collect();
-
+        let mut solution: Vec<Cluster> = self.cluster(&clusters_with_data).into_iter().collect();
         self.update_unique(&mut solution);
+
+        // Post-greedy gap-fill pass: greedy stops when no candidate covers
+        // min_points unique points. Many points remain uncovered. Adding a new
+        // cluster centered on an uncovered point that covers ≥ min_points OTHER
+        // uncovered points is a strict mygod_score win (covers ≥ min_points+1,
+        // costs min_points -> net negative). See fill_coverage_gaps for math.
+        let solution = self.fill_coverage_gaps(solution, points, &point_tree);
 
         if self.min_points == 1 {
             self.check_missing(solution, points)
