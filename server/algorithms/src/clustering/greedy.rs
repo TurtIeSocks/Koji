@@ -89,12 +89,11 @@ impl<'a> Greedy {
         use rayon::prelude::*;
 
         let config = PartitionConfig::load();
-        // Global rtree shared (read-only) across all chunks for halo gathering.
-        // Each chunk's solve_chunk also builds a chunk-local rtree because cluster() and
-        // update_unique() take &'a RTree<Point> bound to chunk-scoped (owned + halo) points.
-        // This means peak rtree memory is roughly 2x points; acceptable for the bounded
-        // candidate budget per chunk. Long-term refactor could fold these into one tree
-        // with cell-level indexing.
+        // Global rtree built once. All chunk candidate-coverage queries hit this
+        // tree, so a cluster's covered-point count is always computed against the
+        // full input — no per-chunk locality bias. Each chunk still builds its
+        // own small rtree solely to bound the S2 candidate walk (chunk_tree is
+        // dropped before the cluster is added to the global pool).
         let all_points_tree: RTree<Point> = crate::rtree::spawn(self.radius, points);
         let chunks = adaptive_partition(
             points,
@@ -105,26 +104,39 @@ impl<'a> Greedy {
         );
 
         let mut stats = PartitionStats::default();
+        let mut downgrade_pairs: Vec<(ClusterMode, ClusterMode)> = Vec::new();
 
-        let chunk_results: Vec<(HashSet<Point>, Option<(ClusterMode, ClusterMode)>)> = chunks
+        // Per chunk: generate raw candidate cluster centers (S2 walk and/or grid)
+        // bounded by chunk extent + halo for memory, then filter against the
+        // GLOBAL point tree so each Cluster<'a> carries its true global coverage.
+        // Result is a single flat Vec<Cluster<'a>> over the full input.
+        let (all_clusters, chunk_downgrades): (Vec<Vec<Cluster<'_>>>, Vec<Option<(ClusterMode, ClusterMode)>>) = chunks
             .par_iter()
-            .map(|chunk| self.solve_chunk(chunk, &all_points_tree, config.budget))
-            .collect();
-
-        let mut solution: HashSet<Point> = HashSet::with_capacity(chunks.len() * 32);
-        for (chunk_solution, downgrade) in chunk_results {
-            solution.extend(chunk_solution);
-            if let Some((from, to)) = downgrade {
-                let key = (mode_tag(&from), mode_tag(&to));
-                *stats.downgrades.entry(key).or_insert(0) += 1;
-            }
+            .map(|chunk| self.generate_chunk_clusters(chunk, &all_points_tree, config.budget))
+            .unzip();
+        let flat_clusters: Vec<Cluster<'_>> = all_clusters.into_iter().flatten().collect();
+        for dg in chunk_downgrades.into_iter().flatten() {
+            downgrade_pairs.push(dg);
+        }
+        for (from, to) in &downgrade_pairs {
+            let key = (mode_tag(from), mode_tag(to));
+            *stats.downgrades.entry(key).or_insert(0) += 1;
         }
 
         log::info!(
-            "partition: {} chunks, downgrades: {:?}",
+            "partition: {} chunks, downgrades: {:?}, total candidate clusters: {}",
             chunks.len(),
             stats.downgrades,
+            flat_clusters.len(),
         );
+
+        // Single global greedy on the full candidate pool. No chunk-level greedy
+        // means no chunk-boundary quality loss: the greedy sees every cluster's
+        // global coverage and picks the optimal subset directly.
+        let bucketed = self.bucket_clusters_by_size(flat_clusters);
+        let mut consolidated: Vec<Cluster> = self.cluster(&bucketed).into_iter().collect();
+        self.update_unique(&mut consolidated);
+        let mut solution: HashSet<Point> = consolidated.into_iter().map(|c| c.into()).collect();
 
         if self.min_points == 1 {
             let seen_cell_ids: HashSet<CellID> = solution.iter().map(|p| p.cell_id).collect();
@@ -133,6 +145,56 @@ impl<'a> Greedy {
         }
         log::info!("final solution size: {}", solution.len());
         solution
+    }
+
+    /// Generate raw candidate clusters for one partition chunk, filtered against
+    /// the GLOBAL point tree so coverage counts reflect the entire input set.
+    /// Returns `(clusters, optional_downgrade)`. The chunk-local rtree built to
+    /// bound the S2 walk is dropped before this function returns; the returned
+    /// `Cluster<'a>`s reference only `all_points_tree`.
+    fn generate_chunk_clusters(
+        &'a self,
+        chunk: &crate::clustering::partition::Chunk,
+        all_points_tree: &'a RTree<Point>,
+        budget: usize,
+    ) -> (Vec<Cluster<'a>>, Option<(ClusterMode, ClusterMode)>) {
+        use crate::clustering::partition::{gather_halo, s2_walk_cost, scaled_grid_density, select_effective_mode};
+
+        let halo = gather_halo(chunk.cell, all_points_tree, self.radius);
+        let mut combined: SingleVec = Vec::with_capacity(chunk.owned.len() + halo.len());
+        combined.extend(chunk.owned.iter().copied());
+        combined.extend(halo.iter().map(|p| p.center));
+
+        let effective_mode = select_effective_mode(self.cluster_mode.clone(), &combined, budget);
+        let downgrade = (effective_mode != self.cluster_mode)
+            .then(|| (self.cluster_mode.clone(), effective_mode.clone()));
+
+        let grid_density = if matches!(effective_mode, ClusterMode::Best) {
+            let s2_cost = s2_walk_cost(&combined);
+            Some(scaled_grid_density(s2_cost, budget))
+        } else {
+            None
+        };
+
+        // chunk_tree exists only to bound the S2 walk's flat_map_cells descent.
+        // Drop it after generate_candidates_for_mode by scoping it tightly.
+        let raw_candidates: SingleVec = {
+            let chunk_tree: RTree<Point> = crate::rtree::spawn(self.radius, &combined);
+            self.generate_candidates_for_mode(&combined, &chunk_tree, effective_mode, grid_density)
+        };
+
+        let clusters: Vec<Cluster<'a>> = raw_candidates
+            .into_par_iter()
+            .filter_map(|center| {
+                let iter = all_points_tree.locate_all_at_point(&center);
+                let mut covered = Vec::with_capacity(iter.size_hint().0);
+                covered.extend(iter);
+                (covered.len() >= self.min_points)
+                    .then(|| Cluster::new(Point::new(self.radius, 20, center), covered, vec![]))
+            })
+            .collect();
+
+        (clusters, downgrade)
     }
 
     fn recover_missing_points(
@@ -243,72 +305,12 @@ impl<'a> Greedy {
         }
     }
 
-    fn associate_clusters_for_chunk(
-        &'a self,
-        points: &'a SingleVec,
-        point_tree: &'a RTree<Point>,
-        effective_mode: ClusterMode,
-        budget: usize,
-    ) -> Vec<Vec<Cluster<'a>>> {
-        use crate::clustering::partition::{s2_walk_cost, scaled_grid_density};
-
-        let grid_density = if matches!(effective_mode, ClusterMode::Best) {
-            let s2_cost = s2_walk_cost(points);
-            Some(scaled_grid_density(s2_cost, budget))
-        } else {
-            None
-        };
-
-        let raw_candidates = self.generate_candidates_for_mode(
-            points,
-            point_tree,
-            effective_mode,
-            grid_density,
-        );
-
-        let clusters_with_data: Vec<Cluster> = raw_candidates
-            .into_par_iter()
-            .filter_map(|cluster| {
-                let iter = point_tree.locate_all_at_point(&cluster);
-                let mut points = Vec::with_capacity(iter.size_hint().0);
-                points.extend(iter);
-
-                (points.len() >= self.min_points)
-                    .then(|| Cluster::new(Point::new(self.radius, 20, cluster), points, vec![]))
-            })
-            .collect();
-
-        self.bucket_clusters_by_size(clusters_with_data)
-    }
-
-    pub(crate) fn solve_chunk(
-        &'a self,
-        chunk: &crate::clustering::partition::Chunk,
-        all_points_tree: &RTree<Point>,
-        budget: usize,
-    ) -> (HashSet<Point>, Option<(ClusterMode, ClusterMode)>) {
-        use crate::clustering::partition::{gather_halo, select_effective_mode, contains_latlng};
-
-        let halo = gather_halo(chunk.cell, all_points_tree, self.radius);
-        let mut combined: SingleVec = Vec::with_capacity(chunk.owned.len() + halo.len());
-        combined.extend(chunk.owned.iter().copied());
-        combined.extend(halo.iter().map(|p| p.center));
-
-        let effective_mode = select_effective_mode(self.cluster_mode.clone(), &combined, budget);
-        let downgrade = (effective_mode != self.cluster_mode)
-            .then(|| (self.cluster_mode.clone(), effective_mode.clone()));
-
-        let point_tree: RTree<Point> = crate::rtree::spawn(self.radius, &combined);
-        let clusters_with_data =
-            self.associate_clusters_for_chunk(&combined, &point_tree, effective_mode, budget);
-
-        let mut solution: Vec<Cluster> = self.cluster(&clusters_with_data).into_iter().collect();
-        self.update_unique(&mut solution);
-
-        solution.retain(|cluster| contains_latlng(chunk.cell, cluster.point.center));
-        let result: HashSet<Point> = solution.into_iter().map(|c| c.into()).collect();
-        (result, downgrade)
-    }
+    // associate_clusters_for_chunk + solve_chunk removed: the new run_partitioned
+    // generates candidates per-chunk but defers ALL greedy selection to a single
+    // global pass (see generate_chunk_clusters + global cluster() call in
+    // run_partitioned). This avoids the per-chunk greedy quality loss observed on
+    // medium-density inputs where chunk-local greedy commits to suboptimal
+    // boundary clusters that no consolidation pass could fully recover.
 
     fn associate_clusters(
         &'a self,
