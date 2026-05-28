@@ -138,6 +138,7 @@ export async function clusteringRouting({
     clustering_args,
     bootstrapping_args,
     genetic_post_processing,
+    dev,
   } = usePersist.getState()
   const { geojson, setStatic, bounds } = useStatic.getState()
   const { add, activeRoute } = useShapes.getState().setters
@@ -255,6 +256,7 @@ export async function clusteringRouting({
             clustering_args,
             bootstrapping_args,
             genetic_post_processing,
+            dev,
           }),
         },
       )

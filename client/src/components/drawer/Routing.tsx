@@ -3,9 +3,11 @@ import {
   Collapse,
   Divider,
   List,
+  ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Switch,
 } from '@mui/material'
 import Update from '@mui/icons-material/Update'
 
@@ -151,6 +153,31 @@ export default function RoutingTab() {
           field="genetic_post_processing"
           label="Genetic Post Processing"
         /> */}
+        {/*
+          DEV TOGGLE — remove after PR #253 merges.
+          Bypasses the adaptive S2 partition + post-greedy gap-fill so dev
+          friends can A/B compare quality stats against the pre-PR algorithm.
+          The Toggle component above only supports top-level `usePersist` keys,
+          and the `dev` field is nested for forward-compat, so this is a
+          one-off inline ListItem.
+        */}
+        <ListItem>
+          <ListItemText
+            primary="Bypass Adaptive Partition"
+            secondary="Dev: run pre-PR clustering for A/B comparison"
+          />
+          <Switch
+            edge="end"
+            checked={
+              usePersist((s) => s.dev?.bypass_adaptive_partition) ?? false
+            }
+            onChange={(_e, v) =>
+              usePersist.setState((s) => ({
+                dev: { ...s.dev, bypass_adaptive_partition: v },
+              }))
+            }
+          />
+        </ListItem>
       </Collapse>
 
       <Divider sx={{ my: 2 }} />

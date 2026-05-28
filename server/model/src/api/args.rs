@@ -388,6 +388,24 @@ pub struct Args {
     ///
     /// Default: `false`
     pub genetic_post_processing: Option<bool>,
+    /// Developer / experimental toggles. Wraps fields that exist only for
+    /// debugging or A/B comparison and are NOT part of the stable public API.
+    /// Expect this struct to grow and shrink between releases.
+    pub dev: Option<DevArgs>,
+}
+
+/// Developer / experimental request toggles. Add fields here for one-off
+/// debugging knobs that aren't part of the stable API surface.
+#[derive(Debug, Deserialize, Clone, Default)]
+#[serde(default)]
+pub struct DevArgs {
+    /// When `true`, skips the adaptive S2 partitioning + post-greedy gap-fill
+    /// added in PR #253 and uses the pre-PR `setup()` path for every mode.
+    /// Intended for side-by-side quality comparison during PR review; will be
+    /// commented out after the PR merges.
+    ///
+    /// Default: `false`
+    pub bypass_adaptive_partition: Option<bool>,
 }
 
 pub struct ArgsUnwrapped {
@@ -422,6 +440,14 @@ pub struct ArgsUnwrapped {
     pub bootstrapping_args: String,
     pub center_clusters: bool,
     pub genetic_post_processing: bool,
+    pub dev: DevArgsUnwrapped,
+}
+
+/// Unwrapped counterpart to [DevArgs]: all fields resolved to their concrete
+/// types with defaults applied.
+#[derive(Debug, Clone, Default)]
+pub struct DevArgsUnwrapped {
+    pub bypass_adaptive_partition: bool,
 }
 
 fn validate_s2_cell(value_to_check: Option<u64>, label: &str) -> u64 {
@@ -496,6 +522,7 @@ impl Args {
             bootstrapping_args,
             center_clusters,
             genetic_post_processing,
+            dev,
         } = self;
         let enum_type = get_enum_by_geometry_string(geometry_type);
         let (area, default_return_type) = if let Some(area) = area {
@@ -562,6 +589,12 @@ impl Args {
         };
         let center_clusters = center_clusters.unwrap_or(false);
         let genetic_post_processing = genetic_post_processing.unwrap_or_default();
+        let dev = DevArgsUnwrapped {
+            bypass_adaptive_partition: dev
+                .as_ref()
+                .and_then(|d| d.bypass_adaptive_partition)
+                .unwrap_or(false),
+        };
         let clusters = resolve_data_points(clusters);
         let last_seen = last_seen.unwrap_or(0);
         let save_to_db = save_to_db.unwrap_or(false);
@@ -623,6 +656,7 @@ impl Args {
             bootstrapping_args,
             center_clusters,
             genetic_post_processing,
+            dev,
         }
     }
 }

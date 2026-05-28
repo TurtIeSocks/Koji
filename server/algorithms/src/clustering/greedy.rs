@@ -30,6 +30,10 @@ pub struct Greedy {
     max_clusters: usize,
     min_points: usize,
     radius: Precision,
+    /// Dev-only A/B toggle: when `true`, `run()` skips the adaptive S2 partition
+    /// and the post-greedy gap-fill pass, falling back to the pre-PR `setup()`
+    /// path for every mode. See [DevArgs] on the API side.
+    bypass_adaptive_partition: bool,
 }
 
 impl Default for Greedy {
@@ -39,6 +43,7 @@ impl Default for Greedy {
             max_clusters: usize::MAX,
             min_points: 1,
             radius: 70.,
+            bypass_adaptive_partition: false,
         }
     }
 }
@@ -69,14 +74,31 @@ impl<'a> Greedy {
         }
         self
     }
+    /// Dev-only A/B toggle. When `true`, [`Greedy::run`] uses the pre-PR
+    /// `setup()` path for every mode (no adaptive partition, no gap-fill).
+    /// Wired from `DevArgs::bypass_adaptive_partition` via `clustering::main`.
+    pub fn set_bypass_adaptive_partition(&mut self, bypass: bool) -> &mut Self {
+        self.bypass_adaptive_partition = bypass;
+        self
+    }
 
     pub fn run(&'a self, points: &SingleVec) -> SingleVec {
         let time = Instant::now();
         log::info!("starting algorithm with {} data points", points.len());
 
-        let return_set = match self.cluster_mode {
-            ClusterMode::Better | ClusterMode::Best => self.run_partitioned(points),
-            _ => self.setup(points),
+        // Dev A/B toggle: when `bypass_adaptive_partition` is on, every mode
+        // (including Better/Best) goes through the pre-PR `setup()` path with
+        // no partition and no gap-fill — i.e. exactly the algorithm shape from
+        // commit prior to docs/superpowers/specs/2026-05-27-greedy-bbox-adaptive-partition-design.md.
+        // Used for side-by-side quality comparison during PR review.
+        let return_set = if self.bypass_adaptive_partition {
+            log::info!("dev: bypass_adaptive_partition=true (pre-PR algorithm path)");
+            self.setup(points)
+        } else {
+            match self.cluster_mode {
+                ClusterMode::Better | ClusterMode::Best => self.run_partitioned(points),
+                _ => self.setup(points),
+            }
         };
 
         log::info!("finished in {:.2}s", time.elapsed().as_secs_f32());
@@ -241,6 +263,7 @@ impl<'a> Greedy {
     /// When two clusters merge they're both marked removed; later iterations skip
     /// them. A single pass per `run`; cheap (~O(n*k) where k is average neighbor
     /// count, typically 1-3 for non-degenerate point distributions).
+    #[allow(dead_code)] // kept for future opt-in once SEC pre-filter is cheaper
     fn merge_redundant_clusters(
         &self,
         mut solution: Vec<Cluster<'a>>,
@@ -637,7 +660,13 @@ impl<'a> Greedy {
         // cluster centered on an uncovered point that covers ≥ min_points OTHER
         // uncovered points is a strict mygod_score win (covers ≥ min_points+1,
         // costs min_points -> net negative). See fill_coverage_gaps for math.
-        let solution = self.fill_coverage_gaps(solution, points, &point_tree);
+        // Skipped when bypass_adaptive_partition is on so the dev path is
+        // exactly the pre-PR algorithm (no gap-fill).
+        let solution = if self.bypass_adaptive_partition {
+            solution
+        } else {
+            self.fill_coverage_gaps(solution, points, &point_tree)
+        };
 
         if self.min_points == 1 {
             self.check_missing(solution, points)

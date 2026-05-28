@@ -35,6 +35,7 @@ pub fn main(
     clustering_args: &str,
     center_clusters: bool,
     _genetic_post_processing: bool,
+    bypass_adaptive_partition: bool,
 ) -> SingleVec {
     if data_points.is_empty() {
         return vec![];
@@ -61,7 +62,8 @@ pub fn main(
                     .set_cluster_split_level(cluster_split_level)
                     .set_max_clusters(max_clusters)
                     .set_min_points(min_points)
-                    .set_radius(radius);
+                    .set_radius(radius)
+                    .set_bypass_adaptive_partition(bypass_adaptive_partition);
 
                 greedy.run(&data_points)
             }
