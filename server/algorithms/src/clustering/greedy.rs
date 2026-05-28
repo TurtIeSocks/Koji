@@ -176,10 +176,14 @@ impl<'a> Greedy {
             solution_vec.into_iter().map(|c| c.into()).collect();
 
         if self.min_points == 1 {
-            let seen_cell_ids: HashSet<CellID> =
-                final_solution.iter().map(|p| p.cell_id).collect();
-            let missing = self.recover_missing_points(&seen_cell_ids, points);
-            final_solution.extend(missing);
+            let cap = self.max_clusters.saturating_sub(final_solution.len());
+            if cap > 0 {
+                let seen_cell_ids: HashSet<CellID> =
+                    final_solution.iter().map(|p| p.cell_id).collect();
+                let missing =
+                    self.recover_missing_points(&seen_cell_ids, points, cap);
+                final_solution.extend(missing);
+            }
         }
         log::info!("final solution size: {}", final_solution.len());
         final_solution
@@ -480,15 +484,31 @@ impl<'a> Greedy {
         solution
     }
 
+    /// Build the set of single-point clusters needed to cover any input points
+    /// that the greedy pass never put inside a cluster. Used only when
+    /// `min_points == 1`, where the contract is "every input point must end up
+    /// covered".
+    ///
+    /// `max_to_add` is the cap on how many new single-point clusters this fn
+    /// is allowed to emit. Callers pass `self.max_clusters.saturating_sub(
+    /// current_solution_size)` so the missing-recovery pass cannot push the
+    /// final solution past the user's `max_clusters` ceiling. `0` is the
+    /// fast path: cap reached, nothing to do.
+    ///
+    /// When the unfiltered set of missing points exceeds the cap, the result
+    /// is truncated. Truncation keeps the first N points in input order
+    /// (deterministic for deterministic inputs); we don't reorder by local
+    /// density today.
     fn recover_missing_points(
         &self,
         seen_cell_ids: &HashSet<CellID>,
         points: &SingleVec,
+        max_to_add: usize,
     ) -> Vec<Point> {
-        if seen_cell_ids.len() == points.len() {
+        if max_to_add == 0 || seen_cell_ids.len() == points.len() {
             return vec![];
         }
-        points
+        let mut missing: Vec<Point> = points
             .into_par_iter()
             .filter_map(|p| {
                 let cell_id = CellID::from(LatLng::from_degrees(p[0], p[1])).parent(20);
@@ -498,7 +518,11 @@ impl<'a> Greedy {
                     Some(Point::new(self.radius, 20, *p))
                 }
             })
-            .collect()
+            .collect();
+        if missing.len() > max_to_add {
+            missing.truncate(max_to_add);
+        }
+        missing
     }
 
     fn bucket_clusters_by_size(&self, clusters_with_data: Vec<Cluster<'a>>) -> Vec<Vec<Cluster<'a>>> {
@@ -823,15 +847,20 @@ impl<'a> Greedy {
 
     #[time()]
     fn check_missing(&self, clusters: Vec<Cluster>, points: &SingleVec) -> HashSet<Point> {
-        let seen_cell_ids: HashSet<CellID> = clusters
-            .iter()
-            .flat_map(|c| c.all.iter())
-            .map(|p| p.cell_id)
-            .collect();
-        let missing = self.recover_missing_points(&seen_cell_ids, points);
-
-        let mut result: HashSet<Point> = clusters.into_iter().map(|c| c.into()).collect();
-        result.extend(missing);
+        let mut result: HashSet<Point> = clusters.iter().map(|c| c.point).collect();
+        // Respect `max_clusters`: never let missing-point recovery push the
+        // final solution above the cap. If greedy already hit the cap, skip
+        // the check entirely (cap == 0).
+        let cap = self.max_clusters.saturating_sub(result.len());
+        if cap > 0 {
+            let seen_cell_ids: HashSet<CellID> = clusters
+                .iter()
+                .flat_map(|c| c.all.iter())
+                .map(|p| p.cell_id)
+                .collect();
+            let missing = self.recover_missing_points(&seen_cell_ids, points, cap);
+            result.extend(missing);
+        }
 
         log::info!("final solution size: {}", result.len());
         result
