@@ -23,12 +23,6 @@ impl ToSingleVec for SingleStruct {
     }
 }
 
-impl ToMultiVec for SingleStruct {
-    fn to_multi_vec(self) -> multi_vec::MultiVec {
-        vec![self.to_single_vec()]
-    }
-}
-
 impl ToPointStruct for SingleStruct {
     fn to_struct(self) -> point_struct::PointStruct {
         log::warn!(
@@ -47,45 +41,21 @@ impl ToSingleStruct for SingleStruct {
     }
 }
 
-impl ToMultiStruct for SingleStruct {
-    fn to_multi_struct(self) -> multi_struct::MultiStruct {
-        vec![self]
-    }
-}
-
 impl ToFeature for SingleStruct {
-    fn to_feature(self, enum_type: Option<FenceType>) -> Feature {
+    fn to_feature(self, ctx: &FeatureCtx) -> Feature {
         let bbox = self.get_bbox();
         Feature {
             bbox: bbox.clone(),
             geometry: Some(Geometry {
                 bbox,
                 foreign_members: None,
-                value: if let Some(enum_type) = enum_type {
+                value: if let Some(enum_type) = ctx.fence_type {
                     self.to_multi_vec().get_geojson_value(enum_type)
                 } else {
                     self.to_multi_vec().polygon()
                 },
             }),
             ..Default::default()
-        }
-    }
-}
-
-impl ToCollection for SingleStruct {
-    fn to_collection(
-        self,
-        _name: Option<String>,
-        enum_type: Option<FenceType>,
-    ) -> FeatureCollection {
-        let feature = self
-            .to_feature(enum_type)
-            // .ensure_properties(name, enum_type)
-            ;
-        FeatureCollection {
-            bbox: feature.bbox.clone(),
-            features: vec![feature],
-            foreign_members: None,
         }
     }
 }
@@ -100,11 +70,4 @@ impl ToText for SingleStruct {
     }
 }
 
-impl ToPoracle for SingleStruct {
-    fn to_poracle(self) -> poracle::Poracle {
-        poracle::Poracle {
-            path: Some(self.to_single_vec()),
-            ..Default::default()
-        }
-    }
-}
+wrapper_conversions!(SingleStruct);

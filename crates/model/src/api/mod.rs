@@ -2,8 +2,8 @@ use geojson::{Feature, FeatureCollection, Geometry};
 use serde::{Deserialize, Serialize};
 
 use koji_core::{
-    EnsurePoints, FenceType, MultiStruct, MultiVec, Poracle, SingleStruct, SingleVec, ToCollection,
-    ToFeature,
+    EnsurePoints, FeatureCtx, MultiStruct, MultiVec, Poracle, SingleStruct, SingleVec,
+    ToCollection, ToFeature,
 };
 
 pub mod args;
@@ -31,20 +31,20 @@ pub enum GeoFormats {
 }
 
 impl ToCollection for GeoFormats {
-    fn to_collection(self, name: Option<String>, enum_type: Option<FenceType>) -> FeatureCollection {
+    fn to_collection(self, ctx: &FeatureCtx) -> FeatureCollection {
         match self {
-            GeoFormats::Text(area) => area.to_collection(name, enum_type),
-            GeoFormats::SingleArray(area) => area.to_collection(name, enum_type),
-            GeoFormats::MultiArray(area) => area.to_collection(name, enum_type),
-            GeoFormats::SingleStruct(area) => area.to_collection(name, enum_type),
-            GeoFormats::MultiStruct(area) => area.to_collection(name, enum_type),
-            GeoFormats::Geometry(area) => area.to_feature(enum_type).to_collection(name, None),
-            GeoFormats::GeometryVec(area) => area.to_collection(name, enum_type),
-            GeoFormats::Feature(area) => area.to_collection(name, enum_type),
-            GeoFormats::FeatureVec(area) => area.to_collection(name, enum_type),
-            GeoFormats::FeatureCollection(area) => area.to_collection(name, enum_type),
-            GeoFormats::Poracle(area) => area.to_collection(name, enum_type),
-            GeoFormats::PoracleSingle(area) => vec![area].to_collection(name, enum_type),
+            GeoFormats::Text(area) => area.to_collection(ctx),
+            GeoFormats::SingleArray(area) => area.to_collection(ctx),
+            GeoFormats::MultiArray(area) => area.to_collection(ctx),
+            GeoFormats::SingleStruct(area) => area.to_collection(ctx),
+            GeoFormats::MultiStruct(area) => area.to_collection(ctx),
+            GeoFormats::Geometry(area) => area.to_feature(ctx).to_collection(ctx),
+            GeoFormats::GeometryVec(area) => area.to_collection(ctx),
+            GeoFormats::Feature(area) => area.to_collection(ctx),
+            GeoFormats::FeatureVec(area) => area.to_collection(ctx),
+            GeoFormats::FeatureCollection(area) => area.to_collection(ctx),
+            GeoFormats::Poracle(area) => area.to_collection(ctx),
+            GeoFormats::PoracleSingle(area) => vec![area].to_collection(ctx),
             GeoFormats::Bound(area) => vec![
                 [area.min_lat, area.min_lon],
                 [area.min_lat, area.max_lon],
@@ -52,7 +52,7 @@ impl ToCollection for GeoFormats {
                 [area.max_lat, area.min_lon],
                 [area.min_lat, area.min_lon],
             ]
-            .to_collection(name, enum_type),
+            .to_collection(ctx),
         }
         .ensure_first_last()
     }

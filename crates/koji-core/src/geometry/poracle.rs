@@ -125,14 +125,14 @@ impl ToMultiStruct for Poracle {
 }
 
 impl ToFeature for Poracle {
-    fn to_feature(self, enum_type: Option<FenceType>) -> Feature {
+    fn to_feature(self, ctx: &FeatureCtx) -> Feature {
         let bbox = self.get_bbox();
         let mut feature = Feature {
             bbox: bbox.clone(),
             geometry: Some(Geometry {
                 bbox,
                 foreign_members: None,
-                value: if let Some(enum_type) = enum_type {
+                value: if let Some(enum_type) = ctx.fence_type {
                     self.clone().to_multi_vec().get_geojson_value(enum_type)
                 } else if self.multipath.is_some() {
                     self.clone().to_multi_vec().multi_polygon()
@@ -182,15 +182,8 @@ impl ToFeature for Poracle {
 }
 
 impl ToCollection for Poracle {
-    fn to_collection(
-        self,
-        _name: Option<String>,
-        enum_type: Option<FenceType>,
-    ) -> FeatureCollection {
-        let feature = self
-            .to_feature(enum_type)
-            // .ensure_properties(name, enum_type)
-            ;
+    fn to_collection(self, ctx: &FeatureCtx) -> FeatureCollection {
+        let feature = self.to_feature(ctx);
         FeatureCollection {
             bbox: feature.bbox.clone(),
             features: vec![feature],
@@ -200,17 +193,7 @@ impl ToCollection for Poracle {
 }
 
 impl ToCollection for Vec<Poracle> {
-    fn to_collection(
-        self,
-        _name: Option<String>,
-        enum_type: Option<FenceType>,
-    ) -> FeatureCollection {
-        // let name = if let Some(name) = name {
-        //     name
-        // } else {
-        //     "".to_string()
-        // };
-        // let length = self.len();
+    fn to_collection(self, ctx: &FeatureCtx) -> FeatureCollection {
         FeatureCollection {
             bbox: self
                 .clone()
@@ -220,18 +203,7 @@ impl ToCollection for Vec<Poracle> {
                 .get_bbox(),
             features: self
                 .into_iter()
-                .enumerate()
-                .map(|(_i, poracle_feat)| {
-                    poracle_feat.to_feature(enum_type.to_owned())
-                    // .ensure_properties(
-                    //     Some(if length > 1 {
-                    //         format!("{}_{}", name, i)
-                    //     } else {
-                    //         name.clone()
-                    //     }),
-                    //     enum_type,
-                    // )
-                })
+                .map(|poracle_feat| poracle_feat.to_feature(ctx))
                 .collect(),
             foreign_members: None,
         }

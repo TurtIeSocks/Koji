@@ -29,14 +29,14 @@ impl ToGeometry for Feature {
 }
 
 impl FeatureHelpers for Feature {
-    fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<FenceType>) {
+    fn add_instance_properties(&mut self, ctx: &FeatureCtx) {
         if !self.contains_property("__name") {
-            if let Some(name) = name {
+            if let Some(name) = ctx.name.clone() {
                 self.set_property("__name", name)
             }
         }
         if !self.contains_property("__mode") {
-            if let Some(enum_type) = enum_type {
+            if let Some(enum_type) = ctx.fence_type {
                 self.set_property("__mode", enum_type.as_str());
             } else if let Some(geometry) = self.geometry.as_ref() {
                 match geometry.value {
@@ -93,9 +93,9 @@ impl FeatureHelpers for Feature {
 }
 
 impl EnsureProperties for Feature {
-    fn ensure_properties(self, name: Option<String>, enum_type: Option<FenceType>) -> Self {
+    fn ensure_properties(self, ctx: &FeatureCtx) -> Self {
         let mut mutable_self = self;
-        mutable_self.add_instance_properties(name, enum_type);
+        mutable_self.add_instance_properties(ctx);
         mutable_self
     }
 }
@@ -174,11 +174,7 @@ impl ToFeatureVec for Feature {
 }
 
 impl ToCollection for Feature {
-    fn to_collection(
-        self,
-        _name: Option<String>,
-        _enum_type: Option<FenceType>,
-    ) -> FeatureCollection {
+    fn to_collection(self, _ctx: &FeatureCtx) -> FeatureCollection {
         let bbox = self.get_bbox();
         FeatureCollection {
             bbox: bbox.clone(),
@@ -199,11 +195,7 @@ impl GetBbox for Vec<Feature> {
 }
 
 impl ToCollection for Vec<Feature> {
-    fn to_collection(
-        self,
-        _name: Option<String>,
-        _enum_type: Option<FenceType>,
-    ) -> FeatureCollection {
+    fn to_collection(self, _ctx: &FeatureCtx) -> FeatureCollection {
         // let name = if let Some(name) = name {
         //     name
         // } else {

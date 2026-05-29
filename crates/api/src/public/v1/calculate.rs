@@ -6,7 +6,7 @@ use algorithms::{self, clustering, routing, stats::Stats};
 use geo::{ChamberlainDuquetteArea, MultiPolygon, Polygon};
 
 use geojson::Value;
-use koji_core::{FeatureHelpers, SortBy, ToCollection, ToFeature, ToSingleVec};
+use koji_core::{FeatureCtx, FeatureHelpers, SortBy, ToCollection, ToFeature, ToSingleVec};
 use model::{
     KojiDb, ScannerType,
     api::{
@@ -137,7 +137,7 @@ async fn bootstrap(
     }
 
     Ok(utils::response::send(
-        features.to_collection(Some(instance.clone()), None),
+        features.to_collection(&FeatureCtx::new().with_name(instance.clone())),
         return_type,
         Some(stats),
         benchmark_mode,
@@ -264,7 +264,7 @@ async fn cluster(
     );
 
     let mut feature = clusters
-        .to_feature(Some(enum_type.clone().into()))
+        .to_feature(&FeatureCtx::new().with_type(enum_type.clone().into()))
         .remove_last_coord();
 
     let instance = if let Some(parent) = parent {
@@ -275,8 +275,11 @@ async fn cluster(
     } else {
         instance
     };
-    feature.add_instance_properties(Some(instance.to_string()), Some(enum_type.into()));
-    let feature = feature.to_collection(Some(instance.clone()), None);
+    feature.add_instance_properties(&FeatureCtx {
+        name: Some(instance.to_string()),
+        fence_type: Some(enum_type.into()),
+    });
+    let feature = feature.to_collection(&FeatureCtx::new().with_name(instance.clone()));
 
     if !instance.is_empty() && save_to_db {
         route::Query::upsert_from_geometry(
@@ -354,8 +357,11 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         &routing_args,
     );
 
-    let feature = clusters.to_feature(Some(mode.clone())).remove_last_coord();
-    let feature = feature.to_collection(Some(instance.clone()), Some(mode));
+    let feature = clusters
+        .to_feature(&FeatureCtx::new().with_type(mode.clone()))
+        .remove_last_coord();
+    let feature =
+        feature.to_collection(&FeatureCtx::new().with_name(instance.clone()).with_type(mode));
 
     Ok(utils::response::send(
         feature,
@@ -390,8 +396,11 @@ async fn route_stats(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         stats.set_score();
     }
 
-    let feature = clusters.to_feature(Some(mode.clone())).remove_last_coord();
-    let feature = feature.to_collection(Some(instance.clone()), Some(mode));
+    let feature = clusters
+        .to_feature(&FeatureCtx::new().with_type(mode.clone()))
+        .remove_last_coord();
+    let feature =
+        feature.to_collection(&FeatureCtx::new().with_name(instance.clone()).with_type(mode));
 
     Ok(utils::response::send(
         feature,
@@ -449,8 +458,11 @@ async fn route_stats_category(
         stats.set_score();
     }
 
-    let feature = clusters.to_feature(Some(mode.clone())).remove_last_coord();
-    let feature = feature.to_collection(Some(instance.clone()), Some(mode));
+    let feature = clusters
+        .to_feature(&FeatureCtx::new().with_type(mode.clone()))
+        .remove_last_coord();
+    let feature =
+        feature.to_collection(&FeatureCtx::new().with_name(instance.clone()).with_type(mode));
 
     Ok(utils::response::send(
         feature,

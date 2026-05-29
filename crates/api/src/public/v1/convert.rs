@@ -2,7 +2,7 @@ use super::*;
 
 use geojson::{Geometry, Value};
 
-use koji_core::{FeatureHelpers, GeometryHelpers, ToCollection, ToFeature, TrimPrecision};
+use koji_core::{FeatureCtx, FeatureHelpers, GeometryHelpers, ToCollection, ToFeature, TrimPrecision};
 use model::{
     api::args::{Args, ArgsUnwrapped},
     db::sea_orm_active_enums::Type,
@@ -72,8 +72,8 @@ async fn merge_points(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
             foreign_members: None,
             value: Value::MultiPoint(new_multi_point),
         }
-        .to_feature(Some(Type::CirclePokemon.into()))
-        .to_collection(None, None),
+        .to_feature(&FeatureCtx::new().with_type(Type::CirclePokemon.into()))
+        .to_collection(&FeatureCtx::default()),
         return_type,
         None,
         false,

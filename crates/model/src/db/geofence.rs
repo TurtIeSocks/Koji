@@ -2,7 +2,7 @@
 
 use std::{collections::HashMap, str::FromStr, time::Instant};
 
-use koji_core::{ToCollection, UnknownId};
+use koji_core::{FeatureCtx, ToCollection, UnknownId};
 
 use crate::{
     api::{
@@ -419,7 +419,7 @@ impl Query {
             .filter_map(|result| result.to_feature(&property_map, &helper_map, args).ok())
             .collect::<Vec<Feature>>();
 
-        Ok(results.to_collection(None, None))
+        Ok(results.to_collection(&FeatureCtx::default()))
     }
 
     /// Returns all Geofence models in the db without their features
@@ -749,7 +749,7 @@ impl Query {
             feat => {
                 let fc = match feat {
                     GeoFormats::FeatureCollection(fc) => fc,
-                    geometry => geometry.to_collection(None, None),
+                    geometry => geometry.to_collection(&FeatureCtx::default()),
                 };
                 for feat in fc.into_iter() {
                     Query::upsert_feature(conn, feat, &mut parent_map).await?;
@@ -973,7 +973,7 @@ impl Query {
             })
             .collect();
 
-        Ok(items.to_collection(None, None))
+        Ok(items.to_collection(&FeatureCtx::default()))
     }
 
     pub async fn unique_parents(db: &DatabaseConnection) -> Result<Vec<Json>, ModelError> {

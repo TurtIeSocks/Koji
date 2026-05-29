@@ -64,12 +64,6 @@ impl ToSingleVec for SingleVec {
     }
 }
 
-impl ToMultiVec for SingleVec {
-    fn to_multi_vec(self) -> multi_vec::MultiVec {
-        vec![self.to_single_vec()]
-    }
-}
-
 impl ToPointStruct for SingleVec {
     fn to_struct(self) -> point_struct::PointStruct {
         log::warn!(
@@ -91,21 +85,15 @@ impl ToSingleStruct for SingleVec {
     }
 }
 
-impl ToMultiStruct for SingleVec {
-    fn to_multi_struct(self) -> multi_struct::MultiStruct {
-        vec![self.to_single_struct()]
-    }
-}
-
 impl ToFeature for SingleVec {
-    fn to_feature(self, enum_type: Option<FenceType>) -> Feature {
+    fn to_feature(self, ctx: &FeatureCtx) -> Feature {
         let bbox = self.get_bbox();
         Feature {
             bbox: bbox.clone(),
             geometry: Some(Geometry {
                 bbox,
                 foreign_members: None,
-                value: if let Some(enum_type) = enum_type {
+                value: if let Some(enum_type) = ctx.fence_type {
                     self.to_multi_vec().get_geojson_value(enum_type)
                 } else {
                     self.to_multi_vec().polygon()
@@ -117,16 +105,12 @@ impl ToFeature for SingleVec {
 }
 
 impl ToCollection for SingleVec {
-    fn to_collection(
-        self,
-        _name: Option<String>,
-        enum_type: Option<FenceType>,
-    ) -> FeatureCollection {
+    fn to_collection(self, ctx: &FeatureCtx) -> FeatureCollection {
         if self.len() > 1 {
             FeatureCollection {
                 bbox: self.get_bbox(),
                 features: vec![
-                    self.to_feature(enum_type), // .ensure_properties(name, enum_type)
+                    self.to_feature(ctx), // .ensure_properties(ctx)
                 ],
                 foreign_members: None,
             }
@@ -146,11 +130,4 @@ impl ToText for SingleVec {
     }
 }
 
-impl ToPoracle for SingleVec {
-    fn to_poracle(self) -> poracle::Poracle {
-        poracle::Poracle {
-            path: Some(self.to_single_vec()),
-            ..poracle::Poracle::default()
-        }
-    }
-}
+wrapper_conversions!(@wrappers SingleVec);

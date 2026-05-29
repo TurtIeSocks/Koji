@@ -148,14 +148,14 @@ impl ToSingleVec for Geometry {
 }
 
 impl ToFeature for Geometry {
-    fn to_feature(self, enum_type: Option<FenceType>) -> Feature {
+    fn to_feature(self, ctx: &FeatureCtx) -> Feature {
         let bbox = self.get_bbox();
         Feature {
             bbox: bbox.clone(),
             geometry: Some(Self {
                 bbox,
                 foreign_members: None,
-                value: if let Some(enum_type) = enum_type {
+                value: if let Some(enum_type) = ctx.fence_type {
                     match enum_type {
                         FenceType::Leveling => {
                             Value::Point(self.to_single_vec().to_point_array().to_vec())
@@ -228,9 +228,9 @@ impl ToFeatureVec for Geometry {
                 .collect(),
             Value::GeometryCollection(val) => val
                 .into_iter()
-                .map(|geometry| geometry.to_feature(None))
+                .map(|geometry| geometry.to_feature(&FeatureCtx::default()))
                 .collect(),
-            _ => vec![self.to_feature(None)],
+            _ => vec![self.to_feature(&FeatureCtx::default())],
         }
     }
 }
@@ -253,11 +253,7 @@ impl ToGeometryVec for Geometry {
 }
 
 impl ToCollection for Vec<Geometry> {
-    fn to_collection(
-        self,
-        _name: Option<String>,
-        enum_type: Option<FenceType>,
-    ) -> FeatureCollection {
+    fn to_collection(self, ctx: &FeatureCtx) -> FeatureCollection {
         FeatureCollection {
             bbox: self
                 .clone()
@@ -269,7 +265,7 @@ impl ToCollection for Vec<Geometry> {
             foreign_members: None,
             features: self
                 .into_iter()
-                .map(|geometry| geometry.to_feature(enum_type.clone()))
+                .map(|geometry| geometry.to_feature(ctx))
                 .collect(),
         }
     }

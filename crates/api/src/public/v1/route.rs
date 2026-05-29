@@ -4,7 +4,7 @@ use super::*;
 
 use serde_json::json;
 
-use koji_core::ToCollection;
+use koji_core::{FeatureCtx, ToCollection};
 use model::{
     api::{
         args::{get_return_type, ApiQueryArgs, Args, ArgsUnwrapped, ReturnTypeArg},
@@ -56,7 +56,7 @@ async fn get_area(
         feature.property("name")
     );
     Ok(utils::response::send(
-        feature.to_collection(None, None),
+        feature.to_collection(&FeatureCtx::default()),
         return_type,
         None,
         false,
@@ -197,7 +197,7 @@ async fn specific_geofence(
 
     log::info!("[GEOFENCES_FC_ALL] Returning {} instances", features.len());
     Ok(utils::response::send(
-        features.to_collection(None, None),
+        features.to_collection(&FeatureCtx::default()),
         return_type,
         None,
         false,

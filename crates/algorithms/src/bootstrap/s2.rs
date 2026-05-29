@@ -4,7 +4,7 @@ use crate::{routing, stats::Stats};
 
 use geo::{BoundingRect, MultiPolygon, Polygon};
 use geojson::{Feature, Value};
-use koji_core::{Precision, SingleVec, SortBy, ToFeature};
+use koji_core::{FeatureCtx, Precision, SingleVec, SortBy, ToFeature};
 use model::db::sea_orm_active_enums::Type;
 use rayon::{iter::IntoParallelIterator, prelude::ParallelIterator};
 use s2::{
@@ -62,7 +62,9 @@ impl<'a> BootstrapS2<'a> {
     }
 
     pub fn feature(self) -> Feature {
-        let mut new_feature = self.result.to_feature(Some(Type::CirclePokemon.into()));
+        let mut new_feature = self
+            .result
+            .to_feature(&FeatureCtx::new().with_type(Type::CirclePokemon.into()));
 
         if let Some(name) = self.feature.property("__name") {
             new_feature.set_property("__name", name.clone());

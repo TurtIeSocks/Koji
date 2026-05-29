@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use geojson::{Feature, FeatureCollection};
-use koji_core::{Precision, ToFeature, CalculationMode, SortBy};
+use koji_core::{CalculationMode, FeatureCtx, Precision, SortBy, ToFeature};
 
 use crate::{
     plugin::{Folder, Plugin},
@@ -51,7 +51,7 @@ pub fn main(
                                 let mut plugin_stats = Stats::new(plugin.to_string(), 0);
                                 plugin_stats.set_cluster_time(time);
                                 plugin_stats.cluster_stats(0., &vec![], &sorted_clusters);
-                                features.push(sorted_clusters.to_feature(None));
+                                features.push(sorted_clusters.to_feature(&FeatureCtx::default()));
                                 *stats += &plugin_stats;
                             }
                             Err(e) => {

@@ -1,5 +1,5 @@
 use koji_core::{
-    CalculationMode, ClusterMode, FenceType, Precision, SortBy, ToSingleVec, UnknownId,
+    CalculationMode, ClusterMode, FeatureCtx, FenceType, Precision, SortBy, ToSingleVec, UnknownId,
 };
 use super::*;
 
@@ -514,7 +514,10 @@ impl Args {
         let enum_type: Option<FenceType> = get_enum_by_geometry_string(geometry_type).map(Into::into);
         let (area, default_return_type) = if let Some(area) = area {
             (
-                area.clone().to_collection(instance.clone(), enum_type),
+                area.clone().to_collection(&FeatureCtx {
+                    name: instance.clone(),
+                    fence_type: enum_type,
+                }),
                 match area {
                     GeoFormats::Text(area) => {
                         if koji_core::text_test(&area) {

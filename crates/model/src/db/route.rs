@@ -10,7 +10,7 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use koji_core::{ToCollection, ToFeature};
+use koji_core::{FeatureCtx, ToCollection, ToFeature};
 
 use crate::{
     api::{GeoFormats, args::AdminReqParsed},
@@ -84,7 +84,7 @@ impl ToFeatureFromModel for Model {
         } = self;
 
         let geometry = Geometry::from_json_value(geometry)?;
-        let mut feature = geometry.to_feature(Some(Type::CirclePokemon.into()));
+        let mut feature = geometry.to_feature(&FeatureCtx::new().with_type(Type::CirclePokemon.into()));
 
         if internal {
             feature.id = Some(geojson::feature::Id::String(format!(
@@ -340,7 +340,7 @@ impl Query {
             .filter_map(|item| item.to_feature(internal).ok())
             .collect();
 
-        Ok(items.to_collection(None, None))
+        Ok(items.to_collection(&FeatureCtx::default()))
     }
 
     pub async fn upsert(db: &DatabaseConnection, id: u32, json: Json) -> Result<Model, ModelError> {
@@ -492,7 +492,7 @@ impl Query {
             feat => {
                 let fc = match feat {
                     GeoFormats::FeatureCollection(fc) => fc,
-                    geometry => geometry.to_collection(None, None),
+                    geometry => geometry.to_collection(&FeatureCtx::default()),
                 };
                 for feat in fc.into_iter() {
                     Query::upsert_feature(conn, feat, &existing, &mut inserts_updates).await?

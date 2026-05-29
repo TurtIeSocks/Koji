@@ -4,6 +4,7 @@
 mod calc_mode;
 mod category;
 mod cluster_mode;
+mod feature_ctx;
 mod fence_type;
 mod sort_by;
 mod unknown_id;
@@ -11,6 +12,7 @@ mod unknown_id;
 pub use calc_mode::CalculationMode;
 pub use category::Category;
 pub use cluster_mode::ClusterMode;
+pub use feature_ctx::FeatureCtx;
 pub use fence_type::FenceType;
 pub use sort_by::SortBy;
 pub use unknown_id::UnknownId;

@@ -23,16 +23,62 @@ use geo::Point;
 use geojson::{Bbox, Feature, FeatureCollection, Geometry, Value};
 use serde::{Deserialize, Serialize};
 
-use crate::FenceType;
+use crate::{FeatureCtx, FenceType};
 
 pub type Precision = f64;
+
+/// Generates the conversions that are identical for every single-feature type,
+/// derived from its hand-written `to_single_vec` / `to_single_struct` /
+/// `to_feature`.
+///
+/// - `wrapper_conversions!(T)` emits all four wrappers, including the standard
+///   single-feature `to_collection` (one feature, bbox copied from it).
+/// - `wrapper_conversions!(@wrappers T)` emits only the three that never vary,
+///   leaving `ToCollection` to a hand-written impl — used by `SingleVec`, whose
+///   `to_collection` has an emptiness / `len > 1` guard the others lack.
+macro_rules! wrapper_conversions {
+    (@wrappers $t:ty) => {
+        impl ToMultiVec for $t {
+            fn to_multi_vec(self) -> MultiVec {
+                vec![self.to_single_vec()]
+            }
+        }
+        impl ToMultiStruct for $t {
+            fn to_multi_struct(self) -> MultiStruct {
+                vec![self.to_single_struct()]
+            }
+        }
+        impl ToPoracle for $t {
+            fn to_poracle(self) -> Poracle {
+                Poracle {
+                    path: Some(self.to_single_vec()),
+                    ..Default::default()
+                }
+            }
+        }
+    };
+    ($t:ty) => {
+        wrapper_conversions!(@wrappers $t);
+        impl ToCollection for $t {
+            fn to_collection(self, ctx: &FeatureCtx) -> FeatureCollection {
+                let feature = self.to_feature(ctx);
+                FeatureCollection {
+                    bbox: feature.bbox.clone(),
+                    features: vec![feature],
+                    foreign_members: None,
+                }
+            }
+        }
+    };
+}
+pub(crate) use wrapper_conversions;
 
 pub trait EnsurePoints {
     fn ensure_first_last(self) -> Self;
 }
 
 pub trait EnsureProperties {
-    fn ensure_properties(self, name: Option<String>, enum_type: Option<FenceType>) -> Self;
+    fn ensure_properties(self, ctx: &FeatureCtx) -> Self;
 }
 
 /// [min_lon, min_lat, max_lon, max_lat]
@@ -53,7 +99,7 @@ pub trait GeometryHelpers {
 }
 
 pub trait FeatureHelpers {
-    fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<FenceType>);
+    fn add_instance_properties(&mut self, ctx: &FeatureCtx);
     fn remove_last_coord(self) -> Self;
     fn remove_internal_props(self) -> Self;
 }
@@ -83,7 +129,7 @@ pub trait ToMultiStruct {
 }
 
 pub trait ToFeature {
-    fn to_feature(self, enum_type: Option<FenceType>) -> Feature;
+    fn to_feature(self, ctx: &FeatureCtx) -> Feature;
 }
 
 pub trait ToFeatureVec {
@@ -91,8 +137,7 @@ pub trait ToFeatureVec {
 }
 
 pub trait ToCollection {
-    fn to_collection(self, name: Option<String>, enum_type: Option<FenceType>)
-    -> FeatureCollection;
+    fn to_collection(self, ctx: &FeatureCtx) -> FeatureCollection;
 }
 
 pub trait ToPoracle {

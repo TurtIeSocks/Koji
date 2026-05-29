@@ -1,5 +1,5 @@
 use geojson::Feature;
-use koji_core::{FenceType, ToFeature};
+use koji_core::{FeatureCtx, FenceType, ToFeature};
 
 use crate::db::{InstanceParsing, RdmInstanceArea};
 
@@ -12,15 +12,19 @@ pub trait TextHelpers {
 
 impl TextHelpers for String {
     fn parse_scanner_instance(self, name: Option<String>, enum_type: Option<FenceType>) -> Feature {
+        let ctx = FeatureCtx {
+            name: None,
+            fence_type: enum_type,
+        };
         if self.starts_with("{") {
             match serde_json::from_str::<InstanceParsing>(&self) {
                 Ok(result) => match result {
                     InstanceParsing::Feature(feat) => feat,
                     InstanceParsing::Rdm(json) => {
                         let mut feature = match json.area {
-                            RdmInstanceArea::Leveling(point) => point.to_feature(enum_type),
-                            RdmInstanceArea::Single(area) => area.to_feature(enum_type),
-                            RdmInstanceArea::Multi(area) => area.to_feature(enum_type),
+                            RdmInstanceArea::Leveling(point) => point.to_feature(&ctx),
+                            RdmInstanceArea::Single(area) => area.to_feature(&ctx),
+                            RdmInstanceArea::Multi(area) => area.to_feature(&ctx),
                         };
                         if let Some(radius) = json.radius {
                             feature.set_property("radius", radius);
@@ -38,7 +42,7 @@ impl TextHelpers for String {
                 }
             }
         } else {
-            self.to_feature(enum_type)
+            self.to_feature(&ctx)
         }
     }
 }

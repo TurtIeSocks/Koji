@@ -2,7 +2,9 @@
 
 use std::collections::HashMap;
 
-use koji_core::{ToCollection, ToMultiStruct, ToMultiVec, ToPointStruct, ToSingleStruct, ToSingleVec};
+use koji_core::{
+    FeatureCtx, ToCollection, ToMultiStruct, ToMultiVec, ToPointStruct, ToSingleStruct, ToSingleVec,
+};
 
 use crate::{
     api::{
@@ -358,7 +360,7 @@ impl Query {
             feat => {
                 let fc = match feat {
                     GeoFormats::FeatureCollection(fc) => fc,
-                    geometry => geometry.to_collection(None, None),
+                    geometry => geometry.to_collection(&FeatureCtx::default()),
                 };
                 for feat in fc.into_iter() {
                     Query::upsert_feature(conn, feat, &existing, &mut inserts_updates).await?

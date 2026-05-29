@@ -48,24 +48,21 @@ impl TrimPrecision for FeatureCollection {
 }
 
 impl EnsureProperties for FeatureCollection {
-    fn ensure_properties(self, name: Option<String>, enum_type: Option<FenceType>) -> Self {
-        let name = if let Some(n) = name {
-            n
-        } else {
-            "".to_string()
-        };
+    fn ensure_properties(self, ctx: &FeatureCtx) -> Self {
+        let name = ctx.name.clone().unwrap_or_default();
         let length = self.features.len();
         self.into_iter()
             .enumerate()
             .map(|(i, feat)| {
-                feat.ensure_properties(
-                    Some(if length > 1 {
-                        format!("{}_{}", name, i)
-                    } else {
-                        name.clone()
-                    }),
-                    enum_type.clone(),
-                )
+                let feat_name = if length > 1 {
+                    format!("{}_{}", name, i)
+                } else {
+                    name.clone()
+                };
+                feat.ensure_properties(&FeatureCtx {
+                    name: Some(feat_name),
+                    fence_type: ctx.fence_type,
+                })
             })
             .collect()
     }
@@ -112,11 +109,7 @@ impl ToText for FeatureCollection {
 }
 
 impl ToCollection for FeatureCollection {
-    fn to_collection(
-        self,
-        _name: Option<String>,
-        _enum_type: Option<FenceType>,
-    ) -> FeatureCollection {
+    fn to_collection(self, _ctx: &FeatureCtx) -> FeatureCollection {
         FeatureCollection {
             bbox: if self.bbox.is_some() {
                 self.bbox

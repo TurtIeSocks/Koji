@@ -3,7 +3,7 @@
 use super::{sea_orm_active_enums::Type, *};
 use sea_orm::entity::prelude::*;
 
-use koji_core::{ToCollection, ToText};
+use koji_core::{FeatureCtx, ToCollection, ToText};
 
 use crate::{
     api::{text::TextHelpers, GeoFormats},
@@ -258,7 +258,7 @@ impl Query {
             feat => {
                 let fc = match feat {
                     GeoFormats::FeatureCollection(fc) => fc,
-                    geometry => geometry.to_collection(None, None),
+                    geometry => geometry.to_collection(&FeatureCtx::default()),
                 };
                 for feat in fc.into_iter() {
                     Query::upsert_feature(conn, feat, &mut insert_update).await?

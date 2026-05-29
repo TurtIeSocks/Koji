@@ -2,7 +2,7 @@ use super::*;
 
 use geo::Point;
 use geojson::{Geometry, Value};
-use koji_core::{BBox, SingleVec, ToCollection, UnknownId};
+use koji_core::{BBox, FeatureCtx, SingleVec, ToCollection, UnknownId};
 use model::{
     api::args::{ApiQueryArgs, SpawnpointTth},
     db::{area, geofence, gym, instance, pokestop, spawnpoint, station, GenericData},
@@ -27,7 +27,7 @@ pub async fn load_collection(
     conn: &KojiDb,
 ) -> Result<FeatureCollection, ModelError> {
     match load_feature(instance, conn).await {
-        Ok(feature) => Ok(feature.to_collection(None, None)),
+        Ok(feature) => Ok(feature.to_collection(&FeatureCtx::default())),
         Err(err) => Err(err),
     }
 }
