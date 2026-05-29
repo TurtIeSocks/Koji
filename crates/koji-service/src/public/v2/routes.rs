@@ -11,11 +11,17 @@
 //! all.
 
 use actix_web::{Error, HttpResponse, http::StatusCode, web};
-use koji_core::{ApiQueryArgs, FeatureCtx, ReturnTypeArg, ToCollection};
-use koji_db::{KojiDb, db::route};
+use koji_core::{ApiQueryArgs, FeatureCtx, ReturnTypeArg, ToCollection, ToSingleVec};
+use koji_db::{
+    KojiDb,
+    db::{geofence, route, sea_orm_active_enums::Type},
+};
+use koji_dragonite::AreaMode;
+use koji_events::EventDispatcher;
 use model::api::args::get_return_type;
 use serde_json::json;
 
+use crate::dragonite::{RouteUpdated, TOPIC_ROUTE_UPDATED};
 use crate::utils::{self, jsend::JSend};
 
 /// `GET /api/v2/routes` — list all routes as a `FeatureCollection`, honoring
@@ -100,6 +106,84 @@ async fn remove(conn: web::Data<KojiDb>, path: web::Path<u32>) -> Result<HttpRes
     ))
 }
 
+/// Map a Koji route/geofence mode ([`Type`]) to the Dragonite [`AreaMode`] its
+/// route feeds.
+///
+/// **Assumption (maintainer-confirm):** quest family → `Quest`; pokemon / tth /
+/// IV → `Pokemon`; raid / station → `Fort`; leveling / unset → `Base`. This is
+/// the one open design call for the `area.route_updated` producer.
+fn area_mode_for(mode: &Type) -> AreaMode {
+    match mode {
+        Type::AutoQuest | Type::CircleQuest => AreaMode::Quest,
+        Type::AutoPokemon
+        | Type::CirclePokemon
+        | Type::CircleSmartPokemon
+        | Type::AutoTth
+        | Type::PokemonIv => AreaMode::Pokemon,
+        Type::CircleRaid | Type::CircleSmartRaid | Type::CircleStation => AreaMode::Fort,
+        Type::Leveling | Type::Unset => AreaMode::Base,
+    }
+}
+
+/// `POST /api/v2/routes/{id}/publish` — push a stored route to its linked
+/// Dragonite area (the `area.route_updated` producer, symmetric with the
+/// geofence publish). Resolves the route → its geofence → `dragonite_area_id`,
+/// maps the route mode to an [`AreaMode`], and emits the event for the
+/// `DragoniteSubscriber` to PATCH `/v2/areas/{id}`. Gated on linkage (an
+/// unlinked geofence → `422`).
+async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<HttpResponse, Error> {
+    let id = path.into_inner();
+
+    let model = match route::Query::get_one(&conn.koji, id.clone()).await {
+        Ok(model) => model,
+        Err(_) => {
+            return Ok(JSend::fail(
+                StatusCode::NOT_FOUND,
+                json!({ "route": format!("no route {id}") }),
+            ));
+        }
+    };
+
+    // Linkage flows through the route's geofence.
+    let fence = geofence::Query::get_one(&conn.koji, model.geofence_id.to_string())
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let Some(dragonite_area_id) = fence.dragonite_area_id else {
+        return Ok(JSend::fail(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            json!({ "dragonite_area_id": "route's geofence is not linked to a Dragonite area" }),
+        ));
+    };
+
+    // Route points as a Koji `SingleVec` (`[lat, lon]` — the Feature conversion
+    // handles the GeoJSON `[lon, lat]` swap).
+    let feature = route::Query::get_one_feature(&conn.koji, id, false)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let route_points = feature.to_single_vec();
+    let mode = area_mode_for(&model.mode);
+
+    let payload = RouteUpdated {
+        dragonite_area_id: dragonite_area_id as i64,
+        mode,
+        route: route_points,
+    };
+    let event_id = EventDispatcher::publish(&conn.koji, TOPIC_ROUTE_UPDATED, &payload)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    Ok(JSend::success_with_status(
+        StatusCode::ACCEPTED,
+        json!({
+            "route": model.id,
+            "event_id": event_id.to_string(),
+            "topic": TOPIC_ROUTE_UPDATED,
+            "dragonite_area_id": dragonite_area_id,
+            "mode": mode,
+        }),
+    ))
+}
+
 /// The `web::Scope` wiring the route handlers under `/routes`, mounted into
 /// `/api/v2` by [`crate::start`].
 pub fn scope() -> actix_web::Scope {
@@ -109,6 +193,7 @@ pub fn scope() -> actix_web::Scope {
                 .route(web::get().to(list))
                 .route(web::post().to(create)),
         )
+        .service(web::resource("/{id}/publish").route(web::post().to(publish)))
         .service(
             web::resource("/{id}")
                 .route(web::get().to(get_one))
