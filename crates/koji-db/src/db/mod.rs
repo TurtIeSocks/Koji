@@ -9,12 +9,10 @@ use sea_orm::{
     prelude::DateTimeUtc, sea_query::Expr,
 };
 
-pub mod area;
 mod enum_bridge;
 pub mod geofence;
 pub mod geofence_project;
 pub mod geofence_property;
-pub mod instance;
 pub mod prelude;
 pub mod project;
 pub mod property;
@@ -46,16 +44,6 @@ pub struct NameTypeId {
     pub geo_type: Option<String>,
 }
 
-#[derive(Debug, FromQueryResult)]
-pub struct AreaRef {
-    pub id: u32,
-    pub name: String,
-    pub has_geofence: bool,
-    pub has_pokemon: bool,
-    pub has_quest: bool,
-    pub has_fort: bool,
-}
-
 #[derive(Debug, Serialize)]
 pub struct PaginateResults<T> {
     results: T,
@@ -75,29 +63,7 @@ impl Default for PaginateResults<()> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(untagged)]
-pub enum RdmInstanceArea {
-    Leveling(koji_core::PointStruct),
-    Single(koji_core::SingleStruct),
-    Multi(koji_core::MultiStruct),
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct RdmInstance {
-    pub area: RdmInstanceArea,
-    pub radius: Option<u32>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(untagged)]
-pub enum InstanceParsing {
-    Feature(Feature),
-    Rdm(RdmInstance),
-}
-
-pub struct InsertsUpdates<T> {
-    to_insert: Vec<T>,
+pub struct InsertsUpdates {
     updates: usize,
     inserts: usize,
 }

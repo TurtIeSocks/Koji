@@ -371,7 +371,7 @@ impl Query {
         conn: &DatabaseConnection,
         feat: Feature,
         existing: &HashMap<String, RouteNoGeometry>,
-        inserts_updates: &mut InsertsUpdates<ActiveModel>,
+        inserts_updates: &mut InsertsUpdates,
     ) -> Result<(), DbErr> {
         if let Some(name) = feat.property("__name") {
             if let Some(name) = name.as_str() {
@@ -481,10 +481,9 @@ impl Query {
             .map(|model| (format!("{}_{}", model.name, model.mode.to_value()), model))
             .collect();
 
-        let mut inserts_updates = InsertsUpdates::<ActiveModel> {
+        let mut inserts_updates = InsertsUpdates {
             inserts: 0,
             updates: 0,
-            to_insert: vec![],
         };
 
         match area {
