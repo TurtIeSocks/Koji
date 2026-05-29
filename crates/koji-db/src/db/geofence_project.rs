@@ -128,7 +128,7 @@ impl Query {
                 ..Default::default()
             })
             .collect();
-        if new_models.len() > 0 {
+        if !new_models.is_empty() {
             geofence_project::Entity::insert_many(new_models)
                 .exec(db)
                 .await
@@ -201,7 +201,7 @@ impl Query {
             .into_iter()
             .filter_map(|(id, exists)| if !exists { Some(id) } else { None })
             .collect();
-        if existing.len() > 0 {
+        if !existing.is_empty() {
             Entity::delete_many()
                 .filter(Column::GeofenceId.eq(geofence_id))
                 .filter(Column::ProjectId.is_in(existing))
@@ -241,7 +241,7 @@ impl Query {
             .into_iter()
             .filter_map(|(id, exists)| if !exists { Some(id) } else { None })
             .collect();
-        if existing.len() > 0 {
+        if !existing.is_empty() {
             Entity::delete_many()
                 .filter(Column::ProjectId.eq(project_id))
                 .filter(Column::GeofenceId.is_in(existing))

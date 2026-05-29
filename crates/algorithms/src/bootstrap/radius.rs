@@ -94,7 +94,7 @@ impl<'a> BootstrapRadius<'a> {
         let external_points = polygon.exterior().points().collect::<Vec<Point>>();
         let internal_points: Vec<_> = polygon
             .interiors()
-            .into_iter()
+            .iter()
             .map(|interior| interior.points().collect::<Vec<Point>>())
             .collect();
 
@@ -121,7 +121,7 @@ impl<'a> BootstrapRadius<'a> {
                     || point_line_distance(&external_points, &current) <= self.radius
                     || internal_points
                         .par_iter()
-                        .any(|internal| point_line_distance(&internal, &current) <= self.radius)
+                        .any(|internal| point_line_distance(internal, &current) <= self.radius)
                 {
                     circles.push(current);
                 }

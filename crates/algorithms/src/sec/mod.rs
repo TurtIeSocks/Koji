@@ -18,7 +18,7 @@ pub fn with_data(radius: Precision, points: &SingleVec, clusters: &SingleVec) ->
     log::info!("centering clusters on their points");
     let tree = rtree::spawn(radius, points);
     let clusters: Vec<rtree::point::Point> = clusters
-        .into_iter()
+        .iter()
         .map(|c| rtree::point::Point::new(radius, 20, *c))
         .collect();
 

@@ -38,15 +38,12 @@ pub fn main(
             CalculationMode::Custom(plugin) => {
                 let time = Instant::now();
                 let points = feature.clone().to_single_vec();
-                match plugins::run_once(PluginKind::Bootstrap, plugin, points, &cfg.plugin_args) {
-                    Some(sorted_clusters) => {
-                        let mut plugin_stats = Stats::new(plugin.to_string(), 0);
-                        plugin_stats.set_cluster_time(time);
-                        plugin_stats.cluster_stats(0., &vec![], &sorted_clusters);
-                        features.push(sorted_clusters.to_feature(&FeatureCtx::default()));
-                        *stats += &plugin_stats;
-                    }
-                    None => {}
+                if let Some(sorted_clusters) = plugins::run_once(PluginKind::Bootstrap, plugin, points, &cfg.plugin_args) {
+                    let mut plugin_stats = Stats::new(plugin.to_string(), 0);
+                    plugin_stats.set_cluster_time(time);
+                    plugin_stats.cluster_stats(0., &vec![], &sorted_clusters);
+                    features.push(sorted_clusters.to_feature(&FeatureCtx::default()));
+                    *stats += &plugin_stats;
                 }
             }
         }

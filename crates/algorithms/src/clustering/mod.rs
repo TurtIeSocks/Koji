@@ -43,7 +43,7 @@ pub fn main(
             })
             .collect(),
         _ => match cfg.mode.clone() {
-            ClusterMode::Fastest => fastest::main(&data_points, cfg.radius, cfg.min_points),
+            ClusterMode::Fastest => fastest::main(data_points, cfg.radius, cfg.min_points),
             ClusterMode::Honeycomb
             | ClusterMode::Balanced
             | ClusterMode::Fast
@@ -58,7 +58,7 @@ pub fn main(
                     .set_radius(cfg.radius)
                     .set_bypass_adaptive_partition(bypass_adaptive_partition);
 
-                greedy.run(&data_points)
+                greedy.run(data_points)
             }
             ClusterMode::Custom(plugin) => {
                 match plugins::resolve(PluginKind::Clustering, &plugin, cfg.cluster_split_level) {

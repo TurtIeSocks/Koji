@@ -22,7 +22,7 @@ pub fn join(plugin: &Plugin, input: Vec<SingleVec>) -> SingleVec {
 
     let mut centroids = vec![];
     for points in input.iter() {
-        let center = utils::centroid(&points);
+        let center = utils::centroid(points);
         centroids.push(center);
         point_map.insert(get_cell_id(center), points.clone());
     }
@@ -51,7 +51,7 @@ pub fn join(plugin: &Plugin, input: Vec<SingleVec>) -> SingleVec {
 
         for (current_index, current_point) in current.iter().enumerate() {
             let current_point = Point::new(current_point[1], current_point[0]);
-            for (_next_index, next_point) in next.iter().enumerate() {
+            for next_point in next.iter() {
                 let next_point = Point::new(next_point[1], next_point[0]);
                 let distance = Haversine.distance(current_point, next_point);
                 if distance < shortest {

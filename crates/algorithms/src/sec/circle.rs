@@ -54,7 +54,7 @@ impl Circle {
             Circle::None => false,
             Circle::One(a) => a.x() == point.x() && a.y() == point.y(),
             Circle::Two(a, b) => {
-                let center = utils::midpoint(&a, &b);
+                let center = utils::midpoint(a, b);
                 let dis = Haversine.distance(center, point);
                 dis <= radius
             }

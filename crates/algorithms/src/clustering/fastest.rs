@@ -177,13 +177,13 @@ fn cluster(points: Vec<Coord>, min_points: usize) -> HashMap<String, Vec<String>
     let mut point_map_return: HashMap<String, Vec<String>> = HashMap::new();
 
     let mut process_final = |coord: Coord, points_to_process: Vec<String>| {
-        if points_to_process.len() > 0 {
+        if !points_to_process.is_empty() {
             point_map_return.insert(coord.to_key(), points_to_process);
         }
     };
 
     'count: for (point, (bb, _check, _second, points)) in udc_point_map.clone().into_iter() {
-        let (v, h) = point.clone();
+        let (v, h) = point;
 
         for (v, h, _index) in [
             (v, h - 1, "s"),
@@ -233,8 +233,8 @@ fn cluster(points: Vec<Coord>, min_points: usize) -> HashMap<String, Vec<String>
     }
 
     for (key, value) in udc_point_map.into_iter() {
-        if value.1 && value.2 {
-            if true {
+        if value.1 && value.2
+            && true {
                 if value.3.len() == 1 {
                     let x = value.0.min_x;
                     let y = value.0.min_y;
@@ -245,7 +245,6 @@ fn cluster(points: Vec<Coord>, min_points: usize) -> HashMap<String, Vec<String>
                     process_final(Coord { x, y }, value.3);
                 }
             }
-        }
     }
     point_map_return
 }

@@ -30,14 +30,9 @@ pub async fn get_database_struct() -> KojiDb {
 
     let scanner_db_url = env::var("SCANNER_DB_URL").expect("Need SCANNER_DB_URL env var");
 
-    let max_connections: u32 = if let Ok(parsed) = env::var("MAX_CONNECTIONS")
+    let max_connections: u32 = env::var("MAX_CONNECTIONS")
         .unwrap_or("100".to_string())
-        .parse()
-    {
-        parsed
-    } else {
-        100
-    };
+        .parse().unwrap_or(100);
 
     let log_level = match std::env::var("LOG_LEVEL")
         .unwrap_or("info".to_string())

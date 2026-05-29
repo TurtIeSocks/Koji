@@ -742,7 +742,7 @@ impl<'a> Greedy {
                         Some(Cluster {
                             point: cluster.point,
                             unique: points.into_iter().collect(),
-                            all: cluster.all.iter().map(|p| *p).collect(),
+                            all: cluster.all.iter().copied().collect(),
                         })
                     }
                 })

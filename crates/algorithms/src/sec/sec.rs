@@ -28,11 +28,10 @@ pub fn multi_attempt<I: Iterator<Item = Point>>(
         points.shuffle(&mut rng);
         circle = smallest_enclosing_circle(points.clone(), radius);
 
-        if let Some(center) = circle.center() {
-            if !utils::is_missing_points(points, center, radius) && circle.radius() <= radius {
+        if let Some(center) = circle.center()
+            && !utils::is_missing_points(points, center, radius) && circle.radius() <= radius {
                 break;
             }
-        }
     }
 
     if attempt > 0 {
@@ -53,11 +52,11 @@ fn smallest_enclosing_circle(points: Vec<Point>, radius: f64) -> Circle {
     let mut r = Vec::new();
     let mut stack = Vec::from([State::S0]);
 
-    while !stack.is_empty() {
-        let state = stack.pop().unwrap();
+    while let Some(state) = stack.pop() {
+        
         match state {
             State::S0 => {
-                if p.len() == 0 || r.len() == 3 {
+                if p.is_empty() || r.len() == 3 {
                     circle = Circle::new(&r);
                 } else {
                     stack.push(State::S1);

@@ -40,17 +40,9 @@ impl JsonToModel for Value {
                     match Geometry::from_json_value(geometry.to_owned()) {
                         Ok(geometry) => {
                             let value = GeoJson::Geometry(geometry).to_json_value();
-                            let mode = if let Some(mode) = incoming.get("mode") {
-                                Some(mode.as_str().unwrap_or("unset").to_string())
-                            } else {
-                                None
-                            };
+                            let mode = incoming.get("mode").map(|mode| mode.as_str().unwrap_or("unset").to_string());
                             let parent = if let Some(parent) = incoming.get("parent") {
-                                if let Some(parent) = parent.as_u64() {
-                                    Some(parent as u32)
-                                } else {
-                                    None
-                                }
+                                parent.as_u64().map(|parent| parent as u32)
                             } else {
                                 None
                             };
@@ -148,7 +140,7 @@ impl JsonToModel for Value {
                 if let Some(property_id) = property_id {
                     let value = if let Some(value) = self.get("value") {
                         if let Some(value) = value.as_str() {
-                            if value.len() > 0 {
+                            if !value.is_empty() {
                                 Some(value.to_string())
                             } else {
                                 None
@@ -201,26 +193,17 @@ impl JsonToModel for Value {
             };
             if let Some(name) = name {
                 let api_endpoint = if let Some(api_endpoint) = incoming.get("api_endpoint") {
-                    match api_endpoint.as_str() {
-                        Some(api_endpoint) => Some(api_endpoint.to_string()),
-                        None => None,
-                    }
+                    api_endpoint.as_str().map(|api_endpoint| api_endpoint.to_string())
                 } else {
                     None
                 };
                 let api_key = if let Some(api_key) = incoming.get("api_key") {
-                    match api_key.as_str() {
-                        Some(api_key) => Some(api_key.to_string()),
-                        None => None,
-                    }
+                    api_key.as_str().map(|api_key| api_key.to_string())
                 } else {
                     None
                 };
                 let description = if let Some(description) = incoming.get("description") {
-                    match description.as_str() {
-                        Some(description) => Some(description.to_string()),
-                        None => None,
-                    }
+                    description.as_str().map(|description| description.to_string())
                 } else {
                     None
                 };
@@ -254,11 +237,7 @@ impl JsonToModel for Value {
                 None
             };
             let category = if let Some(category) = incoming.get("category") {
-                if let Some(category) = category.as_str() {
-                    Some(get_category_enum(category.to_string()))
-                } else {
-                    None
-                }
+                category.as_str().map(|category| get_category_enum(category.to_string()))
             } else {
                 None
             };
@@ -271,11 +250,10 @@ impl JsonToModel for Value {
             } else {
                 None
             };
-            if let Some(value_check) = default_value.as_ref() {
-                if value_check == "null" {
+            if let Some(value_check) = default_value.as_ref()
+                && value_check == "null" {
                     default_value = None;
                 }
-            }
             if let Some(name) = name {
                 if let Some(category) = category {
                     Ok(property::ActiveModel {
@@ -322,19 +300,11 @@ impl JsonToModel for Value {
                         match Geometry::from_json_value(geometry.to_owned()) {
                             Ok(geometry) => {
                                 let value = GeoJson::Geometry(geometry).to_json_value();
-                                let mode = if let Some(mode) = incoming.get("mode") {
-                                    Some(mode.as_str().unwrap_or("unset").to_string())
-                                } else {
-                                    None
-                                };
+                                let mode = incoming.get("mode").map(|mode| mode.as_str().unwrap_or("unset").to_string());
                                 let mode = get_enum(mode);
                                 let description =
                                     if let Some(description) = incoming.get("description") {
-                                        if let Some(description) = description.as_str() {
-                                            Some(description.to_string())
-                                        } else {
-                                            None
-                                        }
+                                        description.as_str().map(|description| description.to_string())
                                     } else {
                                         None
                                     };
@@ -424,8 +394,8 @@ pub fn parse_property_value(value: &String, category: &Category) -> Value {
             serde_json::Number::from_f64(value.parse::<f64>().unwrap_or(0.)).unwrap(),
         ),
         Category::Boolean => serde_json::Value::Bool(value.parse::<bool>().unwrap_or(false)),
-        Category::Object => serde_json::Value::from_str(&value).unwrap(),
-        Category::Array => serde_json::Value::from_str(&value).unwrap(),
+        Category::Object => serde_json::Value::from_str(value).unwrap(),
+        Category::Array => serde_json::Value::from_str(value).unwrap(),
         Category::Database => serde_json::Value::Null,
     }
 }
@@ -435,7 +405,7 @@ pub fn determine_category_by_value(
     value: Value,
     db_json: &HashMap<&str, Value>,
 ) -> (Category, Option<Value>) {
-    let mut actual_value: Option<Value> = Some(value.clone().into());
+    let mut actual_value: Option<Value> = Some(value.clone());
     let mut category = Category::String;
 
     if db_json.contains_key(key) {
@@ -447,9 +417,9 @@ pub fn determine_category_by_value(
     } else if let Some(val) = value.as_f64() {
         category = Category::Number;
         actual_value = Some(val.into());
-    } else if let Some(_) = value.as_array() {
+    } else if value.as_array().is_some() {
         category = Category::Array;
-    } else if let Some(_) = value.as_object() {
+    } else if value.as_object().is_some() {
         category = Category::Object;
     } else if let Some(value) = value.as_str() {
         match value.parse::<f64>() {
@@ -470,13 +440,13 @@ pub fn determine_category_by_value(
                 } else if value.starts_with("{") {
                     category = Category::Object;
                     actual_value = match serde_json::from_str::<Value>(value) {
-                        Ok(val) => Some(val.into()),
+                        Ok(val) => Some(val),
                         Err(_) => None,
                     };
                 } else if value.starts_with("[") {
                     category = Category::Array;
                     actual_value = match serde_json::from_str::<Value>(value) {
-                        Ok(val) => Some(val.into()),
+                        Ok(val) => Some(val),
                         Err(_) => None,
                     };
                 } else {

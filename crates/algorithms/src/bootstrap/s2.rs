@@ -174,7 +174,7 @@ impl<'a> BootstrapS2<'a> {
         }
 
         let (face, i_leaf, j_leaf, _orient) = id.face_ij_orientation();
-        let shift = (MAX_LEVEL as i32 - self.level as i32) as i32;
+        let shift = (MAX_LEVEL as i32 - self.level as i32);
 
         // Convert leaf i,j to level-L grid coords (0..2^L-1).
         let i_l = i_leaf >> shift;
@@ -229,7 +229,7 @@ pub fn cells_to_nearest_face_edges(id: CellID) -> (i32, i32) {
     const MAX_SIZE: i32 = 1 << MAX_LEVEL; // leaf resolution per axis on a face
 
     let level = id.level();
-    let size: i32 = 1 << (MAX_LEVEL - level as u64); // “width” of this cell in leaf-ij units
+    let size: i32 = 1 << (MAX_LEVEL - level); // “width” of this cell in leaf-ij units
 
     // Get face-ij for the cell center at leaf resolution.
     // Most Rust ports expose something like `to_face_ij_orientation()`.

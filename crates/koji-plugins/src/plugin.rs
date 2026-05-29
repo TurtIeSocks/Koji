@@ -148,15 +148,14 @@ impl Plugin {
         let mut stdout = child
             .stdout
             .take()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Could not capture stdout"))?;
+            .ok_or_else(|| io::Error::other("Could not capture stdout"))?;
         let mut raw = String::new();
         stdout.read_to_string(&mut raw)?;
 
         match child.wait()? {
             status if status.success() => {}
             status => {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
+                return Err(io::Error::other(
                     format!("child process exited with status: {}", status),
                 ));
             }

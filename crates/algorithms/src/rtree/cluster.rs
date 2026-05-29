@@ -35,7 +35,6 @@ impl<'a> Cluster<'a> {
     pub fn set_all(&mut self, tree: &'a RTree<Point>) {
         let mut points: Vec<_> = tree
             .locate_all_at_point(&self.point.center)
-            .into_iter()
             .collect();
         points.sort_dedupe();
         self.all = points;

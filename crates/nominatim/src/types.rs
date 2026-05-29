@@ -33,7 +33,7 @@ impl fmt::Display for OsmType {
             Self::Node => write!(f, "node"),
             Self::Way => write!(f, "way"),
             Self::Relation => write!(f, "relation"),
-            Self::Other(s) => write!(f, "{}", s),
+            Self::Other(s) => write!(f, "{s}"),
         }
     }
 }

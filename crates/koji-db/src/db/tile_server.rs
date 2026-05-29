@@ -125,10 +125,10 @@ impl Query {
     }
 
     pub async fn search(db: &DatabaseConnection, search: String) -> Result<Vec<Json>, DbErr> {
-        Ok(Entity::find()
+        Entity::find()
             .filter(Column::Name.like(format!("%{}%", search).as_str()))
             .into_json()
             .all(db)
-            .await?)
+            .await
     }
 }

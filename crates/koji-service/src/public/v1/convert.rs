@@ -56,9 +56,8 @@ async fn merge_points(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     let mut new_multi_point: Vec<Vec<f64>> = vec![];
 
     area.into_iter().for_each(|feat| {
-        if let Some(geometry) = feat.geometry {
-            if let Value::Point(point) = geometry.value { new_multi_point.push(point) }
-        }
+        if let Some(geometry) = feat.geometry
+            && let Value::Point(point) = geometry.value { new_multi_point.push(point) }
     });
 
     Ok(utils::response::send(

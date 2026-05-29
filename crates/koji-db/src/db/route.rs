@@ -104,7 +104,7 @@ impl ToFeatureFromModel for Model {
             } else {
                 "geofence_id"
             },
-            geofence_id.clone(),
+            geofence_id,
         );
         Ok(feature)
     }
@@ -376,11 +376,7 @@ impl Query {
         if let Some(name) = feat.property("__name") {
             if let Some(name) = name.as_str() {
                 if let Some(mode) = feat.property("__mode") {
-                    let mode = if let Some(mode) = mode.as_str() {
-                        Some(mode.to_string())
-                    } else {
-                        None
-                    };
+                    let mode = mode.as_str().map(|mode| mode.to_string());
                     let mode = get_enum(mode);
                     let geofence_id = if let Some(fence_id) = feat.property("__geofence_id") {
                         fence_id.as_u64()
@@ -567,11 +563,11 @@ impl Query {
     }
 
     pub async fn search(db: &DatabaseConnection, search: String) -> Result<Vec<Json>, DbErr> {
-        Ok(Entity::find()
+        Entity::find()
             .filter(Column::Name.like(format!("%{}%", search).as_str()))
             .into_json()
             .all(db)
-            .await?)
+            .await
     }
 
     pub async fn unique_geofence(db: &DatabaseConnection) -> Result<Vec<Json>, ModelError> {

@@ -200,12 +200,11 @@ impl Query {
         json: &serde_json::Value,
         geofence_id: u32,
     ) -> Result<(), DbErr> {
-        if let Some(geofences) = json.get("geofences") {
-            if let Some(geofences) = geofences.as_array() {
+        if let Some(geofences) = json.get("geofences")
+            && let Some(geofences) = geofences.as_array() {
                 geofence_project::Query::upsert_related_by_project_id(db, geofences, geofence_id)
                     .await?;
-            };
-        };
+            };;
         Ok(())
     }
 
@@ -239,10 +238,10 @@ impl Query {
     }
 
     pub async fn search(db: &DatabaseConnection, search: String) -> Result<Vec<Json>, DbErr> {
-        Ok(Entity::find()
+        Entity::find()
             .filter(Column::Name.like(format!("%{}%", search).as_str()))
             .into_json()
             .all(db)
-            .await?)
+            .await
     }
 }

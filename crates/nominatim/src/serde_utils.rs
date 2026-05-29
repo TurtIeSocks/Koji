@@ -101,12 +101,12 @@ mod string_visitor {
     impl<T: FromStr> Default for FromStrVisitor<T> {
         fn default() -> Self {
             Self {
-                _marker: PhantomData::default(),
+                _marker: PhantomData,
             }
         }
     }
 
-    impl<'de, T: FromStr> Visitor<'de> for FromStrVisitor<T> {
+    impl<T: FromStr> Visitor<'_> for FromStrVisitor<T> {
         type Value = T;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -118,7 +118,7 @@ mod string_visitor {
             E: Error,
         {
             v.parse()
-                .map_err(|_| E::custom(format!("cannot be parsed: {}", v)))
+                .map_err(|_| E::custom(format!("cannot be parsed: {v}")))
         }
 
         fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
@@ -126,7 +126,7 @@ mod string_visitor {
             E: Error,
         {
             v.parse()
-                .map_err(|_| E::custom(format!("cannot be parsed: {}", v)))
+                .map_err(|_| E::custom(format!("cannot be parsed: {v}")))
         }
 
         fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
@@ -136,7 +136,7 @@ mod string_visitor {
             match str::from_utf8(v) {
                 Ok(s) => s
                     .parse()
-                    .map_err(|_| E::custom(format!("cannot be parsed: {}", s))),
+                    .map_err(|_| E::custom(format!("cannot be parsed: {s}"))),
                 Err(_) => Err(Error::invalid_value(Unexpected::Bytes(v), &self)),
             }
         }
@@ -156,7 +156,7 @@ mod opt_string_visitor {
     impl<T: FromStr> Default for OptionFromStrVisitor<T> {
         fn default() -> Self {
             Self {
-                _marker: PhantomData::default(),
+                _marker: PhantomData,
             }
         }
     }

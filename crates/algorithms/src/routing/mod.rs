@@ -19,7 +19,7 @@ pub fn main(
 ) -> SingleVec {
     let route_time = Instant::now();
     let clusters = match &cfg.sort_by {
-        SortBy::PointCount => clusters.sort_point_count(&data_points, radius),
+        SortBy::PointCount => clusters.sort_point_count(data_points, radius),
         SortBy::LatLon => clusters.sort_lat_lng(),
         SortBy::GeoHash => clusters.sort_geohash(),
         SortBy::S2Cell => clusters.sort_s2(),

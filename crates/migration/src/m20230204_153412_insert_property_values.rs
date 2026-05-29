@@ -48,8 +48,8 @@ impl MigrationTrait for Migration {
                 },
                 properties: vec![("name".to_string(), None)],
             };
-            if let Some(fence) = fence.as_object() {
-                if let Some(area) = fence.get("area") {
+            if let Some(fence) = fence.as_object()
+                && let Some(area) = fence.get("area") {
                     let feature = Feature::from_json_value(area.clone());
                     if let Ok(feature) = feature {
                         'props: for (key, value) in feature.properties_iter() {
@@ -67,9 +67,9 @@ impl MigrationTrait for Migration {
                             } else if let Some(val) = value.as_f64() {
                                 properties.insert(key.to_string(), "number".to_string());
                                 actual_value = Some(val.into());
-                            } else if let Some(_) = value.as_array() {
+                            } else if value.as_array().is_some() {
                                 properties.insert(key.to_string(), "array".to_string());
-                            } else if let Some(_) = value.as_object() {
+                            } else if value.as_object().is_some() {
                                 properties.insert(key.to_string(), "object".to_string());
                             } else if let Some(value) = value.as_str() {
                                 match value.parse::<f64>() {
@@ -119,7 +119,6 @@ impl MigrationTrait for Migration {
                         }
                     }
                 }
-            }
             geofence_properties.push(feat_properties);
         }
 
@@ -161,7 +160,7 @@ impl MigrationTrait for Migration {
                             ])
                             .values_panic([
                                 fence.id.into(),
-                                property_id.clone().into(),
+                                (*property_id).into(),
                                 value.into(),
                             ])
                             .to_owned();
@@ -170,7 +169,7 @@ impl MigrationTrait for Migration {
                         let insert = Query::insert()
                             .into_table(GeofenceProperty::Table)
                             .columns([GeofenceProperty::GeofenceId, GeofenceProperty::PropertyId])
-                            .values_panic([fence.id.into(), property_id.clone().into()])
+                            .values_panic([fence.id.into(), (*property_id).into()])
                             .to_owned();
                         manager.exec_stmt(insert).await?;
                     }

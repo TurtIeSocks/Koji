@@ -108,11 +108,11 @@ impl Query {
     ) -> Result<Model, ModelError> {
         let mut active_model = json.to_geofence_property(geofence_id)?;
         let existing = Entity::find()
-            .filter(Column::GeofenceId.eq(active_model.geofence_id.as_ref().clone()))
-            .filter(Column::PropertyId.eq(active_model.property_id.as_ref().clone()))
+            .filter(Column::GeofenceId.eq(*active_model.geofence_id.as_ref()))
+            .filter(Column::PropertyId.eq(*active_model.property_id.as_ref()))
             .one(db)
             .await?;
-        let property = property::Entity::find_by_id(active_model.property_id.as_ref().clone())
+        let property = property::Entity::find_by_id(*active_model.property_id.as_ref())
             .one(db)
             .await?;
         if let Some(property) = property {
@@ -148,7 +148,7 @@ impl Query {
 
         let models = future::try_join_all(
             incoming
-                .into_iter()
+                .iter()
                 .map(|json| Query::upsert(db, json, geofence_id)),
         )
         .await?;
@@ -162,7 +162,7 @@ impl Query {
             .filter_map(|(id, exists)| if !exists { Some(id) } else { None })
             .collect();
 
-        if existing.len() > 0 {
+        if !existing.is_empty() {
             Entity::delete_many()
                 .filter(Column::Id.is_in(existing))
                 .exec(db)

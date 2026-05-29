@@ -229,7 +229,7 @@ impl Stats {
         } else {
             let tree = rtree::spawn(radius, points);
             let clusters: Vec<point::Point> = clusters
-                .into_iter()
+                .iter()
                 .map(|c| point::Point::new(radius, 20, *c))
                 .collect();
             let mut clusters: Vec<Cluster<'_>> = cluster_info(&tree, &clusters);

@@ -63,7 +63,7 @@ pub trait GenericDataToVec {
 impl GenericDataToVec for Vec<GenericData> {
     fn to_single_vec(self) -> koji_core::SingleVec {
         self.into_iter()
-            .map(|p| koji_core::ToPointArray::to_point_array(p))
+            .map(koji_core::ToPointArray::to_point_array)
             .collect()
     }
 }

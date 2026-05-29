@@ -30,7 +30,6 @@ pub fn cluster_info<'a>(
                 *cluster,
                 point_tree
                     .locate_all_at_point(&cluster.center)
-                    .into_iter()
                     .collect(),
                 vec![],
             )
