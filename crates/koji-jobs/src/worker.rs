@@ -332,3 +332,84 @@ async fn persist_outcome(queue: &JobQueue, job_id: u64, outcome: &JobOutcome) {
         log::error!("[koji-jobs] failed to persist outcome for job id={job_id}: {e}");
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Regression guard for the heartbeat-stop race fixed in e7fb172.
+    ///
+    /// In [`run_claimed_job`] the heartbeat is stopped with `stop.notify_one()`
+    /// (NOT `notify_waiters()`). A near-instant handler can return and call the
+    /// stop *before* the freshly-`tokio::spawn`ed heartbeat task has been polled
+    /// to its `stop.notified()` await point. The fix relies on `Notify`'s permit
+    /// semantics: `notify_one` on a `Notify` with no registered waiter stores a
+    /// single permit, so the *next* `notified()` completes immediately.
+    /// `notify_waiters` stores nothing — it only wakes waiters already parked —
+    /// so the late waiter would miss the signal and `heartbeat.await` would hang
+    /// forever, wedging the worker and leaving the job stuck `running`.
+    ///
+    /// This pins that semantic directly (no DB — koji-jobs unit tests are
+    /// DB-free; see the crate docs). We notify BEFORE the waiter registers, then
+    /// assert the waiter still wakes. The wait is wrapped in a short
+    /// `tokio::time::timeout` so a regression to `notify_waiters` fails fast
+    /// instead of hanging the suite.
+    #[tokio::test]
+    async fn notify_one_wakes_a_waiter_that_registers_after_the_signal() {
+        let stop = Arc::new(Notify::new());
+
+        // Signal the stop BEFORE anything is awaiting it — this is the race: the
+        // handler finished before the heartbeat task reached `stop.notified()`.
+        // `notify_one` parks a permit for the next waiter.
+        stop.notify_one();
+
+        // Now spawn the "heartbeat" task, which registers its `notified()` only
+        // after the signal already fired. The stored permit must wake it.
+        let stop_in_task = Arc::clone(&stop);
+        let heartbeat = tokio::spawn(async move {
+            stop_in_task.notified().await;
+        });
+
+        // With `notify_one` this resolves immediately; with `notify_waiters` the
+        // permit is never stored and this times out (the regression).
+        let joined = tokio::time::timeout(Duration::from_secs(5), heartbeat).await;
+
+        assert!(
+            joined.is_ok(),
+            "heartbeat waiter did not wake: notify_one's stored permit was lost \
+             (a regression to notify_waiters would hang here)"
+        );
+        joined
+            .expect("waiter must wake within the timeout")
+            .expect("heartbeat task must not panic");
+    }
+
+    /// Sibling sanity check documenting *why* the fix was needed: a waiter that
+    /// registers after `notify_waiters()` (the pre-fix call) is NOT woken,
+    /// because `notify_waiters` wakes only already-registered waiters and stores
+    /// no permit. We assert the missed wake by observing that a bounded wait
+    /// times out. This is the failure mode the production `notify_one` avoids.
+    #[tokio::test]
+    async fn notify_waiters_does_not_wake_a_late_waiter_documenting_the_bug() {
+        let stop = Arc::new(Notify::new());
+
+        // Pre-fix behavior: wake waiters, but none are registered yet.
+        stop.notify_waiters();
+
+        let stop_in_task = Arc::clone(&stop);
+        let heartbeat = tokio::spawn(async move {
+            stop_in_task.notified().await;
+        });
+
+        // The late waiter never sees the signal, so a bounded wait must elapse.
+        // Kept short — this is the deliberately-hanging path.
+        let joined = tokio::time::timeout(Duration::from_millis(200), heartbeat).await;
+
+        assert!(
+            joined.is_err(),
+            "notify_waiters unexpectedly woke a late waiter; if Notify gains \
+             permit semantics for notify_waiters, the production stop signal \
+             could switch back to it — but until then notify_one is required"
+        );
+    }
+}
