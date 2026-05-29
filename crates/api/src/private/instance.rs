@@ -1,7 +1,7 @@
 use super::*;
 
+use koji_core::ApiQueryArgs;
 use model::{
-    api::args::ApiQueryArgs,
     db::{route, NameTypeId},
     ScannerType,
 };

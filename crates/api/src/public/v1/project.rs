@@ -4,8 +4,8 @@ use super::*;
 
 use serde_json::json;
 
+use koji_core::{ApiQueryArgs, GeoFormats};
 use model::{
-    api::{args::ApiQueryArgs, GeoFormats},
     db::{area, geofence, instance, project},
     KojiDb, ScannerType,
 };

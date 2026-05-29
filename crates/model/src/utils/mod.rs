@@ -1,97 +1,29 @@
 use super::*;
 
-use std::{env, fmt::Write};
+use std::env;
 
 use geojson::Value;
 use log::LevelFilter;
-use regex::Regex;
 use sea_orm::{ConnectOptions, ConnectionTrait, Database, Order, Statement};
 
-use crate::{
-    api::args::ApiQueryArgs,
-    db::sea_orm_active_enums::{Category, Type},
-};
+use crate::db::sea_orm_active_enums::{Category, Type};
 
 pub mod json;
 pub mod normalize;
 
+// Boundary adapters: koji-core's mappers return the pure domain enums; the db
+// layer needs the sea-orm enums. Convert across the boundary via `enum_bridge!`.
 
 pub fn get_enum(instance_type: Option<String>) -> Type {
-    match instance_type {
-        Some(instance_type) => match instance_type.as_str() {
-            "AutoQuest" | "auto_quest" => Type::AutoQuest,
-            "CirclePokemon" | "circle_pokemon" => Type::CirclePokemon,
-            "CircleSmartPokemon" | "circle_smart_pokemon" => Type::CircleSmartPokemon,
-            "CircleRaid" | "circle_raid" => Type::CircleRaid,
-            "CircleSmartRaid" | "circle_smart_raid" => Type::CircleSmartRaid,
-            "CircleStation" | "circle_station" => Type::CircleStation,
-            "PokemonIv" | "pokemon_iv" => Type::PokemonIv,
-            "Leveling" | "leveling" => Type::Leveling,
-            "CircleQuest" | "circle_quest" => Type::CircleQuest,
-            "AutoTth" | "auto_tth" => Type::AutoTth,
-            "AutoPokemon" | "auto_pokemon" => Type::AutoPokemon,
-            _ => Type::Unset,
-        },
-        None => Type::Unset,
-    }
+    koji_core::get_enum(instance_type).into()
 }
 
 pub fn get_enum_by_geometry(enum_val: &Value) -> Type {
-    match enum_val {
-        Value::Point(_) => Type::Leveling,
-        Value::MultiPoint(_) => Type::CircleSmartPokemon,
-        Value::Polygon(_) => Type::PokemonIv,
-        Value::MultiPolygon(_) => Type::AutoQuest,
-        _ => {
-            log::warn!("Invalid Geometry Type: {}", enum_val.type_name());
-            Type::Unset
-        }
-    }
+    koji_core::get_enum_by_geometry(enum_val).into()
 }
 
 pub fn get_category_enum(category: String) -> Category {
-    match category.to_lowercase().as_str() {
-        "database" => Category::Database,
-        "boolean" => Category::Boolean,
-        "number" => Category::Number,
-        "object" => Category::Object,
-        "array" => Category::Array,
-        "color" => Category::Color,
-        _ => Category::String,
-    }
-}
-
-pub fn get_mode_acronym(instance_type: Option<&String>) -> String {
-    match instance_type {
-        Some(instance_type) => match instance_type.as_str() {
-            "AutoQuest" | "auto_quest" => "AQ",
-            "CirclePokemon" | "circle_pokemon" => "CP",
-            "CircleSmartPokemon" | "circle_smart_pokemon" => "CSP",
-            "CircleRaid" | "circle_raid" => "CR",
-            "CircleSmartRaid" | "circle_smart_raid" => "CSR",
-            "PokemonIv" | "pokemon_iv" => "IV",
-            "Leveling" | "leveling" => "L",
-            "CircleQuest" | "circle_quest" => "CQ",
-            "AutoTth" | "auto_tth" => "ATTH",
-            "AutoPokemon" | "auto_pokemon" => "AP",
-            _ => "U",
-        },
-        None => "U",
-    }
-    .to_string()
-}
-
-pub fn get_enum_by_geometry_string(input: Option<String>) -> Option<Type> {
-    if let Some(input) = input {
-        match input.to_lowercase().as_str() {
-            "point" => Some(Type::Leveling),
-            "multipoint" => Some(Type::CirclePokemon),
-            "multipolygon" => Some(Type::AutoQuest),
-            _ => None,
-        }
-    } else {
-        None
-    }
+    koji_core::get_category_enum(category).into()
 }
 
 pub async fn get_database_struct() -> KojiDb {
@@ -205,157 +137,5 @@ pub fn parse_order(order_by: &String) -> Order {
         Order::Asc
     } else {
         Order::Desc
-    }
-}
-
-pub fn json_related_sort(json: &mut Vec<serde_json::Value>, sort_by: &String, order: String) {
-    json.sort_by(|a, b| {
-        let a = a[sort_by].as_array().unwrap().len();
-        let b = b[sort_by].as_array().unwrap().len();
-        if order == "asc" { a.cmp(&b) } else { b.cmp(&a) }
-    });
-}
-
-pub fn separate_by_comma(param: &Option<String>) -> Vec<String> {
-    if let Some(param) = param {
-        param.split(",").map(|x| x.to_string()).collect()
-    } else {
-        vec![]
-    }
-}
-
-fn convert_polish_to_ascii(param: String) -> String {
-    let polish_characters: [(char, char); 18] = [
-        ('ą', 'a'),
-        ('ć', 'c'),
-        ('ę', 'e'),
-        ('ł', 'l'),
-        ('ń', 'n'),
-        ('ó', 'o'),
-        ('ś', 's'),
-        ('ź', 'z'),
-        ('ż', 'z'),
-        ('Ą', 'A'),
-        ('Ć', 'C'),
-        ('Ę', 'E'),
-        ('Ł', 'L'),
-        ('Ń', 'N'),
-        ('Ó', 'O'),
-        ('Ś', 'S'),
-        ('Ź', 'Z'),
-        ('Ż', 'Z'),
-    ];
-
-    let mut result = String::new();
-
-    for c in param.chars() {
-        let converted_char = polish_characters
-            .iter()
-            .find_map(|&(polish, ascii)| if c == polish { Some(ascii) } else { None })
-            .unwrap_or(c);
-
-        result.push(converted_char);
-    }
-
-    result
-}
-
-pub fn clean(param: &String) -> String {
-    if param.starts_with("\"") && param.ends_with("\"") {
-        return param[1..param.len() - 1].to_string();
-    }
-    param.to_string()
-}
-
-fn remove_symbols(param: &String) -> String {
-    let regex = Regex::new(r"[^a-zA-Z0-9\s\-_]").unwrap();
-    regex.replace_all(param, "").to_string()
-}
-
-pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<String>) -> String {
-    let mut mutable = string.clone();
-    if let Some(trimstart) = modifiers.trimstart {
-        mutable = (&mutable[trimstart..]).to_string();
-    }
-    if let Some(trimend) = modifiers.trimend {
-        mutable = (&mutable[..(mutable.len() - trimend)]).to_string();
-    }
-    if modifiers.alphanumeric.is_some() {
-        mutable = remove_symbols(&mutable);
-    }
-    if let Some(replacer) = modifiers.replace.as_ref() {
-        mutable = mutable.replace(clean(replacer).as_str(), "");
-    }
-    if parent.is_some() {
-        let parent = parent.unwrap();
-        if let Some(replacer) = modifiers.parentreplace.as_ref() {
-            mutable = mutable.replacen(&parent, clean(replacer).as_str(), 1);
-        }
-        if let Some(parent_start) = modifiers.parentstart.as_ref() {
-            mutable = format!("{}{}{}", parent, clean(parent_start), mutable,);
-        }
-        if let Some(parent_end) = modifiers.parentend.as_ref() {
-            mutable = format!("{}{}{}", mutable, clean(parent_end), parent,);
-        }
-    }
-    if modifiers.lowercase.is_some() {
-        mutable = mutable.to_lowercase();
-    }
-    if modifiers.uppercase.is_some() {
-        mutable = mutable.to_uppercase();
-    }
-    if modifiers.capfirst.is_some() {
-        mutable = mutable
-            .chars()
-            .enumerate()
-            .map(|(i, c)| {
-                if i == 0 {
-                    c.to_uppercase().to_string()
-                } else {
-                    c.to_string()
-                }
-            })
-            .collect();
-    }
-    if let Some(capitalize) = modifiers.capitalize.as_ref() {
-        mutable = mutable
-            .split(clean(capitalize).as_str())
-            .map(|word| {
-                word.chars()
-                    .enumerate()
-                    .map(|(i, c)| {
-                        if i == 0 {
-                            c.to_uppercase().to_string()
-                        } else {
-                            c.to_string()
-                        }
-                    })
-                    .collect::<String>()
-            })
-            .collect::<Vec<String>>()
-            .join(clean(capitalize).as_str());
-    }
-    if let Some(replacer) = modifiers.underscore.as_ref() {
-        mutable = mutable.replace("_", clean(replacer).as_str());
-    }
-    if let Some(replacer) = modifiers.dash.as_ref() {
-        mutable = mutable.replace("-", clean(replacer).as_str());
-    }
-    if let Some(replacer) = modifiers.space.as_ref() {
-        mutable = mutable.replace(" ", clean(replacer).as_str());
-    }
-    if modifiers.unpolish.is_some() {
-        mutable = convert_polish_to_ascii(mutable);
-    }
-    mutable = mutable.trim().to_string();
-    if mutable == "" {
-        log::warn!(
-            "Empty string detected for {} {:?}, returning the standard name",
-            string,
-            modifiers
-        );
-        string
-    } else {
-        mutable
     }
 }

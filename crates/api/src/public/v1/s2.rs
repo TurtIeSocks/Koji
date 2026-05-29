@@ -6,7 +6,7 @@ use super::*;
 
 use algorithms::s2;
 
-use model::api::args::BoundsArg;
+use koji_core::BoundsArg;
 use serde::Deserialize;
 use serde_json::json;
 

@@ -2320,6 +2320,7 @@ dependencies = [
  "geojson",
  "log",
  "macros",
+ "regex",
  "serde",
  "serde_json",
  "serde_with",

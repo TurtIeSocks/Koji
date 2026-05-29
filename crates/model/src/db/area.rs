@@ -3,12 +3,9 @@
 use super::{sea_orm_active_enums::Type, *};
 use sea_orm::entity::prelude::*;
 
-use koji_core::{FeatureCtx, ToCollection, ToText};
+use koji_core::{FeatureCtx, GeoFormats, ToCollection, ToText};
 
-use crate::{
-    api::{text::TextHelpers, GeoFormats},
-    utils::get_enum,
-};
+use crate::{api::text::TextHelpers, utils::get_enum};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "area")]

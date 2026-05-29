@@ -16,6 +16,8 @@ geojson = { workspace = true }
 geo = { workspace = true }
 geo-types = { workspace = true }
 serde_with = { workspace = true }
+serde_json = { workspace = true }
+regex = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

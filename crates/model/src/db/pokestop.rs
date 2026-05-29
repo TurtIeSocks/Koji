@@ -82,7 +82,7 @@ impl Query {
 
     pub async fn bound(
         conn: &DatabaseConnection,
-        payload: &api::args::BoundsArg,
+        payload: &koji_core::BoundsArg,
     ) -> Result<Vec<GenericData>, DbErr> {
         let items = Entity::find()
             .select_only()
@@ -137,7 +137,7 @@ impl Query {
             .into_model::<crate::db::LatLonRow>()
             .all(conn)
             .await?;
-        let total = utils::normalize::count_in_area(&items, area);
+        let total = koji_core::count_in_area(&items, area);
         Ok(Total { total })
     }
 }

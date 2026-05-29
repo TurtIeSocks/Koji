@@ -12,8 +12,9 @@ use std::str::FromStr;
 
 use koji_core::{FeatureCtx, ToCollection, ToFeature};
 
+use koji_core::{AdminReqParsed, GeoFormats};
+
 use crate::{
-    api::{GeoFormats, args::AdminReqParsed},
     db::sea_orm_active_enums::Type,
     error::ModelError,
     utils::{get_enum, json::JsonToModel, parse_order},

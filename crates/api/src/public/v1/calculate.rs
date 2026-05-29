@@ -6,13 +6,12 @@ use algorithms::{self, clustering, routing, stats::Stats};
 use geo::{ChamberlainDuquetteArea, MultiPolygon, Polygon};
 
 use geojson::Value;
-use koji_core::{FeatureCtx, FeatureHelpers, SortBy, ToCollection, ToFeature, ToSingleVec};
+use koji_core::{
+    FeatureCtx, FeatureHelpers, GeoFormats, SortBy, ToCollection, ToFeature, ToSingleVec,
+};
 use model::{
     KojiDb, ScannerType,
-    api::{
-        GeoFormats,
-        args::{Args, ArgsUnwrapped},
-    },
+    api::args::{Args, ArgsUnwrapped},
     db::{area, geofence, instance, route, sea_orm_active_enums::Type, GenericDataToVec},
 };
 use serde_json::json;

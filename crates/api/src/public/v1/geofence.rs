@@ -4,12 +4,9 @@ use super::*;
 
 use serde_json::json;
 
-use koji_core::{FeatureCtx, ToCollection};
+use koji_core::{ApiQueryArgs, FeatureCtx, GeoFormats, ToCollection};
 use model::{
-    api::{
-        args::{get_return_type, ApiQueryArgs, Args, ArgsUnwrapped, ReturnTypeArg},
-        GeoFormats,
-    },
+    api::args::{get_return_type, Args, ArgsUnwrapped, ReturnTypeArg},
     db::{area, geofence, instance, project},
     KojiDb, ScannerType,
 };

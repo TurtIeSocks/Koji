@@ -4,8 +4,9 @@ use sea_orm::entity::prelude::*;
 use serde_json::json;
 use std::str::FromStr;
 
+use koji_core::AdminReqParsed;
+
 use crate::{
-    api::args::AdminReqParsed,
     error::ModelError,
     utils::{json::JsonToModel, parse_order},
 };

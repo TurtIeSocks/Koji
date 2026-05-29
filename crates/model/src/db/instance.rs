@@ -3,16 +3,11 @@
 use std::collections::HashMap;
 
 use koji_core::{
-    FeatureCtx, ToCollection, ToMultiStruct, ToMultiVec, ToPointStruct, ToSingleStruct, ToSingleVec,
+    FeatureCtx, GeoFormats, ToCollection, ToMultiStruct, ToMultiVec, ToPointStruct, ToSingleStruct,
+    ToSingleVec, get_mode_acronym,
 };
 
-use crate::{
-    api::{
-        text::TextHelpers, GeoFormats,
-    },
-    error::ModelError,
-    utils::get_mode_acronym,
-};
+use crate::{api::text::TextHelpers, error::ModelError};
 
 use super::{
     sea_orm_active_enums::Type, utils, Feature, InsertsUpdates, NameTypeId, Order, QueryOrder,

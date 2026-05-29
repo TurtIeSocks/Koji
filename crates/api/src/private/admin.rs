@@ -1,6 +1,7 @@
 use super::*;
 
-use model::{api::args::AdminReq, error::ModelError};
+use koji_core::AdminReq;
+use model::error::ModelError;
 use serde::Deserialize;
 use serde_json::json;
 

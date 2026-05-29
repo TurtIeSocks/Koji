@@ -2,9 +2,8 @@ use super::*;
 
 use geo::Point;
 use geojson::{Geometry, Value};
-use koji_core::{BBox, FeatureCtx, SingleVec, ToCollection, UnknownId};
+use koji_core::{ApiQueryArgs, BBox, FeatureCtx, SingleVec, SpawnpointTth, ToCollection, UnknownId};
 use model::{
-    api::args::{ApiQueryArgs, SpawnpointTth},
     db::{area, geofence, gym, instance, pokestop, spawnpoint, station, GenericData},
     error::ModelError,
     KojiDb, ScannerType,

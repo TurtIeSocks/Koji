@@ -2,17 +2,16 @@
 
 use std::{collections::HashMap, str::FromStr, time::Instant};
 
-use koji_core::{FeatureCtx, ToCollection, UnknownId};
+use koji_core::{
+    AdminReqParsed, ApiQueryArgs, FeatureCtx, GeoFormats, ToCollection, UnknownId,
+    json_related_sort, name_modifier, separate_by_comma,
+};
 
 use crate::{
-    api::{
-        GeoFormats,
-        args::{AdminReqParsed, ApiQueryArgs},
-    },
     error::ModelError,
     utils::{
         json::{JsonToModel, determine_category_by_value},
-        json_related_sort, name_modifier, parse_order, separate_by_comma,
+        parse_order,
     },
 };
 
