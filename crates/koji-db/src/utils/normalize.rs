@@ -1,8 +1,8 @@
 use geojson::Feature;
 use serde_json::json;
 
-use crate::text::TextHelpers;
 use crate::db::{AreaRef, sea_orm_active_enums::Type};
+use crate::text::TextHelpers;
 
 pub fn instance(instance: crate::db::instance::Model) -> Feature {
     instance
@@ -16,9 +16,8 @@ pub fn area(areas: Vec<crate::db::area::Model>) -> Vec<Feature> {
     let mut to_feature = |fence: Option<String>, name: &String, mode: Type| {
         if let Some(fence) = fence {
             if !fence.is_empty() {
-                normalized.push(
-                    fence.parse_scanner_instance(Some(name.to_string()), Some(mode.into())),
-                );
+                normalized
+                    .push(fence.parse_scanner_instance(Some(name.to_string()), Some(mode.into())));
             }
         }
     };

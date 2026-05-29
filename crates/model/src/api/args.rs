@@ -1,16 +1,14 @@
+use geojson::{Feature, FeatureCollection};
 use koji_core::{
     CalculationMode, ClusterMode, FeatureCtx, FenceType, GeoFormats, Precision, SortBy,
     SpawnpointTth, ToCollection, ToSingleVec, UnknownId, get_enum, get_enum_by_geometry_string,
 };
-use geojson::{Feature, FeatureCollection};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Auth {
     pub password: String,
 }
-
-
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum ReturnTypeArg {
@@ -29,7 +27,6 @@ pub enum ReturnTypeArg {
     Poracle,
     Sql,
 }
-
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
@@ -358,7 +355,8 @@ impl Args {
             genetic_post_processing,
             dev,
         } = self;
-        let enum_type: Option<FenceType> = get_enum_by_geometry_string(geometry_type).map(Into::into);
+        let enum_type: Option<FenceType> =
+            get_enum_by_geometry_string(geometry_type).map(Into::into);
         let (area, default_return_type) = if let Some(area) = area {
             (
                 area.clone().to_collection(&FeatureCtx {
@@ -527,9 +525,7 @@ pub fn get_return_type(return_type: String, default_return_type: &ReturnTypeArg)
     }
 }
 
-
 #[derive(Debug, Deserialize)]
 pub struct Search {
     pub query: String,
 }
-

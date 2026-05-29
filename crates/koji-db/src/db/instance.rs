@@ -7,18 +7,18 @@ use koji_core::{
     ToSingleVec, get_mode_acronym,
 };
 
-use crate::{text::TextHelpers, error::ModelError};
+use crate::{error::ModelError, text::TextHelpers};
 
 use super::{
-    sea_orm_active_enums::Type, utils, Feature, InsertsUpdates, NameTypeId, Order, QueryOrder,
-    RdmInstanceArea, ToFeatureFromModel,
+    Feature, InsertsUpdates, NameTypeId, Order, QueryOrder, RdmInstanceArea, ToFeatureFromModel,
+    sea_orm_active_enums::Type, utils,
 };
 
 use sea_orm::{
-    entity::prelude::*, sea_query::Expr, DbBackend, FromQueryResult, QuerySelect, Set, Statement,
+    DbBackend, FromQueryResult, QuerySelect, Set, Statement, entity::prelude::*, sea_query::Expr,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "instance")]
@@ -55,7 +55,8 @@ impl ToFeatureFromModel for Model {
             data,
             ..
         } = self;
-        let mut feature = data.parse_scanner_instance(Some(name.clone()), Some(mode.clone().into()));
+        let mut feature =
+            data.parse_scanner_instance(Some(name.clone()), Some(mode.clone().into()));
         feature.id = Some(geojson::feature::Id::String(format!(
             "{}__{}__SCANNER",
             id,
@@ -204,7 +205,9 @@ impl Query {
                         RdmInstanceArea::Multi(feat.clone().to_multi_vec().to_multi_struct())
                     }
                     Type::CircleStation => {
-                        return Err(DbErr::Custom("Stations are not supported on RDM".to_string()))
+                        return Err(DbErr::Custom(
+                            "Stations are not supported on RDM".to_string(),
+                        ));
                     }
                     Type::Unset => return Err(DbErr::Custom("Instance type not set".to_string())),
                 };

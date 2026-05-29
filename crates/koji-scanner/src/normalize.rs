@@ -50,7 +50,11 @@ pub fn spawnpoint(items: Vec<Spawnpoint>) -> Vec<GenericData> {
         .enumerate()
         .map(|(i, item)| {
             GenericData::new(
-                format!("{}{}", if item.despawn_sec.is_some() { "v" } else { "u" }, i),
+                format!(
+                    "{}{}",
+                    if item.despawn_sec.is_some() { "v" } else { "u" },
+                    i
+                ),
                 item.lat,
                 item.lon,
             )
@@ -66,7 +70,11 @@ pub fn spawnpoint_filtered(items: Vec<Spawnpoint>, area: &FeatureCollection) -> 
         .enumerate()
         .map(|(i, item)| {
             GenericData::new(
-                format!("{}{}", if item.despawn_sec.is_some() { "v" } else { "u" }, i),
+                format!(
+                    "{}{}",
+                    if item.despawn_sec.is_some() { "v" } else { "u" },
+                    i
+                ),
                 item.lat,
                 item.lon,
             )

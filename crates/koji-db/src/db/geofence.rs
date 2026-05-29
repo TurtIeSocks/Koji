@@ -23,10 +23,10 @@ use super::{
 
 use futures::future;
 use geojson::{GeoJson, Geometry};
+use koji_core::TrimPrecision;
 use sea_orm::{UpdateResult, entity::prelude::*};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use koji_core::TrimPrecision;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "geofence")]

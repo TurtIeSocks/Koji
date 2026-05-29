@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use super::*;
 
-use sea_orm::{entity::prelude::*, InsertResult};
+use sea_orm::{InsertResult, entity::prelude::*};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "geofence_project")]

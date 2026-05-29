@@ -2553,19 +2553,11 @@ dependencies = [
 name = "model"
 version = "1.5.1"
 dependencies = [
- "chrono",
- "futures",
- "geo",
- "geo-types",
  "geojson",
  "koji-core",
  "log",
- "regex",
- "sea-orm",
  "serde",
  "serde_json",
- "serde_with",
- "thiserror",
 ]
 
 [[package]]

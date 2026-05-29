@@ -85,7 +85,8 @@ impl ToFeatureFromModel for Model {
         } = self;
 
         let geometry = Geometry::from_json_value(geometry)?;
-        let mut feature = geometry.to_feature(&FeatureCtx::new().with_type(Type::CirclePokemon.into()));
+        let mut feature =
+            geometry.to_feature(&FeatureCtx::new().with_type(Type::CirclePokemon.into()));
 
         if internal {
             feature.id = Some(geojson::feature::Id::String(format!(

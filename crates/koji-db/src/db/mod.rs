@@ -5,8 +5,8 @@ use crate::error::ModelError;
 use super::*;
 
 use sea_orm::{
-    DeleteResult, DeriveEntityModel, FromQueryResult, Order, QueryOrder, QuerySelect,
-    Set, prelude::DateTimeUtc, sea_query::Expr,
+    DeleteResult, DeriveEntityModel, FromQueryResult, Order, QueryOrder, QuerySelect, Set,
+    prelude::DateTimeUtc, sea_query::Expr,
 };
 
 pub mod area;
@@ -21,7 +21,6 @@ pub mod property;
 pub mod route;
 pub mod sea_orm_active_enums;
 pub mod tile_server;
-
 
 trait ToFeatureFromModel {
     fn to_feature(self, internal: bool) -> Result<Feature, ModelError>;
@@ -57,7 +56,6 @@ pub struct AreaRef {
     pub has_fort: bool,
 }
 
-
 #[derive(Debug, Serialize)]
 pub struct PaginateResults<T> {
     results: T,
@@ -77,7 +75,6 @@ impl Default for PaginateResults<()> {
     }
 }
 
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum RdmInstanceArea {
@@ -91,7 +88,6 @@ pub struct RdmInstance {
     pub area: RdmInstanceArea,
     pub radius: Option<u32>,
 }
-
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
