@@ -30,7 +30,15 @@ Migrations applied to `dev_koji`; v1 + v2 calc (cluster/route/bootstrap) over re
 ## v1 calc is now queue-backed (P7)
 Every `/api/v1/calc/*` endpoint except `/area` resolves its async inputs, runs through the **same job queue + sync bridge** as v2 (`CalculateHandler`), and re-wraps the result in the legacy `{message,status,status_code,data,stats}` envelope — removing the last inline-synchronous algorithm execution path. The `CalculateHandler` was extended to cover all v1 modes (added `reroute` route-only + `route-stats` stats-only); `/area` (pure geometry sum) stays inline. This surfaced + fixed a **pre-existing queue race**: the per-job heartbeat used the lossy `Notify::notify_waiters()` to stop, which a near-instant handler (reroute/route-stats, ~1ms) could outrun → the heartbeat signal was lost, wedging the worker and stranding the job in `running`. Switched to `notify_one()` (stores a permit); this also hardens fast v2 calc jobs.
 
+## Post-audit hardening
+A self-audit after P7 surfaced + fixed:
+- **`tsp` route-optimizer regression** — P7's plugin formalization (JSON stdio + manifest registry) broke the bundled OR-Tools `tsp` router (built by the Dockerfile, speaking legacy `lat,lng` stdio). Added a `protocol = "latlng"` manifest option + a `plugins/tsp/plugin.toml` + `KOJI_PLUGINS_DIR` wiring; E2E-verified the optimizer runs again.
+- **`area.route_updated` producer** — `POST /api/v2/routes/{id}/publish` now emits it (route → geofence → `dragonite_area_id` + a `mode→AreaMode` map). E2E-verified (PATCH `quest_mode.route`).
+- **heartbeat-race regression test** + **plugin-registry caching** (was re-scanned per calc).
+
 ## Intentionally deferred (follow-ups, not blockers)
-- **`area.route_updated` producer** — the subscriber arm + payload + `area_route_patch` exist + are unit-tested, but no producer is wired (needs a koji-route-mode→`AreaMode` mapping decision).
-- **clippy-pedantic manual sweep** — residual ~manual warnings (large-variant boxing, manual trait impls); low-value style churn.
-- **Calc `save_to_db`/`save_to_scanner` side-effects** in v2 (deferred since P4; v1 retains its `save_to_db`).
+- **koji-mode→`AreaMode` mapping** (in the route producer) — a reasonable default is wired (quest→Quest, pokemon/tth/iv→Pokemon, raid/station→Fort, else Base); **maintainer-confirm** it matches intended scanner semantics.
+- **v2 calc `save_to_db`/`save_to_scanner`** — deferred since P4. The v2 `CalculateHandler` is pure-compute; the async job model has no clean inline-persist hook (v2 clients persist via the CRUD `/routes` endpoint; v1 retains its synchronous `save_to_db`).
+- **Prune dead `Type::CircleSmart*` enum variants** — they are DB enum `string_value`s; removing them needs a data migration to rewrite existing rows, so it's maintainer-gated.
+- **clippy-pedantic manual sweep** — residual manual warnings (large-variant boxing, manual trait impls); low-value style churn.
+- **Maintainer verification** (can't run here): test the Dragonite client against a **real** Dragonite (only a mock was used); `benchmark_mode`/`bypass_adaptive_partition` perf-parity A/B; v1 byte-parity spot-check; human review of the subagent-authored plugins/OpenAPI/React/P6 work.
