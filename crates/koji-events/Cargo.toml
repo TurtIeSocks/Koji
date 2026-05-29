@@ -1,0 +1,37 @@
+[package]
+name = "koji-events"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "koji_events"
+path = "src/lib.rs"
+
+[dependencies]
+# Plain versions: mirrors koji-jobs, which predates full workspace-dep
+# management for the events/jobs stack (see
+# docs/superpowers/specs/2026-05-28-koji-v2-architecture-design.md §2).
+koji-core = { path = "../koji-core" }
+sea-orm = { version = "1.1.16", features = [
+  "sqlx-mysql",
+  "runtime-tokio-native-tls",
+  "macros",
+  "with-json",
+  "with-chrono",
+] }
+tokio = { version = "1", features = ["sync", "time", "rt", "macros"] }
+reqwest = { version = "0.12", features = ["json"] }
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+ulid = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+chrono = { version = "0.4", features = ["serde"] }
+async-trait = "0.1"
+log = "0.4"
+
+[dev-dependencies]
+serde_json = "1"

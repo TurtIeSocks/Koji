@@ -2366,6 +2366,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "koji-events"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "hex",
+ "hmac",
+ "koji-core",
+ "log",
+ "reqwest",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "ulid",
+]
+
+[[package]]
 name = "koji-jobs"
 version = "0.1.0"
 dependencies = [
