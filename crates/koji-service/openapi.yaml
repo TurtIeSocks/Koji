@@ -433,6 +433,36 @@ paths:
         "500":
           $ref: "#/components/responses/ServerError"
 
+  /api/v2/routes/{id}/publish:
+    parameters:
+      - $ref: "#/components/parameters/IdOrNamePath"
+    post:
+      operationId: publishRoute
+      tags: [routes]
+      summary: Publish a route to its geofence's linked Dragonite area.
+      description: |
+        Resolves the route → its geofence → `dragonite_area_id`, maps the route
+        mode to a Dragonite area mode, and appends an `area.route_updated` event
+        to the outbox; the dispatcher delivers it (`PATCH /v2/areas/{id}` with the
+        mapped mode's `route`). Returns `202` with the outbox `event_id`. A route
+        whose geofence has no linked `dragonite_area_id` yields `422`; an unknown
+        route yields `404`.
+      responses:
+        "202":
+          description: Publish event enqueued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
   /api/v2/routes/{id}:
     parameters:
       - $ref: "#/components/parameters/IdOrNamePath"
