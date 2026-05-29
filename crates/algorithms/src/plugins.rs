@@ -7,13 +7,28 @@
 //! for the available modes — so the filesystem is not scanned on the hot path of
 //! the built-in modes.
 
+use std::sync::LazyLock;
+
 use koji_core::SingleVec;
 use koji_plugins::{Plugin, PluginKind, PluginRegistry};
 use serde_json::{Value, json};
 
-/// Load the plugin registry from `KOJI_PLUGINS_DIR` (default `./plugins`).
-pub(crate) fn registry() -> PluginRegistry {
-    PluginRegistry::from_env()
+/// Process-wide plugin registry, scanned from `KOJI_PLUGINS_DIR` (default
+/// `./plugins`) on first use and cached for the life of the process.
+///
+/// Tradeoff: the filesystem is scanned exactly once. Plugins added *after* the
+/// first plugin use (the first `Custom` mode dispatch or `all_*_options()` call)
+/// are not picked up — acceptable because plugins are deploy-time artifacts, not
+/// hot-reloaded. Previously the registry was rebuilt on every call, so a single
+/// route calc re-scanned the directory ~3×.
+///
+/// `KOJI_PLUGINS_DIR` is read inside [`PluginRegistry::from_env`], so it must be
+/// set before the first plugin use (it is, at server startup).
+static REGISTRY: LazyLock<PluginRegistry> = LazyLock::new(PluginRegistry::from_env);
+
+/// The process-wide cached plugin registry (see [`REGISTRY`]).
+pub(crate) fn registry() -> &'static PluginRegistry {
+    &REGISTRY
 }
 
 /// The names of all registered plugins of a given kind (for `all_*_options()`).
