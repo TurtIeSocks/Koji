@@ -1,13 +1,10 @@
 use std::time::Instant;
 
 use koji_core::{RoutingConfig, SingleVec, SortBy};
+use koji_plugins::PluginKind;
 
 use self::sorting::{SortGeohash, SortLatLng, SortPointCount, SortRandom, SortS2};
-use crate::{
-    plugin::{Folder, Plugin},
-    stats::Stats,
-    utils,
-};
+use crate::{plugins, stats::Stats, utils};
 
 mod join;
 pub mod sorting;
@@ -30,23 +27,19 @@ pub fn main(
         SortBy::Unset => clusters,
         SortBy::Custom(plugin) => {
             let clusters = clusters.sort_s2();
-            match Plugin::new(
-                plugin,
-                Folder::Routing,
-                cfg.route_split_level,
-                &cfg.plugin_args,
-            ) {
-                Ok(plugin_manager) => match plugin_manager.run_multi(&clusters, Some(join::join)) {
+            match plugins::resolve(PluginKind::Routing, plugin, cfg.route_split_level) {
+                Some(plugin_manager) => match plugin_manager.run_multi(
+                    &clusters,
+                    &plugins::args_to_value(&cfg.plugin_args),
+                    Some(join::join),
+                ) {
                     Ok(sorted_clusters) => sorted_clusters,
                     Err(e) => {
                         log::error!("Error while running plugin: {}", e);
                         clusters
                     }
                 },
-                Err(e) => {
-                    log::error!("Plugin not found: {}", e);
-                    clusters
-                }
+                None => clusters,
             }
         }
     };
@@ -59,7 +52,7 @@ pub fn main(
 }
 
 pub fn routing_plugins() -> Vec<String> {
-    utils::get_plugin_list("algorithms/src/routing/plugins").unwrap_or(vec![])
+    plugins::plugin_names(PluginKind::Routing)
 }
 
 pub fn all_routing_options() -> Vec<String> {

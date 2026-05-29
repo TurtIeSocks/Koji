@@ -1,7 +1,7 @@
-use crate::plugin::{JoinFunction, Plugin};
 use crate::utils;
 use geo::{Distance, Haversine, Point};
 use koji_core::{PointArray, SingleVec};
+use koji_plugins::{JoinFunction, Plugin};
 use s2::cellid::CellID;
 use s2::latlng::LatLng;
 use std::collections::HashMap;
@@ -27,7 +27,7 @@ pub fn join(plugin: &Plugin, input: Vec<SingleVec>) -> SingleVec {
         point_map.insert(get_cell_id(center), points.clone());
     }
     let clusters: Vec<SingleVec> = plugin
-        .run_multi::<JoinFunction>(&centroids, None)
+        .run_multi::<JoinFunction>(&centroids, &serde_json::Value::Null, None)
         .unwrap_or(vec![])
         .into_iter()
         .filter_map(|c| {

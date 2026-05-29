@@ -1,10 +1,8 @@
 use std::{time::Instant, vec};
 
-use crate::{
-    plugin::{Folder, JoinFunction, Plugin},
-    stats::Stats,
-    utils,
-};
+use koji_plugins::{JoinFunction, PluginKind};
+
+use crate::{plugins, stats::Stats};
 
 use self::greedy::Greedy;
 
@@ -63,14 +61,13 @@ pub fn main(
                 greedy.run(&data_points)
             }
             ClusterMode::Custom(plugin) => {
-                match Plugin::new(
-                    &plugin,
-                    Folder::Clustering,
-                    cfg.cluster_split_level,
-                    &cfg.plugin_args,
-                ) {
-                    Ok(plugin_manager) => {
-                        match plugin_manager.run_multi::<JoinFunction>(data_points, None) {
+                match plugins::resolve(PluginKind::Clustering, &plugin, cfg.cluster_split_level) {
+                    Some(plugin_manager) => {
+                        match plugin_manager.run_multi::<JoinFunction>(
+                            data_points,
+                            &plugins::args_to_value(&cfg.plugin_args),
+                            None,
+                        ) {
                             Ok(sorted_clusters) => sorted_clusters,
                             Err(e) => {
                                 log::error!("Error while running plugin: {}", e);
@@ -78,10 +75,7 @@ pub fn main(
                             }
                         }
                     }
-                    Err(e) => {
-                        log::error!("Plugin not found: {}", e);
-                        vec![]
-                    }
+                    None => vec![],
                 }
             }
         },
@@ -111,7 +105,7 @@ pub fn main(
 }
 
 pub fn clustering_plugins() -> Vec<String> {
-    utils::get_plugin_list("algorithms/src/clustering/plugins").unwrap_or(vec![])
+    plugins::plugin_names(PluginKind::Clustering)
 }
 
 pub fn all_clustering_options() -> Vec<String> {

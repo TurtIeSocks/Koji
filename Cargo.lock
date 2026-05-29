@@ -321,6 +321,7 @@ dependencies = [
  "geojson",
  "hashbrown 0.16.0",
  "koji-core",
+ "koji-plugins",
  "log",
  "macros",
  "map_3d",
@@ -329,6 +330,7 @@ dependencies = [
  "rstar",
  "s2",
  "serde",
+ "serde_json",
  "sysinfo",
 ]
 

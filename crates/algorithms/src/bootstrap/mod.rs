@@ -1,13 +1,12 @@
 use std::time::Instant;
 
 use geojson::{Feature, FeatureCollection};
-use koji_core::{BootstrapConfig, CalculationMode, FeatureCtx, RoutingConfig, ToFeature};
-
-use crate::{
-    plugin::{Folder, Plugin},
-    stats::Stats,
-    utils,
+use koji_core::{
+    BootstrapConfig, CalculationMode, FeatureCtx, RoutingConfig, ToFeature, ToSingleVec,
 };
+use koji_plugins::PluginKind;
+
+use crate::{plugins, stats::Stats};
 
 pub mod radius;
 pub mod s2;
@@ -37,25 +36,17 @@ pub fn main(
                 features.push(new_s2.feature());
             }
             CalculationMode::Custom(plugin) => {
-                match Plugin::new(plugin, Folder::Bootstrap, 0, &cfg.plugin_args) {
-                    Ok(plugin_manager) => {
-                        let time = Instant::now();
-                        match plugin_manager.run(feature.to_string()) {
-                            Ok(sorted_clusters) => {
-                                let mut plugin_stats = Stats::new(plugin.to_string(), 0);
-                                plugin_stats.set_cluster_time(time);
-                                plugin_stats.cluster_stats(0., &vec![], &sorted_clusters);
-                                features.push(sorted_clusters.to_feature(&FeatureCtx::default()));
-                                *stats += &plugin_stats;
-                            }
-                            Err(e) => {
-                                log::error!("Error while running plugin: {}", e);
-                            }
-                        }
+                let time = Instant::now();
+                let points = feature.clone().to_single_vec();
+                match plugins::run_once(PluginKind::Bootstrap, plugin, points, &cfg.plugin_args) {
+                    Some(sorted_clusters) => {
+                        let mut plugin_stats = Stats::new(plugin.to_string(), 0);
+                        plugin_stats.set_cluster_time(time);
+                        plugin_stats.cluster_stats(0., &vec![], &sorted_clusters);
+                        features.push(sorted_clusters.to_feature(&FeatureCtx::default()));
+                        *stats += &plugin_stats;
                     }
-                    Err(e) => {
-                        log::error!("Plugin not found: {}", e);
-                    }
+                    None => {}
                 }
             }
         }
@@ -64,7 +55,7 @@ pub fn main(
 }
 
 pub fn bootstrap_plugins() -> Vec<String> {
-    utils::get_plugin_list("algorithms/src/bootstrap/plugins").unwrap_or(vec![])
+    plugins::plugin_names(PluginKind::Bootstrap)
 }
 
 pub fn all_bootstrap_options() -> Vec<String> {

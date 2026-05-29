@@ -1,6 +1,6 @@
 pub mod bootstrap;
 pub mod clustering;
-mod plugin;
+mod plugins;
 mod project;
 pub mod routing;
 mod rtree;

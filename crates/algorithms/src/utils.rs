@@ -1,9 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Debug;
-use std::fs;
 use std::fs::{File, create_dir_all};
 use std::io::Write;
-use std::path::Path;
 
 use colored::Colorize;
 use geo::Coord;
@@ -144,41 +142,3 @@ pub fn rotate_to_best(clusters: SingleVec, stats: &Stats) -> SingleVec {
     final_clusters.into()
 }
 
-pub fn get_plugin_list(path: &str) -> std::io::Result<Vec<String>> {
-    let path = Path::new(path);
-
-    fs::read_dir(path)?
-        .map(|res| res.map(|e| e.path().display().to_string()))
-        .filter_map(|path| {
-            if let Ok(ext) = path {
-                let plugin = ext
-                    .split(std::path::MAIN_SEPARATOR_STR)
-                    .last()
-                    .unwrap_or("")
-                    .to_string();
-                if plugin == ".gitkeep" {
-                    None
-                } else {
-                    Some(Ok(plugin))
-                }
-            } else {
-                None
-            }
-        })
-        .collect::<Result<Vec<_>, std::io::Error>>()
-}
-
-pub fn stringify_points(points: &SingleVec) -> String {
-    points
-        .iter()
-        .enumerate()
-        .map(|(i, cluster)| {
-            format!(
-                "{},{}{}",
-                cluster[0],
-                cluster[1],
-                if i == points.len() - 1 { "" } else { " " }
-            )
-        })
-        .collect()
-}

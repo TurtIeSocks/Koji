@@ -10,6 +10,7 @@ path = "src/lib.rs"
 
 [dependencies]
 koji-core = { path = "../koji-core" }
+koji-plugins = { path = "../koji-plugins" }
 chrono = "0.4.42"
 colored = "3.0.0"
 geo = "0.31.0"
@@ -23,7 +24,7 @@ rayon = "1.11.0"
 rstar = "0.12.2"
 s2 = "0.0.13"
 serde = { version = "1.0.225", features = ["derive"] }
-# serde_json = "1.0.94"
+serde_json = { workspace = true }
 # vrp-pragmatic = "1.18.3"
 sysinfo = "0.37.0"
 
