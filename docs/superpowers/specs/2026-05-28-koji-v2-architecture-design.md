@@ -30,6 +30,12 @@ Sixteen goals (see `refactor-workspace/goals.md`). Ten forking decisions, locked
 
 Constraints: big-bang on one branch; no breaking changes to live consumers in phase 1; solo dev; sea-orm + or-tools/VRP retained.
 
+### Cross-cutting conventions (apply throughout every phase)
+
+- **Macros — lean in.** `koji-macros` is a first-class DRY tool here, not a last resort. Prefer declarative + proc macros to eliminate genuine repetition where it improves clarity — prime candidates: the typed v2 resource handlers (CRUD shape repeats across geofences/routes/projects/properties/tile-servers), `From`/`Into` entity↔domain-enum mappings, config-struct defaulting/merge, and the v1-shim route adapters. Rule of thumb: macro-ize a pattern once it appears 3+ times and the macro is easier to read than the repetition; never macro-ize one-offs.
+- **Dependencies — latest + workspace-managed.** Upgrade every dependency to its latest release as crates are touched, accepting breaking changes and fixing the fallout in the same phase/commit. Declare all external deps in the root `[workspace.dependencies]`; member crates reference them as `dep = { workspace = true }`. Centralizes versions and kills drift. (Internal path deps stay path-based.)
+- **API documentation — OpenAPI (deferred design).** v2 REST should ship machine-generated OpenAPI — candidate: `utoipa` derives on the JSend DTOs + handler annotations, served at `/api/v2/openapi.json` with a docs UI (Swagger/Scalar). Full design deferred (own note later); flagged now only so v2 handlers + DTOs are built doc-gen-friendly from the start rather than retrofitted.
+
 ## 3. Workspace & crate topology
 
 Workspace manifest at repo root. `client/` (JS) + `or-tools/` (C++) are non-member siblings, untouched in phase 1.
@@ -124,5 +130,6 @@ The v1 shim keeps all current client calls working. Future client migration (sep
 
 ## 12. Open / deferred
 - Per-subsystem deep-dive specs authored as each phase begins (job-queue done; events, v1-shim compat, and the model-split are the next candidates).
+- **OpenAPI / API-docs design** — own note before the v2 API phase (see Cross-cutting conventions); `utoipa`-based gen + served spec + docs UI.
 - Client migration is out of scope for this branch.
 - `or-tools`/VRP solver and the ORM choice (sea-orm) are unchanged.

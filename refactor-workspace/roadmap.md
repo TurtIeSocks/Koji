@@ -2,6 +2,10 @@
 
 One long-lived branch, many commits. **Invariant: every commit compiles + passes existing tests.** Hard ordering rule: events + Dragonite client land **before** RDM/controller-write removal (never delete the only write path early).
 
+**Conventions threaded through all phases** (architecture spec §2):
+- **Deps → latest + workspace-managed.** When a phase touches a crate, bump its deps to latest (breaking OK, fix in-phase) and move them to root `[workspace.dependencies]` (`dep = { workspace = true }`). P0 scaffolds the `[workspace.dependencies]` table.
+- **Macros first-class.** Reach for `koji-macros` to DRY repeated patterns (typed CRUD handlers, entity↔domain mappings, v1-shim adapters) once a pattern recurs 3+ times.
+
 ## Phase 0 — Workspace skeleton (mechanical, zero behavior change)
 - `chore(workspace): add root Cargo.toml, move server/* → crates/ + bins/, rename koji-*`
 - `chore(ci): update Dockerfile + .github paths for new layout`
