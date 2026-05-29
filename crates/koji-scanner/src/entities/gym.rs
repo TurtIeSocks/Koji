@@ -86,9 +86,7 @@ impl Query {
             .column(Column::Lon)
             .filter(Column::Lat.between(payload.min_lat, payload.max_lat))
             .filter(Column::Lon.between(payload.min_lon, payload.max_lon))
-            .filter(
-                Column::Updated.gt(payload.last_seen.unwrap_or_default()),
-            )
+            .filter(Column::Updated.gt(payload.last_seen.unwrap_or_default()))
             .filter(Column::Deleted.eq(false))
             .filter(Column::Enabled.eq(true))
             .limit(2_000_000)

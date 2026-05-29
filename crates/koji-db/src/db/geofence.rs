@@ -153,9 +153,7 @@ impl Model {
         }
         if properties
             .iter()
-            .any(|prop| {
-                separate_by_comma(&args.excludeproperties).contains(&prop.name.to_string())
-            })
+            .any(|prop| separate_by_comma(&args.excludeproperties).contains(&prop.name.to_string()))
         {
             return Err(ModelError::Geofence("Excluded property".to_string()));
         }
@@ -245,12 +243,13 @@ impl Model {
         }
 
         if let Some(geofence_name) = feature.property("name")
-            && let Some(geofence_name) = geofence_name.as_str() {
-                feature.set_property(
-                    "name",
-                    name_modifier(geofence_name.to_string(), args, parent_name),
-                );
-            }
+            && let Some(geofence_name) = geofence_name.as_str()
+        {
+            feature.set_property(
+                "name",
+                name_modifier(geofence_name.to_string(), args, parent_name),
+            );
+        }
 
         if args.internal.is_some() {
             feature.id = Some(geojson::feature::Id::String(format!(
@@ -558,44 +557,45 @@ impl Query {
         geofence_id: u32,
     ) -> Result<(), ModelError> {
         if let Some(properties) = json.get("properties")
-            && let Some(properties) = properties.as_array() {
-                let mut existing = vec![];
-                let mut new_props = vec![];
-                properties.iter().for_each(|property| {
-                    if let Some(prop_map) = property.as_object() {
-                        if prop_map.contains_key("property_id") {
-                            existing.push(property.clone())
-                        } else {
-                            new_props.push(property.clone())
-                        }
+            && let Some(properties) = properties.as_array()
+        {
+            let mut existing = vec![];
+            let mut new_props = vec![];
+            properties.iter().for_each(|property| {
+                if let Some(prop_map) = property.as_object() {
+                    if prop_map.contains_key("property_id") {
+                        existing.push(property.clone())
+                    } else {
+                        new_props.push(property.clone())
                     }
-                });
-                let upserted_props = future::try_join_all(
-                    new_props
-                        .clone()
-                        .into_iter()
-                        .map(|result| property::Query::upsert(db, 0, result)),
-                )
-                .await?;
-
-                upserted_props
+                }
+            });
+            let upserted_props = future::try_join_all(
+                new_props
+                    .clone()
                     .into_iter()
-                    .enumerate()
-                    .for_each(|(i, prop)| {
-                        existing.push(json!({
-                            "value": new_props[i]["value"],
-                            "property_id": prop.id,
-                            "geofence_id": geofence_id,
-                        }))
-                    });
+                    .map(|result| property::Query::upsert(db, 0, result)),
+            )
+            .await?;
 
-                geofence_property::Query::update_properties_by_geofence(
-                    db,
-                    &existing,
-                    Some(geofence_id),
-                )
-                .await?;
-            };;
+            upserted_props
+                .into_iter()
+                .enumerate()
+                .for_each(|(i, prop)| {
+                    existing.push(json!({
+                        "value": new_props[i]["value"],
+                        "property_id": prop.id,
+                        "geofence_id": geofence_id,
+                    }))
+                });
+
+            geofence_property::Query::update_properties_by_geofence(
+                db,
+                &existing,
+                Some(geofence_id),
+            )
+            .await?;
+        };
         Ok(())
     }
 
@@ -605,10 +605,11 @@ impl Query {
         geofence_id: u32,
     ) -> Result<(), DbErr> {
         if let Some(projects) = json.get("projects")
-            && let Some(projects) = projects.as_array() {
-                geofence_project::Query::upsert_related_by_geofence_id(db, projects, geofence_id)
-                    .await?;
-            };;
+            && let Some(projects) = projects.as_array()
+        {
+            geofence_project::Query::upsert_related_by_geofence_id(db, projects, geofence_id)
+                .await?;
+        };
         Ok(())
     }
 
@@ -700,9 +701,10 @@ impl Query {
         };
 
         if let Some(mode) = feat.property("__mode")
-            && let Some(mode) = mode.as_str() {
-                new_map.insert("mode", serde_json::Value::String(mode.to_string()));
-            };
+            && let Some(mode) = mode.as_str()
+        {
+            new_map.insert("mode", serde_json::Value::String(mode.to_string()));
+        };
         if let Some(projects) = feat.property("__projects") {
             new_map.insert("projects", projects.clone());
         };
@@ -846,13 +848,11 @@ impl Query {
             .into_iter()
             .for_each(|prop| {
                 if prop.name == "name"
-                    && let Some(manual_name) = prop.value.as_ref() {
-                        name_map.insert(prop.geofence_id, manual_name.clone());
-                    }
-                property_map
-                    .entry(prop.geofence_id)
-                    .or_default()
-                    .push(prop);
+                    && let Some(manual_name) = prop.value.as_ref()
+                {
+                    name_map.insert(prop.geofence_id, manual_name.clone());
+                }
+                property_map.entry(prop.geofence_id).or_default().push(prop);
             });
         Ok((property_map, name_map))
     }
@@ -909,20 +909,22 @@ impl Query {
             let model = Entity::find_by_id(id).one(db).await?;
             if let Some(model) = model {
                 let mut model: ActiveModel = model.into();
-                if let Column::Parent = column { match payload.as_u64() {
-                    Some(id) => {
-                        if id == 0 {
-                            model.parent = Set(None);
-                        } else {
-                            model.parent = Set(Some(id as u32));
+                if let Column::Parent = column {
+                    match payload.as_u64() {
+                        Some(id) => {
+                            if id == 0 {
+                                model.parent = Set(None);
+                            } else {
+                                model.parent = Set(Some(id as u32));
+                            }
+                        }
+                        None => {
+                            return Err(ModelError::Geofence(
+                                "No valid parent_id found".to_string(),
+                            ));
                         }
                     }
-                    None => {
-                        return Err(ModelError::Geofence(
-                            "No valid parent_id found".to_string(),
-                        ));
-                    }
-                } }
+                }
                 let model = model.update(db).await?;
                 Ok(model)
             } else {
@@ -977,9 +979,13 @@ impl Query {
             .await?;
         let items = Entity::find()
             .order_by(Column::Name, Order::Asc)
-            .filter(Column::Id.is_in(items.into_iter().filter_map(|item| {
-                item.parent.map(|parent| parent)
-            })))
+            .filter(
+                Column::Id.is_in(
+                    items
+                        .into_iter()
+                        .filter_map(|item| item.parent.map(|parent| parent)),
+                ),
+            )
             .select_only()
             .column(Column::Id)
             .column(Column::Name)

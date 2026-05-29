@@ -1,7 +1,7 @@
 pub mod cluster;
 pub mod point;
 
-use koji_core::{SingleVec, Precision};
+use koji_core::{Precision, SingleVec};
 use point::Point;
 
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -28,9 +28,7 @@ pub fn cluster_info<'a>(
         .map(|cluster| {
             cluster::Cluster::new(
                 *cluster,
-                point_tree
-                    .locate_all_at_point(&cluster.center)
-                    .collect(),
+                point_tree.locate_all_at_point(&cluster.center).collect(),
                 vec![],
             )
         })

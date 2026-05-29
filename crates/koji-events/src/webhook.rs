@@ -91,8 +91,8 @@ pub fn sign(secret: &str, body: &[u8]) -> String {
     type HmacSha256 = Hmac<Sha256>;
     // `new_from_slice` only errors for key sizes HMAC rejects; HMAC accepts any
     // key length, so this never fails in practice.
-    let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
-        .expect("HMAC accepts keys of any length");
+    let mut mac =
+        HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC accepts keys of any length");
     mac.update(body);
     let digest = mac.finalize().into_bytes();
     format!("sha256={}", hex::encode(digest))

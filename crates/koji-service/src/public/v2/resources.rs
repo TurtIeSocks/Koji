@@ -19,7 +19,7 @@
 //! [`super::routes`]) because their koji-db signatures genuinely differ (they
 //! carry geometry and take `ApiQueryArgs` / an `internal` flag).
 
-use actix_web::{http::StatusCode, web, Error, HttpResponse};
+use actix_web::{Error, HttpResponse, http::StatusCode, web};
 use koji_db::KojiDb;
 use serde_json::json;
 

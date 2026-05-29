@@ -296,8 +296,7 @@ impl Args {
             genetic_post_processing,
             dev,
         } = self;
-        let enum_type: Option<FenceType> =
-            get_enum_by_geometry_string(geometry_type);
+        let enum_type: Option<FenceType> = get_enum_by_geometry_string(geometry_type);
         let (area, default_return_type) = if let Some(area) = area {
             (
                 area.clone().to_collection(&FeatureCtx {

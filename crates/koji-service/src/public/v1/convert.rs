@@ -2,7 +2,9 @@ use super::*;
 
 use geojson::{Geometry, Value};
 
-use koji_core::{FeatureCtx, FeatureHelpers, GeometryHelpers, ToCollection, ToFeature, TrimPrecision};
+use koji_core::{
+    FeatureCtx, FeatureHelpers, GeometryHelpers, ToCollection, ToFeature, TrimPrecision,
+};
 use koji_db::db::sea_orm_active_enums::Type;
 use model::api::args::{Args, ArgsUnwrapped};
 
@@ -57,7 +59,10 @@ async fn merge_points(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
 
     area.into_iter().for_each(|feat| {
         if let Some(geometry) = feat.geometry
-            && let Value::Point(point) = geometry.value { new_multi_point.push(point) }
+            && let Value::Point(point) = geometry.value
+        {
+            new_multi_point.push(point)
+        }
     });
 
     Ok(utils::response::send(

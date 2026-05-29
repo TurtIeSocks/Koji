@@ -21,7 +21,10 @@ use crate::types::{
 pub fn route_to_api_locations(route: &SingleVec) -> Vec<ApiLocation> {
     route
         .iter()
-        .map(|p| ApiLocation { lat: p[0], lon: p[1] })
+        .map(|p| ApiLocation {
+            lat: p[0],
+            lon: p[1],
+        })
         .collect()
 }
 
@@ -102,7 +105,13 @@ mod tests {
         let route: SingleVec = vec![[40.1, -75.2], [40.3, -75.4]];
         let out = route_to_api_locations(&route);
         assert_eq!(out.len(), 2);
-        assert_eq!(out[0], ApiLocation { lat: 40.1, lon: -75.2 });
+        assert_eq!(
+            out[0],
+            ApiLocation {
+                lat: 40.1,
+                lon: -75.2
+            }
+        );
         assert_eq!(out[0].lat, 40.1, "index 0 must be latitude");
         assert_eq!(out[0].lon, -75.2, "index 1 must be longitude");
     }

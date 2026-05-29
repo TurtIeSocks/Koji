@@ -5,7 +5,7 @@ mod utils;
 
 use std::time::Instant;
 
-use koji_core::{SingleVec, Precision};
+use koji_core::{Precision, SingleVec};
 use rayon::{
     iter::{IntoParallelRefIterator, ParallelIterator},
     slice::ParallelSliceMut,
@@ -82,7 +82,9 @@ pub fn with_data(radius: Precision, points: &SingleVec, clusters: &SingleVec) ->
             }
         }
     }
-    log::info!("Success: {successes} | Radius Too Big: {radius_too_big} | Missing Points: {points_outside} | Circle Fails: {circle_fails}");
+    log::info!(
+        "Success: {successes} | Radius Too Big: {radius_too_big} | Missing Points: {points_outside} | Circle Fails: {circle_fails}"
+    );
     log::info!("centered clusters in {:.2}s", time.elapsed().as_secs_f32());
     final_clusters
 }

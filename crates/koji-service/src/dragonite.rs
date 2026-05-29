@@ -19,7 +19,7 @@ use async_trait::async_trait;
 use geojson::Feature;
 use koji_core::SingleVec;
 use koji_dragonite::{
-    area_geofence_patch, area_route_patch, AreaMode, DragoniteClient, DragoniteError,
+    AreaMode, DragoniteClient, DragoniteError, area_geofence_patch, area_route_patch,
 };
 use koji_events::{DeliverError, Event, Subscriber};
 use serde::{Deserialize, Serialize};
@@ -94,8 +94,10 @@ impl Subscriber for DragoniteSubscriber {
     async fn deliver(&self, event: &Event) -> Result<(), DeliverError> {
         match event.topic.as_str() {
             TOPIC_ROUTE_UPDATED => {
-                let p: RouteUpdated = serde_json::from_value(event.payload.clone())
-                    .map_err(|e| DeliverError::Other(format!("invalid {TOPIC_ROUTE_UPDATED} payload: {e}")))?;
+                let p: RouteUpdated =
+                    serde_json::from_value(event.payload.clone()).map_err(|e| {
+                        DeliverError::Other(format!("invalid {TOPIC_ROUTE_UPDATED} payload: {e}"))
+                    })?;
                 let patch = area_route_patch(p.mode, &p.route);
                 self.client
                     .patch_area(p.dragonite_area_id, &patch)
@@ -104,8 +106,12 @@ impl Subscriber for DragoniteSubscriber {
                 Ok(())
             }
             TOPIC_GEOFENCE_UPDATED => {
-                let p: GeofenceUpdated = serde_json::from_value(event.payload.clone())
-                    .map_err(|e| DeliverError::Other(format!("invalid {TOPIC_GEOFENCE_UPDATED} payload: {e}")))?;
+                let p: GeofenceUpdated =
+                    serde_json::from_value(event.payload.clone()).map_err(|e| {
+                        DeliverError::Other(format!(
+                            "invalid {TOPIC_GEOFENCE_UPDATED} payload: {e}"
+                        ))
+                    })?;
                 let patch = area_geofence_patch(p.mode, &p.geofence);
                 self.client
                     .patch_area(p.dragonite_area_id, &patch)
@@ -146,7 +152,10 @@ mod tests {
             message: "not found".to_string(),
             field: None,
         };
-        assert!(matches!(to_deliver_error(e), DeliverError::Status { status: 404 }));
+        assert!(matches!(
+            to_deliver_error(e),
+            DeliverError::Status { status: 404 }
+        ));
     }
 
     #[test]

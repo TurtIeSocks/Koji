@@ -7,9 +7,9 @@ use koji_core::{Precision, ToGeometry, ToSql};
 use serde::Serialize;
 use serde_json::json;
 
-use koji_core::{ToMultiStruct, ToMultiVec, ToPoracleVec, ToSingleStruct, ToSingleVec, ToText};
 use koji_core::GeoFormats;
 use koji_core::ReturnTypeArg;
+use koji_core::{ToMultiStruct, ToMultiVec, ToPoracleVec, ToSingleStruct, ToSingleVec, ToText};
 
 #[derive(Debug, Serialize)]
 pub struct ConfigResponse {
@@ -76,7 +76,6 @@ pub fn send(
             ReturnTypeArg::GeometryVec => GeoFormats::GeometryVec(value.into_iter().map(|feat| feat.to_geometry()).collect()),
             ReturnTypeArg::Feature => {
                 if value.features.len() == 1 {
-                    
                     GeoFormats::Feature(value.features.first().unwrap().clone())
                 } else {
                     log::info!("\"Feature\" was requested as the return type but multiple features were found so a Vec of features is being returned");

@@ -140,10 +140,16 @@ mod tests {
             version: None,
             description: None,
         };
-        assert_eq!(make("a.py").resolved_interpreter().as_deref(), Some("python3"));
+        assert_eq!(
+            make("a.py").resolved_interpreter().as_deref(),
+            Some("python3")
+        );
         assert_eq!(make("a.js").resolved_interpreter().as_deref(), Some("node"));
         assert_eq!(make("a.sh").resolved_interpreter().as_deref(), Some("bash"));
-        assert_eq!(make("a.ts").resolved_interpreter().as_deref(), Some("ts-node"));
+        assert_eq!(
+            make("a.ts").resolved_interpreter().as_deref(),
+            Some("ts-node")
+        );
         assert!(make("a.bin").resolved_interpreter().is_none());
     }
 

@@ -2,14 +2,13 @@ use super::*;
 
 use geo::Point;
 use geojson::{Geometry, Value};
-use koji_core::{ApiQueryArgs, BBox, FeatureCtx, SingleVec, SpawnpointTth, ToCollection, UnknownId};
+use koji_core::{
+    ApiQueryArgs, BBox, FeatureCtx, SingleVec, SpawnpointTth, ToCollection, UnknownId,
+};
+use koji_db::{KojiDb, ModelError, db::geofence};
 use koji_scanner::{
     GenericData,
     entities::{gym, pokestop, spawnpoint, station},
-};
-use koji_db::{
-    db::geofence,
-    KojiDb, ModelError,
 };
 
 pub mod auth;
@@ -89,7 +88,11 @@ pub async fn points_from_area(
                 let gyms = gym::Query::area(&conn.scanner, area, last_seen).await?;
                 let pokestops = pokestop::Query::area(&conn.scanner, area, last_seen).await?;
                 let stations = station::Query::area(&conn.scanner, area, last_seen).await?;
-                Ok(gyms.into_iter().chain(pokestops.into_iter()).chain(stations.into_iter()).collect())
+                Ok(gyms
+                    .into_iter()
+                    .chain(pokestops.into_iter())
+                    .chain(stations.into_iter())
+                    .collect())
             }
             _ => Err(DbErr::Custom("Invalid Category".to_string())),
         }

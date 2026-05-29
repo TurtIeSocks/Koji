@@ -5,7 +5,7 @@ use koji_db::ModelError;
 use serde::Deserialize;
 use serde_json::json;
 
-use koji_db::{db, KojiDb};
+use koji_db::{KojiDb, db};
 
 use crate::utils::response::Response;
 

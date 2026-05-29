@@ -32,7 +32,8 @@ pub async fn get_database_struct() -> KojiDb {
 
     let max_connections: u32 = env::var("MAX_CONNECTIONS")
         .unwrap_or("100".to_string())
-        .parse().unwrap_or(100);
+        .parse()
+        .unwrap_or(100);
 
     let log_level = match std::env::var("LOG_LEVEL")
         .unwrap_or("info".to_string())

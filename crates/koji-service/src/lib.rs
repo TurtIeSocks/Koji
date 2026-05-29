@@ -1,12 +1,13 @@
 use std::{env, fs, io, sync::Arc};
 
 use actix_files::{Files, NamedFile};
-use actix_session::{storage::CookieSessionStore, SessionMiddleware};
+use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use actix_web::{
+    App, Error, HttpResponse, HttpServer,
     cookie::Key,
     delete,
     dev::{ServiceRequest, ServiceResponse},
-    get, middleware, patch, post, web, App, Error, HttpResponse, HttpServer,
+    get, middleware, patch, post, web,
 };
 use actix_web_httpauth::middleware::HttpAuthentication;
 use geojson::{Feature, FeatureCollection};
@@ -19,7 +20,7 @@ use migration::{DbErr, Migrator, MigratorTrait};
 // handler + payload over the job queue. Re-exporting `pub` items through the
 // private `mod public` is allowed; `start()` below still references
 // `CalculateHandler` via this path.
-pub use public::v2::calc::{CalcPayload, CalculateHandler, CALC_KIND};
+pub use public::v2::calc::{CALC_KIND, CalcPayload, CalculateHandler};
 use utils::{auth, is_docker};
 
 use crate::dragonite::DragoniteSubscriber;
@@ -195,79 +196,80 @@ pub async fn start() -> io::Result<()> {
             )
             // public api
             .service(
-                web::scope("/api").service(
-                    web::scope("/v1")
-                        .wrap(HttpAuthentication::with_fn(auth::public_validator))
-                        .service(
-                            web::resource("/health").route(web::get().to(HttpResponse::Ok)),
-                        )
-                        .service(
-                            web::scope("/calc")
-                                .service(public::v1::calculate::bootstrap)
-                                .service(public::v1::calculate::route_stats)
-                                .service(public::v1::calculate::route_stats_category)
-                                .service(public::v1::calculate::reroute)
-                                .service(public::v1::calculate::calculate_area)
-                                .service(public::v1::calculate::cluster),
-                        )
-                        .service(
-                            web::scope("/convert")
-                                .service(public::v1::convert::convert_data)
-                                .service(public::v1::convert::merge_points)
-                                .service(public::v1::convert::simplify),
-                        )
-                        .service(
-                            web::scope("/geofence")
-                                .service(public::v1::geofence::all)
-                                .service(public::v1::geofence::reference_data)
-                                .service(public::v1::geofence::reference_data_project)
-                                .service(public::v1::geofence::save_koji)
-                                .service(public::v1::geofence::remove)
-                                .service(public::v1::geofence::get_area)
-                                .service(public::v1::geofence::specific_return_type)
-                                .service(public::v1::geofence::specific_project),
-                        )
-                        .service(
-                            web::scope("/route")
-                                .service(public::v1::route::all)
-                                .service(public::v1::route::reference_data)
-                                .service(public::v1::route::reference_data_geofence)
-                                .service(public::v1::route::save_koji)
-                                .service(public::v1::route::get_area)
-                                .service(public::v1::route::specific_return_type)
-                                .service(public::v1::route::specific_geofence),
-                        )
-                        .service(
-                            web::scope("/s2")
-                                .service(public::v1::s2::circle_coverage)
-                                .service(public::v1::s2::cell_coverage)
-                                .service(public::v1::s2::cell_polygons)
-                                .service(public::v1::s2::s2_cells),
-                        )
-                        .service(web::scope("/info").service(public::v1::info::main)),
-                )
-                // v2: clean, best-practices surface over the job queue. Auth is
-                // applied per-scope (mirrors v1's public_validator).
-                .service(
-                    web::scope("/v2")
-                        .wrap(HttpAuthentication::with_fn(auth::public_validator))
-                        .service(public::v2::jobs::enqueue_job)
-                        .service(public::v2::jobs::get_job)
-                        .service(public::v2::jobs::cancel_job)
-                        .service(public::v2::jobs::calc_mode_category)
-                        .service(public::v2::jobs::calc_mode)
-                        .service(public::v2::jobs::meta_algorithms)
-                        // Typed CRUD resources. Geometry-bearing geofences/routes
-                        // are hand-written (honor `?format=`); projects/
-                        // properties/tile-servers are macro-generated plain-JSend
-                        // CRUD. Each exposes a `scope()` that wires its own
-                        // method+path routing (incl. `/geofences/{id}/publish`).
-                        .service(public::v2::geofences::scope())
-                        .service(public::v2::routes::scope())
-                        .service(public::v2::resources::project::scope())
-                        .service(public::v2::resources::property::scope())
-                        .service(public::v2::resources::tile_server::scope()),
-                ),
+                web::scope("/api")
+                    .service(
+                        web::scope("/v1")
+                            .wrap(HttpAuthentication::with_fn(auth::public_validator))
+                            .service(
+                                web::resource("/health").route(web::get().to(HttpResponse::Ok)),
+                            )
+                            .service(
+                                web::scope("/calc")
+                                    .service(public::v1::calculate::bootstrap)
+                                    .service(public::v1::calculate::route_stats)
+                                    .service(public::v1::calculate::route_stats_category)
+                                    .service(public::v1::calculate::reroute)
+                                    .service(public::v1::calculate::calculate_area)
+                                    .service(public::v1::calculate::cluster),
+                            )
+                            .service(
+                                web::scope("/convert")
+                                    .service(public::v1::convert::convert_data)
+                                    .service(public::v1::convert::merge_points)
+                                    .service(public::v1::convert::simplify),
+                            )
+                            .service(
+                                web::scope("/geofence")
+                                    .service(public::v1::geofence::all)
+                                    .service(public::v1::geofence::reference_data)
+                                    .service(public::v1::geofence::reference_data_project)
+                                    .service(public::v1::geofence::save_koji)
+                                    .service(public::v1::geofence::remove)
+                                    .service(public::v1::geofence::get_area)
+                                    .service(public::v1::geofence::specific_return_type)
+                                    .service(public::v1::geofence::specific_project),
+                            )
+                            .service(
+                                web::scope("/route")
+                                    .service(public::v1::route::all)
+                                    .service(public::v1::route::reference_data)
+                                    .service(public::v1::route::reference_data_geofence)
+                                    .service(public::v1::route::save_koji)
+                                    .service(public::v1::route::get_area)
+                                    .service(public::v1::route::specific_return_type)
+                                    .service(public::v1::route::specific_geofence),
+                            )
+                            .service(
+                                web::scope("/s2")
+                                    .service(public::v1::s2::circle_coverage)
+                                    .service(public::v1::s2::cell_coverage)
+                                    .service(public::v1::s2::cell_polygons)
+                                    .service(public::v1::s2::s2_cells),
+                            )
+                            .service(web::scope("/info").service(public::v1::info::main)),
+                    )
+                    // v2: clean, best-practices surface over the job queue. Auth is
+                    // applied per-scope (mirrors v1's public_validator).
+                    .service(
+                        web::scope("/v2")
+                            .wrap(HttpAuthentication::with_fn(auth::public_validator))
+                            .service(public::v2::jobs::enqueue_job)
+                            .service(public::v2::jobs::get_job)
+                            .service(public::v2::jobs::cancel_job)
+                            .service(public::v2::jobs::calc_mode_category)
+                            .service(public::v2::jobs::calc_mode)
+                            .service(public::v2::jobs::meta_algorithms)
+                            // Typed CRUD resources. Geometry-bearing geofences/routes
+                            // are hand-written (honor `?format=`); projects/
+                            // properties/tile-servers are macro-generated plain-JSend
+                            // CRUD. Each exposes a `scope()` that wires its own
+                            // method+path routing (incl. `/geofences/{id}/publish`).
+                            .service(public::v2::geofences::scope())
+                            .service(public::v2::routes::scope())
+                            .service(public::v2::resources::project::scope())
+                            .service(public::v2::resources::property::scope())
+                            .service(public::v2::resources::tile_server::scope()),
+                    ),
             )
             // Liveness probe (top-level, unauthenticated — mirrors `/health`).
             .service(web::resource("/healthz").route(web::get().to(HttpResponse::Ok)))

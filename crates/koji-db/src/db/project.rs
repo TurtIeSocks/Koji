@@ -201,10 +201,11 @@ impl Query {
         geofence_id: u32,
     ) -> Result<(), DbErr> {
         if let Some(geofences) = json.get("geofences")
-            && let Some(geofences) = geofences.as_array() {
-                geofence_project::Query::upsert_related_by_project_id(db, geofences, geofence_id)
-                    .await?;
-            };;
+            && let Some(geofences) = geofences.as_array()
+        {
+            geofence_project::Query::upsert_related_by_project_id(db, geofences, geofence_id)
+                .await?;
+        };
         Ok(())
     }
 

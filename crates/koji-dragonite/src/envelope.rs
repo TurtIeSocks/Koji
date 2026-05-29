@@ -138,7 +138,8 @@ mod tests {
         // Shape mirrors V2OkList: data array + meta block.
         let body = br#"{"status":"ok","data":[{"id":1,"name":"a"}],
             "meta":{"total":1,"page":0,"per_page":50,"total_pages":1,"has_next":false,"has_prev":false}}"#;
-        let (got, meta): (Vec<Payload>, _) = parse_v2_with_meta(body).expect("ok list should parse");
+        let (got, meta): (Vec<Payload>, _) =
+            parse_v2_with_meta(body).expect("ok list should parse");
         assert_eq!(got.len(), 1);
         let meta = meta.expect("list response must carry meta");
         assert_eq!(meta.total, 1);

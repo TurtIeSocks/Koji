@@ -138,9 +138,17 @@ mod tests {
 
     #[test]
     fn deserialize_then_serialize_round_trips_each_state() {
-        for (json, expect) in [("{}", "{}"), (r#"{"name":null}"#, r#"{"name":null}"#), (r#"{"name":"x"}"#, r#"{"name":"x"}"#)] {
+        for (json, expect) in [
+            ("{}", "{}"),
+            (r#"{"name":null}"#, r#"{"name":null}"#),
+            (r#"{"name":"x"}"#, r#"{"name":"x"}"#),
+        ] {
             let body: Body = serde_json::from_str(json).unwrap();
-            assert_eq!(serde_json::to_string(&body).unwrap(), expect, "round-trip of {json}");
+            assert_eq!(
+                serde_json::to_string(&body).unwrap(),
+                expect,
+                "round-trip of {json}"
+            );
         }
     }
 

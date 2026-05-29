@@ -186,15 +186,21 @@ mod tests {
     fn route_only_patch_emits_only_that_mode() {
         let patch = ApiArea {
             quest_mode: Some(ApiAreaQuestMode {
-                route: vec![ApiLocation { lat: 40.1, lon: -75.2 }],
+                route: vec![ApiLocation {
+                    lat: 40.1,
+                    lon: -75.2,
+                }],
                 ..Default::default()
             }),
             ..Default::default()
         };
         let json = serde_json::to_value(&patch).unwrap();
-        assert_eq!(json, serde_json::json!({
-            "quest_mode": { "route": [{"lat": 40.1, "lon": -75.2}] }
-        }));
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "quest_mode": { "route": [{"lat": 40.1, "lon": -75.2}] }
+            })
+        );
     }
 
     #[test]
@@ -216,7 +222,13 @@ mod tests {
         let pm = area.pokemon_mode.expect("pokemon_mode present");
         assert_eq!(pm.workers, Some(4));
         assert_eq!(pm.route.len(), 1);
-        assert_eq!(pm.route[0], ApiLocation { lat: 40.0, lon: -75.0 });
+        assert_eq!(
+            pm.route[0],
+            ApiLocation {
+                lat: 40.0,
+                lon: -75.0
+            }
+        );
         // explicit null per-mode geofence → Tri::Null
         assert_eq!(pm.geofence, Tri::Null);
         let qm = area.quest_mode.expect("quest_mode present");
@@ -235,6 +247,9 @@ mod tests {
             geofence: Tri::Null,
             ..Default::default()
         };
-        assert_eq!(serde_json::to_string(&patch).unwrap(), r#"{"geofence":null}"#);
+        assert_eq!(
+            serde_json::to_string(&patch).unwrap(),
+            r#"{"geofence":null}"#
+        );
     }
 }

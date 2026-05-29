@@ -233,18 +233,17 @@ fn cluster(points: Vec<Coord>, min_points: usize) -> HashMap<String, Vec<String>
     }
 
     for (key, value) in udc_point_map.into_iter() {
-        if value.1 && value.2
-            && true {
-                if value.3.len() == 1 {
-                    let x = value.0.min_x;
-                    let y = value.0.min_y;
-                    process_final(Coord { x, y }, value.3);
-                } else {
-                    let x = key.0 as f64 * sqrt2 + additive_factor;
-                    let y = key.1 as f64 * sqrt2 + additive_factor;
-                    process_final(Coord { x, y }, value.3);
-                }
+        if value.1 && value.2 && true {
+            if value.3.len() == 1 {
+                let x = value.0.min_x;
+                let y = value.0.min_y;
+                process_final(Coord { x, y }, value.3);
+            } else {
+                let x = key.0 as f64 * sqrt2 + additive_factor;
+                let y = key.1 as f64 * sqrt2 + additive_factor;
+                process_final(Coord { x, y }, value.3);
             }
+        }
     }
     point_map_return
 }

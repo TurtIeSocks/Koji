@@ -39,11 +39,7 @@ impl PluginRegistry {
         let entries = match std::fs::read_dir(dir) {
             Ok(entries) => entries,
             Err(e) => {
-                log::debug!(
-                    "[PLUGINS] no plugins loaded from {}: {}",
-                    dir.display(),
-                    e
-                );
+                log::debug!("[PLUGINS] no plugins loaded from {}: {}", dir.display(), e);
                 return registry;
             }
         };
@@ -79,11 +75,7 @@ impl PluginRegistry {
                     registry.manifests.insert(key, manifest);
                 }
                 Err(e) => {
-                    log::warn!(
-                        "[PLUGINS] skipping {}: {}",
-                        manifest_path.display(),
-                        e
-                    );
+                    log::warn!("[PLUGINS] skipping {}: {}", manifest_path.display(), e);
                 }
             }
         }
@@ -112,7 +104,9 @@ impl PluginRegistry {
     /// The directory a plugin's manifest was loaded from (for resolving its
     /// entrypoint).
     pub fn dir(&self, kind: PluginKind, name: &str) -> Option<&Path> {
-        self.dirs.get(&(kind, name.to_string())).map(|p| p.as_path())
+        self.dirs
+            .get(&(kind, name.to_string()))
+            .map(|p| p.as_path())
     }
 
     /// All plugin names registered under `kind`.
@@ -171,7 +165,9 @@ mod tests {
         let registry = PluginRegistry::load(tmp.path());
         assert_eq!(registry.len(), 2);
 
-        let clusterer = registry.get(PluginKind::Clustering, "my_clusterer").unwrap();
+        let clusterer = registry
+            .get(PluginKind::Clustering, "my_clusterer")
+            .unwrap();
         assert_eq!(clusterer.entrypoint, "main.py");
         assert!(registry.get(PluginKind::Routing, "my_clusterer").is_none());
 

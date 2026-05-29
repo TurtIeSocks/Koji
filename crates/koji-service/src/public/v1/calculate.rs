@@ -74,9 +74,11 @@ async fn bootstrap(
 
     if parent.is_some() {
         let mut condensed = vec![];
-        features
-            .into_iter()
-            .for_each(|feat| if let geojson::Value::MultiPoint(points) = feat.geometry.unwrap().value { condensed.extend(points) });
+        features.into_iter().for_each(|feat| {
+            if let geojson::Value::MultiPoint(points) = feat.geometry.unwrap().value {
+                condensed.extend(points)
+            }
+        });
         features = vec![Feature {
             geometry: Some(geojson::Geometry {
                 bbox: None,

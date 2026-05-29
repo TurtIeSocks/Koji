@@ -9,7 +9,7 @@
 use reqwest::header::USER_AGENT;
 use serde::de::DeserializeOwned;
 
-use crate::envelope::{parse_v2, parse_v2_with_meta, V2Meta};
+use crate::envelope::{V2Meta, parse_v2, parse_v2_with_meta};
 use crate::error::DragoniteError;
 use crate::types::ApiArea;
 
@@ -100,8 +100,10 @@ impl DragoniteClient {
         q: Option<&str>,
     ) -> Result<(Vec<ApiArea>, V2Meta), DragoniteError> {
         let per_page = per_page.clamp(1, MAX_PER_PAGE);
-        let mut query: Vec<(&str, String)> =
-            vec![("page", page.to_string()), ("per_page", per_page.to_string())];
+        let mut query: Vec<(&str, String)> = vec![
+            ("page", page.to_string()),
+            ("per_page", per_page.to_string()),
+        ];
         if let Some(q) = q.filter(|s| !s.is_empty()) {
             query.push(("q", q.to_string()));
         }

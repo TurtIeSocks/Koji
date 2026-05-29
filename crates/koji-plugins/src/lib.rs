@@ -25,6 +25,4 @@ mod registry;
 pub use manifest::{PluginKind, PluginManifest};
 pub use plugin::{JoinFunction, Plugin};
 pub use protocol::{PluginInput, PluginOutput};
-pub use registry::{
-    DEFAULT_PLUGINS_DIR, MANIFEST_FILE, PLUGINS_DIR_ENV, PluginRegistry,
-};
+pub use registry::{DEFAULT_PLUGINS_DIR, MANIFEST_FILE, PLUGINS_DIR_ENV, PluginRegistry};

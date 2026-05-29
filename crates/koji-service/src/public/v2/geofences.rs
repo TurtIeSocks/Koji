@@ -10,10 +10,10 @@
 //! signature differs: `get_all_collection` / `get_one_feature` take an
 //! [`ApiQueryArgs`], unlike the plain-JSON resources.
 
-use actix_web::{http::StatusCode, web, Error, HttpResponse};
+use actix_web::{Error, HttpResponse, http::StatusCode, web};
 use geojson::{Feature, Geometry};
 use koji_core::{ApiQueryArgs, FeatureCtx, ReturnTypeArg, ToCollection};
-use koji_db::{db::geofence, KojiDb};
+use koji_db::{KojiDb, db::geofence};
 use koji_dragonite::AreaMode;
 use koji_events::EventDispatcher;
 use model::api::args::get_return_type;
@@ -30,7 +30,9 @@ async fn list(
 ) -> Result<HttpResponse, Error> {
     let args = args.into_inner();
     let return_type = get_return_type(
-        args.rt.clone().unwrap_or_else(|| "featurecollection".to_string()),
+        args.rt
+            .clone()
+            .unwrap_or_else(|| "featurecollection".to_string()),
         &ReturnTypeArg::FeatureCollection,
     );
 
@@ -97,7 +99,9 @@ async fn remove(conn: web::Data<KojiDb>, path: web::Path<u32>) -> Result<HttpRes
     let result = geofence::Query::delete(&conn.koji, path.into_inner())
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
-    Ok(JSend::success(json!({ "rows_affected": result.rows_affected })))
+    Ok(JSend::success(
+        json!({ "rows_affected": result.rows_affected }),
+    ))
 }
 
 /// `POST /api/v2/geofences/{id}/publish` — publish a geofence's fence to its
@@ -121,7 +125,7 @@ async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<Htt
             return Ok(JSend::fail(
                 StatusCode::NOT_FOUND,
                 json!({ "geofence": format!("no geofence {id}") }),
-            ))
+            ));
         }
     };
 
@@ -170,7 +174,11 @@ async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<Htt
 /// before the `/{id}` catch-all so the more specific route matches first.
 pub fn scope() -> actix_web::Scope {
     web::scope("/geofences")
-        .service(web::resource("").route(web::get().to(list)).route(web::post().to(create)))
+        .service(
+            web::resource("")
+                .route(web::get().to(list))
+                .route(web::post().to(create)),
+        )
         .service(web::resource("/{id}/publish").route(web::post().to(publish)))
         .service(
             web::resource("/{id}")

@@ -5,7 +5,7 @@ use std::{
 };
 
 use geo::{Coord, Destination, Haversine, Intersects, LineString, Polygon};
-use koji_core::{Precision, PointArray};
+use koji_core::{PointArray, Precision};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use s2::{
     cell::Cell, cellid::CellID, cellunion::CellUnion, latlng::LatLng, rect::Rect,

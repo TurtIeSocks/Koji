@@ -240,15 +240,11 @@ pub struct Response {
     pub osm_type: Option<OsmType>,
     /// Reference to the OSM object
     pub osm_id: Option<ID>,
-    #[serde(
-        deserialize_with = "crate::serde_utils::deserialize_from_string_opt"
-    )]
+    #[serde(deserialize_with = "crate::serde_utils::deserialize_from_string_opt")]
     #[serde(serialize_with = "crate::serde_utils::serialize_as_string_opt")]
     /// Longitude of the centroid of the object
     pub lon: Option<f64>,
-    #[serde(
-        deserialize_with = "crate::serde_utils::deserialize_from_string_opt"
-    )]
+    #[serde(deserialize_with = "crate::serde_utils::deserialize_from_string_opt")]
     #[serde(serialize_with = "crate::serde_utils::serialize_as_string_opt")]
     /// Latitude of the centroid of the object
     pub lat: Option<f64>,

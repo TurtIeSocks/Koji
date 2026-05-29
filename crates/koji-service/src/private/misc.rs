@@ -10,7 +10,8 @@ use actix_web::http::header;
 
 use algorithms::{bootstrap, clustering, routing};
 use geojson::Value;
-use koji_db::KojiDb; use model::api::args::Auth;
+use koji_db::KojiDb;
+use model::api::args::Auth;
 use serde_json::json;
 
 #[get("/")]
@@ -100,9 +101,13 @@ async fn search_nominatim(
                     Value::Polygon(_) | Value::MultiPolygon(_) => return Some(feat),
                     _ => {
                         if let Some(id) = feat.property("osm_id")
-                            && let Some(id) = id.as_u64() {
-                                log::info!("[NOMINATIM] Filtered OSM ID: {} | Not a Polygon or MultiPolygon", id)
-                            }
+                            && let Some(id) = id.as_u64()
+                        {
+                            log::info!(
+                                "[NOMINATIM] Filtered OSM ID: {} | Not a Polygon or MultiPolygon",
+                                id
+                            )
+                        }
                         return None;
                     }
                 }

@@ -49,76 +49,72 @@ impl MigrationTrait for Migration {
                 properties: vec![("name".to_string(), None)],
             };
             if let Some(fence) = fence.as_object()
-                && let Some(area) = fence.get("area") {
-                    let feature = Feature::from_json_value(area.clone());
-                    if let Ok(feature) = feature {
-                        'props: for (key, value) in feature.properties_iter() {
-                            if key == "Name" {
-                                continue 'props;
-                            }
-                            let mut actual_value: Option<Value> = Some(value.clone().into());
-
-                            if fence.contains_key(key) {
-                                properties.insert(key.to_string(), "database".to_string());
-                                actual_value = None
-                            } else if let Some(val) = value.as_bool() {
-                                properties.insert(key.to_string(), "boolean".to_string());
-                                actual_value = Some(val.into());
-                            } else if let Some(val) = value.as_f64() {
-                                properties.insert(key.to_string(), "number".to_string());
-                                actual_value = Some(val.into());
-                            } else if value.as_array().is_some() {
-                                properties.insert(key.to_string(), "array".to_string());
-                            } else if value.as_object().is_some() {
-                                properties.insert(key.to_string(), "object".to_string());
-                            } else if let Some(value) = value.as_str() {
-                                match value.parse::<f64>() {
-                                    Ok(val) => {
-                                        properties.insert(key.to_string(), "number".to_string());
-                                        actual_value = Some(val.into());
-                                    }
-                                    Err(_) => {
-                                        if value == "true" {
-                                            properties
-                                                .insert(key.to_string(), "boolean".to_string());
-                                            actual_value = Some(true.into());
-                                        } else if value == "false" {
-                                            properties
-                                                .insert(key.to_string(), "boolean".to_string());
-                                            actual_value = Some(false.into());
-                                        } else if value.starts_with("#") || value.starts_with("rgb")
-                                        {
-                                            properties.insert(key.to_string(), "color".to_string());
-                                            actual_value = Some(value.to_string().into());
-                                        } else if value.starts_with("{") {
-                                            properties
-                                                .insert(key.to_string(), "object".to_string());
-                                            actual_value =
-                                                match serde_json::from_str::<JsonValue>(value) {
-                                                    Ok(val) => Some(val.into()),
-                                                    Err(_) => None,
-                                                };
-                                        } else if value.starts_with("[") {
-                                            properties.insert(key.to_string(), "array".to_string());
-                                            actual_value =
-                                                match serde_json::from_str::<JsonValue>(value) {
-                                                    Ok(val) => Some(val.into()),
-                                                    Err(_) => None,
-                                                };
-                                        } else {
-                                            properties
-                                                .insert(key.to_string(), "string".to_string());
-                                            actual_value = Some(value.to_string().into());
-                                        }
-                                    }
-                                };
-                            }
-                            feat_properties
-                                .properties
-                                .push((key.to_string(), actual_value));
+                && let Some(area) = fence.get("area")
+            {
+                let feature = Feature::from_json_value(area.clone());
+                if let Ok(feature) = feature {
+                    'props: for (key, value) in feature.properties_iter() {
+                        if key == "Name" {
+                            continue 'props;
                         }
+                        let mut actual_value: Option<Value> = Some(value.clone().into());
+
+                        if fence.contains_key(key) {
+                            properties.insert(key.to_string(), "database".to_string());
+                            actual_value = None
+                        } else if let Some(val) = value.as_bool() {
+                            properties.insert(key.to_string(), "boolean".to_string());
+                            actual_value = Some(val.into());
+                        } else if let Some(val) = value.as_f64() {
+                            properties.insert(key.to_string(), "number".to_string());
+                            actual_value = Some(val.into());
+                        } else if value.as_array().is_some() {
+                            properties.insert(key.to_string(), "array".to_string());
+                        } else if value.as_object().is_some() {
+                            properties.insert(key.to_string(), "object".to_string());
+                        } else if let Some(value) = value.as_str() {
+                            match value.parse::<f64>() {
+                                Ok(val) => {
+                                    properties.insert(key.to_string(), "number".to_string());
+                                    actual_value = Some(val.into());
+                                }
+                                Err(_) => {
+                                    if value == "true" {
+                                        properties.insert(key.to_string(), "boolean".to_string());
+                                        actual_value = Some(true.into());
+                                    } else if value == "false" {
+                                        properties.insert(key.to_string(), "boolean".to_string());
+                                        actual_value = Some(false.into());
+                                    } else if value.starts_with("#") || value.starts_with("rgb") {
+                                        properties.insert(key.to_string(), "color".to_string());
+                                        actual_value = Some(value.to_string().into());
+                                    } else if value.starts_with("{") {
+                                        properties.insert(key.to_string(), "object".to_string());
+                                        actual_value =
+                                            match serde_json::from_str::<JsonValue>(value) {
+                                                Ok(val) => Some(val.into()),
+                                                Err(_) => None,
+                                            };
+                                    } else if value.starts_with("[") {
+                                        properties.insert(key.to_string(), "array".to_string());
+                                        actual_value =
+                                            match serde_json::from_str::<JsonValue>(value) {
+                                                Ok(val) => Some(val.into()),
+                                                Err(_) => None,
+                                            };
+                                    } else {
+                                        properties.insert(key.to_string(), "string".to_string());
+                                        actual_value = Some(value.to_string().into());
+                                    }
+                                }
+                            };
+                        }
+                        feat_properties
+                            .properties
+                            .push((key.to_string(), actual_value));
                     }
                 }
+            }
             geofence_properties.push(feat_properties);
         }
 
@@ -158,11 +154,7 @@ impl MigrationTrait for Migration {
                                 GeofenceProperty::PropertyId,
                                 GeofenceProperty::Value,
                             ])
-                            .values_panic([
-                                fence.id.into(),
-                                (*property_id).into(),
-                                value.into(),
-                            ])
+                            .values_panic([fence.id.into(), (*property_id).into(), value.into()])
                             .to_owned();
                         manager.exec_stmt(insert).await?;
                     } else {

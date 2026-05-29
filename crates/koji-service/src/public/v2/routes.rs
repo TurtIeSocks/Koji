@@ -10,9 +10,9 @@
 //! bool rather than the [`ApiQueryArgs`] the plain-JSON resources don't need at
 //! all.
 
-use actix_web::{http::StatusCode, web, Error, HttpResponse};
+use actix_web::{Error, HttpResponse, http::StatusCode, web};
 use koji_core::{ApiQueryArgs, FeatureCtx, ReturnTypeArg, ToCollection};
-use koji_db::{db::route, KojiDb};
+use koji_db::{KojiDb, db::route};
 use model::api::args::get_return_type;
 use serde_json::json;
 
@@ -26,7 +26,9 @@ async fn list(
 ) -> Result<HttpResponse, Error> {
     let args = args.into_inner();
     let return_type = get_return_type(
-        args.rt.clone().unwrap_or_else(|| "featurecollection".to_string()),
+        args.rt
+            .clone()
+            .unwrap_or_else(|| "featurecollection".to_string()),
         &ReturnTypeArg::FeatureCollection,
     );
 
@@ -93,14 +95,20 @@ async fn remove(conn: web::Data<KojiDb>, path: web::Path<u32>) -> Result<HttpRes
     let result = route::Query::delete(&conn.koji, path.into_inner())
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
-    Ok(JSend::success(json!({ "rows_affected": result.rows_affected })))
+    Ok(JSend::success(
+        json!({ "rows_affected": result.rows_affected }),
+    ))
 }
 
 /// The `web::Scope` wiring the route handlers under `/routes`, mounted into
 /// `/api/v2` by [`crate::start`].
 pub fn scope() -> actix_web::Scope {
     web::scope("/routes")
-        .service(web::resource("").route(web::get().to(list)).route(web::post().to(create)))
+        .service(
+            web::resource("")
+                .route(web::get().to(list))
+                .route(web::post().to(create)),
+        )
         .service(
             web::resource("/{id}")
                 .route(web::get().to(get_one))

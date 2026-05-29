@@ -92,10 +92,19 @@ mod tests {
 
     #[test]
     fn hmac_signature_is_stable_and_prefixed() {
-        let a = sign("topsecret", br#"{"area":"geofence:42","topic":"area.route_updated"}"#);
-        let b = sign("topsecret", br#"{"area":"geofence:42","topic":"area.route_updated"}"#);
+        let a = sign(
+            "topsecret",
+            br#"{"area":"geofence:42","topic":"area.route_updated"}"#,
+        );
+        let b = sign(
+            "topsecret",
+            br#"{"area":"geofence:42","topic":"area.route_updated"}"#,
+        );
         assert_eq!(a, b, "same key + body must sign identically");
-        assert!(a.starts_with("sha256="), "signature must carry the algo prefix");
+        assert!(
+            a.starts_with("sha256="),
+            "signature must carry the algo prefix"
+        );
         // 64 hex chars after the `sha256=` prefix (32-byte SHA-256 digest).
         let hex = a.strip_prefix("sha256=").unwrap();
         assert_eq!(hex.len(), 64);
@@ -105,7 +114,15 @@ mod tests {
     #[test]
     fn hmac_signature_changes_with_key_and_body() {
         let base = sign("key", b"body");
-        assert_ne!(base, sign("other-key", b"body"), "different key → different sig");
-        assert_ne!(base, sign("key", b"other-body"), "different body → different sig");
+        assert_ne!(
+            base,
+            sign("other-key", b"body"),
+            "different key → different sig"
+        );
+        assert_ne!(
+            base,
+            sign("key", b"other-body"),
+            "different body → different sig"
+        );
     }
 }

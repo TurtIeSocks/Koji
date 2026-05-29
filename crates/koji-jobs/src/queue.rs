@@ -265,7 +265,10 @@ impl JobQueue {
     /// Load a job by `public_id` and, if it is terminal, project it to a
     /// [`JobOutcome`]. `Ok(None)` means the job exists but is not yet terminal;
     /// `Err(NotFound)` means no such job.
-    async fn load_terminal_outcome(&self, public_id: &str) -> Result<Option<JobOutcome>, AwaitError> {
+    async fn load_terminal_outcome(
+        &self,
+        public_id: &str,
+    ) -> Result<Option<JobOutcome>, AwaitError> {
         let model = self.find_by_public_id(public_id).await?;
         match model {
             Some(m) => Ok(outcome_from_model(&m)),
@@ -498,9 +501,9 @@ impl JobQueue {
 /// Project a terminal job model to its [`JobOutcome`]; `None` if not terminal.
 fn outcome_from_model(m: &entity::Model) -> Option<JobOutcome> {
     match m.status {
-        JobStatus::Succeeded => {
-            Some(JobOutcome::Succeeded(m.result.clone().unwrap_or(serde_json::Value::Null)))
-        }
+        JobStatus::Succeeded => Some(JobOutcome::Succeeded(
+            m.result.clone().unwrap_or(serde_json::Value::Null),
+        )),
         JobStatus::Failed => Some(JobOutcome::Failed {
             error: m.error.clone().unwrap_or_else(|| "job failed".to_owned()),
             // The persisted error string is the source of truth; a generic code

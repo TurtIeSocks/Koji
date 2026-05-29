@@ -141,4 +141,3 @@ pub fn rotate_to_best(clusters: SingleVec, stats: &Stats) -> SingleVec {
 
     final_clusters.into()
 }
-

@@ -5,8 +5,8 @@ use actix_web::dev::ServiceRequest;
 use actix_web_httpauth::extractors::AuthExtractorConfig;
 
 use actix_web_httpauth::extractors::{
-    bearer::{BearerAuth, Config},
     AuthenticationError,
+    bearer::{BearerAuth, Config},
 };
 
 fn logged_in(req: &ServiceRequest) -> bool {
@@ -29,9 +29,10 @@ pub async fn public_validator(
         return Ok(req);
     }
     if let Some(credentials) = credentials
-        && credentials.token() == env::var("KOJI_SECRET").unwrap_or("".to_string()) {
-            return Ok(req);
-        }
+        && credentials.token() == env::var("KOJI_SECRET").unwrap_or("".to_string())
+    {
+        return Ok(req);
+    }
     Err((
         AuthenticationError::new(
             req.app_data::<Config>()

@@ -74,7 +74,8 @@ fn backoff_secs(attempts: i32) -> i64 {
     let delay = if attempts >= 63 {
         BACKOFF_CAP_SECS
     } else {
-        1i64.checked_shl(attempts as u32).unwrap_or(BACKOFF_CAP_SECS)
+        1i64.checked_shl(attempts as u32)
+            .unwrap_or(BACKOFF_CAP_SECS)
     };
     delay.min(BACKOFF_CAP_SECS)
 }
@@ -289,8 +290,7 @@ impl EventDispatcher {
         // Heartbeat: renew the lease every 20s so another dispatcher doesn't
         // reclaim this row mid-delivery. Stopped via its own Notify.
         let stop_heartbeat = Arc::new(Notify::new());
-        let heartbeat =
-            spawn_heartbeat(self.db.clone(), claimed.id, Arc::clone(&stop_heartbeat));
+        let heartbeat = spawn_heartbeat(self.db.clone(), claimed.id, Arc::clone(&stop_heartbeat));
 
         // Deliver to every interested subscriber; collect the first failure.
         let result = self.deliver_to_subscribers(event).await;
@@ -298,7 +298,10 @@ impl EventDispatcher {
         // Stop the heartbeat before the terminal write.
         stop_heartbeat.notify_waiters();
         if let Err(e) = heartbeat.await {
-            log::warn!("[koji-events] heartbeat join error for event id={}: {e}", claimed.id);
+            log::warn!(
+                "[koji-events] heartbeat join error for event id={}: {e}",
+                claimed.id
+            );
         }
 
         match result {

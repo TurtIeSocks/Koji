@@ -5,16 +5,14 @@
 
 use std::time::Duration;
 
-use actix_web::{
-    delete, get, http::StatusCode, post, web, Error, HttpResponse,
-};
+use actix_web::{Error, HttpResponse, delete, get, http::StatusCode, post, web};
 use koji_db::KojiDb;
-use koji_jobs::{dedup_key, AwaitError, EnqueueError, JobId, JobOutcome, JobQueue};
+use koji_jobs::{AwaitError, EnqueueError, JobId, JobOutcome, JobQueue, dedup_key};
 use model::api::args::{Args, ArgsUnwrapped};
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::public::v2::calc::{CalcPayload, CALC_KIND};
+use crate::public::v2::calc::{CALC_KIND, CalcPayload};
 use crate::utils::{self, jsend::JSend};
 
 /// Priority for sync-bridged calc jobs (`priority DESC` claim order; spec §6/§8:
@@ -45,7 +43,10 @@ async fn enqueue_job(
     body: web::Json<EnqueueBody>,
 ) -> Result<HttpResponse, Error> {
     let body = body.into_inner();
-    match jobs.enqueue_or_attach(&body.kind, None, &body.payload, 0).await {
+    match jobs
+        .enqueue_or_attach(&body.kind, None, &body.payload, 0)
+        .await
+    {
         Ok(id) => Ok(JSend::success_with_status(
             StatusCode::ACCEPTED,
             json!({ "job_id": id }),
@@ -66,7 +67,7 @@ async fn get_job(
             return Ok(JSend::fail(
                 StatusCode::BAD_REQUEST,
                 json!({ "id": "not a valid job id" }),
-            ))
+            ));
         }
     };
     match jobs.get(id).await {
@@ -99,7 +100,7 @@ async fn cancel_job(
             return Ok(JSend::fail(
                 StatusCode::BAD_REQUEST,
                 json!({ "id": "not a valid job id" }),
-            ))
+            ));
         }
     };
     match jobs.cancel(id).await {
@@ -142,7 +143,15 @@ async fn calc_mode(
     body: web::Json<serde_json::Value>,
 ) -> Result<HttpResponse, Error> {
     let mode = path.into_inner();
-    run_calc(conn, jobs, mode, "pokestop".to_string(), query.into_inner(), body).await
+    run_calc(
+        conn,
+        jobs,
+        mode,
+        "pokestop".to_string(),
+        query.into_inner(),
+        body,
+    )
+    .await
 }
 
 /// `POST /api/v2/calc/{mode}/{category}` — calc for an explicit data category.
@@ -179,7 +188,7 @@ async fn run_calc(
             return Ok(JSend::fail(
                 StatusCode::BAD_REQUEST,
                 json!({ "body": format!("invalid calc request: {e}") }),
-            ))
+            ));
         }
     };
 
@@ -195,10 +204,7 @@ async fn run_calc(
         ..
     } = args.init(Some(&mode));
 
-    if area.features.is_empty()
-        && instance.is_empty()
-        && data_points.is_empty()
-        && parent.is_none()
+    if area.features.is_empty() && instance.is_empty() && data_points.is_empty() && parent.is_none()
     {
         return Ok(JSend::fail(
             StatusCode::BAD_REQUEST,
@@ -236,8 +242,7 @@ async fn run_calc(
     // running job (and a freshly-finished one serves from the grace window).
     let key = dedup_key(
         CALC_KIND,
-        &serde_json::to_value(&calc_payload)
-            .map_err(actix_web::error::ErrorInternalServerError)?,
+        &serde_json::to_value(&calc_payload).map_err(actix_web::error::ErrorInternalServerError)?,
     );
 
     let id = match jobs
@@ -259,9 +264,12 @@ async fn run_calc(
     // Sync bridge: block up to 290s for the terminal outcome.
     match jobs.await_result(id, SYNC_WAIT).await {
         Ok(JobOutcome::Succeeded(result)) => Ok(JSend::success(result)),
-        Ok(JobOutcome::Failed { error, code }) => {
-            Ok(JSend::error(status_for_code(&code), error, Some(code), None))
-        }
+        Ok(JobOutcome::Failed { error, code }) => Ok(JSend::error(
+            status_for_code(&code),
+            error,
+            Some(code),
+            None,
+        )),
         Ok(JobOutcome::Canceled) => Ok(JSend::error(
             StatusCode::CONFLICT,
             "job was canceled",

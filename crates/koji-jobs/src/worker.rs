@@ -148,7 +148,10 @@ async fn worker_loop(
     registry: HandlerRegistry,
     shutdown: Arc<Shutdown>,
 ) {
-    log::info!("[koji-jobs] worker {worker_idx} started (id={})", queue.worker_id);
+    log::info!(
+        "[koji-jobs] worker {worker_idx} started (id={})",
+        queue.worker_id
+    );
 
     loop {
         // Stop promptly if asked, before attempting another claim. Covers the

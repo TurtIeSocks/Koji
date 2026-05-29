@@ -155,9 +155,10 @@ impl Plugin {
         match child.wait()? {
             status if status.success() => {}
             status => {
-                return Err(io::Error::other(
-                    format!("child process exited with status: {}", status),
-                ));
+                return Err(io::Error::other(format!(
+                    "child process exited with status: {}",
+                    status
+                )));
             }
         }
 
@@ -241,7 +242,11 @@ mod tests {
     fn run_errors_on_unparseable_output() {
         let tmp = tempfile::tempdir().unwrap();
         let script = tmp.path().join("garbage.sh");
-        fs::write(&script, "#!/usr/bin/env bash\ncat >/dev/null\necho not-json\n").unwrap();
+        fs::write(
+            &script,
+            "#!/usr/bin/env bash\ncat >/dev/null\necho not-json\n",
+        )
+        .unwrap();
         let plugin = Plugin::from_manifest(&manifest("garbage.sh"), tmp.path(), 0).unwrap();
         let err = plugin
             .run(vec![[0.0, 0.0]], &serde_json::Value::Null)

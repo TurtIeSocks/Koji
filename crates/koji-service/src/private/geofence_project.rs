@@ -3,7 +3,7 @@ use super::*;
 use serde::Deserialize;
 use serde_json::json;
 
-use koji_db::{db::geofence_project, KojiDb};
+use koji_db::{KojiDb, db::geofence_project};
 
 use crate::utils::response::Response;
 

@@ -13,7 +13,7 @@
 //! The `status` field is the serde tag, so the wire form is
 //! `{"status":"success","data":…}` etc.
 
-use actix_web::{http::StatusCode, HttpResponse};
+use actix_web::{HttpResponse, http::StatusCode};
 use serde::Serialize;
 use serde_json::Value;
 

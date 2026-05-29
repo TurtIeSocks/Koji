@@ -40,7 +40,9 @@ impl JsonToModel for Value {
                     match Geometry::from_json_value(geometry.to_owned()) {
                         Ok(geometry) => {
                             let value = GeoJson::Geometry(geometry).to_json_value();
-                            let mode = incoming.get("mode").map(|mode| mode.as_str().unwrap_or("unset").to_string());
+                            let mode = incoming
+                                .get("mode")
+                                .map(|mode| mode.as_str().unwrap_or("unset").to_string());
                             let parent = if let Some(parent) = incoming.get("parent") {
                                 parent.as_u64().map(|parent| parent as u32)
                             } else {
@@ -193,7 +195,9 @@ impl JsonToModel for Value {
             };
             if let Some(name) = name {
                 let api_endpoint = if let Some(api_endpoint) = incoming.get("api_endpoint") {
-                    api_endpoint.as_str().map(|api_endpoint| api_endpoint.to_string())
+                    api_endpoint
+                        .as_str()
+                        .map(|api_endpoint| api_endpoint.to_string())
                 } else {
                     None
                 };
@@ -203,7 +207,9 @@ impl JsonToModel for Value {
                     None
                 };
                 let description = if let Some(description) = incoming.get("description") {
-                    description.as_str().map(|description| description.to_string())
+                    description
+                        .as_str()
+                        .map(|description| description.to_string())
                 } else {
                     None
                 };
@@ -237,7 +243,9 @@ impl JsonToModel for Value {
                 None
             };
             let category = if let Some(category) = incoming.get("category") {
-                category.as_str().map(|category| get_category_enum(category.to_string()))
+                category
+                    .as_str()
+                    .map(|category| get_category_enum(category.to_string()))
             } else {
                 None
             };
@@ -251,9 +259,10 @@ impl JsonToModel for Value {
                 None
             };
             if let Some(value_check) = default_value.as_ref()
-                && value_check == "null" {
-                    default_value = None;
-                }
+                && value_check == "null"
+            {
+                default_value = None;
+            }
             if let Some(name) = name {
                 if let Some(category) = category {
                     Ok(property::ActiveModel {
@@ -300,11 +309,15 @@ impl JsonToModel for Value {
                         match Geometry::from_json_value(geometry.to_owned()) {
                             Ok(geometry) => {
                                 let value = GeoJson::Geometry(geometry).to_json_value();
-                                let mode = incoming.get("mode").map(|mode| mode.as_str().unwrap_or("unset").to_string());
+                                let mode = incoming
+                                    .get("mode")
+                                    .map(|mode| mode.as_str().unwrap_or("unset").to_string());
                                 let mode = get_enum(mode);
                                 let description =
                                     if let Some(description) = incoming.get("description") {
-                                        description.as_str().map(|description| description.to_string())
+                                        description
+                                            .as_str()
+                                            .map(|description| description.to_string())
                                     } else {
                                         None
                                     };

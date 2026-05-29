@@ -1,6 +1,6 @@
 use geo::Coord;
+use koji_core::{Precision, SingleVec};
 use map_3d::{self, Ellipsoid};
-use koji_core::{SingleVec, Precision};
 
 type Geocentric = (f64, f64, f64);
 type Topocentric = (f64, f64);
