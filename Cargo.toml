@@ -1,0 +1,18 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "bins/*"]
+
+[workspace.dependencies]
+# Internal crates
+macros = { path = "crates/macros" }
+# Shared external deps — declared centrally; each crate migrates to
+# `dep = { workspace = true }` when its own phase touches it (see
+# docs/superpowers/specs/2026-05-28-koji-v2-architecture-design.md §2).
+log = "0.4.28"
+serde = { version = "1.0.225", features = ["derive"] }
+serde_json = "1.0.145"
+geojson = "0.24.2"
+geo = "0.31.0"
+chrono = "0.4.42"
+thiserror = "2.0.16"
+reqwest = "0.12.23"
