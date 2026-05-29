@@ -16,7 +16,6 @@ pub struct ConfigResponse {
     pub start_lat: Precision,
     pub start_lon: Precision,
     pub tile_server: String,
-    pub scanner_type: ScannerType,
     pub logged_in: bool,
     pub dangerous: bool,
     pub route_plugins: Vec<String>,

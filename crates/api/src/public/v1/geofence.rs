@@ -1,14 +1,11 @@
-use crate::utils::{request::send_api_req, response::Response};
+use crate::utils::response::Response;
 
 use super::*;
 
 use serde_json::json;
 
 use koji_core::{ApiQueryArgs, FeatureCtx, GeoFormats, ReturnTypeArg, ToCollection};
-use koji_db::{
-    db::{area, geofence, instance, project},
-    KojiDb, ScannerType,
-};
+use koji_db::{db::geofence, KojiDb};
 use model::api::args::{get_return_type, Args, ArgsUnwrapped};
 
 #[get("/all")]
@@ -94,83 +91,6 @@ async fn remove(
 
     Ok(HttpResponse::Ok().json(Response {
         data: Some(json!(result.rows_affected)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
-}
-
-#[post("/save-scanner")]
-async fn save_scanner(
-    conn: web::Data<KojiDb>,
-    payload: web::Json<Args>,
-) -> Result<HttpResponse, Error> {
-    let ArgsUnwrapped { area, .. } = payload.into_inner().init(Some("geofence_save"));
-
-    let (inserts, updates) = if conn.scanner_type == ScannerType::Unown {
-        area::Query::upsert_from_geometry(&conn.controller, GeoFormats::FeatureCollection(area))
-            .await
-    } else {
-        instance::Query::upsert_from_geometry(
-            &conn.controller,
-            GeoFormats::FeatureCollection(area),
-            false,
-        )
-        .await
-    }
-    .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    let project = project::Query::get_scanner_project(&conn.koji)
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-    if let Some(project) = project {
-        send_api_req(project, Some(&conn.scanner_type))
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
-    }
-    log::info!("Rows Updated: {}, Rows Inserted: {}", updates, inserts);
-
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!({ "updates": updates, "inserts": inserts })),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
-}
-
-#[get("/push/{id}")]
-async fn push_to_prod(
-    conn: web::Data<KojiDb>,
-    id: actix_web::web::Path<String>,
-) -> Result<HttpResponse, Error> {
-    let id = id.into_inner();
-
-    let feature = geofence::Query::get_one_feature(&conn.koji, id, &ApiQueryArgs::default())
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    let (inserts, updates) = if conn.scanner_type == ScannerType::Unown {
-        area::Query::upsert_from_geometry(&conn.controller, GeoFormats::Feature(feature)).await
-    } else {
-        instance::Query::upsert_from_geometry(&conn.controller, GeoFormats::Feature(feature), false)
-            .await
-    }
-    .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    let project = project::Query::get_scanner_project(&conn.koji)
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-    if let Some(project) = project {
-        send_api_req(project, Some(&conn.scanner_type))
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
-    }
-    log::info!("Rows Updated: {}, Rows Inserted: {}", updates, inserts);
-
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!({ "updates": updates, "inserts": inserts })),
         message: "Success".to_string(),
         status: "ok".to_string(),
         stats: None,

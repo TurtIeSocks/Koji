@@ -1,4 +1,4 @@
-use crate::utils::{request, response::Response};
+use crate::utils::response::Response;
 
 use super::*;
 
@@ -11,8 +11,8 @@ use koji_core::{
     S2Config, SortBy, ToCollection, ToFeature,
 };
 use koji_db::{
-    KojiDb, ScannerType,
-    db::{area, geofence, instance, route, sea_orm_active_enums::Type},
+    KojiDb,
+    db::{geofence, route, sea_orm_active_enums::Type},
 };
 use koji_scanner::GenericDataToVec;
 use model::api::args::{Args, ArgsUnwrapped};
@@ -30,8 +30,6 @@ async fn bootstrap(
         radius,
         return_type,
         save_to_db,
-        save_to_scanner,
-        save_to_scanner_only,
         calculation_mode,
         s2_level,
         s2_size,
@@ -105,42 +103,13 @@ async fn bootstrap(
             feat.set_property("__name", instance.clone());
         }
         if !feat.contains_property("__mode") {
-            feat.set_property(
-                "__mode",
-                if conn.scanner_type == ScannerType::Unown {
-                    "circle_pokemon"
-                } else {
-                    "circle_smart_pokemon"
-                },
-            );
+            feat.set_property("__mode", "circle_pokemon");
         }
         if save_to_db {
             route::Query::upsert_from_geometry(&conn.koji, GeoFormats::Feature(feat.clone()))
                 .await
                 .map_err(actix_web::error::ErrorInternalServerError)?;
         }
-        if save_to_scanner || save_to_scanner_only {
-            if conn.scanner_type == ScannerType::Unown {
-                area::Query::upsert_from_geometry(
-                    &conn.controller,
-                    GeoFormats::Feature(feat.clone()),
-                )
-                .await
-            } else {
-                instance::Query::upsert_from_geometry(
-                    &conn.controller,
-                    GeoFormats::Feature(feat.clone()),
-                    true,
-                )
-                .await
-            }
-            .map_err(actix_web::error::ErrorInternalServerError)?;
-        }
-    }
-    if save_to_scanner {
-        request::update_project_api(&conn, Some(&conn.scanner_type))
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
     }
 
     Ok(utils::response::send(
@@ -171,8 +140,6 @@ async fn cluster(
         radius,
         return_type,
         save_to_db,
-        save_to_scanner,
-        save_to_scanner_only,
         last_seen,
         sort_by,
         tth,
@@ -207,21 +174,13 @@ async fn cluster(
         min_points,
     );
     let enum_type = if category == "gym" || category == "fort" {
-        if conn.scanner_type == ScannerType::Unown {
-            Type::CircleRaid
-        } else {
-            Type::CircleSmartRaid
-        }
+        Type::CircleRaid
     } else if category == "station" {
         Type::CircleStation
     } else if category == "pokestop" {
         Type::CircleQuest
     } else {
-        if conn.scanner_type == ScannerType::Unown {
-            Type::CirclePokemon
-        } else {
-            Type::CircleSmartPokemon
-        }
+        Type::CirclePokemon
     };
 
     let area = utils::create_or_find_collection(&instance, &conn, area, &parent, &data_points)
@@ -301,29 +260,6 @@ async fn cluster(
         )
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
-    }
-    if save_to_scanner || save_to_scanner_only {
-        if conn.scanner_type == ScannerType::Unown {
-            area::Query::upsert_from_geometry(
-                &conn.controller,
-                GeoFormats::FeatureCollection(feature.clone()),
-            )
-            .await
-        } else {
-            instance::Query::upsert_from_geometry(
-                &conn.controller,
-                GeoFormats::FeatureCollection(feature.clone()),
-                true,
-            )
-            .await
-        }
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-    }
-
-    if save_to_scanner {
-        request::update_project_api(&conn, Some(&conn.scanner_type))
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
     }
 
     Ok(utils::response::send(

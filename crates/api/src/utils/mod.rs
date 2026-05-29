@@ -8,14 +8,12 @@ use koji_scanner::{
     entities::{gym, pokestop, spawnpoint, station},
 };
 use koji_db::{
-    db::{area, geofence, instance},
-    KojiDb, ModelError, ScannerType,
+    db::geofence,
+    KojiDb, ModelError,
 };
 
 pub mod auth;
-pub mod error;
 pub mod jsend;
-pub mod request;
 pub mod response;
 
 pub fn is_docker() -> io::Result<bool> {
@@ -36,27 +34,8 @@ pub async fn load_collection(
 }
 
 pub async fn load_feature(instance: &String, conn: &KojiDb) -> Result<Feature, ModelError> {
-    match geofence::Query::get_one_feature(
-        &conn.koji,
-        instance.to_string(),
-        &ApiQueryArgs::default(),
-    )
-    .await
-    {
-        Ok(area) => Ok(area),
-        Err(_) => {
-            if conn.scanner_type == ScannerType::Unown {
-                area::Query::feature_from_name(
-                    &conn.controller,
-                    &instance,
-                    "auto_quest".to_string(),
-                )
-                .await
-            } else {
-                instance::Query::feature_from_name(&conn.controller, &instance).await
-            }
-        }
-    }
+    geofence::Query::get_one_feature(&conn.koji, instance.to_string(), &ApiQueryArgs::default())
+        .await
 }
 
 pub async fn create_or_find_collection(

@@ -446,10 +446,8 @@ dependencies = [
  "migration",
  "model",
  "nominatim",
- "reqwest",
  "serde",
  "serde_json",
- "thiserror",
  "url",
 ]
 

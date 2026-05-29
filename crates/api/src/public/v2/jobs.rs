@@ -8,7 +8,7 @@ use std::time::Duration;
 use actix_web::{
     delete, get, http::StatusCode, post, web, Error, HttpResponse,
 };
-use koji_db::{KojiDb, ScannerType};
+use koji_db::KojiDb;
 use koji_jobs::{dedup_key, AwaitError, EnqueueError, JobId, JobOutcome, JobQueue};
 use model::api::args::{Args, ArgsUnwrapped};
 use serde::Deserialize;
@@ -227,7 +227,6 @@ async fn run_calc(
     let calc_payload = CalcPayload {
         mode: mode.clone(),
         category,
-        scanner_is_unown: conn.scanner_type == ScannerType::Unown,
         request: request_json,
         area,
         data_points,

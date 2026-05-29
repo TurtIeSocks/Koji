@@ -16,11 +16,7 @@ async fn all(
     let ArgsUnwrapped { last_seen, tth, .. } = payload.into_inner().init(Some("all_data"));
     let category = category.into_inner();
 
-    log::info!(
-        "[DATA_ALL] Scanner Type: {} | Category: {}",
-        conn.scanner_type,
-        category
-    );
+    log::info!("[DATA_ALL] Category: {}", category);
 
     let all_data = match category.as_str() {
         "gym" => gym::Query::all(&conn.scanner, last_seen).await,
@@ -44,11 +40,7 @@ async fn bound(
     let category = category.into_inner();
     let payload = payload.into_inner();
 
-    log::info!(
-        "[DATA_BOUND] Scanner Type: {} | Category: {}",
-        conn.scanner_type,
-        category
-    );
+    log::info!("[DATA_BOUND] Category: {}", category);
 
     let bound_data = match category.as_str() {
         "gym" => gym::Query::bound(&conn.scanner, &payload).await,
@@ -79,11 +71,7 @@ async fn by_area(
         ..
     } = payload.into_inner().init(None);
 
-    log::info!(
-        "[DATA_AREA] Scanner Type: {} | Category: {}",
-        conn.scanner_type,
-        category
-    );
+    log::info!("[DATA_AREA] Category: {}", category);
 
     if area.features.is_empty() && instance.is_empty() {
         return Ok(
@@ -118,11 +106,7 @@ async fn area_stats(
         ..
     } = payload.into_inner().init(None);
 
-    log::info!(
-        "[DATA_AREA] Scanner Type: {} | Category: {}",
-        conn.scanner_type,
-        category
-    );
+    log::info!("[DATA_AREA] Category: {}", category);
 
     if area.features.is_empty() && instance.is_empty() {
         return Ok(

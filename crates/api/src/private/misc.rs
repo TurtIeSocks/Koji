@@ -14,8 +14,7 @@ use koji_db::KojiDb; use model::api::args::Auth;
 use serde_json::json;
 
 #[get("/")]
-async fn config(conn: web::Data<KojiDb>, session: Session) -> Result<HttpResponse, Error> {
-    let scanner_type = conn.scanner_type.clone();
+async fn config(_conn: web::Data<KojiDb>, session: Session) -> Result<HttpResponse, Error> {
     let start_lat: f64 = std::env::var("START_LAT")
         .unwrap_or("0.0".to_string())
         .parse()
@@ -34,7 +33,6 @@ async fn config(conn: web::Data<KojiDb>, session: Session) -> Result<HttpRespons
         start_lat,
         start_lon,
         tile_server,
-        scanner_type,
         logged_in: if let Ok(logged_in) = session.get::<bool>("logged_in") {
             logged_in.unwrap_or(false)
         } else {

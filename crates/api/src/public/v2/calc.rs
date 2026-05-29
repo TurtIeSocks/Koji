@@ -56,9 +56,6 @@ pub struct CalcPayload {
     /// The data category (`pokestop`, `gym`/`fort`, `station`, `spawnpoint`).
     /// Determines the output `FenceType` for cluster results.
     pub category: String,
-    /// Whether the scanner is Unown (RDM-family vs. Unown affects the default
-    /// `FenceType` for cluster output). Resolved at enqueue from `conn.scanner_type`.
-    pub scanner_is_unown: bool,
     /// The original request, re-expressed as JSON. Re-parsed into
     /// [`model::api::args::Args`] in `run` to recover the config knobs.
     pub request: serde_json::Value,
@@ -180,7 +177,7 @@ impl JobHandler for CalculateHandler {
                 },
                 radius,
                 dev.bypass_adaptive_partition,
-                fence_type_for(&payload.category, payload.scanner_is_unown),
+                fence_type_for(&payload.category),
                 &instance,
                 cluster_mode,
                 calculation_mode,
@@ -200,26 +197,14 @@ impl JobHandler for CalculateHandler {
     }
 }
 
-/// Map a data category + scanner family to the output [`FenceType`] for cluster
-/// results (mirrors `calculate.rs`'s `enum_type` selection).
-fn fence_type_for(category: &str, scanner_is_unown: bool) -> FenceType {
+/// Map a data category to the output [`FenceType`] for cluster results (mirrors
+/// `calculate.rs`'s `enum_type` selection).
+fn fence_type_for(category: &str) -> FenceType {
     match category {
-        "gym" | "fort" => {
-            if scanner_is_unown {
-                FenceType::CircleRaid
-            } else {
-                FenceType::CircleSmartRaid
-            }
-        }
+        "gym" | "fort" => FenceType::CircleRaid,
         "station" => FenceType::CircleStation,
         "pokestop" => FenceType::CircleQuest,
-        _ => {
-            if scanner_is_unown {
-                FenceType::CirclePokemon
-            } else {
-                FenceType::CircleSmartPokemon
-            }
-        }
+        _ => FenceType::CirclePokemon,
     }
 }
 

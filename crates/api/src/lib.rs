@@ -147,12 +147,6 @@ pub async fn start() -> io::Result<()> {
                 web::scope("/internal")
                     .wrap(HttpAuthentication::with_fn(auth::private_validator))
                     .service(
-                        web::scope("/routes")
-                            .service(private::instance::from_koji)
-                            .service(private::instance::from_scanner)
-                            .service(private::instance::route_from_db),
-                    )
-                    .service(
                         web::scope("/data")
                             .service(private::points::all)
                             .service(private::points::bound)
@@ -210,9 +204,7 @@ pub async fn start() -> io::Result<()> {
                                 .service(public::v1::geofence::reference_data)
                                 .service(public::v1::geofence::reference_data_project)
                                 .service(public::v1::geofence::save_koji)
-                                .service(public::v1::geofence::save_scanner)
                                 .service(public::v1::geofence::remove)
-                                .service(public::v1::geofence::push_to_prod)
                                 .service(public::v1::geofence::get_area)
                                 .service(public::v1::geofence::specific_return_type)
                                 .service(public::v1::geofence::specific_project),
@@ -223,12 +215,10 @@ pub async fn start() -> io::Result<()> {
                                 .service(public::v1::route::reference_data)
                                 .service(public::v1::route::reference_data_geofence)
                                 .service(public::v1::route::save_koji)
-                                .service(public::v1::route::push_to_prod)
                                 .service(public::v1::route::get_area)
                                 .service(public::v1::route::specific_return_type)
                                 .service(public::v1::route::specific_geofence),
                         )
-                        .service(web::scope("/project").service(public::v1::project::push_to_prod))
                         .service(
                             web::scope("/s2")
                                 .service(public::v1::s2::circle_coverage)

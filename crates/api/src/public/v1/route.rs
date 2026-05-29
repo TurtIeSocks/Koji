@@ -1,14 +1,11 @@
-use crate::utils::{request::send_api_req, response::Response};
+use crate::utils::response::Response;
 
 use super::*;
 
 use serde_json::json;
 
 use koji_core::{ApiQueryArgs, FeatureCtx, GeoFormats, ReturnTypeArg, ToCollection};
-use koji_db::{
-    db::{area, instance, project, route},
-    KojiDb, ScannerType,
-};
+use koji_db::{db::route, KojiDb};
 use model::api::args::{get_return_type, Args, ArgsUnwrapped};
 
 #[get("/all")]
@@ -108,44 +105,6 @@ async fn save_koji(
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    log::info!("Rows Updated: {}, Rows Inserted: {}", updates, inserts);
-
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!({ "updates": updates, "inserts": inserts })),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
-}
-
-#[get("/push/{id}")]
-async fn push_to_prod(
-    conn: web::Data<KojiDb>,
-    id: actix_web::web::Path<u32>,
-) -> Result<HttpResponse, Error> {
-    let id = id.into_inner();
-
-    let feature = route::Query::feature(&conn.koji, id, true)
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    let (inserts, updates) = if conn.scanner_type == ScannerType::Unown {
-        area::Query::upsert_from_geometry(&conn.controller, GeoFormats::Feature(feature)).await
-    } else {
-        instance::Query::upsert_from_geometry(&conn.controller, GeoFormats::Feature(feature), false)
-            .await
-    }
-    .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    let project = project::Query::get_scanner_project(&conn.koji)
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-    if let Some(project) = project {
-        send_api_req(project, Some(&conn.scanner_type))
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
-    }
     log::info!("Rows Updated: {}, Rows Inserted: {}", updates, inserts);
 
     Ok(HttpResponse::Ok().json(Response {
