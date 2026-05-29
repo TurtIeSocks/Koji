@@ -1,7 +1,8 @@
 use geojson::{Feature, FeatureCollection};
 use koji_core::{
-    CalculationMode, ClusterMode, FeatureCtx, FenceType, GeoFormats, Precision, ReturnTypeArg, SortBy,
-    SpawnpointTth, ToCollection, ToSingleVec, UnknownId, get_enum, get_enum_by_geometry_string,
+    CalculationMode, ClusterMode, FeatureCtx, FenceType, GeoFormats, Precision, ReturnTypeArg,
+    SortBy, SpawnpointTth, ToCollection, ToSingleVec, UnknownId, get_enum,
+    get_enum_by_geometry_string,
 };
 use serde::{Deserialize, Serialize};
 
@@ -66,28 +67,10 @@ pub struct Args {
     ///
     /// Accepts [DataPointsArg]
     pub clusters: Option<DataPointsArg>,
-    /// Number of devices to use in VRP routing
-    ///
-    /// Default: `1`
-    ///
-    /// Deprecated
-    pub devices: Option<usize>,
     /// The maximum amount of clusters to return
     ///
     /// Default: [USIZE::MAX]
     pub max_clusters: Option<usize>,
-    /// Whether to use the fast or slow clustering algorithm
-    ///
-    /// Default: `true`
-    ///
-    /// Deprecated
-    pub fast: Option<bool>,
-    /// Number of times to run through a clustering algorithm
-    ///
-    /// Default: `0`
-    ///
-    /// Deprecated
-    pub generations: Option<usize>,
     /// Geometry type used during conversions
     ///
     /// Currently unstable and will likely change how it's used
@@ -106,10 +89,6 @@ pub struct Args {
     ///
     /// Default: `1`
     pub min_points: Option<usize>,
-    /// Only counts min_points by the number of unique data_points that a cluster covers.
-    /// Only available when `fast: false`
-    /// Deprecated
-    pub only_unique: Option<bool>,
     /// The ID or name of the parent property, this will search the database for any properties that have their `parent` property set to this value.
     ///
     /// Default: `None`
@@ -125,12 +104,6 @@ pub struct Args {
     ///
     /// Default: `SingleVec`
     pub return_type: Option<String>,
-    /// Manual chunking to split TSP routing.
-    ///
-    /// Default: 1
-    ///
-    /// Deprecated
-    pub route_chunk_size: Option<usize>,
     /// Args to be applied to a custom routing plugin
     ///
     /// Default: `''`
@@ -141,12 +114,6 @@ pub struct Args {
     ///
     /// Default: `1`
     pub route_split_level: Option<u64>,
-    /// Amount of time for the TSP solver to run
-    ///
-    /// Default: `0` (auto)
-    ///
-    /// Deprecated
-    pub routing_time: Option<i64>,
     /// S2 Level to use for calculation mode
     ///
     /// Accepts 10-20
@@ -230,8 +197,6 @@ pub struct ArgsUnwrapped {
     pub max_clusters: usize,
     pub clusters: koji_core::SingleVec,
     pub data_points: koji_core::SingleVec,
-    pub devices: usize,
-    pub generations: usize,
     pub instance: String,
     pub min_points: usize,
     pub radius: Precision,
@@ -309,21 +274,15 @@ impl Args {
             s2_size,
             clusters,
             data_points,
-            devices,
-            fast,
-            generations,
             instance,
             min_points,
             radius,
             return_type,
-            routing_time,
-            only_unique,
             parent,
             last_seen,
             save_to_db,
             save_to_scanner,
             save_to_scanner_only,
-            route_chunk_size,
             simplify,
             geometry_type,
             sort_by,
@@ -372,21 +331,9 @@ impl Args {
         let calculation_mode = calculation_mode.unwrap_or(CalculationMode::Radius);
         let s2_level = s2_level.unwrap_or(15);
         let s2_size = s2_size.unwrap_or(9);
-        let cluster_mode = cluster_mode.unwrap_or({
-            if let Some(fast) = fast {
-                if fast {
-                    ClusterMode::Fastest
-                } else {
-                    ClusterMode::Balanced
-                }
-            } else {
-                ClusterMode::Balanced
-            }
-        });
+        let cluster_mode = cluster_mode.unwrap_or(ClusterMode::Balanced);
         let cluster_split_level = validate_s2_cell(cluster_split_level, "cluster_split_level");
         let data_points = resolve_data_points(data_points);
-        let devices = devices.unwrap_or(1);
-        let generations = generations.unwrap_or(1);
         let instance = instance.unwrap_or("".to_string());
         let min_points = min_points.unwrap_or(1);
         let radius = radius.unwrap_or(70.0);
@@ -432,15 +379,6 @@ impl Args {
         let mut bootstrapping_args = bootstrapping_args.unwrap_or("".to_string());
         bootstrapping_args += &format!(" --radius {}", radius);
 
-        if route_chunk_size.is_some() {
-            log::warn!("route_chunk_size is now deprecated, please use route_split_level")
-        }
-        if routing_time.is_some() {
-            log::warn!("routing_time is now deprecated, please use route_split_level")
-        }
-        if only_unique.is_some() {
-            log::warn!("only_unique is now deprecated and does nothing");
-        }
         ArgsUnwrapped {
             area,
             benchmark_mode,
@@ -452,8 +390,6 @@ impl Args {
             calculation_mode,
             s2_size,
             data_points,
-            devices,
-            generations,
             parent,
             instance,
             min_points,
