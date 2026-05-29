@@ -433,6 +433,7 @@ dependencies = [
  "actix-web",
  "actix-web-httpauth",
  "algorithms",
+ "async-trait",
  "geo",
  "geojson",
  "koji-core",

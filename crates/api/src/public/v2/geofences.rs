@@ -11,11 +11,15 @@
 //! [`ApiQueryArgs`], unlike the plain-JSON resources.
 
 use actix_web::{http::StatusCode, web, Error, HttpResponse};
+use geojson::{Feature, Geometry};
 use koji_core::{ApiQueryArgs, FeatureCtx, ReturnTypeArg, ToCollection};
 use koji_db::{db::geofence, KojiDb};
+use koji_dragonite::AreaMode;
+use koji_events::EventDispatcher;
 use model::api::args::get_return_type;
 use serde_json::json;
 
+use crate::dragonite::{GeofenceUpdated, TOPIC_GEOFENCE_UPDATED};
 use crate::utils::{self, jsend::JSend};
 
 /// `GET /api/v2/geofences` — list all geofences as a `FeatureCollection`,
@@ -96,21 +100,68 @@ async fn remove(conn: web::Data<KojiDb>, path: web::Path<u32>) -> Result<HttpRes
     Ok(JSend::success(json!({ "rows_affected": result.rows_affected })))
 }
 
-/// `POST /api/v2/geofences/{id}/publish` — publish a geofence to the scanner.
+/// `POST /api/v2/geofences/{id}/publish` — publish a geofence's fence to its
+/// linked Dragonite area.
 ///
-/// Replaces the v1 GET-that-mutates `/geofence/push/{id}`. For now this just
-/// acknowledges with `202 Accepted`; the actual push + event emission lands in
-/// P5.
-async fn publish(
-    _conn: web::Data<KojiDb>,
-    path: web::Path<String>,
-) -> Result<HttpResponse, Error> {
+/// Replaces the v1 GET-that-mutates `/geofence/push/{id}` and the old direct
+/// controller-DB write (P5, architecture §7): instead of writing the scanner DB
+/// inline, it appends an [`area.geofence_updated`](TOPIC_GEOFENCE_UPDATED) event
+/// to the outbox, which the dispatcher delivers to the `DragoniteSubscriber`
+/// (PATCH `/v2/areas/{id}`). Returns `202 { event_id }`.
+///
+/// Gated on linkage: a geofence with no `dragonite_area_id` yields `422` (it is
+/// not bound to a Dragonite area, so there is nothing to push to).
+async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<HttpResponse, Error> {
     let id = path.into_inner();
-    // TODO(P5): emit area.geofence_updated via events.publish (push to scanner +
-    // outbox dispatch); P4 only acknowledges.
+
+    // Resolve the geofence (by id or name) — 404 if it doesn't exist.
+    let model = match geofence::Query::get_one(&conn.koji, id.clone()).await {
+        Ok(model) => model,
+        Err(_) => {
+            return Ok(JSend::fail(
+                StatusCode::NOT_FOUND,
+                json!({ "geofence": format!("no geofence {id}") }),
+            ))
+        }
+    };
+
+    // Linkage gate: only linked geofences can be pushed.
+    let Some(dragonite_area_id) = model.dragonite_area_id else {
+        return Ok(JSend::fail(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            json!({ "dragonite_area_id": "geofence is not linked to a Dragonite area" }),
+        ));
+    };
+
+    // Carry the fence geometry as a GeoJSON Feature (Dragonite accepts a Feature
+    // wrapping the Polygon/MultiPolygon).
+    let geometry = Geometry::from_json_value(model.geometry.clone())
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let feature = Feature {
+        bbox: None,
+        geometry: Some(geometry),
+        id: None,
+        properties: None,
+        foreign_members: None,
+    };
+
+    let payload = GeofenceUpdated {
+        dragonite_area_id: dragonite_area_id as i64,
+        mode: AreaMode::Base,
+        geofence: feature,
+    };
+    let event_id = EventDispatcher::publish(&conn.koji, TOPIC_GEOFENCE_UPDATED, &payload)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
     Ok(JSend::success_with_status(
         StatusCode::ACCEPTED,
-        json!({ "geofence": id, "status": "accepted" }),
+        json!({
+            "geofence": model.id,
+            "event_id": event_id.to_string(),
+            "topic": TOPIC_GEOFENCE_UPDATED,
+            "dragonite_area_id": dragonite_area_id,
+        }),
     ))
 }
 

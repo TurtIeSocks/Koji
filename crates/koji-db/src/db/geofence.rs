@@ -41,6 +41,10 @@ pub struct Model {
     pub mode: Type,
     pub geometry: Json,
     pub geo_type: String,
+    /// Dragonite area linkage (migration `m20260529_000003_dragonite_linkage`).
+    /// `None` until the geofence is bound to a Dragonite area; publishing is
+    /// gated on this being set (architecture §7/§9).
+    pub dragonite_area_id: Option<u32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

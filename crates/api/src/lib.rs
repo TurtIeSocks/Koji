@@ -15,13 +15,16 @@ use nominatim;
 
 use algorithms;
 use koji_dragonite::DragoniteClient;
-use koji_events::EventDispatcher;
+use koji_events::{EventDispatcher, Subscriber, WebhookSubscriber};
 use koji_jobs::{HandlerRegistry, JobQueue};
 use migration::{DbErr, Migrator, MigratorTrait};
 use model;
 use public::v2::calc::CalculateHandler;
 use utils::{auth, is_docker};
 
+use crate::dragonite::DragoniteSubscriber;
+
+mod dragonite;
 mod private;
 mod public;
 mod utils;
@@ -46,13 +49,9 @@ pub async fn start() -> io::Result<()> {
     );
     let jobs = Arc::new(JobQueue::new(databases.koji.clone(), worker_id.clone()));
 
-    // The event dispatcher is *constructed* here (so producers could publish to
-    // the outbox) but is NOT spawned in P4 — event emission + the Dragonite
-    // subscriber wire in P5. Built with no subscribers for now.
-    let events = Arc::new(EventDispatcher::new(databases.koji.clone(), vec![], worker_id));
-
     // Optional Dragonite client, configured purely from env. `None` until both
-    // the URL and bearer are set (the client is unused until P5 wires events).
+    // the URL and bearer are set; when present it backs the `DragoniteSubscriber`
+    // (and is shared into `AppState` for future direct use).
     let dragonite: Option<DragoniteClient> = match (
         env::var("DRAGONITE_URL").ok(),
         env::var("DRAGONITE_BEARER").ok(),
@@ -63,6 +62,27 @@ pub async fn start() -> io::Result<()> {
         }
         _ => None,
     };
+
+    // Event dispatcher subscribers (P5): the generic webhook pusher (topic-
+    // filtered from `webhook_subscription`) always, plus the Dragonite area
+    // pusher when a client is configured. The dispatcher loop is spawned below
+    // so `area.*` events emitted by producers are delivered durably.
+    let mut subscribers: Vec<Arc<dyn Subscriber>> = vec![Arc::new(
+        WebhookSubscriber::with_default_client(databases.koji.clone()),
+    )];
+    if let Some(client) = &dragonite {
+        subscribers.push(Arc::new(DragoniteSubscriber::new(client.clone())));
+        log::info!("[koji] Dragonite event subscriber registered");
+    }
+    let events = Arc::new(EventDispatcher::new(
+        databases.koji.clone(),
+        subscribers,
+        worker_id,
+    ));
+    // Held for the lifetime of `start()`; the loop claims due outbox rows and
+    // delivers to subscribers with backoff/dead-letter.
+    let _dispatcher = Arc::clone(&events).spawn();
+    log::info!("[koji] event dispatcher spawned");
 
     // Register the calc handler and spawn the worker pool. `_workers` is held for
     // the lifetime of `start()` so the workers keep running; dropping the set
