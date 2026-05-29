@@ -786,7 +786,7 @@ impl<'a> Greedy {
             let time = Instant::now();
             if current >= self.min_points {
                 stdout
-                    .write(
+                    .write_all(
                         utils::info_log(
                             "algorithms::clustering::greedy",
                             format!(
@@ -804,7 +804,7 @@ impl<'a> Greedy {
 
             current -= 1;
         }
-        stdout.write(format!("\n",).as_bytes()).unwrap();
+        stdout.write_all(b"\n").unwrap();
 
         log::debug!("Interested Clusters Time: {:.4}", clusters_of_interest_time);
         log::debug!("Local Clusters Time: {:.4}", local_clusters_time);
