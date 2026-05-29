@@ -1,4 +1,4 @@
-use std::{env, fs, io};
+use std::{env, fs, io, sync::Arc};
 
 use actix_files::{Files, NamedFile};
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
@@ -14,8 +14,12 @@ use log;
 use nominatim;
 
 use algorithms;
+use koji_dragonite::DragoniteClient;
+use koji_events::EventDispatcher;
+use koji_jobs::{HandlerRegistry, JobQueue};
 use migration::{DbErr, Migrator, MigratorTrait};
 use model;
+use public::v2::calc::CalculateHandler;
 use utils::{auth, is_docker};
 
 mod private;
@@ -30,6 +34,46 @@ pub async fn start() -> io::Result<()> {
         Ok(_) => log::info!("Migrations successful"),
         Err(err) => log::error!("Migration Error {:?}", err),
     };
+
+    // ---- V2 infra: job queue + event dispatcher + optional Dragonite client --
+    //
+    // The queue runs against the Koji DB (MySQL 8+/MariaDB 10.6+ for SKIP
+    // LOCKED). `worker_id` identifies this process in `job.locked_by`.
+    let worker_id = format!(
+        "{}-{}",
+        env::var("HOSTNAME").unwrap_or_else(|_| "koji".to_string()),
+        std::process::id()
+    );
+    let jobs = Arc::new(JobQueue::new(databases.koji.clone(), worker_id.clone()));
+
+    // The event dispatcher is *constructed* here (so producers could publish to
+    // the outbox) but is NOT spawned in P4 — event emission + the Dragonite
+    // subscriber wire in P5. Built with no subscribers for now.
+    let events = Arc::new(EventDispatcher::new(databases.koji.clone(), vec![], worker_id));
+
+    // Optional Dragonite client, configured purely from env. `None` until both
+    // the URL and bearer are set (the client is unused until P5 wires events).
+    let dragonite: Option<DragoniteClient> = match (
+        env::var("DRAGONITE_URL").ok(),
+        env::var("DRAGONITE_BEARER").ok(),
+    ) {
+        (Some(url), Some(bearer)) if !url.is_empty() => {
+            log::info!("[koji] Dragonite client configured for {url}");
+            Some(DragoniteClient::new(url, bearer))
+        }
+        _ => None,
+    };
+
+    // Register the calc handler and spawn the worker pool. `_workers` is held for
+    // the lifetime of `start()` so the workers keep running; dropping the set
+    // would just detach the tasks (see `WorkerSet`).
+    let registry = HandlerRegistry::new().register(CalculateHandler::new(databases.clone()));
+    let concurrency = env::var("KOJI_WORKER_CONCURRENCY")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(1);
+    let _workers = Arc::clone(&jobs).spawn_workers(concurrency, registry);
+    log::info!("[koji] spawned {concurrency} job worker(s)");
 
     let path = || {
         if is_docker().is_ok() {
@@ -56,6 +100,11 @@ pub async fn start() -> io::Result<()> {
         App::new()
             .app_data(web::Data::new(databases.clone()))
             .app_data(web::Data::new(client))
+            // V2 infra, shared with the worker pool via the same Arc. Existing v1
+            // handlers keep their `web::Data<KojiDb>` signatures untouched.
+            .app_data(web::Data::from(jobs.clone()))
+            .app_data(web::Data::from(events.clone()))
+            .app_data(web::Data::new(dragonite.clone()))
             // increase max payload size to 50MB
             .app_data(web::JsonConfig::default().limit(1024 * 1024 * 50))
             .wrap(middleware::Logger::new("%s | %r - %b bytes in %D ms (%a)"))
@@ -168,8 +217,22 @@ pub async fn start() -> io::Result<()> {
                                 .service(public::v1::s2::s2_cells),
                         )
                         .service(web::scope("/info").service(public::v1::info::main)),
+                )
+                // v2: clean, best-practices surface over the job queue. Auth is
+                // applied per-scope (mirrors v1's public_validator).
+                .service(
+                    web::scope("/v2")
+                        .wrap(HttpAuthentication::with_fn(auth::public_validator))
+                        .service(public::v2::jobs::enqueue_job)
+                        .service(public::v2::jobs::get_job)
+                        .service(public::v2::jobs::cancel_job)
+                        .service(public::v2::jobs::calc_mode_category)
+                        .service(public::v2::jobs::calc_mode)
+                        .service(public::v2::jobs::meta_algorithms),
                 ),
             )
+            // Liveness probe (top-level, unauthenticated — mirrors `/health`).
+            .service(web::resource("/healthz").route(web::get().to(|| HttpResponse::Ok())))
             .service(
                 Files::new("/", path())
                     .index_file("index.html")
