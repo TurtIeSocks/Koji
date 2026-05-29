@@ -2366,6 +2366,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "koji-dragonite"
+version = "0.1.0"
+dependencies = [
+ "geojson",
+ "koji-core",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "koji-events"
 version = "0.1.0"
 dependencies = [
