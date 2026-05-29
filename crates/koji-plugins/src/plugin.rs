@@ -20,7 +20,7 @@ use koji_core::create_cell_map;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::manifest::PluginManifest;
-use crate::protocol::{PluginInput, PluginOutput};
+use crate::protocol::{PluginInput, PluginOutput, PluginProtocol, decode_latlng, encode_latlng};
 
 /// Joins the per-cell outputs of a parallel [`Plugin::run_multi`] run back into
 /// a single point list. Receives the plugin (for `split_level` and re-runs) and
@@ -40,6 +40,8 @@ pub struct Plugin {
     pub name: String,
     /// S2 split level for the parallel fan-out in [`Plugin::run_multi`].
     pub split_level: u64,
+    /// The stdio encoding this plugin speaks.
+    protocol: PluginProtocol,
 }
 
 impl Plugin {
@@ -77,6 +79,7 @@ impl Plugin {
             entrypoint_path,
             name: manifest.name.clone(),
             split_level,
+            protocol: manifest.protocol,
         })
     }
 
@@ -123,13 +126,27 @@ impl Plugin {
         log::info!("spawning {} child process", self.name);
         let time = Instant::now();
 
-        let payload = serde_json::to_vec(&PluginInput::with_args(points, args.clone()))
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-
         let mut command = Command::new(&self.interpreter);
         if let Some(entrypoint) = &self.entrypoint_path {
             command.arg(entrypoint);
         }
+
+        // Protocol-specific stdin payload (+ extra argv for the legacy protocol).
+        let payload: Vec<u8> = match self.protocol {
+            PluginProtocol::Json => {
+                serde_json::to_vec(&PluginInput::with_args(points, args.clone()))
+                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?
+            }
+            PluginProtocol::Latlng => {
+                // Legacy plugins take `--flag value` argv from the `args.raw`
+                // string (the old free-form `plugin_args`).
+                if let Some(raw) = args.get("raw").and_then(|v| v.as_str()) {
+                    command.args(raw.split_whitespace());
+                }
+                encode_latlng(&points).into_bytes()
+            }
+        };
+
         let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -162,23 +179,29 @@ impl Plugin {
             }
         }
 
-        let output: PluginOutput = serde_json::from_str(raw.trim()).map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!(
-                    "plugin `{}` returned unparseable output ({}); expected JSON {{\"points\": [[lat,lon], …]}}",
-                    self.name, e
-                ),
-            )
-        })?;
+        let points = match self.protocol {
+            PluginProtocol::Json => {
+                let output: PluginOutput = serde_json::from_str(raw.trim()).map_err(|e| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!(
+                            "plugin `{}` returned unparseable output ({}); expected JSON {{\"points\": [[lat,lon], …]}}",
+                            self.name, e
+                        ),
+                    )
+                })?;
+                output.points
+            }
+            PluginProtocol::Latlng => decode_latlng(&raw),
+        };
 
         log::info!(
             "{} child process finished in {}s with {} points",
             self.name,
             time.elapsed().as_secs_f32(),
-            output.points.len()
+            points.len()
         );
-        Ok(output.points)
+        Ok(points)
     }
 }
 
@@ -196,6 +219,7 @@ mod tests {
             interpreter: Some("bash".into()),
             version: None,
             description: None,
+            protocol: Default::default(),
         }
     }
 
@@ -224,6 +248,33 @@ mod tests {
             .run(points.clone(), &serde_json::Value::Null)
             .unwrap();
         assert_eq!(out, points);
+    }
+
+    #[test]
+    fn run_latlng_protocol_round_trips() {
+        // The legacy `tsp` protocol: whitespace-separated `lat,lng` in, same out.
+        // This bash "plugin" reverses the token order to prove I/O is wired.
+        let tmp = tempfile::tempdir().unwrap();
+        let script = tmp.path().join("rev.sh");
+        fs::write(
+            &script,
+            "#!/usr/bin/env bash\nread -a toks\nfor ((i=${#toks[@]}-1;i>=0;i--)); do echo \"${toks[i]}\"; done\n",
+        )
+        .unwrap();
+        let m = PluginManifest {
+            name: "rev".into(),
+            kind: PluginKind::Routing,
+            entrypoint: "rev.sh".into(),
+            interpreter: Some("bash".into()),
+            version: None,
+            description: None,
+            protocol: PluginProtocol::Latlng,
+        };
+        let plugin = Plugin::from_manifest(&m, tmp.path(), 0).unwrap();
+        let out = plugin
+            .run(vec![[1.0, 2.0], [3.0, 4.0]], &serde_json::Value::Null)
+            .unwrap();
+        assert_eq!(out, vec![[3.0, 4.0], [1.0, 2.0]]);
     }
 
     #[test]

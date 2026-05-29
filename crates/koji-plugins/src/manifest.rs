@@ -53,6 +53,10 @@ pub struct PluginManifest {
     /// Optional human-readable description.
     #[serde(default)]
     pub description: Option<String>,
+    /// The stdio protocol the plugin speaks (`json` default, or `latlng` for the
+    /// legacy OR-Tools `tsp` binary).
+    #[serde(default)]
+    pub protocol: crate::protocol::PluginProtocol,
 }
 
 impl PluginManifest {
@@ -139,6 +143,7 @@ mod tests {
             interpreter: None,
             version: None,
             description: None,
+            protocol: Default::default(),
         };
         assert_eq!(
             make("a.py").resolved_interpreter().as_deref(),
@@ -162,6 +167,7 @@ mod tests {
             interpreter: Some("pypy3".into()),
             version: None,
             description: None,
+            protocol: Default::default(),
         };
         assert_eq!(m.resolved_interpreter().as_deref(), Some("pypy3"));
     }

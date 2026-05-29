@@ -1,0 +1,13 @@
+# Manifest for the bundled OR-Tools TSP route optimizer.
+#
+# The native binary is built + placed by the Dockerfile at the absolute path
+# below (alongside its or-tools shared libs under /or-tools), so the entrypoint
+# is absolute and this plugin is Docker-image-only. `protocol = "latlng"` selects
+# the legacy whitespace-separated `lat,lng` stdio the binary speaks (it predates
+# the JSON protocol). Discovered via KOJI_PLUGINS_DIR (set to /plugins in the
+# image). Selected by requesting routing sort `tsp` (the v1 `route` default).
+name = "tsp"
+kind = "routing"
+entrypoint = "/algorithms/src/routing/plugins/tsp"
+protocol = "latlng"
+description = "OR-Tools TSP route optimizer (bundled native binary; Docker image only)"

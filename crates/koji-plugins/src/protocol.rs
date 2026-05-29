@@ -10,6 +10,43 @@
 use koji_core::SingleVec;
 use serde::{Deserialize, Serialize};
 
+/// The stdio encoding a plugin speaks. Declared per-plugin in `plugin.toml`
+/// (`protocol = "json" | "latlng"`); defaults to `json`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PluginProtocol {
+    /// The canonical v1 JSON protocol ([`PluginInput`]/[`PluginOutput`]).
+    #[default]
+    Json,
+    /// Legacy line protocol of the bundled OR-Tools `tsp` router: whitespace-
+    /// separated `lat,lng` tokens on stdin, `lat,lng` tokens (any whitespace) on
+    /// stdout, and the `args.raw` string split into `--flag value` argv. Lets a
+    /// pre-existing binary plugin run unchanged under the manifest/registry
+    /// system (it predates the JSON protocol).
+    Latlng,
+}
+
+/// Encode points as the legacy `"lat,lng lat,lng …"` stdin string (`[lat, lon]`
+/// order, space-separated).
+pub fn encode_latlng(points: &SingleVec) -> String {
+    points
+        .iter()
+        .map(|p| format!("{},{}", p[0], p[1]))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Parse legacy `lat,lng` whitespace-separated tokens from plugin stdout into a
+/// [`SingleVec`]. Malformed tokens are skipped.
+pub fn decode_latlng(raw: &str) -> SingleVec {
+    raw.split_whitespace()
+        .filter_map(|tok| {
+            let (lat, lon) = tok.split_once(',')?;
+            Some([lat.trim().parse().ok()?, lon.trim().parse().ok()?])
+        })
+        .collect()
+}
+
 /// Sent to the plugin's stdin: the points to operate on plus a free-form `args`
 /// object carrying the mode-specific parameters.
 ///

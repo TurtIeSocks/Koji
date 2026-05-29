@@ -32,6 +32,13 @@ COPY --from=or-tools /algorithms ./algorithms
 COPY --from=or-tools /or-tools ./or-tools
 COPY --from=client /app/dist ./dist
 COPY --from=server /usr/local/cargo/bin/koji /usr/local/bin/koji
+# Plugin registry: the `tsp` manifest points (absolutely) at the OR-Tools binary
+# placed under /algorithms above. `KOJI_PLUGINS_DIR` tells the koji-plugins
+# registry where to scan (post-P7 the in-tree filesystem scan was replaced by
+# manifest discovery). Without this, the `tsp` routing optimizer is not found
+# and routing silently degrades to the s2 fallback.
+COPY plugins ./plugins
+ENV KOJI_PLUGINS_DIR=/plugins
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libssl3 ca-certificates \
     && rm -rf /var/lib/apt/lists/*
