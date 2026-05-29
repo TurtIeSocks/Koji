@@ -99,11 +99,10 @@ async fn search_nominatim(
                 match geometry.value {
                     Value::Polygon(_) | Value::MultiPolygon(_) => return Some(feat),
                     _ => {
-                        if let Some(id) = feat.property("osm_id") {
-                            if let Some(id) = id.as_u64() {
+                        if let Some(id) = feat.property("osm_id")
+                            && let Some(id) = id.as_u64() {
                                 log::info!("[NOMINATIM] Filtered OSM ID: {} | Not a Polygon or MultiPolygon", id)
                             }
-                        }
                         return None;
                     }
                 }

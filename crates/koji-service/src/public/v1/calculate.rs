@@ -76,10 +76,7 @@ async fn bootstrap(
         let mut condensed = vec![];
         features
             .into_iter()
-            .for_each(|feat| match feat.geometry.unwrap().value {
-                geojson::Value::MultiPoint(points) => condensed.extend(points),
-                _ => {}
-            });
+            .for_each(|feat| if let geojson::Value::MultiPoint(points) = feat.geometry.unwrap().value { condensed.extend(points) });
         features = vec![Feature {
             geometry: Some(geojson::Geometry {
                 bbox: None,
@@ -309,7 +306,7 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     );
 
     let feature = clusters
-        .to_feature(&FeatureCtx::new().with_type(mode.clone()))
+        .to_feature(&FeatureCtx::new().with_type(mode))
         .remove_last_coord();
     let feature = feature.to_collection(
         &FeatureCtx::new()
@@ -351,7 +348,7 @@ async fn route_stats(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     }
 
     let feature = clusters
-        .to_feature(&FeatureCtx::new().with_type(mode.clone()))
+        .to_feature(&FeatureCtx::new().with_type(mode))
         .remove_last_coord();
     let feature = feature.to_collection(
         &FeatureCtx::new()
@@ -416,7 +413,7 @@ async fn route_stats_category(
     }
 
     let feature = clusters
-        .to_feature(&FeatureCtx::new().with_type(mode.clone()))
+        .to_feature(&FeatureCtx::new().with_type(mode))
         .remove_last_coord();
     let feature = feature.to_collection(
         &FeatureCtx::new()

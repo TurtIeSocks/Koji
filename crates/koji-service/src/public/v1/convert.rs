@@ -57,10 +57,7 @@ async fn merge_points(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
 
     area.into_iter().for_each(|feat| {
         if let Some(geometry) = feat.geometry {
-            match geometry.value {
-                Value::Point(point) => new_multi_point.push(point),
-                _ => {}
-            }
+            if let Value::Point(point) = geometry.value { new_multi_point.push(point) }
         }
     });
 

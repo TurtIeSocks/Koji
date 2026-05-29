@@ -10,15 +10,11 @@ use actix_web::{
 };
 use actix_web_httpauth::middleware::HttpAuthentication;
 use geojson::{Feature, FeatureCollection};
-use log;
-use nominatim;
 
-use algorithms;
 use koji_dragonite::DragoniteClient;
 use koji_events::{EventDispatcher, Subscriber, WebhookSubscriber};
 use koji_jobs::{HandlerRegistry, JobQueue};
 use migration::{DbErr, Migrator, MigratorTrait};
-use model;
 // Re-exported (not a bare `use`) so the `koji-cli` bin can build the same calc
 // handler + payload over the job queue. Re-exporting `pub` items through the
 // private `mod public` is allowed; `start()` below still references
@@ -138,7 +134,7 @@ pub async fn start() -> io::Result<()> {
                     .cookie_secure(false)
                     .build(),
             )
-            .service(web::resource("/health").route(web::get().to(|| HttpResponse::Ok())))
+            .service(web::resource("/health").route(web::get().to(HttpResponse::Ok)))
             .service(
                 web::scope("/config")
                     .service(private::misc::config)
@@ -185,7 +181,7 @@ pub async fn start() -> io::Result<()> {
                     web::scope("/v1")
                         .wrap(HttpAuthentication::with_fn(auth::public_validator))
                         .service(
-                            web::resource("/health").route(web::get().to(|| HttpResponse::Ok())),
+                            web::resource("/health").route(web::get().to(HttpResponse::Ok)),
                         )
                         .service(
                             web::scope("/calc")
@@ -256,7 +252,7 @@ pub async fn start() -> io::Result<()> {
                 ),
             )
             // Liveness probe (top-level, unauthenticated — mirrors `/health`).
-            .service(web::resource("/healthz").route(web::get().to(|| HttpResponse::Ok())))
+            .service(web::resource("/healthz").route(web::get().to(HttpResponse::Ok)))
             .service(
                 Files::new("/", path())
                     .index_file("index.html")

@@ -80,15 +80,15 @@ pub async fn points_from_area(
 ) -> Result<Vec<GenericData>, DbErr> {
     if !area.features.is_empty() {
         match category.as_str() {
-            "gym" => gym::Query::area(&conn.scanner, &area, last_seen).await,
-            "pokestop" => pokestop::Query::area(&conn.scanner, &area, last_seen).await,
-            "station" => station::Query::area(&conn.scanner, &area, last_seen).await,
-            "spawnpoint" => spawnpoint::Query::area(&conn.scanner, &area, last_seen, tth).await,
+            "gym" => gym::Query::area(&conn.scanner, area, last_seen).await,
+            "pokestop" => pokestop::Query::area(&conn.scanner, area, last_seen).await,
+            "station" => station::Query::area(&conn.scanner, area, last_seen).await,
+            "spawnpoint" => spawnpoint::Query::area(&conn.scanner, area, last_seen, tth).await,
             "fort" => {
                 // "fort" aggregates gym + pokestop + station results
-                let gyms = gym::Query::area(&conn.scanner, &area, last_seen).await?;
-                let pokestops = pokestop::Query::area(&conn.scanner, &area, last_seen).await?;
-                let stations = station::Query::area(&conn.scanner, &area, last_seen).await?;
+                let gyms = gym::Query::area(&conn.scanner, area, last_seen).await?;
+                let pokestops = pokestop::Query::area(&conn.scanner, area, last_seen).await?;
+                let stations = station::Query::area(&conn.scanner, area, last_seen).await?;
                 Ok(gyms.into_iter().chain(pokestops.into_iter()).chain(stations.into_iter()).collect())
             }
             _ => Err(DbErr::Custom("Invalid Category".to_string())),

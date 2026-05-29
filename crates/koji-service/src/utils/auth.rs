@@ -28,11 +28,10 @@ pub async fn public_validator(
     if env::var("KOJI_SECRET").unwrap_or("".to_string()).is_empty() {
         return Ok(req);
     }
-    if let Some(credentials) = credentials {
-        if credentials.token() == env::var("KOJI_SECRET").unwrap_or("".to_string()) {
+    if let Some(credentials) = credentials
+        && credentials.token() == env::var("KOJI_SECRET").unwrap_or("".to_string()) {
             return Ok(req);
         }
-    }
     Err((
         AuthenticationError::new(
             req.app_data::<Config>()
