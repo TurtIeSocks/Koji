@@ -1,9 +1,9 @@
 # Koji V2 — Phasing / Commit Roadmap
 
 > **▶ RESUME HERE (paused 2026-05-29).** Branch `claude/goofy-tu-5372ed`; tree clean, `cargo build --workspace` + tests green (16+3 pass, 4+1 ignored).
-> **Done + committed:** P0 (`410fe72`, `a1120c0`) · P1a (`77fb53e`) · P1b (`0e555b3`) · P1-conv (`a388df2`) · P1c (`bedc56e`→`76f1c64`) · P1d (`c7618e7`, `fddc9fb`).
-> **NEXT:** **P2** — algorithms take config structs (the koji-core structs from P1d, currently defined-but-unused) + extract `koji-plugins` (move only). This is where the P1d config-struct **adoption** lands: change `clustering`/`routing`/`bootstrap` signatures to take `&ClusteringConfig`/`&RoutingConfig`/`&BootstrapConfig`, build them in `calculate.rs`, and remove the now-redundant flat `ArgsUnwrapped` fields. Verify perf parity via `benchmark_mode` + `bypass_adaptive_partition` A/B. Brainstorm → spec → plan → execute (autonomous/delegate per memory `koji-v2-autonomous-delegate`).
-> **P1d scope note:** delivered the config-struct **definitions** in koji-core (`config` module) + dropped the 6 deprecated `Args` fields. Adoption deferred to P2 (so the `calculate.rs` handler rewiring — uncovered by the unit tests — lands with P2's perf A/B as its net). `model` NOT dissolved (stays the thin v1 `Args` crate until P4's v1 shim).
+> **Done + committed:** P0 (`410fe72`, `a1120c0`) · P1a (`77fb53e`) · P1b (`0e555b3`) · P1-conv (`a388df2`) · P1c (`bedc56e`→`76f1c64`) · P1d (`c7618e7`, `fddc9fb`) · P2-configs (`c138d0b`).
+> **NEXT:** **P3** — additive infra crates: `koji-jobs` (job table migration + queue + worker pool + JobHandler), `koji-events` (outbox + webhook_subscription migrations + dispatcher + Subscriber), `koji-dragonite` (typed `/v2/areas` client + JSend), + `area_fence`/`area.dragonite_area_id` migration. Not yet wired. Brainstorm → spec → plan → execute (autonomous/delegate per memory). **Heads-up:** P3 adds DB migrations + an HTTP client — runtime/migration behavior not verifiable in the dev sandbox (no DB / no Dragonite); build + careful review here, maintainer integration-tests.
+> **P2 scope note:** config-struct **adoption** done (`c138d0b`) — clustering/routing/bootstrap take the koji-core configs; `calculate.rs` builds them at the call sites (flat `ArgsUnwrapped` fields kept; their removal is a trivial later cleanup). `koji-plugins` extraction **moved to P7** (the plugin system is reworked there — manifest/JSON protocol/registry — so the move + formalization land together, avoiding move-only churn + the `create_cell_map` cross-crate cycle now). Calc-path behavioral parity to be confirmed by the maintainer's `benchmark_mode` A/B (algorithm internals untouched; only param plumbing changed).
 > **Context:** architecture + job-queue specs in `docs/superpowers/specs/`; per-phase plans in `docs/superpowers/plans/`. Pre-existing debt for the P7 sweep: `greedy.rs:798,817` clippy `unused_io_amount` (deny-level) + repo-wide rustfmt (project isn't fmt-enforced).
 
 One long-lived branch, many commits. **Invariant: every commit compiles + passes existing tests.** Hard ordering rule: events + Dragonite client land **before** RDM/controller-write removal (never delete the only write path early).
@@ -27,9 +27,9 @@ Delivered as focused, independently-green sub-plans (each reviewed before execut
 > Riskiest phase. No transitional facades — consumers migrate as types move.
 
 ## Phase 2 — Algorithms take structs
-- `refactor(algorithms): cluster/route/bootstrap accept config structs (was 15 primitives)`
-- `refactor(plugins): extract koji-plugins (move only; protocol unchanged for now)`
-> Verify perf parity via existing `benchmark_mode` + `bypass_adaptive_partition` A/B toggle.
+- ✅ DONE (`c138d0b`) `refactor(algorithms): cluster/route/bootstrap accept config structs (was 15/7/10 primitives)` — `clustering::main(&ClusteringConfig)`, `routing::main(radius, &RoutingConfig)`, `bootstrap::main(&BootstrapConfig, &RoutingConfig)` + bootstrap `sort(&RoutingConfig)`; `calculate.rs` builds configs at call sites. `bypass_adaptive_partition` stays a separate transient param. Flat `ArgsUnwrapped` fields kept (removal = trivial later cleanup).
+- ↪ MOVED TO P7 `refactor(plugins): extract koji-plugins` — deferred so the move lands with the plugin formalization (P7), avoiding the `create_cell_map`/`stringify_points` cross-crate cycle as move-only churn now.
+> Perf parity: maintainer runs `benchmark_mode` + `bypass_adaptive_partition` A/B (not runnable in the dev sandbox — needs a real DB). Algorithm internals unchanged, so parity risk is confined to the param plumbing (cross-checked 1:1).
 
 ## Phase 3 — New infra crates (additive, not yet wired)
 - `feat(jobs): koji-jobs — job table migration, queue API, worker pool, JobHandler`
@@ -55,7 +55,7 @@ Delivered as focused, independently-green sub-plans (each reviewed before execut
 
 ## Phase 7 — CLI, plugin formalization, polish
 - `feat(cli): koji-cli (run | enqueue --wait | worker)`
-- `feat(plugins): manifest (plugin.toml) + JSON protocol + external dir + registry`
+- `feat(plugins): extract koji-plugins (moved from P2) + manifest (plugin.toml) + JSON protocol + external dir + registry` — also move `create_cell_map`→koji-core (or koji-plugins) + `stringify_points`→koji-plugins to break the algorithms↔plugins cycle.
 - `feat(api): /meta/algorithms + /healthz; OpenAPI doc`
 - `chore(quality): thiserror error types, async-pattern + clippy-pedantic sweep, fill test gaps`
 > Final: full suite + clippy + fmt; open PR.
