@@ -1,0 +1,20 @@
+[package]
+name = "koji-cli"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "koji-cli"
+path = "src/main.rs"
+
+[dependencies]
+koji-db = { path = "../../crates/koji-db" }
+koji-jobs = { path = "../../crates/koji-jobs" }
+koji-service = { path = "../../crates/koji-service" }
+clap = { version = "4", features = ["derive"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
+dotenv = "0.15.0"
+env_logger = "0.11.8"
+log = "0.4.28"
+serde_json = "1.0.145"

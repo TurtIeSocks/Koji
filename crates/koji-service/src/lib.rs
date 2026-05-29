@@ -19,7 +19,11 @@ use koji_events::{EventDispatcher, Subscriber, WebhookSubscriber};
 use koji_jobs::{HandlerRegistry, JobQueue};
 use migration::{DbErr, Migrator, MigratorTrait};
 use model;
-use public::v2::calc::CalculateHandler;
+// Re-exported (not a bare `use`) so the `koji-cli` bin can build the same calc
+// handler + payload over the job queue. Re-exporting `pub` items through the
+// private `mod public` is allowed; `start()` below still references
+// `CalculateHandler` via this path.
+pub use public::v2::calc::{CalcPayload, CalculateHandler, CALC_KIND};
 use utils::{auth, is_docker};
 
 use crate::dragonite::DragoniteSubscriber;
