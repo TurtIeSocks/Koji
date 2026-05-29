@@ -6,4 +6,7 @@
 //! exactly as-is (the legacy shim).
 
 pub mod calc;
+pub mod geofences;
 pub mod jobs;
+pub mod resources;
+pub mod routes;

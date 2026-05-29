@@ -228,7 +228,17 @@ pub async fn start() -> io::Result<()> {
                         .service(public::v2::jobs::cancel_job)
                         .service(public::v2::jobs::calc_mode_category)
                         .service(public::v2::jobs::calc_mode)
-                        .service(public::v2::jobs::meta_algorithms),
+                        .service(public::v2::jobs::meta_algorithms)
+                        // Typed CRUD resources. Geometry-bearing geofences/routes
+                        // are hand-written (honor `?format=`); projects/
+                        // properties/tile-servers are macro-generated plain-JSend
+                        // CRUD. Each exposes a `scope()` that wires its own
+                        // method+path routing (incl. `/geofences/{id}/publish`).
+                        .service(public::v2::geofences::scope())
+                        .service(public::v2::routes::scope())
+                        .service(public::v2::resources::project::scope())
+                        .service(public::v2::resources::property::scope())
+                        .service(public::v2::resources::tile_server::scope()),
                 ),
             )
             // Liveness probe (top-level, unauthenticated — mirrors `/health`).
