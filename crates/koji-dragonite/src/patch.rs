@@ -13,13 +13,16 @@
 //! | [`Tri::Null`]  | `null`        | clear / unset |
 //! | [`Tri::Value`] | the value     | set to value |
 
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// A field that may be absent, explicitly null, or set to a value.
 ///
 /// Use together with `#[serde(skip_serializing_if = "Tri::is_absent", default)]`
 /// on the struct field so that [`Tri::Absent`] omits the key entirely. The
-/// custom [`Serialize`] impl handles the other two cases (`null` vs value).
+/// custom [`Serialize`] impl handles the `null`-vs-value cases on write; the
+/// [`Deserialize`] impl + `#[serde(default)]` recovers all three on read
+/// (missing key → `Absent` via the default, JSON `null` → `Null`, value →
+/// `Value`).
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum Tri<T> {
     /// Field omitted from the body — Dragonite leaves it unchanged.
@@ -59,12 +62,29 @@ impl<T: Serialize> Serialize for Tri<T> {
     }
 }
 
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for Tri<T> {
+    /// Recovers `Null` vs `Value`. The `Absent` case is unreachable here —
+    /// serde only invokes a field's `Deserialize` when the key is *present*, so
+    /// a missing key must be handled by `#[serde(default)]` (→ `Tri::Absent`).
+    /// A present JSON `null` deserializes through `Option` to `None` → `Null`;
+    /// any other value → `Value`.
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(match Option::<T>::deserialize(deserializer)? {
+            Some(v) => Tri::Value(v),
+            None => Tri::Null,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde::Serialize;
+    use serde::{Deserialize, Serialize};
 
-    #[derive(Serialize)]
+    #[derive(Serialize, Deserialize)]
     struct Body {
         #[serde(skip_serializing_if = "Tri::is_absent", default)]
         name: Tri<String>,
@@ -96,6 +116,32 @@ mod tests {
     #[test]
     fn default_is_absent() {
         assert!(Tri::<String>::default().is_absent());
+    }
+
+    #[test]
+    fn deserialize_missing_key_is_absent() {
+        let body: Body = serde_json::from_str("{}").unwrap();
+        assert!(body.name.is_absent(), "missing key must default to Absent");
+    }
+
+    #[test]
+    fn deserialize_explicit_null_is_null() {
+        let body: Body = serde_json::from_str(r#"{"name":null}"#).unwrap();
+        assert_eq!(body.name, Tri::Null, "JSON null must deserialize to Null");
+    }
+
+    #[test]
+    fn deserialize_value_is_value() {
+        let body: Body = serde_json::from_str(r#"{"name":"alpha"}"#).unwrap();
+        assert_eq!(body.name, Tri::Value("alpha".into()));
+    }
+
+    #[test]
+    fn deserialize_then_serialize_round_trips_each_state() {
+        for (json, expect) in [("{}", "{}"), (r#"{"name":null}"#, r#"{"name":null}"#), (r#"{"name":"x"}"#, r#"{"name":"x"}"#)] {
+            let body: Body = serde_json::from_str(json).unwrap();
+            assert_eq!(serde_json::to_string(&body).unwrap(), expect, "round-trip of {json}");
+        }
     }
 
     #[test]

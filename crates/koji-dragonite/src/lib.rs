@@ -1,38 +1,39 @@
 //! # koji-dragonite — typed client over Dragonite's `/v2/areas/*` API
 //!
-//! ⚠️ **wire types are provisional — reconcile with Dragonite's real `/v2/areas`
-//! API before P5 wires this client.** There is no Dragonite OpenAPI/schema in
-//! this repo, so the exact JSON field names and the [`ApiArea`]/[`ApiGeofence`]/
-//! [`V2GeofencePatch`] shapes are unverified guesses. Every speculative field
-//! and endpoint carries a `// TODO(dragonite-reconcile): ...` marker. No request
-//! in this crate has been run against a live Dragonite — all HTTP is
-//! runtime-unverified.
+//! Reconciled against Dragonite's real V2 area contract (`routes/areas.go`,
+//! `routes/v2_areas.go`, `routes/v2_geofence*.go`, `routes/v2_envelope.go`):
 //!
-//! ## What is SOUND and reusable
-//! - [`JSend`] — the generic JSend envelope (a published spec Koji V2 adopts).
-//! - [`Tri`] — the tri-state PATCH wrapper (absent / null / value), per the
-//!   architecture's `V2GeofencePatch` semantics (§7).
-//! - [`DragoniteClient`] plumbing — reqwest setup, `Bearer` + `User-Agent`
-//!   headers, JSend→`Result` collapsing, page-walking.
-//! - [`route_to_dragonite`] — Koji `SingleVec` (`Vec<[f64;2]>`, `[lat,lon]`) →
-//!   Dragonite route array, grounded in koji-core (identity, ordering tested).
+//! - **Endpoints** ([`DragoniteClient`]): `GET|POST /v2/areas/`,
+//!   `GET|PATCH|DELETE /v2/areas/{id}`, zero-based `?page`/`?per_page` (max
+//!   1000) pagination with a `V2Meta` block, `?q=` name filter. `DELETE` returns
+//!   `204`.
+//! - **Envelope** ([`envelope`]): the V2 `{status:"ok"|"error", data, meta,
+//!   error{code,message,field}}` shape — *not* JSend.
+//! - **Area shape** ([`types`]): the full [`ApiArea`] with per-mode blocks; the
+//!   geofence field is a single tri-state nullable GeoJSON `Feature`
+//!   ([`V2GeofencePatch`]) at the area root (base) and inside each mode block.
+//! - **Conversions** ([`mapping`]): Koji `SingleVec` route → `[{lat,lon}]`,
+//!   `Feature` fence → geofence patch, and per-[`AreaMode`] PATCH builders.
 //!
-//! ## What is PROVISIONAL (reconcile before P5)
-//! - Endpoint paths + pagination contract in [`DragoniteClient`].
-//! - All field names in [`types`] (the [`AreaMode`] enum itself is sound — it
-//!   mirrors the existing `area_fence.mode` migration ENUM).
-//! - [`feature_to_api_geofence`] target representation.
+//! Mutations target an area by its stored `dragonite_area_id` (architecture §9);
+//! the [`Tri`] wrapper gives PATCH the absent/null/value semantics (§7) so a
+//! patch carries only the fields it intends to change.
 
 pub mod client;
+pub mod envelope;
 pub mod error;
-pub mod jsend;
 pub mod mapping;
 pub mod patch;
 pub mod types;
 
 pub use client::DragoniteClient;
+pub use envelope::{parse_v2, parse_v2_with_meta, V2ApiError, V2Envelope, V2Meta};
 pub use error::DragoniteError;
-pub use jsend::{parse_jsend, JSend};
-pub use mapping::{feature_to_api_geofence, route_to_dragonite};
+pub use mapping::{
+    area_geofence_patch, area_route_patch, feature_to_geofence, route_to_api_locations,
+};
 pub use patch::Tri;
-pub use types::{ApiArea, ApiGeofence, AreaMode, V2GeofencePatch};
+pub use types::{
+    ApiArea, ApiAreaFortMode, ApiAreaPokemonMode, ApiAreaQuestMode, ApiAreaRarePokemonMode,
+    ApiLocation, AreaMode, V2GeofencePatch,
+};

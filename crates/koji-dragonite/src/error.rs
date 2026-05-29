@@ -2,7 +2,7 @@
 
 use thiserror::Error;
 
-/// Errors produced by [`crate::DragoniteClient`] and the JSend → `Result`
+/// Errors produced by [`crate::DragoniteClient`] and the V2 envelope → `Result`
 /// conversion.
 #[derive(Debug, Error)]
 pub enum DragoniteError {
@@ -11,17 +11,22 @@ pub enum DragoniteError {
     #[error("dragonite http error: {0}")]
     Http(#[from] reqwest::Error),
 
-    /// Dragonite returned a JSend `fail` or `error` envelope. `code` is the
-    /// optional machine-readable error code from an `error` envelope (`fail`
-    /// envelopes carry no code).
-    #[error("dragonite api error: {message}{}", .code.as_ref().map(|c| format!(" (code: {c})")).unwrap_or_default())]
+    /// Dragonite returned a V2 `error` envelope (`{"status":"error","error":{…}}`).
+    /// `code` is the stable machine-readable [`V2ErrorCode`](crate::envelope::V2ApiError)
+    /// string; `field` names the offending request field when the error is a
+    /// per-field validation failure.
+    #[error("dragonite api error: {message}{}{}",
+        .code.as_ref().map(|c| format!(" (code: {c})")).unwrap_or_default(),
+        .field.as_ref().map(|f| format!(" [field: {f}]")).unwrap_or_default())]
     Api {
-        message: String,
         code: Option<String>,
+        message: String,
+        field: Option<String>,
     },
 
-    /// A 2xx body did not match the expected shape / could not be deserialized
-    /// into the JSend envelope or its `data` payload.
+    /// A response body did not match the expected shape — not a valid V2
+    /// envelope, an `ok` envelope missing its `data`, or a `data` payload that
+    /// could not be deserialized into the target type.
     #[error("dragonite decode error: {0}")]
     Decode(String),
 }

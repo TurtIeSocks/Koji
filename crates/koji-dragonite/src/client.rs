@@ -1,18 +1,20 @@
 //! Async HTTP client for Dragonite's `/v2/areas/*` API.
 //!
-//! The PLUMBING here is sound: reqwest client construction, `Authorization:
-//! Bearer` + `User-Agent` headers, JSend → `Result` collapsing, and the
-//! page-walking loop. The ENDPOINT PATHS and request BODIES are PROVISIONAL —
-//! every request carries a `// TODO(dragonite-reconcile): ...` marker. None of
-//! this has been run against a live Dragonite (all HTTP is runtime-unverified).
+//! Reconciled against the real contract (`routes/v2_areas.go`): collection at
+//! `/v2/areas/` (trailing slash), single resource at `/v2/areas/{id}`,
+//! zero-based `?page` + `?per_page` (max 1000) pagination with a `V2Meta` block,
+//! optional `?q=` name filter, and the [`V2Envelope`](crate::envelope) response
+//! shape. Every request carries `Authorization: Bearer` + `User-Agent`.
 
-use reqwest::Method;
+use reqwest::header::USER_AGENT;
 use serde::de::DeserializeOwned;
-use serde::Serialize;
 
+use crate::envelope::{parse_v2, parse_v2_with_meta, V2Meta};
 use crate::error::DragoniteError;
-use crate::jsend::parse_jsend;
-use crate::types::{ApiArea, V2GeofencePatch};
+use crate::types::ApiArea;
+
+/// Dragonite's documented maximum `per_page`.
+const MAX_PER_PAGE: i64 = 1000;
 
 /// Typed client over Dragonite's `/v2/areas` API.
 ///
@@ -54,121 +56,160 @@ impl DragoniteClient {
         format!("{}{}", self.base_url, path)
     }
 
-    /// Issue a request with auth + UA headers, then collapse the JSend body to a
-    /// `Result`. `body` is sent as JSON when `Some`. This is the single choke
-    /// point through which every method goes, so headers + envelope handling
-    /// live in exactly one place.
-    async fn send<B, T>(
+    /// Execute a prepared request: attach auth + UA headers, send, then decode
+    /// the [`V2Envelope`](crate::envelope) to `(data, meta)`. A non-2xx response
+    /// without a decodable envelope surfaces the HTTP status + raw body as an
+    /// [`Api`](DragoniteError::Api) error rather than an opaque decode failure.
+    async fn exec<T: DeserializeOwned>(
         &self,
-        method: Method,
-        path: &str,
-        body: Option<&B>,
-    ) -> Result<T, DragoniteError>
-    where
-        B: Serialize + ?Sized,
-        T: DeserializeOwned,
-    {
-        let mut req = self
-            .http
-            .request(method, self.url(path))
+        req: reqwest::RequestBuilder,
+    ) -> Result<(T, Option<V2Meta>), DragoniteError> {
+        let resp = req
             .bearer_auth(&self.bearer)
-            .header(reqwest::header::USER_AGENT, &self.user_agent);
-
-        if let Some(b) = body {
-            req = req.json(b);
+            .header(USER_AGENT, &self.user_agent)
+            .send()
+            .await?;
+        let status = resp.status();
+        let bytes = resp.bytes().await?;
+        match parse_v2_with_meta::<T>(&bytes) {
+            Ok(ok) => Ok(ok),
+            Err(DragoniteError::Decode(_)) if !status.is_success() => Err(DragoniteError::Api {
+                code: Some(format!("http_{}", status.as_u16())),
+                message: String::from_utf8_lossy(&bytes).trim().to_string(),
+                field: None,
+            }),
+            Err(e) => Err(e),
         }
-
-        let bytes = req.send().await?.bytes().await?;
-        parse_jsend::<T>(&bytes)
     }
 
-    /// List one page of areas.
-    ///
-    /// Pagination is by `page` (0- or 1-based — unverified). Returns the areas
-    /// on that page; an empty `Vec` signals the end of the listing to
-    /// [`list_all_areas`](Self::list_all_areas).
-    ///
-    // TODO(dragonite-reconcile): verify path + pagination — `/v2/areas?page=N`
-    // is a guess; the real param may be `page`/`offset`/`cursor`, and the page
-    // index base + page size are unknown. The JSend `data` is assumed to be a
-    // bare array of areas; Dragonite may instead nest it (e.g. `data.areas`)
-    // with paging metadata in `meta`.
-    pub async fn list_areas(&self, page: u32) -> Result<Vec<ApiArea>, DragoniteError> {
-        let path = format!("/v2/areas?page={page}");
-        self.send::<(), Vec<ApiArea>>(Method::GET, &path, None)
-            .await
+    /// `exec` discarding the pagination `meta` (single-resource endpoints).
+    async fn exec_data<T: DeserializeOwned>(
+        &self,
+        req: reqwest::RequestBuilder,
+    ) -> Result<T, DragoniteError> {
+        self.exec(req).await.map(|(data, _)| data)
     }
 
-    /// Walk every page via [`list_areas`](Self::list_areas) until a page comes
-    /// back empty, concatenating the results.
-    ///
-    // TODO(dragonite-reconcile): the empty-page terminator assumes a 1-based
-    // (or 0-based) sequential pager that returns `[]` past the end. Re-check
-    // once the real pagination contract is known to avoid an infinite loop or a
-    // premature stop.
+    /// List one page of areas. `page` is zero-based; `per_page` is capped at
+    /// [`MAX_PER_PAGE`]. `q` is an optional case-insensitive name substring
+    /// filter. Returns the page plus its [`V2Meta`].
+    pub async fn list_areas(
+        &self,
+        page: i64,
+        per_page: i64,
+        q: Option<&str>,
+    ) -> Result<(Vec<ApiArea>, V2Meta), DragoniteError> {
+        let per_page = per_page.clamp(1, MAX_PER_PAGE);
+        let mut query: Vec<(&str, String)> =
+            vec![("page", page.to_string()), ("per_page", per_page.to_string())];
+        if let Some(q) = q.filter(|s| !s.is_empty()) {
+            query.push(("q", q.to_string()));
+        }
+        let req = self.http.get(self.url("/v2/areas/")).query(&query);
+        let (data, meta) = self.exec::<Vec<ApiArea>>(req).await?;
+        // A list endpoint should always carry meta; synthesize a single-page
+        // block if Dragonite ever omits it so callers needn't special-case None.
+        let meta = meta.unwrap_or(V2Meta {
+            total: data.len() as i64,
+            page,
+            per_page,
+            total_pages: 1,
+            has_next: false,
+            has_prev: page > 0,
+        });
+        Ok((data, meta))
+    }
+
+    /// Walk every page (zero-based, `per_page = MAX_PER_PAGE`) following
+    /// `meta.has_next`, concatenating the results. Uses the server's pagination
+    /// metadata as the terminator — no empty-page guessing.
     pub async fn list_all_areas(&self) -> Result<Vec<ApiArea>, DragoniteError> {
         let mut all = Vec::new();
-        let mut page = 1;
+        let mut page = 0;
         loop {
-            let batch = self.list_areas(page).await?;
-            if batch.is_empty() {
+            let (batch, meta) = self.list_areas(page, MAX_PER_PAGE, None).await?;
+            all.extend(batch);
+            if !meta.has_next {
                 break;
             }
-            all.extend(batch);
             page += 1;
         }
         Ok(all)
     }
 
     /// Fetch a single area by its Dragonite area id.
-    ///
-    // TODO(dragonite-reconcile): verify path `/v2/areas/{id}`.
-    pub async fn get_area(&self, dragonite_area_id: u32) -> Result<ApiArea, DragoniteError> {
-        let path = format!("/v2/areas/{dragonite_area_id}");
-        self.send::<(), ApiArea>(Method::GET, &path, None).await
+    pub async fn get_area(&self, dragonite_area_id: i64) -> Result<ApiArea, DragoniteError> {
+        let req = self
+            .http
+            .get(self.url(&format!("/v2/areas/{dragonite_area_id}")));
+        self.exec_data(req).await
     }
 
-    /// Create an area.
-    ///
-    // TODO(dragonite-reconcile): verify path `/v2/areas` and the create request
-    // body shape. We send the provisional `ApiArea` as the body, which is almost
-    // certainly not the real create payload (creates usually omit the
-    // server-assigned id). Treat this as a placeholder.
+    /// Create an area. Send an [`ApiArea`] with `id == None` (the server assigns
+    /// it); returns the created area read back from Dragonite.
     pub async fn create_area(&self, area: &ApiArea) -> Result<ApiArea, DragoniteError> {
-        self.send::<ApiArea, ApiArea>(Method::POST, "/v2/areas", Some(area))
-            .await
+        let req = self.http.post(self.url("/v2/areas/")).json(area);
+        self.exec_data(req).await
     }
 
-    /// PATCH an area's geofences, sending ONLY the fields present in `patch`
-    /// (its [`Tri`](crate::patch::Tri) fields handle the absent/null/value
-    /// distinction). An empty patch is a no-op — it would serialize to `{}` —
-    /// but is still sent; callers can guard with
-    /// [`V2GeofencePatch::is_empty`](crate::types::V2GeofencePatch::is_empty).
-    ///
-    // TODO(dragonite-reconcile): verify path `/v2/areas/{id}` for PATCH and the
-    // patch body field names (see `V2GeofencePatch`). The tri-state *mechanics*
-    // are correct; the *keys* are provisional.
+    /// PATCH an area, sending only the fields present in `patch` (omitted fields
+    /// are left unchanged; a `geofence: Tri::Null` clears that fence). Returns
+    /// the updated area. Build `patch` with the
+    /// [`area_route_patch`](crate::mapping::area_route_patch) /
+    /// [`area_geofence_patch`](crate::mapping::area_geofence_patch) helpers.
     pub async fn patch_area(
         &self,
-        dragonite_area_id: u32,
-        patch: &V2GeofencePatch,
+        dragonite_area_id: i64,
+        patch: &ApiArea,
     ) -> Result<ApiArea, DragoniteError> {
-        let path = format!("/v2/areas/{dragonite_area_id}");
-        self.send::<V2GeofencePatch, ApiArea>(Method::PATCH, &path, Some(patch))
-            .await
+        let req = self
+            .http
+            .patch(self.url(&format!("/v2/areas/{dragonite_area_id}")))
+            .json(patch);
+        self.exec_data(req).await
     }
 
-    /// Delete an area by its Dragonite area id.
-    ///
-    // TODO(dragonite-reconcile): verify path `/v2/areas/{id}` for DELETE and
-    // whether the success body is empty/`null`. We decode `data` as
-    // `serde_json::Value` to tolerate either a payload or `null`.
-    pub async fn delete_area(
-        &self,
-        dragonite_area_id: u32,
-    ) -> Result<serde_json::Value, DragoniteError> {
-        let path = format!("/v2/areas/{dragonite_area_id}");
-        self.send::<(), serde_json::Value>(Method::DELETE, &path, None)
-            .await
+    /// Delete an area by its Dragonite area id. Dragonite returns `204 No
+    /// Content` on success (no body); a non-2xx surfaces the V2 error envelope.
+    pub async fn delete_area(&self, dragonite_area_id: i64) -> Result<(), DragoniteError> {
+        let resp = self
+            .http
+            .delete(self.url(&format!("/v2/areas/{dragonite_area_id}")))
+            .bearer_auth(&self.bearer)
+            .header(USER_AGENT, &self.user_agent)
+            .send()
+            .await?;
+        let status = resp.status();
+        if status.is_success() {
+            return Ok(());
+        }
+        let bytes = resp.bytes().await?;
+        // An error response carries the V2 error envelope → surface it.
+        match parse_v2::<serde_json::Value>(&bytes) {
+            Err(e) => Err(e),
+            Ok(_) => Err(DragoniteError::Api {
+                code: Some(format!("http_{}", status.as_u16())),
+                message: "delete returned a non-2xx status with an `ok` envelope".to_string(),
+                field: None,
+            }),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn url_trims_trailing_slash_on_base() {
+        let c = DragoniteClient::new("https://dragonite.example/", "tok");
+        assert_eq!(c.url("/v2/areas/"), "https://dragonite.example/v2/areas/");
+        assert_eq!(c.url("/v2/areas/7"), "https://dragonite.example/v2/areas/7");
+    }
+
+    #[test]
+    fn default_user_agent_is_crate_versioned() {
+        let c = DragoniteClient::new("https://x", "t");
+        assert!(c.user_agent.starts_with("koji-dragonite/"));
     }
 }
