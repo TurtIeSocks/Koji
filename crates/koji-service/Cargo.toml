@@ -1,11 +1,11 @@
 [package]
-name = "api"
+name = "koji-service"
 version = "1.5.1"
 edition = "2024"
 publish = false
 
 [lib]
-name = "api"
+name = "koji_service"
 path = "src/lib.rs"
 
 [dependencies]

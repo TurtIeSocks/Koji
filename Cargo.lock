@@ -425,33 +425,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0674a1ddeecb70197781e945de4b3b8ffb61fa939a5597bcf48503737663100"
 
 [[package]]
-name = "api"
-version = "1.5.1"
-dependencies = [
- "actix-files",
- "actix-session",
- "actix-web",
- "actix-web-httpauth",
- "algorithms",
- "async-trait",
- "geo",
- "geojson",
- "koji-core",
- "koji-db",
- "koji-dragonite",
- "koji-events",
- "koji-jobs",
- "koji-scanner",
- "log",
- "migration",
- "model",
- "nominatim",
- "serde",
- "serde_json",
- "url",
-]
-
-[[package]]
 name = "approx"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2327,9 +2300,9 @@ dependencies = [
 name = "koji"
 version = "1.5.4"
 dependencies = [
- "api",
  "dotenv",
  "env_logger",
+ "koji-service",
  "log",
  "tikv-jemallocator",
 ]
@@ -2426,6 +2399,33 @@ dependencies = [
  "log",
  "sea-orm",
  "serde",
+]
+
+[[package]]
+name = "koji-service"
+version = "1.5.1"
+dependencies = [
+ "actix-files",
+ "actix-session",
+ "actix-web",
+ "actix-web-httpauth",
+ "algorithms",
+ "async-trait",
+ "geo",
+ "geojson",
+ "koji-core",
+ "koji-db",
+ "koji-dragonite",
+ "koji-events",
+ "koji-jobs",
+ "koji-scanner",
+ "log",
+ "migration",
+ "model",
+ "nominatim",
+ "serde",
+ "serde_json",
+ "url",
 ]
 
 [[package]]

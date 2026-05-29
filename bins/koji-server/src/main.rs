@@ -14,7 +14,7 @@ fn main() {
 
     builder.init();
 
-    if let Err(err) = api::start() {
+    if let Err(err) = koji_service::start() {
         log::error!(
             "[KOJI] Kōji encountered a critical error and shut down: {:?}",
             err
