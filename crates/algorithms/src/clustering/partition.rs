@@ -577,7 +577,7 @@ mod tests {
         use crate::rtree;
         use std::time::Instant;
 
-        // CSV expected at workspace root (one level up from server/).
+        // CSV expected at the repo root, or one level up from the crate dir.
         let path = if std::path::Path::new("points-nh.csv").exists() {
             "points-nh.csv"
         } else if std::path::Path::new("../points-nh.csv").exists() {

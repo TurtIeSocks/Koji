@@ -12,12 +12,11 @@ logs/*.log
 .env.*
 docker-compose.yml
 
-# server
-server/target
+# workspace
 vrp_tests
-server/debug_files/*
-server/algorithms/src/**/plugins/**/*
-!server/algorithms/src/**/plugins/.gitkeep
+debug_files/*
+crates/algorithms/src/**/plugins/**/*
+!crates/algorithms/src/**/plugins/.gitkeep
 target/
 
 # misc

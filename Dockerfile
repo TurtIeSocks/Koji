@@ -7,9 +7,11 @@ RUN yarn build
 FROM rust:1.93-bookworm AS server
 ENV PKG_CONFIG_ALLOW_CROSS=1
 WORKDIR /usr/src/koji
-COPY ./server .
+COPY Cargo.toml Cargo.lock ./
+COPY crates ./crates
+COPY bins ./bins
 RUN apt-get update && apt-get install -y
-RUN cargo install --path . --locked
+RUN cargo install --path bins/koji-server --locked
 
 FROM debian:bookworm AS or-tools
 RUN mkdir -p /algorithms/src/routing/plugins

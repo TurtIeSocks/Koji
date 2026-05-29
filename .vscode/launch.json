@@ -5,9 +5,9 @@
       "type": "lldb",
       "request": "launch",
       "name": "Server",
-      "program": "${workspaceFolder}/server/target/debug/koji",
+      "program": "${workspaceFolder}/target/debug/koji",
       "args": [],
-      "cwd": "${workspaceFolder}/server",
+      "cwd": "${workspaceFolder}",
       "sourceLanguages": [
         "rust"
       ]
