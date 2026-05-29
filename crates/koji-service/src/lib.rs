@@ -29,6 +29,20 @@ mod private;
 mod public;
 mod utils;
 
+/// The hand-written OpenAPI 3.1 document for the `/api/v2` surface, embedded at
+/// build time and served (unauthenticated) by [`openapi_spec`].
+const OPENAPI_YAML: &str = include_str!("../openapi.yaml");
+
+/// `GET /api/v2/openapi.yaml` — serve the OpenAPI document as YAML.
+///
+/// Unauthenticated (like `/healthz`) so doc tooling can fetch it without the
+/// `KOJI_SECRET` bearer.
+async fn openapi_spec() -> HttpResponse {
+    HttpResponse::Ok()
+        .content_type("text/yaml; charset=utf-8")
+        .body(OPENAPI_YAML)
+}
+
 #[actix_web::main]
 pub async fn start() -> io::Result<()> {
     let databases = koji_db::utils::get_database_struct().await;
@@ -135,6 +149,10 @@ pub async fn start() -> io::Result<()> {
                     .build(),
             )
             .service(web::resource("/health").route(web::get().to(HttpResponse::Ok)))
+            // OpenAPI 3.1 doc for the v2 surface. Registered before the authed
+            // `/api` scope (and unauthenticated) so doc tooling can fetch it
+            // without the bearer, and so it matches ahead of the `/v2` scope.
+            .service(web::resource("/api/v2/openapi.yaml").route(web::get().to(openapi_spec)))
             .service(
                 web::scope("/config")
                     .service(private::misc::config)

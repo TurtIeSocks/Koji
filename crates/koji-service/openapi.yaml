@@ -1,0 +1,1009 @@
+openapi: 3.1.0
+info:
+  title: Koji v2 API
+  version: 1.5.1
+  summary: Clean v2 surface for Koji over the job queue.
+  description: |
+    The `/api/v2` surface of Koji: a job-queue-backed calc API plus typed CRUD
+    for geofences, routes, projects, properties, and tile-servers.
+
+    All responses use the [JSend](https://github.com/omniti-labs/jsend) envelope
+    (`success` / `fail` / `error`) — see the `JSend*` schemas.
+
+    Authentication: every `/api/v2/*` endpoint requires
+    `Authorization: Bearer <KOJI_SECRET>` (a session cookie from the Koji admin
+    panel also satisfies auth). The liveness probes (`/healthz`, `/health`) and
+    this document (`/api/v2/openapi.yaml`) are unauthenticated.
+
+    Geometry-bearing reads (geofences, routes) accept a `rt` (return-type) query
+    param that switches the response shape away from GeoJSON (text, array,
+    poracle, sql, …); when omitted the response is a GeoJSON `Feature` /
+    `FeatureCollection`. Those alternate shapes are returned raw (not JSend
+    wrapped) to preserve drop-in compatibility with v1 consumers.
+
+servers:
+  - url: /
+    description: Same-origin (the Koji service serves this spec and the API).
+
+tags:
+  - name: health
+    description: Liveness probes (unauthenticated).
+  - name: jobs
+    description: Generic async job API.
+  - name: calc
+    description: Calculation sugar over the job queue (sync-bridged with `?wait`).
+  - name: meta
+    description: Algorithm / capability metadata.
+  - name: geofences
+    description: Typed CRUD for geofences (geometry-bearing) + Dragonite publish.
+  - name: routes
+    description: Typed CRUD for routes (geometry-bearing).
+  - name: projects
+    description: Typed CRUD for projects.
+  - name: properties
+    description: Typed CRUD for properties.
+  - name: tile-servers
+    description: Typed CRUD for tile-servers.
+
+# Applied globally; the unauthenticated operations override with `security: []`.
+security:
+  - bearerAuth: []
+
+paths:
+  /healthz:
+    get:
+      operationId: healthz
+      tags: [health]
+      summary: Liveness probe.
+      description: Returns 200 with an empty body. Unauthenticated.
+      security: []
+      responses:
+        "200":
+          description: Service is up.
+
+  /health:
+    get:
+      operationId: health
+      tags: [health]
+      summary: Liveness probe (alias).
+      description: Alias of `/healthz`. Returns 200 with an empty body. Unauthenticated.
+      security: []
+      responses:
+        "200":
+          description: Service is up.
+
+  /api/v2/openapi.yaml:
+    get:
+      operationId: getOpenapiSpec
+      tags: [meta]
+      summary: This OpenAPI document.
+      description: Serves this spec as YAML. Unauthenticated so doc tooling can fetch it.
+      security: []
+      responses:
+        "200":
+          description: The OpenAPI 3.1 document.
+          content:
+            text/yaml:
+              schema:
+                type: string
+
+  /api/v2/jobs:
+    post:
+      operationId: enqueueJob
+      tags: [jobs]
+      summary: Enqueue a job.
+      description: |
+        Enqueue a job of the given `kind` with an opaque `payload`. Returns
+        `202` with the assigned `job_id`; poll `GET /api/v2/jobs/{id}` for status.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnqueueBody"
+      responses:
+        "202":
+          description: Job accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendJobId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v2/jobs/{id}:
+    parameters:
+      - $ref: "#/components/parameters/JobIdPath"
+    get:
+      operationId: getJob
+      tags: [jobs]
+      summary: Get a job's status / progress / result.
+      responses:
+        "200":
+          description: The job record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    delete:
+      operationId: cancelJob
+      tags: [jobs]
+      summary: Request cancellation of a job.
+      description: |
+        A queued job is canceled immediately; a running job is canceled at its
+        next phase boundary.
+      responses:
+        "200":
+          description: Cancellation requested.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v2/calc/{mode}:
+    parameters:
+      - $ref: "#/components/parameters/ModePath"
+      - $ref: "#/components/parameters/WaitQuery"
+    post:
+      operationId: calcMode
+      tags: [calc]
+      summary: Run a calculation (default `pokestop` category).
+      description: |
+        Resolves the area + data points, enqueues a high-priority `calculate`
+        job, then either returns `202 { job_id }` (async) or, with `?wait=1`,
+        blocks up to ~290s for the result via the sync bridge. On timeout the
+        bridge returns `504` with the `job_id` so the caller can poll.
+      requestBody:
+        required: true
+        description: A Koji calc `Args` object (area / instance / data_points / knobs).
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Calculation result (sync, `?wait=1`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "202":
+          description: Job accepted (async).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendJobId"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "500":
+          $ref: "#/components/responses/ServerError"
+        "504":
+          $ref: "#/components/responses/GatewayTimeout"
+
+  /api/v2/calc/{mode}/{category}:
+    parameters:
+      - $ref: "#/components/parameters/ModePath"
+      - $ref: "#/components/parameters/CategoryPath"
+      - $ref: "#/components/parameters/WaitQuery"
+    post:
+      operationId: calcModeCategory
+      tags: [calc]
+      summary: Run a calculation for an explicit data category.
+      description: Same as `POST /api/v2/calc/{mode}` but with an explicit data category.
+      requestBody:
+        required: true
+        description: A Koji calc `Args` object (area / instance / data_points / knobs).
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Calculation result (sync, `?wait=1`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "202":
+          description: Job accepted (async).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendJobId"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "500":
+          $ref: "#/components/responses/ServerError"
+        "504":
+          $ref: "#/components/responses/GatewayTimeout"
+
+  /api/v2/meta/algorithms:
+    get:
+      operationId: metaAlgorithms
+      tags: [meta]
+      summary: Available clustering / routing / bootstrap algorithms.
+      description: The available algorithm options (plugins included), grouped by stage.
+      responses:
+        "200":
+          description: Algorithm options.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v2/geofences:
+    get:
+      operationId: listGeofences
+      tags: [geofences]
+      summary: List geofences.
+      description: |
+        Defaults to a GeoJSON `FeatureCollection`. With `?rt=` set to a non-GeoJSON
+        return type (text / array / poracle / sql / …) the body is that raw shape
+        instead of the JSend/GeoJSON form.
+      parameters:
+        - $ref: "#/components/parameters/RtQuery"
+        - $ref: "#/components/parameters/InternalQuery"
+      responses:
+        "200":
+          description: Geofences (FeatureCollection by default).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeatureCollection"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    post:
+      operationId: createGeofence
+      tags: [geofences]
+      summary: Create a geofence.
+      requestBody:
+        $ref: "#/components/requestBodies/JsonBody"
+      responses:
+        "201":
+          description: Created geofence record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v2/geofences/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdOrNamePath"
+    get:
+      operationId: getGeofence
+      tags: [geofences]
+      summary: Get one geofence (by id or name).
+      description: Defaults to a GeoJSON `Feature`; honors `?rt=` like the list endpoint.
+      parameters:
+        - $ref: "#/components/parameters/RtQuery"
+        - $ref: "#/components/parameters/InternalQuery"
+      responses:
+        "200":
+          description: One geofence (Feature by default).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Feature"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    patch:
+      operationId: updateGeofence
+      tags: [geofences]
+      summary: Update a geofence by id.
+      requestBody:
+        $ref: "#/components/requestBodies/JsonBody"
+      responses:
+        "200":
+          description: Updated geofence record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    delete:
+      operationId: deleteGeofence
+      tags: [geofences]
+      summary: Delete a geofence by id.
+      responses:
+        "200":
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendRowsAffected"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v2/geofences/{id}/publish:
+    parameters:
+      - $ref: "#/components/parameters/IdOrNamePath"
+    post:
+      operationId: publishGeofence
+      tags: [geofences]
+      summary: Publish a geofence's fence to its linked Dragonite area.
+      description: |
+        Appends an `area.geofence_updated` event to the outbox; the dispatcher
+        delivers it to Dragonite (`PATCH /v2/areas/{id}`). Returns `202` with the
+        outbox `event_id`. A geofence with no linked `dragonite_area_id` yields
+        `422`; an unknown geofence yields `404`.
+      responses:
+        "202":
+          description: Publish event enqueued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v2/routes:
+    get:
+      operationId: listRoutes
+      tags: [routes]
+      summary: List routes.
+      description: Defaults to a GeoJSON `FeatureCollection`; honors `?rt=` and `?internal=`.
+      parameters:
+        - $ref: "#/components/parameters/RtQuery"
+        - $ref: "#/components/parameters/InternalQuery"
+      responses:
+        "200":
+          description: Routes (FeatureCollection by default).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeatureCollection"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    post:
+      operationId: createRoute
+      tags: [routes]
+      summary: Create a route.
+      requestBody:
+        $ref: "#/components/requestBodies/JsonBody"
+      responses:
+        "201":
+          description: Created route record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v2/routes/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdOrNamePath"
+    get:
+      operationId: getRoute
+      tags: [routes]
+      summary: Get one route (by id or name).
+      description: Defaults to a GeoJSON `Feature`; honors `?rt=` and `?internal=`.
+      parameters:
+        - $ref: "#/components/parameters/RtQuery"
+        - $ref: "#/components/parameters/InternalQuery"
+      responses:
+        "200":
+          description: One route (Feature by default).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Feature"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    patch:
+      operationId: updateRoute
+      tags: [routes]
+      summary: Update a route by id.
+      requestBody:
+        $ref: "#/components/requestBodies/JsonBody"
+      responses:
+        "200":
+          description: Updated route record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    delete:
+      operationId: deleteRoute
+      tags: [routes]
+      summary: Delete a route by id.
+      responses:
+        "200":
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendRowsAffected"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v2/projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List projects.
+      responses:
+        "200":
+          description: All projects.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a project.
+      requestBody:
+        $ref: "#/components/requestBodies/JsonBody"
+      responses:
+        "201":
+          description: Created project record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v2/projects/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdOrNamePath"
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get one project (by id or name).
+      responses:
+        "200":
+          description: One project record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    patch:
+      operationId: updateProject
+      tags: [projects]
+      summary: Update a project by id.
+      requestBody:
+        $ref: "#/components/requestBodies/JsonBody"
+      responses:
+        "200":
+          description: Updated project record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Delete a project by id.
+      responses:
+        "200":
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendRowsAffected"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v2/properties:
+    get:
+      operationId: listProperties
+      tags: [properties]
+      summary: List properties.
+      responses:
+        "200":
+          description: All properties.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    post:
+      operationId: createProperty
+      tags: [properties]
+      summary: Create a property.
+      requestBody:
+        $ref: "#/components/requestBodies/JsonBody"
+      responses:
+        "201":
+          description: Created property record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v2/properties/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdOrNamePath"
+    get:
+      operationId: getProperty
+      tags: [properties]
+      summary: Get one property (by id or name).
+      responses:
+        "200":
+          description: One property record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    patch:
+      operationId: updateProperty
+      tags: [properties]
+      summary: Update a property by id.
+      requestBody:
+        $ref: "#/components/requestBodies/JsonBody"
+      responses:
+        "200":
+          description: Updated property record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    delete:
+      operationId: deleteProperty
+      tags: [properties]
+      summary: Delete a property by id.
+      responses:
+        "200":
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendRowsAffected"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v2/tile-servers:
+    get:
+      operationId: listTileServers
+      tags: [tile-servers]
+      summary: List tile-servers.
+      responses:
+        "200":
+          description: All tile-servers.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    post:
+      operationId: createTileServer
+      tags: [tile-servers]
+      summary: Create a tile-server.
+      requestBody:
+        $ref: "#/components/requestBodies/JsonBody"
+      responses:
+        "201":
+          description: Created tile-server record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v2/tile-servers/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdOrNamePath"
+    get:
+      operationId: getTileServer
+      tags: [tile-servers]
+      summary: Get one tile-server (by id or name).
+      responses:
+        "200":
+          description: One tile-server record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    patch:
+      operationId: updateTileServer
+      tags: [tile-servers]
+      summary: Update a tile-server by id.
+      requestBody:
+        $ref: "#/components/requestBodies/JsonBody"
+      responses:
+        "200":
+          description: Updated tile-server record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    delete:
+      operationId: deleteTileServer
+      tags: [tile-servers]
+      summary: Delete a tile-server by id.
+      responses:
+        "200":
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JSendRowsAffected"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: The `KOJI_SECRET` as a bearer token.
+
+  parameters:
+    JobIdPath:
+      name: id
+      in: path
+      required: true
+      description: The job id.
+      schema:
+        type: string
+    ModePath:
+      name: mode
+      in: path
+      required: true
+      description: The calc mode (e.g. a clustering / routing / `bootstrap` algorithm).
+      schema:
+        type: string
+    CategoryPath:
+      name: category
+      in: path
+      required: true
+      description: The data category (e.g. `pokestop`, `gym`, `spawnpoint`).
+      schema:
+        type: string
+    IdOrNamePath:
+      name: id
+      in: path
+      required: true
+      description: The numeric id (writes) or id/name (reads).
+      schema:
+        type: string
+    WaitQuery:
+      name: wait
+      in: query
+      required: false
+      description: When truthy (`1`), block up to ~290s for the result (sync bridge); else async.
+      schema:
+        type: integer
+        format: int32
+        enum: [0, 1]
+        default: 0
+    RtQuery:
+      name: rt
+      in: query
+      required: false
+      description: |
+        Return type. Defaults to `featurecollection` (lists) / `feature` (single).
+        Non-GeoJSON values change the raw response shape.
+      schema:
+        type: string
+        enum:
+          - alttext
+          - text
+          - array
+          - multiarray
+          - struct
+          - multistruct
+          - geometry
+          - geometryvector
+          - feature
+          - featurevector
+          - featurecollection
+          - poraclesingle
+          - poracle
+          - sql
+    InternalQuery:
+      name: internal
+      in: query
+      required: false
+      description: When true, internal DB properties (with a `__` prefix, plus a generated `id`) are added. Development use only.
+      schema:
+        type: boolean
+
+  requestBodies:
+    JsonBody:
+      required: true
+      description: The record fields as a JSON object.
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Malformed request (JSend `fail`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/JSendFail"
+    Unauthorized:
+      description: Missing or invalid bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/JSendError"
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/JSendError"
+    Conflict:
+      description: Conflict (e.g. the job was canceled).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/JSendError"
+    Unprocessable:
+      description: Semantically invalid (e.g. unlinked geofence, validation error).
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: "#/components/schemas/JSendFail"
+              - $ref: "#/components/schemas/JSendError"
+    ServerError:
+      description: Internal server error (JSend `error`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/JSendError"
+    GatewayTimeout:
+      description: |
+        The sync bridge timed out; the job is still running. `data.job_id` lets
+        the caller poll `GET /api/v2/jobs/{id}`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/JSendError"
+
+  schemas:
+    JSendSuccess:
+      type: object
+      description: JSend success envelope. `data` shape is per-endpoint.
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          const: success
+        data:
+          description: The endpoint payload (object, array, or scalar).
+      additionalProperties: false
+    JSendFail:
+      type: object
+      description: JSend fail envelope (client-side rejection / validation).
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          const: fail
+        data:
+          type: object
+          description: Machine-readable description of what was wrong (field → message).
+          additionalProperties: true
+      additionalProperties: false
+    JSendError:
+      type: object
+      description: JSend error envelope (server-side processing failure).
+      required: [status, message]
+      properties:
+        status:
+          type: string
+          const: error
+        message:
+          type: string
+          description: Human-readable error message.
+        code:
+          type: string
+          description: Stable machine-readable code (e.g. `not_found`, `validation_error`, `timeout`).
+        data:
+          description: Optional extra context (e.g. `{ job_id }`).
+      additionalProperties: false
+    JSendJobId:
+      type: object
+      description: A success envelope whose `data` carries an enqueued job id.
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          const: success
+        data:
+          type: object
+          required: [job_id]
+          properties:
+            job_id:
+              type: string
+              description: The enqueued job id.
+      additionalProperties: false
+    JSendRowsAffected:
+      type: object
+      description: A success envelope whose `data` carries the number of rows affected.
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          const: success
+        data:
+          type: object
+          required: [rows_affected]
+          properties:
+            rows_affected:
+              type: integer
+              format: int64
+      additionalProperties: false
+    Feature:
+      type: object
+      description: A GeoJSON Feature (loosely modeled; see RFC 7946).
+      required: [type, geometry]
+      properties:
+        type:
+          type: string
+          const: Feature
+        geometry:
+          type: object
+          additionalProperties: true
+          nullable: true
+        properties:
+          type: object
+          additionalProperties: true
+          nullable: true
+        id:
+          oneOf:
+            - type: string
+            - type: number
+      additionalProperties: true
+    FeatureCollection:
+      type: object
+      description: A GeoJSON FeatureCollection (loosely modeled; see RFC 7946).
+      required: [type, features]
+      properties:
+        type:
+          type: string
+          const: FeatureCollection
+        features:
+          type: array
+          items:
+            $ref: "#/components/schemas/Feature"
+      additionalProperties: true
+    EnqueueBody:
+      type: object
+      description: Body for `POST /api/v2/jobs`.
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          description: The handler kind (e.g. `calculate`).
+        payload:
+          description: The job payload, passed opaquely to the handler.
+          default: {}
+      additionalProperties: false
