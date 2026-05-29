@@ -27,8 +27,10 @@ Migrations applied to `dev_koji`; v1 + v2 calc (cluster/route/bootstrap) over re
 - `ScannerType`/RDM/Hybrid + `CONTROLLER_DB_URL`/`UNOWN_DB_URL`/`UNOWN_DB`/`DATABASE_URL` env fallbacks removed; the controller DB connection is replaced by the Dragonite HTTP client.
 - v1 `push_to_prod` (geofence/route/project) + the `/internal/routes` RDM-import endpoints removed (superseded by v2 events→Dragonite publish).
 
+## v1 calc is now queue-backed (P7)
+Every `/api/v1/calc/*` endpoint except `/area` resolves its async inputs, runs through the **same job queue + sync bridge** as v2 (`CalculateHandler`), and re-wraps the result in the legacy `{message,status,status_code,data,stats}` envelope — removing the last inline-synchronous algorithm execution path. The `CalculateHandler` was extended to cover all v1 modes (added `reroute` route-only + `route-stats` stats-only); `/area` (pure geometry sum) stays inline. This surfaced + fixed a **pre-existing queue race**: the per-job heartbeat used the lossy `Notify::notify_waiters()` to stop, which a near-instant handler (reroute/route-stats, ~1ms) could outrun → the heartbeat signal was lost, wedging the worker and stranding the job in `running`. Switched to `notify_one()` (stores a permit); this also hardens fast v2 calc jobs.
+
 ## Intentionally deferred (follow-ups, not blockers)
-- **v1-calc re-point through the queue** — NOT done on purpose: v1 is deprecated (Dragonite→v2), and the v2 `CalculateHandler` covers only bootstrap + cluster+route (not v1's reroute/route-stats/area), so re-pointing would mean *expanding* the handler + rewriting 6 handlers with regression risk for a dying surface. v1 calc stays inline.
 - **`area.route_updated` producer** — the subscriber arm + payload + `area_route_patch` exist + are unit-tested, but no producer is wired (needs a koji-route-mode→`AreaMode` mapping decision).
-- **clippy-pedantic manual sweep** (residual ~manual warnings: large-variant boxing, manual trait impls) and **repo-wide `rustfmt`** (separate isolated commit — the repo was never fmt-enforced).
-- **Calc `save_to_db`/`save_to_scanner` side-effects** in v2 (deferred since P4).
+- **clippy-pedantic manual sweep** — residual ~manual warnings (large-variant boxing, manual trait impls); low-value style churn.
+- **Calc `save_to_db`/`save_to_scanner` side-effects** in v2 (deferred since P4; v1 retains its `save_to_db`).
