@@ -1,8 +1,8 @@
 # Koji V2 — Phasing / Commit Roadmap
 
 > **▶ RESUME HERE (paused 2026-05-29).** Branch `claude/goofy-tu-5372ed`; tree clean, `cargo build --workspace` + tests green (16+3 pass, 4+1 ignored).
-> **Done + committed:** P0 (`410fe72`, `a1120c0`) · P1a (`77fb53e`) · P1b (`0e555b3`) · P1-conv (`a388df2`) · P1c (`bedc56e`→`76f1c64`) · P1d (`c7618e7`, `fddc9fb`) · P2-configs (`c138d0b`).
-> **NEXT:** **P3** — additive infra crates: `koji-jobs` (job table migration + queue + worker pool + JobHandler), `koji-events` (outbox + webhook_subscription migrations + dispatcher + Subscriber), `koji-dragonite` (typed `/v2/areas` client + JSend), + `area_fence`/`area.dragonite_area_id` migration. Not yet wired. Brainstorm → spec → plan → execute (autonomous/delegate per memory). **Heads-up:** P3 adds DB migrations + an HTTP client — runtime/migration behavior not verifiable in the dev sandbox (no DB / no Dragonite); build + careful review here, maintainer integration-tests.
+> **Done + committed:** P0 (`410fe72`, `a1120c0`) · P1a (`77fb53e`) · P1b (`0e555b3`) · P1-conv (`a388df2`) · P1c (`bedc56e`→`76f1c64`) · P1d (`c7618e7`, `fddc9fb`) · P2-configs (`c138d0b`) · P3 (`fb25e8e`→`a42bf18`: koji-jobs/events/dragonite + migrations).
+> **NEXT:** **P4 — STOP-AND-CONFIRM.** API v2 + v1 shim (koji-service: AppState + JSend + v2 typed resources + jobs endpoints + sync-calc bridge + v1 shim). The **v1 shim must be byte-compatible with LIVE Dragonite** (`koji/main.go` `/api/v1/calc/*` request+response shapes) — that contract is NOT in this repo and can't be verified in the sandbox. **Get the maintainer's Dragonite calc request/response samples (or `koji/main.go`) before building the v1 shim**; the v2 surface + skeleton can proceed, but the shim is the irreversible-facing risk. Per memory `koji-v2-autonomous-delegate`, flag — don't guess.
 > **P2 scope note:** config-struct **adoption** done (`c138d0b`) — clustering/routing/bootstrap take the koji-core configs; `calculate.rs` builds them at the call sites (flat `ArgsUnwrapped` fields kept; their removal is a trivial later cleanup). `koji-plugins` extraction **moved to P7** (the plugin system is reworked there — manifest/JSON protocol/registry — so the move + formalization land together, avoiding move-only churn + the `create_cell_map` cross-crate cycle now). Calc-path behavioral parity to be confirmed by the maintainer's `benchmark_mode` A/B (algorithm internals untouched; only param plumbing changed).
 > **Context:** architecture + job-queue specs in `docs/superpowers/specs/`; per-phase plans in `docs/superpowers/plans/`. Pre-existing debt for the P7 sweep: `greedy.rs:798,817` clippy `unused_io_amount` (deny-level) + repo-wide rustfmt (project isn't fmt-enforced).
 
@@ -31,11 +31,12 @@ Delivered as focused, independently-green sub-plans (each reviewed before execut
 - ↪ MOVED TO P7 `refactor(plugins): extract koji-plugins` — deferred so the move lands with the plugin formalization (P7), avoiding the `create_cell_map`/`stringify_points` cross-crate cycle as move-only churn now.
 > Perf parity: maintainer runs `benchmark_mode` + `bypass_adaptive_partition` A/B (not runnable in the dev sandbox — needs a real DB). Algorithm internals unchanged, so parity risk is confined to the param plumbing (cross-checked 1:1).
 
-## Phase 3 — New infra crates (additive, not yet wired)
-- `feat(jobs): koji-jobs — job table migration, queue API, worker pool, JobHandler`
-- `feat(events): koji-events — outbox + webhook_subscription migrations, dispatcher, WebhookSubscriber`
-- `feat(dragonite): koji-dragonite — typed /v2/areas client + JSend types`
-- `feat(migration): area_fence + area.dragonite_area_id linkage`
+## Phase 3 — New infra crates (additive, not yet wired) ✅ DONE
+- ✅ (`fb25e8e`,`3d8eb6f`) `koji-jobs` — job table migration + queue API + worker pool + `JobHandler` + claim/lease/dedup/await (job-queue spec §4/§5/§6/§10). 11 DB-free unit tests.
+- ✅ (`6f86696`,`e7a114d`) `koji-events` — event_outbox + webhook_subscription migrations + outbox dispatcher (claim/backoff/dead-letter) + `Subscriber`/`WebhookSubscriber` (HMAC). Design: P3b spec. 9 unit tests (HMAC vs RFC-4231 vector).
+- ✅ (`ec1e9d2`,`a42bf18`) `koji-dragonite` + `area_fence`/`geofence.dragonite_area_id` migration — JSend + tri-state `V2GeofencePatch` + reqwest client plumbing + known route mapping. **Wire types PROVISIONAL** (no Dragonite OpenAPI here — every speculative field/endpoint marked `TODO(dragonite-reconcile)`; maintainer must reconcile vs Dragonite's real `/v2/areas` before P5). 15 unit tests.
+> All additive + unwired; build green. **RUNTIME-UNVERIFIED** (no DB / no live Dragonite in the sandbox): the queue claim/await/worker loop, the event dispatch/backoff loop, all HTTP. Maintainer integration-tests against MySQL + Dragonite (specs §12). Migrations run once; raw MySQL DDL.
+> ⛔ **P4 IS A STOP-AND-CONFIRM GATE.** The `/api/v1` shim must be **byte-compatible with LIVE Dragonite** (`koji/main.go` calc requests) — and that contract isn't in this repo. Do not blind-build the v1 shim. The v2 surface + koji-service skeleton + sync-bridge wiring are buildable, but the v1-shim byte-compat needs the maintainer's Dragonite request/response samples + replay tests (architecture §6, job-queue spec §12). See memory `koji-v2-autonomous-delegate`.
 
 ## Phase 4 — API v2 + v1 shim
 - `feat(service): managed AppState + koji-service skeleton + JSend envelope`
