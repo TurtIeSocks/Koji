@@ -6,18 +6,19 @@ One long-lived branch, many commits. **Invariant: every commit compiles + passes
 - **Deps → latest + workspace-managed.** When a phase touches a crate, bump its deps to latest (breaking OK, fix in-phase) and move them to root `[workspace.dependencies]` (`dep = { workspace = true }`). P0 scaffolds the `[workspace.dependencies]` table.
 - **Macros first-class.** Reach for `koji-macros` to DRY repeated patterns (typed CRUD handlers, entity↔domain mappings, v1-shim adapters) once a pattern recurs 3+ times.
 
-## Phase 0 — Workspace skeleton (mechanical, zero behavior change)
-- `chore(workspace): add root Cargo.toml, move server/* → crates/ + bins/, rename koji-*`
-- `chore(ci): update Dockerfile + .github paths for new layout`
-> Verify: full build + test green. Pure move — diff is large, risk low.
+## Phase 0 — Workspace skeleton (mechanical, zero behavior change) ✅ DONE
+- `refactor(workspace): relocate cargo workspace to repo root (crates/ + bins/)`
+- `chore(build): update Dockerfile + ignores + vscode for root workspace layout`
+> Done: build + tests green, zero behavior change. Deviation: no `koji-*` package renames — relocate only; renames fold into the phases that rewrite each crate.
 
 ## Phase 1 — Split the `model` nightmare (separation of concerns)
-- `refactor(core): extract koji-core (geometry, conversions, GeoFormats, BBox)`
-- `feat(core): domain enums (FenceType/DataType/ReturnType/…) + From/Into mapping in db`
-- `refactor(db): extract koji-db (Koji's own entities); stop exposing entities as DTOs`
-- `refactor(scanner): extract koji-scanner (golbat read-only)`
-- `refactor(core): break Args → config structs (Clustering/Routing/Bootstrap/S2/Output/AreaInput); drop 6 deprecated fields`
-> Riskiest phase — lean on the compiler; keep a temporary Args→config adapter so API still builds.
+Delivered as focused, independently-green sub-plans (each reviewed before execution):
+- **P1a** ✅ DONE — `koji-core` + `#[derive(StrEnum)]` + `enum_bridge!`; `FenceType`/`Category` + relocated strategy enums; conversion traits decoupled from sea-orm `Type`.
+- **P1b** — move geometry + conversion layer into `koji-core`; **migrate all consumers to `koji_core` directly (no facade)**; `PointStruct` pure (db `LatLonRow` carve-out); `text.rs` split (RDM stays).
+- **P1-conv** — conversion-layer modernization: `To*` zoo → `From`/`Into`/`TryFrom` + `FeatureCtx` for the param-carrying conversions + a derive macro.
+- **P1c** — extract `koji-db` (own entities, stop entity=DTO) + `koji-scanner` (golbat read-only) + split remaining `model::utils` (db helpers vs pure).
+- **P1d** — break `Args` → config structs (Clustering/Routing/Bootstrap/S2/Output/AreaInput); drop 6 deprecated fields.
+> Riskiest phase. No transitional facades — consumers migrate as types move.
 
 ## Phase 2 — Algorithms take structs
 - `refactor(algorithms): cluster/route/bootstrap accept config structs (was 15 primitives)`

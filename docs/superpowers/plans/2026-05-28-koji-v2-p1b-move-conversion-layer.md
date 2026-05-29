@@ -2,9 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans. Steps use checkbox (`- [ ]`) syntax.
 
-**Goal:** Physically relocate the now-pure geometry types, conversion traits/impls, `GeoFormats`, `BBox`, `Precision`, and the pure utils they need (`TrimPrecision`, `sql_raw`, `sql_raw_bbox`) from `crates/model/src/api` into `crates/koji-core`. `model::api` becomes a thin re-export facade so `algorithms`/`api`/bins keep compiling unchanged.
+**Goal:** Physically relocate the now-pure geometry types, conversion traits/impls, `GeoFormats`, `BBox`, `Precision`, and the pure utils they need (`TrimPrecision`, `sql_raw`, `sql_raw_bbox`) from `crates/model/src/api` into `crates/koji-core`, **and migrate every consumer to import them from `koji_core` directly — no re-export facade, no transitional debt.** `algorithms`/`api` gain a direct `koji-core` dep; the P1a strategy-enum shims in `model::api` are deleted too (consumers move to `koji_core::{ClusterMode,…}`). After P1b, `model::api` holds only `args` (the super-struct, P1d) + the RDM `text.rs`.
 
-**Architecture:** koji-core grows from "enums only" to the full geometry/GeoJSON domain layer. Two carve-outs: (1) `PointStruct` moves to core *pure* (no sea-orm `FromQueryResult`); a new `koji-db`... actually `model::db` gains a `LatLonRow` query-row type that derives `FromQueryResult` and converts to `PointStruct`, used by the 12 scanner SELECT sites. (2) `text.rs` splits — pure `To*` impls for `String` move to core; the RDM-coupled `TextHelpers`/`parse_scanner_instance` stays in `model` (removed in P6).
+**Architecture:** koji-core grows from "enums only" to the full geometry/GeoJSON domain layer. Two carve-outs: (1) `PointStruct` moves to core *pure* (no sea-orm `FromQueryResult`); `model::db` gains a `LatLonRow` query-row type that derives `FromQueryResult` and converts to `PointStruct`, used by the 12 scanner SELECT sites. (2) `text.rs` splits — pure `To*` impls for `String` move to core; the RDM-coupled `TextHelpers`/`parse_scanner_instance` stays in `model` (removed in P6).
+
+**Not in scope (next phase):** modernizing the `To*` conversion zoo into `From`/`Into`/`TryFrom` + a `FeatureCtx` for the param-carrying conversions + a derive macro. P1b is a *pure move + import migration* — call style is unchanged. The redesign is its own designed/reviewed phase right after.
 
 **Tech Stack:** Rust 2024, serde, geojson, geo, sea-orm (db only).
 
@@ -149,32 +151,31 @@ impl From<LatLonRow> for koji_core::PointStruct {
 
 ---
 
-### Task 5: Turn `model::api` into a re-export facade
+### Task 5: Migrate all consumers to koji_core + strip model::api (NO facade)
 
-**Files:** `crates/model/src/api/mod.rs`, `crates/model/src/utils/mod.rs`
+**Files:** `crates/algorithms/Cargo.toml`, `crates/api/Cargo.toml`, `crates/model/src/api/mod.rs`, `crates/model/src/utils/mod.rs`, + every consumer file (compiler-driven).
 
-- [ ] **Step 1: Rewrite `crates/model/src/api/mod.rs`** as a facade. Remove the moved trait defs + GeoFormats/BBox/Precision (now in koji-core). Keep `pub mod args;` and the strategy-enum shim modules. Add:
-```rust
-// Geometry/conversion layer now lives in koji-core; re-exported for back-compat.
-pub use koji_core::{
-    BBox, EnsurePoints, EnsureProperties, FeatureHelpers, GeoFormats, GeometryHelpers, GetBbox,
-    MultiStruct, MultiVec, PointArray, PointStruct, Poracle, Precision, SingleStruct, SingleVec,
-    ToCollection, ToFeature, ToFeatureVec, ToGeometry, ToGeometryVec, ToMultiStruct, ToMultiVec,
-    ToPointArray, ToPointStruct, ToPoracle, ToPoracleVec, ToSingleStruct, ToSingleVec, ToSql,
-    ToText, ValueHelpers,
-};
-// Submodule paths consumers still use (model::api::single_vec::SingleVec, etc.):
-pub mod single_vec { pub use koji_core::SingleVec; }
-pub mod multi_vec { pub use koji_core::MultiVec; }
-pub mod single_struct { pub use koji_core::SingleStruct; }
-pub mod multi_struct { pub use koji_core::MultiStruct; }
-pub mod point_array { pub use koji_core::PointArray; }
-pub mod point_struct { pub use koji_core::PointStruct; }
-pub mod poracle { pub use koji_core::Poracle; }
+- [ ] **Step 1: Add the direct dep** to `crates/algorithms/Cargo.toml` and `crates/api/Cargo.toml` `[dependencies]`:
+```toml
+koji-core = { path = "../koji-core" }
 ```
-Keep `pub mod text;` (the trimmed RDM file). Keep the `db::{InstanceParsing, RdmInstanceArea}` import ONLY if `text.rs` still needs them via the glob — otherwise drop (they were unused in mod.rs per the map).
 
-- [ ] **Step 2: Delete the 3 moved utils** from `crates/model/src/utils/mod.rs` (`TrimPrecision`, `sql_raw`, `sql_raw_bbox`) and re-export from core for back-compat: `pub use koji_core::{TrimPrecision, sql_raw, sql_raw_bbox};`. Update model-internal callers (e.g. db entities using `utils::sql_raw`) — compiler-driven.
+- [ ] **Step 2: Strip `crates/model/src/api/mod.rs`** down to what still lives in `model`:
+```rust
+pub mod args;
+pub mod text; // RDM TextHelpers only (removed in P6)
+```
+Delete the moved trait defs, `GeoFormats`, `BBox`, `Precision`, the geometry `pub mod`s, AND the P1a strategy-enum shim modules (`cluster_mode`/`calc_mode`/`sort_by`). Drop the now-unused `db::{InstanceParsing, RdmInstanceArea}` import unless `text.rs` references them via the glob (then import them in `text.rs` directly).
+
+- [ ] **Step 3: Delete the 3 moved utils** from `crates/model/src/utils/mod.rs` (`TrimPrecision`, `sql_raw`, `sql_raw_bbox`) — **no re-export**.
+
+- [ ] **Step 4: Compiler-driven migration sweep.** Run `cargo build --workspace`. Every now-broken import resolves by repointing to `koji_core`:
+  - `model::api::{SingleVec, MultiVec, PointArray, PointStruct, Poracle, GeoFormats, Precision, To*, GetBbox, ...}` → `koji_core::{...}`
+  - `model::api::{single_vec,point_array,...}::X` (submodule paths) → `koji_core::X`
+  - `model::api::{cluster_mode,calc_mode,sort_by}::Y` → `koji_core::Y`
+  - `model::utils::{TrimPrecision, sql_raw, sql_raw_bbox}` (or `utils::…` inside model) → `koji_core::{...}`
+  - **Leave** `model::api::args::{ReturnTypeArg, BoundsArg, Args, …}` pointing at `model` (args stays).
+  Repeat build→fix until the workspace is green. Touched crates: `algorithms`, `api`, and `model`'s own `db/`/`utils/` internals. Each miss is a named compiler error — no guessing.
 
 ---
 
@@ -190,11 +191,12 @@ git commit -m "refactor(core): move geometry + conversion layer from model::api 
 
 Relocates the conversion traits, geometry types (Single/MultiVec, *Struct,
 PointArray, PointStruct, Poracle), GeoFormats, BBox, Precision, and the pure
-utils (TrimPrecision, sql_raw) into koji-core. model::api is now a re-export
-facade (flat + submodule paths) so algorithms/api/bins are unchanged.
-PointStruct is pure in core; model::db::LatLonRow carries the FromQueryResult
-for the 12 scanner SELECT sites. text.rs split: pure String impls -> core,
-RDM TextHelpers stays in model (removed in P6).
+utils (TrimPrecision, sql_raw) into koji-core. Consumers (algorithms, api,
+model internals) migrate to import from koji_core directly; model::api keeps
+only args + RDM text — NO re-export facade. PointStruct is pure in core;
+model::db::LatLonRow carries the FromQueryResult for the 12 scanner SELECT
+sites. text.rs split: pure String impls -> core, RDM TextHelpers stays in
+model (removed in P6).
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
@@ -203,7 +205,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ## Self-Review
 
-**Spec coverage (§4):** ✅ geometry + conversions now in koji-core; ✅ model::api decoupled (facade only); ✅ PointStruct pure (sea-orm carve-out via LatLonRow); ✅ text RDM isolated. ⏭ remaining model::utils split (get_enum→ a db helper, name_modifier, get_database_struct) = P1c; ⏭ Args = P1d.
+**Spec coverage (§4):** ✅ geometry + conversions now in koji-core; ✅ consumers migrated to koji_core directly — no facade, zero transitional debt; ✅ PointStruct pure (sea-orm carve-out via LatLonRow); ✅ text RDM isolated. ⏭ conversion modernization (From/Into/TryFrom + FeatureCtx + macro) = dedicated next phase; ⏭ remaining model::utils split (get_enum, name_modifier, get_database_struct) = P1c; ⏭ Args = P1d.
 
 **Placeholder scan:** New code (`LatLonRow` + `From`, the facade re-exports, koji-core module wiring) is complete. Moves are verbatim (git mv); import fixes + the 12 query-site downstream conversions are compiler-driven sweeps (reliable for move-induced path changes), not placeholders. The geometry/mod.rs trait block is "moved verbatim from model api/mod.rs lines 26-234" — a literal relocation, not new content to invent.
 
