@@ -404,7 +404,7 @@ async fn route_stats(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
 
     Ok(utils::response::send(
         feature,
-        model::api::args::ReturnTypeArg::Feature,
+        koji_core::ReturnTypeArg::Feature,
         Some(stats),
         true,
         Some(instance),
@@ -466,7 +466,7 @@ async fn route_stats_category(
 
     Ok(utils::response::send(
         feature,
-        model::api::args::ReturnTypeArg::Feature,
+        koji_core::ReturnTypeArg::Feature,
         Some(stats),
         true,
         Some(instance),

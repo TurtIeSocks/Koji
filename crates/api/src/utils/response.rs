@@ -9,7 +9,7 @@ use serde_json::json;
 
 use koji_core::{ToMultiStruct, ToMultiVec, ToPoracleVec, ToSingleStruct, ToSingleVec, ToText};
 use koji_core::GeoFormats;
-use crate::model::api::args::ReturnTypeArg;
+use koji_core::ReturnTypeArg;
 
 #[derive(Debug, Serialize)]
 pub struct ConfigResponse {

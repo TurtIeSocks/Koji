@@ -1,6 +1,6 @@
 use geojson::{Feature, FeatureCollection};
 use koji_core::{
-    CalculationMode, ClusterMode, FeatureCtx, FenceType, GeoFormats, Precision, SortBy,
+    CalculationMode, ClusterMode, FeatureCtx, FenceType, GeoFormats, Precision, ReturnTypeArg, SortBy,
     SpawnpointTth, ToCollection, ToSingleVec, UnknownId, get_enum, get_enum_by_geometry_string,
 };
 use serde::{Deserialize, Serialize};
@@ -8,24 +8,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Auth {
     pub password: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum ReturnTypeArg {
-    AltText,
-    Text,
-    SingleArray,
-    MultiArray,
-    SingleStruct,
-    MultiStruct,
-    Geometry,
-    GeometryVec,
-    Feature,
-    FeatureVec,
-    FeatureCollection,
-    PoracleSingle,
-    Poracle,
-    Sql,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
