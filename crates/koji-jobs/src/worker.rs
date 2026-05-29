@@ -238,7 +238,14 @@ async fn run_claimed_job(
     let run_result = tokio::task::spawn_blocking(move || handler.run(payload, &ctx)).await;
 
     // Handler finished (or its blocking task panicked) → stop the heartbeat.
-    stop_heartbeat.notify_waiters();
+    // `notify_one` (NOT `notify_waiters`): a fast handler can return before the
+    // freshly-spawned heartbeat task has been polled to its `stop.notified()`
+    // await point. `notify_waiters` only wakes *currently-registered* waiters, so
+    // that signal would be lost and `heartbeat.await` below would hang forever
+    // (wedging the worker + leaving the job stuck `running`). `notify_one` stores
+    // a permit when no waiter is registered yet, so the heartbeat's next
+    // `notified()` completes immediately.
+    stop_heartbeat.notify_one();
     if let Err(e) = heartbeat.await {
         log::warn!("[koji-jobs] worker {worker_idx} heartbeat join error: {e}");
     }

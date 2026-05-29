@@ -295,8 +295,12 @@ impl EventDispatcher {
         // Deliver to every interested subscriber; collect the first failure.
         let result = self.deliver_to_subscribers(event).await;
 
-        // Stop the heartbeat before the terminal write.
-        stop_heartbeat.notify_waiters();
+        // Stop the heartbeat before the terminal write. `notify_one` (NOT
+        // `notify_waiters`): a fast delivery can finish before the freshly-spawned
+        // heartbeat task reaches its `stop.notified()` await; `notify_waiters`
+        // would lose that signal and `heartbeat.await` would hang the dispatcher.
+        // `notify_one` stores a permit so the next `notified()` completes at once.
+        stop_heartbeat.notify_one();
         if let Err(e) = heartbeat.await {
             log::warn!(
                 "[koji-events] heartbeat join error for event id={}: {e}",
