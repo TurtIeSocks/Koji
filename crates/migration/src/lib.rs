@@ -20,6 +20,7 @@ mod m20230301_051446_tile_server_table;
 mod m20230407_045757_parent_column;
 mod m20230505_150751_hop_count;
 mod m20230626_155916_project_description;
+mod m20260529_000001_create_job_table;
 
 pub struct Migrator;
 
@@ -47,6 +48,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230407_045757_parent_column::Migration),
             Box::new(m20230505_150751_hop_count::Migration),
             Box::new(m20230626_155916_project_description::Migration),
+            Box::new(m20260529_000001_create_job_table::Migration),
         ]
     }
 }
