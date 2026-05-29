@@ -10,6 +10,7 @@ use sea_orm::{
 };
 
 pub mod area;
+mod enum_bridge;
 pub mod geofence;
 pub mod geofence_project;
 pub mod geofence_property;

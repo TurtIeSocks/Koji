@@ -9,6 +9,7 @@ name = "model"
 path = "src/lib.rs"
 
 [dependencies]
+koji-core = { path = "../koji-core" }
 chrono = { version = "0.4.42", features = ["serde"] }
 futures = "0.3.31"
 geo = "0.31.0"

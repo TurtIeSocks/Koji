@@ -1,6 +1,5 @@
 use geo::algorithm::RemoveRepeatedPoints;
 use geo_types::MultiPoint;
-use sea_orm::ActiveEnum;
 
 use super::*;
 
@@ -30,7 +29,7 @@ impl ToGeometry for Feature {
 }
 
 impl FeatureHelpers for Feature {
-    fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<Type>) {
+    fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<FenceType>) {
         if !self.contains_property("__name") {
             if let Some(name) = name {
                 self.set_property("__name", name)
@@ -38,7 +37,7 @@ impl FeatureHelpers for Feature {
         }
         if !self.contains_property("__mode") {
             if let Some(enum_type) = enum_type {
-                self.set_property("__mode", enum_type.to_value());
+                self.set_property("__mode", enum_type.as_str());
             } else if let Some(geometry) = self.geometry.as_ref() {
                 match geometry.value {
                     Value::Point(_) | Value::MultiPoint(_) => {
@@ -94,7 +93,7 @@ impl FeatureHelpers for Feature {
 }
 
 impl EnsureProperties for Feature {
-    fn ensure_properties(self, name: Option<String>, enum_type: Option<Type>) -> Self {
+    fn ensure_properties(self, name: Option<String>, enum_type: Option<FenceType>) -> Self {
         let mut mutable_self = self;
         mutable_self.add_instance_properties(name, enum_type);
         mutable_self
@@ -175,7 +174,7 @@ impl ToFeatureVec for Feature {
 }
 
 impl ToCollection for Feature {
-    fn to_collection(self, _name: Option<String>, _enum_type: Option<Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, _enum_type: Option<FenceType>) -> FeatureCollection {
         let bbox = self.get_bbox();
         FeatureCollection {
             bbox: bbox.clone(),
@@ -196,7 +195,7 @@ impl GetBbox for Vec<Feature> {
 }
 
 impl ToCollection for Vec<Feature> {
-    fn to_collection(self, _name: Option<String>, _enum_type: Option<Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, _enum_type: Option<FenceType>) -> FeatureCollection {
         // let name = if let Some(name) = name {
         //     name
         // } else {

@@ -64,7 +64,7 @@ impl<'a> BootstrapS2<'a> {
     }
 
     pub fn feature(self) -> Feature {
-        let mut new_feature = self.result.to_feature(Some(Type::CirclePokemon));
+        let mut new_feature = self.result.to_feature(Some(Type::CirclePokemon.into()));
 
         if let Some(name) = self.feature.property("__name") {
             new_feature.set_property("__name", name.clone());

@@ -264,7 +264,7 @@ async fn cluster(
     );
 
     let mut feature = clusters
-        .to_feature(Some(enum_type.clone()))
+        .to_feature(Some(enum_type.clone().into()))
         .remove_last_coord();
 
     let instance = if let Some(parent) = parent {
@@ -275,7 +275,7 @@ async fn cluster(
     } else {
         instance
     };
-    feature.add_instance_properties(Some(instance.to_string()), Some(enum_type));
+    feature.add_instance_properties(Some(instance.to_string()), Some(enum_type.into()));
     let feature = feature.to_collection(Some(instance.clone()), None);
 
     if !instance.is_empty() && save_to_db {

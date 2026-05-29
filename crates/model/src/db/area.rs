@@ -54,7 +54,7 @@ impl Model {
             };
             if let Some(coords) = coords {
                 let mut feature =
-                    coords.parse_scanner_instance(Some(self.name.clone()), Some(mode.clone()));
+                    coords.parse_scanner_instance(Some(self.name.clone()), Some(mode.clone().into()));
                 feature.id = Some(geojson::feature::Id::String(format!(
                     "{}__{}__SCANNER",
                     self.id,

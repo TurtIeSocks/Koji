@@ -433,7 +433,7 @@ pub struct ArgsUnwrapped {
     pub simplify: bool,
     pub sort_by: SortBy,
     pub tth: SpawnpointTth,
-    pub mode: Type,
+    pub mode: FenceType,
     pub route_split_level: u64,
     pub routing_args: String,
     pub clustering_args: String,
@@ -524,7 +524,7 @@ impl Args {
             genetic_post_processing,
             dev,
         } = self;
-        let enum_type = get_enum_by_geometry_string(geometry_type);
+        let enum_type: Option<FenceType> = get_enum_by_geometry_string(geometry_type).map(Into::into);
         let (area, default_return_type) = if let Some(area) = area {
             (
                 area.clone().to_collection(instance.clone(), enum_type),
@@ -603,7 +603,7 @@ impl Args {
         let simplify = simplify.unwrap_or(false);
         let sort_by = sort_by.unwrap_or(SortBy::Unset);
         let tth = tth.unwrap_or(SpawnpointTth::All);
-        let mode = get_enum(mode);
+        let mode = get_enum(mode).into();
         let route_split_level = validate_s2_cell(route_split_level, "route_split_level");
         let routing_args = routing_args.unwrap_or("".to_string());
 

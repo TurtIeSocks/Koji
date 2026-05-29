@@ -5,19 +5,19 @@ use super::*;
 pub type MultiVec = Vec<Vec<point_array::PointArray>>;
 
 impl ValueHelpers for MultiVec {
-    fn get_geojson_value(self, enum_type: Type) -> Value {
+    fn get_geojson_value(self, enum_type: FenceType) -> Value {
         match enum_type {
-            Type::AutoQuest | Type::PokemonIv | Type::AutoPokemon | Type::AutoTth => {
+            FenceType::AutoQuest | FenceType::PokemonIv | FenceType::AutoPokemon | FenceType::AutoTth => {
                 self.multi_polygon()
             }
-            Type::Unset
-            | Type::CirclePokemon
-            | Type::CircleSmartPokemon
-            | Type::CircleRaid
-            | Type::CircleSmartRaid
-            | Type::CircleQuest
-            | Type::CircleStation => self.multi_point(),
-            Type::Leveling => self.point(),
+            FenceType::Unset
+            | FenceType::CirclePokemon
+            | FenceType::CircleSmartPokemon
+            | FenceType::CircleRaid
+            | FenceType::CircleSmartRaid
+            | FenceType::CircleQuest
+            | FenceType::CircleStation => self.multi_point(),
+            FenceType::Leveling => self.point(),
         }
     }
     fn point(self) -> Value {
@@ -109,7 +109,7 @@ impl ToMultiStruct for MultiVec {
 }
 
 impl ToFeature for MultiVec {
-    fn to_feature(self, enum_type: Option<Type>) -> Feature {
+    fn to_feature(self, enum_type: Option<FenceType>) -> Feature {
         let bbox = self.get_bbox();
         Feature {
             bbox: bbox.clone(),
@@ -128,7 +128,7 @@ impl ToFeature for MultiVec {
 }
 
 impl ToCollection for MultiVec {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, enum_type: Option<FenceType>) -> FeatureCollection {
         let feature = self
             .to_feature(enum_type)
             // .ensure_properties(name, enum_type)

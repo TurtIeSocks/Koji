@@ -1,4 +1,4 @@
-use super::*;
+use serde::Deserialize;
 
 #[derive(Debug, Clone)]
 pub enum CalculationMode {

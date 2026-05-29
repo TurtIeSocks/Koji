@@ -1,15 +1,20 @@
 use super::{
-    db::{sea_orm_active_enums::Type, InstanceParsing, RdmInstanceArea},
+    db::{InstanceParsing, RdmInstanceArea},
     *,
 };
 
 use geo::Point;
 use geojson::{Bbox, Geometry, Value};
+use koji_core::FenceType;
 use sea_orm::FromQueryResult;
 
 pub mod args;
-pub mod calc_mode;
-pub mod cluster_mode;
+pub mod calc_mode {
+    pub use koji_core::CalculationMode;
+}
+pub mod cluster_mode {
+    pub use koji_core::ClusterMode;
+}
 pub mod collection;
 pub mod feature;
 pub mod geometry;
@@ -20,7 +25,9 @@ pub mod point_struct;
 pub mod poracle;
 pub mod single_struct;
 pub mod single_vec;
-pub mod sort_by;
+pub mod sort_by {
+    pub use koji_core::SortBy;
+}
 pub mod text;
 
 pub type Precision = f64;
@@ -30,7 +37,7 @@ pub trait EnsurePoints {
 }
 
 pub trait EnsureProperties {
-    fn ensure_properties(self, name: Option<String>, enum_type: Option<Type>) -> Self;
+    fn ensure_properties(self, name: Option<String>, enum_type: Option<FenceType>) -> Self;
 }
 
 /// [min_lon, min_lat, max_lon, max_lat]
@@ -39,7 +46,7 @@ pub trait GetBbox {
 }
 
 pub trait ValueHelpers {
-    fn get_geojson_value(self, enum_type: Type) -> Value;
+    fn get_geojson_value(self, enum_type: FenceType) -> Value;
     fn point(self) -> Value;
     fn multi_point(self) -> Value;
     fn polygon(self) -> Value;
@@ -51,7 +58,7 @@ pub trait GeometryHelpers {
 }
 
 pub trait FeatureHelpers {
-    fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<Type>);
+    fn add_instance_properties(&mut self, name: Option<String>, enum_type: Option<FenceType>);
     fn remove_last_coord(self) -> Self;
     fn remove_internal_props(self) -> Self;
 }
@@ -81,7 +88,7 @@ pub trait ToMultiStruct {
 }
 
 pub trait ToFeature {
-    fn to_feature(self, enum_type: Option<Type>) -> Feature;
+    fn to_feature(self, enum_type: Option<FenceType>) -> Feature;
 }
 
 pub trait ToFeatureVec {
@@ -89,7 +96,7 @@ pub trait ToFeatureVec {
 }
 
 pub trait ToCollection {
-    fn to_collection(self, name: Option<String>, enum_type: Option<Type>) -> FeatureCollection;
+    fn to_collection(self, name: Option<String>, enum_type: Option<FenceType>) -> FeatureCollection;
 }
 
 pub trait ToPoracle {
@@ -135,7 +142,7 @@ pub enum GeoFormats {
 }
 
 impl ToCollection for GeoFormats {
-    fn to_collection(self, name: Option<String>, enum_type: Option<Type>) -> FeatureCollection {
+    fn to_collection(self, name: Option<String>, enum_type: Option<FenceType>) -> FeatureCollection {
         match self {
             GeoFormats::Text(area) => area.to_collection(name, enum_type),
             GeoFormats::SingleArray(area) => area.to_collection(name, enum_type),

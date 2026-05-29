@@ -2310,6 +2310,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "koji-core"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "macros",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "kv-log-macro"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2511,6 +2521,7 @@ dependencies = [
  "geo",
  "geo-types",
  "geojson",
+ "koji-core",
  "log",
  "regex",
  "sea-orm",

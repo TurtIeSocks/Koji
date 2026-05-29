@@ -47,7 +47,7 @@ impl TrimPrecision for FeatureCollection {
 }
 
 impl EnsureProperties for FeatureCollection {
-    fn ensure_properties(self, name: Option<String>, enum_type: Option<Type>) -> Self {
+    fn ensure_properties(self, name: Option<String>, enum_type: Option<FenceType>) -> Self {
         let name = if let Some(n) = name {
             n
         } else {
@@ -111,7 +111,7 @@ impl ToText for FeatureCollection {
 }
 
 impl ToCollection for FeatureCollection {
-    fn to_collection(self, _name: Option<String>, _enum_type: Option<Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, _enum_type: Option<FenceType>) -> FeatureCollection {
         FeatureCollection {
             bbox: if self.bbox.is_some() {
                 self.bbox

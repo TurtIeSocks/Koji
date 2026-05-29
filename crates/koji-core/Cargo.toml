@@ -1,0 +1,17 @@
+[package]
+name = "koji-core"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "koji_core"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { workspace = true }
+macros = { workspace = true }
+log = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -96,7 +96,7 @@ impl ToMultiStruct for SingleVec {
 }
 
 impl ToFeature for SingleVec {
-    fn to_feature(self, enum_type: Option<Type>) -> Feature {
+    fn to_feature(self, enum_type: Option<FenceType>) -> Feature {
         let bbox = self.get_bbox();
         Feature {
             bbox: bbox.clone(),
@@ -115,7 +115,7 @@ impl ToFeature for SingleVec {
 }
 
 impl ToCollection for SingleVec {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, enum_type: Option<FenceType>) -> FeatureCollection {
         if self.len() > 1 {
             FeatureCollection {
                 bbox: self.get_bbox(),

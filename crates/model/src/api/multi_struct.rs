@@ -51,7 +51,7 @@ impl ToMultiStruct for MultiStruct {
 }
 
 impl ToFeature for MultiStruct {
-    fn to_feature(self, enum_type: Option<Type>) -> Feature {
+    fn to_feature(self, enum_type: Option<FenceType>) -> Feature {
         let bbox = self.clone().to_single_vec().get_bbox();
         Feature {
             bbox: bbox.clone(),
@@ -70,7 +70,7 @@ impl ToFeature for MultiStruct {
 }
 
 impl ToCollection for MultiStruct {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, enum_type: Option<FenceType>) -> FeatureCollection {
         let feature = self.to_feature(enum_type)
         // .ensure_properties(name, enum_type)
         ;

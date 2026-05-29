@@ -148,7 +148,7 @@ impl ToSingleVec for Geometry {
 }
 
 impl ToFeature for Geometry {
-    fn to_feature(self, enum_type: Option<Type>) -> Feature {
+    fn to_feature(self, enum_type: Option<FenceType>) -> Feature {
         let bbox = self.get_bbox();
         Feature {
             bbox: bbox.clone(),
@@ -157,16 +157,16 @@ impl ToFeature for Geometry {
                 foreign_members: None,
                 value: if let Some(enum_type) = enum_type {
                     match enum_type {
-                        Type::Leveling => {
+                        FenceType::Leveling => {
                             Value::Point(self.to_single_vec().to_point_array().to_vec())
                         }
-                        Type::CirclePokemon => Value::MultiPoint(
+                        FenceType::CirclePokemon => Value::MultiPoint(
                             self.to_single_vec()
                                 .into_iter()
                                 .map(|s_vec| vec![s_vec[1], s_vec[0]])
                                 .collect(),
                         ),
-                        Type::AutoQuest => Value::MultiPolygon(match self.value {
+                        FenceType::AutoQuest => Value::MultiPolygon(match self.value {
                             Value::Polygon(geometry) => vec![geometry],
                             Value::MultiPolygon(polygons) => polygons,
                             Value::Point(point) => vec![vec![vec![point]]],
@@ -253,7 +253,7 @@ impl ToGeometryVec for Geometry {
 }
 
 impl ToCollection for Vec<Geometry> {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<Type>) -> FeatureCollection {
+    fn to_collection(self, _name: Option<String>, enum_type: Option<FenceType>) -> FeatureCollection {
         FeatureCollection {
             bbox: self
                 .clone()
