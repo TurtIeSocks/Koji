@@ -7,9 +7,10 @@ pub type MultiVec = Vec<Vec<point_array::PointArray>>;
 impl ValueHelpers for MultiVec {
     fn get_geojson_value(self, enum_type: FenceType) -> Value {
         match enum_type {
-            FenceType::AutoQuest | FenceType::PokemonIv | FenceType::AutoPokemon | FenceType::AutoTth => {
-                self.multi_polygon()
-            }
+            FenceType::AutoQuest
+            | FenceType::PokemonIv
+            | FenceType::AutoPokemon
+            | FenceType::AutoTth => self.multi_polygon(),
             FenceType::Unset
             | FenceType::CirclePokemon
             | FenceType::CircleSmartPokemon
@@ -86,7 +87,9 @@ impl ToMultiVec for MultiVec {
 
 impl ToPointStruct for MultiVec {
     fn to_struct(self) -> point_struct::PointStruct {
-        log::warn!("`to_struct()` was called on a MultiVec and this was likely unintentional, did you mean to map over the values first?");
+        log::warn!(
+            "`to_struct()` was called on a MultiVec and this was likely unintentional, did you mean to map over the values first?"
+        );
         point_struct::PointStruct {
             lat: self[0][0][0],
             lon: self[1][0][1],
@@ -128,7 +131,11 @@ impl ToFeature for MultiVec {
 }
 
 impl ToCollection for MultiVec {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<FenceType>) -> FeatureCollection {
+    fn to_collection(
+        self,
+        _name: Option<String>,
+        enum_type: Option<FenceType>,
+    ) -> FeatureCollection {
         let feature = self
             .to_feature(enum_type)
             // .ensure_properties(name, enum_type)

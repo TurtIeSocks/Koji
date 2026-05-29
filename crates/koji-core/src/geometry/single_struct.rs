@@ -31,7 +31,9 @@ impl ToMultiVec for SingleStruct {
 
 impl ToPointStruct for SingleStruct {
     fn to_struct(self) -> point_struct::PointStruct {
-        log::warn!("`to_struct()` was called on a SingleVec and this was likely unintentional, did you mean to map over the values first?");
+        log::warn!(
+            "`to_struct()` was called on a SingleVec and this was likely unintentional, did you mean to map over the values first?"
+        );
         point_struct::PointStruct {
             lat: self[0].lat,
             lon: self[0].lon,
@@ -71,7 +73,11 @@ impl ToFeature for SingleStruct {
 }
 
 impl ToCollection for SingleStruct {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<FenceType>) -> FeatureCollection {
+    fn to_collection(
+        self,
+        _name: Option<String>,
+        enum_type: Option<FenceType>,
+    ) -> FeatureCollection {
         let feature = self
             .to_feature(enum_type)
             // .ensure_properties(name, enum_type)

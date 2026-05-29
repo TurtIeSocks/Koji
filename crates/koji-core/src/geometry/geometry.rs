@@ -1,5 +1,5 @@
+use crate::TrimPrecision;
 use geo::{MultiPolygon, Polygon, Simplify};
-use utils::TrimPrecision;
 
 use super::*;
 
@@ -253,7 +253,11 @@ impl ToGeometryVec for Geometry {
 }
 
 impl ToCollection for Vec<Geometry> {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<FenceType>) -> FeatureCollection {
+    fn to_collection(
+        self,
+        _name: Option<String>,
+        enum_type: Option<FenceType>,
+    ) -> FeatureCollection {
         FeatureCollection {
             bbox: self
                 .clone()

@@ -4,10 +4,8 @@ use crate::{routing, stats::Stats};
 
 use geo::{Contains, Destination, Distance, Extremes, Haversine, Point, Polygon};
 use geojson::{Feature, Geometry, Value};
-use model::{
-    api::{Precision, ToFeature, ToGeometryVec, single_vec::SingleVec, sort_by::SortBy},
-    db::sea_orm_active_enums::Type,
-};
+use koji_core::{Precision, SingleVec, SortBy, ToFeature, ToGeometryVec};
+use model::db::sea_orm_active_enums::Type;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 #[derive(Debug)]

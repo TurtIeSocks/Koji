@@ -1,7 +1,7 @@
 pub mod cluster;
 pub mod point;
 
-use model::api::{single_vec::SingleVec, Precision};
+use koji_core::{SingleVec, Precision};
 use point::Point;
 
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};

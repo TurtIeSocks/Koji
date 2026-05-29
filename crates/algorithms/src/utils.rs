@@ -9,8 +9,8 @@ use colored::Colorize;
 use geo::Coord;
 use geohash::encode;
 use hashbrown::HashSet;
-use model::api::Precision;
-use model::api::{point_array::PointArray, single_vec::SingleVec};
+use koji_core::Precision;
+use koji_core::{PointArray, SingleVec};
 
 use crate::rtree::cluster::Cluster;
 use crate::stats::Stats;

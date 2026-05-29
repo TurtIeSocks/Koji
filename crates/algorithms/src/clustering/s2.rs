@@ -1,6 +1,6 @@
 use geojson::Feature;
 use hashbrown::HashMap;
-use model::api::single_vec::SingleVec;
+use koji_core::SingleVec;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use s2::cellid::CellID;
 

@@ -3,14 +3,12 @@ use super::*;
 use actix_web::HttpResponse;
 use algorithms::stats::Stats;
 use geojson::JsonValue;
-use model::api::{Precision, ToGeometry, ToSql};
+use koji_core::{Precision, ToGeometry, ToSql};
 use serde::Serialize;
 use serde_json::json;
 
-use crate::model::api::{
-    args::ReturnTypeArg, GeoFormats, ToMultiStruct, ToMultiVec, ToPoracleVec, ToSingleStruct,
-    ToSingleVec, ToText,
-};
+use koji_core::{ToMultiStruct, ToMultiVec, ToPoracleVec, ToSingleStruct, ToSingleVec, ToText};
+use crate::model::api::{args::ReturnTypeArg, GeoFormats};
 
 #[derive(Debug, Serialize)]
 pub struct ConfigResponse {

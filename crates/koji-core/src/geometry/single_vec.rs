@@ -1,4 +1,4 @@
-use utils::TrimPrecision;
+use crate::TrimPrecision;
 
 use super::*;
 
@@ -72,7 +72,9 @@ impl ToMultiVec for SingleVec {
 
 impl ToPointStruct for SingleVec {
     fn to_struct(self) -> point_struct::PointStruct {
-        log::warn!("`to_struct()` was called on a SingleVec and this was likely unintentional, did you mean to map over the values first?");
+        log::warn!(
+            "`to_struct()` was called on a SingleVec and this was likely unintentional, did you mean to map over the values first?"
+        );
         point_struct::PointStruct {
             lat: self[0][0],
             lon: self[1][1],
@@ -115,7 +117,11 @@ impl ToFeature for SingleVec {
 }
 
 impl ToCollection for SingleVec {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<FenceType>) -> FeatureCollection {
+    fn to_collection(
+        self,
+        _name: Option<String>,
+        enum_type: Option<FenceType>,
+    ) -> FeatureCollection {
         if self.len() > 1 {
             FeatureCollection {
                 bbox: self.get_bbox(),

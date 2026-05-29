@@ -1,7 +1,7 @@
 use geojson::{Feature, Geometry};
 use hashbrown::HashSet;
 use macros::time;
-use model::api::{GetBbox, Precision, cluster_mode::ClusterMode, point_array::PointArray, single_vec::SingleVec};
+use koji_core::{GetBbox, Precision, ClusterMode, PointArray, SingleVec};
 
 use ::s2::{cellid::CellID, latlng::LatLng};
 use rayon::{

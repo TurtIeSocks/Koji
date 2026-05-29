@@ -5,10 +5,10 @@ use std::sync::Once;
 use ::s2::cell::Cell;
 use ::s2::cellid::CellID;
 use ::s2::latlng::LatLng;
-use model::api::Precision;
-use model::api::cluster_mode::ClusterMode;
-use model::api::point_array::PointArray;
-use model::api::single_vec::SingleVec;
+use koji_core::Precision;
+use koji_core::ClusterMode;
+use koji_core::PointArray;
+use koji_core::SingleVec;
 use rstar::{AABB, RTree};
 use sysinfo::System;
 
@@ -326,7 +326,7 @@ pub(crate) fn select_effective_mode(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use model::api::Precision;
+    use koji_core::Precision;
     use rand::{Rng, SeedableRng, rngs::SmallRng};
 
     pub(super) fn random_points_in_bbox(n: usize, bbox: [Precision; 4], seed: u64) -> SingleVec {

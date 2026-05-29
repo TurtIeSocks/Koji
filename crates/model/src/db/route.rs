@@ -10,8 +10,10 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::str::FromStr;
 
+use koji_core::{ToCollection, ToFeature};
+
 use crate::{
-    api::{GeoFormats, ToCollection, ToFeature, args::AdminReqParsed},
+    api::{GeoFormats, args::AdminReqParsed},
     db::sea_orm_active_enums::Type,
     error::ModelError,
     utils::{get_enum, json::JsonToModel, parse_order},

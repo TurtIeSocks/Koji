@@ -3,8 +3,10 @@
 use super::{sea_orm_active_enums::Type, *};
 use sea_orm::entity::prelude::*;
 
+use koji_core::{ToCollection, ToText};
+
 use crate::{
-    api::{text::TextHelpers, GeoFormats, ToCollection, ToText},
+    api::{text::TextHelpers, GeoFormats},
     utils::get_enum,
 };
 

@@ -6,7 +6,7 @@ use std::time::Instant;
 
 use crate::s2::create_cell_map;
 use crate::utils;
-use model::api::single_vec::SingleVec;
+use koji_core::SingleVec;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 #[derive(Debug)]

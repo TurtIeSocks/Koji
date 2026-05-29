@@ -11,7 +11,7 @@ use self::greedy::Greedy;
 use super::*;
 
 use geojson::FeatureCollection;
-use model::api::{calc_mode::CalculationMode, cluster_mode::ClusterMode, single_vec::SingleVec};
+use koji_core::{CalculationMode, ClusterMode, SingleVec};
 
 mod candidates;
 mod fastest;

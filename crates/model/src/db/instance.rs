@@ -2,10 +2,11 @@
 
 use std::collections::HashMap;
 
+use koji_core::{ToCollection, ToMultiStruct, ToMultiVec, ToPointStruct, ToSingleStruct, ToSingleVec};
+
 use crate::{
     api::{
-        text::TextHelpers, GeoFormats, ToCollection, ToMultiStruct, ToMultiVec, ToPointStruct,
-        ToSingleStruct, ToSingleVec,
+        text::TextHelpers, GeoFormats,
     },
     error::ModelError,
     utils::get_mode_acronym,

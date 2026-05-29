@@ -2,13 +2,10 @@ use super::*;
 
 use geojson::{Geometry, Value};
 
+use koji_core::{FeatureHelpers, GeometryHelpers, ToCollection, ToFeature, TrimPrecision};
 use model::{
-    api::{
-        args::{Args, ArgsUnwrapped},
-        FeatureHelpers, GeometryHelpers, ToCollection, ToFeature,
-    },
+    api::args::{Args, ArgsUnwrapped},
     db::sea_orm_active_enums::Type,
-    utils::TrimPrecision,
 };
 
 #[post("/data")]

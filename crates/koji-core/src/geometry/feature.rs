@@ -174,7 +174,11 @@ impl ToFeatureVec for Feature {
 }
 
 impl ToCollection for Feature {
-    fn to_collection(self, _name: Option<String>, _enum_type: Option<FenceType>) -> FeatureCollection {
+    fn to_collection(
+        self,
+        _name: Option<String>,
+        _enum_type: Option<FenceType>,
+    ) -> FeatureCollection {
         let bbox = self.get_bbox();
         FeatureCollection {
             bbox: bbox.clone(),
@@ -195,7 +199,11 @@ impl GetBbox for Vec<Feature> {
 }
 
 impl ToCollection for Vec<Feature> {
-    fn to_collection(self, _name: Option<String>, _enum_type: Option<FenceType>) -> FeatureCollection {
+    fn to_collection(
+        self,
+        _name: Option<String>,
+        _enum_type: Option<FenceType>,
+    ) -> FeatureCollection {
         // let name = if let Some(name) = name {
         //     name
         // } else {

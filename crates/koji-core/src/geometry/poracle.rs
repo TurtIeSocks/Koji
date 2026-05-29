@@ -1,4 +1,5 @@
-use super::{args::UnknownId, *};
+use super::*;
+use crate::UnknownId;
 
 use serde_with::skip_serializing_none;
 
@@ -181,7 +182,11 @@ impl ToFeature for Poracle {
 }
 
 impl ToCollection for Poracle {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<FenceType>) -> FeatureCollection {
+    fn to_collection(
+        self,
+        _name: Option<String>,
+        enum_type: Option<FenceType>,
+    ) -> FeatureCollection {
         let feature = self
             .to_feature(enum_type)
             // .ensure_properties(name, enum_type)
@@ -195,7 +200,11 @@ impl ToCollection for Poracle {
 }
 
 impl ToCollection for Vec<Poracle> {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<FenceType>) -> FeatureCollection {
+    fn to_collection(
+        self,
+        _name: Option<String>,
+        enum_type: Option<FenceType>,
+    ) -> FeatureCollection {
         // let name = if let Some(name) = name {
         //     name
         // } else {

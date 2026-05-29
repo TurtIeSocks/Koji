@@ -1,7 +1,7 @@
 use crate::plugin::{JoinFunction, Plugin};
 use crate::utils;
 use geo::{Distance, Haversine, Point};
-use model::api::{point_array::PointArray, single_vec::SingleVec};
+use koji_core::{PointArray, SingleVec};
 use s2::cellid::CellID;
 use s2::latlng::LatLng;
 use std::collections::HashMap;

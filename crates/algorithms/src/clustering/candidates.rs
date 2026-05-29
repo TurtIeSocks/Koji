@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use macros::time;
-use model::api::{Precision, single_vec::SingleVec};
+use koji_core::{Precision, SingleVec};
 use rand::{Rng, SeedableRng, rngs::SmallRng};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 

@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use geojson::{Feature, FeatureCollection};
-use model::api::{Precision, ToFeature, calc_mode::CalculationMode, sort_by::SortBy};
+use koji_core::{Precision, ToFeature, CalculationMode, SortBy};
 
 use crate::{
     plugin::{Folder, Plugin},

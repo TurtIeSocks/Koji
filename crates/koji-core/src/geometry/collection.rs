@@ -1,8 +1,9 @@
-use utils::TrimPrecision;
+use crate::TrimPrecision;
 
-use self::utils::sql_raw;
+use crate::sql_raw;
 
-use super::{args::UnknownId, multi_vec::MultiVec, *};
+use super::{multi_vec::MultiVec, *};
+use crate::UnknownId;
 
 impl EnsurePoints for FeatureCollection {
     fn ensure_first_last(self) -> Self {
@@ -111,7 +112,11 @@ impl ToText for FeatureCollection {
 }
 
 impl ToCollection for FeatureCollection {
-    fn to_collection(self, _name: Option<String>, _enum_type: Option<FenceType>) -> FeatureCollection {
+    fn to_collection(
+        self,
+        _name: Option<String>,
+        _enum_type: Option<FenceType>,
+    ) -> FeatureCollection {
         FeatureCollection {
             bbox: if self.bbox.is_some() {
                 self.bbox

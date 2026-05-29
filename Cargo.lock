@@ -320,6 +320,7 @@ dependencies = [
  "geohash",
  "geojson",
  "hashbrown 0.16.0",
+ "koji-core",
  "log",
  "macros",
  "map_3d",
@@ -435,6 +436,7 @@ dependencies = [
  "algorithms",
  "geo",
  "geojson",
+ "koji-core",
  "log",
  "migration",
  "model",
@@ -2313,10 +2315,14 @@ dependencies = [
 name = "koji-core"
 version = "0.1.0"
 dependencies = [
+ "geo",
+ "geo-types",
+ "geojson",
  "log",
  "macros",
  "serde",
  "serde_json",
+ "serde_with",
 ]
 
 [[package]]

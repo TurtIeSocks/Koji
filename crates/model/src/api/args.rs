@@ -1,4 +1,7 @@
-use super::{calc_mode::CalculationMode, cluster_mode::ClusterMode, sort_by::SortBy, *};
+use koji_core::{
+    CalculationMode, ClusterMode, FenceType, Precision, SortBy, ToSingleVec, UnknownId,
+};
+use super::*;
 
 use crate::{
     api::text::TextHelpers,
@@ -184,26 +187,10 @@ pub enum SpawnpointTth {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum DataPointsArg {
-    Array(single_vec::SingleVec),
-    Struct(single_struct::SingleStruct),
+    Array(koji_core::SingleVec),
+    Struct(koji_core::SingleStruct),
     Feature(Feature),
     FeatureCollection(FeatureCollection),
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(untagged)]
-pub enum UnknownId {
-    String(String),
-    Number(u32),
-}
-
-impl ToString for UnknownId {
-    fn to_string(&self) -> String {
-        match self {
-            UnknownId::Number(id) => id.to_string(),
-            UnknownId::String(id) => id.to_string(),
-        }
-    }
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -415,8 +402,8 @@ pub struct ArgsUnwrapped {
     pub cluster_mode: ClusterMode,
     pub cluster_split_level: u64,
     pub max_clusters: usize,
-    pub clusters: single_vec::SingleVec,
-    pub data_points: single_vec::SingleVec,
+    pub clusters: koji_core::SingleVec,
+    pub data_points: koji_core::SingleVec,
     pub devices: usize,
     pub generations: usize,
     pub instance: String,
@@ -467,7 +454,7 @@ fn validate_s2_cell(value_to_check: Option<u64>, label: &str) -> u64 {
     }
 }
 
-fn resolve_data_points(data_points: Option<DataPointsArg>) -> single_vec::SingleVec {
+fn resolve_data_points(data_points: Option<DataPointsArg>) -> koji_core::SingleVec {
     if let Some(data_points) = data_points {
         match data_points {
             DataPointsArg::Struct(data_points) => data_points.to_single_vec(),
@@ -530,7 +517,7 @@ impl Args {
                 area.clone().to_collection(instance.clone(), enum_type),
                 match area {
                     GeoFormats::Text(area) => {
-                        if area.text_test() {
+                        if koji_core::text_test(&area) {
                             ReturnTypeArg::AltText
                         } else {
                             ReturnTypeArg::Text

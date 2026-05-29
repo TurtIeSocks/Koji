@@ -91,7 +91,7 @@ impl Query {
                         SpawnpointTth::Known => "AND despawn_sec IS NOT NULL".to_string(),
                         SpawnpointTth::Unknown => "AND despawn_sec IS NULL".to_string(),
                     },
-                    utils::sql_raw_bbox(area)
+                    koji_core::sql_raw_bbox(area)
                 )
                 .as_str(),
                 vec![],

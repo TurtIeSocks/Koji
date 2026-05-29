@@ -74,7 +74,7 @@ impl Query {
             .filter(Column::Deleted.eq(false))
             .filter(Column::Enabled.eq(true))
             .limit(2_000_000)
-            .into_model::<api::point_struct::PointStruct>()
+            .into_model::<crate::db::LatLonRow>()
             .all(conn)
             .await?;
         Ok(utils::normalize::fort(items, "p"))
@@ -100,7 +100,7 @@ impl Query {
             .filter(Column::Deleted.eq(false))
             .filter(Column::Enabled.eq(true))
             .limit(2_000_000)
-            .into_model::<api::point_struct::PointStruct>()
+            .into_model::<crate::db::LatLonRow>()
             .all(conn)
             .await?;
         Ok(utils::normalize::fort(items, "p"))
@@ -114,10 +114,10 @@ impl Query {
         let items = Entity::find()
             .from_raw_sql(Statement::from_sql_and_values(
                 DbBackend::MySql,
-                format!("SELECT lat, lon FROM pokestop WHERE enabled = 1 AND deleted = 0 AND updated > {} AND ({})", last_seen, utils::sql_raw_bbox(area)).as_str(),
+                format!("SELECT lat, lon FROM pokestop WHERE enabled = 1 AND deleted = 0 AND updated > {} AND ({})", last_seen, koji_core::sql_raw_bbox(area)).as_str(),
                 vec![],
             ))
-            .into_model::<api::point_struct::PointStruct>()
+            .into_model::<crate::db::LatLonRow>()
             .all(conn)
             .await?;
         Ok(utils::normalize::fort_filtered(items, area, "p"))
@@ -131,10 +131,10 @@ impl Query {
         let items = Entity::find()
             .from_raw_sql(Statement::from_sql_and_values(
                 DbBackend::MySql,
-                format!("SELECT lat, lon FROM pokestop WHERE enabled = 1 AND deleted = 0 AND updated > {} AND ({})", last_seen, utils::sql_raw_bbox(area)).as_str(),
+                format!("SELECT lat, lon FROM pokestop WHERE enabled = 1 AND deleted = 0 AND updated > {} AND ({})", last_seen, koji_core::sql_raw_bbox(area)).as_str(),
                 vec![],
             ))
-            .into_model::<api::point_struct::PointStruct>()
+            .into_model::<crate::db::LatLonRow>()
             .all(conn)
             .await?;
         let total = utils::normalize::count_in_area(&items, area);

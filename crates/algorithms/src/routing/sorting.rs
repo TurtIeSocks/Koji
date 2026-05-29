@@ -1,6 +1,6 @@
 use geo::Coord;
 use geohash::encode;
-use model::api::single_vec::SingleVec;
+use koji_core::SingleVec;
 use rand::{SeedableRng, rngs::SmallRng, seq::SliceRandom};
 use rayon::{
     iter::{IntoParallelRefIterator, ParallelIterator},

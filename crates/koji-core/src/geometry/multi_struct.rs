@@ -30,7 +30,9 @@ impl ToMultiVec for MultiStruct {
 
 impl ToPointStruct for MultiStruct {
     fn to_struct(self) -> point_struct::PointStruct {
-        log::info!("`to_struct()` was called on a SingleVec and this was likely unintentional, did you mean to map over the values first?");
+        log::info!(
+            "`to_struct()` was called on a SingleVec and this was likely unintentional, did you mean to map over the values first?"
+        );
         point_struct::PointStruct {
             lat: self[0][0].lat,
             lon: self[0][0].lon,
@@ -70,7 +72,11 @@ impl ToFeature for MultiStruct {
 }
 
 impl ToCollection for MultiStruct {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<FenceType>) -> FeatureCollection {
+    fn to_collection(
+        self,
+        _name: Option<String>,
+        enum_type: Option<FenceType>,
+    ) -> FeatureCollection {
         let feature = self.to_feature(enum_type)
         // .ensure_properties(name, enum_type)
         ;

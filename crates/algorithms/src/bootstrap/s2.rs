@@ -4,10 +4,8 @@ use crate::{routing, stats::Stats};
 
 use geo::{BoundingRect, MultiPolygon, Polygon};
 use geojson::{Feature, Value};
-use model::{
-    api::{Precision, ToFeature, single_vec::SingleVec, sort_by::SortBy},
-    db::sea_orm_active_enums::Type,
-};
+use koji_core::{Precision, SingleVec, SortBy, ToFeature};
+use model::db::sea_orm_active_enums::Type;
 use rayon::{iter::IntoParallelIterator, prelude::ParallelIterator};
 use s2::{
     cell::Cell,

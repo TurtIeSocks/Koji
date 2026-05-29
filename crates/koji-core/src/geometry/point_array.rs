@@ -1,53 +1,47 @@
 use super::*;
 
-#[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
-pub struct PointStruct {
-    pub lat: Precision,
-    pub lon: Precision,
-}
-impl Default for PointStruct {
-    fn default() -> PointStruct {
-        PointStruct { lat: 0., lon: 0. }
+pub type PointArray = [Precision; 2];
+
+impl ToPointArray for PointArray {
+    fn to_point_array(self) -> PointArray {
+        self
     }
 }
 
-impl ToPointArray for PointStruct {
-    fn to_point_array(self) -> point_array::PointArray {
-        [self.lat, self.lon]
-    }
-}
-
-impl ToSingleVec for PointStruct {
+impl ToSingleVec for PointArray {
     fn to_single_vec(self) -> single_vec::SingleVec {
-        vec![self.to_point_array()]
+        vec![self]
     }
 }
 
-impl ToMultiVec for PointStruct {
+impl ToMultiVec for PointArray {
     fn to_multi_vec(self) -> multi_vec::MultiVec {
         vec![self.to_single_vec()]
     }
 }
 
-impl ToPointStruct for PointStruct {
-    fn to_struct(self) -> PointStruct {
-        self
+impl ToPointStruct for PointArray {
+    fn to_struct(self) -> point_struct::PointStruct {
+        point_struct::PointStruct {
+            lat: self[0],
+            lon: self[1],
+        }
     }
 }
 
-impl ToSingleStruct for PointStruct {
+impl ToSingleStruct for PointArray {
     fn to_single_struct(self) -> single_struct::SingleStruct {
         vec![self.to_struct()]
     }
 }
 
-impl ToMultiStruct for PointStruct {
+impl ToMultiStruct for PointArray {
     fn to_multi_struct(self) -> multi_struct::MultiStruct {
         vec![self.to_single_struct()]
     }
 }
 
-impl ToFeature for PointStruct {
+impl ToFeature for PointArray {
     fn to_feature(self, enum_type: Option<FenceType>) -> Feature {
         let bbox = self.clone().to_single_vec().get_bbox();
         Feature {
@@ -66,8 +60,12 @@ impl ToFeature for PointStruct {
     }
 }
 
-impl ToCollection for PointStruct {
-    fn to_collection(self, _name: Option<String>, enum_type: Option<FenceType>) -> FeatureCollection {
+impl ToCollection for PointArray {
+    fn to_collection(
+        self,
+        _name: Option<String>,
+        enum_type: Option<FenceType>,
+    ) -> FeatureCollection {
         let feature = self
             .to_feature(enum_type)
             // .ensure_properties(name, enum_type)
@@ -80,13 +78,13 @@ impl ToCollection for PointStruct {
     }
 }
 
-impl ToText for PointStruct {
+impl ToText for PointArray {
     fn to_text(self, sep_1: &str, sep_2: &str, _poly_sep: bool) -> String {
-        format!("{}{}{}{}", self.lat, sep_1, self.lon, sep_2)
+        format!("{}{}{}{}", self[0], sep_1, self[1], sep_2)
     }
 }
 
-impl ToPoracle for PointStruct {
+impl ToPoracle for PointArray {
     fn to_poracle(self) -> poracle::Poracle {
         poracle::Poracle {
             path: Some(self.to_single_vec()),

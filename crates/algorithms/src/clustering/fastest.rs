@@ -1,6 +1,6 @@
 use geo::Coord;
 use hashbrown::HashSet;
-use model::api::single_vec::SingleVec;
+use koji_core::SingleVec;
 use rstar::PointDistance;
 use std::collections::HashMap;
 

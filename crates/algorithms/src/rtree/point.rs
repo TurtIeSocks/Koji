@@ -5,7 +5,7 @@ use std::{
 
 use geo::{Coord, Destination, Distance, Haversine};
 use geohash::encode;
-use model::api::Precision;
+use koji_core::Precision;
 use rayon::slice::ParallelSliceMut;
 use rstar::{AABB, PointDistance, RTreeObject};
 use s2::{cellid::CellID, latlng::LatLng};

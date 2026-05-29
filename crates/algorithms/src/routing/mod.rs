@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use model::api::{single_vec::SingleVec, sort_by::SortBy};
+use koji_core::{SingleVec, SortBy};
 
 use self::sorting::{SortGeohash, SortLatLng, SortPointCount, SortRandom, SortS2};
 use crate::{

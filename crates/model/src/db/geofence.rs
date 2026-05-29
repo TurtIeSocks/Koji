@@ -2,10 +2,12 @@
 
 use std::{collections::HashMap, str::FromStr, time::Instant};
 
+use koji_core::{ToCollection, UnknownId};
+
 use crate::{
     api::{
-        GeoFormats, ToCollection,
-        args::{AdminReqParsed, ApiQueryArgs, UnknownId},
+        GeoFormats,
+        args::{AdminReqParsed, ApiQueryArgs},
     },
     error::ModelError,
     utils::{
@@ -25,7 +27,7 @@ use geojson::{GeoJson, Geometry};
 use sea_orm::{UpdateResult, entity::prelude::*};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use utils::TrimPrecision;
+use koji_core::TrimPrecision;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "geofence")]

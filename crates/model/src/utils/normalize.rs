@@ -23,7 +23,16 @@ impl HasLatLon for Spawnpoint {
     }
 }
 
-impl HasLatLon for api::point_struct::PointStruct {
+impl HasLatLon for koji_core::PointStruct {
+    fn lat(&self) -> f64 {
+        self.lat
+    }
+    fn lon(&self) -> f64 {
+        self.lon
+    }
+}
+
+impl HasLatLon for db::LatLonRow {
     fn lat(&self) -> f64 {
         self.lat
     }
@@ -68,7 +77,7 @@ impl AreaPolygons {
     }
 }
 
-pub fn fort(items: api::single_struct::SingleStruct, prefix: &str) -> Vec<db::GenericData> {
+pub fn fort(items: Vec<db::LatLonRow>, prefix: &str) -> Vec<db::GenericData> {
     items
         .into_iter()
         .enumerate()
@@ -77,7 +86,7 @@ pub fn fort(items: api::single_struct::SingleStruct, prefix: &str) -> Vec<db::Ge
 }
 
 pub fn fort_filtered(
-    items: api::single_struct::SingleStruct,
+    items: Vec<db::LatLonRow>,
     area: &FeatureCollection,
     prefix: &str,
 ) -> Vec<db::GenericData> {

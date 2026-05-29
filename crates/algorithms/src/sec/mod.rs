@@ -5,7 +5,7 @@ mod utils;
 
 use std::time::Instant;
 
-use model::api::{single_vec::SingleVec, Precision};
+use koji_core::{SingleVec, Precision};
 use rayon::{
     iter::{IntoParallelRefIterator, ParallelIterator},
     slice::ParallelSliceMut,

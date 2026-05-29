@@ -4,10 +4,11 @@ use super::*;
 
 use serde_json::json;
 
+use koji_core::ToCollection;
 use model::{
     api::{
         args::{get_return_type, ApiQueryArgs, Args, ArgsUnwrapped, ReturnTypeArg},
-        GeoFormats, ToCollection,
+        GeoFormats,
     },
     db::{area, instance, project, route},
     KojiDb, ScannerType,

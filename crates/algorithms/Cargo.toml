@@ -9,6 +9,7 @@ name = "algorithms"
 path = "src/lib.rs"
 
 [dependencies]
+koji-core = { path = "../koji-core" }
 chrono = "0.4.42"
 colored = "3.0.0"
 geo = "0.31.0"

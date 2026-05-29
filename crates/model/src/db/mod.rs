@@ -26,6 +26,24 @@ pub mod spawnpoint;
 pub mod station;
 pub mod tile_server;
 
+/// Query-row for `SELECT lat, lon` from scanner tables. The pure geometry
+/// `PointStruct` lives in koji-core (no sea-orm); this row carries the
+/// `FromQueryResult` derive and converts into it.
+#[derive(Debug, FromQueryResult)]
+pub struct LatLonRow {
+    pub lat: f64,
+    pub lon: f64,
+}
+
+impl From<LatLonRow> for koji_core::PointStruct {
+    fn from(r: LatLonRow) -> Self {
+        koji_core::PointStruct {
+            lat: r.lat,
+            lon: r.lon,
+        }
+    }
+}
+
 trait ToFeatureFromModel {
     fn to_feature(self, internal: bool) -> Result<Feature, ModelError>;
 }
@@ -94,9 +112,9 @@ pub struct Spawnpoint {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum RdmInstanceArea {
-    Leveling(api::point_struct::PointStruct),
-    Single(api::single_struct::SingleStruct),
-    Multi(api::multi_struct::MultiStruct),
+    Leveling(koji_core::PointStruct),
+    Single(koji_core::SingleStruct),
+    Multi(koji_core::MultiStruct),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -117,24 +135,28 @@ impl GenericData {
     }
 }
 
-impl api::ToPointArray for GenericData {
-    fn to_point_array(self) -> api::point_array::PointArray {
+impl koji_core::ToPointArray for GenericData {
+    fn to_point_array(self) -> koji_core::PointArray {
         self.p
     }
 }
-impl api::ToPointStruct for GenericData {
-    fn to_struct(self) -> api::point_struct::PointStruct {
-        api::point_struct::PointStruct {
+impl koji_core::ToPointStruct for GenericData {
+    fn to_struct(self) -> koji_core::PointStruct {
+        koji_core::PointStruct {
             lat: self.p[0],
             lon: self.p[1],
         }
     }
 }
 
-impl api::ToSingleVec for Vec<GenericData> {
-    fn to_single_vec(self) -> api::single_vec::SingleVec {
+pub trait GenericDataToVec {
+    fn to_single_vec(self) -> koji_core::SingleVec;
+}
+
+impl GenericDataToVec for Vec<GenericData> {
+    fn to_single_vec(self) -> koji_core::SingleVec {
         self.into_iter()
-            .map(|p| api::ToPointArray::to_point_array(p))
+            .map(|p| koji_core::ToPointArray::to_point_array(p))
             .collect()
     }
 }
