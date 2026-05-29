@@ -1,7 +1,7 @@
 use geojson::Feature;
 use serde_json::json;
 
-use crate::api::text::TextHelpers;
+use crate::text::TextHelpers;
 use crate::db::{AreaRef, sea_orm_active_enums::Type};
 
 pub fn instance(instance: crate::db::instance::Model) -> Feature {

@@ -324,7 +324,6 @@ dependencies = [
  "log",
  "macros",
  "map_3d",
- "model",
  "rand 0.9.2",
  "rayon",
  "rstar",
@@ -437,6 +436,7 @@ dependencies = [
  "geo",
  "geojson",
  "koji-core",
+ "koji-db",
  "koji-scanner",
  "log",
  "migration",
@@ -2325,6 +2325,24 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
+]
+
+[[package]]
+name = "koji-db"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "futures",
+ "geo",
+ "geo-types",
+ "geojson",
+ "koji-core",
+ "log",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "thiserror",
 ]
 
 [[package]]

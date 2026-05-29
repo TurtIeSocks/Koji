@@ -1,6 +1,6 @@
 use super::{error::Error, *};
 
-use model::db::project;
+use koji_db::db::project;
 
 pub async fn update_project_api(
     db: &KojiDb,

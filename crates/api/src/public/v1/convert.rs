@@ -3,10 +3,8 @@ use super::*;
 use geojson::{Geometry, Value};
 
 use koji_core::{FeatureCtx, FeatureHelpers, GeometryHelpers, ToCollection, ToFeature, TrimPrecision};
-use model::{
-    api::args::{Args, ArgsUnwrapped},
-    db::sea_orm_active_enums::Type,
-};
+use koji_db::db::sea_orm_active_enums::Type;
+use model::api::args::{Args, ArgsUnwrapped};
 
 #[post("/data")]
 async fn convert_data(payload: web::Json<Args>) -> Result<HttpResponse, Error> {

@@ -4,10 +4,8 @@ use super::*;
 
 use koji_core::BoundsArg;
 use koji_scanner::entities::{gym, pokestop, spawnpoint, station};
-use model::{
-    api::args::{Args, ArgsUnwrapped},
-    KojiDb,
-};
+use koji_db::KojiDb;
+use model::api::args::{Args, ArgsUnwrapped};
 
 #[post("/all/{category}")]
 async fn all(

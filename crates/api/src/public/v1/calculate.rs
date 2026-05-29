@@ -10,11 +10,11 @@ use koji_core::{
     FeatureCtx, FeatureHelpers, GeoFormats, SortBy, ToCollection, ToFeature, ToSingleVec,
 };
 use koji_scanner::GenericDataToVec;
-use model::{
+use koji_db::{
     KojiDb, ScannerType,
-    api::args::{Args, ArgsUnwrapped},
     db::{area, geofence, instance, route, sea_orm_active_enums::Type},
 };
+use model::api::args::{Args, ArgsUnwrapped};
 use serde_json::json;
 
 #[post("/bootstrap")]

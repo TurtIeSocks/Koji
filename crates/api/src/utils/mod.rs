@@ -7,10 +7,9 @@ use koji_scanner::{
     GenericData,
     entities::{gym, pokestop, spawnpoint, station},
 };
-use model::{
+use koji_db::{
     db::{area, geofence, instance},
-    error::ModelError,
-    KojiDb, ScannerType,
+    KojiDb, ModelError, ScannerType,
 };
 
 pub mod auth;

@@ -7,7 +7,7 @@ use koji_core::{
     ToSingleVec, get_mode_acronym,
 };
 
-use crate::{api::text::TextHelpers, error::ModelError};
+use crate::{text::TextHelpers, error::ModelError};
 
 use super::{
     sea_orm_active_enums::Type, utils, Feature, InsertsUpdates, NameTypeId, Order, QueryOrder,

@@ -20,3 +20,4 @@ thiserror = "2.0.16"
 reqwest = "0.12.23"
 regex = "1.11.2"
 koji-scanner = { path = "crates/koji-scanner" }
+koji-db = { path = "crates/koji-db" }

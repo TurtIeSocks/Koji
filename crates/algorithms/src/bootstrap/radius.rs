@@ -4,8 +4,7 @@ use crate::{routing, stats::Stats};
 
 use geo::{Contains, Destination, Distance, Extremes, Haversine, Point, Polygon};
 use geojson::{Feature, Geometry, Value};
-use koji_core::{FeatureCtx, Precision, SingleVec, SortBy, ToFeature, ToGeometryVec};
-use model::db::sea_orm_active_enums::Type;
+use koji_core::{FeatureCtx, FenceType, Precision, SingleVec, SortBy, ToFeature, ToGeometryVec};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 #[derive(Debug)]
@@ -54,7 +53,7 @@ impl<'a> BootstrapRadius<'a> {
     pub fn feature(self) -> Feature {
         let mut new_feature = self
             .result
-            .to_feature(&FeatureCtx::new().with_type(Type::CirclePokemon.into()));
+            .to_feature(&FeatureCtx::new().with_type(FenceType::CirclePokemon));
 
         if let Some(name) = self.feature.property("__name") {
             new_feature.set_property("__name", name.clone());

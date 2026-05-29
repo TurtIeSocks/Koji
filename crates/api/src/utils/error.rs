@@ -1,5 +1,5 @@
 use migration::DbErr;
-use model::error::ModelError;
+use koji_db::ModelError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]

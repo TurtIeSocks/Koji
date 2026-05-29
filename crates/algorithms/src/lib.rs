@@ -1,5 +1,3 @@
-use model;
-
 pub mod bootstrap;
 pub mod clustering;
 mod plugin;

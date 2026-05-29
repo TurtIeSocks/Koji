@@ -5,8 +5,8 @@ use crate::error::ModelError;
 use super::*;
 
 use sea_orm::{
-    DbBackend, DeleteResult, DeriveEntityModel, FromQueryResult, Order, QueryOrder, QuerySelect,
-    Set, Statement, prelude::DateTimeUtc, sea_query::Expr,
+    DeleteResult, DeriveEntityModel, FromQueryResult, Order, QueryOrder, QuerySelect,
+    Set, prelude::DateTimeUtc, sea_query::Expr,
 };
 
 pub mod area;

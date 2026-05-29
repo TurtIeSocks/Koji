@@ -11,6 +11,7 @@ path = "src/lib.rs"
 [dependencies]
 koji-core = { path = "../koji-core" }
 koji-scanner = { path = "../koji-scanner" }
+koji-db = { path = "../koji-db" }
 actix-web = "4.11.0"
 actix-files = "0.6.8"
 actix-session = { version = "0.11.0", features = ["cookie-session"] }

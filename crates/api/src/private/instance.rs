@@ -1,20 +1,19 @@
 use super::*;
 
 use koji_core::ApiQueryArgs;
-use model::{
+use koji_db::{
     db::{route, NameTypeId},
     ScannerType,
 };
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::{
-    model::{
-        db::{area, geofence, instance},
-        KojiDb,
-    },
-    utils::response::Response,
+use koji_db::{
+    KojiDb,
+    db::{area, geofence, instance},
 };
+
+use crate::utils::response::Response;
 
 #[get("/from_scanner")]
 async fn from_scanner(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {

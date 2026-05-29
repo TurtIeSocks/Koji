@@ -24,7 +24,7 @@ mod utils;
 
 #[actix_web::main]
 pub async fn start() -> io::Result<()> {
-    let databases = model::utils::get_database_struct().await;
+    let databases = koji_db::utils::get_database_struct().await;
 
     match Migrator::up(&databases.koji, None).await {
         Ok(_) => log::info!("Migrations successful"),

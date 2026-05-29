@@ -3,10 +3,9 @@ use super::*;
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::{
-    model::{db::geofence_project, KojiDb},
-    utils::response::Response,
-};
+use koji_db::{db::geofence_project, KojiDb};
+
+use crate::utils::response::Response;
 
 #[get("/all/")]
 async fn get_all(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {

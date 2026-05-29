@@ -5,11 +5,11 @@ use super::*;
 use serde_json::json;
 
 use koji_core::{ApiQueryArgs, FeatureCtx, GeoFormats, ToCollection};
-use model::{
-    api::args::{get_return_type, Args, ArgsUnwrapped, ReturnTypeArg},
+use koji_db::{
     db::{area, instance, project, route},
     KojiDb, ScannerType,
 };
+use model::api::args::{get_return_type, Args, ArgsUnwrapped, ReturnTypeArg};
 
 #[get("/all")]
 async fn all(

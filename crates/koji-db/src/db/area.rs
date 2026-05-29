@@ -5,7 +5,7 @@ use sea_orm::entity::prelude::*;
 
 use koji_core::{FeatureCtx, GeoFormats, ToCollection, ToText};
 
-use crate::{api::text::TextHelpers, utils::get_enum};
+use crate::{text::TextHelpers, utils::get_enum};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "area")]

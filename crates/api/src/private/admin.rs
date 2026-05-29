@@ -1,14 +1,13 @@
 use super::*;
 
 use koji_core::AdminReq;
-use model::error::ModelError;
+use koji_db::ModelError;
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::{
-    model::{db, KojiDb},
-    utils::response::Response,
-};
+use koji_db::{db, KojiDb};
+
+use crate::utils::response::Response;
 
 #[derive(Debug, Deserialize)]
 pub struct Search {
