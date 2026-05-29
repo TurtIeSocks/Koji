@@ -1,8 +1,8 @@
 # Koji V2 — Phasing / Commit Roadmap
 
 > **▶ RESUME HERE (paused 2026-05-29).** Branch `claude/goofy-tu-5372ed`; tree clean, `cargo build --workspace` + tests green (16+3 pass, 4+1 ignored).
-> **Done + committed:** P0 (`410fe72`, `a1120c0`) · P1a (`77fb53e`) · P1b (`0e555b3`) · P1-conv (`a388df2`).
-> **NEXT:** plan **P1c** — extract `koji-db` (own entities, stop entity=DTO) + `koji-scanner` (golbat read-only) + split remaining `model::utils` (db helpers vs pure). Write the plan via `superpowers:writing-plans`, then execute.
+> **Done + committed:** P0 (`410fe72`, `a1120c0`) · P1a (`77fb53e`) · P1b (`0e555b3`) · P1-conv (`a388df2`) · P1c (`bedc56e`→`76f1c64`).
+> **NEXT:** **P1d** — break `Args` → config structs (Clustering/Routing/Bootstrap/S2/Output/AreaInput) in koji-core; drop the 6 deprecated fields; dissolve the remaining `model` crate. Brainstorm → spec → plan → execute (autonomous/delegate per memory `koji-v2-autonomous-delegate`).
 > **Context:** architecture + job-queue specs in `docs/superpowers/specs/`; per-phase plans in `docs/superpowers/plans/`. Pre-existing debt for the P7 sweep: `greedy.rs:798,817` clippy `unused_io_amount` (deny-level) + repo-wide rustfmt (project isn't fmt-enforced).
 
 One long-lived branch, many commits. **Invariant: every commit compiles + passes existing tests.** Hard ordering rule: events + Dragonite client land **before** RDM/controller-write removal (never delete the only write path early).
@@ -21,7 +21,7 @@ Delivered as focused, independently-green sub-plans (each reviewed before execut
 - **P1a** ✅ DONE — `koji-core` + `#[derive(StrEnum)]` + `enum_bridge!`; `FenceType`/`Category` + relocated strategy enums; conversion traits decoupled from sea-orm `Type`.
 - **P1b** ✅ DONE (`0e555b3`) — moved geometry + conversion layer into `koji-core`; migrated all consumers to `koji_core` directly (no facade); `PointStruct` pure (db `LatLonRow` carve-out); `text.rs` split (RDM stays). Deviation: `GeoFormats` stays in `model::api` until P1d (its `Bound` variant references `args::BoundsArg`).
 - **P1-conv** ✅ DONE (`a388df2`) — conversion-layer modernization: `FeatureCtx` bundles the param-carrying `(name, fence_type)` args; `wrapper_conversions!` macro collapses the identical wrappers across the single-feature types (`SingleVec` keeps its emptiness-guarded `to_collection` via the `@wrappers` arm); `From<PointArray> for PointStruct` (the one orphan-rule-allowed `From` win). Geometry types stay aliases → no algorithm hot-path churn. Orphan rule keeps the `Vec`-alias conversions on `To*` traits.
-- **P1c** — extract `koji-db` (own entities, stop entity=DTO) + `koji-scanner` (golbat read-only) + split remaining `model::utils` (db helpers vs pure).
+- **P1c** ✅ DONE (`bedc56e`→`76f1c64`) — extracted `koji-db` (Koji entities + db infra + enum_bridge + RDM types + `KojiDb`/bootstrap + `ModelError`) and `koji-scanner` (golbat read-only; returns `sea_orm::DbErr`, no custom error; owns `Total`). Broke the model↔koji-db cycle by moving `GeoFormats` + query/admin arg structs + pure utils + domain-enum mappers into `koji-core`; `TextHelpers`+RDM normalization → koji-db. `model` shrunk to `api::args` (→ koji-core only); acyclic graph. Deviation: `entity=DTO` decoupling (explicit response DTOs) deferred to P4/koji-service; koji-db mirrors model's old internal layout to minimize entity churn. Spec/plan: `docs/superpowers/{specs,plans}/2026-05-29-koji-v2-p1c-*`.
 - **P1d** — break `Args` → config structs (Clustering/Routing/Bootstrap/S2/Output/AreaInput); drop 6 deprecated fields.
 > Riskiest phase. No transitional facades — consumers migrate as types move.
 
