@@ -4,13 +4,13 @@ use geo::{Distance, Haversine, Point};
 use hashbrown::HashSet;
 use koji_core::{Precision, SingleVec};
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::rtree::{self, cluster::Cluster, cluster_info, point};
 
 const WIDTH: &str = "=======================================================================";
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClusterStats {
     unique: HashMap<usize, usize>,
     all: HashMap<usize, usize>,
@@ -33,13 +33,16 @@ impl ClusterStats {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Stats {
-    #[serde(skip_serializing)]
+    // Skipped on the wire (not part of the stats contract) AND on read — they
+    // default when a `Stats` is deserialized back from a queue result. `Instant`
+    // isn't `Deserialize` anyway, so `skip` (not `skip_serializing`) is required.
+    #[serde(skip)]
     stats_start_time: Option<Instant>,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     label: String,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     min_points: usize,
 
     pub best_clusters: SingleVec,

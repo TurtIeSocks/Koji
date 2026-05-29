@@ -64,6 +64,12 @@ pub struct CalcPayload {
     /// The pre-resolved data points (resolved async before enqueue). May be empty
     /// for bootstrap.
     pub data_points: SingleVec,
+    /// Pre-resolved clusters — the input route for `reroute` / `route-stats`
+    /// (those modes route/score an existing cluster set rather than computing
+    /// one). Empty for `bootstrap` / cluster modes. `#[serde(default)]` so older
+    /// payloads without the field still decode.
+    #[serde(default)]
+    pub clusters: SingleVec,
 }
 
 /// Runs Koji's clustering / routing / bootstrap algorithms as a job.
@@ -113,6 +119,7 @@ impl JobHandler for CalculateHandler {
             routing_args,
             bootstrapping_args,
             instance,
+            mode: fence_mode,
             dev,
             ..
         } = args.init(Some(&payload.mode));
@@ -125,9 +132,10 @@ impl JobHandler for CalculateHandler {
         let mode = payload.mode.as_str();
         let area = payload.area;
         let data_points = payload.data_points;
+        let clusters = payload.clusters;
 
-        let (collection, stats) = if mode == "bootstrap" {
-            run_bootstrap(
+        let (collection, stats) = match mode {
+            "bootstrap" => run_bootstrap(
                 area,
                 &BootstrapConfig {
                     calculation_mode,
@@ -144,45 +152,70 @@ impl JobHandler for CalculateHandler {
                     plugin_args: routing_args,
                 },
                 &instance,
-            )
-        } else {
-            // `route` defaults to a TSP sort when none was supplied (mirrors v1).
-            let sort_by = if mode == "route" && sort_by == SortBy::Unset {
-                SortBy::Custom(String::from("tsp"))
-            } else {
-                sort_by
-            };
-            run_cluster_route(
-                &data_points,
-                area,
-                &ClusteringConfig {
-                    mode: cluster_mode.clone(),
-                    radius,
-                    min_points,
-                    max_clusters,
-                    cluster_split_level,
-                    calculation_mode: calculation_mode.clone(),
-                    s2: S2Config {
-                        level: s2_level,
-                        size: s2_size,
-                    },
-                    center_clusters,
-                    genetic_post_processing,
-                    plugin_args: clustering_args,
-                },
+            ),
+            // Route an existing cluster set (no clustering). Mirrors v1 `/reroute`.
+            "reroute" => run_reroute(
+                clusters,
+                data_points,
+                radius,
                 &RoutingConfig {
                     sort_by,
                     route_split_level,
                     plugin_args: routing_args,
                 },
-                radius,
-                dev.bypass_adaptive_partition,
-                fence_type_for(&payload.category),
+                fence_mode,
                 &instance,
-                cluster_mode,
-                calculation_mode,
+            ),
+            // Score an existing route (no clustering / no routing). Mirrors v1
+            // `/route-stats[/{category}]` (the category-resolved data points are
+            // pre-resolved into `payload.data_points`).
+            "route-stats" | "route_stats" => run_route_stats(
+                clusters,
+                data_points,
+                radius,
                 min_points,
-            )
+                fence_mode,
+                &instance,
+            ),
+            _ => {
+                // `route` defaults to a TSP sort when none was supplied (mirrors v1).
+                let sort_by = if mode == "route" && sort_by == SortBy::Unset {
+                    SortBy::Custom(String::from("tsp"))
+                } else {
+                    sort_by
+                };
+                run_cluster_route(
+                    &data_points,
+                    area,
+                    &ClusteringConfig {
+                        mode: cluster_mode.clone(),
+                        radius,
+                        min_points,
+                        max_clusters,
+                        cluster_split_level,
+                        calculation_mode: calculation_mode.clone(),
+                        s2: S2Config {
+                            level: s2_level,
+                            size: s2_size,
+                        },
+                        center_clusters,
+                        genetic_post_processing,
+                        plugin_args: clustering_args,
+                    },
+                    &RoutingConfig {
+                        sort_by,
+                        route_split_level,
+                        plugin_args: routing_args,
+                    },
+                    radius,
+                    dev.bypass_adaptive_partition,
+                    fence_type_for(&payload.category),
+                    &instance,
+                    cluster_mode,
+                    calculation_mode,
+                    min_points,
+                )
+            }
         };
 
         // Benchmark mode returns only the stats (the v1 contract); otherwise the
@@ -268,5 +301,58 @@ fn run_bootstrap(
         }
     }
     let collection = features.to_collection(&FeatureCtx::new().with_name(instance));
+    (collection, stats)
+}
+
+/// Route an existing cluster set without clustering — the `reroute` mode (v1
+/// `/reroute`). Legacy compat: if `clusters` is empty, `data_points` are treated
+/// as the clusters to route.
+fn run_reroute(
+    clusters: SingleVec,
+    data_points: SingleVec,
+    radius: f64,
+    routing_config: &RoutingConfig,
+    fence_type: FenceType,
+    instance: &str,
+) -> (FeatureCollection, Stats) {
+    let mut stats = Stats::new("Reroute".to_string(), 1);
+    let (clusters, data_points) = if clusters.is_empty() {
+        (data_points, vec![])
+    } else {
+        (clusters, data_points)
+    };
+    stats.total_clusters = clusters.len();
+    let clusters = routing::main(&data_points, clusters, radius, routing_config, &mut stats);
+    let feature = clusters
+        .to_feature(&FeatureCtx::new().with_type(fence_type))
+        .remove_last_coord();
+    let collection =
+        feature.to_collection(&FeatureCtx::new().with_name(instance).with_type(fence_type));
+    (collection, stats)
+}
+
+/// Score an existing route — the `route-stats` mode (v1 `/route-stats[/...]`):
+/// compute distance + coverage stats over `clusters` (and `data_points` when
+/// present), returning the clusters as a labeled collection alongside the stats.
+/// No clustering or routing is performed.
+fn run_route_stats(
+    clusters: SingleVec,
+    data_points: SingleVec,
+    radius: f64,
+    min_points: usize,
+    fence_type: FenceType,
+    instance: &str,
+) -> (FeatureCollection, Stats) {
+    let mut stats = Stats::new(format!("Route Stats | {fence_type:?}"), min_points);
+    stats.distance_stats(&clusters);
+    if !data_points.is_empty() {
+        stats.cluster_stats(radius, &data_points, &clusters);
+        stats.set_score();
+    }
+    let feature = clusters
+        .to_feature(&FeatureCtx::new().with_type(fence_type))
+        .remove_last_coord();
+    let collection =
+        feature.to_collection(&FeatureCtx::new().with_name(instance).with_type(fence_type));
     (collection, stats)
 }

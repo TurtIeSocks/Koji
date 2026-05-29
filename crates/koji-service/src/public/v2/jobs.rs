@@ -197,6 +197,7 @@ async fn run_calc(
     let ArgsUnwrapped {
         area,
         data_points,
+        clusters,
         instance,
         parent,
         last_seen,
@@ -220,6 +221,10 @@ async fn run_calc(
     let data_points = if mode == "bootstrap" {
         // Bootstrap consumes the area geometry directly, not point data.
         vec![]
+    } else if mode == "reroute" {
+        // Reroute routes the supplied clusters/data_points directly — no scanner
+        // resolution.
+        data_points
     } else if data_points.is_empty() {
         use koji_scanner::GenericDataToVec;
         utils::points_from_area(&area, &category, &conn, last_seen, tth)
@@ -236,6 +241,7 @@ async fn run_calc(
         request: request_json,
         area,
         data_points,
+        clusters,
     };
 
     // Content-addressed dedup so a timed-out client's retry coalesces onto the
