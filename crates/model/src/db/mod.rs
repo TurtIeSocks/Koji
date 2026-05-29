@@ -14,35 +14,14 @@ mod enum_bridge;
 pub mod geofence;
 pub mod geofence_project;
 pub mod geofence_property;
-pub mod gym;
 pub mod instance;
-pub mod pokestop;
 pub mod prelude;
 pub mod project;
 pub mod property;
 pub mod route;
 pub mod sea_orm_active_enums;
-pub mod spawnpoint;
-pub mod station;
 pub mod tile_server;
 
-/// Query-row for `SELECT lat, lon` from scanner tables. The pure geometry
-/// `PointStruct` lives in koji-core (no sea-orm); this row carries the
-/// `FromQueryResult` derive and converts into it.
-#[derive(Debug, FromQueryResult)]
-pub struct LatLonRow {
-    pub lat: f64,
-    pub lon: f64,
-}
-
-impl From<LatLonRow> for koji_core::PointStruct {
-    fn from(r: LatLonRow) -> Self {
-        koji_core::PointStruct {
-            lat: r.lat,
-            lon: r.lon,
-        }
-    }
-}
 
 trait ToFeatureFromModel {
     fn to_feature(self, internal: bool) -> Result<Feature, ModelError>;
@@ -78,10 +57,6 @@ pub struct AreaRef {
     pub has_fort: bool,
 }
 
-#[derive(Debug, FromQueryResult, Serialize, Deserialize, Clone)]
-pub struct Total {
-    pub total: i32,
-}
 
 #[derive(Debug, Serialize)]
 pub struct PaginateResults<T> {
@@ -102,12 +77,6 @@ impl Default for PaginateResults<()> {
     }
 }
 
-#[derive(Debug, Clone, FromQueryResult)]
-pub struct Spawnpoint {
-    pub lat: f64,
-    pub lon: f64,
-    pub despawn_sec: Option<u16>,
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
@@ -123,43 +92,6 @@ pub struct RdmInstance {
     pub radius: Option<u32>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct GenericData {
-    pub i: String,
-    pub p: [f64; 2],
-}
-
-impl GenericData {
-    pub fn new(i: String, lat: f64, lon: f64) -> Self {
-        GenericData { i, p: [lat, lon] }
-    }
-}
-
-impl koji_core::ToPointArray for GenericData {
-    fn to_point_array(self) -> koji_core::PointArray {
-        self.p
-    }
-}
-impl koji_core::ToPointStruct for GenericData {
-    fn to_struct(self) -> koji_core::PointStruct {
-        koji_core::PointStruct {
-            lat: self.p[0],
-            lon: self.p[1],
-        }
-    }
-}
-
-pub trait GenericDataToVec {
-    fn to_single_vec(self) -> koji_core::SingleVec;
-}
-
-impl GenericDataToVec for Vec<GenericData> {
-    fn to_single_vec(self) -> koji_core::SingleVec {
-        self.into_iter()
-            .map(|p| koji_core::ToPointArray::to_point_array(p))
-            .collect()
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]

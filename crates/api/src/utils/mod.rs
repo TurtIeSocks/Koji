@@ -3,8 +3,12 @@ use super::*;
 use geo::Point;
 use geojson::{Geometry, Value};
 use koji_core::{ApiQueryArgs, BBox, FeatureCtx, SingleVec, SpawnpointTth, ToCollection, UnknownId};
+use koji_scanner::{
+    GenericData,
+    entities::{gym, pokestop, spawnpoint, station},
+};
 use model::{
-    db::{area, geofence, gym, instance, pokestop, spawnpoint, station, GenericData},
+    db::{area, geofence, instance},
     error::ModelError,
     KojiDb, ScannerType,
 };

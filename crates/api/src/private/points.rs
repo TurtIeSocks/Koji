@@ -3,9 +3,9 @@ use crate::utils::response::Response;
 use super::*;
 
 use koji_core::BoundsArg;
+use koji_scanner::entities::{gym, pokestop, spawnpoint, station};
 use model::{
     api::args::{Args, ArgsUnwrapped},
-    db::{gym, pokestop, spawnpoint, station},
     KojiDb,
 };
 

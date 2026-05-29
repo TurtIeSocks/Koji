@@ -1,0 +1,20 @@
+[package]
+name = "koji-scanner"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "koji_scanner"
+path = "src/lib.rs"
+
+[dependencies]
+koji-core = { path = "../koji-core" }
+geojson = { workspace = true }
+log = { workspace = true }
+sea-orm = { version = "1.1.16", features = [
+  "sqlx-mysql",
+  "runtime-actix-native-tls",
+  "macros",
+] }
+serde = { workspace = true }

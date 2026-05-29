@@ -437,6 +437,7 @@ dependencies = [
  "geo",
  "geojson",
  "koji-core",
+ "koji-scanner",
  "log",
  "migration",
  "model",
@@ -2324,6 +2325,17 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
+]
+
+[[package]]
+name = "koji-scanner"
+version = "0.1.0"
+dependencies = [
+ "geojson",
+ "koji-core",
+ "log",
+ "sea-orm",
+ "serde",
 ]
 
 [[package]]

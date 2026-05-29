@@ -9,10 +9,11 @@ use geojson::Value;
 use koji_core::{
     FeatureCtx, FeatureHelpers, GeoFormats, SortBy, ToCollection, ToFeature, ToSingleVec,
 };
+use koji_scanner::GenericDataToVec;
 use model::{
     KojiDb, ScannerType,
     api::args::{Args, ArgsUnwrapped},
-    db::{area, geofence, instance, route, sea_orm_active_enums::Type, GenericDataToVec},
+    db::{area, geofence, instance, route, sea_orm_active_enums::Type},
 };
 use serde_json::json;
 

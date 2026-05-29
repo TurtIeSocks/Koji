@@ -1,113 +1,24 @@
-use geojson::FeatureCollection;
+use geojson::Feature;
 use serde_json::json;
 
-use koji_core::{AreaPolygons, HasLatLon};
+use crate::api::text::TextHelpers;
+use crate::db::{AreaRef, sea_orm_active_enums::Type};
 
-use super::*;
-
-use crate::{
-    api::text::TextHelpers,
-    db::{AreaRef, Spawnpoint, sea_orm_active_enums::Type},
-};
-
-
-impl HasLatLon for Spawnpoint {
-    fn lat(&self) -> f64 {
-        self.lat
-    }
-    fn lon(&self) -> f64 {
-        self.lon
-    }
-}
-
-
-impl HasLatLon for db::LatLonRow {
-    fn lat(&self) -> f64 {
-        self.lat
-    }
-    fn lon(&self) -> f64 {
-        self.lon
-    }
-}
-
-
-pub fn fort(items: Vec<db::LatLonRow>, prefix: &str) -> Vec<db::GenericData> {
-    items
-        .into_iter()
-        .enumerate()
-        .map(|(i, item)| db::GenericData::new(format!("{}{}", prefix, i), item.lat, item.lon))
-        .collect()
-}
-
-pub fn fort_filtered(
-    items: Vec<db::LatLonRow>,
-    area: &FeatureCollection,
-    prefix: &str,
-) -> Vec<db::GenericData> {
-    let polygons = AreaPolygons::from_collection(area);
-    items
-        .into_iter()
-        .filter(|item| polygons.contains(item.lat(), item.lon()))
-        .enumerate()
-        .map(|(i, item)| db::GenericData::new(format!("{}{}", prefix, i), item.lat, item.lon))
-        .collect()
-}
-
-
-pub fn spawnpoint(items: Vec<db::Spawnpoint>) -> Vec<db::GenericData> {
-    items
-        .into_iter()
-        .enumerate()
-        .map(|(i, item)| {
-            db::GenericData::new(
-                format!(
-                    "{}{}",
-                    if item.despawn_sec.is_some() { "v" } else { "u" },
-                    i
-                ),
-                item.lat,
-                item.lon,
-            )
-        })
-        .collect()
-}
-
-pub fn spawnpoint_filtered(
-    items: Vec<Spawnpoint>,
-    area: &FeatureCollection,
-) -> Vec<db::GenericData> {
-    let polygons = AreaPolygons::from_collection(area);
-    items
-        .into_iter()
-        .filter(|item| polygons.contains(item.lat(), item.lon()))
-        .enumerate()
-        .map(|(i, item)| {
-            db::GenericData::new(
-                format!(
-                    "{}{}",
-                    if item.despawn_sec.is_some() { "v" } else { "u" },
-                    i
-                ),
-                item.lat,
-                item.lon,
-            )
-        })
-        .collect()
-}
-
-pub fn instance(instance: db::instance::Model) -> Feature {
+pub fn instance(instance: crate::db::instance::Model) -> Feature {
     instance
         .data
         .parse_scanner_instance(Some(instance.name), Some(instance.r#type.into()))
 }
 
-pub fn area(areas: Vec<db::area::Model>) -> Vec<Feature> {
+pub fn area(areas: Vec<crate::db::area::Model>) -> Vec<Feature> {
     let mut normalized = Vec::<Feature>::new();
 
     let mut to_feature = |fence: Option<String>, name: &String, mode: Type| {
         if let Some(fence) = fence {
             if !fence.is_empty() {
-                normalized.push(fence.parse_scanner_instance(Some(name.to_string()), Some(mode.into())));
+                normalized.push(
+                    fence.parse_scanner_instance(Some(name.to_string()), Some(mode.into())),
+                );
             }
         }
     };
