@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use geojson::{Feature, FeatureCollection};
-use koji_core::{CalculationMode, FeatureCtx, Precision, SortBy, ToFeature};
+use koji_core::{BootstrapConfig, CalculationMode, FeatureCtx, RoutingConfig, ToFeature};
 
 use crate::{
     plugin::{Folder, Plugin},
@@ -14,36 +14,30 @@ pub mod s2;
 
 pub fn main(
     area: FeatureCollection,
-    calculation_mode: CalculationMode,
-    radius: Precision,
-    sort_by: SortBy,
-    s2_level: u8,
-    s2_size: u8,
-    route_split_level: u64,
+    cfg: &BootstrapConfig,
+    routing: &RoutingConfig,
     stats: &mut Stats,
-    routing_args: &str,
-    bootstrapping_rags: &str,
 ) -> Vec<Feature> {
     let mut features = vec![];
 
     for feature in area.features {
-        match &calculation_mode {
+        match &cfg.calculation_mode {
             CalculationMode::Radius => {
-                let mut new_radius = radius::BootstrapRadius::new(&feature, radius);
-                new_radius.sort(&sort_by, route_split_level, routing_args);
+                let mut new_radius = radius::BootstrapRadius::new(&feature, cfg.radius);
+                new_radius.sort(routing);
 
                 *stats += &new_radius.stats;
                 features.push(new_radius.feature());
             }
             CalculationMode::S2 => {
-                let mut new_s2 = s2::BootstrapS2::new(&feature, s2_level, s2_size);
-                new_s2.sort(&sort_by, route_split_level, routing_args);
+                let mut new_s2 = s2::BootstrapS2::new(&feature, cfg.s2.level, cfg.s2.size);
+                new_s2.sort(routing);
 
                 *stats += &new_s2.stats;
                 features.push(new_s2.feature());
             }
             CalculationMode::Custom(plugin) => {
-                match Plugin::new(plugin, Folder::Bootstrap, 0, bootstrapping_rags) {
+                match Plugin::new(plugin, Folder::Bootstrap, 0, &cfg.plugin_args) {
                     Ok(plugin_manager) => {
                         let time = Instant::now();
                         match plugin_manager.run(feature.to_string()) {

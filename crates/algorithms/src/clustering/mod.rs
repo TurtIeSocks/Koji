@@ -11,7 +11,7 @@ use self::greedy::Greedy;
 use super::*;
 
 use geojson::FeatureCollection;
-use koji_core::{CalculationMode, ClusterMode, SingleVec};
+use koji_core::{CalculationMode, ClusterMode, ClusteringConfig, SingleVec};
 
 mod candidates;
 mod fastest;
@@ -22,35 +22,30 @@ mod s2;
 
 pub fn main(
     data_points: &SingleVec,
-    cluster_mode: ClusterMode,
-    radius: f64,
-    min_points: usize,
-    stats: &mut Stats,
-    cluster_split_level: u64,
-    max_clusters: usize,
-    calculation_mode: CalculationMode,
-    s2_level: u8,
-    s2_size: u8,
+    cfg: &ClusteringConfig,
     collection: FeatureCollection,
-    clustering_args: &str,
-    center_clusters: bool,
-    _genetic_post_processing: bool,
     bypass_adaptive_partition: bool,
+    stats: &mut Stats,
 ) -> SingleVec {
     if data_points.is_empty() {
         return vec![];
     }
     let time = Instant::now();
-    let clusters = match calculation_mode {
+    let clusters = match cfg.calculation_mode {
         CalculationMode::S2 => collection
             .into_iter()
-            .flat_map(|feature| s2::cluster(feature, data_points, s2_level, s2_size, min_points))
+            .flat_map(|feature| {
+                s2::cluster(
+                    feature,
+                    data_points,
+                    cfg.s2.level,
+                    cfg.s2.size,
+                    cfg.min_points,
+                )
+            })
             .collect(),
-        _ => match cluster_mode {
-            ClusterMode::Fastest => {
-                let clusters = fastest::main(&data_points, radius, min_points);
-                clusters
-            }
+        _ => match cfg.mode.clone() {
+            ClusterMode::Fastest => fastest::main(&data_points, cfg.radius, cfg.min_points),
             ClusterMode::Honeycomb
             | ClusterMode::Balanced
             | ClusterMode::Fast
@@ -58,11 +53,11 @@ pub fn main(
             | ClusterMode::Best => {
                 let mut greedy = Greedy::default();
                 greedy
-                    .set_cluster_mode(cluster_mode)
-                    .set_cluster_split_level(cluster_split_level)
-                    .set_max_clusters(max_clusters)
-                    .set_min_points(min_points)
-                    .set_radius(radius)
+                    .set_cluster_mode(cfg.mode.clone())
+                    .set_cluster_split_level(cfg.cluster_split_level)
+                    .set_max_clusters(cfg.max_clusters)
+                    .set_min_points(cfg.min_points)
+                    .set_radius(cfg.radius)
                     .set_bypass_adaptive_partition(bypass_adaptive_partition);
 
                 greedy.run(&data_points)
@@ -71,8 +66,8 @@ pub fn main(
                 match Plugin::new(
                     &plugin,
                     Folder::Clustering,
-                    cluster_split_level,
-                    clustering_args,
+                    cfg.cluster_split_level,
+                    &cfg.plugin_args,
                 ) {
                     Ok(plugin_manager) => {
                         match plugin_manager.run_multi::<JoinFunction>(data_points, None) {
@@ -91,8 +86,8 @@ pub fn main(
             }
         },
     };
-    let clusters = if center_clusters {
-        sec::with_data(radius, data_points, &clusters)
+    let clusters = if cfg.center_clusters {
+        sec::with_data(cfg.radius, data_points, &clusters)
     } else {
         clusters
     };
@@ -109,7 +104,7 @@ pub fn main(
     // };
 
     stats.set_cluster_time(time);
-    stats.cluster_stats(radius, data_points, &clusters);
+    stats.cluster_stats(cfg.radius, data_points, &clusters);
     stats.set_score();
 
     clusters

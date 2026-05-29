@@ -1,7 +1,7 @@
 use geojson::{Feature, Geometry};
 use hashbrown::HashSet;
+use koji_core::{ClusterMode, GetBbox, PointArray, Precision, SingleVec};
 use macros::time;
-use koji_core::{GetBbox, Precision, ClusterMode, PointArray, SingleVec};
 
 use ::s2::{cellid::CellID, latlng::LatLng};
 use rayon::{
@@ -107,7 +107,9 @@ impl<'a> Greedy {
 
     #[time()]
     fn run_partitioned(&'a self, points: &SingleVec) -> HashSet<Point> {
-        use crate::clustering::partition::{adaptive_partition, mode_tag, PartitionConfig, PartitionStats};
+        use crate::clustering::partition::{
+            PartitionConfig, PartitionStats, adaptive_partition, mode_tag,
+        };
         use rayon::prelude::*;
 
         let config = PartitionConfig::load();
@@ -157,9 +159,8 @@ impl<'a> Greedy {
         let solution_vec: Vec<Cluster<'_>> = solution
             .into_iter()
             .filter_map(|p| {
-                let mut covered: Vec<&Point> = all_points_tree
-                    .locate_all_at_point(&p.center)
-                    .collect();
+                let mut covered: Vec<&Point> =
+                    all_points_tree.locate_all_at_point(&p.center).collect();
                 covered.sort_dedupe();
                 (!covered.is_empty()).then(|| Cluster::new(p, covered, vec![]))
             })
@@ -180,8 +181,7 @@ impl<'a> Greedy {
             if cap > 0 {
                 let seen_cell_ids: HashSet<CellID> =
                     final_solution.iter().map(|p| p.cell_id).collect();
-                let missing =
-                    self.recover_missing_points(&seen_cell_ids, points, cap);
+                let missing = self.recover_missing_points(&seen_cell_ids, points, cap);
                 final_solution.extend(missing);
             }
         }
@@ -200,8 +200,7 @@ impl<'a> Greedy {
         budget: usize,
     ) -> (HashSet<Point>, Option<(ClusterMode, ClusterMode)>) {
         use crate::clustering::partition::{
-            contains_latlng, gather_halo, s2_walk_cost, scaled_grid_density,
-            select_effective_mode,
+            contains_latlng, gather_halo, s2_walk_cost, scaled_grid_density, select_effective_mode,
         };
 
         let halo = gather_halo(chunk.cell, all_points_tree, self.radius);
@@ -223,12 +222,8 @@ impl<'a> Greedy {
         // chunk_tree scoped so it drops before this fn returns — its memory is
         // released before the next chunk runs on the same thread.
         let chunk_tree: RTree<Point> = crate::rtree::spawn(self.radius, &combined);
-        let raw_candidates = self.generate_candidates_for_mode(
-            &combined,
-            &chunk_tree,
-            effective_mode,
-            grid_density,
-        );
+        let raw_candidates =
+            self.generate_candidates_for_mode(&combined, &chunk_tree, effective_mode, grid_density);
 
         let clusters_with_data: Vec<Cluster> = raw_candidates
             .into_par_iter()
@@ -236,9 +231,8 @@ impl<'a> Greedy {
                 let iter = chunk_tree.locate_all_at_point(&center);
                 let mut covered = Vec::with_capacity(iter.size_hint().0);
                 covered.extend(iter);
-                (covered.len() >= self.min_points).then(|| {
-                    Cluster::new(Point::new(self.radius, 20, center), covered, vec![])
-                })
+                (covered.len() >= self.min_points)
+                    .then(|| Cluster::new(Point::new(self.radius, 20, center), covered, vec![]))
             })
             .collect();
 
@@ -307,9 +301,7 @@ impl<'a> Greedy {
             // Filter out self + already-removed.
             let neighbors: Vec<&Point> = center_tree
                 .locate_in_envelope_intersecting(&AABB::from_point(cluster.point.center))
-                .filter(|p| {
-                    p.cell_id != cluster.point.cell_id && !removed.contains(&p.cell_id)
-                })
+                .filter(|p| p.cell_id != cluster.point.cell_id && !removed.contains(&p.cell_id))
                 .collect();
 
             for neighbor in neighbors {
@@ -340,9 +332,7 @@ impl<'a> Greedy {
                     16,
                 );
                 let merge_center: PointArray = match sec_result {
-                    crate::sec::sec::SmallestEnclosingCircle::Centered(g) => {
-                        [g.y(), g.x()]
-                    }
+                    crate::sec::sec::SmallestEnclosingCircle::Centered(g) => [g.y(), g.x()],
                     _ => continue, // SEC won't fit — lossy merges hurt mygod_score
                 };
 
@@ -351,17 +341,15 @@ impl<'a> Greedy {
                     .locate_all_at_point(&merge_center)
                     .map(|p| p.cell_id)
                     .collect();
-                let union_ids: HashSet<CellID> =
-                    union_dedup.iter().map(|p| p.cell_id).collect();
+                let union_ids: HashSet<CellID> = union_dedup.iter().map(|p| p.cell_id).collect();
                 if !union_ids.is_subset(&mid_coverage) {
                     continue;
                 }
 
                 // Build merged cluster.
                 let new_pt = Point::new(self.radius, 20, merge_center);
-                let mut new_all: Vec<&Point> = all_points_tree
-                    .locate_all_at_point(&merge_center)
-                    .collect();
+                let mut new_all: Vec<&Point> =
+                    all_points_tree.locate_all_at_point(&merge_center).collect();
                 new_all.sort_dedupe();
                 additions.push(Cluster::new(new_pt, new_all, vec![]));
 
@@ -374,7 +362,9 @@ impl<'a> Greedy {
 
         log::info!(
             "merge_pass: {} attempts, {} successful merges, -{} clusters",
-            attempted_merges, successful_merges, successful_merges,
+            attempted_merges,
+            successful_merges,
+            successful_merges,
         );
 
         // Rebuild final solution: kept clusters + new merged clusters.
@@ -411,8 +401,7 @@ impl<'a> Greedy {
 
         // Build a tree of current cluster centers so we can ask "is point p
         // already covered?" (within radius of some cluster center).
-        let center_coords: SingleVec =
-            solution.iter().map(|c| c.point.center).collect();
+        let center_coords: SingleVec = solution.iter().map(|c| c.point.center).collect();
         let center_tree: RTree<Point> = crate::rtree::spawn(self.radius, &center_coords);
 
         // Initial set of uncovered point cell_ids (level 20, dedupes nearby
@@ -423,10 +412,9 @@ impl<'a> Greedy {
                 if center_tree.locate_at_point(p).is_some() {
                     None
                 } else {
-                    let cell_id = ::s2::cellid::CellID::from(
-                        ::s2::latlng::LatLng::from_degrees(p[0], p[1]),
-                    )
-                    .parent(20);
+                    let cell_id =
+                        ::s2::cellid::CellID::from(::s2::latlng::LatLng::from_degrees(p[0], p[1]))
+                            .parent(20);
                     Some(cell_id)
                 }
             })
@@ -443,10 +431,9 @@ impl<'a> Greedy {
         // Sort-by-local-density would do better but adds O(n log n) over each
         // uncovered point; this single-pass version is the cheap baseline.
         for p in all_points {
-            let cell_id = ::s2::cellid::CellID::from(
-                ::s2::latlng::LatLng::from_degrees(p[0], p[1]),
-            )
-            .parent(20);
+            let cell_id =
+                ::s2::cellid::CellID::from(::s2::latlng::LatLng::from_degrees(p[0], p[1]))
+                    .parent(20);
             if !still_uncovered.contains(&cell_id) {
                 continue;
             }
@@ -525,7 +512,10 @@ impl<'a> Greedy {
         missing
     }
 
-    fn bucket_clusters_by_size(&self, clusters_with_data: Vec<Cluster<'a>>) -> Vec<Vec<Cluster<'a>>> {
+    fn bucket_clusters_by_size(
+        &self,
+        clusters_with_data: Vec<Cluster<'a>>,
+    ) -> Vec<Vec<Cluster<'a>>> {
         let max = clusters_with_data
             .iter()
             .map(|cluster| cluster.all.len())

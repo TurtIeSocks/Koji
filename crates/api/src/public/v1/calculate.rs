@@ -7,13 +7,14 @@ use geo::{ChamberlainDuquetteArea, MultiPolygon, Polygon};
 
 use geojson::Value;
 use koji_core::{
-    FeatureCtx, FeatureHelpers, GeoFormats, SortBy, ToCollection, ToFeature, ToSingleVec,
+    BootstrapConfig, ClusteringConfig, FeatureCtx, FeatureHelpers, GeoFormats, RoutingConfig,
+    S2Config, SortBy, ToCollection, ToFeature,
 };
-use koji_scanner::GenericDataToVec;
 use koji_db::{
     KojiDb, ScannerType,
     db::{area, geofence, instance, route, sea_orm_active_enums::Type},
 };
+use koji_scanner::GenericDataToVec;
 use model::api::args::{Args, ArgsUnwrapped};
 use serde_json::json;
 
@@ -56,15 +57,21 @@ async fn bootstrap(
 
     let mut features: Vec<Feature> = algorithms::bootstrap::main(
         area,
-        calculation_mode,
-        radius,
-        sort_by,
-        s2_level,
-        s2_size,
-        route_split_level,
+        &BootstrapConfig {
+            calculation_mode,
+            radius,
+            s2: S2Config {
+                level: s2_level,
+                size: s2_size,
+            },
+            plugin_args: bootstrapping_args,
+        },
+        &RoutingConfig {
+            sort_by,
+            route_split_level,
+            plugin_args: routing_args,
+        },
         &mut stats,
-        &routing_args,
-        &bootstrapping_args,
     );
 
     if parent.is_some() {
@@ -238,29 +245,35 @@ async fn cluster(
 
     let clusters = clustering::main(
         &data_points,
-        cluster_mode,
-        radius,
-        min_points,
-        &mut stats,
-        cluster_split_level,
-        max_clusters,
-        calculation_mode,
-        s2_level,
-        s2_size,
+        &ClusteringConfig {
+            mode: cluster_mode,
+            radius,
+            min_points,
+            max_clusters,
+            cluster_split_level,
+            calculation_mode,
+            s2: S2Config {
+                level: s2_level,
+                size: s2_size,
+            },
+            center_clusters,
+            genetic_post_processing,
+            plugin_args: clustering_args,
+        },
         area,
-        &clustering_args,
-        center_clusters,
-        genetic_post_processing,
         dev.bypass_adaptive_partition,
+        &mut stats,
     );
     let clusters = routing::main(
         &data_points,
         clusters,
-        &sort_by,
-        route_split_level,
         radius,
+        &RoutingConfig {
+            sort_by,
+            route_split_level,
+            plugin_args: routing_args,
+        },
         &mut stats,
-        &routing_args,
     );
 
     let mut feature = clusters
@@ -350,18 +363,23 @@ async fn reroute(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     let clusters = routing::main(
         &data_points,
         clusters,
-        &sort_by,
-        route_split_level,
         radius,
+        &RoutingConfig {
+            sort_by,
+            route_split_level,
+            plugin_args: routing_args,
+        },
         &mut stats,
-        &routing_args,
     );
 
     let feature = clusters
         .to_feature(&FeatureCtx::new().with_type(mode.clone()))
         .remove_last_coord();
-    let feature =
-        feature.to_collection(&FeatureCtx::new().with_name(instance.clone()).with_type(mode));
+    let feature = feature.to_collection(
+        &FeatureCtx::new()
+            .with_name(instance.clone())
+            .with_type(mode),
+    );
 
     Ok(utils::response::send(
         feature,
@@ -399,8 +417,11 @@ async fn route_stats(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
     let feature = clusters
         .to_feature(&FeatureCtx::new().with_type(mode.clone()))
         .remove_last_coord();
-    let feature =
-        feature.to_collection(&FeatureCtx::new().with_name(instance.clone()).with_type(mode));
+    let feature = feature.to_collection(
+        &FeatureCtx::new()
+            .with_name(instance.clone())
+            .with_type(mode),
+    );
 
     Ok(utils::response::send(
         feature,
@@ -461,8 +482,11 @@ async fn route_stats_category(
     let feature = clusters
         .to_feature(&FeatureCtx::new().with_type(mode.clone()))
         .remove_last_coord();
-    let feature =
-        feature.to_collection(&FeatureCtx::new().with_name(instance.clone()).with_type(mode));
+    let feature = feature.to_collection(
+        &FeatureCtx::new()
+            .with_name(instance.clone())
+            .with_type(mode),
+    );
 
     Ok(utils::response::send(
         feature,

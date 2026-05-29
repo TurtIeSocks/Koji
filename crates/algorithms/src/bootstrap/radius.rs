@@ -4,7 +4,9 @@ use crate::{routing, stats::Stats};
 
 use geo::{Contains, Destination, Distance, Extremes, Haversine, Point, Polygon};
 use geojson::{Feature, Geometry, Value};
-use koji_core::{FeatureCtx, FenceType, Precision, SingleVec, SortBy, ToFeature, ToGeometryVec};
+use koji_core::{
+    FeatureCtx, FenceType, Precision, RoutingConfig, SingleVec, ToFeature, ToGeometryVec,
+};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 #[derive(Debug)]
@@ -34,15 +36,13 @@ impl<'a> BootstrapRadius<'a> {
         new_bootstrap
     }
 
-    pub fn sort(&mut self, sort_by: &SortBy, route_split_level: u64, routing_args: &str) {
+    pub fn sort(&mut self, routing: &RoutingConfig) {
         self.result = routing::main(
             &vec![],
             self.result.clone(),
-            sort_by,
-            route_split_level,
             self.radius,
+            routing,
             &mut self.stats,
-            routing_args,
         );
     }
 

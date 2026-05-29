@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use koji_core::{SingleVec, SortBy};
+use koji_core::{RoutingConfig, SingleVec, SortBy};
 
 use self::sorting::{SortGeohash, SortLatLng, SortPointCount, SortRandom, SortS2};
 use crate::{
@@ -16,14 +16,12 @@ pub mod sorting;
 pub fn main(
     data_points: &SingleVec,
     clusters: SingleVec,
-    sort_by: &SortBy,
-    route_split_level: u64,
     radius: f64,
+    cfg: &RoutingConfig,
     stats: &mut Stats,
-    routing_args: &str,
 ) -> SingleVec {
     let route_time = Instant::now();
-    let clusters = match sort_by {
+    let clusters = match &cfg.sort_by {
         SortBy::PointCount => clusters.sort_point_count(&data_points, radius),
         SortBy::LatLon => clusters.sort_lat_lng(),
         SortBy::GeoHash => clusters.sort_geohash(),
@@ -32,7 +30,12 @@ pub fn main(
         SortBy::Unset => clusters,
         SortBy::Custom(plugin) => {
             let clusters = clusters.sort_s2();
-            match Plugin::new(plugin, Folder::Routing, route_split_level, routing_args) {
+            match Plugin::new(
+                plugin,
+                Folder::Routing,
+                cfg.route_split_level,
+                &cfg.plugin_args,
+            ) {
                 Ok(plugin_manager) => match plugin_manager.run_multi(&clusters, Some(join::join)) {
                     Ok(sorted_clusters) => sorted_clusters,
                     Err(e) => {

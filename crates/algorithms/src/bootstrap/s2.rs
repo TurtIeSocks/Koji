@@ -4,7 +4,7 @@ use crate::{routing, stats::Stats};
 
 use geo::{BoundingRect, MultiPolygon, Polygon};
 use geojson::{Feature, Value};
-use koji_core::{FeatureCtx, FenceType, Precision, SingleVec, SortBy, ToFeature};
+use koji_core::{FeatureCtx, FenceType, Precision, RoutingConfig, SingleVec, ToFeature};
 use rayon::{iter::IntoParallelIterator, prelude::ParallelIterator};
 use s2::{
     cell::Cell,
@@ -44,16 +44,8 @@ impl<'a> BootstrapS2<'a> {
         new_bootstrap
     }
 
-    pub fn sort(&mut self, sort_by: &SortBy, route_split_level: u64, routing_args: &str) {
-        self.result = routing::main(
-            &vec![],
-            self.result.clone(),
-            sort_by,
-            route_split_level,
-            0.,
-            &mut self.stats,
-            routing_args,
-        );
+    pub fn sort(&mut self, routing: &RoutingConfig) {
+        self.result = routing::main(&vec![], self.result.clone(), 0., routing, &mut self.stats);
     }
 
     pub fn result(self) -> SingleVec {

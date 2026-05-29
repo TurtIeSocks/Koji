@@ -5,9 +5,9 @@ use std::sync::Once;
 use ::s2::cell::Cell;
 use ::s2::cellid::CellID;
 use ::s2::latlng::LatLng;
-use koji_core::Precision;
 use koji_core::ClusterMode;
 use koji_core::PointArray;
+use koji_core::Precision;
 use koji_core::SingleVec;
 use rstar::{AABB, RTree};
 use sysinfo::System;
@@ -76,10 +76,16 @@ impl PartitionConfig {
         LOG_ONCE.call_once(|| {
             log::info!(
                 "PartitionConfig: budget={}, start_level={}, max_level={}",
-                budget, start_level, max_level
+                budget,
+                start_level,
+                max_level
             );
         });
-        PartitionConfig { budget, start_level, max_level }
+        PartitionConfig {
+            budget,
+            start_level,
+            max_level,
+        }
     }
 }
 
@@ -134,11 +140,7 @@ pub(crate) fn s2_walk_cost(points: &[PointArray]) -> usize {
     distinct_l16_cells(points).saturating_mul(S2_WALK_COST_PER_L16)
 }
 
-pub(crate) fn estimate_cost(
-    points: &[PointArray],
-    mode: &ClusterMode,
-    budget: usize,
-) -> usize {
+pub(crate) fn estimate_cost(points: &[PointArray], mode: &ClusterMode, budget: usize) -> usize {
     let s2_cost = s2_walk_cost(points);
     let grid_cost = if matches!(mode, ClusterMode::Best) {
         scaled_grid_density(s2_cost, budget).pow(2)
@@ -269,10 +271,15 @@ pub(crate) fn adaptive_partition(
                 if at_max_level && !within_budget {
                     log::warn!(
                         "partition: accepting chunk at max_level={} with est={} > budget={} (irreducible)",
-                        cell.level(), est, budget,
+                        cell.level(),
+                        est,
+                        budget,
                     );
                 }
-                accepted.push(Chunk { cell, owned: cell_points });
+                accepted.push(Chunk {
+                    cell,
+                    owned: cell_points,
+                });
             } else {
                 let children = create_cell_map(&cell_points, cell.level() + 1);
                 for (k, v) in children {
@@ -317,7 +324,10 @@ pub(crate) fn select_effective_mode(
         };
         log::warn!(
             "chunk over budget for {:?} (est={}, budget={}), downgrading to {:?}",
-            requested, est, budget, next,
+            requested,
+            est,
+            budget,
+            next,
         );
         requested = next;
     }
@@ -359,11 +369,7 @@ mod tests {
             .collect()
     }
 
-    pub(super) fn sparse_grid(
-        rows: usize,
-        cols: usize,
-        bbox: [Precision; 4],
-    ) -> SingleVec {
+    pub(super) fn sparse_grid(rows: usize, cols: usize, bbox: [Precision; 4]) -> SingleVec {
         let [min_lat, min_lon, max_lat, max_lon] = bbox;
         let lat_step = (max_lat - min_lat) / rows as Precision;
         let lon_step = (max_lon - min_lon) / cols as Precision;
@@ -400,9 +406,13 @@ mod tests {
         let points = vec![[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]];
         assert_eq!(distinct_l16_cells(&points), 1);
 
-        let points = dense_cluster([0., 0.], 10, 1.0, 1);  // 10 points, ~1m radius
+        let points = dense_cluster([0., 0.], 10, 1.0, 1); // 10 points, ~1m radius
         let n = distinct_l16_cells(&points);
-        assert!(n >= 1 && n <= 10, "expected dedup count between 1 and 10, got {}", n);
+        assert!(
+            n >= 1 && n <= 10,
+            "expected dedup count between 1 and 10, got {}",
+            n
+        );
     }
 
     #[test]
@@ -430,13 +440,16 @@ mod tests {
         let points = vec![[0.0, 0.0]];
         let est_small = estimate_cost(&points, &ClusterMode::Best, 100);
         let est_large = estimate_cost(&points, &ClusterMode::Best, 100_000_000);
-        assert!(est_small < est_large, "larger budget should allow larger grid");
+        assert!(
+            est_small < est_large,
+            "larger budget should allow larger grid"
+        );
     }
 
     #[test]
     fn contains_latlng_owns_only_its_cell() {
         // Pick a stable lat/lon, get its level-10 parent.
-        let center = LatLng::from_degrees(37.7749, -122.4194);  // SF
+        let center = LatLng::from_degrees(37.7749, -122.4194); // SF
         let owning_cell = CellID::from(center).parent(10);
 
         // The lat/lon itself must be contained.
@@ -462,7 +475,12 @@ mod tests {
         // 1000 points in roughly 1km² → should fit in one chunk at start_level=6.
         let pts = random_points_in_bbox(1000, [37.78, -122.43, 37.79, -122.42], 42);
         let chunks = adaptive_partition(&pts, usize::MAX, &ClusterMode::Better, 6, 18);
-        assert_eq!(chunks.len(), 1, "small bbox should be one chunk, got {}", chunks.len());
+        assert_eq!(
+            chunks.len(),
+            1,
+            "small bbox should be one chunk, got {}",
+            chunks.len()
+        );
     }
 
     #[test]
@@ -489,7 +507,11 @@ mod tests {
         let pts = random_points_in_bbox(500, [0., 0., 5., 5.], 99);
         let chunks = adaptive_partition(&pts, 1_000_000, &ClusterMode::Better, 6, 18);
         let total: usize = chunks.iter().map(|c| c.owned.len()).sum();
-        assert_eq!(total, pts.len(), "no points should be dropped during partition");
+        assert_eq!(
+            total,
+            pts.len(),
+            "no points should be dropped during partition"
+        );
     }
 
     #[test]
@@ -526,11 +548,14 @@ mod tests {
 
         let halo = gather_halo(cell, &tree, 70.0);
         assert!(
-            halo.iter().any(|p: &Point| (p.center[1] - outside[1]).abs() < 1e-6),
+            halo.iter()
+                .any(|p: &Point| (p.center[1] - outside[1]).abs() < 1e-6),
             "halo should include the just-outside point"
         );
         assert!(
-            !halo.iter().any(|p: &Point| (p.center[1] - inside[1]).abs() < 1e-6),
+            !halo
+                .iter()
+                .any(|p: &Point| (p.center[1] - inside[1]).abs() < 1e-6),
             "halo should NOT include the inside point"
         );
     }
@@ -540,9 +565,14 @@ mod tests {
         use crate::clustering::greedy::Greedy;
         let pts = random_points_in_bbox(10_000, [-10., -10., 10., 10.], 42);
         let mut greedy = Greedy::default();
-        greedy.set_cluster_mode(ClusterMode::Better).set_radius(70.0);
+        greedy
+            .set_cluster_mode(ClusterMode::Better)
+            .set_radius(70.0);
         let result = greedy.run(&pts);
-        assert!(!result.is_empty(), "Better mode should produce some clusters");
+        assert!(
+            !result.is_empty(),
+            "Better mode should produce some clusters"
+        );
     }
 
     #[test]
@@ -558,8 +588,8 @@ mod tests {
     /// Load a CSV file in `lat,lon\n...` format. Skips header row.
     /// Returns a SingleVec of points. Panics on parse error.
     fn load_csv(path: &str) -> SingleVec {
-        let contents = std::fs::read_to_string(path)
-            .unwrap_or_else(|e| panic!("failed to read {path}: {e}"));
+        let contents =
+            std::fs::read_to_string(path).unwrap_or_else(|e| panic!("failed to read {path}: {e}"));
         contents
             .lines()
             .skip(1) // header
@@ -648,14 +678,16 @@ mod tests {
     }
 
     #[test]
-    #[ignore]  // run with: cargo test -p algorithms -- --ignored
+    #[ignore] // run with: cargo test -p algorithms -- --ignored
     fn manual_smoke_huge_bbox_better_mode() {
         use crate::clustering::greedy::Greedy;
         use std::time::Instant;
 
         let pts = random_points_in_bbox(50_000, [-45., -90., 45., 90.], 12345);
         let mut greedy = Greedy::default();
-        greedy.set_cluster_mode(ClusterMode::Better).set_radius(70.0);
+        greedy
+            .set_cluster_mode(ClusterMode::Better)
+            .set_radius(70.0);
 
         let t = Instant::now();
         let result = greedy.run(&pts);
