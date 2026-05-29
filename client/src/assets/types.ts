@@ -212,7 +212,6 @@ export interface Config {
   start_lat: number
   start_lon: number
   tile_server: string
-  scanner_type: 'rdm' | 'unown' | 'hybrid'
   logged_in: boolean
   dangerous: boolean
   route_plugins: string[]

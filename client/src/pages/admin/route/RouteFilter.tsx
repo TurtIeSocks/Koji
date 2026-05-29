@@ -11,13 +11,11 @@ import { Card, CardContent } from '@mui/material'
 import AutoModeIcon from '@mui/icons-material/AutoMode'
 import SupervisedUserCircleIcon from '@mui/icons-material/SupervisedUserCircle'
 
-import { useStatic } from '@hooks/useStatic'
-import { RDM_ROUTES, UNOWN_ROUTES } from '@assets/constants'
+import { UNOWN_ROUTES } from '@assets/constants'
 import { BasicKojiEntry, KojiResponse } from '@assets/types'
 import { fetchWrapper } from '@services/fetches'
 
 export function RouteFilter() {
-  const { scannerType } = useStatic.getState()
   const { data } = useQuery('unique_geofences', () =>
     fetchWrapper<KojiResponse<BasicKojiEntry[]>>(
       '/internal/admin/route/parent',
@@ -29,10 +27,7 @@ export function RouteFilter() {
         {/* <SavedQueriesList /> */}
         <FilterLiveSearch />
         <FilterList label="Mode" icon={<AutoModeIcon />}>
-          {[
-            ...(scannerType === 'unown' ? UNOWN_ROUTES : RDM_ROUTES),
-            'unset',
-          ].map((mode) => (
+          {[...UNOWN_ROUTES, 'unset'].map((mode) => (
             <FilterListItem key={mode} label={mode} value={{ mode }} />
           ))}
         </FilterList>

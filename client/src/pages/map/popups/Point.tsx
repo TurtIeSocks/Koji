@@ -16,7 +16,7 @@ import { S2CellId, S2LatLng } from 'nodes2ts'
 import { Feature, KojiResponse, KojiRoute, PopupProps } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
-import { RDM_ROUTES, UNOWN_ROUTES } from '@assets/constants'
+import { UNOWN_ROUTES } from '@assets/constants'
 import { useStatic } from '@hooks/useStatic'
 import { fetchWrapper, getKojiCache } from '@services/fetches'
 import { useDbCache } from '@hooks/useDbCache'
@@ -108,10 +108,7 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
               updateProperty(feature.geometry.type, feature.id, '__mode', mode)
             }
           >
-            {(useStatic.getState().scannerType === 'unown'
-              ? UNOWN_ROUTES
-              : RDM_ROUTES
-            ).map((t) => (
+            {UNOWN_ROUTES.map((t) => (
               <MenuItem key={t} value={t}>
                 {t}
               </MenuItem>

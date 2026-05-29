@@ -14,8 +14,7 @@ import {
 
 import { Box } from '@mui/material'
 
-import { useStatic } from '@hooks/useStatic'
-import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
+import { UNOWN_FENCES } from '@assets/constants'
 import type { AdminGeofence, KojiProperty } from '@assets/types'
 
 import CodeInput from '../inputs/CodeInput'
@@ -37,7 +36,6 @@ const matchSuggestion = (filter: string, choice: KojiProperty) => {
 }
 
 export default function GeofenceForm() {
-  const scannerType = useStatic((s) => s.scannerType)
   const [properties, setProperties] = React.useState<
     Record<string, KojiProperty>
   >({})
@@ -59,9 +57,7 @@ export default function GeofenceForm() {
       <TextInput source="name" fullWidth required />
       <SelectInput
         source="mode"
-        choices={(scannerType === 'unown' ? UNOWN_FENCES : RDM_FENCES).map(
-          (mode, i) => ({ id: i, mode }),
-        )}
+        choices={UNOWN_FENCES.map((mode, i) => ({ id: i, mode }))}
         optionText="mode"
         optionValue="mode"
       />

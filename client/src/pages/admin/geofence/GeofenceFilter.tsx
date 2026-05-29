@@ -14,13 +14,11 @@ import AccountTree from '@mui/icons-material/AccountTree'
 import MapIcon from '@mui/icons-material/Map'
 import SupervisedUserCircleIcon from '@mui/icons-material/SupervisedUserCircle'
 
-import { useStatic } from '@hooks/useStatic'
-import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
+import { UNOWN_FENCES } from '@assets/constants'
 import { KojiGeofence, KojiProject, KojiResponse } from '@assets/types'
 import { fetchWrapper } from '@services/fetches'
 
 export function GeofenceFilter() {
-  const { scannerType } = useStatic.getState()
   const projectData = useGetList<KojiProject>('project', {
     sort: { field: 'name', order: 'ASC' },
   })
@@ -60,10 +58,7 @@ export function GeofenceFilter() {
           ))}
         </FilterList>
         <FilterList label="Mode" icon={<AutoModeIcon />}>
-          {[
-            'unset',
-            ...(scannerType === 'unown' ? UNOWN_FENCES : RDM_FENCES),
-          ].map((mode) => (
+          {['unset', ...UNOWN_FENCES].map((mode) => (
             <FilterListItem key={mode} label={mode} value={{ mode }} />
           ))}
         </FilterList>

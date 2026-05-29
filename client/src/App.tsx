@@ -80,7 +80,6 @@ export default function App() {
         if (location[0] === 0 && location[1] === 0) {
           setStore('location', [res.start_lat, res.start_lon])
         }
-        setStatic('scannerType', res.scanner_type)
         setStatic('dangerous', res.dangerous || false)
         setStatic('route_plugins', res.route_plugins || [])
         setStatic('clustering_plugins', res.clustering_plugins || [])

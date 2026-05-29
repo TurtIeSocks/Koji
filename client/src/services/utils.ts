@@ -267,16 +267,15 @@ export function reverseObject(obj: Record<string, string>) {
 }
 
 export function getRouteType(category: Category): KojiRouteModes {
-  const { scannerType } = useStatic.getState()
   switch (category) {
     case 'gym':
-      return scannerType === 'unown' ? 'circle_raid' : 'circle_smart_raid'
+      return 'circle_raid'
     case 'pokestop':
       return 'circle_quest'
     case 'station':
       return 'circle_station'
     default:
-      return scannerType === 'unown' ? 'circle_pokemon' : 'circle_smart_pokemon'
+      return 'circle_pokemon'
   }
 }
 

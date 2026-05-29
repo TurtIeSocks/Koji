@@ -12,12 +12,7 @@ import {
 import { Checkbox, Divider, MenuItem, Select, TextField } from '@mui/material'
 import ReactWindow from '@components/ReactWindow'
 import { useStatic } from '@hooks/useStatic'
-import {
-  RDM_FENCES,
-  RDM_ROUTES,
-  UNOWN_FENCES,
-  UNOWN_ROUTES,
-} from '@assets/constants'
+import { UNOWN_FENCES, UNOWN_ROUTES } from '@assets/constants'
 import ProjectsAc from '@components/drawer/inputs/ProjectsAC'
 import { fetchWrapper } from '@services/fetches'
 import { useDbCache } from '@hooks/useDbCache'
@@ -40,7 +35,6 @@ const AssignStep = React.forwardRef<
     checked,
     nameProp,
   } = useStatic((s) => s.importWizard)
-  const scannerType = useStatic((s) => s.scannerType)
 
   const innerRef = React.useRef<HTMLDivElement>(null)
 
@@ -104,14 +98,7 @@ const AssignStep = React.forwardRef<
         }),
     [nameProp, routeMode],
   )
-  const modes =
-    scannerType === 'unown'
-      ? routeMode
-        ? UNOWN_ROUTES
-        : UNOWN_FENCES
-      : routeMode
-      ? RDM_ROUTES
-      : RDM_FENCES
+  const modes = routeMode ? UNOWN_ROUTES : UNOWN_FENCES
   return (
     <Grid2 container ref={ref} sx={{ width: '100%' }}>
       <Grid2 xs={1} mt={1} />

@@ -18,7 +18,7 @@ import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { MultiPolygon, Polygon } from 'geojson'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 
-import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
+import { UNOWN_FENCES } from '@assets/constants'
 import type {
   KojiGeofence,
   KojiResponse,
@@ -219,10 +219,7 @@ export function PolygonPopup({
               updateProperty(feature.geometry.type, feature.id, '__mode', mode)
             }
           >
-            {(useStatic.getState().scannerType === 'unown'
-              ? UNOWN_FENCES
-              : RDM_FENCES
-            ).map((t) => (
+            {UNOWN_FENCES.map((t) => (
               <MenuItem key={t} value={t}>
                 {t}
               </MenuItem>

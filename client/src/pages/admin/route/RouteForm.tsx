@@ -8,25 +8,20 @@ import {
 } from 'react-admin'
 import { Box, TextField } from '@mui/material'
 
-import { RDM_ROUTES, UNOWN_ROUTES } from '@assets/constants'
+import { UNOWN_ROUTES } from '@assets/constants'
 import type { KojiRoute } from '@assets/types'
-import { useStatic } from '@hooks/useStatic'
 
 import CodeInput from '../inputs/CodeInput'
 import RouteMap from './RouteMap'
 
 export default function RouteForm() {
-  const { scannerType } = useStatic.getState()
-
   return (
     <>
       <TextInput source="name" fullWidth isRequired />
       <TextInput source="description" fullWidth />
       <SelectInput
         source="mode"
-        choices={(scannerType === 'unown' ? UNOWN_ROUTES : RDM_ROUTES).map(
-          (mode, i) => ({ id: i, mode }),
-        )}
+        choices={UNOWN_ROUTES.map((mode, i) => ({ id: i, mode }))}
         optionText="mode"
         optionValue="mode"
       />

@@ -6,8 +6,7 @@ import JsonFile from '@components/drawer/manage/Json'
 import ShapeFile from '@components/drawer/manage/ShapeFile'
 import { Divider } from '@mui/material'
 import InstanceSelect from '@components/drawer/inputs/Instance'
-import { useStatic } from '@hooks/useStatic'
-import { RDM_FENCES, UNOWN_FENCES } from '@assets/constants'
+import { UNOWN_FENCES } from '@assets/constants'
 import type { KojiKey, FeatureCollection } from '@assets/types'
 
 import Nominatim from './Nominatim'
@@ -23,8 +22,6 @@ const ImportStep = React.forwardRef<
     ) => void
   }
 >(({ geojson, handleChange }, ref) => {
-  const scannerType = useStatic((s) => s.scannerType)
-
   return (
     <Grid2 container ref={ref}>
       {/* JSON */}
@@ -91,7 +88,7 @@ const ImportStep = React.forwardRef<
             )
           }}
           controlled
-          filters={scannerType === 'unown' ? UNOWN_FENCES : RDM_FENCES}
+          filters={UNOWN_FENCES}
           initialState={geojson.features
             .filter((feat) => feat.properties?.__scanner)
             .map((feat) => feat.id as KojiKey)}

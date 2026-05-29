@@ -45,7 +45,6 @@ export default function RoutingTab() {
   const calculation_mode = usePersist((s) => s.calculation_mode)
   const sort_by = usePersist((s) => s.sort_by)
 
-  const scannerType = useStatic((s) => s.scannerType)
   const updateButton = useStatic((s) => s.updateButton)
   const isEditing = useStatic((s) =>
     Object.values(s.layerEditing).some((v) => v),
@@ -200,11 +199,7 @@ export default function RoutingTab() {
       <Divider sx={{ my: 2 }} />
       <ListSubheader>Saving</ListSubheader>
       <Toggle field="save_to_db" label="Save to Kōji Db" />
-      <Toggle
-        field="save_to_scanner"
-        label="Save to Scanner Db"
-        disabled={scannerType !== 'unown'}
-      />
+      <Toggle field="save_to_scanner" label="Save to Scanner Db" />
       <Toggle field="skipRendering" />
       <ListItemButton
         color="primary"
