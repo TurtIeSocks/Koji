@@ -4,9 +4,9 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::Instant;
 
-use crate::s2::create_cell_map;
 use crate::utils;
 use koji_core::SingleVec;
+use koji_core::create_cell_map;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 #[derive(Debug)]

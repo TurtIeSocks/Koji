@@ -14,7 +14,7 @@ use sysinfo::System;
 
 use crate::clustering::candidates;
 use crate::clustering::rtree::point::Point;
-use crate::s2::create_cell_map;
+use koji_core::create_cell_map;
 
 /// Shared 1024 constant used as both a unit byte size (1 KiB) and a candidate
 /// grid-density base in greedy.rs. Centralized here to keep all `1024` magic

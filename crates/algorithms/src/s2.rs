@@ -1,11 +1,11 @@
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashSet, VecDeque},
     fmt::Display,
     sync::{Arc, Mutex},
 };
 
 use geo::{Coord, Destination, Haversine, Intersects, LineString, Polygon};
-use koji_core::{Precision, PointArray, SingleVec};
+use koji_core::{Precision, PointArray};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use s2::{
     cell::Cell, cellid::CellID, cellunion::CellUnion, latlng::LatLng, rect::Rect,
@@ -348,19 +348,4 @@ pub fn from_array_to_cell_id(point: &PointArray, parent_level: u64) -> CellID {
 pub fn from_cell_id_to_array(cell_id: CellID) -> PointArray {
     let center = Cell::from(cell_id).center();
     [center.latitude().deg(), center.longitude().deg()]
-}
-
-pub fn create_cell_map(points: &SingleVec, split_level: u64) -> HashMap<u64, SingleVec> {
-    let s20cells: Vec<CellID> = points
-        .iter()
-        .map(|point| from_array_to_cell_id(point, 20))
-        .collect();
-    let mut cell_maps = HashMap::new();
-    for (i, cell) in s20cells.into_iter().enumerate() {
-        let handler = cell_maps
-            .entry(cell.parent(split_level).0)
-            .or_insert(Vec::new());
-        handler.push(points[i]);
-    }
-    cell_maps
 }

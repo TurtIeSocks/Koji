@@ -2332,6 +2332,7 @@ dependencies = [
  "log",
  "macros",
  "regex",
+ "s2",
  "serde",
  "serde_json",
  "serde_with",
