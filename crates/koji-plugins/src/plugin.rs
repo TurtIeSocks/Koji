@@ -4,7 +4,8 @@
 //! loaded from. Running it spawns the manifest's interpreter + entrypoint as a
 //! child process, writes a [`PluginInput`] as JSON to its stdin, and parses a
 //! [`PluginOutput`] JSON object from its stdout. A non-zero exit status or
-//! unparseable stdout is an error.
+//! unparseable stdout is an error. The child's stderr is captured and, when
+//! non-empty, logged at warn level rather than inheriting Koji's own stderr.
 //!
 //! [`Plugin::run_multi`] preserves the original parallel-over-S2-cells fan-out:
 //! when `split_level > 0` the points are bucketed by [`create_cell_map`] and
@@ -150,6 +151,7 @@ impl Plugin {
         let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()?;
 
         let mut stdin = child
@@ -162,12 +164,32 @@ impl Plugin {
             }
         });
 
+        // Drain stderr on its own thread so a chatty plugin can't deadlock by
+        // filling the stderr pipe while we block reading stdout. Joined before
+        // `child.wait()`.
+        let mut stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| io::Error::other("Could not capture stderr"))?;
+        let stderr_handle = std::thread::spawn(move || {
+            let mut buf = String::new();
+            let _ = stderr.read_to_string(&mut buf);
+            buf
+        });
+
         let mut stdout = child
             .stdout
             .take()
             .ok_or_else(|| io::Error::other("Could not capture stdout"))?;
         let mut raw = String::new();
         stdout.read_to_string(&mut raw)?;
+
+        // Collect the child's stderr before waiting on it. A panicked drain
+        // thread (poisoned) just yields no captured stderr.
+        let captured_stderr = stderr_handle.join().unwrap_or_default();
+        if !captured_stderr.trim().is_empty() {
+            log::warn!("[plugin {}] stderr: {}", self.name, captured_stderr.trim());
+        }
 
         match child.wait()? {
             status if status.success() => {}
