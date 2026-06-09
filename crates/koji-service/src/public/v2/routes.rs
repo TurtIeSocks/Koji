@@ -3,7 +3,7 @@
 //! Routes are geometry-bearing, so the `list`/`get_one` reads honor the
 //! `?format=`/`rt` return-type query via [`utils::response::send`] (the same
 //! catch-all v1 uses) and the `?internal=` flag. Writes go through the koji-db
-//! `Query` and are wrapped in [`JSend`](crate::utils::jsend::JSend).
+//! `Query` and are wrapped in [`ApiResponse`](crate::utils::api_response::ApiResponse).
 //!
 //! Hand-written (not macro'd via [`super::resources`]) because the koji-db
 //! signature differs: `as_collection` / `get_one_feature` take an `internal`
@@ -22,7 +22,7 @@ use model::api::args::get_return_type;
 use serde_json::json;
 
 use crate::dragonite::{RouteUpdated, TOPIC_ROUTE_UPDATED};
-use crate::utils::{self, jsend::JSend};
+use crate::utils::{self, api_response::ApiResponse};
 
 /// `GET /api/v2/routes` — list all routes as a `FeatureCollection`, honoring
 /// `?format=`/`rt` (defaults to `featurecollection`) and `?internal=`.
@@ -45,7 +45,7 @@ async fn list(
     Ok(utils::response::send(fc, return_type, None, false, None))
 }
 
-/// `POST /api/v2/routes` — create a route → `201` JSend.
+/// `POST /api/v2/routes` — create a route → `201` ApiResponse.
 async fn create(
     conn: web::Data<KojiDb>,
     payload: web::Json<serde_json::Value>,
@@ -53,7 +53,10 @@ async fn create(
     let record = route::Query::upsert_json_return(&conn.koji, 0, payload.into_inner())
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
-    Ok(JSend::success_with_status(StatusCode::CREATED, record))
+    Ok(ApiResponse::success_with_status(
+        StatusCode::CREATED,
+        record,
+    ))
 }
 
 /// `GET /api/v2/routes/{id}` — one route (by id or name) as a feature, honoring
@@ -83,7 +86,7 @@ async fn get_one(
     ))
 }
 
-/// `PATCH /api/v2/routes/{id}` — update a route by id → JSend.
+/// `PATCH /api/v2/routes/{id}` — update a route by id → ApiResponse.
 async fn update(
     conn: web::Data<KojiDb>,
     path: web::Path<u32>,
@@ -93,15 +96,15 @@ async fn update(
         route::Query::upsert_json_return(&conn.koji, path.into_inner(), payload.into_inner())
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
-    Ok(JSend::success(record))
+    Ok(ApiResponse::success(record))
 }
 
-/// `DELETE /api/v2/routes/{id}` — delete a route → JSend `{rows_affected}`.
+/// `DELETE /api/v2/routes/{id}` — delete a route → ApiResponse `{rows_affected}`.
 async fn remove(conn: web::Data<KojiDb>, path: web::Path<u32>) -> Result<HttpResponse, Error> {
     let result = route::Query::delete(&conn.koji, path.into_inner())
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
-    Ok(JSend::success(
+    Ok(ApiResponse::success(
         json!({ "rows_affected": result.rows_affected }),
     ))
 }
@@ -137,7 +140,7 @@ async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<Htt
     let model = match route::Query::get_one(&conn.koji, id.clone()).await {
         Ok(model) => model,
         Err(_) => {
-            return Ok(JSend::fail(
+            return Ok(ApiResponse::fail(
                 StatusCode::NOT_FOUND,
                 json!({ "route": format!("no route {id}") }),
             ));
@@ -149,7 +152,7 @@ async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<Htt
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
     let Some(dragonite_area_id) = fence.dragonite_area_id else {
-        return Ok(JSend::fail(
+        return Ok(ApiResponse::fail(
             StatusCode::UNPROCESSABLE_ENTITY,
             json!({ "dragonite_area_id": "route's geofence is not linked to a Dragonite area" }),
         ));
@@ -172,7 +175,7 @@ async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<Htt
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    Ok(JSend::success_with_status(
+    Ok(ApiResponse::success_with_status(
         StatusCode::ACCEPTED,
         json!({
             "route": model.id,

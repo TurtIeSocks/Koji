@@ -1,0 +1,220 @@
+//! The Koji v2 API response envelope.
+//!
+//! Matches Dragonite's v2 envelope (architecture design §7, decision #7) — the
+//! `status` field is the string `"ok" | "error"`, **not** the JSend
+//! `success/fail/error` (Dragonite dropped JSend for its v2 API, so Koji v2
+//! follows the same shape for ecosystem consistency). Success carries `data`
+//! (plus an optional `meta` pagination block on collection endpoints); error
+//! carries `error{code,message,field?}`.
+//!
+//! ```jsonc
+//! // success
+//! { "status": "ok", "data": <T>, "meta": { … }? }
+//! // error
+//! { "status": "error", "error": { "code": "…", "message": "…", "field": "…"? } }
+//! ```
+//!
+//! The constructor names (`success`/`success_with_status`/`fail`/`error`) and
+//! signatures are kept stable across the v2 handlers; only the wire shape moved.
+//! `fail`'s legacy `{"field":"message"}` value is mapped to `error{code,message,
+//! field}` (first key → `field`, its value → `message`, `code` derived from the
+//! HTTP status). `error`'s legacy `data` context arg is dropped — the v2 error
+//! object has no `data` field.
+
+use actix_web::{HttpResponse, http::StatusCode};
+use serde::Serialize;
+use serde_json::Value;
+
+/// The on-the-wire error object: `error{code,message,field?}` (matches Dragonite
+/// v2 / architecture §7).
+#[derive(Debug, Serialize)]
+pub struct ApiError {
+    /// Stable, machine-readable code (e.g. `not_found`, `unprocessable`).
+    pub code: String,
+    /// Human-readable message.
+    pub message: String,
+    /// The offending request field, for per-field validation errors.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
+}
+
+/// Pagination block emitted on `ok` collection responses.
+#[derive(Debug, Serialize)]
+pub struct Meta {
+    pub total: i64,
+    pub page: i64,
+    pub per_page: i64,
+    pub total_pages: i64,
+    pub has_next: bool,
+    pub has_prev: bool,
+}
+
+/// The v2 response envelope, discriminated by the `status` string (`ok`/`error`).
+#[derive(Debug, Serialize)]
+#[serde(tag = "status", rename_all = "lowercase")]
+pub enum ApiResponse<T> {
+    /// `{ "status": "ok", "data": …, "meta": …? }`.
+    Ok {
+        data: T,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        meta: Option<Meta>,
+    },
+    /// `{ "status": "error", "error": { … } }`.
+    Error { error: ApiError },
+}
+
+impl<T: Serialize> ApiResponse<T> {
+    /// `200 OK` success carrying `data`.
+    pub fn success(data: T) -> HttpResponse {
+        Self::success_with_status(StatusCode::OK, data)
+    }
+
+    /// Success with an explicit status (e.g. `201`/`202`).
+    pub fn success_with_status(status: StatusCode, data: T) -> HttpResponse {
+        HttpResponse::build(status).json(ApiResponse::Ok { data, meta: None })
+    }
+
+    /// `200 OK` collection success carrying `data` + a pagination `meta` block.
+    pub fn success_list(data: T, meta: Meta) -> HttpResponse {
+        HttpResponse::build(StatusCode::OK).json(ApiResponse::Ok {
+            data,
+            meta: Some(meta),
+        })
+    }
+}
+
+impl ApiResponse<()> {
+    /// Server-side / processing error. `message` is required; `code` defaults to
+    /// one derived from the HTTP status. The legacy `data` context arg is ignored
+    /// (the v2 error shape has no `data`).
+    pub fn error(
+        status: StatusCode,
+        message: impl Into<String>,
+        code: Option<String>,
+        _data: Option<Value>,
+    ) -> HttpResponse {
+        let error = ApiError {
+            code: code.unwrap_or_else(|| code_for_status(status)),
+            message: message.into(),
+            field: None,
+        };
+        HttpResponse::build(status).json(ApiResponse::<()>::Error { error })
+    }
+
+    /// Client-side rejection. The legacy `{"field":"message"}` value is mapped to
+    /// `error{code,message,field}`: first object key → `field`, its value →
+    /// `message`, `code` derived from the status.
+    pub fn fail(status: StatusCode, data: Value) -> HttpResponse {
+        let (field, message) = first_field_message(&data);
+        let error = ApiError {
+            code: code_for_status(status),
+            message,
+            field,
+        };
+        HttpResponse::build(status).json(ApiResponse::<()>::Error { error })
+    }
+}
+
+/// Derive a stable error `code` from the HTTP status.
+fn code_for_status(status: StatusCode) -> String {
+    match status.as_u16() {
+        400 => "invalid_request",
+        401 => "unauthorized",
+        403 => "forbidden",
+        404 => "not_found",
+        409 => "conflict",
+        422 => "unprocessable",
+        429 => "rate_limited",
+        504 => "timeout",
+        s if s >= 500 => "internal_error",
+        _ => "error",
+    }
+    .to_string()
+}
+
+/// Extract `(field, message)` from a legacy `fail` value: the first key of a
+/// JSON object becomes the field and its (stringified) value the message; a
+/// non-object value yields `(None, stringified)`.
+fn first_field_message(data: &Value) -> (Option<String>, String) {
+    if let Some(obj) = data.as_object()
+        && let Some((key, value)) = obj.iter().next()
+    {
+        let message = value
+            .as_str()
+            .map(str::to_string)
+            .unwrap_or_else(|| value.to_string());
+        return (Some(key.clone()), message);
+    }
+    (None, data.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn ok_serializes_with_status_ok_and_no_meta_key() {
+        let v = serde_json::to_value(ApiResponse::Ok {
+            data: json!({ "id": 1 }),
+            meta: None,
+        })
+        .unwrap();
+        assert_eq!(v["status"], "ok");
+        assert_eq!(v["data"]["id"], 1);
+        assert!(v.get("meta").is_none(), "meta omitted when None");
+    }
+
+    #[test]
+    fn ok_list_carries_meta() {
+        let v = serde_json::to_value(ApiResponse::Ok {
+            data: json!([1, 2]),
+            meta: Some(Meta {
+                total: 2,
+                page: 0,
+                per_page: 50,
+                total_pages: 1,
+                has_next: false,
+                has_prev: false,
+            }),
+        })
+        .unwrap();
+        assert_eq!(v["status"], "ok");
+        assert_eq!(v["meta"]["total"], 2);
+    }
+
+    #[test]
+    fn error_shape_is_status_error_with_error_object() {
+        let v = serde_json::to_value(ApiResponse::<()>::Error {
+            error: ApiError {
+                code: "not_found".into(),
+                message: "nope".into(),
+                field: Some("id".into()),
+            },
+        })
+        .unwrap();
+        assert_eq!(v["status"], "error");
+        assert_eq!(v["error"]["code"], "not_found");
+        assert_eq!(v["error"]["message"], "nope");
+        assert_eq!(v["error"]["field"], "id");
+        assert!(v.get("data").is_none(), "no data on error");
+    }
+
+    #[test]
+    fn fail_maps_first_kv_to_field_and_message() {
+        // The mapping helper is what the `fail` constructor uses.
+        let (field, message) = first_field_message(&json!({ "geofence": "no geofence 7" }));
+        assert_eq!(field.as_deref(), Some("geofence"));
+        assert_eq!(message, "no geofence 7");
+    }
+
+    #[test]
+    fn code_derivation() {
+        assert_eq!(code_for_status(StatusCode::NOT_FOUND), "not_found");
+        assert_eq!(
+            code_for_status(StatusCode::UNPROCESSABLE_ENTITY),
+            "unprocessable"
+        );
+        assert_eq!(code_for_status(StatusCode::GATEWAY_TIMEOUT), "timeout");
+    }
+}

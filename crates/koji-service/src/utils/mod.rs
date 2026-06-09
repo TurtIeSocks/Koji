@@ -11,8 +11,8 @@ use koji_scanner::{
     entities::{gym, pokestop, spawnpoint, station},
 };
 
+pub mod api_response;
 pub mod auth;
-pub mod jsend;
 pub mod response;
 
 pub fn is_docker() -> io::Result<bool> {

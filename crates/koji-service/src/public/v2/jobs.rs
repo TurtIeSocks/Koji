@@ -1,6 +1,6 @@
 //! v2 HTTP endpoints: the generic job API (`/api/v2/jobs`), the calc sugar
 //! (`/api/v2/calc/*`, sync-bridged per job-queue spec §7), and the algorithm
-//! metadata endpoint. All responses use the [`JSend`](crate::utils::jsend::JSend)
+//! metadata endpoint. All responses use the [`ApiResponse`](crate::utils::api_response::ApiResponse)
 //! envelope.
 
 use std::time::Duration;
@@ -13,7 +13,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::public::v2::calc::{CALC_KIND, CalcPayload};
-use crate::utils::{self, jsend::JSend};
+use crate::utils::{self, api_response::ApiResponse};
 
 /// Priority for sync-bridged calc jobs (`priority DESC` claim order; spec §6/§8:
 /// sync calc = HIGH, async/CLI = 0).
@@ -47,7 +47,7 @@ async fn enqueue_job(
         .enqueue_or_attach(&body.kind, None, &body.payload, 0)
         .await
     {
-        Ok(id) => Ok(JSend::success_with_status(
+        Ok(id) => Ok(ApiResponse::success_with_status(
             StatusCode::ACCEPTED,
             json!({ "job_id": id }),
         )),
@@ -64,21 +64,21 @@ async fn get_job(
     let id = match path.into_inner().parse::<JobId>() {
         Ok(id) => id,
         Err(_) => {
-            return Ok(JSend::fail(
+            return Ok(ApiResponse::fail(
                 StatusCode::BAD_REQUEST,
                 json!({ "id": "not a valid job id" }),
             ));
         }
     };
     match jobs.get(id).await {
-        Ok(record) => Ok(JSend::success(record)),
-        Err(AwaitError::NotFound) => Ok(JSend::error(
+        Ok(record) => Ok(ApiResponse::success(record)),
+        Err(AwaitError::NotFound) => Ok(ApiResponse::error(
             StatusCode::NOT_FOUND,
             "job not found",
             Some("not_found".to_string()),
             None,
         )),
-        Err(e) => Ok(JSend::error(
+        Err(e) => Ok(ApiResponse::error(
             StatusCode::INTERNAL_SERVER_ERROR,
             e.to_string(),
             Some("internal_error".to_string()),
@@ -97,21 +97,21 @@ async fn cancel_job(
     let id = match path.into_inner().parse::<JobId>() {
         Ok(id) => id,
         Err(_) => {
-            return Ok(JSend::fail(
+            return Ok(ApiResponse::fail(
                 StatusCode::BAD_REQUEST,
                 json!({ "id": "not a valid job id" }),
             ));
         }
     };
     match jobs.cancel(id).await {
-        Ok(()) => Ok(JSend::success(json!({ "canceled": id }))),
-        Err(AwaitError::NotFound) => Ok(JSend::error(
+        Ok(()) => Ok(ApiResponse::success(json!({ "canceled": id }))),
+        Err(AwaitError::NotFound) => Ok(ApiResponse::error(
             StatusCode::NOT_FOUND,
             "job not found",
             Some("not_found".to_string()),
             None,
         )),
-        Err(e) => Ok(JSend::error(
+        Err(e) => Ok(ApiResponse::error(
             StatusCode::INTERNAL_SERVER_ERROR,
             e.to_string(),
             Some("internal_error".to_string()),
@@ -185,7 +185,7 @@ async fn run_calc(
     let args: Args = match serde_json::from_value(request_json.clone()) {
         Ok(args) => args,
         Err(e) => {
-            return Ok(JSend::fail(
+            return Ok(ApiResponse::fail(
                 StatusCode::BAD_REQUEST,
                 json!({ "body": format!("invalid calc request: {e}") }),
             ));
@@ -207,7 +207,7 @@ async fn run_calc(
 
     if area.features.is_empty() && instance.is_empty() && data_points.is_empty() && parent.is_none()
     {
-        return Ok(JSend::fail(
+        return Ok(ApiResponse::fail(
             StatusCode::BAD_REQUEST,
             json!({ "area": "no area, instance, data_points, or parent provided" }),
         ));
@@ -261,7 +261,7 @@ async fn run_calc(
 
     // Async path: hand back the id immediately.
     if query.wait.unwrap_or(0) == 0 {
-        return Ok(JSend::success_with_status(
+        return Ok(ApiResponse::success_with_status(
             StatusCode::ACCEPTED,
             json!({ "job_id": id }),
         ));
@@ -269,32 +269,32 @@ async fn run_calc(
 
     // Sync bridge: block up to 290s for the terminal outcome.
     match jobs.await_result(id, SYNC_WAIT).await {
-        Ok(JobOutcome::Succeeded(result)) => Ok(JSend::success(result)),
-        Ok(JobOutcome::Failed { error, code }) => Ok(JSend::error(
+        Ok(JobOutcome::Succeeded(result)) => Ok(ApiResponse::success(result)),
+        Ok(JobOutcome::Failed { error, code }) => Ok(ApiResponse::error(
             status_for_code(&code),
             error,
             Some(code),
             None,
         )),
-        Ok(JobOutcome::Canceled) => Ok(JSend::error(
+        Ok(JobOutcome::Canceled) => Ok(ApiResponse::error(
             StatusCode::CONFLICT,
             "job was canceled",
             Some("canceled".to_string()),
             None,
         )),
-        Err(AwaitError::Timeout) => Ok(JSend::error(
+        Err(AwaitError::Timeout) => Ok(ApiResponse::error(
             StatusCode::GATEWAY_TIMEOUT,
             "calculation still running; retry with the job id",
             Some("timeout".to_string()),
             Some(json!({ "job_id": id })),
         )),
-        Err(AwaitError::NotFound) => Ok(JSend::error(
+        Err(AwaitError::NotFound) => Ok(ApiResponse::error(
             StatusCode::NOT_FOUND,
             "job not found",
             Some("not_found".to_string()),
             None,
         )),
-        Err(e) => Ok(JSend::error(
+        Err(e) => Ok(ApiResponse::error(
             StatusCode::INTERNAL_SERVER_ERROR,
             e.to_string(),
             Some("internal_error".to_string()),
@@ -312,7 +312,7 @@ async fn run_calc(
 #[get("/meta/algorithms")]
 async fn meta_algorithms() -> Result<HttpResponse, Error> {
     use algorithms::{bootstrap, clustering, routing};
-    Ok(JSend::success(json!({
+    Ok(ApiResponse::success(json!({
         "clustering": clustering::all_clustering_options(),
         "routing": routing::all_routing_options(),
         "bootstrap": bootstrap::all_bootstrap_options(),
@@ -323,9 +323,9 @@ async fn meta_algorithms() -> Result<HttpResponse, Error> {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Map an [`EnqueueError`] to a JSend error response.
+/// Map an [`EnqueueError`] to a ApiResponse error response.
 fn enqueue_error_response(e: EnqueueError) -> HttpResponse {
-    JSend::error(
+    ApiResponse::error(
         StatusCode::INTERNAL_SERVER_ERROR,
         e.to_string(),
         Some("internal_error".to_string()),

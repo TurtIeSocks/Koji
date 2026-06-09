@@ -8,7 +8,7 @@
 //! REST handlers (list / create / get-one / update / delete) plus a
 //! [`actix_web::Scope`] builder per resource from the koji-db `Query` type + URL
 //! path segment, wrapping every result in the
-//! [`JSend`](crate::utils::jsend::JSend) envelope.
+//! [`ApiResponse`](crate::utils::api_response::ApiResponse) envelope.
 //!
 //! The handlers are wired with `web::resource(..).route(..)` rather than the
 //! `#[get]`/`#[post]` attribute macros because attribute macros require a string
@@ -23,7 +23,7 @@ use actix_web::{Error, HttpResponse, http::StatusCode, web};
 use koji_db::KojiDb;
 use serde_json::json;
 
-use crate::utils::jsend::JSend;
+use crate::utils::api_response::ApiResponse;
 
 /// Stamp out the five CRUD handlers + a [`Scope`](actix_web::Scope) builder for a
 /// plain-JSON resource.
@@ -40,15 +40,15 @@ macro_rules! crud_resource {
             use super::*;
             use koji_db::db::$module::Query;
 
-            /// `GET /api/v2/$seg` — list all records (plain JSend array).
+            /// `GET /api/v2/$seg` — list all records (plain ApiResponse array).
             pub async fn list(db: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
                 let rows = Query::get_json_cache(&db.koji)
                     .await
                     .map_err(actix_web::error::ErrorInternalServerError)?;
-                Ok(JSend::success(rows))
+                Ok(ApiResponse::success(rows))
             }
 
-            /// `POST /api/v2/$seg` — create a record → `201` JSend.
+            /// `POST /api/v2/$seg` — create a record → `201` ApiResponse.
             pub async fn create(
                 db: web::Data<KojiDb>,
                 payload: web::Json<serde_json::Value>,
@@ -56,7 +56,7 @@ macro_rules! crud_resource {
                 let record = Query::upsert_json_return(&db.koji, 0, payload.into_inner())
                     .await
                     .map_err(actix_web::error::ErrorInternalServerError)?;
-                Ok(JSend::success_with_status(StatusCode::CREATED, record))
+                Ok(ApiResponse::success_with_status(StatusCode::CREATED, record))
             }
 
             /// `GET /api/v2/$seg/{id}` — fetch one record by id or name.
@@ -67,7 +67,7 @@ macro_rules! crud_resource {
                 let record = Query::get_one_json(&db.koji, path.into_inner())
                     .await
                     .map_err(actix_web::error::ErrorInternalServerError)?;
-                Ok(JSend::success(record))
+                Ok(ApiResponse::success(record))
             }
 
             /// `PATCH /api/v2/$seg/{id}` — update a record by id.
@@ -80,10 +80,10 @@ macro_rules! crud_resource {
                     Query::upsert_json_return(&db.koji, path.into_inner(), payload.into_inner())
                         .await
                         .map_err(actix_web::error::ErrorInternalServerError)?;
-                Ok(JSend::success(record))
+                Ok(ApiResponse::success(record))
             }
 
-            /// `DELETE /api/v2/$seg/{id}` — delete a record → JSend `{rows_affected}`.
+            /// `DELETE /api/v2/$seg/{id}` — delete a record → ApiResponse `{rows_affected}`.
             pub async fn remove(
                 db: web::Data<KojiDb>,
                 path: web::Path<u32>,
@@ -91,7 +91,7 @@ macro_rules! crud_resource {
                 let result = Query::delete(&db.koji, path.into_inner())
                     .await
                     .map_err(actix_web::error::ErrorInternalServerError)?;
-                Ok(JSend::success(json!({ "rows_affected": result.rows_affected })))
+                Ok(ApiResponse::success(json!({ "rows_affected": result.rows_affected })))
             }
 
             /// The `web::Scope` wiring the five handlers under `/$seg`, to be

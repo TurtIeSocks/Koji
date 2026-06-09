@@ -261,7 +261,7 @@ pub async fn start() -> io::Result<()> {
                             .service(public::v2::jobs::meta_algorithms)
                             // Typed CRUD resources. Geometry-bearing geofences/routes
                             // are hand-written (honor `?format=`); projects/
-                            // properties/tile-servers are macro-generated plain-JSend
+                            // properties/tile-servers are macro-generated plain-ApiResponse
                             // CRUD. Each exposes a `scope()` that wires its own
                             // method+path routing (incl. `/geofences/{id}/publish`).
                             .service(public::v2::geofences::scope())

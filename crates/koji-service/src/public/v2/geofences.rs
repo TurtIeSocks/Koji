@@ -4,7 +4,7 @@
 //! `?format=` (a.k.a. `rt`) return-type query via [`utils::response::send`]
 //! exactly like v1 — the same `FeatureCollection` → SQL/text/array/poracle
 //! catch-all. Writes go through the koji-db `Query` and are wrapped in
-//! [`JSend`](crate::utils::jsend::JSend).
+//! [`ApiResponse`](crate::utils::api_response::ApiResponse).
 //!
 //! Hand-written (not macro'd via [`super::resources`]) because the koji-db
 //! signature differs: `get_all_collection` / `get_one_feature` take an
@@ -20,7 +20,7 @@ use model::api::args::get_return_type;
 use serde_json::json;
 
 use crate::dragonite::{GeofenceUpdated, TOPIC_GEOFENCE_UPDATED};
-use crate::utils::{self, jsend::JSend};
+use crate::utils::{self, api_response::ApiResponse};
 
 /// `GET /api/v2/geofences` — list all geofences as a `FeatureCollection`,
 /// honoring `?format=`/`rt` (defaults to `featurecollection`).
@@ -43,7 +43,7 @@ async fn list(
     Ok(utils::response::send(fc, return_type, None, false, None))
 }
 
-/// `POST /api/v2/geofences` — create a geofence → `201` JSend.
+/// `POST /api/v2/geofences` — create a geofence → `201` ApiResponse.
 async fn create(
     conn: web::Data<KojiDb>,
     payload: web::Json<serde_json::Value>,
@@ -51,7 +51,10 @@ async fn create(
     let record = geofence::Query::upsert_json_return(&conn.koji, 0, payload.into_inner())
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
-    Ok(JSend::success_with_status(StatusCode::CREATED, record))
+    Ok(ApiResponse::success_with_status(
+        StatusCode::CREATED,
+        record,
+    ))
 }
 
 /// `GET /api/v2/geofences/{id}` — one geofence (by id or name) as a feature,
@@ -81,7 +84,7 @@ async fn get_one(
     ))
 }
 
-/// `PATCH /api/v2/geofences/{id}` — update a geofence by id → JSend.
+/// `PATCH /api/v2/geofences/{id}` — update a geofence by id → ApiResponse.
 async fn update(
     conn: web::Data<KojiDb>,
     path: web::Path<u32>,
@@ -91,15 +94,15 @@ async fn update(
         geofence::Query::upsert_json_return(&conn.koji, path.into_inner(), payload.into_inner())
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
-    Ok(JSend::success(record))
+    Ok(ApiResponse::success(record))
 }
 
-/// `DELETE /api/v2/geofences/{id}` — delete a geofence → JSend `{rows_affected}`.
+/// `DELETE /api/v2/geofences/{id}` — delete a geofence → ApiResponse `{rows_affected}`.
 async fn remove(conn: web::Data<KojiDb>, path: web::Path<u32>) -> Result<HttpResponse, Error> {
     let result = geofence::Query::delete(&conn.koji, path.into_inner())
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
-    Ok(JSend::success(
+    Ok(ApiResponse::success(
         json!({ "rows_affected": result.rows_affected }),
     ))
 }
@@ -122,7 +125,7 @@ async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<Htt
     let model = match geofence::Query::get_one(&conn.koji, id.clone()).await {
         Ok(model) => model,
         Err(_) => {
-            return Ok(JSend::fail(
+            return Ok(ApiResponse::fail(
                 StatusCode::NOT_FOUND,
                 json!({ "geofence": format!("no geofence {id}") }),
             ));
@@ -131,7 +134,7 @@ async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<Htt
 
     // Linkage gate: only linked geofences can be pushed.
     let Some(dragonite_area_id) = model.dragonite_area_id else {
-        return Ok(JSend::fail(
+        return Ok(ApiResponse::fail(
             StatusCode::UNPROCESSABLE_ENTITY,
             json!({ "dragonite_area_id": "geofence is not linked to a Dragonite area" }),
         ));
@@ -158,7 +161,7 @@ async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<Htt
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    Ok(JSend::success_with_status(
+    Ok(ApiResponse::success_with_status(
         StatusCode::ACCEPTED,
         json!({
             "geofence": model.id,
