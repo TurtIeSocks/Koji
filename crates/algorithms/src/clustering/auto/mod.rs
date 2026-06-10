@@ -130,7 +130,7 @@ impl Auto {
         // greedy orderings (the greedy is order-sensitive on packing-style
         // instances, especially for min_points ≥ 2).
         let variants: &[u8] = if reps.len() <= RESTART_MAX_CELLS {
-            &[0, 1, 2, 3]
+            &[0, 1, 2, 3, 4]
         } else {
             &[0]
         };

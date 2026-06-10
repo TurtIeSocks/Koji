@@ -28,6 +28,10 @@ use koji_core::{PointArray, Precision, SingleVec};
 use super::geometry::{circle_intersections, smallest_enclosing_circle};
 use crate::rtree::{self, point::Point};
 
+/// Inputs up to this many cells get full-sweep LNS (every center cell
+/// repacked, not just uncovered neighborhoods).
+const LNS_SWEEP_ALL_MAX: usize = 25_000;
+
 /// Same margin as the solver: all refinement decisions use r_eff = r·(1−1e-3)
 /// so the full-radius scorer can only agree or do better.
 const MARGIN: Precision = 1.0 - 1e-3;
@@ -655,7 +659,7 @@ impl<'a> Refiner<'a> {
     /// accept iff the local cost m·centers + uncovered strictly drops. This
     /// is the move that restructures whole neighborhoods where the greedy
     /// stranded sub-m point groups — single-center moves can't reach those.
-    fn lns_pass(&mut self, radius: Precision) -> bool {
+    fn lns_pass(&mut self, radius: Precision, sweep_all: bool) -> bool {
         use super::frame::Grid;
         use super::solve::{RHO, SolveParams, solve_chunk};
         use crate::clustering::partition::cell_bbox_lat_lon;
@@ -670,22 +674,6 @@ impl<'a> Refiner<'a> {
             level += 1;
         }
 
-        // Windows = cells with uncovered reps, densest first.
-        let mut win_count: HashMap<u64, u32> = HashMap::new();
-        for (r, &c) in self.count.iter().enumerate() {
-            if c == 0 {
-                let p = self.reps[r];
-                let cell = CellID::from(LatLng::from_degrees(p[0], p[1])).parent(level);
-                *win_count.entry(cell.0).or_insert(0) += 1;
-            }
-        }
-        if win_count.is_empty() {
-            return false;
-        }
-        let mut windows: Vec<(u32, u64)> = win_count.into_iter().map(|(c, n)| (n, c)).collect();
-        windows.sort_unstable_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
-        windows.truncate(MAX_WINDOWS);
-
         // Live centers grouped by window cell (kept fresh on accepts).
         let mut center_cells: HashMap<u64, Vec<usize>> = HashMap::new();
         for i in 0..self.pos.len() {
@@ -695,6 +683,30 @@ impl<'a> Refiner<'a> {
                 center_cells.entry(cell.0).or_default().push(i);
             }
         }
+
+        // Windows: cells with uncovered reps, densest first. Small inputs
+        // (sweep_all) repack every center-occupied cell instead — the m≥2
+        // packing structure can be suboptimal even where nothing is
+        // uncovered, and small inputs can afford the full sweep.
+        let mut win_count: HashMap<u64, u32> = HashMap::new();
+        for (r, &c) in self.count.iter().enumerate() {
+            if c == 0 {
+                let p = self.reps[r];
+                let cell = CellID::from(LatLng::from_degrees(p[0], p[1])).parent(level);
+                *win_count.entry(cell.0).or_insert(0) += 1;
+            }
+        }
+        if sweep_all {
+            for cell in center_cells.keys() {
+                win_count.entry(*cell).or_insert(0);
+            }
+        }
+        if win_count.is_empty() {
+            return false;
+        }
+        let mut windows: Vec<(u32, u64)> = win_count.into_iter().map(|(c, n)| (n, c)).collect();
+        windows.sort_unstable_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+        windows.truncate(MAX_WINDOWS);
 
         let mut changed = false;
         for (_, cell_raw) in windows {
@@ -761,7 +773,7 @@ impl<'a> Refiner<'a> {
                 })
                 .collect();
             let mut best: Option<(usize, Vec<[f64; 2]>)> = None;
-            for v in 0..4u8 {
+            for v in 0..5u8 {
                 let centers = solve_chunk(
                     &pts_planar,
                     &SolveParams {
@@ -862,7 +874,7 @@ impl<'a> Refiner<'a> {
                     self.paranoid_check(&format!("r{round}-swap32"));
                 }
                 if !reopened {
-                    reopened = self.lns_pass(radius);
+                    reopened = self.lns_pass(radius, self.reps.len() <= LNS_SWEEP_ALL_MAX);
                     if paranoid {
                         self.paranoid_check(&format!("r{round}-lns"));
                     }
@@ -878,7 +890,7 @@ impl<'a> Refiner<'a> {
         // shot, then a cleanup sweep so their new disks get consolidated.
         if exhausted {
             let swapped = self.swap32_pass();
-            let filled = self.lns_pass(radius);
+            let filled = self.lns_pass(radius, self.reps.len() <= LNS_SWEEP_ALL_MAX);
             if paranoid {
                 self.paranoid_check("post-exhaustion-expensive");
             }

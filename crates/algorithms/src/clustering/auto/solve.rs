@@ -23,7 +23,9 @@ pub struct SolveParams<'a> {
     /// Deterministic restart variant: permutes candidate order / tie-breaks
     /// so small inputs can take the best of several greedy runs.
     /// 0 = canonical; 1 = reversed candidates; 2 = vertices before points;
-    /// 3 = inverted density tie-break.
+    /// 3 = inverted density tie-break; 4 = extra RHO/2 lattice candidates
+    /// (helps dense clumps at m ≥ 2; only ever chosen when it scores better
+    /// post-refinement).
     pub variant: u8,
     /// Points already covered by fixed external disks (LNS windows): they
     /// contribute candidates but never gain. Empty slice = none.
@@ -75,14 +77,36 @@ pub fn solve_chunk(pts: &[[f64; 2]], params: &SolveParams) -> Vec<[f64; 2]> {
         }
     }
 
-    // (A dense interior lattice was also tried here for m ≥ 2 — zero score
-    // movement on the stuck cases, slight harm elsewhere. Point + pair-vertex
-    // candidates are the right set.)
     match params.variant {
         1 => candidates.reverse(),
         2 => {
             let n1 = pts.len().min(candidates.len());
             candidates.rotate_left(n1);
+        }
+        4 => {
+            // Dense interior lattice on top of the point/vertex set. As an
+            // always-on addition this measured neutral-to-harmful, but as a
+            // restart variant it is only kept when the post-refine score
+            // says so — and it wins on dense clumps at m ≥ 2 where legacy's
+            // fine grid placed better-centered equal-gain disks.
+            let (mut min_x, mut min_y) = (f64::INFINITY, f64::INFINITY);
+            let (mut max_x, mut max_y) = (f64::NEG_INFINITY, f64::NEG_INFINITY);
+            for p in pts {
+                min_x = min_x.min(p[0]);
+                max_x = max_x.max(p[0]);
+                min_y = min_y.min(p[1]);
+                max_y = max_y.max(p[1]);
+            }
+            let step = RHO / 2.0;
+            let nx = ((max_x - min_x) / step).ceil() as i64 + 1;
+            let ny = ((max_y - min_y) / step).ceil() as i64 + 1;
+            if nx.saturating_mul(ny) <= 16 * pts.len().max(1) as i64 {
+                for ix in 0..nx {
+                    for iy in 0..ny {
+                        candidates.push([min_x + ix as f64 * step, min_y + iy as f64 * step]);
+                    }
+                }
+            }
         }
         _ => {}
     }
