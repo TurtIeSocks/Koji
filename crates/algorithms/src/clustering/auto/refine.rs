@@ -205,127 +205,162 @@ impl<'a> Refiner<'a> {
     /// Non-exclusive covered points are never lost (another coverer exists
     /// by definition), so every accepted move is a true score improvement.
     fn relocate_pass(&mut self) -> bool {
+        // Propose in parallel against the current snapshot (the search is the
+        // expensive part), then apply serially in index order with cheap
+        // revalidation — deterministic and race-free.
+        let this = &*self;
+        let proposals: Vec<(usize, PointArray)> = (0..self.pos.len())
+            .into_par_iter()
+            .filter_map(|i| this.propose_relocate(i).map(|cand| (i, cand)))
+            .collect();
+
         let mut changed = false;
-        for i in 0..self.pos.len() {
+        for (i, cand) in proposals {
             if !self.live[i] {
                 continue;
             }
+            // Revalidate against current state: every exclusive point must
+            // stay covered, and the move must still strictly improve.
             let excl = self.exclusive_of(i);
-            if excl.is_empty() {
-                continue; // drop_pass territory
-            }
-            let frame = LocalFrame::new(self.pos[i]);
-            let excl_xy: Vec<[f64; 2]> = excl
+            if excl
                 .iter()
-                .map(|&r| frame.to_xy(self.reps[r as usize]))
-                .collect();
-            let sec = smallest_enclosing_circle(&excl_xy);
-
-            // All local reps once; candidates get a cheap planar ranking and
-            // only the leaders pay for exact verification.
-            let local: Vec<(u32, [f64; 2])> = self
-                .reps_within(self.pos[i], 3.0 * self.r_eff)
-                .into_iter()
-                .map(|r| (r, frame.to_xy(self.reps[r as usize])))
-                .collect();
-            let nearby_uncov: Vec<[f64; 2]> = local
-                .iter()
-                .filter(|(r, _)| self.count[*r as usize] == 0)
-                .map(|(_, xy)| *xy)
-                .take(12)
-                .collect();
-
-            let mut cand_xy: Vec<[f64; 2]> = Vec::new();
-            if sec.radius <= self.r_eff {
-                cand_xy.push(sec.center);
-            }
-            if !nearby_uncov.is_empty() {
-                // Vertex pool: exclusive extremes (the binding constraints)
-                // plus the nearby uncovered points.
-                let mut pool: Vec<[f64; 2]> = excl_xy.clone();
-                pool.sort_by(|a, b| {
-                    let da = (a[0] - sec.center[0]).powi(2) + (a[1] - sec.center[1]).powi(2);
-                    let db = (b[0] - sec.center[0]).powi(2) + (b[1] - sec.center[1]).powi(2);
-                    db.partial_cmp(&da).unwrap()
-                });
-                pool.truncate(8);
-                pool.extend(nearby_uncov.iter().copied());
-                for a in 0..pool.len() {
-                    for b in (a + 1)..pool.len() {
-                        if let Some(vs) = circle_intersections(pool[a], pool[b], self.r_eff) {
-                            cand_xy.push(vs[0]);
-                            cand_xy.push(vs[1]);
-                        }
-                    }
-                }
-            }
-
-            // Loss-free moves only: every exclusive point must stay covered.
-            // (Shedding exclusives for a bigger capture is an immediate −1
-            // win but stretches exclusive sets toward extreme positions,
-            // blocking −m merges downstream — measured net regression on
-            // every m≥2 dataset.)
-            let r2 = self.r_eff * self.r_eff;
-            cand_xy.retain(|c| {
-                excl_xy
-                    .iter()
-                    .all(|p| (p[0] - c[0]).powi(2) + (p[1] - c[1]).powi(2) <= r2)
-            });
-            if cand_xy.is_empty() {
+                .any(|&r| haversine_m(cand, self.reps[r as usize]) > self.r_eff)
+            {
                 continue;
             }
-
-            // Planar ranking by (captured uncovered, total coverage).
-            let mut ranked: Vec<(usize, usize, [f64; 2])> = cand_xy
-                .into_iter()
-                .map(|xy| {
-                    let mut captured = 0usize;
-                    let mut total = 0usize;
-                    for (r, p) in &local {
-                        let d2 = (p[0] - xy[0]).powi(2) + (p[1] - xy[1]).powi(2);
-                        if d2 <= r2 {
-                            total += 1;
-                            if self.count[*r as usize] == 0 {
-                                captured += 1;
-                            }
-                        }
-                    }
-                    (captured, total, xy)
-                })
-                .collect();
-            ranked.sort_unstable_by_key(|c| std::cmp::Reverse((c.0, c.1)));
-
-            // Exact acceptance check (Haversine, conservative radius) on the
-            // top planar candidates; first exact improvement wins.
-            let old_total = self.covered[i].len();
-            for &(_, _, xy) in ranked.iter().take(8) {
-                let cand = frame.to_latlng(xy);
-                if excl
-                    .iter()
-                    .any(|&r| haversine_m(cand, self.reps[r as usize]) > self.r_eff)
-                {
-                    continue;
+            let new_cov = self.query_covered(cand);
+            let captured = new_cov
+                .iter()
+                .filter(|&&r| self.count[r as usize] == 0)
+                .count();
+            if captured > 0 || new_cov.len() > self.covered[i].len() {
+                for &r in &self.covered[i] {
+                    self.count[r as usize] -= 1;
                 }
-                let new_cov = self.query_covered(cand);
-                let captured = new_cov
-                    .iter()
-                    .filter(|&&r| self.count[r as usize] == 0)
-                    .count();
-                if captured > 0 || new_cov.len() > old_total {
-                    for &r in &self.covered[i] {
-                        self.count[r as usize] -= 1;
-                    }
-                    for &r in &new_cov {
-                        self.count[r as usize] += 1;
-                    }
-                    self.pos[i] = cand;
-                    self.covered[i] = new_cov;
-                    changed = true;
-                    break;
+                for &r in &new_cov {
+                    self.count[r as usize] += 1;
                 }
+                self.pos[i] = cand;
+                self.covered[i] = new_cov;
+                changed = true;
             }
         }
         changed
+    }
+
+    /// Search the relocation neighborhood of live center `i` and return the
+    /// best strictly-improving position, judged against the current snapshot.
+    /// Read-only; used by the parallel propose phase of [`Self::relocate_pass`].
+    fn propose_relocate(&self, i: usize) -> Option<PointArray> {
+        if !self.live[i] {
+            return None;
+        }
+        let excl = self.exclusive_of(i);
+        if excl.is_empty() {
+            return None; // drop_pass territory
+        }
+        let frame = LocalFrame::new(self.pos[i]);
+        let excl_xy: Vec<[f64; 2]> = excl
+            .iter()
+            .map(|&r| frame.to_xy(self.reps[r as usize]))
+            .collect();
+        let sec = smallest_enclosing_circle(&excl_xy);
+
+        // All local reps once; candidates get a cheap planar ranking and
+        // only the leaders pay for exact verification.
+        let local: Vec<(u32, [f64; 2])> = self
+            .reps_within(self.pos[i], 3.0 * self.r_eff)
+            .into_iter()
+            .map(|r| (r, frame.to_xy(self.reps[r as usize])))
+            .collect();
+        let nearby_uncov: Vec<[f64; 2]> = local
+            .iter()
+            .filter(|(r, _)| self.count[*r as usize] == 0)
+            .map(|(_, xy)| *xy)
+            .take(12)
+            .collect();
+
+        let mut cand_xy: Vec<[f64; 2]> = Vec::new();
+        if sec.radius <= self.r_eff {
+            cand_xy.push(sec.center);
+        }
+        if !nearby_uncov.is_empty() {
+            // Vertex pool: exclusive extremes (the binding constraints)
+            // plus the nearby uncovered points.
+            let mut pool: Vec<[f64; 2]> = excl_xy.clone();
+            pool.sort_by(|a, b| {
+                let da = (a[0] - sec.center[0]).powi(2) + (a[1] - sec.center[1]).powi(2);
+                let db = (b[0] - sec.center[0]).powi(2) + (b[1] - sec.center[1]).powi(2);
+                db.partial_cmp(&da).unwrap()
+            });
+            pool.truncate(8);
+            pool.extend(nearby_uncov.iter().copied());
+            for a in 0..pool.len() {
+                for b in (a + 1)..pool.len() {
+                    if let Some(vs) = circle_intersections(pool[a], pool[b], self.r_eff) {
+                        cand_xy.push(vs[0]);
+                        cand_xy.push(vs[1]);
+                    }
+                }
+            }
+        }
+
+        // Loss-free moves only: every exclusive point must stay covered.
+        // (Shedding exclusives for a bigger capture is an immediate −1
+        // win but stretches exclusive sets toward extreme positions,
+        // blocking −m merges downstream — measured net regression on
+        // every m≥2 dataset.)
+        let r2 = self.r_eff * self.r_eff;
+        cand_xy.retain(|c| {
+            excl_xy
+                .iter()
+                .all(|p| (p[0] - c[0]).powi(2) + (p[1] - c[1]).powi(2) <= r2)
+        });
+        if cand_xy.is_empty() {
+            return None;
+        }
+
+        // Planar ranking by (captured uncovered, total coverage).
+        let mut ranked: Vec<(usize, usize, [f64; 2])> = cand_xy
+            .into_iter()
+            .map(|xy| {
+                let mut captured = 0usize;
+                let mut total = 0usize;
+                for (r, p) in &local {
+                    let d2 = (p[0] - xy[0]).powi(2) + (p[1] - xy[1]).powi(2);
+                    if d2 <= r2 {
+                        total += 1;
+                        if self.count[*r as usize] == 0 {
+                            captured += 1;
+                        }
+                    }
+                }
+                (captured, total, xy)
+            })
+            .collect();
+        ranked.sort_unstable_by_key(|c| std::cmp::Reverse((c.0, c.1)));
+
+        // Exact check (Haversine, conservative radius) on the top planar
+        // candidates; first exact improvement wins.
+        let old_total = self.covered[i].len();
+        for &(_, _, xy) in ranked.iter().take(8) {
+            let cand = frame.to_latlng(xy);
+            if excl
+                .iter()
+                .any(|&r| haversine_m(cand, self.reps[r as usize]) > self.r_eff)
+            {
+                continue;
+            }
+            let new_cov = self.query_covered(cand);
+            let captured = new_cov
+                .iter()
+                .filter(|&&r| self.count[r as usize] == 0)
+                .count();
+            if captured > 0 || new_cov.len() > old_total {
+                return Some(cand);
+            }
+        }
+        None
     }
 
     /// Merge pairs of centers when the set of points *only they* cover fits in
@@ -345,55 +380,81 @@ impl<'a> Refiner<'a> {
             cell_to_centers.entry(id.0).or_default().push(i);
         }
 
-        for &i in &live_idx {
-            if !self.live[i] {
+        // Parallel propose: each live center finds its first feasible merge
+        // partner on the snapshot. Serial apply revalidates liveness and the
+        // (possibly grown) required set before committing.
+        let this = &*self;
+        let proposals: Vec<(usize, usize, PointArray)> = live_idx
+            .par_iter()
+            .filter_map(|&i| {
+                let neighbors: Vec<usize> = center_tree
+                    .locate_all_at_point(&this.pos[i])
+                    .filter_map(|pt| cell_to_centers.get(&pt.cell_id.0))
+                    .flatten()
+                    .copied()
+                    .filter(|&j| j > i && this.live[j])
+                    .collect();
+                for j in neighbors {
+                    if let Some(cand) = this.propose_merge_pair(i, j) {
+                        return Some((i, j, cand));
+                    }
+                }
+                None
+            })
+            .collect();
+
+        for (i, j, cand) in proposals {
+            if !self.live[i] || !self.live[j] {
                 continue;
             }
-            let mut merged = false;
-            let neighbors: Vec<usize> = center_tree
-                .locate_all_at_point(&self.pos[i])
-                .filter_map(|pt| cell_to_centers.get(&pt.cell_id.0))
-                .flatten()
-                .copied()
-                .filter(|&j| j > i && self.live[j])
-                .collect();
-            for j in neighbors {
-                if merged || !self.live[j] {
-                    continue;
-                }
-                let required = self.required_of_pair(i, j);
-                if required.is_empty() {
-                    continue;
-                }
-                let mid = [
-                    (self.pos[i][0] + self.pos[j][0]) / 2.0,
-                    (self.pos[i][1] + self.pos[j][1]) / 2.0,
-                ];
-                let frame = LocalFrame::new(mid);
-                let xy: Vec<[f64; 2]> = required
-                    .iter()
-                    .map(|&r| frame.to_xy(self.reps[r as usize]))
-                    .collect();
-                let sec = smallest_enclosing_circle(&xy);
-                if sec.radius > self.r_eff {
-                    continue;
-                }
-                let cand = frame.to_latlng(sec.center);
-                if required
+            // The required set may have grown since the proposal (a third
+            // coverer died); the candidate must still cover all of it.
+            let required = self.required_of_pair(i, j);
+            if required.is_empty()
+                || required
                     .iter()
                     .any(|&r| haversine_m(cand, self.reps[r as usize]) > self.r_eff)
-                {
-                    continue;
-                }
-                let new_cov = self.query_covered(cand);
-                self.kill_center(i);
-                self.kill_center(j);
-                self.add_center(cand, new_cov);
-                changed = true;
-                merged = true;
+            {
+                continue;
             }
+            let new_cov = self.query_covered(cand);
+            self.kill_center(i);
+            self.kill_center(j);
+            self.add_center(cand, new_cov);
+            changed = true;
         }
         changed
+    }
+
+    /// SEC-feasibility check for merging pair (i, j) on the current snapshot;
+    /// returns the merged center position when the pair's required points fit
+    /// one disk. Read-only.
+    fn propose_merge_pair(&self, i: usize, j: usize) -> Option<PointArray> {
+        let required = self.required_of_pair(i, j);
+        if required.is_empty() {
+            return None;
+        }
+        let mid = [
+            (self.pos[i][0] + self.pos[j][0]) / 2.0,
+            (self.pos[i][1] + self.pos[j][1]) / 2.0,
+        ];
+        let frame = LocalFrame::new(mid);
+        let xy: Vec<[f64; 2]> = required
+            .iter()
+            .map(|&r| frame.to_xy(self.reps[r as usize]))
+            .collect();
+        let sec = smallest_enclosing_circle(&xy);
+        if sec.radius > self.r_eff {
+            return None;
+        }
+        let cand = frame.to_latlng(sec.center);
+        if required
+            .iter()
+            .any(|&r| haversine_m(cand, self.reps[r as usize]) > self.r_eff)
+        {
+            return None;
+        }
+        Some(cand)
     }
 
     /// Replace three mutually-near centers by two when the points only they
@@ -402,7 +463,6 @@ impl<'a> Refiner<'a> {
     /// must fit one SEC. Triples are bounded to each center's 4 nearest
     /// neighbors, so the pass stays near-linear in centers.
     fn swap32_pass(&mut self) -> bool {
-        let mut changed = false;
         let live_idx: Vec<usize> = (0..self.pos.len()).filter(|&i| self.live[i]).collect();
         let live_pos: SingleVec = live_idx.iter().map(|&i| self.pos[i]).collect();
         let center_tree = rtree::spawn(4.0 * self.r_eff, &live_pos);
@@ -412,49 +472,73 @@ impl<'a> Refiner<'a> {
             cell_to_centers.entry(id.0).or_default().push(i);
         }
 
-        'outer: for &i in &live_idx {
-            if !self.live[i] {
-                continue;
-            }
-            // NOTE: the cell multi-map can yield the same center index more
-            // than once (two centers sharing an S2 L20 cell each map the
-            // other's tree point back to the full cell bucket). Dedupe before
-            // forming trios — a duplicated index would double-kill a center
-            // and corrupt the coverage counts.
-            let mut neigh: Vec<(Precision, usize)> = center_tree
-                .locate_all_at_point(&self.pos[i])
-                .filter_map(|pt| cell_to_centers.get(&pt.cell_id.0))
-                .flatten()
-                .copied()
-                .filter(|&j| j != i && self.live[j])
-                .map(|j| (haversine_m(self.pos[i], self.pos[j]), j))
-                .collect();
-            neigh.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap().then(a.1.cmp(&b.1)));
-            neigh.dedup_by_key(|&mut (_, j)| j);
-            neigh.truncate(4);
-            for a in 0..neigh.len() {
-                for b in (a + 1)..neigh.len() {
-                    let (j, k) = (neigh[a].1, neigh[b].1);
-                    if !self.live[j] || !self.live[k] || !self.live[i] {
-                        continue;
-                    }
-                    if self.try_swap32(i, j, k) {
-                        changed = true;
-                        continue 'outer; // i is dead; move on
+        // Parallel propose: each center tries trios with its nearest
+        // neighbors on the snapshot. Serial apply revalidates liveness and
+        // the required set before killing anything.
+        let this = &*self;
+        let proposals: Vec<(usize, usize, usize, PointArray, PointArray)> = live_idx
+            .par_iter()
+            .filter_map(|&i| {
+                // NOTE: the cell multi-map can yield the same center index
+                // more than once (two centers sharing an S2 L20 cell each map
+                // the other's tree point back to the full cell bucket).
+                // Dedupe before forming trios — a duplicated index would
+                // double-kill a center and corrupt the coverage counts.
+                let mut neigh: Vec<(Precision, usize)> = center_tree
+                    .locate_all_at_point(&this.pos[i])
+                    .filter_map(|pt| cell_to_centers.get(&pt.cell_id.0))
+                    .flatten()
+                    .copied()
+                    .filter(|&j| j != i && this.live[j])
+                    .map(|j| (haversine_m(this.pos[i], this.pos[j]), j))
+                    .collect();
+                neigh.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap().then(a.1.cmp(&b.1)));
+                neigh.dedup_by_key(|&mut (_, j)| j);
+                neigh.truncate(4);
+                for a in 0..neigh.len() {
+                    for b in (a + 1)..neigh.len() {
+                        let (j, k) = (neigh[a].1, neigh[b].1);
+                        if let Some((p1, p2)) = this.propose_swap32(i, j, k) {
+                            return Some((i, j, k, p1, p2));
+                        }
                     }
                 }
+                None
+            })
+            .collect();
+
+        let mut changed = false;
+        for (i, j, k, p1, p2) in proposals {
+            if !self.live[i] || !self.live[j] || !self.live[k] {
+                continue;
             }
+            // Required set may have grown since the proposal; both disks
+            // together must still cover all of it.
+            let required = self.required_of_trio(i, j, k);
+            if required.is_empty() {
+                continue;
+            }
+            let ok = required.iter().all(|&r| {
+                let rp = self.reps[r as usize];
+                haversine_m(p1, rp) <= self.r_eff || haversine_m(p2, rp) <= self.r_eff
+            });
+            if !ok {
+                continue;
+            }
+            let cov1 = self.query_covered(p1);
+            let cov2 = self.query_covered(p2);
+            self.kill_center(i);
+            self.kill_center(j);
+            self.kill_center(k);
+            self.add_center(p1, cov1);
+            self.add_center(p2, cov2);
+            changed = true;
         }
         changed
     }
 
-    /// Attempt one 3→2 swap; returns true (and applies it) on success.
-    fn try_swap32(&mut self, i: usize, j: usize, k: usize) -> bool {
-        debug_assert!(i != j && j != k && i != k);
-        if i == j || j == k || i == k {
-            return false;
-        }
-        // Points whose only coverers are within {i, j, k}.
+    /// Points whose only live coverers are within {i, j, k}.
+    fn required_of_trio(&self, i: usize, j: usize, k: usize) -> Vec<u32> {
         let mut required: Vec<u32> = Vec::new();
         for &c in &[i, j, k] {
             for &p in &self.covered[c] {
@@ -471,8 +555,19 @@ impl<'a> Refiner<'a> {
         }
         required.sort_unstable();
         required.dedup();
+        required
+    }
+
+    /// Find a 3→2 swap for trio (i, j, k) on the current snapshot; returns
+    /// the two replacement disk centers. Read-only.
+    fn propose_swap32(&self, i: usize, j: usize, k: usize) -> Option<(PointArray, PointArray)> {
+        debug_assert!(i != j && j != k && i != k);
+        if i == j || j == k || i == k {
+            return None;
+        }
+        let required = self.required_of_trio(i, j, k);
         if required.is_empty() || required.len() > 64 {
-            return false;
+            return None;
         }
 
         let mid = [
@@ -523,16 +618,9 @@ impl<'a> Refiner<'a> {
             if !ok {
                 continue;
             }
-            let cov1 = self.query_covered(p1);
-            let cov2 = self.query_covered(p2);
-            self.kill_center(i);
-            self.kill_center(j);
-            self.kill_center(k);
-            self.add_center(p1, cov1);
-            self.add_center(p2, cov2);
-            return true;
+            return Some((p1, p2));
         }
-        false
+        None
     }
 
     /// Points whose only live coverers are i and/or j.
@@ -708,113 +796,165 @@ impl<'a> Refiner<'a> {
         windows.sort_unstable_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
         windows.truncate(MAX_WINDOWS);
 
+        // Parallel propose: solve every window against the snapshot (gather,
+        // pre-covered mask, 5 solver variants — all the expensive work).
+        struct LnsProposal {
+            removed: Vec<usize>,
+            /// Sorted local point set (rep indices).
+            local: Vec<u32>,
+            /// Per-local-point: covered by a proposed center (planar, RHO).
+            prop_mask: Vec<bool>,
+            centers: Vec<PointArray>,
+        }
+        let this = &*self;
+        let proposals: Vec<LnsProposal> = windows
+            .par_iter()
+            .filter_map(|&(_, cell_raw)| {
+                let removed: Vec<usize> = center_cells
+                    .get(&cell_raw)
+                    .map(|v| v.iter().copied().filter(|&i| this.live[i]).collect())
+                    .unwrap_or_default();
+                if removed.is_empty() {
+                    return None;
+                }
+
+                // Local point set: reps in the expanded window bbox plus
+                // everything the removed centers cover (so no coverage loss
+                // can hide outside the window).
+                let bbox = cell_bbox_lat_lon(CellID(cell_raw));
+                let margin =
+                    crate::clustering::candidates::meters_to_degrees(radius, bbox.center_lat());
+                let expanded = bbox.expand(margin);
+                let envelope = AABB::from_corners(
+                    [expanded.min_lat, expanded.min_lon],
+                    [expanded.max_lat, expanded.max_lon],
+                );
+                let mut local: Vec<u32> = this
+                    .tree
+                    .locate_in_envelope_intersecting(&envelope)
+                    .filter_map(|pt| this.id_to_idx.get(&pt.cell_id.0).copied())
+                    .collect();
+                for &c in &removed {
+                    local.extend(this.covered[c].iter().copied());
+                }
+                local.sort_unstable();
+                local.dedup();
+                if local.len() > MAX_WINDOW_POINTS {
+                    return None;
+                }
+
+                // Coverage by removed centers, per local point.
+                let mut removed_cover: HashMap<u32, u32> = HashMap::new();
+                for &c in &removed {
+                    for &p in &this.covered[c] {
+                        *removed_cover.entry(p).or_insert(0) += 1;
+                    }
+                }
+                let pre: Vec<bool> = local
+                    .iter()
+                    .map(|&p| {
+                        let rc = removed_cover.get(&p).copied().unwrap_or(0);
+                        this.count[p as usize] > rc
+                    })
+                    .collect();
+                let old_uncov = local
+                    .iter()
+                    .filter(|&&p| this.count[p as usize] == 0)
+                    .count();
+                let old_cost = this.m * removed.len() + old_uncov;
+
+                // Local planar solve, best of the deterministic variants.
+                let frame = LocalFrame::new(CellID(cell_raw).point_array());
+                let pts_planar: Vec<[f64; 2]> = local
+                    .iter()
+                    .map(|&p| {
+                        let xy = frame.to_xy(this.reps[p as usize]);
+                        [xy[0] / radius, xy[1] / radius]
+                    })
+                    .collect();
+                let mut best: Option<(usize, Vec<[f64; 2]>, Vec<bool>)> = None;
+                for v in 0..5u8 {
+                    let centers = solve_chunk(
+                        &pts_planar,
+                        &SolveParams {
+                            m: this.m,
+                            k_cap: 12,
+                            variant: v,
+                            pre_covered: &pre,
+                        },
+                    );
+                    let grid = Grid::build(&centers, 1.0);
+                    let mask: Vec<bool> = pts_planar
+                        .iter()
+                        .map(|p| {
+                            let mut hit = false;
+                            grid.for_each_within(&centers, *p, RHO, |_, _| hit = true);
+                            hit
+                        })
+                        .collect();
+                    let uncov = mask
+                        .iter()
+                        .zip(&pre)
+                        .filter(|(hit, pre)| !**pre && !**hit)
+                        .count();
+                    let cost = this.m * centers.len() + uncov;
+                    if best.as_ref().is_none_or(|(c, _, _)| cost < *c) {
+                        best = Some((cost, centers, mask));
+                    }
+                }
+                let (new_cost, new_centers, prop_mask) = best.expect("variants ran");
+                if new_cost >= old_cost {
+                    return None;
+                }
+                let centers: Vec<PointArray> = new_centers
+                    .into_iter()
+                    .map(|xy| frame.to_latlng([xy[0] * radius, xy[1] * radius]))
+                    .collect();
+                Some(LnsProposal {
+                    removed,
+                    local,
+                    prop_mask,
+                    centers,
+                })
+            })
+            .collect();
+
+        // Serial commit with exact revalidation against the current state
+        // (overlapping windows may have shifted counts since the proposal).
         let mut changed = false;
-        for (_, cell_raw) in windows {
-            let removed: Vec<usize> = center_cells
-                .get(&cell_raw)
-                .map(|v| v.iter().copied().filter(|&i| self.live[i]).collect())
-                .unwrap_or_default();
-            if removed.is_empty() {
+        for prop in proposals {
+            if prop.removed.iter().any(|&c| !self.live[c]) {
                 continue;
             }
-
-            // Local point set: reps in the expanded window bbox plus
-            // everything the removed centers cover (so no coverage loss can
-            // hide outside the window).
-            let bbox = cell_bbox_lat_lon(CellID(cell_raw));
-            let margin =
-                crate::clustering::candidates::meters_to_degrees(radius, bbox.center_lat());
-            let expanded = bbox.expand(margin);
-            let envelope = AABB::from_corners(
-                [expanded.min_lat, expanded.min_lon],
-                [expanded.max_lat, expanded.max_lon],
-            );
-            let mut local: Vec<u32> = self
-                .tree
-                .locate_in_envelope_intersecting(&envelope)
-                .filter_map(|pt| self.id_to_idx.get(&pt.cell_id.0).copied())
-                .collect();
-            for &c in &removed {
-                local.extend(self.covered[c].iter().copied());
-            }
-            local.sort_unstable();
-            local.dedup();
-            if local.len() > MAX_WINDOW_POINTS {
-                continue;
-            }
-
-            // Coverage by removed centers, per local point.
             let mut removed_cover: HashMap<u32, u32> = HashMap::new();
-            for &c in &removed {
+            for &c in &prop.removed {
                 for &p in &self.covered[c] {
                     *removed_cover.entry(p).or_insert(0) += 1;
                 }
             }
-            let pre: Vec<bool> = local
-                .iter()
-                .map(|&p| {
-                    let rc = removed_cover.get(&p).copied().unwrap_or(0);
-                    self.count[p as usize] > rc
-                })
-                .collect();
-            let old_uncov = local
-                .iter()
-                .filter(|&&p| self.count[p as usize] == 0)
-                .count();
-            let old_cost = self.m * removed.len() + old_uncov;
-
-            // Local planar solve, best of the deterministic variants.
-            let frame = LocalFrame::new(CellID(cell_raw).point_array());
-            let pts_planar: Vec<[f64; 2]> = local
-                .iter()
-                .map(|&p| {
-                    let xy = frame.to_xy(self.reps[p as usize]);
-                    [xy[0] / radius, xy[1] / radius]
-                })
-                .collect();
-            let mut best: Option<(usize, Vec<[f64; 2]>)> = None;
-            for v in 0..5u8 {
-                let centers = solve_chunk(
-                    &pts_planar,
-                    &SolveParams {
-                        m: self.m,
-                        k_cap: 12,
-                        variant: v,
-                        pre_covered: &pre,
-                    },
-                );
-                let grid = Grid::build(&centers, 1.0);
-                let uncov = pts_planar
-                    .iter()
-                    .zip(&pre)
-                    .filter(|(p, pre)| {
-                        if **pre {
-                            return false;
-                        }
-                        let mut hit = false;
-                        grid.for_each_within(&centers, **p, RHO, |_, _| hit = true);
-                        !hit
-                    })
-                    .count();
-                let cost = self.m * centers.len() + uncov;
-                if best.as_ref().is_none_or(|(c, _)| cost < *c) {
-                    best = Some((cost, centers));
+            let mut old_uncov = 0usize;
+            let mut new_uncov = 0usize;
+            for (idx, &p) in prop.local.iter().enumerate() {
+                let cnt = self.count[p as usize];
+                if cnt == 0 {
+                    old_uncov += 1;
+                }
+                let rc = removed_cover.get(&p).copied().unwrap_or(0);
+                if cnt <= rc && !prop.prop_mask[idx] {
+                    new_uncov += 1;
                 }
             }
-            let (new_cost, new_centers) = best.expect("variants ran");
+            let old_cost = self.m * prop.removed.len() + old_uncov;
+            let new_cost = self.m * prop.centers.len() + new_uncov;
             if new_cost >= old_cost {
                 continue;
             }
-
-            for &c in &removed {
+            for &c in &prop.removed {
                 self.kill_center(c);
             }
-            for xy in new_centers {
-                let cand = frame.to_latlng([xy[0] * radius, xy[1] * radius]);
+            for cand in prop.centers {
                 let cov = self.query_covered(cand);
-                let idx = self.add_center(cand, cov);
-                let cell = CellID::from(LatLng::from_degrees(cand[0], cand[1])).parent(level);
-                center_cells.entry(cell.0).or_default().push(idx);
+                self.add_center(cand, cov);
             }
             changed = true;
         }
