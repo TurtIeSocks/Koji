@@ -75,6 +75,38 @@ Future m≥2 ideas, unimplemented: per-window exact ILP/branch-and-bound
 (≤150 pts) instead of greedy re-solve; 4→3 swap tier; simulated-annealing
 acceptance for LNS windows (would cost determinism).
 
+## True-legacy correction (`--bypass`)
+
+The branch's legacy "best" carries experimental adaptive-partition work and
+badly understates the original algorithm. `clusterbench --legacy --bypass`
+routes through the pre-partition path (= main-branch algorithm shape). The
+honest comparison, after adding the lattice restart variant and full-sweep
+LNS for small inputs (auto = final state below; legacy = best of bypass
+best/better, which score near-identically):
+
+| dataset | m | auto | true legacy | Δ |
+|---|---|---|---|---|
+| stops 8k @78 | 1 | **2,347** / 5.3s | 2,434 / 3.1s | −3.6% |
+| stops 8k @78 | 3 | 5,781 / 5.3s | **5,724** / 2.6s | +1.0% |
+| stops 8k @78 | 5 | 7,357 / 5.3s | 7,356 / 2.5s | ±0 |
+| spawns 41k @70 | 1 | **3,158** / 7.2s | 3,457 / 4.9s | −8.6% |
+| spawns 41k @70 | 3 | **9,369** / 13.2s | 9,646 / 5.4s | −2.9% |
+| spawns 41k @70 | 5 | **14,658** / 21.3s | 14,983 / 5.2s | −2.2% |
+| stops 335k @78 | 1 | **155,021** / 13.3s | OOM (>120 GB) | — |
+| stops 335k @78 | 3 | **277,237** / 13.8s | OOM | — |
+| stops 335k @78 | 5 | **318,756** / 13.1s | OOM | — |
+| spawns 471k @70 | 1 | **28,168** / 45s | 31,719 / 97s | −11.2% |
+| spawns 471k @70 | 3 | **83,524** / 76s | 88,219 / 77s | −5.3% |
+| spawns 471k @70 | 5 | **131,020** / 73s | 136,744 / 52s | −4.2% |
+
+Key corrections to the earlier narrative: the −46…−53% m=1 "wins" were
+mostly an artifact of the broken experimental branch path — honest m=1 wins
+are 3.6–11%. The true legacy is genuinely strong on small dense POI sets
+(beats auto +1.0% on stops-8k m=3; exact per-window solving is the known
+counter). Its fatal flaw is memory: the wide-bbox 335k pokestop set needs
+>120 GB and dies, while auto runs it in ~14 s — which is what the
+experimental partition work on this branch was trying (and failing) to fix.
+
 r = 80 m spot-check (10k, user's upper radius): auto wins all four cells —
 urban m=1 1571 vs 1711, urban m=3 4246 vs 4318, blobs m=1 1707 vs 1839,
 blobs m=3 3885 vs 3907.
