@@ -138,8 +138,9 @@ every cell of the matrix, runtime within ~2× legacy Best (and ≤ ~10 min at 50
    `bypass_adaptive_partition` dev flag keeps meaning "legacy, pre-partition").
 3. **`Fastest` and `Honeycomb` are out of scope** — different contracts (speed
    king / uniform lattice), not mygod-score modes.
-4. **Synthetic benchmarks suffice** for development; the dev-DB real-data pull was
-   blocked by permissions. Re-validation against a real export is a follow-up.
+4. ~~Synthetic benchmarks suffice~~ — RESOLVED: user granted DB access; validated
+   against real exports (8k/41k/335k/471k stops + spawnpoints). See the results
+   doc — real data wins are larger than synthetic (−30 to −53% at m=1).
 5. **`center_clusters` post-step unchanged** (orthogonal to clustering).
 6. **Determinism is a feature** (same input → same output), accepted even though
    legacy was randomized.

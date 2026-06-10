@@ -19,12 +19,37 @@ real system never had.
 | uniform | 10k | **3124** | 3332 | −6.2% | 7753 | **7729** | +0.3% |
 | blobs | 10k | **1939** | 2088 | −7.1% | **4339** | 4421 | −1.9% |
 | urban | 10k | **1852** | 2005 | −7.6% | **4950** | 5025 | −1.5% |
-| uniform | 100k | **31,085** | 36,299 | −14.4% | 77,429 | **76,750** | +0.9% |
+| uniform | 100k | **31,061** | 36,299 | −14.4% | 77,429 | **76,750** | +0.9% |
 | blobs | 100k | **19,497** | 22,348 | −12.8% | **43,134** | 43,578 | −1.0% |
-| urban | 100k | **21,108** | 23,789 | −11.3% | **50,850** | 51,615 | −1.5% |
-| uniform | 500k | **155,583** | 213,186 | −27.0% | 387,193 | **383,968** | +0.8% |
-| blobs | 500k | **97,061** | 125,806 | −22.8% | **215,857** | 217,462 | −0.7% |
-| urban | 500k | **139,167** | 163,854 | −15.1% | **286,253** | 288,955 | −0.9% |
+| urban | 100k | **21,098** | 23,789 | −11.3% | **50,850** | 51,615 | −1.5% |
+| uniform | 500k | **155,530** | 213,186 | −27.1% | 387,193 | **383,968** | +0.8% |
+| blobs | 500k | **97,029** | 125,806 | −22.9% | **215,857** | 217,462 | −0.7% |
+| urban | 500k | **139,145** | 163,854 | −15.1% | **286,253** | 288,955 | −0.9% |
+
+## Real scanner data (dev DB exports, r = 70 m)
+
+The decisive table — real POI/spawn geometry favors auto far more than the
+synthetic generators do:
+
+| dataset | m=1 auto | m=1 legacy | Δ | m=3 auto | m=3 legacy | Δ |
+|---|---|---|---|---|---|---|
+| pokestops 8k (dev_golbat) | **2,620** | 4,886 | **−46.4%** | 6,289 | **6,280** | +0.14% |
+| spawnpoints 41k (dev_golbat) | **3,158** | 6,510 | **−51.5%** | **9,420** | 9,935 | −5.2% |
+| pokestops 335k (ne_golbat) | **165,414** | 236,920 | **−30.2%** | **289,454** | 289,720 | −0.09% |
+| spawnpoints 471k (rdmct_dev) | **28,193** | 60,155 | **−53.1%** | **84,057** | 89,724 | −6.3% |
+
+Legacy column is again best-of-mode (balanced wins m=1; best wins m=3; legacy
+`best` at m=1 melts down on real data — 499,940 clusters on the 471k set vs
+auto's 28,193). Auto runtime on the 471k set: ~24 s vs legacy best ~43 s.
+Full coverage at m=1 reaches the duplicate-cell ceiling on every set.
+
+The 471k run also flushed out a real bug: duplicated 3→2-swap trio indices
+(two centers sharing an S2 L20 cell) double-killed a center, underflowed the
+u32 coverage counts, and left 4 cells uncovered at m=1. Fixed (neighbor
+dedupe + non-distinct-trio guard + hard liveness assert); a permanent m=1
+coverage audit (score-neutral singleton recovery, warn on trigger) and an
+opt-in `KOJI_AUTO_PARANOID=1` per-pass invariant checker now guard the
+contract.
 
 r = 80 m spot-check (10k, user's upper radius): auto wins all four cells —
 urban m=1 1571 vs 1711, urban m=3 4246 vs 4318, blobs m=1 1707 vs 1839,
