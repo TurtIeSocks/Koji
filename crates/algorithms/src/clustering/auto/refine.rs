@@ -203,6 +203,9 @@ pub struct Refiner<'a> {
     relocate_seen: HashMap<u64, u64>,
     merge_seen: HashMap<u64, u64>,
     swap_seen: HashMap<u64, u64>,
+    /// Annealing temperature + salt for the current LNS pass (None = strict
+    /// improvement only). Set only by the flag-gated anneal phase.
+    anneal_state: Option<(Precision, u64)>,
 }
 
 impl<'a> Refiner<'a> {
@@ -240,6 +243,7 @@ impl<'a> Refiner<'a> {
             relocate_seen: HashMap::new(),
             merge_seen: HashMap::new(),
             swap_seen: HashMap::new(),
+            anneal_state: None,
         };
 
         // Initial coverage, computed in parallel then applied serially.
@@ -1127,6 +1131,8 @@ impl<'a> Refiner<'a> {
             /// Per-local-point: covered by a proposed center (planar, RHO).
             prop_mask: Vec<bool>,
             centers: Vec<PointArray>,
+            /// Annealing slack this window may regress by (0 when not annealing).
+            slack: usize,
         }
         let this = &*self;
         let proposals: Vec<LnsProposal> = windows
@@ -1252,7 +1258,11 @@ impl<'a> Refiner<'a> {
                     new_centers = centers;
                 }
 
-                if new_cost >= old_cost {
+                // Annealing (flag-gated): allow a bounded, deterministic
+                // pseudo-random regression so windows can escape local
+                // optima; the run-level best-state snapshot makes it safe.
+                let slack = this.anneal_slack(cell_raw);
+                if new_cost >= old_cost + slack {
                     return None;
                 }
                 let centers: Vec<PointArray> = new_centers
@@ -1264,6 +1274,7 @@ impl<'a> Refiner<'a> {
                     local,
                     prop_mask,
                     centers,
+                    slack,
                 })
             })
             .collect();
@@ -1295,7 +1306,7 @@ impl<'a> Refiner<'a> {
             }
             let old_cost = self.m * prop.removed.len() + old_uncov;
             let new_cost = self.m * prop.centers.len() + new_uncov;
-            if new_cost >= old_cost {
+            if new_cost >= old_cost + prop.slack {
                 continue;
             }
             for &c in &prop.removed {
@@ -1308,6 +1319,81 @@ impl<'a> Refiner<'a> {
             changed = true;
         }
         changed
+    }
+
+    /// Deterministic per-window annealing slack: 0 when not annealing, else
+    /// floor(temp · hash01(cell, salt)). No RNG — same input, same schedule.
+    fn anneal_slack(&self, cell_raw: u64) -> usize {
+        match self.anneal_state {
+            None => 0,
+            Some((temp, salt)) => {
+                let mut h = cell_raw ^ salt;
+                h = h.wrapping_mul(0x9E37_79B9_7F4A_7C15);
+                h ^= h >> 32;
+                h = h.wrapping_mul(0xD6E8_FEB8_6659_FD93);
+                let unit = (h >> 11) as f64 / (1u64 << 53) as f64;
+                (temp * unit).floor() as usize
+            }
+        }
+    }
+
+    /// Current true cost (m·live centers + uncovered reps).
+    fn total_cost(&self) -> usize {
+        let live = self.live.iter().filter(|l| **l).count();
+        let uncov = self.count.iter().filter(|c| **c == 0).count();
+        self.m * live + uncov
+    }
+
+    /// Flag-gated (KOJI_AUTO_ANNEAL=1) annealing phase: a few LNS rounds that
+    /// may accept bounded regressions (escaping local optima), each followed
+    /// by a cheap-pass cleanup; the best state seen is kept. Deterministic.
+    fn anneal(&mut self, radius: Precision, sweep_all: bool) {
+        let snapshot = |s: &Self| {
+            (
+                s.pos.clone(),
+                s.covered.clone(),
+                s.live.clone(),
+                s.count.clone(),
+            )
+        };
+        let mut best_cost = self.total_cost();
+        let mut best = snapshot(self);
+        for (round, temp_scale) in [2.0, 1.5, 1.0, 0.5].into_iter().enumerate() {
+            self.anneal_state = Some((temp_scale * self.m as Precision, 0x5EED + round as u64));
+            let moved = self.lns_pass(radius, sweep_all);
+            self.anneal_state = None;
+            if !moved {
+                continue;
+            }
+            // Consolidate, then run a strict LNS to claw back the slack.
+            for _ in 0..2 {
+                let mut changed = false;
+                changed |= self.drop_pass();
+                changed |= self.relocate_pass();
+                changed |= self.merge_pass(radius);
+                changed |= self.gapfill_pass();
+                if !changed {
+                    break;
+                }
+            }
+            self.lns_pass(radius, sweep_all);
+            let cost = self.total_cost();
+            if cost < best_cost {
+                best_cost = cost;
+                best = snapshot(self);
+            }
+        }
+        if self.total_cost() > best_cost {
+            let (pos, covered, live, count) = best;
+            self.pos = pos;
+            self.covered = covered;
+            self.live = live;
+            self.count = count;
+            // All scheduling state is stale after a restore.
+            self.relocate_seen.clear();
+            self.merge_seen.clear();
+            self.swap_seen.clear();
+        }
     }
 
     /// Debugging aid (env KOJI_AUTO_PARANOID=1): recompute `count` from the
@@ -1397,6 +1483,14 @@ impl<'a> Refiner<'a> {
                 if paranoid {
                     self.paranoid_check("post-exhaustion-cleanup");
                 }
+            }
+        }
+        // Opt-in annealing phase: bounded deterministic regressions to
+        // escape local optima, best state kept.
+        if std::env::var("KOJI_AUTO_ANNEAL").is_ok_and(|v| v == "1") {
+            self.anneal(radius, self.reps.len() <= LNS_SWEEP_ALL_MAX);
+            if paranoid {
+                self.paranoid_check("post-anneal");
             }
         }
         let mut out: Vec<(u64, PointArray)> = (0..self.pos.len())
