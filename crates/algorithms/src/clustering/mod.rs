@@ -11,6 +11,7 @@ use super::*;
 use geojson::FeatureCollection;
 use koji_core::{CalculationMode, ClusterMode, ClusteringConfig, SingleVec};
 
+mod auto;
 mod candidates;
 mod fastest;
 // mod genetic;
@@ -44,6 +45,24 @@ pub fn main(
             .collect(),
         _ => match cfg.mode.clone() {
             ClusterMode::Fastest => fastest::main(data_points, cfg.radius, cfg.min_points),
+            // Quality modes all route to the mode-less `auto` algorithm; the
+            // legacy greedy stays reachable for A/B via KOJI_LEGACY_GREEDY=1
+            // (and still backs Honeycomb, which is a layout mode, not a
+            // quality mode).
+            ClusterMode::Balanced | ClusterMode::Fast | ClusterMode::Better | ClusterMode::Best
+                if !legacy_greedy_requested() =>
+            {
+                log::info!(
+                    "cluster_mode '{:?}' routes to the auto algorithm (modes are deprecated; set KOJI_LEGACY_GREEDY=1 for the legacy greedy)",
+                    cfg.mode
+                );
+                let auto = auto::Auto {
+                    radius: cfg.radius,
+                    min_points: cfg.min_points,
+                    max_clusters: cfg.max_clusters,
+                };
+                auto.run(data_points)
+            }
             ClusterMode::Honeycomb
             | ClusterMode::Balanced
             | ClusterMode::Fast
@@ -102,6 +121,11 @@ pub fn main(
     stats.set_score();
 
     clusters
+}
+
+/// Dev escape hatch: route quality modes back to the legacy greedy for A/B.
+fn legacy_greedy_requested() -> bool {
+    std::env::var("KOJI_LEGACY_GREEDY").is_ok_and(|v| v == "1" || v.eq_ignore_ascii_case("true"))
 }
 
 pub fn clustering_plugins() -> Vec<String> {
