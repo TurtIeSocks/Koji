@@ -185,7 +185,47 @@ impl Auto {
                 best = Some((score, refined));
             }
         }
-        let refined = best.expect("at least one variant ran").1;
+        let mut refined = best.expect("at least one variant ran").1;
+
+        // Final m=1 contract audit: every distinct cell must end up covered.
+        // Score-neutral singletons recover any stragglers; a warn here means
+        // a refine pass left a hole (worth investigating, never worth losing
+        // coverage over).
+        if m == 1 {
+            let r_eff = self.radius * (1.0 - 1e-3);
+            let audit_tree = rtree::spawn(r_eff, &refined);
+            let missing: Vec<PointArray> = reps
+                .par_iter()
+                .filter(|p| audit_tree.locate_at_point(p).is_none())
+                .copied()
+                .collect();
+            if !missing.is_empty() {
+                log::warn!(
+                    "auto: m=1 audit found {} uncovered cells; adding singletons",
+                    missing.len()
+                );
+                for p in missing.iter().take(8) {
+                    use geo::{Distance, Haversine};
+                    let nearest = audit_tree
+                        .nearest_neighbor(p)
+                        .map(|c| {
+                            Haversine.distance(
+                                geo::Point::new(p[1], p[0]),
+                                geo::Point::new(c.center[1], c.center[0]),
+                            )
+                        })
+                        .unwrap_or(f64::NAN);
+                    log::warn!(
+                        "auto: audit miss at [{:.7}, {:.7}], nearest center {:.3} m (r={})",
+                        p[0],
+                        p[1],
+                        nearest,
+                        self.radius
+                    );
+                }
+                refined.extend(missing);
+            }
+        }
 
         self.enforce_max_clusters(refined, &reps)
     }

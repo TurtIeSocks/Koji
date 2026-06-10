@@ -142,7 +142,9 @@ impl<'a> Refiner<'a> {
     }
 
     fn kill_center(&mut self, i: usize) {
-        debug_assert!(self.live[i]);
+        // Hard assert: a double-kill silently underflows the u32 coverage
+        // counts in release builds (seen via a duplicated swap32 trio index).
+        assert!(self.live[i], "kill_center called on dead center {i}");
         self.live[i] = false;
         for &r in &self.covered[i] {
             self.count[r as usize] -= 1;
@@ -411,6 +413,11 @@ impl<'a> Refiner<'a> {
             if !self.live[i] {
                 continue;
             }
+            // NOTE: the cell multi-map can yield the same center index more
+            // than once (two centers sharing an S2 L20 cell each map the
+            // other's tree point back to the full cell bucket). Dedupe before
+            // forming trios — a duplicated index would double-kill a center
+            // and corrupt the coverage counts.
             let mut neigh: Vec<(Precision, usize)> = center_tree
                 .locate_all_at_point(&self.pos[i])
                 .filter_map(|pt| cell_to_centers.get(&pt.cell_id.0))
@@ -420,6 +427,7 @@ impl<'a> Refiner<'a> {
                 .map(|j| (haversine_m(self.pos[i], self.pos[j]), j))
                 .collect();
             neigh.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap().then(a.1.cmp(&b.1)));
+            neigh.dedup_by_key(|&mut (_, j)| j);
             neigh.truncate(4);
             for a in 0..neigh.len() {
                 for b in (a + 1)..neigh.len() {
@@ -439,6 +447,10 @@ impl<'a> Refiner<'a> {
 
     /// Attempt one 3→2 swap; returns true (and applies it) on success.
     fn try_swap32(&mut self, i: usize, j: usize, k: usize) -> bool {
+        debug_assert!(i != j && j != k && i != k);
+        if i == j || j == k || i == k {
+            return false;
+        }
         // Points whose only coverers are within {i, j, k}.
         let mut required: Vec<u32> = Vec::new();
         for &c in &[i, j, k] {
@@ -637,20 +649,58 @@ impl<'a> Refiner<'a> {
         }
     }
 
+    /// Debugging aid (env KOJI_AUTO_PARANOID=1): recompute `count` from the
+    /// live covered lists and compare against the incremental bookkeeping;
+    /// report uncovered totals. Identifies the pass that corrupts state.
+    fn paranoid_check(&self, label: &str) {
+        let mut recount = vec![0u32; self.reps.len()];
+        for i in 0..self.pos.len() {
+            if self.live[i] {
+                for &r in &self.covered[i] {
+                    recount[r as usize] += 1;
+                }
+            }
+        }
+        let drift = recount
+            .iter()
+            .zip(&self.count)
+            .filter(|(a, b)| a != b)
+            .count();
+        let uncovered = recount.iter().filter(|&&c| c == 0).count();
+        log::warn!("paranoid[{label}]: drift={drift} uncovered={uncovered}");
+    }
+
     /// Run all passes for up to `max_rounds` rounds (early exit on a clean
     /// round) and return the surviving centers, sorted by S2 cell id.
     pub fn run(mut self, radius: Precision, max_rounds: usize) -> SingleVec {
-        for _ in 0..max_rounds {
+        let paranoid = std::env::var("KOJI_AUTO_PARANOID").is_ok();
+        for round in 0..max_rounds {
             let mut changed = false;
             changed |= self.drop_pass();
+            if paranoid {
+                self.paranoid_check(&format!("r{round}-drop"));
+            }
             changed |= self.relocate_pass();
+            if paranoid {
+                self.paranoid_check(&format!("r{round}-relocate"));
+            }
             changed |= self.merge_pass(radius);
+            if paranoid {
+                self.paranoid_check(&format!("r{round}-merge"));
+            }
             changed |= self.gapfill_pass();
+            if paranoid {
+                self.paranoid_check(&format!("r{round}-gapfill"));
+            }
             if !changed {
                 // Cheap passes converged; pay for the expensive 3→2 swap
                 // pass only at stalls. A successful swap re-opens the cheap
                 // passes (the two new disks usually enable drops/merges).
-                if !self.swap32_pass() {
+                let swapped = self.swap32_pass();
+                if paranoid {
+                    self.paranoid_check(&format!("r{round}-swap32"));
+                }
+                if !swapped {
                     break;
                 }
             }
