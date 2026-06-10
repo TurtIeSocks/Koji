@@ -38,7 +38,10 @@ pub struct ApiError {
     pub field: Option<String>,
 }
 
-/// Pagination block emitted on `ok` collection responses.
+/// Pagination block for `ok` collection responses (architecture §7). Reserved:
+/// the `Ok` variant carries it so the envelope is spec-shaped, but Koji's list
+/// endpoints currently return their full result set, so it is always omitted
+/// (`None`) until list pagination lands.
 #[derive(Debug, Serialize)]
 pub struct Meta {
     pub total: i64,
@@ -72,14 +75,6 @@ impl<T: Serialize> ApiResponse<T> {
     /// Success with an explicit status (e.g. `201`/`202`).
     pub fn success_with_status(status: StatusCode, data: T) -> HttpResponse {
         HttpResponse::build(status).json(ApiResponse::Ok { data, meta: None })
-    }
-
-    /// `200 OK` collection success carrying `data` + a pagination `meta` block.
-    pub fn success_list(data: T, meta: Meta) -> HttpResponse {
-        HttpResponse::build(StatusCode::OK).json(ApiResponse::Ok {
-            data,
-            meta: Some(meta),
-        })
     }
 }
 
