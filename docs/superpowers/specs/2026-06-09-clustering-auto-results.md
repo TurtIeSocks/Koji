@@ -107,6 +107,34 @@ counter). Its fatal flaw is memory: the wide-bbox 335k pokestop set needs
 >120 GB and dies, while auto runs it in ~14 s — which is what the
 experimental partition work on this branch was trying (and failing) to fix.
 
+## Optimization round (2026-06-10)
+
+Seven changes, in order, each tested + benchmarked: (1) propose-parallel /
+commit-serial refinement (~6×), (2) dirty-region scheduling (epoch-bumped S2
+cells, pure scheduling), (3) GeoGrid bucket index replacing the refiner's
+rstar tree, (4) provable m=1 lower bound in clusterbench, (5) exact B&B
+window solver (optimal disks + abandonment, ≤64 lost points), (6) two-tier
+swap (cheap 3→2 heuristic + exact group-of-4 repack — group-exact alone
+regressed m=1 because dense quads exceed the 64-point cap), (7) flag-gated
+deterministic annealing (`KOJI_AUTO_ANNEAL=1` — never worse via best-state
+restore, but zero measured gain; kept as an experiment harness).
+
+Final state (auto, production radii, score / wall / provable LB):
+
+| dataset | m=1 | m=3 | m=5 |
+|---|---|---|---|
+| stops 8k @78 | **2,341** / 1.1s (LB 2,007) | 5,764 / 1.3s | **7,355** / 1.2s |
+| spawns 41k @70 | **3,160** / 1.5s (LB 2,290) | **9,233** / 1.8s | **14,527** / 1.4s |
+| stops 335k @78 | **154,997** / 3.8s (LB 147,009) | **276,496** / 3.4s | **318,664** / 3.0s |
+| spawns 471k @70 | **28,105** / 9.1s (LB 21,932) | **81,965** / 10.9s | **129,446** / 7.9s |
+
+Versus the true legacy: auto now wins every cell except stops-8k m=3
+(5,764 vs 5,724, +0.7%) — and stops-8k m=5 flipped to a 1-point win. At
+471k: 10.7× faster than legacy-better at m=1 (9.1s vs 97s) with −11.4%
+score; 7× faster at m=3/m=5 with −7.1% / −5.3%. Every cell improved over
+the pre-optimization state in BOTH score and wall (4–9× faster).
+stops-335k m=1 is provably within 5.4% of optimal.
+
 r = 80 m spot-check (10k, user's upper radius): auto wins all four cells —
 urban m=1 1571 vs 1711, urban m=3 4246 vs 4318, blobs m=1 1707 vs 1839,
 blobs m=3 3885 vs 3907.
