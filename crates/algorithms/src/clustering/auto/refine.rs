@@ -666,12 +666,11 @@ impl<'a> Refiner<'a> {
         Some(cand)
     }
 
-    /// Replace three mutually-near centers by two when the points only they
-    /// cover can be split across two disks (Δ = −m). The first disk is anchored
-    /// at an arrangement vertex (or point) of the required set; the remainder
-    /// must fit one SEC. Triples are bounded to each center's 4 nearest
-    /// neighbors, so the pass stays near-linear in centers.
-    fn swap32_pass(&mut self) -> bool {
+    /// Group repack: each dirty center + its ≤3 nearest neighbors gets its
+    /// required points re-solved exactly (optimal disks + abandonment).
+    /// Subsumes 3→2 swaps and adds 4→3 / 4→2 / mixed-abandonment moves.
+    /// Groups are bounded, so the pass stays near-linear in centers.
+    fn swap_group_pass(&mut self) -> bool {
         let live_idx: Vec<usize> = (0..self.pos.len()).filter(|&i| self.live[i]).collect();
         let live_pos: SingleVec = live_idx.iter().map(|&i| self.pos[i]).collect();
         let center_tree = rtree::spawn(4.0 * self.r_eff, &live_pos);
@@ -699,18 +698,123 @@ impl<'a> Refiner<'a> {
             cells.into_iter().collect()
         };
 
-        // Parallel propose: each center tries trios with its nearest
-        // neighbors on the snapshot. Serial apply revalidates liveness and
-        // the required set before killing anything.
+        // Parallel propose: each dirty center forms a group with its ≤3
+        // nearest neighbors and re-solves the group's required points with
+        // the exact window solver (optimal disks + abandonment) — this
+        // subsumes the former 3→2 tier and adds 4→3 / 4→2 / partial
+        // abandonment in one move. Serial apply revalidates everything.
         let this = &*self;
-        let proposals: Vec<(usize, usize, usize, PointArray, PointArray)> = dirty_idx
+        let radius = self.r_eff / MARGIN;
+        let proposals: Vec<(Vec<usize>, Vec<PointArray>)> = dirty_idx
             .par_iter()
             .filter_map(|&i| {
                 // NOTE: the cell multi-map can yield the same center index
                 // more than once (two centers sharing an S2 L20 cell each map
                 // the other's tree point back to the full cell bucket).
-                // Dedupe before forming trios — a duplicated index would
+                // Dedupe before forming groups — a duplicated index would
                 // double-kill a center and corrupt the coverage counts.
+                let mut neigh: Vec<(Precision, usize)> = center_tree
+                    .locate_all_at_point(&this.pos[i])
+                    .filter_map(|pt| cell_to_centers.get(&pt.cell_id.0))
+                    .flatten()
+                    .copied()
+                    .filter(|&j| j != i && this.live[j])
+                    .map(|j| (haversine_m(this.pos[i], this.pos[j]), j))
+                    .collect();
+                neigh.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap().then(a.1.cmp(&b.1)));
+                neigh.dedup_by_key(|&mut (_, j)| j);
+                neigh.truncate(3);
+                if neigh.is_empty() {
+                    return None;
+                }
+                let mut group = vec![i];
+                group.extend(neigh.iter().map(|&(_, j)| j));
+
+                let required = this.required_of_group(&group);
+                if required.is_empty() || required.len() > super::exact::MAX_EXACT_POINTS {
+                    return None;
+                }
+                let mut centroid = [0.0, 0.0];
+                for &g in &group {
+                    centroid[0] += this.pos[g][0];
+                    centroid[1] += this.pos[g][1];
+                }
+                centroid[0] /= group.len() as f64;
+                centroid[1] /= group.len() as f64;
+                let frame = LocalFrame::new(centroid);
+                let lost_xy: Vec<[f64; 2]> = required
+                    .iter()
+                    .map(|&r| {
+                        let xy = frame.to_xy(this.reps[r as usize]);
+                        [xy[0] / radius, xy[1] / radius]
+                    })
+                    .collect();
+                // Current group cost: every required point is covered now.
+                let incumbent = this.m * group.len();
+                let (_, centers_xy) =
+                    super::exact::solve_window_exact(&lost_xy, this.m, incumbent)?;
+                let centers: Vec<PointArray> = centers_xy
+                    .into_iter()
+                    .map(|xy| frame.to_latlng([xy[0] * radius, xy[1] * radius]))
+                    .collect();
+                Some((group, centers))
+            })
+            .collect();
+
+        let mut changed = false;
+        for (group, centers) in proposals {
+            if group.iter().any(|&c| !self.live[c]) {
+                continue;
+            }
+            // Exact-Haversine cost revalidation against the CURRENT required
+            // set (it may have grown); abandonment is priced honestly.
+            let required = self.required_of_group(&group);
+            let new_uncov = required
+                .iter()
+                .filter(|&&r| {
+                    let rp = self.reps[r as usize];
+                    !centers.iter().any(|c| haversine_m(*c, rp) <= self.r_eff)
+                })
+                .count();
+            if self.m * centers.len() + new_uncov >= self.m * group.len() {
+                continue;
+            }
+            for &c in &group {
+                self.kill_center(c);
+            }
+            for cand in &centers {
+                let cov = self.query_covered(*cand);
+                self.add_center(*cand, cov);
+            }
+            changed = true;
+        }
+        Self::mark_seen(&mut self.swap_seen, snapshot);
+        changed
+    }
+
+    /// Cheap 3→2 heuristic tier (anchor disk-1 at a required vertex, SEC the
+    /// remainder). The exact group repack above caps its required set at 64
+    /// points, which dense m=1 quads routinely exceed — this tier keeps those
+    /// moves alive. Runs at stalls before the exact tier.
+    fn swap32_pass(&mut self) -> bool {
+        let live_idx: Vec<usize> = (0..self.pos.len()).filter(|&i| self.live[i]).collect();
+        let live_pos: SingleVec = live_idx.iter().map(|&i| self.pos[i]).collect();
+        let center_tree = rtree::spawn(4.0 * self.r_eff, &live_pos);
+        let mut cell_to_centers: HashMap<u64, Vec<usize>> = HashMap::new();
+        for (k, &i) in live_idx.iter().enumerate() {
+            let id = CellID::from(LatLng::from_degrees(live_pos[k][0], live_pos[k][1])).parent(20);
+            cell_to_centers.entry(id.0).or_default().push(i);
+        }
+        let dirty_idx: Vec<usize> = live_idx
+            .iter()
+            .copied()
+            .filter(|&i| self.is_dirty(&self.swap_seen, self.pos[i]))
+            .collect();
+
+        let this = &*self;
+        let proposals: Vec<(usize, usize, usize, PointArray, PointArray)> = dirty_idx
+            .par_iter()
+            .filter_map(|&i| {
                 let mut neigh: Vec<(Precision, usize)> = center_tree
                     .locate_all_at_point(&this.pos[i])
                     .filter_map(|pt| cell_to_centers.get(&pt.cell_id.0))
@@ -739,9 +843,7 @@ impl<'a> Refiner<'a> {
             if !self.live[i] || !self.live[j] || !self.live[k] {
                 continue;
             }
-            // Required set may have grown since the proposal; both disks
-            // together must still cover all of it.
-            let required = self.required_of_trio(i, j, k);
+            let required = self.required_of_group(&[i, j, k]);
             if required.is_empty() {
                 continue;
             }
@@ -761,39 +863,16 @@ impl<'a> Refiner<'a> {
             self.add_center(p2, cov2);
             changed = true;
         }
-        Self::mark_seen(&mut self.swap_seen, snapshot);
         changed
-    }
-
-    /// Points whose only live coverers are within {i, j, k}.
-    fn required_of_trio(&self, i: usize, j: usize, k: usize) -> Vec<u32> {
-        let mut required: Vec<u32> = Vec::new();
-        for &c in &[i, j, k] {
-            for &p in &self.covered[c] {
-                let cnt = self.count[p as usize] as usize;
-                if cnt
-                    == [i, j, k]
-                        .iter()
-                        .filter(|&&o| self.covered[o].binary_search(&p).is_ok())
-                        .count()
-                {
-                    required.push(p);
-                }
-            }
-        }
-        required.sort_unstable();
-        required.dedup();
-        required
     }
 
     /// Find a 3→2 swap for trio (i, j, k) on the current snapshot; returns
     /// the two replacement disk centers. Read-only.
     fn propose_swap32(&self, i: usize, j: usize, k: usize) -> Option<(PointArray, PointArray)> {
-        debug_assert!(i != j && j != k && i != k);
         if i == j || j == k || i == k {
             return None;
         }
-        let required = self.required_of_trio(i, j, k);
+        let required = self.required_of_group(&[i, j, k]);
         if required.is_empty() || required.len() > 64 {
             return None;
         }
@@ -828,15 +907,12 @@ impl<'a> Refiner<'a> {
                 }
             }
             if rest.is_empty() {
-                // One disk suffices — even better, but merge_pass owns that
-                // case; treat as a valid swap with disk-2 unused.
-                continue;
+                continue; // one disk suffices — merge_pass territory
             }
             let sec = smallest_enclosing_circle(&rest);
             if sec.radius > self.r_eff {
                 continue;
             }
-            // Exact verification of both disks.
             let p1 = frame.to_latlng(c1);
             let p2 = frame.to_latlng(sec.center);
             let ok = required.iter().all(|&r| {
@@ -849,6 +925,27 @@ impl<'a> Refiner<'a> {
             return Some((p1, p2));
         }
         None
+    }
+
+    /// Points whose only live coverers are within `group`.
+    fn required_of_group(&self, group: &[usize]) -> Vec<u32> {
+        let mut required: Vec<u32> = Vec::new();
+        for &c in group {
+            for &p in &self.covered[c] {
+                let cnt = self.count[p as usize] as usize;
+                if cnt
+                    == group
+                        .iter()
+                        .filter(|&&o| self.covered[o].binary_search(&p).is_ok())
+                        .count()
+                {
+                    required.push(p);
+                }
+            }
+        }
+        required.sort_unstable();
+        required.dedup();
+        required
     }
 
     /// Points whose only live coverers are i and/or j.
@@ -1259,11 +1356,17 @@ impl<'a> Refiner<'a> {
             }
             if !changed {
                 // Cheap passes converged; pay for the expensive passes only
-                // at stalls. A successful swap/LNS re-opens the cheap passes
-                // (new disks usually enable drops/merges).
+                // at stalls, cheapest tier first. A successful tier re-opens
+                // the cheap passes (new disks usually enable drops/merges).
                 let mut reopened = self.swap32_pass();
                 if paranoid {
                     self.paranoid_check(&format!("r{round}-swap32"));
+                }
+                if !reopened {
+                    reopened = self.swap_group_pass();
+                    if paranoid {
+                        self.paranoid_check(&format!("r{round}-swapgroup"));
+                    }
                 }
                 if !reopened {
                     reopened = self.lns_pass(radius, self.reps.len() <= LNS_SWEEP_ALL_MAX);
@@ -1281,7 +1384,7 @@ impl<'a> Refiner<'a> {
         // the expensive passes never got their stall slot. Give them one
         // shot, then a cleanup sweep so their new disks get consolidated.
         if exhausted {
-            let swapped = self.swap32_pass();
+            let swapped = self.swap32_pass() | self.swap_group_pass();
             let filled = self.lns_pass(radius, self.reps.len() <= LNS_SWEEP_ALL_MAX);
             if paranoid {
                 self.paranoid_check("post-exhaustion-expensive");
