@@ -32,6 +32,7 @@ struct Args {
     radius: Precision,
     seed: u64,
     legacy: bool,
+    bypass: bool,
 }
 
 fn parse_args() -> Args {
@@ -43,6 +44,7 @@ fn parse_args() -> Args {
         radius: 70.0,
         seed: 42,
         legacy: false,
+        bypass: false,
     };
     let argv: Vec<String> = std::env::args().collect();
     let mut i = 1;
@@ -70,6 +72,9 @@ fn parse_args() -> Args {
             args.seed = v.parse().expect("--seed must be an integer");
         } else if argv[i] == "--legacy" {
             args.legacy = true;
+        } else if argv[i] == "--bypass" {
+            // Pre-adaptive-partition legacy path (no partition, no gap-fill).
+            args.bypass = true;
         } else {
             panic!("unknown arg: {}", argv[i]);
         }
@@ -266,17 +271,18 @@ fn main() {
             features: vec![],
             foreign_members: None,
         },
-        false,
+        args.bypass,
         &mut stats,
     );
     let wall_s = wall.elapsed().as_secs_f64();
 
     println!(
-        "RESULT dataset={} n={} mode={} legacy={} min_points={} radius={} seed={} clusters={} covered={} total={} score={} cluster_s={:.2} wall_s={:.2}",
+        "RESULT dataset={} n={} mode={} legacy={}{} min_points={} radius={} seed={} clusters={} covered={} total={} score={} cluster_s={:.2} wall_s={:.2}",
         args.dataset,
         points.len(),
         args.mode,
         args.legacy,
+        if args.bypass { "-bypass" } else { "" },
         args.min_points,
         args.radius,
         args.seed,
