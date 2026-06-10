@@ -135,6 +135,16 @@ score; 7× faster at m=3/m=5 with −7.1% / −5.3%. Every cell improved over
 the pre-optimization state in BOTH score and wall (4–9× faster).
 stops-335k m=1 is provably within 5.4% of optimal.
 
+**Split-until-exact addendum**: lost sets decompose into 2·RHO-connected
+components (provably independent), and windows whose components exceed the
+exact cap descend into S2 children until everything fits. This made the
+exact tier near-universal: 471k m=3 → 81,086 (−8.1% vs legacy), m=5 →
+127,776 (−6.6%); 41k m=3 → 9,125 (−5.4%), m=5 → 14,357; stops-8k m=3 →
+5,756 (legacy gap +0.56%, the single remaining loss). A parent-level
+boundary sweep (closest S2 analogue of a shifted grid) measured zero on
+these datasets — kept as free insurance. Next lever for the last cell:
+u128 exact masks (≤128-point components) or an LP-strength B&B bound.
+
 r = 80 m spot-check (10k, user's upper radius): auto wins all four cells —
 urban m=1 1571 vs 1711, urban m=3 4246 vs 4318, blobs m=1 1707 vs 1839,
 blobs m=3 3885 vs 3907.
