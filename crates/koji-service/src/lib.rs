@@ -268,7 +268,11 @@ pub async fn start() -> io::Result<()> {
                             .service(public::v2::routes::scope())
                             .service(public::v2::resources::project::scope())
                             .service(public::v2::resources::property::scope())
-                            .service(public::v2::resources::tile_server::scope()),
+                            .service(public::v2::resources::tile_server::scope())
+                            // Geometry utilities (convert/simplify/merge + s2) +
+                            // scanner-data fetch (architecture §6).
+                            .service(public::v2::geo::scope())
+                            .service(public::v2::scanner_data::scope()),
                     ),
             )
             // Liveness probe (top-level, unauthenticated — mirrors `/health`).
