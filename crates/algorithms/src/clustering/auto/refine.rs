@@ -12,6 +12,8 @@
 //! - **swap 3→2**: replace three mutually-near centers by two when their
 //!   required points split across two disks (Δ = −m; runs at stalls only)
 //! - **gap-fill**: greedy add centers covering ≥ m uncovered points (Δ ≤ 0)
+//! - **LNS**: ruin-and-recreate windows around uncovered points — remove the
+//!   centers inside, re-solve locally, accept strict wins (stalls only)
 //!
 //! Score Δ math: see stats.rs::Stats::get_score (clusters·m + uncovered).
 
@@ -192,15 +194,12 @@ impl<'a> Refiner<'a> {
         }
     }
 
-    /// Relocate each center to the local position with the best net score
-    /// change: captured still-uncovered points (−1 each) minus abandoned
-    /// exclusive points (+1 each). Keeping all exclusives is NOT required —
-    /// shedding one stranded point to capture two is a win. Every accepted
-    /// move strictly decreases the integer score, so the pass cannot
-    /// oscillate. Candidate positions: the SEC center of the exclusive set
-    /// plus local arrangement vertices over (exclusive extremes ∪ nearby
-    /// uncovered). Non-exclusive covered points are never lost (they have
-    /// another coverer by definition).
+    /// Relocate each center, keeping every exclusive point covered, to the
+    /// position capturing the most still-uncovered points (−1 each).
+    /// Candidate positions: the SEC center of the exclusive set plus local
+    /// arrangement vertices over (exclusive extremes ∪ nearby uncovered).
+    /// Non-exclusive covered points are never lost (another coverer exists
+    /// by definition), so every accepted move is a true score improvement.
     fn relocate_pass(&mut self) -> bool {
         let mut changed = false;
         for i in 0..self.pos.len() {
@@ -649,6 +648,167 @@ impl<'a> Refiner<'a> {
         }
     }
 
+    /// LNS ruin-and-recreate around uncovered points. Windows are S2 cells
+    /// (~6r edge) containing uncovered reps, densest first: remove the live
+    /// centers inside, re-solve the local subproblem with the chunk solver
+    /// (points covered by outside centers are fixed as pre-covered), and
+    /// accept iff the local cost m·centers + uncovered strictly drops. This
+    /// is the move that restructures whole neighborhoods where the greedy
+    /// stranded sub-m point groups — single-center moves can't reach those.
+    fn lns_pass(&mut self, radius: Precision) -> bool {
+        use super::frame::Grid;
+        use super::solve::{RHO, SolveParams, solve_chunk};
+        use crate::clustering::partition::cell_bbox_lat_lon;
+        use crate::s2::ToPointArray;
+
+        const MAX_WINDOWS: usize = 4096;
+        const MAX_WINDOW_POINTS: usize = 4000;
+
+        // Window level: deepest S2 level whose average edge is ≥ ~6r.
+        let mut level: u64 = 0;
+        while level < 18 && 8_000_000.0 / (1u64 << (level + 1)) as Precision >= 6.0 * radius {
+            level += 1;
+        }
+
+        // Windows = cells with uncovered reps, densest first.
+        let mut win_count: HashMap<u64, u32> = HashMap::new();
+        for (r, &c) in self.count.iter().enumerate() {
+            if c == 0 {
+                let p = self.reps[r];
+                let cell = CellID::from(LatLng::from_degrees(p[0], p[1])).parent(level);
+                *win_count.entry(cell.0).or_insert(0) += 1;
+            }
+        }
+        if win_count.is_empty() {
+            return false;
+        }
+        let mut windows: Vec<(u32, u64)> = win_count.into_iter().map(|(c, n)| (n, c)).collect();
+        windows.sort_unstable_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+        windows.truncate(MAX_WINDOWS);
+
+        // Live centers grouped by window cell (kept fresh on accepts).
+        let mut center_cells: HashMap<u64, Vec<usize>> = HashMap::new();
+        for i in 0..self.pos.len() {
+            if self.live[i] {
+                let cell = CellID::from(LatLng::from_degrees(self.pos[i][0], self.pos[i][1]))
+                    .parent(level);
+                center_cells.entry(cell.0).or_default().push(i);
+            }
+        }
+
+        let mut changed = false;
+        for (_, cell_raw) in windows {
+            let removed: Vec<usize> = center_cells
+                .get(&cell_raw)
+                .map(|v| v.iter().copied().filter(|&i| self.live[i]).collect())
+                .unwrap_or_default();
+            if removed.is_empty() {
+                continue;
+            }
+
+            // Local point set: reps in the expanded window bbox plus
+            // everything the removed centers cover (so no coverage loss can
+            // hide outside the window).
+            let bbox = cell_bbox_lat_lon(CellID(cell_raw));
+            let margin =
+                crate::clustering::candidates::meters_to_degrees(radius, bbox.center_lat());
+            let expanded = bbox.expand(margin);
+            let envelope = AABB::from_corners(
+                [expanded.min_lat, expanded.min_lon],
+                [expanded.max_lat, expanded.max_lon],
+            );
+            let mut local: Vec<u32> = self
+                .tree
+                .locate_in_envelope_intersecting(&envelope)
+                .filter_map(|pt| self.id_to_idx.get(&pt.cell_id.0).copied())
+                .collect();
+            for &c in &removed {
+                local.extend(self.covered[c].iter().copied());
+            }
+            local.sort_unstable();
+            local.dedup();
+            if local.len() > MAX_WINDOW_POINTS {
+                continue;
+            }
+
+            // Coverage by removed centers, per local point.
+            let mut removed_cover: HashMap<u32, u32> = HashMap::new();
+            for &c in &removed {
+                for &p in &self.covered[c] {
+                    *removed_cover.entry(p).or_insert(0) += 1;
+                }
+            }
+            let pre: Vec<bool> = local
+                .iter()
+                .map(|&p| {
+                    let rc = removed_cover.get(&p).copied().unwrap_or(0);
+                    self.count[p as usize] > rc
+                })
+                .collect();
+            let old_uncov = local
+                .iter()
+                .filter(|&&p| self.count[p as usize] == 0)
+                .count();
+            let old_cost = self.m * removed.len() + old_uncov;
+
+            // Local planar solve, best of the deterministic variants.
+            let frame = LocalFrame::new(CellID(cell_raw).point_array());
+            let pts_planar: Vec<[f64; 2]> = local
+                .iter()
+                .map(|&p| {
+                    let xy = frame.to_xy(self.reps[p as usize]);
+                    [xy[0] / radius, xy[1] / radius]
+                })
+                .collect();
+            let mut best: Option<(usize, Vec<[f64; 2]>)> = None;
+            for v in 0..4u8 {
+                let centers = solve_chunk(
+                    &pts_planar,
+                    &SolveParams {
+                        m: self.m,
+                        k_cap: 12,
+                        variant: v,
+                        pre_covered: &pre,
+                    },
+                );
+                let grid = Grid::build(&centers, 1.0);
+                let uncov = pts_planar
+                    .iter()
+                    .zip(&pre)
+                    .filter(|(p, pre)| {
+                        if **pre {
+                            return false;
+                        }
+                        let mut hit = false;
+                        grid.for_each_within(&centers, **p, RHO, |_, _| hit = true);
+                        !hit
+                    })
+                    .count();
+                let cost = self.m * centers.len() + uncov;
+                if best.as_ref().is_none_or(|(c, _)| cost < *c) {
+                    best = Some((cost, centers));
+                }
+            }
+            let (new_cost, new_centers) = best.expect("variants ran");
+            if new_cost >= old_cost {
+                continue;
+            }
+
+            for &c in &removed {
+                self.kill_center(c);
+            }
+            for xy in new_centers {
+                let cand = frame.to_latlng([xy[0] * radius, xy[1] * radius]);
+                let cov = self.query_covered(cand);
+                let idx = self.add_center(cand, cov);
+                let cell = CellID::from(LatLng::from_degrees(cand[0], cand[1])).parent(level);
+                center_cells.entry(cell.0).or_default().push(idx);
+            }
+            changed = true;
+        }
+        changed
+    }
+
     /// Debugging aid (env KOJI_AUTO_PARANOID=1): recompute `count` from the
     /// live covered lists and compare against the incremental bookkeeping;
     /// report uncovered totals. Identifies the pass that corrupts state.
@@ -674,6 +834,7 @@ impl<'a> Refiner<'a> {
     /// round) and return the surviving centers, sorted by S2 cell id.
     pub fn run(mut self, radius: Precision, max_rounds: usize) -> SingleVec {
         let paranoid = std::env::var("KOJI_AUTO_PARANOID").is_ok();
+        let mut exhausted = true;
         for round in 0..max_rounds {
             let mut changed = false;
             changed |= self.drop_pass();
@@ -693,15 +854,41 @@ impl<'a> Refiner<'a> {
                 self.paranoid_check(&format!("r{round}-gapfill"));
             }
             if !changed {
-                // Cheap passes converged; pay for the expensive 3→2 swap
-                // pass only at stalls. A successful swap re-opens the cheap
-                // passes (the two new disks usually enable drops/merges).
-                let swapped = self.swap32_pass();
+                // Cheap passes converged; pay for the expensive passes only
+                // at stalls. A successful swap/LNS re-opens the cheap passes
+                // (new disks usually enable drops/merges).
+                let mut reopened = self.swap32_pass();
                 if paranoid {
                     self.paranoid_check(&format!("r{round}-swap32"));
                 }
-                if !swapped {
+                if !reopened {
+                    reopened = self.lns_pass(radius);
+                    if paranoid {
+                        self.paranoid_check(&format!("r{round}-lns"));
+                    }
+                }
+                if !reopened {
+                    exhausted = false;
                     break;
+                }
+            }
+        }
+        // Round budget drained while the cheap passes were still churning:
+        // the expensive passes never got their stall slot. Give them one
+        // shot, then a cleanup sweep so their new disks get consolidated.
+        if exhausted {
+            let swapped = self.swap32_pass();
+            let filled = self.lns_pass(radius);
+            if paranoid {
+                self.paranoid_check("post-exhaustion-expensive");
+            }
+            if swapped || filled {
+                self.drop_pass();
+                self.relocate_pass();
+                self.merge_pass(radius);
+                self.gapfill_pass();
+                if paranoid {
+                    self.paranoid_check("post-exhaustion-cleanup");
                 }
             }
         }

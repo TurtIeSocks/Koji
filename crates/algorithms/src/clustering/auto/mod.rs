@@ -161,7 +161,15 @@ impl Auto {
                     // (Per-job variant selection by pre-refine score was
                     // tried and mispredicts the post-refine outcome; variant
                     // choice only pays when scored after refinement.)
-                    let centers_planar = solve_chunk(&planar, &SolveParams { m, k_cap, variant });
+                    let centers_planar = solve_chunk(
+                        &planar,
+                        &SolveParams {
+                            m,
+                            k_cap,
+                            variant,
+                            pre_covered: &[],
+                        },
+                    );
                     centers_planar
                         .into_iter()
                         .map(|xy| frame.unproject(xy))

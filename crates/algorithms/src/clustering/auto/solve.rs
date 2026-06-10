@@ -15,7 +15,7 @@ use super::geometry::circle_intersections;
 /// coverage decision made here.
 pub const RHO: f64 = 1.0 - 1e-3;
 
-pub struct SolveParams {
+pub struct SolveParams<'a> {
     /// Cluster cost in points (`min_points`, clamped ≥ 1).
     pub m: usize,
     /// Per-point cap on pair-intersection partners (K nearest within 2·RHO).
@@ -25,6 +25,9 @@ pub struct SolveParams {
     /// 0 = canonical; 1 = reversed candidates; 2 = vertices before points;
     /// 3 = inverted density tie-break.
     pub variant: u8,
+    /// Points already covered by fixed external disks (LNS windows): they
+    /// contribute candidates but never gain. Empty slice = none.
+    pub pre_covered: &'a [bool],
 }
 
 /// Greedily cover `pts` (planar, radius units). Returns committed centers in
@@ -85,7 +88,12 @@ pub fn solve_chunk(pts: &[[f64; 2]], params: &SolveParams) -> Vec<[f64; 2]> {
     }
 
     // --- Initial gains (static coverage) --------------------------------
-    let mut covered = vec![false; pts.len()];
+    let mut covered = if params.pre_covered.is_empty() {
+        vec![false; pts.len()]
+    } else {
+        debug_assert_eq!(params.pre_covered.len(), pts.len());
+        params.pre_covered.to_vec()
+    };
     let count_uncovered = |grid: &Grid, covered: &[bool], c: [f64; 2]| -> usize {
         let mut g = 0usize;
         grid.for_each_within(pts, c, RHO, |idx, _| {
@@ -179,6 +187,7 @@ mod tests {
                 m: 1,
                 k_cap: 8,
                 variant: 0,
+                pre_covered: &[],
             },
         );
         assert_eq!(centers.len(), 1, "one disk should cover both points");
@@ -197,6 +206,7 @@ mod tests {
                 m: 2,
                 k_cap: 8,
                 variant: 0,
+                pre_covered: &[],
             },
         );
         assert!(centers.is_empty());
@@ -216,6 +226,7 @@ mod tests {
                 m: 1,
                 k_cap: 8,
                 variant: 0,
+                pre_covered: &[],
             },
         );
         assert!(!centers.is_empty());
@@ -250,6 +261,7 @@ mod tests {
                 m: 1,
                 k_cap: 8,
                 variant: 0,
+                pre_covered: &[],
             },
         );
         let b = solve_chunk(
@@ -258,6 +270,7 @@ mod tests {
                 m: 1,
                 k_cap: 8,
                 variant: 0,
+                pre_covered: &[],
             },
         );
         assert_eq!(a, b);
