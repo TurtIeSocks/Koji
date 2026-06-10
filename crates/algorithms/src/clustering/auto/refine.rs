@@ -1136,14 +1136,18 @@ impl<'a> Refiner<'a> {
     /// accept iff the local cost m·centers + uncovered strictly drops. This
     /// is the move that restructures whole neighborhoods where the greedy
     /// stranded sub-m point groups — single-center moves can't reach those.
-    fn lns_pass(&mut self, radius: Precision, sweep_all: bool) -> bool {
+    fn lns_pass(&mut self, radius: Precision, sweep_all: bool, level_delta: u64) -> bool {
         const MAX_WINDOWS: usize = 4096;
 
         // Window level: deepest S2 level whose average edge is ≥ ~6r.
+        // `level_delta` coarsens the windows (a parent-level second sweep
+        // repacks clumps that straddle base-level cell boundaries — the
+        // closest S2 analogue of a shifted grid).
         let mut level: u64 = 0;
         while level < 18 && 8_000_000.0 / (1u64 << (level + 1)) as Precision >= 6.0 * radius {
             level += 1;
         }
+        level = level.saturating_sub(level_delta).max(4);
 
         // Live centers grouped by window cell (kept fresh on accepts).
         let mut center_cells: HashMap<u64, Vec<usize>> = HashMap::new();
@@ -1493,7 +1497,7 @@ impl<'a> Refiner<'a> {
         let mut best = snapshot(self);
         for (round, temp_scale) in [2.0, 1.5, 1.0, 0.5].into_iter().enumerate() {
             self.anneal_state = Some((temp_scale * self.m as Precision, 0x5EED + round as u64));
-            let moved = self.lns_pass(radius, sweep_all);
+            let moved = self.lns_pass(radius, sweep_all, 0);
             self.anneal_state = None;
             if !moved {
                 continue;
@@ -1509,7 +1513,7 @@ impl<'a> Refiner<'a> {
                     break;
                 }
             }
-            self.lns_pass(radius, sweep_all);
+            self.lns_pass(radius, sweep_all, 0);
             let cost = self.total_cost();
             if cost < best_cost {
                 best_cost = cost;
@@ -1588,9 +1592,17 @@ impl<'a> Refiner<'a> {
                     }
                 }
                 if !reopened {
-                    reopened = self.lns_pass(radius, self.reps.len() <= LNS_SWEEP_ALL_MAX);
+                    reopened = self.lns_pass(radius, self.reps.len() <= LNS_SWEEP_ALL_MAX, 0);
                     if paranoid {
                         self.paranoid_check(&format!("r{round}-lns"));
+                    }
+                }
+                if !reopened {
+                    // Boundary sweep: parent-level windows repack clumps
+                    // straddling base-window cell edges.
+                    reopened = self.lns_pass(radius, self.reps.len() <= LNS_SWEEP_ALL_MAX, 1);
+                    if paranoid {
+                        self.paranoid_check(&format!("r{round}-lns-parent"));
                     }
                 }
                 if !reopened {
@@ -1604,7 +1616,7 @@ impl<'a> Refiner<'a> {
         // shot, then a cleanup sweep so their new disks get consolidated.
         if exhausted {
             let swapped = self.swap32_pass() | self.swap_group_pass();
-            let filled = self.lns_pass(radius, self.reps.len() <= LNS_SWEEP_ALL_MAX);
+            let filled = self.lns_pass(radius, self.reps.len() <= LNS_SWEEP_ALL_MAX, 0);
             if paranoid {
                 self.paranoid_check("post-exhaustion-expensive");
             }
