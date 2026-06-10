@@ -10,6 +10,7 @@
 //! / 3→2 swap / gap-fill on exact-Haversine coverage) → max_clusters cap.
 
 mod components;
+mod exact;
 mod frame;
 mod geometry;
 mod refine;

@@ -1127,7 +1127,34 @@ impl<'a> Refiner<'a> {
                         best = Some((cost, centers, mask));
                     }
                 }
-                let (new_cost, new_centers, prop_mask) = best.expect("variants ran");
+                let (mut new_cost, mut new_centers, mut prop_mask) = best.expect("variants ran");
+
+                // Small windows get an exact branch-and-bound re-solve over
+                // the lost points (those only the removed centers covered);
+                // it returns Some only when it strictly beats the greedy.
+                let lost: Vec<[f64; 2]> = pts_planar
+                    .iter()
+                    .zip(&pre)
+                    .filter(|(_, pre)| !**pre)
+                    .map(|(p, _)| *p)
+                    .collect();
+                if lost.len() <= super::exact::MAX_EXACT_POINTS
+                    && let Some((cost, centers)) =
+                        super::exact::solve_window_exact(&lost, this.m, new_cost)
+                {
+                    let r2 = RHO * RHO;
+                    prop_mask = pts_planar
+                        .iter()
+                        .map(|p| {
+                            centers
+                                .iter()
+                                .any(|c| (p[0] - c[0]).powi(2) + (p[1] - c[1]).powi(2) <= r2)
+                        })
+                        .collect();
+                    new_cost = cost;
+                    new_centers = centers;
+                }
+
                 if new_cost >= old_cost {
                     return None;
                 }
