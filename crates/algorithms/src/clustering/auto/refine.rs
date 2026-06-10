@@ -20,13 +20,12 @@
 use geo::{Distance, Haversine};
 use hashbrown::HashMap;
 use rayon::prelude::*;
-use rstar::{AABB, RTree};
 use s2::{cellid::CellID, latlng::LatLng};
 
 use koji_core::{PointArray, Precision, SingleVec};
 
 use super::geometry::{circle_intersections, smallest_enclosing_circle};
-use crate::rtree::{self, point::Point};
+use crate::rtree;
 
 /// Inputs up to this many cells get full-sweep LNS (every center cell
 /// repacked, not just uncovered neighborhoods).
@@ -71,10 +70,121 @@ fn haversine_m(a: PointArray, b: PointArray) -> Precision {
     Haversine.distance(geo::Point::new(a[1], a[0]), geo::Point::new(b[1], b[0]))
 }
 
+/// Lat/lng bucket grid over the reps with row-scaled longitude cells —
+/// replaces the rstar tree in the refiner's hot loops (~2–3× per query).
+/// All distance predicates remain exact Haversine; the grid only prunes.
+struct GeoGrid {
+    cell_m: Precision,
+    dlat: Precision,
+    buckets: HashMap<(i32, i32), Vec<u32>>,
+}
+
+const M_PER_DEG_LAT: Precision = 111_132.0;
+const M_PER_DEG_LON_EQ: Precision = 111_320.0;
+
+impl GeoGrid {
+    fn build(reps: &SingleVec, cell_m: Precision) -> GeoGrid {
+        let dlat = cell_m / M_PER_DEG_LAT;
+        let mut grid = GeoGrid {
+            cell_m,
+            dlat,
+            buckets: HashMap::with_capacity(reps.len() / 2),
+        };
+        for (i, p) in reps.iter().enumerate() {
+            let key = grid.key_of(*p);
+            grid.buckets.entry(key).or_default().push(i as u32);
+        }
+        grid
+    }
+
+    fn row_of(&self, lat: Precision) -> i32 {
+        (lat / self.dlat).floor() as i32
+    }
+
+    fn dlon_for_row(&self, row: i32) -> Precision {
+        let lat = (row as Precision + 0.5) * self.dlat;
+        self.cell_m / (M_PER_DEG_LON_EQ * lat.to_radians().cos().abs().max(0.01))
+    }
+
+    fn key_of(&self, p: PointArray) -> (i32, i32) {
+        let row = self.row_of(p[0]);
+        let col = (p[1] / self.dlon_for_row(row)).floor() as i32;
+        (row, col)
+    }
+
+    /// Visit every rep index within `dist_m` (exact Haversine) of `q`.
+    fn for_each_within(
+        &self,
+        reps: &SingleVec,
+        q: PointArray,
+        dist_m: Precision,
+        mut f: impl FnMut(u32),
+    ) {
+        let dlat_q = dist_m / M_PER_DEG_LAT;
+        let min_row = self.row_of(q[0] - dlat_q);
+        let max_row = self.row_of(q[0] + dlat_q);
+        let dlon_q = dist_m / (M_PER_DEG_LON_EQ * q[0].to_radians().cos().abs().max(0.01));
+        // Longitude ranges, split when the query crosses the antimeridian.
+        let (lo, hi) = (q[1] - dlon_q, q[1] + dlon_q);
+        let mut ranges: [(Precision, Precision); 2] = [(lo, hi), (0.0, -1.0)];
+        if lo < -180.0 {
+            ranges = [(-180.0, hi), (lo + 360.0, 180.0)];
+        } else if hi > 180.0 {
+            ranges = [(lo, 180.0), (-180.0, hi - 360.0)];
+        }
+        for row in min_row..=max_row {
+            let dlon = self.dlon_for_row(row);
+            for &(rlo, rhi) in &ranges {
+                if rlo > rhi {
+                    continue;
+                }
+                let min_col = (rlo / dlon).floor() as i32;
+                let max_col = (rhi / dlon).floor() as i32;
+                for col in min_col..=max_col {
+                    if let Some(bucket) = self.buckets.get(&(row, col)) {
+                        for &i in bucket {
+                            if haversine_m(q, reps[i as usize]) <= dist_m {
+                                f(i);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Visit every rep index inside a lat/lon bbox (no distance filter).
+    fn for_each_in_bbox(
+        &self,
+        reps: &SingleVec,
+        min_lat: Precision,
+        max_lat: Precision,
+        min_lon: Precision,
+        max_lon: Precision,
+        mut f: impl FnMut(u32),
+    ) {
+        for row in self.row_of(min_lat)..=self.row_of(max_lat) {
+            let dlon = self.dlon_for_row(row);
+            let min_col = (min_lon / dlon).floor() as i32;
+            let max_col = (max_lon / dlon).floor() as i32;
+            for col in min_col..=max_col {
+                if let Some(bucket) = self.buckets.get(&(row, col)) {
+                    for &i in bucket {
+                        let p = reps[i as usize];
+                        if p[0] >= min_lat && p[0] <= max_lat && p[1] >= min_lon && p[1] <= max_lon
+                        {
+                            f(i);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub struct Refiner<'a> {
     reps: &'a SingleVec,
-    tree: RTree<Point>,
-    id_to_idx: HashMap<u64, u32>,
+    grid: GeoGrid,
     r_eff: Precision,
     m: usize,
     /// Per-center state; killed centers have `live == false`.
@@ -103,15 +213,7 @@ impl<'a> Refiner<'a> {
         min_points: usize,
     ) -> Self {
         let r_eff = radius * MARGIN;
-        let tree = rtree::spawn(r_eff, reps);
-        let id_to_idx: HashMap<u64, u32> = reps
-            .iter()
-            .enumerate()
-            .map(|(i, p)| {
-                let id = CellID::from(LatLng::from_degrees(p[0], p[1])).parent(20);
-                (id.0, i as u32)
-            })
-            .collect();
+        let grid = GeoGrid::build(reps, r_eff.max(1.0));
 
         // Deepest S2 level whose average edge is still ≥ 8r, so a 3×3
         // footprint bump reaches every center that could interact with a
@@ -125,8 +227,7 @@ impl<'a> Refiner<'a> {
 
         let mut refiner = Refiner {
             reps,
-            tree,
-            id_to_idx,
+            grid,
             r_eff,
             m: min_points.max(1),
             pos: Vec::new(),
@@ -154,11 +255,9 @@ impl<'a> Refiner<'a> {
 
     /// All rep indices within r_eff (exact Haversine) of `p`, sorted.
     fn query_covered(&self, p: PointArray) -> Vec<u32> {
-        let mut out: Vec<u32> = self
-            .tree
-            .locate_all_at_point(&p)
-            .filter_map(|pt| self.id_to_idx.get(&pt.cell_id.0).copied())
-            .collect();
+        let mut out: Vec<u32> = Vec::new();
+        self.grid
+            .for_each_within(self.reps, p, self.r_eff, |i| out.push(i));
         out.sort_unstable();
         out
     }
@@ -771,14 +870,11 @@ impl<'a> Refiner<'a> {
         req
     }
 
-    /// Reps within `dist_m` of `p` (Haversine), via envelope pre-filter.
+    /// Reps within `dist_m` of `p` (Haversine), sorted.
     fn reps_within(&self, p: PointArray, dist_m: Precision) -> Vec<u32> {
-        let mut out: Vec<u32> = self
-            .tree
-            .locate_in_envelope_intersecting(&AABB::from_point(p))
-            .filter(|pt| haversine_m(p, pt.center) <= dist_m)
-            .filter_map(|pt| self.id_to_idx.get(&pt.cell_id.0).copied())
-            .collect();
+        let mut out: Vec<u32> = Vec::new();
+        self.grid
+            .for_each_within(self.reps, p, dist_m, |i| out.push(i));
         out.sort_unstable();
         out
     }
@@ -954,15 +1050,15 @@ impl<'a> Refiner<'a> {
                 let margin =
                     crate::clustering::candidates::meters_to_degrees(radius, bbox.center_lat());
                 let expanded = bbox.expand(margin);
-                let envelope = AABB::from_corners(
-                    [expanded.min_lat, expanded.min_lon],
-                    [expanded.max_lat, expanded.max_lon],
+                let mut local: Vec<u32> = Vec::new();
+                this.grid.for_each_in_bbox(
+                    this.reps,
+                    expanded.min_lat,
+                    expanded.max_lat,
+                    expanded.min_lon,
+                    expanded.max_lon,
+                    |i| local.push(i),
                 );
-                let mut local: Vec<u32> = this
-                    .tree
-                    .locate_in_envelope_intersecting(&envelope)
-                    .filter_map(|pt| this.id_to_idx.get(&pt.cell_id.0).copied())
-                    .collect();
                 for &c in &removed {
                     local.extend(this.covered[c].iter().copied());
                 }
