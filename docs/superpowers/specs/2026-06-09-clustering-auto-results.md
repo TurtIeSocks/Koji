@@ -51,6 +51,30 @@ coverage audit (score-neutral singleton recovery, warn on trigger) and an
 opt-in `KOJI_AUTO_PARANOID=1` per-pass invariant checker now guard the
 contract.
 
+## Production radii + LNS (final state)
+
+User-confirmed operating points: pokestops r = 78 m, spawnpoints r = 70 m,
+min_points up to 5. The LNS ruin-and-recreate pass (windows on uncovered
+points, local re-solve, strict-win acceptance; stalls only, no-op at m=1)
+plus the exhaustion fix (expensive passes get a post-loop shot when the
+round budget drains mid-churn) close every remaining losing cell:
+
+| dataset | m=1 | m=3 | m=5 |
+|---|---|---|---|
+| stops 8k @78 | **2,351** vs 4,451 (−47%) | **5,785** vs 5,804 (−0.3%) | **7,358** vs 7,397 (−0.5%) |
+| stops 335k @78 | **155,021** vs 223,835 (−31%) | **277,284** vs 277,476 (−0.07%) | **318,765** vs 319,173 (−0.13%) |
+| spawns 41k @70 | **3,158** vs 6,519 (−52%) | **9,366** vs 9,965 (−6.0%) | **14,659** vs 15,300 (−4.2%) |
+| spawns 471k @70 | **28,168** vs 60,184 (−53%) | **83,546** vs 89,639 (−6.8%) | **131,049** vs 138,648 (−5.5%) |
+
+(auto in bold vs legacy best-of-mode.) Auto now wins **every** real-data
+cell at every tested min_points. Wall at 471k: ~48 s (m=1), ~70 s (m≥3) vs
+legacy best ~39–49 s — the LNS premium buys the m≥3 wins; legacy balanced
+remains the speed option at 0.6 s but 1.8–2.6× worse scores.
+
+Future m≥2 ideas, unimplemented: per-window exact ILP/branch-and-bound
+(≤150 pts) instead of greedy re-solve; 4→3 swap tier; simulated-annealing
+acceptance for LNS windows (would cost determinism).
+
 r = 80 m spot-check (10k, user's upper radius): auto wins all four cells —
 urban m=1 1571 vs 1711, urban m=3 4246 vs 4318, blobs m=1 1707 vs 1839,
 blobs m=3 3885 vs 3907.
