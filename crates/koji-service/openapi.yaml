@@ -4,11 +4,15 @@ info:
   version: 1.5.1
   summary: Clean v2 surface for Koji over the job queue.
   description: |
-    The `/api/v2` surface of Koji: a job-queue-backed calc API plus typed CRUD
-    for geofences, routes, projects, properties, and tile-servers.
+    The `/api/v2` surface of Koji: a job-queue-backed calc API, typed CRUD for
+    geofences, routes, projects, properties, and tile-servers, plus geometry
+    utilities (`/geo/*`) and a scanner-data fetch (`/scanner-data/*`).
 
-    All responses use the [JSend](https://github.com/omniti-labs/jsend) envelope
-    (`success` / `fail` / `error`) — see the `JSend*` schemas.
+    All responses use the v2 envelope (architecture §7), which matches Dragonite
+    v2: `{ "status": "ok", "data": …, "meta": …? }` on success and
+    `{ "status": "error", "error": { "code", "message", "field"? } }` on error
+    — see the `ApiOk` / `ApiError` schemas. (This is not JSend; Dragonite
+    dropped JSend for v2 and Koji follows the same shape.)
 
     Authentication: every `/api/v2/*` endpoint requires
     `Authorization: Bearer <KOJI_SECRET>` (a session cookie from the Koji admin
@@ -18,7 +22,7 @@ info:
     Geometry-bearing reads (geofences, routes) accept a `rt` (return-type) query
     param that switches the response shape away from GeoJSON (text, array,
     poracle, sql, …); when omitted the response is a GeoJSON `Feature` /
-    `FeatureCollection`. Those alternate shapes are returned raw (not JSend
+    `FeatureCollection`. Those alternate shapes are returned raw (not envelope
     wrapped) to preserve drop-in compatibility with v1 consumers.
 
 servers:
@@ -44,6 +48,10 @@ tags:
     description: Typed CRUD for properties.
   - name: tile-servers
     description: Typed CRUD for tile-servers.
+  - name: geo
+    description: Geometry utilities — convert / simplify / merge points, and S2 cell helpers.
+  - name: scanner-data
+    description: Fetch raw scanner points (gym / pokestop / spawnpoint / station) within a geofence.
 
 # Applied globally; the unauthenticated operations override with `security: []`.
 security:
@@ -107,7 +115,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendJobId"
+                $ref: "#/components/schemas/ApiJobId"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -126,7 +134,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -148,7 +156,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -185,13 +193,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "202":
           description: Job accepted (async).
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendJobId"
+                $ref: "#/components/schemas/ApiJobId"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -231,13 +239,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "202":
           description: Job accepted (async).
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendJobId"
+                $ref: "#/components/schemas/ApiJobId"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -265,7 +273,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -277,7 +285,7 @@ paths:
       description: |
         Defaults to a GeoJSON `FeatureCollection`. With `?rt=` set to a non-GeoJSON
         return type (text / array / poracle / sql / …) the body is that raw shape
-        instead of the JSend/GeoJSON form.
+        instead of the GeoJSON form.
       parameters:
         - $ref: "#/components/parameters/RtQuery"
         - $ref: "#/components/parameters/InternalQuery"
@@ -304,7 +312,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -346,7 +354,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -361,7 +369,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendRowsAffected"
+                $ref: "#/components/schemas/ApiRowsAffected"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -385,7 +393,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -427,7 +435,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -453,7 +461,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -499,7 +507,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -514,7 +522,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendRowsAffected"
+                $ref: "#/components/schemas/ApiRowsAffected"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -531,7 +539,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -548,7 +556,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -567,7 +575,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -586,7 +594,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -601,7 +609,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendRowsAffected"
+                $ref: "#/components/schemas/ApiRowsAffected"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -618,7 +626,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -635,7 +643,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -654,7 +662,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -673,7 +681,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -688,7 +696,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendRowsAffected"
+                $ref: "#/components/schemas/ApiRowsAffected"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -705,7 +713,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -722,7 +730,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -741,7 +749,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -760,7 +768,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendSuccess"
+                $ref: "#/components/schemas/ApiOk"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -775,7 +783,210 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JSendRowsAffected"
+                $ref: "#/components/schemas/ApiRowsAffected"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v2/geo/convert:
+    post:
+      operationId: geoConvert
+      tags: [geo]
+      summary: Convert / normalize geometry.
+      description: |
+        Normalize the supplied `area` to the requested return type (optionally
+        simplifying). Geometry-bearing — honors `?rt=`. Ports v1 `/convert/data`.
+      parameters:
+        - $ref: "#/components/parameters/RtQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeoArgs"
+      responses:
+        "200":
+          description: The converted geometry (GeoJSON by default; `?rt=` changes the shape).
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v2/geo/simplify:
+    post:
+      operationId: geoSimplify
+      tags: [geo]
+      summary: Simplify geometry.
+      description: Simplify the supplied `area`. Honors `?rt=`. Ports v1 `/convert/simplify`.
+      parameters:
+        - $ref: "#/components/parameters/RtQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeoArgs"
+      responses:
+        "200":
+          description: The simplified geometry.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v2/geo/merge-points:
+    post:
+      operationId: geoMergePoints
+      tags: [geo]
+      summary: Merge point features into one MultiPoint.
+      description: Collapse the point features of `area` into a single MultiPoint. Ports v1 `/convert/merge-points`.
+      parameters:
+        - $ref: "#/components/parameters/RtQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeoArgs"
+      responses:
+        "200":
+          description: The merged MultiPoint geometry.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v2/geo/s2/circle-coverage:
+    post:
+      operationId: geoS2CircleCoverage
+      tags: [geo]
+      summary: S2 cells covering a circle.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoverageArgs"
+      responses:
+        "200":
+          description: The covering S2 cells.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiOk"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v2/geo/s2/cell-coverage:
+    post:
+      operationId: geoS2CellCoverage
+      tags: [geo]
+      summary: S2 cell ids covering a cell area.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoverageArgs"
+      responses:
+        "200":
+          description: The covering S2 cell ids.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiOk"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v2/geo/s2/polygons:
+    post:
+      operationId: geoS2Polygons
+      tags: [geo]
+      summary: Polygons for the given S2 cell ids.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+              description: S2 cell ids.
+      responses:
+        "200":
+          description: The cell polygons.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiOk"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v2/geo/s2/{cell_level}:
+    post:
+      operationId: geoS2Cells
+      tags: [geo]
+      summary: S2 cells within a bbox at a given level.
+      parameters:
+        - name: cell_level
+          in: path
+          required: true
+          description: The S2 cell level.
+          schema:
+            type: integer
+            format: int32
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BoundsArg"
+      responses:
+        "200":
+          description: The S2 cells in the bbox (optionally filtered to `ids`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiOk"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v2/scanner-data/{category}:
+    get:
+      operationId: getScannerData
+      tags: [scanner-data]
+      summary: Scanner points within a geofence.
+      description: |
+        Fetch the `{category}` scanner points (gym / pokestop / spawnpoint /
+        station) inside the `?instance=` geofence. Reuses the same query path as
+        v1 `/internal/data/area`. A GET can't carry the v1 `Args` body, so the
+        area is keyed by geofence name.
+      parameters:
+        - $ref: "#/components/parameters/CategoryPath"
+        - name: instance
+          in: query
+          required: true
+          description: The geofence name whose area bounds the fetch.
+          schema:
+            type: string
+        - name: last_seen
+          in: query
+          required: false
+          description: Only points updated within the last N seconds (`0` = no filter).
+          schema:
+            type: integer
+            format: int64
+            default: 0
+      responses:
+        "200":
+          description: The category's scanner points.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiOk"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -871,43 +1082,41 @@ components:
 
   responses:
     BadRequest:
-      description: Malformed request (JSend `fail`).
+      description: Malformed request — `error` envelope.
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/JSendFail"
+            $ref: "#/components/schemas/ApiError"
     Unauthorized:
       description: Missing or invalid bearer token.
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/JSendError"
+            $ref: "#/components/schemas/ApiError"
     NotFound:
       description: Resource not found.
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/JSendError"
+            $ref: "#/components/schemas/ApiError"
     Conflict:
       description: Conflict (e.g. the job was canceled).
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/JSendError"
+            $ref: "#/components/schemas/ApiError"
     Unprocessable:
       description: Semantically invalid (e.g. unlinked geofence, validation error).
       content:
         application/json:
           schema:
-            oneOf:
-              - $ref: "#/components/schemas/JSendFail"
-              - $ref: "#/components/schemas/JSendError"
+            $ref: "#/components/schemas/ApiError"
     ServerError:
-      description: Internal server error (JSend `error`).
+      description: Internal server error — `error` envelope.
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/JSendError"
+            $ref: "#/components/schemas/ApiError"
     GatewayTimeout:
       description: |
         The sync bridge timed out; the job is still running. `data.job_id` lets
@@ -915,58 +1124,74 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/JSendError"
+            $ref: "#/components/schemas/ApiError"
 
   schemas:
-    JSendSuccess:
+    ApiOk:
       type: object
-      description: JSend success envelope. `data` shape is per-endpoint.
+      description: |
+        Success envelope (architecture §7) — `status: ok` plus the per-endpoint
+        `data`. Matches Dragonite v2 (which dropped JSend for this shape).
       required: [status, data]
       properties:
         status:
           type: string
-          const: success
+          const: ok
         data:
           description: The endpoint payload (object, array, or scalar).
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
       additionalProperties: false
-    JSendFail:
+    ApiError:
       type: object
-      description: JSend fail envelope (client-side rejection / validation).
-      required: [status, data]
-      properties:
-        status:
-          type: string
-          const: fail
-        data:
-          type: object
-          description: Machine-readable description of what was wrong (field → message).
-          additionalProperties: true
-      additionalProperties: false
-    JSendError:
-      type: object
-      description: JSend error envelope (server-side processing failure).
-      required: [status, message]
+      description: |
+        Error envelope (architecture §7) — `status: error` plus an `error`
+        object carrying a stable `code`, a human `message`, and an optional
+        `field` for per-field validation errors. Covers both client rejections
+        (4xx) and server failures (5xx).
+      required: [status, error]
       properties:
         status:
           type: string
           const: error
-        message:
-          type: string
-          description: Human-readable error message.
-        code:
-          type: string
-          description: Stable machine-readable code (e.g. `not_found`, `validation_error`, `timeout`).
-        data:
-          description: Optional extra context (e.g. `{ job_id }`).
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Stable machine-readable code (e.g. `not_found`, `unprocessable`, `invalid_request`, `timeout`).
+            message:
+              type: string
+              description: Human-readable error message.
+            field:
+              type: string
+              description: The offending request field, for per-field validation errors.
+          additionalProperties: false
       additionalProperties: false
-    JSendJobId:
+    ApiMeta:
+      type: object
+      description: |
+        Pagination block for `ok` collection responses (architecture §7).
+        Reserved: Koji's list endpoints currently return their full result set,
+        so this is omitted until list pagination lands.
+      required: [total, page, per_page, total_pages, has_next, has_prev]
+      properties:
+        total: { type: integer, format: int64 }
+        page: { type: integer, format: int64 }
+        per_page: { type: integer, format: int64 }
+        total_pages: { type: integer, format: int64 }
+        has_next: { type: boolean }
+        has_prev: { type: boolean }
+      additionalProperties: false
+    ApiJobId:
       type: object
       description: A success envelope whose `data` carries an enqueued job id.
       required: [status, data]
       properties:
         status:
           type: string
-          const: success
+          const: ok
         data:
           type: object
           required: [job_id]
@@ -975,14 +1200,14 @@ components:
               type: string
               description: The enqueued job id.
       additionalProperties: false
-    JSendRowsAffected:
+    ApiRowsAffected:
       type: object
       description: A success envelope whose `data` carries the number of rows affected.
       required: [status, data]
       properties:
         status:
           type: string
-          const: success
+          const: ok
         data:
           type: object
           required: [rows_affected]
@@ -1037,3 +1262,59 @@ components:
           description: The job payload, passed opaquely to the handler.
           default: {}
       additionalProperties: false
+    GeoArgs:
+      type: object
+      description: |
+        The Koji `Args` body for the `/geo/*` transforms — carries the `area`
+        (geofence / GeoJSON / point list) plus optional knobs (`return_type`,
+        `simplify`, `instance`, `benchmark_mode`, …). Loosely modeled; the full
+        `Args` shape is the same one the v1 `/convert/*` endpoints accept.
+      properties:
+        area:
+          description: The geometry to transform (geofence name, GeoJSON, or point list).
+        return_type:
+          type: string
+          description: Optional return type (overridden by `?rt=`).
+        simplify:
+          type: boolean
+          description: When true, simplify before converting.
+      additionalProperties: true
+    CoverageArgs:
+      type: object
+      description: Center + level for the S2 coverage helpers.
+      required: [lat, lon, level]
+      properties:
+        lat:
+          type: number
+          format: double
+        lon:
+          type: number
+          format: double
+        radius:
+          type: number
+          format: double
+          description: Circle radius in metres (circle-coverage; default 70).
+        size:
+          type: integer
+          format: int32
+          description: Cell grid size (cell-coverage; default 15).
+        level:
+          type: integer
+          format: int32
+          description: The S2 cell level.
+      additionalProperties: false
+    BoundsArg:
+      type: object
+      description: A bounding box, optionally filtered to a set of cell ids.
+      required: [min_lat, min_lon, max_lat, max_lon]
+      properties:
+        min_lat: { type: number, format: double }
+        min_lon: { type: number, format: double }
+        max_lat: { type: number, format: double }
+        max_lon: { type: number, format: double }
+        ids:
+          type: array
+          items:
+            type: string
+          description: When present, only cells whose id is in this set are returned.
+      additionalProperties: true
