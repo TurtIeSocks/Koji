@@ -83,6 +83,16 @@ pub struct Refiner<'a> {
     live: Vec<bool>,
     /// Per-rep count of live centers covering it.
     count: Vec<u32>,
+    /// Dirty-region bookkeeping: S2 cells (edge ≥ ~8r) get their epoch bumped
+    /// whenever a mutation lands nearby; passes skip centers whose region is
+    /// unchanged since their last scan. Pure scheduling — never affects which
+    /// moves are legal, only when they are looked for.
+    region_level: u64,
+    region_epoch: HashMap<u64, u64>,
+    epoch: u64,
+    relocate_seen: HashMap<u64, u64>,
+    merge_seen: HashMap<u64, u64>,
+    swap_seen: HashMap<u64, u64>,
 }
 
 impl<'a> Refiner<'a> {
@@ -103,6 +113,16 @@ impl<'a> Refiner<'a> {
             })
             .collect();
 
+        // Deepest S2 level whose average edge is still ≥ 8r, so a 3×3
+        // footprint bump reaches every center that could interact with a
+        // mutation (merge gate is 4r, coverage is r).
+        let mut region_level: u64 = 0;
+        while region_level < 18
+            && 8_000_000.0 / (1u64 << (region_level + 1)) as Precision >= 8.0 * r_eff
+        {
+            region_level += 1;
+        }
+
         let mut refiner = Refiner {
             reps,
             tree,
@@ -113,6 +133,12 @@ impl<'a> Refiner<'a> {
             covered: Vec::new(),
             live: Vec::new(),
             count: vec![0; reps.len()],
+            region_level,
+            region_epoch: HashMap::new(),
+            epoch: 0,
+            relocate_seen: HashMap::new(),
+            merge_seen: HashMap::new(),
+            swap_seen: HashMap::new(),
         };
 
         // Initial coverage, computed in parallel then applied serially.
@@ -144,6 +170,7 @@ impl<'a> Refiner<'a> {
         self.pos.push(p);
         self.covered.push(cov);
         self.live.push(true);
+        self.bump_footprint(p);
         self.pos.len() - 1
     }
 
@@ -154,6 +181,48 @@ impl<'a> Refiner<'a> {
         self.live[i] = false;
         for &r in &self.covered[i] {
             self.count[r as usize] -= 1;
+        }
+        self.bump_footprint(self.pos[i]);
+    }
+
+    /// Region cell of a position at the dirty-tracking level.
+    fn region_of(&self, p: PointArray) -> u64 {
+        CellID::from(LatLng::from_degrees(p[0], p[1]))
+            .parent(self.region_level)
+            .0
+    }
+
+    /// Mark the 3×3 region neighborhood of `p` as changed. Neighbor cells are
+    /// reached by ±6r coordinate offsets (no S2 neighbor API needed; the
+    /// region edge is ≥ 8r so the offsets land in the adjacent cells).
+    fn bump_footprint(&mut self, p: PointArray) {
+        self.epoch += 1;
+        let dlat = 6.0 * self.r_eff / 111_132.0;
+        let dlon = 6.0 * self.r_eff / (111_320.0 * p[0].to_radians().cos().abs().max(0.01));
+        for di in -1i8..=1 {
+            for dj in -1i8..=1 {
+                let q = [
+                    (p[0] + di as f64 * dlat).clamp(-89.999, 89.999),
+                    p[1] + dj as f64 * dlon,
+                ];
+                let cell = self.region_of(q);
+                self.region_epoch.insert(cell, self.epoch);
+            }
+        }
+    }
+
+    /// Has `p`'s region changed since this pass last scanned it?
+    fn is_dirty(&self, seen: &HashMap<u64, u64>, p: PointArray) -> bool {
+        let cell = self.region_of(p);
+        let current = self.region_epoch.get(&cell).copied().unwrap_or(1);
+        current > seen.get(&cell).copied().unwrap_or(0)
+    }
+
+    /// Record the scanned cells' epochs so the next pass run skips them
+    /// unless something bumps them again.
+    fn mark_seen(seen: &mut HashMap<u64, u64>, snapshot: Vec<(u64, u64)>) {
+        for (cell, ep) in snapshot {
+            seen.insert(cell, ep);
         }
     }
 
@@ -205,13 +274,30 @@ impl<'a> Refiner<'a> {
     /// Non-exclusive covered points are never lost (another coverer exists
     /// by definition), so every accepted move is a true score improvement.
     fn relocate_pass(&mut self) -> bool {
+        // Dirty-region gating: only centers whose neighborhood changed since
+        // this pass last scanned them are searched again.
+        let candidates: Vec<usize> = (0..self.pos.len())
+            .filter(|&i| self.live[i] && self.is_dirty(&self.relocate_seen, self.pos[i]))
+            .collect();
+        let snapshot: Vec<(u64, u64)> = {
+            let cells: HashMap<u64, u64> = candidates
+                .iter()
+                .map(|&i| {
+                    let cell = self.region_of(self.pos[i]);
+                    let ep = self.region_epoch.get(&cell).copied().unwrap_or(1);
+                    (cell, ep)
+                })
+                .collect();
+            cells.into_iter().collect()
+        };
+
         // Propose in parallel against the current snapshot (the search is the
         // expensive part), then apply serially in index order with cheap
         // revalidation — deterministic and race-free.
         let this = &*self;
-        let proposals: Vec<(usize, PointArray)> = (0..self.pos.len())
-            .into_par_iter()
-            .filter_map(|i| this.propose_relocate(i).map(|cand| (i, cand)))
+        let proposals: Vec<(usize, PointArray)> = candidates
+            .par_iter()
+            .filter_map(|&i| this.propose_relocate(i).map(|cand| (i, cand)))
             .collect();
 
         let mut changed = false;
@@ -240,11 +326,15 @@ impl<'a> Refiner<'a> {
                 for &r in &new_cov {
                     self.count[r as usize] += 1;
                 }
+                let old_pos = self.pos[i];
                 self.pos[i] = cand;
                 self.covered[i] = new_cov;
+                self.bump_footprint(old_pos);
+                self.bump_footprint(cand);
                 changed = true;
             }
         }
+        Self::mark_seen(&mut self.relocate_seen, snapshot);
         changed
     }
 
@@ -380,11 +470,30 @@ impl<'a> Refiner<'a> {
             cell_to_centers.entry(id.0).or_default().push(i);
         }
 
-        // Parallel propose: each live center finds its first feasible merge
+        // Dirty-region gating: only centers in changed regions look for
+        // partners (a viable partner's mutation bumps this center's region).
+        let dirty_idx: Vec<usize> = live_idx
+            .iter()
+            .copied()
+            .filter(|&i| self.is_dirty(&self.merge_seen, self.pos[i]))
+            .collect();
+        let snapshot: Vec<(u64, u64)> = {
+            let cells: HashMap<u64, u64> = dirty_idx
+                .iter()
+                .map(|&i| {
+                    let cell = self.region_of(self.pos[i]);
+                    let ep = self.region_epoch.get(&cell).copied().unwrap_or(1);
+                    (cell, ep)
+                })
+                .collect();
+            cells.into_iter().collect()
+        };
+
+        // Parallel propose: each dirty center finds its first feasible merge
         // partner on the snapshot. Serial apply revalidates liveness and the
         // (possibly grown) required set before committing.
         let this = &*self;
-        let proposals: Vec<(usize, usize, PointArray)> = live_idx
+        let proposals: Vec<(usize, usize, PointArray)> = dirty_idx
             .par_iter()
             .filter_map(|&i| {
                 let neighbors: Vec<usize> = center_tree
@@ -423,6 +532,7 @@ impl<'a> Refiner<'a> {
             self.add_center(cand, new_cov);
             changed = true;
         }
+        Self::mark_seen(&mut self.merge_seen, snapshot);
         changed
     }
 
@@ -472,11 +582,29 @@ impl<'a> Refiner<'a> {
             cell_to_centers.entry(id.0).or_default().push(i);
         }
 
+        // Dirty-region gating, as in merge_pass.
+        let dirty_idx: Vec<usize> = live_idx
+            .iter()
+            .copied()
+            .filter(|&i| self.is_dirty(&self.swap_seen, self.pos[i]))
+            .collect();
+        let snapshot: Vec<(u64, u64)> = {
+            let cells: HashMap<u64, u64> = dirty_idx
+                .iter()
+                .map(|&i| {
+                    let cell = self.region_of(self.pos[i]);
+                    let ep = self.region_epoch.get(&cell).copied().unwrap_or(1);
+                    (cell, ep)
+                })
+                .collect();
+            cells.into_iter().collect()
+        };
+
         // Parallel propose: each center tries trios with its nearest
         // neighbors on the snapshot. Serial apply revalidates liveness and
         // the required set before killing anything.
         let this = &*self;
-        let proposals: Vec<(usize, usize, usize, PointArray, PointArray)> = live_idx
+        let proposals: Vec<(usize, usize, usize, PointArray, PointArray)> = dirty_idx
             .par_iter()
             .filter_map(|&i| {
                 // NOTE: the cell multi-map can yield the same center index
@@ -534,6 +662,7 @@ impl<'a> Refiner<'a> {
             self.add_center(p2, cov2);
             changed = true;
         }
+        Self::mark_seen(&mut self.swap_seen, snapshot);
         changed
     }
 
