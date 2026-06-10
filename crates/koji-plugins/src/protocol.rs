@@ -134,7 +134,10 @@ mod tests {
         let input = PluginInput::new(vec![[1.0, 2.0]]);
         let value: serde_json::Value =
             serde_json::from_str(&serde_json::to_string(&input).unwrap()).unwrap();
-        assert_eq!(value["protocol_version"], serde_json::json!(PROTOCOL_VERSION));
+        assert_eq!(
+            value["protocol_version"],
+            serde_json::json!(PROTOCOL_VERSION)
+        );
     }
 
     #[test]
