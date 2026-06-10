@@ -71,6 +71,16 @@ Delivered as focused, independently-green sub-plans (each reviewed before execut
 - ⏳ OpenAPI doc (recommend `utoipa`) · clippy-pedantic manual sweep · repo-wide `rustfmt` (isolated final commit) · React client `scanner_type` collapse.
 > Final (when the above land): full suite + clippy + fmt; **open PR (maintainer heads-up first).**
 
+## Phase 8 — Spec-conformance pass (post-audit) ✅ DONE
+Closes the gaps a docs-vs-implementation audit surfaced against the architecture spec.
+- ✅ (`3fa2553`) `feat(plugins): capture plugin stderr to logs + version the JSON protocol (§8)` — `PluginInput.protocol_version` (`PROTOCOL_VERSION = 1`, `#[serde(default)]` so older JSON still decodes); child stderr drained on its own thread and `warn!`-logged. 22 koji-plugins tests.
+- ✅ (`cc68f07`) `refactor(service)!: v2 envelope → Dragonite-matching ok/error (spec §7)` — `utils/jsend.rs` → `utils/api_response.rs`; `ApiResponse<T>` = `{status:ok,data,meta?}` | `{status:error,error{code,message,field?}}`. Constructor names/signatures unchanged → the 40 v2 call sites only renamed `JSend`→`ApiResponse`. Verified live (success/422/400 shapes). Dragonite dropped JSend for v2 (maintainer-confirmed), so Koji matches its `ok/error` envelope.
+- ✅ (`763d554`) drop the unused `success_list` helper (clippy clean; `meta` field kept for the spec shape).
+- ✅ (`80679df`) `feat(service): v2 geo + scanner-data endpoints (architecture §6 gap)` — ports the v1 `/convert` + `/s2` handlers to `POST /api/v2/geo/{convert,simplify,merge-points,s2/*}` (geometry honors `?rt=`; s2 returns `ApiResponse`) and adds `GET /api/v2/scanner-data/{category}` (`?instance=` geofence, reusing `create_or_find_collection` + `points_from_area`). v1 endpoints stay as the shim. Verified live (s2 ok; convert byte-identical to v1; scanner-data 400-guard).
+- ✅ (`50defeb`) `docs(openapi): v2 ok/error envelope + geo/scanner-data paths` — `JSend*`→`Api*` schemas (fail+error merged into one `ApiError`), intro/response prose de-JSend'd, 8 new paths + `GeoArgs`/`CoverageArgs`/`BoundsArg` schemas. Validated (parses 3.1.0; all 26 `$ref`s resolve).
+
+**Audit outcome — intentional, not gaps (per the docs):** decision 7 envelope ✅ now conformant; §6 geo/scanner-data ✅ ported; §8 plugins stderr+version ✅ done. **Deferred (documented in arch §8):** `AlgorithmPlugin` trait abstraction + `[args]` schema validation (YAGNI — one subprocess impl, only `tsp`). **Gated (per §7/§10):** #558 per-mode `area_fence` push (no entity/columns yet). **Maintainer-dropped:** v1 byte-compat replay (§6), `utoipa` codegen (§12 — hand-written spec kept, now drift-corrected).
+
 ## Verification cadence
 Per CLAUDE.md: lint + typecheck + tests in **parallel** at each phase boundary; full suite only at boundaries (not per-commit).
 

@@ -23,7 +23,7 @@ Sixteen goals (see `refactor-workspace/goals.md`). Ten forking decisions, locked
 | 4 | **Durable outbox + dispatcher (retry/backoff) + webhook registry**; the Dragonite pusher is the first built-in subscriber. |
 | 5 | **Formalized subprocess plugins** — Rust trait + external dir + manifest + versioned JSON protocol. |
 | 6 | Calc surface = **hybrid** (generic `POST /jobs` canonical + `POST /calc/*` sugar). |
-| 7 | Response format = **JSend, matching Dragonite v2** (`status`/`data`/`meta`/`error{code,message,field}`). |
+| 7 | Response format = **match Dragonite v2 exactly** (`status: ok\|error` / `data` / `meta?` / `error{code,message,field}`). ✅ implemented as `ApiResponse` (`utils/api_response.rs`). NB: Dragonite dropped JSend for v2, so the shape is its `ok/error` envelope, **not** JSend `success/fail/error` — the original "JSend" label here was a misnomer for that shape. |
 | 8 | CRUD = **typed resource handlers** (no generic `{resource}` dispatch). |
 | 9 | Dragonite area identity = **stored `dragonite_area_id` linkage** (not name-resolution). |
 | 10 | PR #558 fences = **separate per-mode fence entities** (`area_fence` linkage). |
@@ -110,6 +110,8 @@ A geofence can fill multiple `(area,mode)` slots; per-mode rows override `base`.
 ## 8. Plugin system
 
 `koji-plugins`: one `AlgorithmPlugin` trait, `SubprocessPlugin` impl now (native impl possible later). Per-plugin `plugin.toml` manifest (`name`, `kind`, `version`, `entry`, explicit `interpreter`, declared+validated `[args]`). Plugins live in `KOJI_PLUGINS_DIR` (default `./plugins`, **out of the source tree**); a `PluginRegistry` scans + indexes at startup and feeds `/api/v2/meta/algorithms`. Versioned JSON stdin/stdout protocol with a real error channel (replaces the ad-hoc `lat,lng` lines); stderr captured to logs; executed via the job worker's `spawn_blocking`.
+
+> **Implementation status (post-audit).** Delivered: external `KOJI_PLUGINS_DIR`, `plugin.toml` manifest + `PluginRegistry` (cached `LazyLock`, indexed on first use; feeds `/meta/algorithms`), **versioned** JSON protocol (`PROTOCOL_VERSION = 1`, carried on `PluginInput`; `3fa2553`), the legacy `lat,lng` protocol retained behind `PluginProtocol::Latlng` so the OR-Tools `tsp` binary runs unchanged, **stderr captured to logs** (`3fa2553`), and `spawn_blocking` execution. **Deferred (YAGNI):** the `AlgorithmPlugin` *trait* abstraction (only the one concrete `Plugin`/subprocess impl exists — a trait buys nothing until a native plugin lands) and runtime **`[args]` schema validation** (manifests carry no `[args]` schema yet; args pass through as opaque JSON). Both are additive and can land when a second plugin kind or an external plugin author needs them.
 
 ## 9. RDM removal
 
