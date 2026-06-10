@@ -70,6 +70,69 @@ fn haversine_m(a: PointArray, b: PointArray) -> Precision {
     Haversine.distance(geo::Point::new(a[1], a[0]), geo::Point::new(b[1], b[0]))
 }
 
+/// An accepted-by-the-proposer LNS window rewrite, pending serial commit.
+struct LnsProposal {
+    removed: Vec<usize>,
+    /// Sorted local point set (rep indices).
+    local: Vec<u32>,
+    /// Per-local-point: covered by a proposed center (planar, RHO).
+    prop_mask: Vec<bool>,
+    centers: Vec<PointArray>,
+    /// Annealing slack this window may regress by (0 when not annealing).
+    slack: usize,
+}
+
+/// Result of evaluating one LNS window.
+enum LnsOutcome {
+    /// Nothing to do (or no improvement found).
+    Skip,
+    /// Lost set too big for the exact tier — descend into child cells.
+    Split,
+    /// A strict (or anneal-slack) improvement.
+    Proposal(LnsProposal),
+}
+
+/// 2·RHO-connected components of a planar point set (radius units), by
+/// index. O(n²) union-find — callers cap n.
+fn planar_components(pts: &[[f64; 2]], reach: f64) -> Vec<Vec<usize>> {
+    let n = pts.len();
+    let mut parent: Vec<usize> = (0..n).collect();
+    fn find(parent: &mut [usize], i: usize) -> usize {
+        let mut root = i;
+        while parent[root] != root {
+            root = parent[root];
+        }
+        let mut cur = i;
+        while parent[cur] != root {
+            let next = parent[cur];
+            parent[cur] = root;
+            cur = next;
+        }
+        root
+    }
+    let reach2 = reach * reach;
+    for a in 0..n {
+        for b in (a + 1)..n {
+            let d2 = (pts[a][0] - pts[b][0]).powi(2) + (pts[a][1] - pts[b][1]).powi(2);
+            if d2 <= reach2 {
+                let (ra, rb) = (find(&mut parent, a), find(&mut parent, b));
+                if ra != rb {
+                    let (lo, hi) = if ra < rb { (ra, rb) } else { (rb, ra) };
+                    parent[hi] = lo;
+                }
+            }
+        }
+    }
+    let mut comps: HashMap<usize, Vec<usize>> = HashMap::new();
+    for i in 0..n {
+        let r = find(&mut parent, i);
+        comps.entry(r).or_default().push(i);
+    }
+    let mut out: Vec<Vec<usize>> = comps.into_values().collect();
+    out.sort_by_key(|c| c[0]);
+    out
+}
+
 /// Lat/lng bucket grid over the reps with row-scaled longitude cells —
 /// replaces the rstar tree in the refiner's hot loops (~2–3× per query).
 /// All distance predicates remain exact Haversine; the grid only prunes.
@@ -1074,13 +1137,7 @@ impl<'a> Refiner<'a> {
     /// is the move that restructures whole neighborhoods where the greedy
     /// stranded sub-m point groups — single-center moves can't reach those.
     fn lns_pass(&mut self, radius: Precision, sweep_all: bool) -> bool {
-        use super::frame::Grid;
-        use super::solve::{RHO, SolveParams, solve_chunk};
-        use crate::clustering::partition::cell_bbox_lat_lon;
-        use crate::s2::ToPointArray;
-
         const MAX_WINDOWS: usize = 4096;
-        const MAX_WINDOW_POINTS: usize = 4000;
 
         // Window level: deepest S2 level whose average edge is ≥ ~6r.
         let mut level: u64 = 0;
@@ -1124,158 +1181,50 @@ impl<'a> Refiner<'a> {
 
         // Parallel propose: solve every window against the snapshot (gather,
         // pre-covered mask, 5 solver variants — all the expensive work).
-        struct LnsProposal {
-            removed: Vec<usize>,
-            /// Sorted local point set (rep indices).
-            local: Vec<u32>,
-            /// Per-local-point: covered by a proposed center (planar, RHO).
-            prop_mask: Vec<bool>,
-            centers: Vec<PointArray>,
-            /// Annealing slack this window may regress by (0 when not annealing).
-            slack: usize,
-        }
+        // Windows whose lost set has a 2·RHO-connected component beyond the
+        // exact solver's cap descend into their four S2 children (split until
+        // exact): disks never span disconnected lost components, so per-
+        // component exact solves compose into the window optimum.
+        let max_descent = level + 2;
         let this = &*self;
         let proposals: Vec<LnsProposal> = windows
             .par_iter()
-            .filter_map(|&(_, cell_raw)| {
-                let removed: Vec<usize> = center_cells
+            .flat_map_iter(|&(_, cell_raw)| {
+                let base_removed: Vec<usize> = center_cells
                     .get(&cell_raw)
                     .map(|v| v.iter().copied().filter(|&i| this.live[i]).collect())
                     .unwrap_or_default();
-                if removed.is_empty() {
-                    return None;
+                let mut out: Vec<LnsProposal> = Vec::new();
+                if base_removed.is_empty() {
+                    return out.into_iter();
                 }
-
-                // Local point set: reps in the expanded window bbox plus
-                // everything the removed centers cover (so no coverage loss
-                // can hide outside the window).
-                let bbox = cell_bbox_lat_lon(CellID(cell_raw));
-                let margin =
-                    crate::clustering::candidates::meters_to_degrees(radius, bbox.center_lat());
-                let expanded = bbox.expand(margin);
-                let mut local: Vec<u32> = Vec::new();
-                this.grid.for_each_in_bbox(
-                    this.reps,
-                    expanded.min_lat,
-                    expanded.max_lat,
-                    expanded.min_lon,
-                    expanded.max_lon,
-                    |i| local.push(i),
-                );
-                for &c in &removed {
-                    local.extend(this.covered[c].iter().copied());
-                }
-                local.sort_unstable();
-                local.dedup();
-                if local.len() > MAX_WINDOW_POINTS {
-                    return None;
-                }
-
-                // Coverage by removed centers, per local point.
-                let mut removed_cover: HashMap<u32, u32> = HashMap::new();
-                for &c in &removed {
-                    for &p in &this.covered[c] {
-                        *removed_cover.entry(p).or_insert(0) += 1;
+                let mut stack: Vec<(u64, Vec<usize>)> = vec![(cell_raw, base_removed)];
+                while let Some((cw, removed)) = stack.pop() {
+                    let cell = CellID(cw);
+                    let allow_split = cell.level() < max_descent;
+                    match this.lns_window(cw, &removed, radius, allow_split) {
+                        LnsOutcome::Skip => {}
+                        LnsOutcome::Proposal(p) => out.push(p),
+                        LnsOutcome::Split => {
+                            for child in cell.children() {
+                                let child_removed: Vec<usize> = removed
+                                    .iter()
+                                    .copied()
+                                    .filter(|&i| {
+                                        crate::clustering::partition::contains_latlng(
+                                            child,
+                                            this.pos[i],
+                                        )
+                                    })
+                                    .collect();
+                                if !child_removed.is_empty() {
+                                    stack.push((child.0, child_removed));
+                                }
+                            }
+                        }
                     }
                 }
-                let pre: Vec<bool> = local
-                    .iter()
-                    .map(|&p| {
-                        let rc = removed_cover.get(&p).copied().unwrap_or(0);
-                        this.count[p as usize] > rc
-                    })
-                    .collect();
-                let old_uncov = local
-                    .iter()
-                    .filter(|&&p| this.count[p as usize] == 0)
-                    .count();
-                let old_cost = this.m * removed.len() + old_uncov;
-
-                // Local planar solve, best of the deterministic variants.
-                let frame = LocalFrame::new(CellID(cell_raw).point_array());
-                let pts_planar: Vec<[f64; 2]> = local
-                    .iter()
-                    .map(|&p| {
-                        let xy = frame.to_xy(this.reps[p as usize]);
-                        [xy[0] / radius, xy[1] / radius]
-                    })
-                    .collect();
-                let mut best: Option<(usize, Vec<[f64; 2]>, Vec<bool>)> = None;
-                for v in 0..5u8 {
-                    let centers = solve_chunk(
-                        &pts_planar,
-                        &SolveParams {
-                            m: this.m,
-                            k_cap: 12,
-                            variant: v,
-                            pre_covered: &pre,
-                        },
-                    );
-                    let grid = Grid::build(&centers, 1.0);
-                    let mask: Vec<bool> = pts_planar
-                        .iter()
-                        .map(|p| {
-                            let mut hit = false;
-                            grid.for_each_within(&centers, *p, RHO, |_, _| hit = true);
-                            hit
-                        })
-                        .collect();
-                    let uncov = mask
-                        .iter()
-                        .zip(&pre)
-                        .filter(|(hit, pre)| !**pre && !**hit)
-                        .count();
-                    let cost = this.m * centers.len() + uncov;
-                    if best.as_ref().is_none_or(|(c, _, _)| cost < *c) {
-                        best = Some((cost, centers, mask));
-                    }
-                }
-                let (mut new_cost, mut new_centers, mut prop_mask) = best.expect("variants ran");
-
-                // Small windows get an exact branch-and-bound re-solve over
-                // the lost points (those only the removed centers covered);
-                // it returns Some only when it strictly beats the greedy.
-                let lost: Vec<[f64; 2]> = pts_planar
-                    .iter()
-                    .zip(&pre)
-                    .filter(|(_, pre)| !**pre)
-                    .map(|(p, _)| *p)
-                    .collect();
-                if lost.len() <= super::exact::MAX_EXACT_POINTS
-                    && let Some((cost, centers)) =
-                        super::exact::solve_window_exact(&lost, this.m, new_cost)
-                {
-                    let r2 = RHO * RHO;
-                    prop_mask = pts_planar
-                        .iter()
-                        .map(|p| {
-                            centers
-                                .iter()
-                                .any(|c| (p[0] - c[0]).powi(2) + (p[1] - c[1]).powi(2) <= r2)
-                        })
-                        .collect();
-                    new_cost = cost;
-                    new_centers = centers;
-                }
-
-                // Annealing (flag-gated): allow a bounded, deterministic
-                // pseudo-random regression so windows can escape local
-                // optima; the run-level best-state snapshot makes it safe.
-                let slack = this.anneal_slack(cell_raw);
-                if new_cost >= old_cost + slack {
-                    return None;
-                }
-                let centers: Vec<PointArray> = new_centers
-                    .into_iter()
-                    .map(|xy| frame.to_latlng([xy[0] * radius, xy[1] * radius]))
-                    .collect();
-                Some(LnsProposal {
-                    removed,
-                    local,
-                    prop_mask,
-                    centers,
-                    slack,
-                })
+                out.into_iter()
             })
             .collect();
 
@@ -1319,6 +1268,190 @@ impl<'a> Refiner<'a> {
             changed = true;
         }
         changed
+    }
+
+    /// Evaluate one LNS window (build + solve, read-only). Returns Split when
+    /// the lost set has a component beyond the exact cap (the caller descends
+    /// into child cells), a Proposal on strict improvement, or Skip.
+    fn lns_window(
+        &self,
+        cell_raw: u64,
+        removed: &[usize],
+        radius: Precision,
+        allow_split: bool,
+    ) -> LnsOutcome {
+        use super::frame::Grid;
+        use super::solve::{RHO, SolveParams, solve_chunk};
+        use crate::clustering::partition::cell_bbox_lat_lon;
+        use crate::s2::ToPointArray;
+
+        const MAX_WINDOW_POINTS: usize = 4000;
+
+        // Local point set: reps in the expanded window bbox plus everything
+        // the removed centers cover (so no coverage loss can hide outside).
+        let bbox = cell_bbox_lat_lon(CellID(cell_raw));
+        let margin = crate::clustering::candidates::meters_to_degrees(radius, bbox.center_lat());
+        let expanded = bbox.expand(margin);
+        let mut local: Vec<u32> = Vec::new();
+        self.grid.for_each_in_bbox(
+            self.reps,
+            expanded.min_lat,
+            expanded.max_lat,
+            expanded.min_lon,
+            expanded.max_lon,
+            |i| local.push(i),
+        );
+        for &c in removed {
+            local.extend(self.covered[c].iter().copied());
+        }
+        local.sort_unstable();
+        local.dedup();
+        if local.len() > MAX_WINDOW_POINTS {
+            // At the descent floor an oversized window is skipped (the old
+            // behavior); above it, descend.
+            return if allow_split {
+                LnsOutcome::Split
+            } else {
+                LnsOutcome::Skip
+            };
+        }
+
+        // Coverage by removed centers, per local point.
+        let mut removed_cover: HashMap<u32, u32> = HashMap::new();
+        for &c in removed {
+            for &p in &self.covered[c] {
+                *removed_cover.entry(p).or_insert(0) += 1;
+            }
+        }
+        let pre: Vec<bool> = local
+            .iter()
+            .map(|&p| {
+                let rc = removed_cover.get(&p).copied().unwrap_or(0);
+                self.count[p as usize] > rc
+            })
+            .collect();
+        let old_uncov = local
+            .iter()
+            .filter(|&&p| self.count[p as usize] == 0)
+            .count();
+        let old_cost = self.m * removed.len() + old_uncov;
+
+        let frame = LocalFrame::new(CellID(cell_raw).point_array());
+        let pts_planar: Vec<[f64; 2]> = local
+            .iter()
+            .map(|&p| {
+                let xy = frame.to_xy(self.reps[p as usize]);
+                [xy[0] / radius, xy[1] / radius]
+            })
+            .collect();
+        let lost: Vec<[f64; 2]> = pts_planar
+            .iter()
+            .zip(&pre)
+            .filter(|(_, pre)| !**pre)
+            .map(|(p, _)| *p)
+            .collect();
+
+        // Split-until-exact: if any 2·RHO component of the lost set exceeds
+        // the exact cap, descend instead of settling for greedy here.
+        let comps = if lost.len() > 512 {
+            Vec::new() // certainly splitting; skip the O(n²) components
+        } else {
+            planar_components(&lost, 2.0 * RHO)
+        };
+        let too_big = lost.len() > 512
+            || comps
+                .iter()
+                .any(|c| c.len() > super::exact::MAX_EXACT_POINTS);
+        if too_big && allow_split {
+            return LnsOutcome::Split;
+        }
+        // At the floor with an oversized lost set: greedy-only (no exact).
+
+        // Local planar solve, best of the deterministic variants.
+        let mut best: Option<(usize, Vec<[f64; 2]>, Vec<bool>)> = None;
+        for v in 0..5u8 {
+            let centers = solve_chunk(
+                &pts_planar,
+                &SolveParams {
+                    m: self.m,
+                    k_cap: 12,
+                    variant: v,
+                    pre_covered: &pre,
+                },
+            );
+            let grid = Grid::build(&centers, 1.0);
+            let mask: Vec<bool> = pts_planar
+                .iter()
+                .map(|p| {
+                    let mut hit = false;
+                    grid.for_each_within(&centers, *p, RHO, |_, _| hit = true);
+                    hit
+                })
+                .collect();
+            let uncov = mask
+                .iter()
+                .zip(&pre)
+                .filter(|(hit, pre)| !**pre && !**hit)
+                .count();
+            let cost = self.m * centers.len() + uncov;
+            if best.as_ref().is_none_or(|(c, _, _)| cost < *c) {
+                best = Some((cost, centers, mask));
+            }
+        }
+        let (mut new_cost, mut new_centers, mut prop_mask) = best.expect("variants ran");
+
+        // Exact per-component re-solve (components are independent: no disk
+        // spans two 2·RHO components). Falls back to greedy on node budget.
+        if !lost.is_empty() && !too_big {
+            let mut exact_total = 0usize;
+            let mut exact_centers: Vec<[f64; 2]> = Vec::new();
+            let mut complete = true;
+            for comp in &comps {
+                let comp_pts: Vec<[f64; 2]> = comp.iter().map(|&i| lost[i]).collect();
+                match super::exact::solve_window_exact(&comp_pts, self.m, usize::MAX) {
+                    Some((cost, centers)) => {
+                        exact_total += cost;
+                        exact_centers.extend(centers);
+                    }
+                    None => {
+                        complete = false;
+                        break;
+                    }
+                }
+            }
+            if complete && exact_total < new_cost {
+                let r2 = RHO * RHO;
+                prop_mask = pts_planar
+                    .iter()
+                    .map(|p| {
+                        exact_centers
+                            .iter()
+                            .any(|c| (p[0] - c[0]).powi(2) + (p[1] - c[1]).powi(2) <= r2)
+                    })
+                    .collect();
+                new_cost = exact_total;
+                new_centers = exact_centers;
+            }
+        }
+
+        // Annealing (flag-gated): allow a bounded, deterministic
+        // pseudo-random regression so windows can escape local optima; the
+        // run-level best-state snapshot makes it safe.
+        let slack = self.anneal_slack(cell_raw);
+        if new_cost >= old_cost + slack {
+            return LnsOutcome::Skip;
+        }
+        let centers: Vec<PointArray> = new_centers
+            .into_iter()
+            .map(|xy| frame.to_latlng([xy[0] * radius, xy[1] * radius]))
+            .collect();
+        LnsOutcome::Proposal(LnsProposal {
+            removed: removed.to_vec(),
+            local,
+            prop_mask,
+            centers,
+            slack,
+        })
     }
 
     /// Deterministic per-window annealing slack: 0 when not annealing, else
