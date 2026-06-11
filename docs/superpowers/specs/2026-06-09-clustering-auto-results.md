@@ -203,3 +203,71 @@ Composite weights are env-tunable (`KOJI_SCORE_LAMBDA_ROUTE/KNIFE`, default 0
 are reported, not optimized (locality). First real read: spawns-41k m=1 is
 ≥72.5% of provable optimal with 17% knife-edge coverage — the robustness
 dimension mygod_score never saw.
+
+## Round 3 (2026-06-11): scoring-driven levers
+
+With koji_score v2 components measurable, seven more levers shipped (and two
+honest negatives). All numbers real datasets, stops @78 m, spawns @70 m.
+
+**Landed:**
+
+1. **u128 exact windows + three-way B&B bound** — exact cap 64→128 points;
+   bound = max(global k·maxcov, per-point dual-fitting, >2r independent-set
+   conflict); per-point candidate index in the branch loop. Dense m≥2
+   neighborhoods that used to fall back to greedy now solve optimally:
+   spawns-471k m=3 −1,213, m=5 −1,999.
+2. **`KOJI_SCORE_LAMBDA_OVERLAP`** — overlap priced into score_v2 *and* the
+   spread pass acceptance ((lost − captured) + λ·Δshared < 0). λ=0 stays
+   bit-identical/score-neutral. 41k m=3 @λ=0.5: −32 excess for +2 score.
+3. **Center-pool recombination** — restart variants pooled (S2 L20 dedupe),
+   CELF re-selection (keep while marginal > m), one extra refine, kept only
+   on strict internal-score win. stops-8k m=3 −28 in one shot.
+4. **Margin pass (knife-edge hardening)** — post-spread, recenter each disk
+   on the SEC of its covered set; accept iff worst covered distance strictly
+   shrinks, shared coverage doesn't grow, no band loss. Knife-edge −11…−58%
+   across cells, score never worse (band captures): stops-8k m=1 knife
+   2,484→1,042, score −4.
+5. **Warm-start (`Auto::run_seeded`)** — refine a previous solution against
+   churned points; construction skipped, `finish()` (m=1 audit + cap)
+   shared. 5% churn: 8k 7.4× faster (+1.4% score), 41k m=3 1.6× faster and
+   *better* (−82), 471k ~1.1× (refine dominates; use cold there).
+   clusterbench: `--warm --churn <pct>`.
+6. **Two-variant portfolio for 20k–50k cells** — natural + lattice orderings
+   + recombination. 41k: m=1 −31, m=3 −118, m=5 −151 (≈ −1…−1.3%) at
+   1.5→3.5–4.6 s wall.
+7. **`clusterbench --sweep`** — λ_overlap grid + (score, excess) Pareto
+   frontier lines. First read: λ=0.25 strictly dominates λ=0 on 41k m=3.
+
+**Negative results (appended to the list above):**
+
+6. **Ejection via waste-seeded LNS windows** (cells holding centers with
+   exclusive < m get ruin windows on big inputs): zero score change on all
+   six m≥2 big cells, one +2 noise regression. Wasteful centers surviving
+   refinement are already locally optimal within window radius. Reverted.
+7. **Route tie-breaking in relocate/spread**: measured first — spread+margin
+   already *improve* route_m (−0.1…−0.75%), and final positions are owned by
+   the single-candidate spread/margin passes, so mid-refinement tie-breaks
+   can't stick. Not implemented.
+
+### Final table (round 3, all 12 real cells vs true legacy)
+
+| dataset | m | auto score / wall | true legacy | Δ |
+|---|---|---|---|---|
+| stops 8k @78 | 1 | **2,325** / 1.0s | 2,434 / 3.1s | −4.5% |
+| stops 8k @78 | 3 | **5,723** / 1.1s | 5,724 / 2.6s | −0.02% |
+| stops 8k @78 | 5 | **7,348** / 1.1s | 7,356 / 2.5s | −0.1% |
+| spawns 41k @70 | 1 | **3,128** / 3.5s | 3,457 / 4.9s | −9.5% |
+| spawns 41k @70 | 3 | **8,987** / 4.6s | 9,646 / 5.4s | −6.8% |
+| spawns 41k @70 | 5 | **14,186** / 4.4s | 14,983 / 5.2s | −5.3% |
+| stops 335k @78 | 1 | **154,997** / 4.0s | OOM (>120 GB) | — |
+| stops 335k @78 | 3 | **276,426** / 3.3s | OOM | — |
+| stops 335k @78 | 5 | **318,626** / 2.8s | OOM | — |
+| spawns 471k @70 | 1 | **28,089** / 9.0s | 31,719 / 97s | −11.4% |
+| spawns 471k @70 | 3 | **80,721** / 13.1s | 88,219 / 77s | −8.5% |
+| spawns 471k @70 | 5 | **127,405** / 13.1s | 136,744 / 52s | −6.8% |
+
+**Auto now beats true legacy on every runnable cell — 12/12** (the last
+holdout, stops-8k m=3, flipped via recombination + margin-pass captures).
+Provable quality at m=1: 0.732–0.948 of the independent-set lower bound.
+Knife-edge down 11–58% and overlap_excess down 46–96% vs the pre-spread
+state, at equal-or-better scores.
