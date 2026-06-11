@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Koji — clustering (wasm)</title>
+    <style>
+      body { font: 14px system-ui, sans-serif; margin: 2rem; }
+      pre { background: #f4f4f5; padding: 1rem; border-radius: 6px; overflow: auto; }
+    </style>
+  </head>
+  <body>
+    <h1>Koji clustering — wasm demo</h1>
+    <p>Clusters a sample point set in the browser. Open the console for detail.</p>
+    <pre id="out">loading…</pre>
+    <script type="module">
+      import init, { initThreadPool, cluster, version } from "../pkg/koji_wasm.js";
+
+      const out = document.getElementById("out");
+      try {
+        await init();
+        await initThreadPool(navigator.hardwareConcurrency);
+
+        const points = Array.from({ length: 50 }, (_, i) => [
+          35.0 + (i % 10) * 0.002,
+          139.0 + Math.floor(i / 10) * 0.002,
+        ]);
+
+        const res = cluster({
+          points,
+          radius: 200,
+          min_points: 1,
+          max_clusters: 0,
+          cluster_mode: "balanced",
+          calculation_mode: "radius",
+          center_clusters: false,
+        });
+
+        out.textContent =
+          `koji-wasm v${version()}\n` +
+          `points: ${res.stats.total_points}\n` +
+          `clusters: ${res.stats.total_clusters}\n` +
+          `covered: ${res.stats.points_covered}\n` +
+          `time: ${res.stats.cluster_time_ms.toFixed(2)} ms\n\n` +
+          `centers:\n${JSON.stringify(res.clusters, null, 2)}`;
+        console.log(res);
+      } catch (e) {
+        out.textContent = "error: " + e;
+        console.error(e);
+      }
+    </script>
+  </body>
+</html>
