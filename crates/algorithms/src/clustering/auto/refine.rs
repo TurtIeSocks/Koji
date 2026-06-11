@@ -1593,6 +1593,73 @@ impl<'a> Refiner<'a> {
         (lost, captured)
     }
 
+    /// Knife-edge hardening: recenter each disk on the SEC of everything it
+    /// covers, accepted only when the worst covered distance strictly
+    /// shrinks, shared coverage does not grow (no undoing the spread pass)
+    /// and no band point is lost. Score-neutral by the same arguments as the
+    /// spread pass; each accepted move strictly reduces the disk's max
+    /// covered distance, so the pass terminates.
+    fn margin_pass(&mut self) -> bool {
+        let this = &*self;
+        let proposals: Vec<(usize, PointArray)> = (0..self.pos.len())
+            .into_par_iter()
+            .filter_map(|i| {
+                if !this.live[i] || this.covered[i].is_empty() {
+                    return None;
+                }
+                let frame = LocalFrame::new(this.pos[i]);
+                let xy: Vec<[f64; 2]> = this.covered[i]
+                    .iter()
+                    .map(|&r| frame.to_xy(this.reps[r as usize]))
+                    .collect();
+                let sec = smallest_enclosing_circle(&xy);
+                if sec.radius > this.r_eff {
+                    return None;
+                }
+                let cand = frame.to_latlng(sec.center);
+                this.margin_accepts(i, cand).then_some((i, cand))
+            })
+            .collect();
+        let mut changed = false;
+        for (i, cand) in proposals {
+            if !self.live[i] || !self.margin_accepts(i, cand) {
+                continue;
+            }
+            let new_cov = self.query_covered(cand);
+            for &r in &self.covered[i] {
+                self.count[r as usize] -= 1;
+            }
+            for &r in &new_cov {
+                self.count[r as usize] += 1;
+            }
+            let old_pos = self.pos[i];
+            self.pos[i] = cand;
+            self.covered[i] = new_cov;
+            self.bump_footprint(old_pos);
+            self.bump_footprint(cand);
+            changed = true;
+        }
+        changed
+    }
+
+    /// Margin-move validity for center `i` at `cand`: every currently
+    /// covered point stays within r_eff, the worst covered distance strictly
+    /// shrinks, shared coverage does not increase, and no band point drops.
+    fn margin_accepts(&self, i: usize, cand: PointArray) -> bool {
+        let mut old_max = 0.0_f64;
+        let mut new_max = 0.0_f64;
+        for &r in &self.covered[i] {
+            let rep = self.reps[r as usize];
+            old_max = old_max.max(haversine_m(self.pos[i], rep));
+            new_max = new_max.max(haversine_m(cand, rep));
+        }
+        if new_max > self.r_eff || new_max + 1e-9 >= old_max {
+            return false;
+        }
+        let shared_now = self.covered[i].len() - self.exclusive_of(i).len();
+        self.shared_at(i, cand) <= shared_now && self.band_delta(i, cand).0 == 0
+    }
+
     /// Shared coverage center `i` would have at position `cand`: covered
     /// points that at least one OTHER live center also reaches.
     fn shared_at(&self, i: usize, cand: PointArray) -> usize {
@@ -1804,6 +1871,19 @@ impl<'a> Refiner<'a> {
             }
             if paranoid {
                 self.paranoid_check("post-spread");
+            }
+        }
+        // Knife-edge hardening (score-neutral): after spreading, pull each
+        // disk to the SEC of its covered set so the worst-case coverage
+        // margin grows. KOJI_AUTO_NO_MARGIN=1 disables it for A/B runs.
+        if !std::env::var("KOJI_AUTO_NO_MARGIN").is_ok_and(|v| v == "1") {
+            for _ in 0..2 {
+                if !self.margin_pass() {
+                    break;
+                }
+            }
+            if paranoid {
+                self.paranoid_check("post-margin");
             }
         }
         let mut out: Vec<(u64, PointArray)> = (0..self.pos.len())
