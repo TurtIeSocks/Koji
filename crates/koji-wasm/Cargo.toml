@@ -27,3 +27,9 @@ getrandom03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
+
+# wasm-pack's bundled wasm-opt can strip shared memory / atomics from a threaded
+# build (breaking wasm-bindgen-rayon workers with a DataCloneError). Disable it;
+# size optimization can be re-added later with an explicitly threads-aware wasm-opt.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false

@@ -1,2 +1,21 @@
 [target.wasm32-unknown-unknown]
-rustflags = ["-C", "target-feature=+atomics,+bulk-memory,+mutable-globals", "--cfg", "getrandom_backend=\"wasm_js\""]
+rustflags = [
+    "-C", "target-feature=+atomics,+bulk-memory,+mutable-globals",
+    # wasm-bindgen-rayon posts the module's WebAssembly.Memory to worker threads,
+    # which requires it to be SharedArrayBuffer-backed. lld only emits a shared
+    # memory when told explicitly (--shared-memory) with a maximum size; without
+    # this the memory is non-shared and startWorkers fails with DataCloneError.
+    "-C", "link-arg=--shared-memory",
+    # wasm-bindgen's threading transform requires the shared memory to be IMPORTED
+    # (JS creates it and passes it to the main thread + every worker).
+    "-C", "link-arg=--import-memory",
+    "-C", "link-arg=--max-memory=4294967296",
+    # With manual --shared-memory/--import-memory, lld no longer auto-exports the
+    # TLS/heap symbols wasm-bindgen's threading transform looks up. Export them all.
+    "-C", "link-arg=--export=__heap_base",
+    "-C", "link-arg=--export=__tls_base",
+    "-C", "link-arg=--export=__tls_size",
+    "-C", "link-arg=--export=__tls_align",
+    "-C", "link-arg=--export=__wasm_init_tls",
+    "--cfg", "getrandom_backend=\"wasm_js\"",
+]
