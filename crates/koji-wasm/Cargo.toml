@@ -1,0 +1,28 @@
+[package]
+name = "koji-wasm"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+algorithms = { path = "../algorithms", default-features = false }
+koji-core = { path = "../koji-core" }
+geojson = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde-wasm-bindgen = "0.6"
+wasm-bindgen = "0.2"
+# tsify 0.5.6 is latest; 0.4 from spec no longer exists — pinned up to match
+# wasm-bindgen 0.2.101 already in Cargo.lock
+tsify = { version = "0.5", default-features = false, features = ["js"] }
+console_error_panic_hook = "0.1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-rayon = "1"
+getrandom = { version = "0.2", features = ["js"] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
