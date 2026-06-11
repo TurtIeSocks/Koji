@@ -28,6 +28,9 @@ or-tools/*
 !or-tools/src
 or-tools.tar.gz
 
+# koji-wasm build output
+crates/koji-wasm/pkg/
+
 # docs
 docs/public/_pagefind
 bench-results/
