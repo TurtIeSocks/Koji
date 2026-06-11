@@ -4,9 +4,9 @@ use web_time::Instant;
 #[cfg(feature = "native")]
 use koji_plugins::{JoinFunction, PluginKind};
 
-use crate::stats::Stats;
 #[cfg(feature = "native")]
 use crate::plugins;
+use crate::stats::Stats;
 
 use self::greedy::Greedy;
 

@@ -12,9 +12,9 @@ use rayon::{
 use rstar::RTree;
 #[cfg(feature = "native")]
 use std::io::Write;
-use web_time::Instant;
 #[cfg(feature = "native")]
 use sysinfo::System;
+use web_time::Instant;
 
 use crate::{
     bootstrap::radius,

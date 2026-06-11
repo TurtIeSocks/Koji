@@ -5,9 +5,9 @@ use koji_core::{RoutingConfig, SingleVec, SortBy};
 use koji_plugins::PluginKind;
 
 use self::sorting::{SortGeohash, SortLatLng, SortPointCount, SortRandom, SortS2};
-use crate::{stats::Stats, utils};
 #[cfg(feature = "native")]
 use crate::plugins;
+use crate::{stats::Stats, utils};
 
 #[cfg(feature = "native")]
 mod join;
