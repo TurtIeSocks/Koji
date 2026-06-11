@@ -3,6 +3,11 @@
 
 use wasm_bindgen::prelude::*;
 
+mod convert;
+mod dto;
+
+pub use dto::{ClusterRequest, ClusterResponse, StatsSummary};
+
 /// Re-export the wasm-bindgen-rayon thread-pool initializer. The JS caller must
 /// `await initThreadPool(navigator.hardwareConcurrency)` before calling `cluster`.
 #[cfg(target_arch = "wasm32")]
@@ -18,4 +23,21 @@ pub fn start() {
 #[wasm_bindgen]
 pub fn version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
+}
+
+/// Cluster `points` under `req`'s parameters. Returns centers + stats, or a
+/// `JsError` on invalid input.
+#[wasm_bindgen]
+pub fn cluster(req: ClusterRequest) -> Result<ClusterResponse, JsError> {
+    let (points, cfg) = req.into_core()?;
+    let mut stats = algorithms::stats::Stats::new("wasm".to_string(), cfg.min_points);
+    // `collection` is only consulted by the S2 calculation mode; the radius demo
+    // path passes an empty FeatureCollection.
+    let collection = geojson::FeatureCollection {
+        bbox: None,
+        features: vec![],
+        foreign_members: None,
+    };
+    let clusters = algorithms::clustering::main(&points, &cfg, collection, false, &mut stats);
+    Ok(ClusterResponse::from_parts(clusters, &stats))
 }
