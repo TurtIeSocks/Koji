@@ -10,7 +10,7 @@ path = "src/lib.rs"
 
 [dependencies]
 koji-core = { path = "../koji-core" }
-koji-plugins = { path = "../koji-plugins" }
+koji-plugins = { path = "../koji-plugins", optional = true }
 chrono = "0.4.42"
 colored = "3.0.0"
 geo = "0.31.0"
@@ -27,6 +27,11 @@ web-time = "1"
 serde = { version = "1.0.225", features = ["derive"] }
 serde_json = { workspace = true }
 # vrp-pragmatic = "1.18.3"
-sysinfo = "0.37.0"
+sysinfo = { version = "0.37.0", optional = true }
 
 macros = { workspace = true }
+
+[features]
+default = ["native"]
+# Native-only: filesystem debug dumps, system memory probing, plugin execution.
+native = ["dep:sysinfo", "dep:koji-plugins"]
