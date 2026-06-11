@@ -1,16 +1,21 @@
+#[cfg(feature = "native")]
 use std::time::Instant;
 
 use geojson::{Feature, FeatureCollection};
+#[cfg(feature = "native")]
 use koji_core::{
     BootstrapConfig, CalculationMode, FeatureCtx, RoutingConfig, ToFeature, ToSingleVec,
 };
+#[cfg(feature = "native")]
 use koji_plugins::PluginKind;
 
+#[cfg(feature = "native")]
 use crate::{plugins, stats::Stats};
 
 pub mod radius;
 pub mod s2;
 
+#[cfg(feature = "native")]
 pub fn main(
     area: FeatureCollection,
     cfg: &BootstrapConfig,
@@ -53,10 +58,12 @@ pub fn main(
     features
 }
 
+#[cfg(feature = "native")]
 pub fn bootstrap_plugins() -> Vec<String> {
     plugins::plugin_names(PluginKind::Bootstrap)
 }
 
+#[cfg(feature = "native")]
 pub fn all_bootstrap_options() -> Vec<String> {
     let mut options = bootstrap_plugins();
     options.push("radius".to_string());

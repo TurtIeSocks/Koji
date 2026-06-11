@@ -1,4 +1,3 @@
-#[cfg(feature = "native")]
 pub mod bootstrap;
 pub mod clustering;
 #[cfg(feature = "native")]
