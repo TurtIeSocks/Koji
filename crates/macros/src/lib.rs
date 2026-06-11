@@ -22,12 +22,15 @@ pub fn time(attr: TokenStream, item: TokenStream) -> TokenStream {
     let expanded = quote! {
         #(#fn_attrs)*
         #fn_vis #fn_sig {
+            #[cfg(not(target_arch = "wasm32"))]
             let __timer_start = std::time::Instant::now();
+            #[cfg(not(target_arch = "wasm32"))]
             log::info!("starting {}", #message_str);
 
             // Original function body wrapped to capture return value
             let __timer_result = (|| #fn_block)();
 
+            #[cfg(not(target_arch = "wasm32"))]
             log::info!("finished {} in {:.2}s", #message_str, __timer_start.elapsed().as_secs_f32());
 
             __timer_result
