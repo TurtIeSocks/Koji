@@ -20,5 +20,10 @@ serde_json = { workspace = true }
 regex = { workspace = true }
 s2 = { version = "0.0.13", default-features = false, features = ["serde"] }
 
+# Restore s2's `float_extras` (libc-based, wasm-incompatible) on native targets
+# only, so native behavior is unchanged while wasm32 builds exclude it.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+s2 = { version = "0.0.13", default-features = false, features = ["serde", "float_extras"] }
+
 [dev-dependencies]
 serde_json = { workspace = true }
