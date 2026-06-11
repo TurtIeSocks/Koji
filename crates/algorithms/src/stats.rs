@@ -63,6 +63,29 @@ pub struct ScoreComponents {
     pub quality: Precision,
 }
 
+/// Env-tunable score weight; absent/unparsable means 0 (component reported
+/// but not priced).
+pub fn score_lambda(key: &str) -> Precision {
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.parse::<Precision>().ok())
+        .unwrap_or(0.0)
+}
+
+/// Composite v2 score from components. All-zero lambdas reproduce
+/// `mygod_score` exactly (tier 1 only).
+pub fn compose_score_v2(
+    c: &ScoreComponents,
+    lambda_route: Precision,
+    lambda_knife: Precision,
+    lambda_overlap: Precision,
+) -> usize {
+    let extra = lambda_route * c.route_est_s
+        + lambda_knife * c.knife_edge as Precision
+        + lambda_overlap * c.overlap_excess as Precision;
+    c.cluster_cost + c.uncovered_cost + extra.round().max(0.0) as usize
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Stats {
     // Skipped on the wire (not part of the stats contract) AND on read — they
@@ -88,9 +111,10 @@ pub struct Stats {
     pub total_distance: Precision,
     pub longest_distance: Precision,
     pub mygod_score: usize,
-    /// Composite v2 score. With the default weights (route/knife-edge at 0)
-    /// this equals `mygod_score`; weights are env-tunable for experiments
-    /// (KOJI_SCORE_LAMBDA_ROUTE seconds-weight, KOJI_SCORE_LAMBDA_KNIFE).
+    /// Composite v2 score. With the default weights (all lambdas at 0) this
+    /// equals `mygod_score`; weights are env-tunable for experiments
+    /// (KOJI_SCORE_LAMBDA_ROUTE seconds-weight, KOJI_SCORE_LAMBDA_KNIFE,
+    /// KOJI_SCORE_LAMBDA_OVERLAP per-excess-coverage weight).
     #[serde(default)]
     pub score_v2: usize,
     #[serde(default)]
@@ -139,17 +163,12 @@ impl Stats {
             self.score_components.quality =
                 self.score_components.lb as Precision / self.mygod_score as Precision;
         }
-        let lambda = |key: &str| -> Precision {
-            std::env::var(key)
-                .ok()
-                .and_then(|v| v.parse::<Precision>().ok())
-                .unwrap_or(0.0)
-        };
-        let extra = lambda("KOJI_SCORE_LAMBDA_ROUTE") * self.score_components.route_est_s
-            + lambda("KOJI_SCORE_LAMBDA_KNIFE") * self.score_components.knife_edge as Precision;
-        self.score_v2 = self.score_components.cluster_cost
-            + self.score_components.uncovered_cost
-            + extra.round().max(0.0) as usize;
+        self.score_v2 = compose_score_v2(
+            &self.score_components,
+            score_lambda("KOJI_SCORE_LAMBDA_ROUTE"),
+            score_lambda("KOJI_SCORE_LAMBDA_KNIFE"),
+            score_lambda("KOJI_SCORE_LAMBDA_OVERLAP"),
+        );
         self.stop_timer();
     }
 
@@ -604,6 +623,22 @@ mod tests {
         assert_eq!(stats.score_components.route_est_m, 0.0);
         // Both covered points are well inside 95% of r.
         assert_eq!(stats.score_components.knife_edge, 0);
+    }
+
+    #[test]
+    fn compose_score_v2_prices_components() {
+        let c = ScoreComponents {
+            cluster_cost: 10,
+            uncovered_cost: 2,
+            route_est_s: 100.0,
+            knife_edge: 4,
+            overlap_excess: 6,
+            ..Default::default()
+        };
+        // All lambdas zero → tier 1 only.
+        assert_eq!(compose_score_v2(&c, 0.0, 0.0, 0.0), 12);
+        // Each lambda prices its component: 12 + 0.5·100 + 2·4 + 1·6 = 76.
+        assert_eq!(compose_score_v2(&c, 0.5, 2.0, 1.0), 76);
     }
 
     #[test]

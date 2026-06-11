@@ -1465,7 +1465,7 @@ impl<'a> Refiner<'a> {
     /// cluster count and mygod_score are provably unchanged — this pass only
     /// trades redundant overlap for margin. Runs after score convergence;
     /// strict decrease ⇒ monotone ⇒ terminates.
-    fn spread_pass(&mut self) -> bool {
+    fn spread_pass(&mut self, lambda_overlap: f64) -> bool {
         let this = &*self;
         let proposals: Vec<(usize, PointArray)> = (0..self.pos.len())
             .into_par_iter()
@@ -1498,7 +1498,8 @@ impl<'a> Refiner<'a> {
                     return None;
                 }
                 let new_shared = this.shared_at(i, cand);
-                (new_shared < shared_now).then_some((i, cand))
+                this.spread_accepts(i, cand, shared_now, new_shared, lambda_overlap, false)
+                    .then_some((i, cand))
             })
             .collect();
 
@@ -1507,8 +1508,7 @@ impl<'a> Refiner<'a> {
             if !self.live[i] {
                 continue;
             }
-            // Revalidate on current state: exclusives kept, overlap still
-            // strictly drops.
+            // Revalidate on current state: exclusives kept, move still pays.
             let excl = self.exclusive_of(i);
             if excl.is_empty()
                 || excl
@@ -1518,24 +1518,8 @@ impl<'a> Refiner<'a> {
                 continue;
             }
             let shared_now = self.covered[i].len() - excl.len();
-            if self.shared_at(i, cand) >= shared_now {
-                continue;
-            }
-            // Band preservation: points the scorer counts as covered only via
-            // this center's (r_eff, r] sliver (count == 0 internally) must
-            // remain within full radius of the new position, or the move
-            // would silently cost real mygod_score.
-            let full_r = self.r_eff / MARGIN;
-            let mut band_ok = true;
-            self.grid
-                .for_each_within(self.reps, self.pos[i], full_r, |r| {
-                    if self.count[r as usize] == 0
-                        && haversine_m(cand, self.reps[r as usize]) > full_r
-                    {
-                        band_ok = false;
-                    }
-                });
-            if !band_ok {
+            let new_shared = self.shared_at(i, cand);
+            if !self.spread_accepts(i, cand, shared_now, new_shared, lambda_overlap, true) {
                 continue;
             }
             let new_cov = self.query_covered(cand);
@@ -1553,6 +1537,60 @@ impl<'a> Refiner<'a> {
             changed = true;
         }
         changed
+    }
+
+    /// Spread-move acceptance. At lambda 0 (default) the pass is strictly
+    /// score-neutral: shared coverage must strictly drop and (at commit) no
+    /// band point — one covered only via this center's (r_eff, r] sliver —
+    /// may be lost. `check_band` is deferred to the commit phase there,
+    /// preserving the original propose/commit split. With lambda > 0 the
+    /// move instead pays for coverage changes at score_v2's exchange rate:
+    /// (lost − captured) + lambda·Δshared < 0. Δshared for center `i`
+    /// equals the move's change to global overlap_excess (kept, shed and
+    /// gained points contribute identically to both sums).
+    fn spread_accepts(
+        &self,
+        i: usize,
+        cand: PointArray,
+        shared_now: usize,
+        new_shared: usize,
+        lambda_overlap: f64,
+        check_band: bool,
+    ) -> bool {
+        if lambda_overlap <= 0.0 {
+            return new_shared < shared_now
+                && (!check_band || self.band_delta(i, cand).0 == 0);
+        }
+        let (lost, captured) = self.band_delta(i, cand);
+        let d_shared = new_shared as f64 - shared_now as f64;
+        (lost - captured) as f64 + lambda_overlap * d_shared < 0.0
+    }
+
+    /// Full-radius coverage change of moving center `i` to `cand`, counted
+    /// over internally-uncovered reps (count == 0): (band points dropped,
+    /// uncovered points newly captured). Losses are conservative — another
+    /// center's band might still cover them; captures mirror the same
+    /// approximation in reverse.
+    fn band_delta(&self, i: usize, cand: PointArray) -> (i64, i64) {
+        let full_r = self.r_eff / MARGIN;
+        let mut lost = 0i64;
+        let mut captured = 0i64;
+        self.grid
+            .for_each_within(self.reps, self.pos[i], full_r, |r| {
+                if self.count[r as usize] == 0
+                    && haversine_m(cand, self.reps[r as usize]) > full_r
+                {
+                    lost += 1;
+                }
+            });
+        self.grid.for_each_within(self.reps, cand, full_r, |r| {
+            if self.count[r as usize] == 0
+                && haversine_m(self.pos[i], self.reps[r as usize]) > full_r
+            {
+                captured += 1;
+            }
+        });
+        (lost, captured)
     }
 
     /// Shared coverage center `i` would have at position `cand`: covered
@@ -1751,12 +1789,16 @@ impl<'a> Refiner<'a> {
                 self.paranoid_check("post-anneal");
             }
         }
-        // Overlap-minimizing spread (score-neutral by construction): space
-        // the converged solution's disks apart as far as their exclusive
-        // points allow. KOJI_AUTO_NO_SPREAD=1 disables it for A/B runs.
+        // Overlap-minimizing spread: space the converged solution's disks
+        // apart as far as their exclusive points allow. Score-neutral by
+        // construction at the default lambda of 0; KOJI_SCORE_LAMBDA_OVERLAP
+        // > 0 prices overlap into the move acceptance so the pass may trade
+        // bounded mygod_score for larger overlap cuts (matching score_v2).
+        // KOJI_AUTO_NO_SPREAD=1 disables it for A/B runs.
         if !std::env::var("KOJI_AUTO_NO_SPREAD").is_ok_and(|v| v == "1") {
+            let lambda_overlap = crate::stats::score_lambda("KOJI_SCORE_LAMBDA_OVERLAP").max(0.0);
             for _ in 0..4 {
-                if !self.spread_pass() {
+                if !self.spread_pass(lambda_overlap) {
                     break;
                 }
             }
