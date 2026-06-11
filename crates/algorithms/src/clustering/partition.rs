@@ -10,6 +10,7 @@ use koji_core::PointArray;
 use koji_core::Precision;
 use koji_core::SingleVec;
 use rstar::{AABB, RTree};
+#[cfg(feature = "native")]
 use sysinfo::System;
 
 use crate::clustering::candidates;
@@ -64,9 +65,12 @@ fn load_env_or<T: std::str::FromStr>(key: &str, default: T) -> T {
 
 impl PartitionConfig {
     pub(crate) fn load() -> PartitionConfig {
-        let sys = System::new_all();
         let threads = rayon::current_num_threads().max(1) as u64;
-        let mem_per_thread = sys.available_memory() / threads;
+        #[cfg(feature = "native")]
+        let available_memory = System::new_all().available_memory();
+        #[cfg(not(feature = "native"))]
+        let available_memory: u64 = 512 * 1024 * 1024; // bytes — wasm baseline
+        let mem_per_thread = available_memory / threads;
         let auto_budget = (mem_per_thread / BYTES_PER_CANDIDATE as u64) as usize;
 
         let budget = load_env_or("KOJI_MAX_CANDIDATES_PER_CHUNK", auto_budget);

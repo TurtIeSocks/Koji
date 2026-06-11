@@ -12,6 +12,7 @@ use rayon::{
 use rstar::RTree;
 use std::io::Write;
 use web_time::Instant;
+#[cfg(feature = "native")]
 use sysinfo::System;
 
 use crate::{
@@ -615,8 +616,13 @@ impl<'a> Greedy {
         points: &'a SingleVec,
         point_tree: &'a RTree<Point>,
     ) -> Vec<Vec<Cluster<'a>>> {
-        let sys = System::new_all();
-        let sys_mem = sys.available_memory() as usize / BYTE / BYTE;
+        #[cfg(feature = "native")]
+        let sys_mem = {
+            let sys = System::new_all();
+            sys.available_memory() as usize / BYTE / BYTE
+        };
+        #[cfg(not(feature = "native"))]
+        let sys_mem: usize = 512; // MB — conservative wasm baseline
 
         let time = Instant::now();
         let clusters_with_data: Vec<Cluster> = self
