@@ -37,6 +37,10 @@ struct Args {
     /// against `Auto::run_seeded` warm-started from the pre-churn solution.
     warm: bool,
     churn_pct: f64,
+    /// Sweep KOJI_SCORE_LAMBDA_OVERLAP over a grid and print the
+    /// (score, overlap) Pareto frontier instead of a single run. Route and
+    /// knife lambdas are report-only weights, so only overlap is swept.
+    sweep: bool,
 }
 
 fn parse_args() -> Args {
@@ -51,6 +55,7 @@ fn parse_args() -> Args {
         bypass: false,
         warm: false,
         churn_pct: 5.0,
+        sweep: false,
     };
     let argv: Vec<String> = std::env::args().collect();
     let mut i = 1;
@@ -85,6 +90,8 @@ fn parse_args() -> Args {
             args.bypass = true;
         } else if argv[i] == "--warm" {
             args.warm = true;
+        } else if argv[i] == "--sweep" {
+            args.sweep = true;
         } else {
             panic!("unknown arg: {}", argv[i]);
         }
@@ -270,6 +277,55 @@ fn main() {
         genetic_post_processing: false,
         plugin_args: String::new(),
     };
+
+    // Lambda sweep: re-run the full pipeline per overlap weight and report
+    // the (score, overlap_excess) Pareto frontier.
+    if args.sweep {
+        let mut rows: Vec<(&str, usize, usize, usize)> = Vec::new();
+        for lambda in ["0", "0.25", "0.5", "1", "2", "4"] {
+            // Set before the run's worker threads exist; read once per run
+            // by the refiner and the scorer.
+            unsafe { std::env::set_var("KOJI_SCORE_LAMBDA_OVERLAP", lambda) };
+            let mut stats = Stats::new(format!("bench-sweep-{lambda}"), args.min_points);
+            let wall = Instant::now();
+            let clusters = clustering::main(
+                &points,
+                &cfg,
+                FeatureCollection {
+                    bbox: None,
+                    features: vec![],
+                    foreign_members: None,
+                },
+                args.bypass,
+                &mut stats,
+            );
+            report(
+                &args,
+                &format!("sweep-L{lambda}"),
+                &points,
+                &clusters,
+                &stats,
+                wall.elapsed().as_secs_f64(),
+            );
+            rows.push((
+                lambda,
+                stats.mygod_score,
+                stats.score_components.overlap_excess,
+                stats.score_components.knife_edge,
+            ));
+        }
+        for (i, (l, s, e, k)) in rows.iter().enumerate() {
+            let dominated = rows
+                .iter()
+                .enumerate()
+                .any(|(j, (_, s2, e2, _))| j != i && s2 <= s && e2 <= e && (s2 < s || e2 < e));
+            println!(
+                "PARETO lambda={l} score={s} excess={e} knife={k}{}",
+                if dominated { "" } else { " frontier" }
+            );
+        }
+        return;
+    }
 
     let mut stats = Stats::new(format!("bench-{}", args.mode), args.min_points);
     let wall = Instant::now();
