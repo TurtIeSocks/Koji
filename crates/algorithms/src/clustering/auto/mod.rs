@@ -233,10 +233,51 @@ impl Auto {
             }
         }
 
-        // Final m=1 contract audit: every distinct cell must end up covered.
-        // Score-neutral singletons recover any stragglers; a warn here means
-        // a refine pass left a hole (worth investigating, never worth losing
-        // coverage over).
+        self.finish(refined, &reps, m)
+    }
+
+    /// Warm-start: refine a previous solution against the current points
+    /// instead of constructing from scratch. Intended for re-clustering
+    /// after incremental point churn — the refiner drops centers that no
+    /// longer pay, gap-fills new areas and repacks changed neighborhoods at
+    /// a fraction of the cold-run cost. An empty seed falls back to `run`.
+    pub fn run_seeded(&self, points: &SingleVec, seed: &SingleVec) -> SingleVec {
+        if points.is_empty() {
+            return vec![];
+        }
+        if seed.is_empty() {
+            return self.run(points);
+        }
+        let m = self.min_points.max(1);
+        let (reps, _cells) = components::dedupe(points);
+        // Dedupe seed centers at S2 L20 (duplicate centers in one cell break
+        // refine-pass invariants and never help).
+        let mut keyed: Vec<(u64, PointArray)> = seed
+            .iter()
+            .map(|p| {
+                let id = CellID::from(LatLng::from_degrees(p[0], p[1])).parent(20);
+                (id.0, *p)
+            })
+            .collect();
+        keyed.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        keyed.dedup_by_key(|(id, _)| *id);
+        let seeds: SingleVec = keyed.into_iter().map(|(_, p)| p).collect();
+        log::info!(
+            "auto[warm]: {} seed centers vs {} distinct cells",
+            seeds.len(),
+            reps.len()
+        );
+        let refined = Refiner::new(seeds, &reps, self.radius, m).run(self.radius, REFINE_ROUNDS);
+        self.finish(refined, &reps, m)
+    }
+
+    /// Shared tail: m=1 coverage audit + max_clusters cap.
+    ///
+    /// The audit enforces the m=1 contract — every distinct cell must end up
+    /// covered. Score-neutral singletons recover any stragglers; a warn here
+    /// means a refine pass left a hole (worth investigating, never worth
+    /// losing coverage over).
+    fn finish(&self, mut refined: SingleVec, reps: &SingleVec, m: usize) -> SingleVec {
         if m == 1 {
             let r_eff = self.radius * (1.0 - 1e-3);
             let audit_tree = rtree::spawn(r_eff, &refined);
@@ -273,7 +314,7 @@ impl Auto {
             }
         }
 
-        self.enforce_max_clusters(refined, &reps)
+        self.enforce_max_clusters(refined, reps)
     }
 
     /// Internal mygod-score proxy over distinct cells (the per-input-point

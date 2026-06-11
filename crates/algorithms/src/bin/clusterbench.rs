@@ -33,6 +33,10 @@ struct Args {
     seed: u64,
     legacy: bool,
     bypass: bool,
+    /// After the cold run: churn the input, then compare a fresh cold run
+    /// against `Auto::run_seeded` warm-started from the pre-churn solution.
+    warm: bool,
+    churn_pct: f64,
 }
 
 fn parse_args() -> Args {
@@ -45,6 +49,8 @@ fn parse_args() -> Args {
         seed: 42,
         legacy: false,
         bypass: false,
+        warm: false,
+        churn_pct: 5.0,
     };
     let argv: Vec<String> = std::env::args().collect();
     let mut i = 1;
@@ -70,11 +76,15 @@ fn parse_args() -> Args {
             args.radius = v.parse().expect("--radius must be a float");
         } else if let Some(v) = take("--seed") {
             args.seed = v.parse().expect("--seed must be an integer");
+        } else if let Some(v) = take("--churn") {
+            args.churn_pct = v.parse().expect("--churn must be a float pct");
         } else if argv[i] == "--legacy" {
             args.legacy = true;
         } else if argv[i] == "--bypass" {
             // Pre-adaptive-partition legacy path (no partition, no gap-fill).
             args.bypass = true;
+        } else if argv[i] == "--warm" {
+            args.warm = true;
         } else {
             panic!("unknown arg: {}", argv[i]);
         }
@@ -275,14 +285,95 @@ fn main() {
         &mut stats,
     );
     let wall_s = wall.elapsed().as_secs_f64();
+    report(&args, "main", &points, &clusters, &stats, wall_s);
+
+    // Warm-start comparison: churn the input, then run cold vs seeded on the
+    // same churned points. The seed is the pre-churn solution — the
+    // incremental re-cluster case Koji hits as spawnpoints come and go.
+    if args.warm {
+        let churned = churn(&points, args.churn_pct, args.seed);
+        let mut stats_c = Stats::new("bench-cold-churn".to_string(), args.min_points);
+        let wall_c = Instant::now();
+        let cold = clustering::main(
+            &churned,
+            &cfg,
+            FeatureCollection {
+                bbox: None,
+                features: vec![],
+                foreign_members: None,
+            },
+            args.bypass,
+            &mut stats_c,
+        );
+        report(
+            &args,
+            "cold-churn",
+            &churned,
+            &cold,
+            &stats_c,
+            wall_c.elapsed().as_secs_f64(),
+        );
+
+        let auto = clustering::Auto {
+            radius: args.radius,
+            min_points: args.min_points,
+            max_clusters: usize::MAX,
+        };
+        let mut stats_w = Stats::new("bench-warm-churn".to_string(), args.min_points);
+        let wall_w = Instant::now();
+        let cluster_timer = Instant::now();
+        let warm = auto.run_seeded(&churned, &clusters);
+        stats_w.set_cluster_time(cluster_timer);
+        stats_w.cluster_stats(args.radius, &churned, &warm);
+        stats_w.set_score();
+        report(
+            &args,
+            "warm-churn",
+            &churned,
+            &warm,
+            &stats_w,
+            wall_w.elapsed().as_secs_f64(),
+        );
+    }
+}
+
+/// Deterministic ±pct% churn: drop every k-th point, add the same count of
+/// new points jittered up to ~±220 m around random survivors.
+fn churn(points: &SingleVec, pct: f64, seed: u64) -> SingleVec {
+    let mut rng = SmallRng::seed_from_u64(seed ^ 0x4348_5552); // "CHUR"
+    let k = (100.0 / pct.max(0.01)).round().max(1.0) as usize;
+    let mut out: SingleVec = points
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| i % k != 0)
+        .map(|(_, p)| *p)
+        .collect();
+    let n_add = points.len() / k;
+    for _ in 0..n_add {
+        let base = points[rng.random_range(0..points.len())];
+        out.push([
+            base[0] + (rng.random::<Precision>() - 0.5) * 0.004,
+            base[1] + (rng.random::<Precision>() - 0.5) * 0.004,
+        ]);
+    }
+    out
+}
+
+fn report(
+    args: &Args,
+    phase: &str,
+    points: &SingleVec,
+    clusters: &SingleVec,
+    stats: &Stats,
+    wall_s: f64,
+) {
     let lb = if args.min_points == 1 {
-        algorithms::stats::independent_set_lb(&points, args.radius)
+        algorithms::stats::independent_set_lb(points, args.radius)
     } else {
         0
     };
-
     println!(
-        "RESULT dataset={} n={} mode={} legacy={}{} min_points={} radius={} seed={} clusters={} covered={} total={} score={} lb={} route_m={:.0} route_s={:.0} knife={} multi={} excess={} quality={:.3} cluster_s={:.2} wall_s={:.2}",
+        "RESULT dataset={} n={} mode={} legacy={}{} min_points={} radius={} seed={} clusters={} covered={} total={} score={} lb={} route_m={:.0} route_s={:.0} knife={} multi={} excess={} quality={:.3} cluster_s={:.2} wall_s={:.2} phase={}",
         args.dataset,
         points.len(),
         args.mode,
@@ -304,5 +395,6 @@ fn main() {
         stats.score_components.quality,
         stats.cluster_time,
         wall_s,
+        phase,
     );
 }

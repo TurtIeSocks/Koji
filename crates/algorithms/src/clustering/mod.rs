@@ -17,6 +17,9 @@ use koji_core::{CalculationMode, ClusterMode, ClusteringConfig, SingleVec};
 
 mod auto;
 mod candidates;
+
+/// Warm-start entry point for incremental re-clustering (`Auto::run_seeded`).
+pub use auto::Auto;
 mod fastest;
 // mod genetic;
 mod greedy;
