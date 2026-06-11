@@ -1390,15 +1390,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "float_extras"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b22b70f8649ea2315955f1a36d964b0e4da482dfaa5f0d04df0d1fb7c338ab7a"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "float_next_after"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1669,9 +1660,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26145e563e54f2cadc477553f1ec5ee650b00862f0a58bcd12cbdc5f0ea2d2f4"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "r-efi",
  "wasi 0.14.7+wasi-0.2.4",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2496,6 +2489,7 @@ dependencies = [
  "console_error_panic_hook",
  "geojson",
  "getrandom 0.2.16",
+ "getrandom 0.3.3",
  "koji-core",
  "serde",
  "serde-wasm-bindgen",
@@ -3586,7 +3580,6 @@ checksum = "23434007bcef0196e3f083834576ac004241f354001a22c61d2f2208c780e8df"
 dependencies = [
  "bigdecimal 0.3.1",
  "cgmath",
- "float_extras",
  "lazy_static",
  "libm",
  "serde",

@@ -23,6 +23,7 @@ console_error_panic_hook = "0.1"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-rayon = "1"
 getrandom = { version = "0.2", features = ["js"] }
+getrandom03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
