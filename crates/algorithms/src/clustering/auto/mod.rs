@@ -137,6 +137,8 @@ impl Auto {
         };
 
         let mut best: Option<(usize, SingleVec)> = None;
+        // Centers from every variant's refined solution, for recombination.
+        let mut pool: Vec<PointArray> = Vec::new();
         for &variant in variants {
             let centers: Vec<PointArray> = jobs
                 .par_iter()
@@ -190,11 +192,46 @@ impl Auto {
                 "auto[v{variant}]: {} centers post-refine, internal score {score}",
                 refined.len()
             );
+            if variants.len() > 1 {
+                pool.extend(refined.iter().copied());
+            }
             if best.as_ref().is_none_or(|(s, _)| score < *s) {
                 best = Some((score, refined));
             }
         }
-        let mut refined = best.expect("at least one variant ran").1;
+        let (best_score, mut refined) = best.expect("at least one variant ran");
+
+        // Column recombination: restart variants are diverse but selection is
+        // winner-take-all — different orderings win different neighborhoods.
+        // Pool every variant's centers, greedily re-select a cover from the
+        // pool, refine that, and keep it when it beats the best single
+        // variant.
+        if !pool.is_empty() {
+            let mut keyed: Vec<(u64, PointArray)> = pool
+                .iter()
+                .map(|p| {
+                    let id = CellID::from(LatLng::from_degrees(p[0], p[1])).parent(20);
+                    (id.0, *p)
+                })
+                .collect();
+            keyed.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+            keyed.dedup_by_key(|(id, _)| *id);
+            let pool_pts: SingleVec = keyed.into_iter().map(|(_, p)| p).collect();
+            let selected = refine::select_from_pool(&pool_pts, &reps, self.radius, m);
+            if !selected.is_empty() {
+                let recombined =
+                    Refiner::new(selected, &reps, self.radius, m).run(self.radius, REFINE_ROUNDS);
+                let score = self.internal_score(&recombined, &reps, &global_tree, m);
+                log::info!(
+                    "auto[recombine]: pool {} → {} centers, internal score {score} (best variant {best_score})",
+                    pool_pts.len(),
+                    recombined.len()
+                );
+                if score < best_score {
+                    refined = recombined;
+                }
+            }
+        }
 
         // Final m=1 contract audit: every distinct cell must end up covered.
         // Score-neutral singletons recover any stragglers; a warn here means

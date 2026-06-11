@@ -1819,9 +1819,91 @@ impl<'a> Refiner<'a> {
     }
 }
 
+/// Set-cover re-selection over a pooled candidate set (column recombination
+/// across restart variants). Lazy greedy (CELF): repeatedly take the pooled
+/// center with the largest marginal coverage while that marginal strictly
+/// exceeds `m` — at gain == m a cluster is mygod-neutral and only adds
+/// overlap/route cost (m=1 stragglers are restored by the caller's audit).
+/// Stale heap entries are re-scored on pop; submodularity makes the lazy pop
+/// exact. Ties break toward the lower pool index, so a sorted pool gives a
+/// deterministic selection.
+pub(super) fn select_from_pool(
+    pool: &SingleVec,
+    reps: &SingleVec,
+    radius: Precision,
+    m: usize,
+) -> SingleVec {
+    use std::cmp::Reverse;
+    use std::collections::BinaryHeap;
+
+    let r_eff = radius * MARGIN;
+    let grid = GeoGrid::build(reps, (2.0 * radius).max(1.0));
+    let columns: Vec<Vec<u32>> = pool
+        .par_iter()
+        .map(|c| {
+            let mut col = Vec::new();
+            grid.for_each_within(reps, *c, r_eff, |r| col.push(r));
+            col.sort_unstable();
+            col
+        })
+        .collect();
+
+    let mut covered = vec![false; reps.len()];
+    let mut heap: BinaryHeap<(usize, Reverse<usize>)> = columns
+        .iter()
+        .enumerate()
+        .map(|(i, col)| (col.len(), Reverse(i)))
+        .collect();
+    let mut selected: SingleVec = Vec::new();
+    while let Some((gain, Reverse(i))) = heap.pop() {
+        if gain <= m {
+            break;
+        }
+        let fresh = columns[i]
+            .iter()
+            .filter(|&&r| !covered[r as usize])
+            .count();
+        if fresh != gain {
+            if fresh > m {
+                heap.push((fresh, Reverse(i)));
+            }
+            continue;
+        }
+        for &r in &columns[i] {
+            covered[r as usize] = true;
+        }
+        selected.push(pool[i]);
+    }
+    selected
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pool_selection_takes_best_columns_and_skips_neutral() {
+        let base = [40.0, -74.0];
+        let reps: SingleVec = vec![
+            at(base, 0.0, 0.0),
+            at(base, 30.0, 0.0), // pair A
+            at(base, 500.0, 0.0),
+            at(base, 530.0, 0.0), // pair B
+            at(base, 1000.0, 0.0), // straggler
+        ];
+        let pool: SingleVec = vec![
+            at(base, 15.0, 0.0),   // covers pair A (gain 2)
+            at(base, 515.0, 0.0),  // covers pair B (gain 2)
+            at(base, 1000.0, 0.0), // straggler only (gain 1 — mygod-neutral at m=1)
+            at(base, 0.0, 0.0),    // duplicate-ish: pair A again, loses the tie
+        ];
+        let sel = select_from_pool(&pool, &reps, 70.0, 1);
+        assert_eq!(sel.len(), 2);
+        // Neutral singleton and shadowed column excluded.
+        assert!(sel.iter().all(|c| haversine_m(*c, reps[4]) > 70.0));
+        // Nothing in the pool strictly exceeds gain 3.
+        assert!(select_from_pool(&pool, &reps, 70.0, 3).is_empty());
+    }
 
     /// ~meters offsets around a base coordinate for test construction.
     fn at(base: PointArray, dx_m: f64, dy_m: f64) -> PointArray {
