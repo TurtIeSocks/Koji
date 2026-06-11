@@ -387,7 +387,11 @@ mod tests {
             best
         }
         go(
-            if n == 128 { u128::MAX } else { (1u128 << n) - 1 },
+            if n == 128 {
+                u128::MAX
+            } else {
+                (1u128 << n) - 1
+            },
             m,
             &masks,
             &mut hashbrown::HashMap::new(),

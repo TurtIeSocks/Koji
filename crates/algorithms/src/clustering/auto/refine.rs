@@ -1558,8 +1558,7 @@ impl<'a> Refiner<'a> {
         check_band: bool,
     ) -> bool {
         if lambda_overlap <= 0.0 {
-            return new_shared < shared_now
-                && (!check_band || self.band_delta(i, cand).0 == 0);
+            return new_shared < shared_now && (!check_band || self.band_delta(i, cand).0 == 0);
         }
         let (lost, captured) = self.band_delta(i, cand);
         let d_shared = new_shared as f64 - shared_now as f64;
@@ -1577,8 +1576,7 @@ impl<'a> Refiner<'a> {
         let mut captured = 0i64;
         self.grid
             .for_each_within(self.reps, self.pos[i], full_r, |r| {
-                if self.count[r as usize] == 0
-                    && haversine_m(cand, self.reps[r as usize]) > full_r
+                if self.count[r as usize] == 0 && haversine_m(cand, self.reps[r as usize]) > full_r
                 {
                     lost += 1;
                 }
@@ -1939,10 +1937,7 @@ pub(super) fn select_from_pool(
         if gain <= m {
             break;
         }
-        let fresh = columns[i]
-            .iter()
-            .filter(|&&r| !covered[r as usize])
-            .count();
+        let fresh = columns[i].iter().filter(|&&r| !covered[r as usize]).count();
         if fresh != gain {
             if fresh > m {
                 heap.push((fresh, Reverse(i)));
@@ -1968,7 +1963,7 @@ mod tests {
             at(base, 0.0, 0.0),
             at(base, 30.0, 0.0), // pair A
             at(base, 500.0, 0.0),
-            at(base, 530.0, 0.0), // pair B
+            at(base, 530.0, 0.0),  // pair B
             at(base, 1000.0, 0.0), // straggler
         ];
         let pool: SingleVec = vec![
