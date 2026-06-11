@@ -3,7 +3,6 @@ pub mod clustering;
 #[cfg(feature = "native")]
 mod plugins;
 mod project;
-#[cfg(feature = "native")]
 pub mod routing;
 mod rtree;
 pub mod s2;

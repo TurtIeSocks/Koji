@@ -1,11 +1,15 @@
-use std::time::Instant;
+use web_time::Instant;
 
 use koji_core::{RoutingConfig, SingleVec, SortBy};
+#[cfg(feature = "native")]
 use koji_plugins::PluginKind;
 
 use self::sorting::{SortGeohash, SortLatLng, SortPointCount, SortRandom, SortS2};
-use crate::{plugins, stats::Stats, utils};
+use crate::{stats::Stats, utils};
+#[cfg(feature = "native")]
+use crate::plugins;
 
+#[cfg(feature = "native")]
 mod join;
 pub mod sorting;
 // pub mod vrp;
@@ -25,6 +29,7 @@ pub fn main(
         SortBy::S2Cell => clusters.sort_s2(),
         SortBy::Random => clusters.sort_random(),
         SortBy::Unset => clusters,
+        #[cfg(feature = "native")]
         SortBy::Custom(plugin) => {
             let clusters = clusters.sort_s2();
             match plugins::resolve(PluginKind::Routing, plugin, cfg.route_split_level) {
@@ -42,6 +47,11 @@ pub fn main(
                 None => clusters,
             }
         }
+        #[cfg(not(feature = "native"))]
+        SortBy::Custom(_plugin) => {
+            log::warn!("custom routing plugins unavailable in wasm; using S2 sort");
+            clusters.sort_s2()
+        }
     };
     let clusters = utils::rotate_to_best(clusters, stats);
 
@@ -51,8 +61,14 @@ pub fn main(
     clusters
 }
 
+#[cfg(feature = "native")]
 pub fn routing_plugins() -> Vec<String> {
     plugins::plugin_names(PluginKind::Routing)
+}
+
+#[cfg(not(feature = "native"))]
+pub fn routing_plugins() -> Vec<String> {
+    vec![]
 }
 
 pub fn all_routing_options() -> Vec<String> {
