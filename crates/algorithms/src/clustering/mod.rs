@@ -1,9 +1,12 @@
 use std::vec;
 use web_time::Instant;
 
+#[cfg(feature = "native")]
 use koji_plugins::{JoinFunction, PluginKind};
 
-use crate::{plugins, stats::Stats};
+use crate::stats::Stats;
+#[cfg(feature = "native")]
+use crate::plugins;
 
 use self::greedy::Greedy;
 
@@ -80,6 +83,7 @@ pub fn main(
 
                 greedy.run(data_points)
             }
+            #[cfg(feature = "native")]
             ClusterMode::Custom(plugin) => {
                 match plugins::resolve(PluginKind::Clustering, &plugin, cfg.cluster_split_level) {
                     Some(plugin_manager) => {
@@ -97,6 +101,18 @@ pub fn main(
                     }
                     None => vec![],
                 }
+            }
+            #[cfg(not(feature = "native"))]
+            ClusterMode::Custom(_plugin) => {
+                log::warn!(
+                    "custom clustering plugins are unavailable in wasm; using the auto algorithm"
+                );
+                let auto = auto::Auto {
+                    radius: cfg.radius,
+                    min_points: cfg.min_points,
+                    max_clusters: cfg.max_clusters,
+                };
+                auto.run(data_points)
             }
         },
     };
@@ -129,8 +145,14 @@ fn legacy_greedy_requested() -> bool {
     std::env::var("KOJI_LEGACY_GREEDY").is_ok_and(|v| v == "1" || v.eq_ignore_ascii_case("true"))
 }
 
+#[cfg(feature = "native")]
 pub fn clustering_plugins() -> Vec<String> {
     plugins::plugin_names(PluginKind::Clustering)
+}
+
+#[cfg(not(feature = "native"))]
+pub fn clustering_plugins() -> Vec<String> {
+    vec![]
 }
 
 pub fn all_clustering_options() -> Vec<String> {

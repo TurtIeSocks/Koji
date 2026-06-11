@@ -10,6 +10,7 @@ use rayon::{
     slice::ParallelSliceMut,
 };
 use rstar::RTree;
+#[cfg(feature = "native")]
 use std::io::Write;
 use web_time::Instant;
 #[cfg(feature = "native")]
@@ -704,6 +705,7 @@ impl<'a> Greedy {
         let mut current = clusters_with_data.len() - 1;
         let total_iterations = current - self.min_points + 1;
         let mut current_iteration = 0;
+        #[cfg(feature = "native")]
         let mut stdout = std::io::stdout();
 
         let mut clusters_of_interest_time = 0.;
@@ -791,6 +793,7 @@ impl<'a> Greedy {
             iterating_local_time += time.elapsed().as_secs_f32();
 
             let time = Instant::now();
+            #[cfg(feature = "native")]
             if current >= self.min_points {
                 stdout
                     .write_all(
@@ -811,6 +814,7 @@ impl<'a> Greedy {
 
             current -= 1;
         }
+        #[cfg(feature = "native")]
         stdout.write_all(b"\n").unwrap();
 
         log::debug!("Interested Clusters Time: {:.4}", clusters_of_interest_time);

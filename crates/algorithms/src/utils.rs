@@ -1,8 +1,11 @@
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Debug;
+#[cfg(feature = "native")]
 use std::fs::{File, create_dir_all};
+#[cfg(feature = "native")]
 use std::io::Write;
 
+#[cfg(feature = "native")]
 use colored::Colorize;
 use geo::Coord;
 use geohash::encode;
@@ -13,6 +16,7 @@ use koji_core::{PointArray, SingleVec};
 use crate::rtree::cluster::Cluster;
 use crate::stats::Stats;
 
+#[cfg(feature = "native")]
 pub fn debug_hashmap<T, U>(file_name: &str, input: &T) -> std::io::Result<()>
 where
     U: Debug,
@@ -32,6 +36,7 @@ where
     Ok(())
 }
 
+#[cfg(feature = "native")]
 pub fn debug_string(file_name: &str, input: &String) -> std::io::Result<()> {
     create_dir_all("./debug_files")?;
     let path = format!("./debug_files/{}", file_name);
@@ -76,6 +81,7 @@ pub fn centroid(coords: &[[Precision; 2]]) -> PointArray {
     [lat.to_degrees(), lon.to_degrees()]
 }
 
+#[cfg(feature = "native")]
 pub fn info_log(file_name: &str, message: String) -> String {
     format!(
         "\r{}{}Z {}  {}{} {}",
@@ -88,6 +94,7 @@ pub fn info_log(file_name: &str, message: String) -> String {
     )
 }
 
+#[cfg(feature = "native")]
 pub fn _debug_clusters(clusters: &HashSet<Cluster>, file_suffix: &str) {
     let mut point_map: HashMap<String, HashSet<String>> = HashMap::new();
     let mut cluster_map: HashMap<String, HashSet<String>> = HashMap::new();
