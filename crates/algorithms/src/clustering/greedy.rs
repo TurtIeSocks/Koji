@@ -10,7 +10,8 @@ use rayon::{
     slice::ParallelSliceMut,
 };
 use rstar::RTree;
-use std::{io::Write, time::Instant};
+use std::io::Write;
+use web_time::Instant;
 use sysinfo::System;
 
 use crate::{

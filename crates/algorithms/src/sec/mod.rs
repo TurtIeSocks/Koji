@@ -3,7 +3,7 @@ pub(crate) mod sec;
 mod state;
 mod utils;
 
-use std::time::Instant;
+use web_time::Instant;
 
 use koji_core::{Precision, SingleVec};
 use rayon::{

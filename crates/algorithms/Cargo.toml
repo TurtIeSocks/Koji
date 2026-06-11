@@ -23,6 +23,7 @@ rand = { version = "0.9.2", default-features = false, features = ["small_rng", "
 rayon = "1.11.0"
 rstar = "0.12.2"
 s2 = "0.0.13"
+web-time = "1"
 serde = { version = "1.0.225", features = ["derive"] }
 serde_json = { workspace = true }
 # vrp-pragmatic = "1.18.3"

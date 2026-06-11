@@ -1,4 +1,5 @@
-use std::{collections::HashMap, ops::AddAssign, time::Instant};
+use std::{collections::HashMap, ops::AddAssign};
+use web_time::Instant;
 
 use geo::{Distance, Haversine, Point};
 use hashbrown::HashSet;

@@ -1,4 +1,5 @@
-use std::{time::Instant, vec};
+use std::vec;
+use web_time::Instant;
 
 use koji_plugins::{JoinFunction, PluginKind};
 
