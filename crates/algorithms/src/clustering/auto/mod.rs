@@ -43,6 +43,8 @@ const REFINE_ROUNDS: usize = 8;
 /// Inputs up to this many distinct cells run all restart variants (scored
 /// post-refinement, so the choice reflects the real outcome).
 const RESTART_MAX_CELLS: usize = 20_000;
+/// Medium inputs run a two-variant portfolio (plus recombination) instead.
+const RESTART_PAIR_MAX_CELLS: usize = 50_000;
 
 pub struct Auto {
     pub radius: Precision,
@@ -132,6 +134,10 @@ impl Auto {
         // instances, especially for min_points ≥ 2).
         let variants: &[u8] = if reps.len() <= RESTART_MAX_CELLS {
             &[0, 1, 2, 3, 4]
+        } else if reps.len() <= RESTART_PAIR_MAX_CELLS {
+            // Natural + lattice orderings are the most structurally diverse
+            // pair; recombination then merges their best neighborhoods.
+            &[0, 4]
         } else {
             &[0]
         };
