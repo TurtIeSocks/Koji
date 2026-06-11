@@ -1458,6 +1458,119 @@ impl<'a> Refiner<'a> {
         })
     }
 
+    /// Overlap-minimizing spread: recenter each disk on the SEC of its
+    /// exclusive points when that strictly reduces its shared coverage
+    /// (points other centers also reach). Exclusive points stay covered by
+    /// construction and shed points keep their other coverer, so coverage,
+    /// cluster count and mygod_score are provably unchanged — this pass only
+    /// trades redundant overlap for margin. Runs after score convergence;
+    /// strict decrease ⇒ monotone ⇒ terminates.
+    fn spread_pass(&mut self) -> bool {
+        let this = &*self;
+        let proposals: Vec<(usize, PointArray)> = (0..self.pos.len())
+            .into_par_iter()
+            .filter_map(|i| {
+                if !this.live[i] {
+                    return None;
+                }
+                let excl = this.exclusive_of(i);
+                if excl.is_empty() {
+                    return None;
+                }
+                let shared_now = this.covered[i].len() - excl.len();
+                if shared_now == 0 {
+                    return None;
+                }
+                let frame = LocalFrame::new(this.pos[i]);
+                let xy: Vec<[f64; 2]> = excl
+                    .iter()
+                    .map(|&r| frame.to_xy(this.reps[r as usize]))
+                    .collect();
+                let sec = smallest_enclosing_circle(&xy);
+                if sec.radius > this.r_eff {
+                    return None;
+                }
+                let cand = frame.to_latlng(sec.center);
+                if excl
+                    .iter()
+                    .any(|&r| haversine_m(cand, this.reps[r as usize]) > this.r_eff)
+                {
+                    return None;
+                }
+                let new_shared = this.shared_at(i, cand);
+                (new_shared < shared_now).then_some((i, cand))
+            })
+            .collect();
+
+        let mut changed = false;
+        for (i, cand) in proposals {
+            if !self.live[i] {
+                continue;
+            }
+            // Revalidate on current state: exclusives kept, overlap still
+            // strictly drops.
+            let excl = self.exclusive_of(i);
+            if excl.is_empty()
+                || excl
+                    .iter()
+                    .any(|&r| haversine_m(cand, self.reps[r as usize]) > self.r_eff)
+            {
+                continue;
+            }
+            let shared_now = self.covered[i].len() - excl.len();
+            if self.shared_at(i, cand) >= shared_now {
+                continue;
+            }
+            // Band preservation: points the scorer counts as covered only via
+            // this center's (r_eff, r] sliver (count == 0 internally) must
+            // remain within full radius of the new position, or the move
+            // would silently cost real mygod_score.
+            let full_r = self.r_eff / MARGIN;
+            let mut band_ok = true;
+            self.grid
+                .for_each_within(self.reps, self.pos[i], full_r, |r| {
+                    if self.count[r as usize] == 0
+                        && haversine_m(cand, self.reps[r as usize]) > full_r
+                    {
+                        band_ok = false;
+                    }
+                });
+            if !band_ok {
+                continue;
+            }
+            let new_cov = self.query_covered(cand);
+            for &r in &self.covered[i] {
+                self.count[r as usize] -= 1;
+            }
+            for &r in &new_cov {
+                self.count[r as usize] += 1;
+            }
+            let old_pos = self.pos[i];
+            self.pos[i] = cand;
+            self.covered[i] = new_cov;
+            self.bump_footprint(old_pos);
+            self.bump_footprint(cand);
+            changed = true;
+        }
+        changed
+    }
+
+    /// Shared coverage center `i` would have at position `cand`: covered
+    /// points that at least one OTHER live center also reaches.
+    fn shared_at(&self, i: usize, cand: PointArray) -> usize {
+        self.query_covered(cand)
+            .into_iter()
+            .filter(|&r| {
+                let c = self.count[r as usize];
+                if self.covered[i].binary_search(&r).is_ok() {
+                    c >= 2
+                } else {
+                    c >= 1
+                }
+            })
+            .count()
+    }
+
     /// Deterministic per-window annealing slack: 0 when not annealing, else
     /// floor(temp · hash01(cell, salt)). No RNG — same input, same schedule.
     fn anneal_slack(&self, cell_raw: u64) -> usize {
@@ -1638,6 +1751,19 @@ impl<'a> Refiner<'a> {
                 self.paranoid_check("post-anneal");
             }
         }
+        // Overlap-minimizing spread (score-neutral by construction): space
+        // the converged solution's disks apart as far as their exclusive
+        // points allow. KOJI_AUTO_NO_SPREAD=1 disables it for A/B runs.
+        if !std::env::var("KOJI_AUTO_NO_SPREAD").is_ok_and(|v| v == "1") {
+            for _ in 0..4 {
+                if !self.spread_pass() {
+                    break;
+                }
+            }
+            if paranoid {
+                self.paranoid_check("post-spread");
+            }
+        }
         let mut out: Vec<(u64, PointArray)> = (0..self.pos.len())
             .filter(|&i| self.live[i])
             .map(|i| {
@@ -1699,6 +1825,41 @@ mod tests {
         let refiner = Refiner::new(vec![], &reps, 70.0, 1);
         let out = refiner.run(70.0, 3);
         assert_eq!(out.len(), 3, "every isolated point needs a center at m=1");
+    }
+
+    #[test]
+    fn spread_reduces_overlap_without_score_change() {
+        let base = [40.0, -74.0];
+        // Three point clumps at 0 m, 100 m, 200 m; two centers placed midway
+        // so the middle clump is double-covered. Spread should pull each
+        // center onto its exclusive clump, leaving the middle clump to a
+        // single coverer — same 2 centers, same full coverage, less overlap.
+        let reps: SingleVec = vec![
+            at(base, 0.0, 0.0),
+            at(base, 5.0, 0.0),
+            at(base, 100.0, 0.0),
+            at(base, 105.0, 0.0),
+            at(base, 200.0, 0.0),
+            at(base, 205.0, 0.0),
+        ];
+        let centers = vec![at(base, 52.0, 0.0), at(base, 152.0, 0.0)];
+        let refiner = Refiner::new(centers, &reps, 70.0, 1);
+        let out = refiner.run(70.0, 3);
+        assert_eq!(out.len(), 2, "no centers gained or lost");
+        let mut counts = [0usize; 6];
+        for (i, r) in reps.iter().enumerate() {
+            for c in &out {
+                if haversine_m(*c, *r) <= 70.0 {
+                    counts[i] += 1;
+                }
+            }
+        }
+        assert!(
+            counts.iter().all(|&c| c >= 1),
+            "coverage preserved: {counts:?}"
+        );
+        let excess: usize = counts.iter().map(|&c| c - 1).sum();
+        assert_eq!(excess, 0, "overlap fully shed: {counts:?}");
     }
 
     #[test]

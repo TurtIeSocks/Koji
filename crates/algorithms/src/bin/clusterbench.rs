@@ -282,7 +282,7 @@ fn main() {
     };
 
     println!(
-        "RESULT dataset={} n={} mode={} legacy={}{} min_points={} radius={} seed={} clusters={} covered={} total={} score={} lb={} route_m={:.0} route_s={:.0} knife={} quality={:.3} cluster_s={:.2} wall_s={:.2}",
+        "RESULT dataset={} n={} mode={} legacy={}{} min_points={} radius={} seed={} clusters={} covered={} total={} score={} lb={} route_m={:.0} route_s={:.0} knife={} multi={} excess={} quality={:.3} cluster_s={:.2} wall_s={:.2}",
         args.dataset,
         points.len(),
         args.mode,
@@ -299,6 +299,8 @@ fn main() {
         stats.score_components.route_est_m,
         stats.score_components.route_est_s,
         stats.score_components.knife_edge,
+        stats.score_components.multi_covered,
+        stats.score_components.overlap_excess,
         stats.score_components.quality,
         stats.cluster_time,
         wall_s,

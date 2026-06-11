@@ -55,6 +55,10 @@ pub struct ScoreComponents {
     pub route_est_m: Precision,
     pub route_est_s: Precision,
     pub knife_edge: usize,
+    /// Covered points reached by ≥ 2 cluster centers.
+    pub multi_covered: usize,
+    /// Total redundant coverage: Σ over covered points of (coverers − 1).
+    pub overlap_excess: usize,
     pub lb: usize,
     pub quality: Precision,
 }
@@ -228,11 +232,13 @@ impl Stats {
             get_row(format!("|| [MYGOD_SCORE] {}", self.mygod_score,), true),
             get_row(
                 format!(
-                    "|| [SCORE_V2] {} | Route: {:.0}m/{:.0}s | KnifeEdge: {} | LB: {} ({:.0}%)",
+                    "|| [SCORE_V2] {} | Rt: {:.0}m/{:.0}s | Knife: {} | Overlap: {}/{} | LB: {} ({:.0}%)",
                     self.score_v2,
                     self.score_components.route_est_m,
                     self.score_components.route_est_s,
                     self.score_components.knife_edge,
+                    self.score_components.multi_covered,
+                    self.score_components.overlap_excess,
                     self.score_components.lb,
                     self.score_components.quality * 100.0,
                 ),
@@ -318,10 +324,10 @@ impl Stats {
             let mut worst = usize::MAX;
             let mut worst_count = 0;
 
-            // Tier-3: minimum distance from each covered point to its nearest
-            // center; points hanging on with < 5% radius margin are coverage
-            // that GPS jitter could break.
-            let mut min_dist: HashMap<u64, Precision> = HashMap::new();
+            // Tier-3: per covered point, (coverer count, min distance to a
+            // center). Marginal coverage (< 5% radius spare) is GPS-fragile;
+            // multi-coverage is wasted overlap.
+            let mut cover_info: HashMap<u64, (u32, Precision)> = HashMap::new();
 
             for cluster in clusters.iter() {
                 let length = cluster.all.len();
@@ -348,10 +354,13 @@ impl Stats {
                 let center = Point::new(cluster.point.center[1], cluster.point.center[0]);
                 for p in &cluster.all {
                     let d = Haversine.distance(center, Point::new(p.center[1], p.center[0]));
-                    min_dist
+                    cover_info
                         .entry(p.cell_id.0)
-                        .and_modify(|m| *m = m.min(d))
-                        .or_insert(d);
+                        .and_modify(|(n, m)| {
+                            *n += 1;
+                            *m = m.min(d);
+                        })
+                        .or_insert((1, d));
                 }
             }
 
@@ -365,8 +374,16 @@ impl Stats {
             self.best_clusters = best_clusters;
             self.points_covered = points_covered.len();
 
-            self.score_components.knife_edge =
-                min_dist.values().filter(|&&d| d > radius * 0.95).count();
+            self.score_components.knife_edge = cover_info
+                .values()
+                .filter(|&&(_, d)| d > radius * 0.95)
+                .count();
+            self.score_components.multi_covered =
+                cover_info.values().filter(|&&(n, _)| n >= 2).count();
+            self.score_components.overlap_excess = cover_info
+                .values()
+                .map(|&(n, _)| (n as usize).saturating_sub(1))
+                .sum();
             self.score_components.route_est_m = s2_tour_length_m(clusters_input);
             self.score_components.route_est_s = s2_tour_cooldown_s(clusters_input);
             self.score_components.lb = if self.min_points == 1 {
@@ -513,6 +530,8 @@ impl<'a> AddAssign<&'a Self> for Stats {
         self.score_components.route_est_m += rhs.score_components.route_est_m;
         self.score_components.route_est_s += rhs.score_components.route_est_s;
         self.score_components.knife_edge += rhs.score_components.knife_edge;
+        self.score_components.multi_covered += rhs.score_components.multi_covered;
+        self.score_components.overlap_excess += rhs.score_components.overlap_excess;
         self.score_components.lb += rhs.score_components.lb;
 
         macro_rules! merge_stat_field {
