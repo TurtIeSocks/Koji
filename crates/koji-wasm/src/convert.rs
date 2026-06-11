@@ -34,6 +34,77 @@ impl ClusterRequest {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dto::ClusterRequest;
+
+    fn make_request(cluster_mode: &str, calculation_mode: &str) -> ClusterRequest {
+        ClusterRequest {
+            points: vec![[35.0, 139.0]],
+            radius: 100.0,
+            min_points: 3,
+            max_clusters: 10,
+            cluster_mode: cluster_mode.to_string(),
+            calculation_mode: calculation_mode.to_string(),
+            center_clusters: true,
+        }
+    }
+
+    #[test]
+    fn valid_request_parses_into_core() {
+        let req = make_request("fastest", "radius");
+        let (points, cfg) = req.into_core().expect("should succeed");
+        assert!(matches!(cfg.mode, ClusterMode::Fastest));
+        assert!(matches!(cfg.calculation_mode, CalculationMode::Radius));
+        assert_eq!(cfg.radius, 100.0);
+        assert_eq!(cfg.min_points, 3);
+        assert_eq!(cfg.max_clusters, 10);
+        assert!(cfg.center_clusters);
+        assert_eq!(points.len(), 1);
+        assert_eq!(points[0], [35.0, 139.0]);
+    }
+
+    #[test]
+    fn unknown_calculation_mode_maps_to_custom() {
+        // CalculationMode::Deserialize maps unknown strings to Custom(s), not an error.
+        let req = make_request("balanced", "notamode");
+        let (_points, cfg) = req.into_core().expect("should succeed (no error for unknown mode)");
+        assert!(matches!(cfg.calculation_mode, CalculationMode::Custom(_)));
+        if let CalculationMode::Custom(s) = cfg.calculation_mode {
+            assert_eq!(s, "notamode");
+        }
+    }
+
+    #[test]
+    fn unknown_cluster_mode_maps_to_custom() {
+        // ClusterMode::Deserialize also maps unknown strings to Custom(s).
+        let req = make_request("unknownmode", "s2");
+        let (_points, cfg) = req.into_core().expect("should succeed");
+        assert!(matches!(cfg.mode, ClusterMode::Custom(_)));
+        assert!(matches!(cfg.calculation_mode, CalculationMode::S2));
+    }
+
+    #[test]
+    fn defaults_applied_via_serde() {
+        // Construct via serde_json to exercise #[serde(default)] fields.
+        let req: ClusterRequest = serde_json::from_value(serde_json::json!({
+            "points": [[1.0, 2.0]],
+            "radius": 50.0,
+            "min_points": 1,
+            "max_clusters": 0
+        }))
+        .expect("deserialize");
+        assert_eq!(req.cluster_mode, "balanced");
+        assert_eq!(req.calculation_mode, "radius");
+        assert!(!req.center_clusters);
+        let (_points, cfg) = req.into_core().expect("into_core");
+        assert!(matches!(cfg.mode, ClusterMode::Balanced));
+        assert!(matches!(cfg.calculation_mode, CalculationMode::Radius));
+        assert!(!cfg.center_clusters);
+    }
+}
+
 impl ClusterResponse {
     /// Build the response from the cluster centers + the populated `Stats`.
     pub fn from_parts(clusters: SingleVec, stats: &algorithms::stats::Stats) -> Self {
