@@ -12,7 +12,7 @@ path = "src/lib.rs"
 koji-core = { path = "../koji-core" }
 koji-plugins = { path = "../koji-plugins", optional = true }
 chrono = "0.4.42"
-colored = "3.0.0"
+colored = { version = "3.0.0", optional = true }
 geo = "0.31.0"
 geohash = "0.13.1"
 geojson = "0.24.2"
@@ -34,7 +34,7 @@ macros = { workspace = true }
 [features]
 default = ["native"]
 # Native-only: filesystem debug dumps, system memory probing, plugin execution.
-native = ["dep:sysinfo", "dep:koji-plugins"]
+native = ["dep:sysinfo", "dep:koji-plugins", "dep:colored"]
 
 # Restore s2's `float_extras` (libc-based, wasm-incompatible) on native targets
 # only, so native behavior is unchanged while wasm32 builds exclude it.
