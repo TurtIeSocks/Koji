@@ -190,3 +190,16 @@ legacy was RNG-jittered).
    distance error (ellipsoid-scale bias) breaks the 1e-3 margin. The scorer is
    spherical Haversine, so the frame is a pure-sphere azimuthal equidistant
    projection (error ≤ ~5e-5 at 50 km).
+
+## koji_score v2 (2026-06-11)
+
+`Stats` now carries `score_v2` + `score_components` alongside the untouched
+`mygod_score`: Tier 1 `cluster_cost + uncovered_cost` (≡ mygod with default
+weights), Tier 2 route estimate (S2-sorted tour, approximate cooldown curve),
+Tier 3 `knife_edge` (covered points with <5% radius margin), plus the
+independent-set `lb` and a normalized `quality = lb/score` ratio (m=1).
+Composite weights are env-tunable (`KOJI_SCORE_LAMBDA_ROUTE/KNIFE`, default 0
+→ wire-identical scores). The optimizer still targets Tier 1 — route terms
+are reported, not optimized (locality). First real read: spawns-41k m=1 is
+≥72.5% of provable optimal with 17% knife-edge coverage — the robustness
+dimension mygod_score never saw.

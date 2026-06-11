@@ -3,7 +3,7 @@ use web_time::Instant;
 
 use geo::{Distance, Haversine, Point};
 use hashbrown::HashSet;
-use koji_core::{Precision, SingleVec};
+use koji_core::{PointArray, Precision, SingleVec};
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 
@@ -34,6 +34,31 @@ impl ClusterStats {
     }
 }
 
+/// Tiered score components (koji_score v2). The composite reproduces
+/// `mygod_score` with default weights; the components let operators see WHY a
+/// solution scores the way it does and compare solutions that the scalar
+/// can't distinguish.
+///
+/// - Tier 1 (optimized): `cluster_cost + uncovered_cost` — identical to
+///   `mygod_score` today (`alpha = min_points`, point weights = 1).
+/// - Tier 2 (reported): `route_est_m` / `route_est_s` — estimated scan-cycle
+///   travel via an S2-sorted tour (a space-filling-curve TSP approximation)
+///   and an approximate cooldown curve.
+/// - Tier 3 (reported): `knife_edge` — covered points with < 5% radius
+///   margin, i.e. coverage that GPS jitter could break.
+/// - `lb` / `quality`: provable minimum cluster count (min_points = 1 only)
+///   and `lb / score` — a normalized 0..1 "how close to optimal" ratio.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ScoreComponents {
+    pub cluster_cost: usize,
+    pub uncovered_cost: usize,
+    pub route_est_m: Precision,
+    pub route_est_s: Precision,
+    pub knife_edge: usize,
+    pub lb: usize,
+    pub quality: Precision,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Stats {
     // Skipped on the wire (not part of the stats contract) AND on read — they
@@ -59,6 +84,13 @@ pub struct Stats {
     pub total_distance: Precision,
     pub longest_distance: Precision,
     pub mygod_score: usize,
+    /// Composite v2 score. With the default weights (route/knife-edge at 0)
+    /// this equals `mygod_score`; weights are env-tunable for experiments
+    /// (KOJI_SCORE_LAMBDA_ROUTE seconds-weight, KOJI_SCORE_LAMBDA_KNIFE).
+    #[serde(default)]
+    pub score_v2: usize,
+    #[serde(default)]
+    pub score_components: ScoreComponents,
     pub cluster_stats: ClusterStats,
 }
 
@@ -78,6 +110,8 @@ impl Stats {
             total_distance: 0.,
             longest_distance: 0.,
             mygod_score: 0,
+            score_v2: 0,
+            score_components: ScoreComponents::default(),
             stats_start_time: None,
             label,
             min_points,
@@ -92,6 +126,26 @@ impl Stats {
     pub fn set_score(&mut self) {
         self.start_timer();
         self.mygod_score = self.get_score();
+        // Tier-1 components (alpha = min_points, weights = 1) reproduce
+        // mygod_score exactly; tier 2/3 fold in via env-tunable weights so
+        // the default composite stays wire-identical to mygod_score.
+        self.score_components.cluster_cost = self.total_clusters * self.min_points;
+        self.score_components.uncovered_cost = self.total_points - self.points_covered;
+        if self.score_components.lb > 0 && self.mygod_score > 0 {
+            self.score_components.quality =
+                self.score_components.lb as Precision / self.mygod_score as Precision;
+        }
+        let lambda = |key: &str| -> Precision {
+            std::env::var(key)
+                .ok()
+                .and_then(|v| v.parse::<Precision>().ok())
+                .unwrap_or(0.0)
+        };
+        let extra = lambda("KOJI_SCORE_LAMBDA_ROUTE") * self.score_components.route_est_s
+            + lambda("KOJI_SCORE_LAMBDA_KNIFE") * self.score_components.knife_edge as Precision;
+        self.score_v2 = self.score_components.cluster_cost
+            + self.score_components.uncovered_cost
+            + extra.round().max(0.0) as usize;
         self.stop_timer();
     }
 
@@ -111,7 +165,7 @@ impl Stats {
             )
         };
         log::info!(
-            "\n{}{}{}{}{}{}{}{}  {}==\n",
+            "\n{}{}{}{}{}{}{}{}{}  {}==\n",
             get_row("[STATS] ".to_string(), false),
             if let Some(area) = area {
                 if area.is_empty() {
@@ -172,6 +226,18 @@ impl Stats {
                 true
             ),
             get_row(format!("|| [MYGOD_SCORE] {}", self.mygod_score,), true),
+            get_row(
+                format!(
+                    "|| [SCORE_V2] {} | Route: {:.0}m/{:.0}s | KnifeEdge: {} | LB: {} ({:.0}%)",
+                    self.score_v2,
+                    self.score_components.route_est_m,
+                    self.score_components.route_est_s,
+                    self.score_components.knife_edge,
+                    self.score_components.lb,
+                    self.score_components.quality * 100.0,
+                ),
+                true
+            ),
             WIDTH,
         )
     }
@@ -231,6 +297,7 @@ impl Stats {
 
         if points.is_empty() {
         } else {
+            let clusters_input = clusters;
             let tree = rtree::spawn(radius, points);
             let clusters: Vec<point::Point> = clusters
                 .iter()
@@ -250,6 +317,11 @@ impl Stats {
             let mut best = usize::MIN;
             let mut worst = usize::MAX;
             let mut worst_count = 0;
+
+            // Tier-3: minimum distance from each covered point to its nearest
+            // center; points hanging on with < 5% radius margin are coverage
+            // that GPS jitter could break.
+            let mut min_dist: HashMap<u64, Precision> = HashMap::new();
 
             for cluster in clusters.iter() {
                 let length = cluster.all.len();
@@ -272,6 +344,15 @@ impl Stats {
                     points_covered.insert(point);
                 }
                 points_covered.extend(&cluster.all);
+
+                let center = Point::new(cluster.point.center[1], cluster.point.center[0]);
+                for p in &cluster.all {
+                    let d = Haversine.distance(center, Point::new(p.center[1], p.center[0]));
+                    min_dist
+                        .entry(p.cell_id.0)
+                        .and_modify(|m| *m = m.min(d))
+                        .or_insert(d);
+                }
             }
 
             if worst == usize::MAX {
@@ -283,6 +364,16 @@ impl Stats {
             self.worst_cluster_count = worst_count;
             self.best_clusters = best_clusters;
             self.points_covered = points_covered.len();
+
+            self.score_components.knife_edge =
+                min_dist.values().filter(|&&d| d > radius * 0.95).count();
+            self.score_components.route_est_m = s2_tour_length_m(clusters_input);
+            self.score_components.route_est_s = s2_tour_cooldown_s(clusters_input);
+            self.score_components.lb = if self.min_points == 1 {
+                independent_set_lb(points, radius)
+            } else {
+                0
+            };
 
             if self.points_covered > self.total_points {
                 log::warn!(
@@ -298,6 +389,109 @@ impl Stats {
         );
         self.stop_timer();
     }
+}
+
+/// Tour-length estimate over `centers`: visit order = sort by full-depth S2
+/// cell id (a space-filling curve on the sphere), sum consecutive Haversine
+/// hops. Tracks true TSP length within roughly 15–25% on POI-like data —
+/// good enough to compare solutions, cheap enough to run in stats.
+pub fn s2_tour_length_m(centers: &SingleVec) -> Precision {
+    s2_tour(centers).0
+}
+
+/// Cooldown-seconds estimate for the same tour (see [`cooldown_seconds`]).
+pub fn s2_tour_cooldown_s(centers: &SingleVec) -> Precision {
+    s2_tour(centers).1
+}
+
+fn s2_tour(centers: &SingleVec) -> (Precision, Precision) {
+    use s2::{cellid::CellID, latlng::LatLng};
+    if centers.len() < 2 {
+        return (0.0, 0.0);
+    }
+    let mut order: Vec<(u64, &PointArray)> = centers
+        .iter()
+        .map(|c| (CellID::from(LatLng::from_degrees(c[0], c[1])).0, c))
+        .collect();
+    order.sort_unstable_by_key(|(id, _)| *id);
+    let mut meters = 0.0;
+    let mut seconds = 0.0;
+    for pair in order.windows(2) {
+        let a = pair[0].1;
+        let b = pair[1].1;
+        let d = Haversine.distance(Point::new(a[1], a[0]), Point::new(b[1], b[0]));
+        meters += d;
+        seconds += cooldown_seconds(d);
+    }
+    (meters, seconds)
+}
+
+/// APPROXIMATE teleport cooldown curve (community-reported, linearly
+/// interpolated between anchors, capped at 2 h). Used only for the reported
+/// route-cost estimate — never for coverage or score-tier-1 math.
+pub fn cooldown_seconds(meters: Precision) -> Precision {
+    const ANCHORS: [(Precision, Precision); 8] = [
+        (0.0, 0.0),
+        (1_000.0, 60.0),
+        (2_000.0, 120.0),
+        (4_000.0, 180.0),
+        (10_000.0, 420.0),
+        (30_000.0, 1_020.0),
+        (100_000.0, 2_700.0),
+        (500_000.0, 7_200.0),
+    ];
+    if meters >= ANCHORS[ANCHORS.len() - 1].0 {
+        return ANCHORS[ANCHORS.len() - 1].1;
+    }
+    for w in ANCHORS.windows(2) {
+        let (d0, s0) = w[0];
+        let (d1, s1) = w[1];
+        if meters <= d1 {
+            return s0 + (s1 - s0) * (meters - d0) / (d1 - d0);
+        }
+    }
+    ANCHORS[ANCHORS.len() - 1].1
+}
+
+/// Provable lower bound on the cluster count of any full-coverage solution:
+/// a maximal independent set under "pairwise Haversine > 2r" — no disk can
+/// cover two such points, so each needs its own cluster. Valid for
+/// min_points = 1 (where full coverage is the contract).
+pub fn independent_set_lb(points: &SingleVec, radius: Precision) -> usize {
+    let two_r = 2.0 * radius;
+    let dlat = two_r / 111_132.0;
+    let mut kept: SingleVec = Vec::new();
+    let mut grid: HashMap<(i32, i32), Vec<usize>> = HashMap::new();
+    let key_of = |p: &PointArray| -> (i32, i32) {
+        let row = (p[0] / dlat).floor() as i32;
+        let lat_mid = (row as Precision + 0.5) * dlat;
+        let dlon = two_r / (111_320.0 * lat_mid.to_radians().cos().abs().max(0.01));
+        (row, (p[1] / dlon).floor() as i32)
+    };
+    'points: for p in points {
+        let (row, _) = key_of(p);
+        for dr in -1..=1 {
+            let r2 = row + dr;
+            let lat_mid = (r2 as Precision + 0.5) * dlat;
+            let dlon = two_r / (111_320.0 * lat_mid.to_radians().cos().abs().max(0.01));
+            let col = (p[1] / dlon).floor() as i32;
+            for dc in -1..=1 {
+                if let Some(bucket) = grid.get(&(r2, col + dc)) {
+                    for &k in bucket {
+                        let q = kept[k];
+                        let d = Haversine.distance(Point::new(p[1], p[0]), Point::new(q[1], q[0]));
+                        if d <= two_r {
+                            continue 'points;
+                        }
+                    }
+                }
+            }
+        }
+        kept.push(*p);
+        let key = key_of(p);
+        grid.entry(key).or_default().push(kept.len() - 1);
+    }
+    kept.len()
 }
 
 impl<'a> AddAssign<&'a Self> for Stats {
@@ -316,6 +510,10 @@ impl<'a> AddAssign<&'a Self> for Stats {
         self.total_clusters += rhs.total_clusters;
         self.total_distance += rhs.total_distance;
         self.longest_distance += rhs.longest_distance;
+        self.score_components.route_est_m += rhs.score_components.route_est_m;
+        self.score_components.route_est_s += rhs.score_components.route_est_s;
+        self.score_components.knife_edge += rhs.score_components.knife_edge;
+        self.score_components.lb += rhs.score_components.lb;
 
         macro_rules! merge_stat_field {
             ($dst:expr, $src:expr, $field:ident) => {{
@@ -329,5 +527,73 @@ impl<'a> AddAssign<&'a Self> for Stats {
         merge_stat_field!(self.cluster_stats, rhs.cluster_stats, unique);
 
         self.set_score();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cooldown_interpolates_and_caps() {
+        assert_eq!(cooldown_seconds(0.0), 0.0);
+        assert!((cooldown_seconds(500.0) - 30.0).abs() < 1e-9);
+        assert!((cooldown_seconds(1_000.0) - 60.0).abs() < 1e-9);
+        assert!((cooldown_seconds(3_000.0) - 150.0).abs() < 1e-9);
+        assert_eq!(cooldown_seconds(2_000_000.0), 7_200.0);
+    }
+
+    #[test]
+    fn tour_length_matches_haversine_sum() {
+        // Two points ~111 km apart on a meridian: tour = one hop.
+        let centers: SingleVec = vec![[40.0, -74.0], [41.0, -74.0]];
+        let m = s2_tour_length_m(&centers);
+        assert!((m - 111_000.0).abs() < 500.0, "got {m}");
+        assert_eq!(s2_tour_length_m(&vec![[40.0, -74.0]]), 0.0);
+    }
+
+    #[test]
+    fn independent_set_lb_counts_far_points() {
+        // Three points pairwise much farther than 2r → LB 3; adding a point
+        // within 2r of the first must not raise it.
+        let pts: SingleVec = vec![
+            [40.0, -74.0],
+            [40.01, -74.0],
+            [40.02, -74.0],
+            [40.0001, -74.0],
+        ];
+        assert_eq!(independent_set_lb(&pts, 70.0), 3);
+    }
+
+    #[test]
+    fn score_v2_defaults_to_mygod_and_components_fill() {
+        let points: SingleVec = vec![
+            [40.0, -74.0],
+            [40.0003, -74.0], // ~33 m from first (same cluster)
+            [40.1, -74.0],    // far, uncovered
+        ];
+        let clusters: SingleVec = vec![[40.00015, -74.0]];
+        let mut stats = Stats::new("test".into(), 1);
+        stats.cluster_stats(70.0, &points, &clusters);
+        stats.set_score();
+        assert_eq!(stats.mygod_score, stats.score_v2);
+        assert_eq!(stats.score_components.cluster_cost, 1);
+        assert_eq!(stats.score_components.uncovered_cost, 1);
+        assert!(stats.score_components.lb >= 2);
+        assert!(stats.score_components.quality > 0.0);
+        // Single cluster → no tour.
+        assert_eq!(stats.score_components.route_est_m, 0.0);
+        // Both covered points are well inside 95% of r.
+        assert_eq!(stats.score_components.knife_edge, 0);
+    }
+
+    #[test]
+    fn knife_edge_detects_marginal_coverage() {
+        // Point ~67 m from the center (> 0.95 * 70 = 66.5 m): knife edge.
+        let points: SingleVec = vec![[40.0, -74.0], [40.000602, -74.0]];
+        let clusters: SingleVec = vec![[40.0, -74.0]];
+        let mut stats = Stats::new("test".into(), 1);
+        stats.cluster_stats(70.0, &points, &clusters);
+        assert_eq!(stats.score_components.knife_edge, 1);
     }
 }

@@ -197,50 +197,6 @@ fn load_csv(path: &str) -> SingleVec {
         .collect()
 }
 
-/// Provable lower bound on the cluster count of any full-coverage solution:
-/// a maximal independent set under "pairwise Haversine > 2r" — no disk can
-/// cover two such points, so each needs its own cluster. Valid for
-/// min_points = 1 (where full coverage is the contract).
-fn independent_set_lb(points: &SingleVec, radius: Precision) -> usize {
-    use geo::{Distance, Haversine};
-    let two_r = 2.0 * radius;
-    let dlat = two_r / 111_132.0;
-    let mut kept: SingleVec = Vec::new();
-    let mut grid: std::collections::HashMap<(i32, i32), Vec<usize>> =
-        std::collections::HashMap::new();
-    let key_of = |p: &[Precision; 2]| -> (i32, i32) {
-        let row = (p[0] / dlat).floor() as i32;
-        let lat_mid = (row as Precision + 0.5) * dlat;
-        let dlon = two_r / (111_320.0 * lat_mid.to_radians().cos().abs().max(0.01));
-        (row, (p[1] / dlon).floor() as i32)
-    };
-    'points: for p in points {
-        let (row, _) = key_of(p);
-        for dr in -1..=1 {
-            let r2 = row + dr;
-            let lat_mid = (r2 as Precision + 0.5) * dlat;
-            let dlon = two_r / (111_320.0 * lat_mid.to_radians().cos().abs().max(0.01));
-            let col = (p[1] / dlon).floor() as i32;
-            for dc in -1..=1 {
-                if let Some(bucket) = grid.get(&(r2, col + dc)) {
-                    for &k in bucket {
-                        let q = kept[k];
-                        let d = Haversine
-                            .distance(geo::Point::new(p[1], p[0]), geo::Point::new(q[1], q[0]));
-                        if d <= two_r {
-                            continue 'points;
-                        }
-                    }
-                }
-            }
-        }
-        kept.push(*p);
-        let key = key_of(p);
-        grid.entry(key).or_default().push(kept.len() - 1);
-    }
-    kept.len()
-}
-
 struct StderrLogger;
 
 impl log::Log for StderrLogger {
@@ -320,13 +276,13 @@ fn main() {
     );
     let wall_s = wall.elapsed().as_secs_f64();
     let lb = if args.min_points == 1 {
-        independent_set_lb(&points, args.radius)
+        algorithms::stats::independent_set_lb(&points, args.radius)
     } else {
         0
     };
 
     println!(
-        "RESULT dataset={} n={} mode={} legacy={}{} min_points={} radius={} seed={} clusters={} covered={} total={} score={} lb={} cluster_s={:.2} wall_s={:.2}",
+        "RESULT dataset={} n={} mode={} legacy={}{} min_points={} radius={} seed={} clusters={} covered={} total={} score={} lb={} route_m={:.0} route_s={:.0} knife={} quality={:.3} cluster_s={:.2} wall_s={:.2}",
         args.dataset,
         points.len(),
         args.mode,
@@ -340,6 +296,10 @@ fn main() {
         stats.total_points,
         stats.mygod_score,
         lb,
+        stats.score_components.route_est_m,
+        stats.score_components.route_est_s,
+        stats.score_components.knife_edge,
+        stats.score_components.quality,
         stats.cluster_time,
         wall_s,
     );
