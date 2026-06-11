@@ -233,7 +233,7 @@ artifact).
 
 ## 6. Hosting / runtime requirements
 
-### 6.1 COOP/COEP (cross-origin isolation)
+### 6.1 COOP/COEP (cross-origin isolation) — Vercel
 
 `SharedArrayBuffer` (required by threaded wasm) needs the page served with:
 
@@ -242,9 +242,32 @@ Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
 ```
 
-- Vercel / Cloudflare Pages / Netlify: set via headers config. **Recommended.**
-- GitHub Pages: cannot set headers → use the `coi-serviceworker` shim, or host
-  elsewhere.
+**Hosting decision: Vercel** (sets headers natively — no service-worker shim, no
+single-threaded fallback build needed). GitHub Pages was considered and rejected:
+it cannot set headers, forcing the `coi-serviceworker` shim, whose `COEP:
+require-corp` poisons cross-origin map tiles and hard-fails in incognito/SW-blocked
+contexts — both fatal to a map-based portfolio demo.
+
+`vercel.json` (scoped to the demo path so the rest of any site is unaffected):
+
+```json
+{
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cross-Origin-Opener-Policy",   "value": "same-origin" },
+        { "key": "Cross-Origin-Embedder-Policy",  "value": "require-corp" }
+      ]
+    }
+  ]
+}
+```
+
+Under `COEP: require-corp`, any cross-origin assets on the demo page (e.g. map
+tiles, CDN scripts) must be CORS/CORP-clean — load Leaflet from a CORS CDN with
+`crossorigin`, and use a tile provider that sends CORS (MapTiler/Mapbox) if the
+demo plots a map.
 
 ### 6.2 JS init order
 
