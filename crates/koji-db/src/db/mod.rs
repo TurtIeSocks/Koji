@@ -13,6 +13,7 @@ mod enum_bridge;
 pub mod geofence;
 pub mod geofence_project;
 pub mod geofence_property;
+pub mod plugin_config;
 pub mod prelude;
 pub mod project;
 pub mod property;

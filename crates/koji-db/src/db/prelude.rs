@@ -3,6 +3,7 @@
 pub use super::geofence::Entity as Geofence;
 pub use super::geofence_project::Entity as GeofenceProject;
 pub use super::geofence_property::Entity as GeofenceProperty;
+pub use super::plugin_config::Entity as PluginConfig;
 pub use super::project::Entity as Project;
 pub use super::property::Entity as Property;
 pub use super::route::Entity as Route;
