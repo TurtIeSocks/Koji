@@ -17,12 +17,14 @@
 //! The crate depends only on `koji-core` (for `SingleVec` + `create_cell_map`),
 //! keeping the workspace graph acyclic: `koji-core ← koji-plugins ← algorithms`.
 
+pub mod global;
 mod manifest;
 mod plugin;
 mod protocol;
 mod registry;
 
+pub use global::{current, install};
 pub use manifest::{PluginKind, PluginManifest};
 pub use plugin::{JoinFunction, Plugin};
 pub use protocol::{PluginInput, PluginOutput};
-pub use registry::{DEFAULT_PLUGINS_DIR, MANIFEST_FILE, PLUGINS_DIR_ENV, PluginRegistry};
+pub use registry::{DEFAULT_PLUGINS_DIR, MANIFEST_FILE, Overlay, PLUGINS_DIR_ENV, PluginRegistry};

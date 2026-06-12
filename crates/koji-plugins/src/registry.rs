@@ -9,7 +9,29 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use serde_json::Value;
+
 use crate::manifest::{PluginKind, PluginManifest};
+
+/// Per-plugin management overlay (from the DB `plugin_config` table).
+///
+/// The disk `plugin.toml` remains the trusted manifest; this overlay only
+/// carries operational config the admin panel can edit: whether the plugin is
+/// enabled and its default args.
+#[derive(Debug, Clone)]
+pub struct Overlay {
+    pub enabled: bool,
+    pub args_default: Option<Value>,
+}
+
+impl Default for Overlay {
+    fn default() -> Self {
+        Overlay {
+            enabled: true,
+            args_default: None,
+        }
+    }
+}
 
 /// Env var naming the directory plugins are discovered from.
 pub const PLUGINS_DIR_ENV: &str = "KOJI_PLUGINS_DIR";
@@ -25,6 +47,9 @@ pub struct PluginRegistry {
     dirs: HashMap<(PluginKind, String), PathBuf>,
     /// Parsed manifests by `(kind, name)`.
     manifests: HashMap<(PluginKind, String), PluginManifest>,
+    /// Management overlays by `(kind, name)` (from the DB `plugin_config`
+    /// table). Absent key ⇒ plugin is enabled with no default-args override.
+    overlays: HashMap<(PluginKind, String), Overlay>,
 }
 
 impl PluginRegistry {
@@ -96,8 +121,16 @@ impl PluginRegistry {
         toml::from_str::<PluginManifest>(&raw).map_err(|e| e.to_string())
     }
 
-    /// Look up a plugin manifest by kind + name.
+    /// Look up a plugin manifest by kind + name, **gated on the enabled
+    /// overlay**: a disabled plugin resolves to `None` so the runtime dispatch
+    /// path refuses to run it. The admin view uses [`manifest_unfiltered`]
+    /// instead to surface disabled plugins.
+    ///
+    /// [`manifest_unfiltered`]: Self::manifest_unfiltered
     pub fn get(&self, kind: PluginKind, name: &str) -> Option<&PluginManifest> {
+        if !self.is_enabled(kind, name) {
+            return None;
+        }
         self.manifests.get(&(kind, name.to_string()))
     }
 
@@ -109,11 +142,15 @@ impl PluginRegistry {
             .map(|p| p.as_path())
     }
 
-    /// All plugin names registered under `kind`.
+    /// All **enabled** plugin names registered under `kind`. Disabled overlays
+    /// are filtered out (use [`all_unfiltered_keys`] for the admin list).
+    ///
+    /// [`all_unfiltered_keys`]: Self::all_unfiltered_keys
     pub fn names(&self, kind: PluginKind) -> Vec<String> {
         self.manifests
             .keys()
             .filter(|(k, _)| *k == kind)
+            .filter(|(k, name)| self.is_enabled(*k, name))
             .map(|(_, name)| name.clone())
             .collect()
     }
@@ -126,6 +163,53 @@ impl PluginRegistry {
     /// Whether the registry holds no plugins.
     pub fn is_empty(&self) -> bool {
         self.manifests.is_empty()
+    }
+
+    /// Apply a management overlay for `(kind, name)`.
+    pub fn set_overlay(&mut self, kind: PluginKind, name: &str, overlay: Overlay) {
+        self.overlays.insert((kind, name.to_string()), overlay);
+    }
+
+    /// Whether `(kind, name)` is enabled (default `true` when no overlay).
+    pub fn is_enabled(&self, kind: PluginKind, name: &str) -> bool {
+        self.overlays
+            .get(&(kind, name.to_string()))
+            .map_or(true, |o| o.enabled)
+    }
+
+    /// The overlay default-args for `(kind, name)`, if any.
+    pub fn args_default(&self, kind: PluginKind, name: &str) -> Option<&Value> {
+        self.overlays
+            .get(&(kind, name.to_string()))
+            .and_then(|o| o.args_default.as_ref())
+    }
+
+    /// The manifest for `(kind, name)` **ignoring** the enabled overlay — for the
+    /// admin view, which must show disabled plugins too. (Runtime dispatch uses
+    /// the enabled-gated [`get`](Self::get) instead.)
+    pub fn manifest_unfiltered(&self, kind: PluginKind, name: &str) -> Option<&PluginManifest> {
+        self.manifests.get(&(kind, name.to_string()))
+    }
+
+    /// Every discovered `(kind, name)` (enabled or not) — for the admin list.
+    pub fn all_unfiltered_keys(&self) -> Vec<(PluginKind, String)> {
+        self.manifests.keys().cloned().collect()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn insert_manifest_for_test(&mut self, kind: PluginKind, name: &str) {
+        let manifest = PluginManifest {
+            name: name.to_string(),
+            kind,
+            entrypoint: "x".to_string(),
+            interpreter: None,
+            version: None,
+            description: None,
+            protocol: Default::default(),
+        };
+        let key = (kind, name.to_string());
+        self.dirs.insert(key.clone(), PathBuf::from("."));
+        self.manifests.insert(key, manifest);
     }
 }
 
@@ -221,5 +305,55 @@ mod tests {
         let registry = PluginRegistry::load(tmp.path());
         assert_eq!(registry.len(), 1);
         assert!(registry.get(PluginKind::Bootstrap, "g").is_some());
+    }
+
+    #[test]
+    fn overlay_disables_entry_from_names_and_get() {
+        let mut reg = PluginRegistry::default();
+        reg.insert_manifest_for_test(PluginKind::Routing, "tsp");
+        assert!(reg.names(PluginKind::Routing).contains(&"tsp".to_string()));
+        reg.set_overlay(
+            PluginKind::Routing,
+            "tsp",
+            Overlay {
+                enabled: false,
+                args_default: None,
+            },
+        );
+        assert!(
+            !reg.names(PluginKind::Routing).contains(&"tsp".to_string()),
+            "disabled hidden from names"
+        );
+        assert!(
+            reg.get(PluginKind::Routing, "tsp").is_none(),
+            "disabled get -> None"
+        );
+        assert!(!reg.is_enabled(PluginKind::Routing, "tsp"));
+    }
+
+    #[test]
+    fn no_overlay_defaults_to_enabled() {
+        let mut reg = PluginRegistry::default();
+        reg.insert_manifest_for_test(PluginKind::Clustering, "kmeans");
+        assert!(reg.is_enabled(PluginKind::Clustering, "kmeans"));
+        assert!(reg.get(PluginKind::Clustering, "kmeans").is_some());
+    }
+
+    #[test]
+    fn overlay_surfaces_args_default() {
+        let mut reg = PluginRegistry::default();
+        reg.insert_manifest_for_test(PluginKind::Clustering, "kmeans");
+        reg.set_overlay(
+            PluginKind::Clustering,
+            "kmeans",
+            Overlay {
+                enabled: true,
+                args_default: Some(serde_json::json!({"k": 8})),
+            },
+        );
+        assert_eq!(
+            reg.args_default(PluginKind::Clustering, "kmeans"),
+            Some(&serde_json::json!({"k": 8}))
+        );
     }
 }
