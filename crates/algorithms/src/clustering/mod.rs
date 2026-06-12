@@ -92,7 +92,7 @@ pub fn main(
                     Some(plugin_manager) => {
                         match plugin_manager.run_multi::<JoinFunction>(
                             data_points,
-                            &plugins::args_to_value(&cfg.plugin_args),
+                            &plugins::merged_args(PluginKind::Clustering, &plugin, &cfg.plugin_args),
                             None,
                         ) {
                             Ok(sorted_clusters) => sorted_clusters,

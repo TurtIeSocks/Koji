@@ -35,7 +35,7 @@ pub fn main(
             match plugins::resolve(PluginKind::Routing, plugin, cfg.route_split_level) {
                 Some(plugin_manager) => match plugin_manager.run_multi(
                     &clusters,
-                    &plugins::args_to_value(&cfg.plugin_args),
+                    &plugins::merged_args(PluginKind::Routing, plugin, &cfg.plugin_args),
                     Some(join::join),
                 ) {
                     Ok(sorted_clusters) => sorted_clusters,
