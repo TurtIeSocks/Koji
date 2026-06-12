@@ -1,7 +1,7 @@
 use super::*;
 
-use sea_orm::entity::prelude::*;
 use sea_orm::IntoActiveModel;
+use sea_orm::entity::prelude::*;
 use serde_json::json;
 
 use crate::error::ModelError;

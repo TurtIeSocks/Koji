@@ -76,7 +76,9 @@ mod tests {
     fn unknown_calculation_mode_maps_to_custom() {
         // CalculationMode::Deserialize maps unknown strings to Custom(s), not an error.
         let req = make_request("balanced", "notamode");
-        let (_points, cfg) = req.into_core().expect("should succeed (no error for unknown mode)");
+        let (_points, cfg) = req
+            .into_core()
+            .expect("should succeed (no error for unknown mode)");
         assert!(matches!(cfg.calculation_mode, CalculationMode::Custom(_)));
         if let CalculationMode::Custom(s) = cfg.calculation_mode {
             assert_eq!(s, "notamode");

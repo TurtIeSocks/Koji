@@ -40,7 +40,9 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(PluginConfig::UpdatedAt)
                             .timestamp()
                             .not_null()
-                            .extra("DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP".to_string()),
+                            .extra(
+                                "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP".to_string(),
+                            ),
                     )
                     .to_owned(),
             )
