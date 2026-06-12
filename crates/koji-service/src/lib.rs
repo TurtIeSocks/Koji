@@ -53,6 +53,13 @@ pub async fn start() -> io::Result<()> {
         Err(err) => log::error!("Migration Error {:?}", err),
     };
 
+    // Build the process-global plugin registry from disk ∪ the DB `plugin_config`
+    // overlay so the runtime dispatch path + `meta/algorithms` reflect saved
+    // config from boot. A failure just leaves the lazy disk-only default.
+    public::v2::plugins::rebuild_and_install(&databases)
+        .await
+        .ok();
+
     // ---- V2 infra: job queue + event dispatcher + optional Dragonite client --
     //
     // The queue runs against the Koji DB (MySQL 8+/MariaDB 10.6+ for SKIP
@@ -269,9 +276,17 @@ pub async fn start() -> io::Result<()> {
                             .service(public::v2::resources::project::scope())
                             .service(public::v2::resources::property::scope())
                             .service(public::v2::resources::tile_server::scope())
-                            // Geometry utilities (convert/simplify/merge + s2) +
-                            // scanner-data fetch (architecture §6).
+                            // Geometry utilities (convert/simplify/merge + s2).
                             .service(public::v2::geo::scope())
+                            // Plugin management overlay (DB-managed plugin config):
+                            // merged disk-manifest + DB-overlay view; PATCH/DELETE
+                            // edit only `enabled`/`args_default`/`description`.
+                            // Registered before the empty-prefix `scanner_data`
+                            // scope, which would otherwise shadow it.
+                            .service(public::v2::plugins::scope())
+                            // scanner-data fetch (architecture §6). Its scope has an
+                            // empty prefix (`web::scope("")`), so it must stay LAST —
+                            // it captures the `/api/v2` prefix for any path.
                             .service(public::v2::scanner_data::scope()),
                     ),
             )

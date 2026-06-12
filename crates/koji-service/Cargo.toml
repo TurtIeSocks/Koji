@@ -12,6 +12,7 @@ path = "src/lib.rs"
 koji-core = { path = "../koji-core" }
 koji-scanner = { path = "../koji-scanner" }
 koji-db = { path = "../koji-db" }
+koji-plugins = { path = "../koji-plugins" }
 koji-jobs = { path = "../koji-jobs" }
 koji-events = { path = "../koji-events" }
 koji-dragonite = { path = "../koji-dragonite" }

@@ -2480,6 +2480,7 @@ dependencies = [
  "koji-dragonite",
  "koji-events",
  "koji-jobs",
+ "koji-plugins",
  "koji-scanner",
  "log",
  "migration",
