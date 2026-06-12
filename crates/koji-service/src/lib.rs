@@ -281,13 +281,13 @@ pub async fn start() -> io::Result<()> {
                             // Plugin management overlay (DB-managed plugin config):
                             // merged disk-manifest + DB-overlay view; PATCH/DELETE
                             // edit only `enabled`/`args_default`/`description`.
-                            // Registered before the empty-prefix `scanner_data`
-                            // scope, which would otherwise shadow it.
                             .service(public::v2::plugins::scope())
-                            // scanner-data fetch (architecture §6). Its scope has an
-                            // empty prefix (`web::scope("")`), so it must stay LAST —
-                            // it captures the `/api/v2` prefix for any path.
-                            .service(public::v2::scanner_data::scope()),
+                            // scanner-data fetch (architecture §6). Registered
+                            // directly (no wrapper scope) — its
+                            // `#[get("/scanner-data/{category}")]` attribute gives
+                            // the full subpath, so ordering no longer matters (the
+                            // old empty-prefix wrapper used to shadow siblings).
+                            .service(public::v2::scanner_data::scanner_data),
                     ),
             )
             // Liveness probe (top-level, unauthenticated — mirrors `/health`).

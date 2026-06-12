@@ -29,8 +29,14 @@ struct ScannerDataQuery {
 
 /// `GET /api/v2/scanner-data/{category}` — the category's scanner points within
 /// the `?instance=` geofence, wrapped in the v2 [`ApiResponse`] envelope.
+///
+/// Mounted **directly** into the `/api/v2` scope (no wrapper scope): the
+/// `#[get("/scanner-data/{category}")]` attribute supplies the full subpath. A
+/// previous `web::scope("")` wrapper had an empty prefix that greedily shadowed
+/// every sibling `/api/v2/*` route registered after it — registering the handler
+/// directly removes that ordering footgun.
 #[get("/scanner-data/{category}")]
-async fn scanner_data(
+pub async fn scanner_data(
     conn: web::Data<KojiDb>,
     category: web::Path<String>,
     query: web::Query<ScannerDataQuery>,
@@ -61,9 +67,4 @@ async fn scanner_data(
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(ApiResponse::success(points))
-}
-
-/// The `web::Scope` wiring the scanner-data handler, mounted into `/api/v2`.
-pub fn scope() -> actix_web::Scope {
-    web::scope("").service(scanner_data)
 }
