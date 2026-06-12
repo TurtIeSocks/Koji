@@ -6,6 +6,7 @@ import AccountTree from '@mui/icons-material/AccountTree'
 import Route from '@mui/icons-material/Route'
 import ListAlt from '@mui/icons-material/ListAlt'
 import Map from '@mui/icons-material/Map'
+import Extension from '@mui/icons-material/Extension'
 
 import NetworkAlert from '@components/notifications/NetworkStatus'
 import { getFullCache } from '@services/fetches'
@@ -37,6 +38,9 @@ import TileServerList from './tileserver/TileServerList'
 import TileServerEdit from './tileserver/TileServerEdit'
 import TileServerShow from './tileserver/TileServerShow'
 import TileServerCreate from './tileserver/TileServerCreate'
+
+import PluginList from './plugin/PluginList'
+import PluginEdit from './plugin/PluginEdit'
 
 export default function AdminPanel() {
   const theme = useTheme()
@@ -101,6 +105,13 @@ export default function AdminPanel() {
           edit={TileServerEdit}
           show={TileServerShow}
           create={TileServerCreate}
+          recordRepresentation={(record) => record.name || ''}
+        />
+        <Resource
+          name="plugins"
+          icon={Extension}
+          list={PluginList}
+          edit={PluginEdit}
           recordRepresentation={(record) => record.name || ''}
         />
       </Admin>
