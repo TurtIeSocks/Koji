@@ -137,6 +137,9 @@ impl PluginRegistry {
     /// The directory a plugin's manifest was loaded from (for resolving its
     /// entrypoint).
     pub fn dir(&self, kind: PluginKind, name: &str) -> Option<&Path> {
+        if !self.is_enabled(kind, name) {
+            return None;
+        }
         self.dirs
             .get(&(kind, name.to_string()))
             .map(|p| p.as_path())
@@ -327,6 +330,10 @@ mod tests {
         assert!(
             reg.get(PluginKind::Routing, "tsp").is_none(),
             "disabled get -> None"
+        );
+        assert!(
+            reg.dir(PluginKind::Routing, "tsp").is_none(),
+            "disabled dir() -> None"
         );
         assert!(!reg.is_enabled(PluginKind::Routing, "tsp"));
     }
