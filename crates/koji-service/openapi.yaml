@@ -6,7 +6,8 @@ info:
   description: |
     The `/api/v2` surface of Koji: a job-queue-backed calc API, typed CRUD for
     geofences, routes, projects, properties, and tile-servers, plus geometry
-    utilities (`/geo/*`) and a scanner-data fetch (`/scanner-data/*`).
+    utilities (`/geo/*`), a scanner-data fetch (`/scanner-data/*`), and plugin
+    operational-config management (`/plugins`).
 
     All responses use the v2 envelope (architecture §7), which matches Dragonite
     v2: `{ "status": "ok", "data": …, "meta": …? }` on success and
@@ -52,6 +53,8 @@ tags:
     description: Geometry utilities — convert / simplify / merge points, and S2 cell helpers.
   - name: scanner-data
     description: Fetch raw scanner points (gym / pokestop / spawnpoint / station) within a geofence.
+  - name: plugins
+    description: Manage plugin operational config — enable/disable + default args (overlay; entrypoint/interpreter are disk-owned).
 
 # Applied globally; the unauthenticated operations override with `security: []`.
 security:
@@ -992,6 +995,93 @@ paths:
         "500":
           $ref: "#/components/responses/ServerError"
 
+  /api/v2/plugins:
+    get:
+      operationId: listPlugins
+      tags: [plugins]
+      summary: List plugins (merged disk manifest + DB overlay).
+      description: |
+        The merged view of every disk-discovered plugin: the read-only manifest
+        fields (`entrypoint` / `interpreter` / `protocol` / `version`, disk-owned)
+        plus the editable overlay (`enabled` / `args_default` / `description`,
+        from the `plugin_config` table). Disabled plugins are included here (the
+        admin view) even though the runtime dispatch path hides them.
+      responses:
+        "200":
+          description: All plugins (`data` is an array of `Plugin`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiOk"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v2/plugins/{id}:
+    parameters:
+      - $ref: "#/components/parameters/PluginIdPath"
+    get:
+      operationId: getPlugin
+      tags: [plugins]
+      summary: Get one plugin's merged view.
+      description: The merged manifest + overlay view for a single plugin, keyed by `{kind}:{name}`.
+      responses:
+        "200":
+          description: One plugin (`data` is a `Plugin`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiOk"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updatePlugin
+      tags: [plugins]
+      summary: Update a plugin's operational config (overlay).
+      description: |
+        Upsert the overlay (`enabled` / `args_default` / `description`) for the
+        plugin and rebuild the registry. Only plugins that exist on disk can be
+        configured; an id with no disk manifest yields `422`. The manifest fields
+        (`entrypoint` / `interpreter` / `protocol` / `version`) are read-only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PluginPatch"
+      responses:
+        "200":
+          description: The updated plugin (`data` is a `Plugin`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiOk"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+    delete:
+      operationId: deletePlugin
+      tags: [plugins]
+      summary: Reset a plugin's overlay to disk defaults.
+      description: Drop the `plugin_config` overlay row for the plugin (reset to the disk manifest defaults) and rebuild the registry.
+      responses:
+        "200":
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiRowsAffected"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1026,6 +1116,13 @@ components:
       in: path
       required: true
       description: The numeric id (writes) or id/name (reads).
+      schema:
+        type: string
+    PluginIdPath:
+      name: id
+      in: path
+      required: true
+      description: "{kind}:{name}, e.g. routing:tsp"
       schema:
         type: string
     WaitQuery:
@@ -1318,3 +1415,72 @@ components:
             type: string
           description: When present, only cells whose id is in this set are returned.
       additionalProperties: true
+    Plugin:
+      type: object
+      description: |
+        A plugin's merged view: the read-only disk manifest fields
+        (`entrypoint` / `interpreter` / `protocol` / `version`, owned by the
+        on-disk `plugin.toml`) plus the editable management overlay (`enabled` /
+        `args_default` / `description`, from the `plugin_config` table). The
+        executable declaration is disk-owned and cannot be changed via the API.
+      required: [id, name, kind, entrypoint, protocol, enabled]
+      properties:
+        id:
+          type: string
+          description: "The resource id, {kind}:{name} (e.g. routing:tsp)."
+        name:
+          type: string
+          description: The plugin name (within its kind).
+        kind:
+          type: string
+          description: The plugin stage.
+          enum: [clustering, routing, bootstrap]
+        entrypoint:
+          type: string
+          readOnly: true
+          description: Disk-owned. The executable / script entrypoint from the manifest.
+        interpreter:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Disk-owned. The interpreter for the entrypoint (e.g. `python3`), if any.
+        protocol:
+          type: string
+          readOnly: true
+          description: Disk-owned. The plugin invocation protocol (e.g. `json`).
+        version:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Disk-owned. The manifest version string, if declared.
+        enabled:
+          type: boolean
+          description: Editable overlay. When false, the plugin is hidden from the runtime dispatch path.
+        args_default:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Editable overlay. Default args merged under request args at dispatch (request keys win).
+        description:
+          type: string
+          nullable: true
+          description: Editable overlay. A human description (falls back to the manifest description).
+      additionalProperties: true
+    PluginPatch:
+      type: object
+      description: |
+        Body for `PATCH /api/v2/plugins/{id}` — the editable overlay fields, all
+        optional. Omitted fields are left unchanged; the disk-owned manifest
+        fields are not accepted here.
+      properties:
+        enabled:
+          type: boolean
+          description: Enable or disable the plugin.
+        args_default:
+          type: object
+          additionalProperties: true
+          description: Replace the overlay default args.
+        description:
+          type: string
+          description: Replace the overlay description.
+      additionalProperties: false
