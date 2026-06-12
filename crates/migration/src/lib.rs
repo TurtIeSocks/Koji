@@ -23,6 +23,7 @@ mod m20230626_155916_project_description;
 mod m20260529_000001_create_job_table;
 mod m20260529_000002_create_event_tables;
 mod m20260529_000003_dragonite_linkage;
+mod m20260529_000004_create_plugin_config;
 
 pub struct Migrator;
 
@@ -53,6 +54,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260529_000001_create_job_table::Migration),
             Box::new(m20260529_000002_create_event_tables::Migration),
             Box::new(m20260529_000003_dragonite_linkage::Migration),
+            Box::new(m20260529_000004_create_plugin_config::Migration),
         ]
     }
 }
