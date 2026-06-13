@@ -372,6 +372,39 @@ impl Query {
         Ok(items.to_collection(&FeatureCtx::default()))
     }
 
+    /// Additive Phase 2 counterpart to `as_collection`: fetch the same rows
+    /// (all routes, ordered by name) and map each `Model` to a `KojiGeometry`,
+    /// collecting into a `KojiGeometryCollection`. Returns `ModelError` to match
+    /// `route::Model::to_koji_geometry`. Does not replace `as_collection`
+    /// (deleted in a later section). The `internal` flag that `as_collection`
+    /// takes only affects geojson property naming — irrelevant for the
+    /// self-describing `KojiMeta`, so it is not needed here.
+    #[allow(clippy::result_large_err)]
+    pub async fn as_koji_collection(
+        conn: &DatabaseConnection,
+    ) -> Result<koji_core::KojiGeometryCollection, ModelError> {
+        let items = Entity::find()
+            .order_by(Column::Name, Order::Asc)
+            .all(conn)
+            .await?;
+        items
+            .iter()
+            .map(|item| item.to_koji_geometry())
+            .collect::<Result<koji_core::KojiGeometryCollection, ModelError>>()
+    }
+
+    /// Additive Phase 2 counterpart to `get_one_feature`: fetch the same row and
+    /// map it via `to_koji_geometry`. Returns `ModelError` to match the sibling
+    /// methods. Does not replace `get_one_feature`.
+    #[allow(clippy::result_large_err)]
+    pub async fn get_one_koji(
+        db: &DatabaseConnection,
+        id: String,
+    ) -> Result<koji_core::KojiGeometry, ModelError> {
+        let record = Query::get_one(db, id).await?;
+        record.to_koji_geometry()
+    }
+
     pub async fn upsert(db: &DatabaseConnection, id: u32, json: Json) -> Result<Model, ModelError> {
         let old_model = Entity::find_by_id(id).one(db).await?;
         let mut new_model = json.to_route()?;
