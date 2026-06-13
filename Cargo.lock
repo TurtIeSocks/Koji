@@ -2364,6 +2364,7 @@ dependencies = [
  "geojson",
  "log",
  "macros",
+ "rayon",
  "regex",
  "s2",
  "serde",
