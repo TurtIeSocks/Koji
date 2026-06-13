@@ -2,6 +2,7 @@
 //! No database, HTTP, or async dependencies.
 
 mod calc_mode;
+mod mode;
 mod category;
 mod cluster_mode;
 mod config;
@@ -38,6 +39,7 @@ pub use sort_by::SortBy;
 pub use text_utils::{
     clean, get_mode_acronym, json_related_sort, name_modifier, separate_by_comma,
 };
+pub use mode::Mode;
 pub use unknown_id::UnknownId;
 
 pub mod geometry;
