@@ -33,26 +33,6 @@ fn polygon_points(poly: &Polygon<f64>) -> Vec<[f64; 2]> {
     out
 }
 
-/// Per-item grouping that mirrors `Feature::to_multi_vec`:
-/// - `MultiPolygon` → one group per polygon
-/// - everything else (Point/MultiPoint/Line/MultiLineString/Polygon) → one group
-/// - `GeometryCollection` → one group per non-empty sub-geometry
-///
-/// Returns the list of `[lat, lon]` groups contributed by a single item.
-fn item_groups(geom: &Geometry<f64>) -> Vec<Vec<[f64; 2]>> {
-    match geom {
-        Geometry::MultiPolygon(mp) => mp.iter().map(polygon_points).collect(),
-        Geometry::GeometryCollection(gc) => gc
-            .iter()
-            .filter_map(|g| {
-                let group = single_group(g);
-                if group.is_empty() { None } else { Some(group) }
-            })
-            .collect(),
-        other => vec![single_group(other)],
-    }
-}
-
 /// The flat `[lat, lon]` coords of a geometry treated as a single group, matching
 /// the matrix's single-geometry coordinate path (Polygon flattens rings;
 /// MultiPolygon flattens every ring of every polygon; points/lines map directly).
@@ -97,21 +77,26 @@ fn to_point_struct(p: [f64; 2]) -> PointStruct {
 impl KojiGeometryCollection {
     /// All items' coordinates flattened into one `[lat, lon]` vec.
     ///
-    /// Parity oracle: the geojson `FeatureCollection` matrix `single_vec` path.
+    /// Parity oracle: the geojson `FeatureCollection` matrix `single_vec` path
+    /// (`to_multi_vec().flatten()` — grouping is erased, so this is every item's
+    /// `single_group` concatenated).
     pub fn to_single_vec(&self) -> SingleVec {
         self.items
             .iter()
-            .flat_map(|item| item_groups(&item.geometry).into_iter().flatten())
+            .flat_map(|item| single_group(&item.geometry))
             .collect()
     }
 
-    /// Coordinates grouped one inner vec per ring/geometry.
+    /// Coordinates grouped **one inner vec per item** (NOT per ring/sub-geometry).
     ///
-    /// Parity oracle: the geojson `FeatureCollection` matrix `multi_vec` path.
+    /// Parity oracle: the geojson `FeatureCollection` matrix `multi_vec` path,
+    /// which is `features.map(|feat| feat.to_single_vec())` — exactly one flattened
+    /// group per feature. A MultiPolygon item flattens all polygons into one group;
+    /// a GeometryCollection item flattens all sub-geometries into one group.
     pub fn to_multi_vec(&self) -> MultiVec {
         self.items
             .iter()
-            .flat_map(|item| item_groups(&item.geometry))
+            .map(|item| single_group(&item.geometry))
             .collect()
     }
 
@@ -124,7 +109,7 @@ impl KojiGeometryCollection {
         let flat: SingleVec = self
             .items
             .iter()
-            .flat_map(|item| item_groups(&item.geometry).into_iter().flatten())
+            .flat_map(|item| single_group(&item.geometry))
             .collect();
         ensure_first_last(flat)
             .into_iter()
@@ -132,7 +117,7 @@ impl KojiGeometryCollection {
             .collect()
     }
 
-    /// Coordinates as `PointStruct` groups, one per ring/geometry.
+    /// Coordinates as `PointStruct` groups, one per item (see `to_multi_vec`).
     ///
     /// Parity oracle: the geojson `FeatureCollection` matrix `multi_struct` path.
     /// The matrix `ensure_first_last`s each group before the struct map.
@@ -407,7 +392,9 @@ fn point_to_text(pt: &[f64; 2], sep_1: &str, sep_2: &str, _poly_sep: bool) -> St
 mod tests {
     use crate::geometry::{ToMultiVec, ToSingleVec}; // the existing oracle traits
     use crate::{KojiGeometry, KojiGeometryCollection, KojiMeta, Mode};
-    use geo::{LineString, MultiPoint, Point, Polygon, coord};
+    use geo::{
+        Geometry, GeometryCollection, LineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
+    };
 
     /// A representative collection: one polygon + one multipoint, with metadata.
     fn sample() -> KojiGeometryCollection {
@@ -437,6 +424,169 @@ mod tests {
     /// Oracle: the existing matrix path, exact today.
     fn fc(c: &KojiGeometryCollection) -> geojson::FeatureCollection {
         geojson::FeatureCollection::from(c)
+    }
+
+    /// An adversarial collection that exercises every adapter branch the
+    /// axis-symmetric `sample()` leaves untouched:
+    ///
+    /// 1. Asymmetric polygon (x∈[0,10], y∈[0,4]) **with a hole** — the asymmetry
+    ///    pins the lon/lat axis assignment in `to_sql`'s bbox (a swap would
+    ///    surface), and the interior ring pins `polygon_points`'s exterior +
+    ///    interior flattening. Its `KojiMeta` carries non-default poracle fields
+    ///    (`color`/`description`/`group`/`displayInMatches:false`/
+    ///    `userSelectable:false`) so the poracle field-reads are actually driven
+    ///    off the wire, not left at defaults.
+    /// 2. `MultiPolygon` of two distinct polygons — both polygons flattened into
+    ///    one `to_multi_vec` group (`single_group`), split per-polygon in poracle
+    ///    `multipath`, and a single `to_sql` clause over the union bbox.
+    /// 3. `GeometryCollection` of a `Polygon` + a `MultiPoint` — the GC branch in
+    ///    `single_group` (polygon + multipoint flattened into one group) / poracle
+    ///    `multipath` (polygon-only filter) / `to_sql` (GC is non-polygon →
+    ///    contributes no clause but advances the index).
+    ///
+    /// A bare `LineString` was intentionally **excluded**: the Phase 1 outbound
+    /// oracle (`FeatureCollection::from(&c).to_X()`) cannot represent it. The
+    /// matrix `ToSingleVec for geojson::Geometry` (`geometry.rs`) only matches
+    /// `Polygon`/`MultiPolygon`/`Point`/`MultiPoint`; `Value::LineString` falls
+    /// into the `_ =>` arm, which `log::warn!`s "Unsupported Geometry" and returns
+    /// an empty vec — so the oracle silently drops every line. Our adapter's
+    /// `single_group` *does* handle `LineString`, so a bare-line case would fail
+    /// parity not on an adapter bug but on a pre-existing Phase 1 gap. Tracked as a
+    /// Phase 2 follow-up (the adapters become the only implementation then, and the
+    /// LineString path is already correct here).
+    fn sample_rich() -> KojiGeometryCollection {
+        // 1. asymmetric polygon with a hole + rich poracle metadata.
+        let poly_with_hole = Polygon::new(
+            LineString::from(vec![
+                coord! {x:0.0,y:0.0},
+                coord! {x:10.0,y:0.0},
+                coord! {x:10.0,y:4.0},
+                coord! {x:0.0,y:4.0},
+                coord! {x:0.0,y:0.0},
+            ]),
+            vec![LineString::from(vec![
+                coord! {x:2.0,y:1.0},
+                coord! {x:4.0,y:1.0},
+                coord! {x:4.0,y:3.0},
+                coord! {x:2.0,y:3.0},
+                coord! {x:2.0,y:1.0},
+            ])],
+        );
+        let extra = serde_json::json!({
+            "color": "#00ff00",
+            "description": "a rich fence",
+            "group": "alpha",
+            "displayInMatches": false,
+            "userSelectable": false,
+        })
+        .as_object()
+        .unwrap()
+        .clone();
+        let poly_meta = KojiMeta {
+            id: Some(7),
+            name: Some("poly".into()),
+            mode: Mode::Fort,
+            extra,
+            ..Default::default()
+        };
+
+        // 2. MultiPolygon of two distinct (non-overlapping) polygons.
+        let multi_poly = MultiPolygon::new(vec![
+            Polygon::new(
+                LineString::from(vec![
+                    coord! {x:20.0,y:20.0},
+                    coord! {x:23.0,y:20.0},
+                    coord! {x:23.0,y:22.0},
+                    coord! {x:20.0,y:20.0},
+                ]),
+                vec![],
+            ),
+            Polygon::new(
+                LineString::from(vec![
+                    coord! {x:30.0,y:30.0},
+                    coord! {x:34.0,y:30.0},
+                    coord! {x:34.0,y:33.0},
+                    coord! {x:30.0,y:33.0},
+                    coord! {x:30.0,y:30.0},
+                ]),
+                vec![],
+            ),
+        ]);
+
+        // 3. GeometryCollection: a Polygon + a MultiPoint.
+        let gc = GeometryCollection::new_from(vec![
+            Polygon::new(
+                LineString::from(vec![
+                    coord! {x:40.0,y:40.0},
+                    coord! {x:42.0,y:40.0},
+                    coord! {x:42.0,y:41.0},
+                    coord! {x:40.0,y:40.0},
+                ]),
+                vec![],
+            )
+            .into(),
+            MultiPoint::from(vec![Point::new(50.0, 51.0), Point::new(52.0, 53.0)]).into(),
+        ]);
+
+        KojiGeometryCollection::new(vec![
+            KojiGeometry::new(poly_with_hole).with_meta(poly_meta),
+            KojiGeometry::new(multi_poly).with_meta(KojiMeta {
+                name: Some("multi".into()),
+                mode: Mode::Fort,
+                ..Default::default()
+            }),
+            // `geo_types::Geometry` has no `From<GeometryCollection>` (unlike the
+            // other variants), so build the enum variant explicitly.
+            KojiGeometry::new(Geometry::GeometryCollection(gc)).with_meta(KojiMeta {
+                name: Some("gc".into()),
+                ..Default::default()
+            }),
+        ])
+    }
+
+    /// All seven inherent adapters must parity-match the oracle on the adversarial
+    /// `sample_rich()` — proving the matrix-independent extraction generalizes
+    /// past the axis-symmetric `sample()` (holes, MultiPolygon, GeometryCollection,
+    /// asymmetric bbox, non-default poracle fields). (Bare `LineString` excluded —
+    /// the Phase 1 oracle can't represent it; see `sample_rich`.)
+    #[test]
+    fn all_adapters_match_oracle_on_rich_sample() {
+        use crate::geometry::{ToMultiStruct, ToPoracleVec, ToSingleStruct, ToSql, ToText};
+        let c = sample_rich();
+        let o = fc(&c);
+
+        // Native equality where the types implement `PartialEq`.
+        assert_eq!(c.to_single_vec(), o.clone().to_single_vec(), "single_vec");
+        assert_eq!(c.to_multi_vec(), o.clone().to_multi_vec(), "multi_vec");
+        assert_eq!(c.to_sql(), o.clone().to_sql(), "sql");
+        assert_eq!(
+            c.to_text(",", "\n", true),
+            o.clone().to_text(",", "\n", true),
+            "text (Text params)"
+        );
+        assert_eq!(
+            c.to_text(" ", ",", false),
+            o.clone().to_text(" ", ",", false),
+            "text (AltText params)"
+        );
+
+        // `PointStruct`/`Poracle`/`UnknownId` lack `PartialEq`; compare serialized
+        // forms (all derive `Serialize`) for full-fidelity parity.
+        assert_eq!(
+            serde_json::to_value(c.to_single_struct()).unwrap(),
+            serde_json::to_value(o.clone().to_single_struct()).unwrap(),
+            "single_struct"
+        );
+        assert_eq!(
+            serde_json::to_value(c.to_multi_struct()).unwrap(),
+            serde_json::to_value(o.clone().to_multi_struct()).unwrap(),
+            "multi_struct"
+        );
+        assert_eq!(
+            serde_json::to_value(c.to_poracle_vec()).unwrap(),
+            serde_json::to_value(o.to_poracle_vec()).unwrap(),
+            "poracle_vec"
+        );
     }
 
     #[test]
