@@ -14,7 +14,7 @@ use s2::latlng::LatLng;
 use crate::{PointArray, SingleVec};
 
 /// Map a `[lat, lon]` point to its S2 `CellID` at `parent_level`.
-fn from_array_to_cell_id(point: &PointArray, parent_level: u64) -> CellID {
+pub fn from_array_to_cell_id(point: &PointArray, parent_level: u64) -> CellID {
     CellID::from(LatLng::from_degrees(point[0], point[1])).parent(parent_level)
 }
 

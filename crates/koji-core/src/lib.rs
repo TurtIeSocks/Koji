@@ -13,7 +13,7 @@ mod mode;
 mod normalize;
 mod query_args;
 mod return_type;
-mod s2grid;
+mod s2;
 mod sort_by;
 mod text_utils;
 mod unknown_id;
@@ -35,7 +35,7 @@ pub use mode::Mode;
 pub use normalize::{AreaPolygons, HasLatLon, count_in_area};
 pub use query_args::{AdminReq, AdminReqParsed, ApiQueryArgs, BoundsArg, SpawnpointTth};
 pub use return_type::ReturnTypeArg;
-pub use s2grid::create_cell_map;
+pub use s2::{create_cell_map, from_array_to_cell_id};
 pub use sort_by::SortBy;
 pub use text_utils::{
     clean, get_mode_acronym, json_related_sort, name_modifier, separate_by_comma,
