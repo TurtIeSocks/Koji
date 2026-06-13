@@ -206,7 +206,7 @@ dimension mygod_score never saw.
 
 ## Round 3 (2026-06-11): scoring-driven levers
 
-With koji_score v2 components measurable, seven more levers shipped (and two
+With koji_score v2 components measurable, seven more levers shipped (and three
 honest negatives). All numbers real datasets, stops @78 m, spawns @70 m.
 
 **Landed:**
@@ -248,6 +248,19 @@ honest negatives). All numbers real datasets, stops @78 m, spawns @70 m.
    already *improve* route_m (−0.1…−0.75%), and final positions are owned by
    the single-candidate spread/margin passes, so mid-refinement tie-breaks
    can't stick. Not implemented.
+8. **Hexagonal (triangular) lattice seeds for variant 4** (prompted by the
+   2026-05 OpenAI Erdős-unit-distance result, which built a richer lattice
+   and projected it down): the triangular lattice is the thinnest *infinite*
+   disk covering (Kershner 1939, ~1.3× fewer disks than square), so swapping
+   variant 4's square RHO/2 grid for a half-offset hex grid of equal fineness
+   *should* seed better covering anchors. A/B over 11 cells (uniform/blobs/
+   urban m=3,5 + stops-8k + spawns-41k): pure noise, 6 better / 5 worse, all
+   ≤7 points (≤0.1%), m=3 −10 net vs m=5 +18 net. The covering-density edge is
+   a property of lattice *spacing at the covering optimum*, not of the
+   sampling topology of an over-dense candidate pool — and the greedy is not
+   lattice-constrained (its point + pair-vertex candidates already dominate on
+   real data and let it approximate optimal anchors from either grid).
+   Reverted.
 
 ### Final table (round 3, all 12 real cells vs true legacy)
 
