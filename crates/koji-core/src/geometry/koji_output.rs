@@ -1,0 +1,143 @@
+//! Outbound format adapters for `KojiGeometryCollection`.
+//!
+//! These are **matrix-independent**: each adapter reads coordinates from the
+//! item's `geo::Geometry` and metadata from its `KojiMeta`, never delegating to
+//! the geojson `To*` matrix (whose cells die in Phase 2). Correctness is pinned
+//! by parity tests against the oracle `geojson::FeatureCollection::from(&c).to_X()`,
+//! which is exact today.
+//!
+//! Coordinate convention: the matrix emits `PointArray = [lat, lon]` (y, x).
+//! `geo::Geometry` stores `[x, y]` (lon, lat), so every extraction flips to
+//! `[coord.y, coord.x]`.
+
+use geo::{Geometry, LineString, MultiPolygon, Polygon};
+
+use super::{MultiVec, SingleVec};
+use crate::geometry::KojiGeometryCollection;
+
+/// Flatten one closed/open ring (`LineString`) into the matrix's `[lat, lon]`
+/// point order, matching `Geometry::to_single_vec`'s `[point[1], point[0]]`.
+fn ring_points(line: &LineString<f64>) -> Vec<[f64; 2]> {
+    line.coords().map(|c| [c.y, c.x]).collect()
+}
+
+/// One polygon → a single flat `[lat, lon]` vec across exterior + interior
+/// rings, matching the matrix `Polygon` branch (which iterates every ring of
+/// the geojson polygon and flattens them into one inner vec).
+fn polygon_points(poly: &Polygon<f64>) -> Vec<[f64; 2]> {
+    let mut out = ring_points(poly.exterior());
+    for interior in poly.interiors() {
+        out.extend(ring_points(interior));
+    }
+    out
+}
+
+/// Per-item grouping that mirrors `Feature::to_multi_vec`:
+/// - `MultiPolygon` → one group per polygon
+/// - everything else (Point/MultiPoint/Line/MultiLineString/Polygon) → one group
+/// - `GeometryCollection` → one group per non-empty sub-geometry
+///
+/// Returns the list of `[lat, lon]` groups contributed by a single item.
+fn item_groups(geom: &Geometry<f64>) -> Vec<Vec<[f64; 2]>> {
+    match geom {
+        Geometry::MultiPolygon(mp) => mp.iter().map(polygon_points).collect(),
+        Geometry::GeometryCollection(gc) => gc
+            .iter()
+            .filter_map(|g| {
+                let group = single_group(g);
+                if group.is_empty() { None } else { Some(group) }
+            })
+            .collect(),
+        other => vec![single_group(other)],
+    }
+}
+
+/// The flat `[lat, lon]` coords of a geometry treated as a single group, matching
+/// the matrix `_ => geometry.to_single_vec()` path (Polygon flattens rings;
+/// MultiPolygon flattens every ring of every polygon; points/lines map directly).
+fn single_group(geom: &Geometry<f64>) -> Vec<[f64; 2]> {
+    match geom {
+        Geometry::Point(p) => vec![[p.y(), p.x()]],
+        Geometry::MultiPoint(mp) => mp.iter().map(|p| [p.y(), p.x()]).collect(),
+        Geometry::Line(l) => vec![[l.start.y, l.start.x], [l.end.y, l.end.x]],
+        Geometry::LineString(ls) => ring_points(ls),
+        Geometry::MultiLineString(mls) => mls.iter().flat_map(ring_points).collect(),
+        Geometry::Polygon(poly) => polygon_points(poly),
+        Geometry::MultiPolygon(mp) => mp.iter().flat_map(|p| polygon_points(p)).collect(),
+        Geometry::Rect(r) => polygon_points(&r.to_polygon()),
+        Geometry::Triangle(t) => polygon_points(&t.to_polygon()),
+        Geometry::GeometryCollection(gc) => gc.iter().flat_map(single_group).collect(),
+    }
+}
+
+impl KojiGeometryCollection {
+    /// All items' coordinates flattened into one `[lat, lon]` vec.
+    ///
+    /// Parity: `geojson::FeatureCollection::from(&self).to_single_vec()`.
+    pub fn to_single_vec(&self) -> SingleVec {
+        self.items
+            .iter()
+            .flat_map(|item| item_groups(&item.geometry).into_iter().flatten())
+            .collect()
+    }
+
+    /// Coordinates grouped one inner vec per ring/geometry.
+    ///
+    /// Parity: `geojson::FeatureCollection::from(&self).to_multi_vec()`.
+    pub fn to_multi_vec(&self) -> MultiVec {
+        self.items
+            .iter()
+            .flat_map(|item| item_groups(&item.geometry))
+            .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::geometry::{ToMultiVec, ToSingleVec}; // the existing oracle traits
+    use crate::{KojiGeometry, KojiGeometryCollection, KojiMeta, Mode};
+    use geo::{LineString, MultiPoint, Point, Polygon, coord};
+
+    /// A representative collection: one polygon + one multipoint, with metadata.
+    fn sample() -> KojiGeometryCollection {
+        let poly = Polygon::new(
+            LineString::from(vec![
+                coord! {x:0.0,y:0.0},
+                coord! {x:2.0,y:0.0},
+                coord! {x:2.0,y:2.0},
+                coord! {x:0.0,y:0.0},
+            ]),
+            vec![],
+        );
+        let mp = MultiPoint::from(vec![Point::new(5.0, 6.0), Point::new(7.0, 8.0)]);
+        KojiGeometryCollection::new(vec![
+            KojiGeometry::new(poly).with_meta(KojiMeta {
+                name: Some("a".into()),
+                mode: Mode::Fort,
+                ..Default::default()
+            }),
+            KojiGeometry::new(mp).with_meta(KojiMeta {
+                name: Some("b".into()),
+                ..Default::default()
+            }),
+        ])
+    }
+
+    /// Oracle: the existing matrix path, exact today.
+    fn fc(c: &KojiGeometryCollection) -> geojson::FeatureCollection {
+        geojson::FeatureCollection::from(c)
+    }
+
+    #[test]
+    fn single_vec_matches_oracle() {
+        let c = sample();
+        assert_eq!(c.to_single_vec(), fc(&c).to_single_vec());
+    }
+
+    #[test]
+    fn multi_vec_matches_oracle() {
+        let c = sample();
+        assert_eq!(c.to_multi_vec(), fc(&c).to_multi_vec());
+    }
+}

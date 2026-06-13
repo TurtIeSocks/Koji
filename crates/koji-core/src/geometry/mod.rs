@@ -5,6 +5,7 @@ mod geometry;
 mod koji_geojson;
 mod koji_geometry;
 mod koji_meta;
+mod koji_output;
 mod multi_struct;
 mod multi_vec;
 mod point_array;
