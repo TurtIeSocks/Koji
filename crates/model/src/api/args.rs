@@ -40,6 +40,10 @@ impl GeoInput {
     /// Phase 1 `TryFrom`. A `GeometryCollection` fans out into one item per
     /// child geometry (property-less, default meta) — matching the outbound
     /// `From<&KojiGeometryCollection> for geojson::Geometry`.
+    // `KojiGeojsonError` is the shared edge-conversion error; the codebase
+    // carries it by value (see `Model::to_koji_geometry`), so allow the lint
+    // here too rather than diverging the signature with a Box.
+    #[allow(clippy::result_large_err)]
     pub fn to_koji(&self) -> Result<KojiGeometryCollection, koji_core::KojiGeojsonError> {
         match self {
             GeoInput::FeatureCollection(fc) => KojiGeometryCollection::try_from(fc.clone()),
@@ -56,6 +60,7 @@ impl GeoInput {
 /// item. Both paths carry default (property-less) metadata. Each child is
 /// wrapped in a property-less `Feature` and routed through the Phase 1
 /// `TryFrom` so `model` needs no direct `geo` dependency.
+#[allow(clippy::result_large_err)]
 fn geometry_to_koji(g: &Geometry) -> Result<KojiGeometryCollection, koji_core::KojiGeojsonError> {
     let children: Vec<Geometry> = match &g.value {
         geojson::Value::GeometryCollection(geometries) => geometries.clone(),
