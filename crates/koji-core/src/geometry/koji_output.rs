@@ -3,14 +3,14 @@
 //! These are **matrix-independent**: each adapter reads coordinates from the
 //! item's `geo::Geometry` and metadata from its `KojiMeta`, never delegating to
 //! the geojson `To*` matrix (whose cells die in Phase 2). Correctness is pinned
-//! by parity tests against the oracle `geojson::FeatureCollection::from(&c).to_X()`,
-//! which is exact today.
+//! by parity tests against the geojson `FeatureCollection` matrix oracle, which
+//! is exact today.
 //!
 //! Coordinate convention: the matrix emits `PointArray = [lat, lon]` (y, x).
 //! `geo::Geometry` stores `[x, y]` (lon, lat), so every extraction flips to
 //! `[coord.y, coord.x]`.
 
-use geo::{Geometry, LineString, MultiPolygon, Polygon};
+use geo::{Geometry, LineString, Polygon};
 
 use super::{MultiStruct, MultiVec, PointStruct, Poracle, SingleStruct, SingleVec};
 use crate::UnknownId;
@@ -54,7 +54,7 @@ fn item_groups(geom: &Geometry<f64>) -> Vec<Vec<[f64; 2]>> {
 }
 
 /// The flat `[lat, lon]` coords of a geometry treated as a single group, matching
-/// the matrix `_ => geometry.to_single_vec()` path (Polygon flattens rings;
+/// the matrix's single-geometry coordinate path (Polygon flattens rings;
 /// MultiPolygon flattens every ring of every polygon; points/lines map directly).
 fn single_group(geom: &Geometry<f64>) -> Vec<[f64; 2]> {
     match geom {
@@ -64,7 +64,7 @@ fn single_group(geom: &Geometry<f64>) -> Vec<[f64; 2]> {
         Geometry::LineString(ls) => ring_points(ls),
         Geometry::MultiLineString(mls) => mls.iter().flat_map(ring_points).collect(),
         Geometry::Polygon(poly) => polygon_points(poly),
-        Geometry::MultiPolygon(mp) => mp.iter().flat_map(|p| polygon_points(p)).collect(),
+        Geometry::MultiPolygon(mp) => mp.iter().flat_map(polygon_points).collect(),
         Geometry::Rect(r) => polygon_points(&r.to_polygon()),
         Geometry::Triangle(t) => polygon_points(&t.to_polygon()),
         Geometry::GeometryCollection(gc) => gc.iter().flat_map(single_group).collect(),
@@ -97,7 +97,7 @@ fn to_point_struct(p: [f64; 2]) -> PointStruct {
 impl KojiGeometryCollection {
     /// All items' coordinates flattened into one `[lat, lon]` vec.
     ///
-    /// Parity: `geojson::FeatureCollection::from(&self).to_single_vec()`.
+    /// Parity oracle: the geojson `FeatureCollection` matrix `single_vec` path.
     pub fn to_single_vec(&self) -> SingleVec {
         self.items
             .iter()
@@ -107,7 +107,7 @@ impl KojiGeometryCollection {
 
     /// Coordinates grouped one inner vec per ring/geometry.
     ///
-    /// Parity: `geojson::FeatureCollection::from(&self).to_multi_vec()`.
+    /// Parity oracle: the geojson `FeatureCollection` matrix `multi_vec` path.
     pub fn to_multi_vec(&self) -> MultiVec {
         self.items
             .iter()
@@ -117,11 +117,16 @@ impl KojiGeometryCollection {
 
     /// All coordinates as one flat `PointStruct` vec.
     ///
-    /// Parity: `geojson::FeatureCollection::from(&self).to_single_struct()`.
+    /// Parity oracle: the geojson `FeatureCollection` matrix `single_struct` path.
     /// The matrix flattens to a single vec, then `ensure_first_last`s it before
     /// the struct map — so this closes the *flattened* ring, not each group.
     pub fn to_single_struct(&self) -> SingleStruct {
-        ensure_first_last(self.to_single_vec())
+        let flat: SingleVec = self
+            .items
+            .iter()
+            .flat_map(|item| item_groups(&item.geometry).into_iter().flatten())
+            .collect();
+        ensure_first_last(flat)
             .into_iter()
             .map(to_point_struct)
             .collect()
@@ -129,7 +134,7 @@ impl KojiGeometryCollection {
 
     /// Coordinates as `PointStruct` groups, one per ring/geometry.
     ///
-    /// Parity: `geojson::FeatureCollection::from(&self).to_multi_struct()`.
+    /// Parity oracle: the geojson `FeatureCollection` matrix `multi_struct` path.
     /// The matrix `ensure_first_last`s each group before the struct map.
     pub fn to_multi_struct(&self) -> MultiStruct {
         self.to_multi_vec()
@@ -146,8 +151,9 @@ impl KojiGeometryCollection {
     /// Plain-text coordinate dump. Covers both `response.rs` parameterizations:
     /// Text (`",", "\n", true`) and AltText (`" ", ",", false`).
     ///
-    /// Parity: `geojson::FeatureCollection::from(&self).to_text(sep_1, sep_2, poly_sep)`,
-    /// i.e. `MultiVec::to_text` over `to_multi_vec()`. Coordinates use the default
+    /// Parity oracle: the geojson `FeatureCollection` matrix `text` path with the
+    /// same `(sep_1, sep_2, poly_sep)`, i.e. `MultiVec` text over the groups.
+    /// Coordinates use the default
     /// `f64` `Display` (no fixed precision), `lat` then `sep_1` then `lon`.
     pub fn to_text(&self, sep_1: &str, sep_2: &str, poly_sep: bool) -> String {
         let groups = self.to_multi_vec();
@@ -182,7 +188,7 @@ impl KojiGeometryCollection {
     /// clause but still advance the item index (matching the matrix, where the
     /// `\nOR` joiner keys off the FeatureCollection index, not the emit count).
     ///
-    /// Parity: `geojson::FeatureCollection::from(&self).to_sql()`.
+    /// Parity oracle: the geojson `FeatureCollection` matrix `sql` path.
     pub fn to_sql(&self) -> String {
         let mut clauses = String::new();
         for (i, item) in self.items.iter().enumerate() {
@@ -213,9 +219,9 @@ impl KojiGeometryCollection {
     /// (serialized to the same property map the oracle reads back), and
     /// `path`/`multipath` come from the item's `geo::Geometry`.
     ///
-    /// Parity: `geojson::FeatureCollection::from(&self).to_poracle_vec()`. The
-    /// oracle reads geojson `properties` that Phase 1 wrote from `KojiMeta`, so
-    /// serializing the meta and applying the oracle's key reads is exact.
+    /// Parity oracle: the geojson `FeatureCollection` matrix `poracle_vec` path.
+    /// The oracle reads geojson `properties` that Phase 1 wrote from `KojiMeta`,
+    /// so serializing the meta and applying the oracle's key reads is exact.
     pub fn to_poracle_vec(&self) -> Vec<Poracle> {
         self.items
             .iter()
@@ -233,15 +239,12 @@ fn item_poracle(i: usize, item: &KojiGeometry) -> Poracle {
     // same keys — so typed fields (`id`, `name`) and `extra` keys
     // (`color`, `group`, `parent`, `description`, `displayInMatches`,
     // `userSelectable`) map identically.
-    let props: serde_json::Map<String, serde_json::Value> =
-        match serde_json::to_value(&item.meta) {
-            Ok(serde_json::Value::Object(map)) => map,
-            _ => serde_json::Map::new(),
-        };
+    let props: serde_json::Map<String, serde_json::Value> = match serde_json::to_value(&item.meta) {
+        Ok(serde_json::Value::Object(map)) => map,
+        _ => serde_json::Map::new(),
+    };
     let str_prop = |key: &str| -> Option<String> {
-        props
-            .get(key)
-            .map(|v| v.as_str().unwrap_or("").to_string())
+        props.get(key).map(|v| v.as_str().unwrap_or("").to_string())
     };
 
     let mut poracle = Poracle::default();
@@ -363,11 +366,13 @@ fn geojson_geometry_closed(geom: &Geometry<f64>) -> String {
     // Inline `EnsurePoints::ensure_first_last`: close each ring whose last point
     // differs from its first on *both* axes (matrix uses `&&`).
     let close_ring = |ring: &mut Vec<Vec<f64>>| {
-        if let Some(last) = ring.last() {
-            if last[0] != ring[0][0] && last[1] != ring[0][1] {
-                let first = ring[0].clone();
-                ring.push(first);
-            }
+        let needs_close = match (ring.first(), ring.last()) {
+            (Some(first), Some(last)) => last[0] != first[0] && last[1] != first[1],
+            _ => false,
+        };
+        if needs_close {
+            let first = ring[0].clone();
+            ring.push(first);
         }
     };
     match &mut value {
@@ -400,7 +405,6 @@ fn point_to_text(pt: &[f64; 2], sep_1: &str, sep_2: &str, _poly_sep: bool) -> St
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::geometry::{ToMultiVec, ToSingleVec}; // the existing oracle traits
     use crate::{KojiGeometry, KojiGeometryCollection, KojiMeta, Mode};
     use geo::{LineString, MultiPoint, Point, Polygon, coord};
