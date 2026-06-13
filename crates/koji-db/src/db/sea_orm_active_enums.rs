@@ -157,3 +157,39 @@ impl Serialize for RouteMode {
         }
     }
 }
+
+/// Storage mirror of `koji_core::Mode`. The geofence/route `mode` columns use
+/// this; the four variants line up 1:1 with the domain enum and are bridged
+/// below via `enum_bridge!`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mode")]
+pub enum Mode {
+    #[sea_orm(string_value = "unset")]
+    Unset,
+    #[sea_orm(string_value = "pokemon")]
+    Pokemon,
+    #[sea_orm(string_value = "fort")]
+    Fort,
+    #[sea_orm(string_value = "quest")]
+    Quest,
+}
+
+koji_core::enum_bridge!(Mode, koji_core::Mode, [Unset, Pokemon, Fort, Quest]);
+
+#[cfg(test)]
+mod mode_bridge_tests {
+    use super::Mode as DbMode;
+    use koji_core::Mode as CoreMode;
+
+    #[test]
+    fn bridges_both_directions() {
+        assert_eq!(CoreMode::from(DbMode::Fort), CoreMode::Fort);
+        assert_eq!(DbMode::from(CoreMode::Quest), DbMode::Quest);
+    }
+
+    #[test]
+    fn db_string_values_are_lowercase() {
+        use sea_orm::ActiveEnum;
+        assert_eq!(DbMode::Pokemon.to_value(), "pokemon");
+    }
+}
