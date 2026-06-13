@@ -22,8 +22,8 @@ pub use calc_mode::CalculationMode;
 pub use category::Category;
 pub use cluster_mode::ClusterMode;
 pub use config::{
-    AreaInput, BootstrapConfig, ClusteringConfig, DataFilter, DevConfig, OutputConfig,
-    RoutingConfig, S2Config,
+    BootstrapConfig, ClusteringConfig, DataFilter, DevConfig, OutputConfig, RoutingConfig,
+    S2Config,
 };
 pub use enum_map::{
     get_category_enum, get_enum, get_enum_by_geometry, get_enum_by_geometry_string,

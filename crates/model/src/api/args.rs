@@ -1,8 +1,7 @@
-use geojson::{Feature, FeatureCollection};
+use geojson::{Feature, FeatureCollection, Geometry};
 use koji_core::{
-    CalculationMode, ClusterMode, FeatureCtx, FenceType, GeoFormats, Precision, ReturnTypeArg,
-    SortBy, SpawnpointTth, ToCollection, ToSingleVec, UnknownId, get_enum,
-    get_enum_by_geometry_string,
+    CalculationMode, ClusterMode, FenceType, KojiGeometry, KojiGeometryCollection, Precision,
+    ReturnTypeArg, SortBy, SpawnpointTth, ToSingleVec, UnknownId, get_enum,
 };
 use serde::{Deserialize, Serialize};
 
@@ -20,14 +19,74 @@ pub enum DataPointsArg {
     FeatureCollection(FeatureCollection),
 }
 
+/// Accepted inbound geometry shapes for the request `area`. geojson-only:
+/// the bare-array wire forms (`[Feature]`, `[Geometry]`, raw point arrays,
+/// poracle, bbox, text) were dropped in Phase 2 — clients send a
+/// `FeatureCollection`, a `Feature`, or a `GeometryCollection`.
+///
+/// Untagged: serde picks the first variant that deserializes. `FeatureCollection`
+/// leads (most specific — requires `type: "FeatureCollection"`), then `Feature`,
+/// then a bare `Geometry`/`GeometryCollection`.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum GeoInput {
+    FeatureCollection(FeatureCollection),
+    Feature(Feature),
+    Geometry(Geometry),
+}
+
+impl GeoInput {
+    /// Normalize the inbound geojson into a [`KojiGeometryCollection`] via the
+    /// Phase 1 `TryFrom`. A `GeometryCollection` fans out into one item per
+    /// child geometry (property-less, default meta) — matching the outbound
+    /// `From<&KojiGeometryCollection> for geojson::Geometry`.
+    pub fn to_koji(&self) -> Result<KojiGeometryCollection, koji_core::KojiGeojsonError> {
+        match self {
+            GeoInput::FeatureCollection(fc) => KojiGeometryCollection::try_from(fc.clone()),
+            GeoInput::Feature(f) => {
+                Ok(KojiGeometryCollection::new(vec![KojiGeometry::try_from(
+                    f.clone(),
+                )?]))
+            }
+            GeoInput::Geometry(g) => geometry_to_koji(g),
+        }
+    }
+}
+
+/// Convert a bare geojson `Geometry` into a collection. A `GeometryCollection`
+/// becomes one [`KojiGeometry`] per child; any other geometry becomes a single
+/// item. Both paths carry default (property-less) metadata. Each child is
+/// wrapped in a property-less `Feature` and routed through the Phase 1
+/// `TryFrom` so `model` needs no direct `geo` dependency.
+fn geometry_to_koji(g: &Geometry) -> Result<KojiGeometryCollection, koji_core::KojiGeojsonError> {
+    let children: Vec<Geometry> = match &g.value {
+        geojson::Value::GeometryCollection(geometries) => geometries.clone(),
+        _ => vec![g.clone()],
+    };
+    let items = children
+        .into_iter()
+        .map(|geometry| {
+            KojiGeometry::try_from(Feature {
+                bbox: None,
+                geometry: Some(geometry),
+                id: None,
+                properties: None,
+                foreign_members: None,
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(KojiGeometryCollection::new(items))
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct Args {
     /// The area input to be used for data point collection.
     ///
-    /// Accepts an optional [GeoFormats]
+    /// Accepts an optional [GeoInput] — a geojson `FeatureCollection`,
+    /// `Feature`, or `GeometryCollection`.
     ///
     /// Default: `None`
-    pub area: Option<GeoFormats>,
+    pub area: Option<GeoInput>,
     /// Only returns stats from the API
     ///
     /// Default: `false`
@@ -259,6 +318,20 @@ fn resolve_data_points(data_points: Option<DataPointsArg>) -> koji_core::SingleV
 }
 
 impl Args {
+    /// Normalize the inbound `area` (if any) into a [`KojiGeometryCollection`]
+    /// via the Phase 1 geojson conversions. A malformed geometry logs a warning
+    /// and yields `None` (the legacy `to_collection` path was equally lenient —
+    /// it dropped unconvertible geometries silently).
+    pub fn area_koji(&self) -> Option<KojiGeometryCollection> {
+        match self.area.as_ref()?.to_koji() {
+            Ok(coll) => Some(coll),
+            Err(err) => {
+                log::warn!("[AREA] failed to normalize inbound geometry: {err}");
+                None
+            }
+        }
+    }
+
     pub fn init(self, input: Option<&str>) -> ArgsUnwrapped {
         if let Some(input) = input {
             log::debug!("[{}]: {:?}", input.to_uppercase(), self);
@@ -296,33 +369,29 @@ impl Args {
             genetic_post_processing,
             dev,
         } = self;
-        let enum_type: Option<FenceType> = get_enum_by_geometry_string(geometry_type);
+        // `geometry_type` (the legacy mode-from-string hint) no longer feeds the
+        // area conversion — geometry is self-describing via `KojiMeta`. It is
+        // retained on the wire for back-compat but read only for the `mode`
+        // unwrap below.
+        let _ = &geometry_type;
+        // Normalize the inbound geojson `area` to a `KojiGeometryCollection`, then
+        // re-emit the algorithm-edge `FeatureCollection` from it (the compute
+        // cores still consume geojson). The default return type follows the
+        // inbound container shape.
         let (area, default_return_type) = if let Some(area) = area {
-            (
-                area.clone().to_collection(&FeatureCtx {
-                    name: instance.clone(),
-                    fence_type: enum_type,
-                }),
-                match area {
-                    GeoFormats::Text(area) => {
-                        if koji_core::text_test(&area) {
-                            ReturnTypeArg::AltText
-                        } else {
-                            ReturnTypeArg::Text
-                        }
-                    }
-                    GeoFormats::SingleArray(_) | GeoFormats::Bound(_) => ReturnTypeArg::SingleArray,
-                    GeoFormats::MultiArray(_) => ReturnTypeArg::MultiArray,
-                    GeoFormats::SingleStruct(_) => ReturnTypeArg::SingleStruct,
-                    GeoFormats::MultiStruct(_) => ReturnTypeArg::MultiStruct,
-                    GeoFormats::Geometry(_) => ReturnTypeArg::Geometry,
-                    GeoFormats::GeometryVec(_) => ReturnTypeArg::GeometryVec,
-                    GeoFormats::Feature(_) => ReturnTypeArg::Feature,
-                    GeoFormats::FeatureVec(_) => ReturnTypeArg::FeatureVec,
-                    GeoFormats::FeatureCollection(_) => ReturnTypeArg::FeatureCollection,
-                    GeoFormats::Poracle(_) | GeoFormats::PoracleSingle(_) => ReturnTypeArg::Poracle,
-                },
-            )
+            let default_return_type = match area {
+                GeoInput::FeatureCollection(_) => ReturnTypeArg::FeatureCollection,
+                GeoInput::Feature(_) => ReturnTypeArg::Feature,
+                GeoInput::Geometry(_) => ReturnTypeArg::Geometry,
+            };
+            let collection = match area.to_koji() {
+                Ok(coll) => FeatureCollection::from(&coll),
+                Err(err) => {
+                    log::warn!("[AREA] failed to normalize inbound geometry: {err}");
+                    FeatureCollection::default()
+                }
+            };
+            (collection, default_return_type)
         } else {
             (FeatureCollection::default(), ReturnTypeArg::SingleArray)
         };
@@ -445,4 +514,81 @@ pub fn get_return_type(return_type: String, default_return_type: &ReturnTypeArg)
 #[derive(Debug, Deserialize)]
 pub struct Search {
     pub query: String,
+}
+
+#[cfg(test)]
+mod area_input_tests {
+    use super::*;
+    use koji_core::Mode;
+
+    #[test]
+    fn area_feature_collection_normalizes_to_koji() {
+        let args: Args = serde_json::from_value(serde_json::json!({
+            "area": {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": { "type": "Point", "coordinates": [1.0, 2.0] },
+                        "properties": { "name": "a", "mode": "fort" }
+                    },
+                    {
+                        "type": "Feature",
+                        "geometry": { "type": "Point", "coordinates": [3.0, 4.0] },
+                        "properties": { "name": "b", "mode": "quest" }
+                    }
+                ]
+            }
+        }))
+        .unwrap();
+
+        let coll = args.area_koji().expect("area should normalize");
+        assert_eq!(coll.items.len(), 2);
+        assert_eq!(coll.items[0].meta.mode, Mode::Fort);
+        assert_eq!(coll.items[0].meta.name.as_deref(), Some("a"));
+        assert_eq!(coll.items[1].meta.mode, Mode::Quest);
+    }
+
+    #[test]
+    fn area_bare_feature_normalizes_to_single_item() {
+        let args: Args = serde_json::from_value(serde_json::json!({
+            "area": {
+                "type": "Feature",
+                "geometry": { "type": "Point", "coordinates": [5.0, 6.0] },
+                "properties": { "name": "solo", "mode": "pokemon" }
+            }
+        }))
+        .unwrap();
+
+        let coll = args.area_koji().expect("area should normalize");
+        assert_eq!(coll.items.len(), 1);
+        assert_eq!(coll.items[0].meta.mode, Mode::Pokemon);
+        assert_eq!(coll.items[0].meta.name.as_deref(), Some("solo"));
+    }
+
+    #[test]
+    fn area_geometry_collection_fans_out_per_child() {
+        let args: Args = serde_json::from_value(serde_json::json!({
+            "area": {
+                "type": "GeometryCollection",
+                "geometries": [
+                    { "type": "Point", "coordinates": [0.0, 0.0] },
+                    { "type": "Point", "coordinates": [1.0, 1.0] },
+                    { "type": "Point", "coordinates": [2.0, 2.0] }
+                ]
+            }
+        }))
+        .unwrap();
+
+        let coll = args.area_koji().expect("area should normalize");
+        assert_eq!(coll.items.len(), 3);
+        // property-less geometry input -> default meta
+        assert_eq!(coll.items[0].meta.mode, Mode::Unset);
+    }
+
+    #[test]
+    fn missing_area_yields_none() {
+        let args: Args = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert!(args.area_koji().is_none());
+    }
 }

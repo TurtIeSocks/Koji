@@ -2,9 +2,7 @@
 //! (and, later, the v2 request DTOs) map into these; the algorithms consume
 //! them from P2 onward.
 
-use crate::{
-    CalculationMode, ClusterMode, GeoFormats, Precision, ReturnTypeArg, SortBy, SpawnpointTth,
-};
+use crate::{CalculationMode, ClusterMode, Precision, ReturnTypeArg, SortBy, SpawnpointTth};
 
 /// S2 grid parameters shared by clustering + bootstrapping.
 #[derive(Debug, Clone, Copy, Default)]
@@ -40,14 +38,6 @@ pub struct BootstrapConfig {
     pub radius: Precision,
     pub s2: S2Config,
     pub plugin_args: String,
-}
-
-/// Raw area source + identity, pre-resolution to a `FeatureCollection`.
-#[derive(Debug, Clone)]
-pub struct AreaInput {
-    pub area: Option<GeoFormats>,
-    pub instance: String,
-    pub geometry_type: Option<String>,
 }
 
 #[derive(Debug, Clone)]
