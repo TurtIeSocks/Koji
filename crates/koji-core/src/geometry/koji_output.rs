@@ -12,7 +12,7 @@
 
 use geo::{Geometry, LineString, MultiPolygon, Polygon};
 
-use super::{MultiVec, SingleVec};
+use super::{MultiStruct, MultiVec, PointStruct, SingleStruct, SingleVec};
 use crate::geometry::KojiGeometryCollection;
 
 /// Flatten one closed/open ring (`LineString`) into the matrix's `[lat, lon]`
@@ -70,6 +70,29 @@ fn single_group(geom: &Geometry<f64>) -> Vec<[f64; 2]> {
     }
 }
 
+/// Append the first point if it doesn't already close the ring, matching the
+/// matrix `SingleVec::ensure_first_last`. The matrix applies this when going
+/// `SingleVec`/`MultiVec` → struct forms (`to_single_struct` on a `SingleVec`),
+/// so the struct adapters must reproduce it.
+fn ensure_first_last(mut points: Vec<[f64; 2]>) -> Vec<[f64; 2]> {
+    if points.is_empty() {
+        return points;
+    }
+    if points[0] != points[points.len() - 1] {
+        points.push(points[0]);
+    }
+    points
+}
+
+/// `[lat, lon]` → `PointStruct`, matching `From<PointArray> for PointStruct`
+/// (`lat = p[0]`, `lon = p[1]`).
+fn to_point_struct(p: [f64; 2]) -> PointStruct {
+    PointStruct {
+        lat: p[0],
+        lon: p[1],
+    }
+}
+
 impl KojiGeometryCollection {
     /// All items' coordinates flattened into one `[lat, lon]` vec.
     ///
@@ -88,6 +111,34 @@ impl KojiGeometryCollection {
         self.items
             .iter()
             .flat_map(|item| item_groups(&item.geometry))
+            .collect()
+    }
+
+    /// All coordinates as one flat `PointStruct` vec.
+    ///
+    /// Parity: `geojson::FeatureCollection::from(&self).to_single_struct()`.
+    /// The matrix flattens to a single vec, then `ensure_first_last`s it before
+    /// the struct map — so this closes the *flattened* ring, not each group.
+    pub fn to_single_struct(&self) -> SingleStruct {
+        ensure_first_last(self.to_single_vec())
+            .into_iter()
+            .map(to_point_struct)
+            .collect()
+    }
+
+    /// Coordinates as `PointStruct` groups, one per ring/geometry.
+    ///
+    /// Parity: `geojson::FeatureCollection::from(&self).to_multi_struct()`.
+    /// The matrix `ensure_first_last`s each group before the struct map.
+    pub fn to_multi_struct(&self) -> MultiStruct {
+        self.to_multi_vec()
+            .into_iter()
+            .map(|group| {
+                ensure_first_last(group)
+                    .into_iter()
+                    .map(to_point_struct)
+                    .collect()
+            })
             .collect()
     }
 }
@@ -139,5 +190,25 @@ mod tests {
     fn multi_vec_matches_oracle() {
         let c = sample();
         assert_eq!(c.to_multi_vec(), fc(&c).to_multi_vec());
+    }
+
+    #[test]
+    fn single_struct_matches_oracle() {
+        use crate::geometry::ToSingleStruct;
+        let c = sample();
+        // `PointStruct` has no `PartialEq`; compare its serialized form (it derives
+        // `Serialize`) — full-fidelity parity against the oracle.
+        let mine = serde_json::to_value(c.to_single_struct()).unwrap();
+        let oracle = serde_json::to_value(fc(&c).to_single_struct()).unwrap();
+        assert_eq!(mine, oracle);
+    }
+
+    #[test]
+    fn multi_struct_matches_oracle() {
+        use crate::geometry::ToMultiStruct;
+        let c = sample();
+        let mine = serde_json::to_value(c.to_multi_struct()).unwrap();
+        let oracle = serde_json::to_value(fc(&c).to_multi_struct()).unwrap();
+        assert_eq!(mine, oracle);
     }
 }
