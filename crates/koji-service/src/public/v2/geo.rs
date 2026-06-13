@@ -114,7 +114,7 @@ async fn circle_coverage(payload: web::Json<CoverageArgs>) -> Result<HttpRespons
         level,
         ..
     } = payload.into_inner();
-    let result = algorithms::s2::circle_coverage(lat, lon, radius.unwrap_or(70.), level);
+    let result = koji_core::s2::circle_coverage(lat, lon, radius.unwrap_or(70.), level);
     Ok(ApiResponse::success(json!(result)))
 }
 
@@ -128,7 +128,7 @@ async fn cell_coverage(payload: web::Json<CoverageArgs>) -> Result<HttpResponse,
         size,
         ..
     } = payload.into_inner();
-    let result = algorithms::s2::cell_coverage(lat, lon, size.unwrap_or(15), level);
+    let result = koji_core::s2::cell_coverage(lat, lon, size.unwrap_or(15), level);
     let locked = result
         .iter()
         .map(|cell| cell.to_string())
@@ -139,7 +139,7 @@ async fn cell_coverage(payload: web::Json<CoverageArgs>) -> Result<HttpResponse,
 /// `POST /api/v2/geo/s2/polygons` — polygons for the given S2 cell ids.
 #[post("/polygons")]
 async fn cell_polygons(payload: web::Json<Vec<String>>) -> Result<HttpResponse, Error> {
-    let result = algorithms::s2::get_polygons(payload.into_inner());
+    let result = koji_core::s2::get_polygons(payload.into_inner());
     Ok(ApiResponse::success(json!(result)))
 }
 
@@ -158,7 +158,7 @@ async fn s2_cells(
         .map(|ids| ids.into_iter().collect::<HashSet<String>>())
         .unwrap_or_default();
 
-    let cells = algorithms::s2::get_cells(
+    let cells = koji_core::s2::get_cells(
         url.into_inner(),
         bounds.min_lat,
         bounds.min_lon,

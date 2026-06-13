@@ -4,7 +4,7 @@ use crate::utils::response::Response;
 
 use super::*;
 
-use algorithms::s2;
+use koji_core::s2;
 
 use koji_core::BoundsArg;
 use serde::Deserialize;
