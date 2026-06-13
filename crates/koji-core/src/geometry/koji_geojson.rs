@@ -54,6 +54,47 @@ impl TryFrom<geojson::FeatureCollection> for KojiGeometryCollection {
     }
 }
 
+impl From<&KojiGeometry> for geojson::Feature {
+    fn from(g: &KojiGeometry) -> Self {
+        let value = geojson::Value::from(&g.geometry);
+        let properties = match serde_json::to_value(&g.meta) {
+            Ok(serde_json::Value::Object(map)) if !map.is_empty() => Some(map),
+            _ => None,
+        };
+        geojson::Feature {
+            bbox: None,
+            geometry: Some(geojson::Geometry::new(value)),
+            id: g.meta.id.map(|i| geojson::feature::Id::Number(i.into())),
+            properties,
+            foreign_members: None,
+        }
+    }
+}
+
+impl From<&KojiGeometryCollection> for geojson::FeatureCollection {
+    fn from(c: &KojiGeometryCollection) -> Self {
+        geojson::FeatureCollection {
+            bbox: None,
+            features: c.items.iter().map(geojson::Feature::from).collect(),
+            foreign_members: None,
+        }
+    }
+}
+
+impl From<&KojiGeometryCollection> for geojson::Geometry {
+    /// Property-less `GeometryCollection` output (replaces the old bare
+    /// `[Geometry]` array). Metadata is intentionally dropped — this is the
+    /// property-less multi-geometry format.
+    fn from(c: &KojiGeometryCollection) -> Self {
+        let geometries = c
+            .items
+            .iter()
+            .map(|g| geojson::Geometry::new(geojson::Value::from(&g.geometry)))
+            .collect();
+        geojson::Geometry::new(geojson::Value::GeometryCollection(geometries))
+    }
+}
+
 #[cfg(test)]
 mod inbound_tests {
     use super::*;
@@ -88,5 +129,52 @@ mod inbound_tests {
 
         let c = KojiGeometryCollection::try_from(fc).unwrap();
         assert_eq!(c.items.len(), 2);
+    }
+}
+
+#[cfg(test)]
+mod outbound_tests {
+    use super::*;
+    use crate::{KojiMeta, Mode};
+    use geo::Point;
+
+    fn sample() -> KojiGeometry {
+        KojiGeometry::new(Point::new(1.0, 2.0)).with_meta(KojiMeta {
+            id: Some(5),
+            mode: Mode::Quest,
+            ..Default::default()
+        })
+    }
+
+    #[test]
+    fn element_to_feature_carries_props() {
+        let f = geojson::Feature::from(&sample());
+        assert!(f.geometry.is_some());
+        let props = f.properties.unwrap();
+        assert_eq!(props.get("id").unwrap(), 5);
+        assert_eq!(props.get("mode").unwrap(), "quest");
+    }
+
+    #[test]
+    fn collection_to_featurecollection() {
+        let c = KojiGeometryCollection::new(vec![sample(), sample()]);
+        let fc = geojson::FeatureCollection::from(&c);
+        assert_eq!(fc.features.len(), 2);
+    }
+
+    #[test]
+    fn collection_to_geometrycollection_is_property_less() {
+        let c = KojiGeometryCollection::new(vec![sample(), sample()]);
+        let g = geojson::Geometry::from(&c);
+        assert!(matches!(g.value, geojson::Value::GeometryCollection(ref v) if v.len() == 2));
+    }
+
+    #[test]
+    fn feature_roundtrip_is_idempotent() {
+        let f0 = geojson::Feature::from(&sample());
+        let g = KojiGeometry::try_from(f0.clone()).unwrap();
+        let f1 = geojson::Feature::from(&g);
+        assert_eq!(f0.geometry, f1.geometry);
+        assert_eq!(f0.properties, f1.properties);
     }
 }
