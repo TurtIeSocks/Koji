@@ -73,6 +73,33 @@ pub struct OnlyGeofenceId {
     pub geofence_id: u32,
 }
 
+impl Model {
+    /// Additive: map this route row to a `KojiGeometry` (the Phase 1 target
+    /// type). Does not replace `to_feature`. Mirrors
+    /// `geofence::Model::to_koji_geometry`: the geometry JSON is parsed to
+    /// geo-types and the legacy `mode` column (`Type`) is collapsed to the new
+    /// `Mode` enum via `Mode::from_legacy`. Routes have no `parent` hierarchy,
+    /// so `parent_id`/`ancestors` stay at their defaults.
+    #[allow(clippy::result_large_err)]
+    pub fn to_koji_geometry(&self) -> Result<koji_core::KojiGeometry, ModelError> {
+        use sea_orm::ActiveEnum;
+        let gj = geojson::Geometry::from_json_value(self.geometry.clone())
+            .map_err(|e| ModelError::Custom(format!("[GEOMETRY]: {e}")))?;
+        let geometry = geo::Geometry::<f64>::try_from(&gj)
+            .map_err(|e| ModelError::Custom(format!("[GEOMETRY]: {e}")))?;
+
+        let meta = koji_core::KojiMeta {
+            id: Some(self.id),
+            name: Some(self.name.clone()),
+            mode: koji_core::Mode::from_legacy(&self.mode.to_value()),
+            parent_id: None,
+            ancestors: Vec::new(),
+            extra: serde_json::Map::new(),
+        };
+        Ok(koji_core::KojiGeometry { geometry, meta })
+    }
+}
+
 impl ToFeatureFromModel for Model {
     fn to_feature(self, internal: bool) -> Result<Feature, ModelError> {
         let Self {
@@ -589,5 +616,51 @@ impl Query {
             .all(db)
             .await?;
         Ok(items)
+    }
+}
+
+#[cfg(test)]
+mod to_koji_tests {
+    use super::*;
+    use koji_core::Mode;
+
+    #[cfg(test)]
+    fn test_model_defaults() -> Model {
+        use chrono::Utc;
+        Model {
+            id: 0,
+            geofence_id: 0,
+            name: String::new(),
+            description: None,
+            mode: Type::Unset,
+            geometry: serde_json::json!(null),
+            points: 0,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        }
+    }
+
+    #[test]
+    fn route_model_to_koji_geometry_maps_mode_and_geometry() {
+        let model = Model {
+            id: 42,
+            geofence_id: 7,
+            name: "Patrol".to_string(),
+            geometry: serde_json::json!({
+                "type": "LineString",
+                "coordinates": [[1.0, 2.0], [3.0, 4.0]]
+            }),
+            mode: Type::CircleRaid, // legacy fort value -> Mode::Fort
+            ..test_model_defaults()
+        };
+
+        let kg = model.to_koji_geometry().unwrap();
+        assert!(matches!(kg.geometry, geo::Geometry::LineString(_)));
+        assert_eq!(kg.meta.mode, Mode::Fort); // confirms legacy circle_raid -> Fort mapping
+        assert_eq!(kg.meta.name.as_deref(), Some("Patrol"));
+        assert_eq!(kg.meta.id, Some(42));
+        // Routes have no parent hierarchy.
+        assert_eq!(kg.meta.parent_id, None);
+        assert!(kg.meta.ancestors.is_empty());
     }
 }
