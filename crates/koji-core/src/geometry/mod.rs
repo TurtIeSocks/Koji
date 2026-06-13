@@ -1,3 +1,4 @@
+mod koji_meta;
 mod collection;
 mod feature;
 mod geometry;
@@ -10,6 +11,7 @@ mod single_struct;
 mod single_vec;
 mod text;
 
+pub use koji_meta::KojiMeta;
 pub use multi_struct::MultiStruct;
 pub use multi_vec::MultiVec;
 pub use point_array::PointArray;
