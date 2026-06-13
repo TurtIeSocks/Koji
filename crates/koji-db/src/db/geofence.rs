@@ -292,6 +292,75 @@ impl Model {
     }
 }
 
+impl Model {
+    /// Additive: map this row to a `KojiGeometry` (the Phase 1 target type).
+    /// Does not replace `to_feature`. The geometry JSON is parsed to geo-types.
+    /// Phase 1 keeps the LEGACY `mode` column (`Type`), so we map its string via
+    /// `Mode::from_legacy` here; Phase 2 switches the column to the new `Mode`
+    /// enum and this becomes a direct bridge.
+    pub fn to_koji_geometry(&self) -> Result<koji_core::KojiGeometry, ModelError> {
+        use sea_orm::ActiveEnum;
+        let gj = geojson::Geometry::from_json_value(self.geometry.clone())
+            .map_err(|e| ModelError::Custom(format!("[GEOMETRY]: {e}")))?;
+        let geometry = geo::Geometry::<f64>::try_from(&gj)
+            .map_err(|e| ModelError::Custom(format!("[GEOMETRY]: {e}")))?;
+
+        // `self.mode` is the legacy `Type` ActiveEnum; `to_value()` yields its
+        // legacy string ("circle_raid", ...) which `from_legacy` collapses.
+        let meta = koji_core::KojiMeta {
+            id: Some(self.id),
+            name: Some(self.name.clone()),
+            mode: koji_core::Mode::from_legacy(&self.mode.to_value()),
+            parent_id: self.parent,
+            ancestors: Vec::new(),
+            extra: serde_json::Map::new(),
+        };
+        Ok(koji_core::KojiGeometry { geometry, meta })
+    }
+}
+
+#[cfg(test)]
+mod to_koji_tests {
+    use super::*;
+    use koji_core::Mode;
+
+    #[cfg(test)]
+    fn test_model_defaults() -> Model {
+        use chrono::Utc;
+        Model {
+            id: 0,
+            name: String::new(),
+            parent: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            mode: Type::Unset,
+            geometry: serde_json::json!(null),
+            geo_type: String::new(),
+            dragonite_area_id: None,
+        }
+    }
+
+    #[test]
+    fn model_maps_to_kojigeometry() {
+        let model = Model {
+            id: 42,
+            name: "Boulder".to_string(),
+            parent: Some(7),
+            geometry: serde_json::json!({ "type": "Point", "coordinates": [1.0, 2.0] }),
+            geo_type: "Point".to_string(),
+            mode: Type::CircleRaid, // legacy fort value -> Mode::Fort
+            ..test_model_defaults()
+        };
+
+        let kg = model.to_koji_geometry().unwrap();
+        assert!(matches!(kg.geometry, geo::Geometry::Point(_)));
+        assert_eq!(kg.meta.id, Some(42));
+        assert_eq!(kg.meta.name.as_deref(), Some("Boulder"));
+        assert_eq!(kg.meta.parent_id, Some(7));
+        assert_eq!(kg.meta.mode, Mode::Fort); // confirms legacy circle_raid -> Fort mapping
+    }
+}
+
 impl VecToJson for Vec<Model> {
     fn to_json(self) -> Vec<Json> {
         self.into_iter().map(|model| model.to_json()).collect()
