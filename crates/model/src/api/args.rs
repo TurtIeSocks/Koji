@@ -43,11 +43,9 @@ impl GeoInput {
     pub fn to_koji(&self) -> Result<KojiGeometryCollection, koji_core::KojiGeojsonError> {
         match self {
             GeoInput::FeatureCollection(fc) => KojiGeometryCollection::try_from(fc.clone()),
-            GeoInput::Feature(f) => {
-                Ok(KojiGeometryCollection::new(vec![KojiGeometry::try_from(
-                    f.clone(),
-                )?]))
-            }
+            GeoInput::Feature(f) => Ok(KojiGeometryCollection::new(vec![KojiGeometry::try_from(
+                f.clone(),
+            )?])),
             GeoInput::Geometry(g) => geometry_to_koji(g),
         }
     }

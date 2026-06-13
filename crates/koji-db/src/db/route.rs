@@ -543,7 +543,8 @@ impl Query {
         for item in &area.items {
             // Derive the per-row geojson Feature from the Koji item (Phase 1
             // outbound); `upsert_feature` reads geometry + properties from it.
-            Query::upsert_feature(conn, Feature::from(item), &existing, &mut inserts_updates).await?
+            Query::upsert_feature(conn, Feature::from(item), &existing, &mut inserts_updates)
+                .await?
         }
 
         Ok((inserts_updates.inserts, inserts_updates.updates))
