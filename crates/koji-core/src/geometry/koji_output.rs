@@ -12,8 +12,9 @@
 
 use geo::{Geometry, LineString, MultiPolygon, Polygon};
 
-use super::{MultiStruct, MultiVec, PointStruct, SingleStruct, SingleVec};
-use crate::geometry::KojiGeometryCollection;
+use super::{MultiStruct, MultiVec, PointStruct, Poracle, SingleStruct, SingleVec};
+use crate::UnknownId;
+use crate::geometry::{KojiGeometry, KojiGeometryCollection};
 
 /// Flatten one closed/open ring (`LineString`) into the matrix's `[lat, lon]`
 /// point order, matching `Geometry::to_single_vec`'s `[point[1], point[0]]`.
@@ -207,6 +208,105 @@ impl KojiGeometryCollection {
         }
         format!("SELECT * FROM {{database.table}} WHERE{}", clauses)
     }
+
+    /// One `Poracle` per item. Metadata is read from each item's `KojiMeta`
+    /// (serialized to the same property map the oracle reads back), and
+    /// `path`/`multipath` come from the item's `geo::Geometry`.
+    ///
+    /// Parity: `geojson::FeatureCollection::from(&self).to_poracle_vec()`. The
+    /// oracle reads geojson `properties` that Phase 1 wrote from `KojiMeta`, so
+    /// serializing the meta and applying the oracle's key reads is exact.
+    pub fn to_poracle_vec(&self) -> Vec<Poracle> {
+        self.items
+            .iter()
+            .enumerate()
+            .map(|(i, item)| item_poracle(i, item))
+            .collect()
+    }
+}
+
+/// Build a single `Poracle` from one item at index `i`, matching the oracle's
+/// per-feature read logic (`FeatureCollection::to_poracle_vec`) field-for-field.
+fn item_poracle(i: usize, item: &KojiGeometry) -> Poracle {
+    // The oracle reads from geojson `properties`, which Phase 1 produced via
+    // `serde_json::to_value(&KojiMeta)`. Reproduce that exact map, then read the
+    // same keys — so typed fields (`id`, `name`) and `extra` keys
+    // (`color`, `group`, `parent`, `description`, `displayInMatches`,
+    // `userSelectable`) map identically.
+    let props: serde_json::Map<String, serde_json::Value> =
+        match serde_json::to_value(&item.meta) {
+            Ok(serde_json::Value::Object(map)) => map,
+            _ => serde_json::Map::new(),
+        };
+    let str_prop = |key: &str| -> Option<String> {
+        props
+            .get(key)
+            .map(|v| v.as_str().unwrap_or("").to_string())
+    };
+
+    let mut poracle = Poracle::default();
+
+    if props.contains_key("name") {
+        poracle.name = str_prop("name");
+    }
+    poracle.id = Some(UnknownId::Number(if let Some(v) = props.get("id") {
+        v.as_f64().unwrap_or((i + 1) as f64) as u32
+    } else {
+        (i + 1) as u32
+    }));
+    if props.contains_key("color") {
+        poracle.color = str_prop("color");
+    }
+    if props.contains_key("description") {
+        poracle.description = str_prop("description");
+    }
+    if props.contains_key("group") {
+        poracle.group = str_prop("group");
+    } else if props.contains_key("parent") {
+        poracle.group = str_prop("parent");
+    }
+    poracle.display_in_matches = Some(
+        props
+            .get("displayInMatches")
+            .map(|v| v.as_bool().unwrap_or(true))
+            .unwrap_or(true),
+    );
+    poracle.user_selectable = Some(
+        props
+            .get("userSelectable")
+            .map(|v| v.as_bool().unwrap_or(true))
+            .unwrap_or(true),
+    );
+
+    // Geometry → path (single polygon) / multipath (multi). Mirrors the oracle's
+    // match on the geojson geometry value. Point/MultiPoint/LineString leave the
+    // `Poracle::default` `path` (`Some(vec![])`) and no multipath.
+    match &item.geometry {
+        Geometry::Polygon(poly) => poracle.path = Some(polygon_points(poly)),
+        Geometry::MultiPolygon(mp) => {
+            let multipath: MultiVec = mp.iter().map(polygon_points).collect();
+            if !multipath.is_empty() {
+                poracle.multipath = Some(multipath);
+            }
+        }
+        Geometry::GeometryCollection(gc) => {
+            let mut multipath: MultiVec = vec![];
+            for g in gc.iter() {
+                if let Geometry::Polygon(poly) = g {
+                    let value = polygon_points(poly);
+                    if !value.is_empty() {
+                        multipath.push(value);
+                    }
+                }
+            }
+            if !multipath.is_empty() {
+                poracle.multipath = Some(multipath);
+            }
+        }
+        _ => {}
+    }
+
+    poracle
 }
 
 /// `[min_lon, min_lat, max_lon, max_lat]` of a `[lat, lon]` coord set, trimmed to
@@ -380,5 +480,16 @@ mod tests {
         use crate::geometry::ToSql;
         let c = sample();
         assert_eq!(c.to_sql(), fc(&c).to_sql());
+    }
+
+    #[test]
+    fn poracle_vec_matches_oracle() {
+        use crate::geometry::ToPoracleVec;
+        let c = sample();
+        // `Poracle`/`UnknownId` have no `PartialEq`; both derive `Serialize`, so
+        // compare the serialized form — full-fidelity parity against the oracle.
+        let mine = serde_json::to_value(c.to_poracle_vec()).unwrap();
+        let oracle = serde_json::to_value(fc(&c).to_poracle_vec()).unwrap();
+        assert_eq!(mine, oracle);
     }
 }
