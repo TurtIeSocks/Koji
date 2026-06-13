@@ -175,6 +175,110 @@ impl KojiGeometryCollection {
             })
             .collect()
     }
+
+    /// `SELECT … WHERE …` over each polygonal item: bbox range + `ST_CONTAINS`
+    /// against the embedded geojson geometry. Non-polygon items contribute no
+    /// clause but still advance the item index (matching the matrix, where the
+    /// `\nOR` joiner keys off the FeatureCollection index, not the emit count).
+    ///
+    /// Parity: `geojson::FeatureCollection::from(&self).to_sql()`.
+    pub fn to_sql(&self) -> String {
+        let mut clauses = String::new();
+        for (i, item) in self.items.iter().enumerate() {
+            let is_poly = matches!(
+                item.geometry,
+                Geometry::Polygon(_) | Geometry::MultiPolygon(_)
+            );
+            if !is_poly {
+                continue;
+            }
+            let bbox = bbox_of(&single_group(&item.geometry));
+            let geo = geojson_geometry_closed(&item.geometry);
+            clauses = format!(
+                "{}{} (\n\tlon BETWEEN {} AND {}\n\tAND lat BETWEEN {} AND {}\n\tAND ST_CONTAINS(\n\t\tST_GeomFromGeoJSON('{}', 2, 0),\n\t\tPOINT(lon, lat)\n\t)\n)",
+                clauses,
+                if i == 0 { "" } else { "\nOR" },
+                bbox[0],
+                bbox[2],
+                bbox[1],
+                bbox[3],
+                geo
+            );
+        }
+        format!("SELECT * FROM {{database.table}} WHERE{}", clauses)
+    }
+}
+
+/// `[min_lon, min_lat, max_lon, max_lat]` of a `[lat, lon]` coord set, trimmed to
+/// 6 decimals — byte-for-byte the matrix `SingleVec::get_bbox`. (bbox\[0,2\] track
+/// `point[1]` = lon; bbox\[1,3\] track `point[0]` = lat.)
+fn bbox_of(points: &[[f64; 2]]) -> [f64; 4] {
+    let mut bbox = if points.is_empty() {
+        [0.0, 0.0, 0.0, 0.0]
+    } else {
+        [
+            f64::INFINITY,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NEG_INFINITY,
+        ]
+    };
+    for point in points {
+        if point[1] < bbox[0] {
+            bbox[0] = point[1];
+        }
+        if point[1] > bbox[2] {
+            bbox[2] = point[1];
+        }
+        if point[0] < bbox[1] {
+            bbox[1] = point[0];
+        }
+        if point[0] > bbox[3] {
+            bbox[3] = point[0];
+        }
+    }
+    [
+        trim6(bbox[0]),
+        trim6(bbox[1]),
+        trim6(bbox[2]),
+        trim6(bbox[3]),
+    ]
+}
+
+/// Round to 6 decimals, matching `TrimPrecision for f64`.
+fn trim6(v: f64) -> f64 {
+    if !v.is_finite() {
+        return v;
+    }
+    let factor = 1_000_000.0_f64;
+    (v * factor).round() / factor
+}
+
+/// The item's geojson `Geometry`, ring-closed, rendered to its JSON string — the
+/// exact value the oracle embeds in the SQL (`geojson::Value::from(&geo)` is the
+/// edge geo→geojson conversion, then ring-closure inlined from the matrix
+/// `EnsurePoints for Geometry`). Not a `To*` matrix call.
+fn geojson_geometry_closed(geom: &Geometry<f64>) -> String {
+    let mut value = geojson::Value::from(geom);
+    // Inline `EnsurePoints::ensure_first_last`: close each ring whose last point
+    // differs from its first on *both* axes (matrix uses `&&`).
+    let close_ring = |ring: &mut Vec<Vec<f64>>| {
+        if let Some(last) = ring.last() {
+            if last[0] != ring[0][0] && last[1] != ring[0][1] {
+                let first = ring[0].clone();
+                ring.push(first);
+            }
+        }
+    };
+    match &mut value {
+        geojson::Value::Polygon(rings) => rings.iter_mut().for_each(close_ring),
+        geojson::Value::MultiPolygon(polys) => polys
+            .iter_mut()
+            .flat_map(|p| p.iter_mut())
+            .for_each(close_ring),
+        _ => {}
+    }
+    geojson::Geometry::new(value).to_string()
 }
 
 /// One group → text, matching `SingleVec::to_text`: the inter-point separator is
@@ -269,5 +373,12 @@ mod tests {
         let c = sample();
         assert_eq!(c.to_text(",", "\n", true), fc(&c).to_text(",", "\n", true));
         assert_eq!(c.to_text(" ", ",", false), fc(&c).to_text(" ", ",", false));
+    }
+
+    #[test]
+    fn sql_matches_oracle() {
+        use crate::geometry::ToSql;
+        let c = sample();
+        assert_eq!(c.to_sql(), fc(&c).to_sql());
     }
 }
