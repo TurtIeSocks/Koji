@@ -12,7 +12,7 @@ use s2::{cellid::CellID, latlng::LatLng};
 use koji_core::{Precision, SingleVec};
 
 use crate::rtree;
-use crate::s2::ToPointArray;
+use koji_core::s2::ToPointArray;
 
 /// Deduplicate points at S2 level 20 (the scorer's identity level). The first
 /// instance in input order is the representative; covering a representative

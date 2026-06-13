@@ -13,7 +13,7 @@ mod mode;
 mod normalize;
 mod query_args;
 mod return_type;
-mod s2;
+pub mod s2;
 mod sort_by;
 mod text_utils;
 mod unknown_id;

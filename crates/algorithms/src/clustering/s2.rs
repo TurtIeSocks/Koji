@@ -5,7 +5,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use s2::cellid::CellID;
 
 use crate::bootstrap;
-use crate::s2::cell_coverage;
+use koji_core::s2::cell_coverage;
 
 pub fn cluster(
     feature: Feature,

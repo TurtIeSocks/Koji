@@ -1287,7 +1287,7 @@ impl<'a> Refiner<'a> {
         use super::frame::Grid;
         use super::solve::{RHO, SolveParams, solve_chunk};
         use crate::clustering::partition::cell_bbox_lat_lon;
-        use crate::s2::ToPointArray;
+        use koji_core::s2::ToPointArray;
 
         const MAX_WINDOW_POINTS: usize = 4000;
 

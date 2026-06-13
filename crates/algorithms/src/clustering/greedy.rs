@@ -16,6 +16,8 @@ use std::io::Write;
 use sysinfo::System;
 use web_time::Instant;
 
+use koji_core::s2::{self, ToPointArray};
+
 use crate::{
     bootstrap::radius,
     clustering::{
@@ -24,7 +26,6 @@ use crate::{
         rtree::{cluster::Cluster, point::Point},
     },
     rtree::{self, SortDedupe},
-    s2::{self, ToPointArray},
     utils,
 };
 

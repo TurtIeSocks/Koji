@@ -148,11 +148,11 @@ impl<'a> BootstrapS2<'a> {
             .into_par_iter()
             .filter_map(|id| {
                 // 4) Build the size×size neighborhood via ring expansion (Chebyshev radius = half).
-                let neighborhood = crate::s2::s2_grid(id, self.level, self.size);
+                let neighborhood = koji_core::s2::s2_grid(id, self.level, self.size);
                 // 5) If any cell in the block intersects the polygon, include the center point.
                 if neighborhood
                     .iter()
-                    .any(|cid| crate::s2::cell_intersects_polygon(*cid, poly))
+                    .any(|cid| koji_core::s2::cell_intersects_polygon(*cid, poly))
                 {
                     let ll = cell_center_latlng(id);
                     Some([ll.lat.deg(), ll.lng.deg()])
