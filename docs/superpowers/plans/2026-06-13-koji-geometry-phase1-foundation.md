@@ -722,7 +722,7 @@ mod to_koji_tests {
             parent: Some(7),
             geometry: serde_json::json!({ "type": "Point", "coordinates": [1.0, 2.0] }),
             geo_type: "Point".to_string(),
-            mode: Mode::Fort.into(), // db Mode via bridge
+            mode: Type::CircleRaid, // legacy fort value -> Mode::Fort
             // ...remaining fields filled with their Default / sentinel values...
             ..test_model_defaults()
         };
@@ -732,7 +732,7 @@ mod to_koji_tests {
         assert_eq!(kg.meta.id, Some(42));
         assert_eq!(kg.meta.name.as_deref(), Some("Boulder"));
         assert_eq!(kg.meta.parent_id, Some(7));
-        assert_eq!(kg.meta.mode, Mode::Fort);
+        assert_eq!(kg.meta.mode, Mode::Fort); // confirms legacy circle_raid -> Fort mapping
     }
 }
 ```
@@ -751,18 +751,22 @@ Add an inherent method on `geofence::Model` (near `to_feature`):
 ```rust
 impl Model {
     /// Additive: map this row to a `KojiGeometry` (the Phase 1 target type).
-    /// Does not replace `to_feature`. The geometry JSON is parsed to geo-types;
-    /// the DB `mode` enum bridges to `koji_core::Mode`.
+    /// Does not replace `to_feature`. The geometry JSON is parsed to geo-types.
+    /// Phase 1 keeps the LEGACY `mode` column (`Type`), so we map its string via
+    /// `Mode::from_legacy` here; Phase 2 switches the column to the new `Mode`
+    /// enum and this becomes a direct bridge.
     pub fn to_koji_geometry(&self) -> Result<koji_core::KojiGeometry, ModelError> {
         let gj = geojson::Geometry::from_json_value(self.geometry.clone())
             .map_err(|e| ModelError::Custom(format!("[GEOMETRY]: {e}")))?;
         let geometry = geo::Geometry::<f64>::try_from(&gj)
             .map_err(|e| ModelError::Custom(format!("[GEOMETRY]: {e}")))?;
 
+        // `self.mode` is the legacy `Type` ActiveEnum; `to_value()` yields its
+        // legacy string ("circle_raid", ...) which `from_legacy` collapses.
         let meta = koji_core::KojiMeta {
             id: Some(self.id),
             name: Some(self.name.clone()),
-            mode: koji_core::Mode::from(self.mode),
+            mode: koji_core::Mode::from_legacy(&self.mode.to_value()),
             parent_id: self.parent,
             ancestors: Vec::new(),
             extra: serde_json::Map::new(),
