@@ -141,6 +141,57 @@ impl KojiGeometryCollection {
             })
             .collect()
     }
+
+    /// Plain-text coordinate dump. Covers both `response.rs` parameterizations:
+    /// Text (`",", "\n", true`) and AltText (`" ", ",", false`).
+    ///
+    /// Parity: `geojson::FeatureCollection::from(&self).to_text(sep_1, sep_2, poly_sep)`,
+    /// i.e. `MultiVec::to_text` over `to_multi_vec()`. Coordinates use the default
+    /// `f64` `Display` (no fixed precision), `lat` then `sep_1` then `lon`.
+    pub fn to_text(&self, sep_1: &str, sep_2: &str, poly_sep: bool) -> String {
+        let groups = self.to_multi_vec();
+        if groups.is_empty() {
+            // The matrix `MultiVec::to_text` underflows on empty input; an empty
+            // collection has no coordinates, so emit nothing.
+            return String::new();
+        }
+        let more_than_1 = groups.len() > 1;
+        let last = groups.len() - 1;
+        groups
+            .into_iter()
+            .enumerate()
+            .map(|(i, group)| {
+                format!(
+                    "{}{}{}{}",
+                    if i != 0 && poly_sep { "\n" } else { "" },
+                    if more_than_1 && poly_sep {
+                        format!("[Geofence {}]\n", i + 1)
+                    } else {
+                        String::new()
+                    },
+                    group_to_text(&group, sep_1, sep_2, poly_sep),
+                    if i == last { "" } else { sep_2 }
+                )
+            })
+            .collect()
+    }
+}
+
+/// One group → text, matching `SingleVec::to_text`: the inter-point separator is
+/// suppressed on the final point of the group.
+fn group_to_text(group: &[[f64; 2]], sep_1: &str, sep_2: &str, poly_sep: bool) -> String {
+    let last = if group.is_empty() { 0 } else { group.len() - 1 };
+    group
+        .iter()
+        .enumerate()
+        .map(|(i, pt)| point_to_text(pt, sep_1, if i == last { "" } else { sep_2 }, poly_sep))
+        .collect()
+}
+
+/// One `[lat, lon]` point → text, matching `PointArray::to_text`:
+/// `format!("{}{}{}{}", lat, sep_1, lon, sep_2)` with default `f64` `Display`.
+fn point_to_text(pt: &[f64; 2], sep_1: &str, sep_2: &str, _poly_sep: bool) -> String {
+    format!("{}{}{}{}", pt[0], sep_1, pt[1], sep_2)
 }
 
 #[cfg(test)]
@@ -210,5 +261,13 @@ mod tests {
         let mine = serde_json::to_value(c.to_multi_struct()).unwrap();
         let oracle = serde_json::to_value(fc(&c).to_multi_struct()).unwrap();
         assert_eq!(mine, oracle);
+    }
+
+    #[test]
+    fn text_matches_oracle_both_param_sets() {
+        use crate::geometry::ToText;
+        let c = sample();
+        assert_eq!(c.to_text(",", "\n", true), fc(&c).to_text(",", "\n", true));
+        assert_eq!(c.to_text(" ", ",", false), fc(&c).to_text(" ", ",", false));
     }
 }
