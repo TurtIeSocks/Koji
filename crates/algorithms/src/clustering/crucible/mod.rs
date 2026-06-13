@@ -222,7 +222,7 @@ impl Crucible {
                     (id.0, *p)
                 })
                 .collect();
-            keyed.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+            keyed.sort_unstable_by_key(|a| a.0);
             keyed.dedup_by_key(|(id, _)| *id);
             let pool_pts: SingleVec = keyed.into_iter().map(|(_, p)| p).collect();
             let selected = refine::select_from_pool(&pool_pts, &reps, self.radius, m);
@@ -267,7 +267,7 @@ impl Crucible {
                 (id.0, *p)
             })
             .collect();
-        keyed.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        keyed.sort_unstable_by_key(|a| a.0);
         keyed.dedup_by_key(|(id, _)| *id);
         let seeds: SingleVec = keyed.into_iter().map(|(_, p)| p).collect();
         log::info!(

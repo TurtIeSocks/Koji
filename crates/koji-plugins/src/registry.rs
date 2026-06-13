@@ -177,7 +177,7 @@ impl PluginRegistry {
     pub fn is_enabled(&self, kind: PluginKind, name: &str) -> bool {
         self.overlays
             .get(&(kind, name.to_string()))
-            .map_or(true, |o| o.enabled)
+            .is_none_or(|o| o.enabled)
     }
 
     /// The overlay default-args for `(kind, name)`, if any.

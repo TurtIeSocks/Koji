@@ -413,7 +413,7 @@ mod tests {
         let points = dense_cluster([0., 0.], 10, 1.0, 1); // 10 points, ~1m radius
         let n = distinct_l16_cells(&points);
         assert!(
-            n >= 1 && n <= 10,
+            (1..=10).contains(&n),
             "expected dedup count between 1 and 10, got {}",
             n
         );

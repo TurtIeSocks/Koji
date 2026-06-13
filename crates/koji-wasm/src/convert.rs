@@ -41,6 +41,21 @@ impl ClusterRequest {
     }
 }
 
+impl ClusterResponse {
+    /// Build the response from the cluster centers + the populated `Stats`.
+    pub fn from_parts(clusters: SingleVec, stats: &algorithms::stats::Stats) -> Self {
+        ClusterResponse {
+            stats: StatsSummary {
+                total_points: stats.total_points,
+                points_covered: stats.points_covered,
+                total_clusters: stats.total_clusters,
+                cluster_time_ms: stats.cluster_time * 1000.0,
+            },
+            clusters,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -111,20 +126,5 @@ mod tests {
         assert!(matches!(cfg.mode, ClusterMode::Balanced));
         assert!(matches!(cfg.calculation_mode, CalculationMode::Radius));
         assert!(!cfg.center_clusters);
-    }
-}
-
-impl ClusterResponse {
-    /// Build the response from the cluster centers + the populated `Stats`.
-    pub fn from_parts(clusters: SingleVec, stats: &algorithms::stats::Stats) -> Self {
-        ClusterResponse {
-            stats: StatsSummary {
-                total_points: stats.total_points,
-                points_covered: stats.points_covered,
-                total_clusters: stats.total_clusters,
-                cluster_time_ms: stats.cluster_time as f64 * 1000.0,
-            },
-            clusters,
-        }
     }
 }
