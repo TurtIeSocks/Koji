@@ -450,6 +450,37 @@ impl Query {
         Ok(results.to_collection(&FeatureCtx::default()))
     }
 
+    /// Additive Phase 2 counterpart to `get_all_collection`: fetch the same rows
+    /// and map each `Model` to a `KojiGeometry`, collecting into a
+    /// `KojiGeometryCollection`. Returns `ModelError` to match
+    /// `to_koji_geometry` and the sibling `get_one`/`get_all_collection`
+    /// methods. Does not replace `get_all_collection` (deleted in a later
+    /// section). The property/name helper maps are not needed here —
+    /// `to_koji_geometry` reads only the model's own columns.
+    #[allow(clippy::result_large_err)]
+    pub async fn get_all_koji(
+        db: &DatabaseConnection,
+        _args: &ApiQueryArgs,
+    ) -> Result<koji_core::KojiGeometryCollection, ModelError> {
+        let results = Query::get_all(db).await?;
+        results
+            .iter()
+            .map(|result| result.to_koji_geometry())
+            .collect::<Result<koji_core::KojiGeometryCollection, ModelError>>()
+    }
+
+    /// Additive Phase 2 counterpart to `get_one_feature`: fetch the same row and
+    /// map it via `to_koji_geometry`. Returns `ModelError` to match the sibling
+    /// methods. Does not replace `get_one_feature`.
+    #[allow(clippy::result_large_err)]
+    pub async fn get_one_koji(
+        db: &DatabaseConnection,
+        id: String,
+    ) -> Result<koji_core::KojiGeometry, ModelError> {
+        let result = Query::get_one(db, id).await?;
+        result.to_koji_geometry()
+    }
+
     /// Returns all Geofence models in the db without their features
     pub async fn get_all_no_fences(
         db: &DatabaseConnection,
