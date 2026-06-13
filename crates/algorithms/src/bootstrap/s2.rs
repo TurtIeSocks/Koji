@@ -175,7 +175,7 @@ impl<'a> BootstrapS2<'a> {
         }
 
         let (face, i_leaf, j_leaf, _orient) = id.face_ij_orientation();
-        let shift = (MAX_LEVEL as i32 - self.level as i32);
+        let shift = MAX_LEVEL as i32 - self.level as i32;
 
         // Convert leaf i,j to level-L grid coords (0..2^L-1).
         let i_l = i_leaf >> shift;
