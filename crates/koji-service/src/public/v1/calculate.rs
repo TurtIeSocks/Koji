@@ -21,7 +21,7 @@ use super::*;
 use algorithms::stats::Stats;
 use geo::{ChamberlainDuquetteArea, MultiPolygon, Polygon};
 use geojson::{FeatureCollection, Geometry, Value};
-use koji_core::{GeoFormats, ReturnTypeArg};
+use koji_core::ReturnTypeArg;
 use koji_db::{
     KojiDb,
     db::{geofence, route},
@@ -180,7 +180,10 @@ async fn bootstrap(
             feat.set_property("__mode", "circle_pokemon");
         }
         if save_to_db {
-            route::Query::upsert_from_geometry(&conn.koji, GeoFormats::Feature(feat.clone()))
+            let kg = koji_core::KojiGeometry::try_from(feat.clone())
+                .map_err(actix_web::error::ErrorInternalServerError)?;
+            let single = koji_core::KojiGeometryCollection::new(vec![kg]);
+            route::Query::upsert_from_geometry(&conn.koji, &single)
                 .await
                 .map_err(actix_web::error::ErrorInternalServerError)?;
         }
@@ -259,17 +262,15 @@ async fn cluster(
     )
     .await?;
 
-    if !instance.is_empty() && save_to_db {
-        route::Query::upsert_from_geometry(
-            &conn.koji,
-            GeoFormats::FeatureCollection(collection.clone()),
-        )
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-    }
-
     let coll = koji_core::KojiGeometryCollection::try_from(collection)
         .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    if !instance.is_empty() && save_to_db {
+        route::Query::upsert_from_geometry(&conn.koji, &coll)
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
+    }
+
     Ok(utils::response::send(
         coll,
         return_type,

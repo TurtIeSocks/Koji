@@ -4,7 +4,7 @@ use super::*;
 
 use serde_json::json;
 
-use koji_core::{ApiQueryArgs, FeatureCtx, GeoFormats, ReturnTypeArg, ToCollection};
+use koji_core::{ApiQueryArgs, FeatureCtx, ReturnTypeArg, ToCollection};
 use koji_db::{KojiDb, db::geofence};
 use model::api::args::{Args, ArgsUnwrapped, get_return_type};
 
@@ -65,7 +65,9 @@ async fn save_koji(
 ) -> Result<HttpResponse, Error> {
     let ArgsUnwrapped { area, .. } = payload.into_inner().init(Some("geofence_save"));
 
-    geofence::Query::upsert_from_geometry(&conn.koji, GeoFormats::FeatureCollection(area))
+    let area = koji_core::KojiGeometryCollection::try_from(area)
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+    geofence::Query::upsert_from_geometry(&conn.koji, &area)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 

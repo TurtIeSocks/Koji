@@ -3,7 +3,7 @@
 use std::{collections::HashMap, str::FromStr, time::Instant};
 
 use koji_core::{
-    AdminReqParsed, ApiQueryArgs, FeatureCtx, GeoFormats, ToCollection, UnknownId,
+    AdminReqParsed, ApiQueryArgs, FeatureCtx, KojiGeometryCollection, ToCollection, UnknownId,
     json_related_sort, name_modifier, separate_by_comma,
 };
 
@@ -797,23 +797,14 @@ impl Query {
 
     pub async fn upsert_from_geometry(
         conn: &DatabaseConnection,
-        area: GeoFormats,
+        area: &KojiGeometryCollection,
     ) -> Result<(), ModelError> {
         let mut parent_map = HashMap::<String, UnknownId>::new();
-        match area {
-            GeoFormats::Feature(feat) => {
-                Query::upsert_feature(conn, feat, &mut parent_map).await?;
-            }
-            feat => {
-                let fc = match feat {
-                    GeoFormats::FeatureCollection(fc) => fc,
-                    geometry => geometry.to_collection(&FeatureCtx::default()),
-                };
-                for feat in fc.into_iter() {
-                    Query::upsert_feature(conn, feat, &mut parent_map).await?;
-                }
-            }
-        };
+        for item in &area.items {
+            // Derive the per-row geojson Feature from the Koji item (Phase 1
+            // outbound); `upsert_feature` reads geometry + properties from it.
+            Query::upsert_feature(conn, Feature::from(item), &mut parent_map).await?;
+        }
         if !parent_map.is_empty() {
             // ensures it exists before running the try_join_all
             property::Query::get_or_create_db_prop(conn, "parent").await?;

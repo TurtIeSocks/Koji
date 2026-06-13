@@ -10,9 +10,7 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use koji_core::{FeatureCtx, ToCollection, ToFeature};
-
-use koji_core::{AdminReqParsed, GeoFormats};
+use koji_core::{AdminReqParsed, FeatureCtx, KojiGeometryCollection, ToCollection, ToFeature};
 
 use crate::{
     db::sea_orm_active_enums::Type,
@@ -529,7 +527,7 @@ impl Query {
 
     pub async fn upsert_from_geometry(
         conn: &DatabaseConnection,
-        area: GeoFormats,
+        area: &KojiGeometryCollection,
     ) -> Result<(usize, usize), DbErr> {
         let existing: HashMap<String, RouteNoGeometry> = Query::get_all_no_fences(conn)
             .await?
@@ -542,19 +540,10 @@ impl Query {
             updates: 0,
         };
 
-        match area {
-            GeoFormats::Feature(feat) => {
-                Query::upsert_feature(conn, feat, &existing, &mut inserts_updates).await?
-            }
-            feat => {
-                let fc = match feat {
-                    GeoFormats::FeatureCollection(fc) => fc,
-                    geometry => geometry.to_collection(&FeatureCtx::default()),
-                };
-                for feat in fc.into_iter() {
-                    Query::upsert_feature(conn, feat, &existing, &mut inserts_updates).await?
-                }
-            }
+        for item in &area.items {
+            // Derive the per-row geojson Feature from the Koji item (Phase 1
+            // outbound); `upsert_feature` reads geometry + properties from it.
+            Query::upsert_feature(conn, Feature::from(item), &existing, &mut inserts_updates).await?
         }
 
         Ok((inserts_updates.inserts, inserts_updates.updates))
