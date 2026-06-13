@@ -11,7 +11,7 @@
 //! all.
 
 use actix_web::{Error, HttpResponse, http::StatusCode, web};
-use koji_core::{ApiQueryArgs, FeatureCtx, ReturnTypeArg, ToCollection, ToSingleVec};
+use koji_core::{ApiQueryArgs, ReturnTypeArg, ToSingleVec};
 use koji_db::{
     KojiDb,
     db::{geofence, route, sea_orm_active_enums::Type},
@@ -38,11 +38,11 @@ async fn list(
         &ReturnTypeArg::FeatureCollection,
     );
 
-    let fc = route::Query::as_collection(&conn.koji, args.internal.unwrap_or(false))
+    let coll = route::Query::as_koji_collection(&conn.koji)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    Ok(utils::response::send(fc, return_type, None, false, None))
+    Ok(utils::response::send(coll, return_type, None, false, None))
 }
 
 /// `POST /api/v2/routes` — create a route → `201` ApiResponse.
@@ -73,12 +73,12 @@ async fn get_one(
         &ReturnTypeArg::Feature,
     );
 
-    let feature = route::Query::get_one_feature(&conn.koji, id, args.internal.unwrap_or(false))
+    let geometry = route::Query::get_one_koji(&conn.koji, id)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(utils::response::send(
-        feature.to_collection(&FeatureCtx::default()),
+        koji_core::KojiGeometryCollection::new(vec![geometry]),
         return_type,
         None,
         false,

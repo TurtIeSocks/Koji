@@ -12,7 +12,7 @@
 
 use actix_web::{Error, HttpResponse, http::StatusCode, web};
 use geojson::{Feature, Geometry};
-use koji_core::{ApiQueryArgs, FeatureCtx, ReturnTypeArg, ToCollection};
+use koji_core::{ApiQueryArgs, ReturnTypeArg};
 use koji_db::{KojiDb, db::geofence};
 use koji_dragonite::AreaMode;
 use koji_events::EventDispatcher;
@@ -36,11 +36,11 @@ async fn list(
         &ReturnTypeArg::FeatureCollection,
     );
 
-    let fc = geofence::Query::get_all_collection(&conn.koji, &args)
+    let coll = geofence::Query::get_all_koji(&conn.koji, &args)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    Ok(utils::response::send(fc, return_type, None, false, None))
+    Ok(utils::response::send(coll, return_type, None, false, None))
 }
 
 /// `POST /api/v2/geofences` — create a geofence → `201` ApiResponse.
@@ -71,12 +71,12 @@ async fn get_one(
         &ReturnTypeArg::Feature,
     );
 
-    let feature = geofence::Query::get_one_feature(&conn.koji, id, &args)
+    let geometry = geofence::Query::get_one_koji(&conn.koji, id)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(utils::response::send(
-        feature.to_collection(&FeatureCtx::default()),
+        koji_core::KojiGeometryCollection::new(vec![geometry]),
         return_type,
         None,
         false,

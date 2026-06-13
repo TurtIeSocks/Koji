@@ -186,8 +186,10 @@ async fn bootstrap(
         }
     }
 
+    let coll = koji_core::KojiGeometryCollection::try_from(collection)
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     Ok(utils::response::send(
-        collection,
+        coll,
         return_type,
         Some(stats),
         benchmark_mode,
@@ -266,8 +268,10 @@ async fn cluster(
         .map_err(actix_web::error::ErrorInternalServerError)?;
     }
 
+    let coll = koji_core::KojiGeometryCollection::try_from(collection)
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     Ok(utils::response::send(
-        collection,
+        coll,
         return_type,
         Some(stats),
         benchmark_mode,
@@ -308,8 +312,10 @@ async fn reroute(
     )
     .await?;
 
+    let coll = koji_core::KojiGeometryCollection::try_from(collection)
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     Ok(utils::response::send(
-        collection,
+        coll,
         return_type,
         Some(stats),
         benchmark_mode,
@@ -352,8 +358,10 @@ async fn route_stats(
     )
     .await?;
 
+    let coll = koji_core::KojiGeometryCollection::try_from(collection)
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     Ok(utils::response::send(
-        collection,
+        coll,
         ReturnTypeArg::Feature,
         Some(stats),
         true,
@@ -417,8 +425,10 @@ async fn route_stats_category(
     )
     .await?;
 
+    let coll = koji_core::KojiGeometryCollection::try_from(collection)
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     Ok(utils::response::send(
-        collection,
+        coll,
         ReturnTypeArg::Feature,
         Some(stats),
         true,

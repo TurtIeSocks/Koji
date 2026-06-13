@@ -41,16 +41,16 @@ async fn get_area(
         &ReturnTypeArg::Feature,
     );
 
-    let feature = route::Query::get_one_feature(&conn.koji, id, args.internal.unwrap_or(false))
+    let geometry = route::Query::get_one_koji(&conn.koji, id)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     log::info!(
         "[PUBLIC_API] Returning feature for {:?}",
-        feature.property("name")
+        geometry.meta.name
     );
     Ok(utils::response::send(
-        feature.to_collection(&FeatureCtx::default()),
+        koji_core::KojiGeometryCollection::new(vec![geometry]),
         return_type,
         None,
         false,
@@ -123,15 +123,18 @@ async fn specific_return_type(
     args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
     let return_type = url.into_inner();
-    let args = args.into_inner();
+    // `internal` is moot for the self-describing `KojiMeta` collection, so the
+    // `?internal=`/`?rt=` query args go unread here (kept in the signature for
+    // wire compatibility).
+    let _ = args;
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
 
-    let fc = route::Query::as_collection(&conn.koji, args.internal.unwrap_or(false))
+    let coll = route::Query::as_koji_collection(&conn.koji)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    log::info!("[GEOFENCES_ALL] Returning {} instances", fc.features.len());
-    Ok(utils::response::send(fc, return_type, None, false, None))
+    log::info!("[GEOFENCES_ALL] Returning {} instances", coll.items.len());
+    Ok(utils::response::send(coll, return_type, None, false, None))
 }
 
 #[get("/{return_type}/{geofence_name}")]
@@ -152,11 +155,8 @@ async fn specific_geofence(
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
     log::info!("[GEOFENCES_FC_ALL] Returning {} instances", features.len());
-    Ok(utils::response::send(
-        features.to_collection(&FeatureCtx::default()),
-        return_type,
-        None,
-        false,
-        None,
-    ))
+    let coll =
+        koji_core::KojiGeometryCollection::try_from(features.to_collection(&FeatureCtx::default()))
+            .map_err(actix_web::error::ErrorInternalServerError)?;
+    Ok(utils::response::send(coll, return_type, None, false, None))
 }

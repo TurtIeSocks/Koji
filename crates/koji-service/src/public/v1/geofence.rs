@@ -41,16 +41,16 @@ async fn get_area(
         &ReturnTypeArg::Feature,
     );
 
-    let feature = geofence::Query::get_one_feature(&conn.koji, id, &args)
+    let geometry = geofence::Query::get_one_koji(&conn.koji, id)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     log::info!(
         "[PUBLIC_API] Returning feature for {:?}",
-        feature.property("name")
+        geometry.meta.name
     );
     Ok(utils::response::send(
-        feature.to_collection(&FeatureCtx::default()),
+        koji_core::KojiGeometryCollection::new(vec![geometry]),
         return_type,
         None,
         false,
@@ -143,12 +143,12 @@ async fn specific_return_type(
     let args = args.into_inner();
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
 
-    let fc = geofence::Query::get_all_collection(&conn.koji, &args)
+    let coll = geofence::Query::get_all_koji(&conn.koji, &args)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    log::info!("[GEOFENCES_ALL] Returning {} instances", fc.features.len());
-    Ok(utils::response::send(fc, return_type, None, false, None))
+    log::info!("[GEOFENCES_ALL] Returning {} instances", coll.items.len());
+    Ok(utils::response::send(coll, return_type, None, false, None))
 }
 
 #[get("/{return_type}/{project}")]
@@ -166,11 +166,8 @@ async fn specific_project(
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     log::info!("[GEOFENCES_FC_ALL] Returning {} instances", features.len());
-    Ok(utils::response::send(
-        features.to_collection(&FeatureCtx::default()),
-        return_type,
-        None,
-        false,
-        None,
-    ))
+    let coll =
+        koji_core::KojiGeometryCollection::try_from(features.to_collection(&FeatureCtx::default()))
+            .map_err(actix_web::error::ErrorInternalServerError)?;
+    Ok(utils::response::send(coll, return_type, None, false, None))
 }

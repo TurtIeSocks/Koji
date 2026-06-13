@@ -25,8 +25,11 @@ async fn convert_data(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         .collect::<FeatureCollection>()
         .trim_precision(6);
 
+    let coll = koji_core::KojiGeometryCollection::try_from(area)
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
     Ok(utils::response::send(
-        area,
+        coll,
         return_type,
         None,
         benchmark_mode,
@@ -40,13 +43,10 @@ async fn simplify(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         area, return_type, ..
     } = payload.into_inner().init(Some("simplify"));
 
-    Ok(utils::response::send(
-        area.simplify(),
-        return_type,
-        None,
-        false,
-        None,
-    ))
+    let coll = koji_core::KojiGeometryCollection::try_from(area.simplify())
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    Ok(utils::response::send(coll, return_type, None, false, None))
 }
 
 #[post("/merge-points")]
@@ -65,17 +65,15 @@ async fn merge_points(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         }
     });
 
-    Ok(utils::response::send(
-        Geometry {
-            bbox: None,
-            foreign_members: None,
-            value: Value::MultiPoint(new_multi_point),
-        }
-        .to_feature(&FeatureCtx::new().with_type(Type::CirclePokemon.into()))
-        .to_collection(&FeatureCtx::default()),
-        return_type,
-        None,
-        false,
-        None,
-    ))
+    let collection = Geometry {
+        bbox: None,
+        foreign_members: None,
+        value: Value::MultiPoint(new_multi_point),
+    }
+    .to_feature(&FeatureCtx::new().with_type(Type::CirclePokemon.into()))
+    .to_collection(&FeatureCtx::default());
+    let coll = koji_core::KojiGeometryCollection::try_from(collection)
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    Ok(utils::response::send(coll, return_type, None, false, None))
 }
