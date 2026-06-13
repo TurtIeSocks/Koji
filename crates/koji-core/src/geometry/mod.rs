@@ -1,4 +1,5 @@
 mod koji_geometry;
+mod koji_geojson;
 mod koji_meta;
 mod collection;
 mod feature;
@@ -13,6 +14,7 @@ mod single_vec;
 mod text;
 
 pub use koji_geometry::{KojiGeometry, KojiGeometryCollection};
+pub use koji_geojson::KojiGeojsonError;
 pub use koji_meta::KojiMeta;
 pub use multi_struct::MultiStruct;
 pub use multi_vec::MultiVec;
