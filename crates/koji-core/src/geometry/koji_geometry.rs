@@ -14,7 +14,10 @@ pub struct KojiGeometry {
 
 impl KojiGeometry {
     pub fn new(geometry: impl Into<Geometry<f64>>) -> Self {
-        Self { geometry: geometry.into(), meta: KojiMeta::default() }
+        Self {
+            geometry: geometry.into(),
+            meta: KojiMeta::default(),
+        }
     }
 
     pub fn with_meta(mut self, meta: KojiMeta) -> Self {
@@ -35,7 +38,10 @@ pub struct KojiGeometryCollection {
 
 impl KojiGeometryCollection {
     pub fn new(items: Vec<KojiGeometry>) -> Self {
-        let bbox = items.iter().filter_map(KojiGeometry::bbox).reduce(union_rect);
+        let bbox = items
+            .iter()
+            .filter_map(KojiGeometry::bbox)
+            .reduce(union_rect);
         Self { items, bbox }
     }
 }
@@ -70,7 +76,10 @@ mod tests {
     #[test]
     fn element_bbox_is_geometry_bounds() {
         let g = KojiGeometry::new(Point::new(3.0, 4.0));
-        assert_eq!(g.bbox(), Some(Rect::new(coord! {x:3.0,y:4.0}, coord! {x:3.0,y:4.0})));
+        assert_eq!(
+            g.bbox(),
+            Some(Rect::new(coord! {x:3.0,y:4.0}, coord! {x:3.0,y:4.0}))
+        );
     }
 
     #[test]
@@ -80,7 +89,10 @@ mod tests {
             KojiGeometry::new(Point::new(10.0, 5.0)),
         ]);
         assert_eq!(c.items.len(), 2);
-        assert_eq!(c.bbox, Some(Rect::new(coord! {x:0.0,y:0.0}, coord! {x:10.0,y:5.0})));
+        assert_eq!(
+            c.bbox,
+            Some(Rect::new(coord! {x:0.0,y:0.0}, coord! {x:10.0,y:5.0}))
+        );
     }
 
     #[test]

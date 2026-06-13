@@ -2,7 +2,6 @@
 //! No database, HTTP, or async dependencies.
 
 mod calc_mode;
-mod mode;
 mod category;
 mod cluster_mode;
 mod config;
@@ -10,6 +9,7 @@ mod enum_map;
 mod feature_ctx;
 mod fence_type;
 mod geo_formats;
+mod mode;
 mod normalize;
 mod query_args;
 mod return_type;
@@ -31,6 +31,7 @@ pub use enum_map::{
 pub use feature_ctx::FeatureCtx;
 pub use fence_type::FenceType;
 pub use geo_formats::GeoFormats;
+pub use mode::Mode;
 pub use normalize::{AreaPolygons, HasLatLon, count_in_area};
 pub use query_args::{AdminReq, AdminReqParsed, ApiQueryArgs, BoundsArg, SpawnpointTth};
 pub use return_type::ReturnTypeArg;
@@ -39,7 +40,6 @@ pub use sort_by::SortBy;
 pub use text_utils::{
     clean, get_mode_acronym, json_related_sort, name_modifier, separate_by_comma,
 };
-pub use mode::Mode;
 pub use unknown_id::UnknownId;
 
 pub mod geometry;

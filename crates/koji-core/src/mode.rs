@@ -21,7 +21,10 @@ impl Mode {
     /// unknown) to the collapsed four-variant `Mode`. Unknown → `Unset`.
     pub fn from_legacy(s: &str) -> Self {
         match s {
-            "circle_pokemon" | "circle_smart_pokemon" | "pokemon_iv" | "auto_pokemon"
+            "circle_pokemon"
+            | "circle_smart_pokemon"
+            | "pokemon_iv"
+            | "auto_pokemon"
             | "auto_tth" => Mode::Pokemon,
             "circle_raid" | "circle_smart_raid" | "circle_station" => Mode::Fort,
             "auto_quest" | "circle_quest" => Mode::Quest,
@@ -47,7 +50,10 @@ mod tests {
 
     #[test]
     fn serde_uses_lowercase_strings() {
-        assert_eq!(serde_json::to_string(&Mode::Pokemon).unwrap(), "\"pokemon\"");
+        assert_eq!(
+            serde_json::to_string(&Mode::Pokemon).unwrap(),
+            "\"pokemon\""
+        );
         assert_eq!(serde_json::to_string(&Mode::Unset).unwrap(), "\"unset\"");
         let m: Mode = serde_json::from_str("\"quest\"").unwrap();
         assert_eq!(m, Mode::Quest);
@@ -60,7 +66,13 @@ mod tests {
 
     #[test]
     fn from_legacy_maps_all_twelve() {
-        for s in ["circle_pokemon", "circle_smart_pokemon", "pokemon_iv", "auto_pokemon", "auto_tth"] {
+        for s in [
+            "circle_pokemon",
+            "circle_smart_pokemon",
+            "pokemon_iv",
+            "auto_pokemon",
+            "auto_tth",
+        ] {
             assert_eq!(Mode::from_legacy(s), Mode::Pokemon, "{s}");
         }
         for s in ["circle_raid", "circle_smart_raid", "circle_station"] {

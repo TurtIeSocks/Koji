@@ -27,14 +27,14 @@ impl TryFrom<geojson::Feature> for KojiGeometry {
 
     fn try_from(f: geojson::Feature) -> Result<Self, Self::Error> {
         let gj = f.geometry.ok_or(KojiGeojsonError::MissingGeometry)?;
-        let geometry =
-            Geometry::<f64>::try_from(&gj).map_err(KojiGeojsonError::Convert)?;
+        let geometry = Geometry::<f64>::try_from(&gj).map_err(KojiGeojsonError::Convert)?;
 
         // Properties (a serde_json object) deserialize directly into KojiMeta;
         // typed keys populate fields, the rest land in `extra`.
         let meta: KojiMeta = match f.properties {
-            Some(props) => serde_json::from_value(serde_json::Value::Object(props))
-                .unwrap_or_default(),
+            Some(props) => {
+                serde_json::from_value(serde_json::Value::Object(props)).unwrap_or_default()
+            }
             None => KojiMeta::default(),
         };
         Ok(KojiGeometry { geometry, meta })
