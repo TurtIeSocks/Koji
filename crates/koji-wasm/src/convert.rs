@@ -23,8 +23,8 @@ impl ClusterRequest {
             radius: self.radius,
             min_points: self.min_points,
             // 0 means "unlimited" (matches the native convention in
-            // model::api::args), otherwise the auto algorithm's max-cluster cap
-            // truncates the result to `.take(0)` → zero clusters.
+            // model::api::args), otherwise the crucible algorithm's max-cluster
+            // cap truncates the result to `.take(0)` → zero clusters.
             max_clusters: if self.max_clusters == 0 {
                 usize::MAX
             } else {

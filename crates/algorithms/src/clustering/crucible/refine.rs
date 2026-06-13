@@ -1697,7 +1697,7 @@ impl<'a> Refiner<'a> {
         self.m * live + uncov
     }
 
-    /// Flag-gated (KOJI_AUTO_ANNEAL=1) annealing phase: a few LNS rounds that
+    /// Flag-gated (KOJI_CRUCIBLE_ANNEAL=1) annealing phase: a few LNS rounds that
     /// may accept bounded regressions (escaping local optima), each followed
     /// by a cheap-pass cleanup; the best state seen is kept. Deterministic.
     fn anneal(&mut self, radius: Precision, sweep_all: bool) {
@@ -1749,7 +1749,7 @@ impl<'a> Refiner<'a> {
         }
     }
 
-    /// Debugging aid (env KOJI_AUTO_PARANOID=1): recompute `count` from the
+    /// Debugging aid (env KOJI_CRUCIBLE_PARANOID=1): recompute `count` from the
     /// live covered lists and compare against the incremental bookkeeping;
     /// report uncovered totals. Identifies the pass that corrupts state.
     fn paranoid_check(&self, label: &str) {
@@ -1773,7 +1773,7 @@ impl<'a> Refiner<'a> {
     /// Run all passes for up to `max_rounds` rounds (early exit on a clean
     /// round) and return the surviving centers, sorted by S2 cell id.
     pub fn run(mut self, radius: Precision, max_rounds: usize) -> SingleVec {
-        let paranoid = std::env::var("KOJI_AUTO_PARANOID").is_ok();
+        let paranoid = std::env::var("KOJI_CRUCIBLE_PARANOID").is_ok();
         let mut exhausted = true;
         for round in 0..max_rounds {
             let mut changed = false;
@@ -1848,7 +1848,7 @@ impl<'a> Refiner<'a> {
         }
         // Opt-in annealing phase: bounded deterministic regressions to
         // escape local optima, best state kept.
-        if std::env::var("KOJI_AUTO_ANNEAL").is_ok_and(|v| v == "1") {
+        if std::env::var("KOJI_CRUCIBLE_ANNEAL").is_ok_and(|v| v == "1") {
             self.anneal(radius, self.reps.len() <= LNS_SWEEP_ALL_MAX);
             if paranoid {
                 self.paranoid_check("post-anneal");
@@ -1859,8 +1859,8 @@ impl<'a> Refiner<'a> {
         // construction at the default lambda of 0; KOJI_SCORE_LAMBDA_OVERLAP
         // > 0 prices overlap into the move acceptance so the pass may trade
         // bounded mygod_score for larger overlap cuts (matching score_v2).
-        // KOJI_AUTO_NO_SPREAD=1 disables it for A/B runs.
-        if !std::env::var("KOJI_AUTO_NO_SPREAD").is_ok_and(|v| v == "1") {
+        // KOJI_CRUCIBLE_NO_SPREAD=1 disables it for A/B runs.
+        if !std::env::var("KOJI_CRUCIBLE_NO_SPREAD").is_ok_and(|v| v == "1") {
             let lambda_overlap = crate::stats::score_lambda("KOJI_SCORE_LAMBDA_OVERLAP").max(0.0);
             for _ in 0..4 {
                 if !self.spread_pass(lambda_overlap) {
@@ -1873,8 +1873,8 @@ impl<'a> Refiner<'a> {
         }
         // Knife-edge hardening (score-neutral): after spreading, pull each
         // disk to the SEC of its covered set so the worst-case coverage
-        // margin grows. KOJI_AUTO_NO_MARGIN=1 disables it for A/B runs.
-        if !std::env::var("KOJI_AUTO_NO_MARGIN").is_ok_and(|v| v == "1") {
+        // margin grows. KOJI_CRUCIBLE_NO_MARGIN=1 disables it for A/B runs.
+        if !std::env::var("KOJI_CRUCIBLE_NO_MARGIN").is_ok_and(|v| v == "1") {
             for _ in 0..2 {
                 if !self.margin_pass() {
                     break;

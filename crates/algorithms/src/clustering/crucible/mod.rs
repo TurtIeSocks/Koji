@@ -1,4 +1,6 @@
-//! Mode-less clustering ("auto") — the next evolution of the greedy clusterer.
+//! Crucible — the mode-less next evolution of the greedy clusterer. Melts each
+//! neighborhood down (LNS ruin-and-recreate, simulated annealing) and reforges
+//! it, fusing the best of many restart variants into one cover.
 //!
 //! Minimizes `mygod_score = min_points · clusters + uncovered` (stats.rs) with
 //! every knob derived from the input; `ClusterMode` is no longer consulted.
@@ -46,15 +48,15 @@ const RESTART_MAX_CELLS: usize = 20_000;
 /// Medium inputs run a two-variant portfolio (plus recombination) instead.
 const RESTART_PAIR_MAX_CELLS: usize = 50_000;
 
-pub struct Auto {
+pub struct Crucible {
     pub radius: Precision,
     pub min_points: usize,
     pub max_clusters: usize,
 }
 
-impl Default for Auto {
+impl Default for Crucible {
     fn default() -> Self {
-        Auto {
+        Crucible {
             radius: 70.0,
             min_points: 1,
             max_clusters: usize::MAX,
@@ -69,7 +71,7 @@ struct Job {
     owned: Vec<u32>,
 }
 
-impl Auto {
+impl Crucible {
     pub fn run(&self, points: &SingleVec) -> SingleVec {
         if points.is_empty() {
             return vec![];
@@ -77,13 +79,13 @@ impl Auto {
         let m = self.min_points.max(1);
         let (reps, _cells) = components::dedupe(points);
         log::info!(
-            "auto: {} points → {} distinct cells",
+            "crucible: {} points → {} distinct cells",
             points.len(),
             reps.len()
         );
 
         let comps = components::components(&reps, self.radius);
-        log::info!("auto: {} connectivity components", comps.len());
+        log::info!("crucible: {} connectivity components", comps.len());
 
         // Component id per rep, to keep halos within their own component.
         let mut comp_of = vec![u32::MAX; reps.len()];
@@ -125,7 +127,7 @@ impl Auto {
                 }
             }
         }
-        log::info!("auto: {} solve jobs", jobs.len());
+        log::info!("crucible: {} solve jobs", jobs.len());
 
         let k_cap = if reps.len() <= 100_000 { 14 } else { 10 };
 
@@ -189,13 +191,13 @@ impl Auto {
                         .collect::<Vec<_>>()
                 })
                 .collect();
-            log::info!("auto[v{variant}]: {} centers pre-refine", centers.len());
+            log::info!("crucible[v{variant}]: {} centers pre-refine", centers.len());
 
             let refined =
                 Refiner::new(centers, &reps, self.radius, m).run(self.radius, REFINE_ROUNDS);
             let score = self.internal_score(&refined, &reps, &global_tree, m);
             log::info!(
-                "auto[v{variant}]: {} centers post-refine, internal score {score}",
+                "crucible[v{variant}]: {} centers post-refine, internal score {score}",
                 refined.len()
             );
             if variants.len() > 1 {
@@ -229,7 +231,7 @@ impl Auto {
                     Refiner::new(selected, &reps, self.radius, m).run(self.radius, REFINE_ROUNDS);
                 let score = self.internal_score(&recombined, &reps, &global_tree, m);
                 log::info!(
-                    "auto[recombine]: pool {} → {} centers, internal score {score} (best variant {best_score})",
+                    "crucible[recombine]: pool {} → {} centers, internal score {score} (best variant {best_score})",
                     pool_pts.len(),
                     recombined.len()
                 );
@@ -269,7 +271,7 @@ impl Auto {
         keyed.dedup_by_key(|(id, _)| *id);
         let seeds: SingleVec = keyed.into_iter().map(|(_, p)| p).collect();
         log::info!(
-            "auto[warm]: {} seed centers vs {} distinct cells",
+            "crucible[warm]: {} seed centers vs {} distinct cells",
             seeds.len(),
             reps.len()
         );
@@ -294,7 +296,7 @@ impl Auto {
                 .collect();
             if !missing.is_empty() {
                 log::warn!(
-                    "auto: m=1 audit found {} uncovered cells; adding singletons",
+                    "crucible: m=1 audit found {} uncovered cells; adding singletons",
                     missing.len()
                 );
                 for p in missing.iter().take(8) {
@@ -309,7 +311,7 @@ impl Auto {
                         })
                         .unwrap_or(f64::NAN);
                     log::warn!(
-                        "auto: audit miss at [{:.7}, {:.7}], nearest center {:.3} m (r={})",
+                        "crucible: audit miss at [{:.7}, {:.7}], nearest center {:.3} m (r={})",
                         p[0],
                         p[1],
                         nearest,
@@ -372,7 +374,7 @@ impl Auto {
             .collect();
         kept.sort_by(|a, b| a.partial_cmp(b).unwrap());
         log::warn!(
-            "auto: truncated {} → {} clusters to honor max_clusters",
+            "crucible: truncated {} → {} clusters to honor max_clusters",
             centers.len(),
             kept.len()
         );
@@ -452,19 +454,19 @@ mod tests {
 
     #[test]
     fn empty_input() {
-        let auto = Auto::default();
-        assert!(auto.run(&vec![]).is_empty());
+        let crucible = Crucible::default();
+        assert!(crucible.run(&vec![]).is_empty());
     }
 
     #[test]
     fn single_point_m1() {
-        let auto = Auto {
+        let crucible = Crucible {
             radius: 70.0,
             min_points: 1,
             max_clusters: usize::MAX,
         };
         let pts = vec![[40.0, -74.0]];
-        let out = auto.run(&pts);
+        let out = crucible.run(&pts);
         assert_eq!(out.len(), 1);
         assert!(hav(out[0], pts[0]) <= 70.0);
     }
@@ -481,12 +483,12 @@ mod tests {
                 ]);
             }
         }
-        let auto = Auto {
+        let crucible = Crucible {
             radius: 70.0,
             min_points: 1,
             max_clusters: usize::MAX,
         };
-        let centers = auto.run(&pts);
+        let centers = crucible.run(&pts);
         for p in &pts {
             assert!(
                 centers.iter().any(|c| hav(*p, *c) <= 70.0),
@@ -507,12 +509,12 @@ mod tests {
             pts.push([lat, -74.0]);
             pts.push([lat, -74.0 + 0.00118]); // ~100 m east
         }
-        let auto = Auto {
+        let crucible = Crucible {
             radius: 70.0,
             min_points: 1,
             max_clusters: usize::MAX,
         };
-        let centers = auto.run(&pts);
+        let centers = crucible.run(&pts);
         assert_eq!(centers.len(), 10, "one disk per pair");
         assert_eq!(score(&pts, &centers, 70.0, 1), 10);
     }
@@ -523,16 +525,16 @@ mod tests {
         for i in 0..50 {
             pts.push([40.0 + i as f64 * 0.01, -74.0]);
         }
-        let auto = Auto {
+        let crucible = Crucible {
             radius: 70.0,
             min_points: 1,
             max_clusters: 5,
         };
-        let centers = auto.run(&pts);
+        let centers = crucible.run(&pts);
         assert!(centers.len() <= 5);
     }
 
-    /// Diagnostic: where does legacy-Best find gain that auto misses at m=3?
+    /// Diagnostic: where does legacy-Best find gain that crucible misses at m=3?
     /// Run with: cargo test -p algorithms debug_m3_gap --release -- --ignored --nocapture
     #[test]
     #[ignore]
@@ -553,12 +555,12 @@ mod tests {
             let b = -74.0 + ((x >> 11) as f64 / (1u64 << 53) as f64) * 0.0375;
             pts.push([a, b]);
         }
-        let auto = Auto {
+        let crucible = Crucible {
             radius: 70.0,
             min_points: 3,
             max_clusters: usize::MAX,
         };
-        let a_centers = auto.run(&pts);
+        let a_centers = crucible.run(&pts);
         let mut greedy = Greedy::default();
         greedy
             .set_cluster_mode(ClusterMode::Best)
@@ -576,13 +578,13 @@ mod tests {
             centers.len() * 3 + covered_by(centers, 70.0).iter().filter(|c| !**c).count()
         };
         eprintln!(
-            "auto: {} clusters score {} | legacy: {} clusters score {}",
+            "crucible: {} clusters score {} | legacy: {} clusters score {}",
             a_centers.len(),
             score(&a_centers),
             l_centers.len(),
             score(&l_centers)
         );
-        // For each legacy center: how many auto-uncovered points does it
+        // For each legacy center: how many crucible-uncovered points does it
         // reach at full r vs effective r?
         let mut hist_full = [0usize; 16];
         let mut hist_eff = [0usize; 16];
@@ -600,8 +602,8 @@ mod tests {
             hist_full[full.min(15)] += 1;
             hist_eff[eff.min(15)] += 1;
         }
-        eprintln!("legacy centers by #auto-uncovered covered (full r): {hist_full:?}");
-        eprintln!("legacy centers by #auto-uncovered covered (r_eff):  {hist_eff:?}");
+        eprintln!("legacy centers by #crucible-uncovered covered (full r): {hist_full:?}");
+        eprintln!("legacy centers by #crucible-uncovered covered (r_eff):  {hist_eff:?}");
     }
 
     #[test]
@@ -619,11 +621,11 @@ mod tests {
             let b = -74.0 + ((x >> 11) as f64 / (1u64 << 53) as f64) * 0.05;
             pts.push([a, b]);
         }
-        let auto = Auto {
+        let crucible = Crucible {
             radius: 70.0,
             min_points: 1,
             max_clusters: usize::MAX,
         };
-        assert_eq!(auto.run(&pts), auto.run(&pts));
+        assert_eq!(crucible.run(&pts), crucible.run(&pts));
     }
 }

@@ -15,16 +15,16 @@ use super::*;
 use geojson::FeatureCollection;
 use koji_core::{CalculationMode, ClusterMode, ClusteringConfig, SingleVec};
 
-mod auto;
 mod candidates;
-
-/// Warm-start entry point for incremental re-clustering (`Auto::run_seeded`).
-pub use auto::Auto;
+mod crucible;
 mod fastest;
 // mod genetic;
 mod greedy;
 mod partition;
 mod s2;
+
+/// Warm-start entry point for incremental re-clustering (`Crucible::run_seeded`).
+pub use crucible::Crucible;
 
 pub fn main(
     data_points: &SingleVec,
@@ -52,7 +52,7 @@ pub fn main(
             .collect(),
         _ => match cfg.mode.clone() {
             ClusterMode::Fastest => fastest::main(data_points, cfg.radius, cfg.min_points),
-            // Quality modes all route to the mode-less `auto` algorithm; the
+            // Quality modes all route to the mode-less `crucible` algorithm; the
             // legacy greedy stays reachable for A/B via KOJI_LEGACY_GREEDY=1
             // (and still backs Honeycomb, which is a layout mode, not a
             // quality mode).
@@ -60,15 +60,15 @@ pub fn main(
                 if !legacy_greedy_requested() =>
             {
                 log::info!(
-                    "cluster_mode '{:?}' routes to the auto algorithm (modes are deprecated; set KOJI_LEGACY_GREEDY=1 for the legacy greedy)",
+                    "cluster_mode '{:?}' routes to the crucible algorithm (modes are deprecated; set KOJI_LEGACY_GREEDY=1 for the legacy greedy)",
                     cfg.mode
                 );
-                let auto = auto::Auto {
+                let crucible = crucible::Crucible {
                     radius: cfg.radius,
                     min_points: cfg.min_points,
                     max_clusters: cfg.max_clusters,
                 };
-                auto.run(data_points)
+                crucible.run(data_points)
             }
             ClusterMode::Honeycomb
             | ClusterMode::Balanced
@@ -112,14 +112,14 @@ pub fn main(
             #[cfg(not(feature = "native"))]
             ClusterMode::Custom(_plugin) => {
                 log::warn!(
-                    "custom clustering plugins are unavailable in wasm; using the auto algorithm"
+                    "custom clustering plugins are unavailable in wasm; using the crucible algorithm"
                 );
-                let auto = auto::Auto {
+                let crucible = crucible::Crucible {
                     radius: cfg.radius,
                     min_points: cfg.min_points,
                     max_clusters: cfg.max_clusters,
                 };
-                auto.run(data_points)
+                crucible.run(data_points)
             }
         },
     };

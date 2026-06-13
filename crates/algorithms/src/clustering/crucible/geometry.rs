@@ -1,4 +1,4 @@
-//! Planar geometry primitives for the auto clusterer.
+//! Planar geometry primitives for the crucible clusterer.
 //!
 //! All functions operate in chunk-local planar coordinates. Units are whatever
 //! the caller projected into (the solver uses "1.0 = cluster radius" units; the

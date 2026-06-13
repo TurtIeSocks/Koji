@@ -2,7 +2,7 @@
 //!
 //! Runs the production clustering entry point (`clustering::main`) over seeded
 //! synthetic datasets and reports mygod_score + timings as machine-greppable
-//! RESULT lines. Used to compare the legacy greedy modes against the `auto`
+//! RESULT lines. Used to compare the legacy greedy modes against the `crucible`
 //! algorithm across input scales.
 //!
 //! Usage:
@@ -11,7 +11,7 @@
 //!
 //! Datasets: uniform | blobs | urban | csv:<path>
 //! Modes: fastest | fast | balanced | better | best  (quality modes route to
-//! `auto` once wired; `--legacy` sets KOJI_LEGACY_GREEDY=1 to force the old path)
+//! `crucible` once wired; `--legacy` sets KOJI_LEGACY_GREEDY=1 to force the old path)
 
 use std::time::Instant;
 
@@ -34,7 +34,7 @@ struct Args {
     legacy: bool,
     bypass: bool,
     /// After the cold run: churn the input, then compare a fresh cold run
-    /// against `Auto::run_seeded` warm-started from the pre-churn solution.
+    /// against `Crucible::run_seeded` warm-started from the pre-churn solution.
     warm: bool,
     churn_pct: f64,
     /// Sweep KOJI_SCORE_LAMBDA_OVERLAP over a grid and print the
@@ -370,7 +370,7 @@ fn main() {
             wall_c.elapsed().as_secs_f64(),
         );
 
-        let auto = clustering::Auto {
+        let crucible = clustering::Crucible {
             radius: args.radius,
             min_points: args.min_points,
             max_clusters: usize::MAX,
@@ -378,7 +378,7 @@ fn main() {
         let mut stats_w = Stats::new("bench-warm-churn".to_string(), args.min_points);
         let wall_w = Instant::now();
         let cluster_timer = Instant::now();
-        let warm = auto.run_seeded(&churned, &clusters);
+        let warm = crucible.run_seeded(&churned, &clusters);
         stats_w.set_cluster_time(cluster_timer);
         stats_w.cluster_stats(args.radius, &churned, &warm);
         stats_w.set_score();

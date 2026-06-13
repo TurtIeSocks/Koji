@@ -1,5 +1,9 @@
 # Clustering "auto" — benchmark results
 
+> **Renamed to Crucible (2026-06-12).** "auto" in the tables and prose below is
+> the development-era name for what is now the `crucible` module / `Crucible`
+> struct. Kept verbatim as the historical bench record.
+
 Date: 2026-06-09 · Companion to: 2026-06-09-clustering-auto-evolution.md
 Harness: `cargo run --release -p algorithms --bin clusterbench` (seed 42, r = 70 m).
 Legacy baseline = the **best score across legacy modes** (fastest/balanced/best)

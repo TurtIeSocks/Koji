@@ -1,5 +1,9 @@
 # Clustering: next evolution ("auto") — design spec
 
+> **Renamed to Crucible (2026-06-12).** The algorithm shipped in code as the
+> `crucible` module / `Crucible` struct; "auto" throughout this dated spec is
+> the development-era name, kept as-is for the historical record.
+
 Date: 2026-06-09
 Status: approved-by-delegate-mode (assumptions listed at bottom; async review trail)
 Replaces: greedy.rs quality modes (`Fast`/`Balanced`/`Better`/`Best`)
