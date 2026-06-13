@@ -1,5 +1,7 @@
 pub trait RequestBuilderHelper {
+    #[must_use]
     fn query_s(self, key: &str, val: &str) -> Self;
+    #[must_use]
     fn query_opt<'a, S: Into<Option<&'a String>>>(self, key: &str, val: S) -> Self;
 }
 

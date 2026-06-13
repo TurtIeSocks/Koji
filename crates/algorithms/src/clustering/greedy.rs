@@ -134,6 +134,7 @@ impl<'a> Greedy {
         // locally, then drops the chunk-local rtree. Memory peak per chunk is
         // bounded by the budget; flat global Vec<Cluster> never holds all
         // candidates simultaneously.
+        #[allow(clippy::type_complexity)]
         let chunk_results: Vec<(HashSet<Point>, Option<(ClusterMode, ClusterMode)>)> = chunks
             .par_iter()
             .map(|chunk| self.solve_chunk_local(chunk, &all_points_tree, config.budget))
@@ -751,7 +752,7 @@ impl<'a> Greedy {
                         Some(Cluster {
                             point: cluster.point,
                             unique: points.into_iter().collect(),
-                            all: cluster.all.iter().copied().collect(),
+                            all: cluster.all.to_vec(),
                         })
                     }
                 })

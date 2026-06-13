@@ -51,6 +51,7 @@ type PointTuple = (i32, i32);
 type PointInfo = (BoundingBox, bool, bool, Vec<String>);
 type ClusterMap = HashMap<PointTuple, PointInfo>;
 
+#[allow(clippy::wrong_self_convention)]
 trait FromKey {
     fn from_key(&self) -> [f64; 2];
 }

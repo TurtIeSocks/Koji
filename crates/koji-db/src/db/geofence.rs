@@ -113,16 +113,20 @@ pub struct OnlyParent {
 }
 
 impl GeofenceNoGeometry {
+    #[allow(clippy::wrong_self_convention)]
     fn to_json(self) -> Json {
         json!(self)
     }
 }
 
 impl Model {
+    #[allow(clippy::wrong_self_convention)]
     fn to_json(self) -> Json {
         json!(self)
     }
 
+    #[allow(clippy::wrong_self_convention)]
+    #[allow(clippy::result_large_err)]
     fn to_feature(
         self,
         property_map: &HashMap<u32, Vec<FullPropertyModel>>,
@@ -136,10 +140,10 @@ impl Model {
                 .iter()
                 .map(|prop| {
                     if prop.name == "parent"
-                        && prop.value.is_some()
                         && args.ignoremanualparent.is_none()
+                        && let Some(val) = prop.value.as_ref()
                     {
-                        has_manual_parent = prop.value.as_ref().unwrap().clone();
+                        has_manual_parent = val.clone();
                     }
                     prop.parse_db_value(&self)
                 })
@@ -160,7 +164,7 @@ impl Model {
 
         let parent_name = if has_manual_parent.is_empty() {
             if let Some(parent_id) = self.parent {
-                name_map.get(&parent_id).map(|name| name.clone())
+                name_map.get(&parent_id).cloned()
             } else {
                 None
             }
@@ -298,6 +302,7 @@ impl Model {
     /// Phase 1 keeps the LEGACY `mode` column (`Type`), so we map its string via
     /// `Mode::from_legacy` here; Phase 2 switches the column to the new `Mode`
     /// enum and this becomes a direct bridge.
+    #[allow(clippy::result_large_err)]
     pub fn to_koji_geometry(&self) -> Result<koji_core::KojiGeometry, ModelError> {
         use sea_orm::ActiveEnum;
         let gj = geojson::Geometry::from_json_value(self.geometry.clone())
@@ -316,48 +321,6 @@ impl Model {
             extra: serde_json::Map::new(),
         };
         Ok(koji_core::KojiGeometry { geometry, meta })
-    }
-}
-
-#[cfg(test)]
-mod to_koji_tests {
-    use super::*;
-    use koji_core::Mode;
-
-    #[cfg(test)]
-    fn test_model_defaults() -> Model {
-        use chrono::Utc;
-        Model {
-            id: 0,
-            name: String::new(),
-            parent: None,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-            mode: Type::Unset,
-            geometry: serde_json::json!(null),
-            geo_type: String::new(),
-            dragonite_area_id: None,
-        }
-    }
-
-    #[test]
-    fn model_maps_to_kojigeometry() {
-        let model = Model {
-            id: 42,
-            name: "Boulder".to_string(),
-            parent: Some(7),
-            geometry: serde_json::json!({ "type": "Point", "coordinates": [1.0, 2.0] }),
-            geo_type: "Point".to_string(),
-            mode: Type::CircleRaid, // legacy fort value -> Mode::Fort
-            ..test_model_defaults()
-        };
-
-        let kg = model.to_koji_geometry().unwrap();
-        assert!(matches!(kg.geometry, geo::Geometry::Point(_)));
-        assert_eq!(kg.meta.id, Some(42));
-        assert_eq!(kg.meta.name.as_deref(), Some("Boulder"));
-        assert_eq!(kg.meta.parent_id, Some(7));
-        assert_eq!(kg.meta.mode, Mode::Fort); // confirms legacy circle_raid -> Fort mapping
     }
 }
 
@@ -744,11 +707,10 @@ impl Query {
     ) -> Result<Model, ModelError> {
         let mut new_map = HashMap::<&str, serde_json::Value>::new();
 
-        let id = if let Some(id) = feat.property("__id") {
-            if let Some(id) = id.as_u64() { id } else { 0 }
-        } else {
-            0
-        } as u32;
+        let id = feat
+            .property("__id")
+            .and_then(|id| id.as_u64())
+            .unwrap_or_default() as u32;
 
         let name = if let Some(name) = feat.property("__name") {
             if let Some(name) = name.as_str() {
@@ -1048,13 +1010,7 @@ impl Query {
             .await?;
         let items = Entity::find()
             .order_by(Column::Name, Order::Asc)
-            .filter(
-                Column::Id.is_in(
-                    items
-                        .into_iter()
-                        .filter_map(|item| item.parent.map(|parent| parent)),
-                ),
-            )
+            .filter(Column::Id.is_in(items.into_iter().filter_map(|item| item.parent)))
             .select_only()
             .column(Column::Id)
             .column(Column::Name)
@@ -1063,5 +1019,47 @@ impl Query {
             .all(db)
             .await?;
         Ok(items)
+    }
+}
+
+#[cfg(test)]
+mod to_koji_tests {
+    use super::*;
+    use koji_core::Mode;
+
+    #[cfg(test)]
+    fn test_model_defaults() -> Model {
+        use chrono::Utc;
+        Model {
+            id: 0,
+            name: String::new(),
+            parent: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            mode: Type::Unset,
+            geometry: serde_json::json!(null),
+            geo_type: String::new(),
+            dragonite_area_id: None,
+        }
+    }
+
+    #[test]
+    fn model_maps_to_kojigeometry() {
+        let model = Model {
+            id: 42,
+            name: "Boulder".to_string(),
+            parent: Some(7),
+            geometry: serde_json::json!({ "type": "Point", "coordinates": [1.0, 2.0] }),
+            geo_type: "Point".to_string(),
+            mode: Type::CircleRaid, // legacy fort value -> Mode::Fort
+            ..test_model_defaults()
+        };
+
+        let kg = model.to_koji_geometry().unwrap();
+        assert!(matches!(kg.geometry, geo::Geometry::Point(_)));
+        assert_eq!(kg.meta.id, Some(42));
+        assert_eq!(kg.meta.name.as_deref(), Some("Boulder"));
+        assert_eq!(kg.meta.parent_id, Some(7));
+        assert_eq!(kg.meta.mode, Mode::Fort); // confirms legacy circle_raid -> Fort mapping
     }
 }

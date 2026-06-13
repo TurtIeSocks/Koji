@@ -210,11 +210,9 @@ impl Stats {
                 format!(
                     "|| [CLUSTERS] Total: {} | Avg Points: {}",
                     self.total_clusters,
-                    if self.total_clusters > 0 {
-                        self.points_covered / self.total_clusters
-                    } else {
-                        0
-                    },
+                    self.points_covered
+                        .checked_div(self.total_clusters)
+                        .unwrap_or(0),
                 ),
                 true
             ),

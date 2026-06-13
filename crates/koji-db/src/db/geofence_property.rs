@@ -135,7 +135,7 @@ impl Query {
 
     pub async fn update_properties_by_geofence(
         db: &DatabaseConnection,
-        incoming: &Vec<Json>,
+        incoming: &[Json],
         geofence_id: Option<u32>,
     ) -> Result<Vec<Model>, ModelError> {
         let mut existing = Entity::find()

@@ -46,7 +46,7 @@ pub fn join(plugin: &Plugin, input: Vec<SingleVec>) -> SingleVec {
             clusters[i + 1].as_ref()
         };
 
-        let mut shortest = std::f64::MAX;
+        let mut shortest = f64::MAX;
         let mut shortest_current_index = 0;
 
         for (current_index, current_point) in current.iter().enumerate() {

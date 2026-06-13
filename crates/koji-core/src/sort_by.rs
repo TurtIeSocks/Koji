@@ -13,14 +13,14 @@ pub enum SortBy {
 
 impl PartialEq for SortBy {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (SortBy::Unset, SortBy::Unset) => true,
-            (SortBy::GeoHash, SortBy::GeoHash) => true,
-            (SortBy::PointCount, SortBy::PointCount) => true,
-            (SortBy::Random, SortBy::Random) => true,
-            (SortBy::S2Cell, SortBy::S2Cell) => true,
-            _ => false,
-        }
+        matches!(
+            (self, other),
+            (SortBy::Unset, SortBy::Unset)
+                | (SortBy::GeoHash, SortBy::GeoHash)
+                | (SortBy::PointCount, SortBy::PointCount)
+                | (SortBy::Random, SortBy::Random)
+                | (SortBy::S2Cell, SortBy::S2Cell)
+        )
     }
 }
 

@@ -39,23 +39,23 @@ impl<'de> Deserialize<'de> for ClusterMode {
 
 impl PartialEq for ClusterMode {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
+        matches!(
+            (self, other),
             (ClusterMode::Honeycomb, ClusterMode::Honeycomb)
-            | (ClusterMode::Fastest, ClusterMode::Fastest)
-            | (ClusterMode::Fast, ClusterMode::Fast)
-            | (ClusterMode::Balanced, ClusterMode::Balanced)
-            | (ClusterMode::Better, ClusterMode::Better)
-            | (ClusterMode::Best, ClusterMode::Best) => true,
-            _ => false,
-        }
+                | (ClusterMode::Fastest, ClusterMode::Fastest)
+                | (ClusterMode::Fast, ClusterMode::Fast)
+                | (ClusterMode::Balanced, ClusterMode::Balanced)
+                | (ClusterMode::Better, ClusterMode::Better)
+                | (ClusterMode::Best, ClusterMode::Best)
+        )
     }
 }
 
 impl Eq for ClusterMode {}
 
-impl ToString for ClusterMode {
-    fn to_string(&self) -> String {
-        match self {
+impl std::fmt::Display for ClusterMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
             ClusterMode::Honeycomb => "Honeycomb",
             ClusterMode::Fastest => "Fastest",
             ClusterMode::Fast => "Fast",
@@ -63,7 +63,6 @@ impl ToString for ClusterMode {
             ClusterMode::Better => "Better",
             ClusterMode::Best => "Best",
             ClusterMode::Custom(s) => s,
-        }
-        .to_string()
+        })
     }
 }

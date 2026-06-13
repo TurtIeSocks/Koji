@@ -8,8 +8,8 @@ impl EnsurePoints for Geometry {
         let mut return_value = self;
         match &mut return_value.value {
             Value::MultiPolygon(polygons) => {
-                for polygon in polygons.into_iter() {
-                    for line_string in polygon.into_iter() {
+                for polygon in polygons.iter_mut() {
+                    for line_string in polygon.iter_mut() {
                         let last = match line_string.last() {
                             Some(last) => last,
                             None => continue,
@@ -209,7 +209,7 @@ impl ToFeatureVec for Geometry {
                     let bbox = polygon
                         .iter()
                         .flat_map(|x| {
-                            x.into_iter()
+                            x.iter()
                                 .map(|y| [y[0] as Precision, y[1] as Precision])
                                 .collect::<single_vec::SingleVec>()
                         })
@@ -258,8 +258,7 @@ impl ToCollection for Vec<Geometry> {
             bbox: self
                 .clone()
                 .into_iter()
-                .map(|geom| geom.to_single_vec())
-                .flatten()
+                .flat_map(|geom| geom.to_single_vec())
                 .collect::<single_vec::SingleVec>()
                 .get_bbox(),
             foreign_members: None,

@@ -24,7 +24,7 @@ impl Display for Circle {
 }
 
 impl Circle {
-    pub fn new(points: &Vec<Point>) -> Self {
+    pub fn new(points: &[Point]) -> Self {
         match points.len() {
             0 => Circle::None,
             1 => Circle::One(points[0]),

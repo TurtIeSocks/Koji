@@ -162,7 +162,7 @@ fn distance_to_segment(p: &Point, a: &Point, b: &Point) -> Precision {
     Haversine.distance(*p, pb)
 }
 
-fn point_line_distance(input: &Vec<Point>, point: &Point) -> Precision {
+fn point_line_distance(input: &[Point], point: &Point) -> Precision {
     let mut distance = Precision::MAX;
     for (i, line) in input.iter().enumerate() {
         let next = if i == input.len() - 1 {

@@ -14,6 +14,7 @@ use crate::{
 
 use super::{get_category_enum, get_enum};
 
+#[allow(clippy::result_large_err)]
 pub trait JsonToModel {
     fn to_geofence(&self) -> Result<geofence::ActiveModel, ModelError>;
     fn to_project(&self) -> Result<project::ActiveModel, ModelError>;
@@ -452,16 +453,10 @@ pub fn determine_category_by_value(
                     actual_value = Some(value.to_string().into());
                 } else if value.starts_with("{") {
                     category = Category::Object;
-                    actual_value = match serde_json::from_str::<Value>(value) {
-                        Ok(val) => Some(val),
-                        Err(_) => None,
-                    };
+                    actual_value = serde_json::from_str::<Value>(value).ok();
                 } else if value.starts_with("[") {
                     category = Category::Array;
-                    actual_value = match serde_json::from_str::<Value>(value) {
-                        Ok(val) => Some(val),
-                        Err(_) => None,
-                    };
+                    actual_value = serde_json::from_str::<Value>(value).ok();
                 } else {
                     actual_value = Some(value.to_string().into());
                 }

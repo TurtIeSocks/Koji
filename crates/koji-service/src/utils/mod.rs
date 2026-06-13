@@ -45,7 +45,8 @@ pub async fn create_or_find_collection(
     data_points: &SingleVec,
 ) -> Result<FeatureCollection, ModelError> {
     if !data_points.is_empty() {
-        let bbox = BBox::new(&data_points.iter().map(|p| Point::new(p[1], p[0])).collect());
+        let points: Vec<Point> = data_points.iter().map(|p| Point::new(p[1], p[0])).collect();
+        let bbox = BBox::new(&points);
         Ok(FeatureCollection {
             bbox: bbox.get_geojson_bbox(),
             features: vec![Feature {
@@ -72,13 +73,13 @@ pub async fn create_or_find_collection(
 
 pub async fn points_from_area(
     area: &FeatureCollection,
-    category: &String,
+    category: &str,
     conn: &KojiDb,
     last_seen: u32,
     tth: SpawnpointTth,
 ) -> Result<Vec<GenericData>, DbErr> {
     if !area.features.is_empty() {
-        match category.as_str() {
+        match category {
             "gym" => gym::Query::area(&conn.scanner, area, last_seen).await,
             "pokestop" => pokestop::Query::area(&conn.scanner, area, last_seen).await,
             "station" => station::Query::area(&conn.scanner, area, last_seen).await,
@@ -88,11 +89,7 @@ pub async fn points_from_area(
                 let gyms = gym::Query::area(&conn.scanner, area, last_seen).await?;
                 let pokestops = pokestop::Query::area(&conn.scanner, area, last_seen).await?;
                 let stations = station::Query::area(&conn.scanner, area, last_seen).await?;
-                Ok(gyms
-                    .into_iter()
-                    .chain(pokestops.into_iter())
-                    .chain(stations.into_iter())
-                    .collect())
+                Ok(gyms.into_iter().chain(pokestops).chain(stations).collect())
             }
             _ => Err(DbErr::Custom("Invalid Category".to_string())),
         }

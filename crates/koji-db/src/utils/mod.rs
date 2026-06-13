@@ -72,7 +72,7 @@ pub async fn get_database_struct() -> KojiDb {
     }
 }
 
-pub fn parse_order(order_by: &String) -> Order {
+pub fn parse_order(order_by: &str) -> Order {
     if order_by.to_lowercase().eq("asc") {
         Order::Asc
     } else {

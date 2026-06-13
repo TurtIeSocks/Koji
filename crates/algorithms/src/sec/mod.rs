@@ -1,4 +1,5 @@
 mod circle;
+#[allow(clippy::module_inception)]
 pub(crate) mod sec;
 mod state;
 mod utils;

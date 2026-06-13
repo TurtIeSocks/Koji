@@ -56,10 +56,8 @@ impl ToSingleVec for Poracle {
     fn to_single_vec(self) -> single_vec::SingleVec {
         if let Some(multipath) = self.multipath {
             multipath.into_iter().flatten().collect()
-        } else if let Some(path) = self.path {
-            path
         } else {
-            vec![]
+            self.path.unwrap_or_default()
         }
     }
 }

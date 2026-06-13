@@ -142,10 +142,10 @@ impl Query {
         geofence_id: Option<u32>,
         project_id: Option<u32>,
     ) -> Result<DeleteResult, DbErr> {
-        if geofence_id.is_some() && project_id.is_some() {
+        if let (Some(geofence_id), Some(project_id)) = (geofence_id, project_id) {
             let existing = geofence_project::Entity::find()
-                .filter(geofence_project::Column::GeofenceId.eq(geofence_id.unwrap()))
-                .filter(geofence_project::Column::ProjectId.eq(project_id.unwrap()))
+                .filter(geofence_project::Column::GeofenceId.eq(geofence_id))
+                .filter(geofence_project::Column::ProjectId.eq(project_id))
                 .one(db)
                 .await?;
 
@@ -173,7 +173,7 @@ impl Query {
 
     pub async fn upsert_related_by_geofence_id(
         db: &DatabaseConnection,
-        projects: &Vec<serde_json::Value>,
+        projects: &[serde_json::Value],
         geofence_id: u32,
     ) -> Result<(), DbErr> {
         let mut existing: HashMap<_, _> = Entity::find()
@@ -213,7 +213,7 @@ impl Query {
 
     pub async fn upsert_related_by_project_id(
         db: &DatabaseConnection,
-        geofences: &Vec<serde_json::Value>,
+        geofences: &[serde_json::Value],
         project_id: u32,
     ) -> Result<(), DbErr> {
         let mut existing: HashMap<_, _> = Entity::find()

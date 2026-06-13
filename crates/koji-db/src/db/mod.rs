@@ -21,6 +21,7 @@ pub mod route;
 pub mod sea_orm_active_enums;
 pub mod tile_server;
 
+#[allow(clippy::result_large_err)]
 trait ToFeatureFromModel {
     fn to_feature(self, internal: bool) -> Result<Feature, ModelError>;
 }

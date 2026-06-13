@@ -38,7 +38,7 @@ pub fn sql_raw(area: &FeatureCollection) -> String {
                         bbox[2],
                         bbox[1],
                         bbox[3],
-                        geo.to_string()
+                        geo
                     );
                 }
                 _ => {}

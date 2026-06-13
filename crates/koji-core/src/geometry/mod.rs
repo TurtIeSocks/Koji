@@ -1,5 +1,6 @@
 mod collection;
 mod feature;
+#[allow(clippy::module_inception)]
 mod geometry;
 mod koji_geojson;
 mod koji_geometry;
@@ -190,14 +191,14 @@ impl Default for BBox {
 }
 
 impl BBox {
-    pub fn new(points: &Vec<Point>) -> BBox {
+    pub fn new(points: &[Point]) -> BBox {
         let mut base = BBox {
             min_x: f64::INFINITY,
             min_y: f64::INFINITY,
             max_x: f64::NEG_INFINITY,
             max_y: f64::NEG_INFINITY,
         };
-        for point in points.into_iter() {
+        for point in points.iter() {
             base.update(point);
         }
         base

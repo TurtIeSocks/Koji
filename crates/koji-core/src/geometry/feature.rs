@@ -5,11 +5,7 @@ use super::*;
 
 impl EnsurePoints for Feature {
     fn ensure_first_last(self) -> Self {
-        let geometry = if let Some(geometry) = self.geometry {
-            Some(geometry.ensure_first_last())
-        } else {
-            None
-        };
+        let geometry = self.geometry.map(|g| g.ensure_first_last());
         Self { geometry, ..self }
     }
 }
@@ -30,10 +26,10 @@ impl ToGeometry for Feature {
 
 impl FeatureHelpers for Feature {
     fn add_instance_properties(&mut self, ctx: &FeatureCtx) {
-        if !self.contains_property("__name") {
-            if let Some(name) = ctx.name.clone() {
-                self.set_property("__name", name)
-            }
+        if !self.contains_property("__name")
+            && let Some(name) = ctx.name.clone()
+        {
+            self.set_property("__name", name)
         }
         if !self.contains_property("__mode") {
             if let Some(enum_type) = ctx.fence_type {

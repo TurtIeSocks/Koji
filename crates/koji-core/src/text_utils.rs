@@ -22,7 +22,7 @@ pub fn get_mode_acronym(instance_type: Option<&String>) -> String {
     .to_string()
 }
 
-pub fn json_related_sort(json: &mut Vec<serde_json::Value>, sort_by: &String, order: String) {
+pub fn json_related_sort(json: &mut [serde_json::Value], sort_by: &str, order: String) {
     json.sort_by(|a, b| {
         let a = a[sort_by].as_array().unwrap().len();
         let b = b[sort_by].as_array().unwrap().len();
@@ -81,7 +81,7 @@ pub fn clean(param: &String) -> String {
     param.to_string()
 }
 
-fn remove_symbols(param: &String) -> String {
+fn remove_symbols(param: &str) -> String {
     let regex = Regex::new(r"[^a-zA-Z0-9\s\-_]").unwrap();
     regex.replace_all(param, "").to_string()
 }
@@ -89,10 +89,10 @@ fn remove_symbols(param: &String) -> String {
 pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<String>) -> String {
     let mut mutable = string.clone();
     if let Some(trimstart) = modifiers.trimstart {
-        mutable = (&mutable[trimstart..]).to_string();
+        mutable = mutable[trimstart..].to_string();
     }
     if let Some(trimend) = modifiers.trimend {
-        mutable = (&mutable[..(mutable.len() - trimend)]).to_string();
+        mutable = mutable[..(mutable.len() - trimend)].to_string();
     }
     if modifiers.alphanumeric.is_some() {
         mutable = remove_symbols(&mutable);
@@ -100,8 +100,7 @@ pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<St
     if let Some(replacer) = modifiers.replace.as_ref() {
         mutable = mutable.replace(clean(replacer).as_str(), "");
     }
-    if parent.is_some() {
-        let parent = parent.unwrap();
+    if let Some(parent) = parent {
         if let Some(replacer) = modifiers.parentreplace.as_ref() {
             mutable = mutable.replacen(&parent, clean(replacer).as_str(), 1);
         }
@@ -162,7 +161,7 @@ pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<St
         mutable = convert_polish_to_ascii(mutable);
     }
     mutable = mutable.trim().to_string();
-    if mutable == "" {
+    if mutable.is_empty() {
         log::warn!(
             "Empty string detected for {} {:?}, returning the standard name",
             string,

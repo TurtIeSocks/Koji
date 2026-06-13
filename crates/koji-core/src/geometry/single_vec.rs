@@ -11,10 +11,8 @@ impl EnsurePoints for SingleVec {
         }
         let mut points = self;
 
-        if !points.is_empty() {
-            if points[0] != points[points.len() - 1] {
-                points.push(points[0]);
-            }
+        if points[0] != points[points.len() - 1] {
+            points.push(points[0]);
         }
         points
     }
@@ -122,7 +120,7 @@ impl ToCollection for SingleVec {
 
 impl ToText for SingleVec {
     fn to_text(self, sep_1: &str, sep_2: &str, poly_sep: bool) -> String {
-        let last = if self.len() == 0 { 0 } else { self.len() - 1 };
+        let last = if self.is_empty() { 0 } else { self.len() - 1 };
         self.into_iter()
             .enumerate()
             .map(|(i, each)| each.to_text(sep_1, if i == last { "" } else { sep_2 }, poly_sep))
