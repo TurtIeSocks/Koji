@@ -10,11 +10,13 @@
 //! contract lives in `docs/superpowers/specs/2026-06-14-args-restructure-design.md`
 //! §2). koji-core configs stay serde-free domain types.
 
+mod config;
 mod groups;
 mod inputs;
 mod ops;
 pub(crate) mod resolve;
 
+pub use config::{DataFilter, DevConfig, OutputConfig, ReturnTypeArg, get_return_type};
 pub use groups::*;
 pub use inputs::*;
 pub use ops::*;

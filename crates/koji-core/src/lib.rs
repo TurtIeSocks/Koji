@@ -2,18 +2,15 @@
 //! No database, HTTP, or async dependencies.
 
 mod category;
-mod config;
 mod enum_map;
 mod mode;
 mod normalize;
 mod query_args;
-mod return_type;
 pub mod s2;
 mod text_utils;
 mod unknown_id;
 
 pub use category::Category;
-pub use config::{DataFilter, DevConfig, OutputConfig};
 pub use enum_map::get_category_enum;
 pub use mode::Mode;
 pub use normalize::{AreaPolygons, HasLatLon, count_in_area};
@@ -21,7 +18,6 @@ pub use query_args::{
     AdminReq, AdminReqParsed, ApiQueryArgs, BoundsArg, FeatureRenderSpec, Filters, OutputSpec,
     PropertySelection, SpawnpointTth,
 };
-pub use return_type::{ReturnTypeArg, get_return_type};
 pub use s2::{create_cell_map, from_array_to_cell_id};
 pub use text_utils::{NameModifier, clean, get_mode_acronym, json_related_sort, separate_by_comma};
 pub use unknown_id::UnknownId;

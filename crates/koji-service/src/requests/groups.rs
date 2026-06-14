@@ -9,11 +9,10 @@
 use algorithms::bootstrap::BootstrapConfig;
 use algorithms::clustering::{CalculationMode, ClusterMode, ClusteringConfig, S2Config};
 use algorithms::routing::{RoutingConfig, SortBy};
-use koji_core::{
-    DataFilter, DevConfig, OutputConfig, Precision, ReturnTypeArg, SpawnpointTth, get_return_type,
-};
+use koji_core::{Precision, SpawnpointTth};
 use serde::{Deserialize, Serialize};
 
+use super::config::{DataFilter, DevConfig, OutputConfig, ReturnTypeArg, get_return_type};
 use super::resolve::{
     DEFAULT_MIN_POINTS, DEFAULT_RADIUS, DEFAULT_S2_LEVEL, DEFAULT_S2_SIZE, bootstrap_plugin_args,
     clustering_plugin_args, resolve_max_clusters, validate_s2_cell,

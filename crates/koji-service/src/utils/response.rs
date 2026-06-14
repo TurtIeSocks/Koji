@@ -5,7 +5,7 @@ use koji_core::{KojiGeometryCollection, Precision};
 use serde::Serialize;
 use serde_json::json;
 
-use koji_core::ReturnTypeArg;
+use crate::requests::ReturnTypeArg;
 
 #[derive(Debug, Serialize)]
 pub struct ConfigResponse {

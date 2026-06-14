@@ -4,8 +4,10 @@ use super::*;
 
 use serde_json::json;
 
-use koji_core::{ApiQueryArgs, ReturnTypeArg, get_return_type};
+use koji_core::ApiQueryArgs;
 use koji_db::{KojiDb, db::route};
+
+use crate::requests::{ReturnTypeArg, get_return_type};
 
 use crate::public::v1::legacy::{LegacyArgs, LegacyResolved};
 

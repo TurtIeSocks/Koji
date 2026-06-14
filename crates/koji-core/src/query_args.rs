@@ -33,7 +33,7 @@ pub struct ApiQueryArgs {
     // Extras
     /// custom return type of the API request
     ///
-    /// Options: [ReturnTypeArg]
+    /// Options: `ReturnTypeArg`
     pub rt: Option<String>,
     /// If true, the `group` property is set from the parent property
     pub group: Option<bool>,

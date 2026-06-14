@@ -11,11 +11,13 @@
 //! emit.
 
 use actix_web::{Error, HttpResponse, http::StatusCode, web};
-use koji_core::{ApiQueryArgs, ReturnTypeArg, get_return_type};
+use koji_core::ApiQueryArgs;
 use koji_db::{
     KojiDb,
     db::{geofence, route, sea_orm_active_enums::Mode},
 };
+
+use crate::requests::{ReturnTypeArg, get_return_type};
 use koji_dragonite::AreaMode;
 use koji_events::EventDispatcher;
 use serde_json::json;

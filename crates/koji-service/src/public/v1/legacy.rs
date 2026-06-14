@@ -18,15 +18,14 @@
 use algorithms::clustering::{CalculationMode, ClusterMode};
 use algorithms::routing::SortBy;
 use geojson::FeatureCollection;
-use koji_core::{
-    Mode, Precision, ReturnTypeArg, SpawnpointTth, UnknownId, get_return_type,
-};
+use koji_core::{Mode, Precision, SpawnpointTth, UnknownId};
 use serde::Deserialize;
 
 use crate::requests::resolve::{resolve_data_points, validate_s2_cell};
 use crate::requests::{
     BootstrapArgs, BootstrapReq, CalcRequest, ClusterReq, ClusteringArgs, DataFilterArgs,
-    DataPointsArg, DevArgs, GeoInput, OutputArgs, RerouteReq, RoutingArgs, StatsReq,
+    DataPointsArg, DevArgs, GeoInput, OutputArgs, RerouteReq, ReturnTypeArg, RoutingArgs, StatsReq,
+    get_return_type,
 };
 
 #[derive(Debug, Clone, Deserialize)]

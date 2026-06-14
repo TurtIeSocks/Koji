@@ -1,4 +1,31 @@
+//! Request/output-side configuration structs. The v2 arg-group wire DTOs
+//! ([`super::groups`]) `resolve()` into these; downstream ops + the response
+//! layer consume them. `DataFilter` carries a [`SpawnpointTth`] from `koji_core`.
+
+use koji_core::SpawnpointTth;
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone)]
+pub struct DataFilter {
+    pub last_seen: u32,
+    pub tth: SpawnpointTth,
+}
+
+#[derive(Debug, Clone)]
+pub struct OutputConfig {
+    pub return_type: ReturnTypeArg,
+    pub save_to_db: bool,
+    pub save_to_scanner: bool,
+    pub save_to_scanner_only: bool,
+    pub simplify: bool,
+}
+
+/// Developer / experimental toggles + benchmark mode.
+#[derive(Debug, Clone, Default)]
+pub struct DevConfig {
+    pub bypass_adaptive_partition: bool,
+    pub benchmark_mode: bool,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum ReturnTypeArg {

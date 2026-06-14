@@ -21,7 +21,6 @@ use super::*;
 use algorithms::stats::Stats;
 use geo::{ChamberlainDuquetteArea, MultiPolygon, Polygon};
 use geojson::{FeatureCollection, Geometry, Value};
-use koji_core::ReturnTypeArg;
 use koji_db::{
     KojiDb,
     db::{geofence, route},
@@ -31,6 +30,7 @@ use serde_json::{Value as JsonValue, json};
 
 use crate::public::v1::legacy::{LegacyArgs, LegacyResolved};
 use crate::public::v2::calc::{CALC_KIND, CalcPayload};
+use crate::requests::ReturnTypeArg;
 
 /// Sync calc out-prioritizes batch enqueues (mirrors the v2 sync bridge).
 const PRIORITY_HIGH: i16 = 100;

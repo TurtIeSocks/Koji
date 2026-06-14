@@ -13,9 +13,10 @@
 //!
 //! [`default_return_type`]: ClusterReq::default_return_type
 
-use koji_core::{DataFilter, Precision, ReturnTypeArg, SingleVec, SpawnpointTth, UnknownId};
+use koji_core::{Precision, SingleVec, SpawnpointTth, UnknownId};
 use serde::{Deserialize, Serialize};
 
+use super::config::{DataFilter, ReturnTypeArg};
 use super::groups::{
     BootstrapArgs, ClusteringArgs, DataFilterArgs, DevArgs, OutputArgs, RoutingArgs,
 };
@@ -270,10 +271,7 @@ mod tests {
     fn cluster_default_return_type_follows_area_container() {
         // no area -> SingleArray (parity with old init())
         let req: ClusterReq = serde_json::from_str(r#"{}"#).unwrap();
-        assert_eq!(
-            req.default_return_type(),
-            koji_core::ReturnTypeArg::SingleArray
-        );
+        assert_eq!(req.default_return_type(), ReturnTypeArg::SingleArray);
     }
 
     /// The job-payload path: a nested cluster request survives the queue crossing
