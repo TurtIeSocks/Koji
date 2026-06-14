@@ -17,10 +17,17 @@ pub enum Mode {
 }
 
 impl Mode {
-    /// Map a legacy RDM mode string (any of the 12 historical values, or an
-    /// unknown) to the collapsed four-variant `Mode`. Unknown → `Unset`.
+    /// Map a mode string to the collapsed four-variant `Mode`, accepting BOTH the
+    /// 4 canonical wire strings (`pokemon`/`fort`/`quest`/`unset`) AND any of the
+    /// 12 historical RDM values. Unknown → `Unset`. This is the single source of
+    /// truth for lenient mode parsing (used by `KojiMeta`'s tolerant deserialize).
     pub fn from_legacy(s: &str) -> Self {
         match s {
+            // Canonical wire/DB strings.
+            "pokemon" => Mode::Pokemon,
+            "fort" => Mode::Fort,
+            "quest" => Mode::Quest,
+            // Legacy 12-value RDM strings.
             "circle_pokemon"
             | "circle_smart_pokemon"
             | "pokemon_iv"
@@ -84,5 +91,15 @@ mod tests {
         for s in ["unset", "leveling", "anything_unknown"] {
             assert_eq!(Mode::from_legacy(s), Mode::Unset, "{s}");
         }
+    }
+
+    #[test]
+    fn from_legacy_also_accepts_canonical_strings() {
+        // `from_legacy` is the single source of truth for lenient parsing, so it
+        // must round-trip the 4 canonical wire strings too (not just legacy).
+        assert_eq!(Mode::from_legacy("pokemon"), Mode::Pokemon);
+        assert_eq!(Mode::from_legacy("fort"), Mode::Fort);
+        assert_eq!(Mode::from_legacy("quest"), Mode::Quest);
+        assert_eq!(Mode::from_legacy("unset"), Mode::Unset);
     }
 }
