@@ -54,7 +54,7 @@ async fn list(
         Ok(Some(spec)) => geofence::Query::descendants(&conn.koji, Anchor::Forest, spec)
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?,
-        Ok(None) => geofence::Query::get_all_koji(&conn.koji, &args)
+        Ok(None) => geofence::Query::get_all_koji(&conn.koji)
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?,
     };

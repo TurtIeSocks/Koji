@@ -3,8 +3,8 @@
 use std::{collections::HashMap, str::FromStr, time::Instant};
 
 use koji_core::{
-    AdminReqParsed, ApiQueryArgs, EnsurePoints, KojiGeometry, KojiGeometryCollection, UnknownId,
-    json_related_sort, name_modifier, separate_by_comma,
+    AdminReqParsed, ApiQueryArgs, EnsurePoints, FeatureRenderSpec, KojiGeometry,
+    KojiGeometryCollection, UnknownId, json_related_sort,
 };
 
 use crate::{
@@ -228,7 +228,7 @@ impl Model {
         self,
         property_map: &HashMap<u32, Vec<FullPropertyModel>>,
         name_map: &HashMap<u32, String>,
-        args: &ApiQueryArgs,
+        spec: &FeatureRenderSpec,
     ) -> Result<Feature, ModelError> {
         let mut has_manual_parent = String::from("");
 
@@ -248,13 +248,14 @@ impl Model {
             vec![]
         };
 
-        if separate_by_comma(&args.exclude).contains(&self.name) {
+        if spec.filters.excludes_name(&self.name) {
             return Err(ModelError::Geofence("Excluded name".to_string()));
         }
-        if properties
+        let prop_names = properties
             .iter()
-            .any(|prop| separate_by_comma(&args.excludeproperties).contains(&prop.name.to_string()))
-        {
+            .map(|prop| prop.name)
+            .collect::<Vec<&str>>();
+        if spec.filters.excludes_any_property(&prop_names) {
             return Err(ModelError::Geofence("Excluded property".to_string()));
         }
 
@@ -268,15 +269,11 @@ impl Model {
             Some(has_manual_parent)
         };
 
-        if parent_name.is_some()
-            && separate_by_comma(&args.excludeparents)
-                .iter()
-                .any(|parent| parent_name.as_ref().unwrap().eq(parent))
-        {
+        if spec.filters.excludes_parent(parent_name.as_deref()) {
             return Err(ModelError::Geofence("Excluded parent".to_string()));
         }
 
-        if args.internal.unwrap_or(false) {
+        if spec.output.adds_internal_props() {
             properties.push(Basic {
                 name: "__id",
                 value: serde_json::Value::from(self.id),
@@ -294,31 +291,31 @@ impl Model {
                 value: serde_json::Value::from(self.parent),
             });
         }
-        if args.name.unwrap_or(false) {
+        if spec.properties.name {
             properties.push(Basic {
                 name: "name",
                 value: serde_json::Value::from(self.name),
             });
         }
-        if args.id.unwrap_or(false) {
+        if spec.properties.id {
             properties.push(Basic {
                 name: "id",
                 value: serde_json::Value::from(self.id),
             });
         }
-        if args.mode.unwrap_or(false) {
+        if spec.properties.mode {
             properties.push(Basic {
                 name: "mode",
                 value: serde_json::Value::from(self.mode.to_value()),
             });
         }
-        if args.group.unwrap_or(false) && parent_name.is_some() {
+        if spec.properties.group && parent_name.is_some() {
             properties.push(Basic {
                 name: "group",
                 value: serde_json::Value::from(parent_name.clone()),
             });
         }
-        if args.parent.unwrap_or(false) {
+        if spec.properties.parent {
             properties.push(Basic {
                 name: "parent",
                 value: serde_json::Value::from(parent_name.clone()),
@@ -327,7 +324,7 @@ impl Model {
         let geometry = Geometry::from_json_value(self.geometry)?;
 
         let mut feature = Feature {
-            geometry: Some(if args.internal.is_some() || args.fullcoords.is_some() {
+            geometry: Some(if spec.output.skip_precision_trim() {
                 geometry
             } else {
                 geometry.trim_precision(6)
@@ -345,10 +342,10 @@ impl Model {
         if let Some(geofence_name) = feature.property("name")
             && let Some(geofence_name) = geofence_name.as_str()
         {
-            feature.set_property("name", name_modifier(geofence_name.to_string(), args));
+            feature.set_property("name", spec.name_modifier.apply(geofence_name));
         }
 
-        if args.internal.is_some() {
+        if spec.output.tag_internal_id() {
             feature.id = Some(geojson::feature::Id::String(format!(
                 "{}__{}__KOJI",
                 self.id,
@@ -707,7 +704,6 @@ impl Query {
     #[allow(clippy::result_large_err)]
     pub async fn get_all_koji(
         db: &DatabaseConnection,
-        _args: &ApiQueryArgs,
     ) -> Result<koji_core::KojiGeometryCollection, ModelError> {
         let results = Query::get_all(db).await?;
         results
@@ -1140,10 +1136,15 @@ impl Query {
 
         log::debug!("db query took {:?}", time.elapsed());
 
+        // Resolve the render spec ONCE for the whole request — it parses the
+        // comma-separated filter lists, so building it per geofence would be a
+        // perf regression (and the legacy `to_feature` re-split them every row).
+        let spec = args.feature_render_spec();
+
         let time = Instant::now();
         let items = items
             .into_iter()
-            .filter_map(|result| result.to_feature(&property_map, &name_map, args).ok())
+            .filter_map(|result| result.to_feature(&property_map, &name_map, &spec).ok())
             .collect();
 
         log::debug!("feature conversion took {:?}", time.elapsed());
@@ -1447,7 +1448,11 @@ mod to_koji_tests {
             ..Default::default()
         };
         let feature = geofence_row_for_feature()
-            .to_feature(&HashMap::new(), &HashMap::new(), &args)
+            .to_feature(
+                &HashMap::new(),
+                &HashMap::new(),
+                &args.feature_render_spec(),
+            )
             .unwrap();
         let coll = koji_collection_from_features(vec![feature]);
 
@@ -1471,7 +1476,11 @@ mod to_koji_tests {
             ..Default::default()
         };
         let feature = geofence_row_for_feature()
-            .to_feature(&HashMap::new(), &HashMap::new(), &args)
+            .to_feature(
+                &HashMap::new(),
+                &HashMap::new(),
+                &args.feature_render_spec(),
+            )
             .unwrap();
         // Sanity: the feature carries the canonical 4-value string.
         assert_eq!(

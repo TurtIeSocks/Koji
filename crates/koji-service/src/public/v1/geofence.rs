@@ -12,10 +12,9 @@ use crate::public::v1::legacy::{LegacyArgs, LegacyResolved};
 #[get("/all")]
 async fn all(
     conn: web::Data<KojiDb>,
-    args: web::Query<ApiQueryArgs>,
+    _args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
-    let args = args.into_inner();
-    let coll = geofence::Query::get_all_koji(&conn.koji, &args)
+    let coll = geofence::Query::get_all_koji(&conn.koji)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
     // The `/all` wire shape is a geojson `FeatureCollection`; go Koji-native via
@@ -143,13 +142,12 @@ async fn reference_data_project(
 async fn specific_return_type(
     conn: web::Data<KojiDb>,
     url: actix_web::web::Path<String>,
-    args: web::Query<ApiQueryArgs>,
+    _args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
     let return_type = url.into_inner();
-    let args = args.into_inner();
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
 
-    let coll = geofence::Query::get_all_koji(&conn.koji, &args)
+    let coll = geofence::Query::get_all_koji(&conn.koji)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 

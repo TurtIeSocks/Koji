@@ -211,10 +211,6 @@ impl NameModifier {
     }
 }
 
-pub fn name_modifier(string: String, modifiers: &ApiQueryArgs) -> String {
-    NameModifier::from(modifiers).apply(&string)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

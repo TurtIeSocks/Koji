@@ -31,9 +31,7 @@ pub use query_args::{
 pub use return_type::{ReturnTypeArg, get_return_type};
 pub use s2::{create_cell_map, from_array_to_cell_id};
 pub use sort_by::SortBy;
-pub use text_utils::{
-    NameModifier, clean, get_mode_acronym, json_related_sort, name_modifier, separate_by_comma,
-};
+pub use text_utils::{NameModifier, clean, get_mode_acronym, json_related_sort, separate_by_comma};
 pub use unknown_id::UnknownId;
 
 pub mod geometry;
