@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use geojson::{Feature, FeatureCollection, Value};
 
-use crate::geometry::{EnsurePoints, GetBbox, KojiGeometry, KojiGeometryCollection};
+use crate::geometry::{EnsurePoints, KojiBbox, KojiGeometry, KojiGeometryCollection};
 
 /// The `[lat, lon]` coordinate list of one geojson `Feature`, via the Koji-native
 /// path (`KojiGeometry::try_from` → the Phase 1B inherent `to_single_vec`) instead
@@ -38,7 +38,9 @@ pub fn sql_raw(area: &FeatureCollection) -> String {
         let bbox = if let Some(bbox) = feature.bbox.clone() {
             bbox
         } else {
-            feature_single_vec(feature).get_bbox().unwrap()
+            KojiBbox::from_points(&feature_single_vec(feature))
+                .map(|b| b.trim(6).to_geojson_bbox_vec())
+                .unwrap_or_else(|| vec![0.0, 0.0, 0.0, 0.0])
         };
         if let Some(geometry) = feature.geometry.clone() {
             let geo = geometry.ensure_first_last();
@@ -67,7 +69,9 @@ pub fn sql_raw_bbox(area: &FeatureCollection) -> String {
     for (i, feature) in area.into_iter().enumerate() {
         let bbox = if let Some(bbox) = feature.bbox.as_ref() {
             bbox.clone()
-        } else if let Some(bbox) = feature_single_vec(feature).get_bbox() {
+        } else if let Some(bbox) = KojiBbox::from_points(&feature_single_vec(feature))
+            .map(|b| b.trim(6).to_geojson_bbox_vec())
+        {
             bbox
         } else {
             continue;

@@ -252,7 +252,9 @@ impl KojiGeometryCollection {
             if !is_poly {
                 continue;
             }
-            let bbox = bbox_of(&single_group(&item.geometry));
+            let bbox = super::KojiBbox::from_points(&single_group(&item.geometry))
+                .map(|b| b.trim(6).to_geojson_bbox())
+                .unwrap_or([0.0, 0.0, 0.0, 0.0]);
             let geo = geojson_geometry_closed(&item.geometry);
             clauses = format!(
                 "{}{} (\n\tlon BETWEEN {} AND {}\n\tAND lat BETWEEN {} AND {}\n\tAND ST_CONTAINS(\n\t\tST_GeomFromGeoJSON('{}', 2, 0),\n\t\tPOINT(lon, lat)\n\t)\n)",

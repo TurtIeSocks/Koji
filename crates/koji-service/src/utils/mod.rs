@@ -1,8 +1,7 @@
 use super::*;
 
-use geo::Point;
 use geojson::{Geometry, Value};
-use koji_core::{BBox, EnsurePoints, GetBbox, SingleVec, SpawnpointTth, UnknownId};
+use koji_core::{EnsurePoints, KojiBbox, SingleVec, SpawnpointTth, UnknownId};
 use koji_db::{KojiDb, ModelError, db::geofence};
 use koji_scanner::{
     GenericData,
@@ -29,7 +28,9 @@ pub async fn load_collection(
         // (ring-closed + bbox, as the old matrix `Feature::to_collection` did),
         // without the `To*` matrix.
         Ok(feature) => {
-            let bbox = feature.get_bbox();
+            let bbox = koji_core::KojiGeometry::try_from(feature.clone())
+                .ok()
+                .and_then(|kg| koji_core::KojiGeometryCollection::new(vec![kg]).geojson_bbox());
             Ok(FeatureCollection {
                 bbox: bbox.clone(),
                 features: vec![Feature { bbox, ..feature }.ensure_first_last()],
@@ -59,14 +60,22 @@ pub async fn create_or_find_collection(
     data_points: &SingleVec,
 ) -> Result<FeatureCollection, ModelError> {
     if !data_points.is_empty() {
-        let points: Vec<Point> = data_points.iter().map(|p| Point::new(p[1], p[0])).collect();
-        let bbox = BBox::new(&points);
+        // data_points is [lat, lon]; KojiBbox emits the correct geojson order.
+        let kb = KojiBbox::from_points(data_points)
+            .expect("data_points is non-empty in this branch")
+            .trim(6);
         Ok(FeatureCollection {
-            bbox: bbox.get_geojson_bbox(),
+            bbox: Some(kb.to_geojson_bbox_vec()),
             features: vec![Feature {
-                bbox: bbox.get_geojson_bbox(),
+                bbox: Some(kb.to_geojson_bbox_vec()),
                 geometry: Some(Geometry {
-                    value: Value::Polygon(bbox.get_poly()),
+                    value: Value::Polygon(vec![vec![
+                        vec![kb.min_lon, kb.min_lat],
+                        vec![kb.min_lon, kb.max_lat],
+                        vec![kb.max_lon, kb.max_lat],
+                        vec![kb.max_lon, kb.min_lat],
+                        vec![kb.min_lon, kb.min_lat],
+                    ]]),
                     bbox: None,
                     foreign_members: None,
                 }),

@@ -1,6 +1,6 @@
 use geojson::{Feature, Geometry};
 use hashbrown::HashSet;
-use koji_core::{ClusterMode, GetBbox, PointArray, Precision, SingleVec};
+use koji_core::{ClusterMode, KojiBbox, PointArray, Precision, SingleVec};
 use macros::time;
 
 use ::s2::{cellid::CellID, latlng::LatLng};
@@ -534,8 +534,16 @@ impl<'a> Greedy {
     }
 
     fn get_honeycomb_clusters(&self, points: &SingleVec) -> SingleVec {
-        let bbox = points.get_bbox();
-        let bbox_unwrap = bbox.clone().unwrap();
+        let kb = KojiBbox::from_points(points)
+            .map(|b| b.trim(6))
+            .unwrap_or(KojiBbox {
+                min_lat: 0.0,
+                min_lon: 0.0,
+                max_lat: 0.0,
+                max_lon: 0.0,
+            });
+        let arr = kb.to_geojson_bbox(); // [min_lon, min_lat, max_lon, max_lat]
+        let bbox = Some(kb.to_geojson_bbox_vec());
 
         let feat = Feature {
             bbox: bbox.clone(),
@@ -543,11 +551,11 @@ impl<'a> Greedy {
                 bbox,
                 foreign_members: None,
                 value: geojson::Value::Polygon(vec![vec![
-                    vec![bbox_unwrap[0], bbox_unwrap[1]],
-                    vec![bbox_unwrap[2], bbox_unwrap[1]],
-                    vec![bbox_unwrap[2], bbox_unwrap[3]],
-                    vec![bbox_unwrap[0], bbox_unwrap[3]],
-                    vec![bbox_unwrap[0], bbox_unwrap[1]],
+                    vec![arr[0], arr[1]],
+                    vec![arr[2], arr[1]],
+                    vec![arr[2], arr[3]],
+                    vec![arr[0], arr[3]],
+                    vec![arr[0], arr[1]],
                 ]]),
             }),
             ..Default::default()
@@ -570,8 +578,8 @@ impl<'a> Greedy {
 
     #[time()]
     fn get_s2_clusters(&self, points: &SingleVec, point_tree: &'a RTree<Point>) -> SingleVec {
-        let bbox = points.get_bbox().unwrap();
-        s2::get_region_cells(bbox[1], bbox[3], bbox[0], bbox[2], 16)
+        let kb = KojiBbox::from_points(points).map(|b| b.trim(6)).unwrap();
+        s2::get_region_cells(kb.min_lat, kb.max_lat, kb.min_lon, kb.max_lon, 16)
             .0
             .into_par_iter()
             .flat_map(|cell| self.flat_map_cells(cell, point_tree))

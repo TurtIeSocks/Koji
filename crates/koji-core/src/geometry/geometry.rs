@@ -72,7 +72,7 @@ impl GeometryHelpers for Geometry {
             ),
             _ => self,
         };
-        geometry.bbox = geometry.get_bbox();
+        geometry.bbox = geometry_geojson_bbox(&geometry);
         geometry
     }
 }
@@ -92,9 +92,21 @@ impl TrimPrecision for Geometry {
             }
             _ => self,
         };
-        geometry.bbox = geometry.get_bbox();
+        geometry.bbox = geometry_geojson_bbox(&geometry);
         geometry
     }
+}
+
+/// The geojson `bbox` member `[min_lon, min_lat, max_lon, max_lat]` (trimmed to 6)
+/// for a geojson `Geometry`, via the Koji-native path. Replaces `GetBbox for Geometry`.
+fn geometry_geojson_bbox(g: &Geometry) -> Option<geojson::Bbox> {
+    let feature = geojson::Feature {
+        geometry: Some(g.clone()),
+        ..Default::default()
+    };
+    KojiGeometry::try_from(feature)
+        .ok()
+        .and_then(|kg| KojiGeometryCollection::new(vec![kg]).geojson_bbox())
 }
 
 impl GetBbox for Geometry {
