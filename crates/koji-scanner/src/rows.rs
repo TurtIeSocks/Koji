@@ -42,28 +42,14 @@ impl GenericData {
     }
 }
 
-impl koji_core::ToPointArray for GenericData {
-    fn to_point_array(self) -> koji_core::PointArray {
-        self.p
-    }
-}
-impl koji_core::ToPointStruct for GenericData {
-    fn to_struct(self) -> koji_core::PointStruct {
-        koji_core::PointStruct {
-            lat: self.p[0],
-            lon: self.p[1],
-        }
-    }
-}
-
 pub trait GenericDataToVec {
     fn to_single_vec(self) -> koji_core::SingleVec;
 }
 
 impl GenericDataToVec for Vec<GenericData> {
     fn to_single_vec(self) -> koji_core::SingleVec {
-        self.into_iter()
-            .map(koji_core::ToPointArray::to_point_array)
-            .collect()
+        // `GenericData.p` is already `[lat, lon]` — the exact `PointArray` shape,
+        // so map it through directly (no `To*` matrix trait).
+        self.into_iter().map(|g| g.p).collect()
     }
 }
