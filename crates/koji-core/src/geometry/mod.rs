@@ -2,6 +2,7 @@ mod collection;
 mod feature;
 #[allow(clippy::module_inception)]
 mod geometry;
+mod koji_bbox;
 mod koji_geojson;
 mod koji_geometry;
 mod koji_meta;
@@ -15,6 +16,7 @@ mod single_struct;
 mod single_vec;
 mod text;
 
+pub use koji_bbox::KojiBbox;
 pub use koji_geojson::KojiGeojsonError;
 pub use koji_geometry::{KojiGeometry, KojiGeometryCollection};
 pub use koji_meta::KojiMeta;
