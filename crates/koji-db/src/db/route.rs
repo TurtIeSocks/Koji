@@ -11,7 +11,8 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use koji_core::{
-    AdminReqParsed, FeatureCtx, KojiGeometry, KojiGeometryCollection, ToCollection, ToFeature,
+    AdminReqParsed, EnsurePoints, FeatureCtx, KojiGeometry, KojiGeometryCollection, ToCollection,
+    ToFeature,
 };
 
 use crate::{
@@ -648,6 +649,42 @@ impl Query {
         Ok(items)
     }
 
+    /// Additive Phase 2 counterpart to `by_geofence_feature`: fetch the SAME
+    /// route rows and return them as a `KojiGeometryCollection`, byte-identical to
+    /// what the v1 endpoint produced pre-S5b.1. The route `to_feature` injects
+    /// `geofence_id` (which the bare `to_koji_geometry` has no field for) plus the
+    /// legacy 12-value `mode` string and the `internal` `__`-prefix / `feature.id`
+    /// shaping — so we go through the per-row `Feature`s + Phase 1 `TryFrom`
+    /// (the exact path the endpoint used) rather than `to_koji_geometry`. Polygon
+    /// rings are closed via `EnsurePoints` as the old `to_collection` did.
+    ///
+    /// NOTE: on the NON-internal path the emitted `mode` property is the legacy
+    /// 12-value string, which `KojiMeta`'s 4-value `Mode` field rejects on
+    /// deserialize — `TryFrom`'s `unwrap_or_default()` then drops the whole
+    /// properties object (id/name/geofence_id included). This is a pre-existing
+    /// fidelity bug (present since 36ac2e7's `try_from` round-trip); preserved here
+    /// byte-for-byte. Fix belongs in koji-core (legacy-tolerant `KojiMeta` mode
+    /// deserialize). Does not replace `by_geofence_feature` (deleted in a later
+    /// section).
+    #[allow(clippy::result_large_err)]
+    pub async fn by_geofence_koji(
+        db: &DatabaseConnection,
+        geofence_name: String,
+        internal: bool,
+    ) -> Result<KojiGeometryCollection, ModelError> {
+        let features = Query::by_geofence_feature(db, geofence_name, internal).await?;
+        let fc = geojson::FeatureCollection {
+            bbox: None,
+            features: features
+                .into_iter()
+                .map(EnsurePoints::ensure_first_last)
+                .collect(),
+            foreign_members: None,
+        };
+        KojiGeometryCollection::try_from(fc)
+            .map_err(|e| ModelError::Custom(format!("[GEOMETRY]: {e}")))
+    }
+
     pub async fn search(db: &DatabaseConnection, search: String) -> Result<Vec<Json>, DbErr> {
         Entity::find()
             .filter(Column::Name.like(format!("%{}%", search).as_str()))
@@ -795,5 +832,102 @@ mod to_koji_tests {
         assert_eq!(route_mode_type(&item), Type::Unset);
         assert_eq!(route_name(&item), None);
         assert_eq!(route_geofence_id(&item), None);
+    }
+
+    /// `by_geofence_koji` returns the property-rich `to_feature` output as a
+    /// `KojiGeometryCollection` (NOT the bare `to_koji_geometry`), byte-identical
+    /// to what the v1 endpoint produced pre-S5b.1 (the same geojson
+    /// `FeatureCollection` + Phase 1 `TryFrom` round-trip, now inside the DB
+    /// method). These tests pin that exact transform over the per-row
+    /// `Vec<Feature>` (the live `by_geofence_feature` half needs a DB and is
+    /// exercised by integration).
+    ///
+    /// IMPORTANT — pre-existing legacy-`mode` poisoning (NOT introduced here):
+    /// the route `to_feature` ALWAYS emits a non-internal `mode` property equal to
+    /// the legacy 12-value string (e.g. `"circle_pokemon"`). `KojiMeta.mode` is the
+    /// 4-value `Mode` enum, so `serde_json::from_value::<KojiMeta>` REJECTS that
+    /// string and `KojiGeometry::try_from`'s `.unwrap_or_default()` discards the
+    /// ENTIRE properties object — dropping `id`/`name`/`geofence_id` too. This
+    /// already happens on `main` (introduced when 36ac2e7 swapped the endpoint to
+    /// the `try_from` round-trip); `by_geofence_koji` preserves it byte-for-byte.
+    /// See `by_geofence_koji_legacy_mode_poisons_noninternal_props` below — that is
+    /// a fidelity bug to fix in koji-core (legacy-tolerant `KojiMeta` mode
+    /// deserialize), out of this sub-step's file scope.
+    fn koji_collection_from_features(features: Vec<Feature>) -> KojiGeometryCollection {
+        let fc = geojson::FeatureCollection {
+            bbox: None,
+            features: features
+                .into_iter()
+                .map(EnsurePoints::ensure_first_last)
+                .collect(),
+            foreign_members: None,
+        };
+        KojiGeometryCollection::try_from(fc).unwrap()
+    }
+
+    fn route_row_for_feature() -> Model {
+        Model {
+            id: 3,
+            geofence_id: 88,
+            name: "patrol".to_string(),
+            geometry: serde_json::json!({
+                "type": "MultiPoint",
+                "coordinates": [[1.0, 2.0], [3.0, 4.0]]
+            }),
+            mode: Type::CirclePokemon, // legacy 12-value value
+            ..test_model_defaults()
+        }
+    }
+
+    /// Internal (`__`-prefixed) path: none of `__id`/`__name`/`__mode`/
+    /// `__geofence_id` collide with a typed `KojiMeta` field, so all survive
+    /// losslessly in `extra` (no deserialize poisoning). This is the high-fidelity
+    /// path and proves the route-only `geofence_id` + the legacy 12-value `mode`
+    /// string are both carried through unchanged.
+    #[test]
+    fn by_geofence_koji_transform_honors_internal_underscore_props() {
+        let feature = route_row_for_feature().to_feature(true).unwrap();
+        let coll = koji_collection_from_features(vec![feature]);
+
+        assert_eq!(coll.items.len(), 1);
+        let meta = &coll.items[0].meta;
+        assert_eq!(
+            meta.extra.get("__geofence_id").and_then(|v| v.as_u64()),
+            Some(88)
+        );
+        assert_eq!(
+            meta.extra.get("__name").and_then(|v| v.as_str()),
+            Some("patrol")
+        );
+        // The original 12-value string is carried verbatim (NOT collapsed).
+        assert_eq!(
+            meta.extra.get("__mode").and_then(|v| v.as_str()),
+            Some("circle_pokemon")
+        );
+    }
+
+    /// Regression pin for the pre-existing legacy-`mode` poisoning on the
+    /// NON-internal path. The route feature's `mode = "circle_pokemon"` is not a
+    /// valid 4-value `Mode`, so the whole `KojiMeta` deserialize fails and every
+    /// property is dropped. `by_geofence_koji` reproduces the live endpoint exactly,
+    /// so this asserts the (buggy) status quo — when koji-core gains a
+    /// legacy-tolerant `mode` deserialize, this test flips and should be updated.
+    #[test]
+    fn by_geofence_koji_legacy_mode_poisons_noninternal_props() {
+        let feature = route_row_for_feature().to_feature(false).unwrap();
+        // Sanity: the feature really does carry the poisoning legacy string.
+        assert_eq!(
+            feature.property("mode").and_then(|v| v.as_str()),
+            Some("circle_pokemon")
+        );
+
+        let coll = koji_collection_from_features(vec![feature]);
+        assert_eq!(coll.items.len(), 1);
+        let meta = &coll.items[0].meta;
+        // Poisoned -> default meta: id/name/geofence_id/mode all lost.
+        assert_eq!(meta.id, None);
+        assert_eq!(meta.name, None);
+        assert!(meta.extra.get("geofence_id").is_none());
+        assert_eq!(meta.mode, Mode::Unset);
     }
 }
