@@ -511,3 +511,31 @@ impl LegacyArgs {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Pins the v1 shim's defining invariant: `into_calc_request` carries the
+    /// **base** plugin-arg string, so the group's `resolve()` appends the
+    /// `--radius/--min_points/--max_clusters` tail exactly ONCE. A regression that
+    /// fed the already-resolved (`init()`-appended) string here would double the
+    /// tail and silently break v1 calc parity.
+    #[test]
+    fn into_calc_request_does_not_double_append_plugin_tail() {
+        let legacy: LegacyArgs = serde_json::from_value(serde_json::json!({
+            "clustering_args": "base",
+            "radius": 70.0,
+            "min_points": 1,
+            "max_clusters": 0
+        }))
+        .unwrap();
+        match legacy.into_calc_request("cluster") {
+            CalcRequest::Cluster(c) => assert_eq!(
+                c.clustering.resolve().plugin_args,
+                "base --radius 70 --min_points 1 --max_clusters 18446744073709551615"
+            ),
+            _ => panic!("expected Cluster variant"),
+        }
+    }
+}
