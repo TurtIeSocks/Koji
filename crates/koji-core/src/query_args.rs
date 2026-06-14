@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::geometry::KojiBbox;
+use crate::text_utils::{NameModifier, separate_by_comma};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,7 +20,11 @@ pub struct ApiQueryArgs {
     pub name: Option<bool>,
     /// If true, the `mode` property is added
     pub mode: Option<bool>,
-    /// If true, the `geofence_id` property is added
+    /// If true, the `geofence_id` property is added.
+    ///
+    /// **Accepted-but-unused:** `to_feature` never reads this field, so it
+    /// resolves nowhere (deliberately excluded from [`PropertySelection`]). It
+    /// stays on the wire DTO only for query-string back-compat.
     pub geofence_id: Option<bool>,
     /// If true, the `parent` property is added
     pub parent: Option<bool>,
@@ -117,6 +122,130 @@ impl Default for ApiQueryArgs {
     }
 }
 
+/// Comma-list exclusion filters, parsed ONCE from the raw [`ApiQueryArgs`]
+/// strings instead of re-splitting per geofence (the legacy `to_feature` called
+/// `separate_by_comma` on every iteration). Predicates mirror the three reject
+/// positions in `to_feature` exactly.
+#[derive(Debug, Clone, Default)]
+pub struct Filters {
+    exclude: Vec<String>,
+    exclude_parents: Vec<String>,
+    exclude_properties: Vec<String>,
+}
+
+impl Filters {
+    /// Whether the geofence name is in the `exclude` list (geofence.rs:251).
+    pub fn excludes_name(&self, name: &str) -> bool {
+        self.exclude.iter().any(|x| x == name)
+    }
+
+    /// Whether the resolved parent name is in the `excludeparents` list
+    /// (geofence.rs:271-277). `None` parent never excludes.
+    pub fn excludes_parent(&self, parent: Option<&str>) -> bool {
+        parent.is_some_and(|p| self.exclude_parents.iter().any(|x| x == p))
+    }
+
+    /// Whether any of the geofence's property names is in the
+    /// `excludeproperties` list (geofence.rs:254-259).
+    pub fn excludes_any_property(&self, prop_names: &[&str]) -> bool {
+        prop_names
+            .iter()
+            .any(|n| self.exclude_properties.iter().any(|x| x == n))
+    }
+}
+
+/// Resolved boolean property toggles. Each mirrors `args.<f>.unwrap_or(false)`
+/// from `to_feature` (geofence.rs:297/303/309/315/321). Deliberately omits
+/// `geofence_id`: `to_feature` never reads it (see the DTO field doc).
+#[derive(Debug, Clone, Default)]
+pub struct PropertySelection {
+    pub id: bool,
+    pub name: bool,
+    pub mode: bool,
+    pub parent: bool,
+    pub group: bool,
+}
+
+/// The three ways `to_feature` reads `internal` — preserved as distinct named
+/// methods so the parity differences cannot be collapsed by accident. Stores
+/// the raw `Option<bool>`s; does NOT reduce to a single bool.
+#[derive(Debug, Clone, Default)]
+pub struct OutputSpec {
+    internal: Option<bool>,
+    fullcoords: Option<bool>,
+}
+
+impl OutputSpec {
+    /// Add the `__`-prefixed internal props — `internal.unwrap_or(false)`
+    /// (geofence.rs:279).
+    pub fn adds_internal_props(&self) -> bool {
+        self.internal.unwrap_or(false)
+    }
+
+    /// Skip the 6-digit precision trim — `internal.is_some() ||
+    /// fullcoords.is_some()` (geofence.rs:330).
+    pub fn skip_precision_trim(&self) -> bool {
+        self.internal.is_some() || self.fullcoords.is_some()
+    }
+
+    /// Tag the feature with the synthetic `…__…__KOJI` id —
+    /// `internal.is_some()` (geofence.rs:351).
+    pub fn tag_internal_id(&self) -> bool {
+        self.internal.is_some()
+    }
+}
+
+/// The fully-resolved bundle `to_feature` consumes in place of `&ApiQueryArgs`.
+/// Built once per request via [`ApiQueryArgs::feature_render_spec`].
+#[derive(Debug, Clone, Default)]
+pub struct FeatureRenderSpec {
+    pub properties: PropertySelection,
+    pub filters: Filters,
+    pub name_modifier: NameModifier,
+    pub output: OutputSpec,
+}
+
+impl ApiQueryArgs {
+    /// Resolve the comma-list exclusion filters, splitting each raw string ONCE.
+    pub fn filters(&self) -> Filters {
+        Filters {
+            exclude: separate_by_comma(&self.exclude),
+            exclude_parents: separate_by_comma(&self.excludeparents),
+            exclude_properties: separate_by_comma(&self.excludeproperties),
+        }
+    }
+
+    /// Resolve the boolean property toggles (`geofence_id` excluded by design).
+    pub fn property_selection(&self) -> PropertySelection {
+        PropertySelection {
+            id: self.id.unwrap_or(false),
+            name: self.name.unwrap_or(false),
+            mode: self.mode.unwrap_or(false),
+            parent: self.parent.unwrap_or(false),
+            group: self.group.unwrap_or(false),
+        }
+    }
+
+    /// Resolve the output spec, preserving the raw `internal`/`fullcoords`
+    /// options for the three distinct read semantics.
+    pub fn output_spec(&self) -> OutputSpec {
+        OutputSpec {
+            internal: self.internal,
+            fullcoords: self.fullcoords,
+        }
+    }
+
+    /// Build the full [`FeatureRenderSpec`] once, for the whole request.
+    pub fn feature_render_spec(&self) -> FeatureRenderSpec {
+        FeatureRenderSpec {
+            properties: self.property_selection(),
+            filters: self.filters(),
+            name_modifier: NameModifier::from(self),
+            output: self.output_spec(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BoundsArg {
     #[serde(flatten)]
@@ -208,6 +337,36 @@ mod tests {
         let args: ApiQueryArgs = serde_json::from_value(serde_json::json!({})).unwrap();
         assert_eq!(args.depth, None);
         assert_eq!(args.level, None);
+    }
+
+    #[test]
+    fn filters_built_once_reject_predicates() {
+        let a: ApiQueryArgs = serde_json::from_value(serde_json::json!({
+            "exclude": "foo,bar", "excludeparents": "P", "excludeproperties": "secret"
+        }))
+        .unwrap();
+        let f = a.filters();
+        assert!(f.excludes_name("foo"));
+        assert!(!f.excludes_name("baz"));
+        assert!(f.excludes_parent(Some("P")));
+        assert!(f.excludes_any_property(&["secret", "ok"]));
+    }
+
+    #[test]
+    fn output_spec_internal_three_semantics() {
+        let a: ApiQueryArgs =
+            serde_json::from_value(serde_json::json!({ "internal": false })).unwrap();
+        let o = a.output_spec();
+        assert!(!o.adds_internal_props()); // internal.unwrap_or(false) == false
+        assert!(o.skip_precision_trim()); // internal.is_some() == true
+        assert!(o.tag_internal_id()); // internal.is_some() == true
+    }
+
+    #[test]
+    fn property_selection_unwrap_or_false() {
+        let a: ApiQueryArgs = serde_json::from_value(serde_json::json!({ "id": true })).unwrap();
+        let p = a.property_selection();
+        assert!(p.id && !p.name && !p.mode && !p.parent && !p.group);
     }
 }
 

@@ -24,7 +24,10 @@ pub use config::{
 pub use enum_map::get_category_enum;
 pub use mode::Mode;
 pub use normalize::{AreaPolygons, HasLatLon, count_in_area};
-pub use query_args::{AdminReq, AdminReqParsed, ApiQueryArgs, BoundsArg, SpawnpointTth};
+pub use query_args::{
+    AdminReq, AdminReqParsed, ApiQueryArgs, BoundsArg, FeatureRenderSpec, Filters, OutputSpec,
+    PropertySelection, SpawnpointTth,
+};
 pub use return_type::{ReturnTypeArg, get_return_type};
 pub use s2::{create_cell_map, from_array_to_cell_id};
 pub use sort_by::SortBy;
