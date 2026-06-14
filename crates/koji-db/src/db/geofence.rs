@@ -3,8 +3,8 @@
 use std::{collections::HashMap, str::FromStr, time::Instant};
 
 use koji_core::{
-    AdminReqParsed, ApiQueryArgs, EnsurePoints, FeatureCtx, KojiGeometry, KojiGeometryCollection,
-    ToCollection, UnknownId, json_related_sort, name_modifier, separate_by_comma,
+    AdminReqParsed, ApiQueryArgs, EnsurePoints, KojiGeometry, KojiGeometryCollection, UnknownId,
+    json_related_sort, name_modifier, separate_by_comma,
 };
 
 use crate::{
@@ -711,6 +711,10 @@ impl Query {
     }
 
     /// Returns all geofence models as a FeatureCollection,
+    ///
+    /// DEAD (no live callers as of S8 — superseded by `get_all_koji`); scheduled
+    /// for deletion in S5d-2. Its body is kept matrix-free so the `To*` matrix has
+    /// zero references outside its own definition files.
     pub async fn get_all_collection(
         db: &DatabaseConnection,
         args: &ApiQueryArgs,
@@ -725,7 +729,11 @@ impl Query {
             .filter_map(|result| result.to_feature(&property_map, &helper_map, args).ok())
             .collect::<Vec<Feature>>();
 
-        Ok(results.to_collection(&FeatureCtx::default()))
+        Ok(FeatureCollection {
+            bbox: None,
+            features: results,
+            foreign_members: None,
+        })
     }
 
     /// Additive Phase 2 counterpart to `get_all_collection`: fetch the same rows
@@ -1263,6 +1271,9 @@ impl Query {
         }
     }
 
+    /// DEAD (no live callers as of S8 — superseded by `by_parent_koji`); scheduled
+    /// for deletion in S5d-2. Its body is kept matrix-free so the `To*` matrix has
+    /// zero references outside its own definition files.
     pub async fn by_parent(
         db: &DatabaseConnection,
         parent: &UnknownId,
@@ -1293,7 +1304,11 @@ impl Query {
             })
             .collect();
 
-        Ok(items.to_collection(&FeatureCtx::default()))
+        Ok(FeatureCollection {
+            bbox: None,
+            features: items,
+            foreign_members: None,
+        })
     }
 
     /// Additive Phase 2 counterpart to [`by_parent`](Self::by_parent): fetch the

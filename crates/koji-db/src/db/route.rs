@@ -11,8 +11,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use koji_core::{
-    AdminReqParsed, EnsurePoints, FeatureCtx, FenceType, KojiGeometry, KojiGeometryCollection,
-    ToCollection, ToFeature,
+    AdminReqParsed, EnsurePoints, KojiGeometry, KojiGeometryCollection,
 };
 
 use crate::{
@@ -157,12 +156,17 @@ impl ToFeatureFromModel for Model {
             ..
         } = self;
 
+        // Routes store their geometry as a self-describing geojson MultiPoint, so
+        // we use it directly — same as `geofence::Model::to_feature`. (Previously
+        // this routed through the old conversion matrix's CirclePokemon inference,
+        // which only reshaped the already-MultiPoint coordinates back to themselves
+        // and injected a `bbox` the downstream `KojiGeometryCollection::try_from`
+        // discards — see the golden test `route_to_feature_matrix_free_golden`.)
         let geometry = Geometry::from_json_value(geometry)?;
-        // The legacy geojson shape for routes is MultiPoint; `FenceType` drives
-        // that in the koji-core `ToFeature` impl. (`Mode` deliberately does not
-        // encode geometry shape, so this stays a `FenceType`.)
-        let mut feature =
-            geometry.to_feature(&FeatureCtx::new().with_type(FenceType::CirclePokemon));
+        let mut feature = Feature {
+            geometry: Some(geometry),
+            ..Feature::default()
+        };
 
         if internal {
             feature.id = Some(geojson::feature::Id::String(format!(
@@ -405,6 +409,10 @@ impl Query {
     }
 
     /// Returns all route models as a FeatureCollection,
+    ///
+    /// DEAD (no live callers as of S8 — superseded by `as_koji_collection`);
+    /// scheduled for deletion in S5d-2. Its body is kept matrix-free so the `To*`
+    /// matrix has zero references outside its own definition files.
     pub async fn as_collection(
         conn: &DatabaseConnection,
         internal: bool,
@@ -418,7 +426,11 @@ impl Query {
             .filter_map(|item| item.to_feature(internal).ok())
             .collect();
 
-        Ok(items.to_collection(&FeatureCtx::default()))
+        Ok(FeatureCollection {
+            bbox: None,
+            features: items,
+            foreign_members: None,
+        })
     }
 
     /// Additive Phase 2 counterpart to `as_collection`: fetch the same rows
@@ -953,5 +965,54 @@ mod to_koji_tests {
         // Sanity: the stored MultiPoint [[1,2],[3,4]] (lon,lat) becomes
         // [lat, lon] points, in order, on both paths.
         assert_eq!(new_single_vec, vec![[2.0, 1.0], [4.0, 3.0]]);
+    }
+
+    /// S5d-1 golden: `route::Model::to_feature` rebuilds its Feature geometry
+    /// directly from the stored geojson (`geojson::Geometry::from_json_value`)
+    /// instead of routing through the old `To*` matrix inference. The stored route
+    /// geometry is ALREADY a MultiPoint in `[lon, lat]` order; the prior inference
+    /// round-tripped that shape (swap to `[lat, lon]`, map back to `[lon, lat]`) so
+    /// the coordinates were unchanged — its ONLY effect was a `bbox` it injected on
+    /// the Feature/Geometry, which every LIVE consumer (`by_geofence_feature` →
+    /// `by_geofence_koji`) discards in `KojiGeometryCollection::try_from`.
+    ///
+    /// These goldens were captured from the matrix oracle while it was still alive
+    /// (the parity was asserted byte-for-byte at the time of the swap); they pin
+    /// the rebuilt output as a permanent regression guard after the oracle dies.
+    /// (1) the raw MultiPoint geometry payload, and (2) the `by_geofence_koji`-
+    /// equivalent serialized collection.
+    #[test]
+    fn route_to_feature_matrix_free_golden() {
+        let model = route_row_for_feature();
+
+        // The production `to_feature` (matrix-free, direct construction).
+        let new_feature = model.clone().to_feature(false).unwrap();
+
+        // (1) Raw MultiPoint payload golden — the load-bearing coordinates, no bbox.
+        let geom_golden =
+            serde_json::json!({"type":"MultiPoint","coordinates":[[1.0,2.0],[3.0,4.0]]});
+        assert_eq!(
+            serde_json::to_value(new_feature.geometry.as_ref().unwrap()).unwrap(),
+            geom_golden,
+            "route to_feature geometry payload diverged from the captured matrix golden"
+        );
+
+        // (2) The actual wire output: the `by_geofence_koji` transform, serialized
+        // via its geojson `FeatureCollection` wire form.
+        let coll = koji_collection_from_features(vec![new_feature]);
+        let coll_golden = serde_json::json!({
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "geometry": {"type": "MultiPoint", "coordinates": [[1.0, 2.0], [3.0, 4.0]]},
+                "properties": {"geofence_id": 88, "id": 3, "mode": "pokemon", "name": "patrol"},
+                "id": 3
+            }]
+        });
+        assert_eq!(
+            serde_json::to_value(geojson::FeatureCollection::from(&coll)).unwrap(),
+            coll_golden,
+            "by_geofence_koji collection output diverged from the captured matrix golden"
+        );
     }
 }
