@@ -4,7 +4,7 @@ use super::*;
 
 use serde_json::json;
 
-use koji_core::{ApiQueryArgs, EnsurePoints, ReturnTypeArg};
+use koji_core::{ApiQueryArgs, ReturnTypeArg};
 use koji_db::{KojiDb, db::route};
 use model::api::args::{Args, ArgsUnwrapped, get_return_type};
 
@@ -13,10 +13,16 @@ async fn all(
     conn: web::Data<KojiDb>,
     args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
-    let args = args.into_inner();
-    let fc = route::Query::as_collection(&conn.koji, args.internal.unwrap_or(false))
+    // `internal` only affected geojson property naming on the old matrix path;
+    // the self-describing `KojiMeta` collection makes it moot, so the `?internal=`
+    // arg goes unread (kept in the signature for wire compatibility).
+    let _ = args;
+    let coll = route::Query::as_koji_collection(&conn.koji)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
+    // The `/all` wire shape is a geojson `FeatureCollection`; go Koji-native via
+    // the Phase 1 outbound `From<&KojiGeometryCollection>`. No `To*` matrix.
+    let fc = geojson::FeatureCollection::from(&coll);
 
     log::info!("[PUBLIC_API] Returning {} routes", fc.features.len());
     Ok(HttpResponse::Ok().json(Response {
@@ -147,27 +153,17 @@ async fn specific_geofence(
     let (return_type, geofence_name) = url.into_inner();
     let args = args.into_inner();
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
-    let features = route::Query::by_geofence_feature(
-        &conn.koji,
-        geofence_name,
-        args.internal.unwrap_or(false),
-    )
-    .await
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    // Koji-native, property-rich: `by_geofence_koji` runs the same `to_feature`
+    // projection (carrying `geofence_id`/properties into `KojiMeta`) but returns a
+    // ring-closed `KojiGeometryCollection`. No `To*` matrix.
+    let coll =
+        route::Query::by_geofence_koji(&conn.koji, geofence_name, args.internal.unwrap_or(false))
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    log::info!("[GEOFENCES_FC_ALL] Returning {} instances", features.len());
-    // Wrap the per-row route features into a geojson `FeatureCollection` (closing
-    // polygon rings as the old matrix `to_collection` did) then go Koji-native
-    // via the Phase 1 `TryFrom`. No `To*` matrix.
-    let fc = geojson::FeatureCollection {
-        bbox: None,
-        features: features
-            .into_iter()
-            .map(EnsurePoints::ensure_first_last)
-            .collect(),
-        foreign_members: None,
-    };
-    let coll = koji_core::KojiGeometryCollection::try_from(fc)
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+    log::info!(
+        "[GEOFENCES_FC_ALL] Returning {} instances",
+        coll.items.len()
+    );
     Ok(utils::response::send(coll, return_type, None, false, None))
 }

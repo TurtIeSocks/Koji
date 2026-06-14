@@ -4,7 +4,7 @@ use super::*;
 
 use serde_json::json;
 
-use koji_core::{ApiQueryArgs, EnsurePoints, ReturnTypeArg};
+use koji_core::{ApiQueryArgs, ReturnTypeArg};
 use koji_db::{KojiDb, db::geofence};
 use model::api::args::{Args, ArgsUnwrapped, get_return_type};
 
@@ -14,9 +14,12 @@ async fn all(
     args: web::Query<ApiQueryArgs>,
 ) -> Result<HttpResponse, Error> {
     let args = args.into_inner();
-    let fc = geofence::Query::get_all_collection(&conn.koji, &args)
+    let coll = geofence::Query::get_all_koji(&conn.koji, &args)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
+    // The `/all` wire shape is a geojson `FeatureCollection`; go Koji-native via
+    // the Phase 1 outbound `From<&KojiGeometryCollection>`. No `To*` matrix.
+    let fc = geojson::FeatureCollection::from(&coll);
 
     log::info!("[PUBLIC_API] Returning {} instances", fc.features.len());
     Ok(HttpResponse::Ok().json(Response {
@@ -163,23 +166,16 @@ async fn specific_project(
     let args = args.into_inner();
 
     let return_type = get_return_type(return_type, &ReturnTypeArg::FeatureCollection);
-    let features = geofence::Query::project_as_feature(&conn.koji, project, &args)
+    // Koji-native, property-rich: `project_as_koji` runs the same property-aware
+    // `to_feature` projection as before but returns a `KojiGeometryCollection`
+    // (ring-closed, every property carried in `KojiMeta`). No `To*` matrix.
+    let coll = geofence::Query::project_as_koji(&conn.koji, project, &args)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    log::info!("[GEOFENCES_FC_ALL] Returning {} instances", features.len());
-    // Wrap the per-row features into a geojson `FeatureCollection` (closing
-    // polygon rings as the old matrix `to_collection` did) then go Koji-native
-    // via the Phase 1 `TryFrom`. No `To*` matrix.
-    let fc = geojson::FeatureCollection {
-        bbox: None,
-        features: features
-            .into_iter()
-            .map(EnsurePoints::ensure_first_last)
-            .collect(),
-        foreign_members: None,
-    };
-    let coll = koji_core::KojiGeometryCollection::try_from(fc)
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+    log::info!(
+        "[GEOFENCES_FC_ALL] Returning {} instances",
+        coll.items.len()
+    );
     Ok(utils::response::send(coll, return_type, None, false, None))
 }
