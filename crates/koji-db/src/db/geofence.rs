@@ -4,14 +4,14 @@ use std::{collections::HashMap, str::FromStr, time::Instant};
 
 use koji_core::{
     AdminReqParsed, ApiQueryArgs, EnsurePoints, FeatureRenderSpec, KojiGeometry,
-    KojiGeometryCollection, UnknownId, json_related_sort,
+    KojiGeometryCollection, UnknownId,
 };
 
 use crate::{
     error::ModelError,
     utils::{
         json::{JsonToModel, determine_category_by_value},
-        parse_order,
+        json_related_sort, parse_order,
     },
 };
 

@@ -12,6 +12,29 @@ pub mod utils;
 
 pub use error::ModelError;
 
+/// Generates 1:1 `From` impls both directions between two enums whose variant
+/// idents match exactly. Invoke from a crate that owns at least one of the two
+/// enums (orphan rule).
+///
+/// ```ignore
+/// enum_bridge!(db::Category, koji_core::Category, [Boolean, String, ...]);
+/// ```
+#[macro_export]
+macro_rules! enum_bridge {
+    ($a:ty, $b:ty, [$($variant:ident),+ $(,)?]) => {
+        impl ::core::convert::From<$a> for $b {
+            fn from(value: $a) -> Self {
+                match value { $(<$a>::$variant => <$b>::$variant,)+ }
+            }
+        }
+        impl ::core::convert::From<$b> for $a {
+            fn from(value: $b) -> Self {
+                match value { $(<$b>::$variant => <$a>::$variant,)+ }
+            }
+        }
+    };
+}
+
 #[derive(Debug, Clone)]
 pub struct KojiDb {
     pub koji: DatabaseConnection,

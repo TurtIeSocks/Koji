@@ -65,7 +65,7 @@ pub enum Mode {
     Quest,
 }
 
-koji_core::enum_bridge!(Mode, koji_core::Mode, [Unset, Pokemon, Fort, Quest]);
+crate::enum_bridge!(Mode, koji_core::Mode, [Unset, Pokemon, Fort, Quest]);
 
 #[cfg(test)]
 mod mode_bridge_tests {

@@ -8,6 +8,9 @@ use sea_orm::{ConnectOptions, Database, Order};
 use crate::db::sea_orm_active_enums::{Category, Mode};
 
 pub mod json;
+pub mod sort;
+
+pub use sort::json_related_sort;
 
 // Boundary adapters: koji-core's mappers return the pure domain enums; the db
 // layer needs the sea-orm enums. Convert across the boundary via `enum_bridge!`.
@@ -24,8 +27,21 @@ pub fn get_enum(instance_type: Option<String>) -> Mode {
         .into()
 }
 
+/// Map an inbound `category` string to the storage [`Category`]. Matches the
+/// lowercased string to a known variant; anything unrecognized → `String`.
+/// (Inlined from the former `koji_core::get_category_enum`: the match builds a
+/// `koji_core::Category`, which then bridges to the sea-orm enum via `.into()`.)
 pub fn get_category_enum(category: String) -> Category {
-    koji_core::get_category_enum(category).into()
+    let domain = match category.to_lowercase().as_str() {
+        "database" => koji_core::Category::Database,
+        "boolean" => koji_core::Category::Boolean,
+        "number" => koji_core::Category::Number,
+        "object" => koji_core::Category::Object,
+        "array" => koji_core::Category::Array,
+        "color" => koji_core::Category::Color,
+        _ => koji_core::Category::String,
+    };
+    domain.into()
 }
 
 pub async fn get_database_struct() -> KojiDb {

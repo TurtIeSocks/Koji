@@ -22,14 +22,6 @@ pub fn get_mode_acronym(instance_type: Option<&String>) -> String {
     .to_string()
 }
 
-pub fn json_related_sort(json: &mut [serde_json::Value], sort_by: &str, order: String) {
-    json.sort_by(|a, b| {
-        let a = a[sort_by].as_array().unwrap().len();
-        let b = b[sort_by].as_array().unwrap().len();
-        if order == "asc" { a.cmp(&b) } else { b.cmp(&a) }
-    });
-}
-
 pub fn separate_by_comma(param: &Option<String>) -> Vec<String> {
     if let Some(param) = param {
         param.split(",").map(|x| x.to_string()).collect()
