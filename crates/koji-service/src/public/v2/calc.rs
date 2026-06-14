@@ -21,8 +21,10 @@
 //!
 //! ## Scope (P4)
 //!
-//! `run` is the **compute core**: it produces the result `FeatureCollection` +
-//! `Stats` and returns `{ "data": <geojson>, "stats": <stats> }`. The legacy
+//! `run` is the **compute core**: it produces a `KojiGeometryCollection` +
+//! `Stats`, serializes the collection to a geojson `FeatureCollection` at the wire
+//! boundary (Phase 1 outbound `From`), and returns `{ "data": <geojson>, "stats":
+//! <stats> }`. The legacy
 //! persistence side effects (`save_to_db` / `save_to_scanner`, the scanner reload
 //! call, the parent-name lookup) are **not** performed here — those are async DB
 //! writes and are deferred (the v2 calc job is pure compute; persistence /
@@ -32,8 +34,8 @@
 use algorithms::{bootstrap, clustering, routing, stats::Stats};
 use geojson::{Feature, FeatureCollection};
 use koji_core::{
-    BootstrapConfig, ClusteringConfig, FeatureCtx, FeatureHelpers, FenceType, RoutingConfig,
-    S2Config, SingleVec, SortBy, ToCollection, ToFeature,
+    BootstrapConfig, ClusteringConfig, KojiGeometry, KojiGeometryCollection, KojiMeta,
+    RoutingConfig, S2Config, SingleVec, SortBy,
 };
 use koji_jobs::{JobCtx, JobError, JobHandler};
 use model::api::args::{Args, ArgsUnwrapped};
@@ -54,7 +56,9 @@ pub struct CalcPayload {
     /// Drives both `Args::init`'s mode-specific defaults and the dispatch below.
     pub mode: String,
     /// The data category (`pokestop`, `gym`/`fort`, `station`, `spawnpoint`).
-    /// Determines the output `FenceType` for cluster results.
+    /// Used by the HTTP handlers to resolve scanner data points; the compute core
+    /// no longer derives an output shape from it (calc output is always MultiPoint
+    /// cluster centers).
     pub category: String,
     /// The original request, re-expressed as JSON. Re-parsed into
     /// [`model::api::args::Args`] in `run` to recover the config knobs.
@@ -119,7 +123,6 @@ impl JobHandler for CalculateHandler {
             routing_args,
             bootstrapping_args,
             instance,
-            mode: fence_mode,
             dev,
             ..
         } = args.init(Some(&payload.mode));
@@ -134,7 +137,7 @@ impl JobHandler for CalculateHandler {
         let data_points = payload.data_points;
         let clusters = payload.clusters;
 
-        let (collection, stats) = match mode {
+        let (collection, stats): (KojiGeometryCollection, Stats) = match mode {
             "bootstrap" => run_bootstrap(
                 area,
                 &BootstrapConfig {
@@ -152,7 +155,7 @@ impl JobHandler for CalculateHandler {
                     plugin_args: routing_args,
                 },
                 &instance,
-            ),
+            )?,
             // Route an existing cluster set (no clustering). Mirrors v1 `/reroute`.
             "reroute" => run_reroute(
                 clusters,
@@ -163,20 +166,14 @@ impl JobHandler for CalculateHandler {
                     route_split_level,
                     plugin_args: routing_args,
                 },
-                fence_mode,
                 &instance,
             ),
             // Score an existing route (no clustering / no routing). Mirrors v1
             // `/route-stats[/{category}]` (the category-resolved data points are
             // pre-resolved into `payload.data_points`).
-            "route-stats" | "route_stats" => run_route_stats(
-                clusters,
-                data_points,
-                radius,
-                min_points,
-                fence_mode,
-                &instance,
-            ),
+            "route-stats" | "route_stats" => {
+                run_route_stats(clusters, data_points, radius, min_points, &instance)
+            }
             _ => {
                 // `route` defaults to a TSP sort when none was supplied (mirrors v1).
                 let sort_by = if mode == "route" && sort_by == SortBy::Unset {
@@ -209,7 +206,6 @@ impl JobHandler for CalculateHandler {
                     },
                     radius,
                     dev.bypass_adaptive_partition,
-                    fence_type_for(&payload.category),
                     &instance,
                     cluster_mode,
                     calculation_mode,
@@ -219,30 +215,71 @@ impl JobHandler for CalculateHandler {
         };
 
         // Benchmark mode returns only the stats (the v1 contract); otherwise the
-        // result carries both the geojson and the stats.
+        // result carries both the geojson and the stats. The external wire shape
+        // stays a geojson `FeatureCollection`: project the `KojiGeometryCollection`
+        // at the boundary via the Phase 1 outbound `From` (the v1/v2 consumers parse
+        // it straight back into a `KojiGeometryCollection`).
         let data = if benchmark_mode {
             serde_json::Value::Null
         } else {
-            serde_json::to_value(&collection)
+            let fc = geojson::FeatureCollection::from(&collection);
+            serde_json::to_value(&fc)
                 .map_err(|e| JobError::internal(format!("failed to serialize result: {e}")))?
         };
         Ok(json!({ "data": data, "stats": stats }))
     }
 }
 
-/// Map a data category to the output [`FenceType`] for cluster results (mirrors
-/// `calculate.rs`'s `enum_type` selection).
-fn fence_type_for(category: &str) -> FenceType {
-    match category {
-        "gym" | "fort" => FenceType::CircleRaid,
-        "station" => FenceType::CircleStation,
-        "pokestop" => FenceType::CircleQuest,
-        _ => FenceType::CirclePokemon,
+/// Build the calc output geometry: a `geo::MultiPoint` of the routed cluster
+/// centers, matrix-free.
+///
+/// Reproduces the exact coordinate pipeline the dying `To*` matrix ran for every
+/// live calc path (`SingleVec::to_feature` with a circle fence type →
+/// `MultiVec::multi_point()` → `Feature::remove_last_coord()`):
+///
+/// 1. **`ensure_first_last`** — append the first center if the route isn't already
+///    closed (the matrix's `SingleVec::to_single_vec` inside `to_multi_vec`).
+/// 2. map each `[lat, lon]` to `Point::new(lon, lat)` — `geo` is `[x=lon, y=lat]`,
+///    matching the matrix's `Coord { x: lon, y: lat }`.
+/// 3. **`remove_repeated_points`** — collapse *consecutive* duplicates (the matrix
+///    ran this twice, in `multi_point()` and again in `remove_last_coord()`; it is
+///    idempotent, so once here suffices).
+///
+/// The `remove_last_coord` name is a misnomer: it does NOT unconditionally drop the
+/// trailing closing coord — it only collapses adjacent equal points, so an open
+/// route keeps its appended closing coord. Byte-parity with this is pinned by the
+/// `multipoint_parity_*` tests against the live matrix oracle.
+fn centers_to_multipoint(centers: &SingleVec) -> geo::MultiPoint<f64> {
+    use geo::RemoveRepeatedPoints;
+
+    let mut points = centers.clone();
+    // `ensure_first_last`: close the ring iff non-empty and not already closed.
+    if let (Some(first), Some(last)) = (points.first().copied(), points.last().copied())
+        && first != last
+    {
+        points.push(first);
     }
+    let mp: geo::MultiPoint<f64> = points
+        .into_iter()
+        .map(|[lat, lon]| geo::Point::new(lon, lat))
+        .collect();
+    mp.remove_repeated_points()
+}
+
+/// One-item `KojiGeometryCollection` wrapping the centers' MultiPoint, labeled with
+/// the instance name in `KojiMeta`. The shared shape for the cluster / reroute /
+/// route_stats cores (all of which emit MultiPoint cluster centers).
+fn centers_collection(centers: &SingleVec, instance: &str) -> KojiGeometryCollection {
+    let geometry = centers_to_multipoint(centers);
+    KojiGeometryCollection::new(vec![KojiGeometry::new(geometry).with_meta(KojiMeta {
+        name: Some(instance.to_owned()),
+        ..Default::default()
+    })])
 }
 
 /// The cluster/route compute core: cluster the points, route the clusters, and
-/// project to a labeled `FeatureCollection`. Returns the collection + stats.
+/// project to a labeled `KojiGeometryCollection` (MultiPoint cluster centers).
+/// Returns the collection + stats.
 #[allow(clippy::too_many_arguments)]
 fn run_cluster_route(
     data_points: &SingleVec,
@@ -251,12 +288,11 @@ fn run_cluster_route(
     routing_config: &RoutingConfig,
     radius: f64,
     bypass_adaptive_partition: bool,
-    enum_type: FenceType,
     instance: &str,
     cluster_mode: koji_core::ClusterMode,
     calculation_mode: koji_core::CalculationMode,
     min_points: usize,
-) -> (FeatureCollection, Stats) {
+) -> (KojiGeometryCollection, Stats) {
     let mut stats = Stats::new(
         format!("{:?} | {:?}", cluster_mode, calculation_mode),
         min_points,
@@ -271,22 +307,23 @@ fn run_cluster_route(
     );
     let clusters = routing::main(data_points, clusters, radius, routing_config, &mut stats);
 
-    let mut feature = clusters
-        .to_feature(&FeatureCtx::new().with_type(enum_type))
-        .remove_last_coord();
-    feature.add_instance_properties(&FeatureCtx::new().with_name(instance).with_type(enum_type));
-    let collection = feature.to_collection(&FeatureCtx::new().with_name(instance));
-    (collection, stats)
+    (centers_collection(&clusters, instance), stats)
 }
 
-/// The bootstrap compute core: generate the bootstrap features for the area and
-/// label them. Returns the collection + stats.
+/// The bootstrap compute core: generate the bootstrap features for the area, label
+/// them, and convert to a `KojiGeometryCollection`. Returns the collection + stats.
+///
+/// Unlike the cluster cores, bootstrap's geometry shape varies (the bootstrap
+/// algorithm emits its own features), so this converts the produced `Vec<Feature>`
+/// through the Phase 1 inbound `TryFrom<geojson::FeatureCollection>` rather than
+/// constructing a MultiPoint directly. The `__name` label is set on each feature
+/// *before* conversion so it round-trips into `KojiMeta.extra` via the inbound path.
 fn run_bootstrap(
     area: FeatureCollection,
     bootstrap_config: &BootstrapConfig,
     routing_config: &RoutingConfig,
     instance: &str,
-) -> (FeatureCollection, Stats) {
+) -> Result<(KojiGeometryCollection, Stats), JobError> {
     let mut stats = Stats::new(
         format!("Bootstrap | {:?}", bootstrap_config.calculation_mode),
         1,
@@ -300,8 +337,14 @@ fn run_bootstrap(
             feat.set_property("__name", instance.to_owned());
         }
     }
-    let collection = features.to_collection(&FeatureCtx::new().with_name(instance));
-    (collection, stats)
+    let fc = FeatureCollection {
+        bbox: None,
+        features,
+        foreign_members: None,
+    };
+    let collection = KojiGeometryCollection::try_from(fc)
+        .map_err(|e| JobError::internal(format!("bootstrap geometry conversion failed: {e}")))?;
+    Ok((collection, stats))
 }
 
 /// Route an existing cluster set without clustering — the `reroute` mode (v1
@@ -312,9 +355,8 @@ fn run_reroute(
     data_points: SingleVec,
     radius: f64,
     routing_config: &RoutingConfig,
-    fence_type: FenceType,
     instance: &str,
-) -> (FeatureCollection, Stats) {
+) -> (KojiGeometryCollection, Stats) {
     let mut stats = Stats::new("Reroute".to_string(), 1);
     let (clusters, data_points) = if clusters.is_empty() {
         (data_points, vec![])
@@ -323,12 +365,7 @@ fn run_reroute(
     };
     stats.total_clusters = clusters.len();
     let clusters = routing::main(&data_points, clusters, radius, routing_config, &mut stats);
-    let feature = clusters
-        .to_feature(&FeatureCtx::new().with_type(fence_type))
-        .remove_last_coord();
-    let collection =
-        feature.to_collection(&FeatureCtx::new().with_name(instance).with_type(fence_type));
-    (collection, stats)
+    (centers_collection(&clusters, instance), stats)
 }
 
 /// Score an existing route — the `route-stats` mode (v1 `/route-stats[/...]`):
@@ -340,19 +377,90 @@ fn run_route_stats(
     data_points: SingleVec,
     radius: f64,
     min_points: usize,
-    fence_type: FenceType,
     instance: &str,
-) -> (FeatureCollection, Stats) {
-    let mut stats = Stats::new(format!("Route Stats | {fence_type:?}"), min_points);
+) -> (KojiGeometryCollection, Stats) {
+    let mut stats = Stats::new("Route Stats".to_string(), min_points);
     stats.distance_stats(&clusters);
     if !data_points.is_empty() {
         stats.cluster_stats(radius, &data_points, &clusters);
         stats.set_score();
     }
-    let feature = clusters
-        .to_feature(&FeatureCtx::new().with_type(fence_type))
-        .remove_last_coord();
-    let collection =
-        feature.to_collection(&FeatureCtx::new().with_name(instance).with_type(fence_type));
-    (collection, stats)
+    (centers_collection(&clusters, instance), stats)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    // The matrix is still alive in this sub-step (deleted later in S5d); the test
+    // reaches it directly as the parity oracle.
+    use koji_core::{FeatureCtx, FeatureHelpers, FenceType, ToFeature};
+
+    /// Extract the lone feature's geojson geometry `Value` from a FeatureCollection.
+    fn only_geom_value(fc: &geojson::FeatureCollection) -> geojson::Value {
+        fc.features[0].geometry.as_ref().unwrap().value.clone()
+    }
+
+    /// Parity oracle: the OLD matrix path for the cluster/reroute/route_stats cores.
+    /// `SingleVec::to_feature` with a circle fence type projects through the
+    /// mode→shape inference's `multi_point()` branch, then `remove_last_coord()`
+    /// collapses consecutive duplicates. Exactly what every live calc core did.
+    fn old_geom_value(centers: &SingleVec) -> geojson::Value {
+        let feature = centers
+            .clone()
+            .to_feature(&FeatureCtx::new().with_type(FenceType::CirclePokemon))
+            .remove_last_coord();
+        feature.geometry.unwrap().value
+    }
+
+    /// The geometry the NEW path emits at the wire boundary: build the centers'
+    /// MultiPoint collection via the production [`centers_collection`], then project
+    /// to geojson via the Phase 1 outbound `From<&KojiGeometryCollection>` (the
+    /// locked Phase 2 path).
+    fn new_geom_value(centers: &SingleVec, instance: &str) -> geojson::Value {
+        let koji = centers_collection(centers, instance);
+        let fc = geojson::FeatureCollection::from(&koji);
+        only_geom_value(&fc)
+    }
+
+    /// An OPEN routed center set — the typical calc output (ring not pre-closed).
+    /// The matrix appends the closing coord (`ensure_first_last`) then dedups only
+    /// *consecutive* repeats, so the closing coord SURVIVES here. The new path must
+    /// reproduce that exact MultiPoint.
+    #[test]
+    fn multipoint_parity_open_route() {
+        // SingleVec is [lat, lon].
+        let centers: SingleVec = vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
+        let instance = "denver";
+        assert_eq!(
+            new_geom_value(&centers, instance),
+            old_geom_value(&centers),
+            "new MultiPoint geometry must byte-match the old matrix MultiPoint"
+        );
+    }
+
+    /// A PRE-CLOSED routed center set (last == first). `ensure_first_last` is a
+    /// no-op; the consecutive-dup at the seam is left as-is by the matrix
+    /// (`remove_repeated_points` only collapses *adjacent* equal points, and the
+    /// closing point equals the first, not its predecessor). Pins the seam case.
+    #[test]
+    fn multipoint_parity_preclosed_route() {
+        let centers: SingleVec = vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2.0]];
+        assert_eq!(
+            new_geom_value(&centers, "x"),
+            old_geom_value(&centers),
+            "pre-closed route MultiPoint must byte-match the matrix"
+        );
+    }
+
+    /// A route with an interior consecutive duplicate — exercises
+    /// `remove_repeated_points` collapsing an adjacent repeat mid-route.
+    #[test]
+    fn multipoint_parity_interior_duplicate() {
+        let centers: SingleVec = vec![[1.0, 2.0], [3.0, 4.0], [3.0, 4.0], [5.0, 6.0]];
+        assert_eq!(
+            new_geom_value(&centers, "y"),
+            old_geom_value(&centers),
+            "interior-duplicate route MultiPoint must byte-match the matrix"
+        );
+    }
 }
