@@ -6,9 +6,6 @@ mod category;
 mod cluster_mode;
 mod config;
 mod enum_map;
-mod feature_ctx;
-mod fence_type;
-mod geo_formats;
 mod mode;
 mod normalize;
 mod query_args;
@@ -24,12 +21,7 @@ pub use cluster_mode::ClusterMode;
 pub use config::{
     BootstrapConfig, ClusteringConfig, DataFilter, DevConfig, OutputConfig, RoutingConfig, S2Config,
 };
-pub use enum_map::{
-    get_category_enum, get_enum, get_enum_by_geometry, get_enum_by_geometry_string,
-};
-pub use feature_ctx::FeatureCtx;
-pub use fence_type::FenceType;
-pub use geo_formats::GeoFormats;
+pub use enum_map::get_category_enum;
 pub use mode::Mode;
 pub use normalize::{AreaPolygons, HasLatLon, count_in_area};
 pub use query_args::{AdminReq, AdminReqParsed, ApiQueryArgs, BoundsArg, SpawnpointTth};
@@ -52,7 +44,7 @@ pub use util::{TrimPrecision, sql_raw, sql_raw_bbox};
 /// enums (orphan rule).
 ///
 /// ```ignore
-/// koji_core::enum_bridge!(db::Type, koji_core::FenceType, [CirclePokemon, ...]);
+/// koji_core::enum_bridge!(db::Type, koji_core::Mode, [CirclePokemon, ...]);
 /// ```
 #[macro_export]
 macro_rules! enum_bridge {

@@ -1,8 +1,8 @@
 //! `Mode` — the scan-purpose tag shared by geofences and routes. Replaces the
-//! RDM-derived `Type` / `FenceType` / `FenceMode` / `RouteMode` enums. It is a
-//! pure semantic tag and NEVER decides geometry shape (the geometry is
-//! self-describing). koji-db mirrors this as a `DeriveActiveEnum` and bridges
-//! via `enum_bridge!`.
+//! legacy RDM-derived type/mode enums (the scanner `Type` and the geofence/route
+//! mode columns). It is a pure semantic tag and NEVER decides geometry shape (the
+//! geometry is self-describing). koji-db mirrors this as a `DeriveActiveEnum` and
+//! bridges via `enum_bridge!`.
 
 use serde::{Deserialize, Serialize};
 

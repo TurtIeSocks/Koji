@@ -1,7 +1,7 @@
 //! `KojiMeta` — the hybrid metadata sidecar for `KojiGeometry`. Typed fields for
 //! what Koji branches on; a flattened `extra` bag carries arbitrary geojson
-//! properties losslessly. Replaces `FeatureCtx` and the geojson `properties`
-//! object.
+//! properties losslessly. Replaces the old feature-context struct and the geojson
+//! `properties` object.
 
 use serde::{Deserialize, Deserializer, Serialize};
 
