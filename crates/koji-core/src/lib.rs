@@ -24,4 +24,4 @@ pub mod geometry;
 mod util;
 
 pub use geometry::*;
-pub use util::{TrimPrecision, sql_raw};
+pub use util::TrimPrecision;
