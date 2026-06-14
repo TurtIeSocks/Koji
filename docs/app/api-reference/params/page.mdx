@@ -95,6 +95,12 @@ Used by:
 - `GET /api/v1/geofence/{return_type}`
 - `GET /api/v1/geofence/{return_type}/{project}`
 
+> The query-string wire is unchanged — every param below is parsed exactly as
+> before. Internally the handler now resolves `ApiQueryArgs` into a
+> `FeatureRenderSpec` (koji-core domain types: `PropertySelection`, `Filters`,
+> `NameModifier`, `OutputSpec`) that feature rendering consumes, instead of
+> threading the raw DTO through. `geofence_id` remains accepted but unused.
+
 ### Visibility and shape
 
 <Table>
