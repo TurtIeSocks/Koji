@@ -515,7 +515,10 @@ impl Query {
         existing: &HashMap<String, RouteNoGeometry>,
     ) -> Result<bool, DbErr> {
         let Some(name) = route_name(item) else {
-            let error = format!("[ROUTE_SAVE] name property not found for {:?}", item.meta.id);
+            let error = format!(
+                "[ROUTE_SAVE] name property not found for {:?}",
+                item.meta.id
+            );
             log::warn!("{error}");
             return Err(DbErr::Custom(error));
         };
@@ -529,7 +532,11 @@ impl Query {
 
         let is_update = existing.get(&format!("{}_{}", name, mode.to_value()));
         let mut active_model = if let Some(entry) = is_update {
-            Entity::find_by_id(entry.id).one(conn).await?.unwrap().into()
+            Entity::find_by_id(entry.id)
+                .one(conn)
+                .await?
+                .unwrap()
+                .into()
         } else {
             ActiveModel {
                 ..Default::default()
@@ -749,7 +756,10 @@ mod to_koji_tests {
         // geometry serializes back to a MultiPoint geojson object.
         let gj = route_geometry_json(&item);
         assert_eq!(gj["type"], "MultiPoint");
-        assert_eq!(gj["coordinates"], serde_json::json!([[2.0, 1.0], [4.0, 3.0]]));
+        assert_eq!(
+            gj["coordinates"],
+            serde_json::json!([[2.0, 1.0], [4.0, 3.0]])
+        );
     }
 
     #[test]

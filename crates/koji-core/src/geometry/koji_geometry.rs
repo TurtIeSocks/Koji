@@ -152,8 +152,8 @@ mod tests {
         let raw: Vec<Vec<f64>> = vec![vec![2.0, 1.0], vec![4.0, 3.0], vec![6.0, 5.0]];
 
         // OLD matrix path: a MultiVec wrapping the points, projected as MultiPoint.
-        let old_value = vec![raw.iter().map(|p| [p[1], p[0]]).collect::<Vec<[f64; 2]>>()]
-            .multi_point();
+        let old_value =
+            vec![raw.iter().map(|p| [p[1], p[0]]).collect::<Vec<[f64; 2]>>()].multi_point();
 
         // NEW path: Point items -> merge_points -> geojson Geometry.
         let coll = KojiGeometryCollection::new(
@@ -165,7 +165,10 @@ mod tests {
         assert_eq!(coll.items.len(), 1);
         let new_value = geojson::Value::from(&coll.items[0].geometry);
 
-        assert_eq!(new_value, old_value, "merge_points must match the matrix MultiPoint");
+        assert_eq!(
+            new_value, old_value,
+            "merge_points must match the matrix MultiPoint"
+        );
     }
 
     /// Non-point geometries are dropped by `merge_points` (the old path only read
@@ -175,7 +178,10 @@ mod tests {
         use geo::{LineString, coord};
         let coll = KojiGeometryCollection::new(vec![
             KojiGeometry::new(Point::new(1.0, 1.0)),
-            KojiGeometry::new(LineString::new(vec![coord! {x:0.,y:0.}, coord! {x:1.,y:1.}])),
+            KojiGeometry::new(LineString::new(vec![
+                coord! {x:0.,y:0.},
+                coord! {x:1.,y:1.},
+            ])),
             KojiGeometry::new(Point::new(2.0, 2.0)),
         ])
         .merge_points();
@@ -211,7 +217,10 @@ mod tests {
         let simplified = KojiGeometry::new(geo_geom).simplify(0.0001);
         let new_value = geojson::Value::from(&simplified.geometry);
 
-        assert_eq!(new_value, old_value, "simplify must match the matrix Douglas-Peucker");
+        assert_eq!(
+            new_value, old_value,
+            "simplify must match the matrix Douglas-Peucker"
+        );
     }
 
     #[test]

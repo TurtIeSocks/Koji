@@ -161,7 +161,10 @@ async fn specific_geofence(
     // via the Phase 1 `TryFrom`. No `To*` matrix.
     let fc = geojson::FeatureCollection {
         bbox: None,
-        features: features.into_iter().map(EnsurePoints::ensure_first_last).collect(),
+        features: features
+            .into_iter()
+            .map(EnsurePoints::ensure_first_last)
+            .collect(),
         foreign_members: None,
     };
     let coll = koji_core::KojiGeometryCollection::try_from(fc)

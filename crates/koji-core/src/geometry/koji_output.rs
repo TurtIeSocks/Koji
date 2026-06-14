@@ -720,7 +720,7 @@ mod tests {
         use crate::{FeatureCtx, FenceType, SingleVec};
 
         for centers in [
-            vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],          // open
+            vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],             // open
             vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2.0]], // pre-closed
             vec![[1.0, 2.0], [3.0, 4.0], [3.0, 4.0], [5.0, 6.0]], // interior dup
         ] {
@@ -748,7 +748,7 @@ mod tests {
         use crate::{FeatureCtx, SingleVec};
 
         for centers in [
-            vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],          // open ring
+            vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], // open ring
             vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2.0]], // pre-closed
         ] {
             let centers: SingleVec = centers;

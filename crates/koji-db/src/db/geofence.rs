@@ -137,6 +137,7 @@ struct GeofenceUpsertInputs {
 /// then the plain key, then the typed `KojiMeta` field. Non-`__` `extra` entries
 /// (other than `projects`/`parent`) become custom properties — matching the
 /// deleted `Feature`-based path's `__`-prefix filter.
+#[allow(clippy::result_large_err)]
 fn build_geofence_upsert_map(item: &KojiGeometry) -> Result<GeofenceUpsertInputs, ModelError> {
     let extra = &item.meta.extra;
     let mut new_map = HashMap::<&str, serde_json::Value>::new();
@@ -188,7 +189,9 @@ fn build_geofence_upsert_map(item: &KojiGeometry) -> Result<GeofenceUpsertInputs
             if let Some(parent) = parent.as_str() {
                 Some(UnknownId::String(parent.to_string()))
             } else {
-                parent.as_u64().map(|parent| UnknownId::Number(parent as u32))
+                parent
+                    .as_u64()
+                    .map(|parent| UnknownId::Number(parent as u32))
             }
         });
 

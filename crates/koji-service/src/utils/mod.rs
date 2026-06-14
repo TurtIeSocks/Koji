@@ -2,9 +2,7 @@ use super::*;
 
 use geo::Point;
 use geojson::{Geometry, Value};
-use koji_core::{
-    ApiQueryArgs, BBox, EnsurePoints, GetBbox, SingleVec, SpawnpointTth, UnknownId,
-};
+use koji_core::{ApiQueryArgs, BBox, EnsurePoints, GetBbox, SingleVec, SpawnpointTth, UnknownId};
 use koji_db::{KojiDb, ModelError, db::geofence};
 use koji_scanner::{
     GenericData,
