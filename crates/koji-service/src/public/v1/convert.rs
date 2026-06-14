@@ -1,11 +1,12 @@
 use super::*;
 
 use koji_core::{FeatureHelpers, GeometryHelpers, TrimPrecision};
-use model::api::args::{Args, ArgsUnwrapped};
+
+use crate::public::v1::legacy::{LegacyArgs, LegacyResolved};
 
 #[post("/data")]
-async fn convert_data(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
-    let ArgsUnwrapped {
+async fn convert_data(payload: web::Json<LegacyArgs>) -> Result<HttpResponse, Error> {
+    let LegacyResolved {
         area,
         benchmark_mode,
         return_type,
@@ -33,8 +34,8 @@ async fn convert_data(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
 }
 
 #[post("/simplify")]
-async fn simplify(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
-    let ArgsUnwrapped {
+async fn simplify(payload: web::Json<LegacyArgs>) -> Result<HttpResponse, Error> {
+    let LegacyResolved {
         area, return_type, ..
     } = payload.into_inner().init(Some("simplify"));
 
@@ -45,8 +46,8 @@ async fn simplify(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
 }
 
 #[post("/merge-points")]
-async fn merge_points(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
-    let ArgsUnwrapped {
+async fn merge_points(payload: web::Json<LegacyArgs>) -> Result<HttpResponse, Error> {
+    let LegacyResolved {
         area, return_type, ..
     } = payload.into_inner().init(Some("simplify"));
 

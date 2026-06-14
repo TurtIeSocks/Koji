@@ -1,9 +1,9 @@
 //! Shared resolution helpers + default constants used by the arg-groups.
 //!
-//! These mirror the legacy `model::Args::init()` exactly (the parity contract is
+//! These mirror the legacy fat-`Args` `init()` exactly (the parity contract is
 //! the spec §2 defaults table). `validate_s2_cell` and `resolve_data_points` are
-//! copied (temporarily duplicated) from `model::api::args`; `model` keeps its own
-//! copies until it is deleted in a later task.
+//! the single source of truth for both the v2 arg-groups and the frozen v1
+//! [`LegacyArgs`](crate::public::v1::legacy::LegacyArgs) shim.
 
 use super::inputs::DataPointsArg;
 use koji_core::{KojiGeometry, KojiGeometryCollection};
@@ -64,9 +64,7 @@ pub(crate) fn validate_s2_cell(value_to_check: Option<u64>, label: &str) -> u64 
 /// Resolve an optional [`DataPointsArg`] into a flat `[lat, lon]` list. A feature
 /// with an unconvertible geometry yields no points (matches the old matrix's
 /// empty arm). Parity with old `init()`.
-// Consumed by the per-op request types (Task 2b `ops.rs`) and the frozen v1
-// `LegacyArgs` (Task 4); no caller exists yet at the Task 2a boundary.
-#[allow(dead_code)]
+// Consumed by the per-op request types (`ops.rs`) and the frozen v1 `LegacyArgs`.
 pub(crate) fn resolve_data_points(data_points: Option<DataPointsArg>) -> koji_core::SingleVec {
     if let Some(data_points) = data_points {
         match data_points {

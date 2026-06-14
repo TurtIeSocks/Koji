@@ -5,15 +5,16 @@ use super::*;
 use koji_core::BoundsArg;
 use koji_db::KojiDb;
 use koji_scanner::entities::{gym, pokestop, spawnpoint, station};
-use model::api::args::{Args, ArgsUnwrapped};
+
+use crate::public::v1::legacy::{LegacyArgs, LegacyResolved};
 
 #[post("/all/{category}")]
 async fn all(
     conn: web::Data<KojiDb>,
     category: actix_web::web::Path<String>,
-    payload: web::Json<Args>,
+    payload: web::Json<LegacyArgs>,
 ) -> Result<HttpResponse, Error> {
-    let ArgsUnwrapped { last_seen, tth, .. } = payload.into_inner().init(Some("all_data"));
+    let LegacyResolved { last_seen, tth, .. } = payload.into_inner().init(Some("all_data"));
     let category = category.into_inner();
 
     log::info!("[DATA_ALL] Category: {}", category);
@@ -59,11 +60,11 @@ async fn bound(
 async fn by_area(
     conn: web::Data<KojiDb>,
     category: actix_web::web::Path<String>,
-    payload: web::Json<Args>,
+    payload: web::Json<LegacyArgs>,
 ) -> Result<HttpResponse, Error> {
     let category = category.into_inner();
 
-    let ArgsUnwrapped {
+    let LegacyResolved {
         area,
         instance,
         last_seen,
@@ -94,11 +95,11 @@ async fn by_area(
 async fn area_stats(
     conn: web::Data<KojiDb>,
     category: actix_web::web::Path<String>,
-    payload: web::Json<Args>,
+    payload: web::Json<LegacyArgs>,
 ) -> Result<HttpResponse, Error> {
     let category = category.into_inner();
 
-    let ArgsUnwrapped {
+    let LegacyResolved {
         area,
         instance,
         last_seen,

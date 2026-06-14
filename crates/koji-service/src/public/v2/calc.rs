@@ -14,13 +14,11 @@
 //! [`CalcPayload`] (`area` + `data_points`), so `run` is pure-sync compute and
 //! never touches the DB. The remaining config knobs ride along as the original
 //! request JSON in [`CalcPayload::request`] (kept a [`serde_json::Value`] because
-//! it is shared by v1 and v2). `run` recovers the config structs via a
-//! **transitional dual-path**: the v2 enqueue stores a tagged
+//! it is shared by v1 and v2). `run` recovers the config structs from a single
+//! typed shape: both v1 and v2 now enqueue a tagged
 //! [`crate::requests::CalcRequest`] (nested arg-groups, `resolve()`-d into the
-//! koji-core configs); the legacy v1 enqueue still stores a flat
-//! [`model::api::args::Args`] body (re-parsed with `Args::init`). The flat v1 body
-//! never matches the tagged enum, so it falls through to the legacy branch
-//! unchanged — that branch is deleted in Task 4 once v1 also sends a `CalcRequest`.
+//! koji-core configs). v1's flat wire is mapped to a `CalcRequest` at the HTTP
+//! boundary via [`crate::public::v1::legacy::LegacyArgs::into_calc_request`].
 //!
 //! ## Scope (P4)
 //!
@@ -38,10 +36,9 @@ use algorithms::{bootstrap, clustering, routing, stats::Stats};
 use geojson::{Feature, FeatureCollection};
 use koji_core::{
     BootstrapConfig, ClusteringConfig, KojiGeometry, KojiGeometryCollection, KojiMeta,
-    RoutingConfig, S2Config, SingleVec, SortBy,
+    RoutingConfig, SingleVec, SortBy,
 };
 use koji_jobs::{JobCtx, JobError, JobHandler};
-use model::api::args::{Args, ArgsUnwrapped};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -62,16 +59,16 @@ pub const CALC_KIND: &str = "calculate";
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CalcPayload {
     /// The calc mode (`bootstrap`, `route`, or a cluster mode like `fastest`).
-    /// Drives both `Args::init`'s mode-specific defaults and the dispatch below.
+    /// Selected the `CalcRequest` variant at the HTTP boundary; carried for
+    /// observability / dedup.
     pub mode: String,
     /// The data category (`pokestop`, `gym`/`fort`, `station`, `spawnpoint`).
     /// Used by the HTTP handlers to resolve scanner data points; the compute core
     /// no longer derives an output shape from it (calc output is always MultiPoint
     /// cluster centers).
     pub category: String,
-    /// The original request, re-expressed as JSON. In `run` this is decoded via
-    /// the transitional dual-path: a tagged [`crate::requests::CalcRequest`] (v2)
-    /// or a flat [`model::api::args::Args`] (legacy v1) — see the module docs.
+    /// The original request, re-expressed as JSON. In `run` this is decoded as a
+    /// tagged [`crate::requests::CalcRequest`] (both v1 and v2 enqueue this shape).
     pub request: serde_json::Value,
     /// The pre-resolved area (resolved async in the HTTP handler before enqueue).
     pub area: FeatureCollection,
@@ -120,149 +117,44 @@ impl JobHandler for CalculateHandler {
         let data_points = payload.data_points;
         let clusters = payload.clusters;
 
-        // Transitional dual-path. The v2 enqueue stores a tagged `CalcRequest`; the
-        // legacy v1 enqueue still stores a flat `Args` body (its `mode` is a scan
-        // purpose, no tagged variant, no nested groups), so it never matches the
-        // tagged enum and falls to the legacy branch unchanged. The legacy branch
-        // is deleted in Task 4 once v1 also sends a `CalcRequest`.
-        let (benchmark_mode, collection, stats): (bool, KojiGeometryCollection, Stats) =
-            if let Ok(req) = serde_json::from_value::<CalcRequest>(payload.request.clone()) {
-                // ---- New typed dispatch: resolve groups -> configs. ----
-                match req {
-                    // `Cluster` and `Route` share `ClusterReq`; only `Route` applies
-                    // the `sort_by Unset -> Custom("tsp")` override (spec §2 table).
-                    CalcRequest::Cluster(c) => resolve_cluster_route(c, false, &data_points, area),
-                    CalcRequest::Route(c) => resolve_cluster_route(c, true, &data_points, area),
-                    CalcRequest::Reroute(r) => {
-                        let benchmark_mode = r.dev.resolve().benchmark_mode;
-                        let routing_config = r.routing.resolve();
-                        let radius = r.radius.unwrap_or(DEFAULT_RADIUS);
-                        let instance = r.instance.unwrap_or_default();
-                        let (collection, stats) =
-                            run_reroute(clusters, data_points, radius, &routing_config, &instance);
-                        (benchmark_mode, collection, stats)
-                    }
-                    CalcRequest::Bootstrap(b) => {
-                        let benchmark_mode = b.dev.resolve().benchmark_mode;
-                        let bootstrap_config = b.bootstrap.resolve();
-                        let routing_config = b.routing.resolve();
-                        let instance = b.instance.unwrap_or_default();
-                        let (collection, stats) =
-                            run_bootstrap(area, &bootstrap_config, &routing_config, &instance)?;
-                        (benchmark_mode, collection, stats)
-                    }
-                    CalcRequest::RouteStats(s) => {
-                        let benchmark_mode = s.dev.resolve().benchmark_mode;
-                        let radius = s.radius.unwrap_or(DEFAULT_RADIUS);
-                        let min_points = s.min_points.unwrap_or(1);
-                        let instance = s.instance.unwrap_or_default();
-                        let (collection, stats) =
-                            run_route_stats(clusters, data_points, radius, min_points, &instance);
-                        (benchmark_mode, collection, stats)
-                    }
-                }
-            } else {
-                // ---- LEGACY v1 branch (kept verbatim; deleted in Task 4). ----
-                let args: Args = serde_json::from_value(payload.request.clone())
-                    .map_err(|e| JobError::validation(format!("invalid calc request: {e}")))?;
-                let ArgsUnwrapped {
-                    benchmark_mode,
-                    cluster_mode,
-                    cluster_split_level,
-                    min_points,
-                    radius,
-                    calculation_mode,
-                    s2_level,
-                    s2_size,
-                    max_clusters,
-                    clustering_args,
-                    center_clusters,
-                    genetic_post_processing,
-                    sort_by,
-                    route_split_level,
-                    routing_args,
-                    bootstrapping_args,
-                    instance,
-                    dev,
-                    ..
-                } = args.init(Some(&payload.mode));
-
-                let mode = payload.mode.as_str();
-
-                let (collection, stats): (KojiGeometryCollection, Stats) = match mode {
-                    "bootstrap" => run_bootstrap(
-                        area,
-                        &BootstrapConfig {
-                            calculation_mode,
-                            radius,
-                            s2: S2Config {
-                                level: s2_level,
-                                size: s2_size,
-                            },
-                            plugin_args: bootstrapping_args,
-                        },
-                        &RoutingConfig {
-                            sort_by,
-                            route_split_level,
-                            plugin_args: routing_args,
-                        },
-                        &instance,
-                    )?,
-                    // Route an existing cluster set (no clustering). Mirrors v1 `/reroute`.
-                    "reroute" => run_reroute(
-                        clusters,
-                        data_points,
-                        radius,
-                        &RoutingConfig {
-                            sort_by,
-                            route_split_level,
-                            plugin_args: routing_args,
-                        },
-                        &instance,
-                    ),
-                    // Score an existing route (no clustering / no routing). Mirrors v1
-                    // `/route-stats[/{category}]` (the category-resolved data points are
-                    // pre-resolved into `payload.data_points`).
-                    "route-stats" | "route_stats" => {
-                        run_route_stats(clusters, data_points, radius, min_points, &instance)
-                    }
-                    _ => {
-                        // `route` defaults to a TSP sort when none was supplied (mirrors v1).
-                        let sort_by = if mode == "route" && sort_by == SortBy::Unset {
-                            SortBy::Custom(String::from("tsp"))
-                        } else {
-                            sort_by
-                        };
-                        run_cluster_route(
-                            &data_points,
-                            area,
-                            &ClusteringConfig {
-                                mode: cluster_mode,
-                                radius,
-                                min_points,
-                                max_clusters,
-                                cluster_split_level,
-                                calculation_mode,
-                                s2: S2Config {
-                                    level: s2_level,
-                                    size: s2_size,
-                                },
-                                center_clusters,
-                                genetic_post_processing,
-                                plugin_args: clustering_args,
-                            },
-                            &RoutingConfig {
-                                sort_by,
-                                route_split_level,
-                                plugin_args: routing_args,
-                            },
-                            dev.bypass_adaptive_partition,
-                            &instance,
-                        )
-                    }
-                };
+        // Single-path typed dispatch. Both v1 and v2 enqueue a tagged
+        // `CalcRequest` (v1 via `LegacyArgs::into_calc_request`); the handler
+        // resolves each op's arg-groups into the koji-core configs.
+        let req: CalcRequest = serde_json::from_value(payload.request.clone())
+            .map_err(|e| JobError::validation(format!("invalid calc request: {e}")))?;
+        let (benchmark_mode, collection, stats): (bool, KojiGeometryCollection, Stats) = match req {
+            // `Cluster` and `Route` share `ClusterReq`; only `Route` applies the
+            // `sort_by Unset -> Custom("tsp")` override (spec §2 table).
+            CalcRequest::Cluster(c) => resolve_cluster_route(c, false, &data_points, area),
+            CalcRequest::Route(c) => resolve_cluster_route(c, true, &data_points, area),
+            CalcRequest::Reroute(r) => {
+                let benchmark_mode = r.dev.resolve().benchmark_mode;
+                let routing_config = r.routing.resolve();
+                let radius = r.radius.unwrap_or(DEFAULT_RADIUS);
+                let instance = r.instance.unwrap_or_default();
+                let (collection, stats) =
+                    run_reroute(clusters, data_points, radius, &routing_config, &instance);
                 (benchmark_mode, collection, stats)
-            };
+            }
+            CalcRequest::Bootstrap(b) => {
+                let benchmark_mode = b.dev.resolve().benchmark_mode;
+                let bootstrap_config = b.bootstrap.resolve();
+                let routing_config = b.routing.resolve();
+                let instance = b.instance.unwrap_or_default();
+                let (collection, stats) =
+                    run_bootstrap(area, &bootstrap_config, &routing_config, &instance)?;
+                (benchmark_mode, collection, stats)
+            }
+            CalcRequest::RouteStats(s) => {
+                let benchmark_mode = s.dev.resolve().benchmark_mode;
+                let radius = s.radius.unwrap_or(DEFAULT_RADIUS);
+                let min_points = s.min_points.unwrap_or(1);
+                let instance = s.instance.unwrap_or_default();
+                let (collection, stats) =
+                    run_route_stats(clusters, data_points, radius, min_points, &instance);
+                (benchmark_mode, collection, stats)
+            }
+        };
 
         // Benchmark mode returns only the stats (the v1 contract); otherwise the
         // result carries both the geojson and the stats. The external wire shape

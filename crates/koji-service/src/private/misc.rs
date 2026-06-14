@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::{
-    private::admin::Search,
+    private::{Auth, Search},
     utils::response::{ConfigResponse, Response},
 };
 
@@ -11,7 +11,6 @@ use actix_web::http::header;
 use algorithms::{bootstrap, clustering, routing};
 use geojson::Value;
 use koji_db::KojiDb;
-use model::api::args::Auth;
 use serde_json::json;
 
 #[get("/")]

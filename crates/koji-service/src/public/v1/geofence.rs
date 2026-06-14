@@ -6,7 +6,8 @@ use serde_json::json;
 
 use koji_core::{ApiQueryArgs, ReturnTypeArg, get_return_type};
 use koji_db::{KojiDb, db::geofence};
-use model::api::args::{Args, ArgsUnwrapped};
+
+use crate::public::v1::legacy::{LegacyArgs, LegacyResolved};
 
 #[get("/all")]
 async fn all(
@@ -64,9 +65,9 @@ async fn get_area(
 #[post("/save-koji")]
 async fn save_koji(
     conn: web::Data<KojiDb>,
-    payload: web::Json<Args>,
+    payload: web::Json<LegacyArgs>,
 ) -> Result<HttpResponse, Error> {
-    let ArgsUnwrapped { area, .. } = payload.into_inner().init(Some("geofence_save"));
+    let LegacyResolved { area, .. } = payload.into_inner().init(Some("geofence_save"));
 
     let area = koji_core::KojiGeometryCollection::try_from(area)
         .map_err(actix_web::error::ErrorInternalServerError)?;

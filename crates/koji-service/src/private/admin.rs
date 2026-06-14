@@ -2,17 +2,12 @@ use super::*;
 
 use koji_core::AdminReq;
 use koji_db::ModelError;
-use serde::Deserialize;
 use serde_json::json;
 
 use koji_db::{KojiDb, db};
 
+use crate::private::Search;
 use crate::utils::response::Response;
-
-#[derive(Debug, Deserialize)]
-pub struct Search {
-    pub query: String,
-}
 
 #[get("/{resource}/")]
 async fn paginate(
