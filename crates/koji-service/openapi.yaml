@@ -184,7 +184,16 @@ paths:
         bridge returns `504` with the `job_id` so the caller can poll.
       requestBody:
         required: true
-        description: A Koji calc `Args` object (area / instance / data_points / knobs).
+        description: >-
+          A v2 calc body: `area` (or pre-resolved `dataPoints`) plus the
+          **nested camelCase arg-groups** — `clustering`, `routing`, `output`,
+          `dev`, `dataFilter` (and `bootstrap` for the bootstrap mode). The
+          clustering algorithm comes from the `{mode}` path segment, not the
+          body. This replaced the old flat v2 shape where the same knobs sat at
+          the top level (e.g. `radius` → `clustering.radius`, `sortBy` →
+          `routing.sortBy`, `returnType` → `output.returnType`,
+          `lastSeen`/`tth` → `dataFilter.*`). The frozen v1 `/api/v1/calc/*`
+          surface still takes the flat body and is unchanged.
         content:
           application/json:
             schema:
@@ -230,7 +239,10 @@ paths:
       description: Same as `POST /api/v2/calc/{mode}` but with an explicit data category.
       requestBody:
         required: true
-        description: A Koji calc `Args` object (area / instance / data_points / knobs).
+        description: >-
+          Same nested-arg-group v2 calc body as `POST /api/v2/calc/{mode}`
+          (`area`/`dataPoints` + `clustering`/`routing`/`output`/`dev`/`dataFilter`
+          groups). See that endpoint for the flat→nested migration notes.
         content:
           application/json:
             schema:
@@ -1362,10 +1374,15 @@ components:
     GeoArgs:
       type: object
       description: |
-        The Koji `Args` body for the `/geo/*` transforms — carries the `area`
+        The Koji body for the `/geo/*` transforms — carries the `area`
         (geofence / GeoJSON / point list) plus optional knobs (`return_type`,
-        `simplify`, `instance`, `benchmark_mode`, …). Loosely modeled; the full
-        `Args` shape is the same one the v1 `/convert/*` endpoints accept.
+        `simplify`, `instance`, `benchmark_mode`, …). Loosely modeled; the same
+        `area` + knobs the v1 `/convert/*` endpoints accept.
+
+        Output note: when a returned GeoJSON object carries the optional `bbox`
+        member, its values now follow the GeoJSON spec order
+        `[min_lon, min_lat, max_lon, max_lat]` (a member-order bug was corrected
+        earlier in the geometry rework).
       properties:
         area:
           description: The geometry to transform (geofence name, GeoJSON, or point list).
