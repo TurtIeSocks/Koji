@@ -5,15 +5,23 @@ use std::env;
 use log::LevelFilter;
 use sea_orm::{ConnectOptions, Database, Order};
 
-use crate::db::sea_orm_active_enums::{Category, Type};
+use crate::db::sea_orm_active_enums::{Category, Mode};
 
 pub mod json;
 
 // Boundary adapters: koji-core's mappers return the pure domain enums; the db
 // layer needs the sea-orm enums. Convert across the boundary via `enum_bridge!`.
 
-pub fn get_enum(instance_type: Option<String>) -> Type {
-    koji_core::get_enum(instance_type).into()
+/// Map an inbound `mode` string (a legacy 12-value RDM value OR a canonical
+/// 4-value string) to the storage [`Mode`]. `None`/unknown → `Mode::Unset`.
+/// Goes through `koji_core::Mode::from_legacy` (the single source of truth for
+/// lenient mode parsing) then bridges to the sea-orm enum.
+pub fn get_enum(instance_type: Option<String>) -> Mode {
+    instance_type
+        .as_deref()
+        .map(koji_core::Mode::from_legacy)
+        .unwrap_or_default()
+        .into()
 }
 
 pub fn get_category_enum(category: String) -> Category {

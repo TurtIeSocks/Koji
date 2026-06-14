@@ -17,7 +17,7 @@ use crate::{
 
 use super::{
     geofence_property::{Basic, FullPropertyModel},
-    sea_orm_active_enums::Type,
+    sea_orm_active_enums::Mode,
     *,
 };
 
@@ -38,7 +38,7 @@ pub struct Model {
     pub parent: Option<u32>,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
-    pub mode: Type,
+    pub mode: Mode,
     pub geometry: Json,
     pub geo_type: String,
     /// Dragonite area linkage (migration `m20260529_000003_dragonite_linkage`).
@@ -100,7 +100,7 @@ impl ActiveModelBehavior for ActiveModel {}
 pub struct GeofenceNoGeometry {
     pub id: u32,
     pub name: String,
-    pub mode: Type,
+    pub mode: Mode,
     pub geo_type: String,
     pub parent: Option<u32>,
     // pub created_at: DateTimeUtc,
@@ -394,25 +394,21 @@ impl Model {
 }
 
 impl Model {
-    /// Additive: map this row to a `KojiGeometry` (the Phase 1 target type).
-    /// Does not replace `to_feature`. The geometry JSON is parsed to geo-types.
-    /// Phase 1 keeps the LEGACY `mode` column (`Type`), so we map its string via
-    /// `Mode::from_legacy` here; Phase 2 switches the column to the new `Mode`
-    /// enum and this becomes a direct bridge.
+    /// Map this row to a `KojiGeometry` (the universal boundary type). The
+    /// geometry JSON is parsed to geo-types and the `mode` column (now the
+    /// canonical 4-value `Mode`) bridges directly to `koji_core::Mode` via the
+    /// `enum_bridge!` `From` impl.
     #[allow(clippy::result_large_err)]
     pub fn to_koji_geometry(&self) -> Result<koji_core::KojiGeometry, ModelError> {
-        use sea_orm::ActiveEnum;
         let gj = geojson::Geometry::from_json_value(self.geometry.clone())
             .map_err(|e| ModelError::Custom(format!("[GEOMETRY]: {e}")))?;
         let geometry = geo::Geometry::<f64>::try_from(&gj)
             .map_err(|e| ModelError::Custom(format!("[GEOMETRY]: {e}")))?;
 
-        // `self.mode` is the legacy `Type` ActiveEnum; `to_value()` yields its
-        // legacy string ("circle_raid", ...) which `from_legacy` collapses.
         let meta = koji_core::KojiMeta {
             id: Some(self.id),
             name: Some(self.name.clone()),
-            mode: koji_core::Mode::from_legacy(&self.mode.to_value()),
+            mode: self.mode.into(),
             parent_id: self.parent,
             ancestors: Vec::new(),
             extra: serde_json::Map::new(),
@@ -1140,7 +1136,9 @@ impl Query {
 
 #[cfg(test)]
 mod to_koji_tests {
-    use super::*;
+    // `Mode` here is the domain `koji_core::Mode` (what `KojiMeta`/`meta.mode`
+    // use); the storage enum is aliased `DbMode` for the `Model` fixtures.
+    use super::{Mode as DbMode, *};
     use koji_core::{KojiMeta, Mode};
 
     #[cfg(test)]
@@ -1152,7 +1150,7 @@ mod to_koji_tests {
             parent: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
-            mode: Type::Unset,
+            mode: DbMode::Unset,
             geometry: serde_json::json!(null),
             geo_type: String::new(),
             dragonite_area_id: None,
@@ -1167,7 +1165,7 @@ mod to_koji_tests {
             parent: Some(7),
             geometry: serde_json::json!({ "type": "Point", "coordinates": [1.0, 2.0] }),
             geo_type: "Point".to_string(),
-            mode: Type::CircleRaid, // legacy fort value -> Mode::Fort
+            mode: DbMode::Fort,
             ..test_model_defaults()
         };
 
@@ -1176,7 +1174,7 @@ mod to_koji_tests {
         assert_eq!(kg.meta.id, Some(42));
         assert_eq!(kg.meta.name.as_deref(), Some("Boulder"));
         assert_eq!(kg.meta.parent_id, Some(7));
-        assert_eq!(kg.meta.mode, Mode::Fort); // confirms legacy circle_raid -> Fort mapping
+        assert_eq!(kg.meta.mode, Mode::Fort); // mode bridges Model.mode -> koji_core::Mode
     }
 
     /// A geofence `KojiGeometry` as it arrives from the admin-panel internal
@@ -1278,7 +1276,7 @@ mod to_koji_tests {
                 "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]]
             }),
             geo_type: "Polygon".to_string(),
-            mode: Type::CirclePokemon, // legacy 12-value value
+            mode: DbMode::Pokemon,
             ..test_model_defaults()
         }
     }
@@ -1305,34 +1303,32 @@ mod to_koji_tests {
         assert_eq!(meta.name.as_deref(), Some("Aurora"));
     }
 
-    /// Regression for the S5c legacy-`mode` fix: when the request asks for `?mode`
-    /// (non-internal), the projected feature carries `mode = "circle_pokemon"` — a
-    /// legacy 12-value string. `KojiMeta`'s lenient `mode` deserialize now maps it
-    /// to the canonical `Mode::Pokemon` instead of failing the whole deserialize,
-    /// so the sibling `id`/`name` properties survive (they were silently dropped
-    /// before the fix). `project_as_koji` reproduces the live endpoint exactly, so
-    /// this pins the corrected behavior.
+    /// When the request asks for `?mode` (non-internal), the projected feature
+    /// carries `mode = "pokemon"` — the canonical 4-value string. `KojiMeta`'s
+    /// `mode` deserialize maps it to `Mode::Pokemon` and the sibling `id`/`name`
+    /// properties survive. `project_as_koji` reproduces the live endpoint exactly,
+    /// so this pins the behavior.
     #[test]
-    fn project_as_koji_legacy_mode_preserved_with_props() {
+    fn project_as_koji_mode_preserved_with_props() {
         let args = ApiQueryArgs {
             id: Some(true),
             name: Some(true),
-            mode: Some(true), // emits the legacy 12-value `mode` string
+            mode: Some(true), // emits the canonical 4-value `mode` string
             ..Default::default()
         };
         let feature = geofence_row_for_feature()
             .to_feature(&HashMap::new(), &HashMap::new(), &args)
             .unwrap();
-        // Sanity: the feature carries the legacy 12-value string.
+        // Sanity: the feature carries the canonical 4-value string.
         assert_eq!(
             feature.property("mode").and_then(|v| v.as_str()),
-            Some("circle_pokemon")
+            Some("pokemon")
         );
 
         let coll = koji_collection_from_features(vec![feature]);
         assert_eq!(coll.items.len(), 1);
         let meta = &coll.items[0].meta;
-        // Legacy string mapped to canonical Mode; id/name preserved.
+        // Canonical mode string maps to Mode; id/name preserved.
         assert_eq!(meta.mode, Mode::Pokemon);
         assert_eq!(meta.id, Some(9));
         assert_eq!(meta.name.as_deref(), Some("Aurora"));

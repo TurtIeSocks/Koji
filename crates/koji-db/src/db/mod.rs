@@ -32,20 +32,6 @@ pub struct NameId {
     name: String,
 }
 
-#[derive(FromQueryResult)]
-pub struct NameType {
-    pub name: String,
-    pub instance_type: self::sea_orm_active_enums::Type,
-}
-
-#[derive(Debug, Clone, FromQueryResult, Serialize, Deserialize)]
-pub struct NameTypeId {
-    pub id: u32,
-    pub name: String,
-    pub mode: self::sea_orm_active_enums::Type,
-    pub geo_type: Option<String>,
-}
-
 #[derive(Debug, Serialize)]
 pub struct PaginateResults<T> {
     results: T,

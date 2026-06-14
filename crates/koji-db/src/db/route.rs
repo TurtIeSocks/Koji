@@ -11,14 +11,14 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use koji_core::{
-    AdminReqParsed, EnsurePoints, FeatureCtx, KojiGeometry, KojiGeometryCollection, ToCollection,
-    ToFeature,
+    AdminReqParsed, EnsurePoints, FeatureCtx, FenceType, KojiGeometry, KojiGeometryCollection,
+    ToCollection, ToFeature,
 };
 
 use crate::{
-    db::sea_orm_active_enums::Type,
+    db::sea_orm_active_enums::Mode,
     error::ModelError,
-    utils::{get_enum, json::JsonToModel, parse_order},
+    utils::{json::JsonToModel, parse_order},
 };
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
@@ -29,7 +29,7 @@ pub struct Model {
     pub geofence_id: u32,
     pub name: String,
     pub description: Option<String>,
-    pub mode: Type,
+    pub mode: Mode,
     pub geometry: Json,
     #[sea_orm(column_type = "custom(\"MEDIUMINT UNSIGNED\")", nullable)]
     pub points: u32,
@@ -63,7 +63,7 @@ pub struct RouteNoGeometry {
     pub geofence_id: u32,
     pub name: String,
     pub description: Option<String>,
-    pub mode: Type,
+    pub mode: Mode,
     pub points: u32,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
@@ -72,19 +72,6 @@ pub struct RouteNoGeometry {
 #[derive(Serialize, Deserialize, FromQueryResult)]
 pub struct OnlyGeofenceId {
     pub geofence_id: u32,
-}
-
-/// Map the collapsed `koji_core::Mode` to a representative legacy route `Type`
-/// (the route `mode` column is still the 12-value `Type` until the Phase 2
-/// column migration). Used only when a route item carries no original
-/// `__mode`/`mode` string in `meta.extra`.
-fn mode_to_type(mode: koji_core::Mode) -> Type {
-    match mode {
-        koji_core::Mode::Pokemon => Type::CirclePokemon,
-        koji_core::Mode::Fort => Type::CircleRaid,
-        koji_core::Mode::Quest => Type::CircleQuest,
-        koji_core::Mode::Unset => Type::Unset,
-    }
 }
 
 /// Route name: the legacy `__name`/`name` passthrough in `meta.extra` wins (so
@@ -99,21 +86,21 @@ fn route_name(item: &KojiGeometry) -> Option<String> {
         .or_else(|| item.meta.name.clone())
 }
 
-/// Route mode as the storage `Type`: prefer the original 12-value
-/// `__mode`/`mode` string carried in `meta.extra` (mapped via `get_enum`), else
-/// derive a representative `Type` from the collapsed `meta.mode`.
-fn route_mode_type(item: &KojiGeometry) -> Type {
-    if let Some(mode) = item
+/// Route mode as the storage [`Mode`]: prefer any original `__mode`/`mode`
+/// string carried in `meta.extra` (a legacy 12-value OR a canonical 4-value
+/// string — both collapse correctly via `Mode::from_legacy`), else fall back to
+/// the typed `meta.mode`. The column is now the 4-value `Mode`, so this is a
+/// direct bridge — no representative-`Type` dance.
+fn route_mode(item: &KojiGeometry) -> Mode {
+    let core_mode = item
         .meta
         .extra
         .get("__mode")
         .or_else(|| item.meta.extra.get("mode"))
         .and_then(|v| v.as_str())
-    {
-        get_enum(Some(mode.to_string()))
-    } else {
-        mode_to_type(item.meta.mode)
-    }
+        .map(koji_core::Mode::from_legacy)
+        .unwrap_or(item.meta.mode);
+    core_mode.into()
 }
 
 /// Optional geofence-id passthrough (`geofence_id`/`__geofence_id`) from
@@ -134,15 +121,14 @@ fn route_geometry_json(item: &KojiGeometry) -> Json {
 }
 
 impl Model {
-    /// Additive: map this route row to a `KojiGeometry` (the Phase 1 target
-    /// type). Does not replace `to_feature`. Mirrors
-    /// `geofence::Model::to_koji_geometry`: the geometry JSON is parsed to
-    /// geo-types and the legacy `mode` column (`Type`) is collapsed to the new
-    /// `Mode` enum via `Mode::from_legacy`. Routes have no `parent` hierarchy,
-    /// so `parent_id`/`ancestors` stay at their defaults.
+    /// Map this route row to a `KojiGeometry` (the universal boundary type).
+    /// Mirrors `geofence::Model::to_koji_geometry`: the geometry JSON is parsed
+    /// to geo-types and the `mode` column (now the canonical 4-value `Mode`)
+    /// bridges directly to `koji_core::Mode` via the `enum_bridge!` `From` impl.
+    /// Routes have no `parent` hierarchy, so `parent_id`/`ancestors` stay at
+    /// their defaults.
     #[allow(clippy::result_large_err)]
     pub fn to_koji_geometry(&self) -> Result<koji_core::KojiGeometry, ModelError> {
-        use sea_orm::ActiveEnum;
         let gj = geojson::Geometry::from_json_value(self.geometry.clone())
             .map_err(|e| ModelError::Custom(format!("[GEOMETRY]: {e}")))?;
         let geometry = geo::Geometry::<f64>::try_from(&gj)
@@ -151,7 +137,7 @@ impl Model {
         let meta = koji_core::KojiMeta {
             id: Some(self.id),
             name: Some(self.name.clone()),
-            mode: koji_core::Mode::from_legacy(&self.mode.to_value()),
+            mode: self.mode.into(),
             parent_id: None,
             ancestors: Vec::new(),
             extra: serde_json::Map::new(),
@@ -172,8 +158,11 @@ impl ToFeatureFromModel for Model {
         } = self;
 
         let geometry = Geometry::from_json_value(geometry)?;
+        // The legacy geojson shape for routes is MultiPoint; `FenceType` drives
+        // that in the koji-core `ToFeature` impl. (`Mode` deliberately does not
+        // encode geometry shape, so this stays a `FenceType`.)
         let mut feature =
-            geometry.to_feature(&FeatureCtx::new().with_type(Type::CirclePokemon.into()));
+            geometry.to_feature(&FeatureCtx::new().with_type(FenceType::CirclePokemon));
 
         if internal {
             feature.id = Some(geojson::feature::Id::String(format!(
@@ -523,7 +512,7 @@ impl Query {
             log::warn!("{error}");
             return Err(DbErr::Custom(error));
         };
-        let mode = route_mode_type(item);
+        let mode = route_mode(item);
         let Some(fence_id) = Query::resolve_geofence_id(conn, item, &name).await? else {
             let error = format!("[ROUTE_SAVE] could not resolve geofence_id for {name}");
             log::warn!("{error}");
@@ -715,7 +704,10 @@ impl Query {
 
 #[cfg(test)]
 mod to_koji_tests {
-    use super::*;
+    // `Mode` here is the domain `koji_core::Mode` (what `KojiMeta`/`meta.mode`
+    // use); the storage enum is aliased `DbMode` for the `Model` fixtures and the
+    // `route_mode` helper (which returns the sea-orm `Mode`).
+    use super::{Mode as DbMode, *};
     use koji_core::{KojiMeta, Mode};
 
     #[cfg(test)]
@@ -726,7 +718,7 @@ mod to_koji_tests {
             geofence_id: 0,
             name: String::new(),
             description: None,
-            mode: Type::Unset,
+            mode: DbMode::Unset,
             geometry: serde_json::json!(null),
             points: 0,
             created_at: Utc::now(),
@@ -744,13 +736,13 @@ mod to_koji_tests {
                 "type": "LineString",
                 "coordinates": [[1.0, 2.0], [3.0, 4.0]]
             }),
-            mode: Type::CircleRaid, // legacy fort value -> Mode::Fort
+            mode: DbMode::Fort,
             ..test_model_defaults()
         };
 
         let kg = model.to_koji_geometry().unwrap();
         assert!(matches!(kg.geometry, geo::Geometry::LineString(_)));
-        assert_eq!(kg.meta.mode, Mode::Fort); // confirms legacy circle_raid -> Fort mapping
+        assert_eq!(kg.meta.mode, Mode::Fort); // mode bridges Model.mode -> koji_core::Mode
         assert_eq!(kg.meta.name.as_deref(), Some("Patrol"));
         assert_eq!(kg.meta.id, Some(42));
         // Routes have no parent hierarchy.
@@ -784,8 +776,8 @@ mod to_koji_tests {
         let item = koji_route_item();
         // name comes straight from the typed field.
         assert_eq!(route_name(&item).as_deref(), Some("r1"));
-        // Fort with no original `__mode` string maps to the representative Type.
-        assert_eq!(route_mode_type(&item), Type::CircleRaid);
+        // Fort with no original `__mode` string bridges the typed meta.mode.
+        assert_eq!(route_mode(&item), DbMode::Fort);
         // geofence_id passthrough is read from `extra`.
         assert_eq!(route_geofence_id(&item), Some(7));
         // geometry serializes back to a MultiPoint geojson object.
@@ -815,19 +807,19 @@ mod to_koji_tests {
             },
         };
         assert_eq!(route_name(&item).as_deref(), Some("legacy_route"));
-        // The original 12-value string is preserved exactly (not collapsed).
-        assert_eq!(route_mode_type(&item), Type::CirclePokemon);
+        // The legacy 12-value `__mode` string collapses to the canonical Mode.
+        assert_eq!(route_mode(&item), DbMode::Pokemon);
         assert_eq!(route_geofence_id(&item), Some(99));
     }
 
     #[test]
-    fn route_mode_unset_maps_to_unset_type() {
+    fn route_mode_default_maps_to_unset() {
         use geo::{Geometry, Point};
         let item = KojiGeometry {
             geometry: Geometry::Point(Point::new(0.0, 0.0)),
             meta: KojiMeta::default(),
         };
-        assert_eq!(route_mode_type(&item), Type::Unset);
+        assert_eq!(route_mode(&item), DbMode::Unset);
         assert_eq!(route_name(&item), None);
         assert_eq!(route_geofence_id(&item), None);
     }
@@ -868,7 +860,7 @@ mod to_koji_tests {
                 "type": "MultiPoint",
                 "coordinates": [[1.0, 2.0], [3.0, 4.0]]
             }),
-            mode: Type::CirclePokemon, // legacy 12-value value
+            mode: DbMode::Pokemon, // canonical 4-value mode
             ..test_model_defaults()
         }
     }
@@ -876,7 +868,7 @@ mod to_koji_tests {
     /// Internal (`__`-prefixed) path: none of `__id`/`__name`/`__mode`/
     /// `__geofence_id` collide with a typed `KojiMeta` field, so all survive
     /// losslessly in `extra` (no deserialize poisoning). This is the high-fidelity
-    /// path and proves the route-only `geofence_id` + the legacy 12-value `mode`
+    /// path and proves the route-only `geofence_id` + the canonical 4-value `mode`
     /// string are both carried through unchanged.
     #[test]
     fn by_geofence_koji_transform_honors_internal_underscore_props() {
@@ -893,27 +885,25 @@ mod to_koji_tests {
             meta.extra.get("__name").and_then(|v| v.as_str()),
             Some("patrol")
         );
-        // The original 12-value string is carried verbatim (NOT collapsed).
+        // The canonical 4-value mode string is carried verbatim.
         assert_eq!(
             meta.extra.get("__mode").and_then(|v| v.as_str()),
-            Some("circle_pokemon")
+            Some("pokemon")
         );
     }
 
-    /// Regression for the S5c legacy-`mode` fix on the NON-internal path. The
-    /// route feature's `mode = "circle_pokemon"` is a legacy 12-value string;
-    /// `KojiMeta`'s lenient `mode` deserialize now maps it to the canonical
-    /// `Mode::Pokemon` instead of failing the whole deserialize. Crucially, the
-    /// sibling properties (`name`, the route-only `geofence_id`) survive — they
-    /// were silently dropped before the fix. `by_geofence_koji` reproduces the
-    /// live endpoint exactly, so this pins the corrected high-fidelity behavior.
+    /// NON-internal path: the route feature's `mode = "pokemon"` is the canonical
+    /// 4-value string; `KojiMeta`'s `mode` deserialize maps it to `Mode::Pokemon`.
+    /// The sibling properties (`name`, the route-only `geofence_id`) survive.
+    /// `by_geofence_koji` reproduces the live endpoint exactly, so this pins the
+    /// high-fidelity behavior.
     #[test]
-    fn by_geofence_koji_legacy_mode_preserved_with_props() {
+    fn by_geofence_koji_mode_preserved_with_props() {
         let feature = route_row_for_feature().to_feature(false).unwrap();
-        // Sanity: the feature carries the legacy 12-value string + sibling props.
+        // Sanity: the feature carries the canonical 4-value string + sibling props.
         assert_eq!(
             feature.property("mode").and_then(|v| v.as_str()),
-            Some("circle_pokemon")
+            Some("pokemon")
         );
         assert_eq!(
             feature.property("name").and_then(|v| v.as_str()),
@@ -923,7 +913,7 @@ mod to_koji_tests {
         let coll = koji_collection_from_features(vec![feature]);
         assert_eq!(coll.items.len(), 1);
         let meta = &coll.items[0].meta;
-        // Legacy string mapped to canonical Mode; siblings preserved.
+        // Canonical mode string maps to Mode; siblings preserved.
         assert_eq!(meta.mode, Mode::Pokemon);
         assert_eq!(meta.id, Some(3));
         assert_eq!(meta.name.as_deref(), Some("patrol"));

@@ -14,7 +14,7 @@ use actix_web::{Error, HttpResponse, http::StatusCode, web};
 use koji_core::{ApiQueryArgs, ReturnTypeArg, ToSingleVec};
 use koji_db::{
     KojiDb,
-    db::{geofence, route, sea_orm_active_enums::Type},
+    db::{geofence, route, sea_orm_active_enums::Mode},
 };
 use koji_dragonite::AreaMode;
 use koji_events::EventDispatcher;
@@ -109,22 +109,15 @@ async fn remove(conn: web::Data<KojiDb>, path: web::Path<u32>) -> Result<HttpRes
     ))
 }
 
-/// Map a Koji route/geofence mode ([`Type`]) to the Dragonite [`AreaMode`] its
-/// route feeds.
-///
-/// **Assumption (maintainer-confirm):** quest family → `Quest`; pokemon / tth /
-/// IV → `Pokemon`; raid / station → `Fort`; leveling / unset → `Base`. This is
-/// the one open design call for the `area.route_updated` producer.
-fn area_mode_for(mode: &Type) -> AreaMode {
+/// Map a Koji route/geofence [`Mode`] to the Dragonite [`AreaMode`] its route
+/// feeds. The 12→4 collapse already folded the historical variants, so this is
+/// now a direct 1:1 mapping (`unset` → `Base`).
+fn area_mode_for(mode: &Mode) -> AreaMode {
     match mode {
-        Type::AutoQuest | Type::CircleQuest => AreaMode::Quest,
-        Type::AutoPokemon
-        | Type::CirclePokemon
-        | Type::CircleSmartPokemon
-        | Type::AutoTth
-        | Type::PokemonIv => AreaMode::Pokemon,
-        Type::CircleRaid | Type::CircleSmartRaid | Type::CircleStation => AreaMode::Fort,
-        Type::Leveling | Type::Unset => AreaMode::Base,
+        Mode::Quest => AreaMode::Quest,
+        Mode::Pokemon => AreaMode::Pokemon,
+        Mode::Fort => AreaMode::Fort,
+        Mode::Unset => AreaMode::Base,
     }
 }
 
