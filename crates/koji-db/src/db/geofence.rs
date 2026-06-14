@@ -237,7 +237,6 @@ impl Model {
                 .iter()
                 .map(|prop| {
                     if prop.name == "parent"
-                        && args.ignoremanualparent.is_none()
                         && let Some(val) = prop.value.as_ref()
                     {
                         has_manual_parent = val.clone();
@@ -346,10 +345,7 @@ impl Model {
         if let Some(geofence_name) = feature.property("name")
             && let Some(geofence_name) = geofence_name.as_str()
         {
-            feature.set_property(
-                "name",
-                name_modifier(geofence_name.to_string(), args, parent_name),
-            );
+            feature.set_property("name", name_modifier(geofence_name.to_string(), args));
         }
 
         if args.internal.is_some() {
@@ -592,7 +588,11 @@ impl Query {
     ) -> Result<KojiGeometryCollection, ModelError> {
         let (sql, binds) = build_descendants_sql(&anchor, &spec);
         let rows = Entity::find()
-            .from_raw_sql(Statement::from_sql_and_values(DbBackend::MySql, &sql, binds))
+            .from_raw_sql(Statement::from_sql_and_values(
+                DbBackend::MySql,
+                &sql,
+                binds,
+            ))
             .into_model::<DescendantRow>()
             .all(db)
             .await?;
@@ -1625,7 +1625,10 @@ mod descendants_tests {
 
     #[test]
     fn from_args_both_is_err() {
-        assert_eq!(HierarchySpec::from_args(Some(1), Some(2)), Err(HierarchyArgError));
+        assert_eq!(
+            HierarchySpec::from_args(Some(1), Some(2)),
+            Err(HierarchyArgError)
+        );
     }
 
     #[test]

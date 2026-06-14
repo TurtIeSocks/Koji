@@ -158,9 +158,9 @@ Used by:
 
 Applied in server order to the `name` property:
 
-`ignoremanualparent` -> `trimstart` -> `trimend` -> `alphanumeric` -> `replace` -> `parentreplace` -> `parentstart` -> `parentend` -> `lowercase` -> `uppercase` -> `capfirst` -> `capitalize` -> `underscore` -> `dash` -> `space` -> `unpolish` -> final trim.
+`trimstart` -> `trimend` -> `alphanumeric` -> `replace` -> `lowercase` -> `uppercase` -> `capfirst` -> `capitalize` -> `underscore` -> `dash` -> `space` -> `unpolish` -> final trim.
 
-Examples assume `name="North, NY"` and `parent="NY"` unless stated otherwise.
+Examples assume `name="North, NY"` unless stated otherwise.
 
 <Table>
   <thead>
@@ -195,24 +195,6 @@ Examples assume `name="North, NY"` and `parent="NY"` unless stated otherwise.
       <Table.Td>boolean</Table.Td>
       <Table.Td>Capitalize first character only.</Table.Td>
       <Table.Td>`capfirst=true` on `north, ny` -&gt; `North, ny`</Table.Td>
-    </Table.Tr>
-    <Table.Tr>
-      <Table.Td>`parentstart`</Table.Td>
-      <Table.Td>string</Table.Td>
-      <Table.Td>Prefix name with parent joined by string.</Table.Td>
-      <Table.Td>`parentstart=" - "` -&gt; `NY - North, NY`</Table.Td>
-    </Table.Tr>
-    <Table.Tr>
-      <Table.Td>`parentend`</Table.Td>
-      <Table.Td>string</Table.Td>
-      <Table.Td>Suffix name with parent joined by string.</Table.Td>
-      <Table.Td>`parentend=" - "` -&gt; `North, NY - NY`</Table.Td>
-    </Table.Tr>
-    <Table.Tr>
-      <Table.Td>`parentreplace`</Table.Td>
-      <Table.Td>string</Table.Td>
-      <Table.Td>Replace parent substring in name with string.</Table.Td>
-      <Table.Td>`parentreplace=""` -&gt; `North,`</Table.Td>
     </Table.Tr>
     <Table.Tr>
       <Table.Td>`space`</Table.Td>
@@ -257,12 +239,6 @@ Examples assume `name="North, NY"` and `parent="NY"` unless stated otherwise.
       <Table.Td>`unpolish=true` on `Łódź` -&gt; `Lodz`</Table.Td>
     </Table.Tr>
     <Table.Tr>
-      <Table.Td>`ignoremanualparent`</Table.Td>
-      <Table.Td>boolean</Table.Td>
-      <Table.Td>Ignore manual parent property.</Table.Td>
-      <Table.Td>`ignoremanualparent=true` uses DB parent over manual override.</Table.Td>
-    </Table.Tr>
-    <Table.Tr>
       <Table.Td>`alphanumeric`</Table.Td>
       <Table.Td>boolean</Table.Td>
       <Table.Td>Remove non-alphanumeric chars except spaces/dash/underscore.</Table.Td>
@@ -296,6 +272,36 @@ Examples assume `name="North, NY"` and `parent="NY"` unless stated otherwise.
       <Table.Td>`exclude`</Table.Td>
       <Table.Td>string</Table.Td>
       <Table.Td>Comma-separated names to exclude.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+### Hierarchy
+
+Walk the geofence parent/child tree (`GET /api/v2/geofences` anchors on every
+top-level geofence; `GET /api/v2/geofences/{id_or_name}` anchors on the named
+one). `depth` and `level` are **mutually exclusive** — supplying both returns
+`400`. The response is a flat collection; each item carries an ordered root→parent
+`ancestors[]` (excluding its own name) plus its `parent_id`.
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Param</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Purpose</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`depth`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>Cumulative subtree: the anchor through N levels of descendants, inclusive. `depth=0` returns the anchor(s) only.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`level`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>Only the geofences exactly N levels below the anchor. `level=0` returns the anchor(s) themselves.</Table.Td>
     </Table.Tr>
   </tbody>
 </Table>

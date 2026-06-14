@@ -55,12 +55,6 @@ pub struct ApiQueryArgs {
     pub capitalize: Option<String>,
     /// If true, the first character of the `name` property is capitalized
     pub capfirst: Option<bool>,
-    /// If true, the `parent` property is added as a prefix to the `name`, separated by the provided string/character
-    pub parentstart: Option<String>,
-    /// If true, the `parent` property is added as a suffix to the `name`, separated by the provided string/character
-    pub parentend: Option<String>,
-    /// If the `name` property has the `parent` name as part of its value, the `parent` name is replaced with the given string/character
-    pub parentreplace: Option<String>,
     /// Spaces in the `name` property are replaced with the given string/character
     pub space: Option<String>,
     /// Underscores in the `name` property are replaced with the given string/character
@@ -75,8 +69,6 @@ pub struct ApiQueryArgs {
     pub trimend: Option<usize>,
     /// If true, the polish characters are converted to ascii
     pub unpolish: Option<bool>,
-    /// If true, the manual parent property will be ignored
-    pub ignoremanualparent: Option<bool>,
     /// If true, all non-alphanumeric characters are removed from the `name` property
     /// (excludes spaces, dashes, and underscores)
     pub alphanumeric: Option<bool>,
@@ -109,9 +101,6 @@ impl Default for ApiQueryArgs {
             uppercase: None,
             capitalize: None,
             capfirst: None,
-            parentstart: None,
-            parentend: None,
-            parentreplace: None,
             space: None,
             underscore: None,
             dash: None,
@@ -120,7 +109,6 @@ impl Default for ApiQueryArgs {
             trimstart: None,
             trimend: None,
             unpolish: None,
-            ignoremanualparent: None,
             alphanumeric: None,
             excludeproperties: None,
             excludeparents: None,

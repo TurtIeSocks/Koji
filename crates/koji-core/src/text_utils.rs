@@ -86,7 +86,7 @@ fn remove_symbols(param: &str) -> String {
     regex.replace_all(param, "").to_string()
 }
 
-pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<String>) -> String {
+pub fn name_modifier(string: String, modifiers: &ApiQueryArgs) -> String {
     let mut mutable = string.clone();
     if let Some(trimstart) = modifiers.trimstart {
         mutable = mutable[trimstart..].to_string();
@@ -99,17 +99,6 @@ pub fn name_modifier(string: String, modifiers: &ApiQueryArgs, parent: Option<St
     }
     if let Some(replacer) = modifiers.replace.as_ref() {
         mutable = mutable.replace(clean(replacer).as_str(), "");
-    }
-    if let Some(parent) = parent {
-        if let Some(replacer) = modifiers.parentreplace.as_ref() {
-            mutable = mutable.replacen(&parent, clean(replacer).as_str(), 1);
-        }
-        if let Some(parent_start) = modifiers.parentstart.as_ref() {
-            mutable = format!("{}{}{}", parent, clean(parent_start), mutable,);
-        }
-        if let Some(parent_end) = modifiers.parentend.as_ref() {
-            mutable = format!("{}{}{}", mutable, clean(parent_end), parent,);
-        }
     }
     if modifiers.lowercase.is_some() {
         mutable = mutable.to_lowercase();
