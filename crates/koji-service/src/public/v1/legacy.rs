@@ -15,10 +15,11 @@
 //! Frozen: do not extend this type. New request surface belongs on the v2
 //! per-op request types in [`crate::requests`].
 
+use algorithms::clustering::{CalculationMode, ClusterMode};
+use algorithms::routing::SortBy;
 use geojson::FeatureCollection;
 use koji_core::{
-    CalculationMode, ClusterMode, Mode, Precision, ReturnTypeArg, SortBy, SpawnpointTth, UnknownId,
-    get_return_type,
+    Mode, Precision, ReturnTypeArg, SpawnpointTth, UnknownId, get_return_type,
 };
 use serde::Deserialize;
 

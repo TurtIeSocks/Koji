@@ -4,7 +4,9 @@ use crate::{routing, stats::Stats};
 
 use geo::{Contains, Destination, Distance, Extremes, Haversine, Point, Polygon};
 use geojson::{Feature, Geometry, Value};
-use koji_core::{Precision, RoutingConfig, SingleVec};
+use koji_core::{Precision, SingleVec};
+
+use crate::routing::RoutingConfig;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 /// Split a `MultiPolygon` geometry into one `Geometry` per polygon, geo-native

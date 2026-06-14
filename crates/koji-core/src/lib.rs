@@ -1,9 +1,7 @@
 //! koji-core — pure domain types shared across the Koji workspace.
 //! No database, HTTP, or async dependencies.
 
-mod calc_mode;
 mod category;
-mod cluster_mode;
 mod config;
 mod enum_map;
 mod mode;
@@ -11,16 +9,11 @@ mod normalize;
 mod query_args;
 mod return_type;
 pub mod s2;
-mod sort_by;
 mod text_utils;
 mod unknown_id;
 
-pub use calc_mode::CalculationMode;
 pub use category::Category;
-pub use cluster_mode::ClusterMode;
-pub use config::{
-    BootstrapConfig, ClusteringConfig, DataFilter, DevConfig, OutputConfig, RoutingConfig, S2Config,
-};
+pub use config::{DataFilter, DevConfig, OutputConfig};
 pub use enum_map::get_category_enum;
 pub use mode::Mode;
 pub use normalize::{AreaPolygons, HasLatLon, count_in_area};
@@ -30,7 +23,6 @@ pub use query_args::{
 };
 pub use return_type::{ReturnTypeArg, get_return_type};
 pub use s2::{create_cell_map, from_array_to_cell_id};
-pub use sort_by::SortBy;
 pub use text_utils::{NameModifier, clean, get_mode_acronym, json_related_sort, separate_by_comma};
 pub use unknown_id::UnknownId;
 

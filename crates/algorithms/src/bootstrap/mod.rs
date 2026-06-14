@@ -3,17 +3,22 @@ use std::time::Instant;
 
 use geojson::{Feature, FeatureCollection};
 #[cfg(feature = "native")]
-use koji_core::{
-    BootstrapConfig, CalculationMode, KojiGeometry, KojiGeometryCollection, RoutingConfig,
-};
+use koji_core::{KojiGeometry, KojiGeometryCollection};
 #[cfg(feature = "native")]
 use koji_plugins::PluginKind;
 
 #[cfg(feature = "native")]
+use crate::clustering::CalculationMode;
+#[cfg(feature = "native")]
+use crate::routing::RoutingConfig;
+#[cfg(feature = "native")]
 use crate::{plugins, stats::Stats};
 
+mod config;
 pub mod radius;
 pub mod s2;
+
+pub use config::BootstrapConfig;
 
 #[cfg(feature = "native")]
 pub fn main(

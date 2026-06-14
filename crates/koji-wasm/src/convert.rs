@@ -1,7 +1,8 @@
 //! DTO ↔ koji-core conversions. This is the single validation boundary between
 //! untyped JS input and the typed algorithm.
 
-use koji_core::{CalculationMode, ClusterMode, ClusteringConfig, S2Config, SingleVec};
+use algorithms::clustering::{CalculationMode, ClusterMode, ClusteringConfig, S2Config};
+use koji_core::SingleVec;
 use wasm_bindgen::JsError;
 
 use crate::dto::{ClusterRequest, ClusterResponse, StatsSummary};

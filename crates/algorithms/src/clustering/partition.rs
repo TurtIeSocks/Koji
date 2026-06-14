@@ -5,11 +5,12 @@ use std::sync::Once;
 use ::s2::cell::Cell;
 use ::s2::cellid::CellID;
 use ::s2::latlng::LatLng;
-use koji_core::ClusterMode;
 use koji_core::KojiBbox;
 use koji_core::PointArray;
 use koji_core::Precision;
 use koji_core::SingleVec;
+
+use super::ClusterMode;
 use rstar::{AABB, RTree};
 #[cfg(feature = "native")]
 use sysinfo::System;

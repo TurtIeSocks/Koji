@@ -13,15 +13,22 @@ use self::greedy::Greedy;
 use super::*;
 
 use geojson::FeatureCollection;
-use koji_core::{CalculationMode, ClusterMode, ClusteringConfig, SingleVec};
+use koji_core::SingleVec;
 
+mod calc_mode;
 mod candidates;
+mod cluster_mode;
+mod config;
 mod crucible;
 mod fastest;
 // mod genetic;
 mod greedy;
 mod partition;
 mod s2;
+
+pub use calc_mode::CalculationMode;
+pub use cluster_mode::ClusterMode;
+pub use config::{ClusteringConfig, S2Config};
 
 /// Warm-start entry point for incremental re-clustering (`Crucible::run_seeded`).
 pub use crucible::Crucible;

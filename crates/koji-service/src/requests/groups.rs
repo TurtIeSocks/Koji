@@ -6,10 +6,11 @@
 //! and funnel through the shared [`super::resolve`] helpers so the default + plugin-
 //! arg-build logic is a single source of truth across v1 and v2.
 
+use algorithms::bootstrap::BootstrapConfig;
+use algorithms::clustering::{CalculationMode, ClusterMode, ClusteringConfig, S2Config};
+use algorithms::routing::{RoutingConfig, SortBy};
 use koji_core::{
-    BootstrapConfig, CalculationMode, ClusterMode, ClusteringConfig, DataFilter, DevConfig,
-    OutputConfig, Precision, ReturnTypeArg, RoutingConfig, S2Config, SortBy, SpawnpointTth,
-    get_return_type,
+    DataFilter, DevConfig, OutputConfig, Precision, ReturnTypeArg, SpawnpointTth, get_return_type,
 };
 use serde::{Deserialize, Serialize};
 
@@ -178,8 +179,8 @@ mod tests {
         assert_eq!(cfg.radius, 70.0);
         assert_eq!(cfg.min_points, 1);
         assert_eq!(cfg.max_clusters, usize::MAX);
-        assert_eq!(cfg.mode, koji_core::ClusterMode::Balanced);
-        assert_eq!(cfg.calculation_mode, koji_core::CalculationMode::Radius);
+        assert_eq!(cfg.mode, ClusterMode::Balanced);
+        assert_eq!(cfg.calculation_mode, CalculationMode::Radius);
         assert_eq!(cfg.s2.level, 15);
         assert_eq!(cfg.s2.size, 9);
         assert_eq!(

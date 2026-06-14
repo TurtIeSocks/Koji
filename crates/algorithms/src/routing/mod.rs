@@ -1,6 +1,6 @@
 use web_time::Instant;
 
-use koji_core::{RoutingConfig, SingleVec, SortBy};
+use koji_core::SingleVec;
 #[cfg(feature = "native")]
 use koji_plugins::PluginKind;
 
@@ -9,10 +9,15 @@ use self::sorting::{SortGeohash, SortLatLng, SortPointCount, SortRandom, SortS2}
 use crate::plugins;
 use crate::{stats::Stats, utils};
 
+mod config;
 #[cfg(feature = "native")]
 mod join;
+mod sort_by;
 pub mod sorting;
 // pub mod vrp;
+
+pub use config::RoutingConfig;
+pub use sort_by::SortBy;
 
 pub fn main(
     data_points: &SingleVec,

@@ -32,12 +32,12 @@
 //! event-emission wire in a later phase). This is a deliberate P4 scoping
 //! decision, flagged for the maintainer.
 
-use algorithms::{bootstrap, clustering, routing, stats::Stats};
+use algorithms::bootstrap::{self, BootstrapConfig};
+use algorithms::clustering::{self, ClusteringConfig};
+use algorithms::routing::{self, RoutingConfig, SortBy};
+use algorithms::stats::Stats;
 use geojson::{Feature, FeatureCollection};
-use koji_core::{
-    BootstrapConfig, ClusteringConfig, KojiGeometry, KojiGeometryCollection, KojiMeta,
-    RoutingConfig, SingleVec, SortBy,
-};
+use koji_core::{KojiGeometry, KojiGeometryCollection, KojiMeta, SingleVec};
 use koji_jobs::{JobCtx, JobError, JobHandler};
 use serde::{Deserialize, Serialize};
 use serde_json::json;

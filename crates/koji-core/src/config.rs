@@ -2,43 +2,7 @@
 //! (and, later, the v2 request DTOs) map into these; the algorithms consume
 //! them from P2 onward.
 
-use crate::{CalculationMode, ClusterMode, Precision, ReturnTypeArg, SortBy, SpawnpointTth};
-
-/// S2 grid parameters shared by clustering + bootstrapping.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct S2Config {
-    pub level: u8,
-    pub size: u8,
-}
-
-#[derive(Debug, Clone)]
-pub struct ClusteringConfig {
-    pub mode: ClusterMode,
-    pub radius: Precision,
-    pub min_points: usize,
-    pub max_clusters: usize,
-    pub cluster_split_level: u64,
-    pub calculation_mode: CalculationMode,
-    pub s2: S2Config,
-    pub center_clusters: bool,
-    pub genetic_post_processing: bool,
-    pub plugin_args: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct RoutingConfig {
-    pub sort_by: SortBy,
-    pub route_split_level: u64,
-    pub plugin_args: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct BootstrapConfig {
-    pub calculation_mode: CalculationMode,
-    pub radius: Precision,
-    pub s2: S2Config,
-    pub plugin_args: String,
-}
+use crate::{ReturnTypeArg, SpawnpointTth};
 
 #[derive(Debug, Clone)]
 pub struct DataFilter {

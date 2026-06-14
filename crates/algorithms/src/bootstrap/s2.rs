@@ -5,7 +5,9 @@ use crate::{routing, stats::Stats};
 
 use geo::{BoundingRect, MultiPolygon, Polygon};
 use geojson::{Feature, Value};
-use koji_core::{Precision, RoutingConfig, SingleVec};
+use koji_core::{Precision, SingleVec};
+
+use crate::routing::RoutingConfig;
 use rayon::{iter::IntoParallelIterator, prelude::ParallelIterator};
 use s2::{
     cell::Cell,

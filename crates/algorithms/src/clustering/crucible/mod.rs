@@ -539,8 +539,8 @@ mod tests {
     #[test]
     #[ignore]
     fn debug_m3_gap() {
+        use crate::clustering::ClusterMode;
         use crate::clustering::greedy::Greedy;
-        use koji_core::ClusterMode;
 
         let mut pts: SingleVec = vec![];
         let mut x: u64 = 42;

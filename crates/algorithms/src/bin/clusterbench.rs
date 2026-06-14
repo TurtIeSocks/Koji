@@ -15,9 +15,10 @@
 
 use std::time::Instant;
 
+use algorithms::clustering::{CalculationMode, ClusterMode, ClusteringConfig, S2Config};
 use algorithms::{clustering, stats::Stats};
 use geojson::FeatureCollection;
-use koji_core::{CalculationMode, ClusterMode, ClusteringConfig, Precision, S2Config, SingleVec};
+use koji_core::{Precision, SingleVec};
 use rand::{Rng, SeedableRng, rngs::SmallRng};
 
 const CENTER_LAT: Precision = 40.7128;

@@ -1,6 +1,6 @@
 //! Wasm-boundary DTOs. tsify derives generate the TypeScript `.d.ts` interfaces;
 //! `serde` drives (de)serialization across the JS boundary. These mirror a flat,
-//! demo-friendly subset of `koji_core::ClusteringConfig`.
+//! demo-friendly subset of `algorithms::clustering::ClusteringConfig`.
 
 use serde::{Deserialize, Serialize};
 use tsify::Tsify;
