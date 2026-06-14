@@ -261,9 +261,19 @@ git commit -m "feat(koji-service): per-op request types + tagged CalcRequest"
 - Modify: `crates/koji-service/src/public/v2/geo.rs` (the 3 geo handlers)
 - Modify v2 handler/integration tests that post **flat** calc/geo JSON → update to the **nested** wire.
 
-- [ ] **Step 1: Type the job payload.** In `calc.rs`, change `CalcPayload.request: serde_json::Value` → `request: CalcRequest` (it's `Serialize`). Update the enqueue sites (grep `CalcPayload {` across `public/v1/calculate.rs` + `public/v2/jobs.rs`) to pass the typed `CalcRequest`. Remove the `mode: String` *dispatch* role — keep `mode` only if the job framework keys on it; dispatch now matches the `CalcRequest` variant.
+> **Sequencing note (read this).** `CalcPayload` is **shared by v1 and v2** — `public/v1/calculate.rs` enqueues the same payload (`grep -rn "CalcPayload {" crates/koji-service/src`). v1 is not refactored until Task 4, so Task 3 must keep v1 working. Therefore Task 3 uses a **transitional dual-path** in `run()` and leaves `CalcPayload.request: serde_json::Value` unchanged. The legacy branch is deleted in Task 4 once v1 also sends a `CalcRequest`.
 
-- [ ] **Step 2: Rewrite `run` dispatch.** Replace the `let args: Args = …; let ArgsUnwrapped{…} = args.init(…)` block + the inline `ClusteringConfig{…}`/`RoutingConfig{…}`/`BootstrapConfig{…}` literals (`calc.rs:108-214`) with a `match payload.request { CalcRequest::Cluster(c) => { let clustering = c.clustering.resolve(); let routing = c.routing.resolve(); … } … }`. Use `payload.area`/`payload.data_points`/`payload.clusters` (already async-resolved) for inputs. Preserve the `route`-mode `sort_by Unset → Custom("tsp")` override (spec §2 defaults table).
+- [ ] **Step 1: v2 enqueue sends a `CalcRequest`.** Keep `CalcPayload.request: serde_json::Value`. Change the **v2** enqueue path (the v2 calc HTTP handler + `public/v2/jobs.rs`; `grep -n "CalcPayload {" crates/koji-service/src/public/v2`) so the HTTP boundary takes a `CalcRequest` (`web::Json<CalcRequest>` or per-op), async-resolves `area`/`data_points`/`clusters` as today, and stores `serde_json::to_value(&calc_request)?` into `request`. **Do NOT touch `public/v1/calculate.rs` this task** — it keeps serializing its flat `Args`.
+
+- [ ] **Step 2: Rewrite `run` with a transitional dual-path.** Replace the `let args: Args = …; args.init(…)` + inline `ClusteringConfig{…}`/`RoutingConfig{…}`/`BootstrapConfig{…}` block (`calc.rs:108-214`) with:
+  ```rust
+  if let Ok(req) = serde_json::from_value::<CalcRequest>(payload.request.clone()) {
+      match req { CalcRequest::Cluster(c) | CalcRequest::Route(c) => { /* c.clustering.resolve(), c.routing.resolve(), … */ } /* Reroute/Bootstrap/RouteStats */ }
+  } else {
+      // LEGACY v1 branch — the existing Args::init + payload.mode-string dispatch, kept verbatim. Deleted in Task 4.
+  }
+  ```
+  The flat v1 `Args` JSON (its `mode` is a scan purpose like `"pokemon"`, no tagged variant, no nested `clustering`/`routing` groups) never deserializes as the tagged `CalcRequest`, so it falls to the legacy branch — no collision. In the new branch: resolve groups → configs; use `payload.area`/`payload.data_points`/`payload.clusters` (already async-resolved); preserve the `route`-mode `sort_by Unset → Custom("tsp")` override (spec §2 defaults table). Distinguish `Cluster` vs `Route` by the variant (Route applies the tsp default).
 
 - [ ] **Step 3: Collapse the arg-chains.** Change `run_cluster_route` (`calc.rs:253`) to take `(&SingleVec, FeatureCollection, &ClusteringConfig, &RoutingConfig, bool /*bypass*/, &str /*instance*/)` — **drop** the 4 loose dups (`radius`, `cluster_mode`, `calculation_mode`, `min_points`); read `radius` from `clustering_config.radius` and build the Stats label from `clustering_config.mode`/`calculation_mode`. Give `run_bootstrap`/`run_reroute`/`run_route_stats` the same treatment (take the resolved configs they need; no loose dup fields).
 
@@ -297,18 +307,20 @@ git commit -m "refactor(koji-service): v2 calc/geo onto per-op requests; typed j
 
 - [ ] **Step 2: Move Auth/Search.** Move `Auth` + `Search` (verbatim) into `private/auth.rs`; add `mod auth; pub use auth::{Auth, Search};` to the `private` module root. Repoint `misc.rs`/`admin.rs` imports.
 
-- [ ] **Step 3: Swap v1 imports.** In each v1 handler, replace `use model::api::args::{…}` with the new paths. The handler bodies (which destructure `LegacyResolved`'s flat fields) stay as-is.
+- [ ] **Step 3: Swap v1 imports.** In each v1 handler, replace `use model::api::args::{…}` with the new paths. The **synchronous** v1 handlers (`convert.rs`, `geofence.rs`, `route.rs`) keep destructuring `LegacyResolved`'s flat fields via `LegacyArgs::init` — bodies unchanged.
 
-- [ ] **Step 4: Build + test (v1 goldens)**:
+- [ ] **Step 4: Converge the v1 calc (job) path + drop the transitional branch.** `public/v1/calculate.rs` enqueues the shared `CalcPayload`. Add `LegacyArgs::into_calc_request(self, mode: &str) -> CalcRequest` (distribute the flat fields into the nested groups for the right variant — mirrors how the v2 wire nests), and change each v1 calc enqueue to store `serde_json::to_value(&legacy.into_calc_request(mode))?` in `request`. Then **delete the transitional legacy `else` branch** added to `calc.rs` `run()` in Task 3 — `run()` is now single-path (`CalcRequest` only). The v1 calc *wire* (what clients POST) is unchanged; only the internal payload is now typed.
+
+- [ ] **Step 5: Build + test (v1 goldens)**:
 
 Run: `cargo test -p koji-service`
 Expected: PASS — v1 wire + outputs unchanged.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add crates/koji-service
-git commit -m "refactor(koji-service): freeze v1 fat Args as LegacyArgs; move Auth/Search to private/"
+git commit -m "refactor(koji-service): freeze v1 fat Args as LegacyArgs; converge v1 calc on CalcRequest; move Auth/Search"
 ```
 
 ---
