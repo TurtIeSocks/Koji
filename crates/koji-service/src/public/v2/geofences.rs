@@ -12,14 +12,13 @@
 
 use actix_web::{Error, HttpResponse, http::StatusCode, web};
 use geojson::{Feature, Geometry};
-use koji_core::{ApiQueryArgs, ReturnTypeArg};
+use koji_core::{ApiQueryArgs, ReturnTypeArg, get_return_type};
 use koji_db::{
     KojiDb,
     db::geofence::{self, Anchor, HierarchySpec},
 };
 use koji_dragonite::AreaMode;
 use koji_events::EventDispatcher;
-use model::api::args::get_return_type;
 use serde_json::json;
 
 use crate::dragonite::{GeofenceUpdated, TOPIC_GEOFENCE_UPDATED};

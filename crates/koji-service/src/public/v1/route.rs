@@ -4,9 +4,9 @@ use super::*;
 
 use serde_json::json;
 
-use koji_core::{ApiQueryArgs, ReturnTypeArg};
+use koji_core::{ApiQueryArgs, ReturnTypeArg, get_return_type};
 use koji_db::{KojiDb, db::route};
-use model::api::args::{Args, ArgsUnwrapped, get_return_type};
+use model::api::args::{Args, ArgsUnwrapped};
 
 #[get("/all")]
 async fn all(
