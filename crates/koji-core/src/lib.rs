@@ -13,7 +13,7 @@ mod unknown_id;
 pub use category::Category;
 pub use enum_map::get_category_enum;
 pub use mode::Mode;
-pub use normalize::{AreaPolygons, HasLatLon, count_in_area};
+pub use normalize::HasLatLon;
 pub use query_args::{
     AdminReq, AdminReqParsed, ApiQueryArgs, BoundsArg, FeatureRenderSpec, Filters, OutputSpec,
     PropertySelection, SpawnpointTth,
@@ -26,7 +26,7 @@ pub mod geometry;
 mod util;
 
 pub use geometry::*;
-pub use util::{TrimPrecision, sql_raw, sql_raw_bbox};
+pub use util::{TrimPrecision, sql_raw};
 
 /// Generates 1:1 `From` impls both directions between two enums whose variant
 /// idents match exactly. Invoke from a crate that owns at least one of the two

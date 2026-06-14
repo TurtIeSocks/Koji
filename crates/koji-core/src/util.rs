@@ -1,5 +1,3 @@
-use std::fmt::Write;
-
 use geojson::{Feature, FeatureCollection, Value};
 
 use crate::geometry::{EnsurePoints, KojiBbox, KojiGeometry, KojiGeometryCollection};
@@ -55,38 +53,6 @@ pub fn sql_raw(area: &FeatureCollection) -> String {
                         bbox[1],
                         bbox[3],
                         geo
-                    );
-                }
-                _ => {}
-            }
-        }
-    }
-    string
-}
-
-pub fn sql_raw_bbox(area: &FeatureCollection) -> String {
-    let mut string = String::new();
-    for (i, feature) in area.into_iter().enumerate() {
-        let bbox = if let Some(bbox) = feature.bbox.as_ref() {
-            bbox.clone()
-        } else if let Some(bbox) = KojiBbox::from_points(&feature_single_vec(feature))
-            .map(|b| b.trim(6).to_geojson_bbox_vec())
-        {
-            bbox
-        } else {
-            continue;
-        };
-        if let Some(geometry) = &feature.geometry {
-            match geometry.value {
-                Value::Polygon(_) | Value::MultiPolygon(_) => {
-                    let _ = write!(
-                        string,
-                        "{} (lon BETWEEN {} AND {} AND lat BETWEEN {} AND {})",
-                        if i == 0 { "" } else { "\nOR" },
-                        bbox[0],
-                        bbox[2],
-                        bbox[1],
-                        bbox[3]
                     );
                 }
                 _ => {}

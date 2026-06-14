@@ -2457,6 +2457,7 @@ dependencies = [
 name = "koji-scanner"
 version = "0.1.0"
 dependencies = [
+ "geo",
  "geojson",
  "koji-core",
  "log",

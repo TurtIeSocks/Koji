@@ -103,7 +103,7 @@ impl Query {
         let items = Entity::find()
             .from_raw_sql(Statement::from_sql_and_values(
                 DbBackend::MySql,
-                format!("SELECT lat, lon FROM station WHERE is_inactive = 0 AND updated > {} AND end_time > {} AND ({})", last_seen, now, koji_core::sql_raw_bbox(area)).as_str(),
+                format!("SELECT lat, lon FROM station WHERE is_inactive = 0 AND updated > {} AND end_time > {} AND ({})", last_seen, now, crate::sql_raw_bbox(area)).as_str(),
                 vec![],
             ))
             .into_model::<LatLonRow>()
@@ -121,13 +121,13 @@ impl Query {
         let items = Entity::find()
             .from_raw_sql(Statement::from_sql_and_values(
                 DbBackend::MySql,
-                format!("SELECT lat, lon FROM station WHERE is_inactive = 0 AND updated > {} AND end_time > {} AND ({})", last_seen, now, koji_core::sql_raw_bbox(area)).as_str(),
+                format!("SELECT lat, lon FROM station WHERE is_inactive = 0 AND updated > {} AND end_time > {} AND ({})", last_seen, now, crate::sql_raw_bbox(area)).as_str(),
                 vec![],
             ))
             .into_model::<LatLonRow>()
             .all(conn)
             .await?;
-        let total = koji_core::count_in_area(&items, area);
+        let total = crate::count_in_area(&items, area);
         Ok(Total { total })
     }
 }

@@ -6,6 +6,8 @@ pub mod entities;
 mod normalize;
 pub mod prelude;
 mod rows;
+mod util;
 
-pub use normalize::{fort, fort_filtered, spawnpoint, spawnpoint_filtered};
+pub use normalize::{AreaPolygons, count_in_area, fort, fort_filtered, spawnpoint, spawnpoint_filtered};
 pub use rows::{GenericData, GenericDataToVec, LatLonRow, Spawnpoint, Total};
+pub use util::sql_raw_bbox;

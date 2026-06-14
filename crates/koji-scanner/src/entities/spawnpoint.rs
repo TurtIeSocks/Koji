@@ -93,7 +93,7 @@ impl Query {
                         SpawnpointTth::Known => "AND despawn_sec IS NOT NULL".to_string(),
                         SpawnpointTth::Unknown => "AND despawn_sec IS NULL".to_string(),
                     },
-                    koji_core::sql_raw_bbox(area)
+                    crate::sql_raw_bbox(area)
                 )
                 .as_str(),
                 vec![],
@@ -120,7 +120,7 @@ impl Query {
         tth: SpawnpointTth,
     ) -> Result<Total, DbErr> {
         let items = Self::query_area(conn, area, last_seen, tth).await?;
-        let total = koji_core::count_in_area(&items, area);
+        let total = crate::count_in_area(&items, area);
         Ok(Total { total })
     }
 }
