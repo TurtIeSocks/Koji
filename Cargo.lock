@@ -2485,7 +2485,6 @@ dependencies = [
  "koji-scanner",
  "log",
  "migration",
- "model",
  "nominatim",
  "serde",
  "serde_json",
@@ -2712,17 +2711,6 @@ dependencies = [
  "log",
  "wasi 0.11.1+wasi-snapshot-preview1",
  "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "model"
-version = "1.5.1"
-dependencies = [
- "geojson",
- "koji-core",
- "log",
- "serde",
- "serde_json",
 ]
 
 [[package]]
