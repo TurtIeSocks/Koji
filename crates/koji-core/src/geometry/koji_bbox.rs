@@ -2,8 +2,7 @@
 //! degrees. It serves the compute and boundary layers; the geometry layer's
 //! internal canonical is `geo::Rect<f64>` (x=lon, y=lat), and `from_rect`/
 //! `to_rect` is the single bridge between the two. Fields are named, never
-//! positional, to retire the coordinate-order ambiguity the old
-//! `BBox`/`BoundingBox`/`LatLonBBox` zoo bred.
+//! positional, eliminating the coordinate-order ambiguity of the legacy zoo.
 
 use geo::{Rect, coord};
 use serde::{Deserialize, Serialize};

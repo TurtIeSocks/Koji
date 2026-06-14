@@ -367,51 +367,6 @@ fn item_poracle(i: usize, item: &KojiGeometry) -> Poracle {
     poracle
 }
 
-/// `[min_lon, min_lat, max_lon, max_lat]` of a `[lat, lon]` coord set, trimmed to
-/// 6 decimals — byte-for-byte the matrix `SingleVec::get_bbox`. (bbox\[0,2\] track
-/// `point[1]` = lon; bbox\[1,3\] track `point[0]` = lat.)
-fn bbox_of(points: &[[f64; 2]]) -> [f64; 4] {
-    let mut bbox = if points.is_empty() {
-        [0.0, 0.0, 0.0, 0.0]
-    } else {
-        [
-            f64::INFINITY,
-            f64::INFINITY,
-            f64::NEG_INFINITY,
-            f64::NEG_INFINITY,
-        ]
-    };
-    for point in points {
-        if point[1] < bbox[0] {
-            bbox[0] = point[1];
-        }
-        if point[1] > bbox[2] {
-            bbox[2] = point[1];
-        }
-        if point[0] < bbox[1] {
-            bbox[1] = point[0];
-        }
-        if point[0] > bbox[3] {
-            bbox[3] = point[0];
-        }
-    }
-    [
-        trim6(bbox[0]),
-        trim6(bbox[1]),
-        trim6(bbox[2]),
-        trim6(bbox[3]),
-    ]
-}
-
-/// Round to 6 decimals, matching `TrimPrecision for f64`.
-fn trim6(v: f64) -> f64 {
-    if !v.is_finite() {
-        return v;
-    }
-    let factor = 1_000_000.0_f64;
-    (v * factor).round() / factor
-}
-
 /// The item's geojson `Geometry`, ring-closed, rendered to its JSON string — the
 /// exact value the oracle embeds in the SQL (`geojson::Value::from(&geo)` is the
 /// edge geo→geojson conversion, then ring-closure inlined from the matrix
