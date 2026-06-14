@@ -1,11 +1,6 @@
 use super::*;
 
-use geojson::{Geometry, Value};
-
-use koji_core::{
-    FeatureCtx, FeatureHelpers, GeometryHelpers, ToCollection, ToFeature, TrimPrecision,
-};
-use koji_db::db::sea_orm_active_enums::Type;
+use koji_core::{FeatureHelpers, GeometryHelpers, TrimPrecision};
 use model::api::args::{Args, ArgsUnwrapped};
 
 #[post("/data")]
@@ -55,25 +50,12 @@ async fn merge_points(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
         area, return_type, ..
     } = payload.into_inner().init(Some("simplify"));
 
-    let mut new_multi_point: Vec<Vec<f64>> = vec![];
-
-    area.into_iter().for_each(|feat| {
-        if let Some(geometry) = feat.geometry
-            && let Value::Point(point) = geometry.value
-        {
-            new_multi_point.push(point)
-        }
-    });
-
-    let collection = Geometry {
-        bbox: None,
-        foreign_members: None,
-        value: Value::MultiPoint(new_multi_point),
-    }
-    .to_feature(&FeatureCtx::new().with_type(Type::CirclePokemon.into()))
-    .to_collection(&FeatureCtx::default());
-    let coll = koji_core::KojiGeometryCollection::try_from(collection)
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+    // Koji-native: normalize the inbound geometry, then collapse its point items
+    // into one MultiPoint via the re-homed `KojiGeometryCollection::merge_points`.
+    // No `To*` matrix.
+    let coll = koji_core::KojiGeometryCollection::try_from(area)
+        .map_err(actix_web::error::ErrorInternalServerError)?
+        .merge_points();
 
     Ok(utils::response::send(coll, return_type, None, false, None))
 }

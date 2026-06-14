@@ -3,7 +3,7 @@ use super::*;
 use geo::Point;
 use geojson::{Geometry, Value};
 use koji_core::{
-    ApiQueryArgs, BBox, FeatureCtx, SingleVec, SpawnpointTth, ToCollection, UnknownId,
+    ApiQueryArgs, BBox, EnsurePoints, GetBbox, SingleVec, SpawnpointTth, UnknownId,
 };
 use koji_db::{KojiDb, ModelError, db::geofence};
 use koji_scanner::{
@@ -27,7 +27,17 @@ pub async fn load_collection(
     conn: &KojiDb,
 ) -> Result<FeatureCollection, ModelError> {
     match load_feature(instance, conn).await {
-        Ok(feature) => Ok(feature.to_collection(&FeatureCtx::default())),
+        // Wrap the single loaded feature into a one-element `FeatureCollection`
+        // (ring-closed + bbox, as the old matrix `Feature::to_collection` did),
+        // without the `To*` matrix.
+        Ok(feature) => {
+            let bbox = feature.get_bbox();
+            Ok(FeatureCollection {
+                bbox: bbox.clone(),
+                features: vec![Feature { bbox, ..feature }.ensure_first_last()],
+                foreign_members: None,
+            })
+        }
         Err(err) => Err(err),
     }
 }

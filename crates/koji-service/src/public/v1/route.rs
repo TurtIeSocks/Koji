@@ -4,7 +4,7 @@ use super::*;
 
 use serde_json::json;
 
-use koji_core::{ApiQueryArgs, FeatureCtx, ReturnTypeArg, ToCollection};
+use koji_core::{ApiQueryArgs, EnsurePoints, ReturnTypeArg};
 use koji_db::{KojiDb, db::route};
 use model::api::args::{Args, ArgsUnwrapped, get_return_type};
 
@@ -156,8 +156,15 @@ async fn specific_geofence(
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
     log::info!("[GEOFENCES_FC_ALL] Returning {} instances", features.len());
-    let coll =
-        koji_core::KojiGeometryCollection::try_from(features.to_collection(&FeatureCtx::default()))
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+    // Wrap the per-row route features into a geojson `FeatureCollection` (closing
+    // polygon rings as the old matrix `to_collection` did) then go Koji-native
+    // via the Phase 1 `TryFrom`. No `To*` matrix.
+    let fc = geojson::FeatureCollection {
+        bbox: None,
+        features: features.into_iter().map(EnsurePoints::ensure_first_last).collect(),
+        foreign_members: None,
+    };
+    let coll = koji_core::KojiGeometryCollection::try_from(fc)
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     Ok(utils::response::send(coll, return_type, None, false, None))
 }
