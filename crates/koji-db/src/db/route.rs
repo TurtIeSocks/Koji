@@ -933,36 +933,30 @@ mod to_koji_tests {
         );
     }
 
-    /// S8 route-publish payload parity: the `RouteUpdated.route` `SingleVec` the
-    /// publish handler emits must be byte-identical before/after the rewire. The
-    /// OLD producer was `get_one_feature(false).to_single_vec()` (the matrix
-    /// `ToSingleVec for Feature` path); the NEW producer is `get_one_koji(...)`
-    /// wrapped in a one-item `KojiGeometryCollection` and run through the Phase 1B
-    /// inherent `to_single_vec`. Both read the same stored MultiPoint row, so the
-    /// resulting `[lat, lon]` list must match exactly. (`get_one_feature` /
-    /// `get_one_koji` only add a DB fetch around `to_feature` / `to_koji_geometry`,
-    /// so testing the two `Model` conversions pins the producer parity without a
-    /// DB.)
+    /// S8 route-publish payload golden: the `RouteUpdated.route` `SingleVec` the
+    /// publish handler emits. The producer is `get_one_koji(...)` wrapped in a
+    /// one-item `KojiGeometryCollection`, run through the Phase 1B inherent
+    /// `to_single_vec` (matrix-free). (`get_one_koji` only adds a DB fetch around
+    /// `to_koji_geometry`, so testing the `Model` conversion pins the producer
+    /// without a DB.) The golden `[[2,1],[4,3]]` was captured from the matrix
+    /// oracle (`to_feature(false).to_single_vec()`) at the time of the S5d-1 swap,
+    /// where the two paths were asserted byte-identical; it now stands as a
+    /// permanent regression guard after the oracle dies.
     #[test]
-    fn route_publish_single_vec_parity_old_vs_koji() {
-        use koji_core::ToSingleVec;
-
+    fn route_publish_single_vec_golden() {
         let model = route_row_for_feature();
 
-        // OLD path: Model -> to_feature(internal=false) -> ToSingleVec::to_single_vec.
-        let old_single_vec = model.clone().to_feature(false).unwrap().to_single_vec();
-
-        // NEW path: Model -> to_koji_geometry -> one-item collection -> to_single_vec.
+        // Producer: Model -> to_koji_geometry -> one-item collection -> to_single_vec.
         let kg = model.to_koji_geometry().unwrap();
-        let new_single_vec = KojiGeometryCollection::new(vec![kg]).to_single_vec();
+        let single_vec = KojiGeometryCollection::new(vec![kg]).to_single_vec();
 
+        // The stored MultiPoint [[1,2],[3,4]] (lon,lat) becomes [lat, lon] points,
+        // in order — the captured matrix golden.
         assert_eq!(
-            old_single_vec, new_single_vec,
-            "route publish SingleVec must be byte-identical across the rewire"
+            single_vec,
+            vec![[2.0, 1.0], [4.0, 3.0]],
+            "route publish SingleVec diverged from the captured matrix golden"
         );
-        // Sanity: the stored MultiPoint [[1,2],[3,4]] (lon,lat) becomes
-        // [lat, lon] points, in order, on both paths.
-        assert_eq!(new_single_vec, vec![[2.0, 1.0], [4.0, 3.0]]);
     }
 
     /// S5d-1 golden: `route::Model::to_feature` rebuilds its Feature geometry
