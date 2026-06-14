@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize, Serializer};
 
 #[derive(Debug, Clone)]
 pub enum SortBy {
@@ -25,6 +25,23 @@ impl PartialEq for SortBy {
 }
 
 impl Eq for SortBy {}
+
+impl Serialize for SortBy {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(match self {
+            SortBy::Unset => "unset",
+            SortBy::GeoHash => "geohash",
+            SortBy::PointCount => "pointcount",
+            SortBy::Random => "random",
+            SortBy::S2Cell => "s2cell",
+            SortBy::LatLon => "latlon",
+            SortBy::Custom(s) => s,
+        })
+    }
+}
 
 impl<'de> Deserialize<'de> for SortBy {
     fn deserialize<D>(deserializer: D) -> Result<SortBy, D::Error>

@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize, Serializer};
 
 #[derive(Debug, Clone)]
 pub enum ClusterMode {
@@ -34,6 +34,23 @@ impl<'de> Deserialize<'de> for ClusterMode {
             }
             _ => Ok(ClusterMode::Custom(s)),
         }
+    }
+}
+
+impl Serialize for ClusterMode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(match self {
+            ClusterMode::Honeycomb => "honeycomb",
+            ClusterMode::Fastest => "fastest",
+            ClusterMode::Fast => "fast",
+            ClusterMode::Balanced => "balanced",
+            ClusterMode::Better => "better",
+            ClusterMode::Best => "best",
+            ClusterMode::Custom(s) => s,
+        })
     }
 }
 

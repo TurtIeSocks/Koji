@@ -1,6 +1,6 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize, Serializer};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CalculationMode {
     Radius,
     S2,
@@ -19,5 +19,18 @@ impl<'de> Deserialize<'de> for CalculationMode {
             "s2" => Ok(CalculationMode::S2),
             _ => Ok(CalculationMode::Custom(s)),
         }
+    }
+}
+
+impl Serialize for CalculationMode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(match self {
+            CalculationMode::Radius => "radius",
+            CalculationMode::S2 => "s2",
+            CalculationMode::Custom(s) => s,
+        })
     }
 }

@@ -28,6 +28,7 @@ use crate::dragonite::DragoniteSubscriber;
 mod dragonite;
 mod private;
 mod public;
+pub mod requests;
 mod utils;
 
 /// The hand-written OpenAPI 3.1 document for the `/api/v2` surface, embedded at
