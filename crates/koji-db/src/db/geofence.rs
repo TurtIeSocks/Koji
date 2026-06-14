@@ -1296,6 +1296,43 @@ impl Query {
         Ok(items.to_collection(&FeatureCtx::default()))
     }
 
+    /// Additive Phase 2 counterpart to [`by_parent`](Self::by_parent): fetch the
+    /// exact same rows — a parent's *direct* children (`Column::Parent.eq`, one
+    /// level down) — and map each `Model` to a `KojiGeometry` via
+    /// `to_koji_geometry`, collecting into a `KojiGeometryCollection`. Parent
+    /// resolution is identical (numeric id used directly; a name is looked up,
+    /// and a missing name is the same `ModelError::Geofence("Parent not found")`
+    /// — preserving `by_parent`'s error-vs-empty behavior, which the calculate
+    /// pipeline relies on). Returns `ModelError` to match `to_koji_geometry` and
+    /// the sibling Koji read methods. Does not replace `by_parent` (deleted in a
+    /// later section).
+    #[allow(clippy::result_large_err)]
+    pub async fn by_parent_koji(
+        db: &DatabaseConnection,
+        parent: &UnknownId,
+    ) -> Result<KojiGeometryCollection, ModelError> {
+        let parent_id = match parent {
+            UnknownId::Number(id) => *id,
+            UnknownId::String(name) => {
+                let parent = Entity::find().filter(Column::Name.eq(name)).one(db).await?;
+                if let Some(parent) = parent {
+                    parent.id
+                } else {
+                    return Err(ModelError::Geofence("Parent not found".to_string()));
+                }
+            }
+        };
+        let items = Entity::find()
+            .filter(Column::Parent.eq(parent_id))
+            .all(db)
+            .await?;
+
+        items
+            .iter()
+            .map(|item| item.to_koji_geometry())
+            .collect::<Result<KojiGeometryCollection, ModelError>>()
+    }
+
     pub async fn unique_parents(db: &DatabaseConnection) -> Result<Vec<Json>, ModelError> {
         let items = Entity::find()
             .filter(Column::Parent.is_not_null())

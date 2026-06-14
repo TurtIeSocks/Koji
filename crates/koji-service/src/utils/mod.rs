@@ -2,7 +2,7 @@ use super::*;
 
 use geo::Point;
 use geojson::{Geometry, Value};
-use koji_core::{ApiQueryArgs, BBox, EnsurePoints, GetBbox, SingleVec, SpawnpointTth, UnknownId};
+use koji_core::{BBox, EnsurePoints, GetBbox, SingleVec, SpawnpointTth, UnknownId};
 use koji_db::{KojiDb, ModelError, db::geofence};
 use koji_scanner::{
     GenericData,
@@ -41,8 +41,14 @@ pub async fn load_collection(
 }
 
 pub async fn load_feature(instance: &String, conn: &KojiDb) -> Result<Feature, ModelError> {
-    geofence::Query::get_one_feature(&conn.koji, instance.to_string(), &ApiQueryArgs::default())
-        .await
+    // Fetch the area geofence as a `KojiGeometry` and convert to a geojson
+    // `Feature` at the edge (Phase 1 outbound `From<&KojiGeometry>`); the
+    // clustering pipeline downstream only reads the feature's geometry (for the
+    // bbox + point-in-polygon area filter), so the Koji-native read is faithful.
+    // `load_collection` re-applies the bbox + ring-close wrapping exactly as
+    // before.
+    let kg = geofence::Query::get_one_koji(&conn.koji, instance.to_string()).await?;
+    Ok(geojson::Feature::from(&kg))
 }
 
 pub async fn create_or_find_collection(
@@ -71,7 +77,13 @@ pub async fn create_or_find_collection(
     } else if !area.features.is_empty() {
         Ok(area)
     } else if let Some(parent) = parent {
-        geofence::Query::by_parent(&conn.koji, parent).await
+        // A parent's direct children as the area to cluster within. Fetch them
+        // Koji-native via `by_parent_koji` (same rows + parent-not-found error as
+        // its matrix predecessor) and convert to a geojson `FeatureCollection` at
+        // the edge (Phase 1 outbound). The clustering pipeline reads only the
+        // features' geometry for the bbox + point-in-polygon filter.
+        let coll = geofence::Query::by_parent_koji(&conn.koji, parent).await?;
+        Ok(geojson::FeatureCollection::from(&coll))
     } else if !instance.is_empty() {
         load_collection(instance, conn).await
     } else {
