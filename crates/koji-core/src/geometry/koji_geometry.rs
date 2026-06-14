@@ -29,6 +29,11 @@ impl KojiGeometry {
         self.geometry.bounding_rect()
     }
 
+    /// The element's bounds as a lat/lon [`KojiBbox`].
+    pub fn koji_bbox(&self) -> Option<super::KojiBbox> {
+        self.bbox().map(super::KojiBbox::from_rect)
+    }
+
     /// Douglas–Peucker simplification of the inner geometry. Only ring/line
     /// geometries (`LineString`/`Polygon`/`MultiLineString`/`MultiPolygon`) are
     /// affected; point geometries pass through unchanged. Metadata is preserved.
@@ -49,20 +54,28 @@ impl KojiGeometry {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct KojiGeometryCollection {
     pub items: Vec<KojiGeometry>,
-    pub bbox: Option<Rect<f64>>,
 }
 
 impl KojiGeometryCollection {
     pub fn new(items: Vec<KojiGeometry>) -> Self {
-        let bbox = items
+        Self { items }
+    }
+
+    /// Smallest `geo::Rect` covering every item, computed on demand (no stored state).
+    pub fn bbox(&self) -> Option<Rect<f64>> {
+        self.items
             .iter()
             .filter_map(KojiGeometry::bbox)
-            .reduce(union_rect);
-        Self { items, bbox }
+            .reduce(union_rect)
+    }
+
+    /// The collection bounds as a lat/lon [`KojiBbox`].
+    pub fn koji_bbox(&self) -> Option<super::KojiBbox> {
+        self.bbox().map(super::KojiBbox::from_rect)
     }
 
     /// Douglas–Peucker simplification of every item (see
-    /// [`KojiGeometry::simplify`]). Rebuilds the collection bbox.
+    /// [`KojiGeometry::simplify`]).
     pub fn simplify(self, epsilon: f64) -> Self {
         Self::new(
             self.items
@@ -136,8 +149,26 @@ mod tests {
         ]);
         assert_eq!(c.items.len(), 2);
         assert_eq!(
-            c.bbox,
+            c.bbox(),
             Some(Rect::new(coord! {x:0.0,y:0.0}, coord! {x:10.0,y:5.0}))
+        );
+    }
+
+    #[test]
+    fn collection_koji_bbox_is_lat_lon() {
+        // geo Points are (x=lon, y=lat): (lon=0,lat=0) and (lon=10,lat=5).
+        let c = KojiGeometryCollection::new(vec![
+            KojiGeometry::new(Point::new(0.0, 0.0)),
+            KojiGeometry::new(Point::new(10.0, 5.0)),
+        ]);
+        assert_eq!(
+            c.koji_bbox(),
+            Some(crate::KojiBbox {
+                min_lat: 0.0,
+                min_lon: 0.0,
+                max_lat: 5.0,
+                max_lon: 10.0
+            })
         );
     }
 
@@ -224,6 +255,6 @@ mod tests {
 
     #[test]
     fn empty_collection_has_no_bbox() {
-        assert_eq!(KojiGeometryCollection::default().bbox, None);
+        assert_eq!(KojiGeometryCollection::default().bbox(), None);
     }
 }

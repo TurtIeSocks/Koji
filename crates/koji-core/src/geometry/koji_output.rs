@@ -137,6 +137,12 @@ pub fn single_vec_to_polygon_feature(centers: &SingleVec) -> geojson::Feature {
 }
 
 impl KojiGeometryCollection {
+    /// `[min_lon, min_lat, max_lon, max_lat]` (trimmed to 6 decimals) over every
+    /// item's points — the geojson `bbox` member projection.
+    pub fn geojson_bbox(&self) -> Option<Vec<f64>> {
+        super::KojiBbox::from_points(&self.to_single_vec()).map(|b| b.trim(6).to_geojson_bbox_vec())
+    }
+
     /// All items' coordinates flattened into one `[lat, lon]` vec.
     ///
     /// Parity oracle: the geojson `FeatureCollection` matrix `single_vec` path
