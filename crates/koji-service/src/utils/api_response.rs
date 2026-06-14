@@ -28,7 +28,7 @@ use serde_json::Value;
 /// The on-the-wire error object: `error{code,message,field?}` (matches Dragonite
 /// v2 / architecture §7).
 #[derive(Debug, Serialize)]
-pub struct ApiError {
+pub(crate) struct ApiError {
     /// Stable, machine-readable code (e.g. `not_found`, `unprocessable`).
     pub code: String,
     /// Human-readable message.
@@ -43,7 +43,7 @@ pub struct ApiError {
 /// endpoints currently return their full result set, so it is always omitted
 /// (`None`) until list pagination lands.
 #[derive(Debug, Serialize)]
-pub struct Meta {
+pub(crate) struct Meta {
     pub total: i64,
     pub page: i64,
     pub per_page: i64,
@@ -55,7 +55,7 @@ pub struct Meta {
 /// The v2 response envelope, discriminated by the `status` string (`ok`/`error`).
 #[derive(Debug, Serialize)]
 #[serde(tag = "status", rename_all = "lowercase")]
-pub enum ApiResponse<T> {
+pub(crate) enum ApiResponse<T> {
     /// `{ "status": "ok", "data": …, "meta": …? }`.
     Ok {
         data: T,
@@ -68,12 +68,12 @@ pub enum ApiResponse<T> {
 
 impl<T: Serialize> ApiResponse<T> {
     /// `200 OK` success carrying `data`.
-    pub fn success(data: T) -> HttpResponse {
+    pub(crate) fn success(data: T) -> HttpResponse {
         Self::success_with_status(StatusCode::OK, data)
     }
 
     /// Success with an explicit status (e.g. `201`/`202`).
-    pub fn success_with_status(status: StatusCode, data: T) -> HttpResponse {
+    pub(crate) fn success_with_status(status: StatusCode, data: T) -> HttpResponse {
         HttpResponse::build(status).json(ApiResponse::Ok { data, meta: None })
     }
 }
@@ -82,7 +82,7 @@ impl ApiResponse<()> {
     /// Server-side / processing error. `message` is required; `code` defaults to
     /// one derived from the HTTP status. The legacy `data` context arg is ignored
     /// (the v2 error shape has no `data`).
-    pub fn error(
+    pub(crate) fn error(
         status: StatusCode,
         message: impl Into<String>,
         code: Option<String>,
@@ -99,7 +99,7 @@ impl ApiResponse<()> {
     /// Client-side rejection. The legacy `{"field":"message"}` value is mapped to
     /// `error{code,message,field}`: first object key → `field`, its value →
     /// `message`, `code` derived from the status.
-    pub fn fail(status: StatusCode, data: Value) -> HttpResponse {
+    pub(crate) fn fail(status: StatusCode, data: Value) -> HttpResponse {
         let (field, message) = first_field_message(&data);
         let error = ApiError {
             code: code_for_status(status),

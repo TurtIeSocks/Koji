@@ -25,14 +25,14 @@ use koji_events::{DeliverError, Event, Subscriber};
 use serde::{Deserialize, Serialize};
 
 /// Topic for "a mode's route was (re)calculated" — payload [`RouteUpdated`].
-pub const TOPIC_ROUTE_UPDATED: &str = "area.route_updated";
+pub(crate) const TOPIC_ROUTE_UPDATED: &str = "area.route_updated";
 /// Topic for "a mode's geofence was published/updated" — payload [`GeofenceUpdated`].
-pub const TOPIC_GEOFENCE_UPDATED: &str = "area.geofence_updated";
+pub(crate) const TOPIC_GEOFENCE_UPDATED: &str = "area.geofence_updated";
 
 /// Payload for [`TOPIC_ROUTE_UPDATED`]. `route` is a Koji [`SingleVec`]
 /// (`[lat, lon]` points). `Base` has no route slot, so the subscriber drops it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RouteUpdated {
+pub(crate) struct RouteUpdated {
     pub dragonite_area_id: i64,
     pub mode: AreaMode,
     pub route: SingleVec,
@@ -41,20 +41,20 @@ pub struct RouteUpdated {
 /// Payload for [`TOPIC_GEOFENCE_UPDATED`]. `geofence` is the GeoJSON `Feature`
 /// to set on `mode`'s fence (`Base` → the area-root fence).
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GeofenceUpdated {
+pub(crate) struct GeofenceUpdated {
     pub dragonite_area_id: i64,
     pub mode: AreaMode,
     pub geofence: Feature,
 }
 
 /// Pushes Koji's calculated routes/geofences to Dragonite's `/v2/areas/{id}`.
-pub struct DragoniteSubscriber {
+pub(crate) struct DragoniteSubscriber {
     client: DragoniteClient,
 }
 
 impl DragoniteSubscriber {
     /// Build the subscriber over a configured Dragonite client.
-    pub fn new(client: DragoniteClient) -> Self {
+    pub(crate) fn new(client: DragoniteClient) -> Self {
         Self { client }
     }
 }

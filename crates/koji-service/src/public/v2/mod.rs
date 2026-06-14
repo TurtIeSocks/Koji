@@ -5,11 +5,11 @@
 //! Wired under `web::scope("/api/v2")` in [`crate::start`]. `/api/v1` is left
 //! exactly as-is (the legacy shim).
 
-pub mod calc;
-pub mod geo;
-pub mod geofences;
-pub mod jobs;
-pub mod plugins;
-pub mod resources;
-pub mod routes;
-pub mod scanner_data;
+pub(crate) mod calc;
+pub(crate) mod geo;
+pub(crate) mod geofences;
+pub(crate) mod jobs;
+pub(crate) mod plugins;
+pub(crate) mod resources;
+pub(crate) mod routes;
+pub(crate) mod scanner_data;

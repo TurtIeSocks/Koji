@@ -29,7 +29,7 @@ use crate::requests::{
 };
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct LegacyArgs {
+pub(crate) struct LegacyArgs {
     /// The area input to be used for data point collection.
     ///
     /// Accepts an optional [GeoInput] — a geojson `FeatureCollection`,
@@ -187,7 +187,7 @@ pub struct LegacyArgs {
 /// debugging knobs that aren't part of the stable API surface.
 #[derive(Debug, Deserialize, Clone, Default)]
 #[serde(default)]
-pub struct LegacyDevArgs {
+pub(crate) struct LegacyDevArgs {
     /// When `true`, skips the adaptive S2 partitioning + post-greedy gap-fill
     /// added in PR #253 and uses the pre-PR `setup()` path for every mode.
     /// Intended for side-by-side quality comparison during PR review; will be
@@ -205,7 +205,7 @@ pub struct LegacyDevArgs {
 // `into_calc_request` straight from `LegacyArgs`, so they go unread here. Kept on
 // the struct so `init()` stays byte-identical to the legacy parity contract.
 #[allow(dead_code)]
-pub struct LegacyResolved {
+pub(crate) struct LegacyResolved {
     pub area: FeatureCollection,
     pub benchmark_mode: bool,
     pub calculation_mode: CalculationMode,
@@ -244,12 +244,12 @@ pub struct LegacyResolved {
 /// frozen parity shape.
 #[derive(Debug, Clone, Default)]
 #[allow(dead_code)]
-pub struct LegacyDevResolved {
+pub(crate) struct LegacyDevResolved {
     pub bypass_adaptive_partition: bool,
 }
 
 impl LegacyArgs {
-    pub fn init(self, input: Option<&str>) -> LegacyResolved {
+    pub(crate) fn init(self, input: Option<&str>) -> LegacyResolved {
         if let Some(input) = input {
             log::debug!("[{}]: {:?}", input.to_uppercase(), self);
         };
@@ -413,7 +413,7 @@ impl LegacyArgs {
     /// the worker's resolved configs match the old flat path byte-for-byte. The
     /// legacy top-level `benchmark_mode` + `dev.bypass_adaptive_partition` fold into
     /// the [`DevArgs`] group (the worker reads `benchmark_mode` from `dev`).
-    pub fn into_calc_request(self, mode: &str) -> CalcRequest {
+    pub(crate) fn into_calc_request(self, mode: &str) -> CalcRequest {
         let clustering = ClusteringArgs {
             radius: self.radius,
             min_points: self.min_points,

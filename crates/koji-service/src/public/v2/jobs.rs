@@ -28,7 +28,7 @@ const SYNC_WAIT: Duration = Duration::from_secs(290);
 
 /// Request body for `POST /api/v2/jobs`.
 #[derive(Debug, Deserialize)]
-pub struct EnqueueBody {
+pub(crate) struct EnqueueBody {
     /// The handler kind (e.g. `calculate`).
     pub kind: String,
     /// The job payload, passed opaquely to the handler.
@@ -127,7 +127,7 @@ async fn cancel_job(
 /// Query for `POST /api/v2/calc/*`: `?wait=1` runs the sync bridge (block up to
 /// 290s for the result); otherwise the call is async (returns `202 { job_id }`).
 #[derive(Debug, Deserialize)]
-pub struct CalcQuery {
+pub(crate) struct CalcQuery {
     /// When truthy, block for the result via the sync bridge (spec §7).
     #[serde(default)]
     pub wait: Option<u8>,

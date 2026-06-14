@@ -36,7 +36,7 @@ struct ScannerDataQuery {
 /// every sibling `/api/v2/*` route registered after it — registering the handler
 /// directly removes that ordering footgun.
 #[get("/scanner-data/{category}")]
-pub async fn scanner_data(
+pub(crate) async fn scanner_data(
     conn: web::Data<KojiDb>,
     category: web::Path<String>,
     query: web::Query<ScannerDataQuery>,

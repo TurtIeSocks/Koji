@@ -18,7 +18,7 @@ fn logged_in(req: &ServiceRequest) -> bool {
     }
 }
 
-pub async fn public_validator(
+pub(crate) async fn public_validator(
     req: ServiceRequest,
     credentials: Option<BearerAuth>,
 ) -> Result<ServiceRequest, (actix_web::Error, ServiceRequest)> {
@@ -45,7 +45,7 @@ pub async fn public_validator(
     ))
 }
 
-pub async fn private_validator(
+pub(crate) async fn private_validator(
     req: ServiceRequest,
     _credentials: Option<BearerAuth>,
 ) -> Result<ServiceRequest, (actix_web::Error, ServiceRequest)> {

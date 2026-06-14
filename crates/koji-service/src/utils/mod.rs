@@ -8,18 +8,18 @@ use koji_scanner::{
     entities::{gym, pokestop, spawnpoint, station},
 };
 
-pub mod api_response;
-pub mod auth;
-pub mod response;
+pub(crate) mod api_response;
+pub(crate) mod auth;
+pub(crate) mod response;
 
-pub fn is_docker() -> io::Result<bool> {
+pub(crate) fn is_docker() -> io::Result<bool> {
     let mut path = env::current_dir()?;
     path.push("dist");
     let metadata = fs::metadata(path)?;
     Ok(metadata.is_dir())
 }
 
-pub async fn load_collection(
+pub(crate) async fn load_collection(
     instance: &String,
     conn: &KojiDb,
 ) -> Result<FeatureCollection, ModelError> {
@@ -41,7 +41,7 @@ pub async fn load_collection(
     }
 }
 
-pub async fn load_feature(instance: &String, conn: &KojiDb) -> Result<Feature, ModelError> {
+pub(crate) async fn load_feature(instance: &String, conn: &KojiDb) -> Result<Feature, ModelError> {
     // Fetch the area geofence as a `KojiGeometry` and convert to a geojson
     // `Feature` at the edge (Phase 1 outbound `From<&KojiGeometry>`); the
     // clustering pipeline downstream only reads the feature's geometry (for the
@@ -52,7 +52,7 @@ pub async fn load_feature(instance: &String, conn: &KojiDb) -> Result<Feature, M
     Ok(geojson::Feature::from(&kg))
 }
 
-pub async fn create_or_find_collection(
+pub(crate) async fn create_or_find_collection(
     instance: &String,
     conn: &KojiDb,
     area: FeatureCollection,
@@ -100,7 +100,7 @@ pub async fn create_or_find_collection(
     }
 }
 
-pub async fn points_from_area(
+pub(crate) async fn points_from_area(
     area: &FeatureCollection,
     category: &str,
     conn: &KojiDb,

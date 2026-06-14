@@ -8,7 +8,7 @@ use serde_json::json;
 use crate::requests::ReturnTypeArg;
 
 #[derive(Debug, Serialize)]
-pub struct ConfigResponse {
+pub(crate) struct ConfigResponse {
     pub start_lat: Precision,
     pub start_lon: Precision,
     pub tile_server: String,
@@ -20,7 +20,7 @@ pub struct ConfigResponse {
 }
 
 #[derive(Debug, Serialize, Clone)]
-pub struct Response {
+pub(crate) struct Response {
     pub message: String,
     pub status: String,
     pub status_code: u16,
@@ -29,7 +29,7 @@ pub struct Response {
 }
 
 impl Response {
-    pub fn send_error(message: &str) -> Response {
+    pub(crate) fn send_error(message: &str) -> Response {
         Response {
             message: message.to_string(),
             status: "error".to_string(),
@@ -78,7 +78,7 @@ fn response_body(coll: &KojiGeometryCollection, return_type: ReturnTypeArg) -> J
     }
 }
 
-pub fn send(
+pub(crate) fn send(
     coll: KojiGeometryCollection,
     return_type: ReturnTypeArg,
     stats: Option<Stats>,

@@ -9,13 +9,13 @@ use serde::{Deserialize, Serialize};
 
 /// Login request body for `POST /private/login`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Auth {
+pub(crate) struct Auth {
     pub password: String,
 }
 
 /// `?query=` search parameter shared by the admin `search` endpoint and the
 /// nominatim proxy.
 #[derive(Debug, Deserialize)]
-pub struct Search {
+pub(crate) struct Search {
     pub query: String,
 }

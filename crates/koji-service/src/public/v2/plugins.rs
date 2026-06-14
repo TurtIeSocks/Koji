@@ -60,7 +60,7 @@ fn plugin_view(reg: &PluginRegistry, kind: PluginKind, name: &str) -> Option<Val
 /// Rebuild the registry from disk ∪ DB overlay and install it process-wide.
 /// Called once at startup and after every overlay write so the runtime
 /// dispatch path (and `meta/algorithms`) reflects the latest config.
-pub async fn rebuild_and_install(db: &KojiDb) -> Result<(), Error> {
+pub(crate) async fn rebuild_and_install(db: &KojiDb) -> Result<(), Error> {
     let mut reg = PluginRegistry::from_env();
     let rows = plugin_config::Query::all(&db.koji)
         .await
@@ -174,7 +174,7 @@ async fn remove(db: web::Data<KojiDb>, path: web::Path<String>) -> Result<HttpRe
 }
 
 /// The `/plugins` scope: collection `GET`, item `GET`/`PATCH`/`DELETE`.
-pub fn scope() -> actix_web::Scope {
+pub(crate) fn scope() -> actix_web::Scope {
     web::scope("/plugins")
         .service(web::resource("").route(web::get().to(list)))
         .service(

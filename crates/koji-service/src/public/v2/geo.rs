@@ -162,7 +162,7 @@ async fn s2_cells(
 
 /// The `/geo` scope. The S2 helpers nest under `/geo/s2`; the named s2 routes
 /// register before the `/{cell_level}` catch-all so they match first.
-pub fn scope() -> actix_web::Scope {
+pub(crate) fn scope() -> actix_web::Scope {
     web::scope("/geo")
         .service(convert)
         .service(simplify)

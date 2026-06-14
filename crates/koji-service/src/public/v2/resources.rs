@@ -36,12 +36,12 @@ macro_rules! crud_resource {
     ($module:ident, $seg:literal) => {
         /// Generated CRUD handlers + scope for the `$seg` resource. See
         /// [`crud_resource!`](crate::public::v2::resources).
-        pub mod $module {
+        pub(crate) mod $module {
             use super::*;
             use koji_db::db::$module::Query;
 
             /// `GET /api/v2/$seg` — list all records (plain ApiResponse array).
-            pub async fn list(db: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
+            pub(crate) async fn list(db: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
                 let rows = Query::get_json_cache(&db.koji)
                     .await
                     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -49,7 +49,7 @@ macro_rules! crud_resource {
             }
 
             /// `POST /api/v2/$seg` — create a record → `201` ApiResponse.
-            pub async fn create(
+            pub(crate) async fn create(
                 db: web::Data<KojiDb>,
                 payload: web::Json<serde_json::Value>,
             ) -> Result<HttpResponse, Error> {
@@ -60,7 +60,7 @@ macro_rules! crud_resource {
             }
 
             /// `GET /api/v2/$seg/{id}` — fetch one record by id or name.
-            pub async fn get_one(
+            pub(crate) async fn get_one(
                 db: web::Data<KojiDb>,
                 path: web::Path<String>,
             ) -> Result<HttpResponse, Error> {
@@ -71,7 +71,7 @@ macro_rules! crud_resource {
             }
 
             /// `PATCH /api/v2/$seg/{id}` — update a record by id.
-            pub async fn update(
+            pub(crate) async fn update(
                 db: web::Data<KojiDb>,
                 path: web::Path<u32>,
                 payload: web::Json<serde_json::Value>,
@@ -84,7 +84,7 @@ macro_rules! crud_resource {
             }
 
             /// `DELETE /api/v2/$seg/{id}` — delete a record → ApiResponse `{rows_affected}`.
-            pub async fn remove(
+            pub(crate) async fn remove(
                 db: web::Data<KojiDb>,
                 path: web::Path<u32>,
             ) -> Result<HttpResponse, Error> {
@@ -96,7 +96,7 @@ macro_rules! crud_resource {
 
             /// The `web::Scope` wiring the five handlers under `/$seg`, to be
             /// mounted into `/api/v2` by [`crate::start`].
-            pub fn scope() -> actix_web::Scope {
+            pub(crate) fn scope() -> actix_web::Scope {
                 web::scope(concat!("/", $seg))
                     .service(
                         web::resource("")

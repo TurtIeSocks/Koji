@@ -186,7 +186,7 @@ async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<Htt
 
 /// The `web::Scope` wiring the route handlers under `/routes`, mounted into
 /// `/api/v2` by [`crate::start`].
-pub fn scope() -> actix_web::Scope {
+pub(crate) fn scope() -> actix_web::Scope {
     web::scope("/routes")
         .service(
             web::resource("")

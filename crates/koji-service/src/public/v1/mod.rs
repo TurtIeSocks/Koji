@@ -1,9 +1,9 @@
 use super::*;
 
-pub mod calculate;
-pub mod convert;
-pub mod geofence;
-pub mod info;
-pub mod legacy;
-pub mod route;
-pub mod s2;
+pub(crate) mod calculate;
+pub(crate) mod convert;
+pub(crate) mod geofence;
+pub(crate) mod info;
+pub(crate) mod legacy;
+pub(crate) mod route;
+pub(crate) mod s2;
