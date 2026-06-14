@@ -501,12 +501,15 @@ pub fn get_return_type(return_type: String, default_return_type: &ReturnTypeArg)
             ReturnTypeArg::MultiStruct => ReturnTypeArg::MultiStruct,
             _ => ReturnTypeArg::SingleStruct,
         },
-        "geometry" => ReturnTypeArg::Geometry,
-        "geometryvec" | "geometry_vec" | "geometries" => ReturnTypeArg::GeometryVec,
+        // The bare-array `geometryvec`/`featurevec` output variants were removed
+        // (locked wire decision: clients use the collection forms). The legacy
+        // request strings now map to their collection replacements — `Geometry`
+        // is a `GeometryCollection`, `FeatureCollection` a `FeatureCollection`.
+        "geometry" | "geometryvec" | "geometry_vec" | "geometries" => ReturnTypeArg::Geometry,
         "singlestruct" | "single_struct" => ReturnTypeArg::SingleStruct,
         "multistruct" | "multi_struct" => ReturnTypeArg::MultiStruct,
         "feature" => ReturnTypeArg::Feature,
-        "featurevec" | "feature_vec" => ReturnTypeArg::FeatureVec,
+        "featurevec" | "feature_vec" => ReturnTypeArg::FeatureCollection,
         "poracle" => ReturnTypeArg::Poracle,
         "featurecollection" | "feature_collection" => ReturnTypeArg::FeatureCollection,
         "sql" => ReturnTypeArg::Sql,

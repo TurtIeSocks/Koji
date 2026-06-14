@@ -5,7 +5,6 @@ use koji_core::{KojiGeometryCollection, Precision};
 use serde::Serialize;
 use serde_json::json;
 
-use koji_core::GeoFormats;
 use koji_core::ReturnTypeArg;
 
 #[derive(Debug, Serialize)]
@@ -41,69 +40,42 @@ impl Response {
     }
 }
 
-/// Build the `GeoFormats` response envelope for a `KojiGeometryCollection` and a
+/// Serialize a `KojiGeometryCollection` into the wire `serde_json::Value` for a
 /// requested `ReturnTypeArg`, dispatching to the Phase 1B inherent adapters (on
 /// `KojiGeometryCollection`) and the Phase 1 geojson `From` edge conversions.
 ///
-/// `GeoFormats` is `#[serde(untagged)]`, so it is purely a serialization-shape
-/// envelope here — `json!(GeoFormats::X(v))` serializes identically to `json!(v)`.
-/// We never route through the `To*` matrix (its `GeoFormats::to_collection` path
-/// is unused; only serde serialization of the inner value runs).
-///
-/// Factored out of [`send`] so the dispatch mapping is unit-testable against the
-/// (still-alive in this section) matrix oracle.
-fn response_body(coll: &KojiGeometryCollection, return_type: ReturnTypeArg) -> GeoFormats {
+/// Each arm produces its native adapter result and serializes it with
+/// `serde_json::to_value`, so the function carries no dependency on the legacy
+/// serialization-envelope enum or the `To*` conversion matrix. The output bytes
+/// are pinned per-variant by the `golden_*` tests below.
+fn response_body(coll: &KojiGeometryCollection, return_type: ReturnTypeArg) -> JsonValue {
     match return_type {
-        ReturnTypeArg::SingleStruct => GeoFormats::SingleStruct(coll.to_single_struct()),
-        ReturnTypeArg::MultiStruct => GeoFormats::MultiStruct(coll.to_multi_struct()),
-        ReturnTypeArg::Text => GeoFormats::Text(coll.to_text(",", "\n", true)),
-        ReturnTypeArg::AltText => GeoFormats::Text(coll.to_text(" ", ",", false)),
-        ReturnTypeArg::SingleArray => GeoFormats::SingleArray(coll.to_single_vec()),
-        ReturnTypeArg::MultiArray => GeoFormats::MultiArray(coll.to_multi_vec()),
-        ReturnTypeArg::Geometry => {
-            if coll.items.len() == 1 {
-                GeoFormats::Geometry(item_geometry(&coll.items[0]))
-            } else {
-                log::info!(
-                    "\"Geometry\" was requested as the return type but multiple features were found so a Vec of geometries is being returned"
-                );
-                GeoFormats::GeometryVec(coll.items.iter().map(item_geometry).collect())
-            }
-        }
-        ReturnTypeArg::GeometryVec => {
-            GeoFormats::GeometryVec(coll.items.iter().map(item_geometry).collect())
-        }
+        ReturnTypeArg::SingleStruct => json!(coll.to_single_struct()),
+        ReturnTypeArg::MultiStruct => json!(coll.to_multi_struct()),
+        ReturnTypeArg::Text => json!(coll.to_text(",", "\n", true)),
+        ReturnTypeArg::AltText => json!(coll.to_text(" ", ",", false)),
+        ReturnTypeArg::SingleArray => json!(coll.to_single_vec()),
+        ReturnTypeArg::MultiArray => json!(coll.to_multi_vec()),
+        // Phase 1 outbound: a property-less `GeometryCollection` wrapping every
+        // item's geometry (replaces the old bare `[Geometry]` / single-geometry
+        // special-case). Always a `GeometryCollection`, regardless of item count.
+        ReturnTypeArg::Geometry => json!(geojson::Geometry::from(coll)),
         ReturnTypeArg::Feature => {
             let mut features = geojson::FeatureCollection::from(coll).features;
             if features.len() == 1 {
-                GeoFormats::Feature(features.remove(0))
+                json!(features.remove(0))
             } else {
                 log::info!(
                     "\"Feature\" was requested as the return type but multiple features were found so a Vec of features is being returned"
                 );
-                GeoFormats::FeatureVec(features)
+                json!(features)
             }
         }
-        ReturnTypeArg::FeatureVec => {
-            GeoFormats::FeatureVec(geojson::FeatureCollection::from(coll).features)
-        }
-        ReturnTypeArg::FeatureCollection => {
-            GeoFormats::FeatureCollection(geojson::FeatureCollection::from(coll))
-        }
-        ReturnTypeArg::Poracle => GeoFormats::Poracle(coll.to_poracle_vec()),
-        ReturnTypeArg::PoracleSingle => {
-            GeoFormats::PoracleSingle(coll.to_poracle_vec().first().unwrap().clone())
-        }
-        ReturnTypeArg::Sql => GeoFormats::Text(coll.to_sql()),
+        ReturnTypeArg::FeatureCollection => json!(geojson::FeatureCollection::from(coll)),
+        ReturnTypeArg::Poracle => json!(coll.to_poracle_vec()),
+        ReturnTypeArg::PoracleSingle => json!(coll.to_poracle_vec().first().unwrap().clone()),
+        ReturnTypeArg::Sql => json!(coll.to_sql()),
     }
-}
-
-/// One item's geojson `Geometry` via the Phase 1 edge conversion
-/// (`geojson::Value::from(&geo::Geometry)`). Byte-parity with the old matrix
-/// `Feature::to_geometry` over `FeatureCollection::from(coll)` — that path also
-/// just unwrapped the feature's Phase 1 geometry. Matrix-free.
-fn item_geometry(item: &koji_core::KojiGeometry) -> geojson::Geometry {
-    geojson::Geometry::new(geojson::Value::from(&item.geometry))
 }
 
 pub fn send(
@@ -123,7 +95,7 @@ pub fn send(
         data: if benchmark_mode {
             None
         } else {
-            Some(json!(response_body(&coll, return_type)))
+            Some(response_body(&coll, return_type))
         },
         stats,
     })
@@ -135,59 +107,7 @@ mod tests {
     use geo::{
         Geometry, GeometryCollection, LineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
     };
-    use koji_core::geometry::{
-        ToMultiStruct, ToMultiVec, ToPoracleVec, ToSingleStruct, ToSingleVec, ToSql, ToText,
-    };
     use koji_core::{KojiGeometry, KojiMeta, Mode};
-
-    /// The pre-swap oracle: the still-alive geojson `FeatureCollection` matrix.
-    /// Phase 2 Section 5 deletes it; until then it is an exact reference for the
-    /// non-line return types.
-    fn oracle(c: &KojiGeometryCollection) -> geojson::FeatureCollection {
-        geojson::FeatureCollection::from(c)
-    }
-
-    /// The same `GeoFormats` body the *old* `send` would have produced, built by
-    /// feeding the matrix oracle through the original match arms. Mirrors the
-    /// pre-Task-3.1 `send` body exactly (minus the line-dropping the adapters fix).
-    fn oracle_body(c: &KojiGeometryCollection, rt: ReturnTypeArg) -> GeoFormats {
-        use koji_core::geometry::ToGeometry;
-        let value = oracle(c);
-        match rt {
-            ReturnTypeArg::SingleStruct => GeoFormats::SingleStruct(value.to_single_struct()),
-            ReturnTypeArg::MultiStruct => GeoFormats::MultiStruct(value.to_multi_struct()),
-            ReturnTypeArg::Text => GeoFormats::Text(value.to_text(",", "\n", true)),
-            ReturnTypeArg::AltText => GeoFormats::Text(value.to_text(" ", ",", false)),
-            ReturnTypeArg::SingleArray => GeoFormats::SingleArray(value.to_single_vec()),
-            ReturnTypeArg::MultiArray => GeoFormats::MultiArray(value.to_multi_vec()),
-            ReturnTypeArg::Geometry => {
-                if value.features.len() == 1 {
-                    GeoFormats::Geometry(value.features.first().unwrap().to_owned().to_geometry())
-                } else {
-                    GeoFormats::GeometryVec(
-                        value.into_iter().map(|feat| feat.to_geometry()).collect(),
-                    )
-                }
-            }
-            ReturnTypeArg::GeometryVec => {
-                GeoFormats::GeometryVec(value.into_iter().map(|feat| feat.to_geometry()).collect())
-            }
-            ReturnTypeArg::Feature => {
-                if value.features.len() == 1 {
-                    GeoFormats::Feature(value.features.first().unwrap().clone())
-                } else {
-                    GeoFormats::FeatureVec(value.features)
-                }
-            }
-            ReturnTypeArg::FeatureVec => GeoFormats::FeatureVec(value.features),
-            ReturnTypeArg::FeatureCollection => GeoFormats::FeatureCollection(value),
-            ReturnTypeArg::Poracle => GeoFormats::Poracle(value.to_poracle_vec()),
-            ReturnTypeArg::PoracleSingle => {
-                GeoFormats::PoracleSingle(value.to_poracle_vec().first().unwrap().clone())
-            }
-            ReturnTypeArg::Sql => GeoFormats::Text(value.to_sql()),
-        }
-    }
 
     /// Adversarial collection mirroring koji-core's `sample_rich`: asymmetric
     /// polygon with a hole + rich meta, a MultiPolygon, and a GeometryCollection.
@@ -278,70 +198,188 @@ mod tests {
         ])
     }
 
-    /// Every non-line `ReturnTypeArg` must parity-match the old matrix `send`
-    /// body. The body is serialized to JSON (the actual wire shape — `GeoFormats`
-    /// is untagged) for a full-fidelity comparison even where the inner types lack
-    /// `PartialEq`.
+    /// A single-item collection: exercises the `Feature` len==1 path (a lone
+    /// `Feature`, not an array) and the promoted `Geometry` path (still a
+    /// `GeometryCollection`, now with one member).
+    fn single_item() -> KojiGeometryCollection {
+        let poly = Polygon::new(
+            LineString::from(vec![
+                coord! {x:0.0,y:0.0},
+                coord! {x:2.0,y:0.0},
+                coord! {x:2.0,y:1.0},
+                coord! {x:0.0,y:0.0},
+            ]),
+            vec![],
+        );
+        KojiGeometryCollection::new(vec![KojiGeometry::new(poly).with_meta(KojiMeta {
+            id: Some(1),
+            name: Some("solo".into()),
+            mode: Mode::Fort,
+            ..Default::default()
+        })])
+    }
+
+    /// Golden snapshots for every retained `ReturnTypeArg`, over the adversarial
+    /// `sample_rich` collection. These were captured byte-for-byte from the matrix
+    /// oracle while it was still alive (Section 5 parity step) — except `Geometry`,
+    /// which Task 3 intentionally promotes from the old bare `[Geometry]` array to
+    /// a single Phase 1 `GeometryCollection`. They pin the wire output as a
+    /// permanent regression guard after the oracle and the legacy serialization
+    /// envelope are removed.
     ///
-    /// LineString geometries are deliberately NOT covered: the adapters correctly
-    /// emit line coords the matrix silently dropped (locked-decision intentional
-    /// divergence), so a bare-line collection would fail parity on a pre-existing
-    /// matrix bug, not an adapter defect.
+    /// `response_body` returns `serde_json::Value` directly (no envelope enum), so
+    /// the golden IS the exact `data` payload `send` emits.
     #[test]
-    fn dispatch_parity_with_matrix_oracle_all_return_types() {
+    fn golden_all_retained_return_types() {
         let c = sample_rich();
-        let cases = [
-            ReturnTypeArg::SingleStruct,
-            ReturnTypeArg::MultiStruct,
-            ReturnTypeArg::Text,
-            ReturnTypeArg::AltText,
-            ReturnTypeArg::SingleArray,
-            ReturnTypeArg::MultiArray,
-            ReturnTypeArg::Geometry,
-            ReturnTypeArg::GeometryVec,
-            ReturnTypeArg::Feature,
-            ReturnTypeArg::FeatureVec,
-            ReturnTypeArg::FeatureCollection,
-            ReturnTypeArg::Poracle,
-            ReturnTypeArg::Sql,
+        let expected: &[(ReturnTypeArg, JsonValue)] = &[
+            (
+                ReturnTypeArg::SingleStruct,
+                json!([{"lat":0.0,"lon":0.0},{"lat":0.0,"lon":10.0},{"lat":4.0,"lon":10.0},{"lat":4.0,"lon":0.0},{"lat":0.0,"lon":0.0},{"lat":1.0,"lon":2.0},{"lat":1.0,"lon":4.0},{"lat":3.0,"lon":4.0},{"lat":3.0,"lon":2.0},{"lat":1.0,"lon":2.0},{"lat":20.0,"lon":20.0},{"lat":20.0,"lon":23.0},{"lat":22.0,"lon":23.0},{"lat":20.0,"lon":20.0},{"lat":30.0,"lon":30.0},{"lat":30.0,"lon":34.0},{"lat":33.0,"lon":34.0},{"lat":33.0,"lon":30.0},{"lat":30.0,"lon":30.0},{"lat":40.0,"lon":40.0},{"lat":40.0,"lon":42.0},{"lat":41.0,"lon":42.0},{"lat":40.0,"lon":40.0},{"lat":51.0,"lon":50.0},{"lat":53.0,"lon":52.0},{"lat":0.0,"lon":0.0}]),
+            ),
+            (
+                ReturnTypeArg::MultiStruct,
+                json!([[{"lat":0.0,"lon":0.0},{"lat":0.0,"lon":10.0},{"lat":4.0,"lon":10.0},{"lat":4.0,"lon":0.0},{"lat":0.0,"lon":0.0},{"lat":1.0,"lon":2.0},{"lat":1.0,"lon":4.0},{"lat":3.0,"lon":4.0},{"lat":3.0,"lon":2.0},{"lat":1.0,"lon":2.0},{"lat":0.0,"lon":0.0}],[{"lat":20.0,"lon":20.0},{"lat":20.0,"lon":23.0},{"lat":22.0,"lon":23.0},{"lat":20.0,"lon":20.0},{"lat":30.0,"lon":30.0},{"lat":30.0,"lon":34.0},{"lat":33.0,"lon":34.0},{"lat":33.0,"lon":30.0},{"lat":30.0,"lon":30.0},{"lat":20.0,"lon":20.0}],[{"lat":40.0,"lon":40.0},{"lat":40.0,"lon":42.0},{"lat":41.0,"lon":42.0},{"lat":40.0,"lon":40.0},{"lat":51.0,"lon":50.0},{"lat":53.0,"lon":52.0},{"lat":40.0,"lon":40.0}]]),
+            ),
+            (
+                ReturnTypeArg::Text,
+                json!(
+                    "[Geofence 1]\n0,0\n0,10\n4,10\n4,0\n0,0\n1,2\n1,4\n3,4\n3,2\n1,2\n\n[Geofence 2]\n20,20\n20,23\n22,23\n20,20\n30,30\n30,34\n33,34\n33,30\n30,30\n\n[Geofence 3]\n40,40\n40,42\n41,42\n40,40\n51,50\n53,52"
+                ),
+            ),
+            (
+                ReturnTypeArg::AltText,
+                json!(
+                    "0 0,0 10,4 10,4 0,0 0,1 2,1 4,3 4,3 2,1 2,20 20,20 23,22 23,20 20,30 30,30 34,33 34,33 30,30 30,40 40,40 42,41 42,40 40,51 50,53 52"
+                ),
+            ),
+            (
+                ReturnTypeArg::SingleArray,
+                json!([
+                    [0.0, 0.0],
+                    [0.0, 10.0],
+                    [4.0, 10.0],
+                    [4.0, 0.0],
+                    [0.0, 0.0],
+                    [1.0, 2.0],
+                    [1.0, 4.0],
+                    [3.0, 4.0],
+                    [3.0, 2.0],
+                    [1.0, 2.0],
+                    [20.0, 20.0],
+                    [20.0, 23.0],
+                    [22.0, 23.0],
+                    [20.0, 20.0],
+                    [30.0, 30.0],
+                    [30.0, 34.0],
+                    [33.0, 34.0],
+                    [33.0, 30.0],
+                    [30.0, 30.0],
+                    [40.0, 40.0],
+                    [40.0, 42.0],
+                    [41.0, 42.0],
+                    [40.0, 40.0],
+                    [51.0, 50.0],
+                    [53.0, 52.0]
+                ]),
+            ),
+            (
+                ReturnTypeArg::MultiArray,
+                json!([
+                    [
+                        [0.0, 0.0],
+                        [0.0, 10.0],
+                        [4.0, 10.0],
+                        [4.0, 0.0],
+                        [0.0, 0.0],
+                        [1.0, 2.0],
+                        [1.0, 4.0],
+                        [3.0, 4.0],
+                        [3.0, 2.0],
+                        [1.0, 2.0]
+                    ],
+                    [
+                        [20.0, 20.0],
+                        [20.0, 23.0],
+                        [22.0, 23.0],
+                        [20.0, 20.0],
+                        [30.0, 30.0],
+                        [30.0, 34.0],
+                        [33.0, 34.0],
+                        [33.0, 30.0],
+                        [30.0, 30.0]
+                    ],
+                    [
+                        [40.0, 40.0],
+                        [40.0, 42.0],
+                        [41.0, 42.0],
+                        [40.0, 40.0],
+                        [51.0, 50.0],
+                        [53.0, 52.0]
+                    ]
+                ]),
+            ),
+            // PROMOTED (Task 3): a single Phase 1 GeometryCollection wrapping every
+            // item's geometry, replacing the old bare `[Geometry]` array.
+            (
+                ReturnTypeArg::Geometry,
+                json!({"type":"GeometryCollection","geometries":[{"type":"Polygon","coordinates":[[[0.0,0.0],[10.0,0.0],[10.0,4.0],[0.0,4.0],[0.0,0.0]],[[2.0,1.0],[4.0,1.0],[4.0,3.0],[2.0,3.0],[2.0,1.0]]]},{"type":"MultiPolygon","coordinates":[[[[20.0,20.0],[23.0,20.0],[23.0,22.0],[20.0,20.0]]],[[[30.0,30.0],[34.0,30.0],[34.0,33.0],[30.0,33.0],[30.0,30.0]]]]},{"type":"GeometryCollection","geometries":[{"type":"Polygon","coordinates":[[[40.0,40.0],[42.0,40.0],[42.0,41.0],[40.0,40.0]]]},{"type":"MultiPoint","coordinates":[[50.0,51.0],[52.0,53.0]]}]}]}),
+            ),
+            (
+                ReturnTypeArg::Feature,
+                json!([{"geometry":{"coordinates":[[[0.0,0.0],[10.0,0.0],[10.0,4.0],[0.0,4.0],[0.0,0.0]],[[2.0,1.0],[4.0,1.0],[4.0,3.0],[2.0,3.0],[2.0,1.0]]],"type":"Polygon"},"id":7,"properties":{"color":"#00ff00","description":"a rich fence","displayInMatches":false,"group":"alpha","id":7,"mode":"fort","name":"poly","userSelectable":false},"type":"Feature"},{"geometry":{"coordinates":[[[[20.0,20.0],[23.0,20.0],[23.0,22.0],[20.0,20.0]]],[[[30.0,30.0],[34.0,30.0],[34.0,33.0],[30.0,33.0],[30.0,30.0]]]],"type":"MultiPolygon"},"properties":{"mode":"fort","name":"multi"},"type":"Feature"},{"geometry":{"geometries":[{"coordinates":[[[40.0,40.0],[42.0,40.0],[42.0,41.0],[40.0,40.0]]],"type":"Polygon"},{"coordinates":[[50.0,51.0],[52.0,53.0]],"type":"MultiPoint"}],"type":"GeometryCollection"},"properties":{"mode":"unset","name":"gc"},"type":"Feature"}]),
+            ),
+            (
+                ReturnTypeArg::FeatureCollection,
+                json!({"features":[{"geometry":{"coordinates":[[[0.0,0.0],[10.0,0.0],[10.0,4.0],[0.0,4.0],[0.0,0.0]],[[2.0,1.0],[4.0,1.0],[4.0,3.0],[2.0,3.0],[2.0,1.0]]],"type":"Polygon"},"id":7,"properties":{"color":"#00ff00","description":"a rich fence","displayInMatches":false,"group":"alpha","id":7,"mode":"fort","name":"poly","userSelectable":false},"type":"Feature"},{"geometry":{"coordinates":[[[[20.0,20.0],[23.0,20.0],[23.0,22.0],[20.0,20.0]]],[[[30.0,30.0],[34.0,30.0],[34.0,33.0],[30.0,33.0],[30.0,30.0]]]],"type":"MultiPolygon"},"properties":{"mode":"fort","name":"multi"},"type":"Feature"},{"geometry":{"geometries":[{"coordinates":[[[40.0,40.0],[42.0,40.0],[42.0,41.0],[40.0,40.0]]],"type":"Polygon"},{"coordinates":[[50.0,51.0],[52.0,53.0]],"type":"MultiPoint"}],"type":"GeometryCollection"},"properties":{"mode":"unset","name":"gc"},"type":"Feature"}],"type":"FeatureCollection"}),
+            ),
+            (
+                ReturnTypeArg::Poracle,
+                json!([{"color":"#00ff00","description":"a rich fence","displayInMatches":false,"group":"alpha","id":7,"name":"poly","path":[[0.0,0.0],[0.0,10.0],[4.0,10.0],[4.0,0.0],[0.0,0.0],[1.0,2.0],[1.0,4.0],[3.0,4.0],[3.0,2.0],[1.0,2.0]],"userSelectable":false},{"displayInMatches":true,"id":2,"multipath":[[[20.0,20.0],[20.0,23.0],[22.0,23.0],[20.0,20.0]],[[30.0,30.0],[30.0,34.0],[33.0,34.0],[33.0,30.0],[30.0,30.0]]],"name":"multi","path":[],"userSelectable":true},{"displayInMatches":true,"id":3,"multipath":[[[40.0,40.0],[40.0,42.0],[41.0,42.0],[40.0,40.0]]],"name":"gc","path":[],"userSelectable":true}]),
+            ),
+            (
+                ReturnTypeArg::PoracleSingle,
+                json!({"color":"#00ff00","description":"a rich fence","displayInMatches":false,"group":"alpha","id":7,"name":"poly","path":[[0.0,0.0],[0.0,10.0],[4.0,10.0],[4.0,0.0],[0.0,0.0],[1.0,2.0],[1.0,4.0],[3.0,4.0],[3.0,2.0],[1.0,2.0]],"userSelectable":false}),
+            ),
+            (
+                ReturnTypeArg::Sql,
+                json!(
+                    "SELECT * FROM {database.table} WHERE (\n\tlon BETWEEN 0 AND 10\n\tAND lat BETWEEN 0 AND 4\n\tAND ST_CONTAINS(\n\t\tST_GeomFromGeoJSON('{\"type\":\"Polygon\",\"coordinates\":[[[0.0,0.0],[10.0,0.0],[10.0,4.0],[0.0,4.0],[0.0,0.0]],[[2.0,1.0],[4.0,1.0],[4.0,3.0],[2.0,3.0],[2.0,1.0]]]}', 2, 0),\n\t\tPOINT(lon, lat)\n\t)\n)\nOR (\n\tlon BETWEEN 20 AND 34\n\tAND lat BETWEEN 20 AND 33\n\tAND ST_CONTAINS(\n\t\tST_GeomFromGeoJSON('{\"type\":\"MultiPolygon\",\"coordinates\":[[[[20.0,20.0],[23.0,20.0],[23.0,22.0],[20.0,20.0]]],[[[30.0,30.0],[34.0,30.0],[34.0,33.0],[30.0,33.0],[30.0,30.0]]]]}', 2, 0),\n\t\tPOINT(lon, lat)\n\t)\n)"
+                ),
+            ),
         ];
-        for rt in cases {
-            let mine = serde_json::to_value(response_body(&c, rt.clone())).unwrap();
-            let oracle = serde_json::to_value(oracle_body(&c, rt.clone())).unwrap();
-            assert_eq!(
-                mine, oracle,
-                "return type {rt:?} diverged from the matrix oracle"
-            );
+        for (rt, want) in expected {
+            let got = response_body(&c, rt.clone());
+            assert_eq!(&got, want, "return type {rt:?} diverged from its golden");
         }
     }
 
-    /// `PoracleSingle` returns the first item only; parity-check it separately
-    /// (the multi-feature `sample_rich` makes `.first()` meaningful).
+    /// Single-item collection goldens: `Feature` collapses to a lone `Feature`
+    /// (len==1 path); `Geometry` is a one-member `GeometryCollection`.
     #[test]
-    fn dispatch_parity_poracle_single() {
-        let c = sample_rich();
-        let mine = serde_json::to_value(response_body(&c, ReturnTypeArg::PoracleSingle)).unwrap();
-        let oracle = serde_json::to_value(oracle_body(&c, ReturnTypeArg::PoracleSingle)).unwrap();
-        assert_eq!(mine, oracle);
+    fn golden_single_item() {
+        let c = single_item();
+        assert_eq!(
+            response_body(&c, ReturnTypeArg::Geometry),
+            json!({"type":"GeometryCollection","geometries":[{"type":"Polygon","coordinates":[[[0.0,0.0],[2.0,0.0],[2.0,1.0],[0.0,0.0]]]}]}),
+        );
+        assert_eq!(
+            response_body(&c, ReturnTypeArg::Feature),
+            json!({"geometry":{"coordinates":[[[0.0,0.0],[2.0,0.0],[2.0,1.0],[0.0,0.0]]],"type":"Polygon"},"id":1,"properties":{"id":1,"mode":"fort","name":"solo"},"type":"Feature"}),
+        );
     }
 
-    /// A bare-LineString collection: NOT a parity case (the oracle drops lines),
-    /// but it must not panic and must carry the line's coordinates through the
-    /// adapter — proving the swap fixes the coordinate-dropping bug.
+    /// A bare-LineString collection must not panic and must carry the line's
+    /// coordinates through the adapter (the matrix used to silently drop them).
     #[test]
     fn line_geometry_is_carried_not_dropped() {
         let line = LineString::from(vec![coord! {x:1.0,y:2.0}, coord! {x:3.0,y:4.0}]);
         let c = KojiGeometryCollection::new(vec![KojiGeometry::new(line)]);
 
         // Adapter keeps the two coordinates ([lat, lon] order).
-        match response_body(&c, ReturnTypeArg::SingleArray) {
-            GeoFormats::SingleArray(v) => assert_eq!(v, vec![[2.0, 1.0], [4.0, 3.0]]),
-            other => panic!("expected SingleArray, got {other:?}"),
-        }
-        // The matrix oracle would have dropped them.
-        match oracle_body(&c, ReturnTypeArg::SingleArray) {
-            GeoFormats::SingleArray(v) => assert!(v.is_empty(), "oracle is expected to drop lines"),
-            other => panic!("expected SingleArray, got {other:?}"),
-        }
+        assert_eq!(
+            response_body(&c, ReturnTypeArg::SingleArray),
+            json!([[2.0, 1.0], [4.0, 3.0]]),
+        );
     }
 }

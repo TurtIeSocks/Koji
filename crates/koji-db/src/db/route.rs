@@ -10,9 +10,7 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use koji_core::{
-    AdminReqParsed, EnsurePoints, KojiGeometry, KojiGeometryCollection,
-};
+use koji_core::{AdminReqParsed, EnsurePoints, KojiGeometry, KojiGeometryCollection};
 
 use crate::{
     db::sea_orm_active_enums::Mode,
