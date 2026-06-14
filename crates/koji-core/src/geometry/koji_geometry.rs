@@ -141,19 +141,18 @@ mod tests {
         );
     }
 
-    /// `merge_points` parity vs the old `/merge-points` matrix path: it collected
-    /// `Value::Point` coords (`[lon, lat]`) into one `Value::MultiPoint`. The
-    /// Koji-native path must emit the identical `MultiPoint` geojson.
+    /// `merge_points` vs a golden frozen from the old `/merge-points` matrix path:
+    /// it collected `Value::Point` coords (`[lon, lat]`) into one
+    /// `Value::MultiPoint`. The Koji-native path must emit the identical
+    /// `MultiPoint` geojson.
     #[test]
-    fn merge_points_matches_matrix_multipoint() {
-        use crate::geometry::ValueHelpers;
-
+    fn merge_points_matches_golden_multipoint() {
         // geojson Point coords are [lon, lat].
         let raw: Vec<Vec<f64>> = vec![vec![2.0, 1.0], vec![4.0, 3.0], vec![6.0, 5.0]];
 
-        // OLD matrix path: a MultiVec wrapping the points, projected as MultiPoint.
-        let old_value =
-            vec![raw.iter().map(|p| [p[1], p[0]]).collect::<Vec<[f64; 2]>>()].multi_point();
+        // Golden: the matrix projected these points to a MultiPoint of [lon, lat].
+        let golden =
+            geojson::Value::MultiPoint(vec![vec![2.0, 1.0], vec![4.0, 3.0], vec![6.0, 5.0]]);
 
         // NEW path: Point items -> merge_points -> geojson Geometry.
         let coll = KojiGeometryCollection::new(
@@ -166,8 +165,8 @@ mod tests {
         let new_value = geojson::Value::from(&coll.items[0].geometry);
 
         assert_eq!(
-            new_value, old_value,
-            "merge_points must match the matrix MultiPoint"
+            new_value, golden,
+            "merge_points must match the golden MultiPoint"
         );
     }
 

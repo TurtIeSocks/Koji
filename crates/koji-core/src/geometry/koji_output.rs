@@ -2,11 +2,10 @@
 //!
 //! These are **matrix-independent**: each adapter reads coordinates from the
 //! item's `geo::Geometry` and metadata from its `KojiMeta`, never delegating to
-//! the geojson `To*` matrix (whose cells die in Phase 2). Correctness is pinned
-//! by parity tests against the geojson `FeatureCollection` matrix oracle, which
-//! is exact today.
+//! the geojson `To*` matrix (deleted in Phase 2). Correctness is pinned by tests
+//! against goldens frozen from that matrix while it still existed.
 //!
-//! Coordinate convention: the matrix emits `PointArray = [lat, lon]` (y, x).
+//! Coordinate convention: the matrix emitted `PointArray = [lat, lon]` (y, x).
 //! `geo::Geometry` stores `[x, y]` (lon, lat), so every extraction flips to
 //! `[coord.y, coord.x]`.
 
@@ -111,9 +110,9 @@ pub fn single_vec_to_multipoint_feature(centers: &SingleVec) -> geojson::Feature
 }
 
 /// Project a `SingleVec` (`[lat, lon]` points) to a single-ring `geo::Polygon`,
-/// reproducing the matrix `SingleVec::to_feature(FeatureCtx::default())` geometry
-/// (no fence type → the `polygon()` branch): the ring is closed
-/// (`ensure_first_last`) and each `[lat, lon]` becomes `(x = lon, y = lat)`.
+/// reproducing the (now-deleted) matrix single-feature polygon geometry (no fence
+/// type → the `polygon()` branch): the ring is closed (`ensure_first_last`) and
+/// each `[lat, lon]` becomes `(x = lon, y = lat)`.
 pub fn single_vec_to_polygon(centers: &SingleVec) -> geo::Polygon<f64> {
     let mut points = centers.clone();
     if let (Some(first), Some(last)) = (points.first().copied(), points.last().copied())
@@ -130,8 +129,8 @@ pub fn single_vec_to_polygon(centers: &SingleVec) -> geo::Polygon<f64> {
 
 /// The unlabeled `geojson::Feature` a bootstrap *plugin* edge emits for a routed
 /// `SingleVec`: the [`single_vec_to_polygon`] geometry via the Phase 1 outbound
-/// `From<&KojiGeometry>`. Replaces the matrix
-/// `SingleVec::to_feature(FeatureCtx::default())`.
+/// `From<&KojiGeometry>`. Replaces the (now-deleted) matrix single-feature polygon
+/// projection.
 pub fn single_vec_to_polygon_feature(centers: &SingleVec) -> geojson::Feature {
     let kg = KojiGeometry::new(single_vec_to_polygon(centers));
     geojson::Feature::from(&kg)
@@ -453,8 +452,7 @@ fn point_to_text(pt: &[f64; 2], sep_1: &str, sep_2: &str, _poly_sep: bool) -> St
 
 #[cfg(test)]
 mod tests {
-    use crate::geometry::{ToMultiVec, ToSingleVec}; // the existing oracle traits
-    use crate::{KojiGeometry, KojiGeometryCollection, KojiMeta, Mode};
+    use crate::{KojiGeometry, KojiGeometryCollection, KojiMeta, Mode, MultiVec, SingleVec};
     use geo::{
         Geometry, GeometryCollection, LineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
     };
@@ -484,11 +482,6 @@ mod tests {
         ])
     }
 
-    /// Oracle: the existing matrix path, exact today.
-    fn fc(c: &KojiGeometryCollection) -> geojson::FeatureCollection {
-        geojson::FeatureCollection::from(c)
-    }
-
     /// An adversarial collection that exercises every adapter branch the
     /// axis-symmetric `sample()` leaves untouched:
     ///
@@ -507,16 +500,12 @@ mod tests {
     ///    `multipath` (polygon-only filter) / `to_sql` (GC is non-polygon →
     ///    contributes no clause but advances the index).
     ///
-    /// A bare `LineString` was intentionally **excluded**: the Phase 1 outbound
-    /// oracle (`FeatureCollection::from(&c).to_X()`) cannot represent it. The
-    /// matrix `ToSingleVec for geojson::Geometry` (`geometry.rs`) only matches
-    /// `Polygon`/`MultiPolygon`/`Point`/`MultiPoint`; `Value::LineString` falls
-    /// into the `_ =>` arm, which `log::warn!`s "Unsupported Geometry" and returns
-    /// an empty vec — so the oracle silently drops every line. Our adapter's
-    /// `single_group` *does* handle `LineString`, so a bare-line case would fail
-    /// parity not on an adapter bug but on a pre-existing Phase 1 gap. Tracked as a
-    /// Phase 2 follow-up (the adapters become the only implementation then, and the
-    /// LineString path is already correct here).
+    /// A bare `LineString` is intentionally **excluded**: the goldens below were
+    /// frozen from the Phase-1-outbound matrix oracle, which dropped bare lines
+    /// (`ToSingleVec for geojson::Geometry` only matched
+    /// `Polygon`/`MultiPolygon`/`Point`/`MultiPoint`). The adapters' `single_group`
+    /// *does* handle `LineString`, so a bare-line case is covered separately rather
+    /// than against these matrix-derived goldens.
     fn sample_rich() -> KojiGeometryCollection {
         // 1. asymmetric polygon with a hole + rich poracle metadata.
         let poly_with_hole = Polygon::new(
@@ -607,157 +596,255 @@ mod tests {
         ])
     }
 
-    /// All seven inherent adapters must parity-match the oracle on the adversarial
-    /// `sample_rich()` — proving the matrix-independent extraction generalizes
-    /// past the axis-symmetric `sample()` (holes, MultiPolygon, GeometryCollection,
-    /// asymmetric bbox, non-default poracle fields). (Bare `LineString` excluded —
-    /// the Phase 1 oracle can't represent it; see `sample_rich`.)
-    #[test]
-    fn all_adapters_match_oracle_on_rich_sample() {
-        use crate::geometry::{ToMultiStruct, ToPoracleVec, ToSingleStruct, ToSql, ToText};
-        let c = sample_rich();
-        let o = fc(&c);
+    /// Parse a JSON golden string into a `serde_json::Value` for comparison.
+    fn j(s: &str) -> serde_json::Value {
+        serde_json::from_str(s).unwrap()
+    }
 
-        // Native equality where the types implement `PartialEq`.
-        assert_eq!(c.to_single_vec(), o.clone().to_single_vec(), "single_vec");
-        assert_eq!(c.to_multi_vec(), o.clone().to_multi_vec(), "multi_vec");
-        assert_eq!(c.to_sql(), o.clone().to_sql(), "sql");
+    /// All seven inherent adapters on the adversarial `sample_rich()`, asserted
+    /// against goldens frozen from the (now-deleted) matrix oracle — proving the
+    /// matrix-independent extraction generalizes past the axis-symmetric `sample()`
+    /// (holes, MultiPolygon, GeometryCollection, asymmetric bbox, non-default
+    /// poracle fields). (Bare `LineString` excluded — see `sample_rich`.)
+    #[test]
+    fn all_adapters_match_golden_on_rich_sample() {
+        let c = sample_rich();
+
+        let single_vec: SingleVec = vec![
+            [0.0, 0.0],
+            [0.0, 10.0],
+            [4.0, 10.0],
+            [4.0, 0.0],
+            [0.0, 0.0],
+            [1.0, 2.0],
+            [1.0, 4.0],
+            [3.0, 4.0],
+            [3.0, 2.0],
+            [1.0, 2.0],
+            [20.0, 20.0],
+            [20.0, 23.0],
+            [22.0, 23.0],
+            [20.0, 20.0],
+            [30.0, 30.0],
+            [30.0, 34.0],
+            [33.0, 34.0],
+            [33.0, 30.0],
+            [30.0, 30.0],
+            [40.0, 40.0],
+            [40.0, 42.0],
+            [41.0, 42.0],
+            [40.0, 40.0],
+            [51.0, 50.0],
+            [53.0, 52.0],
+        ];
+        assert_eq!(c.to_single_vec(), single_vec, "single_vec");
+
+        let multi_vec: MultiVec = vec![
+            vec![
+                [0.0, 0.0],
+                [0.0, 10.0],
+                [4.0, 10.0],
+                [4.0, 0.0],
+                [0.0, 0.0],
+                [1.0, 2.0],
+                [1.0, 4.0],
+                [3.0, 4.0],
+                [3.0, 2.0],
+                [1.0, 2.0],
+            ],
+            vec![
+                [20.0, 20.0],
+                [20.0, 23.0],
+                [22.0, 23.0],
+                [20.0, 20.0],
+                [30.0, 30.0],
+                [30.0, 34.0],
+                [33.0, 34.0],
+                [33.0, 30.0],
+                [30.0, 30.0],
+            ],
+            vec![
+                [40.0, 40.0],
+                [40.0, 42.0],
+                [41.0, 42.0],
+                [40.0, 40.0],
+                [51.0, 50.0],
+                [53.0, 52.0],
+            ],
+        ];
+        assert_eq!(c.to_multi_vec(), multi_vec, "multi_vec");
+
+        assert_eq!(
+            c.to_sql(),
+            "SELECT * FROM {database.table} WHERE (\n\tlon BETWEEN 0 AND 10\n\tAND lat BETWEEN 0 AND 4\n\tAND ST_CONTAINS(\n\t\tST_GeomFromGeoJSON('{\"type\":\"Polygon\",\"coordinates\":[[[0.0,0.0],[10.0,0.0],[10.0,4.0],[0.0,4.0],[0.0,0.0]],[[2.0,1.0],[4.0,1.0],[4.0,3.0],[2.0,3.0],[2.0,1.0]]]}', 2, 0),\n\t\tPOINT(lon, lat)\n\t)\n)\nOR (\n\tlon BETWEEN 20 AND 34\n\tAND lat BETWEEN 20 AND 33\n\tAND ST_CONTAINS(\n\t\tST_GeomFromGeoJSON('{\"type\":\"MultiPolygon\",\"coordinates\":[[[[20.0,20.0],[23.0,20.0],[23.0,22.0],[20.0,20.0]]],[[[30.0,30.0],[34.0,30.0],[34.0,33.0],[30.0,33.0],[30.0,30.0]]]]}', 2, 0),\n\t\tPOINT(lon, lat)\n\t)\n)",
+            "sql"
+        );
+
         assert_eq!(
             c.to_text(",", "\n", true),
-            o.clone().to_text(",", "\n", true),
+            "[Geofence 1]\n0,0\n0,10\n4,10\n4,0\n0,0\n1,2\n1,4\n3,4\n3,2\n1,2\n\n[Geofence 2]\n20,20\n20,23\n22,23\n20,20\n30,30\n30,34\n33,34\n33,30\n30,30\n\n[Geofence 3]\n40,40\n40,42\n41,42\n40,40\n51,50\n53,52",
             "text (Text params)"
         );
         assert_eq!(
             c.to_text(" ", ",", false),
-            o.clone().to_text(" ", ",", false),
+            "0 0,0 10,4 10,4 0,0 0,1 2,1 4,3 4,3 2,1 2,20 20,20 23,22 23,20 20,30 30,30 34,33 34,33 30,30 30,40 40,40 42,41 42,40 40,51 50,53 52",
             "text (AltText params)"
         );
 
         // `PointStruct`/`Poracle`/`UnknownId` lack `PartialEq`; compare serialized
-        // forms (all derive `Serialize`) for full-fidelity parity.
+        // forms (all derive `Serialize`) against the goldens.
         assert_eq!(
             serde_json::to_value(c.to_single_struct()).unwrap(),
-            serde_json::to_value(o.clone().to_single_struct()).unwrap(),
+            j(
+                r#"[{"lat":0.0,"lon":0.0},{"lat":0.0,"lon":10.0},{"lat":4.0,"lon":10.0},{"lat":4.0,"lon":0.0},{"lat":0.0,"lon":0.0},{"lat":1.0,"lon":2.0},{"lat":1.0,"lon":4.0},{"lat":3.0,"lon":4.0},{"lat":3.0,"lon":2.0},{"lat":1.0,"lon":2.0},{"lat":20.0,"lon":20.0},{"lat":20.0,"lon":23.0},{"lat":22.0,"lon":23.0},{"lat":20.0,"lon":20.0},{"lat":30.0,"lon":30.0},{"lat":30.0,"lon":34.0},{"lat":33.0,"lon":34.0},{"lat":33.0,"lon":30.0},{"lat":30.0,"lon":30.0},{"lat":40.0,"lon":40.0},{"lat":40.0,"lon":42.0},{"lat":41.0,"lon":42.0},{"lat":40.0,"lon":40.0},{"lat":51.0,"lon":50.0},{"lat":53.0,"lon":52.0},{"lat":0.0,"lon":0.0}]"#
+            ),
             "single_struct"
         );
         assert_eq!(
             serde_json::to_value(c.to_multi_struct()).unwrap(),
-            serde_json::to_value(o.clone().to_multi_struct()).unwrap(),
+            j(
+                r#"[[{"lat":0.0,"lon":0.0},{"lat":0.0,"lon":10.0},{"lat":4.0,"lon":10.0},{"lat":4.0,"lon":0.0},{"lat":0.0,"lon":0.0},{"lat":1.0,"lon":2.0},{"lat":1.0,"lon":4.0},{"lat":3.0,"lon":4.0},{"lat":3.0,"lon":2.0},{"lat":1.0,"lon":2.0},{"lat":0.0,"lon":0.0}],[{"lat":20.0,"lon":20.0},{"lat":20.0,"lon":23.0},{"lat":22.0,"lon":23.0},{"lat":20.0,"lon":20.0},{"lat":30.0,"lon":30.0},{"lat":30.0,"lon":34.0},{"lat":33.0,"lon":34.0},{"lat":33.0,"lon":30.0},{"lat":30.0,"lon":30.0},{"lat":20.0,"lon":20.0}],[{"lat":40.0,"lon":40.0},{"lat":40.0,"lon":42.0},{"lat":41.0,"lon":42.0},{"lat":40.0,"lon":40.0},{"lat":51.0,"lon":50.0},{"lat":53.0,"lon":52.0},{"lat":40.0,"lon":40.0}]]"#
+            ),
             "multi_struct"
         );
         assert_eq!(
             serde_json::to_value(c.to_poracle_vec()).unwrap(),
-            serde_json::to_value(o.to_poracle_vec()).unwrap(),
+            j(
+                r##"[{"id":7,"name":"poly","color":"#00ff00","group":"alpha","description":"a rich fence","userSelectable":false,"displayInMatches":false,"path":[[0.0,0.0],[0.0,10.0],[4.0,10.0],[4.0,0.0],[0.0,0.0],[1.0,2.0],[1.0,4.0],[3.0,4.0],[3.0,2.0],[1.0,2.0]]},{"id":2,"name":"multi","userSelectable":true,"displayInMatches":true,"path":[],"multipath":[[[20.0,20.0],[20.0,23.0],[22.0,23.0],[20.0,20.0]],[[30.0,30.0],[30.0,34.0],[33.0,34.0],[33.0,30.0],[30.0,30.0]]]},{"id":3,"name":"gc","userSelectable":true,"displayInMatches":true,"path":[],"multipath":[[[40.0,40.0],[40.0,42.0],[41.0,42.0],[40.0,40.0]]]}]"##
+            ),
             "poracle_vec"
         );
     }
 
     #[test]
-    fn single_vec_matches_oracle() {
+    fn single_vec_matches_golden() {
         let c = sample();
-        assert_eq!(c.to_single_vec(), fc(&c).to_single_vec());
+        let golden: SingleVec = vec![
+            [0.0, 0.0],
+            [0.0, 2.0],
+            [2.0, 2.0],
+            [0.0, 0.0],
+            [6.0, 5.0],
+            [8.0, 7.0],
+        ];
+        assert_eq!(c.to_single_vec(), golden);
     }
 
     #[test]
-    fn multi_vec_matches_oracle() {
+    fn multi_vec_matches_golden() {
         let c = sample();
-        assert_eq!(c.to_multi_vec(), fc(&c).to_multi_vec());
+        let golden: MultiVec = vec![
+            vec![[0.0, 0.0], [0.0, 2.0], [2.0, 2.0], [0.0, 0.0]],
+            vec![[6.0, 5.0], [8.0, 7.0]],
+        ];
+        assert_eq!(c.to_multi_vec(), golden);
     }
 
     #[test]
-    fn single_struct_matches_oracle() {
-        use crate::geometry::ToSingleStruct;
+    fn single_struct_matches_golden() {
         let c = sample();
         // `PointStruct` has no `PartialEq`; compare its serialized form (it derives
-        // `Serialize`) — full-fidelity parity against the oracle.
-        let mine = serde_json::to_value(c.to_single_struct()).unwrap();
-        let oracle = serde_json::to_value(fc(&c).to_single_struct()).unwrap();
-        assert_eq!(mine, oracle);
+        // `Serialize`) against the golden.
+        assert_eq!(
+            serde_json::to_value(c.to_single_struct()).unwrap(),
+            j(
+                r#"[{"lat":0.0,"lon":0.0},{"lat":0.0,"lon":2.0},{"lat":2.0,"lon":2.0},{"lat":0.0,"lon":0.0},{"lat":6.0,"lon":5.0},{"lat":8.0,"lon":7.0},{"lat":0.0,"lon":0.0}]"#
+            )
+        );
     }
 
     #[test]
-    fn multi_struct_matches_oracle() {
-        use crate::geometry::ToMultiStruct;
+    fn multi_struct_matches_golden() {
         let c = sample();
-        let mine = serde_json::to_value(c.to_multi_struct()).unwrap();
-        let oracle = serde_json::to_value(fc(&c).to_multi_struct()).unwrap();
-        assert_eq!(mine, oracle);
+        assert_eq!(
+            serde_json::to_value(c.to_multi_struct()).unwrap(),
+            j(
+                r#"[[{"lat":0.0,"lon":0.0},{"lat":0.0,"lon":2.0},{"lat":2.0,"lon":2.0},{"lat":0.0,"lon":0.0}],[{"lat":6.0,"lon":5.0},{"lat":8.0,"lon":7.0},{"lat":6.0,"lon":5.0}]]"#
+            )
+        );
     }
 
     #[test]
-    fn text_matches_oracle_both_param_sets() {
-        use crate::geometry::ToText;
+    fn text_matches_golden_both_param_sets() {
         let c = sample();
-        assert_eq!(c.to_text(",", "\n", true), fc(&c).to_text(",", "\n", true));
-        assert_eq!(c.to_text(" ", ",", false), fc(&c).to_text(" ", ",", false));
+        assert_eq!(
+            c.to_text(",", "\n", true),
+            "[Geofence 1]\n0,0\n0,2\n2,2\n0,0\n\n[Geofence 2]\n6,5\n8,7"
+        );
+        assert_eq!(c.to_text(" ", ",", false), "0 0,0 2,2 2,0 0,6 5,8 7");
     }
 
     #[test]
-    fn sql_matches_oracle() {
-        use crate::geometry::ToSql;
+    fn sql_matches_golden() {
         let c = sample();
-        assert_eq!(c.to_sql(), fc(&c).to_sql());
+        assert_eq!(
+            c.to_sql(),
+            "SELECT * FROM {database.table} WHERE (\n\tlon BETWEEN 0 AND 2\n\tAND lat BETWEEN 0 AND 2\n\tAND ST_CONTAINS(\n\t\tST_GeomFromGeoJSON('{\"type\":\"Polygon\",\"coordinates\":[[[0.0,0.0],[2.0,0.0],[2.0,2.0],[0.0,0.0]]]}', 2, 0),\n\t\tPOINT(lon, lat)\n\t)\n)"
+        );
     }
 
     #[test]
-    fn poracle_vec_matches_oracle() {
-        use crate::geometry::ToPoracleVec;
+    fn poracle_vec_matches_golden() {
         let c = sample();
         // `Poracle`/`UnknownId` have no `PartialEq`; both derive `Serialize`, so
-        // compare the serialized form — full-fidelity parity against the oracle.
-        let mine = serde_json::to_value(c.to_poracle_vec()).unwrap();
-        let oracle = serde_json::to_value(fc(&c).to_poracle_vec()).unwrap();
-        assert_eq!(mine, oracle);
+        // compare the serialized form against the golden.
+        assert_eq!(
+            serde_json::to_value(c.to_poracle_vec()).unwrap(),
+            j(
+                r#"[{"id":1,"name":"a","userSelectable":true,"displayInMatches":true,"path":[[0.0,0.0],[0.0,2.0],[2.0,2.0],[0.0,0.0]]},{"id":2,"name":"b","userSelectable":true,"displayInMatches":true,"path":[]}]"#
+            )
+        );
     }
 
-    /// `single_vec_to_multipoint_feature` geometry parity vs the matrix
-    /// `SingleVec::to_feature(CirclePokemon)` (the bootstrap edge oracle). Covers
+    /// `single_vec_to_multipoint_feature` geometry, asserted against goldens frozen
+    /// from the (now-deleted) matrix `SingleVec::to_feature(CirclePokemon)`. Covers
     /// open, pre-closed, and interior-duplicate routes — the closing-coord +
-    /// adjacent-dedupe edges the matrix handled.
+    /// adjacent-dedupe edges the matrix handled (all three dedupe to the same
+    /// MultiPoint).
     #[test]
-    fn single_vec_multipoint_feature_matches_matrix() {
-        use crate::geometry::{ToFeature, single_vec_to_multipoint_feature};
-        use crate::{FeatureCtx, FenceType, SingleVec};
+    fn single_vec_multipoint_feature_matches_golden() {
+        use crate::geometry::single_vec_to_multipoint_feature;
 
+        let golden =
+            geojson::Value::MultiPoint(vec![vec![2.0, 1.0], vec![4.0, 3.0], vec![6.0, 5.0]]);
         for centers in [
             vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],             // open
             vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2.0]], // pre-closed
             vec![[1.0, 2.0], [3.0, 4.0], [3.0, 4.0], [5.0, 6.0]], // interior dup
         ] {
             let centers: SingleVec = centers;
-            let old = centers
-                .clone()
-                .to_feature(&FeatureCtx::new().with_type(FenceType::CirclePokemon));
             let new = single_vec_to_multipoint_feature(&centers);
-            // Geometry value must byte-match (the bbox fields the matrix set are
-            // discarded downstream by `KojiGeometryCollection::try_from`).
             assert_eq!(
                 new.geometry.unwrap().value,
-                old.geometry.unwrap().value,
-                "bootstrap MultiPoint must match the matrix"
+                golden,
+                "bootstrap MultiPoint must match the golden"
             );
         }
     }
 
-    /// `single_vec_to_polygon_feature` geometry parity vs the matrix
-    /// `SingleVec::to_feature(FeatureCtx::default())` (no fence type → polygon),
-    /// the bootstrap *plugin* edge oracle.
+    /// `single_vec_to_polygon_feature` geometry, asserted against goldens frozen
+    /// from the (now-deleted) matrix `SingleVec::to_feature` (no fence type →
+    /// polygon, ring-closed).
     #[test]
-    fn single_vec_polygon_feature_matches_matrix() {
-        use crate::geometry::{ToFeature, single_vec_to_polygon_feature};
-        use crate::{FeatureCtx, SingleVec};
+    fn single_vec_polygon_feature_matches_golden() {
+        use crate::geometry::single_vec_to_polygon_feature;
 
+        let golden = geojson::Value::Polygon(vec![vec![
+            vec![2.0, 1.0],
+            vec![4.0, 3.0],
+            vec![6.0, 5.0],
+            vec![2.0, 1.0],
+        ]]);
         for centers in [
             vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], // open ring
             vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2.0]], // pre-closed
         ] {
             let centers: SingleVec = centers;
-            let old = centers.clone().to_feature(&FeatureCtx::default());
             let new = single_vec_to_polygon_feature(&centers);
             assert_eq!(
                 new.geometry.unwrap().value,
-                old.geometry.unwrap().value,
-                "bootstrap-plugin Polygon must match the matrix"
+                golden,
+                "bootstrap-plugin Polygon must match the golden"
             );
         }
     }
