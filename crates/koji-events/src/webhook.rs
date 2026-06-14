@@ -84,7 +84,7 @@ fn topics_match(topics: &serde_json::Value, topic: &str) -> bool {
 
 /// Compute the `X-Koji-Signature` value for `body` under `secret`:
 /// `sha256=<hex hmac-sha256(secret, body)>`.
-pub fn sign(secret: &str, body: &[u8]) -> String {
+pub(crate) fn sign(secret: &str, body: &[u8]) -> String {
     use hmac::{Hmac, Mac};
     use sha2::Sha256;
 

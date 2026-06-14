@@ -108,7 +108,7 @@ pub struct GeofenceNoGeometry {
 }
 
 #[derive(Serialize, Deserialize, FromQueryResult)]
-pub struct OnlyParent {
+pub(crate) struct OnlyParent {
     pub parent: Option<u32>,
 }
 

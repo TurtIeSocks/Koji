@@ -55,13 +55,13 @@ impl Related<super::property::Entity> for Entity {
 impl ActiveModelBehavior for ActiveModel {}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Basic<'a> {
+pub(crate) struct Basic<'a> {
     pub name: &'a str,
     pub value: Json,
 }
 
 #[derive(Clone, Debug, FromQueryResult, Serialize, Deserialize)]
-pub struct FullPropertyModel {
+pub(crate) struct FullPropertyModel {
     pub id: u32,
     pub geofence_id: u32,
     pub property_id: u32,

@@ -67,7 +67,7 @@ pub struct RouteNoGeometry {
 }
 
 #[derive(Serialize, Deserialize, FromQueryResult)]
-pub struct OnlyGeofenceId {
+pub(crate) struct OnlyGeofenceId {
     pub geofence_id: u32,
 }
 

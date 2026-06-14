@@ -27,7 +27,7 @@ trait ToFeatureFromModel {
 }
 
 #[derive(Debug, Serialize, FromQueryResult)]
-pub struct NameId {
+pub(crate) struct NameId {
     id: u32,
     name: String,
 }
@@ -51,11 +51,11 @@ impl Default for PaginateResults<()> {
     }
 }
 
-pub struct InsertsUpdates {
+pub(crate) struct InsertsUpdates {
     updates: usize,
     inserts: usize,
 }
 
-pub trait VecToJson {
+pub(crate) trait VecToJson {
     fn to_json(self) -> Vec<serde_json::Value>;
 }
