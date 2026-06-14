@@ -659,13 +659,11 @@ impl Query {
     /// rings are closed via `EnsurePoints` as the old `to_collection` did.
     ///
     /// NOTE: on the NON-internal path the emitted `mode` property is the legacy
-    /// 12-value string, which `KojiMeta`'s 4-value `Mode` field rejects on
-    /// deserialize — `TryFrom`'s `unwrap_or_default()` then drops the whole
-    /// properties object (id/name/geofence_id included). This is a pre-existing
-    /// fidelity bug (present since 36ac2e7's `try_from` round-trip); preserved here
-    /// byte-for-byte. Fix belongs in koji-core (legacy-tolerant `KojiMeta` mode
-    /// deserialize). Does not replace `by_geofence_feature` (deleted in a later
-    /// section).
+    /// 12-value string. As of S5c, `KojiMeta`'s `mode` field deserializes
+    /// leniently (mapping the legacy value to the canonical `Mode` via
+    /// `Mode::from_legacy`), so the `TryFrom` no longer fails and the sibling
+    /// properties (id/name/geofence_id) are preserved. Does not replace
+    /// `by_geofence_feature` (deleted in a later section).
     #[allow(clippy::result_large_err)]
     pub async fn by_geofence_koji(
         db: &DatabaseConnection,
@@ -842,17 +840,13 @@ mod to_koji_tests {
     /// `Vec<Feature>` (the live `by_geofence_feature` half needs a DB and is
     /// exercised by integration).
     ///
-    /// IMPORTANT — pre-existing legacy-`mode` poisoning (NOT introduced here):
-    /// the route `to_feature` ALWAYS emits a non-internal `mode` property equal to
-    /// the legacy 12-value string (e.g. `"circle_pokemon"`). `KojiMeta.mode` is the
-    /// 4-value `Mode` enum, so `serde_json::from_value::<KojiMeta>` REJECTS that
-    /// string and `KojiGeometry::try_from`'s `.unwrap_or_default()` discards the
-    /// ENTIRE properties object — dropping `id`/`name`/`geofence_id` too. This
-    /// already happens on `main` (introduced when 36ac2e7 swapped the endpoint to
-    /// the `try_from` round-trip); `by_geofence_koji` preserves it byte-for-byte.
-    /// See `by_geofence_koji_legacy_mode_poisons_noninternal_props` below — that is
-    /// a fidelity bug to fix in koji-core (legacy-tolerant `KojiMeta` mode
-    /// deserialize), out of this sub-step's file scope.
+    /// NOTE — legacy-`mode` handling: the route `to_feature` ALWAYS emits a
+    /// non-internal `mode` property equal to the legacy 12-value string (e.g.
+    /// `"circle_pokemon"`). As of S5c, `KojiMeta.mode` deserializes leniently —
+    /// `serde_json::from_value::<KojiMeta>` maps the legacy value to the canonical
+    /// `Mode` via `Mode::from_legacy` rather than rejecting it, so the `TryFrom`
+    /// preserves the full properties object (`id`/`name`/`geofence_id`).
+    /// See `by_geofence_koji_legacy_mode_preserved_with_props` below.
     fn koji_collection_from_features(features: Vec<Feature>) -> KojiGeometryCollection {
         let fc = geojson::FeatureCollection {
             bbox: None,
@@ -906,28 +900,36 @@ mod to_koji_tests {
         );
     }
 
-    /// Regression pin for the pre-existing legacy-`mode` poisoning on the
-    /// NON-internal path. The route feature's `mode = "circle_pokemon"` is not a
-    /// valid 4-value `Mode`, so the whole `KojiMeta` deserialize fails and every
-    /// property is dropped. `by_geofence_koji` reproduces the live endpoint exactly,
-    /// so this asserts the (buggy) status quo — when koji-core gains a
-    /// legacy-tolerant `mode` deserialize, this test flips and should be updated.
+    /// Regression for the S5c legacy-`mode` fix on the NON-internal path. The
+    /// route feature's `mode = "circle_pokemon"` is a legacy 12-value string;
+    /// `KojiMeta`'s lenient `mode` deserialize now maps it to the canonical
+    /// `Mode::Pokemon` instead of failing the whole deserialize. Crucially, the
+    /// sibling properties (`name`, the route-only `geofence_id`) survive — they
+    /// were silently dropped before the fix. `by_geofence_koji` reproduces the
+    /// live endpoint exactly, so this pins the corrected high-fidelity behavior.
     #[test]
-    fn by_geofence_koji_legacy_mode_poisons_noninternal_props() {
+    fn by_geofence_koji_legacy_mode_preserved_with_props() {
         let feature = route_row_for_feature().to_feature(false).unwrap();
-        // Sanity: the feature really does carry the poisoning legacy string.
+        // Sanity: the feature carries the legacy 12-value string + sibling props.
         assert_eq!(
             feature.property("mode").and_then(|v| v.as_str()),
             Some("circle_pokemon")
+        );
+        assert_eq!(
+            feature.property("name").and_then(|v| v.as_str()),
+            Some("patrol")
         );
 
         let coll = koji_collection_from_features(vec![feature]);
         assert_eq!(coll.items.len(), 1);
         let meta = &coll.items[0].meta;
-        // Poisoned -> default meta: id/name/geofence_id/mode all lost.
-        assert_eq!(meta.id, None);
-        assert_eq!(meta.name, None);
-        assert!(meta.extra.get("geofence_id").is_none());
-        assert_eq!(meta.mode, Mode::Unset);
+        // Legacy string mapped to canonical Mode; siblings preserved.
+        assert_eq!(meta.mode, Mode::Pokemon);
+        assert_eq!(meta.id, Some(3));
+        assert_eq!(meta.name.as_deref(), Some("patrol"));
+        assert_eq!(
+            meta.extra.get("geofence_id").and_then(|v| v.as_u64()),
+            Some(88)
+        );
     }
 }

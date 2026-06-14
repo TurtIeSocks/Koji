@@ -1012,13 +1012,11 @@ impl Query {
     /// rings are closed via `EnsurePoints` as the old `to_collection` did.
     ///
     /// NOTE: when the request asks for `?mode` on the non-internal path, the
-    /// emitted `mode` property is the legacy 12-value string, which `KojiMeta`'s
-    /// 4-value `Mode` field rejects on deserialize — `TryFrom`'s
-    /// `unwrap_or_default()` then drops the whole properties object. This is a
-    /// pre-existing fidelity bug (present since 36ac2e7's `try_from` round-trip);
-    /// preserved here byte-for-byte. Fix belongs in koji-core (legacy-tolerant
-    /// `KojiMeta` mode deserialize). Does not replace `project_as_feature`
-    /// (deleted in a later section).
+    /// emitted `mode` property is the legacy 12-value string. As of S5c,
+    /// `KojiMeta`'s `mode` field deserializes leniently (mapping the legacy value
+    /// to the canonical `Mode` via `Mode::from_legacy`), so the `TryFrom` no
+    /// longer fails and the full properties object is preserved. Does not replace
+    /// `project_as_feature` (deleted in a later section).
     #[allow(clippy::result_large_err)]
     pub async fn project_as_koji(
         db: &DatabaseConnection,
@@ -1307,27 +1305,25 @@ mod to_koji_tests {
         assert_eq!(meta.name.as_deref(), Some("Aurora"));
     }
 
-    /// Regression pin for the pre-existing legacy-`mode` poisoning: when the
-    /// request asks for `?mode` (non-internal), the projected feature carries
-    /// `mode = "circle_pokemon"` — not a valid 4-value `Mode` — so the whole
-    /// `KojiMeta` deserialize fails and every property (id/name included) is
-    /// dropped. `project_as_koji` reproduces the live endpoint exactly, so this
-    /// asserts the (buggy) status quo. Already happens on `main` (since 36ac2e7's
-    /// `try_from` round-trip); the fix is a legacy-tolerant `KojiMeta` mode
-    /// deserialize in koji-core, out of this sub-step's file scope. When that
-    /// lands, this test flips and should be updated.
+    /// Regression for the S5c legacy-`mode` fix: when the request asks for `?mode`
+    /// (non-internal), the projected feature carries `mode = "circle_pokemon"` — a
+    /// legacy 12-value string. `KojiMeta`'s lenient `mode` deserialize now maps it
+    /// to the canonical `Mode::Pokemon` instead of failing the whole deserialize,
+    /// so the sibling `id`/`name` properties survive (they were silently dropped
+    /// before the fix). `project_as_koji` reproduces the live endpoint exactly, so
+    /// this pins the corrected behavior.
     #[test]
-    fn project_as_koji_legacy_mode_poisons_noninternal_props() {
+    fn project_as_koji_legacy_mode_preserved_with_props() {
         let args = ApiQueryArgs {
             id: Some(true),
             name: Some(true),
-            mode: Some(true), // emits the poisoning legacy `mode` string
+            mode: Some(true), // emits the legacy 12-value `mode` string
             ..Default::default()
         };
         let feature = geofence_row_for_feature()
             .to_feature(&HashMap::new(), &HashMap::new(), &args)
             .unwrap();
-        // Sanity: the feature really does carry the poisoning legacy string.
+        // Sanity: the feature carries the legacy 12-value string.
         assert_eq!(
             feature.property("mode").and_then(|v| v.as_str()),
             Some("circle_pokemon")
@@ -1336,9 +1332,9 @@ mod to_koji_tests {
         let coll = koji_collection_from_features(vec![feature]);
         assert_eq!(coll.items.len(), 1);
         let meta = &coll.items[0].meta;
-        // Poisoned -> default meta: id/name/mode all lost.
-        assert_eq!(meta.id, None);
-        assert_eq!(meta.name, None);
-        assert_eq!(meta.mode, Mode::Unset);
+        // Legacy string mapped to canonical Mode; id/name preserved.
+        assert_eq!(meta.mode, Mode::Pokemon);
+        assert_eq!(meta.id, Some(9));
+        assert_eq!(meta.name.as_deref(), Some("Aurora"));
     }
 }
