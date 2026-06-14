@@ -7,26 +7,25 @@
 use actix_web::{Error, HttpResponse, post, web};
 use geojson::FeatureCollection;
 use koji_core::{BoundsArg, FeatureHelpers, GeometryHelpers, TrimPrecision};
-use model::api::args::{Args, ArgsUnwrapped};
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashSet;
 
+use crate::requests::{ConvertReq, MergePointsReq, SimplifyReq, area_collection};
 use crate::utils::{self, api_response::ApiResponse};
 
 /// `POST /api/v2/geo/convert` — convert/normalize a geometry to the requested
 /// return type, optionally simplifying. Ports v1 `/convert/data`.
 #[post("/convert")]
-async fn convert(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
-    let ArgsUnwrapped {
-        area,
-        benchmark_mode,
-        return_type,
-        instance,
-        simplify: arg_simplify,
-        ..
-    } = payload.into_inner().init(Some("convert_data"));
+async fn convert(payload: web::Json<ConvertReq>) -> Result<HttpResponse, Error> {
+    let req = payload.into_inner();
+    let default_return_type = req.default_return_type();
+    let arg_simplify = req.simplify.unwrap_or(false);
+    let benchmark_mode = req.benchmark_mode.unwrap_or(false);
+    let instance = req.instance.unwrap_or_default();
+    let return_type = req.output.resolve(default_return_type).return_type;
 
+    let area = area_collection(&req.area);
     let area = if arg_simplify { area.simplify() } else { area }
         .into_iter()
         .map(|feat| feat.remove_internal_props())
@@ -48,10 +47,11 @@ async fn convert(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
 /// `POST /api/v2/geo/simplify` — simplify the supplied geometry. Ports v1
 /// `/convert/simplify`.
 #[post("/simplify")]
-async fn simplify(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
-    let ArgsUnwrapped {
-        area, return_type, ..
-    } = payload.into_inner().init(Some("simplify"));
+async fn simplify(payload: web::Json<SimplifyReq>) -> Result<HttpResponse, Error> {
+    let req = payload.into_inner();
+    let default_return_type = req.default_return_type();
+    let return_type = req.output.resolve(default_return_type).return_type;
+    let area = area_collection(&req.area);
 
     let coll = koji_core::KojiGeometryCollection::try_from(area.simplify())
         .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -62,10 +62,11 @@ async fn simplify(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
 /// `POST /api/v2/geo/merge-points` — merge point features into one MultiPoint.
 /// Ports v1 `/convert/merge-points`.
 #[post("/merge-points")]
-async fn merge_points(payload: web::Json<Args>) -> Result<HttpResponse, Error> {
-    let ArgsUnwrapped {
-        area, return_type, ..
-    } = payload.into_inner().init(Some("simplify"));
+async fn merge_points(payload: web::Json<MergePointsReq>) -> Result<HttpResponse, Error> {
+    let req = payload.into_inner();
+    let default_return_type = req.default_return_type();
+    let return_type = req.output.resolve(default_return_type).return_type;
+    let area = area_collection(&req.area);
 
     // Koji-native: normalize the inbound geometry, then collapse its point items
     // into one MultiPoint via the re-homed `KojiGeometryCollection::merge_points`.

@@ -8,11 +8,11 @@ use std::time::Duration;
 use actix_web::{Error, HttpResponse, delete, get, http::StatusCode, post, web};
 use koji_db::KojiDb;
 use koji_jobs::{AwaitError, EnqueueError, JobId, JobOutcome, JobQueue, dedup_key};
-use model::api::args::{Args, ArgsUnwrapped};
 use serde::Deserialize;
 use serde_json::json;
 
 use crate::public::v2::calc::{CALC_KIND, CalcPayload};
+use crate::requests::{CalcRequest, area_collection};
 use crate::utils::{self, api_response::ApiResponse};
 
 /// Priority for sync-bridged calc jobs (`priority DESC` claim order; spec §6/§8:
@@ -178,12 +178,18 @@ async fn run_calc(
     query: CalcQuery,
     body: web::Json<serde_json::Value>,
 ) -> Result<HttpResponse, Error> {
-    // The raw request JSON is preserved verbatim in the payload so the handler
-    // can re-parse it into `Args` (which is `Deserialize`-only — it can't be
-    // serialized back, hence accepting the body as `Value` here).
-    let request_json = body.into_inner();
-    let args: Args = match serde_json::from_value(request_json.clone()) {
-        Ok(args) => args,
+    // Type the request at the HTTP boundary. The URL `{mode}` segment is the calc
+    // operation (a scan/cluster mode like `fastest`, or `bootstrap`/`reroute`/
+    // `route-stats`/`route`); it selects the tagged `CalcRequest` variant. The body
+    // carries that op's nested arg-groups (without a `mode` tag), so we inject the
+    // resolved tag before deserializing.
+    let mut body_json = body.into_inner();
+    let tag = calc_request_tag(&mode);
+    if let serde_json::Value::Object(map) = &mut body_json {
+        map.insert("mode".to_string(), serde_json::Value::from(tag));
+    }
+    let calc_request: CalcRequest = match serde_json::from_value(body_json) {
+        Ok(req) => req,
         Err(e) => {
             return Ok(ApiResponse::fail(
                 StatusCode::BAD_REQUEST,
@@ -192,18 +198,14 @@ async fn run_calc(
         }
     };
 
-    // Resolve the config knobs we need *here* to do the async resolution
-    // (area + data points). `init` also applies mode-specific defaults.
-    let ArgsUnwrapped {
-        area,
-        data_points,
-        clusters,
-        instance,
-        parent,
-        last_seen,
-        tth,
-        ..
-    } = args.init(Some(&mode));
+    // Extract the async-resolution inputs (area / data_points / clusters / parent /
+    // instance / data-filter) the same way the legacy flat `Args` drove them.
+    let inputs = calc_request.enqueue_inputs();
+    let area = area_collection(&inputs.area);
+    let data_points = inputs.data_points;
+    let clusters = inputs.clusters;
+    let instance = inputs.instance;
+    let parent = inputs.parent;
 
     if area.features.is_empty() && instance.is_empty() && data_points.is_empty() && parent.is_none()
     {
@@ -227,18 +229,29 @@ async fn run_calc(
         data_points
     } else if data_points.is_empty() {
         use koji_scanner::GenericDataToVec;
-        utils::points_from_area(&area, &category, &conn, last_seen, tth)
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?
-            .to_single_vec()
+        utils::points_from_area(
+            &area,
+            &category,
+            &conn,
+            inputs.data_filter.last_seen,
+            inputs.data_filter.tth,
+        )
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?
+        .to_single_vec()
     } else {
         data_points
     };
 
+    // Store the typed request verbatim — the job handler re-decodes it as a
+    // `CalcRequest` and `resolve()`s the groups (the transitional dual-path).
+    let request =
+        serde_json::to_value(&calc_request).map_err(actix_web::error::ErrorInternalServerError)?;
+
     let calc_payload = CalcPayload {
         mode: mode.clone(),
         category,
-        request: request_json,
+        request,
         area,
         data_points,
         clusters,
@@ -331,6 +344,21 @@ fn enqueue_error_response(e: EnqueueError) -> HttpResponse {
         Some("internal_error".to_string()),
         None,
     )
+}
+
+/// Map the URL `{mode}` path segment to the [`CalcRequest`] serde tag. The named
+/// ops (`bootstrap`/`reroute`/`route-stats`/`route`) map to their variant; every
+/// other mode string (the cluster modes like `fastest`/`balanced`) is a
+/// `cluster` op (the actual `ClusterMode` rides the body's `clustering.mode`).
+/// Mirrors the legacy `run()` mode-string dispatch.
+fn calc_request_tag(mode: &str) -> &'static str {
+    match mode {
+        "bootstrap" => "bootstrap",
+        "reroute" => "reroute",
+        "route-stats" | "route_stats" => "routeStats",
+        "route" => "route",
+        _ => "cluster",
+    }
 }
 
 /// Map a stable job error code to the HTTP status the sync bridge should return.

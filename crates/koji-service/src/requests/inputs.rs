@@ -52,6 +52,28 @@ impl GeoInput {
             GeoInput::Geometry(g) => geometry_to_koji(g),
         }
     }
+
+    /// Normalize the inbound geojson into the algorithm-edge `FeatureCollection`,
+    /// lenient like the legacy `init()`: a geometry that fails to normalize logs a
+    /// warning and yields an empty collection.
+    pub fn to_feature_collection(&self) -> FeatureCollection {
+        match self.to_koji() {
+            Ok(coll) => FeatureCollection::from(&coll),
+            Err(err) => {
+                log::warn!("[AREA] failed to normalize inbound geometry: {err}");
+                FeatureCollection::default()
+            }
+        }
+    }
+}
+
+/// Normalize an optional request `area` into a `FeatureCollection` — lenient (no
+/// area → empty collection; a bad geometry logs and yields empty). The shared
+/// parity-faithful `area` resolution for the geo handlers + the v2 calc enqueue.
+pub fn area_collection(area: &Option<GeoInput>) -> FeatureCollection {
+    area.as_ref()
+        .map(GeoInput::to_feature_collection)
+        .unwrap_or_default()
 }
 
 /// Convert a bare geojson `Geometry` into a collection. A `GeometryCollection`

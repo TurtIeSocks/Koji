@@ -13,11 +13,14 @@
 //!
 //! [`default_return_type`]: ClusterReq::default_return_type
 
-use koji_core::{Precision, ReturnTypeArg};
+use koji_core::{DataFilter, Precision, ReturnTypeArg, SingleVec, SpawnpointTth, UnknownId};
 use serde::{Deserialize, Serialize};
 
-use super::groups::{BootstrapArgs, ClusteringArgs, DevArgs, OutputArgs, RoutingArgs};
+use super::groups::{
+    BootstrapArgs, ClusteringArgs, DataFilterArgs, DevArgs, OutputArgs, RoutingArgs,
+};
 use super::inputs::{DataPointsArg, GeoInput};
+use super::resolve::resolve_data_points;
 
 /// Maps an inbound `area` container shape to the parity `default_return_type`.
 /// Shared by every op-request that carries an `area`.
@@ -43,8 +46,80 @@ pub enum CalcRequest {
     RouteStats(StatsReq),
 }
 
+/// The async-resolution inputs the HTTP enqueue layer extracts from a
+/// [`CalcRequest`] before baking the (now-resolved) `area` / `data_points` /
+/// `clusters` into the `CalcPayload`. Mirrors the flat `ArgsUnwrapped` fields the
+/// legacy enqueue read (`area`, `data_points`, `clusters`, `instance`, `parent`,
+/// `last_seen`, `tth`). The request itself is serialized verbatim into the payload
+/// afterwards, so this only *reads* the request (clones the input enums).
+pub struct EnqueueInputs {
+    /// The inbound `area` geometry (`None` for reroute / route-stats).
+    pub area: Option<GeoInput>,
+    /// The pre-resolved `[lat, lon]` data points (empty when none supplied).
+    pub data_points: SingleVec,
+    /// The pre-resolved `[lat, lon]` cluster set (reroute / route-stats; else empty).
+    pub clusters: SingleVec,
+    /// The instance name (empty when unset).
+    pub instance: String,
+    /// A parent geofence id whose children form the area (cluster / bootstrap).
+    pub parent: Option<UnknownId>,
+    /// The scanner data-point filter (`last_seen` / `tth`).
+    pub data_filter: DataFilter,
+}
+
+impl CalcRequest {
+    /// Extract the async-resolution inputs for the HTTP enqueue stage. Reads the
+    /// request (cloning the input enums) so the request can still be serialized
+    /// verbatim into the job payload afterwards.
+    pub fn enqueue_inputs(&self) -> EnqueueInputs {
+        let no_filter = DataFilter {
+            last_seen: 0,
+            tth: SpawnpointTth::All,
+        };
+        match self {
+            CalcRequest::Cluster(c) | CalcRequest::Route(c) => EnqueueInputs {
+                area: c.area.clone(),
+                data_points: resolve_data_points(c.data_points.clone()),
+                clusters: Vec::new(),
+                instance: c.instance.clone().unwrap_or_default(),
+                parent: c.parent.clone(),
+                data_filter: c.data_filter.clone().resolve(),
+            },
+            CalcRequest::Bootstrap(b) => EnqueueInputs {
+                area: b.area.clone(),
+                data_points: Vec::new(),
+                clusters: Vec::new(),
+                instance: b.instance.clone().unwrap_or_default(),
+                parent: b.parent.clone(),
+                data_filter: no_filter,
+            },
+            CalcRequest::Reroute(r) => EnqueueInputs {
+                area: None,
+                data_points: resolve_data_points(r.data_points.clone()),
+                clusters: resolve_data_points(r.clusters.clone()),
+                instance: r.instance.clone().unwrap_or_default(),
+                parent: None,
+                data_filter: no_filter,
+            },
+            CalcRequest::RouteStats(s) => EnqueueInputs {
+                area: None,
+                data_points: resolve_data_points(s.data_points.clone()),
+                clusters: resolve_data_points(s.clusters.clone()),
+                instance: s.instance.clone().unwrap_or_default(),
+                parent: None,
+                data_filter: no_filter,
+            },
+        }
+    }
+}
+
 /// Cluster / route request: an `area` (or pre-resolved `data_points`) plus the
-/// clustering, routing, output, and dev groups.
+/// clustering, routing, output, dev, and data-filter groups.
+///
+/// `parent` + the `data_filter` group ride along so the HTTP enqueue layer can do
+/// the same async area / scanner resolution the legacy flat `Args` drove
+/// (`create_or_find_collection` reads `parent`; `points_from_area` reads
+/// `data_filter.last_seen`/`tth`).
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClusterReq {
@@ -58,6 +133,9 @@ pub struct ClusterReq {
     pub output: OutputArgs,
     #[serde(default)]
     pub dev: DevArgs,
+    #[serde(default)]
+    pub data_filter: DataFilterArgs,
+    pub parent: Option<UnknownId>,
     pub instance: Option<String>,
 }
 
@@ -79,6 +157,8 @@ pub struct RerouteReq {
     pub routing: RoutingArgs,
     #[serde(default)]
     pub output: OutputArgs,
+    #[serde(default)]
+    pub dev: DevArgs,
     pub radius: Option<Precision>,
     pub instance: Option<String>,
 }
@@ -94,6 +174,9 @@ pub struct BootstrapReq {
     pub routing: RoutingArgs,
     #[serde(default)]
     pub output: OutputArgs,
+    #[serde(default)]
+    pub dev: DevArgs,
+    pub parent: Option<UnknownId>,
     pub instance: Option<String>,
 }
 
@@ -114,6 +197,8 @@ pub struct StatsReq {
     pub min_points: Option<usize>,
     #[serde(default)]
     pub output: OutputArgs,
+    #[serde(default)]
+    pub dev: DevArgs,
     pub instance: Option<String>,
 }
 
@@ -189,5 +274,30 @@ mod tests {
             req.default_return_type(),
             koji_core::ReturnTypeArg::SingleArray
         );
+    }
+
+    /// The job-payload path: a nested cluster request survives the queue crossing
+    /// (`to_value` → `from_value::<CalcRequest>`) with its groups intact. This is
+    /// exactly the round-trip the v2 enqueue + `JobHandler::run` rely on.
+    #[test]
+    fn nested_cluster_request_round_trips_through_value() {
+        let json = r#"{
+            "mode":"cluster",
+            "clustering":{"radius":42,"minPoints":5},
+            "routing":{"sortBy":"geoHash"},
+            "output":{"saveToDb":true}
+        }"#;
+        let req: CalcRequest = serde_json::from_str(json).unwrap();
+        let value = serde_json::to_value(&req).unwrap();
+        let back: CalcRequest = serde_json::from_value(value).unwrap();
+        match back {
+            CalcRequest::Cluster(c) => {
+                let clustering = c.clustering.resolve();
+                assert_eq!(clustering.radius, 42.0);
+                assert_eq!(clustering.min_points, 5);
+                assert!(c.output.resolve(ReturnTypeArg::SingleArray).save_to_db);
+            }
+            _ => panic!("expected Cluster variant after round-trip"),
+        }
     }
 }

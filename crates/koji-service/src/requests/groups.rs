@@ -104,7 +104,7 @@ impl BootstrapArgs {
 }
 
 /// Data-filter wire args → [`DataFilter`].
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct DataFilterArgs {
     pub last_seen: Option<u32>,
