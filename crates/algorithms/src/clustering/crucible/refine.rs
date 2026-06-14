@@ -220,21 +220,21 @@ impl GeoGrid {
     fn for_each_in_bbox(
         &self,
         reps: &SingleVec,
-        min_lat: Precision,
-        max_lat: Precision,
-        min_lon: Precision,
-        max_lon: Precision,
+        bbox: koji_core::KojiBbox,
         mut f: impl FnMut(u32),
     ) {
-        for row in self.row_of(min_lat)..=self.row_of(max_lat) {
+        for row in self.row_of(bbox.min_lat)..=self.row_of(bbox.max_lat) {
             let dlon = self.dlon_for_row(row);
-            let min_col = (min_lon / dlon).floor() as i32;
-            let max_col = (max_lon / dlon).floor() as i32;
+            let min_col = (bbox.min_lon / dlon).floor() as i32;
+            let max_col = (bbox.max_lon / dlon).floor() as i32;
             for col in min_col..=max_col {
                 if let Some(bucket) = self.buckets.get(&(row, col)) {
                     for &i in bucket {
                         let p = reps[i as usize];
-                        if p[0] >= min_lat && p[0] <= max_lat && p[1] >= min_lon && p[1] <= max_lon
+                        if p[0] >= bbox.min_lat
+                            && p[0] <= bbox.max_lat
+                            && p[1] >= bbox.min_lon
+                            && p[1] <= bbox.max_lon
                         {
                             f(i);
                         }
@@ -1297,14 +1297,8 @@ impl<'a> Refiner<'a> {
         let margin = crate::clustering::candidates::meters_to_degrees(radius, bbox.center_lat());
         let expanded = bbox.expand(margin);
         let mut local: Vec<u32> = Vec::new();
-        self.grid.for_each_in_bbox(
-            self.reps,
-            expanded.min_lat,
-            expanded.max_lat,
-            expanded.min_lon,
-            expanded.max_lon,
-            |i| local.push(i),
-        );
+        self.grid
+            .for_each_in_bbox(self.reps, expanded, |i| local.push(i));
         for &c in removed {
             local.extend(self.covered[c].iter().copied());
         }
