@@ -1,7 +1,7 @@
 use geojson::{Feature, FeatureCollection, Geometry};
 use koji_core::{
-    CalculationMode, ClusterMode, FenceType, KojiGeometry, KojiGeometryCollection, Precision,
-    ReturnTypeArg, SortBy, SpawnpointTth, ToSingleVec, UnknownId, get_enum,
+    CalculationMode, ClusterMode, KojiGeometry, KojiGeometryCollection, Mode, Precision,
+    ReturnTypeArg, SortBy, SpawnpointTth, UnknownId,
 };
 use serde::{Deserialize, Serialize};
 
@@ -273,7 +273,7 @@ pub struct ArgsUnwrapped {
     pub simplify: bool,
     pub sort_by: SortBy,
     pub tth: SpawnpointTth,
-    pub mode: FenceType,
+    pub mode: Mode,
     pub route_split_level: u64,
     pub routing_args: String,
     pub clustering_args: String,
@@ -310,10 +310,23 @@ fn validate_s2_cell(value_to_check: Option<u64>, label: &str) -> u64 {
 fn resolve_data_points(data_points: Option<DataPointsArg>) -> koji_core::SingleVec {
     if let Some(data_points) = data_points {
         match data_points {
-            DataPointsArg::Struct(data_points) => data_points.to_single_vec(),
+            // `Array` is already the `[lat, lon]` list. `Struct` is `PointStruct`s
+            // — map each to `[lat, lon]` directly. `Feature`/`FeatureCollection`
+            // go through the Phase 1 `TryFrom` then the Phase 1B inherent
+            // `to_single_vec` (no `To*` matrix). A feature with an unconvertible
+            // geometry yields no points, matching the old matrix's empty arm.
             DataPointsArg::Array(data_points) => data_points,
-            DataPointsArg::Feature(data_points) => data_points.to_single_vec(),
-            DataPointsArg::FeatureCollection(data_points) => data_points.to_single_vec(),
+            DataPointsArg::Struct(data_points) => {
+                data_points.into_iter().map(|p| [p.lat, p.lon]).collect()
+            }
+            DataPointsArg::Feature(feature) => match KojiGeometry::try_from(feature) {
+                Ok(kg) => KojiGeometryCollection::new(vec![kg]).to_single_vec(),
+                Err(_) => vec![],
+            },
+            DataPointsArg::FeatureCollection(fc) => match KojiGeometryCollection::try_from(fc) {
+                Ok(coll) => coll.to_single_vec(),
+                Err(_) => vec![],
+            },
         }
     } else {
         vec![]
@@ -438,7 +451,12 @@ impl Args {
         let simplify = simplify.unwrap_or(false);
         let sort_by = sort_by.unwrap_or(SortBy::Unset);
         let tth = tth.unwrap_or(SpawnpointTth::All);
-        let mode = get_enum(mode);
+        // `mode` is the scan-purpose tag (`koji_core::Mode`), parsed leniently from
+        // the optional instance string via the single-source-of-truth
+        // `Mode::from_legacy` (accepts the 12 legacy RDM strings + the 4 canonical
+        // ones; unknown/None → `Unset`). Replaces the dying `FenceType`-returning
+        // `enum_map::get_enum`.
+        let mode = mode.map(|s| Mode::from_legacy(&s)).unwrap_or(Mode::Unset);
         let route_split_level = validate_s2_cell(route_split_level, "route_split_level");
         let routing_args = routing_args.unwrap_or("".to_string());
 
