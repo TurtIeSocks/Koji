@@ -1,7 +1,6 @@
 //! koji-core — pure domain types shared across the Koji workspace.
 //! No database, HTTP, or async dependencies.
 
-mod category;
 mod mode;
 mod normalize;
 mod query_args;
@@ -9,7 +8,6 @@ pub mod s2;
 mod text_utils;
 mod unknown_id;
 
-pub use category::Category;
 pub use mode::Mode;
 pub use normalize::HasLatLon;
 pub use query_args::{

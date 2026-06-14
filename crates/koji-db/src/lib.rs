@@ -6,10 +6,12 @@ use geojson::{Feature, FeatureCollection};
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 
+pub mod category;
 pub mod db;
 pub mod error;
 pub mod utils;
 
+pub use category::Category;
 pub use error::ModelError;
 
 /// Generates 1:1 `From` impls both directions between two enums whose variant
@@ -17,7 +19,7 @@ pub use error::ModelError;
 /// enums (orphan rule).
 ///
 /// ```ignore
-/// enum_bridge!(db::Category, koji_core::Category, [Boolean, String, ...]);
+/// enum_bridge!(db::Category, crate::category::Category, [Boolean, String, ...]);
 /// ```
 #[macro_export]
 macro_rules! enum_bridge {

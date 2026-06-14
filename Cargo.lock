@@ -2383,6 +2383,7 @@ dependencies = [
  "geojson",
  "koji-core",
  "log",
+ "macros",
  "sea-orm",
  "serde",
  "serde_json",

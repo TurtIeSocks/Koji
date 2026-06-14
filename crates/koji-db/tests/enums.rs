@@ -1,4 +1,4 @@
-use koji_core::Category;
+use koji_db::Category;
 
 #[test]
 fn category_serde() {

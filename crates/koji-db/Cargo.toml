@@ -10,6 +10,7 @@ path = "src/lib.rs"
 
 [dependencies]
 koji-core = { path = "../koji-core" }
+macros = { workspace = true }
 chrono = { version = "0.4.42", features = ["serde"] }
 futures = "0.3.31"
 geo = { workspace = true }

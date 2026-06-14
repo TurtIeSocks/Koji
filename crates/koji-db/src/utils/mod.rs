@@ -29,17 +29,18 @@ pub fn get_enum(instance_type: Option<String>) -> Mode {
 
 /// Map an inbound `category` string to the storage [`Category`]. Matches the
 /// lowercased string to a known variant; anything unrecognized → `String`.
-/// (Inlined from the former `koji_core::get_category_enum`: the match builds a
-/// `koji_core::Category`, which then bridges to the sea-orm enum via `.into()`.)
+/// (The match builds a domain `crate::category::Category`, which then bridges to
+/// the sea-orm enum via `.into()`.)
 pub fn get_category_enum(category: String) -> Category {
+    use crate::category::Category as DomainCategory;
     let domain = match category.to_lowercase().as_str() {
-        "database" => koji_core::Category::Database,
-        "boolean" => koji_core::Category::Boolean,
-        "number" => koji_core::Category::Number,
-        "object" => koji_core::Category::Object,
-        "array" => koji_core::Category::Array,
-        "color" => koji_core::Category::Color,
-        _ => koji_core::Category::String,
+        "database" => DomainCategory::Database,
+        "boolean" => DomainCategory::Boolean,
+        "number" => DomainCategory::Number,
+        "object" => DomainCategory::Object,
+        "array" => DomainCategory::Array,
+        "color" => DomainCategory::Color,
+        _ => DomainCategory::String,
     };
     domain.into()
 }

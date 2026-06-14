@@ -8,6 +8,6 @@
 
 crate::enum_bridge!(
     crate::db::sea_orm_active_enums::Category,
-    koji_core::Category,
+    crate::category::Category,
     [Boolean, String, Number, Object, Array, Database, Color]
 );
