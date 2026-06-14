@@ -689,17 +689,6 @@ impl Query {
         }
     }
 
-    pub async fn get_one_feature(
-        db: &DatabaseConnection,
-        id: String,
-        args: &ApiQueryArgs,
-    ) -> Result<Feature, ModelError> {
-        let result = Query::get_one(db, id).await?;
-        let (property_map, name_map) = Query::get_helper_maps(db, &vec![&result]).await?;
-
-        result.to_feature(&property_map, &name_map, args)
-    }
-
     /// Returns all Geofence models in the db
     pub async fn get_all(db: &DatabaseConnection) -> Result<Vec<Model>, DbErr> {
         Entity::find().all(db).await
@@ -710,39 +699,11 @@ impl Query {
         Ok(Query::get_all(db).await?.to_json())
     }
 
-    /// Returns all geofence models as a FeatureCollection,
-    ///
-    /// DEAD (no live callers as of S8 — superseded by `get_all_koji`); scheduled
-    /// for deletion in S5d-2. Its body is kept matrix-free so the `To*` matrix has
-    /// zero references outside its own definition files.
-    pub async fn get_all_collection(
-        db: &DatabaseConnection,
-        args: &ApiQueryArgs,
-    ) -> Result<FeatureCollection, ModelError> {
-        let results = Query::get_all(db).await?;
-
-        let (property_map, helper_map) =
-            Query::get_helper_maps(db, &results.iter().collect()).await?;
-
-        let results = results
-            .into_iter()
-            .filter_map(|result| result.to_feature(&property_map, &helper_map, args).ok())
-            .collect::<Vec<Feature>>();
-
-        Ok(FeatureCollection {
-            bbox: None,
-            features: results,
-            foreign_members: None,
-        })
-    }
-
-    /// Additive Phase 2 counterpart to `get_all_collection`: fetch the same rows
-    /// and map each `Model` to a `KojiGeometry`, collecting into a
-    /// `KojiGeometryCollection`. Returns `ModelError` to match
-    /// `to_koji_geometry` and the sibling `get_one`/`get_all_collection`
-    /// methods. Does not replace `get_all_collection` (deleted in a later
-    /// section). The property/name helper maps are not needed here —
-    /// `to_koji_geometry` reads only the model's own columns.
+    /// Fetch all geofence rows and map each `Model` to a `KojiGeometry`,
+    /// collecting into a `KojiGeometryCollection`. Returns `ModelError` to match
+    /// `to_koji_geometry` and the sibling `get_one` methods. The property/name
+    /// helper maps are not needed here — `to_koji_geometry` reads only the model's
+    /// own columns.
     #[allow(clippy::result_large_err)]
     pub async fn get_all_koji(
         db: &DatabaseConnection,
@@ -755,9 +716,8 @@ impl Query {
             .collect::<Result<koji_core::KojiGeometryCollection, ModelError>>()
     }
 
-    /// Additive Phase 2 counterpart to `get_one_feature`: fetch the same row and
-    /// map it via `to_koji_geometry`. Returns `ModelError` to match the sibling
-    /// methods. Does not replace `get_one_feature`.
+    /// Fetch one geofence row by id and map it via `to_koji_geometry`. Returns
+    /// `ModelError` to match the sibling Koji read methods.
     #[allow(clippy::result_large_err)]
     pub async fn get_one_koji(
         db: &DatabaseConnection,
@@ -1271,56 +1231,13 @@ impl Query {
         }
     }
 
-    /// DEAD (no live callers as of S8 — superseded by `by_parent_koji`); scheduled
-    /// for deletion in S5d-2. Its body is kept matrix-free so the `To*` matrix has
-    /// zero references outside its own definition files.
-    pub async fn by_parent(
-        db: &DatabaseConnection,
-        parent: &UnknownId,
-    ) -> Result<FeatureCollection, ModelError> {
-        let parent_id = match parent {
-            UnknownId::Number(id) => *id,
-            UnknownId::String(name) => {
-                let parent = Entity::find().filter(Column::Name.eq(name)).one(db).await?;
-                if let Some(parent) = parent {
-                    parent.id
-                } else {
-                    return Err(ModelError::Geofence("Parent not found".to_string()));
-                }
-            }
-        };
-        let items = Entity::find()
-            .filter(Column::Parent.eq(parent_id))
-            .all(db)
-            .await?;
-        let args = ApiQueryArgs::default();
-
-        let items: Vec<Feature> = items
-            .into_iter()
-            .filter_map(|result| {
-                result
-                    .to_feature(&HashMap::new(), &HashMap::new(), &args)
-                    .ok()
-            })
-            .collect();
-
-        Ok(FeatureCollection {
-            bbox: None,
-            features: items,
-            foreign_members: None,
-        })
-    }
-
-    /// Additive Phase 2 counterpart to [`by_parent`](Self::by_parent): fetch the
-    /// exact same rows — a parent's *direct* children (`Column::Parent.eq`, one
-    /// level down) — and map each `Model` to a `KojiGeometry` via
-    /// `to_koji_geometry`, collecting into a `KojiGeometryCollection`. Parent
-    /// resolution is identical (numeric id used directly; a name is looked up,
-    /// and a missing name is the same `ModelError::Geofence("Parent not found")`
-    /// — preserving `by_parent`'s error-vs-empty behavior, which the calculate
-    /// pipeline relies on). Returns `ModelError` to match `to_koji_geometry` and
-    /// the sibling Koji read methods. Does not replace `by_parent` (deleted in a
-    /// later section).
+    /// Fetch a parent's *direct* children (`Column::Parent.eq`, one level down)
+    /// and map each `Model` to a `KojiGeometry` via `to_koji_geometry`, collecting
+    /// into a `KojiGeometryCollection`. Parent resolution: a numeric id is used
+    /// directly; a name is looked up, and a missing name is
+    /// `ModelError::Geofence("Parent not found")` (error-vs-empty behavior the
+    /// calculate pipeline relies on). Returns `ModelError` to match
+    /// `to_koji_geometry` and the sibling Koji read methods.
     #[allow(clippy::result_large_err)]
     pub async fn by_parent_koji(
         db: &DatabaseConnection,

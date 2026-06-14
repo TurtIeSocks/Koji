@@ -3,8 +3,8 @@
 //! `koji_core::enum_bridge!`. Keeps sea-orm confined to the db layer.
 //!
 //! The `Mode` bridge lives alongside its `DeriveActiveEnum` in
-//! `sea_orm_active_enums.rs`. The legacy `Type` ↔ `FenceType` bridge was removed
-//! in the Phase 2 `Type` → `Mode` migration.
+//! `sea_orm_active_enums.rs`. The legacy scanner-type bridge was removed in the
+//! Phase 2 `Type` → `Mode` migration.
 
 koji_core::enum_bridge!(
     crate::db::sea_orm_active_enums::Category,

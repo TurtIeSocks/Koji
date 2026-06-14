@@ -336,17 +336,6 @@ impl Query {
         }
     }
 
-    pub async fn get_one_feature(
-        db: &DatabaseConnection,
-        id: String,
-        internal: bool,
-    ) -> Result<Feature, ModelError> {
-        match Query::get_one(db, id).await {
-            Ok(record) => record.to_feature(internal),
-            Err(err) => Err(err),
-        }
-    }
-
     pub async fn update(
         db: &DatabaseConnection,
         id: u32,
@@ -375,68 +364,10 @@ impl Query {
         Ok(record)
     }
 
-    /// Returns a feature for a route queried by name
-    pub async fn feature_from_name(
-        conn: &DatabaseConnection,
-        name: String,
-        internal: bool,
-    ) -> Result<Feature, ModelError> {
-        let item = Entity::find()
-            .filter(Column::Name.eq(Value::String(Some(Box::new(name.to_string())))))
-            .one(conn)
-            .await?;
-        if let Some(item) = item {
-            item.to_feature(internal)
-        } else {
-            Err(ModelError::Custom("Route not found".to_string()))
-        }
-    }
-
-    /// Returns a feature for a route queried by name
-    pub async fn feature(
-        conn: &DatabaseConnection,
-        id: u32,
-        internal: bool,
-    ) -> Result<Feature, ModelError> {
-        let item = Entity::find_by_id(id).one(conn).await?;
-        if let Some(item) = item {
-            item.to_feature(internal)
-        } else {
-            Err(ModelError::Custom("Route not found".to_string()))
-        }
-    }
-
-    /// Returns all route models as a FeatureCollection,
-    ///
-    /// DEAD (no live callers as of S8 — superseded by `as_koji_collection`);
-    /// scheduled for deletion in S5d-2. Its body is kept matrix-free so the `To*`
-    /// matrix has zero references outside its own definition files.
-    pub async fn as_collection(
-        conn: &DatabaseConnection,
-        internal: bool,
-    ) -> Result<FeatureCollection, DbErr> {
-        let items = Entity::find()
-            .order_by(Column::Name, Order::Asc)
-            .all(conn)
-            .await?;
-        let items: Vec<Feature> = items
-            .into_iter()
-            .filter_map(|item| item.to_feature(internal).ok())
-            .collect();
-
-        Ok(FeatureCollection {
-            bbox: None,
-            features: items,
-            foreign_members: None,
-        })
-    }
-
-    /// Additive Phase 2 counterpart to `as_collection`: fetch the same rows
-    /// (all routes, ordered by name) and map each `Model` to a `KojiGeometry`,
-    /// collecting into a `KojiGeometryCollection`. Returns `ModelError` to match
-    /// `route::Model::to_koji_geometry`. Does not replace `as_collection`
-    /// (deleted in a later section). The `internal` flag that `as_collection`
-    /// takes only affects geojson property naming — irrelevant for the
+    /// Fetch all route rows (ordered by name) and map each `Model` to a
+    /// `KojiGeometry`, collecting into a `KojiGeometryCollection`. Returns
+    /// `ModelError` to match `route::Model::to_koji_geometry`. The geojson
+    /// property naming an `internal` flag would control is irrelevant for the
     /// self-describing `KojiMeta`, so it is not needed here.
     #[allow(clippy::result_large_err)]
     pub async fn as_koji_collection(
@@ -452,9 +383,8 @@ impl Query {
             .collect::<Result<koji_core::KojiGeometryCollection, ModelError>>()
     }
 
-    /// Additive Phase 2 counterpart to `get_one_feature`: fetch the same row and
-    /// map it via `to_koji_geometry`. Returns `ModelError` to match the sibling
-    /// methods. Does not replace `get_one_feature`.
+    /// Fetch one route row by id and map it via `to_koji_geometry`. Returns
+    /// `ModelError` to match the sibling Koji read methods.
     #[allow(clippy::result_large_err)]
     pub async fn get_one_koji(
         db: &DatabaseConnection,

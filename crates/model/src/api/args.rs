@@ -454,7 +454,7 @@ impl Args {
         // `mode` is the scan-purpose tag (`koji_core::Mode`), parsed leniently from
         // the optional instance string via the single-source-of-truth
         // `Mode::from_legacy` (accepts the 12 legacy RDM strings + the 4 canonical
-        // ones; unknown/None → `Unset`). Replaces the dying `FenceType`-returning
+        // ones; unknown/None → `Unset`). Replaces the deleted scanner-type-returning
         // `enum_map::get_enum`.
         let mode = mode.map(|s| Mode::from_legacy(&s)).unwrap_or(Mode::Unset);
         let route_split_level = validate_s2_cell(route_split_level, "route_split_level");
