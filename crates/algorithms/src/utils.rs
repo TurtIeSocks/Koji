@@ -36,27 +36,6 @@ where
     Ok(())
 }
 
-#[cfg(feature = "native")]
-pub fn debug_string(file_name: &str, input: &String) -> std::io::Result<()> {
-    create_dir_all("./debug_files")?;
-    let path = format!("./debug_files/{}", file_name);
-    let mut output = File::create(path)?;
-    write!(output, "{}", input)?;
-    // log::info!("Saved {} to file with {} coords", file_name, input.len());
-    Ok(())
-}
-
-pub fn get_sorted<T>(map: &HashMap<String, T>) -> Vec<(String, T)>
-where
-    T: Clone,
-{
-    let mut vec: Vec<&String> = map.keys().collect();
-    vec.sort();
-    vec.into_iter()
-        .map(|k| (k.clone(), map.get(k).unwrap().clone()))
-        .collect()
-}
-
 pub fn centroid(coords: &[[Precision; 2]]) -> PointArray {
     let (mut x, mut y, mut z) = (0.0, 0.0, 0.0);
 

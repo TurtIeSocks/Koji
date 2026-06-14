@@ -21,7 +21,6 @@ mod cluster_mode;
 mod config;
 mod crucible;
 mod fastest;
-// mod genetic;
 mod greedy;
 mod partition;
 mod s2;

@@ -14,7 +14,6 @@ mod config;
 mod join;
 mod sort_by;
 pub mod sorting;
-// pub mod vrp;
 
 pub use config::RoutingConfig;
 pub use sort_by::SortBy;
