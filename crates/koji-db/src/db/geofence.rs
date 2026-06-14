@@ -3,8 +3,8 @@
 use std::{collections::HashMap, str::FromStr, time::Instant};
 
 use koji_core::{
-    AdminReqParsed, ApiQueryArgs, FeatureCtx, KojiGeometryCollection, ToCollection, UnknownId,
-    json_related_sort, name_modifier, separate_by_comma,
+    AdminReqParsed, ApiQueryArgs, FeatureCtx, KojiGeometry, KojiGeometryCollection, ToCollection,
+    UnknownId, json_related_sort, name_modifier, separate_by_comma,
 };
 
 use crate::{
@@ -117,6 +117,100 @@ impl GeofenceNoGeometry {
     fn to_json(self) -> Json {
         json!(self)
     }
+}
+
+/// Pure inputs for a geofence upsert, derived from a `KojiGeometry`. Split out
+/// from the DB write so the property/parent extraction can be unit-tested
+/// without a live connection.
+struct GeofenceUpsertInputs {
+    id: u32,
+    name: String,
+    /// The `{name, geometry, mode?, projects?, properties}` json handed to
+    /// [`Query::upsert`].
+    new_map: Json,
+    /// `(parent ref)` to associate after the row exists, if any.
+    parent: Option<UnknownId>,
+}
+
+/// Build the geofence upsert inputs from a `KojiGeometry`, reading the legacy
+/// `__`-prefixed `meta.extra` passthrough first (admin internal round-trip),
+/// then the plain key, then the typed `KojiMeta` field. Non-`__` `extra` entries
+/// (other than `projects`/`parent`) become custom properties — matching the
+/// deleted `Feature`-based path's `__`-prefix filter.
+fn build_geofence_upsert_map(item: &KojiGeometry) -> Result<GeofenceUpsertInputs, ModelError> {
+    let extra = &item.meta.extra;
+    let mut new_map = HashMap::<&str, serde_json::Value>::new();
+
+    let id = extra
+        .get("__id")
+        .or_else(|| extra.get("id"))
+        .and_then(|id| id.as_u64())
+        .or(item.meta.id.map(u64::from))
+        .unwrap_or_default() as u32;
+
+    let name = extra
+        .get("__name")
+        .or_else(|| extra.get("name"))
+        .and_then(|n| n.as_str())
+        .map(str::to_string)
+        .or_else(|| item.meta.name.clone());
+    let name = match name {
+        Some(name) => {
+            new_map.insert("name", serde_json::Value::String(name.clone()));
+            name
+        }
+        None => return Err(ModelError::Geofence("Missing name property".to_string())),
+    };
+
+    let gj = geojson::Geometry::new(geojson::Value::from(&item.geometry));
+    new_map.insert("geometry", GeoJson::Geometry(gj).to_json_value());
+
+    if let Some(mode) = extra
+        .get("__mode")
+        .or_else(|| extra.get("mode"))
+        .and_then(|m| m.as_str())
+    {
+        new_map.insert("mode", serde_json::Value::String(mode.to_string()));
+    } else if item.meta.mode != koji_core::Mode::Unset {
+        new_map.insert(
+            "mode",
+            serde_json::Value::String(item.meta.mode.as_str().to_string()),
+        );
+    }
+    if let Some(projects) = extra.get("__projects").or_else(|| extra.get("projects")) {
+        new_map.insert("projects", projects.clone());
+    };
+
+    let parent = extra
+        .get("__parent")
+        .or_else(|| extra.get("parent"))
+        .and_then(|parent| {
+            if let Some(parent) = parent.as_str() {
+                Some(UnknownId::String(parent.to_string()))
+            } else {
+                parent.as_u64().map(|parent| UnknownId::Number(parent as u32))
+            }
+        });
+
+    let properties = extra
+        .iter()
+        .filter_map(|(k, v)| {
+            if k.starts_with("__") || k == "projects" || k == "parent" {
+                None
+            } else {
+                let (category, value) = determine_category_by_value(k, v.clone(), &new_map);
+                Some(json!({ "name": k, "value": value, "category": category }))
+            }
+        })
+        .collect::<Vec<serde_json::Value>>();
+    new_map.insert("properties", json!(properties));
+
+    Ok(GeofenceUpsertInputs {
+        id,
+        name,
+        new_map: json!(new_map),
+        parent,
+    })
 }
 
 impl Model {
@@ -731,68 +825,29 @@ impl Query {
         Ok(record)
     }
 
-    async fn upsert_feature(
+    /// Persist one geofence directly from a `KojiGeometry` (no geojson `Feature`
+    /// round-trip). Reads name/mode/projects/parent/id from the legacy
+    /// `__`-prefixed `meta.extra` passthrough (the admin-panel internal
+    /// round-trip), falling back to the plain key and then the typed `KojiMeta`
+    /// field. Any remaining non-`__` `extra` entry becomes a custom property —
+    /// byte-identical to the deleted `Feature`-based path, which filtered on the
+    /// `__` prefix. Delegates to the property-aware [`Query::upsert`] so parent
+    /// association, projects, and property categories are unchanged.
+    async fn upsert_koji_item(
         conn: &DatabaseConnection,
-        feat: Feature,
+        item: &KojiGeometry,
         parent_map: &mut HashMap<String, UnknownId>,
     ) -> Result<Model, ModelError> {
-        let mut new_map = HashMap::<&str, serde_json::Value>::new();
-
-        let id = feat
-            .property("__id")
-            .and_then(|id| id.as_u64())
-            .unwrap_or_default() as u32;
-
-        let name = if let Some(name) = feat.property("__name") {
-            if let Some(name) = name.as_str() {
-                new_map.insert("name", serde_json::Value::String(name.to_string()));
-                name.to_string()
-            } else {
-                return Err(ModelError::Geofence("Name is invalid string".to_string()));
-            }
-        } else {
-            return Err(ModelError::Geofence("Missing name property".to_string()));
-        };
-
-        if let Some(geometry) = feat.geometry.clone() {
-            new_map.insert("geometry", GeoJson::Geometry(geometry).to_json_value());
-        } else {
-            return Err(ModelError::Geofence(
-                "Did not find valid Geometry".to_string(),
-            ));
-        };
-
-        if let Some(mode) = feat.property("__mode")
-            && let Some(mode) = mode.as_str()
-        {
-            new_map.insert("mode", serde_json::Value::String(mode.to_string()));
-        };
-        if let Some(projects) = feat.property("__projects") {
-            new_map.insert("projects", projects.clone());
-        };
-
-        if let Some(parent) = feat.property("__parent") {
-            if let Some(parent) = parent.as_str() {
-                parent_map.insert(name, UnknownId::String(parent.to_string()));
-            } else if let Some(parent) = parent.as_u64() {
-                parent_map.insert(name, UnknownId::Number(parent as u32));
-            }
-        };
-
-        let properties = feat
-            .properties_iter()
-            .filter_map(|(k, v)| {
-                if k.starts_with("__") {
-                    None
-                } else {
-                    let (category, value) = determine_category_by_value(k, v.clone(), &new_map);
-                    Some(json!({ "name": k, "value": value, "category": category }))
-                }
-            })
-            .collect::<Vec<serde_json::Value>>();
-        new_map.insert("properties", json!(properties));
-
-        Query::upsert(conn, id, json!(new_map)).await
+        let GeofenceUpsertInputs {
+            id,
+            name,
+            new_map,
+            parent,
+        } = build_geofence_upsert_map(item)?;
+        if let Some(parent) = parent {
+            parent_map.insert(name, parent);
+        }
+        Query::upsert(conn, id, new_map).await
     }
 
     pub async fn upsert_from_geometry(
@@ -801,9 +856,10 @@ impl Query {
     ) -> Result<(), ModelError> {
         let mut parent_map = HashMap::<String, UnknownId>::new();
         for item in &area.items {
-            // Derive the per-row geojson Feature from the Koji item (Phase 1
-            // outbound); `upsert_feature` reads geometry + properties from it.
-            Query::upsert_feature(conn, Feature::from(item), &mut parent_map).await?;
+            // Persist directly from the Koji item — name/mode/parent/projects
+            // come from `KojiMeta` (with `__`-prefixed `extra` passthrough for
+            // the admin internal round-trip); no geojson `Feature` round-trip.
+            Query::upsert_koji_item(conn, item, &mut parent_map).await?;
         }
         if !parent_map.is_empty() {
             // ensures it exists before running the try_join_all
@@ -1047,7 +1103,7 @@ impl Query {
 #[cfg(test)]
 mod to_koji_tests {
     use super::*;
-    use koji_core::Mode;
+    use koji_core::{KojiMeta, Mode};
 
     #[cfg(test)]
     fn test_model_defaults() -> Model {
@@ -1083,5 +1139,75 @@ mod to_koji_tests {
         assert_eq!(kg.meta.name.as_deref(), Some("Boulder"));
         assert_eq!(kg.meta.parent_id, Some(7));
         assert_eq!(kg.meta.mode, Mode::Fort); // confirms legacy circle_raid -> Fort mapping
+    }
+
+    /// A geofence `KojiGeometry` as it arrives from the admin-panel internal
+    /// round-trip: every Koji concern is in `meta.extra` under a `__` key, plus a
+    /// genuinely-custom property (`color`) that must survive as a property.
+    fn legacy_internal_geofence() -> KojiGeometry {
+        use geo::{Geometry, Point};
+        let mut extra = serde_json::Map::new();
+        extra.insert("__id".to_string(), serde_json::json!(5));
+        extra.insert("__name".to_string(), serde_json::json!("Denver"));
+        extra.insert("__mode".to_string(), serde_json::json!("circle_pokemon"));
+        extra.insert("__parent".to_string(), serde_json::json!("Colorado"));
+        extra.insert("color".to_string(), serde_json::json!("#ff0000"));
+        KojiGeometry {
+            geometry: Geometry::Point(Point::new(1.0, 2.0)),
+            meta: KojiMeta {
+                extra,
+                ..Default::default()
+            },
+        }
+    }
+
+    #[test]
+    fn geofence_upsert_map_reads_legacy_internal_props() {
+        let inputs = build_geofence_upsert_map(&legacy_internal_geofence()).unwrap();
+        assert_eq!(inputs.id, 5);
+        assert_eq!(inputs.name, "Denver");
+        // parent is queued for association by name, not written into new_map.
+        assert!(matches!(inputs.parent, Some(UnknownId::String(ref s)) if s == "Colorado"));
+
+        let map = &inputs.new_map;
+        assert_eq!(map["name"], "Denver");
+        assert_eq!(map["mode"], "circle_pokemon"); // original 12-value string preserved
+        assert_eq!(map["geometry"]["type"], "Point");
+        // The custom (non-`__`) property survives; the `__`-prefixed ones do not.
+        let props = map["properties"].as_array().unwrap();
+        assert_eq!(props.len(), 1);
+        assert_eq!(props[0]["name"], "color");
+        assert_eq!(props[0]["value"], "#ff0000");
+    }
+
+    #[test]
+    fn geofence_upsert_map_reads_typed_meta_fallback() {
+        use geo::{Geometry, Point};
+        let item = KojiGeometry {
+            geometry: Geometry::Point(Point::new(3.0, 4.0)),
+            meta: KojiMeta {
+                id: Some(11),
+                name: Some("KojiNative".to_string()),
+                mode: Mode::Quest,
+                ..Default::default()
+            },
+        };
+        let inputs = build_geofence_upsert_map(&item).unwrap();
+        assert_eq!(inputs.id, 11);
+        assert_eq!(inputs.name, "KojiNative");
+        assert!(inputs.parent.is_none());
+        // typed Mode::Quest serializes to its lowercase wire string.
+        assert_eq!(inputs.new_map["mode"], "quest");
+        assert!(inputs.new_map["properties"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn geofence_upsert_map_missing_name_errors() {
+        use geo::{Geometry, Point};
+        let item = KojiGeometry {
+            geometry: Geometry::Point(Point::new(0.0, 0.0)),
+            meta: KojiMeta::default(),
+        };
+        assert!(build_geofence_upsert_map(&item).is_err());
     }
 }

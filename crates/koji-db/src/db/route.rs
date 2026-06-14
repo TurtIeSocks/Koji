@@ -10,7 +10,9 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use koji_core::{AdminReqParsed, FeatureCtx, KojiGeometryCollection, ToCollection, ToFeature};
+use koji_core::{
+    AdminReqParsed, FeatureCtx, KojiGeometry, KojiGeometryCollection, ToCollection, ToFeature,
+};
 
 use crate::{
     db::sea_orm_active_enums::Type,
@@ -69,6 +71,65 @@ pub struct RouteNoGeometry {
 #[derive(Serialize, Deserialize, FromQueryResult)]
 pub struct OnlyGeofenceId {
     pub geofence_id: u32,
+}
+
+/// Map the collapsed `koji_core::Mode` to a representative legacy route `Type`
+/// (the route `mode` column is still the 12-value `Type` until the Phase 2
+/// column migration). Used only when a route item carries no original
+/// `__mode`/`mode` string in `meta.extra`.
+fn mode_to_type(mode: koji_core::Mode) -> Type {
+    match mode {
+        koji_core::Mode::Pokemon => Type::CirclePokemon,
+        koji_core::Mode::Fort => Type::CircleRaid,
+        koji_core::Mode::Quest => Type::CircleQuest,
+        koji_core::Mode::Unset => Type::Unset,
+    }
+}
+
+/// Route name: the legacy `__name`/`name` passthrough in `meta.extra` wins (so
+/// existing producers keep working), else the typed `meta.name`.
+fn route_name(item: &KojiGeometry) -> Option<String> {
+    item.meta
+        .extra
+        .get("__name")
+        .or_else(|| item.meta.extra.get("name"))
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .or_else(|| item.meta.name.clone())
+}
+
+/// Route mode as the storage `Type`: prefer the original 12-value
+/// `__mode`/`mode` string carried in `meta.extra` (mapped via `get_enum`), else
+/// derive a representative `Type` from the collapsed `meta.mode`.
+fn route_mode_type(item: &KojiGeometry) -> Type {
+    if let Some(mode) = item
+        .meta
+        .extra
+        .get("__mode")
+        .or_else(|| item.meta.extra.get("mode"))
+        .and_then(|v| v.as_str())
+    {
+        get_enum(Some(mode.to_string()))
+    } else {
+        mode_to_type(item.meta.mode)
+    }
+}
+
+/// Optional geofence-id passthrough (`geofence_id`/`__geofence_id`) from
+/// `meta.extra`; `None` triggers the geofence-by-name fallback.
+fn route_geofence_id(item: &KojiGeometry) -> Option<u64> {
+    item.meta
+        .extra
+        .get("geofence_id")
+        .or_else(|| item.meta.extra.get("__geofence_id"))
+        .and_then(|v| v.as_u64())
+}
+
+/// The stored geojson geometry Json for a route row — the reverse of
+/// `to_koji_geometry`'s parse (`geo` → geojson → Json object).
+fn route_geometry_json(item: &KojiGeometry) -> Json {
+    let gj = geojson::Geometry::new(geojson::Value::from(&item.geometry));
+    GeoJson::Geometry(gj).to_json_value()
 }
 
 impl Model {
@@ -425,103 +486,67 @@ impl Query {
         Ok(json!(result))
     }
 
-    async fn upsert_feature(
+    /// Resolve the geofence id for a route item. Prefer the explicit
+    /// `geofence_id`/`__geofence_id` passthrough in `meta.extra`; otherwise fall
+    /// back to the geofence whose name matches the route name (the legacy
+    /// behavior of the deleted `upsert_feature`).
+    async fn resolve_geofence_id(
         conn: &DatabaseConnection,
-        feat: Feature,
+        item: &KojiGeometry,
+        name: &str,
+    ) -> Result<Option<u32>, DbErr> {
+        if let Some(fence_id) = route_geofence_id(item) {
+            return Ok(Some(fence_id as u32));
+        }
+        let geofence = geofence::Entity::find()
+            .filter(geofence::Column::Name.eq(Value::String(Some(Box::new(name.to_string())))))
+            .one(conn)
+            .await?;
+        Ok(geofence.map(|g| g.id))
+    }
+
+    /// Persist one route directly from a `KojiGeometry` (no geojson `Feature`
+    /// round-trip). `existing` keys `name_mode` to the current row so a matching
+    /// route is updated rather than re-inserted. Returns whether the row was an
+    /// update (`true`) or an insert (`false`).
+    async fn upsert_koji_item(
+        conn: &DatabaseConnection,
+        item: &KojiGeometry,
         existing: &HashMap<String, RouteNoGeometry>,
-        inserts_updates: &mut InsertsUpdates,
-    ) -> Result<(), DbErr> {
-        if let Some(name) = feat.property("__name") {
-            if let Some(name) = name.as_str() {
-                if let Some(mode) = feat.property("__mode") {
-                    let mode = mode.as_str().map(|mode| mode.to_string());
-                    let mode = get_enum(mode);
-                    let geofence_id = if let Some(fence_id) = feat.property("__geofence_id") {
-                        fence_id.as_u64()
-                    } else {
-                        let geofence = geofence::Entity::find()
-                            .filter(
-                                geofence::Column::Name
-                                    .eq(Value::String(Some(Box::new(name.to_string())))),
-                            )
-                            .one(conn)
-                            .await?;
-                        if let Some(geofence) = geofence {
-                            Some(geofence.id as u64)
-                        } else {
-                            None
-                        }
-                    };
-                    if let Some(fence_id) = geofence_id {
-                        if let Some(geometry) = feat.geometry.clone() {
-                            let geometry = GeoJson::Geometry(geometry).to_json_value();
-                            if let Some(geometry) = geometry.as_object() {
-                                let geometry = sea_orm::JsonValue::Object(geometry.to_owned());
-                                let name = name.to_string();
-                                let is_update =
-                                    existing.get(&format!("{}_{}", name, mode.to_value()));
-                                let update_bool = is_update.is_some();
-                                let mut active_model = if let Some(entry) = is_update {
-                                    Entity::find_by_id(entry.id)
-                                        .one(conn)
-                                        .await?
-                                        .unwrap()
-                                        .into()
-                                } else {
-                                    ActiveModel {
-                                        ..Default::default()
-                                    }
-                                };
-                                active_model.geofence_id = Set(fence_id as u32);
-                                active_model.geometry = Set(geometry);
-                                active_model.mode = Set(mode);
-                                active_model.updated_at = Set(Utc::now());
-                                if update_bool {
-                                    active_model.update(conn).await?;
-                                    inserts_updates.updates += 1;
-                                    Ok(())
-                                } else {
-                                    active_model.name = Set(name);
-                                    active_model.created_at = Set(Utc::now());
-                                    active_model.insert(conn).await?;
-                                    inserts_updates.inserts += 1;
-                                    Ok(())
-                                }
-                            } else {
-                                let error =
-                                    format!("[ROUTE_SAVE] geometry value is invalid for {}", name);
-                                log::warn!("{}", error);
-                                Err(DbErr::Custom(error))
-                            }
-                        } else {
-                            let error =
-                                format!("[ROUTE_SAVE] geometry value does not exist for {}", name);
-                            log::warn!("{}", error);
-                            Err(DbErr::Custom(error))
-                        }
-                    } else {
-                        let error =
-                            format!("[ROUTE_SAVE] __geofence_id property not found for {}", name);
-                        log::warn!("{}", error);
-                        Err(DbErr::Custom(error))
-                    }
-                } else {
-                    let error = format!("[ROUTE_SAVE] __mode property not found for {}", name);
-                    log::warn!("{}", error);
-                    Err(DbErr::Custom(error))
-                }
-            } else {
-                let error = format!(
-                    "[ROUTE_SAVE] __name property is not a valid string for {:?}",
-                    name
-                );
-                log::warn!("{}", error);
-                Err(DbErr::Custom(error))
-            }
+    ) -> Result<bool, DbErr> {
+        let Some(name) = route_name(item) else {
+            let error = format!("[ROUTE_SAVE] name property not found for {:?}", item.meta.id);
+            log::warn!("{error}");
+            return Err(DbErr::Custom(error));
+        };
+        let mode = route_mode_type(item);
+        let Some(fence_id) = Query::resolve_geofence_id(conn, item, &name).await? else {
+            let error = format!("[ROUTE_SAVE] could not resolve geofence_id for {name}");
+            log::warn!("{error}");
+            return Err(DbErr::Custom(error));
+        };
+        let geometry = route_geometry_json(item);
+
+        let is_update = existing.get(&format!("{}_{}", name, mode.to_value()));
+        let mut active_model = if let Some(entry) = is_update {
+            Entity::find_by_id(entry.id).one(conn).await?.unwrap().into()
         } else {
-            let error = format!("[ROUTE_SAVE] __name property not found, {:?}", feat.id);
-            log::warn!("{}", error);
-            Err(DbErr::Custom(error))
+            ActiveModel {
+                ..Default::default()
+            }
+        };
+        active_model.geofence_id = Set(fence_id);
+        active_model.geometry = Set(geometry);
+        active_model.mode = Set(mode);
+        active_model.updated_at = Set(Utc::now());
+        if is_update.is_some() {
+            active_model.update(conn).await?;
+            Ok(true)
+        } else {
+            active_model.name = Set(name);
+            active_model.created_at = Set(Utc::now());
+            active_model.insert(conn).await?;
+            Ok(false)
         }
     }
 
@@ -541,10 +566,14 @@ impl Query {
         };
 
         for item in &area.items {
-            // Derive the per-row geojson Feature from the Koji item (Phase 1
-            // outbound); `upsert_feature` reads geometry + properties from it.
-            Query::upsert_feature(conn, Feature::from(item), &existing, &mut inserts_updates)
-                .await?
+            // Persist directly from the Koji item — name/mode/geofence_id come
+            // from `KojiMeta` (with `__`-prefixed `extra` passthrough for legacy
+            // producers); no geojson `Feature` round-trip.
+            if Query::upsert_koji_item(conn, item, &existing).await? {
+                inserts_updates.updates += 1;
+            } else {
+                inserts_updates.inserts += 1;
+            }
         }
 
         Ok((inserts_updates.inserts, inserts_updates.updates))
@@ -645,7 +674,7 @@ impl Query {
 #[cfg(test)]
 mod to_koji_tests {
     use super::*;
-    use koji_core::Mode;
+    use koji_core::{KojiMeta, Mode};
 
     #[cfg(test)]
     fn test_model_defaults() -> Model {
@@ -685,5 +714,76 @@ mod to_koji_tests {
         // Routes have no parent hierarchy.
         assert_eq!(kg.meta.parent_id, None);
         assert!(kg.meta.ancestors.is_empty());
+    }
+
+    /// Build a route `KojiGeometry` the way the v2 Koji-native path would: typed
+    /// `meta.name`/`meta.mode`, a MultiPoint geometry, an explicit `geofence_id`
+    /// passthrough in `extra`.
+    fn koji_route_item() -> KojiGeometry {
+        use geo::{Geometry, MultiPoint, Point};
+        let mut extra = serde_json::Map::new();
+        extra.insert("geofence_id".to_string(), serde_json::json!(7));
+        KojiGeometry {
+            geometry: Geometry::MultiPoint(MultiPoint::from(vec![
+                Point::new(2.0, 1.0),
+                Point::new(4.0, 3.0),
+            ])),
+            meta: KojiMeta {
+                name: Some("r1".to_string()),
+                mode: Mode::Fort,
+                extra,
+                ..Default::default()
+            },
+        }
+    }
+
+    #[test]
+    fn route_persistence_inputs_from_typed_meta() {
+        let item = koji_route_item();
+        // name comes straight from the typed field.
+        assert_eq!(route_name(&item).as_deref(), Some("r1"));
+        // Fort with no original `__mode` string maps to the representative Type.
+        assert_eq!(route_mode_type(&item), Type::CircleRaid);
+        // geofence_id passthrough is read from `extra`.
+        assert_eq!(route_geofence_id(&item), Some(7));
+        // geometry serializes back to a MultiPoint geojson object.
+        let gj = route_geometry_json(&item);
+        assert_eq!(gj["type"], "MultiPoint");
+        assert_eq!(gj["coordinates"], serde_json::json!([[2.0, 1.0], [4.0, 3.0]]));
+    }
+
+    #[test]
+    fn route_persistence_inputs_honor_legacy_underscore_props() {
+        // The legacy producer path (bootstrap / v1 calculate) leaves the original
+        // values under `__name`/`__mode`/`__geofence_id` in `extra`, with the
+        // typed fields at their defaults. Those must still win.
+        use geo::{Geometry, MultiPoint, Point};
+        let mut extra = serde_json::Map::new();
+        extra.insert("__name".to_string(), serde_json::json!("legacy_route"));
+        extra.insert("__mode".to_string(), serde_json::json!("circle_pokemon"));
+        extra.insert("__geofence_id".to_string(), serde_json::json!(99));
+        let item = KojiGeometry {
+            geometry: Geometry::MultiPoint(MultiPoint::from(vec![Point::new(2.0, 1.0)])),
+            meta: KojiMeta {
+                extra,
+                ..Default::default()
+            },
+        };
+        assert_eq!(route_name(&item).as_deref(), Some("legacy_route"));
+        // The original 12-value string is preserved exactly (not collapsed).
+        assert_eq!(route_mode_type(&item), Type::CirclePokemon);
+        assert_eq!(route_geofence_id(&item), Some(99));
+    }
+
+    #[test]
+    fn route_mode_unset_maps_to_unset_type() {
+        use geo::{Geometry, Point};
+        let item = KojiGeometry {
+            geometry: Geometry::Point(Point::new(0.0, 0.0)),
+            meta: KojiMeta::default(),
+        };
+        assert_eq!(route_mode_type(&item), Type::Unset);
+        assert_eq!(route_name(&item), None);
+        assert_eq!(route_geofence_id(&item), None);
     }
 }
