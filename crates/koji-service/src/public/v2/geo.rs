@@ -143,10 +143,10 @@ async fn s2_cells(
 
     let cells = koji_core::s2::get_cells(
         url.into_inner(),
-        bounds.min_lat,
-        bounds.min_lon,
-        bounds.max_lat,
-        bounds.max_lon,
+        bounds.bbox.min_lat,
+        bounds.bbox.min_lon,
+        bounds.bbox.max_lat,
+        bounds.bbox.max_lon,
     );
     let cells = if all {
         cells

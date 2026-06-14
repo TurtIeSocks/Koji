@@ -95,10 +95,10 @@ async fn s2_cells(
     let cell_level = url.into_inner();
     let cells = s2::get_cells(
         cell_level,
-        bounds.min_lat,
-        bounds.min_lon,
-        bounds.max_lat,
-        bounds.max_lon,
+        bounds.bbox.min_lat,
+        bounds.bbox.min_lon,
+        bounds.bbox.max_lat,
+        bounds.bbox.max_lon,
     );
 
     let cells = if all {

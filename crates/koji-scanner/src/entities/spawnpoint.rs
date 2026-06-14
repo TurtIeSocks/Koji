@@ -61,8 +61,8 @@ impl Query {
             .column(Column::Lat)
             .column(Column::Lon)
             .column(Column::DespawnSec)
-            .filter(Column::Lat.between(payload.min_lat, payload.max_lat))
-            .filter(Column::Lon.between(payload.min_lon, payload.max_lon))
+            .filter(Column::Lat.between(payload.bbox.min_lat, payload.bbox.max_lat))
+            .filter(Column::Lon.between(payload.bbox.min_lon, payload.bbox.max_lon))
             .filter(Column::LastSeen.gt(payload.last_seen.unwrap_or(0)))
             .filter(match payload.tth.as_ref().unwrap_or(&SpawnpointTth::All) {
                 SpawnpointTth::All => Column::Id.is_not_null(),
