@@ -4,9 +4,7 @@ use crate::{routing, stats::Stats};
 
 use geo::{Contains, Destination, Distance, Extremes, Haversine, Point, Polygon};
 use geojson::{Feature, Geometry, Value};
-use koji_core::{
-    FeatureCtx, FenceType, Precision, RoutingConfig, SingleVec, ToFeature, ToGeometryVec,
-};
+use koji_core::{Precision, RoutingConfig, SingleVec, ToGeometryVec};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 #[derive(Debug)]
@@ -51,9 +49,9 @@ impl<'a> BootstrapRadius<'a> {
     }
 
     pub fn feature(self) -> Feature {
-        let mut new_feature = self
-            .result
-            .to_feature(&FeatureCtx::new().with_type(FenceType::CirclePokemon));
+        // Koji-native MultiPoint projection (matches the old matrix
+        // `SingleVec::to_feature(CirclePokemon)` geometry); no To* matrix.
+        let mut new_feature = koji_core::single_vec_to_multipoint_feature(&self.result);
 
         if let Some(name) = self.feature.property("__name") {
             new_feature.set_property("__name", name.clone());

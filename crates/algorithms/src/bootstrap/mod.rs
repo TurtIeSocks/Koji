@@ -3,9 +3,7 @@ use std::time::Instant;
 
 use geojson::{Feature, FeatureCollection};
 #[cfg(feature = "native")]
-use koji_core::{
-    BootstrapConfig, CalculationMode, FeatureCtx, RoutingConfig, ToFeature, ToSingleVec,
-};
+use koji_core::{BootstrapConfig, CalculationMode, RoutingConfig, ToSingleVec};
 #[cfg(feature = "native")]
 use koji_plugins::PluginKind;
 
@@ -49,7 +47,9 @@ pub fn main(
                     let mut plugin_stats = Stats::new(plugin.to_string(), 0);
                     plugin_stats.set_cluster_time(time);
                     plugin_stats.cluster_stats(0., &vec![], &sorted_clusters);
-                    features.push(sorted_clusters.to_feature(&FeatureCtx::default()));
+                    // Koji-native Polygon projection (matches the old matrix
+                    // default-context SingleVec projection); no To* matrix.
+                    features.push(koji_core::single_vec_to_polygon_feature(&sorted_clusters));
                     *stats += &plugin_stats;
                 }
             }

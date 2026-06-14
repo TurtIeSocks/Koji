@@ -74,6 +74,69 @@ fn to_point_struct(p: [f64; 2]) -> PointStruct {
     }
 }
 
+/// Project a `SingleVec` (`[lat, lon]` points) to a `geo::MultiPoint`, exactly
+/// reproducing the matrix `SingleVec::to_feature(CirclePokemon)` geometry: the
+/// ring is closed (`ensure_first_last`), each `[lat, lon]` becomes
+/// `Point(x = lon, y = lat)`, then *consecutive* duplicates are collapsed
+/// (`remove_repeated_points`). The matrix's `multi_point()` ran the dedupe; the
+/// `ensure_first_last` came from `to_single_vec()` inside `to_multi_vec()`.
+///
+/// This is the canonical home for what the v2 calc core duplicated as
+/// `centers_to_multipoint`; both the calc cores and the bootstrap edge use it so
+/// the MultiPoint cluster-center output is single-sourced and matrix-free.
+pub fn single_vec_to_multipoint(centers: &SingleVec) -> geo::MultiPoint<f64> {
+    use geo::RemoveRepeatedPoints;
+
+    let mut points = centers.clone();
+    if let (Some(first), Some(last)) = (points.first().copied(), points.last().copied())
+        && first != last
+    {
+        points.push(first);
+    }
+    let mp: geo::MultiPoint<f64> = points
+        .into_iter()
+        .map(|[lat, lon]| geo::Point::new(lon, lat))
+        .collect();
+    mp.remove_repeated_points()
+}
+
+/// Build the labeled-less `geojson::Feature` a bootstrap edge emits for a routed
+/// `SingleVec`: the [`single_vec_to_multipoint`] geometry wrapped via the Phase 1
+/// outbound `From<&KojiGeometry>`. The caller attaches its `__name`/`__mode`/…
+/// properties. Replaces the matrix `SingleVec::to_feature(CirclePokemon)`; the
+/// (discarded-downstream) bbox fields the matrix set are intentionally omitted.
+pub fn single_vec_to_multipoint_feature(centers: &SingleVec) -> geojson::Feature {
+    let kg = KojiGeometry::new(single_vec_to_multipoint(centers));
+    geojson::Feature::from(&kg)
+}
+
+/// Project a `SingleVec` (`[lat, lon]` points) to a single-ring `geo::Polygon`,
+/// reproducing the matrix `SingleVec::to_feature(FeatureCtx::default())` geometry
+/// (no fence type → the `polygon()` branch): the ring is closed
+/// (`ensure_first_last`) and each `[lat, lon]` becomes `(x = lon, y = lat)`.
+pub fn single_vec_to_polygon(centers: &SingleVec) -> geo::Polygon<f64> {
+    let mut points = centers.clone();
+    if let (Some(first), Some(last)) = (points.first().copied(), points.last().copied())
+        && first != last
+    {
+        points.push(first);
+    }
+    let ring: geo::LineString<f64> = points
+        .into_iter()
+        .map(|[lat, lon]| geo::coord! { x: lon, y: lat })
+        .collect();
+    geo::Polygon::new(ring, vec![])
+}
+
+/// The unlabeled `geojson::Feature` a bootstrap *plugin* edge emits for a routed
+/// `SingleVec`: the [`single_vec_to_polygon`] geometry via the Phase 1 outbound
+/// `From<&KojiGeometry>`. Replaces the matrix
+/// `SingleVec::to_feature(FeatureCtx::default())`.
+pub fn single_vec_to_polygon_feature(centers: &SingleVec) -> geojson::Feature {
+    let kg = KojiGeometry::new(single_vec_to_polygon(centers));
+    geojson::Feature::from(&kg)
+}
+
 impl KojiGeometryCollection {
     /// All items' coordinates flattened into one `[lat, lon]` vec.
     ///
@@ -645,5 +708,57 @@ mod tests {
         let mine = serde_json::to_value(c.to_poracle_vec()).unwrap();
         let oracle = serde_json::to_value(fc(&c).to_poracle_vec()).unwrap();
         assert_eq!(mine, oracle);
+    }
+
+    /// `single_vec_to_multipoint_feature` geometry parity vs the matrix
+    /// `SingleVec::to_feature(CirclePokemon)` (the bootstrap edge oracle). Covers
+    /// open, pre-closed, and interior-duplicate routes — the closing-coord +
+    /// adjacent-dedupe edges the matrix handled.
+    #[test]
+    fn single_vec_multipoint_feature_matches_matrix() {
+        use crate::geometry::{ToFeature, single_vec_to_multipoint_feature};
+        use crate::{FeatureCtx, FenceType, SingleVec};
+
+        for centers in [
+            vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],          // open
+            vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2.0]], // pre-closed
+            vec![[1.0, 2.0], [3.0, 4.0], [3.0, 4.0], [5.0, 6.0]], // interior dup
+        ] {
+            let centers: SingleVec = centers;
+            let old = centers
+                .clone()
+                .to_feature(&FeatureCtx::new().with_type(FenceType::CirclePokemon));
+            let new = single_vec_to_multipoint_feature(&centers);
+            // Geometry value must byte-match (the bbox fields the matrix set are
+            // discarded downstream by `KojiGeometryCollection::try_from`).
+            assert_eq!(
+                new.geometry.unwrap().value,
+                old.geometry.unwrap().value,
+                "bootstrap MultiPoint must match the matrix"
+            );
+        }
+    }
+
+    /// `single_vec_to_polygon_feature` geometry parity vs the matrix
+    /// `SingleVec::to_feature(FeatureCtx::default())` (no fence type → polygon),
+    /// the bootstrap *plugin* edge oracle.
+    #[test]
+    fn single_vec_polygon_feature_matches_matrix() {
+        use crate::geometry::{ToFeature, single_vec_to_polygon_feature};
+        use crate::{FeatureCtx, SingleVec};
+
+        for centers in [
+            vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],          // open ring
+            vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2.0]], // pre-closed
+        ] {
+            let centers: SingleVec = centers;
+            let old = centers.clone().to_feature(&FeatureCtx::default());
+            let new = single_vec_to_polygon_feature(&centers);
+            assert_eq!(
+                new.geometry.unwrap().value,
+                old.geometry.unwrap().value,
+                "bootstrap-plugin Polygon must match the matrix"
+            );
+        }
     }
 }

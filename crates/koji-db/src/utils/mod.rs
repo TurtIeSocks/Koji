@@ -2,7 +2,6 @@ use super::*;
 
 use std::env;
 
-use geojson::Value;
 use log::LevelFilter;
 use sea_orm::{ConnectOptions, Database, Order};
 
@@ -15,10 +14,6 @@ pub mod json;
 
 pub fn get_enum(instance_type: Option<String>) -> Type {
     koji_core::get_enum(instance_type).into()
-}
-
-pub fn get_enum_by_geometry(enum_val: &Value) -> Type {
-    koji_core::get_enum_by_geometry(enum_val).into()
 }
 
 pub fn get_category_enum(category: String) -> Category {

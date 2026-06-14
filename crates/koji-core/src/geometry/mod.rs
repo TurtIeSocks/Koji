@@ -18,6 +18,10 @@ mod text;
 pub use koji_geojson::KojiGeojsonError;
 pub use koji_geometry::{KojiGeometry, KojiGeometryCollection};
 pub use koji_meta::KojiMeta;
+pub use koji_output::{
+    single_vec_to_multipoint, single_vec_to_multipoint_feature, single_vec_to_polygon,
+    single_vec_to_polygon_feature,
+};
 pub use multi_struct::MultiStruct;
 pub use multi_vec::MultiVec;
 pub use point_array::PointArray;

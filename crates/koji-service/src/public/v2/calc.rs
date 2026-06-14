@@ -230,47 +230,16 @@ impl JobHandler for CalculateHandler {
     }
 }
 
-/// Build the calc output geometry: a `geo::MultiPoint` of the routed cluster
-/// centers, matrix-free.
-///
-/// Reproduces the exact coordinate pipeline the dying `To*` matrix ran for every
-/// live calc path (`SingleVec::to_feature` with a circle fence type →
-/// `MultiVec::multi_point()` → `Feature::remove_last_coord()`):
-///
-/// 1. **`ensure_first_last`** — append the first center if the route isn't already
-///    closed (the matrix's `SingleVec::to_single_vec` inside `to_multi_vec`).
-/// 2. map each `[lat, lon]` to `Point::new(lon, lat)` — `geo` is `[x=lon, y=lat]`,
-///    matching the matrix's `Coord { x: lon, y: lat }`.
-/// 3. **`remove_repeated_points`** — collapse *consecutive* duplicates (the matrix
-///    ran this twice, in `multi_point()` and again in `remove_last_coord()`; it is
-///    idempotent, so once here suffices).
-///
-/// The `remove_last_coord` name is a misnomer: it does NOT unconditionally drop the
-/// trailing closing coord — it only collapses adjacent equal points, so an open
-/// route keeps its appended closing coord. Byte-parity with this is pinned by the
-/// `multipoint_parity_*` tests against the live matrix oracle.
-fn centers_to_multipoint(centers: &SingleVec) -> geo::MultiPoint<f64> {
-    use geo::RemoveRepeatedPoints;
-
-    let mut points = centers.clone();
-    // `ensure_first_last`: close the ring iff non-empty and not already closed.
-    if let (Some(first), Some(last)) = (points.first().copied(), points.last().copied())
-        && first != last
-    {
-        points.push(first);
-    }
-    let mp: geo::MultiPoint<f64> = points
-        .into_iter()
-        .map(|[lat, lon]| geo::Point::new(lon, lat))
-        .collect();
-    mp.remove_repeated_points()
-}
-
 /// One-item `KojiGeometryCollection` wrapping the centers' MultiPoint, labeled with
 /// the instance name in `KojiMeta`. The shared shape for the cluster / reroute /
 /// route_stats cores (all of which emit MultiPoint cluster centers).
+///
+/// The coordinate pipeline (close ring, `[lat,lon]`→`Point(lon,lat)`, collapse
+/// consecutive duplicates) is single-sourced in
+/// [`koji_core::single_vec_to_multipoint`], which reproduces the dying matrix's
+/// `SingleVec::to_feature(circle)` geometry byte-for-byte.
 fn centers_collection(centers: &SingleVec, instance: &str) -> KojiGeometryCollection {
-    let geometry = centers_to_multipoint(centers);
+    let geometry = koji_core::single_vec_to_multipoint(centers);
     KojiGeometryCollection::new(vec![KojiGeometry::new(geometry).with_meta(KojiMeta {
         name: Some(instance.to_owned()),
         ..Default::default()
@@ -391,76 +360,62 @@ fn run_route_stats(
 #[cfg(test)]
 mod tests {
     use super::*;
-    // The matrix is still alive in this sub-step (deleted later in S5d); the test
-    // reaches it directly as the parity oracle.
-    use koji_core::{FeatureCtx, FeatureHelpers, FenceType, ToFeature};
 
     /// Extract the lone feature's geojson geometry `Value` from a FeatureCollection.
     fn only_geom_value(fc: &geojson::FeatureCollection) -> geojson::Value {
         fc.features[0].geometry.as_ref().unwrap().value.clone()
     }
 
-    /// Parity oracle: the OLD matrix path for the cluster/reroute/route_stats cores.
-    /// `SingleVec::to_feature` with a circle fence type projects through the
-    /// mode→shape inference's `multi_point()` branch, then `remove_last_coord()`
-    /// collapses consecutive duplicates. Exactly what every live calc core did.
-    fn old_geom_value(centers: &SingleVec) -> geojson::Value {
-        let feature = centers
-            .clone()
-            .to_feature(&FeatureCtx::new().with_type(FenceType::CirclePokemon))
-            .remove_last_coord();
-        feature.geometry.unwrap().value
-    }
-
-    /// The geometry the NEW path emits at the wire boundary: build the centers'
-    /// MultiPoint collection via the production [`centers_collection`], then project
-    /// to geojson via the Phase 1 outbound `From<&KojiGeometryCollection>` (the
-    /// locked Phase 2 path).
+    /// The geometry the production path emits at the wire boundary: build the
+    /// centers' MultiPoint collection via [`centers_collection`], then project to
+    /// geojson via the Phase 1 outbound `From<&KojiGeometryCollection>` (the locked
+    /// Phase 2 path).
     fn new_geom_value(centers: &SingleVec, instance: &str) -> geojson::Value {
         let koji = centers_collection(centers, instance);
         let fc = geojson::FeatureCollection::from(&koji);
         only_geom_value(&fc)
     }
 
-    /// An OPEN routed center set — the typical calc output (ring not pre-closed).
-    /// The matrix appends the closing coord (`ensure_first_last`) then dedups only
-    /// *consecutive* repeats, so the closing coord SURVIVES here. The new path must
-    /// reproduce that exact MultiPoint.
+    /// Golden geojson `MultiPoint` (`[lon, lat]` pairs) for the routed-center
+    /// pipeline. Captured from the matrix-free path while the matrix was still
+    /// alive and asserted byte-equal (the prior `new == old_matrix` parity gate);
+    /// these snapshots are now the source of truth (the matrix is deleted in S5d).
+    /// Coordinate flow: close the ring (`ensure_first_last`), flip
+    /// `[lat, lon]` → `[lon, lat]`, then `geo::RemoveRepeatedPoints` drops the
+    /// duplicate closing coord — so each route below collapses to the same three
+    /// distinct points.
+    fn golden(coords: &[[f64; 2]]) -> geojson::Value {
+        geojson::Value::MultiPoint(coords.iter().map(|c| vec![c[0], c[1]]).collect())
+    }
+
+    /// An OPEN routed center set (ring not pre-closed).
     #[test]
-    fn multipoint_parity_open_route() {
+    fn multipoint_open_route_matches_golden() {
         // SingleVec is [lat, lon].
         let centers: SingleVec = vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
-        let instance = "denver";
         assert_eq!(
-            new_geom_value(&centers, instance),
-            old_geom_value(&centers),
-            "new MultiPoint geometry must byte-match the old matrix MultiPoint"
+            new_geom_value(&centers, "denver"),
+            golden(&[[2.0, 1.0], [4.0, 3.0], [6.0, 5.0]]),
         );
     }
 
-    /// A PRE-CLOSED routed center set (last == first). `ensure_first_last` is a
-    /// no-op; the consecutive-dup at the seam is left as-is by the matrix
-    /// (`remove_repeated_points` only collapses *adjacent* equal points, and the
-    /// closing point equals the first, not its predecessor). Pins the seam case.
+    /// A PRE-CLOSED routed center set (last == first).
     #[test]
-    fn multipoint_parity_preclosed_route() {
+    fn multipoint_preclosed_route_matches_golden() {
         let centers: SingleVec = vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2.0]];
         assert_eq!(
             new_geom_value(&centers, "x"),
-            old_geom_value(&centers),
-            "pre-closed route MultiPoint must byte-match the matrix"
+            golden(&[[2.0, 1.0], [4.0, 3.0], [6.0, 5.0]]),
         );
     }
 
-    /// A route with an interior consecutive duplicate — exercises
-    /// `remove_repeated_points` collapsing an adjacent repeat mid-route.
+    /// A route with an interior consecutive duplicate.
     #[test]
-    fn multipoint_parity_interior_duplicate() {
+    fn multipoint_interior_duplicate_matches_golden() {
         let centers: SingleVec = vec![[1.0, 2.0], [3.0, 4.0], [3.0, 4.0], [5.0, 6.0]];
         assert_eq!(
             new_geom_value(&centers, "y"),
-            old_geom_value(&centers),
-            "interior-duplicate route MultiPoint must byte-match the matrix"
+            golden(&[[2.0, 1.0], [4.0, 3.0], [6.0, 5.0]]),
         );
     }
 }
