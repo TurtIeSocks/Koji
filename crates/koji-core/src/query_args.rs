@@ -36,6 +36,16 @@ pub struct ApiQueryArgs {
     pub fullcoords: Option<bool>,
 
     // -------------------------------------------------------------------------
+    // Hierarchy (recursive geofence subtree). Mutually exclusive — supplying
+    // both is an HTTP 400.
+    /// Cumulative subtree: the anchor (depth 0) through `depth` levels of
+    /// descendants, inclusive. `depth=0` returns the anchor(s) only.
+    pub depth: Option<u32>,
+    /// Exactly the geofences `level` levels below the anchor. `level=0` returns
+    /// the anchor(s) themselves.
+    pub level: Option<u32>,
+
+    // -------------------------------------------------------------------------
     // Name Property Manipulation
     /// If true, the entire `name` property is set to lowercase
     pub lowercase: Option<bool>,
@@ -93,6 +103,8 @@ impl Default for ApiQueryArgs {
             parent: None,
             rt: None,
             fullcoords: None,
+            depth: None,
+            level: None,
             lowercase: None,
             uppercase: None,
             capitalize: None,
@@ -185,4 +197,30 @@ pub struct AdminReqParsed {
     pub geofenceid: Option<u32>,
     pub pointsmin: Option<u32>,
     pub pointsmax: Option<u32>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deserializes_depth() {
+        let args: ApiQueryArgs = serde_json::from_value(serde_json::json!({ "depth": 2 })).unwrap();
+        assert_eq!(args.depth, Some(2));
+        assert_eq!(args.level, None);
+    }
+
+    #[test]
+    fn deserializes_level() {
+        let args: ApiQueryArgs = serde_json::from_value(serde_json::json!({ "level": 3 })).unwrap();
+        assert_eq!(args.level, Some(3));
+        assert_eq!(args.depth, None);
+    }
+
+    #[test]
+    fn depth_and_level_default_none() {
+        let args: ApiQueryArgs = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert_eq!(args.depth, None);
+        assert_eq!(args.level, None);
+    }
 }

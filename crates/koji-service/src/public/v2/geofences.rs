@@ -13,7 +13,10 @@
 use actix_web::{Error, HttpResponse, http::StatusCode, web};
 use geojson::{Feature, Geometry};
 use koji_core::{ApiQueryArgs, ReturnTypeArg};
-use koji_db::{KojiDb, db::geofence};
+use koji_db::{
+    KojiDb,
+    db::geofence::{self, Anchor, HierarchySpec},
+};
 use koji_dragonite::AreaMode;
 use koji_events::EventDispatcher;
 use model::api::args::get_return_type;
@@ -24,6 +27,12 @@ use crate::utils::{self, api_response::ApiResponse};
 
 /// `GET /api/v2/geofences` — list all geofences as a `FeatureCollection`,
 /// honoring `?format=`/`rt` (defaults to `featurecollection`).
+///
+/// With `?depth=N` or `?level=N` this becomes a recursive forest walk
+/// (anchor = every `parent IS NULL` root): `depth=N` is the cumulative subtree
+/// through level N, `level=N` is only the geofences exactly N levels down. The
+/// two are mutually exclusive (both → 400). Omitted → the existing
+/// non-recursive listing.
 async fn list(
     conn: web::Data<KojiDb>,
     args: web::Query<ApiQueryArgs>,
@@ -36,9 +45,20 @@ async fn list(
         &ReturnTypeArg::FeatureCollection,
     );
 
-    let coll = geofence::Query::get_all_koji(&conn.koji, &args)
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let coll = match HierarchySpec::from_args(args.depth, args.level) {
+        Err(_) => {
+            return Ok(ApiResponse::fail(
+                StatusCode::BAD_REQUEST,
+                json!({ "hierarchy": "`depth` and `level` are mutually exclusive" }),
+            ));
+        }
+        Ok(Some(spec)) => geofence::Query::descendants(&conn.koji, Anchor::Forest, spec)
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?,
+        Ok(None) => geofence::Query::get_all_koji(&conn.koji, &args)
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?,
+    };
 
     Ok(utils::response::send(coll, return_type, None, false, None))
 }
@@ -59,6 +79,11 @@ async fn create(
 
 /// `GET /api/v2/geofences/{id}` — one geofence (by id or name) as a feature,
 /// honoring `?format=`/`rt` (defaults to `feature`).
+///
+/// With `?depth=N` or `?level=N` this anchors a recursive subtree on the named
+/// geofence: `depth=N` is the cumulative subtree through level N, `level=N` is
+/// only the geofences exactly N levels down. The two are mutually exclusive
+/// (both → 400). Omitted → the existing single-geofence response.
 async fn get_one(
     conn: web::Data<KojiDb>,
     path: web::Path<String>,
@@ -71,17 +96,31 @@ async fn get_one(
         &ReturnTypeArg::Feature,
     );
 
-    let geometry = geofence::Query::get_one_koji(&conn.koji, id)
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let coll = match HierarchySpec::from_args(args.depth, args.level) {
+        Err(_) => {
+            return Ok(ApiResponse::fail(
+                StatusCode::BAD_REQUEST,
+                json!({ "hierarchy": "`depth` and `level` are mutually exclusive" }),
+            ));
+        }
+        Ok(Some(spec)) => {
+            let anchor = id
+                .parse::<u32>()
+                .map(Anchor::Id)
+                .unwrap_or_else(|_| Anchor::Name(id));
+            geofence::Query::descendants(&conn.koji, anchor, spec)
+                .await
+                .map_err(actix_web::error::ErrorInternalServerError)?
+        }
+        Ok(None) => {
+            let geometry = geofence::Query::get_one_koji(&conn.koji, id)
+                .await
+                .map_err(actix_web::error::ErrorInternalServerError)?;
+            koji_core::KojiGeometryCollection::new(vec![geometry])
+        }
+    };
 
-    Ok(utils::response::send(
-        koji_core::KojiGeometryCollection::new(vec![geometry]),
-        return_type,
-        None,
-        false,
-        None,
-    ))
+    Ok(utils::response::send(coll, return_type, None, false, None))
 }
 
 /// `PATCH /api/v2/geofences/{id}` — update a geofence by id → ApiResponse.
