@@ -1,59 +1,11 @@
 use std::cell::RefCell;
 
-use koji_core::{Precision, SingleVec};
+use koji_core::{KojiBbox, Precision, SingleVec};
 use macros::time;
 use rand::{Rng, SeedableRng, rngs::SmallRng};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::utils;
-
-/// Represents a bounding box in lat/lon coordinates
-#[derive(Debug, Clone, Copy)]
-struct BBox {
-    min_lat: Precision,
-    max_lat: Precision,
-    min_lon: Precision,
-    max_lon: Precision,
-}
-
-impl BBox {
-    /// Create a bounding box from a vector of points
-    fn from_points(points: &[[Precision; 2]]) -> Option<Self> {
-        if points.is_empty() {
-            return None;
-        }
-
-        let mut min_lat = Precision::INFINITY;
-        let mut max_lat = Precision::NEG_INFINITY;
-        let mut min_lon = Precision::INFINITY;
-        let mut max_lon = Precision::NEG_INFINITY;
-
-        for &[lat, lon] in points {
-            min_lat = min_lat.min(lat);
-            max_lat = max_lat.max(lat);
-            min_lon = min_lon.min(lon);
-            max_lon = max_lon.max(lon);
-        }
-
-        Some(BBox {
-            min_lat,
-            max_lat,
-            min_lon,
-            max_lon,
-        })
-    }
-
-    /// Expand the bounding box by a given radius (in degrees)
-    /// This ensures cluster centers near edges can still cover boundary points
-    fn expand(&self, radius_deg: Precision) -> Self {
-        BBox {
-            min_lat: self.min_lat - radius_deg,
-            max_lat: self.max_lat + radius_deg,
-            min_lon: self.min_lon - radius_deg,
-            max_lon: self.max_lon + radius_deg,
-        }
-    }
-}
 
 thread_local! {
     static TLS_RNG: RefCell<SmallRng> = RefCell::new(SmallRng::from_os_rng());
@@ -80,7 +32,7 @@ pub fn generate_cluster_candidates_grid(
         return Vec::new();
     }
 
-    let bbox = match BBox::from_points(points) {
+    let bbox = match KojiBbox::from_points(points) {
         Some(b) => b.expand(cluster_radius_deg),
         None => return Vec::new(),
     };

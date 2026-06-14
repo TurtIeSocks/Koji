@@ -6,6 +6,7 @@ use ::s2::cell::Cell;
 use ::s2::cellid::CellID;
 use ::s2::latlng::LatLng;
 use koji_core::ClusterMode;
+use koji_core::KojiBbox;
 use koji_core::PointArray;
 use koji_core::Precision;
 use koji_core::SingleVec;
@@ -154,33 +155,10 @@ pub(crate) fn estimate_cost(points: &[PointArray], mode: &ClusterMode, budget: u
     s2_cost.saturating_add(grid_cost)
 }
 
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct LatLonBBox {
-    pub min_lat: Precision,
-    pub max_lat: Precision,
-    pub min_lon: Precision,
-    pub max_lon: Precision,
-}
-
-impl LatLonBBox {
-    pub fn center_lat(&self) -> Precision {
-        0.5 * (self.min_lat + self.max_lat)
-    }
-
-    pub fn expand(&self, radius_deg: Precision) -> LatLonBBox {
-        LatLonBBox {
-            min_lat: self.min_lat - radius_deg,
-            max_lat: self.max_lat + radius_deg,
-            min_lon: self.min_lon - radius_deg,
-            max_lon: self.max_lon + radius_deg,
-        }
-    }
-}
-
-pub(crate) fn cell_bbox_lat_lon(cell: CellID) -> LatLonBBox {
+pub(crate) fn cell_bbox_lat_lon(cell: CellID) -> KojiBbox {
     let c = Cell::from(&cell);
     // Use vertex extremes; avoids rect_bound() API churn between s2 versions.
-    let mut bb = LatLonBBox {
+    let mut bb = KojiBbox {
         min_lat: Precision::INFINITY,
         max_lat: Precision::NEG_INFINITY,
         min_lon: Precision::INFINITY,
