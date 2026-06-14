@@ -4,8 +4,28 @@ use crate::{routing, stats::Stats};
 
 use geo::{Contains, Destination, Distance, Extremes, Haversine, Point, Polygon};
 use geojson::{Feature, Geometry, Value};
-use koji_core::{Precision, RoutingConfig, SingleVec, ToGeometryVec};
+use koji_core::{Precision, RoutingConfig, SingleVec};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+
+/// Split a `MultiPolygon` geometry into one `Geometry` per polygon, geo-native
+/// (no `To*` matrix). Matches the matrix `ToGeometryVec for Geometry`'s
+/// `MultiPolygon` arm: each polygon becomes its own `Value::Polygon` geometry,
+/// carrying the parent's bbox. A non-MultiPolygon geometry passes through as a
+/// single-element vec (the matrix's `_ =>` arm). Only the MultiPolygon case is
+/// reached here, but the fallthrough keeps the behavior total.
+fn split_multipolygon(geometry: Geometry) -> Vec<Geometry> {
+    match geometry.value {
+        Value::MultiPolygon(polygons) => polygons
+            .into_iter()
+            .map(|polygon| Geometry {
+                bbox: geometry.bbox.clone(),
+                value: Value::Polygon(polygon),
+                foreign_members: None,
+            })
+            .collect(),
+        _ => vec![geometry],
+    }
+}
 
 #[derive(Debug)]
 pub struct BootstrapRadius<'a> {
@@ -73,8 +93,7 @@ impl<'a> BootstrapRadius<'a> {
     fn flatten_circles(&self) -> Vec<Point> {
         if let Some(geometry) = self.feature.geometry.clone() {
             match geometry.value {
-                Value::MultiPolygon(_) => geometry
-                    .to_geometry_vec()
+                Value::MultiPolygon(_) => split_multipolygon(geometry)
                     .par_iter()
                     .flat_map(|geo| self.generate_circles(geo))
                     .collect(),

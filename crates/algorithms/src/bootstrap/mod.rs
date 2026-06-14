@@ -3,7 +3,9 @@ use std::time::Instant;
 
 use geojson::{Feature, FeatureCollection};
 #[cfg(feature = "native")]
-use koji_core::{BootstrapConfig, CalculationMode, RoutingConfig, ToSingleVec};
+use koji_core::{
+    BootstrapConfig, CalculationMode, KojiGeometry, KojiGeometryCollection, RoutingConfig,
+};
 #[cfg(feature = "native")]
 use koji_plugins::PluginKind;
 
@@ -40,7 +42,15 @@ pub fn main(
             }
             CalculationMode::Custom(plugin) => {
                 let time = Instant::now();
-                let points = feature.clone().to_single_vec();
+                // Koji-native inbound: geojson Feature -> KojiGeometry (Phase 1
+                // `TryFrom`) -> one-item collection -> Phase 1B inherent
+                // `to_single_vec` (parity-pinned against the dying matrix's
+                // `ToSingleVec for Feature`). An unconvertible geometry yields no
+                // points, matching the matrix's empty unsupported arm.
+                let points = match KojiGeometry::try_from(feature.clone()) {
+                    Ok(kg) => KojiGeometryCollection::new(vec![kg]).to_single_vec(),
+                    Err(_) => vec![],
+                };
                 if let Some(sorted_clusters) =
                     plugins::run_once(PluginKind::Bootstrap, plugin, points, &cfg.plugin_args)
                 {
