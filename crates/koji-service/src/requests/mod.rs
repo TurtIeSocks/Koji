@@ -12,7 +12,9 @@
 
 mod groups;
 mod inputs;
+mod ops;
 mod resolve;
 
 pub use groups::*;
 pub use inputs::*;
+pub use ops::*;
