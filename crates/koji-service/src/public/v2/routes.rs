@@ -5,13 +5,13 @@
 //! catch-all v1 uses) and the `?internal=` flag. Writes go through the koji-db
 //! `Query` and are wrapped in [`ApiResponse`](crate::utils::api_response::ApiResponse).
 //!
-//! Hand-written (not macro'd via [`super::resources`]) because the koji-db
-//! signature differs: `as_collection` / `get_one_feature` take an `internal`
-//! bool rather than the [`ApiQueryArgs`] the plain-JSON resources don't need at
-//! all.
+//! Hand-written (not macro'd via [`super::resources`]) because the reads return
+//! Koji-native geometry (`as_koji_collection` / `get_one_koji`) for
+//! [`utils::response::send`] rather than the plain JSON the macro'd resources
+//! emit.
 
 use actix_web::{Error, HttpResponse, http::StatusCode, web};
-use koji_core::{ApiQueryArgs, ReturnTypeArg, ToSingleVec};
+use koji_core::{ApiQueryArgs, ReturnTypeArg};
 use koji_db::{
     KojiDb,
     db::{geofence, route, sea_orm_active_enums::Mode},
@@ -151,12 +151,15 @@ async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<Htt
         ));
     };
 
-    // Route points as a Koji `SingleVec` (`[lat, lon]` — the Feature conversion
-    // handles the GeoJSON `[lon, lat]` swap).
-    let feature = route::Query::get_one_feature(&conn.koji, id, false)
+    // Route points as a Koji `SingleVec` (`[lat, lon]`). Fetch the route as a
+    // `KojiGeometry`, wrap it in a one-item collection, and flatten via the
+    // Phase 1B inherent `to_single_vec` (parity oracle: the old
+    // `Feature::to_single_vec` matrix path — both read the stored MultiPoint in
+    // order and emit the same `[lat, lon]` list).
+    let geometry = route::Query::get_one_koji(&conn.koji, id)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
-    let route_points = feature.to_single_vec();
+    let route_points = koji_core::KojiGeometryCollection::new(vec![geometry]).to_single_vec();
     let mode = area_mode_for(&model.mode);
 
     let payload = RouteUpdated {

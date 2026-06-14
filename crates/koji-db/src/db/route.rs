@@ -922,4 +922,36 @@ mod to_koji_tests {
             Some(88)
         );
     }
+
+    /// S8 route-publish payload parity: the `RouteUpdated.route` `SingleVec` the
+    /// publish handler emits must be byte-identical before/after the rewire. The
+    /// OLD producer was `get_one_feature(false).to_single_vec()` (the matrix
+    /// `ToSingleVec for Feature` path); the NEW producer is `get_one_koji(...)`
+    /// wrapped in a one-item `KojiGeometryCollection` and run through the Phase 1B
+    /// inherent `to_single_vec`. Both read the same stored MultiPoint row, so the
+    /// resulting `[lat, lon]` list must match exactly. (`get_one_feature` /
+    /// `get_one_koji` only add a DB fetch around `to_feature` / `to_koji_geometry`,
+    /// so testing the two `Model` conversions pins the producer parity without a
+    /// DB.)
+    #[test]
+    fn route_publish_single_vec_parity_old_vs_koji() {
+        use koji_core::ToSingleVec;
+
+        let model = route_row_for_feature();
+
+        // OLD path: Model -> to_feature(internal=false) -> ToSingleVec::to_single_vec.
+        let old_single_vec = model.clone().to_feature(false).unwrap().to_single_vec();
+
+        // NEW path: Model -> to_koji_geometry -> one-item collection -> to_single_vec.
+        let kg = model.to_koji_geometry().unwrap();
+        let new_single_vec = KojiGeometryCollection::new(vec![kg]).to_single_vec();
+
+        assert_eq!(
+            old_single_vec, new_single_vec,
+            "route publish SingleVec must be byte-identical across the rewire"
+        );
+        // Sanity: the stored MultiPoint [[1,2],[3,4]] (lon,lat) becomes
+        // [lat, lon] points, in order, on both paths.
+        assert_eq!(new_single_vec, vec![[2.0, 1.0], [4.0, 3.0]]);
+    }
 }

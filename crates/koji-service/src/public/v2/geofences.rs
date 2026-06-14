@@ -6,9 +6,9 @@
 //! catch-all. Writes go through the koji-db `Query` and are wrapped in
 //! [`ApiResponse`](crate::utils::api_response::ApiResponse).
 //!
-//! Hand-written (not macro'd via [`super::resources`]) because the koji-db
-//! signature differs: `get_all_collection` / `get_one_feature` take an
-//! [`ApiQueryArgs`], unlike the plain-JSON resources.
+//! Hand-written (not macro'd via [`super::resources`]) because the reads return
+//! Koji-native geometry (`get_all_koji` / `descendants` / `get_one_koji`) for
+//! [`utils::response::send`], unlike the plain-JSON resources.
 
 use actix_web::{Error, HttpResponse, http::StatusCode, web};
 use geojson::{Feature, Geometry};
@@ -180,7 +180,14 @@ async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<Htt
     };
 
     // Carry the fence geometry as a GeoJSON Feature (Dragonite accepts a Feature
-    // wrapping the Polygon/MultiPolygon).
+    // wrapping the Polygon/MultiPolygon). This builds a property-less,
+    // id-less Feature straight off the stored geometry — deliberately NOT the
+    // Phase 1 `Feature::from(&KojiGeometry)`, which would attach KojiMeta
+    // (`id`/`name`/`mode`/...) as `properties`. `area_geofence_patch` ships the
+    // whole `Feature` (`feature_to_geofence` clones it verbatim) to Dragonite, so
+    // adding those props would change the external PATCH payload; the
+    // `GeofenceUpdated.geofence` shape is locked, so it stays property-less. This
+    // path already touches no `To*` matrix method, so it needs no rewire.
     let geometry = Geometry::from_json_value(model.geometry.clone())
         .map_err(actix_web::error::ErrorInternalServerError)?;
     let feature = Feature {
