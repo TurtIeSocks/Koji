@@ -496,3 +496,649 @@ async fn plugins_get_known_kind_unknown_name_returns_404() {
     assert_eq!(v["status"], "error");
     assert_eq!(v["error"]["code"], "not_found");
 }
+
+#[actix_web::test]
+async fn plugins_patch_unknown_kind_returns_404() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    let req = test::TestRequest::patch()
+        .uri("/api/v2/plugins/badkind/anyname")
+        .set_json(serde_json::json!({}))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 404, "PATCH with unknown kind must return 404");
+    let v = body_json(resp).await;
+    assert_eq!(v["status"], "error");
+    assert_eq!(v["error"]["code"], "not_found");
+}
+
+#[actix_web::test]
+async fn plugins_patch_known_kind_nonexistent_plugin_returns_422() {
+    // Trying to PATCH a valid kind but a plugin not installed on disk → 422
+    // (enforcement of the "drop a plugin.toml first" gate).
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    let req = test::TestRequest::patch()
+        .uri("/api/v2/plugins/clustering/plugin-that-does-not-exist-on-disk")
+        .set_json(serde_json::json!({ "enabled": false }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 422, "patching non-installed plugin must return 422");
+    let v = body_json(resp).await;
+    assert_eq!(v["status"], "error");
+    assert_eq!(v["error"]["code"], "unprocessable");
+}
+
+#[actix_web::test]
+async fn plugins_delete_unknown_kind_returns_404() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    let req = test::TestRequest::delete()
+        .uri("/api/v2/plugins/notakind/anyname")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 404, "DELETE with unknown kind must return 404");
+    let v = body_json(resp).await;
+    assert_eq!(v["status"], "error");
+    assert_eq!(v["error"]["code"], "not_found");
+}
+
+#[actix_web::test]
+async fn plugins_delete_known_kind_nonexistent_plugin_returns_200_rows_0() {
+    // Deleting an overlay that doesn't exist (no row in plugin_config) → 200
+    // with rows_affected 0.  The handler does NOT return 404 — it treats it as
+    // an idempotent no-op.
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    let req = test::TestRequest::delete()
+        .uri("/api/v2/plugins/routing/plugin-that-has-no-overlay")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200, "DELETE with no overlay row must return 200");
+    let v = body_json(resp).await;
+    assert_eq!(v["status"], "ok");
+    assert_eq!(v["data"]["rows_affected"], 0);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GEOFENCES — PATCH (update) + format query
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[actix_web::test]
+async fn geofences_patch_name_only_returns_500_bug() {
+    // BUG: `geofence::Query::upsert_json_return` calls `to_geofence()` which
+    // requires BOTH `name` AND `geometry` in the JSON body.  A partial PATCH
+    // that omits `geometry` therefore returns 500 (ModelError) instead of 200.
+    // The handler needs to merge the existing model before upserting; fix in a
+    // follow-on task (not in scope here).  Test pins the current 500 so it
+    // becomes visible when the bug is fixed.
+    #[allow(unused_variables)]
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let name = unique_name("fence-patch");
+    let updated_name = unique_name("fence-patch-updated");
+
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    // Create
+    let req = test::TestRequest::post()
+        .uri("/api/v2/geofences")
+        .set_json(serde_json::json!({ "name": name, "geometry": triangle_geometry() }))
+        .to_request();
+    let created = body_json(test::call_service(&app, req).await).await;
+    let id = created["data"]["id"].as_u64().expect("created id");
+
+    // PATCH name only (no geometry) → current bug returns 500
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v2/geofences/{id}"))
+        .set_json(serde_json::json!({ "name": updated_name }))
+        .to_request();
+    let patch_resp = test::call_service(&app, req).await;
+    let patch_status = patch_resp.status().as_u16();
+    cleanup_geofence(&db, id).await;
+
+    // BUG: to_geofence() requires geometry; partial PATCH returns 500.
+    assert_eq!(patch_status, 500, "PATCH without geometry returns 500 (bug: should merge+200)");
+}
+
+#[actix_web::test]
+async fn geofences_patch_with_full_body_returns_200() {
+    // Providing both `name` AND `geometry` works around the merge-bug above.
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let name = unique_name("fence-patch-full");
+    let updated_name = unique_name("fence-patch-full-upd");
+
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    // Create
+    let req = test::TestRequest::post()
+        .uri("/api/v2/geofences")
+        .set_json(serde_json::json!({ "name": name, "geometry": triangle_geometry() }))
+        .to_request();
+    let created = body_json(test::call_service(&app, req).await).await;
+    let id = created["data"]["id"].as_u64().expect("created id");
+
+    // PATCH with name + geometry (workaround) → 200
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v2/geofences/{id}"))
+        .set_json(serde_json::json!({ "name": updated_name, "geometry": triangle_geometry() }))
+        .to_request();
+    let patch_resp = test::call_service(&app, req).await;
+    let patch_status = patch_resp.status().as_u16();
+    let patch_body = body_json(patch_resp).await;
+    cleanup_geofence(&db, id).await;
+
+    assert_eq!(patch_status, 200, "PATCH with full body must return 200");
+    assert_eq!(patch_body["status"], "ok");
+    assert_eq!(patch_body["data"]["name"], updated_name, "name not updated");
+}
+
+#[actix_web::test]
+async fn geofences_patch_missing_id_returns_404() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    let req = test::TestRequest::patch()
+        .uri("/api/v2/geofences/999999998")
+        .set_json(serde_json::json!({ "name": "nobody" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 404, "PATCH on missing geofence must return 404");
+    let v = body_json(resp).await;
+    assert_eq!(v["status"], "error");
+    assert_eq!(v["error"]["code"], "not_found");
+}
+
+#[actix_web::test]
+async fn geofences_get_format_feature_returns_geojson_feature() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let name = unique_name("fence-fmt");
+
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    // Create
+    let req = test::TestRequest::post()
+        .uri("/api/v2/geofences")
+        .set_json(serde_json::json!({ "name": name, "geometry": triangle_geometry() }))
+        .to_request();
+    let created = body_json(test::call_service(&app, req).await).await;
+    let id = created["data"]["id"].as_u64().expect("created id");
+
+    // GET with ?format=feature (default for get_one, but explicit here to cover the code path)
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/v2/geofences/{id}?format=feature"))
+        .to_request();
+    let get_resp = test::call_service(&app, req).await;
+    let get_status = get_resp.status().as_u16();
+    let get_body = body_json(get_resp).await;
+    cleanup_geofence(&db, id).await;
+
+    assert_eq!(get_status, 200, "GET ?format=feature must return 200");
+    assert_eq!(get_body["status"], "ok");
+    assert_eq!(get_body["data"]["type"], "Feature", "data must be a GeoJSON Feature");
+    assert_eq!(get_body["data"]["properties"]["name"], name);
+}
+
+#[actix_web::test]
+async fn geofences_list_format_featurecollection_is_default() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    // No ?format= → default featurecollection
+    let req = test::TestRequest::get()
+        .uri("/api/v2/geofences")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let v = body_json(resp).await;
+    assert_eq!(v["status"], "ok");
+    assert_eq!(v["data"]["type"], "FeatureCollection");
+    assert!(v["data"]["features"].is_array());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUTES — PATCH + format query + 404 paths
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[actix_web::test]
+async fn routes_patch_name_only_returns_500_bug() {
+    // BUG: `route::Query::upsert_json_return` calls `to_route()` which requires
+    // BOTH `name`/`geofence_id` AND `geometry` in the body. A partial PATCH
+    // omitting `geometry` returns 500 (ModelError) instead of 200.  Same root
+    // cause as the geofence PATCH bug.  Test pins the current 500.
+    #[allow(unused_variables)]
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let fence_name = unique_name("fence-for-route-patch");
+    let route_name = unique_name("route-patch");
+    let updated_name = unique_name("route-patch-updated");
+
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    // Create geofence + route
+    let req = test::TestRequest::post()
+        .uri("/api/v2/geofences")
+        .set_json(serde_json::json!({ "name": fence_name, "geometry": triangle_geometry() }))
+        .to_request();
+    let fence = body_json(test::call_service(&app, req).await).await;
+    let geofence_id = fence["data"]["id"].as_u64().expect("fence id");
+
+    let req = test::TestRequest::post()
+        .uri("/api/v2/routes")
+        .set_json(serde_json::json!({
+            "name": route_name,
+            "geofence_id": geofence_id,
+            "geometry": route_geometry()
+        }))
+        .to_request();
+    let route = body_json(test::call_service(&app, req).await).await;
+    let route_id = route["data"]["id"].as_u64().expect("route id");
+
+    // PATCH name only → 500 (bug)
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v2/routes/{route_id}"))
+        .set_json(serde_json::json!({ "name": updated_name }))
+        .to_request();
+    let patch_resp = test::call_service(&app, req).await;
+    let patch_status = patch_resp.status().as_u16();
+
+    cleanup_route(&db, route_id).await;
+    cleanup_geofence(&db, geofence_id).await;
+
+    // BUG: to_route() requires geometry; partial PATCH returns 500.
+    assert_eq!(patch_status, 500, "PATCH route without geometry returns 500 (bug: should merge+200)");
+}
+
+#[actix_web::test]
+async fn routes_patch_with_full_body_returns_200() {
+    // Providing name + geofence_id + geometry works around the merge-bug.
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let fence_name = unique_name("fence-for-route-patch-full");
+    let route_name = unique_name("route-patch-full");
+    let updated_name = unique_name("route-patch-full-upd");
+
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    // Create geofence + route
+    let req = test::TestRequest::post()
+        .uri("/api/v2/geofences")
+        .set_json(serde_json::json!({ "name": fence_name, "geometry": triangle_geometry() }))
+        .to_request();
+    let fence = body_json(test::call_service(&app, req).await).await;
+    let geofence_id = fence["data"]["id"].as_u64().expect("fence id");
+
+    let req = test::TestRequest::post()
+        .uri("/api/v2/routes")
+        .set_json(serde_json::json!({
+            "name": route_name,
+            "geofence_id": geofence_id,
+            "geometry": route_geometry()
+        }))
+        .to_request();
+    let route = body_json(test::call_service(&app, req).await).await;
+    let route_id = route["data"]["id"].as_u64().expect("route id");
+
+    // PATCH with full body (workaround) → 200
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v2/routes/{route_id}"))
+        .set_json(serde_json::json!({
+            "name": updated_name,
+            "geofence_id": geofence_id,
+            "geometry": route_geometry()
+        }))
+        .to_request();
+    let patch_resp = test::call_service(&app, req).await;
+    let patch_status = patch_resp.status().as_u16();
+    let patch_body = body_json(patch_resp).await;
+
+    cleanup_route(&db, route_id).await;
+    cleanup_geofence(&db, geofence_id).await;
+
+    assert_eq!(patch_status, 200, "PATCH route with full body must return 200");
+    assert_eq!(patch_body["status"], "ok");
+    assert_eq!(patch_body["data"]["name"], updated_name, "route name not updated");
+}
+
+#[actix_web::test]
+async fn routes_patch_missing_id_returns_404() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    let req = test::TestRequest::patch()
+        .uri("/api/v2/routes/999999998")
+        .set_json(serde_json::json!({ "name": "ghost" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 404, "PATCH on missing route must return 404");
+    let v = body_json(resp).await;
+    assert_eq!(v["status"], "error");
+    assert_eq!(v["error"]["code"], "not_found");
+}
+
+#[actix_web::test]
+async fn routes_delete_returns_204_and_get_is_404() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let fence_name = unique_name("fence-for-route-del");
+    let route_name = unique_name("route-del");
+
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    // Create geofence + route
+    let req = test::TestRequest::post()
+        .uri("/api/v2/geofences")
+        .set_json(serde_json::json!({ "name": fence_name, "geometry": triangle_geometry() }))
+        .to_request();
+    let fence = body_json(test::call_service(&app, req).await).await;
+    let geofence_id = fence["data"]["id"].as_u64().expect("fence id");
+
+    let req = test::TestRequest::post()
+        .uri("/api/v2/routes")
+        .set_json(serde_json::json!({
+            "name": route_name,
+            "geofence_id": geofence_id,
+            "geometry": route_geometry()
+        }))
+        .to_request();
+    let route = body_json(test::call_service(&app, req).await).await;
+    let route_id = route["data"]["id"].as_u64().expect("route id");
+
+    // DELETE
+    let req = test::TestRequest::delete()
+        .uri(&format!("/api/v2/routes/{route_id}"))
+        .to_request();
+    let del_resp = test::call_service(&app, req).await;
+    assert_eq!(del_resp.status(), 204, "DELETE must return 204");
+
+    // Subsequent GET → 404
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/v2/routes/{route_id}"))
+        .to_request();
+    let get_resp = test::call_service(&app, req).await;
+    assert_eq!(get_resp.status(), 404, "deleted route must return 404");
+
+    // Cleanup geofence (route already gone)
+    cleanup_geofence(&db, geofence_id).await;
+}
+
+#[actix_web::test]
+async fn routes_get_format_feature_returns_geojson_feature() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let fence_name = unique_name("fence-fmt-rt");
+    let route_name = unique_name("route-fmt");
+
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    // Create geofence + route
+    let req = test::TestRequest::post()
+        .uri("/api/v2/geofences")
+        .set_json(serde_json::json!({ "name": fence_name, "geometry": triangle_geometry() }))
+        .to_request();
+    let fence = body_json(test::call_service(&app, req).await).await;
+    let geofence_id = fence["data"]["id"].as_u64().expect("fence id");
+
+    let req = test::TestRequest::post()
+        .uri("/api/v2/routes")
+        .set_json(serde_json::json!({
+            "name": route_name,
+            "geofence_id": geofence_id,
+            "geometry": route_geometry()
+        }))
+        .to_request();
+    let route = body_json(test::call_service(&app, req).await).await;
+    let route_id = route["data"]["id"].as_u64().expect("route id");
+
+    // GET with ?format=feature (the default for get_one)
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/v2/routes/{route_id}?format=feature"))
+        .to_request();
+    let get_resp = test::call_service(&app, req).await;
+    let get_status = get_resp.status().as_u16();
+    let get_body = body_json(get_resp).await;
+
+    cleanup_route(&db, route_id).await;
+    cleanup_geofence(&db, geofence_id).await;
+
+    assert_eq!(get_status, 200, "GET route ?format=feature must return 200");
+    assert_eq!(get_body["status"], "ok");
+    assert_eq!(get_body["data"]["type"], "Feature", "data must be a GeoJSON Feature");
+    assert_eq!(get_body["data"]["properties"]["name"], route_name);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// JOBS — enqueue happy path + get by id + cancel + serde-flatten BUG doc
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Cleanup helper: delete a job row by id string.
+async fn cleanup_job(db: &DatabaseConnection, id: &str) {
+    let _ = db
+        .execute(Statement::from_sql_and_values(
+            DbBackend::MySql,
+            "DELETE FROM `job` WHERE `id` = ?",
+            [Value::from(id)],
+        ))
+        .await;
+}
+
+#[actix_web::test]
+async fn jobs_get_unknown_valid_ulid_returns_404() {
+    // A well-formed ULID that doesn't exist in the DB → 404 (not 400).
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    // A known-good ULID format that won't exist in the test DB.
+    let req = test::TestRequest::get()
+        .uri("/api/v2/jobs/01JXZZZZZZZZZZZZZZZZZZZZZZ")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 404, "valid ULID not in DB must return 404");
+    let v = body_json(resp).await;
+    assert_eq!(v["status"], "error");
+    assert_eq!(v["error"]["code"], "not_found");
+}
+
+#[actix_web::test]
+async fn jobs_cancel_valid_ulid_not_in_db_returns_202_bug() {
+    // BUG: `JobQueue::cancel()` runs two UPDATE statements but never checks
+    // whether the job exists. If no row matches, both UPDATEs affect 0 rows and
+    // `cancel()` returns `Ok(())` — so the HTTP handler responds 202 even for a
+    // missing job id.  The correct behavior is 404.  Test pins the current 202.
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    let req = test::TestRequest::delete()
+        .uri("/api/v2/jobs/01JXZZZZZZZZZZZZZZZZZZZZZZ")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    // BUG: cancel on missing id should return 404 but currently returns 202.
+    assert_eq!(resp.status(), 202, "cancel on missing job returns 202 (bug: should be 404)");
+}
+
+#[actix_web::test]
+async fn jobs_create_convert_job_returns_202_with_job_id() {
+    // POST a minimal convert (cluster) job that has a valid area → 202 + job_id.
+    // Cleanup the enqueued job row after asserting.
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    // A minimal cluster job with a small FeatureCollection area; no scanner data
+    // needed for the enqueue path (data_points resolution hits the scanner DB,
+    // but since we supply data_points directly the handler skips that branch).
+    let body = serde_json::json!({
+        "mode": "cluster",
+        "category": "pokestop",
+        "area": {
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "properties": {},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,1.0],[0.0,0.0]]]
+                }
+            }]
+        },
+        "dataPoints": [[0.5, 0.5]]
+    });
+
+    let req = test::TestRequest::post()
+        .uri("/api/v2/jobs")
+        .set_json(&body)
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    let status = resp.status().as_u16();
+    let location = resp
+        .headers()
+        .get("Location")
+        .map(|v| v.to_str().unwrap_or("").to_owned());
+    let v = body_json(resp).await;
+
+    // Clean up the job row before asserting so a panic doesn't strand it.
+    if let Some(id) = v["data"]["job_id"].as_str() {
+        cleanup_job(&db, id).await;
+    }
+
+    assert_eq!(status, 202, "enqueue cluster job must return 202, got {v}");
+    assert_eq!(v["status"], "ok");
+    let job_id = v["data"]["job_id"].as_str().expect("data.job_id must be a string");
+    assert!(!job_id.is_empty(), "job_id must not be empty");
+    assert!(
+        location.as_deref().map_or(false, |l| l.starts_with("/api/v2/jobs/")),
+        "Location header must point at /api/v2/jobs/..., got {location:?}"
+    );
+}
+
+#[actix_web::test]
+async fn jobs_create_then_get_by_id_returns_200() {
+    // Enqueue a job then GET /jobs/{id} → 200 with a matching job record.
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    let body = serde_json::json!({
+        "mode": "cluster",
+        "category": "pokestop",
+        "area": {
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "properties": {},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,1.0],[0.0,0.0]]]
+                }
+            }]
+        },
+        "dataPoints": [[0.5, 0.5]]
+    });
+
+    let req = test::TestRequest::post()
+        .uri("/api/v2/jobs")
+        .set_json(&body)
+        .to_request();
+    let create_resp = body_json(test::call_service(&app, req).await).await;
+    let job_id = create_resp["data"]["job_id"]
+        .as_str()
+        .expect("data.job_id")
+        .to_owned();
+
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/v2/jobs/{job_id}"))
+        .to_request();
+    let get_resp = test::call_service(&app, req).await;
+    let get_status = get_resp.status().as_u16();
+    let get_body = body_json(get_resp).await;
+
+    cleanup_job(&db, &job_id).await;
+
+    assert_eq!(get_status, 200, "GET job by id must return 200");
+    assert_eq!(get_body["status"], "ok");
+    // The record must echo the job id back.
+    assert_eq!(
+        get_body["data"]["id"].as_str().unwrap_or(""),
+        job_id,
+        "returned job id must match"
+    );
+}
+
+#[actix_web::test]
+async fn jobs_list_paginated_query_returns_400_serde_flatten_bug() {
+    // BUG: serde flatten + urlencoded — `#[serde(flatten)] Pagination` inside
+    // `JobListQuery` is incompatible with actix-web's `serde_urlencoded` query
+    // extractor.  When `?page=` or `?per_page=` is present in the query string
+    // the deserializer fails and the handler returns 400 instead of 200.
+    //
+    // This test PINS the current 400 so we know when it's fixed.  Do not fix
+    // the prod code here; fix it when the serde_urlencoded limitation is
+    // addressed upstream or via a wrapper.
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    let req = test::TestRequest::get()
+        .uri("/api/v2/jobs?page=1&per_page=10")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    // BUG: serde flatten + urlencoded incompatibility → 400 instead of 200.
+    assert_eq!(
+        resp.status(),
+        400,
+        "paginated query returns 400 due to serde flatten + urlencoded bug"
+    );
+}
