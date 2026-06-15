@@ -40,6 +40,7 @@ impl Related<super::geofence_property::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
+#[macros::crud_query]
 pub struct Query;
 
 impl Query {
@@ -107,25 +108,6 @@ impl Query {
         Ok(results)
     }
 
-    pub async fn get_one(db: &DatabaseConnection, id: String) -> Result<Model, ModelError> {
-        let record = match id.parse::<u32>() {
-            Ok(id) => Entity::find_by_id(id).one(db).await?,
-            Err(_) => Entity::find().filter(Column::Name.eq(id)).one(db).await?,
-        };
-        if let Some(record) = record {
-            Ok(record)
-        } else {
-            Err(ModelError::Geofence("Does not exist".to_string()))
-        }
-    }
-
-    pub async fn get_one_json(db: &DatabaseConnection, id: String) -> Result<Json, ModelError> {
-        match Query::get_one(db, id).await {
-            Ok(record) => Ok(json!(record)),
-            Err(err) => Err(err),
-        }
-    }
-
     pub async fn upsert(
         db: &DatabaseConnection,
         id: u32,
@@ -171,11 +153,6 @@ impl Query {
         Ok(json!(result))
     }
 
-    pub async fn delete(db: &DatabaseConnection, id: u32) -> Result<DeleteResult, DbErr> {
-        let record = property::Entity::delete_by_id(id).exec(db).await?;
-        Ok(record)
-    }
-
     pub async fn get_or_create_db_prop(
         db: &DatabaseConnection,
         prop: &str,
@@ -196,13 +173,5 @@ impl Query {
             .insert(db)
             .await
         }
-    }
-
-    pub async fn search(db: &DatabaseConnection, search: String) -> Result<Vec<Json>, DbErr> {
-        Entity::find()
-            .filter(Column::Name.like(format!("%{}%", search).as_str()))
-            .into_json()
-            .all(db)
-            .await
     }
 }

@@ -269,6 +269,64 @@ pub fn derive_str_enum(input: TokenStream) -> TokenStream {
     .into()
 }
 
+/// Generates the verbatim-identical `impl Query { get_one, get_one_json,
+/// delete, search }` CRUD block shared by the admin-CRUD entities (property,
+/// project, tile_server), which differ in nothing but their entity module.
+/// Place on `pub struct Query;`:
+///
+/// ```ignore
+/// #[macros::crud_query]
+/// pub struct Query;
+/// ```
+///
+/// The original `struct Query;` item is re-emitted unchanged, then the impl is
+/// appended. `Entity`/`Column`/`Model`/`Json`/`DatabaseConnection`/`DbErr`/
+/// `DeleteResult` are emitted unqualified and resolve at the call site (each
+/// entity module has `use super::*` + `use sea_orm::entity::prelude::*`, whose
+/// prelude re-exports `JsonValue as Json`, `DeleteResult`, `DbErr`,
+/// `DatabaseConnection`). `crate::error::ModelError` and `serde_json::json!`
+/// are fully qualified so the macro names no caller-local item.
+///
+/// Note: the shared not-found arm reproduces the pre-existing
+/// `ModelError::Geofence("Does not exist")` misnomer verbatim — these CRUD
+/// entities are not geofences, but the variant predates this extraction and is
+/// intentionally left unchanged.
+#[proc_macro_attribute]
+pub fn crud_query(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let item: proc_macro2::TokenStream = item.into();
+    let expanded = quote! {
+        #item
+
+        impl Query {
+            pub async fn get_one(db: &DatabaseConnection, id: String) -> Result<Model, crate::error::ModelError> {
+                let record = match id.parse::<u32>() {
+                    Ok(id) => Entity::find_by_id(id).one(db).await?,
+                    Err(_) => Entity::find().filter(Column::Name.eq(id)).one(db).await?,
+                };
+                if let Some(record) = record {
+                    Ok(record)
+                } else {
+                    Err(crate::error::ModelError::Geofence("Does not exist".to_string()))
+                }
+            }
+            pub async fn get_one_json(db: &DatabaseConnection, id: String) -> Result<Json, crate::error::ModelError> {
+                Ok(serde_json::json!(Self::get_one(db, id).await?))
+            }
+            pub async fn delete(db: &DatabaseConnection, id: u32) -> Result<DeleteResult, DbErr> {
+                Entity::delete_by_id(id).exec(db).await
+            }
+            pub async fn search(db: &DatabaseConnection, search: String) -> Result<Vec<Json>, DbErr> {
+                Entity::find()
+                    .filter(Column::Name.like(format!("%{}%", search).as_str()))
+                    .into_json()
+                    .all(db)
+                    .await
+            }
+        }
+    };
+    expanded.into()
+}
+
 /// Generates the verbatim-identical `impl Query { all, bound, area, stats }`
 /// block shared by fort-shaped scanner entities (gym, pokestop), which differ
 /// only by raw-SQL table name and id prefix. Place on `pub struct Query;`:
