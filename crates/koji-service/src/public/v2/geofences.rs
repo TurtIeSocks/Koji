@@ -292,8 +292,9 @@ async fn publish(
 }
 
 /// The `web::Scope` wiring the geofence handlers under `/geofences`, mounted into
-/// `/api/v2` by [`crate::start`]. The `/{id}/publish` sub-resource is registered
-/// before the `/{id}` catch-all so the more specific route matches first.
+/// `/api/v2` by [`crate::start`]. The `/{id}/publish` and `/{id}/scanner-data`
+/// sub-resources are registered before the `/{id}` catch-all so the more specific
+/// routes match first.
 pub(crate) fn scope() -> actix_web::Scope {
     web::scope("/geofences")
         .service(
@@ -302,6 +303,13 @@ pub(crate) fn scope() -> actix_web::Scope {
                 .route(web::post().to(create)),
         )
         .service(web::resource("/{id}/publish").route(web::post().to(publish)))
+        // scanner-data as a geofence sub-resource (architecture §4.5): the
+        // category's scanner points within the path `{id}` geofence. The handler
+        // lives in `super::scanner_data` (re-keyed off the path id in P3).
+        .service(
+            web::resource("/{id}/scanner-data")
+                .route(web::get().to(crate::public::v2::scanner_data::scanner_data)),
+        )
         .service(
             web::resource("/{id}")
                 .route(web::get().to(get_one))

@@ -11,10 +11,8 @@
 //! body with an `Args` area; a GET can't, so v2 keys off the path geofence.
 //! Ad-hoc bbox queries remain on the v1 `/internal/data/bound` endpoint.)
 //!
-//! Re-keyed here (T3); the route is remounted under `geofences::scope()` in T4.
-//! Between the two the handler is unreferenced, so the dead-code lint is silenced
-//! crate-wide for this module until T4 wires it.
-#![allow(dead_code)]
+//! The route is mounted under [`super::geofences::scope()`] as the
+//! `/{id}/scanner-data` sub-resource.
 
 use actix_web::{HttpResponse, web};
 use geojson::FeatureCollection;
@@ -31,9 +29,12 @@ use crate::utils::{self};
 /// up-front lets an unknown category surface as a clean `400` before any DB work.
 const VALID_CATEGORIES: [&str; 5] = ["gym", "pokestop", "spawnpoint", "station", "fort"];
 
-/// Query for `GET /api/v2/geofences/{id}/scanner-data`.
+/// Query for `GET /api/v2/geofences/{id}/scanner-data`. `pub(crate)` because the
+/// handler is mounted cross-module (from [`super::geofences::scope()`]), so its
+/// `web::Query<ScannerDataQuery>` arg type must be at least as visible as the
+/// handler the route names.
 #[derive(Debug, Deserialize)]
-struct ScannerDataQuery {
+pub(crate) struct ScannerDataQuery {
     /// Scanner data category (`gym|pokestop|spawnpoint|station|fort`).
     category: String,
     /// Only points updated within the last N seconds (`0` = no filter).
