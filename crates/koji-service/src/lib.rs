@@ -290,13 +290,7 @@ pub async fn start() -> io::Result<()> {
                             // Plugin management overlay (DB-managed plugin config):
                             // merged disk-manifest + DB-overlay view; PATCH/DELETE
                             // edit only `enabled`/`args_default`/`description`.
-                            .service(public::v2::plugins::scope())
-                            // scanner-data fetch (architecture §6). Registered
-                            // directly (no wrapper scope) — its
-                            // `#[get("/scanner-data/{category}")]` attribute gives
-                            // the full subpath, so ordering no longer matters (the
-                            // old empty-prefix wrapper used to shadow siblings).
-                            .service(public::v2::scanner_data::scanner_data),
+                            .service(public::v2::plugins::scope()),
                     ),
             )
             // Liveness probe (top-level, unauthenticated — mirrors `/health`).
