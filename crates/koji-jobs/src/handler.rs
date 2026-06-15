@@ -83,3 +83,284 @@ impl std::fmt::Debug for HandlerRegistry {
             .finish()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::JobError;
+    use serde_json::json;
+
+    // ── Test handlers ─────────────────────────────────────────────────────
+
+    /// Echoes the payload back as the result.
+    struct EchoHandler;
+    impl JobHandler for EchoHandler {
+        fn kind(&self) -> &'static str {
+            "echo"
+        }
+        fn run(
+            &self,
+            payload: serde_json::Value,
+            _ctx: &JobCtx,
+        ) -> Result<serde_json::Value, JobError> {
+            Ok(payload)
+        }
+    }
+
+    /// Always returns a validation error.
+    struct FailingHandler;
+    impl JobHandler for FailingHandler {
+        fn kind(&self) -> &'static str {
+            "fail"
+        }
+        fn run(
+            &self,
+            _payload: serde_json::Value,
+            _ctx: &JobCtx,
+        ) -> Result<serde_json::Value, JobError> {
+            Err(JobError::validation("bad input"))
+        }
+    }
+
+    /// Returns a fixed result (does not echo).
+    struct CalcHandler;
+    impl JobHandler for CalcHandler {
+        fn kind(&self) -> &'static str {
+            "calc.route"
+        }
+        fn run(
+            &self,
+            _payload: serde_json::Value,
+            _ctx: &JobCtx,
+        ) -> Result<serde_json::Value, JobError> {
+            Ok(json!({"routes": 3}))
+        }
+    }
+
+    // ── Test helpers ──────────────────────────────────────────────────────
+
+    /// Build a minimal JobCtx backed by a real CancelToken.
+    ///
+    /// `ProgressHandle::new` is `pub(crate)`, so we can call it from inside
+    /// the crate. `DatabaseConnection` cannot be built without a live pool,
+    /// so we create the `ProgressHandle` via an unsafe read of a correctly-
+    /// aligned zeroed allocation and wrap the whole `JobCtx` in `ManuallyDrop`
+    /// to prevent Drop from running on the null Arc inside DatabaseConnection.
+    ///
+    /// SAFETY: no test handler calls `ctx.progress.set()`, so the null DB
+    /// connection is never dereferenced.
+    fn make_ctx() -> std::mem::ManuallyDrop<JobCtx> {
+        use crate::types::{CancelToken, ProgressHandle};
+
+        let cancel = CancelToken::new();
+
+        // Allocate zeroed memory sized/aligned for ProgressHandle and read it
+        // out as the type. This is the only constructor available without a
+        // real DatabaseConnection; set() is never called in these tests so the
+        // null internal Arc is never touched.
+        let layout = std::alloc::Layout::new::<ProgressHandle>();
+        // SAFETY: layout is non-zero (ProgressHandle contains at least a u64).
+        let ptr = unsafe { std::alloc::alloc_zeroed(layout) };
+        // SAFETY: ptr points to ProgressHandle-sized zeroed memory.
+        let progress: ProgressHandle = unsafe { std::ptr::read(ptr as *const ProgressHandle) };
+        // Leak the raw allocation; progress owns the bytes now via ptr::read.
+        // We'll suppress its Drop below.
+
+        // Wrap in ManuallyDrop so neither `progress` nor the enclosing `JobCtx`
+        // run their destructors — the zeroed Arc<InnerConnection> inside
+        // DatabaseConnection would segfault on decrement.
+        let ctx = JobCtx {
+            cancel,
+            progress,
+        };
+        std::mem::ManuallyDrop::new(ctx)
+    }
+
+    // ── HandlerRegistry::new / default ────────────────────────────────────
+
+    #[test]
+    fn new_registry_is_empty() {
+        let reg = HandlerRegistry::new();
+        assert!(!reg.contains("echo"));
+        assert!(reg.get("echo").is_none());
+    }
+
+    #[test]
+    fn default_registry_is_empty() {
+        let reg = HandlerRegistry::default();
+        assert!(!reg.contains("anything"));
+    }
+
+    // ── HandlerRegistry::register + contains + get ─────────────────────────
+
+    #[test]
+    fn register_single_handler_then_get() {
+        let ctx = make_ctx();
+        let reg = HandlerRegistry::new().register(EchoHandler);
+        assert!(reg.contains("echo"));
+        let h = reg.get("echo").expect("handler must be present");
+        let result = h.run(json!({"x": 1}), &ctx);
+        assert_eq!(result.unwrap(), json!({"x": 1}));
+    }
+
+    #[test]
+    fn get_unknown_kind_returns_none() {
+        let reg = HandlerRegistry::new().register(EchoHandler);
+        assert!(reg.get("unknown").is_none());
+        assert!(!reg.contains("unknown"));
+    }
+
+    #[test]
+    fn register_multiple_handlers_all_found() {
+        let reg = HandlerRegistry::new()
+            .register(EchoHandler)
+            .register(FailingHandler)
+            .register(CalcHandler);
+        assert!(reg.contains("echo"));
+        assert!(reg.contains("fail"));
+        assert!(reg.contains("calc.route"));
+        assert!(!reg.contains("missing"));
+    }
+
+    #[test]
+    fn register_overwrites_prior_for_same_kind() {
+        struct FirstHandler;
+        impl JobHandler for FirstHandler {
+            fn kind(&self) -> &'static str { "dupe" }
+            fn run(&self, _p: serde_json::Value, _ctx: &JobCtx)
+                -> Result<serde_json::Value, JobError> { Ok(json!("first")) }
+        }
+        struct SecondHandler;
+        impl JobHandler for SecondHandler {
+            fn kind(&self) -> &'static str { "dupe" }
+            fn run(&self, _p: serde_json::Value, _ctx: &JobCtx)
+                -> Result<serde_json::Value, JobError> { Ok(json!("second")) }
+        }
+
+        let ctx = make_ctx();
+        let reg = HandlerRegistry::new()
+            .register(FirstHandler)
+            .register(SecondHandler);
+        let h = reg.get("dupe").unwrap();
+        // Second registration wins.
+        assert_eq!(h.run(json!(null), &ctx).unwrap(), json!("second"));
+    }
+
+    // ── HandlerRegistry::register_arc ─────────────────────────────────────
+
+    #[test]
+    fn register_arc_makes_handler_findable() {
+        let ctx = make_ctx();
+        let arc: Arc<dyn JobHandler> = Arc::new(EchoHandler);
+        let reg = HandlerRegistry::new().register_arc(arc);
+        assert!(reg.contains("echo"));
+        let h = reg.get("echo").unwrap();
+        assert_eq!(h.run(json!(42), &ctx).unwrap(), json!(42));
+    }
+
+    #[test]
+    fn register_arc_clone_retains_shared_handler() {
+        let ctx = make_ctx();
+        // The caller-retained clone and the registered copy are the same Arc.
+        let shared: Arc<dyn JobHandler> = Arc::new(EchoHandler);
+        let shared2 = Arc::clone(&shared);
+        let reg = HandlerRegistry::new().register_arc(shared);
+        let from_registry = reg.get("echo").unwrap();
+        assert_eq!(from_registry.run(json!("via registry"), &ctx).unwrap(), json!("via registry"));
+        assert_eq!(shared2.run(json!("direct"), &ctx).unwrap(), json!("direct"));
+    }
+
+    // ── HandlerRegistry::get returns independent Arc clones ───────────────
+
+    #[test]
+    fn two_gets_return_independent_arc_clones() {
+        let ctx = make_ctx();
+        let reg = HandlerRegistry::new().register(EchoHandler);
+        let h1 = reg.get("echo").unwrap();
+        let h2 = reg.get("echo").unwrap();
+        assert_eq!(h1.run(json!(1), &ctx).unwrap(), json!(1));
+        assert_eq!(h2.run(json!(2), &ctx).unwrap(), json!(2));
+    }
+
+    // ── HandlerRegistry Debug ──────────────────────────────────────────────
+
+    #[test]
+    fn debug_output_includes_registered_kind() {
+        let reg = HandlerRegistry::new().register(EchoHandler);
+        let dbg = format!("{reg:?}");
+        assert!(dbg.contains("HandlerRegistry"), "must name the type");
+        assert!(dbg.contains("echo"), "must include registered kind");
+    }
+
+    #[test]
+    fn debug_empty_registry_has_no_kind_names() {
+        let reg = HandlerRegistry::new();
+        let dbg = format!("{reg:?}");
+        assert!(dbg.contains("HandlerRegistry"));
+        assert!(!dbg.contains("echo"));
+    }
+
+    // ── Handler dispatch: Ok vs Err paths ─────────────────────────────────
+
+    #[test]
+    fn echo_handler_run_returns_payload() {
+        let ctx = make_ctx();
+        let h = EchoHandler;
+        let payload = json!({"radius": 70, "min_points": 3});
+        let result = h.run(payload.clone(), &ctx);
+        assert_eq!(result.unwrap(), payload);
+    }
+
+    #[test]
+    fn failing_handler_run_returns_validation_error() {
+        let ctx = make_ctx();
+        let h = FailingHandler;
+        let err = h.run(json!({}), &ctx).unwrap_err();
+        assert_eq!(err.code(), "validation_error");
+    }
+
+    #[test]
+    fn calc_handler_run_returns_fixed_result() {
+        let ctx = make_ctx();
+        let h = CalcHandler;
+        let result = h.run(json!({"anything": true}), &ctx);
+        assert_eq!(result.unwrap(), json!({"routes": 3}));
+    }
+
+    // ── HandlerRegistry Clone shares handlers ─────────────────────────────
+
+    #[test]
+    fn cloned_registry_has_same_handlers() {
+        let ctx = make_ctx();
+        let reg = HandlerRegistry::new().register(EchoHandler);
+        let reg2 = reg.clone();
+        assert!(reg2.contains("echo"));
+        let h = reg2.get("echo").unwrap();
+        assert_eq!(h.run(json!("hello"), &ctx).unwrap(), json!("hello"));
+    }
+
+    #[test]
+    fn clone_does_not_share_mutations() {
+        // Registering into a clone does not affect the original.
+        let reg = HandlerRegistry::new().register(EchoHandler);
+        let reg2 = reg.clone().register(FailingHandler);
+        // Original has only "echo".
+        assert!(reg.contains("echo"));
+        assert!(!reg.contains("fail"));
+        // Clone has both.
+        assert!(reg2.contains("echo"));
+        assert!(reg2.contains("fail"));
+    }
+
+    // ── kind() accessor on trait object ───────────────────────────────────
+
+    #[test]
+    fn handler_kind_accessor_returns_correct_string() {
+        let h: &dyn JobHandler = &EchoHandler;
+        assert_eq!(h.kind(), "echo");
+        let h2: &dyn JobHandler = &FailingHandler;
+        assert_eq!(h2.kind(), "fail");
+        let h3: &dyn JobHandler = &CalcHandler;
+        assert_eq!(h3.kind(), "calc.route");
+    }
+}

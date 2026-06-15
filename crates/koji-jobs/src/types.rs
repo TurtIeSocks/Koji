@@ -222,3 +222,271 @@ impl JobCtx {
         JobCtx { cancel, progress }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::str::FromStr;
+
+    // ── JobId ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn job_id_new_generates_26_char_ulid() {
+        let id = JobId::new();
+        assert_eq!(id.to_string().len(), 26);
+    }
+
+    #[test]
+    fn job_id_display_and_from_str_round_trip() {
+        let id = JobId::new();
+        let s = id.to_string();
+        let parsed = JobId::from_str(&s).expect("valid ULID must parse");
+        assert_eq!(parsed, id);
+    }
+
+    #[test]
+    fn job_id_as_string_matches_display() {
+        let id = JobId::new();
+        assert_eq!(id.as_string(), id.to_string());
+    }
+
+    #[test]
+    fn job_id_from_str_rejects_malformed() {
+        assert!(JobId::from_str("not-a-ulid").is_err());
+        assert!(JobId::from_str("").is_err());
+        assert!(JobId::from_str("01HZZZ").is_err()); // too short
+    }
+
+    #[test]
+    fn job_id_serde_round_trips_as_ulid_string() {
+        let id = JobId::new();
+        let json = serde_json::to_string(&id).expect("serialize");
+        // Wire form is a quoted 26-char ULID string.
+        assert_eq!(json.len(), 28); // 26 + 2 quotes
+        let back: JobId = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back, id);
+    }
+
+    #[test]
+    fn job_id_deserialize_rejects_invalid_string() {
+        let result = serde_json::from_str::<JobId>(r#""not-a-ulid""#);
+        assert!(result.is_err(), "invalid ULID string must fail to deserialize");
+    }
+
+    #[test]
+    fn job_id_hash_and_eq() {
+        use std::collections::HashSet;
+        let id = JobId::new();
+        let mut set = HashSet::new();
+        set.insert(id);
+        assert!(set.contains(&id));
+        // A different id must not be in the set.
+        assert!(!set.contains(&JobId::new()));
+    }
+
+    #[test]
+    fn two_distinct_job_ids_are_not_equal() {
+        // ULID time component ensures uniqueness at millisecond granularity;
+        // the random component provides additional entropy.
+        let a = JobId::new();
+        let b = JobId::new();
+        // In the vanishingly unlikely event they collide in the same ms, this
+        // test may be flaky — acceptable given the 80-bit random component.
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn job_id_default_generates_a_valid_id() {
+        let id = JobId::default();
+        assert_eq!(id.to_string().len(), 26);
+    }
+
+    #[test]
+    fn job_id_copy_clone_eq() {
+        let id = JobId::new();
+        let copy = id; // Copy
+        let clone = id.clone();
+        assert_eq!(id, copy);
+        assert_eq!(id, clone);
+    }
+
+    // ── JobOutcome ────────────────────────────────────────────────────────
+
+    #[test]
+    fn job_outcome_succeeded_holds_json() {
+        let v = json!({"count": 42});
+        let outcome = JobOutcome::Succeeded(v.clone());
+        match outcome {
+            JobOutcome::Succeeded(got) => assert_eq!(got, v),
+            _ => panic!("expected Succeeded"),
+        }
+    }
+
+    #[test]
+    fn job_outcome_failed_holds_error_and_code() {
+        let outcome = JobOutcome::Failed {
+            error: "bad payload".to_string(),
+            code: "validation_error".to_string(),
+        };
+        match outcome {
+            JobOutcome::Failed { error, code } => {
+                assert_eq!(error, "bad payload");
+                assert_eq!(code, "validation_error");
+            }
+            _ => panic!("expected Failed"),
+        }
+    }
+
+    #[test]
+    fn job_outcome_canceled_variant() {
+        let outcome = JobOutcome::Canceled;
+        assert!(matches!(outcome, JobOutcome::Canceled));
+    }
+
+    #[test]
+    fn job_outcome_eq() {
+        let a = JobOutcome::Succeeded(json!(1));
+        let b = JobOutcome::Succeeded(json!(1));
+        let c = JobOutcome::Succeeded(json!(2));
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+        assert_ne!(a, JobOutcome::Canceled);
+        let f1 = JobOutcome::Failed { error: "e".to_string(), code: "c".to_string() };
+        let f2 = JobOutcome::Failed { error: "e".to_string(), code: "c".to_string() };
+        assert_eq!(f1, f2);
+    }
+
+    #[test]
+    fn job_outcome_clone() {
+        let original = JobOutcome::Failed {
+            error: "oops".to_string(),
+            code: "internal_error".to_string(),
+        };
+        let cloned = original.clone();
+        assert_eq!(original, cloned);
+    }
+
+    // ── CancelToken ───────────────────────────────────────────────────────
+
+    #[test]
+    fn cancel_token_starts_not_cancelled() {
+        let t = CancelToken::new();
+        assert!(!t.is_cancelled());
+    }
+
+    #[test]
+    fn cancel_token_cancel_flips_flag() {
+        let t = CancelToken::new();
+        t.cancel();
+        assert!(t.is_cancelled());
+    }
+
+    #[test]
+    fn cancel_token_cancel_is_idempotent() {
+        let t = CancelToken::new();
+        t.cancel();
+        t.cancel(); // second call must not panic or reset
+        assert!(t.is_cancelled());
+    }
+
+    #[test]
+    fn cancel_token_clone_shares_flag() {
+        let t = CancelToken::new();
+        let clone = t.clone();
+        // Initially both false.
+        assert!(!t.is_cancelled());
+        assert!(!clone.is_cancelled());
+        // Cancel via original; clone sees it.
+        t.cancel();
+        assert!(clone.is_cancelled());
+    }
+
+    #[test]
+    fn cancel_token_clone_cancel_visible_on_original() {
+        // Symmetry: cancelling via the clone is visible on the original.
+        let t = CancelToken::new();
+        let clone = t.clone();
+        clone.cancel();
+        assert!(t.is_cancelled());
+    }
+
+    #[test]
+    fn cancel_token_default_is_new() {
+        let t = CancelToken::default();
+        assert!(!t.is_cancelled());
+    }
+
+    #[test]
+    fn cancel_token_debug() {
+        let t = CancelToken::new();
+        let dbg = format!("{t:?}");
+        assert!(dbg.contains("CancelToken") || dbg.contains("false"));
+    }
+
+    // ── JobRecord serde round-trip ────────────────────────────────────────
+
+    #[test]
+    fn job_record_serde_round_trips() {
+        use crate::entity::JobStatus;
+        let id = JobId::new();
+        let record = JobRecord {
+            id,
+            kind: "calc.route".to_string(),
+            status: JobStatus::Running,
+            progress: 0.42,
+            phase: Some("clustering".to_string()),
+            result: None,
+            error: None,
+        };
+        let json = serde_json::to_string(&record).expect("serialize");
+        let back: JobRecord = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back.id, id);
+        assert_eq!(back.kind, "calc.route");
+        assert_eq!(back.status, JobStatus::Running);
+        // f32 round-trip through JSON may have tiny epsilon; use approx check.
+        assert!((back.progress - 0.42_f32).abs() < 0.001);
+        assert_eq!(back.phase.as_deref(), Some("clustering"));
+        assert!(back.result.is_none());
+    }
+
+    #[test]
+    fn job_record_with_result_round_trips() {
+        use crate::entity::JobStatus;
+        let id = JobId::new();
+        let result_val = json!({"routes": 5});
+        let record = JobRecord {
+            id,
+            kind: "calc.route".to_string(),
+            status: JobStatus::Succeeded,
+            progress: 1.0,
+            phase: None,
+            result: Some(result_val.clone()),
+            error: None,
+        };
+        let json = serde_json::to_string(&record).expect("serialize");
+        let back: JobRecord = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back.result, Some(result_val));
+        assert!(back.error.is_none());
+    }
+
+    #[test]
+    fn job_record_with_error_round_trips() {
+        use crate::entity::JobStatus;
+        let id = JobId::new();
+        let record = JobRecord {
+            id,
+            kind: "calc.bootstrap".to_string(),
+            status: JobStatus::Failed,
+            progress: 0.0,
+            phase: None,
+            result: None,
+            error: Some("validation error: radius must be > 0".to_string()),
+        };
+        let json = serde_json::to_string(&record).expect("serialize");
+        let back: JobRecord = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back.error.as_deref(), Some("validation error: radius must be > 0"));
+        assert!(back.result.is_none());
+        assert_eq!(back.status, JobStatus::Failed);
+    }
+}
