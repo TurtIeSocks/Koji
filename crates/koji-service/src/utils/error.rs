@@ -11,6 +11,12 @@
 //! only by the unit tests below, so the non-test build sees it as dead —
 //! silenced crate-wide for this module rather than item-by-item.
 #![allow(dead_code)]
+// `ServiceError` carries sea-orm's `DbErr` and koji-db's `ModelError` by value
+// (≥200 bytes) so handlers get ergonomic `?` and exhaustive `match` on the
+// typed variants — the deliberate design here. Boxing those to satisfy
+// `result_large_err` would erase that surface for marginal stack savings on the
+// cold error path, so the lint is allowed for this module.
+#![allow(clippy::result_large_err)]
 
 use actix_web::{HttpResponse, ResponseError, http::StatusCode};
 use koji_db::ModelError;
