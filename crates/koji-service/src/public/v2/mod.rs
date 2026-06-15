@@ -8,6 +8,7 @@
 pub(crate) mod calc;
 pub(crate) mod geo;
 pub(crate) mod geofences;
+pub(crate) mod geometry;
 pub(crate) mod jobs;
 pub(crate) mod plugins;
 pub(crate) mod resources;
