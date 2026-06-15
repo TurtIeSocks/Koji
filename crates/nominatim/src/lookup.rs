@@ -5,7 +5,6 @@ use crate::serde_utils::{
     serialize_vector_as_string_opt,
 };
 use crate::types::Response;
-use crate::util::RequestBuilderHelper;
 use derive_builder::Builder;
 use serde::Serialize;
 
@@ -91,19 +90,6 @@ impl Client {
     /// The lookup API allows to query the address and other details of one or
     /// multiple OSM objects like node, way or relation.
     pub async fn lookup(&self, query: LookupQuery) -> Result<Vec<Response>, Error> {
-        let mut url = self.base_url.join("lookup")?;
-        url.set_query(Some(&serde_urlencoded::to_string(&query).unwrap()));
-
-        let builder = self.client.get(url).query_s("format", "json");
-        let response = builder.send().await?;
-
-        let status = response.status();
-        if status != reqwest::StatusCode::OK {
-            return Err(Error::ResponseCode(status));
-        }
-
-        let text = response.text().await?;
-
-        Ok(serde_json::from_str(&text)?)
+        self.get_json("lookup", &query, &[("format", "json")]).await
     }
 }

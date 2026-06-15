@@ -4,7 +4,6 @@ use crate::serde_utils::{
     serialize_as_string, serialize_bool_as_string, serialize_vector_as_string_opt,
 };
 use crate::types::Response;
-use crate::util::RequestBuilderHelper;
 use derive_builder::Builder;
 use serde::Serialize;
 use std::fmt;
@@ -97,21 +96,7 @@ impl Client {
     /// requesting. For example, in dense city areas it may belong to a
     /// completely different street.
     pub async fn reverse(&self, query: ReverseQuery) -> Result<Response, Error> {
-        let mut url = self.base_url.join("reverse")?;
-        url.set_query(Some(&serde_urlencoded::to_string(&query).unwrap()));
-
-        let builder = self.client.get(url).query_s("format", "json");
-        let response = builder.send().await?;
-
-        let status = response.status();
-        if status != reqwest::StatusCode::OK {
-            return Err(Error::ResponseCode(status));
-        }
-
-        let text = response.text().await?;
-
-        log::info!("{text}");
-
-        Ok(serde_json::from_str(&text)?)
+        self.get_json("reverse", &query, &[("format", "json")])
+            .await
     }
 }

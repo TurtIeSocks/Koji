@@ -1,3 +1,4 @@
+use crate::util::RequestBuilderHelper;
 use thiserror::Error;
 
 /// A nominatim client that is binded to the nominatim web api.
@@ -47,5 +48,30 @@ impl Client {
             user_agent,
             email,
         })
+    }
+
+    /// Shared request→status-check→parse skeleton for the endpoint methods.
+    ///
+    /// Joins `path` onto the base URL, urlencodes `query` into the query
+    /// string, appends any `extra` key/value pairs (e.g. `format`), sends the
+    /// GET, errors on any non-200 status, and parses the body as JSON.
+    pub(crate) async fn get_json<R: serde::de::DeserializeOwned>(
+        &self,
+        path: &str,
+        query: &impl serde::Serialize,
+        extra: &[(&str, &str)],
+    ) -> Result<R, crate::error::Error> {
+        let mut url = self.base_url.join(path)?;
+        url.set_query(Some(&serde_urlencoded::to_string(query)?));
+        let mut builder = self.client.get(url);
+        for (k, v) in extra {
+            builder = builder.query_s(k, v);
+        }
+        let resp = builder.send().await?;
+        let status = resp.status();
+        if status != reqwest::StatusCode::OK {
+            return Err(crate::error::Error::ResponseCode(status));
+        }
+        Ok(serde_json::from_str(&resp.text().await?)?)
     }
 }

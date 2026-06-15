@@ -10,4 +10,6 @@ pub enum Error {
     Serde(#[from] serde_json::Error),
     #[error("invalid status code in response")]
     ResponseCode(reqwest::StatusCode),
+    #[error("urlencode error {0}")]
+    UrlEncode(#[from] serde_urlencoded::ser::Error),
 }

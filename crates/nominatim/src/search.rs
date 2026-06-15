@@ -3,7 +3,6 @@ use crate::error::Error;
 use crate::serde_utils::{
     serialize_as_string_opt, serialize_bool_as_string, serialize_vector_as_string_opt,
 };
-use crate::util::RequestBuilderHelper;
 use derive_builder::Builder;
 use serde::Serialize;
 
@@ -122,23 +121,11 @@ impl Client {
     /// description or addrses. Nominatim supports structured and
     /// free-form search queries.
     pub async fn search(&self, query: SearchQuery) -> Result<geojson::FeatureCollection, Error> {
-        let mut url = self.base_url.join("search")?;
-        url.set_query(Some(&serde_urlencoded::to_string(&query).unwrap()));
-
-        let builder = self
-            .client
-            .get(url)
-            .query_s("format", "geojson")
-            .query_s("polygon_geojson", "1");
-        let response = builder.send().await?;
-
-        let status = response.status();
-        if status != reqwest::StatusCode::OK {
-            return Err(Error::ResponseCode(status));
-        }
-
-        let text = response.text().await?;
-
-        Ok(serde_json::from_str(&text)?)
+        self.get_json(
+            "search",
+            &query,
+            &[("format", "geojson"), ("polygon_geojson", "1")],
+        )
+        .await
     }
 }
