@@ -35,7 +35,10 @@ Every remaining uncovered region now has a reason:
 4. **Native-gated / diminishing** — `bootstrap/mod.rs` (`#[cfg(feature="native")]`), crucible (already 90%+).
 5. **Pinned bugs** — broken paths can't go green until fixed (below); characterization tests assert the *current* behavior with `// BUG:` notes.
 
-## Bugs found (all pinned by tests)
+## Bugs found — all 6 FIXED (`519eadb` jobs · `56eb940` db · `474f2aa` events · `625db34` service)
+
+Each was first pinned by a characterization test asserting the broken behavior; the fix flipped that test to assert the correct behavior. (koji-events had no dead-worker twin of #1 — its `delivering@max` state is unreachable since `mark_failed` sets `dead` atomically.)
+
 
 | # | sev | where | bug | fix sketch |
 |---|---|---|---|---|
@@ -50,6 +53,6 @@ Every remaining uncovered region now has a reason:
 
 ## Open decisions (need your call)
 
-- **Fix the bugs?** #1/#4/#5/#6 are tiny + clear (I can land them with the ready tests in one short pass). #2/#3 are slightly larger (merge-then-upsert; query-extractor redesign).
+- ~~Fix the bugs?~~ ✅ **All 6 fixed + verified** (commits above; workspace green, koji_test clean).
 - **Add `trybuild` (macros) + `wiremock` (dragonite/nominatim HTTP)?** Pushes those crates higher at the cost of two dev-deps.
 - **Scanner + scanner_data + calc:** re-run when golbat is reachable (the tests are scoped + waiting).
