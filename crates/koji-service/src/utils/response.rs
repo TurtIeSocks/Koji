@@ -1,5 +1,3 @@
-use actix_web::HttpResponse;
-use algorithms::stats::Stats;
 use geojson::JsonValue;
 use koji_core::{KojiGeometryCollection, Precision};
 use serde::Serialize;
@@ -17,41 +15,6 @@ pub(crate) struct ConfigResponse {
     pub route_plugins: Vec<String>,
     pub clustering_plugins: Vec<String>,
     pub bootstrap_plugins: Vec<String>,
-}
-
-#[derive(Debug, Serialize, Clone)]
-pub(crate) struct Response {
-    pub message: String,
-    pub status: String,
-    pub status_code: u16,
-    pub data: Option<JsonValue>,
-    pub stats: Option<Stats>,
-}
-
-impl Response {
-    pub(crate) fn send_error(message: &str) -> Response {
-        Response {
-            message: message.to_string(),
-            status: "error".to_string(),
-            status_code: 500,
-            data: None,
-            stats: None,
-        }
-    }
-}
-
-/// The success-envelope shared by ~all CRUD/query handlers: a 200 `Response`
-/// with `status: "ok"`, `message: "Success"`, no `stats`, and `data` set to the
-/// caller's payload. Single-sources the block that was hand-rolled at every
-/// handler return; callers wrap the result in `Ok(...)`.
-pub(crate) fn ok_response(data: JsonValue) -> HttpResponse {
-    HttpResponse::Ok().json(Response {
-        data: Some(data),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    })
 }
 
 /// Serialize a `KojiGeometryCollection` into the wire `serde_json::Value` for a
@@ -90,29 +53,6 @@ pub(crate) fn response_body(coll: &KojiGeometryCollection, return_type: ReturnTy
         ReturnTypeArg::PoracleSingle => json!(coll.to_poracle_vec().first().unwrap().clone()),
         ReturnTypeArg::Sql => json!(coll.to_sql()),
     }
-}
-
-pub(crate) fn send(
-    coll: KojiGeometryCollection,
-    return_type: ReturnTypeArg,
-    stats: Option<Stats>,
-    benchmark_mode: bool,
-    area: Option<String>,
-) -> HttpResponse {
-    if let Some(stats) = stats.as_ref() {
-        stats.log(area);
-    }
-    HttpResponse::Ok().json(Response {
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        status_code: 200,
-        data: if benchmark_mode {
-            None
-        } else {
-            Some(response_body(&coll, return_type))
-        },
-        stats,
-    })
 }
 
 #[cfg(test)]
