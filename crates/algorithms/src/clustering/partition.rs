@@ -660,6 +660,162 @@ mod tests {
         run_bench(ClusterMode::Best, "best");
     }
 
+    // ── mode_tag ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn mode_tag_all_variants() {
+        assert_eq!(mode_tag(&ClusterMode::Honeycomb), "Honeycomb");
+        assert_eq!(mode_tag(&ClusterMode::Fastest), "Fastest");
+        assert_eq!(mode_tag(&ClusterMode::Fast), "Fast");
+        assert_eq!(mode_tag(&ClusterMode::Balanced), "Balanced");
+        assert_eq!(mode_tag(&ClusterMode::Better), "Better");
+        assert_eq!(mode_tag(&ClusterMode::Best), "Best");
+        assert_eq!(mode_tag(&ClusterMode::Custom("myplugin".into())), "Custom");
+    }
+
+    // ── s2_walk_cost ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn s2_walk_cost_empty_is_zero() {
+        assert_eq!(s2_walk_cost(&[]), 0);
+    }
+
+    #[test]
+    fn s2_walk_cost_single_point_is_one_l16_cell() {
+        let cost = s2_walk_cost(&[[40.0, -74.0]]);
+        assert_eq!(cost, S2_WALK_COST_PER_L16, "single point → 1 L16 cell");
+    }
+
+    #[test]
+    fn s2_walk_cost_collocated_points_count_once() {
+        // 100 points at the same location → still 1 L16 cell.
+        let pts: Vec<[f64; 2]> = vec![[40.0, -74.0]; 100];
+        assert_eq!(s2_walk_cost(&pts), S2_WALK_COST_PER_L16);
+    }
+
+    #[test]
+    fn s2_walk_cost_scales_with_distinct_cells() {
+        // Two points far apart → 2 L16 cells → 2 × S2_WALK_COST_PER_L16.
+        let pts: Vec<[f64; 2]> = vec![[40.0, -74.0], [41.0, -74.0]];
+        let cost = s2_walk_cost(&pts);
+        assert!(cost >= 2 * S2_WALK_COST_PER_L16, "expected ≥2 cells, got cost {cost}");
+    }
+
+    // ── distinct_l16_cells ────────────────────────────────────────────────────
+
+    #[test]
+    fn distinct_l16_cells_single_point_is_one() {
+        assert_eq!(distinct_l16_cells(&[[40.0, -74.0]]), 1);
+    }
+
+    #[test]
+    fn distinct_l16_cells_two_far_points_is_two() {
+        let pts: Vec<[f64; 2]> = vec![[40.0, -74.0], [50.0, 10.0]];
+        assert_eq!(distinct_l16_cells(&pts), 2);
+    }
+
+    // ── contains_latlng: level edge cases ────────────────────────────────────
+
+    #[test]
+    fn contains_latlng_level0_contains_everything() {
+        // Level-0 cell = one full face; any point on that face is contained.
+        // Use a level-6 cell and check its center.
+        use s2::latlng::LatLng;
+        let center = LatLng::from_degrees(40.0, -74.0);
+        let cell = CellID::from(center).parent(6);
+        assert!(
+            contains_latlng(cell, [40.0, -74.0]),
+            "a cell should contain its own center point"
+        );
+    }
+
+    #[test]
+    fn contains_latlng_far_point_not_in_local_cell() {
+        // A cell at one lat/lon should not contain a point on the opposite side of the globe.
+        use s2::latlng::LatLng;
+        let local_cell = CellID::from(LatLng::from_degrees(40.0, -74.0)).parent(10);
+        // Antipodal-ish point is definitely not in this local cell.
+        assert!(
+            !contains_latlng(local_cell, [-40.0, 106.0]),
+            "antipodal point should not be contained"
+        );
+    }
+
+    // ── cell_bbox_lat_lon: non-equatorial cells ────────────────────────────────
+
+    #[test]
+    fn cell_bbox_at_high_latitude() {
+        use s2::latlng::LatLng;
+        let cell = CellID::from(LatLng::from_degrees(80.0, 0.0)).parent(8);
+        let bb = cell_bbox_lat_lon(cell);
+        assert!(bb.min_lat >= 0.0, "min_lat should be positive at high N latitude");
+        assert!(bb.max_lat <= 90.0);
+        assert!(bb.min_lat <= bb.max_lat);
+    }
+
+    #[test]
+    fn cell_bbox_south_hemisphere() {
+        use s2::latlng::LatLng;
+        let cell = CellID::from(LatLng::from_degrees(-45.0, 150.0)).parent(8);
+        let bb = cell_bbox_lat_lon(cell);
+        assert!(bb.max_lat <= 0.0, "max_lat should be ≤ 0 for southern hemisphere cell at -45°");
+        assert!(bb.min_lat <= bb.max_lat);
+        assert!(bb.min_lon <= bb.max_lon);
+    }
+
+    // ── adaptive_partition: no-split on empty, degenerate levels ─────────────
+
+    #[test]
+    fn partition_empty_input_returns_empty() {
+        let empty: SingleVec = vec![];
+        let chunks = adaptive_partition(&empty, usize::MAX, &ClusterMode::Better, 6, 18);
+        assert!(chunks.is_empty());
+    }
+
+    #[test]
+    fn partition_start_equals_max_level_single_pass() {
+        // When start_level == max_level every chunk is immediately accepted.
+        let pts = random_points_in_bbox(50, [0., 0., 1., 1.], 3);
+        let chunks = adaptive_partition(&pts, 1, &ClusterMode::Better, 10, 10);
+        // All points bucketed at level 10 → no subdivision possible → all accepted.
+        let total: usize = chunks.iter().map(|c| c.owned.len()).sum();
+        assert_eq!(total, pts.len(), "no points lost when start=max level");
+    }
+
+    #[test]
+    fn partition_chunks_cells_at_or_above_start_level() {
+        let pts = sparse_grid(4, 4, [0., 0., 10., 10.]);
+        let chunks = adaptive_partition(&pts, usize::MAX, &ClusterMode::Better, 6, 18);
+        for c in &chunks {
+            assert!(
+                c.cell.level() >= 6,
+                "chunk level {} should be >= start_level 6",
+                c.cell.level()
+            );
+        }
+    }
+
+    // ── select_effective_mode: individual downgrade steps ─────────────────────
+
+    #[test]
+    fn select_effective_mode_better_under_budget_stays_better() {
+        let pts = vec![[40.0, -74.0]];
+        let mode = select_effective_mode(ClusterMode::Better, &pts, usize::MAX);
+        assert_eq!(mode, ClusterMode::Better);
+    }
+
+    #[test]
+    fn select_effective_mode_best_over_budget_steps_down() {
+        // Tiny budget forces Best → something lower.
+        let pts = random_points_in_bbox(20, [-5., -5., 5., 5.], 9);
+        let mode = select_effective_mode(ClusterMode::Best, &pts, 1);
+        assert_ne!(
+            mode,
+            ClusterMode::Best,
+            "Best should step down when budget=1"
+        );
+    }
+
     #[test]
     #[ignore] // run with: cargo test -p algorithms -- --ignored
     fn manual_smoke_huge_bbox_better_mode() {

@@ -269,7 +269,6 @@ pub fn cells_to_nearest_face_edges(id: CellID) -> (i32, i32) {
 mod tests {
     use super::*;
     use geojson::{Feature, Geometry, Value};
-    use geo::Polygon as GeoPoly;
     use s2::{cellid::CellID, latlng::LatLng};
 
     fn rect_feature(min_lon: f64, min_lat: f64, max_lon: f64, max_lat: f64) -> Feature {
