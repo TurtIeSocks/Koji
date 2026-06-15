@@ -103,8 +103,12 @@ async fn geofence_property_upsert_creates_and_updates_link() {
     .expect("upsert update");
 
     // cleanup — geofence cascade deletes geofence_property rows
-    geofence::Query::delete(&db, fence_id).await.expect("del fence");
-    property::Query::delete(&db, prop_id).await.expect("del prop");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("del fence");
+    property::Query::delete(&db, prop_id)
+        .await
+        .expect("del prop");
 
     assert_eq!(updated.id, link_id, "same row id after update");
     assert_eq!(updated.value.as_deref(), Some("world"), "value updated");
@@ -126,9 +130,14 @@ async fn geofence_property_upsert_invalid_property_is_err() {
     )
     .await;
 
-    geofence::Query::delete(&db, fence_id).await.expect("del fence");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("del fence");
 
-    assert!(result.is_err(), "upsert with invalid property_id should error");
+    assert!(
+        result.is_err(),
+        "upsert with invalid property_id should error"
+    );
 }
 
 // ── update_properties_by_geofence ─────────────────────────────────────────────
@@ -168,9 +177,15 @@ async fn geofence_property_update_properties_by_geofence_replaces_links() {
         .await
         .expect("get with related");
 
-    geofence::Query::delete(&db, fence_id).await.expect("del fence");
-    property::Query::delete(&db, prop1_id).await.expect("del prop1");
-    property::Query::delete(&db, prop2_id).await.expect("del prop2");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("del fence");
+    property::Query::delete(&db, prop1_id)
+        .await
+        .expect("del prop1");
+    property::Query::delete(&db, prop2_id)
+        .await
+        .expect("del prop2");
 
     assert_eq!(updated.len(), 1, "one link after replacement");
 
@@ -211,16 +226,15 @@ async fn geofence_property_add_db_property_idempotent() {
         .await
         .expect("add_db_property second call");
 
-    geofence::Query::delete(&db, fence_id).await.expect("del fence");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("del fence");
 
     assert_eq!(
         first.property_id, second.property_id,
         "same property_id (idempotent)"
     );
-    assert_eq!(
-        first.geofence_id, fence_id,
-        "geofence_id is correct"
-    );
+    assert_eq!(first.geofence_id, fence_id, "geofence_id is correct");
     // "parent" is a database-category property → value must be NULL
     assert!(
         first.value.is_none(),
@@ -260,10 +274,13 @@ async fn geofence_property_update_values_for_property_changes_all_links() {
     .expect("link fence2");
 
     // Update all links for this property to "new"
-    let result =
-        geofence_property::Query::update_values_for_property(&db, prop_id, &Some("new".to_string()))
-            .await
-            .expect("update_values_for_property");
+    let result = geofence_property::Query::update_values_for_property(
+        &db,
+        prop_id,
+        &Some("new".to_string()),
+    )
+    .await
+    .expect("update_values_for_property");
 
     // Read back both links
     let link1 = geofence_property::Entity::find()
@@ -280,9 +297,15 @@ async fn geofence_property_update_values_for_property_changes_all_links() {
         .await
         .expect("read link2");
 
-    geofence::Query::delete(&db, fence1_id).await.expect("del fence1");
-    geofence::Query::delete(&db, fence2_id).await.expect("del fence2");
-    property::Query::delete(&db, prop_id).await.expect("del prop");
+    geofence::Query::delete(&db, fence1_id)
+        .await
+        .expect("del fence1");
+    geofence::Query::delete(&db, fence2_id)
+        .await
+        .expect("del fence2");
+    property::Query::delete(&db, prop_id)
+        .await
+        .expect("del prop");
 
     assert!(result.rows_affected >= 2, "at least 2 rows updated");
     assert_eq!(

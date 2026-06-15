@@ -536,7 +536,8 @@ impl Query {
             Err(_) => {
                 Entity::find()
                     .order_by(Column::Name, Order::Asc)
-                    .filter(Column::Name.eq(geofence))
+                    .left_join(geofence::Entity)
+                    .filter(geofence::Column::Name.eq(geofence))
                     .select_only()
                     .column(Column::Id)
                     .column(Column::Name)

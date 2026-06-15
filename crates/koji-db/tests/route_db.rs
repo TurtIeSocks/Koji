@@ -175,12 +175,11 @@ async fn route_get_one_not_found_is_err() {
 
 // ── route by_geofence ────────────────────────────────────────────────────────
 //
-// NOTE on by_geofence(name): the non-numeric path filters Column::Name.eq(arg)
-// — matching the ROUTE name, not the geofence name. That is the existing
-// production behavior. The test below verifies both codepaths accurately:
-// - numeric arg → filter by Column::GeofenceId (expected: route found)
-// - string arg  → filter by Column::Name       (expected: route found, since we
-//   use the route name as the arg)
+// by_geofence(name) resolves via the GEOFENCE name (left-join geofence table),
+// not the route's own name column.
+// - numeric arg       → filter by Column::GeofenceId (route found)
+// - geofence name arg → left_join geofence, filter geofence.name (route found)
+// - route name arg    → should NOT return anything (negative assertion)
 
 #[tokio::test]
 async fn route_by_geofence_id_returns_related_routes() {
@@ -210,10 +209,15 @@ async fn route_by_geofence_id_returns_related_routes() {
         .await
         .expect("by_geofence by id");
 
-    // by route name (non-numeric string → filter by route Name column)
+    // by geofence name → left-join geofence table, filter geofence.name
+    let by_fence_name = route::Query::by_geofence(&db, fence_name.clone())
+        .await
+        .expect("by_geofence by fence name");
+
+    // by route name (different from fence name) → should NOT match
     let by_route_name = route::Query::by_geofence(&db, route_name.clone())
         .await
-        .expect("by_geofence by route name");
+        .expect("by_geofence by route name (should be empty)");
 
     // cleanup
     route::Query::delete(&db, route_id).await.expect("delete route");
@@ -224,8 +228,12 @@ async fn route_by_geofence_id_returns_related_routes() {
         "by_geofence(numeric fence id) returns the route"
     );
     assert!(
-        by_route_name.iter().any(|r| r["name"] == json!(route_name)),
-        "by_geofence(route name string) returns the route by its own name"
+        by_fence_name.iter().any(|r| r["name"] == json!(route_name)),
+        "by_geofence(geofence name) returns the route under that geofence"
+    );
+    assert!(
+        !by_route_name.iter().any(|r| r["name"] == json!(route_name)),
+        "by_geofence(route name) must NOT return the route — it resolves geofence names"
     );
 }
 
