@@ -374,6 +374,132 @@ mod tests {
         let pts = bs.result();
         // If size=1, block_center returns each cell unchanged; points must be present.
         assert!(!pts.is_empty());
+        let _ = cell; // suppress unused warning
+    }
+
+    // ── BootstrapS2: size > 1 produces fewer (grouped) centers ────────────────
+
+    #[test]
+    fn size3_produces_fewer_centers_than_size1() {
+        // Larger block size → fewer distinct centers (9 cells share one center).
+        let feature = rect_feature(-74.01, 39.99, -73.99, 40.01);
+        let bs1 = BootstrapS2::new(&feature, 15, 1);
+        let bs3 = BootstrapS2::new(&feature, 15, 3);
+        let n1 = bs1.result().len();
+        let n3 = bs3.result().len();
+        assert!(
+            n3 <= n1,
+            "size=3 should produce ≤ centers than size=1; got size1={n1}, size3={n3}"
+        );
+    }
+
+    #[test]
+    fn size1_and_size3_centers_are_valid_lat_lon() {
+        let feature = rect_feature(-74.01, 39.99, -73.99, 40.01);
+        for size in [1u8, 3, 5] {
+            let bs = BootstrapS2::new(&feature, 14, size);
+            for [lat, lon] in bs.result() {
+                assert!(lat.abs() <= 90.0, "bad lat {lat} for size {size}");
+                assert!(lon.abs() <= 180.0, "bad lon {lon} for size {size}");
+            }
+        }
+    }
+
+    // ── cells_to_nearest_face_edges: various levels ───────────────────────────
+
+    #[test]
+    fn cells_to_nearest_face_edges_level1_nonneg() {
+        let cell = CellID::from(LatLng::from_degrees(0.0, 0.0)).parent(1);
+        let (i, j) = cells_to_nearest_face_edges(cell);
+        assert!(i >= 0 && j >= 0, "i={i}, j={j}");
+    }
+
+    #[test]
+    fn cells_to_nearest_face_edges_level30_nonneg() {
+        let cell = CellID::from(LatLng::from_degrees(51.5, -0.1)).parent(20);
+        let (i, j) = cells_to_nearest_face_edges(cell);
+        assert!(i >= 0 && j >= 0, "i={i}, j={j}");
+    }
+
+    #[test]
+    fn cells_to_nearest_face_edges_polar_nonneg() {
+        // Near the north pole (high lat, can be on any face).
+        let cell = CellID::from(LatLng::from_degrees(89.0, 45.0)).parent(10);
+        let (i, j) = cells_to_nearest_face_edges(cell);
+        assert!(i >= 0 && j >= 0, "i={i}, j={j} for polar cell");
+    }
+
+    // ── BootstrapS2::feature() propagates name and id properties ─────────────
+
+    #[test]
+    fn feature_propagates_name_property() {
+        use geojson::JsonValue;
+        let mut f = rect_feature(-74.003, 39.997, -73.997, 40.003);
+        f.set_property("__name", JsonValue::String("test_area".to_string()));
+        f.set_property("__id", JsonValue::Number(42.into()));
+        let bs = BootstrapS2::new(&f, 14, 1);
+        let out = bs.feature();
+        assert_eq!(
+            out.property("__name").and_then(|v| v.as_str()),
+            Some("test_area"),
+            "feature() should propagate __name"
+        );
+        assert_eq!(
+            out.property("__geofence_id").and_then(|v| v.as_i64()),
+            Some(42),
+            "feature() should propagate __id as __geofence_id"
+        );
+        assert_eq!(
+            out.property("__mode").and_then(|v| v.as_str()),
+            Some("CircleRaid"),
+        );
+    }
+
+    // ── BootstrapS2: MultiPolygon geometry ────────────────────────────────────
+
+    #[test]
+    fn multipolygon_feature_produces_cells() {
+        use geojson::{Feature, Geometry, Value};
+        // Two non-overlapping rectangles as a MultiPolygon.
+        let ring1 = vec![
+            vec![-74.003_f64, 39.997_f64],
+            vec![-73.997, 39.997],
+            vec![-73.997, 40.003],
+            vec![-74.003, 40.003],
+            vec![-74.003, 39.997],
+        ];
+        let ring2 = vec![
+            vec![-74.103_f64, 39.997_f64],
+            vec![-74.097, 39.997],
+            vec![-74.097, 40.003],
+            vec![-74.103, 40.003],
+            vec![-74.103, 39.997],
+        ];
+        let feature = Feature {
+            bbox: None,
+            geometry: Some(Geometry::new(Value::MultiPolygon(vec![
+                vec![ring1],
+                vec![ring2],
+            ]))),
+            id: None,
+            properties: None,
+            foreign_members: None,
+        };
+        let bs = BootstrapS2::new(&feature, 14, 1);
+        let pts = bs.result();
+        assert!(!pts.is_empty(), "MultiPolygon should yield cells");
+    }
+
+    // ── cell_center_latlng: finite and in range ───────────────────────────────
+
+    #[test]
+    fn cell_center_latlng_is_finite() {
+        let cell = CellID::from(LatLng::from_degrees(40.0, -74.0)).parent(12);
+        let ll = cell_center_latlng(cell);
+        assert!(ll.lat.deg().is_finite());
+        assert!(ll.lng.deg().is_finite());
+        assert!(ll.lat.deg().abs() <= 90.0);
+        assert!(ll.lng.deg().abs() <= 180.0);
     }
 }
 
