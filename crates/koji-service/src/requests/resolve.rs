@@ -89,3 +89,140 @@ pub(crate) fn resolve_data_points(data_points: Option<DataPointsArg>) -> koji_co
         vec![]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::requests::inputs::DataPointsArg;
+    use koji_core::PointStruct;
+
+    // ── resolve_max_clusters ─────────────────────────────────────────────────
+
+    #[test]
+    fn resolve_max_clusters_none_gives_usize_max() {
+        assert_eq!(resolve_max_clusters(None), usize::MAX);
+    }
+
+    #[test]
+    fn resolve_max_clusters_zero_gives_usize_max() {
+        assert_eq!(resolve_max_clusters(Some(0)), usize::MAX);
+    }
+
+    #[test]
+    fn resolve_max_clusters_positive_gives_value() {
+        assert_eq!(resolve_max_clusters(Some(5)), 5);
+        assert_eq!(resolve_max_clusters(Some(1)), 1);
+    }
+
+    // ── validate_s2_cell ─────────────────────────────────────────────────────
+
+    #[test]
+    fn validate_s2_cell_none_gives_zero() {
+        assert_eq!(validate_s2_cell(None, "test"), 0);
+    }
+
+    #[test]
+    fn validate_s2_cell_zero_is_valid() {
+        assert_eq!(validate_s2_cell(Some(0), "test"), 0);
+    }
+
+    #[test]
+    fn validate_s2_cell_twenty_is_valid() {
+        assert_eq!(validate_s2_cell(Some(20), "test"), 20);
+    }
+
+    #[test]
+    fn validate_s2_cell_mid_range_is_valid() {
+        assert_eq!(validate_s2_cell(Some(12), "test"), 12);
+    }
+
+    #[test]
+    fn validate_s2_cell_above_twenty_defaults_to_zero() {
+        // 21 is out-of-range; must default to 0 and not panic.
+        assert_eq!(validate_s2_cell(Some(21), "label"), 0);
+    }
+
+    // ── clustering_plugin_args ───────────────────────────────────────────────
+
+    #[test]
+    fn clustering_plugin_args_none_base_produces_tail() {
+        let s = clustering_plugin_args(None, 70.0, 1, usize::MAX);
+        assert!(s.starts_with(" --radius 70"));
+        assert!(s.contains("--min_points 1"));
+        assert!(s.contains("--max_clusters"));
+    }
+
+    #[test]
+    fn clustering_plugin_args_some_base_prepends_it() {
+        let s = clustering_plugin_args(Some("--custom arg".into()), 50.0, 3, 10);
+        assert!(s.starts_with("--custom arg"));
+        assert!(s.contains("--radius 50"));
+        assert!(s.contains("--min_points 3"));
+        assert!(s.contains("--max_clusters 10"));
+    }
+
+    // ── bootstrap_plugin_args ────────────────────────────────────────────────
+
+    #[test]
+    fn bootstrap_plugin_args_none_base() {
+        let s = bootstrap_plugin_args(None, 70.0);
+        assert_eq!(s, " --radius 70");
+    }
+
+    #[test]
+    fn bootstrap_plugin_args_some_base_prepends() {
+        let s = bootstrap_plugin_args(Some("--foo".into()), 30.0);
+        assert!(s.starts_with("--foo"));
+        assert!(s.contains("--radius 30"));
+    }
+
+    // ── resolve_data_points ──────────────────────────────────────────────────
+
+    #[test]
+    fn resolve_data_points_none_gives_empty() {
+        assert!(resolve_data_points(None).is_empty());
+    }
+
+    #[test]
+    fn resolve_data_points_array_passthrough() {
+        let pts: koji_core::SingleVec = vec![[1.0, 2.0], [3.0, 4.0]];
+        let result = resolve_data_points(Some(DataPointsArg::Array(pts.clone())));
+        assert_eq!(result, pts);
+    }
+
+    #[test]
+    fn resolve_data_points_struct_maps_lat_lon() {
+        let structs: koji_core::SingleStruct = vec![
+            PointStruct { lat: 10.0, lon: 20.0 },
+            PointStruct { lat: 30.0, lon: 40.0 },
+        ];
+        let result = resolve_data_points(Some(DataPointsArg::Struct(structs)));
+        assert_eq!(result, vec![[10.0, 20.0], [30.0, 40.0]]);
+    }
+
+    #[test]
+    fn resolve_data_points_invalid_feature_gives_empty() {
+        // A Feature with no geometry is unconvertible → empty, matching the old matrix.
+        let feature = geojson::Feature {
+            bbox: None,
+            geometry: None,
+            id: None,
+            properties: None,
+            foreign_members: None,
+        };
+        let result = resolve_data_points(Some(DataPointsArg::Feature(feature)));
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn resolve_data_points_empty_feature_collection_gives_empty() {
+        let fc = geojson::FeatureCollection {
+            bbox: None,
+            features: vec![],
+            foreign_members: None,
+        };
+        let result = resolve_data_points(Some(DataPointsArg::FeatureCollection(fc)));
+        // An empty FeatureCollection converts fine but has no points.
+        assert!(result.is_empty());
+    }
+}

@@ -366,4 +366,184 @@ mod tests {
             _ => panic!("expected Cluster variant after round-trip"),
         }
     }
+
+    // ── area_default_return_type ─────────────────────────────────────────────
+
+    #[test]
+    fn default_return_type_for_feature_collection_area() {
+        let req: ClusterReq = serde_json::from_str(
+            r#"{"area":{"type":"FeatureCollection","features":[]}}"#,
+        )
+        .unwrap();
+        assert_eq!(req.default_return_type(), ReturnTypeArg::FeatureCollection);
+    }
+
+    #[test]
+    fn default_return_type_for_feature_area() {
+        let req: ClusterReq = serde_json::from_str(
+            r#"{"area":{"type":"Feature","geometry":null,"properties":null}}"#,
+        )
+        .unwrap();
+        assert_eq!(req.default_return_type(), ReturnTypeArg::Feature);
+    }
+
+    #[test]
+    fn default_return_type_for_geometry_area() {
+        let req: ClusterReq = serde_json::from_str(
+            r#"{"area":{"type":"Point","coordinates":[0,0]}}"#,
+        )
+        .unwrap();
+        assert_eq!(req.default_return_type(), ReturnTypeArg::Geometry);
+    }
+
+    // ── CalcRequest::enqueue_inputs ──────────────────────────────────────────
+
+    #[test]
+    fn enqueue_inputs_cluster_with_data_points_array() {
+        let json = r#"{
+            "mode": "cluster",
+            "dataPoints": [[10.0, 20.0], [30.0, 40.0]]
+        }"#;
+        let req: CalcRequest = serde_json::from_str(json).unwrap();
+        let inp = req.enqueue_inputs();
+        assert_eq!(inp.data_points, vec![[10.0, 20.0], [30.0, 40.0]]);
+        assert!(inp.clusters.is_empty());
+        assert!(inp.area.is_none());
+    }
+
+    #[test]
+    fn enqueue_inputs_cluster_without_data_points_gives_empty() {
+        let json = r#"{"mode": "cluster"}"#;
+        let req: CalcRequest = serde_json::from_str(json).unwrap();
+        let inp = req.enqueue_inputs();
+        assert!(inp.data_points.is_empty());
+    }
+
+    #[test]
+    fn enqueue_inputs_cluster_instance_and_parent() {
+        let json = r#"{"mode":"cluster","instance":"my-fence","parent":42}"#;
+        let req: CalcRequest = serde_json::from_str(json).unwrap();
+        let inp = req.enqueue_inputs();
+        assert_eq!(inp.instance, "my-fence");
+        assert!(inp.parent.is_some());
+    }
+
+    #[test]
+    fn enqueue_inputs_cluster_instance_none_becomes_empty_string() {
+        let json = r#"{"mode":"cluster"}"#;
+        let req: CalcRequest = serde_json::from_str(json).unwrap();
+        let inp = req.enqueue_inputs();
+        assert_eq!(inp.instance, "");
+    }
+
+    #[test]
+    fn enqueue_inputs_reroute_puts_data_points_and_clusters() {
+        let json = r#"{
+            "mode": "reroute",
+            "dataPoints": [[1.0,2.0]],
+            "clusters": [[3.0,4.0],[5.0,6.0]]
+        }"#;
+        let req: CalcRequest = serde_json::from_str(json).unwrap();
+        let inp = req.enqueue_inputs();
+        assert_eq!(inp.data_points, vec![[1.0, 2.0]]);
+        assert_eq!(inp.clusters, vec![[3.0, 4.0], [5.0, 6.0]]);
+        assert!(inp.area.is_none());
+        assert!(inp.parent.is_none());
+    }
+
+    #[test]
+    fn enqueue_inputs_route_stats_collects_clusters() {
+        let json = r#"{
+            "mode": "routeStats",
+            "clusters": [[9.0,8.0]]
+        }"#;
+        let req: CalcRequest = serde_json::from_str(json).unwrap();
+        let inp = req.enqueue_inputs();
+        assert_eq!(inp.clusters, vec![[9.0, 8.0]]);
+        assert!(inp.area.is_none());
+    }
+
+    #[test]
+    fn enqueue_inputs_bootstrap_no_data_points_or_clusters() {
+        let json = r#"{"mode":"bootstrap","instance":"boot-test","parent":"named-fence"}"#;
+        let req: CalcRequest = serde_json::from_str(json).unwrap();
+        let inp = req.enqueue_inputs();
+        assert!(inp.data_points.is_empty());
+        assert!(inp.clusters.is_empty());
+        assert_eq!(inp.instance, "boot-test");
+        assert!(inp.parent.is_some());
+    }
+
+    // ── CalcRequest variant ops ──────────────────────────────────────────────
+
+    #[test]
+    fn calc_request_route_tag() {
+        let json = r#"{"mode":"route"}"#;
+        let req: CalcRequest = serde_json::from_str(json).unwrap();
+        assert!(matches!(req, CalcRequest::Route(_)));
+    }
+
+    #[test]
+    fn calc_request_reroute_tag() {
+        let req: CalcRequest = serde_json::from_str(r#"{"mode":"reroute"}"#).unwrap();
+        assert!(matches!(req, CalcRequest::Reroute(_)));
+    }
+
+    #[test]
+    fn calc_request_route_stats_tag() {
+        let req: CalcRequest = serde_json::from_str(r#"{"mode":"routeStats"}"#).unwrap();
+        assert!(matches!(req, CalcRequest::RouteStats(_)));
+    }
+
+    #[test]
+    fn calc_job_request_op_route() {
+        let req: CalcJobRequest = serde_json::from_str(r#"{"mode":"route"}"#).unwrap();
+        assert_eq!(req.op(), "route");
+    }
+
+    #[test]
+    fn calc_job_request_op_reroute() {
+        let req: CalcJobRequest = serde_json::from_str(r#"{"mode":"reroute"}"#).unwrap();
+        assert_eq!(req.op(), "reroute");
+    }
+
+    #[test]
+    fn calc_job_request_op_route_stats() {
+        let req: CalcJobRequest = serde_json::from_str(r#"{"mode":"routeStats"}"#).unwrap();
+        assert_eq!(req.op(), "routeStats");
+    }
+
+    // ── ConvertReq / SimplifyReq / MergePointsReq default_return_type ────────
+
+    #[test]
+    fn convert_req_no_area_is_single_array() {
+        let req: ConvertReq = serde_json::from_str(r#"{}"#).unwrap();
+        assert_eq!(req.default_return_type(), ReturnTypeArg::SingleArray);
+    }
+
+    #[test]
+    fn simplify_req_fc_area_is_feature_collection() {
+        let req: SimplifyReq = serde_json::from_str(
+            r#"{"area":{"type":"FeatureCollection","features":[]}}"#,
+        )
+        .unwrap();
+        assert_eq!(req.default_return_type(), ReturnTypeArg::FeatureCollection);
+    }
+
+    #[test]
+    fn merge_points_req_feature_area_is_feature() {
+        let req: MergePointsReq = serde_json::from_str(
+            r#"{"area":{"type":"Feature","geometry":null,"properties":null}}"#,
+        )
+        .unwrap();
+        assert_eq!(req.default_return_type(), ReturnTypeArg::Feature);
+    }
+
+    // ── BootstrapReq default_return_type ─────────────────────────────────────
+
+    #[test]
+    fn bootstrap_req_no_area_is_single_array() {
+        let req: BootstrapReq = serde_json::from_str(r#"{}"#).unwrap();
+        assert_eq!(req.default_return_type(), ReturnTypeArg::SingleArray);
+    }
 }

@@ -179,6 +179,9 @@ impl DevArgs {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── ClusteringArgs ───────────────────────────────────────────────────────
+
     #[test]
     fn clustering_args_resolve_matches_legacy_defaults() {
         // All-None wire -> the documented defaults + the plugin-arg tail.
@@ -195,11 +198,219 @@ mod tests {
             " --radius 70 --min_points 1 --max_clusters 18446744073709551615"
         );
     }
+
     #[test]
-    fn nested_wire_deserializes_into_group() {
+    fn clustering_args_wire_deserializes_camel_case() {
         let g: ClusteringArgs = serde_json::from_str(r#"{"radius":50,"minPoints":3}"#).unwrap();
         let cfg = g.resolve();
         assert_eq!(cfg.radius, 50.0);
         assert_eq!(cfg.min_points, 3);
+    }
+
+    #[test]
+    fn clustering_args_max_clusters_zero_becomes_usize_max() {
+        let g: ClusteringArgs = serde_json::from_str(r#"{"maxClusters":0}"#).unwrap();
+        let cfg = g.resolve();
+        assert_eq!(cfg.max_clusters, usize::MAX);
+    }
+
+    #[test]
+    fn clustering_args_explicit_max_clusters_passes_through() {
+        let g: ClusteringArgs = serde_json::from_str(r#"{"maxClusters":7}"#).unwrap();
+        let cfg = g.resolve();
+        assert_eq!(cfg.max_clusters, 7);
+    }
+
+    #[test]
+    fn clustering_args_s2_overrides() {
+        let g: ClusteringArgs = serde_json::from_str(r#"{"s2Level":12,"s2Size":5}"#).unwrap();
+        let cfg = g.resolve();
+        assert_eq!(cfg.s2.level, 12);
+        assert_eq!(cfg.s2.size, 5);
+    }
+
+    #[test]
+    fn clustering_args_center_clusters_and_genetic_default_false() {
+        let cfg = ClusteringArgs::default().resolve();
+        assert!(!cfg.center_clusters);
+        assert!(!cfg.genetic_post_processing);
+    }
+
+    #[test]
+    fn clustering_args_center_clusters_explicit_true() {
+        let g: ClusteringArgs =
+            serde_json::from_str(r#"{"centerClusters":true,"geneticPostProcessing":true}"#)
+                .unwrap();
+        let cfg = g.resolve();
+        assert!(cfg.center_clusters);
+        assert!(cfg.genetic_post_processing);
+    }
+
+    #[test]
+    fn clustering_args_plugin_args_prepended() {
+        let g: ClusteringArgs =
+            serde_json::from_str(r#"{"pluginArgs":"--custom","radius":40,"minPoints":2}"#)
+                .unwrap();
+        let cfg = g.resolve();
+        assert!(cfg.plugin_args.starts_with("--custom"));
+        assert!(cfg.plugin_args.contains("--radius 40"));
+        assert!(cfg.plugin_args.contains("--min_points 2"));
+    }
+
+    #[test]
+    fn clustering_args_cluster_split_level_in_range() {
+        let g: ClusteringArgs = serde_json::from_str(r#"{"clusterSplitLevel":10}"#).unwrap();
+        let cfg = g.resolve();
+        assert_eq!(cfg.cluster_split_level, 10);
+    }
+
+    #[test]
+    fn clustering_args_cluster_split_level_out_of_range_gives_zero() {
+        let g: ClusteringArgs = serde_json::from_str(r#"{"clusterSplitLevel":25}"#).unwrap();
+        let cfg = g.resolve();
+        assert_eq!(cfg.cluster_split_level, 0);
+    }
+
+    // ── RoutingArgs ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn routing_args_defaults_to_unset_sort_and_empty_plugin_args() {
+        let cfg = RoutingArgs::default().resolve();
+        assert_eq!(cfg.sort_by, SortBy::Unset);
+        assert_eq!(cfg.route_split_level, 0);
+        assert_eq!(cfg.plugin_args, "");
+    }
+
+    #[test]
+    fn routing_args_plugin_args_set() {
+        let g: RoutingArgs = serde_json::from_str(r#"{"pluginArgs":"--foo"}"#).unwrap();
+        let cfg = g.resolve();
+        assert_eq!(cfg.plugin_args, "--foo");
+    }
+
+    #[test]
+    fn routing_args_route_split_level_out_of_range_gives_zero() {
+        let g: RoutingArgs = serde_json::from_str(r#"{"routeSplitLevel":99}"#).unwrap();
+        let cfg = g.resolve();
+        assert_eq!(cfg.route_split_level, 0);
+    }
+
+    // ── BootstrapArgs ────────────────────────────────────────────────────────
+
+    #[test]
+    fn bootstrap_args_defaults() {
+        let cfg = BootstrapArgs::default().resolve();
+        assert_eq!(cfg.radius, 70.0);
+        assert_eq!(cfg.s2.level, 15);
+        assert_eq!(cfg.s2.size, 9);
+        assert_eq!(cfg.calculation_mode, CalculationMode::Radius);
+        assert!(cfg.plugin_args.contains("--radius 70"));
+    }
+
+    #[test]
+    fn bootstrap_args_custom_radius_feeds_plugin_args() {
+        let g: BootstrapArgs = serde_json::from_str(r#"{"radius":50}"#).unwrap();
+        let cfg = g.resolve();
+        assert_eq!(cfg.radius, 50.0);
+        assert!(cfg.plugin_args.contains("--radius 50"));
+    }
+
+    #[test]
+    fn bootstrap_args_plugin_args_prepended() {
+        let g: BootstrapArgs = serde_json::from_str(r#"{"pluginArgs":"--extra"}"#).unwrap();
+        let cfg = g.resolve();
+        assert!(cfg.plugin_args.starts_with("--extra"));
+    }
+
+    // ── DataFilterArgs ───────────────────────────────────────────────────────
+
+    #[test]
+    fn data_filter_defaults_last_seen_zero_and_tth_all() {
+        let df = DataFilterArgs::default().resolve();
+        assert_eq!(df.last_seen, 0);
+        assert!(matches!(df.tth, SpawnpointTth::All));
+    }
+
+    #[test]
+    fn data_filter_last_seen_set() {
+        let g: DataFilterArgs = serde_json::from_str(r#"{"lastSeen":3600}"#).unwrap();
+        let df = g.resolve();
+        assert_eq!(df.last_seen, 3600);
+    }
+
+    #[test]
+    fn data_filter_tth_known() {
+        let g: DataFilterArgs = serde_json::from_str(r#"{"tth":"Known"}"#).unwrap();
+        let df = g.resolve();
+        assert!(matches!(df.tth, SpawnpointTth::Known));
+    }
+
+    #[test]
+    fn data_filter_tth_unknown() {
+        let g: DataFilterArgs = serde_json::from_str(r#"{"tth":"Unknown"}"#).unwrap();
+        let df = g.resolve();
+        assert!(matches!(df.tth, SpawnpointTth::Unknown));
+    }
+
+    // ── OutputArgs ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn output_args_defaults_all_false_and_uses_provided_default_return_type() {
+        use crate::requests::config::ReturnTypeArg;
+        let cfg = OutputArgs::default().resolve(ReturnTypeArg::Feature);
+        assert_eq!(cfg.return_type, ReturnTypeArg::Feature);
+        assert!(!cfg.save_to_db);
+        assert!(!cfg.save_to_scanner);
+        assert!(!cfg.save_to_scanner_only);
+        assert!(!cfg.simplify);
+    }
+
+    #[test]
+    fn output_args_explicit_return_type_overrides_default() {
+        use crate::requests::config::ReturnTypeArg;
+        let g: OutputArgs = serde_json::from_str(r#"{"returnType":"featureCollection"}"#).unwrap();
+        let cfg = g.resolve(ReturnTypeArg::Feature);
+        assert_eq!(cfg.return_type, ReturnTypeArg::FeatureCollection);
+    }
+
+    #[test]
+    fn output_args_unknown_return_type_falls_back_to_default() {
+        use crate::requests::config::ReturnTypeArg;
+        let g: OutputArgs = serde_json::from_str(r#"{"returnType":"nonsense"}"#).unwrap();
+        let cfg = g.resolve(ReturnTypeArg::SingleArray);
+        assert_eq!(cfg.return_type, ReturnTypeArg::SingleArray);
+    }
+
+    #[test]
+    fn output_args_save_flags_set() {
+        let g: OutputArgs = serde_json::from_str(
+            r#"{"saveToDb":true,"saveToScanner":true,"saveToScannerOnly":true,"simplify":true}"#,
+        )
+        .unwrap();
+        use crate::requests::config::ReturnTypeArg;
+        let cfg = g.resolve(ReturnTypeArg::SingleArray);
+        assert!(cfg.save_to_db);
+        assert!(cfg.save_to_scanner);
+        assert!(cfg.save_to_scanner_only);
+        assert!(cfg.simplify);
+    }
+
+    // ── DevArgs ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn dev_args_defaults_all_false() {
+        let cfg = DevArgs::default().resolve();
+        assert!(!cfg.bypass_adaptive_partition);
+        assert!(!cfg.benchmark_mode);
+    }
+
+    #[test]
+    fn dev_args_both_set_true() {
+        let g: DevArgs =
+            serde_json::from_str(r#"{"bypassAdaptivePartition":true,"benchmarkMode":true}"#)
+                .unwrap();
+        let cfg = g.resolve();
+        assert!(cfg.bypass_adaptive_partition);
+        assert!(cfg.benchmark_mode);
     }
 }

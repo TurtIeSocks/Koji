@@ -100,3 +100,147 @@ fn geometry_to_koji(g: &Geometry) -> Result<KojiGeometryCollection, koji_core::K
         .collect::<Result<Vec<_>, _>>()?;
     Ok(KojiGeometryCollection::new(items))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn polygon_geometry() -> Geometry {
+        Geometry::new(geojson::Value::Polygon(vec![vec![
+            vec![0.0, 0.0],
+            vec![1.0, 0.0],
+            vec![1.0, 1.0],
+            vec![0.0, 1.0],
+            vec![0.0, 0.0],
+        ]]))
+    }
+
+    fn polygon_feature() -> Feature {
+        Feature {
+            bbox: None,
+            geometry: Some(polygon_geometry()),
+            id: None,
+            properties: None,
+            foreign_members: None,
+        }
+    }
+
+    fn polygon_fc() -> FeatureCollection {
+        FeatureCollection {
+            bbox: None,
+            features: vec![polygon_feature()],
+            foreign_members: None,
+        }
+    }
+
+    // ── GeoInput::to_koji ────────────────────────────────────────────────────
+
+    #[test]
+    fn geo_input_feature_collection_converts() {
+        let gi = GeoInput::FeatureCollection(polygon_fc());
+        assert!(gi.to_koji().is_ok());
+    }
+
+    #[test]
+    fn geo_input_feature_converts() {
+        let gi = GeoInput::Feature(polygon_feature());
+        assert!(gi.to_koji().is_ok());
+    }
+
+    #[test]
+    fn geo_input_geometry_converts() {
+        let gi = GeoInput::Geometry(polygon_geometry());
+        assert!(gi.to_koji().is_ok());
+    }
+
+    #[test]
+    fn geo_input_feature_no_geometry_fails() {
+        let gi = GeoInput::Feature(Feature {
+            bbox: None,
+            geometry: None,
+            id: None,
+            properties: None,
+            foreign_members: None,
+        });
+        assert!(gi.to_koji().is_err());
+    }
+
+    // ── GeoInput::to_feature_collection ─────────────────────────────────────
+
+    #[test]
+    fn to_feature_collection_returns_empty_on_bad_geometry() {
+        let gi = GeoInput::Feature(Feature {
+            bbox: None,
+            geometry: None,
+            id: None,
+            properties: None,
+            foreign_members: None,
+        });
+        let fc = gi.to_feature_collection();
+        // The lenient path: a failure logs a warning and yields an empty collection.
+        assert!(fc.features.is_empty());
+    }
+
+    #[test]
+    fn to_feature_collection_round_trips_polygon() {
+        let gi = GeoInput::Feature(polygon_feature());
+        let fc = gi.to_feature_collection();
+        assert!(!fc.features.is_empty());
+    }
+
+    // ── area_collection ──────────────────────────────────────────────────────
+
+    #[test]
+    fn area_collection_none_gives_empty() {
+        let fc = area_collection(&None);
+        assert!(fc.features.is_empty());
+    }
+
+    #[test]
+    fn area_collection_some_polygon_gives_feature() {
+        let gi = GeoInput::Feature(polygon_feature());
+        let fc = area_collection(&Some(gi));
+        assert!(!fc.features.is_empty());
+    }
+
+    // ── GeoInput serde (untagged order: FC > Feature > Geometry) ────────────
+
+    #[test]
+    fn geo_input_deserializes_feature_collection_first() {
+        let json = r#"{"type":"FeatureCollection","features":[]}"#;
+        let gi: GeoInput = serde_json::from_str(json).unwrap();
+        assert!(matches!(gi, GeoInput::FeatureCollection(_)));
+    }
+
+    #[test]
+    fn geo_input_deserializes_feature() {
+        let json = r#"{"type":"Feature","geometry":null,"properties":null}"#;
+        let gi: GeoInput = serde_json::from_str(json).unwrap();
+        assert!(matches!(gi, GeoInput::Feature(_)));
+    }
+
+    #[test]
+    fn geo_input_deserializes_geometry() {
+        let json = r#"{"type":"Point","coordinates":[1.0,2.0]}"#;
+        let gi: GeoInput = serde_json::from_str(json).unwrap();
+        assert!(matches!(gi, GeoInput::Geometry(_)));
+    }
+
+    // ── geometry_to_koji (GeometryCollection fans out) ───────────────────────
+
+    #[test]
+    fn geometry_to_koji_geometry_collection_fans_out() {
+        let gc_json = r#"{
+            "type": "GeometryCollection",
+            "geometries": [
+                {"type":"Polygon","coordinates":[[[0,0],[1,0],[1,1],[0,1],[0,0]]]},
+                {"type":"Polygon","coordinates":[[[2,2],[3,2],[3,3],[2,3],[2,2]]]}
+            ]
+        }"#;
+        let geom: Geometry = serde_json::from_str(gc_json).unwrap();
+        let gi = GeoInput::Geometry(geom);
+        let coll = gi.to_koji().unwrap();
+        // Both children become separate KojiGeometry entries.
+        assert_eq!(coll.items.len(), 2);
+    }
+}

@@ -236,4 +236,147 @@ mod tests {
         );
         assert_eq!(code_for_status(StatusCode::GATEWAY_TIMEOUT), "timeout");
     }
+
+    // ── code_for_status full coverage ────────────────────────────────────────
+
+    #[test]
+    fn code_for_status_all_named_branches() {
+        assert_eq!(code_for_status(StatusCode::BAD_REQUEST), "invalid_request");
+        assert_eq!(code_for_status(StatusCode::UNAUTHORIZED), "unauthorized");
+        assert_eq!(code_for_status(StatusCode::FORBIDDEN), "forbidden");
+        assert_eq!(code_for_status(StatusCode::NOT_FOUND), "not_found");
+        assert_eq!(code_for_status(StatusCode::CONFLICT), "conflict");
+        assert_eq!(
+            code_for_status(StatusCode::UNPROCESSABLE_ENTITY),
+            "unprocessable"
+        );
+        assert_eq!(code_for_status(StatusCode::TOO_MANY_REQUESTS), "rate_limited");
+        assert_eq!(code_for_status(StatusCode::GATEWAY_TIMEOUT), "timeout");
+    }
+
+    #[test]
+    fn code_for_status_5xx_not_504_gives_internal_error() {
+        // 500, 502, 503 all hit the `s >= 500` arm.
+        assert_eq!(
+            code_for_status(StatusCode::INTERNAL_SERVER_ERROR),
+            "internal_error"
+        );
+        assert_eq!(code_for_status(StatusCode::BAD_GATEWAY), "internal_error");
+        assert_eq!(
+            code_for_status(StatusCode::SERVICE_UNAVAILABLE),
+            "internal_error"
+        );
+    }
+
+    #[test]
+    fn code_for_status_generic_4xx_gives_error() {
+        // 405 is not in the named list — falls to the `_ => "error"` arm.
+        assert_eq!(
+            code_for_status(StatusCode::METHOD_NOT_ALLOWED),
+            "error"
+        );
+    }
+
+    // ── ApiResponse::error constructor ────────────────────────────────────────
+
+    #[test]
+    fn error_constructor_derives_code_from_status_when_none() {
+        let resp = ApiResponse::<()>::error(StatusCode::NOT_FOUND, "nope", None, None);
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn error_constructor_uses_explicit_code() {
+        let resp = ApiResponse::<()>::error(
+            StatusCode::BAD_REQUEST,
+            "bad",
+            Some("custom_code".into()),
+            None,
+        );
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    }
+
+    // ── ApiResponse::fail constructor ─────────────────────────────────────────
+
+    #[test]
+    fn fail_constructor_maps_first_kv() {
+        let resp = ApiResponse::<()>::fail(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            json!({ "name": "too long" }),
+        );
+        assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[test]
+    fn fail_constructor_non_object_value() {
+        let resp = ApiResponse::<()>::fail(StatusCode::BAD_REQUEST, json!("plain error string"));
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    }
+
+    // ── first_field_message edge cases ────────────────────────────────────────
+
+    #[test]
+    fn first_field_message_non_object_stringifies() {
+        let (field, message) = first_field_message(&json!(42));
+        assert!(field.is_none());
+        assert_eq!(message, "42");
+    }
+
+    #[test]
+    fn first_field_message_nested_value_is_stringified() {
+        // A non-string JSON value as the field value gets stringified.
+        let (field, message) = first_field_message(&json!({ "count": 7 }));
+        assert_eq!(field.as_deref(), Some("count"));
+        assert_eq!(message, "7");
+    }
+
+    #[test]
+    fn first_field_message_array_stringifies() {
+        let (field, message) = first_field_message(&json!([1, 2, 3]));
+        assert!(field.is_none());
+        // The array is stringified as "[1,2,3]".
+        assert!(message.contains("1"));
+    }
+
+    // ── ApiResponse::success_with_status ──────────────────────────────────────
+
+    #[test]
+    fn success_with_status_201_reflected() {
+        let resp = ApiResponse::success_with_status(StatusCode::CREATED, json!({"id": 99}));
+        assert_eq!(resp.status(), StatusCode::CREATED);
+    }
+
+    // ── ApiResponse::success_paginated ────────────────────────────────────────
+
+    #[test]
+    fn success_paginated_carries_meta_in_body() {
+        let meta = Meta {
+            total: 10,
+            page: 1,
+            per_page: 5,
+            total_pages: 2,
+            has_next: true,
+            has_prev: false,
+        };
+        let resp = ApiResponse::success_paginated(json!([1, 2, 3, 4, 5]), meta);
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    // ── error object field is omitted when None ───────────────────────────────
+
+    #[test]
+    fn error_object_without_field_omits_key() {
+        let v = serde_json::to_value(ApiResponse::<()>::Error {
+            error: ApiError {
+                code: "not_found".into(),
+                message: "gone".into(),
+                field: None,
+            },
+        })
+        .unwrap();
+        assert!(
+            v["error"].get("field").is_none(),
+            "field must be absent when None"
+        );
+    }
 }
