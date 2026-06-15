@@ -8,13 +8,16 @@
 //! [`ServiceError`](crate::utils::error::ServiceError).
 
 use actix_web::{HttpResponse, post, web};
-use geojson::FeatureCollection;
+use geo::{ChamberlainDuquetteArea, MultiPolygon, Polygon};
+use geojson::{FeatureCollection, Value};
 use koji_core::{FeatureHelpers, GeometryHelpers, TrimPrecision};
 use serde::Deserialize;
+use serde_json::json;
 
 use crate::requests::{
     ConvertReq, MergePointsReq, ReturnTypeArg, SimplifyReq, area_collection, get_return_type,
 };
+use crate::utils::api_response::ApiResponse;
 use crate::utils::error::ServiceError;
 use crate::utils::format::respond_geo;
 
@@ -100,13 +103,53 @@ async fn merge_points(
     Ok(respond_geo(coll, return_type))
 }
 
-/// The `/geometry` scope: the three transforms as POST resources, mounted into
-/// `/api/v2` by [`crate::start`].
+/// Sum the Chamberlain–Duquette **unsigned** area (m²) of every `Polygon` /
+/// `MultiPolygon` in the collection. Ports v1 `calculate_area` verbatim — the same
+/// `geo::ChamberlainDuquetteArea` routine, same unit, same lenient skip of
+/// non-polygon / unconvertible geometries (logged, not erroring) so the number the
+/// frontend already expects is unchanged. Pure (no DB / async), hence unit-tested
+/// directly below against a known polygon.
+fn polygon_area_sum(collection: &FeatureCollection) -> f64 {
+    let mut total_area = 0.;
+    for feature in collection {
+        if let Some(geometry) = feature.geometry.as_ref() {
+            match geometry.value {
+                Value::MultiPolygon(_) => match MultiPolygon::<f64>::try_from(geometry) {
+                    Ok(mp) => total_area += mp.chamberlain_duquette_unsigned_area(),
+                    Err(err) => log::error!("Unable to calculate area for MultiPolygon: {err}"),
+                },
+                Value::Polygon(_) => match Polygon::<f64>::try_from(geometry) {
+                    Ok(poly) => total_area += poly.chamberlain_duquette_unsigned_area(),
+                    Err(err) => log::error!("Unable to calculate area for Polygon: {err}"),
+                },
+                _ => {}
+            }
+        }
+    }
+    total_area
+}
+
+/// `POST /api/v2/geometry/area` — total polygon area (m²) of the supplied
+/// geometry. Ports v1 `/area` (`calculate_area`): the Chamberlain–Duquette
+/// unsigned area sum over every `Polygon`/`MultiPolygon`, now in the v2 envelope.
+/// Reuses [`SimplifyReq`] for the body (it already carries the `area` input);
+/// returns `{ "area": <f64 m²> }`.
+#[post("/area")]
+async fn calculate_area(payload: web::Json<SimplifyReq>) -> Result<HttpResponse, ServiceError> {
+    let collection = area_collection(&payload.into_inner().area);
+    let total_area = polygon_area_sum(&collection);
+    log::info!("[AREA] Found total area: {total_area}");
+    Ok(ApiResponse::success(json!({ "area": total_area })))
+}
+
+/// The `/geometry` scope: the geometry transforms + area as POST resources,
+/// mounted into `/api/v2` by [`crate::start`].
 pub(crate) fn scope() -> actix_web::Scope {
     web::scope("/geometry")
         .service(convert)
         .service(simplify)
         .service(merge_points)
+        .service(calculate_area)
 }
 
 #[cfg(test)]
@@ -130,6 +173,61 @@ mod tests {
             q.return_type(ReturnTypeArg::Feature),
             ReturnTypeArg::Feature
         );
+    }
+
+    #[test]
+    fn area_sum_matches_chamberlain_duquette_for_known_polygon() {
+        // A 1°×1° square at the equator, as the inbound geojson FeatureCollection
+        // the handler builds via `area_collection`.
+        let fc: FeatureCollection = serde_json::from_str(
+            r#"{"type":"FeatureCollection","features":[{"type":"Feature","properties":{},
+            "geometry":{"type":"Polygon","coordinates":[[[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,1.0],[0.0,0.0]]]}}]}"#,
+        )
+        .unwrap();
+
+        // Ground truth: the exact same `geo` routine v1 `calculate_area` calls,
+        // computed independently here over the identical ring.
+        let expected = Polygon::<f64>::new(
+            geo::LineString::from(vec![
+                (0.0, 0.0),
+                (1.0, 0.0),
+                (1.0, 1.0),
+                (0.0, 1.0),
+                (0.0, 0.0),
+            ]),
+            vec![],
+        )
+        .chamberlain_duquette_unsigned_area();
+
+        assert_eq!(polygon_area_sum(&fc), expected);
+        // Sanity: ~1° at the equator ≈ 1.23e10 m², and strictly positive (unsigned).
+        assert!(polygon_area_sum(&fc) > 1.0e10);
+    }
+
+    #[test]
+    fn area_sum_skips_non_polygon_and_sums_multipolygon() {
+        // A Point contributes nothing (v1 silently skips); a MultiPolygon is summed.
+        let fc: FeatureCollection = serde_json::from_str(
+            r#"{"type":"FeatureCollection","features":[
+              {"type":"Feature","properties":{},"geometry":{"type":"Point","coordinates":[5.0,5.0]}},
+              {"type":"Feature","properties":{},"geometry":{"type":"MultiPolygon","coordinates":[[[[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,1.0],[0.0,0.0]]]]}}
+            ]}"#,
+        )
+        .unwrap();
+
+        let expected = MultiPolygon::<f64>::new(vec![Polygon::new(
+            geo::LineString::from(vec![
+                (0.0, 0.0),
+                (1.0, 0.0),
+                (1.0, 1.0),
+                (0.0, 1.0),
+                (0.0, 0.0),
+            ]),
+            vec![],
+        )])
+        .chamberlain_duquette_unsigned_area();
+
+        assert_eq!(polygon_area_sum(&fc), expected);
     }
 
     #[test]
