@@ -310,98 +310,135 @@ export async function clusteringRouting({
     totalLoadingTime: 0,
   })
 
-  const features = await Promise.allSettled<Feature>(
+  const features = await Promise.allSettled<Feature | null>(
     areas.map(async (area) => {
       const fenceRef = getFromKojiKey(area.id as string)
       const routeRef = getRouteByCategory(category, fenceRef?.name)
       const startTime = Date.now()
 
-      const res = await fetch(
+      const instance =
+        fenceRef?.name ||
+        `${area.geometry.type}${area.id ? `-${area.id}` : ''}`
+      const signal = useStatic.getState().loadingAbort[instance]?.signal
+
+      // v2 calc body: a tagged CalcJobRequest. `mode` selects the op
+      // (cluster | bootstrap — clusteringRouting only drives these two; reroute /
+      // routeStats are separate call sites), `category` + the nested camelCase
+      // arg-groups carry the former flat v1 fields.
+      // TODO(v2-verify): the whole async job path here is RUNTIME-UNVERIFIED (no
+      // backend/DB). Confirm against a live deploy: POST /jobs → 202 {job_id},
+      // the nested arg-group field mapping below, and the result/stats shape read
+      // out of the terminal JobRecord.
+      const body =
         mode === 'bootstrap'
-          ? '/api/v1/calc/bootstrap'
-          : `/api/v1/calc/${mode}/${rawCategory}`,
-        {
-          // keepalive: true,
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          signal:
-            useStatic.getState().loadingAbort[
-              getFromKojiKey(area.id as string)?.name ||
-                `${area.geometry.type}${area.id ? `-${area.id}` : ''}`
-            ]?.signal,
-          body: JSON.stringify({
-            return_type: 'feature',
-            area: parent
-              ? undefined
-              : {
-                  ...area,
-                  properties: {
-                    __id: routeRef?.id,
-                    __name: fenceRef?.name,
-                    __geofence_id: fenceRef?.id,
-                    __mode: fenceRef?.mode,
-                  },
-                },
-            instance:
-              fenceRef?.name ||
-              `${area.geometry.type}${area.id ? `-${area.id}` : ''}`,
-            last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
-            radius,
-            center_clusters,
-            min_points,
-            cluster_mode,
-            parent,
-            fast,
-            save_to_db,
-            save_to_scanner,
-            route_split_level,
-            cluster_split_level,
-            sort_by,
-            tth,
-            max_clusters,
-            calculation_mode,
-            s2_level,
-            s2_size,
-            routing_args,
-            clustering_args,
-            bootstrapping_args,
-            genetic_post_processing,
-            dev,
-          }),
-        },
-      )
-      if (!res.ok) {
+          ? {
+              mode: 'bootstrap',
+              category,
+              instance,
+              parent,
+              area: parent ? undefined : area,
+              bootstrap: {
+                calculationMode: calculation_mode,
+                radius,
+                s2Level: s2_level,
+                s2Size: s2_size,
+                pluginArgs: bootstrapping_args || undefined,
+              },
+              routing: {
+                sortBy: sort_by,
+                routeSplitLevel: route_split_level,
+                pluginArgs: routing_args || undefined,
+              },
+              output: { returnType: 'feature', saveToDb: save_to_db, saveToScanner: save_to_scanner },
+              dev,
+            }
+          : {
+              mode: 'cluster',
+              category,
+              instance,
+              parent,
+              area: parent ? undefined : area,
+              clustering: {
+                radius,
+                minPoints: min_points,
+                maxClusters: max_clusters,
+                mode: cluster_mode,
+                calculationMode: calculation_mode,
+                s2Level: s2_level,
+                s2Size: s2_size,
+                clusterSplitLevel: cluster_split_level,
+                centerClusters: center_clusters,
+                geneticPostProcessing: genetic_post_processing,
+                pluginArgs: clustering_args || undefined,
+              },
+              routing: {
+                sortBy: sort_by,
+                routeSplitLevel: route_split_level,
+                pluginArgs: routing_args || undefined,
+              },
+              output: { returnType: 'feature', saveToDb: save_to_db, saveToScanner: save_to_scanner },
+              dataFilter: {
+                lastSeen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+                tth,
+              },
+              dev,
+            }
+
+      // `fast` (v1 flag) has no v2 arg-group field — the adaptive-partition path
+      // is now controlled by `dev.bypassAdaptivePartition`. Dropped here.
+      // TODO(v2-verify): confirm dropping the v1 `fast` flag is intended.
+
+      // Enqueue the job, then long-poll it to a terminal state.
+      const enqueue = await fetchWrapper<{ job_id: string }>('/api/v2/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal,
+        body: JSON.stringify(body),
+      })
+      let record: JobRecord | null = null
+      if (enqueue?.job_id) {
+        try {
+          record = await pollJob(enqueue.job_id, signal)
+        } catch (e) {
+          if (!(e instanceof DOMException && e.name === 'AbortError')) {
+            console.error(e)
+          }
+        }
+      }
+
+      if (!record || record.status !== 'succeeded' || !record.result) {
         if (fenceRef?.name) {
           setStatic('loading', (prev) => ({
             ...prev,
-            [fenceRef?.name ||
-            `${area.geometry.type}${area.id ? `-${area.id}` : ''}`]: false,
+            [instance]: false,
           }))
         }
-        useStatic.setState({
-          notification: {
-            message: await res.text(),
-            status: res.status,
-            severity: 'error',
-          },
-        })
+        if (record?.status === 'failed' && record.error) {
+          useStatic.setState({
+            notification: {
+              message: record.error,
+              status: 500,
+              severity: 'error',
+            },
+          })
+        }
         return null
       }
-      const json = await res.json()
+
+      const result: CalcJobResult = record.result
+      const stats = result.stats
       const fetch_time = Date.now() - startTime
       setStatic('loading', (prev) => ({
         ...prev,
         [fenceRef
           ? fenceRef?.name
           : `${area.geometry.type}${area.id ? `-${area.id}` : ''}`]: {
-          ...json.stats,
+          ...stats,
           fetch_time,
         },
       }))
       console.log(fenceRef?.name)
-      Object.entries(json.stats).forEach(([k, v]) =>
+      Object.entries(stats || {}).forEach(([k, v]) =>
         // eslint-disable-next-line no-console
         console.log(fromSnakeCase(k), v),
       )
@@ -410,14 +447,21 @@ export async function clusteringRouting({
       }__${getRouteType(category)}__${fenceRef || routeRef ? 'KOJI' : 'CLIENT'}`
       console.log(`Total Time: ${fetch_time / 1000}s\n`)
       console.log('-----------------')
+      // v2 calc returns a FeatureCollection (geojson FC of the cluster centers);
+      // v1 with return_type:'feature' returned a single Feature. Extract the lone
+      // feature so the downstream `add()`/shape store still gets a Feature.
+      // TODO(v2-verify): confirm the result FC carries exactly one MultiPoint
+      // feature for the cluster/bootstrap centers (so [0] is correct).
+      const resultFeature = result.data?.features?.[0]
+      if (!resultFeature) return null
       return {
+        ...resultFeature,
         id: newId,
-        ...json.data,
         properties: {
-          ...json.data.properties,
+          ...resultFeature.properties,
           __geofence_id: fenceRef?.id || undefined,
         },
-      }
+      } as Feature
     }),
   ).then((feats) =>
     feats
