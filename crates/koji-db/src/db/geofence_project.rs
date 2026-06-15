@@ -171,44 +171,74 @@ impl Query {
         }
     }
 
+    /// Reconcile the join rows for one fixed side against a desired id set on
+    /// the other side: insert missing pairs, leave matches, delete stale rows.
+    ///
+    /// `fixed_col`/`fixed_val` pin the side that stays constant (e.g. the
+    /// geofence); `other_col`/`other_of` address the side iterated from `ids`.
+    /// `make` builds the `ActiveModel` for an inserted pair. Semantics are
+    /// byte-identical to the two former mirror fns: the existing-map is keyed on
+    /// the OTHER column, inserts pin fixed + loop value, and the final delete
+    /// filters `fixed.eq(fixed_val)` AND `other.is_in(stale)`.
+    async fn upsert_related(
+        db: &DatabaseConnection,
+        ids: &[serde_json::Value],
+        fixed_val: u32,
+        fixed_col: Column,
+        other_col: Column,
+        other_of: impl Fn(&Model) -> u32,
+        make: impl Fn(u32) -> ActiveModel,
+    ) -> Result<(), DbErr> {
+        let mut existing: HashMap<u32, bool> = Entity::find()
+            .filter(fixed_col.eq(fixed_val))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|x| (other_of(&x), false))
+            .collect();
+
+        for id in ids.iter().filter_map(|id| id.as_u64()) {
+            let id = id as u32;
+            if existing.contains_key(&id) {
+                existing.entry(id).and_modify(|f| *f = true);
+            } else {
+                make(id).insert(db).await?;
+            }
+        }
+
+        let stale: Vec<u32> = existing
+            .into_iter()
+            .filter_map(|(id, exists)| if exists { None } else { Some(id) })
+            .collect();
+        if !stale.is_empty() {
+            Entity::delete_many()
+                .filter(fixed_col.eq(fixed_val))
+                .filter(other_col.is_in(stale))
+                .exec(db)
+                .await?;
+        }
+        Ok(())
+    }
+
     pub async fn upsert_related_by_geofence_id(
         db: &DatabaseConnection,
         projects: &[serde_json::Value],
         geofence_id: u32,
     ) -> Result<(), DbErr> {
-        let mut existing: HashMap<_, _> = Entity::find()
-            .filter(Column::GeofenceId.eq(geofence_id))
-            .all(db)
-            .await?
-            .into_iter()
-            .map(|x| (x.project_id, false))
-            .collect();
-
-        for id in projects.iter().filter_map(|id| id.as_u64()) {
-            if existing.contains_key(&(id as u32)) {
-                existing.entry(id as u32).and_modify(|f| *f = true);
-            } else {
-                ActiveModel {
-                    geofence_id: Set(geofence_id),
-                    project_id: Set(id as u32),
-                    ..Default::default()
-                }
-                .insert(db)
-                .await?;
-            }
-        }
-        let existing: Vec<u32> = existing
-            .into_iter()
-            .filter_map(|(id, exists)| if !exists { Some(id) } else { None })
-            .collect();
-        if !existing.is_empty() {
-            Entity::delete_many()
-                .filter(Column::GeofenceId.eq(geofence_id))
-                .filter(Column::ProjectId.is_in(existing))
-                .exec(db)
-                .await?;
-        }
-        Ok(())
+        Self::upsert_related(
+            db,
+            projects,
+            geofence_id,
+            Column::GeofenceId,
+            Column::ProjectId,
+            |x| x.project_id,
+            |project_id| ActiveModel {
+                geofence_id: Set(geofence_id),
+                project_id: Set(project_id),
+                ..Default::default()
+            },
+        )
+        .await
     }
 
     pub async fn upsert_related_by_project_id(
@@ -216,38 +246,19 @@ impl Query {
         geofences: &[serde_json::Value],
         project_id: u32,
     ) -> Result<(), DbErr> {
-        let mut existing: HashMap<_, _> = Entity::find()
-            .filter(Column::ProjectId.eq(project_id))
-            .all(db)
-            .await?
-            .into_iter()
-            .map(|x| (x.geofence_id, false))
-            .collect();
-
-        for id in geofences.iter().filter_map(|id| id.as_u64()) {
-            if existing.contains_key(&(id as u32)) {
-                existing.entry(id as u32).and_modify(|f| *f = true);
-            } else {
-                ActiveModel {
-                    geofence_id: Set(id as u32),
-                    project_id: Set(project_id),
-                    ..Default::default()
-                }
-                .insert(db)
-                .await?;
-            }
-        }
-        let existing: Vec<u32> = existing
-            .into_iter()
-            .filter_map(|(id, exists)| if !exists { Some(id) } else { None })
-            .collect();
-        if !existing.is_empty() {
-            Entity::delete_many()
-                .filter(Column::ProjectId.eq(project_id))
-                .filter(Column::GeofenceId.is_in(existing))
-                .exec(db)
-                .await?;
-        }
-        Ok(())
+        Self::upsert_related(
+            db,
+            geofences,
+            project_id,
+            Column::ProjectId,
+            Column::GeofenceId,
+            |x| x.geofence_id,
+            |geofence_id| ActiveModel {
+                geofence_id: Set(geofence_id),
+                project_id: Set(project_id),
+                ..Default::default()
+            },
+        )
+        .await
     }
 }
