@@ -30,18 +30,25 @@ mod public;
 pub mod requests;
 mod utils;
 
-/// The hand-written OpenAPI 3.1 document for the `/api/v2` surface, embedded at
-/// build time and served (unauthenticated) by [`openapi_spec`].
-const OPENAPI_YAML: &str = include_str!("../openapi.yaml");
-
-/// `GET /api/v2/openapi.yaml` — serve the OpenAPI document as YAML.
+/// `GET /api/v2/openapi.yaml` — serve the code-first OpenAPI document.
 ///
-/// Unauthenticated (like `/healthz`) so doc tooling can fetch it without the
-/// `KOJI_SECRET` bearer.
+/// Generated from the v2 handlers + DTOs via [`utils::openapi::ApiDoc`] (utoipa),
+/// so it can't drift from the implementation. The installed utoipa (5.x, no
+/// `yaml` feature) has no `to_yaml`, so the document is emitted as pretty JSON —
+/// a valid OpenAPI document body, served under `application/json` (the `.yaml`
+/// URL is kept for back-compat with existing doc tooling links). Unauthenticated
+/// (like `/healthz`) so tooling can fetch it without the `KOJI_SECRET` bearer.
 async fn openapi_spec() -> HttpResponse {
-    HttpResponse::Ok()
-        .content_type("text/yaml; charset=utf-8")
-        .body(OPENAPI_YAML)
+    use utoipa::OpenApi;
+    match utils::openapi::ApiDoc::openapi().to_pretty_json() {
+        Ok(json) => HttpResponse::Ok()
+            .content_type("application/json; charset=utf-8")
+            .body(json),
+        Err(err) => {
+            log::error!("[openapi] failed to render document: {err}");
+            HttpResponse::InternalServerError().finish()
+        }
+    }
 }
 
 /// `GET /readyz` — readiness probe. Pings the Koji DB: reachable ⇒ `200`,
