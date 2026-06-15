@@ -16,6 +16,7 @@ koji-plugins = { path = "../koji-plugins" }
 koji-jobs = { path = "../koji-jobs" }
 koji-events = { path = "../koji-events" }
 koji-dragonite = { path = "../koji-dragonite" }
+macros = { path = "../macros" }
 actix-web = "4.11.0"
 actix-files = "0.6.8"
 actix-session = { version = "0.11.0", features = ["cookie-session"] }

@@ -51,6 +51,17 @@ impl Default for PaginateResults<()> {
     }
 }
 
+impl<T> PaginateResults<T> {
+    /// Decompose into `(results, total, has_next, has_prev)`. The fields are
+    /// private (the struct's `Serialize` shape is the v1 wire contract); this
+    /// accessor lets cross-crate v2 callers read the page data without exposing
+    /// the fields or duplicating the query. Used by the `koji_resource!`-generated
+    /// v2 list handlers.
+    pub fn into_parts(self) -> (T, u64, bool, bool) {
+        (self.results, self.total, self.has_next, self.has_prev)
+    }
+}
+
 pub(crate) struct InsertsUpdates {
     updates: usize,
     inserts: usize,

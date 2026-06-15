@@ -1,8 +1,10 @@
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
+use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{
-    Data, DeriveInput, Fields, ItemFn, LitStr, MetaNameValue, Token, parse_macro_input,
+    Data, DeriveInput, Fields, Ident, ItemFn, LitStr, MetaNameValue, Token, Type, braced,
+    parse_macro_input,
 };
 
 #[proc_macro_attribute]
@@ -496,6 +498,335 @@ pub fn fort_query(attr: TokenStream, item: TokenStream) -> TokenStream {
                     .await?;
                 let total = crate::count_in_area(&items, area);
                 Ok(crate::rows::Total { total })
+            }
+        }
+    };
+
+    expanded.into()
+}
+
+// ===========================================================================
+// koji_resource! — typed CRUD DTOs + the five REST handlers + scope() for a
+// plain (non-geometry) v2 resource.
+// ===========================================================================
+
+/// One `name: Type` entry in the `create: { … }` field list.
+struct ResourceField {
+    name: Ident,
+    ty: Type,
+}
+
+/// The parsed `koji_resource! { module:, seg:, create: { … } }` invocation.
+struct ResourceDef {
+    /// koji-db `db::<module>::Query` module + emitted submodule name (the
+    /// singular canonical resource name, e.g. `project`).
+    module: Ident,
+    /// URL path segment, e.g. `"projects"`.
+    seg: LitStr,
+    /// The Create DTO fields, in declaration order.
+    fields: Vec<ResourceField>,
+}
+
+impl Parse for ResourceDef {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut module: Option<Ident> = None;
+        let mut seg: Option<LitStr> = None;
+        let mut fields: Option<Vec<ResourceField>> = None;
+
+        // Grammar: a comma-separated list of `key: value`, where `value` is an
+        // ident (`module`), a string literal (`seg`), or a `{ … }` field block
+        // (`create`). A trailing comma is allowed.
+        while !input.is_empty() {
+            let key: Ident = input.parse()?;
+            input.parse::<Token![:]>()?;
+            match key.to_string().as_str() {
+                "module" => module = Some(input.parse()?),
+                "seg" => seg = Some(input.parse()?),
+                "create" => {
+                    let content;
+                    braced!(content in input);
+                    let parsed = content.parse_terminated(
+                        |f: ParseStream| {
+                            let name: Ident = f.parse()?;
+                            f.parse::<Token![:]>()?;
+                            let ty: Type = f.parse()?;
+                            Ok(ResourceField { name, ty })
+                        },
+                        Token![,],
+                    )?;
+                    fields = Some(parsed.into_iter().collect());
+                }
+                other => {
+                    return Err(syn::Error::new_spanned(
+                        &key,
+                        format!("unexpected key `{other}` (expected `module`, `seg`, or `create`)"),
+                    ));
+                }
+            }
+            // Consume the separating comma between top-level entries, if any.
+            if input.peek(Token![,]) {
+                input.parse::<Token![,]>()?;
+            }
+        }
+
+        let module = module.ok_or_else(|| {
+            syn::Error::new(proc_macro2::Span::call_site(), "koji_resource! requires `module:`")
+        })?;
+        let seg = seg.ok_or_else(|| {
+            syn::Error::new(proc_macro2::Span::call_site(), "koji_resource! requires `seg:`")
+        })?;
+        let fields = fields.ok_or_else(|| {
+            syn::Error::new(proc_macro2::Span::call_site(), "koji_resource! requires `create: { … }`")
+        })?;
+
+        Ok(ResourceDef { module, seg, fields })
+    }
+}
+
+/// Whether a type is already `Option<…>` (so the Patch DTO leaves it alone
+/// rather than double-wrapping). Detects the last path segment being `Option`,
+/// matching `Option<T>` / `std::option::Option<T>` / `core::option::Option<T>`.
+fn is_option_type(ty: &Type) -> bool {
+    if let Type::Path(tp) = ty
+        && let Some(last) = tp.path.segments.last()
+    {
+        return last.ident == "Option";
+    }
+    false
+}
+
+/// Convert a `snake_case` ident to `PascalCase` (e.g. `tile_server` →
+/// `TileServer`), for the `Create…`/`Patch…` DTO type names.
+fn pascal_case(ident: &Ident) -> Ident {
+    let mut out = String::new();
+    let mut upper_next = true;
+    for ch in ident.to_string().chars() {
+        if ch == '_' {
+            upper_next = true;
+        } else if upper_next {
+            out.extend(ch.to_uppercase());
+            upper_next = false;
+        } else {
+            out.push(ch);
+        }
+    }
+    format_ident!("{}", out)
+}
+
+/// Generate the typed Create/Patch DTOs, the five REST handlers, and a
+/// `scope()` for a plain (non-geometry) v2 resource, wired to `ServiceError`
+/// (404 on misses), `201`+`Location`, `204`, the v2 envelope, and `?page=&
+/// per_page=` pagination.
+///
+/// Invocation (in `koji-service`):
+///
+/// ```ignore
+/// koji_resource! {
+///     module: project,          // koji-db `db::project::Query`
+///     seg: "projects",          // URL segment
+///     create: {                 // Create DTO fields (required unless `Option<…>`)
+///         name: String,
+///         api_endpoint: Option<String>,
+///         scanner: bool,
+///     }
+/// }
+/// ```
+///
+/// Emits `pub(crate) mod <module> { … }` containing `Create<Module>` (the listed
+/// fields verbatim), `Patch<Module>` (each field `Option<…>`, skipped when
+/// `None`), the `list`/`create`/`get_one`/`update`/`remove` handlers (all
+/// `-> Result<HttpResponse, crate::utils::error::ServiceError>`), and `scope()`.
+///
+/// Like `crud_query`/`fort_query`, generated code is **call-site-resolved**:
+/// koji-service types are named by `crate::…` path and external crates fully
+/// qualified (`koji_db::…`, `actix_web::…`, `serde_json::…`), so the macro names
+/// no caller-local prelude item.
+///
+/// **Known shortcut (flagged):** the not-found mapping sniffs the koji-db
+/// `ModelError` whose `to_string()` contains `"Does not exist"` (its miss
+/// sentinel) and maps it to `ServiceError::NotFound` (404); every other
+/// `ModelError` flows through `ServiceError`'s `#[from]` (500). A dedicated
+/// `ModelError::NotFound` variant is a candidate follow-up.
+#[proc_macro]
+pub fn koji_resource(input: TokenStream) -> TokenStream {
+    let ResourceDef { module, seg, fields } = parse_macro_input!(input as ResourceDef);
+
+    let pascal = pascal_case(&module);
+    let create_ty = format_ident!("Create{}", pascal);
+    let patch_ty = format_ident!("Patch{}", pascal);
+    // The singular canonical resource name (the module ident) labels the 404
+    // `field` — always correct, unlike naive depluralizing of `seg`.
+    let field_name = module.to_string();
+
+    // Create DTO fields, verbatim.
+    let create_fields = fields.iter().map(|f| {
+        let name = &f.name;
+        let ty = &f.ty;
+        quote! { pub #name: #ty }
+    });
+
+    // Patch DTO fields: wrap non-Option in Option<…>; skip when None.
+    let patch_fields = fields.iter().map(|f| {
+        let name = &f.name;
+        let ty = &f.ty;
+        let opt_ty = if is_option_type(ty) {
+            quote! { #ty }
+        } else {
+            quote! { ::core::option::Option<#ty> }
+        };
+        quote! {
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            pub #name: #opt_ty
+        }
+    });
+
+    let expanded = quote! {
+        /// Generated typed CRUD (DTOs + five handlers + scope) for this v2
+        /// resource. See [`koji_resource!`](macros::koji_resource).
+        pub(crate) mod #module {
+            use ::serde::{Deserialize, Serialize};
+
+            /// Typed create body for this resource (deserialized from the
+            /// request JSON; serialized to the koji-db upsert value).
+            #[derive(Debug, Deserialize, Serialize)]
+            pub(crate) struct #create_ty {
+                #(#create_fields),*
+            }
+
+            /// Typed patch body: every create field optional; omitted fields
+            /// stay `None` and are dropped from the serialized upsert value.
+            #[derive(Debug, Deserialize, Serialize)]
+            pub(crate) struct #patch_ty {
+                #(#patch_fields),*
+            }
+
+            /// `GET /api/v2/#seg` — paginated list (`?page=&per_page=`).
+            pub(crate) async fn list(
+                db: actix_web::web::Data<koji_db::KojiDb>,
+                query: actix_web::web::Query<crate::utils::pagination::Pagination>,
+            ) -> ::core::result::Result<actix_web::HttpResponse, crate::utils::error::ServiceError> {
+                let page = query.page();
+                let per_page = query.per_page();
+                // koji-db `paginate` is 0-based; bridge from the 1-based wire.
+                let args = koji_core::AdminReqParsed {
+                    page: (page - 1) as u64,
+                    per_page: per_page as u64,
+                    sort_by: "id".to_string(),
+                    order: "ASC".to_string(),
+                    q: String::new(),
+                    geotype: ::core::option::Option::None,
+                    project: ::core::option::Option::None,
+                    mode: ::core::option::Option::None,
+                    parent: ::core::option::Option::None,
+                    geofenceid: ::core::option::Option::None,
+                    pointsmin: ::core::option::Option::None,
+                    pointsmax: ::core::option::Option::None,
+                };
+                let (results, total, _has_next, _has_prev) =
+                    koji_db::db::#module::Query::paginate(&db.koji, args).await?.into_parts();
+                ::core::result::Result::Ok(crate::utils::api_response::ApiResponse::success_paginated(
+                    results,
+                    crate::utils::api_response::Meta::build(total as i64, page, per_page),
+                ))
+            }
+
+            /// `POST /api/v2/#seg` — create → `201` + `Location` header.
+            pub(crate) async fn create(
+                db: actix_web::web::Data<koji_db::KojiDb>,
+                body: actix_web::web::Json<#create_ty>,
+            ) -> ::core::result::Result<actix_web::HttpResponse, crate::utils::error::ServiceError> {
+                let value = serde_json::to_value(&body.into_inner())
+                    .map_err(crate::utils::error::ServiceError::internal)?;
+                let record = koji_db::db::#module::Query::upsert_json_return(&db.koji, 0, value).await?;
+                let id = record.get("id").and_then(serde_json::Value::as_u64).unwrap_or(0);
+                ::core::result::Result::Ok(
+                    actix_web::HttpResponse::build(actix_web::http::StatusCode::CREATED)
+                        .insert_header(("Location", format!(concat!("/api/v2/", #seg, "/{}"), id)))
+                        .json(crate::utils::api_response::ApiResponse::Ok {
+                            data: record,
+                            meta: ::core::option::Option::None,
+                        }),
+                )
+            }
+
+            /// `GET /api/v2/#seg/{id}` — fetch one (id or name); `404` on miss.
+            pub(crate) async fn get_one(
+                db: actix_web::web::Data<koji_db::KojiDb>,
+                path: actix_web::web::Path<String>,
+            ) -> ::core::result::Result<actix_web::HttpResponse, crate::utils::error::ServiceError> {
+                match koji_db::db::#module::Query::get_one_json(&db.koji, path.into_inner()).await {
+                    ::core::result::Result::Ok(record) =>
+                        ::core::result::Result::Ok(crate::utils::api_response::ApiResponse::success(record)),
+                    ::core::result::Result::Err(e) => ::core::result::Result::Err(__not_found_or(e)),
+                }
+            }
+
+            /// `PATCH /api/v2/#seg/{id}` — partial update; `404` on miss.
+            pub(crate) async fn update(
+                db: actix_web::web::Data<koji_db::KojiDb>,
+                path: actix_web::web::Path<u32>,
+                body: actix_web::web::Json<#patch_ty>,
+            ) -> ::core::result::Result<actix_web::HttpResponse, crate::utils::error::ServiceError> {
+                let id = path.into_inner();
+                // `upsert_json_return` is upsert (a missing id would INSERT), so
+                // pre-check existence to honor PATCH's 404-on-missing contract.
+                if let ::core::result::Result::Err(e) =
+                    koji_db::db::#module::Query::get_one(&db.koji, id.to_string()).await
+                {
+                    return ::core::result::Result::Err(__not_found_or(e));
+                }
+                let value = serde_json::to_value(&body.into_inner())
+                    .map_err(crate::utils::error::ServiceError::internal)?;
+                let record = koji_db::db::#module::Query::upsert_json_return(&db.koji, id, value).await?;
+                ::core::result::Result::Ok(crate::utils::api_response::ApiResponse::success(record))
+            }
+
+            /// `DELETE /api/v2/#seg/{id}` — `204 No Content`; `404` on miss.
+            pub(crate) async fn remove(
+                db: actix_web::web::Data<koji_db::KojiDb>,
+                path: actix_web::web::Path<u32>,
+            ) -> ::core::result::Result<actix_web::HttpResponse, crate::utils::error::ServiceError> {
+                let result = koji_db::db::#module::Query::delete(&db.koji, path.into_inner()).await?;
+                if result.rows_affected == 0 {
+                    return ::core::result::Result::Err(crate::utils::error::ServiceError::NotFound {
+                        field: #field_name,
+                        message: "does not exist".to_string(),
+                    });
+                }
+                ::core::result::Result::Ok(
+                    actix_web::HttpResponse::build(actix_web::http::StatusCode::NO_CONTENT).finish(),
+                )
+            }
+
+            /// Map a koji-db `ModelError` to a `ServiceError`: its
+            /// `"Does not exist"` miss sentinel → `NotFound` (404); everything
+            /// else flows through `#[from] ModelError` (500).
+            fn __not_found_or(e: koji_db::ModelError) -> crate::utils::error::ServiceError {
+                if e.to_string().contains("Does not exist") {
+                    crate::utils::error::ServiceError::NotFound {
+                        field: #field_name,
+                        message: "does not exist".to_string(),
+                    }
+                } else {
+                    crate::utils::error::ServiceError::from(e)
+                }
+            }
+
+            /// `web::Scope` wiring the five handlers under `/#seg`, mounted into
+            /// `/api/v2` by [`crate::start`].
+            pub(crate) fn scope() -> actix_web::Scope {
+                actix_web::web::scope(concat!("/", #seg))
+                    .service(
+                        actix_web::web::resource("")
+                            .route(actix_web::web::get().to(list))
+                            .route(actix_web::web::post().to(create)),
+                    )
+                    .service(
+                        actix_web::web::resource("/{id}")
+                            .route(actix_web::web::get().to(get_one))
+                            .route(actix_web::web::patch().to(update))
+                            .route(actix_web::web::delete().to(remove)),
+                    )
             }
         }
     };
