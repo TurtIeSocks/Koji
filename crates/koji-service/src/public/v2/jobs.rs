@@ -182,14 +182,14 @@ async fn list_jobs(
     query: web::Query<JobListQuery>,
 ) -> Result<HttpResponse, ServiceError> {
     let q = query.into_inner();
-    let (limit, offset) = (q.page.limit(), q.page.offset());
+    let (page, per_page) = (q.page.page(), q.page.per_page());
     let (rows, total) = jobs
-        .list(limit, offset, q.status)
+        .list(page, per_page, q.status)
         .await
         .map_err(ServiceError::internal)?;
     Ok(ApiResponse::success_paginated(
         rows,
-        crate::utils::api_response::Meta::build(total, limit, offset),
+        crate::utils::api_response::Meta::build(total, page, per_page),
     ))
 }
 

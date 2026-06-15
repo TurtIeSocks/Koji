@@ -298,15 +298,20 @@ impl JobQueue {
     }
 
     /// List jobs newest-first (`id DESC`), optionally filtered by `status`,
-    /// page-limited by `limit`/`offset`. Returns `(rows, total)` where `total` is
-    /// the unpaginated count (for the `meta` block). Spec §10 (observability).
+    /// page-limited by the 1-based `page` + `per_page` (offset is derived
+    /// internally as `(page - 1) * per_page`). Returns `(rows, total)` where
+    /// `total` is the unpaginated count (for the `meta` block). Spec §10
+    /// (observability).
     pub async fn list(
         &self,
-        limit: i64,
-        offset: i64,
+        page: i64,
+        per_page: i64,
         status: Option<JobStatus>,
     ) -> Result<(Vec<JobRecord>, i64), DbErr> {
         use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect};
+
+        let per_page = per_page.max(1);
+        let offset = (page.max(1) - 1) * per_page;
 
         let mut find = entity::Entity::find();
         if let Some(s) = status {
@@ -317,7 +322,7 @@ impl JobQueue {
 
         let models = find
             .order_by_desc(entity::Column::Id)
-            .limit(limit as u64)
+            .limit(per_page as u64)
             .offset(offset as u64)
             .all(&self.db)
             .await?;
