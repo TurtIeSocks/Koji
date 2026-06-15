@@ -25,6 +25,11 @@ use utils::{auth, is_docker};
 
 use crate::dragonite::DragoniteSubscriber;
 
+// `#[macro_use]` must precede the modules that invoke `resource_dispatch!`, so
+// the macro is in textual scope for `private`/`public` below.
+#[macro_use]
+mod macros;
+
 mod dragonite;
 mod private;
 mod public;
