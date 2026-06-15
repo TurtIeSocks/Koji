@@ -783,5 +783,221 @@ mod tests {
         // Env var not set (or non-parseable) → 0.0.
         assert_eq!(score_lambda("__KOJI_TEST_ABSENT_VAR__"), 0.0);
     }
+
+    // ── cooldown_seconds: all anchor endpoints are exact ──────────────────────
+
+    #[test]
+    fn cooldown_anchor_endpoints_exact() {
+        // Verify every anchor pair boundary is hit exactly.
+        let anchors: &[(f64, f64)] = &[
+            (0.0, 0.0),
+            (1_000.0, 60.0),
+            (2_000.0, 120.0),
+            (4_000.0, 180.0),
+            (10_000.0, 420.0),
+            (30_000.0, 1_020.0),
+            (100_000.0, 2_700.0),
+        ];
+        for &(d, s) in anchors {
+            assert!(
+                (cooldown_seconds(d) - s).abs() < 1e-6,
+                "anchor ({d}, {s}): got {}",
+                cooldown_seconds(d)
+            );
+        }
+    }
+
+    #[test]
+    fn cooldown_cap_above_max_anchor() {
+        // Anything ≥ 500 000 m → capped at 7200 s.
+        assert_eq!(cooldown_seconds(500_000.0), 7_200.0);
+        assert_eq!(cooldown_seconds(1_000_000.0), 7_200.0);
+        assert_eq!(cooldown_seconds(f64::MAX), 7_200.0);
+    }
+
+    #[test]
+    fn cooldown_is_monotone() {
+        // Cooldown is non-decreasing with distance.
+        let distances = [0.0, 500.0, 1_000.0, 3_000.0, 7_000.0, 20_000.0, 50_000.0, 200_000.0];
+        let mut prev = 0.0_f64;
+        for d in distances {
+            let s = cooldown_seconds(d);
+            assert!(s >= prev, "cooldown decreased at {d}: {prev} -> {s}");
+            prev = s;
+        }
+    }
+
+    // ── s2_tour_cooldown_s mirrors tour length ────────────────────────────────
+
+    #[test]
+    fn s2_tour_cooldown_two_close_points() {
+        // Two points ~1 km apart → cooldown ≈ 60 s.
+        let centers: SingleVec = vec![[40.0, -74.0], [40.009, -74.0]]; // ~1 km
+        let s = s2_tour_cooldown_s(&centers);
+        assert!(s > 0.0 && s < 7_200.0, "expected reasonable cooldown, got {s}");
+    }
+
+    #[test]
+    fn s2_tour_cooldown_empty_is_zero() {
+        assert_eq!(s2_tour_cooldown_s(&vec![]), 0.0);
+    }
+
+    // ── independent_set_lb: varied radii ─────────────────────────────────────
+
+    #[test]
+    fn lb_all_within_2r_of_first_is_one() {
+        // 5 points all within 2r of [0,0] → LB = 1.
+        let center = [0.0_f64, 0.0_f64];
+        let pts: SingleVec = vec![
+            center,
+            [0.0001, 0.0],   // ~11 m
+            [0.0, 0.0001],
+            [-0.0001, 0.0],
+            [0.0, -0.0001],
+        ];
+        // radius 1000 m → 2r = 2000 m; all within that range.
+        assert_eq!(independent_set_lb(&pts, 1_000.0), 1);
+    }
+
+    #[test]
+    fn lb_two_far_points_is_two() {
+        // Two points 1° (~111 km) apart, radius 70 m → LB = 2.
+        let pts: SingleVec = vec![[40.0, -74.0], [41.0, -74.0]];
+        assert_eq!(independent_set_lb(&pts, 70.0), 2);
+    }
+
+    #[test]
+    fn lb_grows_with_dense_grid() {
+        // 9 points on a 3×3 grid spaced 0.01° apart (~1.1 km).
+        // Radius 70 m → 2r ≈ 140 m << 1.1 km spacing → all are independent → LB = 9.
+        let pts: SingleVec = (0..3)
+            .flat_map(|r| (0..3).map(move |c| [40.0 + r as f64 * 0.01, -74.0 + c as f64 * 0.01]))
+            .collect();
+        assert_eq!(independent_set_lb(&pts, 70.0), 9);
+    }
+
+    // ── Stats: worst_cluster tracking in cluster_stats ────────────────────────
+
+    #[test]
+    fn cluster_stats_worst_and_best_tracking() {
+        // Two clusters: one covers 2 points, one covers 0 (far point) →
+        // best = 2 (or 1 if the cluster center itself counts), worst = 0 or 1.
+        // Use geometry: pts[0] and pts[1] are within 70 m of cluster[0];
+        // pts[2] is 1 km from cluster[1] → cluster[1] covers 0 extra.
+        let pts: SingleVec = vec![
+            [40.0, -74.0],
+            [40.0003, -74.0],   // ~33 m from cluster[0]
+            [40.1, -74.0],      // ~11 km from cluster[1] — uncovered
+        ];
+        let clusters: SingleVec = vec![[40.00015, -74.0], [40.05, -74.0]];
+        let mut stats = Stats::new("t".into(), 1);
+        stats.cluster_stats(70.0, &pts, &clusters);
+        assert!(
+            stats.best_cluster_point_count >= 1,
+            "best must be ≥1, got {}",
+            stats.best_cluster_point_count
+        );
+        // worst cluster covers fewer points than best.
+        assert!(
+            stats.worst_cluster_point_count <= stats.best_cluster_point_count,
+            "worst ({}) should be <= best ({})",
+            stats.worst_cluster_point_count,
+            stats.best_cluster_point_count
+        );
+    }
+
+    // ── Stats: distance_stats with 3-point circular route ────────────────────
+
+    #[test]
+    fn distance_stats_three_points_longest_tracked() {
+        // Points form a right triangle: A=(40,−74), B=(41,−74), C=(40,−75).
+        // AB ≈ 111 km, AC ≈ 82 km, BC ≈ 137 km. Longest leg = BC.
+        let pts: SingleVec = vec![[40.0, -74.0], [41.0, -74.0], [40.0, -75.0]];
+        let mut stats = Stats::new("t".into(), 1);
+        stats.distance_stats(&pts);
+        // Total distance = AB + BC + CA (circular).
+        assert!(
+            stats.total_distance > stats.longest_distance,
+            "total ({}) should exceed longest ({}) for 3+ points",
+            stats.total_distance,
+            stats.longest_distance
+        );
+        assert!(
+            stats.longest_distance > 100_000.0,
+            "longest leg should be > 100 km, got {}",
+            stats.longest_distance
+        );
+    }
+
+    // ── Stats::AddAssign: worst cluster bookkeeping ───────────────────────────
+
+    #[test]
+    fn add_assign_ties_for_best_extend_list() {
+        let mut a = Stats::new("a".into(), 1);
+        a.best_cluster_point_count = 5;
+        a.best_clusters = vec![[40.0, -74.0]];
+
+        let mut b = Stats::new("b".into(), 1);
+        b.best_cluster_point_count = 5; // same count → extend
+        b.best_clusters = vec![[41.0, -74.0]];
+
+        a += &b;
+        assert_eq!(a.best_cluster_point_count, 5);
+        assert_eq!(a.best_clusters.len(), 2, "tied bests should be merged");
+    }
+
+    #[test]
+    fn add_assign_lower_b_does_not_overwrite_best() {
+        let mut a = Stats::new("a".into(), 1);
+        a.best_cluster_point_count = 10;
+        a.best_clusters = vec![[40.0, -74.0]];
+
+        let mut b = Stats::new("b".into(), 1);
+        b.best_cluster_point_count = 3;
+        b.best_clusters = vec![[41.0, -74.0]];
+
+        a += &b;
+        assert_eq!(a.best_cluster_point_count, 10, "lower b should not replace best");
+        assert_eq!(a.best_clusters.len(), 1);
+    }
+
+    // ── score_components: multi_covered and overlap_excess ────────────────────
+
+    #[test]
+    fn multi_covered_detected_with_overlapping_clusters() {
+        // Point at origin covered by two overlapping clusters → multi_covered ≥ 1.
+        let pts: SingleVec = vec![[40.0, -74.0]];
+        // Two cluster centers both within 70 m of the point.
+        let clusters: SingleVec = vec![[40.0, -74.0], [40.0003, -74.0]];
+        let mut stats = Stats::new("t".into(), 1);
+        stats.cluster_stats(70.0, &pts, &clusters);
+        assert!(
+            stats.score_components.multi_covered >= 1,
+            "expected ≥1 multi-covered point, got {}",
+            stats.score_components.multi_covered
+        );
+        assert!(
+            stats.score_components.overlap_excess >= 1,
+            "expected ≥1 overlap excess, got {}",
+            stats.score_components.overlap_excess
+        );
+    }
+
+    // ── s2_tour: sorted order produces consistent length ─────────────────────
+
+    #[test]
+    fn s2_tour_four_points_returns_positive_length() {
+        // 4 points at corners of ~1° box.
+        let pts: SingleVec = vec![
+            [40.0, -74.0],
+            [40.0, -73.0],
+            [41.0, -73.0],
+            [41.0, -74.0],
+        ];
+        let m = s2_tour_length_m(&pts);
+        // S2-sorted tour of a ~100 km box should be in the hundreds of km range.
+        assert!(m > 100_000.0, "tour length should be >100 km, got {m}");
+        assert!(m < 2_000_000.0, "tour length should be <2000 km, got {m}");
+    }
 }
 
