@@ -31,6 +31,13 @@ pub(crate) struct Pagination {
 }
 
 impl Pagination {
+    /// Build a `Pagination` from explicit `Option<i64>` parts.  Used by handlers
+    /// that cannot use `#[serde(flatten)]` (e.g. `JobListQuery` where
+    /// `serde_urlencoded` doesn't support flattening).
+    pub(crate) fn from_parts(page: Option<i64>, per_page: Option<i64>) -> Self {
+        Pagination { page, per_page }
+    }
+
     /// Effective page (1-based): defaults to 1, floored at 1.
     pub(crate) fn page(&self) -> i64 {
         self.page.unwrap_or(1).max(1)

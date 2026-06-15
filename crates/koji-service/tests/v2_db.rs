@@ -581,14 +581,10 @@ async fn plugins_delete_known_kind_nonexistent_plugin_returns_200_rows_0() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[actix_web::test]
-async fn geofences_patch_name_only_returns_500_bug() {
-    // BUG: `geofence::Query::upsert_json_return` calls `to_geofence()` which
-    // requires BOTH `name` AND `geometry` in the JSON body.  A partial PATCH
-    // that omits `geometry` therefore returns 500 (ModelError) instead of 200.
-    // The handler needs to merge the existing model before upserting; fix in a
-    // follow-on task (not in scope here).  Test pins the current 500 so it
-    // becomes visible when the bug is fixed.
-    #[allow(unused_variables)]
+async fn geofences_patch_name_only_returns_200() {
+    // FIXED: handler now fetches the existing row, merges the partial PATCH
+    // fields over it, then calls upsert_json_return with the complete JSON —
+    // so geometry is always present and partial PATCH returns 200.
     let Some(db) = test_db().await else { return };
     let _serial = serial_guard();
     let name = unique_name("fence-patch");
@@ -606,17 +602,19 @@ async fn geofences_patch_name_only_returns_500_bug() {
     let created = body_json(test::call_service(&app, req).await).await;
     let id = created["data"]["id"].as_u64().expect("created id");
 
-    // PATCH name only (no geometry) → current bug returns 500
+    // PATCH name only (no geometry) → after fix returns 200 + changed name
     let req = test::TestRequest::patch()
         .uri(&format!("/api/v2/geofences/{id}"))
         .set_json(serde_json::json!({ "name": updated_name }))
         .to_request();
     let patch_resp = test::call_service(&app, req).await;
     let patch_status = patch_resp.status().as_u16();
+    let patch_body = body_json(patch_resp).await;
     cleanup_geofence(&db, id).await;
 
-    // BUG: to_geofence() requires geometry; partial PATCH returns 500.
-    assert_eq!(patch_status, 500, "PATCH without geometry returns 500 (bug: should merge+200)");
+    assert_eq!(patch_status, 200, "partial PATCH (name only) must return 200 after merge fix");
+    assert_eq!(patch_body["status"], "ok");
+    assert_eq!(patch_body["data"]["name"], updated_name, "name must be updated");
 }
 
 #[actix_web::test]
@@ -731,12 +729,10 @@ async fn geofences_list_format_featurecollection_is_default() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[actix_web::test]
-async fn routes_patch_name_only_returns_500_bug() {
-    // BUG: `route::Query::upsert_json_return` calls `to_route()` which requires
-    // BOTH `name`/`geofence_id` AND `geometry` in the body. A partial PATCH
-    // omitting `geometry` returns 500 (ModelError) instead of 200.  Same root
-    // cause as the geofence PATCH bug.  Test pins the current 500.
-    #[allow(unused_variables)]
+async fn routes_patch_name_only_returns_200() {
+    // FIXED: handler now fetches the existing row, merges the partial PATCH
+    // fields over it, then calls upsert_json_return with the complete JSON —
+    // so name/geofence_id/geometry are always present and partial PATCH returns 200.
     let Some(db) = test_db().await else { return };
     let _serial = serial_guard();
     let fence_name = unique_name("fence-for-route-patch");
@@ -766,19 +762,21 @@ async fn routes_patch_name_only_returns_500_bug() {
     let route = body_json(test::call_service(&app, req).await).await;
     let route_id = route["data"]["id"].as_u64().expect("route id");
 
-    // PATCH name only → 500 (bug)
+    // PATCH name only (no geometry) → after fix returns 200 + changed name
     let req = test::TestRequest::patch()
         .uri(&format!("/api/v2/routes/{route_id}"))
         .set_json(serde_json::json!({ "name": updated_name }))
         .to_request();
     let patch_resp = test::call_service(&app, req).await;
     let patch_status = patch_resp.status().as_u16();
+    let patch_body = body_json(patch_resp).await;
 
     cleanup_route(&db, route_id).await;
     cleanup_geofence(&db, geofence_id).await;
 
-    // BUG: to_route() requires geometry; partial PATCH returns 500.
-    assert_eq!(patch_status, 500, "PATCH route without geometry returns 500 (bug: should merge+200)");
+    assert_eq!(patch_status, 200, "partial PATCH (name only) must return 200 after merge fix");
+    assert_eq!(patch_body["status"], "ok");
+    assert_eq!(patch_body["data"]["name"], updated_name, "name must be updated");
 }
 
 #[actix_web::test]
@@ -984,11 +982,9 @@ async fn jobs_get_unknown_valid_ulid_returns_404() {
 }
 
 #[actix_web::test]
-async fn jobs_cancel_valid_ulid_not_in_db_returns_202_bug() {
-    // BUG: `JobQueue::cancel()` runs two UPDATE statements but never checks
-    // whether the job exists. If no row matches, both UPDATEs affect 0 rows and
-    // `cancel()` returns `Ok(())` — so the HTTP handler responds 202 even for a
-    // missing job id.  The correct behavior is 404.  Test pins the current 202.
+async fn jobs_cancel_valid_ulid_not_in_db_returns_404() {
+    // FIXED: the cancel handler now calls `jobs.get(id)` before cancelling;
+    // a missing id returns 404 instead of the old silent 202.
     let Some(db) = test_db().await else { return };
     let _serial = serial_guard();
     let koji_db = build_test_koji_db(db.clone()).await;
@@ -999,8 +995,10 @@ async fn jobs_cancel_valid_ulid_not_in_db_returns_202_bug() {
         .uri("/api/v2/jobs/01JXZZZZZZZZZZZZZZZZZZZZZZ")
         .to_request();
     let resp = test::call_service(&app, req).await;
-    // BUG: cancel on missing id should return 404 but currently returns 202.
-    assert_eq!(resp.status(), 202, "cancel on missing job returns 202 (bug: should be 404)");
+    assert_eq!(resp.status(), 404, "cancel on missing job must return 404");
+    let v = body_json(resp).await;
+    assert_eq!(v["status"], "error");
+    assert_eq!(v["error"]["code"], "not_found");
 }
 
 #[actix_web::test]
@@ -1116,15 +1114,10 @@ async fn jobs_create_then_get_by_id_returns_200() {
 }
 
 #[actix_web::test]
-async fn jobs_list_paginated_query_returns_400_serde_flatten_bug() {
-    // BUG: serde flatten + urlencoded — `#[serde(flatten)] Pagination` inside
-    // `JobListQuery` is incompatible with actix-web's `serde_urlencoded` query
-    // extractor.  When `?page=` or `?per_page=` is present in the query string
-    // the deserializer fails and the handler returns 400 instead of 200.
-    //
-    // This test PINS the current 400 so we know when it's fixed.  Do not fix
-    // the prod code here; fix it when the serde_urlencoded limitation is
-    // addressed upstream or via a wrapper.
+async fn jobs_list_paginated_query_returns_200() {
+    // FIXED: `JobListQuery` now has explicit `page: Option<i64>` and
+    // `per_page: Option<i64>` fields instead of `#[serde(flatten)] Pagination`,
+    // so `serde_urlencoded` can deserialize `?page=1&per_page=10` without error.
     let Some(db) = test_db().await else { return };
     let _serial = serial_guard();
     let koji_db = build_test_koji_db(db.clone()).await;
@@ -1135,10 +1128,12 @@ async fn jobs_list_paginated_query_returns_400_serde_flatten_bug() {
         .uri("/api/v2/jobs?page=1&per_page=10")
         .to_request();
     let resp = test::call_service(&app, req).await;
-    // BUG: serde flatten + urlencoded incompatibility → 400 instead of 200.
     assert_eq!(
         resp.status(),
-        400,
-        "paginated query returns 400 due to serde flatten + urlencoded bug"
+        200,
+        "paginated query must return 200 after serde flatten fix"
     );
+    let v = body_json(resp).await;
+    assert_eq!(v["status"], "ok");
+    assert!(v["meta"].is_object(), "response must include a meta block");
 }

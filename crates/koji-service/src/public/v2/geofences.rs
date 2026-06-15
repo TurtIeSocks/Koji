@@ -253,19 +253,24 @@ async fn update(
     body: web::Json<PatchGeofence>,
 ) -> Result<HttpResponse, ServiceError> {
     let id = path.into_inner();
-    // `upsert_json_return` is upsert (a missing id would INSERT), so pre-check
-    // existence to honor PATCH's 404-on-missing contract.
-    if geofence::Query::get_one(&conn.koji, id.to_string())
+    // Fetch existing row — 404 on missing (also supplies the base for the merge).
+    let existing = geofence::Query::get_one(&conn.koji, id.to_string())
         .await
-        .is_err()
-    {
-        return Err(ServiceError::NotFound {
+        .map_err(|_| ServiceError::NotFound {
             field: "geofence",
             message: format!("no geofence {id}"),
-        });
+        })?;
+    // Build a full JSON from the existing model, then overlay only the fields
+    // the PATCH body supplied (skip_serializing_if = "Option::is_none" ensures
+    // absent fields are absent from the patch value).
+    let mut merged = serde_json::to_value(&existing).map_err(ServiceError::internal)?;
+    let patch_value = serde_json::to_value(body.into_inner()).map_err(ServiceError::internal)?;
+    if let (Some(base), Some(patch)) = (merged.as_object_mut(), patch_value.as_object()) {
+        for (k, v) in patch {
+            base.insert(k.clone(), v.clone());
+        }
     }
-    let value = serde_json::to_value(body.into_inner()).map_err(ServiceError::internal)?;
-    let record = geofence::Query::upsert_json_return(&conn.koji, id, value).await?;
+    let record = geofence::Query::upsert_json_return(&conn.koji, id, merged).await?;
     Ok(ApiResponse::success(record))
 }
 

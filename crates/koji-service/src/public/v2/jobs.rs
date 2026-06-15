@@ -191,12 +191,19 @@ async fn get_job(
 // ---------------------------------------------------------------------------
 
 /// `?status=` optional filter for the job list.
+///
+/// `page` and `per_page` are inlined as explicit fields rather than
+/// `#[serde(flatten)] Pagination` because `serde_urlencoded` (used by actix
+/// query extraction) does not support flattened structs — it would return 400
+/// on any request that supplies `?page=` or `?per_page=`.
 #[derive(Debug, Deserialize)]
 struct JobListQuery {
     #[serde(default)]
     status: Option<koji_jobs::JobStatus>,
-    #[serde(flatten)]
-    page: Pagination,
+    #[serde(default)]
+    page: Option<i64>,
+    #[serde(default)]
+    per_page: Option<i64>,
 }
 
 /// `GET /api/v2/jobs` — list jobs (newest first), paginated.
@@ -219,7 +226,8 @@ async fn list_jobs(
     query: web::Query<JobListQuery>,
 ) -> Result<HttpResponse, ServiceError> {
     let q = query.into_inner();
-    let (page, per_page) = (q.page.page(), q.page.per_page());
+    let pagination = Pagination::from_parts(q.page, q.per_page);
+    let (page, per_page) = (pagination.page(), pagination.per_page());
     let (rows, total) = jobs
         .list(page, per_page, q.status)
         .await
@@ -253,6 +261,19 @@ async fn cancel_job(
             field: Some("id".to_string()),
             message: "not a valid job id".to_string(),
         })?;
+    // `JobQueue::cancel()` returns `Ok(())` even when no row is matched (it
+    // runs UPDATE statements without checking affected rows).  Check existence
+    // first so a missing id returns 404 instead of 202.
+    match jobs.get(id).await {
+        Err(AwaitError::NotFound) => {
+            return Err(ServiceError::NotFound {
+                field: "job",
+                message: format!("no job {id}"),
+            })
+        }
+        Err(e) => return Err(ServiceError::internal(e)),
+        Ok(_) => {}
+    }
     match jobs.cancel(id).await {
         Ok(()) => Ok(ApiResponse::success_with_status(
             StatusCode::ACCEPTED,
