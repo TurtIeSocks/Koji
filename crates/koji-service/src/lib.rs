@@ -51,6 +51,16 @@ pub fn v2_config_scope() -> actix_web::Scope {
     web::scope("").service(public::v2::config::config)
 }
 
+/// Thin wrapper around the `pub(crate)` `utils::auth::public_validator`, exposed
+/// `pub` so integration tests in `tests/` can wire it into a test App's scope.
+#[doc(hidden)]
+pub async fn test_public_validator(
+    req: actix_web::dev::ServiceRequest,
+    credentials: Option<actix_web_httpauth::extractors::bearer::BearerAuth>,
+) -> Result<actix_web::dev::ServiceRequest, (actix_web::Error, actix_web::dev::ServiceRequest)> {
+    utils::auth::public_validator(req, credentials).await
+}
+
 use crate::dragonite::DragoniteSubscriber;
 
 mod dragonite;
