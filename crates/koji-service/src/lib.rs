@@ -61,6 +61,46 @@ pub async fn test_public_validator(
     utils::auth::public_validator(req, credentials).await
 }
 
+/// Build the DB-free routes of the prod App into an `actix_web::App` for
+/// integration testing. Covers `lib.rs` wiring for:
+///   - `GET /healthz` (liveness)
+///   - `GET /api/v2/openapi.yaml` (doc)
+///   - `GET /api/v2/config`, `POST /api/v2/geometry/*`, `POST /api/v2/s2/*`
+///
+/// Routes that require `KojiDb` (geofences, jobs, etc.) are omitted here —
+/// tested separately in the DB-backed group.
+#[doc(hidden)]
+pub fn test_db_free_app() -> actix_web::App<
+    impl actix_web::dev::ServiceFactory<
+        actix_web::dev::ServiceRequest,
+        Config = (),
+        Response = actix_web::dev::ServiceResponse,
+        Error = actix_web::Error,
+        InitError = (),
+    >,
+> {
+    App::new()
+        .app_data(web::JsonConfig::default().limit(1024 * 1024 * 10))
+        .wrap(
+            actix_session::SessionMiddleware::builder(
+                actix_session::storage::CookieSessionStore::default(),
+                actix_web::cookie::Key::from(&[0; 64]),
+            )
+            .cookie_secure(false)
+            .build(),
+        )
+        .service(
+            web::resource("/api/v2/openapi.yaml").route(web::get().to(openapi_spec)),
+        )
+        .service(
+            web::scope("/api/v2")
+                .service(public::v2::geometry::scope())
+                .service(public::v2::s2::scope())
+                .service(web::scope("").service(public::v2::config::config)),
+        )
+        .service(web::resource("/healthz").route(web::get().to(HttpResponse::Ok)))
+}
+
 use crate::dragonite::DragoniteSubscriber;
 
 mod dragonite;
