@@ -48,9 +48,19 @@ pub(crate) enum ServiceError {
     Db(#[from] DbErr),
     #[error(transparent)]
     Model(#[from] ModelError),
+    /// An internal failure carrying a context string. Logged; the client sees a
+    /// generic 500 (detail not leaked). Funnels plumbing errors (enqueue,
+    /// serialize, non-NotFound await) that have no meaningful client-facing code.
+    #[error("{0}")]
+    Internal(String),
 }
 
 impl ServiceError {
+    /// Build an `Internal` error from any displayable error.
+    pub(crate) fn internal(e: impl std::fmt::Display) -> Self {
+        ServiceError::Internal(e.to_string())
+    }
+
     /// Pure mapping to `(status, error-object)`. Unit-tested directly; the
     /// `ResponseError` impl is a thin wrapper over this. Internal failures
     /// (`Db`/`Model`) are logged and surface a generic message — never leaking
@@ -73,6 +83,10 @@ impl ServiceError {
             }
             ServiceError::Model(e) => {
                 log::error!("service model error: {e}");
+                (StatusCode::INTERNAL_SERVER_ERROR, None, "internal error".to_string())
+            }
+            ServiceError::Internal(detail) => {
+                log::error!("service internal error: {detail}");
                 (StatusCode::INTERNAL_SERVER_ERROR, None, "internal error".to_string())
             }
         };
@@ -147,6 +161,15 @@ mod tests {
         assert_eq!(err.code, "internal_error");
         assert_eq!(err.message, "internal error");
         assert!(!err.message.contains("secret"), "internal detail must not leak");
+    }
+
+    #[test]
+    fn internal_is_500_generic_and_does_not_leak() {
+        let (status, err) = ServiceError::internal("secret plumbing detail").to_api_error();
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(err.code, "internal_error");
+        assert_eq!(err.message, "internal error");
+        assert!(!err.message.contains("secret"));
     }
 
     #[test]
