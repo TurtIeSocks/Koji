@@ -84,3 +84,105 @@ pub fn all_routing_options() -> Vec<String> {
     options.push("random".to_string());
     options
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_cfg(sort_by: SortBy) -> RoutingConfig {
+        RoutingConfig {
+            sort_by,
+            route_split_level: 0,
+            plugin_args: String::new(),
+        }
+    }
+
+    /// 5 clusters spread across a region, some data points nearby.
+    fn sample_data() -> (Vec<[f64; 2]>, Vec<[f64; 2]>) {
+        let data = vec![[40.0, -74.0], [40.1, -74.0], [40.2, -74.0]];
+        let clusters = vec![
+            [40.0, -74.0],
+            [40.1, -74.0],
+            [40.2, -74.0],
+            [40.3, -74.0],
+            [40.4, -74.0],
+        ];
+        (data, clusters)
+    }
+
+    // ── main dispatch: each sort_by variant produces all clusters ─────────────
+
+    #[test]
+    fn latlon_preserves_all_clusters() {
+        let (data, clusters) = sample_data();
+        let mut stats = Stats::new("t".into(), 1);
+        let out = main(&data, clusters.clone(), 70.0, &make_cfg(SortBy::LatLon), &mut stats);
+        assert_eq!(out.len(), clusters.len());
+    }
+
+    #[test]
+    fn geohash_preserves_all_clusters() {
+        let (data, clusters) = sample_data();
+        let mut stats = Stats::new("t".into(), 1);
+        let out = main(&data, clusters.clone(), 70.0, &make_cfg(SortBy::GeoHash), &mut stats);
+        assert_eq!(out.len(), clusters.len());
+    }
+
+    #[test]
+    fn s2_preserves_all_clusters() {
+        let (data, clusters) = sample_data();
+        let mut stats = Stats::new("t".into(), 1);
+        let out = main(&data, clusters.clone(), 70.0, &make_cfg(SortBy::S2Cell), &mut stats);
+        assert_eq!(out.len(), clusters.len());
+    }
+
+    #[test]
+    fn random_preserves_all_clusters() {
+        let (data, clusters) = sample_data();
+        let mut stats = Stats::new("t".into(), 1);
+        let out = main(&data, clusters.clone(), 70.0, &make_cfg(SortBy::Random), &mut stats);
+        assert_eq!(out.len(), clusters.len());
+    }
+
+    #[test]
+    fn unset_preserves_all_clusters() {
+        let (data, clusters) = sample_data();
+        let mut stats = Stats::new("t".into(), 1);
+        let out = main(&data, clusters.clone(), 70.0, &make_cfg(SortBy::Unset), &mut stats);
+        assert_eq!(out.len(), clusters.len());
+    }
+
+    #[test]
+    fn point_count_preserves_all_clusters() {
+        let (data, clusters) = sample_data();
+        let mut stats = Stats::new("t".into(), 1);
+        let out = main(&data, clusters.clone(), 70.0, &make_cfg(SortBy::PointCount), &mut stats);
+        assert_eq!(out.len(), clusters.len());
+    }
+
+    // ── stats are populated after routing ─────────────────────────────────────
+
+    #[test]
+    fn routing_populates_distance_stats() {
+        let (data, clusters) = sample_data();
+        let mut stats = Stats::new("t".into(), 1);
+        main(&data, clusters.clone(), 70.0, &make_cfg(SortBy::S2Cell), &mut stats);
+        assert!(
+            stats.total_distance > 0.0,
+            "route distance should be >0 for 5 spread clusters"
+        );
+    }
+
+    // ── all_routing_options includes expected values ───────────────────────────
+
+    #[test]
+    fn all_routing_options_includes_built_ins() {
+        let opts = all_routing_options();
+        assert!(opts.contains(&"s2".to_string()));
+        assert!(opts.contains(&"geohash".to_string()));
+        assert!(opts.contains(&"latlon".to_string()));
+        assert!(opts.contains(&"random".to_string()));
+        assert!(opts.contains(&"point_count".to_string()));
+    }
+}
+

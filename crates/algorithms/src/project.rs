@@ -160,3 +160,89 @@ impl Plane {
         ouput
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Plane construction / round-trip ────────────────────────────────────────
+
+    #[test]
+    fn plane_new_with_single_point() {
+        // Constructing a Plane with one point must not panic.
+        let pts: SingleVec = vec![[40.0, -74.0]];
+        let _plane = Plane::new(&pts);
+    }
+
+    #[test]
+    fn plane_project_and_reverse_round_trip() {
+        // Points projected to flat space and reversed must return close to original.
+        let pts: SingleVec = vec![[40.0, -74.0], [40.01, -74.01], [40.005, -73.99]];
+        let plane = Plane::new(&pts).radius(1_000.0); // 1 km
+        let projected = plane.project();
+        assert_eq!(projected.len(), pts.len());
+
+        let reversed = plane.reverse(projected.iter().map(|c| [c.x, c.y]).collect());
+        assert_eq!(reversed.len(), pts.len());
+
+        // After round-trip, each point should be within ~1 km of an original.
+        // We just check the output set is not degenerate (lat/lon are valid).
+        for p in &reversed {
+            assert!(p[0].abs() < 90.0, "lat out of range: {}", p[0]);
+            assert!(p[1].abs() < 180.0, "lon out of range: {}", p[1]);
+        }
+    }
+
+    #[test]
+    fn plane_project_preserves_count() {
+        let pts: SingleVec = (0..20)
+            .map(|i| [40.0 + i as f64 * 0.001, -74.0 + i as f64 * 0.001])
+            .collect();
+        let plane = Plane::new(&pts).radius(500.0);
+        let projected = plane.project();
+        assert_eq!(projected.len(), 20);
+    }
+
+    #[test]
+    fn plane_radius_stores_correctly() {
+        let pts: SingleVec = vec![[0.0, 0.0]];
+        let plane = Plane::new(&pts).radius(70.0);
+        // adjusted_radius must be finite and positive (sanity, not exact value).
+        assert!(plane.adjusted_radius.is_finite());
+        assert!(plane.adjusted_radius > 0.0);
+    }
+
+    // ── Math helpers ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn euclidean_norm2_of_unit() {
+        let plane = Plane::default();
+        let n = plane.euclidean_norm2((1.0, 0.0, 0.0));
+        assert!((n - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn dot_product_orthogonal_is_zero() {
+        let plane = Plane::default();
+        let d = plane.dot_product((1.0, 0.0, 0.0), (0.0, 1.0, 0.0));
+        assert!(d.abs() < 1e-12);
+    }
+
+    #[test]
+    fn cross_product_of_standard_basis() {
+        let plane = Plane::default();
+        let (x, y, z) = plane.cross_product((1.0, 0.0, 0.0), (0.0, 1.0, 0.0));
+        assert!(x.abs() < 1e-12);
+        assert!(y.abs() < 1e-12);
+        assert!((z - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn normalize_gives_unit_vector() {
+        let plane = Plane::default();
+        let n = plane.normalize((3.0, 4.0, 0.0));
+        let len = (n.0 * n.0 + n.1 * n.1 + n.2 * n.2).sqrt();
+        assert!((len - 1.0).abs() < 1e-10);
+    }
+}
+

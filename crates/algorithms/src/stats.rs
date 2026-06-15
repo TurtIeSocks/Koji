@@ -648,4 +648,140 @@ mod tests {
         stats.cluster_stats(70.0, &points, &clusters);
         assert_eq!(stats.score_components.knife_edge, 1);
     }
+
+    // ── Stats::distance_stats ─────────────────────────────────────────────────
+
+    #[test]
+    fn distance_stats_empty_is_zero() {
+        let mut stats = Stats::new("test".into(), 1);
+        let empty: SingleVec = vec![];
+        stats.distance_stats(&empty);
+        assert_eq!(stats.total_distance, 0.0);
+        assert_eq!(stats.longest_distance, 0.0);
+    }
+
+    #[test]
+    fn distance_stats_single_point_is_zero() {
+        let mut stats = Stats::new("test".into(), 1);
+        let pts: SingleVec = vec![[40.0, -74.0]];
+        // single point: the "tour" goes point → itself, distance = 0.
+        stats.distance_stats(&pts);
+        assert_eq!(stats.total_distance, 0.0);
+    }
+
+    #[test]
+    fn distance_stats_two_points_nonzero() {
+        let mut stats = Stats::new("test".into(), 1);
+        // ~111 km apart.
+        let pts: SingleVec = vec![[40.0, -74.0], [41.0, -74.0]];
+        stats.distance_stats(&pts);
+        // Total round-trip distance = 2 × ~111 km.
+        assert!(stats.total_distance > 100_000.0, "too small: {}", stats.total_distance);
+        assert!(stats.longest_distance > 100_000.0);
+    }
+
+    // ── Stats::get_score ──────────────────────────────────────────────────────
+
+    #[test]
+    fn get_score_formula() {
+        let mut stats = Stats::new("test".into(), 3);
+        stats.total_clusters = 4;
+        stats.total_points = 10;
+        stats.points_covered = 7;
+        // score = total_clusters * min_points + (total_points - points_covered)
+        // = 4*3 + (10-7) = 12 + 3 = 15
+        assert_eq!(stats.get_score(), 15);
+    }
+
+    // ── Stats::AddAssign ──────────────────────────────────────────────────────
+
+    #[test]
+    fn add_assign_sums_counts() {
+        let mut a = Stats::new("a".into(), 1);
+        a.total_points = 5;
+        a.points_covered = 3;
+        a.total_clusters = 2;
+
+        let mut b = Stats::new("b".into(), 1);
+        b.total_points = 7;
+        b.points_covered = 4;
+        b.total_clusters = 1;
+
+        a += &b;
+        assert_eq!(a.total_points, 12);
+        assert_eq!(a.points_covered, 7);
+        assert_eq!(a.total_clusters, 3);
+    }
+
+    #[test]
+    fn add_assign_propagates_best_cluster() {
+        let mut a = Stats::new("a".into(), 1);
+        a.best_cluster_point_count = 2;
+        a.best_clusters = vec![[40.0, -74.0]];
+
+        let mut b = Stats::new("b".into(), 1);
+        b.best_cluster_point_count = 5;
+        b.best_clusters = vec![[41.0, -74.0]];
+
+        a += &b;
+        assert_eq!(a.best_cluster_point_count, 5);
+        assert_eq!(a.best_clusters.len(), 1);
+        assert!((a.best_clusters[0][0] - 41.0).abs() < 1e-6);
+    }
+
+    // ── s2_tour_length_m edge cases ───────────────────────────────────────────
+
+    #[test]
+    fn s2_tour_single_point_is_zero() {
+        let pts: SingleVec = vec![[40.0, -74.0]];
+        assert_eq!(s2_tour_length_m(&pts), 0.0);
+    }
+
+    #[test]
+    fn s2_tour_empty_is_zero() {
+        let empty: SingleVec = vec![];
+        assert_eq!(s2_tour_length_m(&empty), 0.0);
+    }
+
+    // ── independent_set_lb ────────────────────────────────────────────────────
+
+    #[test]
+    fn lb_empty_is_zero() {
+        let empty: SingleVec = vec![];
+        assert_eq!(independent_set_lb(&empty, 70.0), 0);
+    }
+
+    #[test]
+    fn lb_single_point_is_one() {
+        let pts: SingleVec = vec![[40.0, -74.0]];
+        assert_eq!(independent_set_lb(&pts, 70.0), 1);
+    }
+
+    #[test]
+    fn lb_collocated_points_is_one() {
+        // All at the same location → only 1 independent.
+        let pts: SingleVec = vec![[40.0, -74.0]; 10];
+        assert_eq!(independent_set_lb(&pts, 70.0), 1);
+    }
+
+    // ── cluster_stats: empty cluster list ─────────────────────────────────────
+
+    #[test]
+    fn cluster_stats_no_clusters_all_zeros() {
+        let pts: SingleVec = vec![[40.0, -74.0]];
+        let no_clusters: SingleVec = vec![];
+        let mut stats = Stats::new("test".into(), 1);
+        stats.cluster_stats(70.0, &pts, &no_clusters);
+        assert_eq!(stats.points_covered, 0);
+        assert_eq!(stats.total_clusters, 0);
+    }
+
+    // ── score_lambda: returns 0.0 for absent env var ──────────────────────────
+
+    #[test]
+    fn score_lambda_absent_returns_zero() {
+        // Env var not set (or non-parseable) → 0.0.
+        assert_eq!(score_lambda("__KOJI_TEST_ABSENT_VAR__"), 0.0);
+    }
 }
+
