@@ -1,6 +1,7 @@
 //! v2 S2 cell helpers — `POST /api/v2/s2/{circle-coverage,cell-coverage,polygons,{level}}`
-//! (architecture §4.4, §6). Lifted out of the old `/geo/s2/*` nest into their own
-//! `/s2` namespace. Their output is cell-id arrays / coverage objects / polygons
+//! (architecture §4.4, §6). Lifted out of the old `geo` grab-bag (where they
+//! nested under an `s2` sub-scope) into their own top-level `/s2` namespace.
+//! Their output is cell-id arrays / coverage objects / polygons
 //! (not negotiable GeoJSON), so they keep the enveloped [`ApiResponse`] shape
 //! rather than `respond_geo`; the handler signatures adopt
 //! [`ServiceError`](crate::utils::error::ServiceError) for surface uniformity with
