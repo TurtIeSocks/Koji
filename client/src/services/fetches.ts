@@ -483,6 +483,16 @@ export async function clusteringRouting({
   }
 }
 
+/** Scanner-data marker icon prefix per category (matches koji-scanner's
+ * `normalize::fort` id-prefix). spawnpoint's confirmed/unconfirmed `v`/`u` split
+ * is not recoverable from the v2 `{points}` payload, so we use `v`. */
+const MARKER_PREFIX: Record<Category, PixiMarker['i'][0]> = {
+  gym: 'g',
+  pokestop: 'p',
+  spawnpoint: 'v',
+  station: 's',
+}
+
 export async function getMarkers(
   signal: AbortSignal,
   category: Category,
@@ -492,51 +502,55 @@ export async function getMarkers(
   const { geojson, bounds } = useStatic.getState()
   if (data === 'area' && !geojson.features.length) return []
   const last_seen = typeof raw === 'string' ? new Date(raw) : raw
-  try {
-    const res = await fetch(`/internal/data/${data}/${category}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      signal,
-      body: JSON.stringify({
-        area:
-          data === 'area'
-            ? {
-                ...geojson,
-                features: geojson.features.filter((feature) =>
-                  feature.geometry.type.includes('Polygon'),
-                ),
-              }
-            : undefined,
-        ...(data === 'bound' && bounds),
-        last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
-        tth,
-      }),
-    })
-    if (!res.ok) {
-      const message =
-        (await res.text()) ||
-        {
-          400: 'Try refreshing the page or contacting the developer',
-          401: 'Try refreshing the page and signing in again',
-          404: 'Try refreshing the page or contacting the developer',
-          408: 'Check CloudFlare or Nginx/Apache Settings',
-          413: 'Check CloudFlare or Nginx/Apache Settings',
-          500: 'Refresh the page, resetting the Kōji server, or contacting the developer',
-          524: 'Check CloudFlare or Nginx/Apache Timeout Settings',
-        }[res.status] ||
-        ''
-      useStatic.setState({
-        notification: {
-          message,
-          status: res.status,
-          severity: 'error',
-        },
-      })
-      throw new Error(message)
+
+  // v2 `POST /api/v2/scanner-data/{category}`: the drawn area rides the body as
+  // an `area` geojson container OR a flat camelCase `bbox`. There is no v2 "all"
+  // mode (v1 `/internal/data/all` returned every point with no area filter); for
+  // `data === 'all'` we send no area, which yields an empty set.
+  // TODO(v2-gap): the v1 `data: 'all'` (unbounded "all markers") mode has no v2
+  // scanner-data equivalent — it now returns nothing. Bound/area modes work.
+  const body: Record<string, unknown> = {
+    last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+    tth,
+  }
+  if (data === 'area') {
+    body.area = {
+      ...geojson,
+      features: geojson.features.filter((feature) =>
+        feature.geometry.type.includes('Polygon'),
+      ),
     }
-    return await res.json()
+  } else if (data === 'bound') {
+    body.bbox = {
+      minLat: bounds.min_lat,
+      minLon: bounds.min_lon,
+      maxLat: bounds.max_lat,
+      maxLon: bounds.max_lon,
+    }
+  }
+
+  try {
+    // v2 returns `{ points: [[lat, lon], ...] }` (NOT the v1 PixiMarker `{i,p}`
+    // shape). Synthesize the `i` discriminator from the category prefix so the
+    // pixi/leaflet marker layer (which keys icon size/color off `i[0]`) keeps
+    // working.
+    // TODO(v2-verify): the {points}→PixiMarker adaptation + the spawnpoint v/u
+    // collapse are runtime-unverified (no backend/DB here).
+    const res = await fetchWrapper<{ points: [number, number][] }>(
+      `/api/v2/scanner-data/${category}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal,
+        body: JSON.stringify(body),
+      },
+    )
+    if (!res) return []
+    const prefix = MARKER_PREFIX[category]
+    return res.points.map((p, i) => ({
+      i: `${prefix}${i}` as PixiMarker['i'],
+      p,
+    }))
   } catch (e) {
     if (e instanceof Error) {
       if (e.name !== 'AbortError' || process.env.NODE_ENV === 'development') {
@@ -552,19 +566,27 @@ export async function convert<T = Conversions>(
   return_type: UsePersist['polygonExportMode'],
   simplify: UsePersist['simplifyPolygons'],
   geometry_type?: UsePersist['geometryType'],
-  url = '/api/v1/convert/data',
+  url = '/api/v2/geometry/convert',
 ): Promise<T> {
   try {
-    const res = await fetch(url, {
+    // v2 `POST /api/v2/geometry/convert?format=<return_type>`: the return type is
+    // a query param (`?format=`), the body carries `area` + `output.return_type`
+    // + `simplify`. GeoJSON shapes come back inside the v2 envelope; the raw
+    // export formats (sql/text/poracle/altText) come back NOT enveloped (raw
+    // body), so branch on the parsed shape.
+    // NOTE: `geometry_type` (the target geojson geometry, e.g. Polygon) has no
+    // dedicated v2 body field; it rides `output.geometryType` best-effort.
+    // TODO(v2-verify): confirm `?format=` + the convert body shape against a live
+    // deploy, and that geometry_type coercion still works (it's runtime-unverified).
+    const res = await fetch(`${url}?format=${return_type}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         area,
-        return_type,
         simplify,
-        geometry_type,
+        output: { returnType: return_type, geometryType: geometry_type },
       }),
     })
     if (!res.ok) {
@@ -577,45 +599,82 @@ export async function convert<T = Conversions>(
       })
       throw new Error('Unable to convert')
     }
-    return await res.json().then((r) => r.data)
+    const text = await res.text()
+    // Raw export bodies aren't JSON objects with a `status` envelope — try to
+    // parse, fall back to the raw string.
+    try {
+      const parsed = JSON.parse(text)
+      if (parsed && typeof parsed === 'object' && parsed.status === 'ok') {
+        return parsed.data as T
+      }
+      return parsed as T
+    } catch {
+      return text as unknown as T
+    }
   } catch (e) {
     console.error(e)
     return '' as unknown as T
   }
 }
 
+/**
+ * Persist drawn features by looping ONE create per feature against the v2
+ * resource (`POST /api/v2/geofences` | `/api/v2/routes`). Replaces the v1 batch
+ * `save-koji` endpoints (which returned `{ updates, inserts }`); v2 has no batch
+ * upsert, so this counts the per-feature creates instead.
+ *
+ * `code` is a JSON FeatureCollection / Feature string; `resource` selects the v2
+ * endpoint. Each feature → a snake_case create body (`name`/`mode`/`geometry`
+ * [+ `geofence_id` for routes]) derived from its KojiMeta-ish `properties`.
+ *
+ * TODO(v2-verify): the v1 `save-koji` semantics (batch upsert keyed on name,
+ * returning insert/update counts) are NOT preserved — this always CREATEs. If a
+ * fence/route with the same name exists, v2 will insert a duplicate rather than
+ * update. Runtime-unverified; flagged for the user's smoke.
+ */
 export async function save(
-  url: string,
+  resource: 'geofences' | 'routes',
   code: string,
 ): Promise<{ updates: number; inserts: number } | null> {
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ area: JSON.parse(code) }),
-    })
-    if (!res.ok) {
-      useStatic.setState({
-        notification: {
-          message: await res.text(),
-          status: res.status,
-          severity: 'error',
-        },
-      })
-      throw new Error('Unable to save')
-    }
-    const json: KojiResponse<{ updates: number; inserts: number }> =
-      await res.json()
+    const parsed = JSON.parse(code)
+    const features: Feature[] =
+      parsed?.type === 'FeatureCollection'
+        ? parsed.features || []
+        : parsed?.type === 'Feature'
+        ? [parsed]
+        : []
+
+    const results = await Promise.allSettled(
+      features.map((feat) => {
+        const props = feat.properties || {}
+        const body: Record<string, unknown> = {
+          name: props.__name ?? props.name,
+          geometry: feat.geometry,
+        }
+        if (props.__mode ?? props.mode) body.mode = props.__mode ?? props.mode
+        if (resource === 'routes') {
+          body.geofence_id = props.__geofence_id ?? props.geofence_id
+        }
+        return fetchWrapper(`/api/v2/${resource}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+      }),
+    )
+    const inserts = results.filter(
+      (r) => r.status === 'fulfilled' && r.value !== null,
+    ).length
+
     useStatic.setState({
       notification: {
         message: `Saved successfully`,
-        status: res.status,
+        status: 200,
         severity: 'success',
       },
     })
-    return json.data
+    return { updates: 0, inserts }
   } catch (e) {
     console.error(e)
     return null
@@ -631,10 +690,15 @@ export async function getS2Cells(
   const { s2DisplayMode } = usePersist.getState()
   if (s2DisplayMode === 'none') return []
 
-  return fetchWrapper<KojiResponse<S2Response[]>>(`/api/v1/s2/${level}`, {
+  // v2 `POST /api/v2/s2/{level}` takes a `BoundsArg` body: `{ bbox: {min_lat,
+  // min_lon, max_lat, max_lon}, ids? }` (the bbox is NESTED — getMapBounds
+  // returns the flat fields, so wrap them). Returns the cells inside the v2
+  // envelope, which fetchWrapper unwraps to the `S2Response[]` directly.
+  // TODO(v2-verify): the s2 cells endpoint body/response shape is runtime-unverified.
+  return fetchWrapper<S2Response[]>(`/api/v2/s2/${level}`, {
     method: 'POST',
     body: JSON.stringify({
-      ...getMapBounds(map),
+      bbox: getMapBounds(map),
       // ids: s2DisplayMode === 'all' ? undefined : Object.keys(s2cellCoverage),
     }),
     headers: {
@@ -643,7 +707,7 @@ export async function getS2Cells(
     signal,
   }).then((res) => {
     if (res) {
-      if (res.data.length >= 20_000) {
+      if (res.length >= 20_000) {
         useStatic.setState({
           notification: {
             message: `Loaded the maximum of ${Number(
@@ -653,11 +717,11 @@ export async function getS2Cells(
             status: 200,
           },
         })
-        return res.data.filter(
+        return res.filter(
           (c, i) => s2cellCoverage[c.id]?.length || i <= 20_000,
         )
       }
-      return res.data
+      return res
     }
   })
 }
@@ -679,11 +743,14 @@ export async function s2Coverage(id: string, lat: number, lon: number) {
       ]),
     )
 
+    // v2 `POST /api/v2/s2/{circle|cell}-coverage`: body unchanged
+    // (`{lat, lon, radius?, size?, level}`); returns the cell-id `string[]`
+    // inside the v2 envelope, which fetchWrapper unwraps directly.
     await Promise.allSettled(
       (calculation_mode === 'Radius' ? s2cells : [bootstrap_level]).map(
         async (level) =>
-          fetchWrapper<KojiResponse<string[]>>(
-            `/api/v1/s2/${
+          fetchWrapper<string[]>(
+            `/api/v2/s2/${
               calculation_mode === 'Radius' ? 'circle' : 'cell'
             }-coverage`,
             {
@@ -701,7 +768,7 @@ export async function s2Coverage(id: string, lat: number, lon: number) {
             },
           ).then((res) => {
             if (res) {
-              res.data.forEach((c) => {
+              res.forEach((c) => {
                 if (s2cellCoverage[c]) {
                   s2cellCoverage[c] = [...s2cellCoverage[c], id.toString()]
                 } else {

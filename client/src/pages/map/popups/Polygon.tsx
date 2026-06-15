@@ -96,17 +96,22 @@ const MemoStat = React.memo(
       setLoading(true)
       setStats((prev) => (prev === null ? 0 : null))
       const last_seen = typeof raw === 'string' ? new Date(raw) : raw
-      fetchWrapper<{ total: number }>(`/internal/data/area_stats/${category}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      // v2 `POST /api/v2/scanner-data/{category}/stats` → `{ total }` (enveloped;
+      // fetchWrapper unwraps to `{ total }`). Body carries the drawn `area`.
+      fetchWrapper<{ total: number }>(
+        `/api/v2/scanner-data/${category}/stats`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            area: feature,
+            last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+            tth,
+          }),
         },
-        body: JSON.stringify({
-          area: feature,
-          last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
-          tth,
-        }),
-      })
+      )
         .then((data) => setStats(data?.total ?? 0))
         .finally(() => setLoading(false))
     }, [tth, raw, feature])
@@ -179,13 +184,15 @@ export function PolygonPopup({
 
   useDeepCompareEffect(() => {
     if (feature.geometry.coordinates.length) {
-      fetchWrapper<KojiResponse<{ area: number }>>('/api/v1/calc/area', {
+      // v2 `POST /api/v2/geometry/area` → `{ area }` (m², enveloped; fetchWrapper
+      // unwraps to `{ area }`).
+      fetchWrapper<{ area: number }>('/api/v2/geometry/area', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ area: feature }),
-      }).then((res) => res && setArea(res.data.area / 1000000))
+      }).then((res) => res && setArea(res.area / 1000000))
     }
   }, [feature])
 

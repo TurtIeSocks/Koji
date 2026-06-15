@@ -13,12 +13,12 @@ import geohash from 'ngeohash'
 import type { MultiPoint } from 'geojson'
 import { S2CellId, S2LatLng } from 'nodes2ts'
 
-import { Feature, KojiResponse, KojiRoute, PopupProps } from '@assets/types'
+import { Feature, KojiRoute, PopupProps } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import { UNOWN_ROUTES } from '@assets/constants'
 import { useStatic } from '@hooks/useStatic'
-import { fetchWrapper, getKojiCache } from '@services/fetches'
+import { fetchWrapper, getKojiCache, pollJob } from '@services/fetches'
 import { useDbCache } from '@hooks/useDbCache'
 import { useImportExport } from '@hooks/useImportExport'
 import { usePersist } from '@hooks/usePersist'
@@ -205,26 +205,42 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
             setStatic('totalLoadingTime', 0)
             setStatic('totalStartTime', Date.now())
             const start = Date.now()
-            await fetchWrapper<KojiResponse<Feature>>(`/api/v1/calc/reroute`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
+            // v2 reroute: a `mode: 'reroute'` calc job. POST /api/v2/jobs →
+            // {job_id} → pollJob → result.data (FeatureCollection, take [0]) +
+            // result.stats. (v1 was the sync /api/v1/calc/reroute.)
+            // TODO(v2-verify): the reroute job path is runtime-unverified; confirm
+            // the result FC carries the routed MultiPoint feature at [0].
+            const enqueue = await fetchWrapper<{ job_id: string }>(
+              `/api/v2/jobs`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  mode: 'reroute',
+                  clusters: Object.values(useShapes.getState().Point).map(
+                    (p) => [
+                      p.geometry.coordinates[1],
+                      p.geometry.coordinates[0],
+                    ],
+                  ),
+                  instance: name,
+                  routing: {
+                    sortBy: sort_by,
+                    routeSplitLevel: route_split_level,
+                    pluginArgs: routing_args || undefined,
+                  },
+                  output: { returnType: 'feature', saveToScanner: save_to_scanner },
+                }),
               },
-              body: JSON.stringify({
-                clusters: Object.values(useShapes.getState().Point).map((p) => [
-                  p.geometry.coordinates[1],
-                  p.geometry.coordinates[0],
-                ]),
-                return_type: 'feature',
-                instance: name,
-                mode,
-                route_split_level,
-                save_to_scanner,
-                sort_by,
-                routing_args,
-              }),
-            }).then((res) => {
-              if (res) {
+            )
+            const record = enqueue?.job_id
+              ? await pollJob(enqueue.job_id).catch(() => null)
+              : null
+            await Promise.resolve().then(() => {
+              const res = record?.result
+              if (record?.status === 'succeeded' && res) {
                 if (save_to_db) {
                   useStatic.setState({
                     notification: {
@@ -244,13 +260,14 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
                     },
                   }))
                 }
+                const rerouted = res.data?.features?.[0]
                 const newFeature = {
                   ...feature,
-                  ...res.data,
+                  ...rerouted,
                   id:
                     feature.properties?.__multipoint_id ||
                     feature.id.toString(),
-                  properties: { ...res.data.properties, ...feature.properties },
+                  properties: { ...rerouted?.properties, ...feature.properties },
                 }
                 setStatic('totalLoadingTime', end)
                 removeCheck()
@@ -269,7 +286,8 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
               disabled={!isInKoji}
               onClick={async () => {
                 setLoading(true)
-                await fetchWrapper(`/internal/admin/route/${dbRef?.id}/`, {
+                // v2 `DELETE /api/v2/routes/{id}` → 204 (fetchWrapper returns null).
+                await fetchWrapper(`/api/v2/routes/${dbRef?.id}`, {
                   method: 'DELETE',
                 }).then(() => {
                   setLoading(false)
@@ -284,8 +302,11 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
               disabled={!name || !mode || loading || !fenceId}
               onClick={() => {
                 setLoading(true)
-                fetchWrapper<KojiResponse<Feature<MultiPoint>>>(
-                  `/api/v1/convert/merge-points`,
+                // v2 `POST /api/v2/geometry/merge-points?format=feature` →
+                // a single merged MultiPoint Feature (enveloped; fetchWrapper
+                // unwraps to the Feature directly).
+                fetchWrapper<Feature<MultiPoint>>(
+                  `/api/v2/geometry/merge-points?format=feature`,
                   {
                     method: 'POST',
                     headers: {
@@ -296,29 +317,29 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
                         type: 'FeatureCollection',
                         features: Object.values(useShapes.getState().Point),
                       },
-                      return_type: 'feature',
                     }),
                   },
                 ).then(
                   (mp) =>
                     mp &&
-                    fetchWrapper<KojiResponse<KojiRoute>>(
+                    // v2 route CRUD: PATCH /api/v2/routes/{id} | POST /api/v2/routes.
+                    // The create body needs geofence_id + name + geometry (snake);
+                    // PATCH takes the partial. Returns the upserted record (enveloped
+                    // → unwrapped to the record).
+                    fetchWrapper<KojiRoute>(
                       isInKoji
-                        ? `/internal/admin/route/${dbRef?.id}/`
-                        : '/internal/admin/route/',
+                        ? `/api/v2/routes/${dbRef?.id}`
+                        : '/api/v2/routes',
                       {
                         method: isInKoji ? 'PATCH' : 'POST',
                         headers: {
                           'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                          id: isInKoji ? dbRef?.id : 0,
                           name,
                           geofence_id: fenceId,
                           mode,
-                          geometry: mp.data.geometry,
-                          updated_at: new Date(),
-                          created_at: new Date(),
+                          geometry: mp.geometry,
                         }),
                       },
                     ).then((res) => {
@@ -330,7 +351,7 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
                             severity: 'success',
                           },
                         })
-                        const { geometry, ...rest } = res.data
+                        const { geometry, ...rest } = res
                         const newId = `${rest.id}__${rest.mode}__KOJI` as const
                         const newFeature = {
                           ...feature,
