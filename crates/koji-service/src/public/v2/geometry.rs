@@ -6,11 +6,6 @@
 //! [`respond_geo`](crate::utils::format::respond_geo) — GeoJSON inside the v2
 //! envelope, the export formats (`sql`/`poracle`/…) raw. Errors surface via
 //! [`ServiceError`](crate::utils::error::ServiceError).
-//!
-//! Built ahead of its consumer: `scope()` is wired into `/api/v2` in T4 (the
-//! `lib.rs` rewire). Until then the non-test build sees these as dead, so the
-//! lint is silenced crate-wide for this module rather than item-by-item.
-#![allow(dead_code)]
 
 use actix_web::{HttpResponse, post, web};
 use geojson::FeatureCollection;

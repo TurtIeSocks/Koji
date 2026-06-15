@@ -6,11 +6,11 @@
 //! exactly as-is (the legacy shim).
 
 pub(crate) mod calc;
-pub(crate) mod geo;
 pub(crate) mod geofences;
 pub(crate) mod geometry;
 pub(crate) mod jobs;
 pub(crate) mod plugins;
 pub(crate) mod resources;
 pub(crate) mod routes;
+pub(crate) mod s2;
 pub(crate) mod scanner_data;

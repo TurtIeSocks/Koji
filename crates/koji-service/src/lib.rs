@@ -281,8 +281,12 @@ pub async fn start() -> io::Result<()> {
                             .service(public::v2::resources::project::scope())
                             .service(public::v2::resources::property::scope())
                             .service(public::v2::resources::tile_server::scope())
-                            // Geometry utilities (convert/simplify/merge + s2).
-                            .service(public::v2::geo::scope())
+                            // Geometry transforms (convert/simplify/merge-points)
+                            // and the S2 cell helpers — split out of the old
+                            // `/geo` grab-bag into honest `/geometry` + `/s2`
+                            // namespaces.
+                            .service(public::v2::geometry::scope())
+                            .service(public::v2::s2::scope())
                             // Plugin management overlay (DB-managed plugin config):
                             // merged disk-manifest + DB-overlay view; PATCH/DELETE
                             // edit only `enabled`/`args_default`/`description`.
