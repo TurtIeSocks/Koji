@@ -12,13 +12,20 @@ import AutoModeIcon from '@mui/icons-material/AutoMode'
 import SupervisedUserCircleIcon from '@mui/icons-material/SupervisedUserCircle'
 
 import { UNOWN_ROUTES } from '@assets/constants'
-import { BasicKojiEntry, KojiResponse } from '@assets/types'
+import { FeatureCollection } from '@assets/types'
 import { fetchWrapper } from '@services/fetches'
 
 export function RouteFilter() {
+  // v2 has no "geofences that own a route" endpoint — list all geofences
+  // (GeoJSON) and offer them as the geofence filter.
+  // TODO(v2-gap): v1 `/internal/admin/route/parent` (only geofences WITH routes)
+  // is gone; this lists every geofence as a route-geofence filter candidate.
   const { data } = useQuery('unique_geofences', () =>
-    fetchWrapper<KojiResponse<BasicKojiEntry[]>>(
-      '/internal/admin/route/parent',
+    fetchWrapper<FeatureCollection>('/api/v2/geofences').then((fc) =>
+      (fc?.features || []).map((f) => ({
+        id: (f.properties?.id ?? f.properties?.__id ?? f.id) as number,
+        name: (f.properties?.name ?? f.properties?.__name ?? '') as string,
+      })),
     ),
   )
   return (
@@ -49,7 +56,7 @@ export function RouteFilter() {
         </FilterList>
         <FilterList label="Geofence" icon={<SupervisedUserCircleIcon />}>
           <div style={{ maxHeight: 400, overflow: 'auto' }}>
-            {(data?.data || []).map((fence) => (
+            {(data || []).map((fence) => (
               <FilterListItem
                 key={fence.id}
                 label={fence.name}

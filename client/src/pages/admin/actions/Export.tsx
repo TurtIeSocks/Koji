@@ -13,7 +13,6 @@ import type {
   BasicKojiEntry,
   Feature,
   FeatureCollection,
-  KojiResponse,
 } from '@assets/types'
 import { fetchWrapper } from '@services/fetches'
 import { useImportExport } from '@hooks/useImportExport'
@@ -31,9 +30,22 @@ export function BaseButton({
 }
 
 export function getUrl(resource: string, id: number) {
-  return `/api/v1/${resource === 'project' ? 'geofence' : resource}/${
-    resource === 'project' ? 'feature-collection' : 'area'
-  }/${id}?&name=true&parent=true&mode=true`
+  // v2: `GET /api/v2/{geofences|routes}/{id}` returns the feature(s) for export.
+  // `project` exported a project's geofences as a FeatureCollection in v1 — there
+  // is no v2 project→FeatureCollection export, so fall back to the geofence by id
+  // (best-effort).
+  // TODO(v2-gap): the v1 `project/feature-collection/{id}` (all of a project's
+  // geofences in one FC) export has no v2 equivalent; project export here returns
+  // a single geofence by the project id, which is almost certainly wrong. Flagged.
+  const seg =
+    resource === 'project'
+      ? 'geofences'
+      : resource === 'geofence'
+      ? 'geofences'
+      : resource === 'route'
+      ? 'routes'
+      : resource
+  return `/api/v2/${seg}/${id}`
 }
 
 export function ExportButton<T extends BasicKojiEntry>({
@@ -45,9 +57,7 @@ export function ExportButton<T extends BasicKojiEntry>({
   const { refetch } = useQuery(
     `export-${resource}-${record.id}`,
     () =>
-      fetchWrapper<KojiResponse<Feature | FeatureCollection>>(
-        getUrl(resource, record.id),
-      ),
+      fetchWrapper<Feature | FeatureCollection>(getUrl(resource, record.id)),
     {
       enabled: false,
     },
@@ -58,14 +68,15 @@ export function ExportButton<T extends BasicKojiEntry>({
       onClick={(event) => {
         event.stopPropagation()
         refetch().then((res) => {
+          // `res.data` is the unwrapped v2 payload (Feature | FeatureCollection).
           if (res?.data) {
             useImportExport.setState({
               open: 'exportPolygon',
-              feature: res.data.data,
+              feature: res.data,
               fileName:
-                res.data.data.type === 'Feature'
-                  ? res.data.data.properties?.__name ||
-                    res.data.data.properties?.name ||
+                res.data.type === 'Feature'
+                  ? res.data.properties?.__name ||
+                    res.data.properties?.name ||
                     ''
                   : record.name,
             })
@@ -87,9 +98,7 @@ export function BulkExportButton<T extends BasicKojiEntry>({
     `export-${resource}`,
     () =>
       Promise.all(
-        selectedIds.map((id) =>
-          fetchWrapper<KojiResponse<Feature>>(getUrl(resource, id)),
-        ),
+        selectedIds.map((id) => fetchWrapper<Feature>(getUrl(resource, id))),
       ),
     {
       enabled: false,
@@ -102,14 +111,13 @@ export function BulkExportButton<T extends BasicKojiEntry>({
         event.stopPropagation()
         unselectAll()
         refetch().then((res) => {
+          // Each entry is the unwrapped v2 Feature payload (or null on miss).
           if (res?.data) {
             useImportExport.setState({
               open: 'exportPolygon',
               feature: {
                 type: 'FeatureCollection',
-                features: res.data
-                  .filter((r) => r?.data)
-                  .map((d) => d?.data as Feature),
+                features: res.data.filter((r): r is Feature => !!r),
               },
             })
           }

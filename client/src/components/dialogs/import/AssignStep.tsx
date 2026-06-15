@@ -3,12 +3,7 @@ import * as React from 'react'
 import Grid2 from '@mui/material/Unstable_Grid2/Grid2'
 import Typography from '@mui/material/Typography'
 
-import {
-  AdminProject,
-  KojiResponse,
-  FeatureCollection,
-  Feature,
-} from '@assets/types'
+import { AdminProject, FeatureCollection, Feature } from '@assets/types'
 import { Checkbox, Divider, MenuItem, Select, TextField } from '@mui/material'
 import ReactWindow from '@components/ReactWindow'
 import { useStatic } from '@hooks/useStatic'
@@ -39,13 +34,14 @@ const AssignStep = React.forwardRef<
   const innerRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
-    fetchWrapper<KojiResponse<Omit<AdminProject, 'related'>[]>>(
-      '/internal/admin/project/all/',
+    // v2 `GET /api/v2/projects` → row records (enveloped; unwrapped to array).
+    fetchWrapper<Omit<AdminProject, 'related'>[]>(
+      '/api/v2/projects?per_page=9999',
     ).then((res) => {
       if (res) {
         useStatic.setState({
           projects: Object.fromEntries(
-            res.data.map((project) => [
+            res.map((project) => [
               project.id,
               {
                 ...project,

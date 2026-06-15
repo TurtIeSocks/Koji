@@ -16,6 +16,7 @@ import { Box } from '@mui/material'
 
 import { UNOWN_FENCES } from '@assets/constants'
 import type { AdminGeofence, KojiProperty } from '@assets/types'
+import { fetchWrapper } from '@services/fetches'
 
 import CodeInput from '../inputs/CodeInput'
 import {
@@ -41,15 +42,14 @@ export default function GeofenceForm() {
   >({})
 
   React.useEffect(() => {
-    fetch('/internal/admin/property/all/')
-      .then((res) => res.json())
-      .then((data) => {
+    // v2 `GET /api/v2/properties` → row records (enveloped; fetchWrapper unwraps).
+    fetchWrapper<KojiProperty[]>('/api/v2/properties?per_page=9999').then(
+      (data) => {
         setProperties(
-          Object.fromEntries(
-            (data?.data || []).map((x: KojiProperty) => [x.id, x]),
-          ),
+          Object.fromEntries((data || []).map((x) => [x.id, x])),
         )
-      })
+      },
+    )
   }, [])
 
   return (

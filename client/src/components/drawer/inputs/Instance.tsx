@@ -17,15 +17,11 @@ import CheckBoxOutlineBlank from '@mui/icons-material/CheckBoxOutlineBlank'
 import IndeterminateCheckBoxOutlined from '@mui/icons-material/IndeterminateCheckBoxOutlined'
 import CheckBox from '@mui/icons-material/CheckBox'
 
-import type {
-  KojiResponse,
-  KojiKey,
-  Feature,
-  FeatureCollection,
-} from '@assets/types'
+import type { KojiKey, Feature, FeatureCollection } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
 import { fetchWrapper } from '@services/fetches'
 import { useDbCache } from '@hooks/useDbCache'
+import { ALL_ROUTES } from '@assets/constants'
 
 const icon = <CheckBoxOutlineBlank fontSize="small" color="primary" />
 const checkedIcon = <CheckBox fontSize="small" color="primary" />
@@ -88,18 +84,27 @@ export default function InstanceSelect({
     const deleted = selected.filter((s) => !newValue.includes(s))
 
     setLoading(true)
+    // v2: a single saved feature by id is `GET /api/v2/{routes|geofences}/{id}
+    // ?format=feature` (the resource depends on whether the mode is a route mode).
+    // The scanner source has no v2 equivalent.
+    // TODO(v2-gap): the v1 `/internal/routes/one/scanner/{id}/{mode}` (scanner-
+    // sourced single feature) is gone — `koji=false` now resolves to nothing.
+    // TODO(v2-verify): the route-vs-geofence split is inferred from the mode
+    // (ALL_ROUTES) — confirm route/fence id resolution against a live deploy.
     const newFeatures = await Promise.allSettled(
-      added.map(
-        (a) =>
-          featureCache[a] ||
-          fetchWrapper<KojiResponse<Feature>>(
-            `/internal/routes/one/${koji ? 'koji' : 'scanner'}/${
-              options[a].id
-            }/${options[a].mode || 'unset'}`,
-          ).then((resp) => {
-            return resp?.data
-          }),
-      ),
+      added.map((a) => {
+        if (featureCache[a]) return featureCache[a]
+        if (!koji) return Promise.resolve(undefined)
+        const opt = options[a]
+        const seg = ALL_ROUTES.includes(
+          (opt.mode || 'unset') as typeof ALL_ROUTES[number],
+        )
+          ? 'routes'
+          : 'geofences'
+        return fetchWrapper<Feature>(
+          `/api/v2/${seg}/${opt.id}?format=feature`,
+        ).then((resp) => resp ?? undefined)
+      }),
     ).then((res) => {
       setLoading(false)
       return res

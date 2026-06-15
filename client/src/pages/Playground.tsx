@@ -124,12 +124,21 @@ export default function Playground() {
   const [namesOnly, setNamesOnly] = React.useState(false)
   const [error, setError] = React.useState('')
 
-  const url = `/api/v1/geofence/${type}/${project}?${stringify(
+  // TODO(v2-gap): this dev API playground exercised the v1 geofence
+  // name-modifier export (`/api/v1/geofence/{type}/{project}` + the trim/replace/
+  // parent* PARAMS), which was REMOVED in v2 (the name_modifier wrapper is gone).
+  // There is no v2 endpoint that takes a project name + name-modifier params, so
+  // the modifier params below are dropped and the request best-effort hits the
+  // geofences list as `?format={type}` (project-scoped export is unavailable).
+  // The whole Playground is a dev tool; flagged for the user to decide whether to
+  // retire it or build a v2 equivalent.
+  const url = `/api/v2/geofences?format=${type}&${stringify(
     Object.fromEntries(Object.entries(params).filter(([, v]) => v)),
   )}`
 
   React.useEffect(() => {
-    fetch('/internal/admin/project/all/')
+    // v2 `GET /api/v2/projects` → row records inside the envelope.
+    fetch('/api/v2/projects?per_page=9999')
       .then(async (res) => {
         if (!res.ok) {
           const err = await res.text()
@@ -138,8 +147,9 @@ export default function Playground() {
         return res.json()
       })
       .then((res) => {
-        setProject(res.data[0].name)
-        setProjects(res.data)
+        const data = res?.status === 'ok' ? res.data : res.data
+        if (data?.[0]) setProject(data[0].name)
+        setProjects(data || [])
         setError('')
       })
   }, [])

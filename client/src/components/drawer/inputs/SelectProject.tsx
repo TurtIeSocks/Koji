@@ -9,12 +9,7 @@ import {
   CircularProgress,
 } from '@mui/material'
 
-import type {
-  KojiResponse,
-  KojiKey,
-  Feature,
-  GeometryTypes,
-} from '@assets/types'
+import type { KojiKey, Feature, GeometryTypes } from '@assets/types'
 import { useShapes } from '@hooks/useShapes'
 import { fetchWrapper } from '@services/fetches'
 import { useDbCache } from '@hooks/useDbCache'
@@ -68,17 +63,16 @@ export default function SelectProject({
     ].filter((a): a is [GeometryTypes | undefined, KojiKey] => Boolean(a))
 
     setLoading(true)
+    // v2: a project's geofences are fetched one-by-one as single features
+    // (`GET /api/v2/geofences/{id}?format=feature`). The project→geofence id list
+    // comes from the cached project record's `geofences`.
     const newFeatures = await Promise.allSettled(
       addFeatures.map(
         (a) =>
           featureCache[a[1]] ||
-          fetchWrapper<KojiResponse<Feature>>(
-            `/internal/routes/one/koji/${a[0]}/${
-              geofenceCache[a[0]]?.mode || 'unset'
-            }&internal=true`,
-          ).then((resp) => {
-            return resp?.data
-          }),
+          fetchWrapper<Feature>(`/api/v2/geofences/${a[0]}?format=feature`).then(
+            (resp) => resp ?? undefined,
+          ),
       ),
     ).then((res) => {
       setLoading(false)

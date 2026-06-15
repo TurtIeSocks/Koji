@@ -15,16 +15,23 @@ import MapIcon from '@mui/icons-material/Map'
 import SupervisedUserCircleIcon from '@mui/icons-material/SupervisedUserCircle'
 
 import { UNOWN_FENCES } from '@assets/constants'
-import { KojiGeofence, KojiProject, KojiResponse } from '@assets/types'
+import { FeatureCollection, KojiProject } from '@assets/types'
 import { fetchWrapper } from '@services/fetches'
 
 export function GeofenceFilter() {
   const projectData = useGetList<KojiProject>('project', {
     sort: { field: 'name', order: 'ASC' },
   })
+  // v2 has no dedicated "parent geofences" endpoint — list all geofences
+  // (GeoJSON) and derive {id, name} from each feature's properties.
+  // TODO(v2-gap): the v1 `/internal/admin/geofence/parent` (only fences USED as a
+  // parent) is gone; this now lists every geofence as a candidate parent.
   const { data } = useQuery('parents', () =>
-    fetchWrapper<KojiResponse<KojiGeofence[]>>(
-      '/internal/admin/geofence/parent',
+    fetchWrapper<FeatureCollection>('/api/v2/geofences').then((fc) =>
+      (fc?.features || []).map((f) => ({
+        id: (f.properties?.id ?? f.properties?.__id ?? f.id) as number,
+        name: (f.properties?.name ?? f.properties?.__name ?? '') as string,
+      })),
     ),
   )
   return (
@@ -44,7 +51,7 @@ export function GeofenceFilter() {
         </FilterList>
         <FilterList label="Parent" icon={<SupervisedUserCircleIcon />}>
           <FilterListItem key="unset" label="unset" value={{ parent: 0 }} />
-          {(data?.data || []).map((parent) => (
+          {(data || []).map((parent) => (
             <FilterListItem
               key={parent.id}
               label={parent.name}

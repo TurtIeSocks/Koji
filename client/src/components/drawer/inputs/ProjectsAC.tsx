@@ -1,4 +1,4 @@
-import { KojiProject, KojiResponse } from '@assets/types'
+import { KojiProject } from '@assets/types'
 import { useStatic } from '@hooks/useStatic'
 import {
   Autocomplete,
@@ -32,31 +32,29 @@ export default function ProjectsAc({
   const [loading, setLoading] = React.useState(false)
 
   const saveProject = async (newProject: NewKojiProject) => {
-    const res = await fetchWrapper<KojiResponse<KojiProject>>(
-      '/internal/admin/project/',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: 0,
-          name: newProject.inputValue,
-          created_at: new Date(),
-          updated_at: new Date(),
-        }),
+    // v2 `POST /api/v2/projects` → the created record (enveloped; fetchWrapper
+    // unwraps to the record). `scanner` is required by the v2 create DTO.
+    const res = await fetchWrapper<KojiProject>('/api/v2/projects', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-    )
-    return res?.data
+      body: JSON.stringify({
+        name: newProject.inputValue,
+        scanner: false,
+      }),
+    })
+    return res ?? undefined
   }
 
   const getOptions = async (search = '') => {
     setLoading(true)
-    const res = await fetchWrapper<KojiResponse<KojiProject[]>>(
-      `/internal/admin/search/project/?query=${search}`,
+    // v2 `GET /api/v2/projects?q=` → row records (enveloped; unwrapped to array).
+    const res = await fetchWrapper<KojiProject[]>(
+      `/api/v2/projects?per_page=9999&q=${search}`,
     )
     if (res) {
-      setProjects(res.data)
+      setProjects(res)
       setLoading(false)
     }
   }

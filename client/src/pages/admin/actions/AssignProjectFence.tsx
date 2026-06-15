@@ -45,15 +45,39 @@ export function AssignFencesToProjects({ resource, storeKey, open }: Props) {
 
   const assignProjectsToFence = useMutation(
     () => {
-      return Promise.all(
-        selectedIds.map((id) =>
-          fetchUtils.fetchJson(
-            `/internal/admin/geofence_project/${resource}/${id}/`,
-            {
+      // v2: the geofence↔project link lives on the GEOFENCE side
+      // (`PATCH /api/v2/geofences/{id} { projects }`).
+      // - resource === 'geofence': each selected geofence id gets the chosen
+      //   project ids.
+      // - resource === 'project': assign the (single) selected project to the
+      //   chosen geofences — so loop the geofence ids, each PATCHed with this
+      //   project id.
+      // TODO(v2-verify): the v1 `/internal/admin/geofence_project/{resource}/{id}`
+      // did a full replace of the link set (unassigning non-selected). The v2
+      // PATCH here sets `projects` to exactly the chosen ids for geofence-mode;
+      // for project-mode it replaces each fence's project list with just this
+      // project (dropping that fence's OTHER projects). Reconcile against a live
+      // deploy — a dedicated link endpoint may be needed for non-destructive
+      // multi-project assignment.
+      const projectIds = selected.map((x) => x.id)
+      if (resource === 'geofence') {
+        return Promise.all(
+          selectedIds.map((id) =>
+            fetchUtils.fetchJson(`/api/v2/geofences/${id}`, {
               method: 'PATCH',
-              body: JSON.stringify(selected.map((x) => x.id)),
-            },
+              body: JSON.stringify({ projects: projectIds }),
+            }),
           ),
+        )
+      }
+      // resource === 'project': `selectedIds` are project ids, `selected` are the
+      // chosen geofences. Assign each chosen geofence to these project ids.
+      return Promise.all(
+        selected.map((fence) =>
+          fetchUtils.fetchJson(`/api/v2/geofences/${fence.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ projects: selectedIds }),
+          }),
         ),
       )
     },

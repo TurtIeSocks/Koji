@@ -36,15 +36,14 @@ export function AssignParentToFences({ open }: { open: boolean }) {
 
   const assignProjectsToFence = useMutation(
     () => {
+      // v2: PATCH /api/v2/geofences/{id} { parent }. `selected === 0` means
+      // "Remove" → clears the parent.
       return Promise.all(
         selectedIds.map((id) =>
-          fetchUtils.fetchJson(
-            `/internal/admin/assign/geofence/parent/${id}/`,
-            {
-              method: 'PATCH',
-              body: JSON.stringify(selected),
-            },
-          ),
+          fetchUtils.fetchJson(`/api/v2/geofences/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ parent: selected || undefined }),
+          }),
         ),
       )
     },
