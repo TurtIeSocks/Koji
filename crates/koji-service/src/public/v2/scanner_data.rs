@@ -1,24 +1,29 @@
-//! v2 scanner-data fetch — `GET /api/v2/geofences/{id}/scanner-data` (architecture
-//! §4.5, §6). Returns the scanner points of a category (`gym|pokestop|spawnpoint|
-//! station|fort`) within a geofence, reusing the same koji-scanner query path as
-//! the v1 `/internal/data/area` handler.
+//! v2 scanner-data fetch — two complementary surfaces over the same koji-scanner
+//! query path (architecture §4.5, §6), both returning the scanner points of a
+//! category (`gym|pokestop|spawnpoint|station|fort`):
 //!
-//! **Area input:** the geofence is the path `{id}` (its id **or** name) of the
-//! enclosing `/geofences/{id}` resource — scanner-data is an honest sub-resource
-//! of the geofence, not a flat endpoint keyed by an `?instance=` query. The area
-//! is resolved via [`utils::create_or_find_collection`] (which reads the stored
-//! geofence by id/name); a missing geofence ⇒ `404`. (The v1 handler took a POST
-//! body with an `Args` area; a GET can't, so v2 keys off the path geofence.
-//! Ad-hoc bbox queries remain on the v1 `/internal/data/bound` endpoint.)
+//! - `GET /api/v2/geofences/{id}/scanner-data` — the **saved-fence** convenience:
+//!   the area is the path `{id}` geofence (by id or name), resolved via
+//!   [`utils::create_or_find_collection`]; a missing geofence ⇒ `404`. Mounted
+//!   under [`super::geofences::scope()`] as the `/{id}/scanner-data` sub-resource.
+//! - `POST /api/v2/scanner-data/{category}` (+ `/stats`) — the **arbitrary-area**
+//!   surface: the drawn area / bbox rides the request body (a GET can't carry a
+//!   polygon). Ports the v1 `/internal/data/area`(+`bound`) and `/area_stats`
+//!   handlers. Mounted via [`scope()`]. Category in the path (matches the old
+//!   `/internal/data/area/{category}`).
 //!
-//! The route is mounted under [`super::geofences::scope()`] as the
-//! `/{id}/scanner-data` sub-resource.
+//! Both reuse the same `koji-scanner` area query ([`utils::points_from_area`]) and
+//! the up-front [`VALID_CATEGORIES`] allow-list, so an unknown category is a clean
+//! `400` before any DB work.
 
-use actix_web::{HttpResponse, web};
-use geojson::FeatureCollection;
-use koji_core::SpawnpointTth;
+use actix_web::{HttpResponse, post, web};
+use geojson::{Feature, FeatureCollection, Geometry, Value};
+use koji_core::{KojiBbox, SpawnpointTth};
 use koji_db::KojiDb;
+use koji_scanner::GenericDataToVec;
+use koji_scanner::entities::{gym, pokestop, spawnpoint, station};
 use serde::Deserialize;
+use serde_json::json;
 
 use crate::utils::api_response::ApiResponse;
 use crate::utils::error::ServiceError;
@@ -99,6 +104,222 @@ pub(crate) async fn scanner_data(
     Ok(ApiResponse::success(points))
 }
 
+// ---------------------------------------------------------------------------
+// Arbitrary-area surface: `POST /api/v2/scanner-data/{category}` (+ `/stats`).
+// Ports v1 `/internal/data/area`(+`bound`) and `/internal/data/area_stats`.
+// ---------------------------------------------------------------------------
+
+/// Body for the arbitrary-area scanner-data POSTs. The drawn area rides the body
+/// (a GET can't carry a polygon) as either a `area` geojson container OR a flat
+/// `bbox`; `lastSeen`/`tth` mirror the v1 scanner filters. All fields optional —
+/// an empty body resolves to an empty area (no points), matching v1's
+/// empty-`area` behavior.
+///
+/// `area` + `bbox` collapse onto ONE downstream path: a `bbox`-only request is
+/// turned into a one-Polygon `FeatureCollection`, so both feed the same
+/// [`utils::points_from_area`] / per-category `stats` query (which also gives the
+/// `bbox` path the `fort` aggregate the v1 `/bound` handler lacked). `area` wins
+/// if both are supplied.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AreaReq {
+    /// The drawn area as a geojson container (`FeatureCollection`/`Feature`/
+    /// `Geometry`). Takes precedence over `bbox`.
+    area: Option<crate::requests::GeoInput>,
+    /// A flat lat/lon bounding box (`minLat`/`minLon`/`maxLat`/`maxLon`) — used
+    /// only when `area` is absent. Ports the v1 `/internal/data/bound` input.
+    bbox: Option<BboxInput>,
+    /// Only points updated within the last N seconds (`0` = no filter).
+    #[serde(default)]
+    last_seen: u32,
+    /// Spawnpoint confirmed/unconfirmed filter (`spawnpoint` category only).
+    #[serde(default = "default_tth")]
+    tth: SpawnpointTth,
+}
+
+fn default_tth() -> SpawnpointTth {
+    SpawnpointTth::All
+}
+
+// `SpawnpointTth` has no `Default`, so `AreaReq`'s is hand-written (matching the
+// `default_tth` serde default) rather than derived.
+impl Default for AreaReq {
+    fn default() -> Self {
+        Self {
+            area: None,
+            bbox: None,
+            last_seen: 0,
+            tth: default_tth(),
+        }
+    }
+}
+
+/// camelCase wire bbox for the v2 body (`{minLat,minLon,maxLat,maxLon}`). The
+/// domain [`KojiBbox`] deserializes snake_case (the v1 `BoundsArg` wire), so this
+/// thin DTO keeps the v2 body uniformly camelCase (like `lastSeen`); it converts
+/// straight into `KojiBbox` for the query path.
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BboxInput {
+    min_lat: f64,
+    min_lon: f64,
+    max_lat: f64,
+    max_lon: f64,
+}
+
+impl From<BboxInput> for KojiBbox {
+    fn from(b: BboxInput) -> Self {
+        KojiBbox {
+            min_lat: b.min_lat,
+            min_lon: b.min_lon,
+            max_lat: b.max_lat,
+            max_lon: b.max_lon,
+        }
+    }
+}
+
+/// Turn a [`KojiBbox`] into a single-Polygon `FeatureCollection` so a `bbox`-only
+/// request flows through the same `area` query path. geojson rings are `[lon,
+/// lat]`, wound CCW and closed.
+fn bbox_collection(bbox: KojiBbox) -> FeatureCollection {
+    let ring = vec![
+        vec![bbox.min_lon, bbox.min_lat],
+        vec![bbox.max_lon, bbox.min_lat],
+        vec![bbox.max_lon, bbox.max_lat],
+        vec![bbox.min_lon, bbox.max_lat],
+        vec![bbox.min_lon, bbox.min_lat],
+    ];
+    let feature = Feature {
+        bbox: None,
+        geometry: Some(Geometry::new(Value::Polygon(vec![ring]))),
+        id: None,
+        properties: None,
+        foreign_members: None,
+    };
+    FeatureCollection {
+        bbox: None,
+        features: vec![feature],
+        foreign_members: None,
+    }
+}
+
+/// Resolve the request body's `area`/`bbox` into the algorithm-edge
+/// `FeatureCollection` the scanner query consumes: `area` if present, else a
+/// polygon built from `bbox`, else empty.
+fn resolve_area(req: &AreaReq) -> FeatureCollection {
+    if req.area.is_some() {
+        crate::requests::area_collection(&req.area)
+    } else if let Some(bbox) = req.bbox {
+        bbox_collection(bbox.into())
+    } else {
+        FeatureCollection::default()
+    }
+}
+
+/// Reject an unknown `{category}` up-front as a clean `400` (before any DB work),
+/// mirroring [`scanner_data`]'s guard and the v1 category set.
+#[allow(clippy::result_large_err)]
+fn validate_category(category: &str) -> Result<(), ServiceError> {
+    if VALID_CATEGORIES.contains(&category) {
+        Ok(())
+    } else {
+        Err(ServiceError::Invalid {
+            field: Some("category".to_string()),
+            message: format!(
+                "unknown category `{category}` (expected one of {})",
+                VALID_CATEGORIES.join(", ")
+            ),
+        })
+    }
+}
+
+/// `POST /api/v2/scanner-data/{category}` — the category's scanner points within
+/// the body's drawn `area` (or `bbox`), as a `SingleVec` of `[lat, lon]` pairs.
+/// Ports v1 `/internal/data/area`(+`bound`); unknown `category` ⇒ `400`.
+#[allow(clippy::result_large_err)]
+#[post("/{category}")]
+pub(crate) async fn by_area(
+    conn: web::Data<KojiDb>,
+    path: web::Path<String>,
+    payload: web::Json<AreaReq>,
+) -> Result<HttpResponse, ServiceError> {
+    let category = path.into_inner();
+    validate_category(&category)?;
+    let req = payload.into_inner();
+    let area = resolve_area(&req);
+
+    let points = utils::points_from_area(&area, &category, &conn, req.last_seen, req.tth)
+        .await
+        .map_err(ServiceError::internal)?
+        .to_single_vec();
+
+    log::info!("[DATA-AREA] Returning {} {category}s", points.len());
+    Ok(ApiResponse::success(json!({ "points": points })))
+}
+
+/// `POST /api/v2/scanner-data/{category}/stats` — the count of the category's
+/// scanner points within the body's drawn `area` (or `bbox`). Ports v1
+/// `/internal/data/area_stats`; returns `{ "total": <usize> }`.
+#[allow(clippy::result_large_err)]
+#[post("/{category}/stats")]
+pub(crate) async fn area_stats(
+    conn: web::Data<KojiDb>,
+    path: web::Path<String>,
+    payload: web::Json<AreaReq>,
+) -> Result<HttpResponse, ServiceError> {
+    let category = path.into_inner();
+    validate_category(&category)?;
+    let req = payload.into_inner();
+    let area = resolve_area(&req);
+    let last_seen = req.last_seen;
+
+    // Per-category stat query (mirrors v1 `area_stats`). `fort` has no single
+    // stats query, so aggregate its members' totals — consistent with how
+    // `points_from_area` treats `fort`.
+    let total = match category.as_str() {
+        "gym" => gym::Query::stats(&conn.scanner, &area, last_seen).await?.total,
+        "pokestop" => {
+            pokestop::Query::stats(&conn.scanner, &area, last_seen)
+                .await?
+                .total
+        }
+        "station" => {
+            station::Query::stats(&conn.scanner, &area, last_seen)
+                .await?
+                .total
+        }
+        "spawnpoint" => {
+            spawnpoint::Query::stats(&conn.scanner, &area, last_seen, req.tth)
+                .await?
+                .total
+        }
+        "fort" => {
+            let gyms = gym::Query::stats(&conn.scanner, &area, last_seen).await?.total;
+            let pokestops = pokestop::Query::stats(&conn.scanner, &area, last_seen)
+                .await?
+                .total;
+            let stations = station::Query::stats(&conn.scanner, &area, last_seen)
+                .await?
+                .total;
+            gyms + pokestops + stations
+        }
+        // Unreachable after `validate_category`, but keep the surface total.
+        _ => 0,
+    };
+
+    log::info!("[DATA-AREA] {category} total: {total}");
+    Ok(ApiResponse::success(json!({ "total": total })))
+}
+
+/// The `/scanner-data` scope: the arbitrary-area markers + stats POSTs. Mounted
+/// into `/api/v2` by [`crate::start`]. (The saved-fence GET lives under
+/// [`super::geofences::scope()`], not here.)
+pub(crate) fn scope() -> actix_web::Scope {
+    web::scope("/scanner-data")
+        .service(by_area)
+        .service(area_stats)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -134,5 +355,93 @@ mod tests {
         assert!(VALID_CATEGORIES.contains(&"station"));
         assert!(VALID_CATEGORIES.contains(&"fort"));
         assert!(!VALID_CATEGORIES.contains(&"bogus"));
+    }
+
+    // --- arbitrary-area POST surface (T2) ---
+
+    #[test]
+    fn validate_category_rejects_unknown_as_invalid_400() {
+        // Known categories pass.
+        assert!(validate_category("gym").is_ok());
+        assert!(validate_category("fort").is_ok());
+        // Unknown ⇒ ServiceError::Invalid on field "category" (a clean 400).
+        match validate_category("bogus") {
+            Err(ServiceError::Invalid { field, message }) => {
+                assert_eq!(field.as_deref(), Some("category"));
+                assert!(message.contains("bogus"));
+            }
+            other => panic!("expected Invalid(category), got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn area_req_deserializes_camelcase_and_defaults() {
+        // Empty body: no area/bbox, lastSeen 0, tth All.
+        let req: AreaReq = serde_json::from_str("{}").unwrap();
+        assert!(req.area.is_none() && req.bbox.is_none());
+        assert_eq!(req.last_seen, 0);
+        assert!(matches!(req.tth, SpawnpointTth::All));
+
+        // camelCase wire: lastSeen + a flat camelCase bbox.
+        let req: AreaReq = serde_json::from_str(
+            r#"{"bbox":{"minLat":1.0,"minLon":2.0,"maxLat":3.0,"maxLon":4.0},"lastSeen":600,"tth":"Known"}"#,
+        )
+        .unwrap();
+        let bbox: KojiBbox = req.bbox.expect("bbox parsed").into();
+        assert_eq!(
+            (bbox.min_lat, bbox.min_lon, bbox.max_lat, bbox.max_lon),
+            (1.0, 2.0, 3.0, 4.0)
+        );
+        assert_eq!(req.last_seen, 600);
+        assert!(matches!(req.tth, SpawnpointTth::Known));
+    }
+
+    #[test]
+    fn bbox_collection_builds_one_closed_lonlat_polygon() {
+        let bbox = KojiBbox {
+            min_lat: 1.0,
+            min_lon: 2.0,
+            max_lat: 3.0,
+            max_lon: 4.0,
+        };
+        let fc = bbox_collection(bbox);
+        assert_eq!(fc.features.len(), 1);
+        let geom = fc.features[0].geometry.as_ref().unwrap();
+        match &geom.value {
+            Value::Polygon(rings) => {
+                assert_eq!(rings.len(), 1);
+                let ring = &rings[0];
+                // 5 coords, closed; geojson order is [lon, lat].
+                assert_eq!(ring.len(), 5);
+                assert_eq!(ring.first(), ring.last());
+                assert_eq!(ring[0], vec![2.0, 1.0]); // [min_lon, min_lat]
+                assert_eq!(ring[2], vec![4.0, 3.0]); // [max_lon, max_lat]
+            }
+            other => panic!("expected Polygon, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn resolve_area_prefers_area_then_bbox_then_empty() {
+        // Neither → empty collection.
+        let empty = AreaReq::default();
+        assert!(resolve_area(&empty).features.is_empty());
+
+        // bbox-only → one polygon (via bbox_collection).
+        let bbox_only: AreaReq = serde_json::from_str(
+            r#"{"bbox":{"minLat":0.0,"minLon":0.0,"maxLat":1.0,"maxLon":1.0}}"#,
+        )
+        .unwrap();
+        assert_eq!(resolve_area(&bbox_only).features.len(), 1);
+
+        // area present → area wins (bbox ignored). A FeatureCollection area with
+        // one polygon feature resolves to one feature.
+        let area_wins: AreaReq = serde_json::from_str(
+            r#"{"area":{"type":"FeatureCollection","features":[{"type":"Feature","properties":{},
+              "geometry":{"type":"Polygon","coordinates":[[[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,1.0],[0.0,0.0]]]}}]},
+              "bbox":{"minLat":9.0,"minLon":9.0,"maxLat":9.0,"maxLon":9.0}}"#,
+        )
+        .unwrap();
+        assert_eq!(resolve_area(&area_wins).features.len(), 1);
     }
 }
