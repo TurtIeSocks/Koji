@@ -227,7 +227,10 @@ async fn cancel_job(
 /// (plugins included). Was `/meta/algorithms`.
 #[get("/algorithms")]
 async fn algorithms() -> Result<HttpResponse, ServiceError> {
-    use algorithms::{bootstrap, clustering, routing};
+    // `::algorithms` (absolute crate path) — the local handler `algorithms`
+    // shadows the crate name inside this fn body, so a bare `use algorithms::…`
+    // would resolve to this unit struct, not the external crate.
+    use ::algorithms::{bootstrap, clustering, routing};
     Ok(ApiResponse::success(json!({
         "clustering": clustering::all_clustering_options(),
         "routing": routing::all_routing_options(),

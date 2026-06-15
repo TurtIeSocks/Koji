@@ -266,12 +266,11 @@ pub async fn start() -> io::Result<()> {
                     .service(
                         web::scope("/v2")
                             .wrap(HttpAuthentication::with_fn(auth::public_validator))
-                            .service(public::v2::jobs::enqueue_job)
+                            .service(public::v2::jobs::create_job)
+                            .service(public::v2::jobs::list_jobs)
                             .service(public::v2::jobs::get_job)
                             .service(public::v2::jobs::cancel_job)
-                            .service(public::v2::jobs::calc_mode_category)
-                            .service(public::v2::jobs::calc_mode)
-                            .service(public::v2::jobs::meta_algorithms)
+                            .service(public::v2::jobs::algorithms)
                             // Typed CRUD resources. Geometry-bearing geofences/routes
                             // are hand-written (honor `?format=`); projects/
                             // properties/tile-servers are macro-generated plain-ApiResponse
