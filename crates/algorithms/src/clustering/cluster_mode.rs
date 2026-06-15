@@ -1,85 +1,19 @@
-use serde::{Deserialize, Serialize, Serializer};
+use macros::StrEnum;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, StrEnum)]
 pub enum ClusterMode {
+    #[str("honeycomb")]
     Honeycomb,
+    #[str("fastest")]
     Fastest,
+    #[str("fast")]
     Fast,
+    #[str("balanced")]
     Balanced,
+    #[str("better")]
     Better,
+    #[str("best")]
     Best,
+    #[str(default)]
     Custom(String),
-}
-
-impl<'de> Deserialize<'de> for ClusterMode {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s: String = serde::Deserialize::deserialize(deserializer)?;
-        match s.to_lowercase().as_str() {
-            "honeycomb" => Ok(ClusterMode::Honeycomb),
-            "fastest" => Ok(ClusterMode::Fastest),
-            "fast" => Ok(ClusterMode::Fast),
-            "balanced" => Ok(ClusterMode::Balanced),
-            "better" => Ok(ClusterMode::Better),
-            "best" => Ok(ClusterMode::Best),
-            "bruteforce" => {
-                log::warn!("bruteforce is now deprecated, using `better` strategy instead");
-                Ok(ClusterMode::Better)
-            }
-            "rtree" => {
-                log::warn!("rtree is now deprecated, using `balanced` strategy instead");
-                Ok(ClusterMode::Balanced)
-            }
-            _ => Ok(ClusterMode::Custom(s)),
-        }
-    }
-}
-
-impl Serialize for ClusterMode {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(match self {
-            ClusterMode::Honeycomb => "honeycomb",
-            ClusterMode::Fastest => "fastest",
-            ClusterMode::Fast => "fast",
-            ClusterMode::Balanced => "balanced",
-            ClusterMode::Better => "better",
-            ClusterMode::Best => "best",
-            ClusterMode::Custom(s) => s,
-        })
-    }
-}
-
-impl PartialEq for ClusterMode {
-    fn eq(&self, other: &Self) -> bool {
-        matches!(
-            (self, other),
-            (ClusterMode::Honeycomb, ClusterMode::Honeycomb)
-                | (ClusterMode::Fastest, ClusterMode::Fastest)
-                | (ClusterMode::Fast, ClusterMode::Fast)
-                | (ClusterMode::Balanced, ClusterMode::Balanced)
-                | (ClusterMode::Better, ClusterMode::Better)
-                | (ClusterMode::Best, ClusterMode::Best)
-        )
-    }
-}
-
-impl Eq for ClusterMode {}
-
-impl std::fmt::Display for ClusterMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            ClusterMode::Honeycomb => "Honeycomb",
-            ClusterMode::Fastest => "Fastest",
-            ClusterMode::Fast => "Fast",
-            ClusterMode::Balanced => "Balanced",
-            ClusterMode::Better => "Better",
-            ClusterMode::Best => "Best",
-            ClusterMode::Custom(s) => s,
-        })
-    }
 }

@@ -33,16 +33,11 @@ pub fn get_enum(instance_type: Option<String>) -> Mode {
 /// the sea-orm enum via `.into()`.)
 pub fn get_category_enum(category: String) -> Category {
     use crate::category::Category as DomainCategory;
-    let domain = match category.to_lowercase().as_str() {
-        "database" => DomainCategory::Database,
-        "boolean" => DomainCategory::Boolean,
-        "number" => DomainCategory::Number,
-        "object" => DomainCategory::Object,
-        "array" => DomainCategory::Array,
-        "color" => DomainCategory::Color,
-        _ => DomainCategory::String,
-    };
-    domain.into()
+    // `Category` derives StrEnum (case-insensitive); unknown → `String`,
+    // matching the prior manual fallthrough.
+    DomainCategory::from_str_opt(&category)
+        .unwrap_or(DomainCategory::String)
+        .into()
 }
 
 pub async fn get_database_struct() -> KojiDb {
