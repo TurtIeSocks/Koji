@@ -1,7 +1,9 @@
 /* eslint-disable no-console */
 /* eslint-disable no-nested-ternary */
 import type {
-  KojiResponse,
+  ApiEnvelope,
+  JobRecord,
+  CalcJobResult,
   PixiMarker,
   Conversions,
   Feature,
@@ -17,55 +19,166 @@ import { UseDbCache, useDbCache } from '@hooks/useDbCache'
 
 import { fromSnakeCase, getMapBounds, getRouteType } from './utils'
 
+/**
+ * v2 envelope adapter. Every `/api/v2/*` JSON response is the discriminated
+ * `{ status: 'ok', data, meta? } | { status: 'error', error }` envelope, so
+ * `fetchWrapper<T>` returns the UNWRAPPED `data` (`T`) on success, or `null` on
+ * error (pushing `error.message` as a notification). Callers no longer read
+ * `res.data` — `T` is the inner payload type directly.
+ *
+ * Note: raw `?format=` exports (e.g. `sql`/`text`/`poracle`) come back NOT
+ * enveloped — JSON.parse would throw on raw text. Those specific calls (see
+ * `convert`) read the body themselves rather than going through `fetchWrapper`.
+ */
 export async function fetchWrapper<T>(
   url: string,
   options: RequestInit = {},
 ): Promise<T | null> {
   try {
     const res = await fetch(url, options)
-    if (!res.ok) {
+    // Parse the body once; the v2 envelope discriminates on `status`.
+    const json = (await res.json().catch(() => null)) as ApiEnvelope<T> | null
+    if (!res.ok || (json && json.status === 'error')) {
+      const message =
+        json && json.status === 'error'
+          ? json.error?.message || 'Request failed'
+          : `Request failed (${res.status})`
       useStatic.setState({
         notification: {
-          message: await res.text(),
+          message,
           status: res.status,
           severity: 'error',
         },
       })
       return null
     }
-    return await res.json()
+    if (json && json.status === 'ok') return json.data
+    // 204 No Content / empty body → no data to unwrap.
+    return null
   } catch (e) {
     console.error(e)
     return null
   }
 }
 
+/**
+ * Poll a v2 job to a terminal state. Loops `GET /api/v2/jobs/{id}?wait=10`
+ * (the backend long-polls up to 10s per call, then returns the record regardless
+ * — never a 504), re-issuing until `status` is terminal (`succeeded`/`failed`/
+ * `canceled`) or the `signal` aborts. On abort it fires `DELETE /api/v2/jobs/{id}`
+ * (best-effort cancellation) and rethrows the AbortError.
+ *
+ * TODO(v2-verify): the poll loop + `?wait=` long-poll are RUNTIME-UNVERIFIED here
+ * (no backend/DB in this env). Confirm against a live deploy: terminal detection,
+ * abort→DELETE, and that a `failed` job surfaces its `error` to the user.
+ */
+export async function pollJob(
+  jobId: string,
+  signal?: AbortSignal,
+): Promise<JobRecord> {
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    if (signal?.aborted) {
+      // Best-effort server-side cancel, then propagate the abort.
+      fetchWrapper(`/api/v2/jobs/${jobId}`, { method: 'DELETE' }).catch(() => {})
+      throw new DOMException('Aborted', 'AbortError')
+    }
+    const record = await fetchWrapper<JobRecord>(
+      `/api/v2/jobs/${jobId}?wait=10`,
+      { method: 'GET', signal },
+    )
+    if (!record) {
+      // A null here is an envelope error / network failure (already notified).
+      throw new Error(`Job ${jobId} could not be read`)
+    }
+    if (
+      record.status === 'succeeded' ||
+      record.status === 'failed' ||
+      record.status === 'canceled'
+    ) {
+      return record
+    }
+    // Non-terminal: loop again immediately (the server already waited ~10s).
+  }
+}
+
+/** v2 resource path segment for a cache key (`geofence`→`geofences`, …). */
+const V2_RESOURCE_SEG: Record<'geofence' | 'project' | 'route', string> = {
+  geofence: 'geofences',
+  project: 'projects',
+  route: 'routes',
+}
+
+/**
+ * Refresh one Kōji metadata cache from v2.
+ *
+ * - `project` → `GET /api/v2/projects?per_page=9999` returns ROW records
+ *   (`{ id, name, scanner, ... }`) — used as-is.
+ * - `geofence`/`route` → `GET /api/v2/{seg}?per_page=9999` returns a GeoJSON
+ *   `FeatureCollection` (these resources are geometry-bearing in v2). We derive a
+ *   best-effort `DbOption` from each feature's `properties` (KojiMeta `id`/`name`/
+ *   `mode`) + geometry type.
+ *
+ * TODO(v2-verify): the geofence/route cache is a LOSSY GeoJSON→DbOption derivation:
+ *   (1) v2 collapses the 12 legacy RDM modes to 4 (`pokemon`/`fort`/`quest`/`unset`),
+ *       so `DbOption.mode` is no longer the granular value `getRouteByCategory`
+ *       (which matches `mode.includes('raid'|'quest'|'station')`) expects —
+ *       route↔category matching will mis-resolve.
+ *   (2) the row-link fields (`geofences`/`projects`/`geofence_id`) are NOT in the
+ *       GeoJSON, so they default empty/undefined — `SelectProject`/`Instance`
+ *       project→fence expansion loses those links.
+ * Needs a dedicated v2 row/metadata endpoint (or `properties` carrying the links)
+ * to be fully correct. Flagged for the user's live smoke.
+ */
 export async function getKojiCache<T extends 'geofence' | 'project' | 'route'>(
   resource: T,
 ): Promise<UseDbCache[T] | null> {
-  const res = await fetch(`/internal/admin/${resource}/all/`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  })
-  if (!res.ok) {
-    useStatic.setState({
-      notification: {
-        message: await res.text(),
-        status: res.status,
-        severity: 'error',
-      },
-    })
-    return null
+  const seg = V2_RESOURCE_SEG[resource]
+
+  if (resource === 'project') {
+    const data = await fetchWrapper<UseDbCache[T][string][]>(
+      `/api/v2/${seg}?per_page=9999`,
+      { method: 'GET', headers: { 'Content-Type': 'application/json' } },
+    )
+    if (!data) return null
+    const asObject = Object.fromEntries(
+      data.map((d) => [d.id, d]),
+    ) as UseDbCache[T]
+    useDbCache.setState({ [resource]: asObject })
+    console.log(
+      'Cache set:',
+      resource,
+      process.env.NODE_ENV === 'development' ? data : data.length,
+    )
+    return asObject
   }
-  const { data }: KojiResponse<UseDbCache[T][string][]> = await res.json()
-  const asObject = Object.fromEntries(data.map((d) => [d.id, d]))
+
+  // geofence / route: GeoJSON FeatureCollection → best-effort DbOption[].
+  const fc = await fetchWrapper<FeatureCollection>(
+    `/api/v2/${seg}?per_page=9999`,
+    { method: 'GET', headers: { 'Content-Type': 'application/json' } },
+  )
+  if (!fc) return null
+  const records = (fc.features || []).map((feature) => {
+    const props = feature.properties || {}
+    const id = (props.id as number) ?? (props.__id as number) ?? feature.id
+    return {
+      id,
+      name: (props.name as string) ?? (props.__name as string) ?? `${id}`,
+      mode: (props.mode as DbOption['mode']) ?? props.__mode ?? 'unset',
+      geo_type: feature.geometry?.type,
+      geofence_id:
+        (props.geofence_id as number) ?? (props.__geofence_id as number),
+    } as DbOption
+  })
+  const asObject = Object.fromEntries(
+    records.map((d) => [d.id, d]),
+  ) as UseDbCache[T]
   useDbCache.setState({ [resource]: asObject })
   console.log(
     'Cache set:',
     resource,
-    process.env.NODE_ENV === 'development' ? data : data.length,
+    process.env.NODE_ENV === 'development' ? records : records.length,
   )
   return asObject
 }
@@ -78,25 +191,24 @@ export async function refreshKojiCache() {
   ])
 }
 
-export async function getScannerCache() {
-  return fetchWrapper<KojiResponse<DbOption[]>>(
-    '/internal/routes/from_scanner',
-  ).then((res) => {
-    if (res) {
-      const asObject = Object.fromEntries(
-        res.data.map((t) => [`${t.id}__${t.mode}__SCANNER`, t]),
-      )
-      useDbCache.setState({
-        scanner: asObject,
-      })
-      console.log(
-        'Cache set:',
-        'scanner',
-        process.env.NODE_ENV === 'development' ? res.data : res.data.length,
-      )
-      return asObject
-    }
-  })
+/**
+ * Scanner-sourced routes cache.
+ *
+ * TODO(v2-gap): the v1 `/internal/routes/from_scanner` endpoint (routes pulled
+ * from the scanner DB's `instance`/`area` tables) has NO v2 equivalent — the v2
+ * surface does not expose scanner-sourced routes. Stubbed to clear the `scanner`
+ * cache so callers (`SaveToScanner`, the calc `save_to_scanner` refresh, the
+ * `Instance` selector's scanner mode) build + run without crashing; they simply
+ * see an empty scanner list. Flagged for the user — if scanner-route browsing is
+ * still needed, a v2 endpoint must be added (P7+).
+ */
+export async function getScannerCache(): Promise<
+  Record<string, DbOption> | undefined
+> {
+  const asObject: Record<string, DbOption> = {}
+  useDbCache.setState({ scanner: asObject })
+  console.log('Cache set:', 'scanner', '(v2-gap: stubbed empty)')
+  return asObject
 }
 
 export async function getFullCache() {

@@ -179,6 +179,74 @@ export interface KojiResponse<T = FeatureCollection> {
   stats: KojiStats
 }
 
+// V2 API ENVELOPE TYPES ==========================================================================
+// The v2 surface (`/api/v2/*`) wraps every response in a discriminated envelope
+// (matches Dragonite v2 / koji-service `ApiResponse`):
+//   success: { status: 'ok', data: T, meta?: ApiMeta }
+//   error:   { status: 'error', error: { code, message, field? } }
+// `fetchWrapper` unwraps `ok` → `data` and surfaces `error.message` as a notification.
+
+/** Pagination block on v2 collection (`getList`) responses. */
+export interface ApiMeta {
+  total: number
+  page: number
+  per_page: number
+  total_pages: number
+  has_next: boolean
+  has_prev: boolean
+}
+
+/** Success envelope. */
+export interface ApiOk<T> {
+  status: 'ok'
+  data: T
+  meta?: ApiMeta
+}
+
+/** Error envelope (`error.code`/`message`/optional `field`). */
+export interface ApiErr {
+  status: 'error'
+  error: { code: string; message: string; field?: string }
+}
+
+export type ApiEnvelope<T> = ApiOk<T> | ApiErr
+
+/** Terminal + in-flight v2 job lifecycle states (koji-jobs `JobStatus`). */
+export type JobStatus =
+  | 'queued'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'canceled'
+
+/**
+ * The calc job result payload (`JobRecord.result` once `succeeded`).
+ * The compute core returns `{ data: <geojson FC | null>, stats }`; `data` is
+ * `null` in benchmark mode.
+ */
+export interface CalcJobResult {
+  data: FeatureCollection | null
+  stats: KojiStats
+}
+
+/**
+ * A v2 job record (`GET /api/v2/jobs/{id}` → envelope `data`). Read-only view of
+ * a job's observable state (koji-jobs `JobRecord`).
+ */
+export interface JobRecord {
+  id: string
+  kind: string
+  status: JobStatus
+  progress: number
+  phase?: string | null
+  /** Present once `succeeded`. The calc handler's `{ data, stats }`. */
+  result?: CalcJobResult | null
+  /** Present once `failed`. */
+  error?: string | null
+}
+
+// ================================================================================================
+
 export interface DbOption
   extends Omit<BasicKojiEntry, 'created_at' | 'updated_at'> {
   mode: KojiModes
