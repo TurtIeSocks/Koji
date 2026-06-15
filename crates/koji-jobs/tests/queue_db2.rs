@@ -359,26 +359,17 @@ async fn claim_respects_priority_order() {
     let _ = hi; // silence unused warning
 }
 
-/// BUG: The reclaim-exhaustion branch in `claim()` is dead code.
+/// A running job with an expired lease and `attempts == max_attempts` is marked
+/// `failed` by `claim()` (reclaim-exhaustion path, spec §5).
 ///
-/// The candidate SELECT has `WHERE attempts < max_attempts`. A row with
-/// `attempts = max_attempts` is excluded by this guard and never returned to the
-/// Rust code. Therefore the `if attempts + 1 > max_attempts` check that follows
-/// can never be true (since `attempts < max_attempts` implies
-/// `attempts + 1 <= max_attempts`). The exhaustion branch that calls
-/// `UPDATE … SET status='failed'` is unreachable.
+/// Regression test for an off-by-one bug where the candidate SELECT used
+/// `attempts < max_attempts`, making the exhaustion guard unreachable and leaving
+/// such jobs permanently stuck as `running`.
 ///
-/// Symptom: a dead worker that consumed its last attempt leaves the job stuck as
-/// `running` with an expired lease and `attempts == max_attempts`. The next
-/// `claim()` call finds no candidate (`attempts < max_attempts` filter excludes it)
-/// and returns `None`, leaving the job permanently stuck — it never gets marked
-/// failed and never feeds the grace window.
-///
-/// Fix: change the WHERE to `attempts <= max_attempts` (or `attempts + 1 <=
-/// max_attempts + 1`) and keep the exhaustion branch to handle the boundary case,
-/// OR remove the redundant Rust check and move exhaustion detection into the SQL.
+/// Fix applied: SELECT now uses `attempts <= max_attempts`. The guard
+/// `attempts + 1 > max_attempts` catches the boundary row and fails it rather than
+/// handing it out as runnable.
 #[tokio::test]
-#[ignore = "BUG: claim() exhaustion branch is dead — WHERE attempts < max_attempts excludes the boundary row"]
 async fn claim_exhausted_reclaim_marks_failed() {
     let Some(db) = test_db().await else { return };
     let _serial = serial_guard().await;
@@ -390,8 +381,9 @@ async fn claim_exhausted_reclaim_marks_failed() {
         .await
         .expect("enqueue");
 
-    // Force running with attempts = max_attempts (= 1, the schema default) and
-    // an expired lease. This is the boundary case the exhaustion branch should handle.
+    // Simulate a dead worker: force the job to `running` with
+    // `attempts = max_attempts` (= 1, the schema default) and an expired lease.
+    // This is the boundary case the reclaim-exhaustion branch must handle.
     db.execute(Statement::from_sql_and_values(
         DbBackend::MySql,
         "UPDATE `job` SET `status` = 'running', `attempts` = `max_attempts`, \
@@ -404,28 +396,17 @@ async fn claim_exhausted_reclaim_marks_failed() {
     .await
     .expect("force dead-worker running state with attempts=max_attempts");
 
-    // BUG: claim() returns None (row excluded by WHERE attempts < max_attempts),
-    // but the design intent is that this row is marked failed.
+    // claim() must mark this job failed (not return it as runnable, not return None).
     let result = q.claim().await;
     let rec = q.get(id).await;
-    // Manual terminal update so cleanup works.
-    db.execute(Statement::from_sql_and_values(
-        DbBackend::MySql,
-        "UPDATE `job` SET `status` = 'failed', `finished_at` = NOW() WHERE `public_id` = ?",
-        [Value::from(id.as_string())],
-    ))
-    .await
-    .ok();
     cleanup(&db, &kind).await;
 
     result.expect("claim must not error");
     let rec = rec.expect("get must find the job");
-    // This assertion documents the BUG: status is still 'running' (stuck),
-    // not 'failed' as the spec intends.
     assert_eq!(
         rec.status,
         JobStatus::Failed,
-        "BUG: exhausted reclaim must mark the job failed, but it is stuck as {:?}",
+        "exhausted reclaim must mark the job failed, got {:?}",
         rec.status
     );
 }

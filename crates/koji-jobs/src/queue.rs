@@ -409,7 +409,7 @@ impl JobQueue {
                     DbBackend::MySql,
                     "SELECT `id`, `attempts`, `max_attempts` FROM `job` \
                      WHERE (`status` = 'queued' OR (`status` = 'running' AND `lease_expires` < NOW())) \
-                       AND `attempts` < `max_attempts` \
+                       AND `attempts` <= `max_attempts` \
                      ORDER BY `priority` DESC, `id` ASC \
                      LIMIT 1 \
                      FOR UPDATE SKIP LOCKED",
