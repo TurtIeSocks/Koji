@@ -211,5 +211,97 @@ mod tests {
         assert_eq!(rotated.len(), 2);
         assert!((rotated[0][0] - best[0]).abs() < 1e-6);
     }
+
+    // ── centroid: geographic edge cases ───────────────────────────────────────
+
+    #[test]
+    fn centroid_equatorial_point() {
+        // Point on the equator at prime meridian: centroid = itself.
+        let pts = [[0.0_f64, 0.0_f64]];
+        let c = centroid(&pts);
+        assert!(c[0].abs() < 1e-6, "lat: {}", c[0]);
+        assert!(c[1].abs() < 1e-6, "lon: {}", c[1]);
+    }
+
+    #[test]
+    fn centroid_three_collinear_meridian_points() {
+        // Three points on the same meridian (lon=0), symmetric about equator.
+        // Lat 10°, 0°, -10° → centroid lat ≈ 0°.
+        let pts = [[10.0_f64, 0.0_f64], [0.0, 0.0], [-10.0, 0.0]];
+        let c = centroid(&pts);
+        assert!(c[0].abs() < 0.1, "centroid lat should be ~0, got {}", c[0]);
+    }
+
+    #[test]
+    fn centroid_large_cluster_stays_within_bbox() {
+        // 9 points in a 3×3 grid around NYC → centroid is inside the grid bbox.
+        let pts: Vec<[f64; 2]> = (0..3)
+            .flat_map(|r| (0..3).map(move |c| [40.0 + r as f64 * 0.01, -74.0 + c as f64 * 0.01]))
+            .collect();
+        let c = centroid(&pts);
+        assert!(c[0] >= 40.0 && c[0] <= 40.02, "lat {}", c[0]);
+        assert!(c[1] >= -74.0 && c[1] <= -73.98, "lon {}", c[1]);
+    }
+
+    #[test]
+    fn centroid_southern_hemisphere() {
+        // Single point at Sydney: centroid = itself.
+        let pts = [[-33.8688_f64, 151.2093_f64]];
+        let c = centroid(&pts);
+        assert!((c[0] - (-33.8688)).abs() < 0.001);
+        assert!((c[1] - 151.2093).abs() < 0.001);
+    }
+
+    #[test]
+    fn centroid_two_antipodal_lons_same_lat() {
+        // Two points same lat, lon 90° apart: centroid lon = 45°.
+        let pts = [[40.0_f64, 0.0_f64], [40.0, 90.0]];
+        let c = centroid(&pts);
+        assert!((c[1] - 45.0).abs() < 0.5, "centroid lon ≈ 45°, got {}", c[1]);
+    }
+
+    // ── rotate_to_best: multiple best clusters ─────────────────────────────────
+
+    #[test]
+    fn rotate_to_best_uses_last_match_as_rotate_count() {
+        // Two clusters match best_clusters: the last one in the original list
+        // determines rotate_count (overwrites earlier matches in the loop).
+        // We just verify the total length is preserved.
+        let a = [40.0_f64, -74.0_f64];
+        let b = [41.0_f64, -74.0_f64];
+        let c = [42.0_f64, -74.0_f64];
+
+        let mut stats = Stats::new("test".into(), 1);
+        // Both a and b are "best" → either could become first.
+        stats.best_clusters = vec![a, b];
+
+        let clusters = vec![c, a, b];
+        let rotated = rotate_to_best(clusters, &stats);
+        assert_eq!(rotated.len(), 3, "no points should be lost");
+        // Either a or b is first (whichever is last in the list scan).
+        let first = rotated[0];
+        assert!(
+            (first[0] - a[0]).abs() < 1e-6 || (first[0] - b[0]).abs() < 1e-6,
+            "first should be one of the best clusters, got {:?}",
+            first
+        );
+    }
+
+    #[test]
+    fn rotate_to_best_no_match_keeps_original_order() {
+        // best_clusters doesn't match any cluster → rotate_count stays 0 → no rotation.
+        let a = [40.0_f64, -74.0_f64];
+        let b = [41.0_f64, -74.0_f64];
+        let unknown = [50.0_f64, 0.0_f64]; // not in clusters
+
+        let mut stats = Stats::new("test".into(), 1);
+        stats.best_clusters = vec![unknown];
+
+        let clusters = vec![a, b];
+        let rotated = rotate_to_best(clusters, &stats);
+        assert_eq!(rotated.len(), 2);
+        // No match → rotate_left(0) → original order preserved.
+        assert!((rotated[0][0] - a[0]).abs() < 1e-6, "first should still be a");
+    }
 }
 
