@@ -6,27 +6,24 @@
 //! Mounted under the shared `public_validator` like the other v2 resources; a
 //! dedicated gate is deferred to the global API-security rework.
 
-use actix_web::{Error, HttpResponse, http::StatusCode, web};
+use actix_web::{Error, HttpResponse, web};
 use koji_db::{KojiDb, db::plugin_config};
 use koji_plugins::{PluginKind, PluginRegistry};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::utils::api_response::ApiResponse;
+use crate::utils::{api_response::ApiResponse, error::ServiceError};
 
-/// Parse a `"{kind}:{name}"` resource id. `name` may itself contain `:`.
-fn parse_id(id: &str) -> Option<(PluginKind, String)> {
-    let (kind, name) = id.split_once(':')?;
-    let kind = match kind {
-        "clustering" => PluginKind::Clustering,
-        "routing" => PluginKind::Routing,
-        "bootstrap" => PluginKind::Bootstrap,
-        _ => return None,
-    };
-    if name.is_empty() {
-        return None;
+/// Parse a `{kind}` path segment into a [`PluginKind`]. The plugin `name` is a
+/// free-form segment carried alongside it (`/plugins/{kind}/{name}`), so only
+/// the discriminator is validated here.
+fn parse_kind(kind: &str) -> Option<PluginKind> {
+    match kind {
+        "clustering" => Some(PluginKind::Clustering),
+        "routing" => Some(PluginKind::Routing),
+        "bootstrap" => Some(PluginKind::Bootstrap),
+        _ => None,
     }
-    Some((kind, name.to_string()))
 }
 
 /// PATCH body — every field optional (overlay merge).
@@ -66,10 +63,10 @@ pub(crate) async fn rebuild_and_install(db: &KojiDb) -> Result<(), Error> {
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
     for row in rows {
-        if let Some((kind, name)) = parse_id(&format!("{}:{}", row.kind, row.name)) {
+        if let Some(kind) = parse_kind(&row.kind) {
             reg.set_overlay(
                 kind,
-                &name,
+                &row.name,
                 koji_plugins::Overlay {
                     enabled: row.enabled,
                     args_default: row.args_default,
@@ -83,7 +80,7 @@ pub(crate) async fn rebuild_and_install(db: &KojiDb) -> Result<(), Error> {
 
 /// `GET /api/v2/plugins` — every disk-discovered plugin (enabled or not) merged
 /// with its overlay.
-async fn list(_db: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
+async fn list(_db: web::Data<KojiDb>) -> Result<HttpResponse, ServiceError> {
     let reg = koji_plugins::current();
     let views: Vec<Value> = reg
         .all_unfiltered_keys()
@@ -93,50 +90,50 @@ async fn list(_db: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
     Ok(ApiResponse::success(views))
 }
 
-/// `GET /api/v2/plugins/{id}` — one plugin's merged view; `400` for a malformed
-/// id, `404` when no plugin matches.
-async fn get_one(path: web::Path<String>) -> Result<HttpResponse, Error> {
-    let id = path.into_inner();
-    let Some((kind, name)) = parse_id(&id) else {
-        return Ok(ApiResponse::fail(
-            StatusCode::BAD_REQUEST,
-            json!({ "id": "expected {kind}:{name}" }),
-        ));
+/// `GET /api/v2/plugins/{kind}/{name}` — one plugin's merged view; `404` for an
+/// unknown `kind` or when no plugin matches.
+async fn get_one(path: web::Path<(String, String)>) -> Result<HttpResponse, ServiceError> {
+    let (kind, name) = path.into_inner();
+    let Some(kind) = parse_kind(&kind) else {
+        return Err(ServiceError::NotFound {
+            field: "plugin",
+            message: format!("no plugin {kind}/{name}"),
+        });
     };
     let reg = koji_plugins::current();
     match plugin_view(&reg, kind, &name) {
         Some(view) => Ok(ApiResponse::success(view)),
-        None => Ok(ApiResponse::fail(
-            StatusCode::NOT_FOUND,
-            json!({ "id": format!("no plugin {id}") }),
-        )),
+        None => Err(ServiceError::NotFound {
+            field: "plugin",
+            message: format!("no plugin {kind}/{name}"),
+        }),
     }
 }
 
-/// `PATCH /api/v2/plugins/{id}` — upsert the overlay (`enabled`/`args_default`/
-/// `description`) and rebuild the registry. `400` malformed id, `422` when no
-/// disk manifest exists for the id.
+/// `PATCH /api/v2/plugins/{kind}/{name}` — upsert the overlay (`enabled`/
+/// `args_default`/`description`) and rebuild the registry. `404` unknown `kind`,
+/// `422` when no disk manifest exists for the id.
 async fn update(
     db: web::Data<KojiDb>,
-    path: web::Path<String>,
+    path: web::Path<(String, String)>,
     body: web::Json<PluginPatch>,
-) -> Result<HttpResponse, Error> {
-    let id = path.into_inner();
-    let Some((kind, name)) = parse_id(&id) else {
-        return Ok(ApiResponse::fail(
-            StatusCode::BAD_REQUEST,
-            json!({ "id": "expected {kind}:{name}" }),
-        ));
+) -> Result<HttpResponse, ServiceError> {
+    let (kind, name) = path.into_inner();
+    let Some(kind) = parse_kind(&kind) else {
+        return Err(ServiceError::NotFound {
+            field: "plugin",
+            message: format!("no plugin {kind}/{name}"),
+        });
     };
     // Enforce the disk gate: only configure a plugin that exists on disk.
     if koji_plugins::current()
         .manifest_unfiltered(kind, &name)
         .is_none()
     {
-        return Ok(ApiResponse::fail(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            json!({ "id": format!("no installed plugin {id}; drop a plugin.toml first") }),
-        ));
+        return Err(ServiceError::Unprocessable {
+            field: Some("id".into()),
+            message: format!("no installed plugin {kind}/{name}; drop a plugin.toml first"),
+        });
     }
     let patch = body.into_inner();
     plugin_config::Query::upsert(
@@ -147,38 +144,43 @@ async fn update(
         patch.args_default,
         patch.description,
     )
-    .await
-    .map_err(actix_web::error::ErrorInternalServerError)?;
-    rebuild_and_install(&db).await?;
+    .await?;
+    rebuild_and_install(&db)
+        .await
+        .map_err(ServiceError::internal)?;
     let reg = koji_plugins::current();
     Ok(ApiResponse::success(plugin_view(&reg, kind, &name)))
 }
 
-/// `DELETE /api/v2/plugins/{id}` — drop the overlay (reset to disk defaults) and
-/// rebuild the registry. `400` for a malformed id.
-async fn remove(db: web::Data<KojiDb>, path: web::Path<String>) -> Result<HttpResponse, Error> {
-    let id = path.into_inner();
-    let Some((kind, name)) = parse_id(&id) else {
-        return Ok(ApiResponse::fail(
-            StatusCode::BAD_REQUEST,
-            json!({ "id": "expected {kind}:{name}" }),
-        ));
+/// `DELETE /api/v2/plugins/{kind}/{name}` — drop the overlay (reset to disk
+/// defaults) and rebuild the registry. `404` for an unknown `kind`.
+async fn remove(
+    db: web::Data<KojiDb>,
+    path: web::Path<(String, String)>,
+) -> Result<HttpResponse, ServiceError> {
+    let (kind, name) = path.into_inner();
+    let Some(kind) = parse_kind(&kind) else {
+        return Err(ServiceError::NotFound {
+            field: "plugin",
+            message: format!("no plugin {kind}/{name}"),
+        });
     };
-    let result = plugin_config::Query::delete(&db.koji, &kind.to_string(), &name)
+    let result = plugin_config::Query::delete(&db.koji, &kind.to_string(), &name).await?;
+    rebuild_and_install(&db)
         .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-    rebuild_and_install(&db).await?;
+        .map_err(ServiceError::internal)?;
     Ok(ApiResponse::success(
         json!({ "rows_affected": result.rows_affected }),
     ))
 }
 
-/// The `/plugins` scope: collection `GET`, item `GET`/`PATCH`/`DELETE`.
+/// The `/plugins` scope: collection `GET`, item `GET`/`PATCH`/`DELETE` keyed by
+/// `/{kind}/{name}` path segments.
 pub(crate) fn scope() -> actix_web::Scope {
     web::scope("/plugins")
         .service(web::resource("").route(web::get().to(list)))
         .service(
-            web::resource("/{id}")
+            web::resource("/{kind}/{name}")
                 .route(web::get().to(get_one))
                 .route(web::patch().to(update))
                 .route(web::delete().to(remove)),
@@ -190,20 +192,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_id_splits_kind_and_name() {
-        assert_eq!(
-            parse_id("routing:tsp").unwrap(),
-            (PluginKind::Routing, "tsp".to_string())
-        );
-        assert_eq!(
-            parse_id("clustering:k:means").unwrap(),
-            (PluginKind::Clustering, "k:means".to_string())
-        );
+    fn parse_kind_maps_known_discriminators() {
+        assert_eq!(parse_kind("routing"), Some(PluginKind::Routing));
+        assert_eq!(parse_kind("clustering"), Some(PluginKind::Clustering));
+        assert_eq!(parse_kind("bootstrap"), Some(PluginKind::Bootstrap));
     }
 
     #[test]
-    fn parse_id_rejects_missing_colon_and_bad_kind() {
-        assert!(parse_id("tsp").is_none());
-        assert!(parse_id("teleport:x").is_none());
+    fn parse_kind_rejects_unknown_discriminator() {
+        assert!(parse_kind("teleport").is_none());
+        assert!(parse_kind("tsp").is_none());
+        assert!(parse_kind("").is_none());
     }
 }

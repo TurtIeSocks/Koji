@@ -114,6 +114,11 @@ impl ApiResponse<()> {
     /// Client-side rejection. The legacy `{"field":"message"}` value is mapped to
     /// `error{code,message,field}`: first object key → `field`, its value →
     /// `message`, `code` derived from the status.
+    ///
+    /// P4 re-pathed the plugins handlers onto typed `ServiceError` variants,
+    /// removing this constructor's last caller; kept (like `error`) for the
+    /// explicit-status error path, hence the scoped allow.
+    #[allow(dead_code)]
     pub(crate) fn fail(status: StatusCode, data: Value) -> HttpResponse {
         let (field, message) = first_field_message(&data);
         let error = ApiError {
@@ -144,7 +149,10 @@ pub(crate) fn code_for_status(status: StatusCode) -> String {
 
 /// Extract `(field, message)` from a legacy `fail` value: the first key of a
 /// JSON object becomes the field and its (stringified) value the message; a
-/// non-object value yields `(None, stringified)`.
+/// non-object value yields `(None, stringified)`. Only `fail` (now caller-less,
+/// see above) and the unit test below reference it, so the non-test build sees
+/// it as dead.
+#[allow(dead_code)]
 fn first_field_message(data: &Value) -> (Option<String>, String) {
     if let Some(obj) = data.as_object()
         && let Some((key, value)) = obj.iter().next()
