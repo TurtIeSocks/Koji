@@ -5,7 +5,6 @@ use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use actix_web::{
     App, Error, HttpResponse, HttpServer,
     cookie::Key,
-    delete,
     dev::{ServiceRequest, ServiceResponse},
     get, middleware, post, web,
 };
@@ -184,59 +183,8 @@ pub async fn start() -> io::Result<()> {
             // public api
             .service(
                 web::scope("/api")
-                    .service(
-                        web::scope("/v1")
-                            .wrap(HttpAuthentication::with_fn(auth::public_validator))
-                            .service(
-                                web::resource("/health").route(web::get().to(HttpResponse::Ok)),
-                            )
-                            .service(
-                                web::scope("/calc")
-                                    .service(public::v1::calculate::bootstrap)
-                                    .service(public::v1::calculate::route_stats)
-                                    .service(public::v1::calculate::route_stats_category)
-                                    .service(public::v1::calculate::reroute)
-                                    .service(public::v1::calculate::calculate_area)
-                                    .service(public::v1::calculate::cluster),
-                            )
-                            .service(
-                                web::scope("/convert")
-                                    .service(public::v1::convert::convert_data)
-                                    .service(public::v1::convert::merge_points)
-                                    .service(public::v1::convert::simplify),
-                            )
-                            .service(
-                                web::scope("/geofence")
-                                    .service(public::v1::geofence::all)
-                                    .service(public::v1::geofence::reference_data)
-                                    .service(public::v1::geofence::reference_data_project)
-                                    .service(public::v1::geofence::save_koji)
-                                    .service(public::v1::geofence::remove)
-                                    .service(public::v1::geofence::get_area)
-                                    .service(public::v1::geofence::specific_return_type)
-                                    .service(public::v1::geofence::specific_project),
-                            )
-                            .service(
-                                web::scope("/route")
-                                    .service(public::v1::route::all)
-                                    .service(public::v1::route::reference_data)
-                                    .service(public::v1::route::reference_data_geofence)
-                                    .service(public::v1::route::save_koji)
-                                    .service(public::v1::route::get_area)
-                                    .service(public::v1::route::specific_return_type)
-                                    .service(public::v1::route::specific_geofence),
-                            )
-                            .service(
-                                web::scope("/s2")
-                                    .service(public::v1::s2::circle_coverage)
-                                    .service(public::v1::s2::cell_coverage)
-                                    .service(public::v1::s2::cell_polygons)
-                                    .service(public::v1::s2::s2_cells),
-                            )
-                            .service(web::scope("/info").service(public::v1::info::main)),
-                    )
                     // v2: clean, best-practices surface over the job queue. Auth is
-                    // applied per-scope (mirrors v1's public_validator).
+                    // applied per-scope.
                     .service(
                         web::scope("/v2")
                             .wrap(HttpAuthentication::with_fn(auth::public_validator))

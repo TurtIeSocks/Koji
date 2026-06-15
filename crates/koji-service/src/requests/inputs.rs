@@ -1,10 +1,8 @@
 //! Inbound wire inputs for the v2 request surface: the accepted `area` geometry
 //! shapes ([`GeoInput`]) and the data-point list shapes ([`DataPointsArg`]).
 //!
-//! The canonical home for these input enums (the frozen v1
-//! [`LegacyArgs`](crate::public::v1::legacy::LegacyArgs) shim and the v2 per-op
-//! requests both use them). The conversions are geojson-only — no direct `geo`
-//! dependency.
+//! The canonical home for these input enums (the v2 per-op requests use them).
+//! The conversions are geojson-only — no direct `geo` dependency.
 
 use geojson::{Feature, FeatureCollection, Geometry};
 use koji_core::{KojiGeometry, KojiGeometryCollection};

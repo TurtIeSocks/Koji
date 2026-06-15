@@ -13,12 +13,11 @@
 //! We resolve those in the HTTP handler **before** enqueue and bake them into
 //! [`CalcPayload`] (`area` + `data_points`), so `run` is pure-sync compute and
 //! never touches the DB. The remaining config knobs ride along as the original
-//! request JSON in [`CalcPayload::request`] (kept a [`serde_json::Value`] because
-//! it is shared by v1 and v2). `run` recovers the config structs from a single
-//! typed shape: both v1 and v2 now enqueue a tagged
-//! [`crate::requests::CalcRequest`] (nested arg-groups, `resolve()`-d into the
-//! koji-core configs). v1's flat wire is mapped to a `CalcRequest` at the HTTP
-//! boundary via [`crate::public::v1::legacy::LegacyArgs::into_calc_request`].
+//! request JSON in [`CalcPayload::request`] (kept a [`serde_json::Value`] so the
+//! handler need not re-derive serde on the koji-core config structs). `run`
+//! recovers the config structs from a single typed shape: the v2 calc handler
+//! enqueues a tagged [`crate::requests::CalcRequest`] (nested arg-groups,
+//! `resolve()`-d into the koji-core configs) directly.
 //!
 //! ## Scope (P4)
 //!
@@ -68,7 +67,7 @@ pub struct CalcPayload {
     /// cluster centers).
     pub category: String,
     /// The original request, re-expressed as JSON. In `run` this is decoded as a
-    /// tagged [`crate::requests::CalcRequest`] (both v1 and v2 enqueue this shape).
+    /// tagged [`crate::requests::CalcRequest`].
     pub request: serde_json::Value,
     /// The pre-resolved area (resolved async in the HTTP handler before enqueue).
     pub area: FeatureCollection,
@@ -117,9 +116,9 @@ impl JobHandler for CalculateHandler {
         let data_points = payload.data_points;
         let clusters = payload.clusters;
 
-        // Single-path typed dispatch. Both v1 and v2 enqueue a tagged
-        // `CalcRequest` (v1 via `LegacyArgs::into_calc_request`); the handler
-        // resolves each op's arg-groups into the koji-core configs.
+        // Single-path typed dispatch. The handler decodes the enqueued tagged
+        // `CalcRequest` and resolves each op's arg-groups into the koji-core
+        // configs.
         let req: CalcRequest = serde_json::from_value(payload.request.clone())
             .map_err(|e| JobError::validation(format!("invalid calc request: {e}")))?;
         let (benchmark_mode, collection, stats): (bool, KojiGeometryCollection, Stats) = match req {
