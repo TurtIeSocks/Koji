@@ -23,6 +23,12 @@ use crate::utils::response::ConfigResponse;
 /// `START_LAT`/`START_LON`/`TILE_SERVER`/`DANGEROUS` from the env, the
 /// `logged_in` flag from the session, and the three plugin lists from the
 /// `algorithms` registries, returned via [`ApiResponse`].
+#[utoipa::path(
+    get,
+    path = "/api/v2/config",
+    tag = "config",
+    responses((status = 200, description = "App bootstrap blob", body = ConfigResponse)),
+)]
 // `ServiceError` is intentionally large (crate-wide allow); this handler never
 // errors today, but keeps the `Result<_, ServiceError>` signature for surface
 // consistency with the other v2 handlers.

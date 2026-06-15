@@ -18,7 +18,10 @@ use actix_web::{
 };
 use serde_json::json;
 
-use crate::{private::Auth, utils::api_response::ApiResponse};
+use crate::{
+    private::Auth,
+    utils::api_response::{ApiError, ApiResponse},
+};
 
 /// Decide the auth `via` for `GET /auth/me`, matching `public_validator`'s
 /// precedence exactly: an active session wins; otherwise an empty `KOJI_SECRET`
@@ -44,6 +47,16 @@ fn decide_via(logged_in: bool, secret: &str, bearer: Option<&str>) -> &'static s
 /// set the session `"logged_in"` flag and return `200` `{authenticated:true}`;
 /// otherwise (mismatch or session-write failure) a plain `401`. Auth failure is
 /// not a `ServiceError` variant, so the `401` is built explicitly.
+#[utoipa::path(
+    post,
+    path = "/api/v2/auth/login",
+    tag = "auth",
+    request_body = Auth,
+    responses(
+        (status = 200, description = "Authenticated: `{ authenticated: true }`", body = Object),
+        (status = 401, description = "Invalid password", body = ApiError),
+    ),
+)]
 async fn login(payload: web::Json<Auth>, session: Session) -> HttpResponse {
     if payload.password == env::var("KOJI_SECRET").unwrap_or_default() {
         match session.insert("logged_in", true) {
@@ -62,6 +75,12 @@ async fn login(payload: web::Json<Auth>, session: Session) -> HttpResponse {
 /// `POST /api/v2/auth/logout` — clear the session and return `204` (the legacy
 /// `/config/logout` returned a `302` to `/`; the v2 surface is a content-less
 /// `204`).
+#[utoipa::path(
+    post,
+    path = "/api/v2/auth/logout",
+    tag = "auth",
+    responses((status = 204, description = "Session cleared")),
+)]
 async fn logout(session: Session) -> HttpResponse {
     session.clear();
     HttpResponse::NoContent().finish()
@@ -69,6 +88,12 @@ async fn logout(session: Session) -> HttpResponse {
 
 /// `GET /api/v2/auth/me` — introspect the request's auth standing:
 /// `{ "authenticated": bool, "via": "session"|"bearer"|"open"|"none" }`.
+#[utoipa::path(
+    get,
+    path = "/api/v2/auth/me",
+    tag = "auth",
+    responses((status = 200, description = "Auth standing: `{ authenticated, via }`", body = Object)),
+)]
 async fn me(req: HttpRequest, session: Session) -> HttpResponse {
     let logged_in = session.get::<bool>("logged_in").ok().flatten().unwrap_or(false);
     let secret = env::var("KOJI_SECRET").unwrap_or_default();

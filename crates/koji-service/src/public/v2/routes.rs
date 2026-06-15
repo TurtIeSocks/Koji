@@ -26,7 +26,10 @@ use utoipa::ToSchema;
 
 use crate::requests::{ReturnTypeArg, get_return_type};
 use crate::utils::error::ServiceError;
-use crate::utils::{api_response::ApiResponse, format::respond_geo};
+use crate::utils::{
+    api_response::{ApiError, ApiResponse},
+    format::respond_geo,
+};
 use koji_dragonite::AreaMode;
 use koji_events::EventDispatcher;
 
@@ -89,6 +92,15 @@ pub(crate) struct PatchRoute {
 
 /// `GET /api/v2/routes` — list all routes as a `FeatureCollection`, honoring
 /// `?format=` (defaults to `featurecollection`).
+#[utoipa::path(
+    get,
+    path = "/api/v2/routes",
+    tag = "routes",
+    params(("format" = Option<String>, Query, description = "Return type (default `featurecollection`)")),
+    responses(
+        (status = 200, description = "Routes (GeoJSON in the envelope, or a raw export format)", body = Object),
+    ),
+)]
 async fn list(
     conn: web::Data<KojiDb>,
     query: web::Query<ReadQuery>,
@@ -101,6 +113,16 @@ async fn list(
 }
 
 /// `POST /api/v2/routes` — create a route → `201` + `Location`.
+#[utoipa::path(
+    post,
+    path = "/api/v2/routes",
+    tag = "routes",
+    request_body = CreateRoute,
+    responses(
+        (status = 201, description = "Created; `Location` header points at the new route", body = Object),
+        (status = 500, description = "Internal error", body = ApiError),
+    ),
+)]
 async fn create(
     conn: web::Data<KojiDb>,
     body: web::Json<CreateRoute>,
@@ -118,6 +140,19 @@ async fn create(
 
 /// `GET /api/v2/routes/{id}` — one route (by id or name) as a feature, honoring
 /// `?format=` (defaults to `feature`); a missing route → `404`.
+#[utoipa::path(
+    get,
+    path = "/api/v2/routes/{id}",
+    tag = "routes",
+    params(
+        ("id" = String, Path, description = "Route id or name"),
+        ("format" = Option<String>, Query, description = "Return type (default `feature`)"),
+    ),
+    responses(
+        (status = 200, description = "The route (GeoJSON in the envelope, or a raw export format)", body = Object),
+        (status = 404, description = "No such route", body = ApiError),
+    ),
+)]
 async fn get_one(
     conn: web::Data<KojiDb>,
     path: web::Path<String>,
@@ -141,6 +176,17 @@ async fn get_one(
 
 /// `PATCH /api/v2/routes/{id}` — update a route by id → `200` envelope; `404` on
 /// a missing id.
+#[utoipa::path(
+    patch,
+    path = "/api/v2/routes/{id}",
+    tag = "routes",
+    params(("id" = u32, Path, description = "Route id")),
+    request_body = PatchRoute,
+    responses(
+        (status = 200, description = "Updated route record", body = Object),
+        (status = 404, description = "No such route", body = ApiError),
+    ),
+)]
 async fn update(
     conn: web::Data<KojiDb>,
     path: web::Path<u32>,
@@ -161,6 +207,16 @@ async fn update(
 }
 
 /// `DELETE /api/v2/routes/{id}` — `204 No Content`; `404` on a missing id.
+#[utoipa::path(
+    delete,
+    path = "/api/v2/routes/{id}",
+    tag = "routes",
+    params(("id" = u32, Path, description = "Route id")),
+    responses(
+        (status = 204, description = "Deleted"),
+        (status = 404, description = "No such route", body = ApiError),
+    ),
+)]
 async fn remove(conn: web::Data<KojiDb>, path: web::Path<u32>) -> Result<HttpResponse, ServiceError> {
     let result = route::Query::delete(&conn.koji, path.into_inner()).await?;
     if result.rows_affected == 0 {
@@ -190,6 +246,17 @@ fn area_mode_for(mode: &Mode) -> AreaMode {
 /// maps the route mode to an [`AreaMode`], and emits the event for the
 /// `DragoniteSubscriber` to PATCH `/v2/areas/{id}`. Gated on linkage (an
 /// unlinked geofence → `422`); an unknown route → `404`.
+#[utoipa::path(
+    post,
+    path = "/api/v2/routes/{id}/publish",
+    tag = "routes",
+    params(("id" = String, Path, description = "Route id or name")),
+    responses(
+        (status = 202, description = "Publish event enqueued: `{ event_id }`", body = Object),
+        (status = 404, description = "No such route", body = ApiError),
+        (status = 422, description = "Route's geofence is not linked to a Dragonite area", body = ApiError),
+    ),
+)]
 async fn publish(
     conn: web::Data<KojiDb>,
     path: web::Path<String>,

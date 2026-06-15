@@ -728,6 +728,13 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
     // `field` — always correct, unlike naive depluralizing of `seg`.
     let field_name = module.to_string();
 
+    // Absolute OpenAPI paths for the `#[utoipa::path]` annotations (built from
+    // `seg` at expansion time, since utoipa's `path =` wants a string literal).
+    let coll_path = LitStr::new(&format!("/api/v2/{}", seg.value()), seg.span());
+    let item_path = LitStr::new(&format!("/api/v2/{}/{{id}}", seg.value()), seg.span());
+    // The OpenAPI tag groups this resource's operations (the URL segment).
+    let tag = seg.clone();
+
     // Create DTO fields, verbatim (+ a `value_type` hint on non-primitive leaves
     // so `ToSchema` derives without forcing utoipa into the data crates).
     let create_fields = fields.iter().map(|f| {
@@ -776,6 +783,18 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
             }
 
             /// `GET /api/v2/#seg` — paginated list (`?page=&per_page=`).
+            #[utoipa::path(
+                get,
+                path = #coll_path,
+                tag = #tag,
+                params(
+                    ("page" = ::core::option::Option<i64>, Query, description = "1-based page number"),
+                    ("per_page" = ::core::option::Option<i64>, Query, description = "Page size (clamped to [1, 500])"),
+                ),
+                responses(
+                    (status = 200, description = "Paginated records (with a `meta` block)", body = Object),
+                ),
+            )]
             pub(crate) async fn list(
                 db: actix_web::web::Data<koji_db::KojiDb>,
                 query: actix_web::web::Query<crate::utils::pagination::Pagination>,
@@ -806,6 +825,16 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
             }
 
             /// `POST /api/v2/#seg` — create → `201` + `Location` header.
+            #[utoipa::path(
+                post,
+                path = #coll_path,
+                tag = #tag,
+                request_body = #create_ty,
+                responses(
+                    (status = 201, description = "Created; `Location` header points at the new record", body = Object),
+                    (status = 500, description = "Internal error", body = crate::utils::api_response::ApiError),
+                ),
+            )]
             pub(crate) async fn create(
                 db: actix_web::web::Data<koji_db::KojiDb>,
                 body: actix_web::web::Json<#create_ty>,
@@ -825,6 +854,16 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
             }
 
             /// `GET /api/v2/#seg/{id}` — fetch one (id or name); `404` on miss.
+            #[utoipa::path(
+                get,
+                path = #item_path,
+                tag = #tag,
+                params(("id" = String, Path, description = "Record id or name")),
+                responses(
+                    (status = 200, description = "The record", body = Object),
+                    (status = 404, description = "No such record", body = crate::utils::api_response::ApiError),
+                ),
+            )]
             pub(crate) async fn get_one(
                 db: actix_web::web::Data<koji_db::KojiDb>,
                 path: actix_web::web::Path<String>,
@@ -837,6 +876,17 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
             }
 
             /// `PATCH /api/v2/#seg/{id}` — partial update; `404` on miss.
+            #[utoipa::path(
+                patch,
+                path = #item_path,
+                tag = #tag,
+                params(("id" = u32, Path, description = "Record id")),
+                request_body = #patch_ty,
+                responses(
+                    (status = 200, description = "Updated record", body = Object),
+                    (status = 404, description = "No such record", body = crate::utils::api_response::ApiError),
+                ),
+            )]
             pub(crate) async fn update(
                 db: actix_web::web::Data<koji_db::KojiDb>,
                 path: actix_web::web::Path<u32>,
@@ -857,6 +907,16 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
             }
 
             /// `DELETE /api/v2/#seg/{id}` — `204 No Content`; `404` on miss.
+            #[utoipa::path(
+                delete,
+                path = #item_path,
+                tag = #tag,
+                params(("id" = u32, Path, description = "Record id")),
+                responses(
+                    (status = 204, description = "Deleted"),
+                    (status = 404, description = "No such record", body = crate::utils::api_response::ApiError),
+                ),
+            )]
             pub(crate) async fn remove(
                 db: actix_web::web::Data<koji_db::KojiDb>,
                 path: actix_web::web::Path<u32>,

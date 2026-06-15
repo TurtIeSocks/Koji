@@ -58,6 +58,13 @@ pub(crate) struct S2CellsBody {
 }
 
 /// `POST /api/v2/s2/circle-coverage` — S2 cells covering a circle.
+#[utoipa::path(
+    post,
+    path = "/api/v2/s2/circle-coverage",
+    tag = "s2",
+    request_body = CoverageArgs,
+    responses((status = 200, description = "S2 cells covering the circle", body = Object)),
+)]
 #[post("/circle-coverage")]
 async fn circle_coverage(
     payload: web::Json<CoverageArgs>,
@@ -74,6 +81,13 @@ async fn circle_coverage(
 }
 
 /// `POST /api/v2/s2/cell-coverage` — S2 cell ids covering a cell area.
+#[utoipa::path(
+    post,
+    path = "/api/v2/s2/cell-coverage",
+    tag = "s2",
+    request_body = CoverageArgs,
+    responses((status = 200, description = "S2 cell ids covering the cell area", body = Object)),
+)]
 #[post("/cell-coverage")]
 async fn cell_coverage(payload: web::Json<CoverageArgs>) -> Result<HttpResponse, ServiceError> {
     let CoverageArgs {
@@ -92,6 +106,13 @@ async fn cell_coverage(payload: web::Json<CoverageArgs>) -> Result<HttpResponse,
 }
 
 /// `POST /api/v2/s2/polygons` — polygons for the given S2 cell ids.
+#[utoipa::path(
+    post,
+    path = "/api/v2/s2/polygons",
+    tag = "s2",
+    request_body = Vec<String>,
+    responses((status = 200, description = "Polygons for the given S2 cell ids", body = Object)),
+)]
 #[post("/polygons")]
 async fn cell_polygons(payload: web::Json<Vec<String>>) -> Result<HttpResponse, ServiceError> {
     let result = koji_core::s2::get_polygons(payload.into_inner());
@@ -100,6 +121,14 @@ async fn cell_polygons(payload: web::Json<Vec<String>>) -> Result<HttpResponse, 
 
 /// `POST /api/v2/s2/{cell_level}` — S2 cells within a bbox at `cell_level`,
 /// optionally filtered to a set of ids. Ports v1 `/s2/{cell_level}`.
+#[utoipa::path(
+    post,
+    path = "/api/v2/s2/{cell_level}",
+    tag = "s2",
+    params(("cell_level" = u8, Path, description = "S2 cell level")),
+    request_body = S2CellsBody,
+    responses((status = 200, description = "S2 cells within the bbox at the given level", body = Object)),
+)]
 #[post("/{cell_level}")]
 async fn s2_cells(
     payload: web::Json<BoundsArg>,

@@ -13,7 +13,10 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use utoipa::ToSchema;
 
-use crate::utils::{api_response::ApiResponse, error::ServiceError};
+use crate::utils::{
+    api_response::{ApiError, ApiResponse},
+    error::ServiceError,
+};
 
 /// Parse a `{kind}` path segment into a [`PluginKind`]. The plugin `name` is a
 /// free-form segment carried alongside it (`/plugins/{kind}/{name}`), so only
@@ -83,6 +86,12 @@ pub(crate) async fn rebuild_and_install(db: &KojiDb) -> Result<(), Error> {
 
 /// `GET /api/v2/plugins` — every disk-discovered plugin (enabled or not) merged
 /// with its overlay.
+#[utoipa::path(
+    get,
+    path = "/api/v2/plugins",
+    tag = "plugins",
+    responses((status = 200, description = "Every disk-discovered plugin merged with its overlay", body = Object)),
+)]
 async fn list(_db: web::Data<KojiDb>) -> Result<HttpResponse, ServiceError> {
     let reg = koji_plugins::current();
     let views: Vec<Value> = reg
@@ -95,6 +104,19 @@ async fn list(_db: web::Data<KojiDb>) -> Result<HttpResponse, ServiceError> {
 
 /// `GET /api/v2/plugins/{kind}/{name}` — one plugin's merged view; `404` for an
 /// unknown `kind` or when no plugin matches.
+#[utoipa::path(
+    get,
+    path = "/api/v2/plugins/{kind}/{name}",
+    tag = "plugins",
+    params(
+        ("kind" = String, Path, description = "Plugin kind (`clustering|routing|bootstrap`)"),
+        ("name" = String, Path, description = "Plugin name"),
+    ),
+    responses(
+        (status = 200, description = "The plugin's merged view", body = Object),
+        (status = 404, description = "Unknown kind or no such plugin", body = ApiError),
+    ),
+)]
 async fn get_one(path: web::Path<(String, String)>) -> Result<HttpResponse, ServiceError> {
     let (kind, name) = path.into_inner();
     let Some(kind) = parse_kind(&kind) else {
@@ -116,6 +138,21 @@ async fn get_one(path: web::Path<(String, String)>) -> Result<HttpResponse, Serv
 /// `PATCH /api/v2/plugins/{kind}/{name}` — upsert the overlay (`enabled`/
 /// `args_default`/`description`) and rebuild the registry. `404` unknown `kind`,
 /// `422` when no disk manifest exists for the id.
+#[utoipa::path(
+    patch,
+    path = "/api/v2/plugins/{kind}/{name}",
+    tag = "plugins",
+    params(
+        ("kind" = String, Path, description = "Plugin kind (`clustering|routing|bootstrap`)"),
+        ("name" = String, Path, description = "Plugin name"),
+    ),
+    request_body = PluginPatch,
+    responses(
+        (status = 200, description = "The plugin's updated merged view", body = Object),
+        (status = 404, description = "Unknown kind", body = ApiError),
+        (status = 422, description = "No installed plugin for the id (drop a plugin.toml first)", body = ApiError),
+    ),
+)]
 async fn update(
     db: web::Data<KojiDb>,
     path: web::Path<(String, String)>,
@@ -157,6 +194,19 @@ async fn update(
 
 /// `DELETE /api/v2/plugins/{kind}/{name}` — drop the overlay (reset to disk
 /// defaults) and rebuild the registry. `404` for an unknown `kind`.
+#[utoipa::path(
+    delete,
+    path = "/api/v2/plugins/{kind}/{name}",
+    tag = "plugins",
+    params(
+        ("kind" = String, Path, description = "Plugin kind (`clustering|routing|bootstrap`)"),
+        ("name" = String, Path, description = "Plugin name"),
+    ),
+    responses(
+        (status = 200, description = "Overlay dropped: `{ rows_affected }`", body = Object),
+        (status = 404, description = "Unknown kind", body = ApiError),
+    ),
+)]
 async fn remove(
     db: web::Data<KojiDb>,
     path: web::Path<(String, String)>,

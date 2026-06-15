@@ -26,7 +26,7 @@ use serde::Deserialize;
 use serde_json::json;
 use utoipa::{IntoParams, ToSchema};
 
-use crate::utils::api_response::ApiResponse;
+use crate::utils::api_response::{ApiError, ApiResponse};
 use crate::utils::error::ServiceError;
 use crate::utils::{self};
 
@@ -57,6 +57,20 @@ pub(crate) struct ScannerDataQuery {
 /// Mounted under [`super::geofences::scope()`] alongside `/{id}` and
 /// `/{id}/publish`, so the geofence id/name comes from the path. An unknown
 /// `category` ⇒ `400`; a missing geofence ⇒ `404`.
+#[utoipa::path(
+    get,
+    path = "/api/v2/geofences/{id}/scanner-data",
+    tag = "scanner-data",
+    params(
+        ("id" = String, Path, description = "Geofence id or name"),
+        ScannerDataQuery,
+    ),
+    responses(
+        (status = 200, description = "The category's scanner points within the geofence", body = Object),
+        (status = 400, description = "Unknown category", body = ApiError),
+        (status = 404, description = "No such geofence", body = ApiError),
+    ),
+)]
 // `ServiceError` is intentionally large (carries `DbErr`/`ModelError` by value) —
 // matches the crate-wide allow in `utils::error`.
 #[allow(clippy::result_large_err)]
@@ -240,6 +254,17 @@ fn validate_category(category: &str) -> Result<(), ServiceError> {
 /// `POST /api/v2/scanner-data/{category}` — the category's scanner points within
 /// the body's drawn `area` (or `bbox`), as a `SingleVec` of `[lat, lon]` pairs.
 /// Ports v1 `/internal/data/area`(+`bound`); unknown `category` ⇒ `400`.
+#[utoipa::path(
+    post,
+    path = "/api/v2/scanner-data/{category}",
+    tag = "scanner-data",
+    params(("category" = String, Path, description = "Scanner data category (`gym|pokestop|spawnpoint|station|fort`)")),
+    request_body = AreaReq,
+    responses(
+        (status = 200, description = "The category's scanner points: `{ \"points\": [[lat, lon], …] }`", body = Object),
+        (status = 400, description = "Unknown category", body = ApiError),
+    ),
+)]
 #[allow(clippy::result_large_err)]
 #[post("/{category}")]
 pub(crate) async fn by_area(
@@ -264,6 +289,17 @@ pub(crate) async fn by_area(
 /// `POST /api/v2/scanner-data/{category}/stats` — the count of the category's
 /// scanner points within the body's drawn `area` (or `bbox`). Ports v1
 /// `/internal/data/area_stats`; returns `{ "total": <usize> }`.
+#[utoipa::path(
+    post,
+    path = "/api/v2/scanner-data/{category}/stats",
+    tag = "scanner-data",
+    params(("category" = String, Path, description = "Scanner data category (`gym|pokestop|spawnpoint|station|fort`)")),
+    request_body = AreaReq,
+    responses(
+        (status = 200, description = "Count of the category's scanner points: `{ \"total\": <usize> }`", body = Object),
+        (status = 400, description = "Unknown category", body = ApiError),
+    ),
+)]
 #[allow(clippy::result_large_err)]
 #[post("/{category}/stats")]
 pub(crate) async fn area_stats(

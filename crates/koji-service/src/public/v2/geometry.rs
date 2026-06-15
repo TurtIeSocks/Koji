@@ -17,7 +17,7 @@ use serde_json::json;
 use crate::requests::{
     ConvertReq, MergePointsReq, ReturnTypeArg, SimplifyReq, area_collection, get_return_type,
 };
-use crate::utils::api_response::ApiResponse;
+use crate::utils::api_response::{ApiError, ApiResponse};
 use crate::utils::error::ServiceError;
 use crate::utils::format::respond_geo;
 
@@ -41,6 +41,17 @@ impl FormatQuery {
 
 /// `POST /api/v2/geometry/convert` — convert/normalize a geometry to the
 /// requested return type, optionally simplifying first. Ports v1 `/convert/data`.
+#[utoipa::path(
+    post,
+    path = "/api/v2/geometry/convert",
+    tag = "geometry",
+    request_body = ConvertReq,
+    params(("format" = Option<String>, Query, description = "Override the return type (e.g. `featurecollection`, `sql`)")),
+    responses(
+        (status = 200, description = "Converted geometry (GeoJSON in the envelope, or a raw export format)", body = Object),
+        (status = 500, description = "Internal error", body = ApiError),
+    ),
+)]
 #[post("/convert")]
 async fn convert(
     payload: web::Json<ConvertReq>,
@@ -65,6 +76,17 @@ async fn convert(
 
 /// `POST /api/v2/geometry/simplify` — simplify the supplied geometry. Ports v1
 /// `/convert/simplify`.
+#[utoipa::path(
+    post,
+    path = "/api/v2/geometry/simplify",
+    tag = "geometry",
+    request_body = SimplifyReq,
+    params(("format" = Option<String>, Query, description = "Override the return type")),
+    responses(
+        (status = 200, description = "Simplified geometry", body = Object),
+        (status = 500, description = "Internal error", body = ApiError),
+    ),
+)]
 #[post("/simplify")]
 async fn simplify(
     payload: web::Json<SimplifyReq>,
@@ -83,6 +105,17 @@ async fn simplify(
 
 /// `POST /api/v2/geometry/merge-points` — collapse a geometry's point features
 /// into one MultiPoint. Ports v1 `/convert/merge-points`.
+#[utoipa::path(
+    post,
+    path = "/api/v2/geometry/merge-points",
+    tag = "geometry",
+    request_body = MergePointsReq,
+    params(("format" = Option<String>, Query, description = "Override the return type")),
+    responses(
+        (status = 200, description = "Merged-point geometry", body = Object),
+        (status = 500, description = "Internal error", body = ApiError),
+    ),
+)]
 #[post("/merge-points")]
 async fn merge_points(
     payload: web::Json<MergePointsReq>,
@@ -134,6 +167,15 @@ fn polygon_area_sum(collection: &FeatureCollection) -> f64 {
 /// unsigned area sum over every `Polygon`/`MultiPolygon`, now in the v2 envelope.
 /// Reuses [`SimplifyReq`] for the body (it already carries the `area` input);
 /// returns `{ "area": <f64 m²> }`.
+#[utoipa::path(
+    post,
+    path = "/api/v2/geometry/area",
+    tag = "geometry",
+    request_body = SimplifyReq,
+    responses(
+        (status = 200, description = "Total polygon area in m²: `{ \"area\": <f64> }`", body = Object),
+    ),
+)]
 #[post("/area")]
 async fn calculate_area(payload: web::Json<SimplifyReq>) -> Result<HttpResponse, ServiceError> {
     let collection = area_collection(&payload.into_inner().area);

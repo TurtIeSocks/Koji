@@ -24,7 +24,7 @@ use crate::public::v2::calc::{CALC_KIND, CalcPayload};
 use crate::requests::{CalcJobRequest, area_collection};
 use crate::utils::error::ServiceError;
 use crate::utils::pagination::Pagination;
-use crate::utils::{self, api_response::ApiResponse};
+use crate::utils::{self, api_response::ApiError, api_response::ApiResponse};
 
 /// Priority for calc jobs (spec §6/§8: calc = HIGH).
 const PRIORITY_HIGH: i16 = 100;
@@ -38,6 +38,17 @@ const MAX_WAIT_SECS: u64 = 290;
 /// `POST /api/v2/jobs` — enqueue a calc job (always async) → `202 { job_id }` with
 /// a `Location` header. Resolves the area + data points, builds the `CalcPayload`,
 /// and enqueues HIGH with content dedup.
+#[utoipa::path(
+    post,
+    path = "/api/v2/jobs",
+    tag = "jobs",
+    request_body = CalcJobRequest,
+    responses(
+        (status = 202, description = "Job enqueued; `Location` header points at the job record", body = Object),
+        (status = 400, description = "No area/instance/dataPoints/parent provided", body = ApiError),
+        (status = 500, description = "Internal error (resolve/enqueue)", body = ApiError),
+    ),
+)]
 #[post("/jobs")]
 async fn create_job(
     conn: web::Data<KojiDb>,
@@ -131,6 +142,19 @@ struct JobWaitQuery {
 
 /// `GET /api/v2/jobs/{id}` — the job record. With `?wait=N`, blocks up to N seconds
 /// for a terminal state first.
+#[utoipa::path(
+    get,
+    path = "/api/v2/jobs/{id}",
+    tag = "jobs",
+    params(
+        ("id" = String, Path, description = "Job id"),
+        ("wait" = Option<u64>, Query, description = "Long-poll up to N seconds for a terminal state"),
+    ),
+    responses(
+        (status = 200, description = "The job record", body = Object),
+        (status = 404, description = "No such job", body = ApiError),
+    ),
+)]
 #[get("/jobs/{id}")]
 async fn get_job(
     jobs: web::Data<JobQueue>,
@@ -176,6 +200,19 @@ struct JobListQuery {
 }
 
 /// `GET /api/v2/jobs` — list jobs (newest first), paginated.
+#[utoipa::path(
+    get,
+    path = "/api/v2/jobs",
+    tag = "jobs",
+    params(
+        ("status" = Option<String>, Query, description = "Filter by job status"),
+        ("page" = Option<i64>, Query, description = "1-based page number"),
+        ("per_page" = Option<i64>, Query, description = "Page size (clamped to [1, 500])"),
+    ),
+    responses(
+        (status = 200, description = "Paginated job records (with a `meta` block)", body = Object),
+    ),
+)]
 #[get("/jobs")]
 async fn list_jobs(
     jobs: web::Data<JobQueue>,
@@ -194,6 +231,16 @@ async fn list_jobs(
 }
 
 /// `DELETE /api/v2/jobs/{id}` — request cancellation.
+#[utoipa::path(
+    delete,
+    path = "/api/v2/jobs/{id}",
+    tag = "jobs",
+    params(("id" = String, Path, description = "Job id")),
+    responses(
+        (status = 202, description = "Cancellation requested", body = Object),
+        (status = 404, description = "No such job", body = ApiError),
+    ),
+)]
 #[delete("/jobs/{id}")]
 async fn cancel_job(
     jobs: web::Data<JobQueue>,
@@ -225,6 +272,14 @@ async fn cancel_job(
 
 /// `GET /api/v2/algorithms` — available clustering / routing / bootstrap modes
 /// (plugins included). Was `/meta/algorithms`.
+#[utoipa::path(
+    get,
+    path = "/api/v2/algorithms",
+    tag = "jobs",
+    responses(
+        (status = 200, description = "Available clustering / routing / bootstrap modes", body = Object),
+    ),
+)]
 #[get("/algorithms")]
 async fn algorithms() -> Result<HttpResponse, ServiceError> {
     // `::algorithms` (absolute crate path) — the local handler `algorithms`

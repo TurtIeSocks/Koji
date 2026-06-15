@@ -26,7 +26,10 @@ use utoipa::ToSchema;
 
 use crate::requests::{ReturnTypeArg, get_return_type};
 use crate::utils::error::ServiceError;
-use crate::utils::{api_response::ApiResponse, format::respond_geo};
+use crate::utils::{
+    api_response::{ApiError, ApiResponse},
+    format::respond_geo,
+};
 use koji_dragonite::AreaMode;
 use koji_events::EventDispatcher;
 
@@ -123,6 +126,20 @@ pub(crate) struct PatchGeofence {
 /// through level N, `level=N` is only the geofences exactly N levels down. The
 /// two are mutually exclusive (both → 400). Omitted → the existing
 /// non-recursive listing.
+#[utoipa::path(
+    get,
+    path = "/api/v2/geofences",
+    tag = "geofences",
+    params(
+        ("format" = Option<String>, Query, description = "Return type (default `featurecollection`)"),
+        ("depth" = Option<u32>, Query, description = "Cumulative subtree through N levels (mutually exclusive with `level`)"),
+        ("level" = Option<u32>, Query, description = "Exactly N levels below the anchor"),
+    ),
+    responses(
+        (status = 200, description = "Geofences (GeoJSON in the envelope, or a raw export format)", body = Object),
+        (status = 400, description = "`depth` and `level` are mutually exclusive", body = ApiError),
+    ),
+)]
 async fn list(
     conn: web::Data<KojiDb>,
     query: web::Query<ReadQuery>,
@@ -138,6 +155,16 @@ async fn list(
 }
 
 /// `POST /api/v2/geofences` — create a geofence → `201` + `Location`.
+#[utoipa::path(
+    post,
+    path = "/api/v2/geofences",
+    tag = "geofences",
+    request_body = CreateGeofence,
+    responses(
+        (status = 201, description = "Created; `Location` header points at the new geofence", body = Object),
+        (status = 500, description = "Internal error", body = ApiError),
+    ),
+)]
 async fn create(
     conn: web::Data<KojiDb>,
     body: web::Json<CreateGeofence>,
@@ -161,6 +188,22 @@ async fn create(
 /// only the geofences exactly N levels down. The two are mutually exclusive
 /// (both → 400). Omitted → the existing single-geofence response; a missing
 /// geofence → `404`.
+#[utoipa::path(
+    get,
+    path = "/api/v2/geofences/{id}",
+    tag = "geofences",
+    params(
+        ("id" = String, Path, description = "Geofence id or name"),
+        ("format" = Option<String>, Query, description = "Return type (default `feature`)"),
+        ("depth" = Option<u32>, Query, description = "Cumulative subtree through N levels"),
+        ("level" = Option<u32>, Query, description = "Exactly N levels below the anchor"),
+    ),
+    responses(
+        (status = 200, description = "The geofence (GeoJSON in the envelope, or a raw export format)", body = Object),
+        (status = 400, description = "`depth` and `level` are mutually exclusive", body = ApiError),
+        (status = 404, description = "No such geofence", body = ApiError),
+    ),
+)]
 async fn get_one(
     conn: web::Data<KojiDb>,
     path: web::Path<String>,
@@ -193,6 +236,17 @@ async fn get_one(
 
 /// `PATCH /api/v2/geofences/{id}` — update a geofence by id → `200` envelope;
 /// `404` on a missing id.
+#[utoipa::path(
+    patch,
+    path = "/api/v2/geofences/{id}",
+    tag = "geofences",
+    params(("id" = u32, Path, description = "Geofence id")),
+    request_body = PatchGeofence,
+    responses(
+        (status = 200, description = "Updated geofence record", body = Object),
+        (status = 404, description = "No such geofence", body = ApiError),
+    ),
+)]
 async fn update(
     conn: web::Data<KojiDb>,
     path: web::Path<u32>,
@@ -216,6 +270,16 @@ async fn update(
 }
 
 /// `DELETE /api/v2/geofences/{id}` — `204 No Content`; `404` on a missing id.
+#[utoipa::path(
+    delete,
+    path = "/api/v2/geofences/{id}",
+    tag = "geofences",
+    params(("id" = u32, Path, description = "Geofence id")),
+    responses(
+        (status = 204, description = "Deleted"),
+        (status = 404, description = "No such geofence", body = ApiError),
+    ),
+)]
 async fn remove(conn: web::Data<KojiDb>, path: web::Path<u32>) -> Result<HttpResponse, ServiceError> {
     let result = geofence::Query::delete(&conn.koji, path.into_inner()).await?;
     if result.rows_affected == 0 {
@@ -239,6 +303,17 @@ async fn remove(conn: web::Data<KojiDb>, path: web::Path<u32>) -> Result<HttpRes
 /// Gated on linkage: a geofence with no `dragonite_area_id` yields `422` (it is
 /// not bound to a Dragonite area, so there is nothing to push to); an unknown
 /// geofence yields `404`.
+#[utoipa::path(
+    post,
+    path = "/api/v2/geofences/{id}/publish",
+    tag = "geofences",
+    params(("id" = String, Path, description = "Geofence id or name")),
+    responses(
+        (status = 202, description = "Publish event enqueued: `{ event_id }`", body = Object),
+        (status = 404, description = "No such geofence", body = ApiError),
+        (status = 422, description = "Geofence is not linked to a Dragonite area", body = ApiError),
+    ),
+)]
 async fn publish(
     conn: web::Data<KojiDb>,
     path: web::Path<String>,

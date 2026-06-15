@@ -12,7 +12,7 @@ use geojson::{FeatureCollection, Value};
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::utils::api_response::ApiResponse;
+use crate::utils::api_response::{ApiError, ApiResponse};
 use crate::utils::error::ServiceError;
 
 /// The `?query=` parameter for the Nominatim search.
@@ -24,6 +24,16 @@ struct NominatimQuery {
 /// `GET /api/v2/nominatim?query=…` — geocode `query` via the configured
 /// Nominatim instance, keeping only `Polygon` / `MultiPolygon` features, and
 /// return the resulting `FeatureCollection` in the [`ApiResponse`] envelope.
+#[utoipa::path(
+    get,
+    path = "/api/v2/nominatim",
+    tag = "nominatim",
+    params(("query" = String, Query, description = "Free-text place query to geocode")),
+    responses(
+        (status = 200, description = "Polygon/MultiPolygon geocoding results as a FeatureCollection", body = Object),
+        (status = 500, description = "Upstream Nominatim failure", body = ApiError),
+    ),
+)]
 #[allow(clippy::result_large_err)]
 #[get("/nominatim")]
 pub(crate) async fn search_nominatim(
