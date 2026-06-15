@@ -115,27 +115,28 @@ async fn worker_ok_handler_persists_succeeded() {
         .expect("enqueue");
 
     let workers = Arc::clone(&q).spawn_workers(1, registry);
-    let outcome = q
-        .await_result(id, Duration::from_secs(10))
-        .await
-        .expect("await_result");
+    // Capture outcome WITHOUT .expect so a timeout doesn't skip cleanup.
+    let outcome = q.await_result(id, Duration::from_secs(10)).await;
     workers.shutdown().await;
 
-    // Verify the in-memory outcome.
-    let expected = JobOutcome::Succeeded(result_val.clone());
-    assert_eq!(outcome, expected, "outcome must be Succeeded with the handler's result");
-
-    // Verify the persisted DB state.
+    // Verify the persisted DB state — capture BEFORE cleanup.
     let q2 = JobQueue::new(db.clone(), "verify");
-    let rec = q2.get(id).await.expect("get");
+    let rec = q2.get(id).await;
+    // Cleanup by KIND: robust against retries and always runs.
     let _ = db
         .execute(Statement::from_sql_and_values(
             DbBackend::MySql,
-            "DELETE FROM `job` WHERE `public_id` = ?",
-            [Value::from(id.as_string())],
+            "DELETE FROM `job` WHERE `kind` = ?",
+            [Value::from(static_kind)],
         ))
         .await;
 
+    // All asserts after cleanup — a panic here cannot leak the row.
+    let outcome = outcome.expect("await_result");
+    let expected = JobOutcome::Succeeded(result_val.clone());
+    assert_eq!(outcome, expected, "outcome must be Succeeded with the handler's result");
+
+    let rec = rec.expect("get");
     assert_eq!(rec.status, JobStatus::Succeeded, "DB status must be Succeeded");
     assert_eq!(
         rec.result,
@@ -165,17 +166,29 @@ async fn worker_err_handler_persists_failed() {
         .expect("enqueue");
 
     let workers = Arc::clone(&q).spawn_workers(1, registry);
-    let outcome = q
-        .await_result(id, Duration::from_secs(10))
-        .await
-        .expect("await_result");
+    // Capture outcome WITHOUT .expect so a timeout doesn't skip cleanup.
+    let outcome = q.await_result(id, Duration::from_secs(10)).await;
     workers.shutdown().await;
 
+    // Verify DB — capture BEFORE cleanup.
+    let q2 = JobQueue::new(db.clone(), "verify");
+    let rec = q2.get(id).await;
+    // Cleanup by KIND: robust against retries and always runs.
+    let _ = db
+        .execute(Statement::from_sql_and_values(
+            DbBackend::MySql,
+            "DELETE FROM `job` WHERE `kind` = ?",
+            [Value::from(static_kind)],
+        ))
+        .await;
+
+    // All asserts after cleanup — a panic here cannot leak the row.
     // The persisted `error` text comes from `JobError::to_string()` and the
     // `code` comes from `JobError::code()` — for `JobError::validation` that is
     // `"validation_error"`, not `"internal_error"` (which is what the DB-reload
     // path in `outcome_from_model` uses; the live worker path preserves the real
     // code from the handler).
+    let outcome = outcome.expect("await_result");
     let persisted_error = match &outcome {
         JobOutcome::Failed { error, code } => {
             assert_eq!(code, "validation_error", "code from validation error must be 'validation_error'");
@@ -188,17 +201,7 @@ async fn worker_err_handler_persists_failed() {
         "error text must contain handler message '{err_msg}', got: {persisted_error:?}"
     );
 
-    // Verify DB.
-    let q2 = JobQueue::new(db.clone(), "verify");
-    let rec = q2.get(id).await.expect("get");
-    let _ = db
-        .execute(Statement::from_sql_and_values(
-            DbBackend::MySql,
-            "DELETE FROM `job` WHERE `public_id` = ?",
-            [Value::from(id.as_string())],
-        ))
-        .await;
-
+    let rec = rec.expect("get");
     assert_eq!(rec.status, JobStatus::Failed, "DB status must be Failed");
     assert!(
         rec.error.as_deref().unwrap_or("").contains(err_msg),
@@ -226,23 +229,24 @@ async fn worker_no_handler_marks_job_failed() {
         .expect("enqueue");
 
     let workers = Arc::clone(&q).spawn_workers(1, registry);
-    let outcome = q
-        .await_result(id, Duration::from_secs(10))
-        .await
-        .expect("await_result");
+    // Capture outcome WITHOUT .expect so a timeout doesn't skip cleanup.
+    let outcome = q.await_result(id, Duration::from_secs(10)).await;
     workers.shutdown().await;
 
-    // DB verify + cleanup.
+    // DB verify — capture BEFORE cleanup.
     let q2 = JobQueue::new(db.clone(), "verify");
-    let rec = q2.get(id).await.expect("get");
+    let rec = q2.get(id).await;
+    // Cleanup by KIND: robust against retries and always runs.
     let _ = db
         .execute(Statement::from_sql_and_values(
             DbBackend::MySql,
-            "DELETE FROM `job` WHERE `public_id` = ?",
-            [Value::from(id.as_string())],
+            "DELETE FROM `job` WHERE `kind` = ?",
+            [Value::from(static_kind)],
         ))
         .await;
 
+    // All asserts after cleanup — a panic here cannot leak the row.
+    let outcome = outcome.expect("await_result");
     match outcome {
         JobOutcome::Failed { error, .. } => assert!(
             error.contains("no handler registered"),
@@ -251,6 +255,7 @@ async fn worker_no_handler_marks_job_failed() {
         other => panic!("expected Failed for unregistered kind, got {other:?}"),
     }
 
+    let rec = rec.expect("get");
     assert_eq!(rec.status, JobStatus::Failed, "DB status must be Failed for unknown kind");
     assert!(
         rec.error.as_deref().unwrap_or("").contains("no handler registered"),
@@ -283,22 +288,22 @@ async fn worker_await_result_wakes_via_local_notify_not_poll() {
 
     let start = std::time::Instant::now();
     let workers = Arc::clone(&q).spawn_workers(1, registry);
-    let outcome = q
-        .await_result(id, Duration::from_secs(5))
-        .await
-        .expect("await_result");
+    // Capture outcome WITHOUT .expect so a timeout doesn't skip cleanup.
+    let outcome = q.await_result(id, Duration::from_secs(5)).await;
     let elapsed = start.elapsed();
     workers.shutdown().await;
 
-    // Clean up.
+    // Cleanup by KIND: robust against retries and always runs before asserts.
     let _ = db
         .execute(Statement::from_sql_and_values(
             DbBackend::MySql,
-            "DELETE FROM `job` WHERE `public_id` = ?",
-            [Value::from(id.as_string())],
+            "DELETE FROM `job` WHERE `kind` = ?",
+            [Value::from(static_kind)],
         ))
         .await;
 
+    // All asserts after cleanup — a panic here cannot leak the row.
+    let outcome = outcome.expect("await_result");
     assert_eq!(
         outcome,
         JobOutcome::Succeeded(result_val),
@@ -396,22 +401,24 @@ async fn two_workers_do_not_double_claim() {
 
     // Two workers, one job — SKIP LOCKED must prevent double-claim.
     let workers = Arc::clone(&q).spawn_workers(2, registry);
-    let outcome = q
-        .await_result(id, Duration::from_secs(10))
-        .await
-        .expect("await_result");
+    // Capture outcome WITHOUT .expect so a timeout doesn't skip cleanup.
+    let outcome = q.await_result(id, Duration::from_secs(10)).await;
     workers.shutdown().await;
 
     let q2 = JobQueue::new(db.clone(), "verify");
-    let rec = q2.get(id).await.expect("get");
+    let rec = q2.get(id).await;
+    // Cleanup by KIND: robust against retries and always runs before asserts.
     let _ = db
         .execute(Statement::from_sql_and_values(
             DbBackend::MySql,
-            "DELETE FROM `job` WHERE `public_id` = ?",
-            [Value::from(id.as_string())],
+            "DELETE FROM `job` WHERE `kind` = ?",
+            [Value::from(static_kind)],
         ))
         .await;
 
+    // All asserts after cleanup — a panic here cannot leak the row.
+    let outcome = outcome.expect("await_result");
+    let rec = rec.expect("get");
     // `attempts` must be 1: if two workers claimed it, attempts would be 2+.
     // This is the observable proof of SKIP LOCKED correctness.
     // We read `attempts` via a raw query since JobRecord doesn't expose it.
@@ -481,20 +488,21 @@ async fn worker_handler_receives_cancel_signal_via_ctx() {
         .expect("enqueue");
 
     let workers = Arc::clone(&q).spawn_workers(1, registry);
-    let outcome = q
-        .await_result(id, Duration::from_secs(10))
-        .await
-        .expect("await_result");
+    // Capture outcome WITHOUT .expect so a timeout doesn't skip cleanup.
+    let outcome = q.await_result(id, Duration::from_secs(10)).await;
     workers.shutdown().await;
 
+    // Cleanup by KIND: robust against retries and always runs before asserts.
     let _ = db
         .execute(Statement::from_sql_and_values(
             DbBackend::MySql,
-            "DELETE FROM `job` WHERE `public_id` = ?",
-            [Value::from(id.as_string())],
+            "DELETE FROM `job` WHERE `kind` = ?",
+            [Value::from(static_kind)],
         ))
         .await;
 
+    // All asserts after cleanup — a panic here cannot leak the row.
+    let outcome = outcome.expect("await_result");
     // Handler ran and succeeded — verifies the JobCtx reaches the handler.
     assert_eq!(
         outcome,

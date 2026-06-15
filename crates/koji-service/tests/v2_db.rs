@@ -952,12 +952,12 @@ async fn routes_get_format_feature_returns_geojson_feature() {
 // JOBS — enqueue happy path + get by id + cancel + serde-flatten BUG doc
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Cleanup helper: delete a job row by id string.
+/// Cleanup helper: delete a job row by public_id (the ULID string returned by the API).
 async fn cleanup_job(db: &DatabaseConnection, id: &str) {
     let _ = db
         .execute(Statement::from_sql_and_values(
             DbBackend::MySql,
-            "DELETE FROM `job` WHERE `id` = ?",
+            "DELETE FROM `job` WHERE `public_id` = ?",
             [Value::from(id)],
         ))
         .await;
