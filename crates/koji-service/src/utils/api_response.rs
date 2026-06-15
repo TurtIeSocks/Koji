@@ -76,6 +76,15 @@ impl<T: Serialize> ApiResponse<T> {
     pub(crate) fn success_with_status(status: StatusCode, data: T) -> HttpResponse {
         HttpResponse::build(status).json(ApiResponse::Ok { data, meta: None })
     }
+
+    /// `200 OK` success carrying `data` plus a pagination `meta` block.
+    ///
+    /// Consumed by the P2 list handlers (regenerated typed CRUD); unused in the
+    /// Phase 0 non-test build, hence the scoped allow.
+    #[allow(dead_code)]
+    pub(crate) fn success_paginated(data: T, meta: Meta) -> HttpResponse {
+        HttpResponse::build(StatusCode::OK).json(ApiResponse::Ok { data, meta: Some(meta) })
+    }
 }
 
 impl ApiResponse<()> {

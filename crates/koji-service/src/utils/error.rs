@@ -4,6 +4,13 @@
 //! `{ "status": "error", "error": { code, message, field? } }` at the right HTTP
 //! status. Replaces the scattered
 //! `.map_err(actix_web::error::ErrorInternalServerError)` calls.
+//!
+//! Phase 0 lands this type ahead of its consumers: the v2 handlers that return
+//! `Result<HttpResponse, ServiceError>` (and the db-layer `NotFound` signal that
+//! maps to a 404) are wired in P1/P2. Until then `ServiceError` is constructed
+//! only by the unit tests below, so the non-test build sees it as dead —
+//! silenced crate-wide for this module rather than item-by-item.
+#![allow(dead_code)]
 
 use actix_web::{HttpResponse, ResponseError, http::StatusCode};
 use koji_db::ModelError;
