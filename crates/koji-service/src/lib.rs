@@ -3,10 +3,10 @@ use std::{env, fs, io, sync::Arc};
 use actix_files::{Files, NamedFile};
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use actix_web::{
-    App, Error, HttpResponse, HttpServer,
+    App, HttpResponse, HttpServer,
     cookie::Key,
     dev::{ServiceRequest, ServiceResponse},
-    get, middleware, post, web,
+    middleware, web,
 };
 use actix_web_httpauth::middleware::HttpAuthentication;
 use geojson::{Feature, FeatureCollection};
@@ -173,13 +173,6 @@ pub async fn start() -> io::Result<()> {
             // `/api` scope (and unauthenticated) so doc tooling can fetch it
             // without the bearer, and so it matches ahead of the `/v2` scope.
             .service(web::resource("/api/v2/openapi.yaml").route(web::get().to(openapi_spec)))
-            .service(
-                web::scope("/config")
-                    .service(private::misc::config)
-                    .service(private::misc::login)
-                    .service(private::misc::logout)
-                    .service(private::misc::search_nominatim),
-            )
             // public api
             .service(
                 web::scope("/api")
@@ -217,13 +210,14 @@ pub async fn start() -> io::Result<()> {
                             // App bootstrap blob: GET `/config` (map center, tile
                             // server, plugin lists, login state).
                             .service(public::v2::config::config)
+                            // Nominatim geocoding proxy: GET `/nominatim?query=`
+                            // (Polygon/MultiPolygon results for the import dialog).
+                            .service(public::v2::nominatim::search_nominatim)
                             // Plugin management overlay (DB-managed plugin config):
                             // merged disk-manifest + DB-overlay view; PATCH/DELETE
                             // edit only `enabled`/`args_default`/`description`.
                             .service(public::v2::plugins::scope())
-                            // Session auth: login/logout/me. A clean v2 surface
-                            // alongside the legacy `/config/{login,logout}` (kept
-                            // through P4, removed P6).
+                            // Session auth: login/logout/me.
                             .service(public::v2::auth::scope()),
                     ),
             )

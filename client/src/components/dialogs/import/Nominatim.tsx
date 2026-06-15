@@ -32,11 +32,10 @@ export default function Nominatim({
   React.useEffect(() => {
     const controller = new AbortController()
     setLoading(true)
-    // TODO(v2-verify): Nominatim has NO v2 route — kept on the legacy
-    // `/config/nominatim` proxy. Its v1 `Response` envelope uses `status:"ok"` +
-    // `data`, so the v2 fetchWrapper unwraps it correctly today; if `/config/*`
-    // is torn down in P7 this needs a v2 endpoint. Flagged.
-    fetchWrapper<FeatureCollection>(`/config/nominatim?query=${inputValue}`, {
+    // v2 `GET /api/v2/nominatim?query=` → Polygon/MultiPolygon results wrapped in
+    // the ApiResponse envelope (`status:"ok"` + `data`), which fetchWrapper
+    // unwraps to the FeatureCollection.
+    fetchWrapper<FeatureCollection>(`/api/v2/nominatim?query=${inputValue}`, {
       signal: controller.signal,
     }).then((res) => {
       if (res) {

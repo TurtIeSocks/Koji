@@ -1,21 +1,14 @@
-//! Auth + search wire structs for the private admin/session surface.
+//! The login wire struct for the session-auth surface.
 //!
-//! `Auth` (the login password body) and `Search` (the `?query=` admin/nominatim
-//! search param) were moved verbatim out of the dissolving `model` crate. They are
-//! plain serde DTOs with no behavior — re-homed here so `model` has no remaining
-//! koji-service importers.
+//! `Auth` (the login password body) was moved verbatim out of the dissolving
+//! `model` crate. It is a plain serde DTO with no behavior — re-homed here so
+//! `model` has no remaining koji-service importers. Consumed by the v2 auth
+//! handler (`POST /api/v2/auth/login`).
 
 use serde::{Deserialize, Serialize};
 
-/// Login request body for `POST /private/login`.
+/// Login request body for `POST /api/v2/auth/login`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct Auth {
     pub password: String,
-}
-
-/// `?query=` search parameter shared by the admin `search` endpoint and the
-/// nominatim proxy.
-#[derive(Debug, Deserialize)]
-pub(crate) struct Search {
-    pub query: String,
 }
