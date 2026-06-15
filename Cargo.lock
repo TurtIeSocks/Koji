@@ -2627,11 +2627,17 @@ dependencies = [
 name = "macros"
 version = "1.5.4"
 dependencies = [
+ "actix-web",
+ "koji-core",
+ "koji-db",
+ "log",
  "proc-macro2",
  "quote",
+ "sea-orm",
  "serde",
  "serde_json",
  "syn 2.0.106",
+ "utoipa",
 ]
 
 [[package]]
