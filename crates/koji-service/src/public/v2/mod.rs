@@ -5,6 +5,7 @@
 //! Wired under `web::scope("/api/v2")` in [`crate::start`]. `/api/v1` is left
 //! exactly as-is (the legacy shim).
 
+pub(crate) mod auth;
 pub(crate) mod calc;
 pub(crate) mod geofences;
 pub(crate) mod geometry;
