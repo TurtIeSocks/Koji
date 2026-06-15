@@ -212,6 +212,97 @@ mod tests {
         serde_json::from_value(json).unwrap()
     }
 
+    // ── get_mode_acronym ─────────────────────────────────────────────────────
+
+    #[test]
+    fn get_mode_acronym_known_variants() {
+        let cases = [
+            ("AutoQuest", "AQ"),
+            ("auto_quest", "AQ"),
+            ("CirclePokemon", "CP"),
+            ("circle_pokemon", "CP"),
+            ("CircleSmartPokemon", "CSP"),
+            ("circle_smart_pokemon", "CSP"),
+            ("CircleRaid", "CR"),
+            ("circle_raid", "CR"),
+            ("CircleSmartRaid", "CSR"),
+            ("circle_smart_raid", "CSR"),
+            ("PokemonIv", "IV"),
+            ("pokemon_iv", "IV"),
+            ("Leveling", "L"),
+            ("leveling", "L"),
+            ("CircleQuest", "CQ"),
+            ("circle_quest", "CQ"),
+            ("AutoTth", "ATTH"),
+            ("auto_tth", "ATTH"),
+            ("AutoPokemon", "AP"),
+            ("auto_pokemon", "AP"),
+        ];
+        for (input, expected) in cases {
+            assert_eq!(
+                get_mode_acronym(Some(&input.to_string())),
+                expected,
+                "failed for {input}"
+            );
+        }
+    }
+
+    #[test]
+    fn get_mode_acronym_unknown_returns_u() {
+        assert_eq!(get_mode_acronym(Some(&"bogus".to_string())), "U");
+    }
+
+    #[test]
+    fn get_mode_acronym_none_returns_u() {
+        assert_eq!(get_mode_acronym(None), "U");
+    }
+
+    // ── separate_by_comma ────────────────────────────────────────────────────
+
+    #[test]
+    fn separate_by_comma_splits_on_comma() {
+        let v = separate_by_comma(&Some("a,b,c".to_string()));
+        assert_eq!(v, vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn separate_by_comma_single_item() {
+        let v = separate_by_comma(&Some("only".to_string()));
+        assert_eq!(v, vec!["only"]);
+    }
+
+    #[test]
+    fn separate_by_comma_none_returns_empty() {
+        let v = separate_by_comma(&None);
+        assert!(v.is_empty());
+    }
+
+    #[test]
+    fn separate_by_comma_empty_string_gives_one_empty_element() {
+        // "".split(",") yields one empty string.
+        let v = separate_by_comma(&Some(String::new()));
+        assert_eq!(v, vec![""]);
+    }
+
+    // ── clean ────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn clean_strips_surrounding_quotes() {
+        assert_eq!(clean(&"\"hello\"".to_string()), "hello");
+    }
+
+    #[test]
+    fn clean_passthrough_when_not_quoted() {
+        assert_eq!(clean(&"hello".to_string()), "hello");
+    }
+
+    #[test]
+    fn clean_single_char_quoted() {
+        assert_eq!(clean(&"\"x\"".to_string()), "x");
+    }
+
+    // ── NameModifier presence-triggered bools ────────────────────────────────
+
     #[test]
     fn name_modifier_presence_triggered_bools() {
         // lowercase: Some(false) STILL lowercases (is_some semantics, parity-critical)
@@ -220,25 +311,116 @@ mod tests {
     }
 
     #[test]
+    fn name_modifier_uppercase_presence_triggered() {
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "uppercase": false })));
+        assert_eq!(nm.apply("hello"), "HELLO");
+    }
+
+    #[test]
+    fn name_modifier_alphanumeric_presence_triggered() {
+        // alphanumeric: Some(false) still removes symbols.
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "alphanumeric": false })));
+        assert_eq!(nm.apply("a!b@c#"), "abc");
+    }
+
+    #[test]
+    fn name_modifier_capfirst_presence_triggered() {
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "capfirst": false })));
+        assert_eq!(nm.apply("hello world"), "Hello world");
+    }
+
+    #[test]
+    fn name_modifier_unpolish_presence_triggered() {
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "unpolish": false })));
+        assert_eq!(nm.apply("łódź"), "lodz");
+    }
+
+    // ── NameModifier value-triggered transforms ───────────────────────────────
+
+    #[test]
     fn name_modifier_value_triggered_and_order() {
         // trimstart -> alphanumeric -> space-replace, applied in that order.
-        // NOTE: corrected vs the plan's asserted "ab_c". Legacy `name_modifier`
-        // runs space-replace BEFORE the final trim(), so the leading space (left
-        // after trimstart drops "XX") becomes "_", and trim() leaves it (a leading
-        // "_" is not whitespace). Verified byte-identical to HEAD's legacy body.
         let nm = NameModifier::from(&args_with(serde_json::json!({
             "trimstart": 2, "alphanumeric": true, "space": "_"
         })));
-        assert_eq!(nm.apply("XX a!b c"), "_ab_c"); // " a!b c" -> " ab c" -> "_ab_c"
+        assert_eq!(nm.apply("XX a!b c"), "_ab_c");
+    }
+
+    #[test]
+    fn name_modifier_trimend() {
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "trimend": 3 })));
+        assert_eq!(nm.apply("hello"), "he");
+    }
+
+    #[test]
+    fn name_modifier_replace_strip() {
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "replace": "foo" })));
+        assert_eq!(nm.apply("prefix-foo-suffix"), "prefix--suffix");
+    }
+
+    #[test]
+    fn name_modifier_replace_with_quoted_value() {
+        // clean() strips surrounding quotes from the replacer.
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "replace": "\"foo\"" })));
+        assert_eq!(nm.apply("foobar"), "bar");
+    }
+
+    #[test]
+    fn name_modifier_capitalize_splits_and_caps() {
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "capitalize": " " })));
+        assert_eq!(nm.apply("hello world"), "Hello World");
+    }
+
+    #[test]
+    fn name_modifier_underscore_replace() {
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "underscore": " " })));
+        assert_eq!(nm.apply("hello_world"), "hello world");
+    }
+
+    #[test]
+    fn name_modifier_dash_replace() {
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "dash": "_" })));
+        assert_eq!(nm.apply("hello-world"), "hello_world");
+    }
+
+    #[test]
+    fn name_modifier_space_replace() {
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "space": "-" })));
+        assert_eq!(nm.apply("hello world"), "hello-world");
     }
 
     #[test]
     fn name_modifier_empty_guard_returns_original() {
-        // Empty result -> original string. Reached via a value transform that
-        // empties `mutable` (here `replace` strips the whole name), NOT via a
-        // trimstart overflow — `mutable[trimstart..]` panics in legacy too when
-        // trimstart > len, so the plan's `trimstart: 100` premise was invalid.
+        // replace strips entire name → empty → guard returns original.
         let nm = NameModifier::from(&args_with(serde_json::json!({ "replace": "short" })));
-        assert_eq!(nm.apply("short"), "short"); // "" -> original
+        assert_eq!(nm.apply("short"), "short");
+    }
+
+    #[test]
+    fn name_modifier_trim_whitespace_at_end() {
+        // trimend=1 on "x " leaves "x" after trim().
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "trimend": 1 })));
+        assert_eq!(nm.apply("hello "), "hello");
+    }
+
+    // ── convert_polish_to_ascii (via NameModifier::apply with unpolish) ──────
+
+    #[test]
+    fn unpolish_all_lowercase_polish() {
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "unpolish": true })));
+        assert_eq!(nm.apply("ąćęłńóśźż"), "acelnoszz");
+    }
+
+    #[test]
+    fn unpolish_all_uppercase_polish() {
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "unpolish": true })));
+        assert_eq!(nm.apply("ĄĆĘŁŃÓŚŹŻ"), "ACELNOSZZ");
+    }
+
+    #[test]
+    fn unpolish_mixed_passthrough_non_polish() {
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "unpolish": true })));
+        // ASCII chars pass through unchanged.
+        assert_eq!(nm.apply("hello"), "hello");
     }
 }
