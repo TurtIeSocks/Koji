@@ -50,6 +50,19 @@ async fn openapi_spec() -> HttpResponse {
         .body(OPENAPI_YAML)
 }
 
+/// `GET /readyz` — readiness probe. Pings the Koji DB: reachable ⇒ `200`,
+/// otherwise `503`. Unauthenticated, like `/healthz` (liveness). `/healthz`
+/// answers "is the process up?"; `/readyz` answers "can it serve traffic?".
+async fn readyz(db: web::Data<koji_db::KojiDb>) -> HttpResponse {
+    match db.koji.ping().await {
+        Ok(()) => HttpResponse::Ok().finish(),
+        Err(err) => {
+            log::warn!("[readyz] DB ping failed: {err}");
+            HttpResponse::ServiceUnavailable().finish()
+        }
+    }
+}
+
 #[actix_web::main]
 pub async fn start() -> io::Result<()> {
     let databases = koji_db::utils::get_database_struct().await;
@@ -162,7 +175,6 @@ pub async fn start() -> io::Result<()> {
                     .cookie_secure(false)
                     .build(),
             )
-            .service(web::resource("/health").route(web::get().to(HttpResponse::Ok)))
             // OpenAPI 3.1 doc for the v2 surface. Registered before the authed
             // `/api` scope (and unauthenticated) so doc tooling can fetch it
             // without the bearer, and so it matches ahead of the `/v2` scope.
@@ -290,11 +302,17 @@ pub async fn start() -> io::Result<()> {
                             // Plugin management overlay (DB-managed plugin config):
                             // merged disk-manifest + DB-overlay view; PATCH/DELETE
                             // edit only `enabled`/`args_default`/`description`.
-                            .service(public::v2::plugins::scope()),
+                            .service(public::v2::plugins::scope())
+                            // Session auth: login/logout/me. A clean v2 surface
+                            // alongside the legacy `/config/{login,logout}` (kept
+                            // through P4, removed P6).
+                            .service(public::v2::auth::scope()),
                     ),
             )
-            // Liveness probe (top-level, unauthenticated — mirrors `/health`).
+            // Liveness + readiness probes (top-level, unauthenticated).
+            // `/healthz` = process up; `/readyz` = DB reachable (200) or 503.
             .service(web::resource("/healthz").route(web::get().to(HttpResponse::Ok)))
+            .service(web::resource("/readyz").route(web::get().to(readyz)))
             .service(
                 Files::new("/", path())
                     .index_file("index.html")
