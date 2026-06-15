@@ -7,7 +7,7 @@ use actix_web::{
     cookie::Key,
     delete,
     dev::{ServiceRequest, ServiceResponse},
-    get, middleware, patch, post, web,
+    get, middleware, post, web,
 };
 use actix_web_httpauth::middleware::HttpAuthentication;
 use geojson::{Feature, FeatureCollection};
@@ -24,11 +24,6 @@ pub use public::v2::calc::{CALC_KIND, CalcPayload, CalculateHandler};
 use utils::{auth, is_docker};
 
 use crate::dragonite::DragoniteSubscriber;
-
-// `#[macro_use]` must precede the modules that invoke `resource_dispatch!`, so
-// the macro is in textual scope for `private`/`public` below.
-#[macro_use]
-mod macros;
 
 mod dragonite;
 mod private;
@@ -185,39 +180,6 @@ pub async fn start() -> io::Result<()> {
                     .service(private::misc::login)
                     .service(private::misc::logout)
                     .service(private::misc::search_nominatim),
-            )
-            // private api
-            .service(
-                web::scope("/internal")
-                    .wrap(HttpAuthentication::with_fn(auth::private_validator))
-                    .service(
-                        web::scope("/data")
-                            .service(private::points::all)
-                            .service(private::points::bound)
-                            .service(private::points::by_area)
-                            .service(private::points::area_stats),
-                    )
-                    .service(
-                        web::scope("/admin")
-                            .service(private::admin::paginate)
-                            .service(private::admin::parent_list)
-                            .service(private::admin::get_all)
-                            .service(private::admin::search)
-                            .service(private::admin::assign)
-                            .service(private::admin::get_one)
-                            .service(private::admin::create)
-                            .service(private::admin::update)
-                            .service(private::admin::remove)
-                            .service(
-                                // TODO: Consolidate with the above endpoints
-                                web::scope("/geofence_project")
-                                    .service(private::geofence_project::get_all)
-                                    .service(private::geofence_project::create)
-                                    .service(private::geofence_project::update)
-                                    .service(private::geofence_project::update_by_id)
-                                    .service(private::geofence_project::remove),
-                            ),
-                    ),
             )
             // public api
             .service(

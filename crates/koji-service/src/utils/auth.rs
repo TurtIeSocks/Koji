@@ -44,23 +44,3 @@ pub(crate) async fn public_validator(
         req,
     ))
 }
-
-pub(crate) async fn private_validator(
-    req: ServiceRequest,
-    _credentials: Option<BearerAuth>,
-) -> Result<ServiceRequest, (actix_web::Error, ServiceRequest)> {
-    if logged_in(&req) {
-        Ok(req)
-    } else {
-        Err((
-            AuthenticationError::new(
-                req.app_data::<Config>()
-                    .cloned()
-                    .unwrap_or_default()
-                    .into_inner(),
-            )
-            .into(),
-            req,
-        ))
-    }
-}
