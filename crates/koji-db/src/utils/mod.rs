@@ -94,3 +94,153 @@ pub(crate) fn parse_order(order_by: &str) -> Order {
         Order::Desc
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── parse_order ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_order_asc_lowercase() {
+        assert!(matches!(parse_order("asc"), Order::Asc));
+    }
+
+    #[test]
+    fn parse_order_asc_uppercase() {
+        assert!(matches!(parse_order("ASC"), Order::Asc));
+    }
+
+    #[test]
+    fn parse_order_asc_mixed_case() {
+        assert!(matches!(parse_order("Asc"), Order::Asc));
+    }
+
+    #[test]
+    fn parse_order_desc_lowercase() {
+        assert!(matches!(parse_order("desc"), Order::Desc));
+    }
+
+    #[test]
+    fn parse_order_desc_uppercase() {
+        assert!(matches!(parse_order("DESC"), Order::Desc));
+    }
+
+    #[test]
+    fn parse_order_empty_string_defaults_to_desc() {
+        assert!(matches!(parse_order(""), Order::Desc));
+    }
+
+    #[test]
+    fn parse_order_unrecognized_defaults_to_desc() {
+        assert!(matches!(parse_order("random"), Order::Desc));
+    }
+
+    // ── get_enum (mode) ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn get_enum_none_is_unset() {
+        use crate::db::sea_orm_active_enums::Mode;
+        assert_eq!(get_enum(None), Mode::Unset);
+    }
+
+    #[test]
+    fn get_enum_pokemon_string() {
+        use crate::db::sea_orm_active_enums::Mode;
+        assert_eq!(get_enum(Some("pokemon".to_string())), Mode::Pokemon);
+    }
+
+    #[test]
+    fn get_enum_fort_string() {
+        use crate::db::sea_orm_active_enums::Mode;
+        assert_eq!(get_enum(Some("fort".to_string())), Mode::Fort);
+    }
+
+    #[test]
+    fn get_enum_quest_string() {
+        use crate::db::sea_orm_active_enums::Mode;
+        assert_eq!(get_enum(Some("quest".to_string())), Mode::Quest);
+    }
+
+    #[test]
+    fn get_enum_circle_pokemon_legacy_maps_to_pokemon() {
+        // Legacy 12-value RDM string → canonical 4-value Mode via from_legacy.
+        use crate::db::sea_orm_active_enums::Mode;
+        assert_eq!(get_enum(Some("circle_pokemon".to_string())), Mode::Pokemon);
+    }
+
+    #[test]
+    fn get_enum_circle_fort_legacy_maps_to_fort() {
+        use crate::db::sea_orm_active_enums::Mode;
+        assert_eq!(get_enum(Some("circle_raid".to_string())), Mode::Fort);
+    }
+
+    #[test]
+    fn get_enum_unknown_string_maps_to_unset() {
+        use crate::db::sea_orm_active_enums::Mode;
+        assert_eq!(get_enum(Some("completely_unknown".to_string())), Mode::Unset);
+    }
+
+    // ── get_category_enum ───────────────────────────────────────────────────────
+
+    #[test]
+    fn get_category_string() {
+        use crate::db::sea_orm_active_enums::Category;
+        assert_eq!(get_category_enum("string".to_string()), Category::String);
+    }
+
+    #[test]
+    fn get_category_boolean() {
+        use crate::db::sea_orm_active_enums::Category;
+        assert_eq!(get_category_enum("boolean".to_string()), Category::Boolean);
+    }
+
+    #[test]
+    fn get_category_number() {
+        use crate::db::sea_orm_active_enums::Category;
+        assert_eq!(get_category_enum("number".to_string()), Category::Number);
+    }
+
+    #[test]
+    fn get_category_object() {
+        use crate::db::sea_orm_active_enums::Category;
+        assert_eq!(get_category_enum("object".to_string()), Category::Object);
+    }
+
+    #[test]
+    fn get_category_array() {
+        use crate::db::sea_orm_active_enums::Category;
+        assert_eq!(get_category_enum("array".to_string()), Category::Array);
+    }
+
+    #[test]
+    fn get_category_database() {
+        use crate::db::sea_orm_active_enums::Category;
+        assert_eq!(
+            get_category_enum("database".to_string()),
+            Category::Database
+        );
+    }
+
+    #[test]
+    fn get_category_color() {
+        use crate::db::sea_orm_active_enums::Category;
+        assert_eq!(get_category_enum("color".to_string()), Category::Color);
+    }
+
+    #[test]
+    fn get_category_uppercase_works() {
+        // StrEnum is case-insensitive.
+        use crate::db::sea_orm_active_enums::Category;
+        assert_eq!(get_category_enum("STRING".to_string()), Category::String);
+    }
+
+    #[test]
+    fn get_category_unknown_falls_back_to_string() {
+        use crate::db::sea_orm_active_enums::Category;
+        assert_eq!(
+            get_category_enum("totally_unknown".to_string()),
+            Category::String
+        );
+    }
+}
