@@ -21,7 +21,6 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import { UNOWN_FENCES } from '@assets/constants'
 import type {
   KojiGeofence,
-  KojiResponse,
   Feature,
   DbOption,
   KojiModes,
@@ -419,23 +418,23 @@ export function PolygonPopup({
         <MenuItem
           disabled={name === undefined}
           onClick={() => {
-            fetchWrapper<KojiResponse<KojiGeofence>>(
+            // v2 geofence upsert: PATCH /api/v2/geofences/{id} (update) | POST
+            // /api/v2/geofences (create). snake_case body; returns the upserted
+            // record (enveloped → unwrapped to the record directly).
+            fetchWrapper<KojiGeofence>(
               isKoji
-                ? `/internal/admin/geofence/${dbRef?.id}/`
-                : '/internal/admin/geofence/',
+                ? `/api/v2/geofences/${dbRef?.id}`
+                : '/api/v2/geofences',
               {
                 method: isKoji ? 'PATCH' : 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  id: isKoji ? dbRef?.id : 0,
                   name,
                   mode,
                   parent,
                   geometry: feature.geometry,
-                  updated_at: new Date(),
-                  created_at: new Date(),
                 }),
               },
             ).then((res) => {
@@ -447,7 +446,7 @@ export function PolygonPopup({
                     severity: 'success',
                   },
                 })
-                const { geometry, mode: newMode = 'unset', ...rest } = res.data
+                const { geometry, mode: newMode = 'unset', ...rest } = res
                 const newId = `${rest.id}__${newMode}__KOJI` as const
                 setRecord('geofence', rest.id, {
                   ...rest,
@@ -473,7 +472,8 @@ export function PolygonPopup({
           disabled={!isKoji}
           onClick={async () => {
             remove(feature.geometry.type, feature.id)
-            await fetchWrapper(`/internal/admin/geofence/${dbRef?.id}/`, {
+            // v2 `DELETE /api/v2/geofences/{id}` → 204 (fetchWrapper returns null).
+            await fetchWrapper(`/api/v2/geofences/${dbRef?.id}`, {
               method: 'DELETE',
             }).then(() => {
               handleClose()
@@ -482,11 +482,13 @@ export function PolygonPopup({
         >
           Delete from Kōji
         </MenuItem>
-        {/* <MenuItem
+        {/* Disabled (v2): scanner-direct save has no v2 equivalent — use the
+            admin publish action on a saved geofence instead. See SaveToScanner.
+        <MenuItem
           disabled={name === undefined}
           onClick={async () => {
             await save(
-              '/api/v1/geofence/save-scanner',
+              'geofences',
               JSON.stringify({
                 ...feature,
                 properties: {

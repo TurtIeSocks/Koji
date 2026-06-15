@@ -5,12 +5,11 @@ import distance from '@turf/distance'
 import type { Position } from 'geojson'
 
 import {
-  KojiResponse,
   type Conversions,
   type Feature,
   type FeatureCollection,
 } from '@assets/types'
-import { convert, fetchWrapper } from '@services/fetches'
+import { convert, fetchWrapper, pollJob } from '@services/fetches'
 import { getCategory } from '@services/utils'
 
 import { UsePersist, usePersist } from './usePersist'
@@ -198,7 +197,7 @@ export const useImportExport = create<UseImportExport>((set, get) => ({
       })
     }
     const { Polygon, MultiPolygon } = useShapes.getState()
-    const { radius, tth, last_seen: raw, min_points } = usePersist.getState()
+    const { radius, min_points } = usePersist.getState()
     const { geofence } = useDbCache.getState()
     const combined = { ...Polygon, ...MultiPolygon }
     const { id, name, mode } =
@@ -226,7 +225,6 @@ export const useImportExport = create<UseImportExport>((set, get) => ({
               [minLat, minLon],
             ],
           ])
-    const last_seen = typeof raw === 'string' ? new Date(raw) : raw
 
     set({
       stats: {
@@ -240,28 +238,37 @@ export const useImportExport = create<UseImportExport>((set, get) => ({
     })
 
     if (sourceArea || name) {
-      const res = await fetchWrapper<KojiResponse>(
-        `/api/v1/calc/route-stats/${category}`,
+      // v2 route-stats: a `mode: 'routeStats'` calc job that scores the existing
+      // `clusters` (StatsReq takes dataPoints/clusters/radius/minPoints/instance —
+      // no area/tth/last_seen). POST /api/v2/jobs → pollJob → result.stats.
+      // TODO(v2-verify): v1 passed `area` (+ tth/last_seen) so the server fetched
+      // the scanner data points to score against; v2 StatsReq has no area field —
+      // it scores only against supplied `dataPoints` (empty here). The distance
+      // stats still compute, but the coverage/score (which need data points) may
+      // be 0 until dataPoints are supplied. Runtime-unverified; flagged.
+      const enqueue = await fetchWrapper<{ job_id: string }>(
+        `/api/v2/jobs`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            mode: 'routeStats',
+            category,
             instance: name,
-            mode,
-            area: sourceArea,
             clusters: points,
             radius,
-            min_points,
-            tth,
-            last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
+            minPoints: min_points,
           }),
         },
       )
+      const record = enqueue?.job_id
+        ? await pollJob(enqueue.job_id).catch(() => null)
+        : null
 
-      if (res) {
-        const { stats } = res
+      if (record?.status === 'succeeded' && record.result?.stats) {
+        const { stats } = record.result
         max = stats.longest_distance
         total = stats.total_distance
         count = stats.total_clusters

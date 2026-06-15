@@ -323,6 +323,12 @@ export async function clusteringRouting({
         `${area.geometry.type}${area.id ? `-${area.id}` : ''}`
       const signal = useStatic.getState().loadingAbort[instance]?.signal
 
+      // The persist `dev` is snake_case (`bypass_adaptive_partition`); the v2
+      // DevArgs group is camelCase. Map it so the toggle is actually honored.
+      const devArgs = {
+        bypassAdaptivePartition: dev.bypass_adaptive_partition,
+      }
+
       // v2 calc body: a tagged CalcJobRequest. `mode` selects the op
       // (cluster | bootstrap — clusteringRouting only drives these two; reroute /
       // routeStats are separate call sites), `category` + the nested camelCase
@@ -352,7 +358,7 @@ export async function clusteringRouting({
                 pluginArgs: routing_args || undefined,
               },
               output: { returnType: 'feature', saveToDb: save_to_db, saveToScanner: save_to_scanner },
-              dev,
+              dev: devArgs,
             }
           : {
               mode: 'cluster',
@@ -383,7 +389,7 @@ export async function clusteringRouting({
                 lastSeen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
                 tth,
               },
-              dev,
+              dev: devArgs,
             }
 
       // `fast` (v1 flag) has no v2 arg-group field — the adaptive-partition path
