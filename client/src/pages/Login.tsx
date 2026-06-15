@@ -25,7 +25,9 @@ export default function Login() {
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const res = await fetch('/config/login', {
+    // v2 `POST /api/v2/auth/login` { password } → 200 {authenticated:true} on a
+    // KOJI_SECRET match, else 401.
+    const res = await fetch('/api/v2/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

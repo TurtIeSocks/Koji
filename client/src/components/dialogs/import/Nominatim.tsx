@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { KojiResponse, Feature, FeatureCollection } from '@assets/types'
+import { Feature, FeatureCollection } from '@assets/types'
 import {
   Autocomplete,
   Checkbox,
@@ -32,12 +32,15 @@ export default function Nominatim({
   React.useEffect(() => {
     const controller = new AbortController()
     setLoading(true)
-    fetchWrapper<KojiResponse<FeatureCollection>>(
-      `/config/nominatim?query=${inputValue}`,
-      { signal: controller.signal },
-    ).then((res) => {
+    // TODO(v2-verify): Nominatim has NO v2 route — kept on the legacy
+    // `/config/nominatim` proxy. Its v1 `Response` envelope uses `status:"ok"` +
+    // `data`, so the v2 fetchWrapper unwraps it correctly today; if `/config/*`
+    // is torn down in P7 this needs a v2 endpoint. Flagged.
+    fetchWrapper<FeatureCollection>(`/config/nominatim?query=${inputValue}`, {
+      signal: controller.signal,
+    }).then((res) => {
       if (res) {
-        setResults(res.data)
+        setResults(res)
         setLoading(false)
       }
     })

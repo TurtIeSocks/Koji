@@ -15,7 +15,7 @@ import InfoIcon from '@mui/icons-material/Info'
 import FavoriteIcon from '@mui/icons-material/Favorite'
 import { useNavigate } from 'react-router'
 
-import { KojiResponse, KojiTileServer } from '@assets/types'
+import { KojiTileServer } from '@assets/types'
 import { useStatic } from '@hooks/useStatic'
 import { usePersist } from '@hooks/usePersist'
 import { fetchWrapper } from '@services/fetches'
@@ -31,9 +31,10 @@ export default function Settings() {
   const tileServer = usePersist((s) => s.tileServer)
 
   React.useEffect(() => {
-    fetchWrapper<KojiResponse<KojiTileServer[]>>(
-      '/internal/admin/tileserver/all/',
-    ).then((data) => data && useStatic.setState({ tileServers: data.data }))
+    // v2 `GET /api/v2/tile-servers` → row records (enveloped; unwrapped to array).
+    fetchWrapper<KojiTileServer[]>('/api/v2/tile-servers?per_page=9999').then(
+      (data) => data && useStatic.setState({ tileServers: data }),
+    )
   }, [])
 
   return (
@@ -133,7 +134,14 @@ export default function Settings() {
           primaryTypographyProps={{ color: 'secondary' }}
         />
       </ListItemButton>
-      <ListItemButton href="/config/logout">
+      <ListItemButton
+        onClick={async () => {
+          // v2 logout is `POST /api/v2/auth/logout` → 204 (v1 was a GET link that
+          // 302'd to /). POST then route to the login page.
+          await fetch('/api/v2/auth/logout', { method: 'POST' }).catch(() => {})
+          navigate('/login')
+        }}
+      >
         <ListItemIcon>
           <Logout color="secondary" />
         </ListItemIcon>

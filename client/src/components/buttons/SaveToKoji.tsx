@@ -25,11 +25,12 @@ export default function SaveToKoji({ fc, ...rest }: Props) {
       disabled={loading}
       onClick={() => {
         setLoading(true)
-        return save('/api/v1/geofence/save-koji', JSON.stringify(fences))
+        // v2: save() loops one POST /api/v2/geofences (then /routes) per feature.
+        return save('geofences', JSON.stringify(fences))
           .then(() => getKojiCache('geofence'))
           .then((newFences) =>
             save(
-              '/api/v1/route/save-koji',
+              'routes',
               JSON.stringify(
                 routes.features.map((feat) => ({
                   ...feat,

@@ -75,7 +75,9 @@ export default function App() {
   const [error, setError] = React.useState<string>('')
 
   React.useEffect(() => {
-    fetchWrapper<Config>('/config/').then((res) => {
+    // v2 `GET /api/v2/config` → the Config blob inside the envelope (fetchWrapper
+    // unwraps to Config directly).
+    fetchWrapper<Config>('/api/v2/config').then((res) => {
       if (res) {
         if (location[0] === 0 && location[1] === 0) {
           setStore('location', [res.start_lat, res.start_lon])

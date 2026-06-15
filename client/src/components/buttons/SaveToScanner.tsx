@@ -13,7 +13,13 @@ export default function SaveToScanner({ fc, ...rest }: Props) {
       disabled={loading}
       onClick={async () => {
         setLoading(true)
-        await save('/api/v1/geofence/save-scanner', fc)
+        // TODO(v2-verify): the v1 `/geofence/save-scanner` (write drawn fences
+        // straight into the scanner DB) has no direct v2 equivalent — v2 separates
+        // "save to Kōji" (POST /api/v2/geofences) from "publish to scanner" (POST
+        // /api/v2/geofences/{id}/publish, which needs an existing linked fence).
+        // Best-effort: save the drawn features as Kōji geofences; publishing to
+        // the scanner must then happen via the admin publish action. Flagged.
+        await save('geofences', fc)
         await getScannerCache()
         return setLoading(false)
       }}
