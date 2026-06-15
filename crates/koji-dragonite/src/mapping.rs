@@ -157,4 +157,119 @@ mod tests {
             "fence nested under pokemon_mode"
         );
     }
+
+    #[test]
+    fn pokemon_route_patch_targets_pokemon_mode_only() {
+        let patch = area_route_patch(AreaMode::Pokemon, &vec![[1.0, 2.0], [3.0, 4.0]]);
+        let v = serde_json::to_value(&patch).unwrap();
+        assert!(v.get("quest_mode").is_none());
+        assert!(v.get("fort_mode").is_none());
+        assert!(v.get("geofence").is_none());
+        let pm = v["pokemon_mode"].as_object().expect("pokemon_mode present");
+        let route = pm["route"].as_array().expect("route present");
+        assert_eq!(route.len(), 2);
+        assert_eq!(route[0]["lat"], 1.0);
+        assert_eq!(route[0]["lon"], 2.0);
+        assert_eq!(route[1]["lat"], 3.0);
+        assert_eq!(route[1]["lon"], 4.0);
+    }
+
+    #[test]
+    fn fort_route_patch_targets_fort_mode_only() {
+        let patch = area_route_patch(AreaMode::Fort, &vec![[10.0, 20.0]]);
+        let v = serde_json::to_value(&patch).unwrap();
+        assert!(v.get("pokemon_mode").is_none());
+        assert!(v.get("quest_mode").is_none());
+        assert!(v.get("geofence").is_none());
+        let fm = v["fort_mode"].as_object().expect("fort_mode present");
+        let route = fm["route"].as_array().expect("route present");
+        assert_eq!(route.len(), 1);
+        assert_eq!(route[0]["lat"], 10.0);
+        assert_eq!(route[0]["lon"], 20.0);
+    }
+
+    #[test]
+    fn quest_geofence_patch_nests_under_quest_mode() {
+        let feat = Feature::default();
+        let patch = area_geofence_patch(AreaMode::Quest, &feat);
+        let v = serde_json::to_value(&patch).unwrap();
+        assert!(v.get("geofence").is_none(), "no root fence");
+        assert!(v.get("pokemon_mode").is_none());
+        assert!(v.get("fort_mode").is_none());
+        assert!(
+            v["quest_mode"].get("geofence").is_some(),
+            "fence nested under quest_mode"
+        );
+    }
+
+    #[test]
+    fn fort_geofence_patch_nests_under_fort_mode() {
+        let feat = Feature::default();
+        let patch = area_geofence_patch(AreaMode::Fort, &feat);
+        let v = serde_json::to_value(&patch).unwrap();
+        assert!(v.get("geofence").is_none(), "no root fence");
+        assert!(v.get("pokemon_mode").is_none());
+        assert!(v.get("quest_mode").is_none());
+        assert!(
+            v["fort_mode"].get("geofence").is_some(),
+            "fence nested under fort_mode"
+        );
+    }
+
+    #[test]
+    fn feature_to_geofence_returns_tri_value() {
+        let feat = Feature {
+            id: Some(geojson::feature::Id::String("test-id".into())),
+            ..Feature::default()
+        };
+        let result = feature_to_geofence(&feat);
+        match result {
+            crate::patch::Tri::Value(f) => {
+                assert_eq!(
+                    f.id,
+                    Some(geojson::feature::Id::String("test-id".into()))
+                );
+            }
+            other => panic!("expected Tri::Value, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn route_to_api_locations_single_point() {
+        let route = vec![[51.5, -0.1]];
+        let locs = route_to_api_locations(&route);
+        assert_eq!(locs.len(), 1);
+        assert_eq!(locs[0].lat, 51.5);
+        assert_eq!(locs[0].lon, -0.1);
+    }
+
+    #[test]
+    fn route_patch_empty_route_produces_empty_route_array() {
+        // Empty route is valid — no panic, no spurious points.
+        let patch = area_route_patch(AreaMode::Pokemon, &vec![]);
+        let v = serde_json::to_value(&patch).unwrap();
+        // Empty route serializes to omitted (skip_serializing_if = Vec::is_empty).
+        assert_eq!(
+            v.get("pokemon_mode").and_then(|m| m.get("route")),
+            None,
+            "empty route must be omitted from wire payload"
+        );
+    }
+
+    #[test]
+    fn all_area_modes_covered_by_route_patch() {
+        // Regression guard: if AreaMode gains a new variant, route_patch must handle it.
+        // This test exercises all variants through the public API.
+        for mode in AreaMode::ALL {
+            let _patch = area_route_patch(mode, &vec![[0.0, 0.0]]);
+        }
+    }
+
+    #[test]
+    fn all_area_modes_covered_by_geofence_patch() {
+        let feat = Feature::default();
+        for mode in AreaMode::ALL {
+            let _patch = area_geofence_patch(mode, &feat);
+        }
+    }
 }
