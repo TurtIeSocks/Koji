@@ -24,10 +24,11 @@
 use actix_web::{HttpResponse, http::StatusCode};
 use serde::Serialize;
 use serde_json::Value;
+use utoipa::ToSchema;
 
 /// The on-the-wire error object: `error{code,message,field?}` (matches Dragonite
 /// v2 / architecture §7).
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub(crate) struct ApiError {
     /// Stable, machine-readable code (e.g. `not_found`, `unprocessable`).
     pub code: String,
@@ -42,7 +43,7 @@ pub(crate) struct ApiError {
 /// the `Ok` variant carries it so the envelope is spec-shaped, but Koji's list
 /// endpoints currently return their full result set, so it is always omitted
 /// (`None`) until list pagination lands.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub(crate) struct Meta {
     pub total: i64,
     pub page: i64,

@@ -6,9 +6,10 @@
 //! handler (`POST /api/v2/auth/login`).
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// Login request body for `POST /api/v2/auth/login`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub(crate) struct Auth {
     pub password: String,
 }

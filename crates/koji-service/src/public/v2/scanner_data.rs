@@ -24,6 +24,7 @@ use koji_scanner::GenericDataToVec;
 use koji_scanner::entities::{gym, pokestop, spawnpoint, station};
 use serde::Deserialize;
 use serde_json::json;
+use utoipa::{IntoParams, ToSchema};
 
 use crate::utils::api_response::ApiResponse;
 use crate::utils::error::ServiceError;
@@ -38,7 +39,8 @@ const VALID_CATEGORIES: [&str; 5] = ["gym", "pokestop", "spawnpoint", "station",
 /// handler is mounted cross-module (from [`super::geofences::scope()`]), so its
 /// `web::Query<ScannerDataQuery>` arg type must be at least as visible as the
 /// handler the route names.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
 pub(crate) struct ScannerDataQuery {
     /// Scanner data category (`gym|pokestop|spawnpoint|station|fort`).
     category: String,
@@ -120,11 +122,12 @@ pub(crate) async fn scanner_data(
 /// [`utils::points_from_area`] / per-category `stats` query (which also gives the
 /// `bbox` path the `fort` aggregate the v1 `/bound` handler lacked). `area` wins
 /// if both are supplied.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct AreaReq {
     /// The drawn area as a geojson container (`FeatureCollection`/`Feature`/
     /// `Geometry`). Takes precedence over `bbox`.
+    #[schema(value_type = Option<Object>)]
     area: Option<crate::requests::GeoInput>,
     /// A flat lat/lon bounding box (`minLat`/`minLon`/`maxLat`/`maxLon`) — used
     /// only when `area` is absent. Ports the v1 `/internal/data/bound` input.
@@ -134,6 +137,7 @@ pub(crate) struct AreaReq {
     last_seen: u32,
     /// Spawnpoint confirmed/unconfirmed filter (`spawnpoint` category only).
     #[serde(default = "default_tth")]
+    #[schema(value_type = String)]
     tth: SpawnpointTth,
 }
 
@@ -158,7 +162,7 @@ impl Default for AreaReq {
 /// domain [`KojiBbox`] deserializes snake_case (the v1 `BoundsArg` wire), so this
 /// thin DTO keeps the v2 body uniformly camelCase (like `lastSeen`); it converts
 /// straight into `KojiBbox` for the query path.
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Copy, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct BboxInput {
     min_lat: f64,

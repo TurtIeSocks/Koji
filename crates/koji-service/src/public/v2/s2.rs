@@ -17,18 +17,44 @@ use koji_core::BoundsArg;
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashSet;
+use utoipa::ToSchema;
 
 use crate::utils::api_response::ApiResponse;
 use crate::utils::error::ServiceError;
 
 /// Request for the S2 circle/cell coverage helpers.
-#[derive(Debug, Clone, Deserialize)]
-struct CoverageArgs {
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub(crate) struct CoverageArgs {
     lat: f64,
     lon: f64,
     radius: Option<f64>,
     size: Option<u8>,
     level: u8,
+}
+
+/// Documentation-only mirror of the `POST /api/v2/s2/{cell_level}` body — the
+/// foreign [`koji_core::BoundsArg`] (a flattened [`koji_core::KojiBbox`] plus
+/// `last_seen`/`ids`/`tth`) carries no `utoipa` dep, so this `ToSchema` twin
+/// describes that wire shape for the generated OpenAPI without forcing utoipa
+/// into koji-core. Never constructed; referenced only as the `request_body`.
+#[derive(Debug, ToSchema)]
+#[allow(dead_code)]
+pub(crate) struct S2CellsBody {
+    /// Bounding box minimum latitude (flattened from `KojiBbox`).
+    min_lat: f64,
+    /// Bounding box minimum longitude.
+    min_lon: f64,
+    /// Bounding box maximum latitude.
+    max_lat: f64,
+    /// Bounding box maximum longitude.
+    max_lon: f64,
+    /// Optional "updated within the last N seconds" filter.
+    last_seen: Option<u32>,
+    /// Optional S2 cell-id allow-list; when omitted, every cell in the bbox.
+    ids: Option<Vec<String>>,
+    /// Optional spawnpoint confirmed/unconfirmed filter (`All`/`Known`/`Unknown`).
+    #[schema(value_type = String)]
+    tth: Option<koji_core::SpawnpointTth>,
 }
 
 /// `POST /api/v2/s2/circle-coverage` — S2 cells covering a circle.

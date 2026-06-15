@@ -11,6 +11,7 @@ use koji_db::{KojiDb, db::plugin_config};
 use koji_plugins::{PluginKind, PluginRegistry};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use utoipa::ToSchema;
 
 use crate::utils::{api_response::ApiResponse, error::ServiceError};
 
@@ -27,9 +28,11 @@ fn parse_kind(kind: &str) -> Option<PluginKind> {
 }
 
 /// PATCH body — every field optional (overlay merge).
-#[derive(Debug, Deserialize)]
-struct PluginPatch {
+#[derive(Debug, Deserialize, ToSchema)]
+pub(crate) struct PluginPatch {
     enabled: Option<bool>,
+    /// Default plugin CLI args, as opaque JSON.
+    #[schema(value_type = Option<Object>)]
     args_default: Option<Value>,
     description: Option<String>,
 }

@@ -11,6 +11,7 @@ use algorithms::clustering::{CalculationMode, ClusterMode, ClusteringConfig, S2C
 use algorithms::routing::{RoutingConfig, SortBy};
 use koji_core::{Precision, SpawnpointTth};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use super::config::{DataFilter, DevConfig, OutputConfig, ReturnTypeArg, get_return_type};
 use super::resolve::{
@@ -19,13 +20,16 @@ use super::resolve::{
 };
 
 /// Clustering wire args → [`ClusteringConfig`].
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ClusteringArgs {
+    #[schema(value_type = Option<f64>)]
     pub radius: Option<Precision>,
     pub min_points: Option<usize>,
     pub max_clusters: Option<usize>,
+    #[schema(value_type = Option<String>)]
     pub mode: Option<ClusterMode>,
+    #[schema(value_type = Option<String>)]
     pub calculation_mode: Option<CalculationMode>,
     pub s2_level: Option<u8>,
     pub s2_size: Option<u8>,
@@ -59,9 +63,10 @@ impl ClusteringArgs {
 }
 
 /// Routing wire args → [`RoutingConfig`].
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase", default)]
 pub struct RoutingArgs {
+    #[schema(value_type = Option<String>)]
     pub sort_by: Option<SortBy>,
     pub route_split_level: Option<u64>,
     pub plugin_args: Option<String>,
@@ -78,10 +83,12 @@ impl RoutingArgs {
 }
 
 /// Bootstrap wire args → [`BootstrapConfig`].
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase", default)]
 pub struct BootstrapArgs {
+    #[schema(value_type = Option<String>)]
     pub calculation_mode: Option<CalculationMode>,
+    #[schema(value_type = Option<f64>)]
     pub radius: Option<Precision>,
     pub s2_level: Option<u8>,
     pub s2_size: Option<u8>,
@@ -104,10 +111,11 @@ impl BootstrapArgs {
 }
 
 /// Data-filter wire args → [`DataFilter`].
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase", default)]
 pub struct DataFilterArgs {
     pub last_seen: Option<u32>,
+    #[schema(value_type = Option<String>)]
     pub tth: Option<SpawnpointTth>,
 }
 
@@ -124,7 +132,7 @@ impl DataFilterArgs {
 /// `default_return_type` (derived from the inbound `area` container shape — see
 /// the per-op request layer); when `return_type` is `Some`, the wire string is
 /// parsed against that default via [`get_return_type`], else the default stands.
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase", default)]
 pub struct OutputArgs {
     pub return_type: Option<String>,
@@ -152,7 +160,7 @@ impl OutputArgs {
 }
 
 /// Developer / experimental wire toggles → [`DevConfig`].
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase", default)]
 pub struct DevArgs {
     pub bypass_adaptive_partition: Option<bool>,

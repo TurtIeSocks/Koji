@@ -22,6 +22,7 @@ use koji_db::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use utoipa::ToSchema;
 
 use crate::requests::{ReturnTypeArg, get_return_type};
 use crate::utils::error::ServiceError;
@@ -74,23 +75,27 @@ impl ReadQuery {
 /// the koji-db upsert reads through. snake_case wire — koji-db's `to_geofence`
 /// and the `upsert_related_*` readers all key on snake (a camelCase rename would
 /// silently drop fields on write).
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub(crate) struct CreateGeofence {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mode: Option<String>,
+    /// GeoJSON geometry (`Polygon`/`MultiPolygon`/…).
+    #[schema(value_type = Object)]
     pub geometry: serde_json::Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent: Option<u32>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schema(value_type = Vec<Object>)]
     pub projects: Vec<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schema(value_type = Vec<Object>)]
     pub properties: Vec<serde_json::Value>,
 }
 
 /// Lightly-typed patch body: every field optional, omitted fields dropped from
 /// the serialized upsert value.
-#[derive(Debug, Deserialize, Serialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default, ToSchema)]
 #[serde(default)]
 pub(crate) struct PatchGeofence {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -98,12 +103,15 @@ pub(crate) struct PatchGeofence {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mode: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(value_type = Option<Object>)]
     pub geometry: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(value_type = Option<Vec<Object>>)]
     pub projects: Option<Vec<serde_json::Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(value_type = Option<Vec<Object>>)]
     pub properties: Option<Vec<serde_json::Value>>,
 }
 

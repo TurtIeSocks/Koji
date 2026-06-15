@@ -4,6 +4,7 @@
 
 use koji_core::SpawnpointTth;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 #[derive(Debug, Clone)]
 pub struct DataFilter {
@@ -27,7 +28,7 @@ pub struct DevConfig {
     pub benchmark_mode: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, ToSchema)]
 pub enum ReturnTypeArg {
     AltText,
     Text,

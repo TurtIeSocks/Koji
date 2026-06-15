@@ -22,6 +22,7 @@ use koji_db::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use utoipa::ToSchema;
 
 use crate::requests::{ReturnTypeArg, get_return_type};
 use crate::utils::error::ServiceError;
@@ -55,7 +56,7 @@ impl ReadQuery {
 /// Lightly-typed create body. Scalars + links are typed (boundary `400`s);
 /// `geometry` rides as raw geojson. snake_case wire — koji-db's `to_route` keys
 /// on snake (a camelCase rename would silently drop fields on write).
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub(crate) struct CreateRoute {
     pub geofence_id: u32,
     pub name: String,
@@ -63,12 +64,14 @@ pub(crate) struct CreateRoute {
     pub mode: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// GeoJSON geometry (`MultiPoint` route path).
+    #[schema(value_type = Object)]
     pub geometry: serde_json::Value,
 }
 
 /// Lightly-typed patch body: every field optional, omitted fields dropped from
 /// the serialized upsert value.
-#[derive(Debug, Deserialize, Serialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default, ToSchema)]
 #[serde(default)]
 pub(crate) struct PatchRoute {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -80,6 +83,7 @@ pub(crate) struct PatchRoute {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(value_type = Option<Object>)]
     pub geometry: Option<serde_json::Value>,
 }
 

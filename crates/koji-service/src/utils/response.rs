@@ -2,12 +2,17 @@ use geojson::JsonValue;
 use koji_core::{KojiGeometryCollection, Precision};
 use serde::Serialize;
 use serde_json::json;
+use utoipa::ToSchema;
 
 use crate::requests::ReturnTypeArg;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub(crate) struct ConfigResponse {
+    /// Map start-center latitude (`START_LAT` env, default `0.0`).
+    #[schema(value_type = f64)]
     pub start_lat: Precision,
+    /// Map start-center longitude (`START_LON` env, default `0.0`).
+    #[schema(value_type = f64)]
     pub start_lon: Precision,
     pub tile_server: String,
     pub logged_in: bool,

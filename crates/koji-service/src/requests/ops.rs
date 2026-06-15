@@ -15,6 +15,7 @@
 
 use koji_core::{Precision, SingleVec, SpawnpointTth, UnknownId};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use super::config::{DataFilter, ReturnTypeArg};
 use super::groups::{
@@ -37,7 +38,7 @@ fn area_default_return_type(area: &Option<GeoInput>) -> ReturnTypeArg {
 /// Internally-tagged calc request. The `mode` discriminant selects the op; the
 /// inner request carries that op's composed arg-groups. Rides the job payload,
 /// so it is `Serialize` as well as `Deserialize`.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(tag = "mode", rename_all = "camelCase")]
 pub enum CalcRequest {
     Cluster(ClusterReq),
@@ -117,7 +118,7 @@ impl CalcRequest {
 /// The `POST /api/v2/jobs` body: a tagged [`CalcRequest`] (the `mode` field selects
 /// the op and carries its arg-groups) plus the data `category`. Replaces the old
 /// `/calc/{mode}/{category}` path params — both are now body fields.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct CalcJobRequest {
     #[serde(flatten)]
     pub request: CalcRequest,
@@ -152,10 +153,14 @@ impl CalcJobRequest {
 /// the same async area / scanner resolution the legacy flat `Args` drove
 /// (`create_or_find_collection` reads `parent`; `points_from_area` reads
 /// `data_filter.last_seen`/`tth`).
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ClusterReq {
+    /// Inbound `area` as a geojson container (`FeatureCollection`/`Feature`/`Geometry`).
+    #[schema(value_type = Option<Object>)]
     pub area: Option<GeoInput>,
+    /// Pre-supplied `[lat, lon]` data points (array/struct/feature shapes).
+    #[schema(value_type = Option<Object>)]
     pub data_points: Option<DataPointsArg>,
     #[serde(default)]
     pub clustering: ClusteringArgs,
@@ -167,6 +172,8 @@ pub struct ClusterReq {
     pub dev: DevArgs,
     #[serde(default)]
     pub data_filter: DataFilterArgs,
+    /// Parent geofence id (string or number) whose children form the area.
+    #[schema(value_type = Option<Object>)]
     pub parent: Option<UnknownId>,
     pub instance: Option<String>,
 }
@@ -180,10 +187,12 @@ impl ClusterReq {
 
 /// Reroute request: re-routes existing `clusters` against `data_points`; no
 /// clustering group (the clusters are already fixed).
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RerouteReq {
+    #[schema(value_type = Option<Object>)]
     pub data_points: Option<DataPointsArg>,
+    #[schema(value_type = Option<Object>)]
     pub clusters: Option<DataPointsArg>,
     #[serde(default)]
     pub routing: RoutingArgs,
@@ -191,14 +200,16 @@ pub struct RerouteReq {
     pub output: OutputArgs,
     #[serde(default)]
     pub dev: DevArgs,
+    #[schema(value_type = Option<f64>)]
     pub radius: Option<Precision>,
     pub instance: Option<String>,
 }
 
 /// Bootstrap request: seeds clusters across an `area` with the bootstrap group.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BootstrapReq {
+    #[schema(value_type = Option<Object>)]
     pub area: Option<GeoInput>,
     #[serde(default)]
     pub bootstrap: BootstrapArgs,
@@ -208,6 +219,7 @@ pub struct BootstrapReq {
     pub output: OutputArgs,
     #[serde(default)]
     pub dev: DevArgs,
+    #[schema(value_type = Option<Object>)]
     pub parent: Option<UnknownId>,
     pub instance: Option<String>,
 }
@@ -220,11 +232,14 @@ impl BootstrapReq {
 }
 
 /// Route-stats request: scores existing `clusters` against `data_points`.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct StatsReq {
+    #[schema(value_type = Option<Object>)]
     pub data_points: Option<DataPointsArg>,
+    #[schema(value_type = Option<Object>)]
     pub clusters: Option<DataPointsArg>,
+    #[schema(value_type = Option<f64>)]
     pub radius: Option<Precision>,
     pub min_points: Option<usize>,
     #[serde(default)]
@@ -235,9 +250,10 @@ pub struct StatsReq {
 }
 
 /// Geo: convert an `area` between geojson container shapes (optionally simplify).
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ConvertReq {
+    #[schema(value_type = Option<Object>)]
     pub area: Option<GeoInput>,
     #[serde(default)]
     pub output: OutputArgs,
@@ -254,9 +270,10 @@ impl ConvertReq {
 }
 
 /// Geo: simplify an `area`'s geometries.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SimplifyReq {
+    #[schema(value_type = Option<Object>)]
     pub area: Option<GeoInput>,
     #[serde(default)]
     pub output: OutputArgs,
@@ -270,9 +287,10 @@ impl SimplifyReq {
 }
 
 /// Geo: merge the points of an `area` into a single collection.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MergePointsReq {
+    #[schema(value_type = Option<Object>)]
     pub area: Option<GeoInput>,
     #[serde(default)]
     pub output: OutputArgs,

@@ -595,6 +595,76 @@ fn is_option_type(ty: &Type) -> bool {
     false
 }
 
+/// The leaf-type idents `utoipa`'s `ToSchema` derive already understands as
+/// JSON primitives (so no `value_type` override is needed). Anything else in a
+/// `koji_resource!` field is — by the established plain-resource convention — a
+/// string-serializing newtype/`StrEnum` (e.g. `koji_db::Category`) whose owning
+/// crate carries no `utoipa` dep; those get a `#[schema(value_type = String)]`
+/// hint so the generated DTO derives `ToSchema` without forcing utoipa into the
+/// data crates (P8 openapi, documentation-only).
+fn is_schema_primitive(ident: &str) -> bool {
+    matches!(
+        ident,
+        "String"
+            | "str"
+            | "bool"
+            | "char"
+            | "f32"
+            | "f64"
+            | "i8"
+            | "i16"
+            | "i32"
+            | "i64"
+            | "i128"
+            | "isize"
+            | "u8"
+            | "u16"
+            | "u32"
+            | "u64"
+            | "u128"
+            | "usize"
+    )
+}
+
+/// The optional `#[schema(value_type = String)]` attribute for a field whose
+/// (possibly `Option<…>`-wrapped) leaf type is not a JSON primitive utoipa knows
+/// — see [`is_schema_primitive`]. Empty for primitive fields.
+fn schema_value_type_attr(ty: &Type) -> proc_macro2::TokenStream {
+    // Unwrap one `Option<…>` layer to inspect the inner leaf type.
+    let leaf = if is_option_type(ty) {
+        match ty {
+            Type::Path(tp) => tp
+                .path
+                .segments
+                .last()
+                .and_then(|seg| match &seg.arguments {
+                    syn::PathArguments::AngleBracketed(args) => args.args.first(),
+                    _ => None,
+                })
+                .and_then(|arg| match arg {
+                    syn::GenericArgument::Type(inner) => Some(inner.clone()),
+                    _ => None,
+                })
+                .unwrap_or_else(|| ty.clone()),
+            _ => ty.clone(),
+        }
+    } else {
+        ty.clone()
+    };
+
+    let is_primitive = matches!(&leaf, Type::Path(tp) if tp
+        .path
+        .segments
+        .last()
+        .is_some_and(|seg| is_schema_primitive(&seg.ident.to_string())));
+
+    if is_primitive {
+        quote! {}
+    } else {
+        quote! { #[schema(value_type = String)] }
+    }
+}
+
 /// Convert a `snake_case` ident to `PascalCase` (e.g. `tile_server` →
 /// `TileServer`), for the `Create…`/`Patch…` DTO type names.
 fn pascal_case(ident: &Ident) -> Ident {
@@ -658,17 +728,20 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
     // `field` — always correct, unlike naive depluralizing of `seg`.
     let field_name = module.to_string();
 
-    // Create DTO fields, verbatim.
+    // Create DTO fields, verbatim (+ a `value_type` hint on non-primitive leaves
+    // so `ToSchema` derives without forcing utoipa into the data crates).
     let create_fields = fields.iter().map(|f| {
         let name = &f.name;
         let ty = &f.ty;
-        quote! { pub #name: #ty }
+        let schema_attr = schema_value_type_attr(ty);
+        quote! { #schema_attr pub #name: #ty }
     });
 
     // Patch DTO fields: wrap non-Option in Option<…>; skip when None.
     let patch_fields = fields.iter().map(|f| {
         let name = &f.name;
         let ty = &f.ty;
+        let schema_attr = schema_value_type_attr(ty);
         let opt_ty = if is_option_type(ty) {
             quote! { #ty }
         } else {
@@ -676,6 +749,7 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
         };
         quote! {
             #[serde(default, skip_serializing_if = "Option::is_none")]
+            #schema_attr
             pub #name: #opt_ty
         }
     });
@@ -685,17 +759,18 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
         /// resource. See [`koji_resource!`](macros::koji_resource).
         pub(crate) mod #module {
             use ::serde::{Deserialize, Serialize};
+            use ::utoipa::ToSchema;
 
             /// Typed create body for this resource (deserialized from the
             /// request JSON; serialized to the koji-db upsert value).
-            #[derive(Debug, Deserialize, Serialize)]
+            #[derive(Debug, Deserialize, Serialize, ToSchema)]
             pub(crate) struct #create_ty {
                 #(#create_fields),*
             }
 
             /// Typed patch body: every create field optional; omitted fields
             /// stay `None` and are dropped from the serialized upsert value.
-            #[derive(Debug, Deserialize, Serialize)]
+            #[derive(Debug, Deserialize, Serialize, ToSchema)]
             pub(crate) struct #patch_ty {
                 #(#patch_fields),*
             }
