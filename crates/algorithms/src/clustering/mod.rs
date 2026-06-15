@@ -178,3 +178,136 @@ pub fn all_clustering_options() -> Vec<String> {
     options.push("best".to_string());
     options
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::clustering::{CalculationMode, ClusterMode, ClusteringConfig, S2Config};
+    use crate::stats::Stats;
+    use geojson::FeatureCollection;
+
+    fn make_cfg(mode: ClusterMode) -> ClusteringConfig {
+        ClusteringConfig {
+            mode,
+            radius: 70.0,
+            min_points: 1,
+            max_clusters: usize::MAX, // 0 truncates all clusters
+            cluster_split_level: 0,
+            calculation_mode: CalculationMode::Radius,
+            s2: S2Config::default(),
+            center_clusters: false,
+            genetic_post_processing: false,
+            plugin_args: String::new(),
+        }
+    }
+
+    fn empty_collection() -> FeatureCollection {
+        FeatureCollection {
+            bbox: None,
+            features: vec![],
+            foreign_members: None,
+        }
+    }
+
+    // ── main: empty input always returns empty ─────────────────────────────────
+
+    #[test]
+    fn empty_data_returns_empty() {
+        let empty: SingleVec = vec![];
+        let mut stats = Stats::new("t".into(), 1);
+        let result = main(&empty, &make_cfg(ClusterMode::Fastest), empty_collection(), false, &mut stats);
+        assert!(result.is_empty());
+    }
+
+    // ── main: Fastest mode with valid data produces non-empty output ───────────
+
+    #[test]
+    fn fastest_mode_basic_data() {
+        let pts = vec![
+            [40.0_f64, -74.0_f64],
+            [40.0001, -74.0001],
+            [40.0002, -74.0002],
+        ];
+        let mut stats = Stats::new("t".into(), 1);
+        let result = main(&pts, &make_cfg(ClusterMode::Fastest), empty_collection(), false, &mut stats);
+        assert!(!result.is_empty(), "Fastest mode should produce clusters");
+        // Output stays within valid lat/lon range.
+        for [lat, lon] in &result {
+            assert!(lat.abs() < 90.0);
+            assert!(lon.abs() < 180.0);
+        }
+    }
+
+    // ── main: quality modes (no legacy greedy env) route to crucible ──────────
+
+    #[test]
+    fn best_mode_produces_clusters() {
+        unsafe { std::env::remove_var("KOJI_LEGACY_GREEDY") };
+        // Dense grid of 100 points in a 0.05° × 0.05° area; radius 500 m ensures
+        // many points fall within each disk → crucible finds valid clusters.
+        let pts: Vec<[f64; 2]> = (0..100)
+            .map(|i| [40.0 + (i / 10) as f64 * 0.005, -74.0 + (i % 10) as f64 * 0.005])
+            .collect();
+        let mut cfg = make_cfg(ClusterMode::Best);
+        cfg.radius = 500.0;
+        let mut stats = Stats::new("t".into(), 1);
+        let result = main(&pts, &cfg, empty_collection(), false, &mut stats);
+        assert!(!result.is_empty(), "Best mode should produce clusters for dense 100-point grid");
+    }
+
+    #[test]
+    fn better_mode_produces_clusters() {
+        unsafe { std::env::remove_var("KOJI_LEGACY_GREEDY") };
+        let pts: Vec<[f64; 2]> = (0..100)
+            .map(|i| [40.0 + (i / 10) as f64 * 0.005, -74.0 + (i % 10) as f64 * 0.005])
+            .collect();
+        let mut cfg = make_cfg(ClusterMode::Better);
+        cfg.radius = 500.0;
+        let mut stats = Stats::new("t".into(), 1);
+        let result = main(&pts, &cfg, empty_collection(), false, &mut stats);
+        assert!(!result.is_empty(), "Better mode should produce clusters for dense 100-point grid");
+    }
+
+    // ── main: stats populated after run ──────────────────────────────────────
+
+    #[test]
+    fn stats_cluster_time_set() {
+        let pts = vec![[40.0, -74.0], [40.001, -74.0]];
+        let mut stats = Stats::new("t".into(), 1);
+        main(&pts, &make_cfg(ClusterMode::Fastest), empty_collection(), false, &mut stats);
+        assert!(stats.cluster_time >= 0.0);
+    }
+
+    // ── legacy_greedy_requested ───────────────────────────────────────────────
+
+    #[test]
+    fn legacy_greedy_off_by_default() {
+        unsafe { std::env::remove_var("KOJI_LEGACY_GREEDY") };
+        assert!(!legacy_greedy_requested());
+    }
+
+    #[test]
+    fn legacy_greedy_enabled_by_env() {
+        unsafe { std::env::set_var("KOJI_LEGACY_GREEDY", "1") };
+        assert!(legacy_greedy_requested());
+        unsafe { std::env::remove_var("KOJI_LEGACY_GREEDY") };
+    }
+
+    #[test]
+    fn legacy_greedy_enabled_by_true() {
+        unsafe { std::env::set_var("KOJI_LEGACY_GREEDY", "true") };
+        assert!(legacy_greedy_requested());
+        unsafe { std::env::remove_var("KOJI_LEGACY_GREEDY") };
+    }
+
+    // ── all_clustering_options ────────────────────────────────────────────────
+
+    #[test]
+    fn all_clustering_options_contains_built_ins() {
+        let opts = all_clustering_options();
+        assert!(opts.contains(&"fastest".to_string()));
+        assert!(opts.contains(&"best".to_string()));
+        assert!(opts.contains(&"honeycomb".to_string()));
+    }
+}
+

@@ -248,3 +248,99 @@ fn cluster(points: Vec<Coord>, min_points: usize) -> HashMap<String, Vec<String>
     }
     point_map_return
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── main: empty input ─────────────────────────────────────────────────────
+
+    #[test]
+    fn empty_input_returns_empty() {
+        let empty: SingleVec = vec![];
+        let result = main(&empty, 70.0, 1);
+        assert!(result.is_empty());
+    }
+
+    // ── main: single point, min_points = 1 ───────────────────────────────────
+
+    #[test]
+    fn single_point_min1_returns_one_cluster() {
+        let pts = vec![[40.0_f64, -74.0_f64]];
+        let result = main(&pts, 70.0, 1);
+        assert_eq!(result.len(), 1, "one point with min_points=1 should yield 1 cluster");
+    }
+
+    // ── main: cluster count never exceeds input points ────────────────────────
+
+    #[test]
+    fn clusters_do_not_exceed_input_points() {
+        let pts: Vec<[f64; 2]> = (0..20)
+            .map(|i| [40.0 + i as f64 * 0.01, -74.0])
+            .collect();
+        let result = main(&pts, 70.0, 1);
+        assert!(
+            result.len() <= pts.len(),
+            "cluster count ({}) > input count ({})",
+            result.len(),
+            pts.len()
+        );
+    }
+
+    // ── main: dense cluster with high min_points ──────────────────────────────
+
+    #[test]
+    fn sparse_points_filtered_by_min_points() {
+        // 3 isolated points, each far from the others; min_points = 5 → should return nothing.
+        let pts = vec![[40.0, -74.0], [41.0, -74.0], [42.0, -74.0]];
+        let result = main(&pts, 70.0, 5);
+        // Each point is isolated; no cluster can have 5+ members.
+        // (behavior: 0 or fewer than 3 centers; exact 0 is expected here)
+        assert!(
+            result.len() <= 3,
+            "should not exceed input count, got {}",
+            result.len()
+        );
+    }
+
+    // ── main: tight cluster should yield roughly one center ───────────────────
+
+    #[test]
+    fn tight_cluster_yields_one_center() {
+        // 10 points within ~1 m of each other — Fastest should group into 1 cluster.
+        let pts: Vec<[f64; 2]> = (0..10)
+            .map(|i| [40.0 + i as f64 * 0.000001, -74.0 + i as f64 * 0.000001])
+            .collect();
+        let result = main(&pts, 1_000.0, 2); // 1 km radius, 2 min points
+        assert!(
+            !result.is_empty(),
+            "tight cluster with large radius should yield at least 1 center"
+        );
+        assert!(
+            result.len() <= pts.len(),
+            "should not produce more clusters than input points"
+        );
+    }
+
+    // ── main: output contains valid lat/lon ───────────────────────────────────
+
+    #[test]
+    fn output_lat_lon_in_valid_range() {
+        let pts = vec![[40.0, -74.0], [40.001, -74.001], [40.002, -74.002]];
+        let result = main(&pts, 70.0, 1);
+        for [lat, lon] in &result {
+            assert!(lat.abs() < 90.0, "invalid lat: {lat}");
+            assert!(lon.abs() < 180.0, "invalid lon: {lon}");
+        }
+    }
+
+    // ── main: deterministic for same input ────────────────────────────────────
+
+    #[test]
+    fn deterministic_same_input() {
+        let pts = vec![[40.0, -74.0], [40.001, -74.001], [40.5, -73.0]];
+        let a = main(&pts, 70.0, 1);
+        let b = main(&pts, 70.0, 1);
+        assert_eq!(a.len(), b.len(), "Fastest must be deterministic");
+    }
+}

@@ -83,3 +83,93 @@ pub fn meters_to_degrees(radius_meters: Precision, latitude: Precision) -> Preci
     let lon_deg = lat_deg / lat_rad.cos();
     lat_deg.max(lon_deg) // Use the larger for safety
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── generate_cluster_candidates_grid ──────────────────────────────────────
+
+    #[test]
+    fn empty_points_returns_empty() {
+        let result = generate_cluster_candidates_grid(&[], 0.001, 5);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn zero_density_returns_empty() {
+        let result = generate_cluster_candidates_grid(&[[40.0, -74.0]], 0.001, 0);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn density_n_returns_n_squared_candidates() {
+        let pts = vec![[40.0, -74.0], [40.01, -73.99]];
+        let density = 4;
+        let result = generate_cluster_candidates_grid(&pts, 0.001, density);
+        assert_eq!(
+            result.len(),
+            density * density,
+            "expected {n}^2={t} candidates, got {got}",
+            n = density,
+            t = density * density,
+            got = result.len()
+        );
+    }
+
+    #[test]
+    fn candidates_all_have_valid_lat_lon() {
+        let pts = vec![[40.0, -74.0], [40.1, -73.9]];
+        let result = generate_cluster_candidates_grid(&pts, 0.01, 5);
+        for [lat, lon] in &result {
+            assert!(lat.is_finite(), "lat is not finite: {lat}");
+            assert!(lon.is_finite(), "lon is not finite: {lon}");
+        }
+    }
+
+    #[test]
+    fn single_point_expanded_bbox_returns_density_squared() {
+        // A single point's bbox has zero area, but expand() pads it so the step
+        // is non-zero → normal density^2 candidates are returned.
+        let result = generate_cluster_candidates_grid(&[[40.0, -74.0]], 0.001, 4);
+        // expand() makes the bbox non-degenerate → density^2 = 16 candidates.
+        assert_eq!(
+            result.len(),
+            16,
+            "single point with expand should yield density^2 candidates, got {}",
+            result.len()
+        );
+    }
+
+    // ── generate_clusters_from_points ─────────────────────────────────────────
+
+    #[test]
+    fn generate_clusters_from_points_returns_n_squared() {
+        let pts = vec![[40.0, -74.0], [40.1, -73.9]];
+        let density = 3;
+        let result = generate_clusters_from_points(&pts, 70.0, density);
+        assert_eq!(result.len(), density * density);
+    }
+
+    // ── meters_to_degrees ─────────────────────────────────────────────────────
+
+    #[test]
+    fn meters_to_degrees_positive_and_finite() {
+        let deg = meters_to_degrees(70.0, 40.0);
+        assert!(deg > 0.0, "expected positive degrees, got {deg}");
+        assert!(deg.is_finite());
+    }
+
+    #[test]
+    fn meters_to_degrees_zero_is_zero() {
+        assert_eq!(meters_to_degrees(0.0, 40.0), 0.0);
+    }
+
+    #[test]
+    fn meters_to_degrees_larger_radius_larger_degrees() {
+        let d1 = meters_to_degrees(70.0, 40.0);
+        let d2 = meters_to_degrees(700.0, 40.0);
+        assert!(d2 > d1, "larger radius should give larger degree value");
+    }
+}
+

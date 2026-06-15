@@ -193,3 +193,120 @@ fn point_line_distance(input: &[Point], point: &Point) -> Precision {
     }
     distance
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use geojson::{Feature, Geometry, Value};
+
+    /// Build a simple rectangular geojson Feature as a Polygon.
+    /// coords: lon,lat (geojson convention).
+    fn rect_feature(min_lon: f64, min_lat: f64, max_lon: f64, max_lat: f64) -> Feature {
+        let ring = vec![
+            vec![min_lon, min_lat],
+            vec![max_lon, min_lat],
+            vec![max_lon, max_lat],
+            vec![min_lon, max_lat],
+            vec![min_lon, min_lat], // closed
+        ];
+        Feature {
+            bbox: None,
+            geometry: Some(Geometry::new(Value::Polygon(vec![ring]))),
+            id: None,
+            properties: None,
+            foreign_members: None,
+        }
+    }
+
+    // ── BootstrapRadius: basic coverage ───────────────────────────────────────
+
+    #[test]
+    fn small_rect_at_70m_produces_circles() {
+        // ~700×700 m rectangle; radius 70 m → should tile with several circles.
+        let feature = rect_feature(-74.003, 39.997, -73.997, 40.003);
+        let br = BootstrapRadius::new(&feature, 70.0);
+        let pts = br.result();
+        assert!(!pts.is_empty(), "expected some circle centers, got 0");
+    }
+
+    #[test]
+    fn all_output_points_have_valid_lat_lon() {
+        let feature = rect_feature(-74.003, 39.997, -73.997, 40.003);
+        let br = BootstrapRadius::new(&feature, 70.0);
+        for [lat, lon] in br.result() {
+            assert!(lat.abs() < 90.0, "bad lat: {lat}");
+            assert!(lon.abs() < 180.0, "bad lon: {lon}");
+        }
+    }
+
+    #[test]
+    fn feature_no_geometry_returns_empty() {
+        let feature = Feature {
+            bbox: None,
+            geometry: None,
+            id: None,
+            properties: None,
+            foreign_members: None,
+        };
+        let br = BootstrapRadius::new(&feature, 70.0);
+        assert!(br.result().is_empty());
+    }
+
+    // ── split_multipolygon ────────────────────────────────────────────────────
+
+    #[test]
+    fn split_multipolygon_polygon_passthrough() {
+        let ring = vec![vec![
+            vec![0.0_f64, 0.0],
+            vec![1.0, 0.0],
+            vec![1.0, 1.0],
+            vec![0.0, 0.0],
+        ]];
+        let geo = Geometry::new(Value::Polygon(ring.clone()));
+        let result = split_multipolygon(geo);
+        assert_eq!(result.len(), 1);
+        // Single polygon passthrough.
+        assert!(matches!(result[0].value, Value::Polygon(_)));
+    }
+
+    #[test]
+    fn split_multipolygon_splits_multi() {
+        let ring1 = vec![vec![
+            vec![0.0_f64, 0.0],
+            vec![1.0, 0.0],
+            vec![0.5, 1.0],
+            vec![0.0, 0.0],
+        ]];
+        let ring2 = vec![vec![
+            vec![2.0_f64, 0.0],
+            vec![3.0, 0.0],
+            vec![2.5, 1.0],
+            vec![2.0, 0.0],
+        ]];
+        let geo = Geometry::new(Value::MultiPolygon(vec![ring1, ring2]));
+        let result = split_multipolygon(geo);
+        assert_eq!(result.len(), 2);
+        for g in &result {
+            assert!(matches!(g.value, Value::Polygon(_)));
+        }
+    }
+
+    // ── dot / distance helpers ────────────────────────────────────────────────
+
+    #[test]
+    fn dot_of_perpendicular_is_zero() {
+        let u = Point::new(1.0, 0.0);
+        let v = Point::new(0.0, 1.0);
+        assert!((dot(&u, &v)).abs() < 1e-10);
+    }
+
+    #[test]
+    fn distance_to_segment_at_endpoint() {
+        // distance from a to the segment a-b should be ~0.
+        let a = Point::new(-74.0, 40.0);
+        let b = Point::new(-73.0, 40.0);
+        let d = distance_to_segment(&a, &a, &b);
+        assert!(d < 1.0, "distance to self endpoint should be ~0, got {d}");
+    }
+}
+

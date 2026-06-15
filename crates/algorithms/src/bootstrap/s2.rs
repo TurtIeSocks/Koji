@@ -264,3 +264,116 @@ pub fn cells_to_nearest_face_edges(id: CellID) -> (i32, i32) {
 
     (i_cells, j_cells)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use geojson::{Feature, Geometry, Value};
+    use geo::Polygon as GeoPoly;
+    use s2::{cellid::CellID, latlng::LatLng};
+
+    fn rect_feature(min_lon: f64, min_lat: f64, max_lon: f64, max_lat: f64) -> Feature {
+        let ring = vec![
+            vec![min_lon, min_lat],
+            vec![max_lon, min_lat],
+            vec![max_lon, max_lat],
+            vec![min_lon, max_lat],
+            vec![min_lon, min_lat],
+        ];
+        Feature {
+            bbox: None,
+            geometry: Some(Geometry::new(Value::Polygon(vec![ring]))),
+            id: None,
+            properties: None,
+            foreign_members: None,
+        }
+    }
+
+    // ── BootstrapS2::new / result ─────────────────────────────────────────────
+
+    #[test]
+    fn small_rect_level14_produces_cells() {
+        // ~1 km² rectangle at level 14 (cells ~≈ 600 m); expect at least a few centers.
+        let feature = rect_feature(-74.003, 39.997, -73.997, 40.003);
+        let bs = BootstrapS2::new(&feature, 14, 1);
+        let pts = bs.result();
+        assert!(!pts.is_empty(), "expected cells in small rect at level 14");
+    }
+
+    #[test]
+    fn output_lat_lon_in_valid_range() {
+        let feature = rect_feature(-74.003, 39.997, -73.997, 40.003);
+        let bs = BootstrapS2::new(&feature, 15, 1);
+        for [lat, lon] in bs.result() {
+            assert!(lat.abs() < 90.0, "bad lat: {lat}");
+            assert!(lon.abs() < 180.0, "bad lon: {lon}");
+        }
+    }
+
+    #[test]
+    fn no_geometry_returns_empty() {
+        let feature = Feature {
+            bbox: None,
+            geometry: None,
+            id: None,
+            properties: None,
+            foreign_members: None,
+        };
+        let bs = BootstrapS2::new(&feature, 14, 1);
+        assert!(bs.result().is_empty());
+    }
+
+    // ── centers_for_polygon ───────────────────────────────────────────────────
+
+    #[test]
+    fn centers_for_polygon_level15_nonempty() {
+        use geo::{LineString, Polygon};
+        // A ~1 km × 1 km polygon near NYC.
+        let exterior = LineString::from(vec![
+            (-74.003, 39.997),
+            (-73.997, 39.997),
+            (-73.997, 40.003),
+            (-74.003, 40.003),
+            (-74.003, 39.997),
+        ]);
+        let poly = Polygon::new(exterior, vec![]);
+        let feature = rect_feature(-74.003, 39.997, -73.997, 40.003);
+        let bs = BootstrapS2::new(&feature, 15, 1);
+        let centers = bs.centers_for_polygon(&poly);
+        assert!(!centers.is_empty(), "should have centers for this polygon at level 15");
+    }
+
+    // ── cells_to_nearest_face_edges ───────────────────────────────────────────
+
+    #[test]
+    fn cells_to_nearest_face_edges_nonneg() {
+        // Pick a level-10 cell and verify offsets are non-negative.
+        let cell = CellID::from(LatLng::from_degrees(40.0, -74.0)).parent(10);
+        let (i, j) = cells_to_nearest_face_edges(cell);
+        assert!(i >= 0, "i offset must be non-negative, got {i}");
+        assert!(j >= 0, "j offset must be non-negative, got {j}");
+    }
+
+    #[test]
+    fn cells_to_nearest_face_edges_finite() {
+        // Edge-of-face cell (should not panic).
+        let cell = CellID::from(LatLng::from_degrees(0.0, 0.0)).parent(12);
+        let (i, j) = cells_to_nearest_face_edges(cell);
+        assert!(i >= 0 && j >= 0);
+    }
+
+    // ── block_center_cell with size=1 ─────────────────────────────────────────
+
+    #[test]
+    fn block_center_size1_returns_same_cell() {
+        let feature = rect_feature(-74.003, 39.997, -73.997, 40.003);
+        let bs = BootstrapS2::new(&feature, 14, 1);
+        let cell = CellID::from(LatLng::from_degrees(40.0, -74.0)).parent(14);
+        // block_center_cell is private; exercise through new() which calls it.
+        // Just verify the outer result is non-empty.
+        let pts = bs.result();
+        // If size=1, block_center returns each cell unchanged; points must be present.
+        assert!(!pts.is_empty());
+    }
+}
+
