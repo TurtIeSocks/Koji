@@ -40,6 +40,20 @@ impl Response {
     }
 }
 
+/// The success-envelope shared by ~all CRUD/query handlers: a 200 `Response`
+/// with `status: "ok"`, `message: "Success"`, no `stats`, and `data` set to the
+/// caller's payload. Single-sources the block that was hand-rolled at every
+/// handler return; callers wrap the result in `Ok(...)`.
+pub(crate) fn ok_response(data: JsonValue) -> HttpResponse {
+    HttpResponse::Ok().json(Response {
+        data: Some(data),
+        message: "Success".to_string(),
+        status: "ok".to_string(),
+        stats: None,
+        status_code: 200,
+    })
+}
+
 /// Serialize a `KojiGeometryCollection` into the wire `serde_json::Value` for a
 /// requested `ReturnTypeArg`, dispatching to the Phase 1B inherent adapters (on
 /// `KojiGeometryCollection`) and the Phase 1 geojson `From` edge conversions.

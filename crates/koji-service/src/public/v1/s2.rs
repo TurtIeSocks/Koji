@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::utils::response::Response;
+use crate::utils::response::ok_response;
 
 use super::*;
 
@@ -31,13 +31,7 @@ async fn circle_coverage(payload: web::Json<CoverageArgs>) -> Result<HttpRespons
 
     let result = s2::circle_coverage(lat, lon, radius.unwrap_or(70.), level);
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(result)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(result)))
 }
 
 #[post("/cell-coverage")]
@@ -56,13 +50,7 @@ async fn cell_coverage(payload: web::Json<CoverageArgs>) -> Result<HttpResponse,
         .map(|cell| cell.to_string())
         .collect::<Vec<String>>();
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(locked)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(locked)))
 }
 
 #[post("/polygons")]
@@ -70,13 +58,7 @@ async fn cell_polygons(payload: web::Json<Vec<String>>) -> Result<HttpResponse, 
     let cell_ids = payload.into_inner();
     let result = s2::get_polygons(cell_ids);
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(result)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(result)))
 }
 
 #[post("/{cell_level}")]
@@ -110,11 +92,5 @@ async fn s2_cells(
             .collect()
     };
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(cells)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(cells)))
 }

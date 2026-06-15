@@ -2,7 +2,7 @@ use super::*;
 
 use crate::{
     private::{Auth, Search},
-    utils::response::{ConfigResponse, Response},
+    utils::response::{ConfigResponse, ok_response},
 };
 
 use actix_session::Session;
@@ -116,11 +116,5 @@ async fn search_nominatim(
         .collect();
     log::info!("[NOMINATIM] Results Found: {}", results.features.len());
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(results)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(results)))
 }

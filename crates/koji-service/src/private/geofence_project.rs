@@ -5,7 +5,7 @@ use serde_json::json;
 
 use koji_db::{KojiDb, db::geofence_project};
 
-use crate::utils::response::Response;
+use crate::utils::response::{Response, ok_response};
 
 #[get("/all/")]
 async fn get_all(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
@@ -13,13 +13,7 @@ async fn get_all(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> {
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(items)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(items)))
 }
 
 #[post("/")]
@@ -32,13 +26,7 @@ async fn create(
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(return_payload)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(return_payload)))
 }
 
 #[derive(Debug, Deserialize)]
@@ -59,13 +47,7 @@ async fn update(
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(result)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(result)))
 }
 
 #[patch("/{table}/{id}/")]
@@ -103,11 +85,5 @@ async fn remove(
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(projects.rows_affected)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(projects.rows_affected)))
 }

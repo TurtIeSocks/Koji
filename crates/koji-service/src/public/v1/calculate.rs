@@ -14,7 +14,7 @@
 
 use std::time::Duration;
 
-use crate::utils::response::Response;
+use crate::utils::response::{Response, ok_response};
 
 use super::*;
 
@@ -487,11 +487,5 @@ async fn calculate_area(payload: web::Json<LegacyArgs>) -> Result<HttpResponse, 
 
     log::info!("[AREA] Found total area: {}", total_area);
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!({ "area": total_area })),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!({ "area": total_area })))
 }

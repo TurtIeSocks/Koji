@@ -7,7 +7,7 @@ use serde_json::json;
 use koji_db::{KojiDb, db};
 
 use crate::private::Search;
-use crate::utils::response::Response;
+use crate::utils::response::ok_response;
 
 #[get("/{resource}/")]
 async fn paginate(
@@ -28,13 +28,7 @@ async fn paginate(
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(paginated_results)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(paginated_results)))
 }
 
 #[get("/{resource}/parent")]
@@ -51,13 +45,7 @@ async fn parent_list(
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(results)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(results)))
 }
 
 #[get("/{resource}/all/")]
@@ -77,13 +65,7 @@ async fn get_all(
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(results)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(results)))
 }
 
 #[get("/{resource}/{id}/")]
@@ -103,13 +85,7 @@ async fn get_one(
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(result)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(result)))
 }
 
 #[post("/{resource}/")]
@@ -131,13 +107,7 @@ async fn create(
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(result)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(result)))
 }
 
 #[patch("/{resource}/{id}/")]
@@ -159,13 +129,7 @@ async fn update(
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(result)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(result)))
 }
 
 #[delete("/{resource}/{id}/")]
@@ -185,13 +149,7 @@ async fn remove(
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(result.rows_affected)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(result.rows_affected)))
 }
 
 #[patch("/assign/{resource}/{property}/{id}/")]
@@ -214,13 +172,7 @@ async fn assign(
         _ => Err(ModelError::Custom("Invalid Resource".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(results)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(results)))
 }
 
 #[get("/search/{resource}/")]
@@ -241,11 +193,5 @@ async fn search(
         _ => Err(DbErr::Custom("Invalid Resource".to_string())),
     }
     .map_err(actix_web::error::ErrorInternalServerError)?;
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(results)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(results)))
 }

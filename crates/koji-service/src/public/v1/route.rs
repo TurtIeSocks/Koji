@@ -1,4 +1,4 @@
-use crate::utils::response::Response;
+use crate::utils::response::ok_response;
 
 use super::*;
 
@@ -28,13 +28,7 @@ async fn all(
     let fc = geojson::FeatureCollection::from(&coll);
 
     log::info!("[PUBLIC_API] Returning {} routes", fc.features.len());
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(fc)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(fc)))
 }
 
 #[get("/area/{id}")]
@@ -74,13 +68,7 @@ async fn reference_data(conn: web::Data<KojiDb>) -> Result<HttpResponse, Error> 
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     log::info!("[ROUTE_REF] Returning {} instances", fences.len());
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(fences)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(fences)))
 }
 
 #[get("/reference/{geofence}")]
@@ -93,13 +81,7 @@ async fn reference_data_geofence(
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!(fences)),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!(fences)))
 }
 
 #[post("/save-koji")]
@@ -117,13 +99,7 @@ async fn save_koji(
 
     log::info!("Rows Updated: {}, Rows Inserted: {}", updates, inserts);
 
-    Ok(HttpResponse::Ok().json(Response {
-        data: Some(json!({ "updates": updates, "inserts": inserts })),
-        message: "Success".to_string(),
-        status: "ok".to_string(),
-        stats: None,
-        status_code: 200,
-    }))
+    Ok(ok_response(json!({ "updates": updates, "inserts": inserts })))
 }
 
 #[get("/{return_type}")]
