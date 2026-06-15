@@ -1,113 +1,171 @@
 //! v2 typed CRUD for routes.
 //!
 //! Routes are geometry-bearing, so the `list`/`get_one` reads honor the
-//! `?format=`/`rt` return-type query via [`utils::response::send`] (the same
-//! catch-all v1 uses) and the `?internal=` flag. Writes go through the koji-db
-//! `Query` and are wrapped in [`ApiResponse`](crate::utils::api_response::ApiResponse).
+//! `?format=` return-type query and render through
+//! [`respond_geo`](crate::utils::format::respond_geo): the GeoJSON shapes ride
+//! inside the v2 envelope, the export formats (`sql`/`poracle`/…) come back raw.
+//! Writes take lightly-typed snake_case DTOs ([`CreateRoute`] / [`PatchRoute`],
+//! geojson `geometry` as a `serde_json::Value`), go through the koji-db `Query`,
+//! and surface `201`+`Location` / `204` / `404` via
+//! [`ServiceError`](crate::utils::error::ServiceError).
 //!
 //! Hand-written (not macro'd via [`super::resources`]) because the reads return
-//! Koji-native geometry (`as_koji_collection` / `get_one_koji`) for
-//! [`utils::response::send`] rather than the plain JSON the macro'd resources
-//! emit.
+//! Koji-native geometry (`as_koji_collection` / `get_one_koji`) and carry the
+//! `/publish` action — beyond the plain-JSON
+//! [`koji_resource!`](macros::koji_resource) shape. (Routes have no hierarchy, so
+//! they otherwise mirror [`super::geofences`].)
 
-use actix_web::{Error, HttpResponse, http::StatusCode, web};
-use koji_core::ApiQueryArgs;
+use actix_web::{HttpResponse, http::StatusCode, web};
 use koji_db::{
     KojiDb,
     db::{geofence, route, sea_orm_active_enums::Mode},
 };
-
-use crate::requests::{ReturnTypeArg, get_return_type};
-use koji_dragonite::AreaMode;
-use koji_events::EventDispatcher;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+use crate::requests::{ReturnTypeArg, get_return_type};
+use crate::utils::error::ServiceError;
+use crate::utils::{api_response::ApiResponse, format::respond_geo};
+use koji_dragonite::AreaMode;
+use koji_events::EventDispatcher;
+
 use crate::dragonite::{RouteUpdated, TOPIC_ROUTE_UPDATED};
-use crate::utils::{self, api_response::ApiResponse};
 
-/// `GET /api/v2/routes` — list all routes as a `FeatureCollection`, honoring
-/// `?format=`/`rt` (defaults to `featurecollection`) and `?internal=`.
-async fn list(
-    conn: web::Data<KojiDb>,
-    args: web::Query<ApiQueryArgs>,
-) -> Result<HttpResponse, Error> {
-    let args = args.into_inner();
-    let return_type = get_return_type(
-        args.rt
-            .clone()
-            .unwrap_or_else(|| "featurecollection".to_string()),
-        &ReturnTypeArg::FeatureCollection,
-    );
-
-    let coll = route::Query::as_koji_collection(&conn.koji)
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    Ok(utils::response::send(coll, return_type, None, false, None))
+/// Query args for the geometry reads: the `?format=` return-type selector (with
+/// `?rt=` kept as a one-release back-compat alias). Deliberately omits the legacy
+/// `?internal=` flag (spec A8).
+#[derive(Debug, Default, Deserialize)]
+struct ReadQuery {
+    /// Return-type selector; `rt` is the legacy spelling, folded in as a fallback.
+    format: Option<String>,
+    rt: Option<String>,
 }
 
-/// `POST /api/v2/routes` — create a route → `201` ApiResponse.
+impl ReadQuery {
+    /// The negotiated return type, defaulting to `default` when neither
+    /// `?format=` nor `?rt=` is supplied.
+    fn return_type(&self, default: ReturnTypeArg) -> ReturnTypeArg {
+        match self.format.clone().or_else(|| self.rt.clone()) {
+            Some(s) => get_return_type(s, &default),
+            None => default,
+        }
+    }
+}
+
+/// Lightly-typed create body. Scalars + links are typed (boundary `400`s);
+/// `geometry` rides as raw geojson. snake_case wire — koji-db's `to_route` keys
+/// on snake (a camelCase rename would silently drop fields on write).
+#[derive(Debug, Deserialize, Serialize)]
+pub(crate) struct CreateRoute {
+    pub geofence_id: u32,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub geometry: serde_json::Value,
+}
+
+/// Lightly-typed patch body: every field optional, omitted fields dropped from
+/// the serialized upsert value.
+#[derive(Debug, Deserialize, Serialize, Default)]
+#[serde(default)]
+pub(crate) struct PatchRoute {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub geofence_id: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub geometry: Option<serde_json::Value>,
+}
+
+/// `GET /api/v2/routes` — list all routes as a `FeatureCollection`, honoring
+/// `?format=` (defaults to `featurecollection`).
+async fn list(
+    conn: web::Data<KojiDb>,
+    query: web::Query<ReadQuery>,
+) -> Result<HttpResponse, ServiceError> {
+    let return_type = query.return_type(ReturnTypeArg::FeatureCollection);
+
+    let coll = route::Query::as_koji_collection(&conn.koji).await?;
+
+    Ok(respond_geo(coll, return_type))
+}
+
+/// `POST /api/v2/routes` — create a route → `201` + `Location`.
 async fn create(
     conn: web::Data<KojiDb>,
-    payload: web::Json<serde_json::Value>,
-) -> Result<HttpResponse, Error> {
-    let record = route::Query::upsert_json_return(&conn.koji, 0, payload.into_inner())
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-    Ok(ApiResponse::success_with_status(
-        StatusCode::CREATED,
-        record,
-    ))
+    body: web::Json<CreateRoute>,
+) -> Result<HttpResponse, ServiceError> {
+    let value = serde_json::to_value(&body.into_inner()).map_err(ServiceError::internal)?;
+    let record = route::Query::upsert_json_return(&conn.koji, 0, value).await?;
+    let id = record.get("id").and_then(serde_json::Value::as_u64).unwrap_or(0);
+    Ok(HttpResponse::build(StatusCode::CREATED)
+        .insert_header(("Location", format!("/api/v2/routes/{id}")))
+        .json(ApiResponse::Ok {
+            data: record,
+            meta: None,
+        }))
 }
 
 /// `GET /api/v2/routes/{id}` — one route (by id or name) as a feature, honoring
-/// `?format=`/`rt` (defaults to `feature`) and `?internal=`.
+/// `?format=` (defaults to `feature`); a missing route → `404`.
 async fn get_one(
     conn: web::Data<KojiDb>,
     path: web::Path<String>,
-    args: web::Query<ApiQueryArgs>,
-) -> Result<HttpResponse, Error> {
+    query: web::Query<ReadQuery>,
+) -> Result<HttpResponse, ServiceError> {
     let id = path.into_inner();
-    let args = args.into_inner();
-    let return_type = get_return_type(
-        args.rt.clone().unwrap_or_else(|| "feature".to_string()),
-        &ReturnTypeArg::Feature,
-    );
+    let return_type = query.return_type(ReturnTypeArg::Feature);
 
-    let geometry = route::Query::get_one_koji(&conn.koji, id)
+    let geometry = route::Query::get_one_koji(&conn.koji, id.clone())
         .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+        .map_err(|_| ServiceError::NotFound {
+            field: "route",
+            message: format!("no route {id}"),
+        })?;
 
-    Ok(utils::response::send(
+    Ok(respond_geo(
         koji_core::KojiGeometryCollection::new(vec![geometry]),
         return_type,
-        None,
-        false,
-        None,
     ))
 }
 
-/// `PATCH /api/v2/routes/{id}` — update a route by id → ApiResponse.
+/// `PATCH /api/v2/routes/{id}` — update a route by id → `200` envelope; `404` on
+/// a missing id.
 async fn update(
     conn: web::Data<KojiDb>,
     path: web::Path<u32>,
-    payload: web::Json<serde_json::Value>,
-) -> Result<HttpResponse, Error> {
-    let record =
-        route::Query::upsert_json_return(&conn.koji, path.into_inner(), payload.into_inner())
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+    body: web::Json<PatchRoute>,
+) -> Result<HttpResponse, ServiceError> {
+    let id = path.into_inner();
+    // `upsert_json_return` is upsert (a missing id would INSERT), so pre-check
+    // existence to honor PATCH's 404-on-missing contract.
+    if route::Query::get_one(&conn.koji, id.to_string()).await.is_err() {
+        return Err(ServiceError::NotFound {
+            field: "route",
+            message: format!("no route {id}"),
+        });
+    }
+    let value = serde_json::to_value(&body.into_inner()).map_err(ServiceError::internal)?;
+    let record = route::Query::upsert_json_return(&conn.koji, id, value).await?;
     Ok(ApiResponse::success(record))
 }
 
-/// `DELETE /api/v2/routes/{id}` — delete a route → ApiResponse `{rows_affected}`.
-async fn remove(conn: web::Data<KojiDb>, path: web::Path<u32>) -> Result<HttpResponse, Error> {
-    let result = route::Query::delete(&conn.koji, path.into_inner())
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-    Ok(ApiResponse::success(
-        json!({ "rows_affected": result.rows_affected }),
-    ))
+/// `DELETE /api/v2/routes/{id}` — `204 No Content`; `404` on a missing id.
+async fn remove(conn: web::Data<KojiDb>, path: web::Path<u32>) -> Result<HttpResponse, ServiceError> {
+    let result = route::Query::delete(&conn.koji, path.into_inner()).await?;
+    if result.rows_affected == 0 {
+        return Err(ServiceError::NotFound {
+            field: "route",
+            message: "does not exist".to_string(),
+        });
+    }
+    Ok(HttpResponse::build(StatusCode::NO_CONTENT).finish())
 }
 
 /// Map a Koji route/geofence [`Mode`] to the Dragonite [`AreaMode`] its route
@@ -127,29 +185,27 @@ fn area_mode_for(mode: &Mode) -> AreaMode {
 /// geofence publish). Resolves the route → its geofence → `dragonite_area_id`,
 /// maps the route mode to an [`AreaMode`], and emits the event for the
 /// `DragoniteSubscriber` to PATCH `/v2/areas/{id}`. Gated on linkage (an
-/// unlinked geofence → `422`).
-async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<HttpResponse, Error> {
+/// unlinked geofence → `422`); an unknown route → `404`.
+async fn publish(
+    conn: web::Data<KojiDb>,
+    path: web::Path<String>,
+) -> Result<HttpResponse, ServiceError> {
     let id = path.into_inner();
 
-    let model = match route::Query::get_one(&conn.koji, id.clone()).await {
-        Ok(model) => model,
-        Err(_) => {
-            return Ok(ApiResponse::fail(
-                StatusCode::NOT_FOUND,
-                json!({ "route": format!("no route {id}") }),
-            ));
-        }
-    };
+    let model = route::Query::get_one(&conn.koji, id.clone())
+        .await
+        .map_err(|_| ServiceError::NotFound {
+            field: "route",
+            message: format!("no route {id}"),
+        })?;
 
     // Linkage flows through the route's geofence.
-    let fence = geofence::Query::get_one(&conn.koji, model.geofence_id.to_string())
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let fence = geofence::Query::get_one(&conn.koji, model.geofence_id.to_string()).await?;
     let Some(dragonite_area_id) = fence.dragonite_area_id else {
-        return Ok(ApiResponse::fail(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            json!({ "dragonite_area_id": "route's geofence is not linked to a Dragonite area" }),
-        ));
+        return Err(ServiceError::Unprocessable {
+            field: Some("dragonite_area_id".to_string()),
+            message: "route's geofence is not linked to a Dragonite area".to_string(),
+        });
     };
 
     // Route points as a Koji `SingleVec` (`[lat, lon]`). Fetch the route as a
@@ -157,9 +213,7 @@ async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<Htt
     // Phase 1B inherent `to_single_vec` (parity oracle: the old
     // `Feature::to_single_vec` matrix path — both read the stored MultiPoint in
     // order and emit the same `[lat, lon]` list).
-    let geometry = route::Query::get_one_koji(&conn.koji, id)
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let geometry = route::Query::get_one_koji(&conn.koji, id).await?;
     let route_points = koji_core::KojiGeometryCollection::new(vec![geometry]).to_single_vec();
     let mode = area_mode_for(&model.mode);
 
@@ -170,7 +224,7 @@ async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<Htt
     };
     let event_id = EventDispatcher::publish(&conn.koji, TOPIC_ROUTE_UPDATED, &payload)
         .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+        .map_err(ServiceError::internal)?;
 
     Ok(ApiResponse::success_with_status(
         StatusCode::ACCEPTED,
@@ -200,4 +254,113 @@ pub(crate) fn scope() -> actix_web::Scope {
                 .route(web::patch().to(update))
                 .route(web::delete().to(remove)),
         )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn sample_geometry() -> serde_json::Value {
+        json!({
+            "type": "MultiPoint",
+            "coordinates": [[1.0, 2.0], [3.0, 4.0]]
+        })
+    }
+
+    #[test]
+    fn create_route_deserializes_snake_case_body() {
+        let dto: CreateRoute = serde_json::from_value(json!({
+            "geofence_id": 7,
+            "name": "Patrol",
+            "mode": "pokemon",
+            "description": "loop",
+            "geometry": sample_geometry()
+        }))
+        .unwrap();
+        assert_eq!(dto.geofence_id, 7);
+        assert_eq!(dto.name, "Patrol");
+        assert_eq!(dto.mode.as_deref(), Some("pokemon"));
+        assert_eq!(dto.description.as_deref(), Some("loop"));
+        assert_eq!(dto.geometry["type"], "MultiPoint");
+    }
+
+    #[test]
+    fn create_route_requires_geofence_id_name_geometry() {
+        // `geofence_id` + `name` + `geometry` are required (not Option).
+        assert!(serde_json::from_value::<CreateRoute>(json!({ "name": "x", "geometry": sample_geometry() })).is_err());
+        assert!(serde_json::from_value::<CreateRoute>(json!({ "geofence_id": 1, "geometry": sample_geometry() })).is_err());
+        assert!(serde_json::from_value::<CreateRoute>(json!({ "geofence_id": 1, "name": "x" })).is_err());
+    }
+
+    #[test]
+    fn create_route_defaults_optionals() {
+        let dto: CreateRoute = serde_json::from_value(json!({
+            "geofence_id": 1,
+            "name": "x",
+            "geometry": sample_geometry()
+        }))
+        .unwrap();
+        assert!(dto.mode.is_none());
+        assert!(dto.description.is_none());
+    }
+
+    #[test]
+    fn create_route_serializes_snake_keys_for_upsert() {
+        // The serialized value feeds koji-db `to_route`, which reads snake keys.
+        let dto = CreateRoute {
+            geofence_id: 7,
+            name: "n".into(),
+            mode: None,
+            description: None,
+            geometry: sample_geometry(),
+        };
+        let v = serde_json::to_value(&dto).unwrap();
+        assert_eq!(v["geofence_id"], 7);
+        assert_eq!(v["name"], "n");
+        assert!(v.get("geometry").is_some());
+        // None optionals are omitted from the upsert value.
+        assert!(v.get("mode").is_none());
+        assert!(v.get("description").is_none());
+    }
+
+    #[test]
+    fn patch_route_accepts_empty_body_all_none() {
+        let dto: PatchRoute = serde_json::from_value(json!({})).unwrap();
+        assert!(dto.geofence_id.is_none());
+        assert!(dto.name.is_none());
+        assert!(dto.mode.is_none());
+        assert!(dto.description.is_none());
+        assert!(dto.geometry.is_none());
+    }
+
+    #[test]
+    fn patch_route_partial_omits_none_on_serialize() {
+        let dto: PatchRoute = serde_json::from_value(json!({ "description": "only this" })).unwrap();
+        assert_eq!(dto.description.as_deref(), Some("only this"));
+        let v = serde_json::to_value(&dto).unwrap();
+        assert_eq!(v["description"], "only this");
+        assert!(v.get("geofence_id").is_none());
+        assert!(v.get("name").is_none());
+        assert!(v.get("mode").is_none());
+        assert!(v.get("geometry").is_none());
+    }
+
+    #[test]
+    fn read_query_format_takes_precedence_then_rt_then_default() {
+        let q = ReadQuery {
+            format: Some("sql".into()),
+            rt: Some("feature".into()),
+        };
+        assert_eq!(q.return_type(ReturnTypeArg::FeatureCollection), ReturnTypeArg::Sql);
+
+        let q = ReadQuery {
+            format: None,
+            rt: Some("sql".into()),
+        };
+        assert_eq!(q.return_type(ReturnTypeArg::FeatureCollection), ReturnTypeArg::Sql);
+
+        let q = ReadQuery::default();
+        assert_eq!(q.return_type(ReturnTypeArg::Feature), ReturnTypeArg::Feature);
+    }
 }
