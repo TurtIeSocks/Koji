@@ -111,7 +111,7 @@ impl ApiResponse<()> {
 }
 
 /// Derive a stable error `code` from the HTTP status.
-fn code_for_status(status: StatusCode) -> String {
+pub(crate) fn code_for_status(status: StatusCode) -> String {
     match status.as_u16() {
         400 => "invalid_request",
         401 => "unauthorized",

@@ -2491,6 +2491,7 @@ dependencies = [
  "nominatim",
  "serde",
  "serde_json",
+ "thiserror",
  "url",
 ]
 
