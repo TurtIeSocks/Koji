@@ -110,3 +110,106 @@ impl SortDedupe for Vec<&Point> {
         self.dedup_by(|a, b| a.cell_id == b.cell_id);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Point::new / basic properties ─────────────────────────────────────────
+
+    #[test]
+    fn center_matches_input() {
+        let center = [40.0_f64, -74.0_f64];
+        let p = Point::new(70.0, 20, center);
+        assert_eq!(p.center[0], center[0]);
+        assert_eq!(p.center[1], center[1]);
+    }
+
+    #[test]
+    fn cell_id_reproducible() {
+        let p1 = Point::new(70.0, 20, [40.0, -74.0]);
+        let p2 = Point::new(70.0, 20, [40.0, -74.0]);
+        assert_eq!(p1.cell_id, p2.cell_id);
+    }
+
+    #[test]
+    fn different_coords_different_cell_id() {
+        let p1 = Point::new(70.0, 20, [40.0, -74.0]);
+        let p2 = Point::new(70.0, 20, [-33.0, 151.0]);
+        assert_ne!(p1.cell_id, p2.cell_id);
+    }
+
+    // ── PointDistance: distance_2 / contains_point ────────────────────────────
+
+    #[test]
+    fn distance_to_self_is_zero() {
+        let p = Point::new(70.0, 20, [40.0, -74.0]);
+        let d = p.distance_2(&p.center);
+        assert!(d < 1.0, "distance to self should be ~0, got {d}");
+    }
+
+    #[test]
+    fn contains_point_true_when_within_radius() {
+        let radius = 1_000.0; // 1 km
+        let p = Point::new(radius, 20, [40.0, -74.0]);
+        // ~11 m away — well inside 1 km radius.
+        let nearby = [40.0001, -74.0];
+        assert!(p.contains_point(&nearby));
+    }
+
+    #[test]
+    fn contains_point_false_when_outside_radius() {
+        let radius = 10.0; // 10 m
+        let p = Point::new(radius, 20, [40.0, -74.0]);
+        // ~111 km away.
+        let far = [41.0, -74.0];
+        assert!(!p.contains_point(&far));
+    }
+
+    // ── PartialEq / Hash: same cell_id = equal regardless of coords ───────────
+
+    #[test]
+    fn eq_based_on_cell_id_not_radius() {
+        let p1 = Point::new(70.0, 20, [40.0, -74.0]);
+        let p2 = Point::new(500.0, 20, [40.0, -74.0]); // different radius, same coords
+        assert_eq!(p1, p2, "same coords at same cell level must be equal");
+    }
+
+    // ── Display ───────────────────────────────────────────────────────────────
+
+    #[test]
+    fn display_contains_lat_lon() {
+        let p = Point::new(70.0, 20, [40.0, -74.0]);
+        let s = format!("{p}");
+        assert!(s.contains("40.000000"), "missing lat in display: {s}");
+        assert!(s.contains("-74.000000"), "missing lon in display: {s}");
+    }
+
+    // ── _get_geohash ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn geohash_length_12() {
+        let p = Point::new(70.0, 20, [40.0, -74.0]);
+        let hash = p._get_geohash();
+        assert_eq!(hash.len(), 12, "expected 12-char geohash, got: {hash}");
+    }
+
+    // ── SortDedupe for Vec<&Point> ────────────────────────────────────────────
+
+    #[test]
+    fn sort_dedupe_removes_duplicates() {
+        let p = Point::new(70.0, 20, [40.0, -74.0]);
+        let q = Point::new(70.0, 20, [41.0, -74.0]);
+        let mut refs: Vec<&Point> = vec![&p, &q, &p];
+        refs.sort_dedupe();
+        assert_eq!(refs.len(), 2, "dedup should remove duplicate cell_id");
+    }
+
+    #[test]
+    fn sort_dedupe_empty_ok() {
+        let mut refs: Vec<&Point> = vec![];
+        refs.sort_dedupe();
+        assert!(refs.is_empty());
+    }
+}
+

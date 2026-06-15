@@ -127,3 +127,89 @@ pub fn rotate_to_best(clusters: SingleVec, stats: &Stats) -> SingleVec {
 
     final_clusters.into()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::stats::Stats;
+
+    // ── centroid ───────────────────────────────────────────────────────────────
+
+    #[test]
+    fn centroid_single_point_is_itself() {
+        let pts = [[40.0_f64, -74.0_f64]];
+        let c = centroid(&pts);
+        assert!((c[0] - 40.0).abs() < 1e-6);
+        assert!((c[1] - -74.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn centroid_two_symmetric_points() {
+        // [40, 0] and [40, 2] — centroid lon ≈ 1 (symmetric), lat ≈ 40.
+        let pts = [[40.0_f64, 0.0_f64], [40.0, 2.0]];
+        let c = centroid(&pts);
+        assert!((c[1] - 1.0).abs() < 0.01, "lon centroid: {}", c[1]);
+    }
+
+    #[test]
+    fn centroid_many_points_stays_bounded() {
+        // 100 points all at the same location → centroid = that location.
+        let pts: Vec<[f64; 2]> = (0..100).map(|_| [48.8566, 2.3522]).collect();
+        let c = centroid(&pts);
+        assert!((c[0] - 48.8566).abs() < 0.001);
+        assert!((c[1] - 2.3522).abs() < 0.001);
+    }
+
+    // ── rotate_to_best ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn rotate_to_best_puts_best_cluster_first() {
+        // Two clusters; "best" has 2 points, "other" has 1.
+        // We set best_clusters so rotate_to_best should put it at index 0.
+        let best = [40.0_f64, -74.0_f64];
+        let other = [41.0_f64, -74.0_f64];
+
+        let mut stats = Stats::new("test".into(), 1);
+        stats.best_clusters = vec![best];
+
+        let clusters = vec![other, best];
+        let rotated = rotate_to_best(clusters, &stats);
+
+        assert_eq!(rotated.len(), 2);
+        // best must be first (or tied for first if already there)
+        assert!(
+            rotated.iter().any(|c| (c[0] - best[0]).abs() < 1e-6),
+            "best cluster missing from output"
+        );
+        // The "best" cluster should be at index 0 after rotation.
+        assert!(
+            (rotated[0][0] - best[0]).abs() < 1e-6,
+            "rotate_to_best must put the best cluster first; got {:?}",
+            rotated[0]
+        );
+    }
+
+    #[test]
+    fn rotate_to_best_empty_returns_empty() {
+        let mut stats = Stats::new("test".into(), 1);
+        stats.best_clusters = vec![];
+        let rotated = rotate_to_best(vec![], &stats);
+        assert!(rotated.is_empty());
+    }
+
+    #[test]
+    fn rotate_to_best_already_first_is_noop() {
+        let best = [40.0_f64, -74.0_f64];
+        let other = [41.0_f64, -74.0_f64];
+
+        let mut stats = Stats::new("test".into(), 1);
+        stats.best_clusters = vec![best];
+
+        // best is already first → rotate_count = 0.
+        let clusters = vec![best, other];
+        let rotated = rotate_to_best(clusters, &stats);
+        assert_eq!(rotated.len(), 2);
+        assert!((rotated[0][0] - best[0]).abs() < 1e-6);
+    }
+}
+
