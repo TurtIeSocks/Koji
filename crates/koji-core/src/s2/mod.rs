@@ -383,6 +383,8 @@ pub fn create_cell_map(points: &SingleVec, split_level: u64) -> HashMap<u64, Sin
 mod tests {
     use super::*;
 
+    // ── create_cell_map ──────────────────────────────────────────────────────
+
     #[test]
     fn buckets_preserve_all_points() {
         let points: SingleVec = vec![
@@ -414,5 +416,327 @@ mod tests {
     fn empty_input_yields_empty_map() {
         let points: SingleVec = vec![];
         assert!(create_cell_map(&points, 10).is_empty());
+    }
+
+    // ── from_array_to_cell_id / from_cell_id_to_array round-trip ────────────
+
+    #[test]
+    fn cell_id_round_trip_lat_lon() {
+        // [lat, lon] → cell at level 15 → back to [lat, lon] center.
+        // The center of the cell should be *close* to the original point but
+        // not necessarily equal (S2 snaps to the cell center). We verify:
+        // 1. The returned [lat, lon] is within a small tolerance of the input.
+        // 2. The round-trip from that center back yields the same CellID.
+        let input: PointArray = [48.8566, 2.3522]; // Paris
+        let level = 15u64;
+        let cell_id = from_array_to_cell_id(&input, level);
+        assert_eq!(cell_id.level(), level);
+
+        let center = from_cell_id_to_array(cell_id);
+        // center is [lat, lon] — must be within ~1 km of input at level 15
+        assert!((center[0] - input[0]).abs() < 0.01, "lat off: {:?}", center);
+        assert!((center[1] - input[1]).abs() < 0.01, "lon off: {:?}", center);
+
+        // idempotent: centroid→cell_id gives the same cell
+        let cell_id2 = from_array_to_cell_id(&center, level);
+        assert_eq!(cell_id, cell_id2, "cell id not idempotent");
+    }
+
+    #[test]
+    fn cell_id_level_is_correct() {
+        for level in [1u64, 6, 12, 20] {
+            let id = from_array_to_cell_id(&[0.0, 0.0], level);
+            assert_eq!(id.level(), level, "level {level}");
+        }
+    }
+
+    // ── ToGeo / ToPointArray ─────────────────────────────────────────────────
+
+    #[test]
+    fn cell_polygon_has_4_vertices_and_center_inside() {
+        // cell polygon must have 4 exterior coordinates (the 4 vertices).
+        // The center point must lie inside (intersects the ring).
+        use geo::Contains;
+        let input: PointArray = [35.6762, 139.6503]; // Tokyo
+        let cell_id = from_array_to_cell_id(&input, 15);
+
+        let poly = cell_id.polygon();
+        // geo Polygon: exterior ring includes the closing point = 5 coords
+        let ext: Vec<_> = poly.exterior().coords().collect();
+        // S2 cell polygon via LineString::from(Vec<Point>) doesn't auto-close,
+        // so we may get 4 or 5. Assert at least 4.
+        assert!(ext.len() >= 4, "expected ≥4 vertices, got {}", ext.len());
+
+        // center of the cell must be contained in the polygon
+        let center = cell_id.geo_point();
+        assert!(
+            poly.contains(&center),
+            "center {:?} not inside cell polygon",
+            center
+        );
+    }
+
+    #[test]
+    fn cell_coord_and_geo_point_agree() {
+        let input: PointArray = [-33.8688, 151.2093]; // Sydney
+        let cell_id = from_array_to_cell_id(&input, 12);
+        let coord = cell_id.coord();
+        let geo_point = cell_id.geo_point();
+        // coord.x = lon, coord.y = lat; geo_point.x() = lon, .y() = lat
+        assert_eq!(coord.x, geo_point.x());
+        assert_eq!(coord.y, geo_point.y());
+    }
+
+    #[test]
+    fn cell_point_array_matches_coord_center() {
+        let input: PointArray = [40.7128, -74.0060]; // NYC
+        let cell_id = from_array_to_cell_id(&input, 15);
+        let arr = cell_id.point_array();
+        let coord = cell_id.coord();
+        // point_array is [lat, lon]; coord is (x=lon, y=lat)
+        assert!((arr[0] - coord.y).abs() < 1e-10, "lat mismatch");
+        assert!((arr[1] - coord.x).abs() < 1e-10, "lon mismatch");
+    }
+
+    // ── get_polygon / get_client_polygon (via get_cells) ────────────────────
+
+    #[test]
+    fn get_polygon_returns_4_latlon_corners() {
+        let cell_id = from_array_to_cell_id(&[51.5074, -0.1278], 15); // London
+        let corners = get_polygon(&cell_id);
+        // Each corner is [lat, lon]; lat ∈ [-90,90], lon ∈ [-180,180]
+        for (i, [lat, lon]) in corners.iter().enumerate() {
+            assert!(
+                (-90.0..=90.0).contains(lat),
+                "corner {i} lat {lat} out of range"
+            );
+            assert!(
+                (-180.0..=180.0).contains(lon),
+                "corner {i} lon {lon} out of range"
+            );
+        }
+        // All 4 corners must be distinct (non-degenerate cell at level 15)
+        let unique: HashSet<u64> = corners
+            .iter()
+            .map(|[lat, lon]| (lat.to_bits(), lon.to_bits()))
+            .map(|(a, b)| a ^ b.wrapping_mul(0x9e37))
+            .collect();
+        assert_eq!(unique.len(), 4, "corners not distinct: {:?}", corners);
+    }
+
+    #[test]
+    fn get_cells_count_and_structure() {
+        // A small tight bbox around central Paris at L15 should yield ≥1 and
+        // a sane count (not hundreds of thousands).
+        let cells = get_cells(15, 48.85, 2.34, 48.86, 2.36);
+        assert!(!cells.is_empty(), "should have at least one cell");
+        // ids parse as u64
+        for c in &cells {
+            let _: u64 = c.id.parse().expect("id must be a u64 string");
+        }
+    }
+
+    #[test]
+    fn get_polygons_filters_invalid_ids() {
+        // One valid cell id + one garbage string.
+        let cell_id = from_array_to_cell_id(&[0.0, 0.0], 10);
+        let ids = vec![cell_id.0.to_string(), "not_a_number".to_string()];
+        let result = get_polygons(ids);
+        // Only the valid one survives.
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].id, cell_id.0.to_string());
+    }
+
+    #[test]
+    fn get_polygons_empty_input() {
+        assert!(get_polygons(vec![]).is_empty());
+    }
+
+    // ── get_region_cells ─────────────────────────────────────────────────────
+
+    #[test]
+    fn region_cells_at_level_correct_level() {
+        // Every cell in the covering must be exactly the requested level.
+        let cells = get_region_cells(48.85, 48.86, 2.34, 2.36, 14);
+        assert!(!cells.0.is_empty());
+        for id in &cells.0 {
+            assert_eq!(id.level(), 14, "cell not at level 14: {:?}", id);
+        }
+    }
+
+    #[test]
+    fn region_cells_contain_center_point() {
+        // The cell covering a region must include the cell that contains the
+        // region's center point.
+        let (min_lat, max_lat, min_lon, max_lon) = (48.85, 48.86, 2.34, 2.36);
+        let center_lat = (min_lat + max_lat) / 2.0;
+        let center_lon = (min_lon + max_lon) / 2.0;
+        let level = 13u8;
+        let cells = get_region_cells(min_lat, max_lat, min_lon, max_lon, level);
+        let center_cell = from_array_to_cell_id(&[center_lat, center_lon], level as u64);
+        assert!(
+            cells.0.contains(&center_cell),
+            "covering does not contain the center cell"
+        );
+    }
+
+    // ── s2_grid ───────────────────────────────────────────────────────────────
+
+    #[test]
+    fn s2_grid_size_1_returns_just_center() {
+        let center = from_array_to_cell_id(&[0.0, 0.0], 10);
+        let grid = s2_grid(center, 10, 1);
+        assert_eq!(grid.len(), 1);
+        assert!(grid.contains(&center));
+    }
+
+    #[test]
+    fn s2_grid_size_3_contains_center_and_neighbors() {
+        let center = from_array_to_cell_id(&[37.7749, -122.4194], 12);
+        let grid = s2_grid(center, 12, 3);
+        // At size=3, half=1: expand one ring via all_neighbors.
+        // Must include center.
+        assert!(grid.contains(&center), "center not in grid");
+        // Must have more than 1 cell.
+        assert!(grid.len() > 1, "size-3 grid should have multiple cells");
+        // All cells must be at the requested level.
+        for c in &grid {
+            assert_eq!(c.level(), 12, "grid cell not at level 12: {:?}", c);
+        }
+    }
+
+    #[test]
+    fn s2_grid_size_0_returns_just_center() {
+        // size=0: half=0, early-return with just the center.
+        let center = from_array_to_cell_id(&[0.0, 0.0], 8);
+        let grid = s2_grid(center, 8, 0);
+        // Size 0 means half=0 → returns iter::once(center).
+        assert_eq!(grid.len(), 1);
+        assert!(grid.contains(&center));
+    }
+
+    #[test]
+    fn s2_grid_all_cells_at_correct_level() {
+        let center = from_array_to_cell_id(&[51.5, -0.1], 14);
+        for size in [1u8, 3, 5] {
+            let grid = s2_grid(center, 14, size);
+            for c in &grid {
+                assert_eq!(c.level(), 14, "size={size} cell not at L14");
+            }
+        }
+    }
+
+    // ── cell_coverage ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn cell_coverage_size_1_is_single_cell() {
+        let covered = cell_coverage(37.7749, -122.4194, 1, 15);
+        assert_eq!(covered.len(), 1);
+    }
+
+    #[test]
+    fn cell_coverage_size_3_contains_center() {
+        let lat = 35.6762;
+        let lon = 139.6503;
+        let level = 14u8;
+        let covered = cell_coverage(lat, lon, 3, level);
+        let center_id =
+            CellID::from(s2::latlng::LatLng::from_degrees(lat, lon)).parent(level as u64);
+        assert!(
+            covered.contains(&center_id.0),
+            "center cell not in coverage"
+        );
+        // Size 3 should produce multiple cells.
+        assert!(covered.len() > 1, "expected more than 1 cell for size=3");
+    }
+
+    // ── cell_intersects_polygon ───────────────────────────────────────────────
+
+    #[test]
+    fn cell_intersects_polygon_center_inside() {
+        // Build a polygon that definitely contains the cell center.
+        use geo::{coord, LineString, Polygon};
+        let lat = 48.8566;
+        let lon = 2.3522;
+        let cell_id = from_array_to_cell_id(&[lat, lon], 16);
+
+        // Large box around the cell (lon±1, lat±1)
+        let big_box: Polygon<f64> = Polygon::new(
+            LineString::from(vec![
+                coord! { x: lon - 1.0, y: lat - 1.0 },
+                coord! { x: lon + 1.0, y: lat - 1.0 },
+                coord! { x: lon + 1.0, y: lat + 1.0 },
+                coord! { x: lon - 1.0, y: lat + 1.0 },
+                coord! { x: lon - 1.0, y: lat - 1.0 },
+            ]),
+            vec![],
+        );
+        assert!(cell_intersects_polygon(cell_id, &big_box));
+    }
+
+    #[test]
+    fn cell_intersects_polygon_far_away_false() {
+        use geo::{coord, LineString, Polygon};
+        // Cell near Paris, polygon near NYC — no intersection.
+        let cell_id = from_array_to_cell_id(&[48.85, 2.35], 15);
+        let nyc_box: Polygon<f64> = Polygon::new(
+            LineString::from(vec![
+                coord! { x: -75.0, y: 40.0 },
+                coord! { x: -73.0, y: 40.0 },
+                coord! { x: -73.0, y: 41.5 },
+                coord! { x: -75.0, y: 41.5 },
+                coord! { x: -75.0, y: 40.0 },
+            ]),
+            vec![],
+        );
+        assert!(!cell_intersects_polygon(cell_id, &nyc_box));
+    }
+
+    // ── Dir Display ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn dir_display_matches_expected_strings() {
+        assert_eq!(Dir::N.to_string(), "North");
+        assert_eq!(Dir::E.to_string(), "East");
+        assert_eq!(Dir::S.to_string(), "South");
+        assert_eq!(Dir::W.to_string(), "West");
+    }
+
+    // ── circle_coverage ──────────────────────────────────────────────────────
+
+    #[test]
+    fn circle_coverage_contains_center_cell() {
+        // A circle around a point must cover the cell containing that point.
+        let lat = 40.7128;
+        let lon = -74.0060;
+        let level = 15u8;
+        let radius_m = 500.0; // 500 m
+        let covered = circle_coverage(lat, lon, radius_m, level);
+        let center_id = from_array_to_cell_id(&[lat, lon], level as u64);
+        let c = covered.lock().unwrap();
+        assert!(
+            c.contains(&center_id.0),
+            "circle coverage must contain the center cell"
+        );
+    }
+
+    #[test]
+    fn circle_coverage_larger_radius_more_cells() {
+        // A larger radius should cover at least as many cells as a smaller one.
+        let lat = 48.8566;
+        let lon = 2.3522;
+        let level = 14u8;
+        let small = {
+            let arc = circle_coverage(lat, lon, 100.0, level);
+            arc.lock().unwrap().len()
+        };
+        let large = {
+            let arc = circle_coverage(lat, lon, 2000.0, level);
+            arc.lock().unwrap().len()
+        };
+        assert!(
+            large >= small,
+            "larger radius should cover ≥ cells: small={small}, large={large}"
+        );
     }
 }
