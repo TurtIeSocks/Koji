@@ -33,3 +33,7 @@ serde_json = "1.0.145"
 thiserror = { workspace = true }
 url = "2.5.7"
 utoipa = { version = "5", features = ["actix_extras"] }
+
+[dev-dependencies]
+# Used by `tests/v2_db.rs` for raw SQL cleanup (DELETE) and direct DB connection.
+sea-orm = { version = "1.1.16", features = ["sqlx-mysql", "runtime-tokio-rustls"] }

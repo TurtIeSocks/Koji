@@ -61,6 +61,58 @@ pub async fn test_public_validator(
     utils::auth::public_validator(req, credentials).await
 }
 
+/// Build a test App that mounts the DB-backed `/api/v2/{geofences,routes,jobs,
+/// plugins}` scopes. Caller supplies a live `KojiDb` and a `JobQueue` already
+/// connected to the test database. The `EventDispatcher` is constructed with an
+/// empty subscriber list so outbox writes still work but nothing is delivered.
+///
+/// Auth is intentionally bypassed (no `HttpAuthentication` middleware) so the
+/// tests don't need a valid bearer token and can focus on CRUD behavior.
+#[doc(hidden)]
+pub fn test_db_app(
+    db: koji_db::KojiDb,
+    jobs: std::sync::Arc<koji_jobs::JobQueue>,
+) -> actix_web::App<
+    impl actix_web::dev::ServiceFactory<
+        actix_web::dev::ServiceRequest,
+        Config = (),
+        Response = actix_web::dev::ServiceResponse,
+        Error = actix_web::Error,
+        InitError = (),
+    >,
+> {
+    use std::sync::Arc;
+    let events = Arc::new(EventDispatcher::new(
+        db.koji.clone(),
+        vec![], // no-op: no subscribers in tests
+        "test-worker",
+    ));
+    App::new()
+        .app_data(web::Data::new(db))
+        .app_data(web::Data::from(jobs))
+        .app_data(web::Data::from(events))
+        .app_data(web::JsonConfig::default().limit(1024 * 1024 * 10))
+        .wrap(
+            actix_session::SessionMiddleware::builder(
+                actix_session::storage::CookieSessionStore::default(),
+                actix_web::cookie::Key::from(&[0; 64]),
+            )
+            .cookie_secure(false)
+            .build(),
+        )
+        .service(
+            web::scope("/api/v2")
+                .service(public::v2::jobs::create_job)
+                .service(public::v2::jobs::list_jobs)
+                .service(public::v2::jobs::get_job)
+                .service(public::v2::jobs::cancel_job)
+                .service(public::v2::jobs::algorithms)
+                .service(public::v2::geofences::scope())
+                .service(public::v2::routes::scope())
+                .service(public::v2::plugins::scope()),
+        )
+}
+
 /// Build the DB-free routes of the prod App into an `actix_web::App` for
 /// integration testing. Covers `lib.rs` wiring for:
 ///   - `GET /healthz` (liveness)
