@@ -1,33 +1,111 @@
 //! v2 typed CRUD for geofences.
 //!
 //! Geofences are geometry-bearing, so the `list`/`get_one` reads honor the
-//! `?format=` (a.k.a. `rt`) return-type query via [`utils::response::send`]
-//! exactly like v1 — the same `FeatureCollection` → SQL/text/array/poracle
-//! catch-all. Writes go through the koji-db `Query` and are wrapped in
-//! [`ApiResponse`](crate::utils::api_response::ApiResponse).
+//! `?format=` return-type query and render through
+//! [`respond_geo`](crate::utils::format::respond_geo): the GeoJSON shapes ride
+//! inside the v2 envelope, the export formats (`sql`/`poracle`/…) come back raw.
+//! Writes take lightly-typed snake_case DTOs ([`CreateGeofence`] /
+//! [`PatchGeofence`], geojson `geometry` as a `serde_json::Value`), go through
+//! the koji-db `Query`, and surface `201`+`Location` / `204` / `404` via
+//! [`ServiceError`](crate::utils::error::ServiceError).
 //!
 //! Hand-written (not macro'd via [`super::resources`]) because the reads return
-//! Koji-native geometry (`get_all_koji` / `descendants` / `get_one_koji`) for
-//! [`utils::response::send`], unlike the plain-JSON resources.
+//! Koji-native geometry (`get_all_koji` / `descendants` / `get_one_koji`) and
+//! carry the `?depth`/`?level` geofence hierarchy + the `/publish` action —
+//! beyond the plain-JSON [`koji_resource!`](macros::koji_resource) shape.
 
-use actix_web::{Error, HttpResponse, http::StatusCode, web};
+use actix_web::{HttpResponse, http::StatusCode, web};
 use geojson::{Feature, Geometry};
-use koji_core::ApiQueryArgs;
 use koji_db::{
     KojiDb,
     db::geofence::{self, Anchor, HierarchySpec},
 };
-
-use crate::requests::{ReturnTypeArg, get_return_type};
-use koji_dragonite::AreaMode;
-use koji_events::EventDispatcher;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+use crate::requests::{ReturnTypeArg, get_return_type};
+use crate::utils::error::ServiceError;
+use crate::utils::{api_response::ApiResponse, format::respond_geo};
+use koji_dragonite::AreaMode;
+use koji_events::EventDispatcher;
+
 use crate::dragonite::{GeofenceUpdated, TOPIC_GEOFENCE_UPDATED};
-use crate::utils::{self, api_response::ApiResponse};
+
+/// Query args for the geometry reads: the `?format=` return-type selector (with
+/// `?rt=` kept as a one-release back-compat alias) plus the `?depth`/`?level`
+/// hierarchy controls. Deliberately omits the legacy `?internal=` flag (spec
+/// A8). `depth`+`level` together are a client error (400) — see [`list`].
+#[derive(Debug, Default, Deserialize)]
+struct ReadQuery {
+    /// Return-type selector; `rt` is the legacy spelling, folded in as a fallback.
+    format: Option<String>,
+    rt: Option<String>,
+    /// Cumulative subtree through `depth` levels (mutually exclusive with `level`).
+    depth: Option<u32>,
+    /// Exactly the geofences `level` levels below the anchor.
+    level: Option<u32>,
+}
+
+impl ReadQuery {
+    /// The negotiated return type, defaulting to `default` when neither
+    /// `?format=` nor `?rt=` is supplied.
+    fn return_type(&self, default: ReturnTypeArg) -> ReturnTypeArg {
+        match self.format.clone().or_else(|| self.rt.clone()) {
+            Some(s) => get_return_type(s, &default),
+            None => default,
+        }
+    }
+
+    /// Resolve `?depth`/`?level` into a recursion spec, mapping the
+    /// mutually-exclusive error to a `400`.
+    fn hierarchy(&self) -> Result<Option<HierarchySpec>, ServiceError> {
+        HierarchySpec::from_args(self.depth, self.level).map_err(|_| ServiceError::Invalid {
+            field: Some("hierarchy".to_string()),
+            message: "depth and level are mutually exclusive".to_string(),
+        })
+    }
+}
+
+/// Lightly-typed create body. Scalars + links are typed (boundary `400`s);
+/// `geometry` rides as raw geojson, and `projects`/`properties` as opaque arrays
+/// the koji-db upsert reads through. snake_case wire — koji-db's `to_geofence`
+/// and the `upsert_related_*` readers all key on snake (a camelCase rename would
+/// silently drop fields on write).
+#[derive(Debug, Deserialize, Serialize)]
+pub(crate) struct CreateGeofence {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    pub geometry: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent: Option<u32>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub projects: Vec<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub properties: Vec<serde_json::Value>,
+}
+
+/// Lightly-typed patch body: every field optional, omitted fields dropped from
+/// the serialized upsert value.
+#[derive(Debug, Deserialize, Serialize, Default)]
+#[serde(default)]
+pub(crate) struct PatchGeofence {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub geometry: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub projects: Option<Vec<serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub properties: Option<Vec<serde_json::Value>>,
+}
 
 /// `GET /api/v2/geofences` — list all geofences as a `FeatureCollection`,
-/// honoring `?format=`/`rt` (defaults to `featurecollection`).
+/// honoring `?format=` (defaults to `featurecollection`).
 ///
 /// With `?depth=N` or `?level=N` this becomes a recursive forest walk
 /// (anchor = every `parent IS NULL` root): `depth=N` is the cumulative subtree
@@ -36,115 +114,106 @@ use crate::utils::{self, api_response::ApiResponse};
 /// non-recursive listing.
 async fn list(
     conn: web::Data<KojiDb>,
-    args: web::Query<ApiQueryArgs>,
-) -> Result<HttpResponse, Error> {
-    let args = args.into_inner();
-    let return_type = get_return_type(
-        args.rt
-            .clone()
-            .unwrap_or_else(|| "featurecollection".to_string()),
-        &ReturnTypeArg::FeatureCollection,
-    );
+    query: web::Query<ReadQuery>,
+) -> Result<HttpResponse, ServiceError> {
+    let return_type = query.return_type(ReturnTypeArg::FeatureCollection);
 
-    let coll = match HierarchySpec::from_args(args.depth, args.level) {
-        Err(_) => {
-            return Ok(ApiResponse::fail(
-                StatusCode::BAD_REQUEST,
-                json!({ "hierarchy": "`depth` and `level` are mutually exclusive" }),
-            ));
-        }
-        Ok(Some(spec)) => geofence::Query::descendants(&conn.koji, Anchor::Forest, spec)
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?,
-        Ok(None) => geofence::Query::get_all_koji(&conn.koji)
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?,
+    let coll = match query.hierarchy()? {
+        Some(spec) => geofence::Query::descendants(&conn.koji, Anchor::Forest, spec).await?,
+        None => geofence::Query::get_all_koji(&conn.koji).await?,
     };
 
-    Ok(utils::response::send(coll, return_type, None, false, None))
+    Ok(respond_geo(coll, return_type))
 }
 
-/// `POST /api/v2/geofences` — create a geofence → `201` ApiResponse.
+/// `POST /api/v2/geofences` — create a geofence → `201` + `Location`.
 async fn create(
     conn: web::Data<KojiDb>,
-    payload: web::Json<serde_json::Value>,
-) -> Result<HttpResponse, Error> {
-    let record = geofence::Query::upsert_json_return(&conn.koji, 0, payload.into_inner())
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-    Ok(ApiResponse::success_with_status(
-        StatusCode::CREATED,
-        record,
-    ))
+    body: web::Json<CreateGeofence>,
+) -> Result<HttpResponse, ServiceError> {
+    let value = serde_json::to_value(&body.into_inner()).map_err(ServiceError::internal)?;
+    let record = geofence::Query::upsert_json_return(&conn.koji, 0, value).await?;
+    let id = record.get("id").and_then(serde_json::Value::as_u64).unwrap_or(0);
+    Ok(HttpResponse::build(StatusCode::CREATED)
+        .insert_header(("Location", format!("/api/v2/geofences/{id}")))
+        .json(ApiResponse::Ok {
+            data: record,
+            meta: None,
+        }))
 }
 
 /// `GET /api/v2/geofences/{id}` — one geofence (by id or name) as a feature,
-/// honoring `?format=`/`rt` (defaults to `feature`).
+/// honoring `?format=` (defaults to `feature`).
 ///
 /// With `?depth=N` or `?level=N` this anchors a recursive subtree on the named
 /// geofence: `depth=N` is the cumulative subtree through level N, `level=N` is
 /// only the geofences exactly N levels down. The two are mutually exclusive
-/// (both → 400). Omitted → the existing single-geofence response.
+/// (both → 400). Omitted → the existing single-geofence response; a missing
+/// geofence → `404`.
 async fn get_one(
     conn: web::Data<KojiDb>,
     path: web::Path<String>,
-    args: web::Query<ApiQueryArgs>,
-) -> Result<HttpResponse, Error> {
+    query: web::Query<ReadQuery>,
+) -> Result<HttpResponse, ServiceError> {
     let id = path.into_inner();
-    let args = args.into_inner();
-    let return_type = get_return_type(
-        args.rt.clone().unwrap_or_else(|| "feature".to_string()),
-        &ReturnTypeArg::Feature,
-    );
+    let return_type = query.return_type(ReturnTypeArg::Feature);
 
-    let coll = match HierarchySpec::from_args(args.depth, args.level) {
-        Err(_) => {
-            return Ok(ApiResponse::fail(
-                StatusCode::BAD_REQUEST,
-                json!({ "hierarchy": "`depth` and `level` are mutually exclusive" }),
-            ));
-        }
-        Ok(Some(spec)) => {
+    let coll = match query.hierarchy()? {
+        Some(spec) => {
             let anchor = id
                 .parse::<u32>()
                 .map(Anchor::Id)
                 .unwrap_or_else(|_| Anchor::Name(id));
-            geofence::Query::descendants(&conn.koji, anchor, spec)
-                .await
-                .map_err(actix_web::error::ErrorInternalServerError)?
+            geofence::Query::descendants(&conn.koji, anchor, spec).await?
         }
-        Ok(None) => {
-            let geometry = geofence::Query::get_one_koji(&conn.koji, id)
+        None => {
+            let geometry = geofence::Query::get_one_koji(&conn.koji, id.clone())
                 .await
-                .map_err(actix_web::error::ErrorInternalServerError)?;
+                .map_err(|_| ServiceError::NotFound {
+                    field: "geofence",
+                    message: format!("no geofence {id}"),
+                })?;
             koji_core::KojiGeometryCollection::new(vec![geometry])
         }
     };
 
-    Ok(utils::response::send(coll, return_type, None, false, None))
+    Ok(respond_geo(coll, return_type))
 }
 
-/// `PATCH /api/v2/geofences/{id}` — update a geofence by id → ApiResponse.
+/// `PATCH /api/v2/geofences/{id}` — update a geofence by id → `200` envelope;
+/// `404` on a missing id.
 async fn update(
     conn: web::Data<KojiDb>,
     path: web::Path<u32>,
-    payload: web::Json<serde_json::Value>,
-) -> Result<HttpResponse, Error> {
-    let record =
-        geofence::Query::upsert_json_return(&conn.koji, path.into_inner(), payload.into_inner())
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+    body: web::Json<PatchGeofence>,
+) -> Result<HttpResponse, ServiceError> {
+    let id = path.into_inner();
+    // `upsert_json_return` is upsert (a missing id would INSERT), so pre-check
+    // existence to honor PATCH's 404-on-missing contract.
+    if geofence::Query::get_one(&conn.koji, id.to_string())
+        .await
+        .is_err()
+    {
+        return Err(ServiceError::NotFound {
+            field: "geofence",
+            message: format!("no geofence {id}"),
+        });
+    }
+    let value = serde_json::to_value(&body.into_inner()).map_err(ServiceError::internal)?;
+    let record = geofence::Query::upsert_json_return(&conn.koji, id, value).await?;
     Ok(ApiResponse::success(record))
 }
 
-/// `DELETE /api/v2/geofences/{id}` — delete a geofence → ApiResponse `{rows_affected}`.
-async fn remove(conn: web::Data<KojiDb>, path: web::Path<u32>) -> Result<HttpResponse, Error> {
-    let result = geofence::Query::delete(&conn.koji, path.into_inner())
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-    Ok(ApiResponse::success(
-        json!({ "rows_affected": result.rows_affected }),
-    ))
+/// `DELETE /api/v2/geofences/{id}` — `204 No Content`; `404` on a missing id.
+async fn remove(conn: web::Data<KojiDb>, path: web::Path<u32>) -> Result<HttpResponse, ServiceError> {
+    let result = geofence::Query::delete(&conn.koji, path.into_inner()).await?;
+    if result.rows_affected == 0 {
+        return Err(ServiceError::NotFound {
+            field: "geofence",
+            message: "does not exist".to_string(),
+        });
+    }
+    Ok(HttpResponse::build(StatusCode::NO_CONTENT).finish())
 }
 
 /// `POST /api/v2/geofences/{id}/publish` — publish a geofence's fence to its
@@ -157,27 +226,28 @@ async fn remove(conn: web::Data<KojiDb>, path: web::Path<u32>) -> Result<HttpRes
 /// (PATCH `/v2/areas/{id}`). Returns `202 { event_id }`.
 ///
 /// Gated on linkage: a geofence with no `dragonite_area_id` yields `422` (it is
-/// not bound to a Dragonite area, so there is nothing to push to).
-async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<HttpResponse, Error> {
+/// not bound to a Dragonite area, so there is nothing to push to); an unknown
+/// geofence yields `404`.
+async fn publish(
+    conn: web::Data<KojiDb>,
+    path: web::Path<String>,
+) -> Result<HttpResponse, ServiceError> {
     let id = path.into_inner();
 
     // Resolve the geofence (by id or name) — 404 if it doesn't exist.
-    let model = match geofence::Query::get_one(&conn.koji, id.clone()).await {
-        Ok(model) => model,
-        Err(_) => {
-            return Ok(ApiResponse::fail(
-                StatusCode::NOT_FOUND,
-                json!({ "geofence": format!("no geofence {id}") }),
-            ));
-        }
-    };
+    let model = geofence::Query::get_one(&conn.koji, id.clone())
+        .await
+        .map_err(|_| ServiceError::NotFound {
+            field: "geofence",
+            message: format!("no geofence {id}"),
+        })?;
 
     // Linkage gate: only linked geofences can be pushed.
     let Some(dragonite_area_id) = model.dragonite_area_id else {
-        return Ok(ApiResponse::fail(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            json!({ "dragonite_area_id": "geofence is not linked to a Dragonite area" }),
-        ));
+        return Err(ServiceError::Unprocessable {
+            field: Some("dragonite_area_id".to_string()),
+            message: "geofence is not linked to a Dragonite area".to_string(),
+        });
     };
 
     // Carry the fence geometry as a GeoJSON Feature (Dragonite accepts a Feature
@@ -189,8 +259,7 @@ async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<Htt
     // adding those props would change the external PATCH payload; the
     // `GeofenceUpdated.geofence` shape is locked, so it stays property-less. This
     // path already touches no `To*` matrix method, so it needs no rewire.
-    let geometry = Geometry::from_json_value(model.geometry.clone())
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let geometry = Geometry::from_json_value(model.geometry.clone()).map_err(ServiceError::internal)?;
     let feature = Feature {
         bbox: None,
         geometry: Some(geometry),
@@ -206,7 +275,7 @@ async fn publish(conn: web::Data<KojiDb>, path: web::Path<String>) -> Result<Htt
     };
     let event_id = EventDispatcher::publish(&conn.koji, TOPIC_GEOFENCE_UPDATED, &payload)
         .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+        .map_err(ServiceError::internal)?;
 
     Ok(ApiResponse::success_with_status(
         StatusCode::ACCEPTED,
@@ -236,4 +305,132 @@ pub(crate) fn scope() -> actix_web::Scope {
                 .route(web::patch().to(update))
                 .route(web::delete().to(remove)),
         )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn sample_geometry() -> serde_json::Value {
+        json!({
+            "type": "Polygon",
+            "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]]
+        })
+    }
+
+    #[test]
+    fn create_geofence_deserializes_snake_case_body() {
+        let dto: CreateGeofence = serde_json::from_value(json!({
+            "name": "Denver",
+            "mode": "pokemon",
+            "geometry": sample_geometry(),
+            "parent": 7,
+            "projects": [1, 2],
+            "properties": [{ "name": "color", "value": "#fff" }]
+        }))
+        .unwrap();
+        assert_eq!(dto.name, "Denver");
+        assert_eq!(dto.mode.as_deref(), Some("pokemon"));
+        assert_eq!(dto.parent, Some(7));
+        assert_eq!(dto.geometry["type"], "Polygon");
+        assert_eq!(dto.projects.len(), 2);
+        assert_eq!(dto.properties.len(), 1);
+    }
+
+    #[test]
+    fn create_geofence_requires_name_and_geometry() {
+        // `name` + `geometry` are required (not Option) — a body missing them fails.
+        assert!(serde_json::from_value::<CreateGeofence>(json!({ "geometry": sample_geometry() })).is_err());
+        assert!(serde_json::from_value::<CreateGeofence>(json!({ "name": "x" })).is_err());
+    }
+
+    #[test]
+    fn create_geofence_defaults_optional_collections() {
+        let dto: CreateGeofence =
+            serde_json::from_value(json!({ "name": "x", "geometry": sample_geometry() })).unwrap();
+        assert!(dto.mode.is_none());
+        assert!(dto.parent.is_none());
+        assert!(dto.projects.is_empty());
+        assert!(dto.properties.is_empty());
+    }
+
+    #[test]
+    fn create_geofence_serializes_snake_keys_for_upsert() {
+        // The serialized value feeds koji-db `to_geofence` + `upsert_related_*`,
+        // which read snake keys. Empty optionals are dropped.
+        let dto = CreateGeofence {
+            name: "n".into(),
+            mode: None,
+            geometry: sample_geometry(),
+            parent: None,
+            projects: vec![],
+            properties: vec![],
+        };
+        let v = serde_json::to_value(&dto).unwrap();
+        assert_eq!(v["name"], "n");
+        assert!(v.get("geometry").is_some());
+        // Empty/None optionals are omitted from the upsert value.
+        assert!(v.get("mode").is_none());
+        assert!(v.get("parent").is_none());
+        assert!(v.get("projects").is_none());
+        assert!(v.get("properties").is_none());
+    }
+
+    #[test]
+    fn patch_geofence_accepts_empty_body_all_none() {
+        let dto: PatchGeofence = serde_json::from_value(json!({})).unwrap();
+        assert!(dto.name.is_none());
+        assert!(dto.mode.is_none());
+        assert!(dto.geometry.is_none());
+        assert!(dto.parent.is_none());
+        assert!(dto.projects.is_none());
+        assert!(dto.properties.is_none());
+    }
+
+    #[test]
+    fn patch_geofence_partial_omits_none_on_serialize() {
+        let dto: PatchGeofence =
+            serde_json::from_value(json!({ "name": "renamed" })).unwrap();
+        assert_eq!(dto.name.as_deref(), Some("renamed"));
+        let v = serde_json::to_value(&dto).unwrap();
+        assert_eq!(v["name"], "renamed");
+        // Every other field is dropped from the serialized upsert value.
+        assert!(v.get("mode").is_none());
+        assert!(v.get("geometry").is_none());
+        assert!(v.get("parent").is_none());
+        assert!(v.get("projects").is_none());
+        assert!(v.get("properties").is_none());
+    }
+
+    #[test]
+    fn read_query_format_takes_precedence_then_rt_then_default() {
+        let q = ReadQuery {
+            format: Some("sql".into()),
+            rt: Some("feature".into()),
+            ..Default::default()
+        };
+        assert_eq!(q.return_type(ReturnTypeArg::FeatureCollection), ReturnTypeArg::Sql);
+
+        let q = ReadQuery {
+            format: None,
+            rt: Some("sql".into()),
+            ..Default::default()
+        };
+        assert_eq!(q.return_type(ReturnTypeArg::FeatureCollection), ReturnTypeArg::Sql);
+
+        let q = ReadQuery::default();
+        assert_eq!(q.return_type(ReturnTypeArg::Feature), ReturnTypeArg::Feature);
+    }
+
+    #[test]
+    fn read_query_hierarchy_both_is_400() {
+        let q = ReadQuery {
+            depth: Some(1),
+            level: Some(2),
+            ..Default::default()
+        };
+        let err = q.hierarchy().unwrap_err();
+        assert!(matches!(err, ServiceError::Invalid { .. }));
+    }
 }
