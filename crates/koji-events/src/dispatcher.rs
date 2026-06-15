@@ -337,15 +337,16 @@ impl EventDispatcher {
         Ok(())
     }
 
-    /// Mark a row `delivered` with `delivered_at = NOW()`. Best-effort: a
-    /// persist failure is logged (the lease lapses and the row is reclaimed; a
+    /// Mark a row `delivered` with `delivered_at = NOW()`. Clears `locked_by`
+    /// and `lease_expires` (mirroring `mark_failed`). Best-effort: a persist
+    /// failure is logged (the lease lapses and the row is reclaimed; a
     /// successful re-delivery is idempotent on the receiver via
     /// `X-Koji-Event-Id`).
     async fn mark_delivered(&self, id: u64) {
         let stmt = Statement::from_sql_and_values(
             DbBackend::MySql,
             "UPDATE `event_outbox` SET `status` = 'delivered', `delivered_at` = NOW(), \
-               `last_error` = NULL \
+               `last_error` = NULL, `locked_by` = NULL, `lease_expires` = NULL \
              WHERE `id` = ?",
             [Value::from(id)],
         );

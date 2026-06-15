@@ -78,16 +78,20 @@ async fn cleanup(db: &DatabaseConnection, topic: &str) {
         .await;
 }
 
-/// READ the `status`, `attempts`, `last_error`, `locked_by` columns for the
-/// most-recently-updated row matching `topic`. Returns `None` if no row found.
+/// READ the `status`, `attempts`, `last_error`, `locked_by`, `lease_expires`
+/// columns for the most-recently-updated row matching `topic`. Returns `None`
+/// if no row found.
+///
+/// Returns `(status, attempts, last_error, locked_by, lease_expires_is_null)`.
 async fn read_row(
     db: &DatabaseConnection,
     topic: &str,
-) -> Option<(String, i32, Option<String>, Option<String>)> {
+) -> Option<(String, i32, Option<String>, Option<String>, bool)> {
     let row = db
         .query_one(Statement::from_sql_and_values(
             DbBackend::MySql,
-            "SELECT `status`, `attempts`, `last_error`, `locked_by` \
+            "SELECT `status`, `attempts`, `last_error`, `locked_by`, \
+                    (`lease_expires` IS NULL) AS `lease_null` \
              FROM `event_outbox` WHERE `topic` = ? ORDER BY `id` DESC LIMIT 1",
             [Value::from(topic.to_owned())],
         ))
@@ -97,7 +101,9 @@ async fn read_row(
     let attempts: i32 = row.try_get("", "attempts").ok()?;
     let last_error: Option<String> = row.try_get("", "last_error").ok()?;
     let locked_by: Option<String> = row.try_get("", "locked_by").ok()?;
-    Some((status, attempts, last_error, locked_by))
+    // MySQL returns BOOL columns as i8 (0/1); i8->bool coercion via try_get.
+    let lease_null: bool = row.try_get::<i8>("", "lease_null").ok().map(|v| v != 0).unwrap_or(false);
+    Some((status, attempts, last_error, locked_by, lease_null))
 }
 
 /// Poll `read_row` up to `deadline` until `predicate` holds; return the last
@@ -108,7 +114,7 @@ async fn wait_for_status<F>(
     topic: &str,
     deadline: Duration,
     predicate: F,
-) -> Option<(String, i32, Option<String>, Option<String>)>
+) -> Option<(String, i32, Option<String>, Option<String>, bool)>
 where
     F: Fn(&str) -> bool,
 {
@@ -197,7 +203,7 @@ async fn publish_inserts_pending_row() {
         .await
         .expect("publish should succeed");
 
-    let (status, attempts, _, _) = read_row(&db, &topic)
+    let (status, attempts, _, _, _) = read_row(&db, &topic)
         .await
         .expect("row should exist after publish");
     cleanup(&db, &topic).await;
@@ -231,12 +237,10 @@ async fn dispatcher_delivers_pending_event_to_accept_all_subscriber() {
     handle.shutdown().await;
     cleanup(&db, &topic).await;
 
-    let (status, _, _, _) = row.expect("row must exist after dispatch");
+    let (status, _, _, locked_by, lease_null) = row.expect("row must exist after dispatch");
     assert_eq!(status, "delivered", "AcceptAll subscriber → status=delivered");
-    // NOTE: mark_delivered does not NULL out locked_by/lease_expires (mark_failed
-    // does). The delivered row retains the worker-id in locked_by. That is
-    // harmless in production (status=delivered is terminal), but is a minor
-    // inconsistency with mark_failed's cleanup.
+    assert!(locked_by.is_none(), "mark_delivered must clear locked_by; got: {locked_by:?}");
+    assert!(lease_null, "mark_delivered must clear lease_expires");
     assert_eq!(sub.delivered(), 1, "subscriber receive count must be 1");
 }
 
@@ -279,7 +283,7 @@ async fn dispatcher_backs_off_on_subscriber_failure() {
     handle.shutdown().await;
     cleanup(&db, &topic).await;
 
-    let (status, attempts, last_error, _) = final_row.expect("row must exist");
+    let (status, attempts, last_error, _, _) = final_row.expect("row must exist");
     assert_eq!(status, "pending", "failed row must return to pending for retry");
     assert_eq!(attempts, 1, "one failed attempt recorded");
     assert!(
@@ -328,7 +332,7 @@ async fn dispatcher_dead_letters_after_max_attempts_exhausted() {
     handle.shutdown().await;
     cleanup(&db, &topic).await;
 
-    let (status, attempts, last_error, _) = row.expect("row must exist");
+    let (status, attempts, last_error, _, _) = row.expect("row must exist");
     assert_eq!(status, "dead", "row must be dead-lettered once max_attempts=1 is exhausted");
     assert_eq!(attempts, 1, "attempts bumped to 1 on the fatal delivery");
     assert!(last_error.is_some(), "last_error recorded on dead row");
@@ -370,7 +374,7 @@ async fn dispatcher_skips_unmatched_topic_for_topic_filter_subscriber() {
     cleanup(&db, &topic_b).await;
     cleanup(&db, &topic_a).await;
 
-    let (status, _, _, _) = row.expect("topic_b row must exist");
+    let (status, _, _, _, _) = row.expect("topic_b row must exist");
     assert_eq!(
         status, "delivered",
         "event should be delivered even when a TopicFilter subscriber skips it"
@@ -417,7 +421,7 @@ async fn dispatcher_delivers_vacuously_when_no_subscriber_is_interested() {
     cleanup(&db, &topic_publish).await;
     cleanup(&db, &topic_want).await;
 
-    let (status, _, _, _) = row.expect("row must exist");
+    let (status, _, _, _, _) = row.expect("row must exist");
     assert_eq!(
         status, "delivered",
         "vacuous delivery (no interested subscriber) must mark the row delivered"
@@ -462,7 +466,7 @@ async fn dispatcher_shuts_down_cleanly_when_no_due_rows() {
     handle.shutdown().await;
 
     // Row must still be pending (not claimed).
-    let (status, attempts, _, _) = read_row(&db, &topic)
+    let (status, attempts, _, _, _) = read_row(&db, &topic)
         .await
         .expect("future row must still exist");
     cleanup(&db, &topic).await;
