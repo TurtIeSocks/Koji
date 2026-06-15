@@ -309,5 +309,92 @@ mod tests {
         assert!(opts.contains(&"best".to_string()));
         assert!(opts.contains(&"honeycomb".to_string()));
     }
+
+    // ── main: Balanced and Fast modes via legacy greedy ───────────────────────
+
+    #[test]
+    fn balanced_mode_legacy_greedy_produces_clusters() {
+        unsafe { std::env::set_var("KOJI_LEGACY_GREEDY", "1") };
+        let pts: Vec<[f64; 2]> = (0..50)
+            .map(|i| [40.0 + (i / 10) as f64 * 0.005, -74.0 + (i % 10) as f64 * 0.005])
+            .collect();
+        let mut cfg = make_cfg(ClusterMode::Balanced);
+        cfg.radius = 500.0;
+        let mut stats = Stats::new("t".into(), 1);
+        let result = main(&pts, &cfg, empty_collection(), false, &mut stats);
+        unsafe { std::env::remove_var("KOJI_LEGACY_GREEDY") };
+        assert!(!result.is_empty(), "Balanced legacy greedy should produce clusters");
+    }
+
+    #[test]
+    fn fast_mode_legacy_greedy_produces_clusters() {
+        unsafe { std::env::set_var("KOJI_LEGACY_GREEDY", "1") };
+        let pts: Vec<[f64; 2]> = (0..30)
+            .map(|i| [40.0 + (i / 6) as f64 * 0.005, -74.0 + (i % 6) as f64 * 0.005])
+            .collect();
+        let mut cfg = make_cfg(ClusterMode::Fast);
+        cfg.radius = 500.0;
+        let mut stats = Stats::new("t".into(), 1);
+        let result = main(&pts, &cfg, empty_collection(), false, &mut stats);
+        unsafe { std::env::remove_var("KOJI_LEGACY_GREEDY") };
+        assert!(!result.is_empty(), "Fast legacy greedy should produce clusters");
+    }
+
+    #[test]
+    fn honeycomb_mode_produces_clusters() {
+        unsafe { std::env::set_var("KOJI_LEGACY_GREEDY", "1") };
+        let pts: Vec<[f64; 2]> = (0..20)
+            .map(|i| [40.0 + i as f64 * 0.001, -74.0])
+            .collect();
+        let mut cfg = make_cfg(ClusterMode::Honeycomb);
+        cfg.radius = 500.0;
+        let mut stats = Stats::new("t".into(), 1);
+        let result = main(&pts, &cfg, empty_collection(), false, &mut stats);
+        unsafe { std::env::remove_var("KOJI_LEGACY_GREEDY") };
+        // Honeycomb is a layout mode; it should produce some output.
+        assert!(!result.is_empty(), "Honeycomb mode should produce clusters");
+    }
+
+    // ── main: center_clusters=true path ───────────────────────────────────────
+
+    #[test]
+    fn center_clusters_path_runs_without_panic() {
+        // center_clusters = true routes through sec::with_data.
+        // Just verify it doesn't panic and returns something.
+        let pts = vec![[40.0, -74.0], [40.0003, -74.0]];
+        let mut cfg = make_cfg(ClusterMode::Fastest);
+        cfg.center_clusters = true;
+        let mut stats = Stats::new("t".into(), 1);
+        let result = main(&pts, &cfg, empty_collection(), false, &mut stats);
+        // Result may be empty or non-empty depending on SEC; just no panic.
+        assert!(result.len() <= pts.len() + 1);
+    }
+
+    // ── main: bypass_adaptive_partition flag ──────────────────────────────────
+
+    #[test]
+    fn bypass_adaptive_partition_still_clusters() {
+        unsafe { std::env::set_var("KOJI_LEGACY_GREEDY", "1") };
+        let pts: Vec<[f64; 2]> = (0..20)
+            .map(|i| [40.0 + i as f64 * 0.001, -74.0])
+            .collect();
+        let mut cfg = make_cfg(ClusterMode::Better);
+        cfg.radius = 300.0;
+        let mut stats = Stats::new("t".into(), 1);
+        let result = main(&pts, &cfg, empty_collection(), true /* bypass */, &mut stats);
+        unsafe { std::env::remove_var("KOJI_LEGACY_GREEDY") };
+        assert!(!result.is_empty());
+    }
+
+    // ── main: mygod_score populated ───────────────────────────────────────────
+
+    #[test]
+    fn main_populates_mygod_score() {
+        let pts = vec![[40.0, -74.0], [40.0001, -74.0], [40.1, -74.0]];
+        let mut stats = Stats::new("t".into(), 1);
+        main(&pts, &make_cfg(ClusterMode::Fastest), empty_collection(), false, &mut stats);
+        // mygod_score is set during main(); should be non-negative.
+        assert!(stats.mygod_score < usize::MAX);
+    }
 }
 

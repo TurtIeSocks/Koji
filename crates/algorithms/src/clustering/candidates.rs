@@ -171,5 +171,67 @@ mod tests {
         let d2 = meters_to_degrees(700.0, 40.0);
         assert!(d2 > d1, "larger radius should give larger degree value");
     }
+
+    // ── meters_to_degrees: latitude scaling ───────────────────────────────────
+
+    #[test]
+    fn meters_to_degrees_at_equator_smallest() {
+        // At the equator lat_rad = 0 → cos(0) = 1 → lon_deg = lat_deg.
+        // lat_deg = 70 / 6371000 * 180/π ≈ 0.000629°.
+        let d_equator = meters_to_degrees(70.0, 0.0);
+        let d_mid_lat = meters_to_degrees(70.0, 45.0);
+        // At higher latitude cos shrinks, so lon_deg grows.
+        // meters_to_degrees returns max(lat_deg, lon_deg).
+        assert!(
+            d_mid_lat >= d_equator,
+            "higher lat should need >= degrees for same meter radius; equator={d_equator}, 45°={d_mid_lat}"
+        );
+    }
+
+    #[test]
+    fn meters_to_degrees_southern_hemisphere() {
+        // Negative latitude should behave like positive (cos is symmetric).
+        let d_pos = meters_to_degrees(70.0, 45.0);
+        let d_neg = meters_to_degrees(70.0, -45.0);
+        assert!(
+            (d_pos - d_neg).abs() < 1e-10,
+            "±45° should give same result; got {d_pos}, {d_neg}"
+        );
+    }
+
+    // ── generate_cluster_candidates_grid: bbox containment ────────────────────
+
+    #[test]
+    fn candidates_within_expanded_bbox() {
+        let pts = vec![[40.0, -74.0], [40.1, -73.9]];
+        let radius_deg = 0.01;
+        let result = generate_cluster_candidates_grid(&pts, radius_deg, 4);
+        // Expanded bbox: [39.99, -74.01] to [40.11, -73.89].
+        for [lat, lon] in &result {
+            assert!(
+                *lat >= 39.98 && *lat <= 40.12,
+                "lat {lat} out of expected expanded range"
+            );
+            assert!(
+                *lon >= -74.02 && *lon <= -73.88,
+                "lon {lon} out of expected expanded range"
+            );
+        }
+    }
+
+    #[test]
+    fn large_density_produces_correct_count() {
+        let pts = vec![[40.0, -74.0], [40.1, -73.9]];
+        let density = 16;
+        let result = generate_cluster_candidates_grid(&pts, 0.001, density);
+        assert_eq!(
+            result.len(),
+            density * density,
+            "expected {n}² = {t}, got {got}",
+            n = density,
+            t = density * density,
+            got = result.len()
+        );
+    }
 }
 
