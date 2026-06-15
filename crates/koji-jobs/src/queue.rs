@@ -297,6 +297,47 @@ impl JobQueue {
         })
     }
 
+    /// List jobs newest-first (`id DESC`), optionally filtered by `status`,
+    /// page-limited by `limit`/`offset`. Returns `(rows, total)` where `total` is
+    /// the unpaginated count (for the `meta` block). Spec §10 (observability).
+    pub async fn list(
+        &self,
+        limit: i64,
+        offset: i64,
+        status: Option<JobStatus>,
+    ) -> Result<(Vec<JobRecord>, i64), DbErr> {
+        use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect};
+
+        let mut find = entity::Entity::find();
+        if let Some(s) = status {
+            find = find.filter(entity::Column::Status.eq(s));
+        }
+
+        let total = find.clone().count(&self.db).await? as i64;
+
+        let models = find
+            .order_by_desc(entity::Column::Id)
+            .limit(limit as u64)
+            .offset(offset as u64)
+            .all(&self.db)
+            .await?;
+
+        let rows = models
+            .into_iter()
+            .map(|m| JobRecord {
+                id: m.public_id.parse().unwrap_or_else(|_| JobId::new()),
+                kind: m.kind,
+                status: m.status,
+                progress: m.progress,
+                phase: m.phase,
+                result: m.result,
+                error: m.error,
+            })
+            .collect();
+
+        Ok((rows, total))
+    }
+
     /// Request cancellation of a job (spec §9: honored at the next phase
     /// boundary).
     ///
