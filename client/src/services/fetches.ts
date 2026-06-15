@@ -83,6 +83,9 @@ export async function pollJob(
       fetchWrapper(`/api/v2/jobs/${jobId}`, { method: 'DELETE' }).catch(() => {})
       throw new DOMException('Aborted', 'AbortError')
     }
+    // Sequential by design: each call long-polls ~10s, so we wait for one before
+    // issuing the next.
+    // eslint-disable-next-line no-await-in-loop
     const record = await fetchWrapper<JobRecord>(
       `/api/v2/jobs/${jobId}?wait=10`,
       { method: 'GET', signal },
@@ -233,7 +236,6 @@ export async function clusteringRouting({
     cluster_mode,
     category: rawCategory,
     min_points,
-    fast,
     route_split_level,
     cluster_split_level,
     save_to_db,
@@ -425,8 +427,9 @@ export async function clusteringRouting({
         return null
       }
 
-      const result: CalcJobResult = record.result
-      const stats = result.stats
+      // `record.result` is non-null here (guarded above); pull it + its stats.
+      const { result } = record as { result: CalcJobResult }
+      const { stats } = result
       const fetch_time = Date.now() - startTime
       setStatic('loading', (prev) => ({
         ...prev,
