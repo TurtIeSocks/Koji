@@ -114,6 +114,37 @@ impl CalcRequest {
     }
 }
 
+/// The `POST /api/v2/jobs` body: a tagged [`CalcRequest`] (the `mode` field selects
+/// the op and carries its arg-groups) plus the data `category`. Replaces the old
+/// `/calc/{mode}/{category}` path params — both are now body fields.
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CalcJobRequest {
+    #[serde(flatten)]
+    pub request: CalcRequest,
+    /// Scanner data category; defaults to `pokestop`. Ignored when points are
+    /// pre-supplied (reroute / route-stats / explicit `dataPoints`).
+    #[serde(default = "default_category")]
+    pub category: String,
+}
+
+fn default_category() -> String {
+    "pokestop".to_string()
+}
+
+impl CalcJobRequest {
+    /// The op tag for this request's variant — drives the enqueue data-resolution
+    /// branching and the `CalcPayload.mode` observability/dedup field.
+    pub fn op(&self) -> &'static str {
+        match self.request {
+            CalcRequest::Cluster(_) => "cluster",
+            CalcRequest::Route(_) => "route",
+            CalcRequest::Reroute(_) => "reroute",
+            CalcRequest::Bootstrap(_) => "bootstrap",
+            CalcRequest::RouteStats(_) => "routeStats",
+        }
+    }
+}
+
 /// Cluster / route request: an `area` (or pre-resolved `data_points`) plus the
 /// clustering, routing, output, dev, and data-filter groups.
 ///
@@ -267,6 +298,25 @@ mod tests {
             _ => panic!("expected Cluster variant"),
         }
     }
+    #[test]
+    fn calc_job_request_reads_mode_and_category() {
+        let json = r#"{"mode":"cluster","category":"gym","clustering":{"radius":40}}"#;
+        let req: CalcJobRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.category, "gym");
+        assert_eq!(req.op(), "cluster");
+        match req.request {
+            CalcRequest::Cluster(c) => assert_eq!(c.clustering.resolve().radius, 40.0),
+            _ => panic!("expected Cluster"),
+        }
+    }
+
+    #[test]
+    fn calc_job_request_category_defaults_to_pokestop() {
+        let req: CalcJobRequest = serde_json::from_str(r#"{"mode":"bootstrap"}"#).unwrap();
+        assert_eq!(req.category, "pokestop");
+        assert_eq!(req.op(), "bootstrap");
+    }
+
     #[test]
     fn cluster_default_return_type_follows_area_container() {
         // no area -> SingleArray (parity with old init())
