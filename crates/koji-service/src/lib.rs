@@ -22,6 +22,35 @@ use migration::{DbErr, Migrator, MigratorTrait};
 pub use public::v2::calc::{CALC_KIND, CalcPayload, CalculateHandler};
 use utils::{auth, is_docker};
 
+// ── Test-surface re-exports ───────────────────────────────────────────────
+//
+// Thin wrappers that let integration tests (in `tests/`) build minimal Apps
+// from individual scopes without going through the full `start()` factory
+// (which requires a live DB, ports, etc.).  Hidden from docs; not feature-
+// gated because `#[cfg(test)]` is NOT set for integration-test binaries.
+
+/// The `/geometry` scope (convert / simplify / merge-points / area). No DB.
+#[doc(hidden)]
+pub fn v2_geometry_scope() -> actix_web::Scope {
+    public::v2::geometry::scope()
+}
+
+/// The `/s2` scope (circle-coverage / cell-coverage / polygons / {level}). No DB.
+#[doc(hidden)]
+pub fn v2_s2_scope() -> actix_web::Scope {
+    public::v2::s2::scope()
+}
+
+/// The `/config` scope (just the single GET handler). Reads env vars; needs the
+/// session middleware on the surrounding App (reads `session.get::<bool>("logged_in")`).
+/// Returns a `Scope` so it can be mounted with `.service()`.
+#[doc(hidden)]
+pub fn v2_config_scope() -> actix_web::Scope {
+    // `#[get("/config")]` makes `config` an `HttpServiceFactory`, not a plain fn —
+    // wrap it in a scope at "/" so tests can mount it under `/api/v2`.
+    web::scope("").service(public::v2::config::config)
+}
+
 use crate::dragonite::DragoniteSubscriber;
 
 mod dragonite;
