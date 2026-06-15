@@ -101,7 +101,7 @@ async fn create(
     conn: web::Data<KojiDb>,
     body: web::Json<CreateRoute>,
 ) -> Result<HttpResponse, ServiceError> {
-    let value = serde_json::to_value(&body.into_inner()).map_err(ServiceError::internal)?;
+    let value = serde_json::to_value(body.into_inner()).map_err(ServiceError::internal)?;
     let record = route::Query::upsert_json_return(&conn.koji, 0, value).await?;
     let id = record.get("id").and_then(serde_json::Value::as_u64).unwrap_or(0);
     Ok(HttpResponse::build(StatusCode::CREATED)
@@ -151,7 +151,7 @@ async fn update(
             message: format!("no route {id}"),
         });
     }
-    let value = serde_json::to_value(&body.into_inner()).map_err(ServiceError::internal)?;
+    let value = serde_json::to_value(body.into_inner()).map_err(ServiceError::internal)?;
     let record = route::Query::upsert_json_return(&conn.koji, id, value).await?;
     Ok(ApiResponse::success(record))
 }

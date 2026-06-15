@@ -58,6 +58,9 @@ impl ReadQuery {
 
     /// Resolve `?depth`/`?level` into a recursion spec, mapping the
     /// mutually-exclusive error to a `400`.
+    // `ServiceError` is intentionally large (carries `DbErr`/`ModelError` by
+    // value) — matches the crate-wide allow in `utils::error`.
+    #[allow(clippy::result_large_err)]
     fn hierarchy(&self) -> Result<Option<HierarchySpec>, ServiceError> {
         HierarchySpec::from_args(self.depth, self.level).map_err(|_| ServiceError::Invalid {
             field: Some("hierarchy".to_string()),
@@ -131,7 +134,7 @@ async fn create(
     conn: web::Data<KojiDb>,
     body: web::Json<CreateGeofence>,
 ) -> Result<HttpResponse, ServiceError> {
-    let value = serde_json::to_value(&body.into_inner()).map_err(ServiceError::internal)?;
+    let value = serde_json::to_value(body.into_inner()).map_err(ServiceError::internal)?;
     let record = geofence::Query::upsert_json_return(&conn.koji, 0, value).await?;
     let id = record.get("id").and_then(serde_json::Value::as_u64).unwrap_or(0);
     Ok(HttpResponse::build(StatusCode::CREATED)
@@ -199,7 +202,7 @@ async fn update(
             message: format!("no geofence {id}"),
         });
     }
-    let value = serde_json::to_value(&body.into_inner()).map_err(ServiceError::internal)?;
+    let value = serde_json::to_value(body.into_inner()).map_err(ServiceError::internal)?;
     let record = geofence::Query::upsert_json_return(&conn.koji, id, value).await?;
     Ok(ApiResponse::success(record))
 }
