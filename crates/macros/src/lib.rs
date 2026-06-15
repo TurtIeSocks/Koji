@@ -1,6 +1,9 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{Data, DeriveInput, Fields, ItemFn, LitStr, parse_macro_input};
+use syn::punctuated::Punctuated;
+use syn::{
+    Data, DeriveInput, Fields, ItemFn, LitStr, MetaNameValue, Token, parse_macro_input,
+};
 
 #[proc_macro_attribute]
 pub fn time(attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -264,4 +267,180 @@ pub fn derive_str_enum(input: TokenStream) -> TokenStream {
         }
     }
     .into()
+}
+
+/// Generates the verbatim-identical `impl Query { all, bound, area, stats }`
+/// block shared by fort-shaped scanner entities (gym, pokestop), which differ
+/// only by raw-SQL table name and id prefix. Place on `pub struct Query;`:
+///
+/// ```ignore
+/// #[macros::fort_query(table = "gym", prefix = "g")]
+/// pub struct Query;
+/// ```
+///
+/// The original `struct Query;` item is re-emitted unchanged, then the impl is
+/// appended. `Entity`/`Column` are emitted unqualified and resolve at the call
+/// site (via the entity module's `use sea_orm::entity::prelude::*`); the query
+/// -builder methods need `QueryFilter`/`QuerySelect` in scope there too. All
+/// `sea_orm`/`crate` items the impl references are fully qualified, so this
+/// macro never names a koji-scanner type directly (no crate dep, no cycle).
+#[proc_macro_attribute]
+pub fn fort_query(attr: TokenStream, item: TokenStream) -> TokenStream {
+    // Parse `table = "gym", prefix = "g"` as two `Ident = LitStr` pairs.
+    let args = parse_macro_input!(
+        attr with Punctuated::<MetaNameValue, Token![,]>::parse_terminated
+    );
+
+    let mut table: Option<LitStr> = None;
+    let mut prefix: Option<LitStr> = None;
+    for nv in args {
+        let key = match nv.path.get_ident() {
+            Some(id) => id.to_string(),
+            None => {
+                return syn::Error::new_spanned(&nv.path, "expected `table` or `prefix`")
+                    .to_compile_error()
+                    .into();
+            }
+        };
+        // Each value must be a string literal (`"gym"` / `"g"`).
+        let lit = match &nv.value {
+            syn::Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Str(s),
+                ..
+            }) => s.clone(),
+            other => {
+                return syn::Error::new_spanned(other, "expected a string literal")
+                    .to_compile_error()
+                    .into();
+            }
+        };
+        match key.as_str() {
+            "table" => table = Some(lit),
+            "prefix" => prefix = Some(lit),
+            _ => {
+                return syn::Error::new_spanned(&nv.path, "expected `table` or `prefix`")
+                    .to_compile_error()
+                    .into();
+            }
+        }
+    }
+
+    let table = match table {
+        Some(t) => t,
+        None => {
+            return syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "fort_query requires `table = \"...\"`",
+            )
+            .to_compile_error()
+            .into();
+        }
+    };
+    let prefix = match prefix {
+        Some(p) => p,
+        None => {
+            return syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "fort_query requires `prefix = \"...\"`",
+            )
+            .to_compile_error()
+            .into();
+        }
+    };
+
+    // Re-emit the original item (the `struct Query;`) unchanged.
+    let item: proc_macro2::TokenStream = item.into();
+
+    let expanded = quote! {
+        #item
+
+        impl Query {
+            pub async fn all(
+                conn: &sea_orm::DatabaseConnection,
+                last_seen: u32,
+            ) -> Result<Vec<crate::rows::GenericData>, sea_orm::DbErr> {
+                let items = Entity::find()
+                    .select_only()
+                    .column(Column::Lat)
+                    .column(Column::Lon)
+                    .filter(Column::Updated.gt(last_seen))
+                    .filter(Column::Deleted.eq(false))
+                    .filter(Column::Enabled.eq(true))
+                    .limit(2_000_000)
+                    .into_model::<crate::rows::LatLonRow>()
+                    .all(conn)
+                    .await?;
+                Ok(crate::normalize::fort(items, #prefix))
+            }
+
+            pub async fn bound(
+                conn: &sea_orm::DatabaseConnection,
+                payload: &koji_core::BoundsArg,
+            ) -> Result<Vec<crate::rows::GenericData>, sea_orm::DbErr> {
+                let items = Entity::find()
+                    .select_only()
+                    .column(Column::Lat)
+                    .column(Column::Lon)
+                    .filter(Column::Lat.between(payload.bbox.min_lat, payload.bbox.max_lat))
+                    .filter(Column::Lon.between(payload.bbox.min_lon, payload.bbox.max_lon))
+                    .filter(Column::Updated.gt(payload.last_seen.unwrap_or_default()))
+                    .filter(Column::Deleted.eq(false))
+                    .filter(Column::Enabled.eq(true))
+                    .limit(2_000_000)
+                    .into_model::<crate::rows::LatLonRow>()
+                    .all(conn)
+                    .await?;
+                Ok(crate::normalize::fort(items, #prefix))
+            }
+
+            pub async fn area(
+                conn: &sea_orm::DatabaseConnection,
+                area: &geojson::FeatureCollection,
+                last_seen: u32,
+            ) -> Result<Vec<crate::rows::GenericData>, sea_orm::DbErr> {
+                let items = Entity::find()
+                    .from_raw_sql(sea_orm::Statement::from_sql_and_values(
+                        sea_orm::DbBackend::MySql,
+                        format!(
+                            "SELECT lat, lon FROM {} WHERE enabled = 1 AND deleted = 0 AND updated > {} AND ({})",
+                            #table,
+                            last_seen,
+                            crate::sql_raw_bbox(area)
+                        )
+                        .as_str(),
+                        vec![],
+                    ))
+                    .into_model::<crate::rows::LatLonRow>()
+                    .all(conn)
+                    .await?;
+                Ok(crate::normalize::fort_filtered(items, area, #prefix))
+            }
+
+            pub async fn stats(
+                conn: &sea_orm::DatabaseConnection,
+                area: &geojson::FeatureCollection,
+                last_seen: u32,
+            ) -> Result<crate::rows::Total, sea_orm::DbErr> {
+                let items = Entity::find()
+                    .from_raw_sql(sea_orm::Statement::from_sql_and_values(
+                        sea_orm::DbBackend::MySql,
+                        format!(
+                            "SELECT lat, lon FROM {} WHERE enabled = 1 AND deleted = 0 AND updated > {} AND ({})",
+                            #table,
+                            last_seen,
+                            crate::sql_raw_bbox(area)
+                        )
+                        .as_str(),
+                        vec![],
+                    ))
+                    .into_model::<crate::rows::LatLonRow>()
+                    .all(conn)
+                    .await?;
+                let total = crate::count_in_area(&items, area);
+                Ok(crate::rows::Total { total })
+            }
+        }
+    };
+
+    expanded.into()
 }

@@ -10,6 +10,7 @@ path = "src/lib.rs"
 
 [dependencies]
 koji-core = { path = "../koji-core" }
+macros = { workspace = true }
 geo = { workspace = true }
 geojson = { workspace = true }
 log = { workspace = true }
