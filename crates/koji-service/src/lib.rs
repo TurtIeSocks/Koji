@@ -296,9 +296,17 @@ pub async fn start() -> io::Result<()> {
                             // Geometry transforms (convert/simplify/merge-points)
                             // and the S2 cell helpers — split out of the old
                             // `/geo` grab-bag into honest `/geometry` + `/s2`
-                            // namespaces.
+                            // namespaces. `/geometry/area` (polygon area) rides
+                            // the geometry scope.
                             .service(public::v2::geometry::scope())
                             .service(public::v2::s2::scope())
+                            // Arbitrary-area scanner-data: POST `/scanner-data/
+                            // {category}`(+`/stats`) — the drawn-area markers/count
+                            // surface (the saved-fence GET rides geofences::scope()).
+                            .service(public::v2::scanner_data::scope())
+                            // App bootstrap blob: GET `/config` (map center, tile
+                            // server, plugin lists, login state).
+                            .service(public::v2::config::config)
                             // Plugin management overlay (DB-managed plugin config):
                             // merged disk-manifest + DB-overlay view; PATCH/DELETE
                             // edit only `enabled`/`args_default`/`description`.
