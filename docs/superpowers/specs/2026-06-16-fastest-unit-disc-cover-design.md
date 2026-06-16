@@ -160,3 +160,35 @@ helper + region-growing pushes it past the ~500-line split threshold, extract a 
   the `Centroid`/`BboxCenter` fallbacks.
 - **Region-grow ordering** must be fully deterministic → enforced by sorted iteration and
   covered by the set-equality determinism test.
+
+## Benchmark results (2026-06-16)
+
+Matrix: `{uniform, blobs, urban} × radius {70, 150} × min_points {1, 3}`, n=10000, seed 42
+(12 cells). `score_v2` priced with `λ_knife = 0.5`, `λ_overlap = 0.1`, `λ_route = 0`
+(cluster count is identical across placements, so the route term is placement-insensitive).
+
+**Key structural finding:** with `margin = 0` the three fit-tests are mathematically
+equivalent — `bbox-diagonal ≤ 2 ⟺ MEC-radius ≤ 1 ⟺ "fits a radius-1 disc"` — so all three
+placements produce the *same grouping and same cluster count* (Σclusters = 20465). They
+differ only in where the center sits inside each group, making the experiment a pure
+coverage + knife_edge + overlap contest.
+
+| variant | Σclusters | Σuncovered | Σknife | Σexcess | Σmygod | Σscore_v2 | Σwall_s |
+|---|---|---|---|---|---|---|---|
+| **mec** ✅ | 20465 | **6843** | **1230** | 50666 | 44588 | **50270** | 0.15 |
+| bbox | 20465 | 6853 | 1959 | 49652 | 44598 | 50542 | 0.13 |
+| centroid | 20465 | 9121 | 1419 | 54308 | 46866 | 53004 | 0.13 |
+| _baseline (pre-redesign)_ | 20591 | 10809 | 1693 | 46718 | 52715 | 0.13 |
+| _fast (next tier, ceiling)_ | 16400 | 7393 | 12775 | 42035 | 36565 | 47156 | 1.07 |
+
+**Decision: `Placement::Mec`, `margin = 0`.** MEC wins `score_v2`, driven by the lowest
+`knife_edge` (1230 vs bbox's 1959) and best coverage; centroid genuinely under-covers
+(9121 uncovered). Runtime gate passed by a wide margin — every placement runs at
+`cluster_s ≤ 0.01`, **5–16× faster than `fast`** (0.03–0.16), so MEC's Welzl cost is free at
+these scales. A positive `margin` was rejected: it would add clusters (cost ≥ `min_points`
+each) to shave diffuse ~1% knife points priced at 0.5 — net-negative for `score_v2`.
+
+**vs. pre-redesign baseline:** −37% uncovered points (10809 → 6843, the under-coverage bug
+fixed), −4.6% mygod, −4.6% score_v2, lower knife_edge, slightly fewer clusters, now fully
+deterministic — at ~unchanged runtime. `fast` remains better (fewer clusters) as expected;
+Fastest's job is a *correct, much cheaper* cover, which it now is.
