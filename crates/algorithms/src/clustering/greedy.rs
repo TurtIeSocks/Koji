@@ -18,8 +18,6 @@ use std::io::Write;
 use sysinfo::System;
 use web_time::Instant;
 
-use koji_core::s2::{self, ToPointArray};
-
 use crate::{
     bootstrap::radius,
     clustering::{
@@ -385,54 +383,15 @@ impl<'a> Greedy {
         radius::BootstrapRadius::new(&feat, self.radius).result()
     }
 
-    fn flat_map_cells(&self, cell: CellID, point_tree: &'a RTree<Point>) -> Vec<CellID> {
-        if cell.level() == 21 {
-            cell.children().into_iter().collect()
-        } else if point_tree.locate_at_point(&cell.point_array()).is_some() {
-            cell.children()
-                .into_iter()
-                .flat_map(|c| self.flat_map_cells(c, point_tree))
-                .collect()
-        } else {
-            vec![]
-        }
-    }
-
-    #[time()]
-    fn get_s2_clusters(&self, points: &SingleVec, point_tree: &'a RTree<Point>) -> SingleVec {
-        let kb = KojiBbox::from_points(points).map(|b| b.trim(6)).unwrap();
-        s2::get_region_cells(kb.min_lat, kb.max_lat, kb.min_lon, kb.max_lon, 16)
-            .0
-            .into_par_iter()
-            .flat_map(|cell| self.flat_map_cells(cell, point_tree))
-            .map(|cell| cell.point_array())
-            .collect()
-    }
-
     fn gen_clusters(&self, density: usize, points: &'a SingleVec) -> SingleVec {
         candidates::generate_clusters_from_points(points, self.radius, density)
     }
 
-    fn generate_candidates_for_mode(
-        &self,
-        points: &'a SingleVec,
-        point_tree: &'a RTree<Point>,
-        mode: ClusterMode,
-        grid_density_override: Option<usize>,
-    ) -> SingleVec {
+    fn generate_candidates_for_mode(&self, points: &'a SingleVec, mode: ClusterMode) -> SingleVec {
         match mode {
             ClusterMode::Honeycomb => self.get_honeycomb_clusters(points),
             ClusterMode::Fast => self.gen_clusters(BYTE / 2, points),
             ClusterMode::Balanced => self.gen_clusters(BYTE, points),
-            ClusterMode::Better => self.get_s2_clusters(points, point_tree),
-            ClusterMode::Best => {
-                let mut pcs = self.get_s2_clusters(points, point_tree);
-                let density = grid_density_override.unwrap_or(BYTE * 6);
-                if density > 0 {
-                    pcs.extend_from_slice(&self.gen_clusters(density, points));
-                }
-                pcs
-            }
             _ => vec![],
         }
     }
@@ -452,7 +411,7 @@ impl<'a> Greedy {
 
         let time = Instant::now();
         let clusters_with_data: Vec<Cluster> = self
-            .generate_candidates_for_mode(points, point_tree, self.cluster_mode.clone(), None)
+            .generate_candidates_for_mode(points, self.cluster_mode.clone())
             .into_par_iter()
             .filter_map(|cluster| {
                 let iter = point_tree.locate_all_at_point(&cluster);
