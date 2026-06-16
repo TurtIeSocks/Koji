@@ -129,3 +129,199 @@ impl Client {
         .await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Street serialization ─────────────────────────────────────────────────
+
+    #[test]
+    fn street_into_string() {
+        let s = Street {
+            house_number: "10".into(),
+            street_name: "Downing St".into(),
+        };
+        let out: String = s.into();
+        assert_eq!(out, "10 Downing St");
+    }
+
+    #[test]
+    fn street_serializes_as_combined_string() {
+        let s = Street {
+            house_number: "1".into(),
+            street_name: "Parliament Square".into(),
+        };
+        let v = serde_json::to_value(&s).unwrap();
+        assert_eq!(v, "1 Parliament Square");
+    }
+
+    // ── LocationQuery → query-string ─────────────────────────────────────────
+
+    fn qs(q: &SearchQuery) -> String {
+        serde_urlencoded::to_string(q).unwrap()
+    }
+
+    fn base_generalised(q: &str) -> SearchQuery {
+        SearchQueryBuilder::default()
+            .location_query(LocationQuery::Generalised { q: q.into() })
+            .address_details(true)
+            .build()
+            .unwrap()
+    }
+
+    #[test]
+    fn generalised_query_produces_q_param() {
+        let query = base_generalised("Munich, Germany");
+        let qs = qs(&query);
+        assert!(qs.contains("q=Munich%2C+Germany") || qs.contains("q=Munich%2C%20Germany"),
+                "qs: {qs}");
+    }
+
+    #[test]
+    fn address_details_true_encodes_as_1() {
+        let query = base_generalised("Berlin");
+        let qs = qs(&query);
+        assert!(qs.contains("addressdetails=1"), "qs: {qs}");
+    }
+
+    #[test]
+    fn address_details_false_encodes_as_0() {
+        let query = SearchQueryBuilder::default()
+            .location_query(LocationQuery::Generalised { q: "London".into() })
+            .address_details(false)
+            .build()
+            .unwrap();
+        let qs = qs(&query);
+        assert!(qs.contains("addressdetails=0"), "qs: {qs}");
+    }
+
+    #[test]
+    fn dedupe_default_true_encodes_as_1() {
+        let query = base_generalised("Paris");
+        let qs = qs(&query);
+        assert!(qs.contains("dedupe=1"), "qs: {qs}");
+    }
+
+    #[test]
+    fn limit_some_encodes_as_string() {
+        let query = SearchQueryBuilder::default()
+            .location_query(LocationQuery::Generalised { q: "Rome".into() })
+            .address_details(true)
+            .limit(Some(50))
+            .build()
+            .unwrap();
+        let qs = qs(&query);
+        assert!(qs.contains("limit=50"), "qs: {qs}");
+    }
+
+    #[test]
+    fn country_codes_encodes_as_comma_string() {
+        let query = SearchQueryBuilder::default()
+            .location_query(LocationQuery::Generalised { q: "city".into() })
+            .address_details(false)
+            .country_codes(Some(vec!["gb".into(), "de".into()]))
+            .build()
+            .unwrap();
+        let qs = qs(&query);
+        assert!(qs.contains("countrycodes=gb%2Cde") || qs.contains("countrycodes=gb,de"),
+                "qs: {qs}");
+    }
+
+    #[test]
+    fn accept_language_encodes_as_comma_string() {
+        let query = SearchQueryBuilder::default()
+            .location_query(LocationQuery::Generalised { q: "city".into() })
+            .address_details(false)
+            .accept_language(Some(vec!["en".into(), "fr".into()]))
+            .build()
+            .unwrap();
+        let qs = qs(&query);
+        assert!(qs.contains("accept-language=en%2Cfr") || qs.contains("accept-language=en,fr"),
+                "qs: {qs}");
+    }
+
+    #[test]
+    fn exclude_place_ids_encodes_as_comma_string() {
+        let query = SearchQueryBuilder::default()
+            .location_query(LocationQuery::Generalised { q: "city".into() })
+            .address_details(false)
+            .exclude_place_ids(Some(vec![123, 456]))
+            .build()
+            .unwrap();
+        let qs = qs(&query);
+        assert!(qs.contains("exclude_place_ids=123%2C456")
+                || qs.contains("exclude_place_ids=123,456"),
+                "qs: {qs}");
+    }
+
+    #[test]
+    fn viewbox_encodes_as_comma_string() {
+        let query = SearchQueryBuilder::default()
+            .location_query(LocationQuery::Generalised { q: "city".into() })
+            .address_details(false)
+            .viewbox(Some([-0.5, 51.2, 0.3, 51.8]))
+            .build()
+            .unwrap();
+        let qs = qs(&query);
+        assert!(qs.contains("viewbox="), "qs: {qs}");
+    }
+
+    #[test]
+    fn structured_query_encodes_city_and_country() {
+        let query = SearchQueryBuilder::default()
+            .location_query(LocationQuery::Structured {
+                street: None,
+                city: Some("Munich".into()),
+                county: None,
+                state: None,
+                country: Some("Germany".into()),
+                postal_code: None,
+            })
+            .address_details(false)
+            .build()
+            .unwrap();
+        let qs = qs(&query);
+        assert!(qs.contains("city=Munich"), "qs: {qs}");
+        assert!(qs.contains("country=Germany"), "qs: {qs}");
+    }
+
+    // ── geojson FeatureCollection parse ────────────────────────────────────
+
+    const GEOJSON_RESPONSE: &str = r#"{
+      "type": "FeatureCollection",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0.",
+      "features": [
+        {
+          "type": "Feature",
+          "properties": {
+            "place_id": 282563964,
+            "osm_type": "relation",
+            "osm_id": "62422",
+            "display_name": "Munich, Bavaria, Germany",
+            "class": "boundary",
+            "type": "administrative",
+            "importance": 0.7654
+          },
+          "bbox": [11.3607562, 48.0617474, 11.7229579, 48.2480911],
+          "geometry": {
+            "type": "MultiPolygon",
+            "coordinates": [[[[11.36,48.06],[11.72,48.06],[11.72,48.25],[11.36,48.25],[11.36,48.06]]]]
+          }
+        }
+      ]
+    }"#;
+
+    #[test]
+    fn geojson_feature_collection_parses() {
+        let fc: geojson::FeatureCollection = serde_json::from_str(GEOJSON_RESPONSE).unwrap();
+        assert_eq!(fc.features.len(), 1);
+        let feat = &fc.features[0];
+        let props = feat.properties.as_ref().unwrap();
+        assert_eq!(props["display_name"], "Munich, Bavaria, Germany");
+        assert_eq!(props["osm_type"], "relation");
+        // geometry is a MultiPolygon
+        let geom = feat.geometry.as_ref().unwrap();
+        assert!(matches!(geom.value, geojson::Value::MultiPolygon(_)));
+    }
+}

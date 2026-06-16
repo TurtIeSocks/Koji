@@ -93,3 +93,118 @@ impl Client {
         self.get_json("lookup", &query, &[("format", "json")]).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn qs(q: &LookupQuery) -> String {
+        serde_urlencoded::to_string(q).unwrap()
+    }
+
+    fn base_query(ids: Vec<String>) -> LookupQuery {
+        LookupQueryBuilder::default()
+            .osm_ids(ids)
+            .build()
+            .unwrap()
+    }
+
+    // ── osm_ids encodes as comma-joined string ─────────────────────────────
+
+    #[test]
+    fn osm_ids_encode_as_comma_string() {
+        let q = base_query(vec!["N1".into(), "W2".into(), "R3".into()]);
+        let qs = qs(&q);
+        assert!(
+            qs.contains("osm_ids=N1%2CW2%2CR3") || qs.contains("osm_ids=N1,W2,R3"),
+            "qs: {qs}"
+        );
+    }
+
+    #[test]
+    fn empty_osm_ids_encodes_empty_string() {
+        let q = base_query(vec![]);
+        let qs = qs(&q);
+        assert!(qs.contains("osm_ids="), "qs: {qs}");
+    }
+
+    // ── bool flags ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn address_details_false_by_default_encodes_0() {
+        let q = base_query(vec!["N1".into()]);
+        let qs = qs(&q);
+        assert!(qs.contains("addressdetails=0"), "qs: {qs}");
+    }
+
+    #[test]
+    fn address_details_true_encodes_1() {
+        let q = LookupQueryBuilder::default()
+            .osm_ids(vec!["N1".into()])
+            .address_details(true)
+            .build()
+            .unwrap();
+        let qs = qs(&q);
+        assert!(qs.contains("addressdetails=1"), "qs: {qs}");
+    }
+
+    #[test]
+    fn bounded_false_by_default_encodes_0() {
+        let q = base_query(vec!["R1".into()]);
+        let qs = qs(&q);
+        assert!(qs.contains("bounded=0"), "qs: {qs}");
+    }
+
+    #[test]
+    fn limit_some_encodes_as_number_string() {
+        let q = LookupQueryBuilder::default()
+            .osm_ids(vec!["N1".into()])
+            .limit(Some(10))
+            .build()
+            .unwrap();
+        let qs = qs(&q);
+        assert!(qs.contains("limit=10"), "qs: {qs}");
+    }
+
+    #[test]
+    fn country_codes_some_encodes_comma_string() {
+        let q = LookupQueryBuilder::default()
+            .osm_ids(vec!["N1".into()])
+            .country_codes(Some(vec!["gb".into(), "us".into()]))
+            .build()
+            .unwrap();
+        let qs = qs(&q);
+        assert!(
+            qs.contains("countrycodes=gb%2Cus") || qs.contains("countrycodes=gb,us"),
+            "qs: {qs}"
+        );
+    }
+
+    // ── Vec<Response> JSON parse ────────────────────────────────────────────
+
+    const LOOKUP_JSON: &str = r#"[
+      {
+        "place_id": 100,
+        "osm_type": "node",
+        "osm_id": 200,
+        "lat": "51.5074",
+        "lon": "-0.1278",
+        "display_name": "London, England",
+        "class": "place",
+        "type": "city",
+        "importance": 0.9,
+        "boundingbox": ["51.28","51.69","-0.51","0.33"]
+      }
+    ]"#;
+
+    #[test]
+    fn lookup_response_vec_parses() {
+        use crate::types::{ID, OsmType, Response};
+        let results: Vec<Response> = serde_json::from_str(LOOKUP_JSON).unwrap();
+        assert_eq!(results.len(), 1);
+        let r = &results[0];
+        assert_eq!(r.place_id, Some(ID::Num(100)));
+        assert_eq!(r.osm_type, Some(OsmType::Node));
+        assert_eq!(r.display_name.as_deref(), Some("London, England"));
+    }
+}

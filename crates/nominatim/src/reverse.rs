@@ -100,3 +100,109 @@ impl Client {
             .await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Zoom display ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn zoom_display_values() {
+        assert_eq!(Zoom::Country.to_string(), "3");
+        assert_eq!(Zoom::State.to_string(), "5");
+        assert_eq!(Zoom::County.to_string(), "8");
+        assert_eq!(Zoom::City.to_string(), "10");
+        assert_eq!(Zoom::Suburb.to_string(), "14");
+        assert_eq!(Zoom::MajorStreets.to_string(), "16");
+        assert_eq!(Zoom::MajorAndMinorStreets.to_string(), "17");
+        assert_eq!(Zoom::Building.to_string(), "18");
+    }
+
+    // ── ReverseQuery → query-string ──────────────────────────────────────────
+
+    fn qs(q: &ReverseQuery) -> String {
+        serde_urlencoded::to_string(q).unwrap()
+    }
+
+    fn base_query() -> ReverseQuery {
+        ReverseQueryBuilder::default()
+            .lat(48.1371)
+            .lon(11.5754)
+            .zoom(Zoom::City)
+            .build()
+            .unwrap()
+    }
+
+    #[test]
+    fn lat_lon_encode_as_strings() {
+        let qs = qs(&base_query());
+        // serde serializes f64 via Display; check both keys present
+        assert!(qs.contains("lat="), "qs: {qs}");
+        assert!(qs.contains("lon="), "qs: {qs}");
+    }
+
+    #[test]
+    fn zoom_encodes_as_numeric_string() {
+        let qs = qs(&base_query());
+        assert!(qs.contains("zoom=10"), "qs: {qs}");
+    }
+
+    #[test]
+    fn address_details_default_true_encodes_1() {
+        let qs = qs(&base_query());
+        assert!(qs.contains("addressdetails=1"), "qs: {qs}");
+    }
+
+    #[test]
+    fn address_details_false_encodes_0() {
+        let q = ReverseQueryBuilder::default()
+            .lat(0.0)
+            .lon(0.0)
+            .zoom(Zoom::Country)
+            .address_details(false)
+            .build()
+            .unwrap();
+        let qs = qs(&q);
+        assert!(qs.contains("addressdetails=0"), "qs: {qs}");
+    }
+
+    #[test]
+    fn accept_language_some_encodes() {
+        let q = ReverseQueryBuilder::default()
+            .lat(0.0)
+            .lon(0.0)
+            .zoom(Zoom::Building)
+            .accept_language(Some(vec!["de".into()]))
+            .build()
+            .unwrap();
+        let qs = qs(&q);
+        assert!(qs.contains("accept-language=de"), "qs: {qs}");
+    }
+
+    // ── Response JSON parsing (same struct used by reverse endpoint) ──────────
+
+    const REVERSE_JSON: &str = r#"{
+      "place_id": 12345,
+      "osm_type": "way",
+      "osm_id": 99999,
+      "lat": "48.1371",
+      "lon": "11.5754",
+      "display_name": "Marienplatz, Munich, Bavaria, Germany",
+      "class": "highway",
+      "type": "pedestrian",
+      "importance": 0.5,
+      "boundingbox": ["48.136","48.138","11.574","11.576"]
+    }"#;
+
+    #[test]
+    fn reverse_response_parses() {
+        use crate::types::{ID, OsmType, Response};
+        let r: Response = serde_json::from_str(REVERSE_JSON).unwrap();
+        assert_eq!(r.place_id, Some(ID::Num(12345)));
+        assert_eq!(r.osm_type, Some(OsmType::Way));
+        assert!((r.lat.unwrap() - 48.1371).abs() < 1e-4);
+        assert!((r.lon.unwrap() - 11.5754).abs() < 1e-4);
+        assert_eq!(r.class.as_deref(), Some("highway"));
+    }
+}

@@ -193,3 +193,221 @@ mod opt_string_visitor {
         }
     }
 }
+
+#[cfg(test)]
+#[allow(dead_code)]
+mod tests {
+    use super::*;
+    use serde::{Deserialize, Serialize};
+    use serde_json::Value;
+
+    // ── serialize_vector_as_string ──────────────────────────────────────────
+
+    #[test]
+    fn serialize_vector_as_string_two_items() {
+        #[derive(Serialize)]
+        struct W {
+            #[serde(serialize_with = "serialize_vector_as_string")]
+            v: Vec<String>,
+        }
+        let w = W { v: vec!["gb".into(), "de".into()] };
+        let v: Value = serde_json::to_value(&w).unwrap();
+        assert_eq!(v["v"], "gb,de");
+    }
+
+    #[test]
+    fn serialize_vector_as_string_single_item() {
+        #[derive(Serialize)]
+        struct W {
+            #[serde(serialize_with = "serialize_vector_as_string")]
+            v: Vec<String>,
+        }
+        let w = W { v: vec!["gb".into()] };
+        let v: Value = serde_json::to_value(&w).unwrap();
+        assert_eq!(v["v"], "gb");
+    }
+
+    #[test]
+    fn serialize_vector_as_string_empty() {
+        #[derive(Serialize)]
+        struct W {
+            #[serde(serialize_with = "serialize_vector_as_string")]
+            v: Vec<String>,
+        }
+        let w = W { v: vec![] };
+        let v: Value = serde_json::to_value(&w).unwrap();
+        // empty vec → empty string (trailing pop on empty does nothing)
+        assert_eq!(v["v"], "");
+    }
+
+    // ── serialize_vector_as_string_opt ──────────────────────────────────────
+
+    #[test]
+    fn serialize_vector_as_string_opt_some() {
+        #[derive(Serialize)]
+        struct W {
+            #[serde(serialize_with = "serialize_vector_as_string_opt")]
+            v: Option<Vec<String>>,
+        }
+        let w = W { v: Some(vec!["en".into(), "fr".into()]) };
+        let v: Value = serde_json::to_value(&w).unwrap();
+        assert_eq!(v["v"], "en,fr");
+    }
+
+    #[test]
+    fn serialize_vector_as_string_opt_none() {
+        #[derive(Serialize)]
+        struct W {
+            #[serde(serialize_with = "serialize_vector_as_string_opt")]
+            v: Option<Vec<String>>,
+        }
+        let w = W { v: None };
+        let v: Value = serde_json::to_value(&w).unwrap();
+        assert!(v["v"].is_null());
+    }
+
+    // ── serialize_as_string_opt ─────────────────────────────────────────────
+
+    #[test]
+    fn serialize_as_string_opt_some() {
+        #[derive(Serialize)]
+        struct W {
+            #[serde(serialize_with = "serialize_as_string_opt")]
+            n: Option<u8>,
+        }
+        let w = W { n: Some(10) };
+        let v: Value = serde_json::to_value(&w).unwrap();
+        assert_eq!(v["n"], "10");
+    }
+
+    #[test]
+    fn serialize_as_string_opt_none() {
+        #[derive(Serialize)]
+        struct W {
+            #[serde(serialize_with = "serialize_as_string_opt")]
+            n: Option<u8>,
+        }
+        let w = W { n: None };
+        let v: Value = serde_json::to_value(&w).unwrap();
+        assert!(v["n"].is_null());
+    }
+
+    // ── serialize_bool_as_string ────────────────────────────────────────────
+
+    #[test]
+    fn serialize_bool_as_string_true() {
+        #[derive(Serialize)]
+        struct W {
+            #[serde(serialize_with = "serialize_bool_as_string")]
+            b: bool,
+        }
+        let w = W { b: true };
+        let v: Value = serde_json::to_value(&w).unwrap();
+        assert_eq!(v["b"], "1");
+    }
+
+    #[test]
+    fn serialize_bool_as_string_false() {
+        #[derive(Serialize)]
+        struct W {
+            #[serde(serialize_with = "serialize_bool_as_string")]
+            b: bool,
+        }
+        let w = W { b: false };
+        let v: Value = serde_json::to_value(&w).unwrap();
+        assert_eq!(v["b"], "0");
+    }
+
+    // ── serialize_as_string ─────────────────────────────────────────────────
+
+    #[test]
+    fn serialize_as_string_numeric() {
+        #[derive(Serialize)]
+        struct W {
+            #[serde(serialize_with = "serialize_as_string")]
+            n: f64,
+        }
+        let w = W { n: 51.5 };
+        let v: Value = serde_json::to_value(&w).unwrap();
+        assert_eq!(v["n"], "51.5");
+    }
+
+    // ── deserialize_from_string ─────────────────────────────────────────────
+
+    #[test]
+    fn deserialize_from_string_ok() {
+        #[derive(Deserialize)]
+        struct W {
+            #[serde(deserialize_with = "deserialize_from_string")]
+            n: f64,
+        }
+        let w: W = serde_json::from_str(r#"{"n":"3.14"}"#).unwrap();
+        assert!((w.n - 3.14).abs() < 1e-10);
+    }
+
+    #[test]
+    fn deserialize_from_string_err() {
+        #[derive(Deserialize)]
+        struct W {
+            #[serde(deserialize_with = "deserialize_from_string")]
+            n: f64,
+        }
+        let err = serde_json::from_str::<W>(r#"{"n":"not-a-float"}"#);
+        assert!(err.is_err());
+    }
+
+    // ── deserialize_from_string_opt ─────────────────────────────────────────
+
+    #[test]
+    fn deserialize_from_string_opt_some() {
+        #[derive(Deserialize)]
+        struct W {
+            #[serde(deserialize_with = "deserialize_from_string_opt")]
+            n: Option<f64>,
+        }
+        let w: W = serde_json::from_str(r#"{"n":"2.718"}"#).unwrap();
+        assert!((w.n.unwrap() - 2.718).abs() < 1e-10);
+    }
+
+    #[test]
+    fn deserialize_from_string_opt_none() {
+        #[derive(Deserialize)]
+        struct W {
+            #[serde(deserialize_with = "deserialize_from_string_opt")]
+            n: Option<f64>,
+        }
+        let w: W = serde_json::from_str(r#"{"n":null}"#).unwrap();
+        assert!(w.n.is_none());
+    }
+
+    #[test]
+    fn deserialize_from_string_opt_missing_field() {
+        // When the field is absent serde uses Default (None) for Option —
+        // this exercises the visit_none path.
+        #[derive(Deserialize)]
+        struct W {
+            #[serde(default, deserialize_with = "deserialize_from_string_opt")]
+            n: Option<f64>,
+        }
+        let w: W = serde_json::from_str(r#"{}"#).unwrap();
+        assert!(w.n.is_none());
+    }
+
+    // ── round-trip: serialize then deserialize ───────────────────────────────
+
+    #[test]
+    fn roundtrip_string_opt_f64() {
+        #[derive(Serialize, Deserialize, PartialEq, Debug)]
+        struct W {
+            #[serde(
+                deserialize_with = "deserialize_from_string_opt",
+                serialize_with = "serialize_as_string_opt"
+            )]
+            lat: Option<f64>,
+        }
+        let orig = W { lat: Some(48.8566) };
+        let s = serde_json::to_string(&orig).unwrap();
+        let back: W = serde_json::from_str(&s).unwrap();
+        assert!((back.lat.unwrap() - 48.8566).abs() < 1e-10);
+    }
+}
