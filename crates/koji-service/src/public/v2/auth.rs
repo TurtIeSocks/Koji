@@ -20,7 +20,10 @@ use serde_json::json;
 
 use crate::{
     private::Auth,
-    utils::api_response::{ApiError, ApiResponse},
+    utils::{
+        api_response::{ApiError, ApiResponse},
+        auth::ct_eq,
+    },
 };
 
 /// Decide the auth `via` for `GET /auth/me`, matching `public_validator`'s
@@ -36,7 +39,7 @@ fn decide_via(logged_in: bool, secret: &str, bearer: Option<&str>) -> &'static s
         "session"
     } else if secret.is_empty() {
         "open"
-    } else if bearer == Some(secret) {
+    } else if bearer.is_some_and(|b| ct_eq(b, secret)) {
         "bearer"
     } else {
         "none"
@@ -58,7 +61,10 @@ fn decide_via(logged_in: bool, secret: &str, bearer: Option<&str>) -> &'static s
     ),
 )]
 async fn login(payload: web::Json<Auth>, session: Session) -> HttpResponse {
-    if payload.password == env::var("KOJI_SECRET").unwrap_or_default() {
+    if ct_eq(
+        &payload.password,
+        &env::var("KOJI_SECRET").unwrap_or_default(),
+    ) {
         match session.insert("logged_in", true) {
             Ok(()) => return ApiResponse::success(json!({ "authenticated": true })),
             Err(err) => log::warn!("[auth] session write failed: {err:?}"),

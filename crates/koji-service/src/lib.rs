@@ -4,7 +4,6 @@ use actix_files::{Files, NamedFile};
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use actix_web::{
     App, HttpResponse, HttpServer,
-    cookie::Key,
     dev::{ServiceRequest, ServiceResponse},
     middleware, web,
 };
@@ -193,6 +192,31 @@ async fn readyz(db: web::Data<koji_db::KojiDb>) -> HttpResponse {
     }
 }
 
+/// Build the session cookie key. Production MUST set `KOJI_SESSION_KEY` (≥32 bytes of
+/// high-entropy text) so sessions are unforgeable and survive restarts / multiple
+/// instances. When unset (or too short) we generate an ephemeral random key and warn —
+/// acceptable for local dev only (sessions reset on restart and won't validate across
+/// instances).
+fn session_key() -> actix_web::cookie::Key {
+    use actix_web::cookie::Key;
+    match std::env::var("KOJI_SESSION_KEY") {
+        Ok(s) if s.len() >= 32 => Key::derive_from(s.as_bytes()),
+        Ok(_) => {
+            log::warn!(
+                "[koji] KOJI_SESSION_KEY is set but < 32 bytes; generating an ephemeral key"
+            );
+            Key::generate()
+        }
+        Err(_) => {
+            log::warn!(
+                "[koji] KOJI_SESSION_KEY unset; generating an ephemeral session key \
+                 (dev only — sessions won't survive a restart or load-balance across instances)"
+            );
+            Key::generate()
+        }
+    }
+}
+
 #[actix_web::main]
 pub async fn start() -> io::Result<()> {
     let databases = koji_db::utils::get_database_struct().await;
@@ -301,8 +325,10 @@ pub async fn start() -> io::Result<()> {
             .wrap(middleware::Logger::new("%s | %r - %b bytes in %D ms (%a)"))
             .wrap(middleware::Compress::default())
             .wrap(
-                SessionMiddleware::builder(CookieSessionStore::default(), Key::from(&[0; 64]))
-                    .cookie_secure(false)
+                SessionMiddleware::builder(CookieSessionStore::default(), session_key())
+                    .cookie_secure(std::env::var("KOJI_INSECURE_COOKIES").is_err())
+                    .cookie_http_only(true)
+                    .cookie_same_site(actix_web::cookie::SameSite::Lax)
                     .build(),
             )
             // OpenAPI 3.1 doc for the v2 surface. Registered before the authed
