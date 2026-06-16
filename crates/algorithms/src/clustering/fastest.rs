@@ -1,252 +1,186 @@
+//! "Fastest" clustering mode.
+//!
+//! Points are projected onto a flat plane scaled so that the target radius maps to one unit,
+//! then bucketed into a grid of unit-diameter cells (cell size `√2`, so a cell's diagonal is the
+//! unit diameter). A second pass merges each cell with one adjacent cell when their combined
+//! extent still fits inside a unit disc, and a final pass emits one center per surviving cluster.
+//! This trades placement quality for speed — it is the cheapest of the clustering algorithms.
+
 use geo::Coord;
-use hashbrown::HashSet;
 use koji_core::SingleVec;
 use rstar::PointDistance;
 use std::collections::HashMap;
 
 use crate::project::Plane;
 
-#[derive(Debug, Clone)]
+/// Axis-aligned bounding box tracking the extent of the points within one grid cell.
+#[derive(Debug, Clone, Copy)]
 struct BoundingBox {
-    pub min_x: f64,
-    pub min_y: f64,
-    pub max_x: f64,
-    pub max_y: f64,
+    min_x: f64,
+    min_y: f64,
+    max_x: f64,
+    max_y: f64,
 }
 
 impl BoundingBox {
-    fn new(point: Coord) -> BoundingBox {
+    /// A degenerate box containing a single point.
+    fn new(point: Coord) -> Self {
         BoundingBox {
-            min_x: point.x.min(f64::INFINITY),
-            min_y: point.y.min(f64::INFINITY),
-            max_x: point.x.max(f64::NEG_INFINITY),
-            max_y: point.y.max(f64::NEG_INFINITY),
+            min_x: point.x,
+            min_y: point.y,
+            max_x: point.x,
+            max_y: point.y,
         }
     }
-    fn update(&self, point: Coord) -> BoundingBox {
-        BoundingBox {
-            min_x: self.min_x.min(point.x),
-            min_y: self.min_y.min(point.y),
-            max_x: self.max_x.max(point.x),
-            max_y: self.max_y.max(point.y),
+
+    /// Grow the box to include `point`.
+    fn extend(&mut self, point: Coord) {
+        self.min_x = self.min_x.min(point.x);
+        self.min_y = self.min_y.min(point.y);
+        self.max_x = self.max_x.max(point.x);
+        self.max_y = self.max_y.max(point.y);
+    }
+
+    /// Lower-left corner of the union of `self` and `other`.
+    fn union_min(&self, other: &BoundingBox) -> Coord {
+        Coord {
+            x: self.min_x.min(other.min_x),
+            y: self.min_y.min(other.min_y),
+        }
+    }
+
+    /// Upper-right corner of the union of `self` and `other`.
+    fn union_max(&self, other: &BoundingBox) -> Coord {
+        Coord {
+            x: self.max_x.max(other.max_x),
+            y: self.max_y.max(other.max_y),
         }
     }
 }
 
-trait ClusterCoords {
-    fn to_key(self) -> String;
-    fn midpoint(&self, other: &Coord) -> [f64; 2];
-}
+/// Integer coordinate of a cell in the scaled projection grid.
+type CellKey = (i32, i32);
 
-impl ClusterCoords for Coord {
-    fn to_key(self) -> String {
-        format!("{},{}", self.x, self.y)
-    }
-    fn midpoint(&self, other: &Coord) -> [f64; 2] {
-        [(self.x + other.x) / 2., (self.y + other.y) / 2.]
-    }
-}
-
-type PointTuple = (i32, i32);
-type PointInfo = (BoundingBox, bool, bool, Vec<String>);
-type ClusterMap = HashMap<PointTuple, PointInfo>;
-
-#[allow(clippy::wrong_self_convention)]
-trait FromKey {
-    fn from_key(&self) -> [f64; 2];
-}
-
-impl FromKey for String {
-    fn from_key(&self) -> [f64; 2] {
-        let mut iter = self.split(',');
-        let lat = iter.next().unwrap().parse::<f64>().unwrap();
-        let lon = iter.next().unwrap().parse::<f64>().unwrap();
-        [lat, lon]
-    }
+/// State accumulated for one grid cell during the first pass.
+#[derive(Debug, Clone, Copy)]
+struct Cell {
+    bbox: BoundingBox,
+    /// Still eligible to emit its own center; cleared once the cell is folded into a merged pair.
+    active: bool,
+    /// Number of input points that landed in this cell.
+    count: usize,
 }
 
 pub fn main(input: &SingleVec, radius: f64, min_points: usize) -> Vec<[f64; 2]> {
     let plane = Plane::new(input).radius(radius);
-    let output = plane.project();
+    let projected = plane.project();
 
-    let point_map = cluster(output, min_points);
-
-    let output = {
-        let mut seen_map: HashSet<String> = HashSet::new();
-        let return_value: SingleVec = point_map
-            .into_iter()
-            .filter_map(|(key, values)| {
-                if values.len() >= min_points {
-                    for point in values.into_iter() {
-                        seen_map.insert(point);
-                    }
-                    return Some(key.from_key());
-                }
-                None
-            })
-            .collect();
-        return_value
-    };
+    let output: SingleVec = cluster(projected, min_points)
+        .into_iter()
+        .filter_map(|(center, count)| (count >= min_points).then_some([center.x, center.y]))
+        .collect();
 
     plane.reverse(output)
 }
 
-fn update(point_map: &mut ClusterMap, key: PointTuple, p: Coord) {
-    point_map.entry(key).and_modify(|saved| {
-        saved.0 = saved.0.update(p);
-        saved.3.push(p.to_key());
-    });
+/// Midpoint of two coordinates.
+fn midpoint(a: Coord, b: Coord) -> Coord {
+    Coord {
+        x: (a.x + b.x) / 2.0,
+        y: (a.y + b.y) / 2.0,
+    }
 }
 
-fn cluster(points: Vec<Coord>, min_points: usize) -> HashMap<String, Vec<String>> {
-    let sqrt2: f64 = 2.0_f64.sqrt();
-    let additive_factor: f64 = sqrt2 / 2.;
-    let sqrt2_x_one_point_five_minus_one: f64 = (sqrt2 * 1.5) - 1.;
-    let sqrt2_x_one_point_five_plus_one: f64 = (sqrt2 * 1.5) + 1.;
+/// Bucket the projected points into unit-diameter grid cells, merge adjacent cells whose combined
+/// extent still fits a unit disc, and return one `(center, member_count)` per surviving cluster.
+/// Centers that land on the exact same coordinate are de-duplicated.
+fn cluster(points: Vec<Coord>, min_points: usize) -> Vec<(Coord, usize)> {
+    let sqrt2 = std::f64::consts::SQRT_2;
+    let half_sqrt2 = sqrt2 / 2.0;
 
-    let mut udc_point_map: ClusterMap = HashMap::new();
-
-    for p in points.into_iter() {
-        let v = (p.x / sqrt2).floor() as i32;
-        let h = (p.y / sqrt2).floor() as i32;
-        let vertical_times_sqrt2 = v as f64 * sqrt2;
-        let horizontal_times_sqrt2 = h as f64 * sqrt2;
-        let key = (v, h);
-
-        let mut pair = udc_point_map.get(&key);
-
-        if pair.is_some() {
-            update(&mut udc_point_map, key, p);
-            continue;
-        }
-
-        if p.x >= (vertical_times_sqrt2 + sqrt2_x_one_point_five_minus_one) {
-            pair = udc_point_map.get(&key);
-            if pair.is_some()
-                && p.distance_2(&Coord {
-                    x: sqrt2 * (v + 1) as f64 + additive_factor,
-                    y: horizontal_times_sqrt2 + additive_factor,
-                }) <= 1.
-            {
-                update(&mut udc_point_map, key, p);
-                continue;
-            }
-        }
-
-        if p.x <= (vertical_times_sqrt2 - sqrt2_x_one_point_five_plus_one) {
-            pair = udc_point_map.get(&key);
-            if pair.is_some()
-                && p.distance_2(&Coord {
-                    x: sqrt2 * (v - 1) as f64 + additive_factor,
-                    y: horizontal_times_sqrt2 + additive_factor,
-                }) <= 1.
-            {
-                update(&mut udc_point_map, key, p);
-                continue;
-            }
-        }
-
-        if p.y <= (horizontal_times_sqrt2 + sqrt2_x_one_point_five_minus_one) {
-            pair = udc_point_map.get(&key);
-            if pair.is_some()
-                && p.distance_2(&Coord {
-                    x: vertical_times_sqrt2 + additive_factor,
-                    y: sqrt2 * (h - 1) as f64 + additive_factor,
-                }) <= 1.
-            {
-                update(&mut udc_point_map, key, p);
-                continue;
-            }
-        }
-
-        if p.y >= (horizontal_times_sqrt2 - sqrt2_x_one_point_five_plus_one) {
-            pair = udc_point_map.get(&key);
-            if pair.is_some()
-                && p.distance_2(&Coord {
-                    x: vertical_times_sqrt2 + additive_factor,
-                    y: sqrt2 * (h + 1) as f64 + additive_factor,
-                }) <= 1.
-            {
-                update(&mut udc_point_map, key, p);
-                continue;
-            }
-        }
-        udc_point_map
+    // First pass: drop each point into the grid cell its scaled coordinate floors into.
+    let mut cells: HashMap<CellKey, Cell> = HashMap::new();
+    for p in points {
+        let key = ((p.x / sqrt2).floor() as i32, (p.y / sqrt2).floor() as i32);
+        cells
             .entry(key)
-            .or_insert((BoundingBox::new(p), true, true, vec![p.to_key()]));
+            .and_modify(|cell| {
+                cell.bbox.extend(p);
+                cell.count += 1;
+            })
+            .or_insert_with(|| Cell {
+                bbox: BoundingBox::new(p),
+                active: true,
+                count: 1,
+            });
     }
-    let mut point_map_return: HashMap<String, Vec<String>> = HashMap::new();
 
-    let mut process_final = |coord: Coord, points_to_process: Vec<String>| {
-        if !points_to_process.is_empty() {
-            point_map_return.insert(coord.to_key(), points_to_process);
+    // Centers are keyed by their coordinate bits so coincident centers collapse to one entry.
+    let mut centers: HashMap<(u64, u64), (Coord, usize)> = HashMap::new();
+    let mut emit = |center: Coord, count: usize| {
+        if count > 0 {
+            centers.insert((center.x.to_bits(), center.y.to_bits()), (center, count));
         }
     };
 
-    'count: for (point, (bb, _check, _second, points)) in udc_point_map.clone().into_iter() {
-        let (v, h) = point;
-
-        for (v, h, _index) in [
-            (v, h - 1, "s"),
-            (v, h + 1, "n"),
-            (v + 1, h, "e"),
-            (v - 1, h, "w"),
-            (v - 1, h - 1, "sw"),
-            (v + 1, h - 1, "se"),
-            (v + 1, h + 1, "ne"),
-            (v - 1, h + 1, "nw"),
-        ]
-        .into_iter()
-        {
-            let found_cluster = udc_point_map.get(&(v, h));
-            if found_cluster.is_none() {
+    // Second pass: try to merge each cell with one active 8-neighbour whose combined bounding box
+    // still fits within a unit disc (squared diameter <= 4). A successful merge emits a single
+    // center at the midpoint of the union and retires both cells.
+    'cells: for (key, cell) in cells.clone() {
+        let (v, h) = key;
+        for neighbor_key in [
+            (v, h - 1),
+            (v, h + 1),
+            (v + 1, h),
+            (v - 1, h),
+            (v - 1, h - 1),
+            (v + 1, h - 1),
+            (v + 1, h + 1),
+            (v - 1, h + 1),
+        ] {
+            let Some(&neighbor) = cells.get(&neighbor_key) else {
+                continue;
+            };
+            if !neighbor.active {
                 continue;
             }
-            let found_cluster = found_cluster.unwrap();
 
-            if found_cluster.1 {
-                let lower_left = Coord {
-                    x: bb.min_x.min(found_cluster.0.min_x),
-                    y: bb.min_y.min(found_cluster.0.min_y),
-                };
-                let upper_right = Coord {
-                    x: bb.max_x.max(found_cluster.0.max_x),
-                    y: bb.max_y.max(found_cluster.0.max_y),
-                };
-
-                if lower_left.distance_2(&upper_right) <= 4. {
-                    let mut combined = points.clone();
-                    combined.extend(found_cluster.3.clone());
-                    if combined.len() > min_points {
-                        let [x, y] = lower_left.midpoint(&upper_right);
-                        process_final(Coord { x, y }, combined);
-                        udc_point_map
-                            .entry((v, h))
-                            .and_modify(|saved| saved.1 = false);
-                        udc_point_map
-                            .entry(point)
-                            .and_modify(|saved| saved.1 = false);
-                        continue 'count;
-                    }
+            let lower_left = cell.bbox.union_min(&neighbor.bbox);
+            let upper_right = cell.bbox.union_max(&neighbor.bbox);
+            if lower_left.distance_2(&upper_right) <= 4.0 {
+                let combined = cell.count + neighbor.count;
+                if combined > min_points {
+                    emit(midpoint(lower_left, upper_right), combined);
+                    cells.entry(neighbor_key).and_modify(|c| c.active = false);
+                    cells.entry(key).and_modify(|c| c.active = false);
+                    continue 'cells;
                 }
             }
         }
     }
 
-    for (key, value) in udc_point_map.into_iter() {
-        if value.1 && value.2 && true {
-            if value.3.len() == 1 {
-                let x = value.0.min_x;
-                let y = value.0.min_y;
-                process_final(Coord { x, y }, value.3);
-            } else {
-                let x = key.0 as f64 * sqrt2 + additive_factor;
-                let y = key.1 as f64 * sqrt2 + additive_factor;
-                process_final(Coord { x, y }, value.3);
-            }
+    // Final pass: every cell not consumed by a merge emits its own center — the lone point for a
+    // singleton cell, otherwise the geometric center of the grid cell.
+    for (key, cell) in cells {
+        if !cell.active {
+            continue;
         }
+        let center = if cell.count == 1 {
+            Coord {
+                x: cell.bbox.min_x,
+                y: cell.bbox.min_y,
+            }
+        } else {
+            let (v, h) = key;
+            Coord {
+                x: v as f64 * sqrt2 + half_sqrt2,
+                y: h as f64 * sqrt2 + half_sqrt2,
+            }
+        };
+        emit(center, cell.count);
     }
-    point_map_return
+
+    centers.into_values().collect()
 }
 
 #[cfg(test)]
