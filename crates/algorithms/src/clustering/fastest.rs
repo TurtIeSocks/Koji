@@ -1,94 +1,43 @@
 //! "Fastest" clustering mode.
 //!
-//! Points are projected onto a flat plane scaled so that the target radius maps to one unit,
-//! then bucketed into a grid of unit-diameter cells (cell size `√2`, so a cell's diagonal is the
-//! unit diameter). A second pass merges each cell with one adjacent cell when their combined
-//! extent still fits inside a unit disc, and a final pass emits one center per surviving cluster.
-//! This trades placement quality for speed — it is the cheapest of the clustering algorithms.
+//! The cheapest clustering tier: a deterministic unit-disc cover. Points are projected onto
+//! a flat plane scaled so the target radius maps to one unit, then bucketed into a `√2` grid
+//! (each cell is coverable by one radius-1 disc). Occupied cells are visited in sorted order
+//! and region-grown — a cell absorbs sorted neighbours while the group still fits inside a
+//! single radius-1 disc — and each group emits one center. Groups below `min_points` are
+//! dropped. O(n) expected, grid-only: no spatial index or candidate lattice.
 
 use geo::Coord;
 use koji_core::SingleVec;
-use rstar::PointDistance;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use crate::project::Plane;
-
-/// Axis-aligned bounding box tracking the extent of the points within one grid cell.
-#[derive(Debug, Clone, Copy)]
-struct BoundingBox {
-    min_x: f64,
-    min_y: f64,
-    max_x: f64,
-    max_y: f64,
-}
-
-impl BoundingBox {
-    /// A degenerate box containing a single point.
-    fn new(point: Coord) -> Self {
-        BoundingBox {
-            min_x: point.x,
-            min_y: point.y,
-            max_x: point.x,
-            max_y: point.y,
-        }
-    }
-
-    /// Grow the box to include `point`.
-    fn extend(&mut self, point: Coord) {
-        self.min_x = self.min_x.min(point.x);
-        self.min_y = self.min_y.min(point.y);
-        self.max_x = self.max_x.max(point.x);
-        self.max_y = self.max_y.max(point.y);
-    }
-
-    /// Lower-left corner of the union of `self` and `other`.
-    fn union_min(&self, other: &BoundingBox) -> Coord {
-        Coord {
-            x: self.min_x.min(other.min_x),
-            y: self.min_y.min(other.min_y),
-        }
-    }
-
-    /// Upper-right corner of the union of `self` and `other`.
-    fn union_max(&self, other: &BoundingBox) -> Coord {
-        Coord {
-            x: self.max_x.max(other.max_x),
-            y: self.max_y.max(other.max_y),
-        }
-    }
-}
 
 /// Integer coordinate of a cell in the scaled projection grid.
 type CellKey = (i32, i32);
 
-/// State accumulated for one grid cell during the first pass.
-#[derive(Debug, Clone, Copy)]
-struct Cell {
-    bbox: BoundingBox,
-    /// Still eligible to emit its own center; cleared once the cell is folded into a merged pair.
-    active: bool,
-    /// Number of input points that landed in this cell.
-    count: usize,
+const MARGIN: f64 = 0.0;
+
+/// Temporary benchmark knob (removed once the winning placement is hard-coded):
+/// `KOJI_FASTEST_PLACEMENT=mec|centroid|bbox`, default `mec`.
+fn placement_from_env() -> Placement {
+    match std::env::var("KOJI_FASTEST_PLACEMENT").as_deref() {
+        Ok("centroid") => Placement::Centroid,
+        Ok("bbox") => Placement::BboxCenter,
+        _ => Placement::Mec,
+    }
 }
 
 pub fn main(input: &SingleVec, radius: f64, min_points: usize) -> Vec<[f64; 2]> {
     let plane = Plane::new(input).radius(radius);
     let projected = plane.project();
 
-    let output: SingleVec = cluster(projected, min_points)
+    let output: SingleVec = cluster(projected, min_points, placement_from_env(), MARGIN)
         .into_iter()
         .filter_map(|(center, count)| (count >= min_points).then_some([center.x, center.y]))
         .collect();
 
     plane.reverse(output)
-}
-
-/// Midpoint of two coordinates.
-fn midpoint(a: Coord, b: Coord) -> Coord {
-    Coord {
-        x: (a.x + b.x) / 2.0,
-        y: (a.y + b.y) / 2.0,
-    }
 }
 
 const EPS: f64 = 1e-7;
@@ -143,9 +92,6 @@ fn circle_three(a: Coord, b: Coord, c: Coord) -> (Coord, f64) {
 /// Smallest enclosing circle `(center, radius)` of `points` in the Euclidean plane.
 /// Deterministic incremental Welzl (input order, no shuffle): O(n) expected, fine for
 /// the small per-group point sets here. Returns `None` for empty input.
-// Reached only by tests and the (still test-only) `Placement` until the cluster path
-// wires it in (later task); the allow on this entry point covers its private callees too.
-#[allow(dead_code)]
 fn smallest_enclosing_circle(points: &[Coord]) -> Option<(Coord, f64)> {
     let n = points.len();
     if n == 0 {
@@ -182,9 +128,6 @@ fn smallest_enclosing_circle(points: &[Coord]) -> Option<(Coord, f64)> {
 /// Disc-center placement strategy. Each variant pairs a center computation with the
 /// matching "does this group fit one radius-1 disc?" test. Benchmarked against each
 /// other; the winner is hard-coded in the final version.
-// Reached only by tests until `cluster` selects a strategy (later task); narrow
-// dead-code allow on the type covers its variants and impl until then.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Placement {
     /// Smallest-enclosing-circle center; fit ⇔ MEC radius ≤ 1 − margin. Textbook UDC.
@@ -196,8 +139,6 @@ enum Placement {
 }
 
 /// `(min_x, min_y, max_x, max_y)` of a non-empty point set.
-// Reached only by `Placement` (test-only) until `cluster` selects a strategy (later task).
-#[allow(dead_code)]
 fn bounds(points: &[Coord]) -> (f64, f64, f64, f64) {
     let mut min_x = points[0].x;
     let mut min_y = points[0].y;
@@ -212,8 +153,6 @@ fn bounds(points: &[Coord]) -> (f64, f64, f64, f64) {
     (min_x, min_y, max_x, max_y)
 }
 
-// `fits`/`place` are reached only by tests until `cluster` calls them (later task).
-#[allow(dead_code)]
 impl Placement {
     /// Does `points` fit inside a single radius-1 disc (allowing `margin` of safety)?
     fn fits(self, points: &[Coord], margin: f64) -> bool {
@@ -263,93 +202,90 @@ impl Placement {
     }
 }
 
-/// Bucket the projected points into unit-diameter grid cells, merge adjacent cells whose combined
-/// extent still fits a unit disc, and return one `(center, member_count)` per surviving cluster.
-/// Centers that land on the exact same coordinate are de-duplicated.
-fn cluster(points: Vec<Coord>, min_points: usize) -> Vec<(Coord, usize)> {
-    let sqrt2 = std::f64::consts::SQRT_2;
-    let half_sqrt2 = sqrt2 / 2.0;
+/// The eight grid neighbours of a cell.
+fn neighbours((v, h): CellKey) -> [CellKey; 8] {
+    [
+        (v - 1, h - 1),
+        (v - 1, h),
+        (v - 1, h + 1),
+        (v, h - 1),
+        (v, h + 1),
+        (v + 1, h - 1),
+        (v + 1, h),
+        (v + 1, h + 1),
+    ]
+}
 
-    // First pass: drop each point into the grid cell its scaled coordinate floors into.
-    let mut cells: HashMap<CellKey, Cell> = HashMap::new();
+/// Bucket points into a √2 grid, region-grow each occupied cell (in deterministic sorted
+/// order) by absorbing neighbours while the group still fits one radius-1 disc, then emit
+/// one `(center, member_count)` per group with at least `min_points` members. Coincident
+/// centers are de-duplicated.
+fn cluster(
+    points: Vec<Coord>,
+    min_points: usize,
+    placement: Placement,
+    margin: f64,
+) -> Vec<(Coord, usize)> {
+    let sqrt2 = std::f64::consts::SQRT_2;
+
+    // First pass: bucket. BTreeMap gives deterministic sorted iteration over cells.
+    let mut cells: BTreeMap<CellKey, Vec<Coord>> = BTreeMap::new();
     for p in points {
         let key = ((p.x / sqrt2).floor() as i32, (p.y / sqrt2).floor() as i32);
-        cells
-            .entry(key)
-            .and_modify(|cell| {
-                cell.bbox.extend(p);
-                cell.count += 1;
-            })
-            .or_insert_with(|| Cell {
-                bbox: BoundingBox::new(p),
-                active: true,
-                count: 1,
-            });
+        cells.entry(key).or_default().push(p);
     }
 
-    // Centers are keyed by their coordinate bits so coincident centers collapse to one entry.
     let mut centers: HashMap<(u64, u64), (Coord, usize)> = HashMap::new();
-    let mut emit = |center: Coord, count: usize| {
-        if count > 0 {
-            centers.insert((center.x.to_bits(), center.y.to_bits()), (center, count));
-        }
-    };
+    let mut claimed: BTreeSet<CellKey> = BTreeSet::new();
 
-    // Second pass: try to merge each cell with one active 8-neighbour whose combined bounding box
-    // still fits within a unit disc (squared diameter <= 4). A successful merge emits a single
-    // center at the midpoint of the union and retires both cells.
-    'cells: for (key, cell) in cells.clone() {
-        let (v, h) = key;
-        for neighbor_key in [
-            (v, h - 1),
-            (v, h + 1),
-            (v + 1, h),
-            (v - 1, h),
-            (v - 1, h - 1),
-            (v + 1, h - 1),
-            (v + 1, h + 1),
-            (v - 1, h + 1),
-        ] {
-            let Some(&neighbor) = cells.get(&neighbor_key) else {
-                continue;
-            };
-            if !neighbor.active {
-                continue;
-            }
-
-            let lower_left = cell.bbox.union_min(&neighbor.bbox);
-            let upper_right = cell.bbox.union_max(&neighbor.bbox);
-            if lower_left.distance_2(&upper_right) <= 4.0 {
-                let combined = cell.count + neighbor.count;
-                if combined > min_points {
-                    emit(midpoint(lower_left, upper_right), combined);
-                    cells.entry(neighbor_key).and_modify(|c| c.active = false);
-                    cells.entry(key).and_modify(|c| c.active = false);
-                    continue 'cells;
-                }
-            }
-        }
-    }
-
-    // Final pass: every cell not consumed by a merge emits its own center — the lone point for a
-    // singleton cell, otherwise the geometric center of the grid cell.
-    for (key, cell) in cells {
-        if !cell.active {
+    // Second pass: region-grow from each unclaimed cell in sorted order.
+    for (&seed, seed_points) in &cells {
+        if claimed.contains(&seed) {
             continue;
         }
-        let center = if cell.count == 1 {
-            Coord {
-                x: cell.bbox.min_x,
-                y: cell.bbox.min_y,
+        claimed.insert(seed);
+
+        let mut group_cells: BTreeSet<CellKey> = BTreeSet::from([seed]);
+        let mut group_points: Vec<Coord> = seed_points.clone();
+
+        loop {
+            // Sorted set of unclaimed, occupied neighbours of the current group.
+            let mut candidates: BTreeSet<CellKey> = BTreeSet::new();
+            for &cell in &group_cells {
+                for n in neighbours(cell) {
+                    if !claimed.contains(&n) && cells.contains_key(&n) {
+                        candidates.insert(n);
+                    }
+                }
             }
-        } else {
-            let (v, h) = key;
-            Coord {
-                x: v as f64 * sqrt2 + half_sqrt2,
-                y: h as f64 * sqrt2 + half_sqrt2,
+
+            // Absorb the first (sorted) candidate that keeps the group disc-coverable.
+            let mut absorbed = None;
+            for cand in &candidates {
+                let mut trial = group_points.clone();
+                trial.extend_from_slice(&cells[cand]);
+                if placement.fits(&trial, margin) {
+                    absorbed = Some(*cand);
+                    break;
+                }
             }
-        };
-        emit(center, cell.count);
+
+            match absorbed {
+                Some(cand) => {
+                    group_points.extend_from_slice(&cells[&cand]);
+                    group_cells.insert(cand);
+                    claimed.insert(cand);
+                }
+                None => break,
+            }
+        }
+
+        let count = group_points.len();
+        if count < min_points {
+            continue;
+        }
+        let center = placement.place(&group_points);
+        centers.insert((center.x.to_bits(), center.y.to_bits()), (center, count));
     }
 
     centers.into_values().collect()
@@ -544,5 +480,59 @@ mod tests {
         // MEC center of the square is the middle too.
         let m = Placement::Mec.place(&pts);
         assert!((m.x - 1.0).abs() < 1e-6 && (m.y - 1.0).abs() < 1e-6);
+    }
+
+    // ── cluster: region-growing behavior ──────────────────────────────────────
+
+    #[test]
+    fn cluster_mec_covers_every_point_when_min_points_1() {
+        // A handful of nearby points; with min_points=1 nothing is dropped, so every
+        // projected point must be within radius 1 of some returned center.
+        let pts: Vec<Coord> = (0..25)
+            .map(|i| c((i % 5) as f64 * 0.3, (i / 5) as f64 * 0.3))
+            .collect();
+        let centers = cluster(pts.clone(), 1, Placement::Mec, 0.0);
+        for p in &pts {
+            let covered = centers
+                .iter()
+                .any(|(ctr, _)| dist2(*ctr, *p) <= 1.0 + 1e-6);
+            assert!(covered, "point {p:?} not covered by any disc");
+        }
+    }
+
+    #[test]
+    fn cluster_is_deterministic_as_a_set() {
+        let pts: Vec<Coord> = (0..40)
+            .map(|i| c((i % 7) as f64 * 0.5, (i / 7) as f64 * 0.5))
+            .collect();
+        let mut a: Vec<(u64, u64)> = cluster(pts.clone(), 2, Placement::Mec, 0.0)
+            .into_iter()
+            .map(|(ctr, _)| (ctr.x.to_bits(), ctr.y.to_bits()))
+            .collect();
+        let mut b: Vec<(u64, u64)> = cluster(pts.clone(), 2, Placement::Mec, 0.0)
+            .into_iter()
+            .map(|(ctr, _)| (ctr.x.to_bits(), ctr.y.to_bits()))
+            .collect();
+        a.sort();
+        b.sort();
+        assert_eq!(a, b, "cluster output must be a deterministic set");
+    }
+
+    #[test]
+    fn cluster_aggregates_neighbouring_cells() {
+        // x = 0.0, 0.9, 1.8 — near-collinear, MEC radius 0.9 ≤ 1 → fits ONE disc, spanning
+        // two √2 grid cells. They must collapse to a single center counting all 3.
+        let pts = vec![c(0.0, 0.0), c(0.9, 0.0), c(1.8, 0.0)];
+        let centers = cluster(pts, 1, Placement::Mec, 0.0);
+        assert_eq!(centers.len(), 1, "three points fitting one disc → 1 center");
+        assert_eq!(centers[0].1, 3, "the single disc should count all 3 members");
+    }
+
+    #[test]
+    fn cluster_drops_sub_min_points_groups() {
+        // Two far-apart singletons, min_points=2 → each group has 1 member → all dropped.
+        let pts = vec![c(0.0, 0.0), c(100.0, 100.0)];
+        let centers = cluster(pts, 2, Placement::Mec, 0.0);
+        assert!(centers.is_empty(), "groups below min_points must be dropped");
     }
 }
