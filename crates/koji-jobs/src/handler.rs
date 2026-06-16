@@ -169,10 +169,7 @@ mod tests {
         // Wrap in ManuallyDrop so neither `progress` nor the enclosing `JobCtx`
         // run their destructors — the zeroed Arc<InnerConnection> inside
         // DatabaseConnection would segfault on decrement.
-        let ctx = JobCtx {
-            cancel,
-            progress,
-        };
+        let ctx = JobCtx { cancel, progress };
         std::mem::ManuallyDrop::new(ctx)
     }
 
@@ -226,15 +223,29 @@ mod tests {
     fn register_overwrites_prior_for_same_kind() {
         struct FirstHandler;
         impl JobHandler for FirstHandler {
-            fn kind(&self) -> &'static str { "dupe" }
-            fn run(&self, _p: serde_json::Value, _ctx: &JobCtx)
-                -> Result<serde_json::Value, JobError> { Ok(json!("first")) }
+            fn kind(&self) -> &'static str {
+                "dupe"
+            }
+            fn run(
+                &self,
+                _p: serde_json::Value,
+                _ctx: &JobCtx,
+            ) -> Result<serde_json::Value, JobError> {
+                Ok(json!("first"))
+            }
         }
         struct SecondHandler;
         impl JobHandler for SecondHandler {
-            fn kind(&self) -> &'static str { "dupe" }
-            fn run(&self, _p: serde_json::Value, _ctx: &JobCtx)
-                -> Result<serde_json::Value, JobError> { Ok(json!("second")) }
+            fn kind(&self) -> &'static str {
+                "dupe"
+            }
+            fn run(
+                &self,
+                _p: serde_json::Value,
+                _ctx: &JobCtx,
+            ) -> Result<serde_json::Value, JobError> {
+                Ok(json!("second"))
+            }
         }
 
         let ctx = make_ctx();
@@ -266,7 +277,10 @@ mod tests {
         let shared2 = Arc::clone(&shared);
         let reg = HandlerRegistry::new().register_arc(shared);
         let from_registry = reg.get("echo").unwrap();
-        assert_eq!(from_registry.run(json!("via registry"), &ctx).unwrap(), json!("via registry"));
+        assert_eq!(
+            from_registry.run(json!("via registry"), &ctx).unwrap(),
+            json!("via registry")
+        );
         assert_eq!(shared2.run(json!("direct"), &ctx).unwrap(), json!("direct"));
     }
 

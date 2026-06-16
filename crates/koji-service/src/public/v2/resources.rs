@@ -85,7 +85,10 @@ mod tests {
     fn create_project_requires_required_fields() {
         // `name` + `scanner` are required (not Option) — a body missing them fails.
         let err = serde_json::from_value::<project::CreateProject>(json!({ "name": "x" }));
-        assert!(err.is_err(), "missing required `scanner` must fail to deserialize");
+        assert!(
+            err.is_err(),
+            "missing required `scanner` must fail to deserialize"
+        );
     }
 
     #[test]
@@ -113,7 +116,10 @@ mod tests {
             description: None,
         };
         let v = serde_json::to_value(&dto).unwrap();
-        assert!(v.get("api_endpoint").is_some(), "snake `api_endpoint` on the wire");
+        assert!(
+            v.get("api_endpoint").is_some(),
+            "snake `api_endpoint` on the wire"
+        );
         assert!(v.get("apiEndpoint").is_none(), "not camelCase");
     }
 

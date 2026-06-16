@@ -233,9 +233,18 @@ mod tests {
             topic: "t".to_string(),
             payload: json!({"x": 1}),
         };
-        let diff_id = Event { id: "01ARZ3NDEKTSV4RRFFQ69G5FAW".to_string(), ..base.clone() };
-        let diff_topic = Event { topic: "other".to_string(), ..base.clone() };
-        let diff_payload = Event { payload: json!({"x": 2}), ..base.clone() };
+        let diff_id = Event {
+            id: "01ARZ3NDEKTSV4RRFFQ69G5FAW".to_string(),
+            ..base.clone()
+        };
+        let diff_topic = Event {
+            topic: "other".to_string(),
+            ..base.clone()
+        };
+        let diff_payload = Event {
+            payload: json!({"x": 2}),
+            ..base.clone()
+        };
         assert_ne!(base, diff_id);
         assert_ne!(base, diff_topic);
         assert_ne!(base, diff_payload);

@@ -45,7 +45,9 @@ impl Pagination {
 
     /// Effective per-page: defaults to 50, clamped to `[1, 500]`.
     pub(crate) fn per_page(&self) -> i64 {
-        self.per_page.unwrap_or(DEFAULT_PER_PAGE).clamp(1, MAX_PER_PAGE)
+        self.per_page
+            .unwrap_or(DEFAULT_PER_PAGE)
+            .clamp(1, MAX_PER_PAGE)
     }
 
     /// Zero-based row offset for the effective page: `(page - 1) * per_page`.
@@ -84,24 +86,80 @@ mod tests {
     #[test]
     fn per_page_defaults_and_clamps() {
         assert_eq!(Pagination::default().per_page(), 50);
-        assert_eq!(Pagination { page: None, per_page: Some(9999) }.per_page(), 500);
-        assert_eq!(Pagination { page: None, per_page: Some(0) }.per_page(), 1);
+        assert_eq!(
+            Pagination {
+                page: None,
+                per_page: Some(9999)
+            }
+            .per_page(),
+            500
+        );
+        assert_eq!(
+            Pagination {
+                page: None,
+                per_page: Some(0)
+            }
+            .per_page(),
+            1
+        );
     }
 
     #[test]
     fn page_defaults_and_floors_at_one() {
         assert_eq!(Pagination::default().page(), 1);
-        assert_eq!(Pagination { page: Some(0), per_page: None }.page(), 1);
-        assert_eq!(Pagination { page: Some(-5), per_page: None }.page(), 1);
-        assert_eq!(Pagination { page: Some(3), per_page: None }.page(), 3);
+        assert_eq!(
+            Pagination {
+                page: Some(0),
+                per_page: None
+            }
+            .page(),
+            1
+        );
+        assert_eq!(
+            Pagination {
+                page: Some(-5),
+                per_page: None
+            }
+            .page(),
+            1
+        );
+        assert_eq!(
+            Pagination {
+                page: Some(3),
+                per_page: None
+            }
+            .page(),
+            3
+        );
     }
 
     #[test]
     fn offset_is_zero_based_from_one_based_page() {
         assert_eq!(Pagination::default().offset(), 0);
-        assert_eq!(Pagination { page: Some(1), per_page: Some(50) }.offset(), 0);
-        assert_eq!(Pagination { page: Some(2), per_page: Some(50) }.offset(), 50);
-        assert_eq!(Pagination { page: Some(3), per_page: Some(20) }.offset(), 40);
+        assert_eq!(
+            Pagination {
+                page: Some(1),
+                per_page: Some(50)
+            }
+            .offset(),
+            0
+        );
+        assert_eq!(
+            Pagination {
+                page: Some(2),
+                per_page: Some(50)
+            }
+            .offset(),
+            50
+        );
+        assert_eq!(
+            Pagination {
+                page: Some(3),
+                per_page: Some(20)
+            }
+            .offset(),
+            40
+        );
     }
 
     #[test]

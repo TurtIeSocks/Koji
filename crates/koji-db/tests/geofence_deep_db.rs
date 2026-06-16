@@ -5,9 +5,9 @@
 //! Run with: `set -a; source ./.env.test; set +a && cargo test -p koji-db --test geofence_deep_db -- --nocapture`
 
 use koji_core::{KojiGeometry, KojiGeometryCollection, KojiMeta, Mode, UnknownId};
-use koji_db::query_args::ApiQueryArgs;
-use koji_db::db::{geofence, project};
 use koji_db::db::geofence::{Anchor, HierarchySpec};
+use koji_db::db::{geofence, project};
+use koji_db::query_args::ApiQueryArgs;
 use sea_orm::{Database, DatabaseConnection};
 use serde_json::json;
 use tokio::sync::{Mutex, MutexGuard};
@@ -62,13 +62,10 @@ async fn make_geofence(db: &DatabaseConnection, name: &str, offset: f64) -> u32 
 }
 
 async fn make_project(db: &DatabaseConnection, name: &str) -> u32 {
-    let created = project::Query::upsert_json_return(
-        db,
-        0,
-        json!({ "name": name, "scanner": false }),
-    )
-    .await
-    .expect("make_project");
+    let created =
+        project::Query::upsert_json_return(db, 0, json!({ "name": name, "scanner": false }))
+            .await
+            .expect("make_project");
     created["id"].as_u64().expect("has id") as u32
 }
 
@@ -85,13 +82,9 @@ async fn geofence_by_project_finds_linked_geofences() {
     let proj_id = make_project(&db, &proj_name).await;
 
     // Link geofence → project
-    geofence::Query::upsert_related_projects(
-        &db,
-        &json!({ "projects": [proj_id] }),
-        fence_id,
-    )
-    .await
-    .expect("link");
+    geofence::Query::upsert_related_projects(&db, &json!({ "projects": [proj_id] }), fence_id)
+        .await
+        .expect("link");
 
     // Lookup by project name
     let by_name = geofence::Query::by_project(&db, proj_name.clone())
@@ -104,15 +97,15 @@ async fn geofence_by_project_finds_linked_geofences() {
         .expect("by_project (id)");
 
     // cleanup: unlink then delete
-    geofence::Query::upsert_related_projects(
-        &db,
-        &json!({ "projects": [] }),
-        fence_id,
-    )
-    .await
-    .expect("unlink");
-    geofence::Query::delete(&db, fence_id).await.expect("del fence");
-    project::Query::delete(&db, proj_id).await.expect("del proj");
+    geofence::Query::upsert_related_projects(&db, &json!({ "projects": [] }), fence_id)
+        .await
+        .expect("unlink");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("del fence");
+    project::Query::delete(&db, proj_id)
+        .await
+        .expect("del proj");
 
     assert!(
         by_name.iter().any(|r| r["name"] == json!(fence_name)),
@@ -136,13 +129,9 @@ async fn geofence_project_as_feature_returns_geojson_features() {
     let fence_id = make_geofence(&db, &fence_name, 2.0).await;
     let proj_id = make_project(&db, &proj_name).await;
 
-    geofence::Query::upsert_related_projects(
-        &db,
-        &json!({ "projects": [proj_id] }),
-        fence_id,
-    )
-    .await
-    .expect("link");
+    geofence::Query::upsert_related_projects(&db, &json!({ "projects": [proj_id] }), fence_id)
+        .await
+        .expect("link");
 
     let args = ApiQueryArgs {
         name: Some(true),
@@ -157,8 +146,12 @@ async fn geofence_project_as_feature_returns_geojson_features() {
     geofence::Query::upsert_related_projects(&db, &json!({ "projects": [] }), fence_id)
         .await
         .expect("unlink");
-    geofence::Query::delete(&db, fence_id).await.expect("del fence");
-    project::Query::delete(&db, proj_id).await.expect("del proj");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("del fence");
+    project::Query::delete(&db, proj_id)
+        .await
+        .expect("del proj");
 
     assert!(!features.is_empty(), "project_as_feature returns features");
     let found = features
@@ -184,13 +177,9 @@ async fn geofence_project_as_koji_returns_geometry_collection() {
     let fence_id = make_geofence(&db, &fence_name, 4.0).await;
     let proj_id = make_project(&db, &proj_name).await;
 
-    geofence::Query::upsert_related_projects(
-        &db,
-        &json!({ "projects": [proj_id] }),
-        fence_id,
-    )
-    .await
-    .expect("link");
+    geofence::Query::upsert_related_projects(&db, &json!({ "projects": [proj_id] }), fence_id)
+        .await
+        .expect("link");
 
     let args = ApiQueryArgs {
         name: Some(true),
@@ -205,8 +194,12 @@ async fn geofence_project_as_koji_returns_geometry_collection() {
     geofence::Query::upsert_related_projects(&db, &json!({ "projects": [] }), fence_id)
         .await
         .expect("unlink");
-    geofence::Query::delete(&db, fence_id).await.expect("del fence");
-    project::Query::delete(&db, proj_id).await.expect("del proj");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("del fence");
+    project::Query::delete(&db, proj_id)
+        .await
+        .expect("del proj");
 
     assert!(!coll.items.is_empty(), "collection is non-empty");
     let found = coll
@@ -248,20 +241,26 @@ async fn geofence_descendants_depth_returns_full_subtree() {
         .await
         .expect("assign child2 parent");
 
-    let coll = geofence::Query::descendants(
-        &db,
-        Anchor::Id(parent_id),
-        HierarchySpec::Depth(1),
-    )
-    .await
-    .expect("descendants");
+    let coll = geofence::Query::descendants(&db, Anchor::Id(parent_id), HierarchySpec::Depth(1))
+        .await
+        .expect("descendants");
 
     // cleanup children first (parent last, no cascade on this soft link)
-    geofence::Query::delete(&db, child1_id).await.expect("del child1");
-    geofence::Query::delete(&db, child2_id).await.expect("del child2");
-    geofence::Query::delete(&db, parent_id).await.expect("del parent");
+    geofence::Query::delete(&db, child1_id)
+        .await
+        .expect("del child1");
+    geofence::Query::delete(&db, child2_id)
+        .await
+        .expect("del child2");
+    geofence::Query::delete(&db, parent_id)
+        .await
+        .expect("del parent");
 
-    let names: Vec<&str> = coll.items.iter().filter_map(|kg| kg.meta.name.as_deref()).collect();
+    let names: Vec<&str> = coll
+        .items
+        .iter()
+        .filter_map(|kg| kg.meta.name.as_deref())
+        .collect();
     assert!(
         names.contains(&parent_name.as_str()),
         "parent in descendants (depth 0)"
@@ -283,7 +282,9 @@ async fn geofence_descendants_depth_returns_full_subtree() {
         .filter(|kg| kg.meta.name.as_deref() != Some(&parent_name))
         .collect();
     assert!(
-        children.iter().all(|kg| kg.meta.ancestors == vec![parent_name.clone()]),
+        children
+            .iter()
+            .all(|kg| kg.meta.ancestors == vec![parent_name.clone()]),
         "children's ancestors path contains parent name"
     );
 }
@@ -308,19 +309,25 @@ async fn geofence_descendants_level1_returns_only_children() {
         .await
         .expect("assign child2");
 
-    let coll = geofence::Query::descendants(
-        &db,
-        Anchor::Id(parent_id),
-        HierarchySpec::Level(1),
-    )
-    .await
-    .expect("descendants level 1");
+    let coll = geofence::Query::descendants(&db, Anchor::Id(parent_id), HierarchySpec::Level(1))
+        .await
+        .expect("descendants level 1");
 
-    geofence::Query::delete(&db, child1_id).await.expect("del child1");
-    geofence::Query::delete(&db, child2_id).await.expect("del child2");
-    geofence::Query::delete(&db, parent_id).await.expect("del parent");
+    geofence::Query::delete(&db, child1_id)
+        .await
+        .expect("del child1");
+    geofence::Query::delete(&db, child2_id)
+        .await
+        .expect("del child2");
+    geofence::Query::delete(&db, parent_id)
+        .await
+        .expect("del parent");
 
-    let names: Vec<&str> = coll.items.iter().filter_map(|kg| kg.meta.name.as_deref()).collect();
+    let names: Vec<&str> = coll
+        .items
+        .iter()
+        .filter_map(|kg| kg.meta.name.as_deref())
+        .collect();
     assert_eq!(coll.items.len(), 2, "Level(1) returns only the 2 children");
     assert!(names.contains(&child1_name.as_str()), "child1 present");
     assert!(names.contains(&child2_name.as_str()), "child2 present");
@@ -348,29 +355,33 @@ async fn geofence_by_parent_koji_returns_direct_children() {
         .expect("assign parent");
 
     // Lookup by numeric id
-    let by_id = geofence::Query::by_parent_koji(
-        &db,
-        &UnknownId::Number(parent_id),
-    )
-    .await
-    .expect("by_parent_koji (id)");
+    let by_id = geofence::Query::by_parent_koji(&db, &UnknownId::Number(parent_id))
+        .await
+        .expect("by_parent_koji (id)");
 
     // Lookup by name string
-    let by_name = geofence::Query::by_parent_koji(
-        &db,
-        &UnknownId::String(parent_name.clone()),
-    )
-    .await
-    .expect("by_parent_koji (name)");
+    let by_name = geofence::Query::by_parent_koji(&db, &UnknownId::String(parent_name.clone()))
+        .await
+        .expect("by_parent_koji (name)");
 
-    geofence::Query::delete(&db, child_id).await.expect("del child");
-    geofence::Query::delete(&db, parent_id).await.expect("del parent");
+    geofence::Query::delete(&db, child_id)
+        .await
+        .expect("del child");
+    geofence::Query::delete(&db, parent_id)
+        .await
+        .expect("del parent");
 
     assert_eq!(by_id.items.len(), 1, "one direct child by id");
-    assert_eq!(by_id.items[0].meta.name.as_deref(), Some(child_name.as_str()));
+    assert_eq!(
+        by_id.items[0].meta.name.as_deref(),
+        Some(child_name.as_str())
+    );
 
     assert_eq!(by_name.items.len(), 1, "one direct child by name");
-    assert_eq!(by_name.items[0].meta.name.as_deref(), Some(child_name.as_str()));
+    assert_eq!(
+        by_name.items[0].meta.name.as_deref(),
+        Some(child_name.as_str())
+    );
 }
 
 #[tokio::test]
@@ -407,8 +418,12 @@ async fn geofence_unique_parents_includes_used_parent() {
         .await
         .expect("unique_parents");
 
-    geofence::Query::delete(&db, child_id).await.expect("del child");
-    geofence::Query::delete(&db, parent_id).await.expect("del parent");
+    geofence::Query::delete(&db, child_id)
+        .await
+        .expect("del child");
+    geofence::Query::delete(&db, parent_id)
+        .await
+        .expect("del parent");
 
     assert!(
         parents.iter().any(|p| p["id"] == json!(parent_id)),
@@ -427,7 +442,7 @@ async fn geofence_upsert_from_geometry_inserts_and_associates_parent() {
     let Some(db) = test_db().await else { return };
     let _g = serial_guard().await;
 
-    use geo::{Geometry, Polygon, LineString, coord};
+    use geo::{Geometry, LineString, Polygon, coord};
 
     let parent_name = unique_name("gf-ufg-par");
     let child_name = unique_name("gf-ufg-ch");
@@ -483,8 +498,12 @@ async fn geofence_upsert_from_geometry_inserts_and_associates_parent() {
         .expect("child exists");
 
     // cleanup
-    geofence::Query::delete(&db, child_model.id).await.expect("del child");
-    geofence::Query::delete(&db, parent_model.id).await.expect("del parent");
+    geofence::Query::delete(&db, child_model.id)
+        .await
+        .expect("del child");
+    geofence::Query::delete(&db, parent_model.id)
+        .await
+        .expect("del parent");
 
     assert_eq!(parent_model.name, parent_name);
     assert_eq!(child_model.name, child_name);

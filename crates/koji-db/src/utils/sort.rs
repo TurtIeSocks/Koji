@@ -63,10 +63,7 @@ mod tests {
     fn sort_desc_with_equal_lengths_preserves_relative_order() {
         // Two items with the same array length — sort must not panic and the
         // slice must remain the same length.
-        let mut items = vec![
-            json!({ "routes": [1, 2] }),
-            json!({ "routes": [3, 4] }),
-        ];
+        let mut items = vec![json!({ "routes": [1, 2] }), json!({ "routes": [3, 4] })];
         json_related_sort(&mut items, "routes", "desc".to_string());
         assert_eq!(items.len(), 2);
     }

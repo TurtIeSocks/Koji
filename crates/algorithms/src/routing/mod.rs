@@ -116,7 +116,13 @@ mod tests {
     fn latlon_preserves_all_clusters() {
         let (data, clusters) = sample_data();
         let mut stats = Stats::new("t".into(), 1);
-        let out = main(&data, clusters.clone(), 70.0, &make_cfg(SortBy::LatLon), &mut stats);
+        let out = main(
+            &data,
+            clusters.clone(),
+            70.0,
+            &make_cfg(SortBy::LatLon),
+            &mut stats,
+        );
         assert_eq!(out.len(), clusters.len());
     }
 
@@ -124,7 +130,13 @@ mod tests {
     fn geohash_preserves_all_clusters() {
         let (data, clusters) = sample_data();
         let mut stats = Stats::new("t".into(), 1);
-        let out = main(&data, clusters.clone(), 70.0, &make_cfg(SortBy::GeoHash), &mut stats);
+        let out = main(
+            &data,
+            clusters.clone(),
+            70.0,
+            &make_cfg(SortBy::GeoHash),
+            &mut stats,
+        );
         assert_eq!(out.len(), clusters.len());
     }
 
@@ -132,7 +144,13 @@ mod tests {
     fn s2_preserves_all_clusters() {
         let (data, clusters) = sample_data();
         let mut stats = Stats::new("t".into(), 1);
-        let out = main(&data, clusters.clone(), 70.0, &make_cfg(SortBy::S2Cell), &mut stats);
+        let out = main(
+            &data,
+            clusters.clone(),
+            70.0,
+            &make_cfg(SortBy::S2Cell),
+            &mut stats,
+        );
         assert_eq!(out.len(), clusters.len());
     }
 
@@ -140,7 +158,13 @@ mod tests {
     fn random_preserves_all_clusters() {
         let (data, clusters) = sample_data();
         let mut stats = Stats::new("t".into(), 1);
-        let out = main(&data, clusters.clone(), 70.0, &make_cfg(SortBy::Random), &mut stats);
+        let out = main(
+            &data,
+            clusters.clone(),
+            70.0,
+            &make_cfg(SortBy::Random),
+            &mut stats,
+        );
         assert_eq!(out.len(), clusters.len());
     }
 
@@ -148,7 +172,13 @@ mod tests {
     fn unset_preserves_all_clusters() {
         let (data, clusters) = sample_data();
         let mut stats = Stats::new("t".into(), 1);
-        let out = main(&data, clusters.clone(), 70.0, &make_cfg(SortBy::Unset), &mut stats);
+        let out = main(
+            &data,
+            clusters.clone(),
+            70.0,
+            &make_cfg(SortBy::Unset),
+            &mut stats,
+        );
         assert_eq!(out.len(), clusters.len());
     }
 
@@ -156,7 +186,13 @@ mod tests {
     fn point_count_preserves_all_clusters() {
         let (data, clusters) = sample_data();
         let mut stats = Stats::new("t".into(), 1);
-        let out = main(&data, clusters.clone(), 70.0, &make_cfg(SortBy::PointCount), &mut stats);
+        let out = main(
+            &data,
+            clusters.clone(),
+            70.0,
+            &make_cfg(SortBy::PointCount),
+            &mut stats,
+        );
         assert_eq!(out.len(), clusters.len());
     }
 
@@ -166,7 +202,13 @@ mod tests {
     fn routing_populates_distance_stats() {
         let (data, clusters) = sample_data();
         let mut stats = Stats::new("t".into(), 1);
-        main(&data, clusters.clone(), 70.0, &make_cfg(SortBy::S2Cell), &mut stats);
+        main(
+            &data,
+            clusters.clone(),
+            70.0,
+            &make_cfg(SortBy::S2Cell),
+            &mut stats,
+        );
         assert!(
             stats.total_distance > 0.0,
             "route distance should be >0 for 5 spread clusters"
@@ -185,4 +227,3 @@ mod tests {
         assert!(opts.contains(&"point_count".to_string()));
     }
 }
-

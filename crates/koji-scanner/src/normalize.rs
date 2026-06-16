@@ -79,7 +79,11 @@ fn to_generic_data<T: HasLatLon>(
     let polys = area.map(AreaPolygons::from_collection);
     items
         .into_iter()
-        .filter(|it| polys.as_ref().is_none_or(|p| p.contains(it.lat(), it.lon())))
+        .filter(|it| {
+            polys
+                .as_ref()
+                .is_none_or(|p| p.contains(it.lat(), it.lon()))
+        })
         .enumerate()
         .map(|(i, it)| GenericData::new(format!("{}{}", prefix(&it), i), it.lat(), it.lon()))
         .collect()
@@ -202,7 +206,10 @@ mod tests {
         // outside: lat=50, lon=50
         let items = vec![
             LatLonRow { lat: 5.0, lon: 5.0 },
-            LatLonRow { lat: 50.0, lon: 50.0 },
+            LatLonRow {
+                lat: 50.0,
+                lon: 50.0,
+            },
         ];
         let out = fort_filtered(items, &square_fc(), "g");
         assert_eq!(out.len(), 1);
@@ -214,8 +221,14 @@ mod tests {
     #[test]
     fn fort_filtered_all_outside_returns_empty() {
         let items = vec![
-            LatLonRow { lat: 100.0, lon: 100.0 },
-            LatLonRow { lat: -50.0, lon: -50.0 },
+            LatLonRow {
+                lat: 100.0,
+                lon: 100.0,
+            },
+            LatLonRow {
+                lat: -50.0,
+                lon: -50.0,
+            },
         ];
         assert_eq!(fort_filtered(items, &square_fc(), "g").len(), 0);
     }
@@ -243,7 +256,10 @@ mod tests {
         // After filtering: [lat=1, lat=9] — indices must be 0 and 1, not 0 and 2.
         let items = vec![
             LatLonRow { lat: 1.0, lon: 1.0 },
-            LatLonRow { lat: 50.0, lon: 50.0 },
+            LatLonRow {
+                lat: 50.0,
+                lon: 50.0,
+            },
             LatLonRow { lat: 9.0, lon: 9.0 },
         ];
         let out = fort_filtered(items, &square_fc(), "x");
@@ -257,8 +273,16 @@ mod tests {
     #[test]
     fn spawnpoint_prefix_depends_on_despawn_sec() {
         let items = vec![
-            Spawnpoint { lat: 1.0, lon: 2.0, despawn_sec: Some(30) },
-            Spawnpoint { lat: 3.0, lon: 4.0, despawn_sec: None },
+            Spawnpoint {
+                lat: 1.0,
+                lon: 2.0,
+                despawn_sec: Some(30),
+            },
+            Spawnpoint {
+                lat: 3.0,
+                lon: 4.0,
+                despawn_sec: None,
+            },
         ];
         let out = spawnpoint(items);
         assert_eq!(out.len(), 2);
@@ -270,8 +294,16 @@ mod tests {
     #[test]
     fn spawnpoint_all_verified() {
         let items = vec![
-            Spawnpoint { lat: 0.0, lon: 0.0, despawn_sec: Some(1800) },
-            Spawnpoint { lat: 1.0, lon: 1.0, despawn_sec: Some(900) },
+            Spawnpoint {
+                lat: 0.0,
+                lon: 0.0,
+                despawn_sec: Some(1800),
+            },
+            Spawnpoint {
+                lat: 1.0,
+                lon: 1.0,
+                despawn_sec: Some(900),
+            },
         ];
         let out = spawnpoint(items);
         assert!(out.iter().all(|g| g.i.starts_with('v')));
@@ -280,8 +312,16 @@ mod tests {
     #[test]
     fn spawnpoint_all_unverified() {
         let items = vec![
-            Spawnpoint { lat: 0.0, lon: 0.0, despawn_sec: None },
-            Spawnpoint { lat: 1.0, lon: 1.0, despawn_sec: None },
+            Spawnpoint {
+                lat: 0.0,
+                lon: 0.0,
+                despawn_sec: None,
+            },
+            Spawnpoint {
+                lat: 1.0,
+                lon: 1.0,
+                despawn_sec: None,
+            },
         ];
         let out = spawnpoint(items);
         assert!(out.iter().all(|g| g.i.starts_with('u')));
@@ -297,8 +337,16 @@ mod tests {
     #[test]
     fn spawnpoint_filtered_filters_by_area() {
         let items = vec![
-            Spawnpoint { lat: 5.0, lon: 5.0, despawn_sec: Some(1800) },  // inside
-            Spawnpoint { lat: 50.0, lon: 50.0, despawn_sec: None },        // outside
+            Spawnpoint {
+                lat: 5.0,
+                lon: 5.0,
+                despawn_sec: Some(1800),
+            }, // inside
+            Spawnpoint {
+                lat: 50.0,
+                lon: 50.0,
+                despawn_sec: None,
+            }, // outside
         ];
         let out = spawnpoint_filtered(items, &square_fc());
         assert_eq!(out.len(), 1);
@@ -310,8 +358,16 @@ mod tests {
     fn spawnpoint_filtered_preserves_prefix_after_filter() {
         // unverified inside, verified outside — only the unverified survives
         let items = vec![
-            Spawnpoint { lat: 5.0, lon: 5.0, despawn_sec: None },
-            Spawnpoint { lat: 50.0, lon: 50.0, despawn_sec: Some(1800) },
+            Spawnpoint {
+                lat: 5.0,
+                lon: 5.0,
+                despawn_sec: None,
+            },
+            Spawnpoint {
+                lat: 50.0,
+                lon: 50.0,
+                despawn_sec: Some(1800),
+            },
         ];
         let out = spawnpoint_filtered(items, &square_fc());
         assert_eq!(out.len(), 1);
@@ -401,9 +457,12 @@ mod tests {
     #[test]
     fn count_in_area_counts_only_inside_items() {
         let items = vec![
-            LatLonRow { lat: 1.0, lon: 1.0 },  // inside
-            LatLonRow { lat: 5.0, lon: 5.0 },  // inside
-            LatLonRow { lat: 50.0, lon: 50.0 }, // outside
+            LatLonRow { lat: 1.0, lon: 1.0 }, // inside
+            LatLonRow { lat: 5.0, lon: 5.0 }, // inside
+            LatLonRow {
+                lat: 50.0,
+                lon: 50.0,
+            }, // outside
         ];
         assert_eq!(count_in_area(&items, &square_fc()), 2);
     }
@@ -411,8 +470,14 @@ mod tests {
     #[test]
     fn count_in_area_returns_zero_for_all_outside() {
         let items = vec![
-            LatLonRow { lat: 100.0, lon: 100.0 },
-            LatLonRow { lat: -50.0, lon: -50.0 },
+            LatLonRow {
+                lat: 100.0,
+                lon: 100.0,
+            },
+            LatLonRow {
+                lat: -50.0,
+                lon: -50.0,
+            },
         ];
         assert_eq!(count_in_area(&items, &square_fc()), 0);
     }
@@ -436,8 +501,16 @@ mod tests {
     #[test]
     fn count_in_area_uses_spawnpoint_haslatlon() {
         let items = vec![
-            Spawnpoint { lat: 3.0, lon: 3.0, despawn_sec: None }, // inside
-            Spawnpoint { lat: 99.0, lon: 99.0, despawn_sec: Some(1800) }, // outside
+            Spawnpoint {
+                lat: 3.0,
+                lon: 3.0,
+                despawn_sec: None,
+            }, // inside
+            Spawnpoint {
+                lat: 99.0,
+                lon: 99.0,
+                despawn_sec: Some(1800),
+            }, // outside
         ];
         assert_eq!(count_in_area(&items, &square_fc()), 1);
     }

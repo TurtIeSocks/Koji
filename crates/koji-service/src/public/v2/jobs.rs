@@ -269,7 +269,7 @@ async fn cancel_job(
             return Err(ServiceError::NotFound {
                 field: "job",
                 message: format!("no job {id}"),
-            })
+            });
         }
         Err(e) => return Err(ServiceError::internal(e)),
         Ok(_) => {}

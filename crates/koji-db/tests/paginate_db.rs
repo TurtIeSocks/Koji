@@ -136,7 +136,10 @@ async fn geofence_paginate_page1_empty_and_page0_has_row() {
     assert!(!p0_next, "no next page when total fits on page 0");
 
     let (p1_results, _p1_total, _, _) = page1.into_parts();
-    assert!(p1_results.is_empty(), "page 1 is empty when only 1 row matches");
+    assert!(
+        p1_results.is_empty(),
+        "page 1 is empty when only 1 row matches"
+    );
 }
 
 #[tokio::test]
@@ -203,8 +206,12 @@ async fn route_paginate_finds_inserted_row() {
         .await
         .expect("paginate");
 
-    route::Query::delete(&db, route_id).await.expect("del route");
-    geofence::Query::delete(&db, fence_id).await.expect("del fence");
+    route::Query::delete(&db, route_id)
+        .await
+        .expect("del route");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("del fence");
 
     let (results, total, _, _) = page.into_parts();
     assert_eq!(total, 1, "one route matches the name filter");
@@ -250,8 +257,12 @@ async fn route_paginate_geofenceid_filter_works() {
     args.geofenceid = Some(fence_id);
     let page = route::Query::paginate(&db, args).await.expect("paginate");
 
-    route::Query::delete(&db, route_id).await.expect("del route");
-    geofence::Query::delete(&db, fence_id).await.expect("del fence");
+    route::Query::delete(&db, route_id)
+        .await
+        .expect("del route");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("del fence");
 
     let (results, total, _, _) = page.into_parts();
     assert!(total >= 1, "at least one route under this geofence");
@@ -269,13 +280,10 @@ async fn project_paginate_finds_inserted_row() {
     let _g = serial_guard().await;
 
     let name = unique_name("proj-pag");
-    let created = project::Query::upsert_json_return(
-        &db,
-        0,
-        json!({ "name": name, "scanner": false }),
-    )
-    .await
-    .expect("insert");
+    let created =
+        project::Query::upsert_json_return(&db, 0, json!({ "name": name, "scanner": false }))
+            .await
+            .expect("insert");
     let id = created["id"].as_u64().unwrap() as u32;
 
     let page = project::Query::paginate(&db, page_args(0, 25, &name))

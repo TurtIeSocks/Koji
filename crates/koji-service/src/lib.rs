@@ -141,9 +141,7 @@ pub fn test_db_free_app() -> actix_web::App<
             .cookie_secure(false)
             .build(),
         )
-        .service(
-            web::resource("/api/v2/openapi.yaml").route(web::get().to(openapi_spec)),
-        )
+        .service(web::resource("/api/v2/openapi.yaml").route(web::get().to(openapi_spec)))
         .service(
             web::scope("/api/v2")
                 .service(public::v2::geometry::scope())

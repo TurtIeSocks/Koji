@@ -125,7 +125,7 @@ mod tests {
         assert_eq!(clusters.len(), 1);
         // Both data points are within 1 km of 40°N -74°W.
         assert!(
-            clusters[0].all.len() >= 1,
+            !clusters[0].all.is_empty(),
             "expected at least the exact point"
         );
     }
@@ -174,7 +174,7 @@ mod tests {
         let mut c = Cluster::new(cp, vec![], vec![]);
         c.set_all(&tree);
         assert!(
-            c.all.len() >= 1,
+            !c.all.is_empty(),
             "set_all must populate from tree at the center"
         );
     }
@@ -189,4 +189,3 @@ mod tests {
         assert!(!s.is_empty());
     }
 }
-

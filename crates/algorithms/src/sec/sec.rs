@@ -130,10 +130,7 @@ mod tests {
         let result = multi_attempt(std::iter::once(p), 1_000.0, 10);
         match result {
             SmallestEnclosingCircle::Centered(c) => {
-                assert!(
-                    Haversine.distance(c, p) < 1.0,
-                    "center not at input point"
-                );
+                assert!(Haversine.distance(c, p) < 1.0, "center not at input point");
             }
             other => panic!("expected Centered, got {other:?}"),
         }
@@ -198,4 +195,3 @@ mod tests {
         );
     }
 }
-

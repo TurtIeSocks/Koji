@@ -78,7 +78,11 @@ mod tests {
         assert!(!v.is_empty(), "version must not be empty");
         // Semver: at least one '.' (e.g. "0.1.0")
         assert!(v.contains('.'), "expected semver-like version, got: {v}");
-        assert_eq!(v, env!("CARGO_PKG_VERSION"), "version() must equal CARGO_PKG_VERSION");
+        assert_eq!(
+            v,
+            env!("CARGO_PKG_VERSION"),
+            "version() must equal CARGO_PKG_VERSION"
+        );
     }
 
     // ── cluster: empty input ─────────────────────────────────────────────────
@@ -110,11 +114,13 @@ mod tests {
             [35.6897, 139.6917],
             [35.6897, 139.6918],
         ];
-        let resp = cluster(req(pts, "fastest", 200.0, 1, 0, false))
-            .expect("should succeed");
+        let resp = cluster(req(pts, "fastest", 200.0, 1, 0, false)).expect("should succeed");
         assert!(!resp.clusters.is_empty(), "expected at least one cluster");
         assert_eq!(resp.stats.total_points, 6);
-        assert!(resp.stats.points_covered >= 1, "must cover at least some points");
+        assert!(
+            resp.stats.points_covered >= 1,
+            "must cover at least some points"
+        );
         assert!(resp.stats.cluster_time_ms >= 0.0);
     }
 
@@ -124,14 +130,13 @@ mod tests {
     #[test]
     fn cluster_fastest_isolated_points_high_min_points_gives_no_clusters() {
         // Three points ~111 km apart — a 100 m radius can't group any two.
-        let pts: Vec<[f64; 2]> = vec![
-            [40.0, -74.0],
-            [41.0, -74.0],
-            [42.0, -74.0],
-        ];
-        let resp = cluster(req(pts, "fastest", 100.0, 3, 0, false))
-            .expect("should succeed");
-        assert_eq!(resp.clusters.len(), 0, "isolated points can't meet min_points=3");
+        let pts: Vec<[f64; 2]> = vec![[40.0, -74.0], [41.0, -74.0], [42.0, -74.0]];
+        let resp = cluster(req(pts, "fastest", 100.0, 3, 0, false)).expect("should succeed");
+        assert_eq!(
+            resp.clusters.len(),
+            0,
+            "isolated points can't meet min_points=3"
+        );
         assert_eq!(resp.stats.total_clusters, 0);
     }
 
@@ -144,9 +149,11 @@ mod tests {
         let pts: Vec<[f64; 2]> = (0..10)
             .map(|i| [35.0 + i as f64 * 0.00001, 139.0])
             .collect();
-        let resp = cluster(req(pts, "balanced", 300.0, 1, 0, false))
-            .expect("should succeed");
-        assert!(!resp.clusters.is_empty(), "expected ≥1 cluster from balanced mode");
+        let resp = cluster(req(pts, "balanced", 300.0, 1, 0, false)).expect("should succeed");
+        assert!(
+            !resp.clusters.is_empty(),
+            "expected ≥1 cluster from balanced mode"
+        );
         assert_eq!(resp.stats.total_points, 10);
     }
 
@@ -178,8 +185,16 @@ mod tests {
         let resp = cluster(req(pts, "fastest", 200.0, 1, 0, true))
             .expect("center_clusters=true should succeed");
         for center in &resp.clusters {
-            assert!((-90.0..=90.0).contains(&center[0]), "lat out of range: {}", center[0]);
-            assert!((-180.0..=180.0).contains(&center[1]), "lng out of range: {}", center[1]);
+            assert!(
+                (-90.0..=90.0).contains(&center[0]),
+                "lat out of range: {}",
+                center[0]
+            );
+            assert!(
+                (-180.0..=180.0).contains(&center[1]),
+                "lng out of range: {}",
+                center[1]
+            );
         }
     }
 
@@ -189,14 +204,12 @@ mod tests {
     /// exceed `total_points`.
     #[test]
     fn cluster_stats_invariants_hold() {
-        let pts: Vec<[f64; 2]> = vec![
-            [40.0, -74.0],
-            [40.0001, -74.0],
-            [40.0002, -74.0],
-        ];
-        let resp = cluster(req(pts, "fastest", 500.0, 1, 0, false))
-            .expect("should succeed");
-        assert!(resp.stats.cluster_time_ms >= 0.0, "time must be non-negative");
+        let pts: Vec<[f64; 2]> = vec![[40.0, -74.0], [40.0001, -74.0], [40.0002, -74.0]];
+        let resp = cluster(req(pts, "fastest", 500.0, 1, 0, false)).expect("should succeed");
+        assert!(
+            resp.stats.cluster_time_ms >= 0.0,
+            "time must be non-negative"
+        );
         assert!(
             resp.stats.points_covered <= resp.stats.total_points,
             "covered ({}) > total ({})",
@@ -211,10 +224,9 @@ mod tests {
         let pts: Vec<[f64; 2]> = vec![
             [35.0, 139.0],
             [35.0001, 139.0],
-            [36.0, 139.0],  // far from first two
+            [36.0, 139.0], // far from first two
         ];
-        let resp = cluster(req(pts, "fastest", 50.0, 1, 0, false))
-            .expect("should succeed");
+        let resp = cluster(req(pts, "fastest", 50.0, 1, 0, false)).expect("should succeed");
         assert_eq!(
             resp.stats.total_clusters,
             resp.clusters.len(),

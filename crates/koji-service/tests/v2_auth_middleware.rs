@@ -1,4 +1,8 @@
 //! Integration tests for `utils/auth.rs` — the `public_validator` middleware.
+// The `serial_guard()` pattern intentionally holds a `MutexGuard` across `.await`
+// points to serialise concurrent test execution — this is safe in a single-threaded
+// test context and is not a production-code hazard.
+#![allow(clippy::await_holding_lock)]
 //!
 //! The validator allows a request if:
 //!   1. The session has `logged_in = true`, OR
@@ -41,7 +45,9 @@ impl SecretGuard {
     fn set(new_value: &str) -> Self {
         let original = std::env::var("KOJI_SECRET").ok();
         // SAFETY: single-threaded actix_web::test runtime; each test is isolated.
-        unsafe { std::env::set_var("KOJI_SECRET", new_value); }
+        unsafe {
+            std::env::set_var("KOJI_SECRET", new_value);
+        }
         Self(original)
     }
 }
@@ -51,7 +57,7 @@ impl Drop for SecretGuard {
         unsafe {
             match &self.0 {
                 Some(v) => std::env::set_var("KOJI_SECRET", v),
-                None    => std::env::remove_var("KOJI_SECRET"),
+                None => std::env::remove_var("KOJI_SECRET"),
             }
         }
     }
@@ -64,16 +70,15 @@ macro_rules! auth_app {
         test::init_service(
             App::new()
                 .wrap(
-                    SessionMiddleware::builder(
-                        CookieSessionStore::default(),
-                        Key::from(&[0; 64]),
-                    )
-                    .cookie_secure(false)
-                    .build(),
+                    SessionMiddleware::builder(CookieSessionStore::default(), Key::from(&[0; 64]))
+                        .cookie_secure(false)
+                        .build(),
                 )
                 .service(
                     web::scope("/api/v2")
-                        .wrap(HttpAuthentication::with_fn(koji_service::test_public_validator))
+                        .wrap(HttpAuthentication::with_fn(
+                            koji_service::test_public_validator,
+                        ))
                         .service(ping),
                 ),
         )
@@ -88,9 +93,7 @@ async fn no_secret_allows_unauthenticated_request() {
     let _serial = serial_guard();
     let _guard = SecretGuard::set(""); // empty → treated as "no secret"
     let app = auth_app!();
-    let req = test::TestRequest::get()
-        .uri("/api/v2/ping")
-        .to_request();
+    let req = test::TestRequest::get().uri("/api/v2/ping").to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
 }
@@ -141,9 +144,7 @@ async fn missing_bearer_header_is_rejected_when_secret_set() {
     let _serial = serial_guard();
     let _guard = SecretGuard::set("super-secret-token");
     let app = auth_app!();
-    let req = test::TestRequest::get()
-        .uri("/api/v2/ping")
-        .to_request();
+    let req = test::TestRequest::get().uri("/api/v2/ping").to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 401, "no bearer at all must be rejected");
 }

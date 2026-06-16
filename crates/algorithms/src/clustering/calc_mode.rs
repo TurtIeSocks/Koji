@@ -16,8 +16,14 @@ mod tests {
 
     #[test]
     fn canonical_names_recognized() {
-        assert_eq!(CalculationMode::from_str_opt("radius"), Some(CalculationMode::Radius));
-        assert_eq!(CalculationMode::from_str_opt("s2"), Some(CalculationMode::S2));
+        assert_eq!(
+            CalculationMode::from_str_opt("radius"),
+            Some(CalculationMode::Radius)
+        );
+        assert_eq!(
+            CalculationMode::from_str_opt("s2"),
+            Some(CalculationMode::S2)
+        );
     }
 
     #[test]
@@ -45,4 +51,3 @@ mod tests {
         }
     }
 }
-

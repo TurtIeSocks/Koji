@@ -13,9 +13,7 @@
 use std::time::Duration;
 
 use koji_jobs::{JobId, JobOutcome, JobQueue, JobStatus, dedup_key};
-use sea_orm::{
-    ConnectionTrait, Database, DatabaseConnection, DbBackend, Statement, Value,
-};
+use sea_orm::{ConnectionTrait, Database, DatabaseConnection, DbBackend, Statement, Value};
 use tokio::sync::{Mutex, MutexGuard};
 
 // ── Boilerplate (identical to queue_db.rs) ────────────────────────────────────
@@ -193,9 +191,7 @@ async fn await_result_times_out_on_non_terminal_job() {
         .expect("enqueue");
 
     // Wait with a short timeout; no worker will claim/complete it.
-    let outcome = q
-        .await_result(id, Duration::from_millis(150))
-        .await;
+    let outcome = q.await_result(id, Duration::from_millis(150)).await;
 
     cleanup(&db, &kind).await;
 
@@ -222,9 +218,8 @@ async fn await_result_wakes_via_local_waiter_notify() {
     // Spawn await_result in the background (it will park on the oneshot).
     // Use a 5s timeout so a test regression doesn't hang the suite.
     let q2 = q.clone();
-    let wait_handle = tokio::spawn(async move {
-        q2.await_result(id, Duration::from_secs(5)).await
-    });
+    let wait_handle =
+        tokio::spawn(async move { q2.await_result(id, Duration::from_secs(5)).await });
 
     // Let the await_result task register its oneshot waiter before we notify.
     tokio::time::sleep(Duration::from_millis(50)).await;
@@ -235,10 +230,7 @@ async fn await_result_wakes_via_local_waiter_notify() {
         DbBackend::MySql,
         "UPDATE `job` SET `status` = 'succeeded', `result` = ?, `progress` = 1.0, \
          `finished_at` = NOW() WHERE `public_id` = ?",
-        [
-            Value::from(result_val.clone()),
-            Value::from(id.as_string()),
-        ],
+        [Value::from(result_val.clone()), Value::from(id.as_string())],
     ))
     .await
     .expect("terminal UPDATE");
@@ -471,7 +463,10 @@ async fn claim_reclaims_expired_lease_job_below_max_attempts() {
              should be reclaimable"
         ),
     };
-    assert_eq!(claimed.attempts, 1, "reclaim increments attempts from 0 to 1");
+    assert_eq!(
+        claimed.attempts, 1,
+        "reclaim increments attempts from 0 to 1"
+    );
 
     let rec = rec.expect("get must find the job");
     assert_eq!(rec.status, JobStatus::Running, "reclaimed job is Running");

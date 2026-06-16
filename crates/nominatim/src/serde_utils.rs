@@ -210,7 +210,9 @@ mod tests {
             #[serde(serialize_with = "serialize_vector_as_string")]
             v: Vec<String>,
         }
-        let w = W { v: vec!["gb".into(), "de".into()] };
+        let w = W {
+            v: vec!["gb".into(), "de".into()],
+        };
         let v: Value = serde_json::to_value(&w).unwrap();
         assert_eq!(v["v"], "gb,de");
     }
@@ -222,7 +224,9 @@ mod tests {
             #[serde(serialize_with = "serialize_vector_as_string")]
             v: Vec<String>,
         }
-        let w = W { v: vec!["gb".into()] };
+        let w = W {
+            v: vec!["gb".into()],
+        };
         let v: Value = serde_json::to_value(&w).unwrap();
         assert_eq!(v["v"], "gb");
     }
@@ -249,7 +253,9 @@ mod tests {
             #[serde(serialize_with = "serialize_vector_as_string_opt")]
             v: Option<Vec<String>>,
         }
-        let w = W { v: Some(vec!["en".into(), "fr".into()]) };
+        let w = W {
+            v: Some(vec!["en".into(), "fr".into()]),
+        };
         let v: Value = serde_json::to_value(&w).unwrap();
         assert_eq!(v["v"], "en,fr");
     }
@@ -341,8 +347,8 @@ mod tests {
             #[serde(deserialize_with = "deserialize_from_string")]
             n: f64,
         }
-        let w: W = serde_json::from_str(r#"{"n":"3.14"}"#).unwrap();
-        assert!((w.n - 3.14).abs() < 1e-10);
+        let w: W = serde_json::from_str(r#"{"n":"3.15"}"#).unwrap();
+        assert!((w.n - 3.15_f64).abs() < 1e-10);
     }
 
     #[test]
@@ -365,8 +371,8 @@ mod tests {
             #[serde(deserialize_with = "deserialize_from_string_opt")]
             n: Option<f64>,
         }
-        let w: W = serde_json::from_str(r#"{"n":"2.718"}"#).unwrap();
-        assert!((w.n.unwrap() - 2.718).abs() < 1e-10);
+        let w: W = serde_json::from_str(r#"{"n":"2.72"}"#).unwrap();
+        assert!((w.n.unwrap() - 2.72_f64).abs() < 1e-10);
     }
 
     #[test]
@@ -389,7 +395,7 @@ mod tests {
             #[serde(default, deserialize_with = "deserialize_from_string_opt")]
             n: Option<f64>,
         }
-        let w: W = serde_json::from_str(r#"{}"#).unwrap();
+        let w: W = serde_json::from_str(r"{}").unwrap();
         assert!(w.n.is_none());
     }
 

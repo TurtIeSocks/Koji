@@ -113,7 +113,9 @@ async fn tile_server_crud_round_trip() {
     )
     .await
     .expect("tile_server upsert should insert");
-    let id = created["id"].as_u64().expect("created tile_server has an id") as u32;
+    let id = created["id"]
+        .as_u64()
+        .expect("created tile_server has an id") as u32;
 
     // Gather, then delete, then assert (panic-safe cleanup — see project test).
     let got = tile_server::Query::get_one_json(&db, id.to_string()).await;
@@ -124,7 +126,10 @@ async fn tile_server_crud_round_trip() {
 
     let got = got.expect("get_one_json");
     assert_eq!(got["name"], json!(name));
-    assert_eq!(got["url"], json!("https://tiles.example.com/{z}/{x}/{y}.png"));
+    assert_eq!(
+        got["url"],
+        json!("https://tiles.example.com/{z}/{x}/{y}.png")
+    );
 
     let cache = cache.expect("get_json_cache");
     assert!(

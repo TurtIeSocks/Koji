@@ -257,7 +257,11 @@ mod tests {
         // Two points same lat, lon 90° apart: centroid lon = 45°.
         let pts = [[40.0_f64, 0.0_f64], [40.0, 90.0]];
         let c = centroid(&pts);
-        assert!((c[1] - 45.0).abs() < 0.5, "centroid lon ≈ 45°, got {}", c[1]);
+        assert!(
+            (c[1] - 45.0).abs() < 0.5,
+            "centroid lon ≈ 45°, got {}",
+            c[1]
+        );
     }
 
     // ── rotate_to_best: multiple best clusters ─────────────────────────────────
@@ -301,7 +305,9 @@ mod tests {
         let rotated = rotate_to_best(clusters, &stats);
         assert_eq!(rotated.len(), 2);
         // No match → rotate_left(0) → original order preserved.
-        assert!((rotated[0][0] - a[0]).abs() < 1e-6, "first should still be a");
+        assert!(
+            (rotated[0][0] - a[0]).abs() < 1e-6,
+            "first should still be a"
+        );
     }
 }
-

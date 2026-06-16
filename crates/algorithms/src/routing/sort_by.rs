@@ -47,9 +47,18 @@ mod tests {
         // s2 is an alias for S2Cell.
         assert_eq!(SortBy::from_str_opt("s2"), Some(SortBy::S2Cell));
         // point_count and cluster_count are aliases for PointCount.
-        assert_eq!(SortBy::from_str_opt("point_count"), Some(SortBy::PointCount));
-        assert_eq!(SortBy::from_str_opt("cluster_count"), Some(SortBy::PointCount));
-        assert_eq!(SortBy::from_str_opt("clustercount"), Some(SortBy::PointCount));
+        assert_eq!(
+            SortBy::from_str_opt("point_count"),
+            Some(SortBy::PointCount)
+        );
+        assert_eq!(
+            SortBy::from_str_opt("cluster_count"),
+            Some(SortBy::PointCount)
+        );
+        assert_eq!(
+            SortBy::from_str_opt("clustercount"),
+            Some(SortBy::PointCount)
+        );
     }
 
     #[test]
@@ -80,5 +89,3 @@ mod tests {
         assert_eq!(format!("{}", SortBy::LatLon), "latlon");
     }
 }
-
-

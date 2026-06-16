@@ -103,10 +103,7 @@ mod tests {
     }
 
     fn base_query(ids: Vec<String>) -> LookupQuery {
-        LookupQueryBuilder::default()
-            .osm_ids(ids)
-            .build()
-            .unwrap()
+        LookupQueryBuilder::default().osm_ids(ids).build().unwrap()
     }
 
     // ── osm_ids encodes as comma-joined string ─────────────────────────────

@@ -43,8 +43,7 @@ fn time_with_message_returns_value() {
 // Unit return: closure still resolves to `()`.
 // ---------------------------------------------------------------------------
 
-static SIDE_EFFECT: std::sync::atomic::AtomicBool =
-    std::sync::atomic::AtomicBool::new(false);
+static SIDE_EFFECT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 #[macros::time("side effect")]
 fn set_flag() {
@@ -97,6 +96,7 @@ fn time_multi_param_fn() {
 // Early return inside the body still works (the closure captures it).
 // ---------------------------------------------------------------------------
 
+#[allow(clippy::manual_find)]
 #[macros::time]
 fn first_positive(xs: &[i32]) -> Option<i32> {
     for &x in xs {

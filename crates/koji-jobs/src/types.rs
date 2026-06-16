@@ -271,7 +271,10 @@ mod tests {
     #[test]
     fn job_id_deserialize_rejects_invalid_string() {
         let result = serde_json::from_str::<JobId>(r#""not-a-ulid""#);
-        assert!(result.is_err(), "invalid ULID string must fail to deserialize");
+        assert!(
+            result.is_err(),
+            "invalid ULID string must fail to deserialize"
+        );
     }
 
     #[test]
@@ -306,7 +309,8 @@ mod tests {
     fn job_id_copy_clone_eq() {
         let id = JobId::new();
         let copy = id; // Copy
-        let clone = id.clone();
+        #[allow(clippy::clone_on_copy)]
+        let clone = id.clone(); // intentionally exercising the Clone impl
         assert_eq!(id, copy);
         assert_eq!(id, clone);
     }
@@ -352,8 +356,14 @@ mod tests {
         assert_eq!(a, b);
         assert_ne!(a, c);
         assert_ne!(a, JobOutcome::Canceled);
-        let f1 = JobOutcome::Failed { error: "e".to_string(), code: "c".to_string() };
-        let f2 = JobOutcome::Failed { error: "e".to_string(), code: "c".to_string() };
+        let f1 = JobOutcome::Failed {
+            error: "e".to_string(),
+            code: "c".to_string(),
+        };
+        let f2 = JobOutcome::Failed {
+            error: "e".to_string(),
+            code: "c".to_string(),
+        };
         assert_eq!(f1, f2);
     }
 
@@ -485,7 +495,10 @@ mod tests {
         };
         let json = serde_json::to_string(&record).expect("serialize");
         let back: JobRecord = serde_json::from_str(&json).expect("deserialize");
-        assert_eq!(back.error.as_deref(), Some("validation error: radius must be > 0"));
+        assert_eq!(
+            back.error.as_deref(),
+            Some("validation error: radius must be > 0")
+        );
         assert!(back.result.is_none());
         assert_eq!(back.status, JobStatus::Failed);
     }

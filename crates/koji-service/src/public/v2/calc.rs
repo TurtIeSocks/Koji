@@ -209,12 +209,7 @@ fn run_cluster_route(
         clustering_config.min_points,
     );
 
-    let clusters = clustering::main(
-        data_points,
-        clustering_config,
-        area,
-        &mut stats,
-    );
+    let clusters = clustering::main(data_points, clustering_config, area, &mut stats);
     let clusters = routing::main(
         data_points,
         clusters,

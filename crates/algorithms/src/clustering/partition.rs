@@ -227,7 +227,10 @@ mod tests {
         use s2::latlng::LatLng;
         let cell = CellID::from(LatLng::from_degrees(80.0, 0.0)).parent(8);
         let bb = cell_bbox_lat_lon(cell);
-        assert!(bb.min_lat >= 0.0, "min_lat should be positive at high N latitude");
+        assert!(
+            bb.min_lat >= 0.0,
+            "min_lat should be positive at high N latitude"
+        );
         assert!(bb.max_lat <= 90.0);
         assert!(bb.min_lat <= bb.max_lat);
     }
@@ -237,7 +240,10 @@ mod tests {
         use s2::latlng::LatLng;
         let cell = CellID::from(LatLng::from_degrees(-45.0, 150.0)).parent(8);
         let bb = cell_bbox_lat_lon(cell);
-        assert!(bb.max_lat <= 0.0, "max_lat should be ≤ 0 for southern hemisphere cell at -45°");
+        assert!(
+            bb.max_lat <= 0.0,
+            "max_lat should be ≤ 0 for southern hemisphere cell at -45°"
+        );
         assert!(bb.min_lat <= bb.max_lat);
         assert!(bb.min_lon <= bb.max_lon);
     }

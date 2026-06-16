@@ -47,8 +47,14 @@ mod tests {
 
     #[test]
     fn custom_equality() {
-        assert_eq!(ClusterMode::Custom("x".into()), ClusterMode::Custom("x".into()));
-        assert_ne!(ClusterMode::Custom("x".into()), ClusterMode::Custom("y".into()));
+        assert_eq!(
+            ClusterMode::Custom("x".into()),
+            ClusterMode::Custom("x".into())
+        );
+        assert_ne!(
+            ClusterMode::Custom("x".into()),
+            ClusterMode::Custom("y".into())
+        );
     }
 
     #[test]
@@ -77,4 +83,3 @@ mod tests {
         }
     }
 }
-

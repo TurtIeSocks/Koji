@@ -97,8 +97,8 @@ async fn simplify(
     let return_type = query.return_type(req.output.resolve(default_return_type).return_type);
     let area = area_collection(&req.area);
 
-    let coll =
-        koji_core::KojiGeometryCollection::try_from(area.simplify()).map_err(ServiceError::internal)?;
+    let coll = koji_core::KojiGeometryCollection::try_from(area.simplify())
+        .map_err(ServiceError::internal)?;
 
     Ok(respond_geo(coll, return_type))
 }
@@ -279,10 +279,8 @@ mod tests {
         assert_eq!(req.default_return_type(), ReturnTypeArg::SingleArray);
 
         // a FeatureCollection area -> FeatureCollection default.
-        let req: ConvertReq = serde_json::from_str(
-            r#"{"area":{"type":"FeatureCollection","features":[]}}"#,
-        )
-        .unwrap();
+        let req: ConvertReq =
+            serde_json::from_str(r#"{"area":{"type":"FeatureCollection","features":[]}}"#).unwrap();
         assert_eq!(req.default_return_type(), ReturnTypeArg::FeatureCollection);
     }
 }

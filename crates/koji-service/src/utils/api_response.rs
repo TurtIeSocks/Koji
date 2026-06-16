@@ -84,7 +84,10 @@ impl<T: Serialize> ApiResponse<T> {
     /// Phase 0 non-test build, hence the scoped allow.
     #[allow(dead_code)]
     pub(crate) fn success_paginated(data: T, meta: Meta) -> HttpResponse {
-        HttpResponse::build(StatusCode::OK).json(ApiResponse::Ok { data, meta: Some(meta) })
+        HttpResponse::build(StatusCode::OK).json(ApiResponse::Ok {
+            data,
+            meta: Some(meta),
+        })
     }
 }
 
@@ -250,7 +253,10 @@ mod tests {
             code_for_status(StatusCode::UNPROCESSABLE_ENTITY),
             "unprocessable"
         );
-        assert_eq!(code_for_status(StatusCode::TOO_MANY_REQUESTS), "rate_limited");
+        assert_eq!(
+            code_for_status(StatusCode::TOO_MANY_REQUESTS),
+            "rate_limited"
+        );
         assert_eq!(code_for_status(StatusCode::GATEWAY_TIMEOUT), "timeout");
     }
 
@@ -271,10 +277,7 @@ mod tests {
     #[test]
     fn code_for_status_generic_4xx_gives_error() {
         // 405 is not in the named list — falls to the `_ => "error"` arm.
-        assert_eq!(
-            code_for_status(StatusCode::METHOD_NOT_ALLOWED),
-            "error"
-        );
+        assert_eq!(code_for_status(StatusCode::METHOD_NOT_ALLOWED), "error");
     }
 
     // ── ApiResponse::error constructor ────────────────────────────────────────

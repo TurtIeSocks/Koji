@@ -47,7 +47,9 @@ mod tests {
 
     impl AcceptAll {
         fn new() -> Self {
-            AcceptAll { count: std::sync::atomic::AtomicUsize::new(0) }
+            AcceptAll {
+                count: std::sync::atomic::AtomicUsize::new(0),
+            }
         }
         fn delivered(&self) -> usize {
             self.count.load(std::sync::atomic::Ordering::SeqCst)
@@ -118,7 +120,9 @@ mod tests {
 
     #[test]
     fn overridden_interested_in_matches_exact_topic() {
-        let s = TopicFilter { want: "area.route_updated" };
+        let s = TopicFilter {
+            want: "area.route_updated",
+        };
         assert!(s.interested_in("area.route_updated"));
         assert!(!s.interested_in("area.updated"));
         assert!(!s.interested_in(""));

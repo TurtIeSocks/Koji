@@ -245,4 +245,3 @@ mod tests {
         assert!((len - 1.0).abs() < 1e-10);
     }
 }
-

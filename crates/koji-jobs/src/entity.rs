@@ -171,7 +171,10 @@ mod tests {
     #[test]
     fn job_status_rejects_unknown_string() {
         let result = serde_json::from_str::<JobStatus>(r#""cancelled""#); // British spelling
-        assert!(result.is_err(), "unknown variant should fail to deserialize");
+        assert!(
+            result.is_err(),
+            "unknown variant should fail to deserialize"
+        );
     }
 
     // ── Clone / Copy / PartialEq ───────────────────────────────────────────
@@ -180,7 +183,8 @@ mod tests {
     fn job_status_copy_clone_eq() {
         let a = JobStatus::Running;
         let b = a; // Copy
-        let c = a.clone(); // Clone
+        #[allow(clippy::clone_on_copy)]
+        let c = a.clone(); // Clone — intentionally exercising the Clone impl
         assert_eq!(a, b);
         assert_eq!(a, c);
         assert_ne!(a, JobStatus::Queued);
@@ -225,7 +229,9 @@ mod tests {
 
     #[test]
     fn model_with_terminal_status_and_result() {
-        let now = chrono::DateTime::from_timestamp(1_000_000, 0).unwrap().naive_utc();
+        let now = chrono::DateTime::from_timestamp(1_000_000, 0)
+            .unwrap()
+            .naive_utc();
         let result_json = serde_json::json!({"routes": 5, "status": "ok"});
         let model = Model {
             id: 42,

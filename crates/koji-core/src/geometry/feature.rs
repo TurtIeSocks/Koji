@@ -100,7 +100,10 @@ mod tests {
         assert!(props.contains_key("name"));
         assert!(props.contains_key("color"));
         assert!(!props.contains_key("__mode"), "__mode must be stripped");
-        assert!(!props.contains_key("__internal"), "__internal must be stripped");
+        assert!(
+            !props.contains_key("__internal"),
+            "__internal must be stripped"
+        );
     }
 
     #[test]
@@ -108,7 +111,10 @@ mod tests {
         let f = feat_with_props(serde_json::json!({ "x": 1 }));
         assert!(f.id.is_some(), "setup: feature must have an id");
         let out = f.remove_internal_props();
-        assert!(out.id.is_none(), "id must be cleared by remove_internal_props");
+        assert!(
+            out.id.is_none(),
+            "id must be cleared by remove_internal_props"
+        );
     }
 
     #[test]

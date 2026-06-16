@@ -309,4 +309,3 @@ mod tests {
         assert!(d < 1.0, "distance to self endpoint should be ~0, got {d}");
     }
 }
-

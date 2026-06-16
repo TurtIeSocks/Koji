@@ -1,4 +1,7 @@
 //! DB-backed integration tests for the v2 handlers: geofences, routes, jobs,
+// The `serial_guard()` pattern intentionally holds a `MutexGuard` across `.await`
+// points to serialise concurrent test execution — safe in test context only.
+#![allow(clippy::await_holding_lock)]
 //! plugins. These run against a **live** MySQL `koji_test` database.
 //!
 //! ## Gating
@@ -92,7 +95,10 @@ async fn build_test_koji_db(koji_db: DatabaseConnection) -> KojiDb {
     // test scanner-data here, so reusing the same DB is safe).
     let url = std::env::var("KOJI_DB_URL").unwrap();
     let scanner = Database::connect(&url).await.expect("scanner re-connect");
-    KojiDb { koji: koji_db, scanner }
+    KojiDb {
+        koji: koji_db,
+        scanner,
+    }
 }
 
 /// Minimal GeoJSON polygon (a triangle at (0,0)).
@@ -138,13 +144,21 @@ async fn geofences_create_get_list_delete() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 201, "create geofence must return 201");
     // Location header must point at /api/v2/geofences/{id}
-    let location = resp.headers().get("Location").expect("Location header missing");
+    let location = resp
+        .headers()
+        .get("Location")
+        .expect("Location header missing");
     let location = location.to_str().unwrap();
-    assert!(location.starts_with("/api/v2/geofences/"), "Location: {location}");
+    assert!(
+        location.starts_with("/api/v2/geofences/"),
+        "Location: {location}"
+    );
 
     let created = body_json(resp).await;
     assert_eq!(created["status"], "ok");
-    let id = created["data"]["id"].as_u64().expect("created data.id must be u64");
+    let id = created["data"]["id"]
+        .as_u64()
+        .expect("created data.id must be u64");
 
     // ── GET /api/v2/geofences/{id} → 200 ────────────────────────────────
     let req = test::TestRequest::get()
@@ -196,7 +210,10 @@ async fn geofences_list_returns_ok_envelope() {
     let v = body_json(resp).await;
     assert_eq!(v["status"], "ok");
     // Default format = featurecollection
-    assert!(v["data"]["features"].is_array(), "geofences list must be a FeatureCollection");
+    assert!(
+        v["data"]["features"].is_array(),
+        "geofences list must be a FeatureCollection"
+    );
 }
 
 #[actix_web::test]
@@ -216,7 +233,9 @@ async fn geofences_delete_returns_204_and_subsequent_get_is_404() {
         .set_json(&create_body)
         .to_request();
     let created = body_json(test::call_service(&app, req).await).await;
-    let id = created["data"]["id"].as_u64().expect("created id must be u64");
+    let id = created["data"]["id"]
+        .as_u64()
+        .expect("created id must be u64");
 
     // Delete
     let req = test::TestRequest::delete()
@@ -295,19 +314,23 @@ async fn routes_create_list_delete() {
         .to_str()
         .unwrap()
         .to_owned();
-    assert!(location.starts_with("/api/v2/routes/"), "Location: {location}");
+    assert!(
+        location.starts_with("/api/v2/routes/"),
+        "Location: {location}"
+    );
     let route_created = body_json(route_resp).await;
     let route_id = route_created["data"]["id"].as_u64().expect("route id");
 
     // List
-    let req = test::TestRequest::get()
-        .uri("/api/v2/routes")
-        .to_request();
+    let req = test::TestRequest::get().uri("/api/v2/routes").to_request();
     let list_resp = test::call_service(&app, req).await;
     assert_eq!(list_resp.status(), 200, "list routes must return 200");
     let list_body = body_json(list_resp).await;
     assert_eq!(list_body["status"], "ok");
-    assert!(list_body["data"]["features"].is_array(), "routes list must be FeatureCollection");
+    assert!(
+        list_body["data"]["features"].is_array(),
+        "routes list must be FeatureCollection"
+    );
 
     // Cleanup: route first (FK constraint), then geofence.
     cleanup_route(&db, route_id).await;
@@ -389,9 +412,7 @@ async fn jobs_list_returns_paginated_ok_envelope() {
     let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
     let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
 
-    let req = test::TestRequest::get()
-        .uri("/api/v2/jobs")
-        .to_request();
+    let req = test::TestRequest::get().uri("/api/v2/jobs").to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200, "list jobs must return 200");
     let v = body_json(resp).await;
@@ -415,7 +436,11 @@ async fn jobs_cancel_unknown_id_returns_400_or_404() {
         .uri("/api/v2/jobs/invalid-id")
         .to_request();
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 400, "DELETE with invalid job id must return 400");
+    assert_eq!(
+        resp.status(),
+        400,
+        "DELETE with invalid job id must return 400"
+    );
 }
 
 #[actix_web::test]
@@ -433,9 +458,18 @@ async fn jobs_algorithms_returns_ok_with_all_keys() {
     assert_eq!(resp.status(), 200, "GET /algorithms must return 200");
     let v = body_json(resp).await;
     assert_eq!(v["status"], "ok");
-    assert!(v["data"]["clustering"].is_array(), "data.clustering must be an array");
-    assert!(v["data"]["routing"].is_array(), "data.routing must be an array");
-    assert!(v["data"]["bootstrap"].is_array(), "data.bootstrap must be an array");
+    assert!(
+        v["data"]["clustering"].is_array(),
+        "data.clustering must be an array"
+    );
+    assert!(
+        v["data"]["routing"].is_array(),
+        "data.routing must be an array"
+    );
+    assert!(
+        v["data"]["bootstrap"].is_array(),
+        "data.bootstrap must be an array"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -450,9 +484,7 @@ async fn plugins_list_returns_ok_envelope() {
     let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
     let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
 
-    let req = test::TestRequest::get()
-        .uri("/api/v2/plugins")
-        .to_request();
+    let req = test::TestRequest::get().uri("/api/v2/plugins").to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200, "GET /plugins must return 200");
     let v = body_json(resp).await;
@@ -491,7 +523,11 @@ async fn plugins_get_known_kind_unknown_name_returns_404() {
         .uri("/api/v2/plugins/clustering/nonexistent-plugin-xyz")
         .to_request();
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 404, "known kind + unknown name must return 404");
+    assert_eq!(
+        resp.status(),
+        404,
+        "known kind + unknown name must return 404"
+    );
     let v = body_json(resp).await;
     assert_eq!(v["status"], "error");
     assert_eq!(v["error"]["code"], "not_found");
@@ -510,7 +546,11 @@ async fn plugins_patch_unknown_kind_returns_404() {
         .set_json(serde_json::json!({}))
         .to_request();
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 404, "PATCH with unknown kind must return 404");
+    assert_eq!(
+        resp.status(),
+        404,
+        "PATCH with unknown kind must return 404"
+    );
     let v = body_json(resp).await;
     assert_eq!(v["status"], "error");
     assert_eq!(v["error"]["code"], "not_found");
@@ -531,7 +571,11 @@ async fn plugins_patch_known_kind_nonexistent_plugin_returns_422() {
         .set_json(serde_json::json!({ "enabled": false }))
         .to_request();
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 422, "patching non-installed plugin must return 422");
+    assert_eq!(
+        resp.status(),
+        422,
+        "patching non-installed plugin must return 422"
+    );
     let v = body_json(resp).await;
     assert_eq!(v["status"], "error");
     assert_eq!(v["error"]["code"], "unprocessable");
@@ -549,7 +593,11 @@ async fn plugins_delete_unknown_kind_returns_404() {
         .uri("/api/v2/plugins/notakind/anyname")
         .to_request();
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 404, "DELETE with unknown kind must return 404");
+    assert_eq!(
+        resp.status(),
+        404,
+        "DELETE with unknown kind must return 404"
+    );
     let v = body_json(resp).await;
     assert_eq!(v["status"], "error");
     assert_eq!(v["error"]["code"], "not_found");
@@ -570,7 +618,11 @@ async fn plugins_delete_known_kind_nonexistent_plugin_returns_200_rows_0() {
         .uri("/api/v2/plugins/routing/plugin-that-has-no-overlay")
         .to_request();
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 200, "DELETE with no overlay row must return 200");
+    assert_eq!(
+        resp.status(),
+        200,
+        "DELETE with no overlay row must return 200"
+    );
     let v = body_json(resp).await;
     assert_eq!(v["status"], "ok");
     assert_eq!(v["data"]["rows_affected"], 0);
@@ -612,9 +664,15 @@ async fn geofences_patch_name_only_returns_200() {
     let patch_body = body_json(patch_resp).await;
     cleanup_geofence(&db, id).await;
 
-    assert_eq!(patch_status, 200, "partial PATCH (name only) must return 200 after merge fix");
+    assert_eq!(
+        patch_status, 200,
+        "partial PATCH (name only) must return 200 after merge fix"
+    );
     assert_eq!(patch_body["status"], "ok");
-    assert_eq!(patch_body["data"]["name"], updated_name, "name must be updated");
+    assert_eq!(
+        patch_body["data"]["name"], updated_name,
+        "name must be updated"
+    );
 }
 
 #[actix_web::test]
@@ -665,7 +723,11 @@ async fn geofences_patch_missing_id_returns_404() {
         .set_json(serde_json::json!({ "name": "nobody" }))
         .to_request();
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 404, "PATCH on missing geofence must return 404");
+    assert_eq!(
+        resp.status(),
+        404,
+        "PATCH on missing geofence must return 404"
+    );
     let v = body_json(resp).await;
     assert_eq!(v["status"], "error");
     assert_eq!(v["error"]["code"], "not_found");
@@ -700,7 +762,10 @@ async fn geofences_get_format_feature_returns_geojson_feature() {
 
     assert_eq!(get_status, 200, "GET ?format=feature must return 200");
     assert_eq!(get_body["status"], "ok");
-    assert_eq!(get_body["data"]["type"], "Feature", "data must be a GeoJSON Feature");
+    assert_eq!(
+        get_body["data"]["type"], "Feature",
+        "data must be a GeoJSON Feature"
+    );
     assert_eq!(get_body["data"]["properties"]["name"], name);
 }
 
@@ -774,9 +839,15 @@ async fn routes_patch_name_only_returns_200() {
     cleanup_route(&db, route_id).await;
     cleanup_geofence(&db, geofence_id).await;
 
-    assert_eq!(patch_status, 200, "partial PATCH (name only) must return 200 after merge fix");
+    assert_eq!(
+        patch_status, 200,
+        "partial PATCH (name only) must return 200 after merge fix"
+    );
     assert_eq!(patch_body["status"], "ok");
-    assert_eq!(patch_body["data"]["name"], updated_name, "name must be updated");
+    assert_eq!(
+        patch_body["data"]["name"], updated_name,
+        "name must be updated"
+    );
 }
 
 #[actix_web::test]
@@ -827,9 +898,15 @@ async fn routes_patch_with_full_body_returns_200() {
     cleanup_route(&db, route_id).await;
     cleanup_geofence(&db, geofence_id).await;
 
-    assert_eq!(patch_status, 200, "PATCH route with full body must return 200");
+    assert_eq!(
+        patch_status, 200,
+        "PATCH route with full body must return 200"
+    );
     assert_eq!(patch_body["status"], "ok");
-    assert_eq!(patch_body["data"]["name"], updated_name, "route name not updated");
+    assert_eq!(
+        patch_body["data"]["name"], updated_name,
+        "route name not updated"
+    );
 }
 
 #[actix_web::test]
@@ -942,7 +1019,10 @@ async fn routes_get_format_feature_returns_geojson_feature() {
 
     assert_eq!(get_status, 200, "GET route ?format=feature must return 200");
     assert_eq!(get_body["status"], "ok");
-    assert_eq!(get_body["data"]["type"], "Feature", "data must be a GeoJSON Feature");
+    assert_eq!(
+        get_body["data"]["type"], "Feature",
+        "data must be a GeoJSON Feature"
+    );
     assert_eq!(get_body["data"]["properties"]["name"], route_name);
 }
 
@@ -1050,10 +1130,14 @@ async fn jobs_create_convert_job_returns_202_with_job_id() {
 
     assert_eq!(status, 202, "enqueue cluster job must return 202, got {v}");
     assert_eq!(v["status"], "ok");
-    let job_id = v["data"]["job_id"].as_str().expect("data.job_id must be a string");
+    let job_id = v["data"]["job_id"]
+        .as_str()
+        .expect("data.job_id must be a string");
     assert!(!job_id.is_empty(), "job_id must not be empty");
     assert!(
-        location.as_deref().map_or(false, |l| l.starts_with("/api/v2/jobs/")),
+        location
+            .as_deref()
+            .is_some_and(|l| l.starts_with("/api/v2/jobs/")),
         "Location header must point at /api/v2/jobs/..., got {location:?}"
     );
 }

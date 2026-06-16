@@ -66,9 +66,7 @@ pub(crate) struct S2CellsBody {
     responses((status = 200, description = "S2 cells covering the circle", body = Object)),
 )]
 #[post("/circle-coverage")]
-async fn circle_coverage(
-    payload: web::Json<CoverageArgs>,
-) -> Result<HttpResponse, ServiceError> {
+async fn circle_coverage(payload: web::Json<CoverageArgs>) -> Result<HttpResponse, ServiceError> {
     let CoverageArgs {
         lat,
         lon,

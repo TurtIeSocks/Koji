@@ -76,11 +76,7 @@ mod tests {
     #[test]
     fn data_inside_rect_produces_clusters() {
         let feature = rect_feature(-74.003, 39.997, -73.997, 40.003);
-        let data: Vec<[f64; 2]> = vec![
-            [40.0, -74.0],
-            [40.001, -74.001],
-            [40.002, -73.999],
-        ];
+        let data: Vec<[f64; 2]> = vec![[40.0, -74.0], [40.001, -74.001], [40.002, -73.999]];
         // Level 15 / size 1 / min_points 1 — at least one cell should get a hit.
         let result = cluster(feature, &data, 15, 1, 1);
         assert!(
@@ -113,4 +109,3 @@ mod tests {
         }
     }
 }
-

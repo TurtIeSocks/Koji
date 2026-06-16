@@ -655,7 +655,7 @@ mod tests {
     #[test]
     fn cell_intersects_polygon_center_inside() {
         // Build a polygon that definitely contains the cell center.
-        use geo::{coord, LineString, Polygon};
+        use geo::{LineString, Polygon, coord};
         let lat = 48.8566;
         let lon = 2.3522;
         let cell_id = from_array_to_cell_id(&[lat, lon], 16);
@@ -676,7 +676,7 @@ mod tests {
 
     #[test]
     fn cell_intersects_polygon_far_away_false() {
-        use geo::{coord, LineString, Polygon};
+        use geo::{LineString, Polygon, coord};
         // Cell near Paris, polygon near NYC — no intersection.
         let cell_id = from_array_to_cell_id(&[48.85, 2.35], 15);
         let nyc_box: Polygon<f64> = Polygon::new(

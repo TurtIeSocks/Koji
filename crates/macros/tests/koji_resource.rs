@@ -46,7 +46,10 @@ pub mod utils {
     pub mod error {
         #[derive(Debug)]
         pub enum ServiceError {
-            NotFound { field: &'static str, message: String },
+            NotFound {
+                field: &'static str,
+                message: String,
+            },
             Internal(String),
         }
         impl std::fmt::Display for ServiceError {
@@ -114,7 +117,11 @@ pub mod utils {
         }
         impl Meta {
             pub fn build(total: i64, page: i64, per_page: i64) -> Self {
-                Meta { total, page, per_page }
+                Meta {
+                    total,
+                    page,
+                    per_page,
+                }
             }
         }
     }
@@ -124,8 +131,8 @@ pub mod utils {
 // `koji_resource!` invocations under test.
 // ---------------------------------------------------------------------------
 
-/// Single-word module: `pascal_case("project") → "Project"`.
-/// All fields are primitives → no `#[schema(value_type = String)]` emitted.
+// Single-word module: `pascal_case("project") → "Project"`.
+// All fields are primitives → no `#[schema(value_type = String)]` emitted.
 macros::koji_resource! {
     module: project,
     seg: "projects",
@@ -136,8 +143,8 @@ macros::koji_resource! {
     }
 }
 
-/// Multi-word module: `pascal_case("tile_server") → "TileServer"`.
-/// `enabled: Option<bool>` stays `Option<bool>` in the Patch DTO (no double-wrap).
+// Multi-word module: `pascal_case("tile_server") → "TileServer"`.
+// `enabled: Option<bool>` stays `Option<bool>` in the Patch DTO (no double-wrap).
 macros::koji_resource! {
     module: tile_server,
     seg: "tile-servers",
@@ -148,10 +155,10 @@ macros::koji_resource! {
     }
 }
 
-/// Non-primitive field: `category: koji_db::Category` is not an ident that
-/// `is_schema_primitive` knows → `schema_value_type_attr` emits the
-/// `#[schema(value_type = String)]` attribute. Also an `Option<koji_db::Category>`
-/// field exercises the `Option<non-primitive>` branch (unwrap inner leaf).
+// Non-primitive field: `category: koji_db::Category` is not an ident that
+// `is_schema_primitive` knows → `schema_value_type_attr` emits the
+// `#[schema(value_type = String)]` attribute. Also an `Option<koji_db::Category>`
+// field exercises the `Option<non-primitive>` branch (unwrap inner leaf).
 macros::koji_resource! {
     module: property,
     seg: "properties",
@@ -197,8 +204,7 @@ fn project_patch_dto_non_option_fields_become_option() {
 #[test]
 fn project_patch_dto_missing_fields_deserialize_to_none() {
     // Provide only `name`; `api_endpoint` and `scanner` should default to None.
-    let patch: project::PatchProject =
-        serde_json::from_str(r#"{"name":"partial"}"#).unwrap();
+    let patch: project::PatchProject = serde_json::from_str(r#"{"name":"partial"}"#).unwrap();
     assert_eq!(patch.name.unwrap(), "partial");
     assert!(patch.api_endpoint.is_none());
     assert!(patch.scanner.is_none());

@@ -16,12 +16,7 @@
 //! single-threaded `#[actix_web::test]` runs (each fn is its own Tokio runtime).
 
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
-use actix_web::{
-    App,
-    cookie::Key,
-    test,
-    web,
-};
+use actix_web::{App, cookie::Key, test, web};
 
 // ── test-app helpers ────────────────────────────────────────────────────────
 
@@ -52,17 +47,12 @@ macro_rules! config_app {
         test::init_service(
             App::new()
                 .wrap(
-                    SessionMiddleware::builder(
-                        CookieSessionStore::default(),
-                        Key::from(&[0; 64]),
-                    )
-                    .cookie_secure(false)
-                    .build(),
+                    SessionMiddleware::builder(CookieSessionStore::default(), Key::from(&[0; 64]))
+                        .cookie_secure(false)
+                        .build(),
                 )
                 .app_data(web::JsonConfig::default().limit(1024 * 1024 * 10))
-                .service(
-                    web::scope("/api/v2").service(koji_service::v2_config_scope()),
-                ),
+                .service(web::scope("/api/v2").service(koji_service::v2_config_scope())),
         )
         .await
     }};
@@ -124,9 +114,15 @@ async fn geometry_convert_featurecollection_returns_ok_envelope() {
     assert_eq!(resp.status(), 200);
     let v = body_json(resp).await;
     assert_eq!(v["status"], "ok", "envelope status must be 'ok'");
-    assert!(v["data"].is_object() || v["data"].is_array(), "data must be present");
+    assert!(
+        v["data"].is_object() || v["data"].is_array(),
+        "data must be present"
+    );
     // GeoJSON FeatureCollection has a `features` array
-    assert!(v["data"]["features"].is_array(), "data.features must be present");
+    assert!(
+        v["data"]["features"].is_array(),
+        "data.features must be present"
+    );
 }
 
 #[actix_web::test]
@@ -148,7 +144,11 @@ async fn geometry_convert_empty_area_returns_ok_with_empty_features() {
     let v = body_json(resp).await;
     assert_eq!(v["status"], "ok");
     // Empty collection → features array is empty, not an error
-    assert!(v["data"]["features"].as_array().map_or(true, |f| f.is_empty()));
+    assert!(
+        v["data"]["features"]
+            .as_array()
+            .is_none_or(|f| f.is_empty())
+    );
 }
 
 #[actix_web::test]
@@ -247,8 +247,13 @@ async fn geometry_area_returns_positive_value_for_polygon() {
     assert_eq!(resp.status(), 200);
     let v = body_json(resp).await;
     assert_eq!(v["status"], "ok");
-    let area = v["data"]["area"].as_f64().expect("data.area must be a number");
-    assert!(area > 1.0e10, "1°×1° equatorial square area ~1.23e10 m², got {area}");
+    let area = v["data"]["area"]
+        .as_f64()
+        .expect("data.area must be a number");
+    assert!(
+        area > 1.0e10,
+        "1°×1° equatorial square area ~1.23e10 m², got {area}"
+    );
     assert!(area < 2.0e10, "sanity upper bound");
 }
 
@@ -276,7 +281,9 @@ async fn geometry_area_returns_zero_for_non_polygon() {
     assert_eq!(resp.status(), 200);
     let v = body_json(resp).await;
     assert_eq!(v["status"], "ok");
-    let area = v["data"]["area"].as_f64().expect("data.area must be a number");
+    let area = v["data"]["area"]
+        .as_f64()
+        .expect("data.area must be a number");
     assert_eq!(area, 0.0, "point has no polygon area");
 }
 
@@ -318,7 +325,10 @@ async fn s2_circle_coverage_returns_non_empty_cells() {
     let v = body_json(resp).await;
     assert_eq!(v["status"], "ok");
     let cells = v["data"].as_array().expect("data must be an array");
-    assert!(!cells.is_empty(), "circle coverage at level 15 must return at least one cell");
+    assert!(
+        !cells.is_empty(),
+        "circle coverage at level 15 must return at least one cell"
+    );
 }
 
 #[actix_web::test]
@@ -368,7 +378,10 @@ async fn s2_cell_coverage_returns_string_ids() {
     assert!(!cells.is_empty(), "cell coverage must return cells");
     // Each element must be a string (S2 cell id)
     for cell in cells {
-        assert!(cell.is_string(), "each cell id must be a string, got: {cell}");
+        assert!(
+            cell.is_string(),
+            "each cell id must be a string, got: {cell}"
+        );
     }
 }
 
@@ -400,7 +413,10 @@ async fn s2_polygons_roundtrips_a_cell_id() {
         .take(2)
         .map(str::to_string)
         .collect();
-    assert!(!cell_ids.is_empty(), "cell-coverage must return at least one id");
+    assert!(
+        !cell_ids.is_empty(),
+        "cell-coverage must return at least one id"
+    );
 
     // Feed them to /s2/polygons — expect one polygon per id.
     let req = test::TestRequest::post()
@@ -421,7 +437,7 @@ async fn s2_polygons_empty_list_returns_empty_data() {
     let app = s2_app!();
     let req = test::TestRequest::post()
         .uri("/api/v2/s2/polygons")
-        .set_json(&Vec::<String>::new())
+        .set_json(Vec::<String>::new())
         .to_request();
     let resp = test::call_service(&app, req).await;
 
@@ -429,7 +445,7 @@ async fn s2_polygons_empty_list_returns_empty_data() {
     let v = body_json(resp).await;
     assert_eq!(v["status"], "ok");
     assert!(
-        v["data"].as_array().map_or(false, |a| a.is_empty()),
+        v["data"].as_array().is_some_and(|a| a.is_empty()),
         "no cell ids → empty polygon array"
     );
 }
@@ -466,9 +482,7 @@ async fn s2_cells_by_level_returns_cells_in_bbox() {
 async fn config_returns_ok_envelope_with_required_fields() {
     // No env vars set → defaults (0.0, 0.0, "").
     let app = config_app!();
-    let req = test::TestRequest::get()
-        .uri("/api/v2/config")
-        .to_request();
+    let req = test::TestRequest::get().uri("/api/v2/config").to_request();
     let resp = test::call_service(&app, req).await;
 
     assert_eq!(resp.status(), 200);
@@ -478,12 +492,30 @@ async fn config_returns_ok_envelope_with_required_fields() {
     // Required fields must exist
     assert!(data["start_lat"].is_number(), "start_lat must be a number");
     assert!(data["start_lon"].is_number(), "start_lon must be a number");
-    assert!(data["tile_server"].is_string(), "tile_server must be a string");
-    assert!(data["logged_in"].is_boolean(), "logged_in must be a boolean");
-    assert!(data["dangerous"].is_boolean(), "dangerous must be a boolean");
-    assert!(data["route_plugins"].is_array(), "route_plugins must be an array");
-    assert!(data["clustering_plugins"].is_array(), "clustering_plugins must be an array");
-    assert!(data["bootstrap_plugins"].is_array(), "bootstrap_plugins must be an array");
+    assert!(
+        data["tile_server"].is_string(),
+        "tile_server must be a string"
+    );
+    assert!(
+        data["logged_in"].is_boolean(),
+        "logged_in must be a boolean"
+    );
+    assert!(
+        data["dangerous"].is_boolean(),
+        "dangerous must be a boolean"
+    );
+    assert!(
+        data["route_plugins"].is_array(),
+        "route_plugins must be an array"
+    );
+    assert!(
+        data["clustering_plugins"].is_array(),
+        "clustering_plugins must be an array"
+    );
+    assert!(
+        data["bootstrap_plugins"].is_array(),
+        "bootstrap_plugins must be an array"
+    );
 }
 
 // NOTE: a "defaults to 0.0" test was removed — env-var mutation across parallel
@@ -499,16 +531,24 @@ async fn config_reads_start_lat_lon_from_env() {
         std::env::set_var("START_LON", "2.3522");
     }
     let app = config_app!();
-    let req = test::TestRequest::get()
-        .uri("/api/v2/config")
-        .to_request();
+    let req = test::TestRequest::get().uri("/api/v2/config").to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let v = body_json(resp).await;
-    let lat = v["data"]["start_lat"].as_f64().expect("start_lat must be f64");
-    let lon = v["data"]["start_lon"].as_f64().expect("start_lon must be f64");
-    assert!((lat - 48.8566).abs() < 0.001, "START_LAT not reflected: {lat}");
-    assert!((lon - 2.3522).abs() < 0.001, "START_LON not reflected: {lon}");
+    let lat = v["data"]["start_lat"]
+        .as_f64()
+        .expect("start_lat must be f64");
+    let lon = v["data"]["start_lon"]
+        .as_f64()
+        .expect("start_lon must be f64");
+    assert!(
+        (lat - 48.8566).abs() < 0.001,
+        "START_LAT not reflected: {lat}"
+    );
+    assert!(
+        (lon - 2.3522).abs() < 0.001,
+        "START_LON not reflected: {lon}"
+    );
     // Cleanup so other tests aren't affected
     unsafe {
         std::env::remove_var("START_LAT");
@@ -520,9 +560,7 @@ async fn config_reads_start_lat_lon_from_env() {
 async fn config_logged_in_false_without_session() {
     // No session cookie → logged_in must be false
     let app = config_app!();
-    let req = test::TestRequest::get()
-        .uri("/api/v2/config")
-        .to_request();
+    let req = test::TestRequest::get().uri("/api/v2/config").to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let v = body_json(resp).await;
@@ -532,11 +570,11 @@ async fn config_logged_in_false_without_session() {
 #[actix_web::test]
 async fn config_dangerous_false_without_env_var() {
     // SAFETY: single-threaded actix_web::test runtime.
-    unsafe { std::env::remove_var("DANGEROUS"); }
+    unsafe {
+        std::env::remove_var("DANGEROUS");
+    }
     let app = config_app!();
-    let req = test::TestRequest::get()
-        .uri("/api/v2/config")
-        .to_request();
+    let req = test::TestRequest::get().uri("/api/v2/config").to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let v = body_json(resp).await;
@@ -549,9 +587,7 @@ async fn config_tile_server_from_env() {
         std::env::set_var("TILE_SERVER", "https://tiles.example.com/{z}/{x}/{y}.png");
     }
     let app = config_app!();
-    let req = test::TestRequest::get()
-        .uri("/api/v2/config")
-        .to_request();
+    let req = test::TestRequest::get().uri("/api/v2/config").to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let v = body_json(resp).await;

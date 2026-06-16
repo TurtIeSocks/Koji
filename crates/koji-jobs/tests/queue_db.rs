@@ -24,9 +24,7 @@
 use std::time::Duration;
 
 use koji_jobs::{JobId, JobOutcome, JobQueue, JobStatus, dedup_key};
-use sea_orm::{
-    ConnectionTrait, Database, DatabaseConnection, DbBackend, Statement, Value,
-};
+use sea_orm::{ConnectionTrait, Database, DatabaseConnection, DbBackend, Statement, Value};
 use tokio::sync::{Mutex, MutexGuard};
 
 /// Process-wide serialization for the queue tests.
@@ -234,7 +232,10 @@ async fn list_contains_enqueued_job_with_sane_total() {
         rows.iter().any(|r| r.id == id && r.kind == kind),
         "list should contain the freshly enqueued job"
     );
-    assert!(total >= 1, "total should count at least our job, got {total}");
+    assert!(
+        total >= 1,
+        "total should count at least our job, got {total}"
+    );
 }
 
 #[tokio::test]
@@ -256,10 +257,7 @@ async fn await_result_returns_succeeded_after_terminal_update() {
         DbBackend::MySql,
         "UPDATE `job` SET `status` = 'succeeded', `result` = ?, `finished_at` = NOW() \
          WHERE `public_id` = ?",
-        [
-            Value::from(result.clone()),
-            Value::from(id.as_string()),
-        ],
+        [Value::from(result.clone()), Value::from(id.as_string())],
     ))
     .await
     .expect("terminal UPDATE should succeed");

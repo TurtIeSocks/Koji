@@ -214,5 +214,4 @@ impl Query {
         let result = Query::upsert(db, id, json).await?;
         Ok(json!(result))
     }
-
 }

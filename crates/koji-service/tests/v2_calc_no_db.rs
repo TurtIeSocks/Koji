@@ -45,7 +45,10 @@ async fn test_db() -> Option<sea_orm::DatabaseConnection> {
 async fn build_test_koji_db(koji_db: sea_orm::DatabaseConnection) -> koji_db::KojiDb {
     let url = std::env::var("KOJI_DB_URL").unwrap();
     let scanner = Database::connect(&url).await.expect("scanner re-connect");
-    koji_db::KojiDb { koji: koji_db, scanner }
+    koji_db::KojiDb {
+        koji: koji_db,
+        scanner,
+    }
 }
 
 async fn body_json(resp: actix_web::dev::ServiceResponse) -> serde_json::Value {
@@ -145,7 +148,16 @@ async fn algorithms_returns_ok_with_all_algorithm_groups_no_db() {
     let v = body_json(resp).await;
     assert_eq!(v["status"], "ok");
     // Each algorithm group must be an array (possibly empty if no plugins installed).
-    assert!(v["data"]["clustering"].is_array(), "data.clustering must be an array");
-    assert!(v["data"]["routing"].is_array(), "data.routing must be an array");
-    assert!(v["data"]["bootstrap"].is_array(), "data.bootstrap must be an array");
+    assert!(
+        v["data"]["clustering"].is_array(),
+        "data.clustering must be an array"
+    );
+    assert!(
+        v["data"]["routing"].is_array(),
+        "data.routing must be an array"
+    );
+    assert!(
+        v["data"]["bootstrap"].is_array(),
+        "data.bootstrap must be an array"
+    );
 }

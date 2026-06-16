@@ -53,7 +53,11 @@ pub(crate) async fn config(session: Session) -> Result<HttpResponse, ServiceErro
         start_lat,
         start_lon,
         tile_server,
-        logged_in: session.get::<bool>("logged_in").ok().flatten().unwrap_or(false),
+        logged_in: session
+            .get::<bool>("logged_in")
+            .ok()
+            .flatten()
+            .unwrap_or(false),
         dangerous: std::env::var("DANGEROUS").is_ok(),
         route_plugins,
         clustering_plugins,

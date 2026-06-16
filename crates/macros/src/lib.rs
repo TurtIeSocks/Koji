@@ -125,8 +125,8 @@ pub fn derive_str_enum(input: TokenStream) -> TokenStream {
                     }
                     let content;
                     syn::parenthesized!(content in input);
-                    let punctuated =
-                        content.parse_terminated(<LitStr as syn::parse::Parse>::parse, syn::Token![,])?;
+                    let punctuated = content
+                        .parse_terminated(<LitStr as syn::parse::Parse>::parse, syn::Token![,])?;
                     als.extend(punctuated);
                 }
                 Ok((false, Some(canonical), als))
@@ -161,9 +161,12 @@ pub fn derive_str_enum(input: TokenStream) -> TokenStream {
                 }
             }
             if default_ident.is_some() {
-                return syn::Error::new_spanned(variant, "only one #[str(default)] variant is allowed")
-                    .to_compile_error()
-                    .into();
+                return syn::Error::new_spanned(
+                    variant,
+                    "only one #[str(default)] variant is allowed",
+                )
+                .to_compile_error()
+                .into();
             }
             default_ident = Some(vident.clone());
             continue;
@@ -570,16 +573,29 @@ impl Parse for ResourceDef {
         }
 
         let module = module.ok_or_else(|| {
-            syn::Error::new(proc_macro2::Span::call_site(), "koji_resource! requires `module:`")
+            syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "koji_resource! requires `module:`",
+            )
         })?;
         let seg = seg.ok_or_else(|| {
-            syn::Error::new(proc_macro2::Span::call_site(), "koji_resource! requires `seg:`")
+            syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "koji_resource! requires `seg:`",
+            )
         })?;
         let fields = fields.ok_or_else(|| {
-            syn::Error::new(proc_macro2::Span::call_site(), "koji_resource! requires `create: { … }`")
+            syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "koji_resource! requires `create: { … }`",
+            )
         })?;
 
-        Ok(ResourceDef { module, seg, fields })
+        Ok(ResourceDef {
+            module,
+            seg,
+            fields,
+        })
     }
 }
 
@@ -719,7 +735,11 @@ fn pascal_case(ident: &Ident) -> Ident {
 /// `ModelError::NotFound` variant is a candidate follow-up.
 #[proc_macro]
 pub fn koji_resource(input: TokenStream) -> TokenStream {
-    let ResourceDef { module, seg, fields } = parse_macro_input!(input as ResourceDef);
+    let ResourceDef {
+        module,
+        seg,
+        fields,
+    } = parse_macro_input!(input as ResourceDef);
 
     let pascal = pascal_case(&module);
     let create_ty = format_ident!("Create{}", pascal);

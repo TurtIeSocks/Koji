@@ -184,7 +184,12 @@ mod tests {
     fn empty_data_returns_empty() {
         let empty: SingleVec = vec![];
         let mut stats = Stats::new("t".into(), 1);
-        let result = main(&empty, &make_cfg(ClusterMode::Fastest), empty_collection(), &mut stats);
+        let result = main(
+            &empty,
+            &make_cfg(ClusterMode::Fastest),
+            empty_collection(),
+            &mut stats,
+        );
         assert!(result.is_empty());
     }
 
@@ -198,7 +203,12 @@ mod tests {
             [40.0002, -74.0002],
         ];
         let mut stats = Stats::new("t".into(), 1);
-        let result = main(&pts, &make_cfg(ClusterMode::Fastest), empty_collection(), &mut stats);
+        let result = main(
+            &pts,
+            &make_cfg(ClusterMode::Fastest),
+            empty_collection(),
+            &mut stats,
+        );
         assert!(!result.is_empty(), "Fastest mode should produce clusters");
         // Output stays within valid lat/lon range.
         for [lat, lon] in &result {
@@ -214,25 +224,41 @@ mod tests {
         // Dense grid of 100 points in a 0.05° × 0.05° area; radius 500 m ensures
         // many points fall within each disk → crucible finds valid clusters.
         let pts: Vec<[f64; 2]> = (0..100)
-            .map(|i| [40.0 + (i / 10) as f64 * 0.005, -74.0 + (i % 10) as f64 * 0.005])
+            .map(|i| {
+                [
+                    40.0 + (i / 10) as f64 * 0.005,
+                    -74.0 + (i % 10) as f64 * 0.005,
+                ]
+            })
             .collect();
         let mut cfg = make_cfg(ClusterMode::Best);
         cfg.radius = 500.0;
         let mut stats = Stats::new("t".into(), 1);
         let result = main(&pts, &cfg, empty_collection(), &mut stats);
-        assert!(!result.is_empty(), "Best mode should produce clusters for dense 100-point grid");
+        assert!(
+            !result.is_empty(),
+            "Best mode should produce clusters for dense 100-point grid"
+        );
     }
 
     #[test]
     fn better_mode_produces_clusters() {
         let pts: Vec<[f64; 2]> = (0..100)
-            .map(|i| [40.0 + (i / 10) as f64 * 0.005, -74.0 + (i % 10) as f64 * 0.005])
+            .map(|i| {
+                [
+                    40.0 + (i / 10) as f64 * 0.005,
+                    -74.0 + (i % 10) as f64 * 0.005,
+                ]
+            })
             .collect();
         let mut cfg = make_cfg(ClusterMode::Better);
         cfg.radius = 500.0;
         let mut stats = Stats::new("t".into(), 1);
         let result = main(&pts, &cfg, empty_collection(), &mut stats);
-        assert!(!result.is_empty(), "Better mode should produce clusters for dense 100-point grid");
+        assert!(
+            !result.is_empty(),
+            "Better mode should produce clusters for dense 100-point grid"
+        );
     }
 
     // ── main: stats populated after run ──────────────────────────────────────
@@ -241,7 +267,12 @@ mod tests {
     fn stats_cluster_time_set() {
         let pts = vec![[40.0, -74.0], [40.001, -74.0]];
         let mut stats = Stats::new("t".into(), 1);
-        main(&pts, &make_cfg(ClusterMode::Fastest), empty_collection(), &mut stats);
+        main(
+            &pts,
+            &make_cfg(ClusterMode::Fastest),
+            empty_collection(),
+            &mut stats,
+        );
         assert!(stats.cluster_time >= 0.0);
     }
 
@@ -259,9 +290,7 @@ mod tests {
 
     #[test]
     fn honeycomb_mode_produces_clusters() {
-        let pts: Vec<[f64; 2]> = (0..20)
-            .map(|i| [40.0 + i as f64 * 0.001, -74.0])
-            .collect();
+        let pts: Vec<[f64; 2]> = (0..20).map(|i| [40.0 + i as f64 * 0.001, -74.0]).collect();
         let mut cfg = make_cfg(ClusterMode::Honeycomb);
         cfg.radius = 500.0;
         let mut stats = Stats::new("t".into(), 1);
@@ -291,7 +320,12 @@ mod tests {
     fn main_populates_mygod_score() {
         let pts = vec![[40.0, -74.0], [40.0001, -74.0], [40.1, -74.0]];
         let mut stats = Stats::new("t".into(), 1);
-        main(&pts, &make_cfg(ClusterMode::Fastest), empty_collection(), &mut stats);
+        main(
+            &pts,
+            &make_cfg(ClusterMode::Fastest),
+            empty_collection(),
+            &mut stats,
+        );
         // mygod_score is set during main(); should be non-negative.
         assert!(stats.mygod_score < usize::MAX);
     }

@@ -308,7 +308,9 @@ impl JobQueue {
         per_page: i64,
         status: Option<JobStatus>,
     ) -> Result<(Vec<JobRecord>, i64), DbErr> {
-        use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect};
+        use sea_orm::{
+            ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
+        };
 
         let per_page = per_page.max(1);
         let offset = (page.max(1) - 1) * per_page;

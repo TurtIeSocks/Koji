@@ -28,11 +28,9 @@ use std::sync::{
 use std::time::Duration;
 
 use async_trait::async_trait;
-use koji_events::{DeliverError, EventDispatcher, EventId, Subscriber};
 use koji_events::types::Event;
-use sea_orm::{
-    ConnectionTrait, Database, DatabaseConnection, DbBackend, Statement, Value,
-};
+use koji_events::{DeliverError, EventDispatcher, EventId, Subscriber};
+use sea_orm::{ConnectionTrait, Database, DatabaseConnection, DbBackend, Statement, Value};
 use tokio::sync::Mutex;
 
 // ---- Process-wide serialization (mirrors queue_db.rs) -----------------------
@@ -102,7 +100,11 @@ async fn read_row(
     let last_error: Option<String> = row.try_get("", "last_error").ok()?;
     let locked_by: Option<String> = row.try_get("", "locked_by").ok()?;
     // MySQL returns BOOL columns as i8 (0/1); i8->bool coercion via try_get.
-    let lease_null: bool = row.try_get::<i8>("", "lease_null").ok().map(|v| v != 0).unwrap_or(false);
+    let lease_null: bool = row
+        .try_get::<i8>("", "lease_null")
+        .ok()
+        .map(|v| v != 0)
+        .unwrap_or(false);
     Some((status, attempts, last_error, locked_by, lease_null))
 }
 
@@ -120,10 +122,10 @@ where
 {
     let end = tokio::time::Instant::now() + deadline;
     loop {
-        if let Some(row) = read_row(db, topic).await {
-            if predicate(&row.0) {
-                return Some(row);
-            }
+        if let Some(row) = read_row(db, topic).await
+            && predicate(&row.0)
+        {
+            return Some(row);
         }
         if tokio::time::Instant::now() >= end {
             return read_row(db, topic).await;
@@ -141,7 +143,9 @@ struct AcceptAll {
 
 impl AcceptAll {
     fn new() -> Self {
-        AcceptAll { count: AtomicUsize::new(0) }
+        AcceptAll {
+            count: AtomicUsize::new(0),
+        }
     }
     fn delivered(&self) -> usize {
         self.count.load(Ordering::SeqCst)
@@ -238,8 +242,14 @@ async fn dispatcher_delivers_pending_event_to_accept_all_subscriber() {
     cleanup(&db, &topic).await;
 
     let (status, _, _, locked_by, lease_null) = row.expect("row must exist after dispatch");
-    assert_eq!(status, "delivered", "AcceptAll subscriber → status=delivered");
-    assert!(locked_by.is_none(), "mark_delivered must clear locked_by; got: {locked_by:?}");
+    assert_eq!(
+        status, "delivered",
+        "AcceptAll subscriber → status=delivered"
+    );
+    assert!(
+        locked_by.is_none(),
+        "mark_delivered must clear locked_by; got: {locked_by:?}"
+    );
     assert!(lease_null, "mark_delivered must clear lease_expires");
     assert_eq!(sub.delivered(), 1, "subscriber receive count must be 1");
 }
@@ -270,10 +280,11 @@ async fn dispatcher_backs_off_on_subscriber_failure() {
     let mut final_row;
     loop {
         final_row = read_row(&db, &topic).await;
-        if let Some(ref row) = final_row {
-            if row.0 == "pending" && row.1 >= 1 {
-                break;
-            }
+        if let Some(ref row) = final_row
+            && row.0 == "pending"
+            && row.1 >= 1
+        {
+            break;
         }
         if tokio::time::Instant::now() >= end {
             break;
@@ -284,7 +295,10 @@ async fn dispatcher_backs_off_on_subscriber_failure() {
     cleanup(&db, &topic).await;
 
     let (status, attempts, last_error, _, _) = final_row.expect("row must exist");
-    assert_eq!(status, "pending", "failed row must return to pending for retry");
+    assert_eq!(
+        status, "pending",
+        "failed row must return to pending for retry"
+    );
     assert_eq!(attempts, 1, "one failed attempt recorded");
     assert!(
         last_error.is_some(),
@@ -333,7 +347,10 @@ async fn dispatcher_dead_letters_after_max_attempts_exhausted() {
     cleanup(&db, &topic).await;
 
     let (status, attempts, last_error, _, _) = row.expect("row must exist");
-    assert_eq!(status, "dead", "row must be dead-lettered once max_attempts=1 is exhausted");
+    assert_eq!(
+        status, "dead",
+        "row must be dead-lettered once max_attempts=1 is exhausted"
+    );
     assert_eq!(attempts, 1, "attempts bumped to 1 on the fatal delivery");
     assert!(last_error.is_some(), "last_error recorded on dead row");
 }
@@ -350,7 +367,9 @@ async fn dispatcher_skips_unmatched_topic_for_topic_filter_subscriber() {
 
     // Subscriber only wants topic_a; we publish to topic_b.
     let sub = Arc::new(AcceptAll::new()); // counts deliveries
-    let filter = Arc::new(TopicFilter { want: topic_a.clone() });
+    let filter = Arc::new(TopicFilter {
+        want: topic_a.clone(),
+    });
 
     EventDispatcher::publish(&db, &topic_b, &serde_json::json!({"mismatch": true}))
         .await
@@ -368,8 +387,7 @@ async fn dispatcher_skips_unmatched_topic_for_topic_filter_subscriber() {
     // AcceptAll passes all topics, so delivery succeeds (status→delivered).
     let handle = dispatcher.spawn();
 
-    let row =
-        wait_for_status(&db, &topic_b, Duration::from_secs(5), |s| s == "delivered").await;
+    let row = wait_for_status(&db, &topic_b, Duration::from_secs(5), |s| s == "delivered").await;
     handle.shutdown().await;
     cleanup(&db, &topic_b).await;
     cleanup(&db, &topic_a).await;
@@ -398,7 +416,9 @@ async fn dispatcher_delivers_vacuously_when_no_subscriber_is_interested() {
     let topic_publish = unique_topic("vac-pub");
 
     // TopicFilter only wants topic_want; we publish to topic_publish.
-    let filter = Arc::new(TopicFilter { want: topic_want.clone() });
+    let filter = Arc::new(TopicFilter {
+        want: topic_want.clone(),
+    });
     let accept = Arc::new(AcceptAll::new());
 
     EventDispatcher::publish(&db, &topic_publish, &serde_json::json!({}))
@@ -427,7 +447,11 @@ async fn dispatcher_delivers_vacuously_when_no_subscriber_is_interested() {
         "vacuous delivery (no interested subscriber) must mark the row delivered"
     );
     // The AcceptAll we created but did NOT register should have seen nothing.
-    assert_eq!(accept.delivered(), 0, "unregistered subscriber receives nothing");
+    assert_eq!(
+        accept.delivered(),
+        0,
+        "unregistered subscriber receives nothing"
+    );
 }
 
 /// The claim loop is safe when no rows are due: the dispatcher polls, finds

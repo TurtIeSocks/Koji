@@ -389,7 +389,11 @@ mod tests {
         let body = br#"{"status":"error","error":{"code":"not_found","message":"area not found"}}"#;
         let err = parse_v2::<ApiArea>(body).expect_err("error envelope should fail");
         match err {
-            DragoniteError::Api { code, message, field } => {
+            DragoniteError::Api {
+                code,
+                message,
+                field,
+            } => {
                 assert_eq!(code.as_deref(), Some("not_found"));
                 assert_eq!(message, "area not found");
                 assert!(field.is_none());
@@ -401,10 +405,15 @@ mod tests {
     #[test]
     fn parse_v2_validation_error_with_field() {
         // Per-field validation error carries a field name.
-        let body = br#"{"status":"error","error":{"code":"invalid","message":"bad name","field":"name"}}"#;
+        let body =
+            br#"{"status":"error","error":{"code":"invalid","message":"bad name","field":"name"}}"#;
         let err = parse_v2::<ApiArea>(body).expect_err("should fail");
         match err {
-            DragoniteError::Api { code, message, field } => {
+            DragoniteError::Api {
+                code,
+                message,
+                field,
+            } => {
                 assert_eq!(code.as_deref(), Some("invalid"));
                 assert_eq!(message, "bad name");
                 assert_eq!(field.as_deref(), Some("name"));
@@ -445,8 +454,20 @@ mod tests {
         let pm = area.pokemon_mode.expect("pokemon_mode present");
         assert_eq!(pm.workers, Some(3));
         assert_eq!(pm.route.len(), 2);
-        assert_eq!(pm.route[0], ApiLocation { lat: 35.1, lon: 139.7 });
-        assert_eq!(pm.route[1], ApiLocation { lat: 35.2, lon: 139.8 });
+        assert_eq!(
+            pm.route[0],
+            ApiLocation {
+                lat: 35.1,
+                lon: 139.7
+            }
+        );
+        assert_eq!(
+            pm.route[1],
+            ApiLocation {
+                lat: 35.2,
+                lon: 139.8
+            }
+        );
     }
 
     #[test]

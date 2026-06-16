@@ -67,30 +67,53 @@ impl ServiceError {
     /// their detail to the client.
     pub(crate) fn to_api_error(&self) -> (StatusCode, ApiError) {
         let (status, field, message) = match self {
-            ServiceError::NotFound { field, message } => {
-                (StatusCode::NOT_FOUND, Some((*field).to_string()), message.clone())
-            }
+            ServiceError::NotFound { field, message } => (
+                StatusCode::NOT_FOUND,
+                Some((*field).to_string()),
+                message.clone(),
+            ),
             ServiceError::Invalid { field, message } => {
                 (StatusCode::BAD_REQUEST, field.clone(), message.clone())
             }
-            ServiceError::Unprocessable { field, message } => {
-                (StatusCode::UNPROCESSABLE_ENTITY, field.clone(), message.clone())
-            }
+            ServiceError::Unprocessable { field, message } => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                field.clone(),
+                message.clone(),
+            ),
             ServiceError::Conflict(message) => (StatusCode::CONFLICT, None, message.clone()),
             ServiceError::Db(e) => {
                 log::error!("service db error: {e}");
-                (StatusCode::INTERNAL_SERVER_ERROR, None, "internal error".to_string())
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    None,
+                    "internal error".to_string(),
+                )
             }
             ServiceError::Model(e) => {
                 log::error!("service model error: {e}");
-                (StatusCode::INTERNAL_SERVER_ERROR, None, "internal error".to_string())
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    None,
+                    "internal error".to_string(),
+                )
             }
             ServiceError::Internal(detail) => {
                 log::error!("service internal error: {detail}");
-                (StatusCode::INTERNAL_SERVER_ERROR, None, "internal error".to_string())
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    None,
+                    "internal error".to_string(),
+                )
             }
         };
-        (status, ApiError { code: code_for_status(status), message, field })
+        (
+            status,
+            ApiError {
+                code: code_for_status(status),
+                message,
+                field,
+            },
+        )
     }
 }
 
@@ -155,12 +178,15 @@ mod tests {
 
     #[test]
     fn db_error_is_500_generic_and_does_not_leak() {
-        let (status, err) = ServiceError::Db(DbErr::Custom("secret internal detail".into()))
-            .to_api_error();
+        let (status, err) =
+            ServiceError::Db(DbErr::Custom("secret internal detail".into())).to_api_error();
         assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
         assert_eq!(err.code, "internal_error");
         assert_eq!(err.message, "internal error");
-        assert!(!err.message.contains("secret"), "internal detail must not leak");
+        assert!(
+            !err.message.contains("secret"),
+            "internal detail must not leak"
+        );
     }
 
     #[test]

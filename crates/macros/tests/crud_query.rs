@@ -94,6 +94,7 @@ impl DeleteBuilder {
 #[derive(Clone, Copy)]
 pub struct ColumnName;
 impl ColumnName {
+    #[allow(clippy::should_implement_trait)]
     pub fn eq(self, _v: impl std::fmt::Display) -> bool {
         true
     }
@@ -169,7 +170,11 @@ fn crud_query_get_one_by_numeric_id_returns_ok() {
     // "1" parses as u32 → Entity::find_by_id path.
     let db = DatabaseConnection;
     let result = block_on(Query::get_one(&db, "1".to_string()));
-    assert!(result.is_ok(), "expected Ok, got {:?}", result.err().map(|e| e.to_string()));
+    assert!(
+        result.is_ok(),
+        "expected Ok, got {:?}",
+        result.err().map(|e| e.to_string())
+    );
 }
 
 #[test]

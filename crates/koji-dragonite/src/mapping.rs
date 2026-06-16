@@ -225,10 +225,7 @@ mod tests {
         let result = feature_to_geofence(&feat);
         match result {
             crate::patch::Tri::Value(f) => {
-                assert_eq!(
-                    f.id,
-                    Some(geojson::feature::Id::String("test-id".into()))
-                );
+                assert_eq!(f.id, Some(geojson::feature::Id::String("test-id".into())));
             }
             other => panic!("expected Tri::Value, got {:?}", other),
         }

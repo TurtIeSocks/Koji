@@ -676,7 +676,11 @@ mod tests {
         let pts: SingleVec = vec![[40.0, -74.0], [41.0, -74.0]];
         stats.distance_stats(&pts);
         // Total round-trip distance = 2 × ~111 km.
-        assert!(stats.total_distance > 100_000.0, "too small: {}", stats.total_distance);
+        assert!(
+            stats.total_distance > 100_000.0,
+            "too small: {}",
+            stats.total_distance
+        );
         assert!(stats.longest_distance > 100_000.0);
     }
 
@@ -818,7 +822,9 @@ mod tests {
     #[test]
     fn cooldown_is_monotone() {
         // Cooldown is non-decreasing with distance.
-        let distances = [0.0, 500.0, 1_000.0, 3_000.0, 7_000.0, 20_000.0, 50_000.0, 200_000.0];
+        let distances = [
+            0.0, 500.0, 1_000.0, 3_000.0, 7_000.0, 20_000.0, 50_000.0, 200_000.0,
+        ];
         let mut prev = 0.0_f64;
         for d in distances {
             let s = cooldown_seconds(d);
@@ -834,7 +840,10 @@ mod tests {
         // Two points ~1 km apart → cooldown ≈ 60 s.
         let centers: SingleVec = vec![[40.0, -74.0], [40.009, -74.0]]; // ~1 km
         let s = s2_tour_cooldown_s(&centers);
-        assert!(s > 0.0 && s < 7_200.0, "expected reasonable cooldown, got {s}");
+        assert!(
+            s > 0.0 && s < 7_200.0,
+            "expected reasonable cooldown, got {s}"
+        );
     }
 
     #[test]
@@ -850,7 +859,7 @@ mod tests {
         let center = [0.0_f64, 0.0_f64];
         let pts: SingleVec = vec![
             center,
-            [0.0001, 0.0],   // ~11 m
+            [0.0001, 0.0], // ~11 m
             [0.0, 0.0001],
             [-0.0001, 0.0],
             [0.0, -0.0001],
@@ -886,8 +895,8 @@ mod tests {
         // pts[2] is 1 km from cluster[1] → cluster[1] covers 0 extra.
         let pts: SingleVec = vec![
             [40.0, -74.0],
-            [40.0003, -74.0],   // ~33 m from cluster[0]
-            [40.1, -74.0],      // ~11 km from cluster[1] — uncovered
+            [40.0003, -74.0], // ~33 m from cluster[0]
+            [40.1, -74.0],    // ~11 km from cluster[1] — uncovered
         ];
         let clusters: SingleVec = vec![[40.00015, -74.0], [40.05, -74.0]];
         let mut stats = Stats::new("t".into(), 1);
@@ -957,7 +966,10 @@ mod tests {
         b.best_clusters = vec![[41.0, -74.0]];
 
         a += &b;
-        assert_eq!(a.best_cluster_point_count, 10, "lower b should not replace best");
+        assert_eq!(
+            a.best_cluster_point_count, 10,
+            "lower b should not replace best"
+        );
         assert_eq!(a.best_clusters.len(), 1);
     }
 
@@ -988,16 +1000,10 @@ mod tests {
     #[test]
     fn s2_tour_four_points_returns_positive_length() {
         // 4 points at corners of ~1° box.
-        let pts: SingleVec = vec![
-            [40.0, -74.0],
-            [40.0, -73.0],
-            [41.0, -73.0],
-            [41.0, -74.0],
-        ];
+        let pts: SingleVec = vec![[40.0, -74.0], [40.0, -73.0], [41.0, -73.0], [41.0, -74.0]];
         let m = s2_tour_length_m(&pts);
         // S2-sorted tour of a ~100 km box should be in the hundreds of km range.
         assert!(m > 100_000.0, "tour length should be >100 km, got {m}");
         assert!(m < 2_000_000.0, "tour length should be <2000 km, got {m}");
     }
 }
-

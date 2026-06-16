@@ -123,11 +123,7 @@ mod tests {
                 vec![0.0, 0.0],
             ]
         } else {
-            vec![
-                vec![0.0, 0.0],
-                vec![1.0, 0.0],
-                vec![1.0, 1.0],
-            ]
+            vec![vec![0.0, 0.0], vec![1.0, 0.0], vec![1.0, 1.0]]
         };
         Geometry::new(Value::Polygon(vec![ring]))
     }
@@ -141,7 +137,8 @@ mod tests {
         if let Value::Polygon(rings) = &closed.value {
             let ring = &rings[0];
             assert_eq!(
-                ring[0], ring[ring.len() - 1],
+                ring[0],
+                ring[ring.len() - 1],
                 "first and last must match after closing"
             );
         } else {
@@ -177,11 +174,7 @@ mod tests {
 
     #[test]
     fn ensure_first_last_multipolygon_closes_rings() {
-        let ring = vec![
-            vec![0.0, 0.0],
-            vec![2.0, 0.0],
-            vec![2.0, 2.0],
-        ];
+        let ring = vec![vec![0.0, 0.0], vec![2.0, 0.0], vec![2.0, 2.0]];
         let mp = Geometry::new(Value::MultiPolygon(vec![vec![ring]]));
         let out = mp.ensure_first_last();
         if let Value::MultiPolygon(polys) = &out.value {
@@ -256,7 +249,10 @@ mod tests {
         let simplified = g.simplify();
         if let Value::Polygon(rings) = &simplified.value {
             // The collinear point should be dropped → fewer vertices.
-            assert!(rings[0].len() < 6, "expected simplification to drop a point");
+            assert!(
+                rings[0].len() < 6,
+                "expected simplification to drop a point"
+            );
         } else {
             panic!("expected Polygon");
         }

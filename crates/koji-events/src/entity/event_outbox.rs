@@ -200,11 +200,8 @@ mod tests {
 
     #[test]
     fn model_serializes_all_fields() {
-        let now = chrono::NaiveDateTime::parse_from_str(
-            "2026-06-01 12:00:00",
-            "%Y-%m-%d %H:%M:%S",
-        )
-        .unwrap();
+        let now = chrono::NaiveDateTime::parse_from_str("2026-06-01 12:00:00", "%Y-%m-%d %H:%M:%S")
+            .unwrap();
         let m = Model {
             id: 1,
             public_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string(),
@@ -233,11 +230,8 @@ mod tests {
 
     #[test]
     fn model_with_optional_fields_serializes_correctly() {
-        let now = chrono::NaiveDateTime::parse_from_str(
-            "2026-06-01 12:00:00",
-            "%Y-%m-%d %H:%M:%S",
-        )
-        .unwrap();
+        let now = chrono::NaiveDateTime::parse_from_str("2026-06-01 12:00:00", "%Y-%m-%d %H:%M:%S")
+            .unwrap();
         let m = Model {
             id: 99,
             public_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string(),
@@ -262,16 +256,11 @@ mod tests {
 
     #[test]
     fn model_with_delivered_at_serializes() {
-        let now = chrono::NaiveDateTime::parse_from_str(
-            "2026-06-01 12:00:00",
-            "%Y-%m-%d %H:%M:%S",
-        )
-        .unwrap();
-        let later = chrono::NaiveDateTime::parse_from_str(
-            "2026-06-01 12:00:05",
-            "%Y-%m-%d %H:%M:%S",
-        )
-        .unwrap();
+        let now = chrono::NaiveDateTime::parse_from_str("2026-06-01 12:00:00", "%Y-%m-%d %H:%M:%S")
+            .unwrap();
+        let later =
+            chrono::NaiveDateTime::parse_from_str("2026-06-01 12:00:05", "%Y-%m-%d %H:%M:%S")
+                .unwrap();
         let m = Model {
             id: 7,
             public_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string(),

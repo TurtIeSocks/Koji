@@ -339,7 +339,10 @@ mod tests {
         let feature = rect_feature(-74.003, 39.997, -73.997, 40.003);
         let bs = BootstrapS2::new(&feature, 15, 1);
         let centers = bs.centers_for_polygon(&poly);
-        assert!(!centers.is_empty(), "should have centers for this polygon at level 15");
+        assert!(
+            !centers.is_empty(),
+            "should have centers for this polygon at level 15"
+        );
     }
 
     // ── cells_to_nearest_face_edges ───────────────────────────────────────────
@@ -501,4 +504,3 @@ mod tests {
         assert!(ll.lng.deg().abs() <= 180.0);
     }
 }
-

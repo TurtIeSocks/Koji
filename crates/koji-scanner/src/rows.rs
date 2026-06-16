@@ -63,7 +63,10 @@ mod tests {
 
     #[test]
     fn latlon_row_converts_to_point_struct() {
-        let row = LatLonRow { lat: 12.345, lon: 67.890 };
+        let row = LatLonRow {
+            lat: 12.345,
+            lon: 67.890,
+        };
         let ps: koji_core::PointStruct = row.into();
         assert_eq!(ps.lat, 12.345);
         assert_eq!(ps.lon, 67.890);
@@ -71,7 +74,10 @@ mod tests {
 
     #[test]
     fn latlon_row_negative_coords_preserved() {
-        let row = LatLonRow { lat: -33.87, lon: 151.21 };
+        let row = LatLonRow {
+            lat: -33.87,
+            lon: 151.21,
+        };
         let ps: koji_core::PointStruct = row.into();
         assert_eq!(ps.lat, -33.87);
         assert_eq!(ps.lon, 151.21);
@@ -124,8 +130,8 @@ mod tests {
         // Ensures the coord order the rest of the system expects: [lat, lon].
         let g = GenericData::new("x".to_string(), 51.5, -0.1);
         let sv: SingleVec = vec![g].to_single_vec();
-        assert_eq!(sv[0][0], 51.5);  // lat
-        assert_eq!(sv[0][1], -0.1);  // lon
+        assert_eq!(sv[0][0], 51.5); // lat
+        assert_eq!(sv[0][1], -0.1); // lon
     }
 
     // ── Total ─────────────────────────────────────────────────────────────────

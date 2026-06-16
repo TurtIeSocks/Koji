@@ -52,7 +52,10 @@ mod tests {
 
     #[test]
     fn serde_roundtrip() {
-        let ps = PointStruct { lat: 10.5, lon: 20.75 };
+        let ps = PointStruct {
+            lat: 10.5,
+            lon: 20.75,
+        };
         let v = serde_json::to_value(&ps).unwrap();
         assert_eq!(v, serde_json::json!({ "lat": 10.5, "lon": 20.75 }));
         let back: PointStruct = serde_json::from_value(v).unwrap();
@@ -66,5 +69,6 @@ mod tests {
         let mut q = p.clone();
         q.lat = 99.0;
         assert_eq!(p.lat, 1.0, "clone should not alias original");
+        assert_eq!(q.lat, 99.0, "clone mutation should be visible");
     }
 }

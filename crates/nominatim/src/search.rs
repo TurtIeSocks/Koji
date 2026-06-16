@@ -174,8 +174,10 @@ mod tests {
     fn generalised_query_produces_q_param() {
         let query = base_generalised("Munich, Germany");
         let qs = qs(&query);
-        assert!(qs.contains("q=Munich%2C+Germany") || qs.contains("q=Munich%2C%20Germany"),
-                "qs: {qs}");
+        assert!(
+            qs.contains("q=Munich%2C+Germany") || qs.contains("q=Munich%2C%20Germany"),
+            "qs: {qs}"
+        );
     }
 
     #[test]
@@ -224,8 +226,10 @@ mod tests {
             .build()
             .unwrap();
         let qs = qs(&query);
-        assert!(qs.contains("countrycodes=gb%2Cde") || qs.contains("countrycodes=gb,de"),
-                "qs: {qs}");
+        assert!(
+            qs.contains("countrycodes=gb%2Cde") || qs.contains("countrycodes=gb,de"),
+            "qs: {qs}"
+        );
     }
 
     #[test]
@@ -237,8 +241,10 @@ mod tests {
             .build()
             .unwrap();
         let qs = qs(&query);
-        assert!(qs.contains("accept-language=en%2Cfr") || qs.contains("accept-language=en,fr"),
-                "qs: {qs}");
+        assert!(
+            qs.contains("accept-language=en%2Cfr") || qs.contains("accept-language=en,fr"),
+            "qs: {qs}"
+        );
     }
 
     #[test]
@@ -250,9 +256,10 @@ mod tests {
             .build()
             .unwrap();
         let qs = qs(&query);
-        assert!(qs.contains("exclude_place_ids=123%2C456")
-                || qs.contains("exclude_place_ids=123,456"),
-                "qs: {qs}");
+        assert!(
+            qs.contains("exclude_place_ids=123%2C456") || qs.contains("exclude_place_ids=123,456"),
+            "qs: {qs}"
+        );
     }
 
     #[test]

@@ -268,16 +268,18 @@ mod tests {
     fn single_point_min1_returns_one_cluster() {
         let pts = vec![[40.0_f64, -74.0_f64]];
         let result = main(&pts, 70.0, 1);
-        assert_eq!(result.len(), 1, "one point with min_points=1 should yield 1 cluster");
+        assert_eq!(
+            result.len(),
+            1,
+            "one point with min_points=1 should yield 1 cluster"
+        );
     }
 
     // ── main: cluster count never exceeds input points ────────────────────────
 
     #[test]
     fn clusters_do_not_exceed_input_points() {
-        let pts: Vec<[f64; 2]> = (0..20)
-            .map(|i| [40.0 + i as f64 * 0.01, -74.0])
-            .collect();
+        let pts: Vec<[f64; 2]> = (0..20).map(|i| [40.0 + i as f64 * 0.01, -74.0]).collect();
         let result = main(&pts, 70.0, 1);
         assert!(
             result.len() <= pts.len(),

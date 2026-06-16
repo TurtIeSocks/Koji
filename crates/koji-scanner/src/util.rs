@@ -107,8 +107,14 @@ mod tests {
         // SQL template: lon BETWEEN bbox[0] AND bbox[2]  (= min_lon AND max_lon)
         //               lat BETWEEN bbox[1] AND bbox[3]  (= min_lat AND max_lat)
         let sql = sql_raw_bbox(&polygon_fc());
-        assert!(sql.contains("lon BETWEEN 0 AND 10"), "lon bounds wrong: {sql}");
-        assert!(sql.contains("lat BETWEEN 0 AND 10"), "lat bounds wrong: {sql}");
+        assert!(
+            sql.contains("lon BETWEEN 0 AND 10"),
+            "lon bounds wrong: {sql}"
+        );
+        assert!(
+            sql.contains("lat BETWEEN 0 AND 10"),
+            "lat bounds wrong: {sql}"
+        );
     }
 
     // ── explicit bbox on feature overrides computed ────────────────────────────
@@ -134,8 +140,14 @@ mod tests {
         let sql = sql_raw_bbox(&area);
         // bbox[0]=1, bbox[2]=3 → lon BETWEEN 1 AND 3
         // bbox[1]=2, bbox[3]=4 → lat BETWEEN 2 AND 4
-        assert!(sql.contains("lon BETWEEN 1 AND 3"), "explicit lon wrong: {sql}");
-        assert!(sql.contains("lat BETWEEN 2 AND 4"), "explicit lat wrong: {sql}");
+        assert!(
+            sql.contains("lon BETWEEN 1 AND 3"),
+            "explicit lon wrong: {sql}"
+        );
+        assert!(
+            sql.contains("lat BETWEEN 2 AND 4"),
+            "explicit lat wrong: {sql}"
+        );
     }
 
     // ── non-polygon geometry skipped ──────────────────────────────────────────
@@ -214,8 +226,16 @@ mod tests {
         // Second feature must be joined with "\nOR"
         assert!(sql.contains("\nOR"), "missing OR separator: {sql}");
         // Both BETWEEN clauses present
-        assert_eq!(sql.matches("lon BETWEEN").count(), 2, "expected 2 lon clauses: {sql}");
-        assert_eq!(sql.matches("lat BETWEEN").count(), 2, "expected 2 lat clauses: {sql}");
+        assert_eq!(
+            sql.matches("lon BETWEEN").count(),
+            2,
+            "expected 2 lon clauses: {sql}"
+        );
+        assert_eq!(
+            sql.matches("lat BETWEEN").count(),
+            2,
+            "expected 2 lat clauses: {sql}"
+        );
     }
 
     #[test]
@@ -246,8 +266,14 @@ mod tests {
             }]
         }));
         let sql = sql_raw_bbox(&area);
-        assert!(sql.contains("lon BETWEEN"), "multipolygon missing lon: {sql}");
-        assert!(sql.contains("lat BETWEEN"), "multipolygon missing lat: {sql}");
+        assert!(
+            sql.contains("lon BETWEEN"),
+            "multipolygon missing lon: {sql}"
+        );
+        assert!(
+            sql.contains("lat BETWEEN"),
+            "multipolygon missing lat: {sql}"
+        );
     }
 
     // ── precision trimming ─────────────────────────────────────────────────────

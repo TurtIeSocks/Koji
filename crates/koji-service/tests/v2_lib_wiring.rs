@@ -15,9 +15,7 @@
 use actix_web::test;
 
 macro_rules! app {
-    () => {{
-        test::init_service(koji_service::test_db_free_app()).await
-    }};
+    () => {{ test::init_service(koji_service::test_db_free_app()).await }};
 }
 
 async fn body_json(resp: actix_web::dev::ServiceResponse) -> serde_json::Value {
@@ -50,8 +48,14 @@ async fn openapi_yaml_returns_200_with_json_body() {
     let doc: serde_json::Value =
         serde_json::from_slice(&body).expect("openapi body must be valid JSON");
     assert!(doc.is_object(), "OpenAPI doc must be a JSON object");
-    assert!(doc.get("openapi").is_some(), "OpenAPI doc must have an 'openapi' key");
-    assert!(doc.get("paths").is_some(), "OpenAPI doc must have a 'paths' key");
+    assert!(
+        doc.get("openapi").is_some(),
+        "OpenAPI doc must have an 'openapi' key"
+    );
+    assert!(
+        doc.get("paths").is_some(),
+        "OpenAPI doc must have a 'paths' key"
+    );
 }
 
 // ── config endpoint ──────────────────────────────────────────────────────────
@@ -59,13 +63,14 @@ async fn openapi_yaml_returns_200_with_json_body() {
 #[actix_web::test]
 async fn config_route_wired_and_returns_ok_envelope() {
     let app = app!();
-    let req = test::TestRequest::get()
-        .uri("/api/v2/config")
-        .to_request();
+    let req = test::TestRequest::get().uri("/api/v2/config").to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200, "/api/v2/config must return 200");
     let v = body_json(resp).await;
-    assert_eq!(v["status"], "ok", "config response must be wrapped in ok envelope");
+    assert_eq!(
+        v["status"], "ok",
+        "config response must be wrapped in ok envelope"
+    );
     assert!(v["data"].is_object(), "config data must be an object");
 }
 
@@ -115,7 +120,11 @@ async fn s2_circle_coverage_route_is_reachable() {
         .set_json(&body)
         .to_request();
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 200, "/api/v2/s2/circle-coverage must return 200");
+    assert_eq!(
+        resp.status(),
+        200,
+        "/api/v2/s2/circle-coverage must return 200"
+    );
     let v = body_json(resp).await;
     assert_eq!(v["status"], "ok");
 }
@@ -139,5 +148,9 @@ async fn wrong_method_on_healthz_returns_405() {
     // `/healthz` is GET-only; POST should return 405
     let req = test::TestRequest::post().uri("/healthz").to_request();
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 405, "POST to GET-only /healthz must return 405");
+    assert_eq!(
+        resp.status(),
+        405,
+        "POST to GET-only /healthz must return 405"
+    );
 }

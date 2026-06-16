@@ -30,7 +30,10 @@ pub(crate) struct ConfigResponse {
 /// `serde_json::to_value`, so the function carries no dependency on the legacy
 /// serialization-envelope enum or the `To*` conversion matrix. The output bytes
 /// are pinned per-variant by the `golden_*` tests below.
-pub(crate) fn response_body(coll: &KojiGeometryCollection, return_type: ReturnTypeArg) -> JsonValue {
+pub(crate) fn response_body(
+    coll: &KojiGeometryCollection,
+    return_type: ReturnTypeArg,
+) -> JsonValue {
     match return_type {
         ReturnTypeArg::SingleStruct => json!(coll.to_single_struct()),
         ReturnTypeArg::MultiStruct => json!(coll.to_multi_struct()),

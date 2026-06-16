@@ -317,7 +317,11 @@ pub(crate) async fn area_stats(
     // stats query, so aggregate its members' totals — consistent with how
     // `points_from_area` treats `fort`.
     let total = match category.as_str() {
-        "gym" => gym::Query::stats(&conn.scanner, &area, last_seen).await?.total,
+        "gym" => {
+            gym::Query::stats(&conn.scanner, &area, last_seen)
+                .await?
+                .total
+        }
         "pokestop" => {
             pokestop::Query::stats(&conn.scanner, &area, last_seen)
                 .await?
@@ -334,7 +338,9 @@ pub(crate) async fn area_stats(
                 .total
         }
         "fort" => {
-            let gyms = gym::Query::stats(&conn.scanner, &area, last_seen).await?.total;
+            let gyms = gym::Query::stats(&conn.scanner, &area, last_seen)
+                .await?
+                .total;
             let pokestops = pokestop::Query::stats(&conn.scanner, &area, last_seen)
                 .await?
                 .total;

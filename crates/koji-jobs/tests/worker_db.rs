@@ -19,12 +19,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use koji_jobs::{
-    HandlerRegistry, JobCtx, JobError, JobOutcome, JobQueue, JobStatus,
-};
-use sea_orm::{
-    ConnectionTrait, Database, DatabaseConnection, DbBackend, Statement, Value,
-};
+use koji_jobs::{HandlerRegistry, JobCtx, JobError, JobOutcome, JobQueue, JobStatus};
+use sea_orm::{ConnectionTrait, Database, DatabaseConnection, DbBackend, Statement, Value};
 use tokio::sync::{Mutex, MutexGuard};
 
 // ── Boilerplate ───────────────────────────────────────────────────────────────
@@ -48,7 +44,6 @@ async fn test_db() -> Option<DatabaseConnection> {
         }
     }
 }
-
 
 // ── Test handlers ──────────────────────────────────────────────────────────────
 
@@ -134,16 +129,26 @@ async fn worker_ok_handler_persists_succeeded() {
     // All asserts after cleanup — a panic here cannot leak the row.
     let outcome = outcome.expect("await_result");
     let expected = JobOutcome::Succeeded(result_val.clone());
-    assert_eq!(outcome, expected, "outcome must be Succeeded with the handler's result");
+    assert_eq!(
+        outcome, expected,
+        "outcome must be Succeeded with the handler's result"
+    );
 
     let rec = rec.expect("get");
-    assert_eq!(rec.status, JobStatus::Succeeded, "DB status must be Succeeded");
+    assert_eq!(
+        rec.status,
+        JobStatus::Succeeded,
+        "DB status must be Succeeded"
+    );
     assert_eq!(
         rec.result,
         Some(result_val),
         "DB result must carry the handler's JSON"
     );
-    assert!((rec.progress - 1.0).abs() < 0.001, "progress must be 1.0 after success");
+    assert!(
+        (rec.progress - 1.0).abs() < 0.001,
+        "progress must be 1.0 after success"
+    );
 }
 
 /// ErrHandler → job `failed` with the error text persisted.
@@ -161,7 +166,12 @@ async fn worker_err_handler_persists_failed() {
     let static_kind = "test-err-static";
     let q = Arc::new(JobQueue::new(db.clone(), "test-worker-err"));
     let id = q
-        .enqueue_or_attach(static_kind, None, &serde_json::json!({ "radius": -1 }), i16::MAX)
+        .enqueue_or_attach(
+            static_kind,
+            None,
+            &serde_json::json!({ "radius": -1 }),
+            i16::MAX,
+        )
         .await
         .expect("enqueue");
 
@@ -191,7 +201,10 @@ async fn worker_err_handler_persists_failed() {
     let outcome = outcome.expect("await_result");
     let persisted_error = match &outcome {
         JobOutcome::Failed { error, code } => {
-            assert_eq!(code, "validation_error", "code from validation error must be 'validation_error'");
+            assert_eq!(
+                code, "validation_error",
+                "code from validation error must be 'validation_error'"
+            );
             error.clone()
         }
         other => panic!("expected Failed, got {other:?}"),
@@ -256,9 +269,16 @@ async fn worker_no_handler_marks_job_failed() {
     }
 
     let rec = rec.expect("get");
-    assert_eq!(rec.status, JobStatus::Failed, "DB status must be Failed for unknown kind");
+    assert_eq!(
+        rec.status,
+        JobStatus::Failed,
+        "DB status must be Failed for unknown kind"
+    );
     assert!(
-        rec.error.as_deref().unwrap_or("").contains("no handler registered"),
+        rec.error
+            .as_deref()
+            .unwrap_or("")
+            .contains("no handler registered"),
         "DB error must mention 'no handler registered', got: {:?}",
         rec.error
     );
@@ -330,11 +350,7 @@ async fn worker_shutdown_waits_for_in_flight_job() {
         fn kind(&self) -> &'static str {
             "test-slow-static"
         }
-        fn run(
-            &self,
-            _p: serde_json::Value,
-            _ctx: &JobCtx,
-        ) -> Result<serde_json::Value, JobError> {
+        fn run(&self, _p: serde_json::Value, _ctx: &JobCtx) -> Result<serde_json::Value, JobError> {
             std::thread::sleep(Duration::from_millis(200));
             Ok(serde_json::json!({ "slow": true }))
         }
@@ -471,13 +487,16 @@ async fn worker_handler_receives_cancel_signal_via_ctx() {
             // cancel (phase='canceling') is not wired to this token automatically
             // — that's a handler's responsibility. So here we just record the
             // initial state and succeed; the test validates the handler ran.
-            self.saw_cancel.store(ctx.cancel.is_cancelled(), Ordering::SeqCst);
+            self.saw_cancel
+                .store(ctx.cancel.is_cancelled(), Ordering::SeqCst);
             Ok(serde_json::json!({ "cancel_flag": ctx.cancel.is_cancelled() }))
         }
     }
 
     let saw_cancel = Arc::new(AtomicBool::new(false));
-    let handler = CancelAwareHandler { saw_cancel: Arc::clone(&saw_cancel) };
+    let handler = CancelAwareHandler {
+        saw_cancel: Arc::clone(&saw_cancel),
+    };
     let registry = HandlerRegistry::new().register(handler);
 
     let static_kind = "test-cancel-aware";
@@ -510,5 +529,8 @@ async fn worker_handler_receives_cancel_signal_via_ctx() {
         "handler must receive ctx and see cancel_flag=false on a fresh job"
     );
     // Cancel token starts false (job was not canceled before the handler ran).
-    assert!(!saw_cancel.load(Ordering::SeqCst), "cancel token must start false");
+    assert!(
+        !saw_cancel.load(Ordering::SeqCst),
+        "cancel token must start false"
+    );
 }

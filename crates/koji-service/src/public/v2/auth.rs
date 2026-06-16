@@ -95,7 +95,11 @@ async fn logout(session: Session) -> HttpResponse {
     responses((status = 200, description = "Auth standing: `{ authenticated, via }`", body = Object)),
 )]
 async fn me(req: HttpRequest, session: Session) -> HttpResponse {
-    let logged_in = session.get::<bool>("logged_in").ok().flatten().unwrap_or(false);
+    let logged_in = session
+        .get::<bool>("logged_in")
+        .ok()
+        .flatten()
+        .unwrap_or(false);
     let secret = env::var("KOJI_SECRET").unwrap_or_default();
     let bearer = req
         .headers()

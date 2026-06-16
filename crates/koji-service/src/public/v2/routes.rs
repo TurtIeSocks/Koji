@@ -129,7 +129,10 @@ async fn create(
 ) -> Result<HttpResponse, ServiceError> {
     let value = serde_json::to_value(body.into_inner()).map_err(ServiceError::internal)?;
     let record = route::Query::upsert_json_return(&conn.koji, 0, value).await?;
-    let id = record.get("id").and_then(serde_json::Value::as_u64).unwrap_or(0);
+    let id = record
+        .get("id")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
     Ok(HttpResponse::build(StatusCode::CREATED)
         .insert_header(("Location", format!("/api/v2/routes/{id}")))
         .json(ApiResponse::Ok {
@@ -225,7 +228,10 @@ async fn update(
         (status = 404, description = "No such route", body = ApiError),
     ),
 )]
-async fn remove(conn: web::Data<KojiDb>, path: web::Path<u32>) -> Result<HttpResponse, ServiceError> {
+async fn remove(
+    conn: web::Data<KojiDb>,
+    path: web::Path<u32>,
+) -> Result<HttpResponse, ServiceError> {
     let result = route::Query::delete(&conn.koji, path.into_inner()).await?;
     if result.rows_affected == 0 {
         return Err(ServiceError::NotFound {
@@ -367,9 +373,22 @@ mod tests {
     #[test]
     fn create_route_requires_geofence_id_name_geometry() {
         // `geofence_id` + `name` + `geometry` are required (not Option).
-        assert!(serde_json::from_value::<CreateRoute>(json!({ "name": "x", "geometry": sample_geometry() })).is_err());
-        assert!(serde_json::from_value::<CreateRoute>(json!({ "geofence_id": 1, "geometry": sample_geometry() })).is_err());
-        assert!(serde_json::from_value::<CreateRoute>(json!({ "geofence_id": 1, "name": "x" })).is_err());
+        assert!(
+            serde_json::from_value::<CreateRoute>(
+                json!({ "name": "x", "geometry": sample_geometry() })
+            )
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<CreateRoute>(
+                json!({ "geofence_id": 1, "geometry": sample_geometry() })
+            )
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<CreateRoute>(json!({ "geofence_id": 1, "name": "x" }))
+                .is_err()
+        );
     }
 
     #[test]
@@ -415,7 +434,8 @@ mod tests {
 
     #[test]
     fn patch_route_partial_omits_none_on_serialize() {
-        let dto: PatchRoute = serde_json::from_value(json!({ "description": "only this" })).unwrap();
+        let dto: PatchRoute =
+            serde_json::from_value(json!({ "description": "only this" })).unwrap();
         assert_eq!(dto.description.as_deref(), Some("only this"));
         let v = serde_json::to_value(&dto).unwrap();
         assert_eq!(v["description"], "only this");
@@ -431,15 +451,24 @@ mod tests {
             format: Some("sql".into()),
             rt: Some("feature".into()),
         };
-        assert_eq!(q.return_type(ReturnTypeArg::FeatureCollection), ReturnTypeArg::Sql);
+        assert_eq!(
+            q.return_type(ReturnTypeArg::FeatureCollection),
+            ReturnTypeArg::Sql
+        );
 
         let q = ReadQuery {
             format: None,
             rt: Some("sql".into()),
         };
-        assert_eq!(q.return_type(ReturnTypeArg::FeatureCollection), ReturnTypeArg::Sql);
+        assert_eq!(
+            q.return_type(ReturnTypeArg::FeatureCollection),
+            ReturnTypeArg::Sql
+        );
 
         let q = ReadQuery::default();
-        assert_eq!(q.return_type(ReturnTypeArg::Feature), ReturnTypeArg::Feature);
+        assert_eq!(
+            q.return_type(ReturnTypeArg::Feature),
+            ReturnTypeArg::Feature
+        );
     }
 }

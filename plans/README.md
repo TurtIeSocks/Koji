@@ -12,7 +12,7 @@ DB-integration tests skip cleanly unless `KOJI_DB_URL` is set (`source ./.env.te
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| 001 | CI verification gate (fmt + clippy + test) | P1 | S | — | TODO |
+| 001 | CI verification gate (fmt + clippy + test) | P1 | S | — | DONE |
 | 002 | Replace zero session key + harden auth compares | P1 | M | 001 (soft) | TODO |
 | 003 | Stop `parse_property_value` panics | P1 | S | — | TODO |
 | 004 | Batch project-list geofence fetch (N+1) | P2 | M | — | TODO |

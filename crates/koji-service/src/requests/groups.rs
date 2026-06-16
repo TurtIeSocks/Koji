@@ -245,8 +245,7 @@ mod tests {
     #[test]
     fn clustering_args_plugin_args_prepended() {
         let g: ClusteringArgs =
-            serde_json::from_str(r#"{"pluginArgs":"--custom","radius":40,"minPoints":2}"#)
-                .unwrap();
+            serde_json::from_str(r#"{"pluginArgs":"--custom","radius":40,"minPoints":2}"#).unwrap();
         let cfg = g.resolve();
         assert!(cfg.plugin_args.starts_with("--custom"));
         assert!(cfg.plugin_args.contains("--radius 40"));
@@ -387,9 +386,7 @@ mod tests {
 
     #[test]
     fn dev_args_benchmark_mode_true() {
-        let g: DevArgs =
-            serde_json::from_str(r#"{"benchmarkMode":true}"#)
-                .unwrap();
+        let g: DevArgs = serde_json::from_str(r#"{"benchmarkMode":true}"#).unwrap();
         let cfg = g.resolve();
         assert!(cfg.benchmark_mode);
     }

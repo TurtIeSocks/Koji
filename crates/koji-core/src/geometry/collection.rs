@@ -83,11 +83,7 @@ mod tests {
 
     #[test]
     fn ensure_first_last_closes_open_ring_in_feature() {
-        let ring = vec![
-            vec![0.0, 0.0],
-            vec![1.0, 0.0],
-            vec![1.0, 1.0],
-        ];
+        let ring = vec![vec![0.0, 0.0], vec![1.0, 0.0], vec![1.0, 1.0]];
         let fc = make_fc(vec![polygon_feature(ring)]);
         let closed = fc.ensure_first_last();
         let ring_out = match &closed.features[0].geometry.as_ref().unwrap().value {
@@ -133,7 +129,10 @@ mod tests {
             Value::Polygon(rings) => rings[0].clone(),
             _ => panic!("expected Polygon"),
         };
-        assert!(ring_out.len() < 6, "expected simplification to reduce points");
+        assert!(
+            ring_out.len() < 6,
+            "expected simplification to reduce points"
+        );
     }
 
     #[test]

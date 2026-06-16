@@ -90,7 +90,9 @@ async fn route_crud_round_trip() {
 
     // cleanup
     route::Query::delete(&db, id).await.expect("route delete");
-    geofence::Query::delete(&db, fence_id).await.expect("geofence delete");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("geofence delete");
 
     let after = route::Query::get_one(&db, id.to_string()).await;
 
@@ -156,7 +158,9 @@ async fn route_update_round_trip() {
 
     // cleanup before assert
     route::Query::delete(&db, id).await.expect("delete");
-    geofence::Query::delete(&db, fence_id).await.expect("geofence delete");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("geofence delete");
 
     assert_eq!(updated["name"], json!(updated_name));
     assert_eq!(updated["id"], json!(id)); // same row
@@ -170,7 +174,10 @@ async fn route_get_one_not_found_is_err() {
     let _g = serial_guard().await;
     // id 0 will never exist in a valid dataset
     let result = route::Query::get_one(&db, "999999999".to_string()).await;
-    assert!(result.is_err(), "get_one of non-existent route should error");
+    assert!(
+        result.is_err(),
+        "get_one of non-existent route should error"
+    );
 }
 
 // ── route by_geofence ────────────────────────────────────────────────────────
@@ -220,8 +227,12 @@ async fn route_by_geofence_id_returns_related_routes() {
         .expect("by_geofence by route name (should be empty)");
 
     // cleanup
-    route::Query::delete(&db, route_id).await.expect("delete route");
-    geofence::Query::delete(&db, fence_id).await.expect("delete geofence");
+    route::Query::delete(&db, route_id)
+        .await
+        .expect("delete route");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("delete geofence");
 
     assert!(
         by_id.iter().any(|r| r["name"] == json!(route_name)),
@@ -244,11 +255,8 @@ async fn route_search_no_match_returns_empty() {
     let Some(db) = test_db().await else { return };
     let _g = serial_guard().await;
     // Use a name that cannot exist in the db (UUID-like, very long).
-    let hits = route::Query::search(
-        &db,
-        "zzz-impossible-route-name-99999999999999".to_string(),
-    )
-    .await
-    .expect("search ok");
+    let hits = route::Query::search(&db, "zzz-impossible-route-name-99999999999999".to_string())
+        .await
+        .expect("search ok");
     assert!(hits.is_empty(), "search with no match returns empty vec");
 }

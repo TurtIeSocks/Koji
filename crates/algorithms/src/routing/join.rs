@@ -109,9 +109,7 @@ mod tests {
 
     #[test]
     fn stitch_routes_single_cluster_returns_all_points() {
-        let cluster: Vec<SingleVec> = vec![
-            vec![[40.0, -74.0], [40.001, -74.0], [40.002, -74.0]],
-        ];
+        let cluster: Vec<SingleVec> = vec![vec![[40.0, -74.0], [40.001, -74.0], [40.002, -74.0]]];
         let out = stitch_routes(cluster);
         assert_eq!(out.len(), 3);
     }

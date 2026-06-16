@@ -67,7 +67,12 @@ mod tests {
     fn default_geojson_serves_json() {
         let resp = respond_geo(coll(), ReturnTypeArg::FeatureCollection);
         assert_eq!(resp.status(), StatusCode::OK);
-        let ct = resp.headers().get("content-type").unwrap().to_str().unwrap();
+        let ct = resp
+            .headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap();
         assert!(ct.contains("application/json"), "got {ct}");
     }
 
@@ -75,7 +80,12 @@ mod tests {
     fn sql_is_raw_text_plain() {
         let resp = respond_geo(coll(), ReturnTypeArg::Sql);
         assert_eq!(resp.status(), StatusCode::OK);
-        let ct = resp.headers().get("content-type").unwrap().to_str().unwrap();
+        let ct = resp
+            .headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap();
         assert!(ct.starts_with("text/plain"), "got {ct}");
     }
 
@@ -83,7 +93,12 @@ mod tests {
     fn poracle_is_raw_json() {
         let resp = respond_geo(coll(), ReturnTypeArg::Poracle);
         assert_eq!(resp.status(), StatusCode::OK);
-        let ct = resp.headers().get("content-type").unwrap().to_str().unwrap();
+        let ct = resp
+            .headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap();
         assert!(ct.contains("application/json"), "got {ct}");
     }
 }

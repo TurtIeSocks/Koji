@@ -94,15 +94,22 @@ async fn route_by_geofence_feature_by_id_returns_features() {
         .await
         .expect("by_geofence_feature (name)");
 
-    route::Query::delete(&db, route_id).await.expect("del route");
-    geofence::Query::delete(&db, fence_id).await.expect("del fence");
+    route::Query::delete(&db, route_id)
+        .await
+        .expect("del route");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("del fence");
 
     // by id: route feature present, has name property, has geometry
     assert!(!features.is_empty(), "features non-empty for fence id");
     let found = features
         .iter()
         .any(|f| f.property("name").and_then(|v| v.as_str()) == Some(&route_name));
-    assert!(found, "route feature has 'name' property matching route_name");
+    assert!(
+        found,
+        "route feature has 'name' property matching route_name"
+    );
     assert!(
         features.iter().all(|f| f.geometry.is_some()),
         "all features have geometry"
@@ -131,8 +138,12 @@ async fn route_by_geofence_feature_internal_has_underscore_props() {
         .await
         .expect("by_geofence_feature (internal)");
 
-    route::Query::delete(&db, route_id).await.expect("del route");
-    geofence::Query::delete(&db, fence_id).await.expect("del fence");
+    route::Query::delete(&db, route_id)
+        .await
+        .expect("del route");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("del fence");
 
     assert!(!features.is_empty());
     // internal path: __name and __id are set, not plain 'name'/'id'
@@ -166,8 +177,12 @@ async fn route_by_geofence_koji_non_internal_has_name_and_polygon() {
         .await
         .expect("by_geofence_koji (non-internal)");
 
-    route::Query::delete(&db, route_id).await.expect("del route");
-    geofence::Query::delete(&db, fence_id).await.expect("del fence");
+    route::Query::delete(&db, route_id)
+        .await
+        .expect("del route");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("del fence");
 
     assert!(!coll.items.is_empty(), "collection non-empty");
     let found = coll
@@ -197,14 +212,21 @@ async fn route_by_geofence_koji_internal_carries_extra_props() {
         .await
         .expect("by_geofence_koji (internal)");
 
-    route::Query::delete(&db, route_id).await.expect("del route");
-    geofence::Query::delete(&db, fence_id).await.expect("del fence");
+    route::Query::delete(&db, route_id)
+        .await
+        .expect("del route");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("del fence");
 
     assert!(!coll.items.is_empty());
     // internal: __geofence_id lives in meta.extra
     let item = &coll.items[0];
     assert_eq!(
-        item.meta.extra.get("__geofence_id").and_then(|v| v.as_u64()),
+        item.meta
+            .extra
+            .get("__geofence_id")
+            .and_then(|v| v.as_u64()),
         Some(fence_id as u64),
         "__geofence_id carried in meta.extra for internal path"
     );
@@ -250,9 +272,13 @@ async fn route_upsert_from_geometry_inserts_and_returns_counts() {
 
     // cleanup
     if let Ok(ref model) = got {
-        route::Query::delete(&db, model.id).await.expect("del route");
+        route::Query::delete(&db, model.id)
+            .await
+            .expect("del route");
     }
-    geofence::Query::delete(&db, fence_id).await.expect("del fence");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("del fence");
 
     assert_eq!(inserts, 1, "one insert");
     assert_eq!(updates, 0, "no updates on first run");
@@ -305,8 +331,12 @@ async fn route_upsert_from_geometry_update_existing_row() {
         .await
         .expect("second upsert");
 
-    route::Query::delete(&db, route_id).await.expect("del route");
-    geofence::Query::delete(&db, fence_id).await.expect("del fence");
+    route::Query::delete(&db, route_id)
+        .await
+        .expect("del route");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("del fence");
 
     assert_eq!(inserts, 0, "no inserts on re-run of existing name+mode");
     assert_eq!(updates, 1, "one update for existing row");

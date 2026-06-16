@@ -48,7 +48,10 @@ mod tests {
         let da = Haversine.distance(a, m);
         let db = Haversine.distance(b, m);
         // Within 1 m difference (arithmetic error on tiny segment).
-        assert!((da - db).abs() < 1.0, "midpoint not approx equidistant: {da} vs {db}");
+        assert!(
+            (da - db).abs() < 1.0,
+            "midpoint not approx equidistant: {da} vs {db}"
+        );
     }
 
     #[test]
@@ -93,4 +96,3 @@ mod tests {
         assert!(center.y() > -0.01 && center.y() < 0.02);
     }
 }
-

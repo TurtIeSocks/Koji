@@ -417,11 +417,7 @@ pub fn parse_property_value(value: &String, category: &Category) -> Value {
 /// Thin wrapper so tests can call determine_category_by_value with a
 /// `HashMap<&str, Value>` built inline.
 #[cfg(test)]
-fn dcbv<'a>(
-    key: &'a str,
-    value: Value,
-    db_keys: &[&'a str],
-) -> (Category, Option<Value>) {
+fn dcbv<'a>(key: &'a str, value: Value, db_keys: &[&'a str]) -> (Category, Option<Value>) {
     let mut map = HashMap::new();
     for k in db_keys {
         map.insert(*k, Value::Null);
@@ -502,8 +498,8 @@ mod tests {
 
     #[test]
     fn parse_number_category_valid_float() {
-        let v = parse_property_value(&"3.14".to_string(), &Category::Number);
-        assert_eq!(v.as_f64().unwrap(), 3.14);
+        let v = parse_property_value(&"3.15".to_string(), &Category::Number);
+        assert_eq!(v.as_f64().unwrap(), 3.15);
     }
 
     #[test]
@@ -733,7 +729,10 @@ mod tests {
         let model = v.to_project().unwrap();
         assert_eq!(model.name.unwrap(), "Full");
         assert!(model.scanner.unwrap());
-        assert_eq!(model.api_endpoint.unwrap(), Some("https://example.com".to_string()));
+        assert_eq!(
+            model.api_endpoint.unwrap(),
+            Some("https://example.com".to_string())
+        );
         assert_eq!(model.api_key.unwrap(), Some("secret".to_string()));
         assert_eq!(model.description.unwrap(), Some("A project".to_string()));
     }

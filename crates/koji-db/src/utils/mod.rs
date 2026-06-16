@@ -178,7 +178,10 @@ mod tests {
     #[test]
     fn get_enum_unknown_string_maps_to_unset() {
         use crate::db::sea_orm_active_enums::Mode;
-        assert_eq!(get_enum(Some("completely_unknown".to_string())), Mode::Unset);
+        assert_eq!(
+            get_enum(Some("completely_unknown".to_string())),
+            Mode::Unset
+        );
     }
 
     // ── get_category_enum ───────────────────────────────────────────────────────

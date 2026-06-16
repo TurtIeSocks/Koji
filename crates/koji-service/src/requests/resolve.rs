@@ -193,8 +193,14 @@ mod tests {
     #[test]
     fn resolve_data_points_struct_maps_lat_lon() {
         let structs: koji_core::SingleStruct = vec![
-            PointStruct { lat: 10.0, lon: 20.0 },
-            PointStruct { lat: 30.0, lon: 40.0 },
+            PointStruct {
+                lat: 10.0,
+                lon: 20.0,
+            },
+            PointStruct {
+                lat: 30.0,
+                lon: 40.0,
+            },
         ];
         let result = resolve_data_points(Some(DataPointsArg::Struct(structs)));
         assert_eq!(result, vec![[10.0, 20.0], [30.0, 40.0]]);

@@ -55,13 +55,10 @@ async fn make_geofence(db: &DatabaseConnection, name: &str) -> u32 {
 }
 
 async fn make_project(db: &DatabaseConnection, name: &str) -> u32 {
-    let created = project::Query::upsert_json_return(
-        db,
-        0,
-        json!({ "name": name, "scanner": false }),
-    )
-    .await
-    .expect("make_project");
+    let created =
+        project::Query::upsert_json_return(db, 0, json!({ "name": name, "scanner": false }))
+            .await
+            .expect("make_project");
     created["id"].as_u64().expect("has id") as u32
 }
 
@@ -77,7 +74,9 @@ async fn geofence_get_one_with_related_has_routes_and_projects_fields() {
 
     let got = geofence::Query::get_one_json_with_related(&db, fence_id.to_string()).await;
 
-    geofence::Query::delete(&db, fence_id).await.expect("delete");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("delete");
 
     let got = got.expect("get_one_json_with_related ok");
     assert_eq!(got["name"], json!(name));
@@ -98,9 +97,13 @@ async fn geofence_search_finds_by_name_substring() {
     let fence_id = make_geofence(&db, &name).await;
 
     // search for a unique substring of the name
-    let hits = geofence::Query::search(&db, name.clone()).await.expect("search");
+    let hits = geofence::Query::search(&db, name.clone())
+        .await
+        .expect("search");
 
-    geofence::Query::delete(&db, fence_id).await.expect("delete");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("delete");
 
     assert!(
         hits.iter().any(|r| r["name"] == json!(name)),
@@ -131,7 +134,9 @@ async fn geofence_json_cache_contains_new_geofence() {
 
     let cache = geofence::Query::get_json_cache(&db).await.expect("cache");
 
-    geofence::Query::delete(&db, fence_id).await.expect("delete");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("delete");
 
     assert!(
         cache.iter().any(|r| r["name"] == json!(name)),
@@ -167,7 +172,9 @@ async fn geofence_upsert_update_changes_mode() {
         .await
         .expect("get after update");
 
-    geofence::Query::delete(&db, fence_id).await.expect("delete");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("delete");
 
     assert_eq!(updated["id"], json!(fence_id), "same row id");
     assert_eq!(got["mode"], json!("fort"), "mode updated");
@@ -187,8 +194,7 @@ async fn geofence_get_one_not_found_by_id_is_err() {
 async fn geofence_get_one_not_found_by_name_is_err() {
     let Some(db) = test_db().await else { return };
     let _g = serial_guard().await;
-    let result =
-        geofence::Query::get_one(&db, "zzz-impossible-geofence-99999".to_string()).await;
+    let result = geofence::Query::get_one(&db, "zzz-impossible-geofence-99999".to_string()).await;
     assert!(result.is_err());
 }
 
@@ -206,13 +212,9 @@ async fn geofence_project_upsert_related_by_geofence_id() {
     let proj_id = make_project(&db, &proj_name).await;
 
     // Link geofence → project
-    geofence_project::Query::upsert_related_by_geofence_id(
-        &db,
-        &[json!(proj_id)],
-        fence_id,
-    )
-    .await
-    .expect("upsert by geofence_id");
+    geofence_project::Query::upsert_related_by_geofence_id(&db, &[json!(proj_id)], fence_id)
+        .await
+        .expect("upsert by geofence_id");
 
     // Verify link is reflected in the geofence's projects list
     let with_related = geofence::Query::get_one_json_with_related(&db, fence_id.to_string())
@@ -227,17 +229,17 @@ async fn geofence_project_upsert_related_by_geofence_id() {
         .collect();
 
     // Unlink (pass empty list)
-    geofence_project::Query::upsert_related_by_geofence_id(
-        &db,
-        &[],
-        fence_id,
-    )
-    .await
-    .expect("unlink");
+    geofence_project::Query::upsert_related_by_geofence_id(&db, &[], fence_id)
+        .await
+        .expect("unlink");
 
     // cleanup
-    geofence::Query::delete(&db, fence_id).await.expect("delete fence");
-    project::Query::delete(&db, proj_id).await.expect("delete project");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("delete fence");
+    project::Query::delete(&db, proj_id)
+        .await
+        .expect("delete project");
 
     assert!(
         projects.contains(&proj_id),
@@ -259,13 +261,9 @@ async fn geofence_project_upsert_related_by_project_id() {
     let proj_id = make_project(&db, &proj_name).await;
 
     // Link project → geofence (mirror side)
-    geofence_project::Query::upsert_related_by_project_id(
-        &db,
-        &[json!(fence_id)],
-        proj_id,
-    )
-    .await
-    .expect("upsert by project_id");
+    geofence_project::Query::upsert_related_by_project_id(&db, &[json!(fence_id)], proj_id)
+        .await
+        .expect("upsert by project_id");
 
     // Verify via the all() list
     let all = geofence_project::Query::get_all(&db)
@@ -276,17 +274,17 @@ async fn geofence_project_upsert_related_by_project_id() {
         .any(|r| r.geofence_id == fence_id && r.project_id == proj_id);
 
     // Unlink
-    geofence_project::Query::upsert_related_by_project_id(
-        &db,
-        &[],
-        proj_id,
-    )
-    .await
-    .expect("unlink");
+    geofence_project::Query::upsert_related_by_project_id(&db, &[], proj_id)
+        .await
+        .expect("unlink");
 
     // cleanup
-    geofence::Query::delete(&db, fence_id).await.expect("delete fence");
-    project::Query::delete(&db, proj_id).await.expect("delete project");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("delete fence");
+    project::Query::delete(&db, proj_id)
+        .await
+        .expect("delete project");
 
     assert!(found, "join row exists after upsert_related_by_project_id");
 }
@@ -320,8 +318,12 @@ async fn geofence_project_delete_removes_link() {
     let del = geofence_project::Query::delete(&db, Some(fence_id), Some(proj_id)).await;
 
     // cleanup
-    geofence::Query::delete(&db, fence_id).await.expect("delete fence");
-    project::Query::delete(&db, proj_id).await.expect("delete project");
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("delete fence");
+    project::Query::delete(&db, proj_id)
+        .await
+        .expect("delete project");
 
     del.expect("delete link ok");
 }
@@ -370,18 +372,16 @@ async fn plugin_config_full_lifecycle() {
 
     // all — contains our row
     let all = plugin_config::Query::all(&db).await.expect("all ok");
-    let found = all
-        .iter()
-        .any(|r| r.kind == kind && r.name == name);
+    let found = all.iter().any(|r| r.kind == kind && r.name == name);
 
     // update (upsert again — existing row)
     let updated = plugin_config::Query::upsert(
         &db,
         &kind,
         &name,
-        Some(false),     // flip enabled
-        None,            // leave args_default
-        None,            // leave description
+        Some(false), // flip enabled
+        None,        // leave args_default
+        None,        // leave description
     )
     .await
     .expect("plugin_config update");

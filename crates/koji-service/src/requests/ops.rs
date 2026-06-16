@@ -371,10 +371,8 @@ mod tests {
 
     #[test]
     fn default_return_type_for_feature_collection_area() {
-        let req: ClusterReq = serde_json::from_str(
-            r#"{"area":{"type":"FeatureCollection","features":[]}}"#,
-        )
-        .unwrap();
+        let req: ClusterReq =
+            serde_json::from_str(r#"{"area":{"type":"FeatureCollection","features":[]}}"#).unwrap();
         assert_eq!(req.default_return_type(), ReturnTypeArg::FeatureCollection);
     }
 
@@ -389,10 +387,8 @@ mod tests {
 
     #[test]
     fn default_return_type_for_geometry_area() {
-        let req: ClusterReq = serde_json::from_str(
-            r#"{"area":{"type":"Point","coordinates":[0,0]}}"#,
-        )
-        .unwrap();
+        let req: ClusterReq =
+            serde_json::from_str(r#"{"area":{"type":"Point","coordinates":[0,0]}}"#).unwrap();
         assert_eq!(req.default_return_type(), ReturnTypeArg::Geometry);
     }
 
@@ -523,10 +519,8 @@ mod tests {
 
     #[test]
     fn simplify_req_fc_area_is_feature_collection() {
-        let req: SimplifyReq = serde_json::from_str(
-            r#"{"area":{"type":"FeatureCollection","features":[]}}"#,
-        )
-        .unwrap();
+        let req: SimplifyReq =
+            serde_json::from_str(r#"{"area":{"type":"FeatureCollection","features":[]}}"#).unwrap();
         assert_eq!(req.default_return_type(), ReturnTypeArg::FeatureCollection);
     }
 
