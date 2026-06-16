@@ -18,7 +18,7 @@ DB-integration tests skip cleanly unless `KOJI_DB_URL` is set (`source ./.env.te
 | 004 | Batch project-list geofence fetch (N+1) | P2 | M | — | DONE |
 | 005 | NaN-safe crucible comparators + frame clamp | P2 | S | — | DONE |
 | 006 | Split `geofence.rs` god-file | P3 | L | do last | DONE |
-| 007 | Cache crucible hot-path grid scans | P3 | S–M | benchmark harness first | **DEFERRED** |
+| 007 | Cache crucible hot-path grid scans | P3 | S–M | — | **REJECTED** (measured ~2% — marginal) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (one-line reason) | REJECTED (one-line
 rationale).
@@ -43,16 +43,21 @@ rationale).
 - **005 ↔ 007**: both touch `crucible/refine.rs`. If 007 is ever picked up, re-run 005's
   regression test afterward.
 
-## Deferred
+## Investigated and rejected
 
-- **007 — Cache crucible hot-path grid scans.** The clustering inner loop recomputes
-  `query_covered(cand)` / `shared_at(...)` / `exclusive_of(i)` 2–3× per move
-  (`crates/algorithms/src/clustering/crucible/refine.rs:483,610,1494-1515`). Caching them is
-  an S–M change, BUT `crucible` is freshly hand-tuned hot-path code: a refactor risks
-  changing clustering *results*, and the win is unproven without measurement. **Prerequisite:
-  a benchmark harness** (representative point set, before/after timing + identical-output
-  assertion) must exist before touching this. Deferred by the maintainer on 2026-06-16; a
-  background task chip was spawned to track it.
+- **007 — Cache crucible hot-path grid scans → REJECTED (2026-06-16, measured).** The audit
+  claimed `query_covered(cand)` is recomputed 2–3× per move. Investigated with an instrumented
+  benchmark (deterministic 3000-point field, `crucible.run`): **180,936 `query_covered` calls**,
+  of which only **3,686 (2.0%)** were the safely-cacheable same-`cand` back-to-back kind. The
+  audit over-counted — the dominant *proposal-phase* scans (every center, every pass) are
+  genuine unique evaluations, not redundant; only the *apply-phase* re-check+`new_cov` pair is
+  truly duplicated, and that's 2%. `band_delta`'s two scans use a different radius/predicate
+  (not reusable), and `exclusive_of`'s recompute in `drop_pass` is a *deliberate* post-mutation
+  re-check (caching it would be wrong). So the achievable win is <2% of `query_covered` calls →
+  well under 2% wall-clock, against a ~9-site refactor of hand-tuned parallel/serial passes.
+  Marginal; not worth the regression risk to the production clusterer. All instrumentation
+  reverted; no source change. (Crucible determinism is already covered by `mod.rs`'s
+  `assert_eq!(run, run)` test, should a future profile-guided pass revisit this.)
 
 ## Findings considered and rejected
 
