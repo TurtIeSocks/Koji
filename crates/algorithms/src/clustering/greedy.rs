@@ -36,10 +36,6 @@ pub struct Greedy {
     max_clusters: usize,
     min_points: usize,
     radius: Precision,
-    /// Dev-only A/B toggle: when `true`, `run()` skips the adaptive S2 partition
-    /// and the post-greedy gap-fill pass, falling back to the pre-PR `setup()`
-    /// path for every mode. See [DevArgs] on the API side.
-    bypass_adaptive_partition: bool,
 }
 
 impl Default for Greedy {
@@ -49,7 +45,6 @@ impl Default for Greedy {
             max_clusters: usize::MAX,
             min_points: 1,
             radius: 70.,
-            bypass_adaptive_partition: false,
         }
     }
 }
@@ -71,188 +66,13 @@ impl<'a> Greedy {
         self.min_points = min_points;
         self
     }
-    pub fn set_cluster_split_level(&mut self, cluster_split_level: u64) -> &mut Self {
-        if cluster_split_level != 0 {
-            log::warn!(
-                "cluster_split_level is deprecated and will be ignored. \
-                 Adaptive S2 partitioning is now automatic for Better/Best modes."
-            );
-        }
-        self
-    }
-    /// Dev-only A/B toggle. When `true`, [`Greedy::run`] uses the pre-PR
-    /// `setup()` path for every mode (no adaptive partition, no gap-fill).
-    /// Wired from `DevArgs::bypass_adaptive_partition` via `clustering::main`.
-    pub fn set_bypass_adaptive_partition(&mut self, bypass: bool) -> &mut Self {
-        self.bypass_adaptive_partition = bypass;
-        self
-    }
 
     pub fn run(&'a self, points: &SingleVec) -> SingleVec {
         let time = Instant::now();
         log::info!("starting algorithm with {} data points", points.len());
-
-        // Dev A/B toggle: when `bypass_adaptive_partition` is on, every mode
-        // (including Better/Best) goes through the pre-PR `setup()` path with
-        // no partition and no gap-fill — i.e. exactly the algorithm shape from
-        // commit prior to docs/superpowers/specs/2026-05-27-greedy-bbox-adaptive-partition-design.md.
-        // Used for side-by-side quality comparison during PR review.
-        let return_set = if self.bypass_adaptive_partition {
-            log::info!("dev: bypass_adaptive_partition=true (pre-PR algorithm path)");
-            self.setup(points)
-        } else {
-            match self.cluster_mode {
-                ClusterMode::Better | ClusterMode::Best => self.run_partitioned(points),
-                _ => self.setup(points),
-            }
-        };
-
+        let return_set = self.setup(points);
         log::info!("finished in {:.2}s", time.elapsed().as_secs_f32());
         return_set.into_iter().map(|p| p.center).collect()
-    }
-
-    #[time()]
-    fn run_partitioned(&'a self, points: &SingleVec) -> HashSet<Point> {
-        use crate::clustering::partition::{
-            PartitionConfig, PartitionStats, adaptive_partition, mode_tag,
-        };
-        use rayon::prelude::*;
-
-        let config = PartitionConfig::load();
-        // Global rtree built once for halo gathering and gap-fill. Per-chunk
-        // candidate generation + greedy uses chunk-local data (bounded memory).
-        let all_points_tree: RTree<Point> = crate::rtree::spawn(self.radius, points);
-        let chunks = adaptive_partition(
-            points,
-            config.budget,
-            &self.cluster_mode,
-            config.start_level,
-            config.max_level,
-        );
-
-        let mut stats = PartitionStats::default();
-
-        // Per-chunk greedy: each chunk builds its own (owned + halo) rtree,
-        // generates candidates bounded to chunk extent, runs greedy + update_unique
-        // locally, then drops the chunk-local rtree. Memory peak per chunk is
-        // bounded by the budget; flat global Vec<Cluster> never holds all
-        // candidates simultaneously.
-        #[allow(clippy::type_complexity)]
-        let chunk_results: Vec<(HashSet<Point>, Option<(ClusterMode, ClusterMode)>)> = chunks
-            .par_iter()
-            .map(|chunk| self.solve_chunk_local(chunk, &all_points_tree, config.budget))
-            .collect();
-
-        let mut solution: HashSet<Point> = HashSet::with_capacity(chunks.len() * 32);
-        for (chunk_solution, downgrade) in chunk_results {
-            solution.extend(chunk_solution);
-            if let Some((from, to)) = downgrade {
-                let key = (mode_tag(&from), mode_tag(&to));
-                *stats.downgrades.entry(key).or_insert(0) += 1;
-            }
-        }
-
-        log::info!(
-            "partition: {} chunks, downgrades: {:?}, post-chunk centers: {}",
-            chunks.len(),
-            stats.downgrades,
-            solution.len(),
-        );
-
-        // Convert HashSet<Point> back to Vec<Cluster> for the merge + gap-fill
-        // passes. Each Cluster's `all` is recomputed against the GLOBAL tree so
-        // these passes see correct coverage counts even though earlier greedy
-        // ran chunk-locally.
-        let solution_vec: Vec<Cluster<'_>> = solution
-            .into_iter()
-            .filter_map(|p| {
-                let mut covered: Vec<&Point> =
-                    all_points_tree.locate_all_at_point(&p.center).collect();
-                covered.sort_dedupe();
-                (!covered.is_empty()).then(|| Cluster::new(p, covered, vec![]))
-            })
-            .collect();
-
-        // Post-greedy gap-fill: each new cluster covering > min_points
-        // previously-uncovered points is a strict mygod_score win.
-        // (merge_redundant_clusters was removed from this path: SEC-per-pair
-        // cost dominates wall-clock on non-dense inputs for ≈0.4% mygod gain.
-        // The fn is still defined and available behind future opt-in flags.)
-        let solution_vec = self.fill_coverage_gaps(solution_vec, points, &all_points_tree);
-
-        let mut final_solution: HashSet<Point> =
-            solution_vec.into_iter().map(|c| c.into()).collect();
-
-        if self.min_points == 1 {
-            let cap = self.max_clusters.saturating_sub(final_solution.len());
-            if cap > 0 {
-                let seen_cell_ids: HashSet<CellID> =
-                    final_solution.iter().map(|p| p.cell_id).collect();
-                let missing = self.recover_missing_points(&seen_cell_ids, points, cap);
-                final_solution.extend(missing);
-            }
-        }
-        log::info!("final solution size: {}", final_solution.len());
-        final_solution
-    }
-
-    /// Solve a single partition chunk locally and return its cluster centers.
-    /// Greedy runs chunk-locally to bound memory: only the chunk's owned + halo
-    /// points + candidates ever live in memory at once. Result is the set of
-    /// cluster centers owned by this chunk (ownership = cell-of-center).
-    fn solve_chunk_local(
-        &'a self,
-        chunk: &crate::clustering::partition::Chunk,
-        all_points_tree: &'a RTree<Point>,
-        budget: usize,
-    ) -> (HashSet<Point>, Option<(ClusterMode, ClusterMode)>) {
-        use crate::clustering::partition::{
-            contains_latlng, gather_halo, s2_walk_cost, scaled_grid_density, select_effective_mode,
-        };
-
-        let halo = gather_halo(chunk.cell, all_points_tree, self.radius);
-        let mut combined: SingleVec = Vec::with_capacity(chunk.owned.len() + halo.len());
-        combined.extend(chunk.owned.iter().copied());
-        combined.extend(halo.iter().map(|p| p.center));
-
-        let effective_mode = select_effective_mode(self.cluster_mode.clone(), &combined, budget);
-        let downgrade = (effective_mode != self.cluster_mode)
-            .then(|| (self.cluster_mode.clone(), effective_mode.clone()));
-
-        let grid_density = if matches!(effective_mode, ClusterMode::Best) {
-            let s2_cost = s2_walk_cost(&combined);
-            Some(scaled_grid_density(s2_cost, budget))
-        } else {
-            None
-        };
-
-        // chunk_tree scoped so it drops before this fn returns — its memory is
-        // released before the next chunk runs on the same thread.
-        let chunk_tree: RTree<Point> = crate::rtree::spawn(self.radius, &combined);
-        let raw_candidates =
-            self.generate_candidates_for_mode(&combined, &chunk_tree, effective_mode, grid_density);
-
-        let clusters_with_data: Vec<Cluster> = raw_candidates
-            .into_par_iter()
-            .filter_map(|center| {
-                let iter = chunk_tree.locate_all_at_point(&center);
-                let mut covered = Vec::with_capacity(iter.size_hint().0);
-                covered.extend(iter);
-                (covered.len() >= self.min_points)
-                    .then(|| Cluster::new(Point::new(self.radius, 20, center), covered, vec![]))
-            })
-            .collect();
-
-        let bucketed = self.bucket_clusters_by_size(clusters_with_data);
-        let mut solution: Vec<Cluster> = self.cluster(&bucketed).into_iter().collect();
-        self.update_unique(&mut solution);
-
-        // Ownership filter: a chunk only emits cluster centers whose location
-        // parents to this chunk's owning cell. Adjacent chunks emit their own;
-        // the global merge + gap-fill passes downstream stitch the boundaries.
-        solution.retain(|c| contains_latlng(chunk.cell, c.point.center));
-        let result: HashSet<Point> = solution.into_iter().map(|c| c.into()).collect();
-        (result, downgrade)
     }
 
     /// Post-greedy merge: walk pairs of nearby cluster centers (within 2*radius)
@@ -617,13 +437,6 @@ impl<'a> Greedy {
         }
     }
 
-    // associate_clusters_for_chunk + solve_chunk removed: the new run_partitioned
-    // generates candidates per-chunk but defers ALL greedy selection to a single
-    // global pass (see generate_chunk_clusters + global cluster() call in
-    // run_partitioned). This avoids the per-chunk greedy quality loss observed on
-    // medium-density inputs where chunk-local greedy commits to suboptimal
-    // boundary clusters that no consolidation pass could fully recover.
-
     fn associate_clusters(
         &'a self,
         points: &'a SingleVec,
@@ -694,13 +507,7 @@ impl<'a> Greedy {
         // cluster centered on an uncovered point that covers ≥ min_points OTHER
         // uncovered points is a strict mygod_score win (covers ≥ min_points+1,
         // costs min_points -> net negative). See fill_coverage_gaps for math.
-        // Skipped when bypass_adaptive_partition is on so the dev path is
-        // exactly the pre-PR algorithm (no gap-fill).
-        let solution = if self.bypass_adaptive_partition {
-            solution
-        } else {
-            self.fill_coverage_gaps(solution, points, &point_tree)
-        };
+        let solution = self.fill_coverage_gaps(solution, points, &point_tree);
 
         if self.min_points == 1 {
             self.check_missing(solution, points)

@@ -2,16 +2,14 @@
 //!
 //! Runs the production clustering entry point (`clustering::main`) over seeded
 //! synthetic datasets and reports mygod_score + timings as machine-greppable
-//! RESULT lines. Used to compare the legacy greedy modes against the `crucible`
-//! algorithm across input scales.
+//! RESULT lines.
 //!
 //! Usage:
 //!   cargo run --release -p algorithms --bin clusterbench -- \
 //!     --dataset urban --n 10000 --mode best --min-points 1 [--legacy] [--seed 42]
 //!
 //! Datasets: uniform | blobs | urban | csv:<path>
-//! Modes: fastest | fast | balanced | better | best  (quality modes route to
-//! `crucible` once wired; `--legacy` sets KOJI_LEGACY_GREEDY=1 to force the old path)
+//! Modes: fastest | fast | balanced | better | best
 
 use std::time::Instant;
 
@@ -33,7 +31,6 @@ struct Args {
     radius: Precision,
     seed: u64,
     legacy: bool,
-    bypass: bool,
     /// After the cold run: churn the input, then compare a fresh cold run
     /// against `Crucible::run_seeded` warm-started from the pre-churn solution.
     warm: bool,
@@ -53,7 +50,6 @@ fn parse_args() -> Args {
         radius: 70.0,
         seed: 42,
         legacy: false,
-        bypass: false,
         warm: false,
         churn_pct: 5.0,
         sweep: false,
@@ -86,9 +82,6 @@ fn parse_args() -> Args {
             args.churn_pct = v.parse().expect("--churn must be a float pct");
         } else if argv[i] == "--legacy" {
             args.legacy = true;
-        } else if argv[i] == "--bypass" {
-            // Pre-adaptive-partition legacy path (no partition, no gap-fill).
-            args.bypass = true;
         } else if argv[i] == "--warm" {
             args.warm = true;
         } else if argv[i] == "--sweep" {
@@ -237,11 +230,8 @@ fn main() {
         let _ = log::set_logger(&LOGGER).map(|_| log::set_max_level(log::LevelFilter::Info));
     }
 
-    if args.legacy {
-        // Set before any algorithm threads exist; read by the clustering router.
-        unsafe { std::env::set_var("KOJI_LEGACY_GREEDY", "1") };
-    }
-
+    // Note: --legacy flag is kept in the report output only; the legacy greedy
+    // path is no longer available (all quality modes route to crucible).
     let points: SingleVec = if let Some(path) = args.dataset.strip_prefix("csv:") {
         let mut p = load_csv(path);
         if args.n > 0 && args.n < p.len() {
@@ -271,7 +261,6 @@ fn main() {
         radius: args.radius,
         min_points: args.min_points,
         max_clusters: usize::MAX,
-        cluster_split_level: 0,
         calculation_mode: CalculationMode::Radius,
         s2: S2Config { level: 15, size: 1 },
         center_clusters: false,
@@ -297,7 +286,6 @@ fn main() {
                     features: vec![],
                     foreign_members: None,
                 },
-                args.bypass,
                 &mut stats,
             );
             report(
@@ -338,7 +326,6 @@ fn main() {
             features: vec![],
             foreign_members: None,
         },
-        args.bypass,
         &mut stats,
     );
     let wall_s = wall.elapsed().as_secs_f64();
@@ -359,7 +346,6 @@ fn main() {
                 features: vec![],
                 foreign_members: None,
             },
-            args.bypass,
             &mut stats_c,
         );
         report(
@@ -430,12 +416,11 @@ fn report(
         0
     };
     println!(
-        "RESULT dataset={} n={} mode={} legacy={}{} min_points={} radius={} seed={} clusters={} covered={} total={} score={} lb={} route_m={:.0} route_s={:.0} knife={} multi={} excess={} quality={:.3} cluster_s={:.2} wall_s={:.2} phase={}",
+        "RESULT dataset={} n={} mode={} legacy={} min_points={} radius={} seed={} clusters={} covered={} total={} score={} lb={} route_m={:.0} route_s={:.0} knife={} multi={} excess={} quality={:.3} cluster_s={:.2} wall_s={:.2} phase={}",
         args.dataset,
         points.len(),
         args.mode,
         args.legacy,
-        if args.bypass { "-bypass" } else { "" },
         args.min_points,
         args.radius,
         args.seed,

@@ -18,7 +18,6 @@ pub struct ClusteringConfig {
     pub radius: Precision,
     pub min_points: usize,
     pub max_clusters: usize,
-    pub cluster_split_level: u64,
     pub calculation_mode: CalculationMode,
     pub s2: S2Config,
     pub center_clusters: bool,

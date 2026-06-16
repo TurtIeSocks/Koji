@@ -1,160 +1,19 @@
-use std::collections::HashMap;
-use std::collections::HashSet as StdHashSet;
-use std::sync::Once;
-
 use ::s2::cell::Cell;
 use ::s2::cellid::CellID;
 use ::s2::latlng::LatLng;
 use koji_core::KojiBbox;
 use koji_core::PointArray;
 use koji_core::Precision;
-use koji_core::SingleVec;
 
-use super::ClusterMode;
 use rstar::{AABB, RTree};
-#[cfg(feature = "native")]
-use sysinfo::System;
 
 use crate::clustering::candidates;
 use crate::clustering::rtree::point::Point;
-use koji_core::create_cell_map;
 
 /// Shared 1024 constant used as both a unit byte size (1 KiB) and a candidate
 /// grid-density base in greedy.rs. Centralized here to keep all `1024` magic
 /// numbers in clustering on a single source of truth.
 pub(crate) const BYTE: usize = 1024;
-
-/// Bytes assumed per candidate when converting memory budget → candidate count.
-/// PointArray (16 bytes) + Cluster<Point> overhead. Empirical: ~864 bytes for a
-/// cluster with 100-point Vec<&Point> tail; rounded up to 1024 for safety so
-/// auto-budget under-allocates rather than over-allocates on dense workloads.
-/// Independent from BYTE (same numeric value today but different semantics).
-pub(crate) const BYTES_PER_CANDIDATE: usize = 1024;
-
-pub(crate) const DEFAULT_START_LEVEL: u64 = 6;
-pub(crate) const DEFAULT_MAX_LEVEL: u64 = 18;
-
-/// Guards PartitionConfig::load logging so each process logs the resolved
-/// config exactly once, regardless of how many partitioned runs happen.
-static LOG_ONCE: Once = Once::new();
-
-#[derive(Debug, Clone)]
-pub(crate) struct Chunk {
-    pub cell: CellID,
-    pub owned: SingleVec,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct PartitionConfig {
-    pub budget: usize,
-    pub start_level: u64,
-    pub max_level: u64,
-}
-
-#[derive(Debug, Default)]
-pub(crate) struct PartitionStats {
-    /// Counts downgrades by (from_tag, to_tag) pair, keyed by stable ClusterMode tags.
-    pub downgrades: HashMap<(&'static str, &'static str), usize>,
-}
-
-/// Read `key` from env, parse as T, fall back to `default` if missing/malformed.
-fn load_env_or<T: std::str::FromStr>(key: &str, default: T) -> T {
-    std::env::var(key)
-        .ok()
-        .and_then(|s| s.parse::<T>().ok())
-        .unwrap_or(default)
-}
-
-impl PartitionConfig {
-    pub(crate) fn load() -> PartitionConfig {
-        let threads = rayon::current_num_threads().max(1) as u64;
-        #[cfg(feature = "native")]
-        let available_memory = System::new_all().available_memory();
-        #[cfg(not(feature = "native"))]
-        let available_memory: u64 = 512 * 1024 * 1024; // bytes — wasm baseline
-        let mem_per_thread = available_memory / threads;
-        let auto_budget = (mem_per_thread / BYTES_PER_CANDIDATE as u64) as usize;
-
-        let budget = load_env_or("KOJI_MAX_CANDIDATES_PER_CHUNK", auto_budget);
-        let start_level = load_env_or("KOJI_PARTITION_START_LEVEL", DEFAULT_START_LEVEL);
-        let max_level = load_env_or("KOJI_PARTITION_MAX_LEVEL", DEFAULT_MAX_LEVEL);
-
-        LOG_ONCE.call_once(|| {
-            log::info!(
-                "PartitionConfig: budget={}, start_level={}, max_level={}",
-                budget,
-                start_level,
-                max_level
-            );
-        });
-        PartitionConfig {
-            budget,
-            start_level,
-            max_level,
-        }
-    }
-}
-
-/// Stable string tag for a ClusterMode variant — used as HashMap key so callers don't
-/// depend on `Debug` formatting, which can change. Custom plugins collapse to "Custom".
-pub(crate) fn mode_tag(mode: &ClusterMode) -> &'static str {
-    match mode {
-        ClusterMode::Honeycomb => "Honeycomb",
-        ClusterMode::Fastest => "Fastest",
-        ClusterMode::Fast => "Fast",
-        ClusterMode::Balanced => "Balanced",
-        ClusterMode::Better => "Better",
-        ClusterMode::Best => "Best",
-        ClusterMode::Custom(_) => "Custom",
-    }
-}
-
-/// Count the number of distinct level-16 S2 cells touched by the input points.
-/// Used as the leading factor in the S2 walk cost estimate (see `s2_walk_cost`).
-pub(crate) fn distinct_l16_cells(points: &[PointArray]) -> usize {
-    points
-        .iter()
-        .map(|p| CellID::from(LatLng::from_degrees(p[0], p[1])).parent(16))
-        .collect::<StdHashSet<_>>()
-        .len()
-}
-
-/// Pick a grid density for Best mode that fits the remaining candidate budget.
-///
-/// `s2_cost` is the prior commitment from `s2_walk_cost`. Returns 0 if the S2
-/// walk already saturates the budget (effectively collapsing Best to Better for
-/// this chunk). Capped at `BYTE * 6` so we never exceed the original `Best`
-/// density even when the budget is huge.
-pub(crate) fn scaled_grid_density(s2_cost: usize, budget: usize) -> usize {
-    let remaining = budget.saturating_sub(s2_cost);
-    let density = (remaining as f64).sqrt() as usize;
-    density.min(BYTE * 6)
-}
-
-/// Worst-case candidate count from the S2 cell walk used by Better/Best modes.
-///
-/// `get_s2_clusters` descends from level 16 → level 22 per occupied ancestor, so each
-/// L16 cell can contribute up to 4^6 = 4096 candidate leaves. The per-level point-tree
-/// filter prunes much of this on medium-density inputs, but on dense inputs (urban,
-/// pokemon-spawn-style data) the descent runs close to worst case. We use the worst-case
-/// value as the partition-budget estimator so peak memory is bounded even on dense data;
-/// for medium-density inputs this triggers more partitioning than strictly necessary
-/// (a few % quality cost) but is the only way to prevent OOM on dense huge bboxes.
-pub(crate) const S2_WALK_COST_PER_L16: usize = 4096;
-
-pub(crate) fn s2_walk_cost(points: &[PointArray]) -> usize {
-    distinct_l16_cells(points).saturating_mul(S2_WALK_COST_PER_L16)
-}
-
-pub(crate) fn estimate_cost(points: &[PointArray], mode: &ClusterMode, budget: usize) -> usize {
-    let s2_cost = s2_walk_cost(points);
-    let grid_cost = if matches!(mode, ClusterMode::Best) {
-        scaled_grid_density(s2_cost, budget).pow(2)
-    } else {
-        0
-    };
-    s2_cost.saturating_add(grid_cost)
-}
 
 pub(crate) fn cell_bbox_lat_lon(cell: CellID) -> KojiBbox {
     let c = Cell::from(&cell);
@@ -179,10 +38,9 @@ pub(crate) fn cell_bbox_lat_lon(cell: CellID) -> KojiBbox {
 
 /// Ownership predicate: does `p` belong to `cell` at the cell's own level?
 ///
-/// Used both during partition (implicitly via `create_cell_map`) and during the
-/// post-solve ownership filter in `Greedy::solve_chunk`. Both sides apply the
-/// same deterministic `LatLng → parent(level)` rule so a cluster center is
-/// owned by exactly one chunk.
+/// Used by crucible during the post-solve ownership filter. The deterministic
+/// `LatLng → parent(level)` rule ensures a cluster center is owned by exactly
+/// one chunk.
 pub(crate) fn contains_latlng(cell: CellID, p: PointArray) -> bool {
     let derived = CellID::from(LatLng::from_degrees(p[0], p[1])).parent(cell.level());
     derived == cell
@@ -213,113 +71,10 @@ pub(crate) fn gather_halo(
         .collect()
 }
 
-/// Top-down BFS partitioner. Buckets points by S2 cell at `start_level`, then
-/// for each bucket: accept the chunk if its estimated candidate cost ≤ `budget`
-/// or if it has reached `max_level`; otherwise subdivide into the cell's children
-/// and re-evaluate. Returns the accepted chunks; their union covers all input
-/// points without duplication.
-///
-/// Termination: bounded loop depth = `max_level - start_level`. At `max_level`,
-/// over-budget chunks are accepted with a warn log and handled later by
-/// `select_effective_mode`'s downgrade ladder.
-pub(crate) fn adaptive_partition(
-    points: &SingleVec,
-    budget: usize,
-    mode: &ClusterMode,
-    start_level: u64,
-    max_level: u64,
-) -> Vec<Chunk> {
-    debug_assert!(
-        start_level <= max_level,
-        "start_level ({}) must be <= max_level ({})",
-        start_level,
-        max_level,
-    );
-    if points.is_empty() {
-        return vec![];
-    }
-    let mut frontier: HashMap<u64, SingleVec> = create_cell_map(points, start_level);
-    let mut accepted: Vec<Chunk> = Vec::with_capacity(frontier.len());
-    let mut next_frontier: HashMap<u64, SingleVec> = HashMap::with_capacity(frontier.len() * 4);
-
-    loop {
-        next_frontier.clear();
-        for (cell_id_raw, cell_points) in frontier.drain() {
-            let cell = CellID(cell_id_raw);
-            let est = estimate_cost(&cell_points, mode, budget);
-            let at_max_level = cell.level() >= max_level;
-            let within_budget = est <= budget;
-
-            if within_budget || at_max_level {
-                if at_max_level && !within_budget {
-                    log::warn!(
-                        "partition: accepting chunk at max_level={} with est={} > budget={} (irreducible)",
-                        cell.level(),
-                        est,
-                        budget,
-                    );
-                }
-                accepted.push(Chunk {
-                    cell,
-                    owned: cell_points,
-                });
-            } else {
-                let children = create_cell_map(&cell_points, cell.level() + 1);
-                for (k, v) in children {
-                    next_frontier.entry(k).or_default().extend(v);
-                }
-            }
-        }
-        if next_frontier.is_empty() {
-            break;
-        }
-        std::mem::swap(&mut frontier, &mut next_frontier);
-    }
-    accepted
-}
-
-/// Stepwise mode downgrade ladder: `Best → Better → Balanced → Fast`.
-///
-/// Returns the highest-quality mode whose estimated cost fits `budget`, or
-/// `Fast` if even that exceeds budget (Fast is the floor; pathological chunks
-/// always complete). Each downgrade is logged at WARN. Only meaningful when
-/// called with Better or Best — checked by debug_assert.
-pub(crate) fn select_effective_mode(
-    mut requested: ClusterMode,
-    points: &[PointArray],
-    budget: usize,
-) -> ClusterMode {
-    debug_assert!(
-        matches!(requested, ClusterMode::Better | ClusterMode::Best),
-        "select_effective_mode is only meaningful for Better/Best; got {:?}",
-        requested,
-    );
-    loop {
-        let est = estimate_cost(points, &requested, budget);
-        if matches!(requested, ClusterMode::Fast) || est <= budget {
-            return requested;
-        }
-        let next = match requested {
-            ClusterMode::Best => ClusterMode::Better,
-            ClusterMode::Better => ClusterMode::Balanced,
-            ClusterMode::Balanced => ClusterMode::Fast,
-            _ => return requested,
-        };
-        log::warn!(
-            "chunk over budget for {:?} (est={}, budget={}), downgrading to {:?}",
-            requested,
-            est,
-            budget,
-            next,
-        );
-        requested = next;
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use koji_core::Precision;
+    use koji_core::{Precision, SingleVec};
     use rand::{Rng, SeedableRng, rngs::SmallRng};
 
     pub(super) fn random_points_in_bbox(n: usize, bbox: [Precision; 4], seed: u64) -> SingleVec {
@@ -385,51 +140,6 @@ mod tests {
     }
 
     #[test]
-    fn distinct_l16_cells_dedupes() {
-        let points = vec![[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]];
-        assert_eq!(distinct_l16_cells(&points), 1);
-
-        let points = dense_cluster([0., 0.], 10, 1.0, 1); // 10 points, ~1m radius
-        let n = distinct_l16_cells(&points);
-        assert!(
-            (1..=10).contains(&n),
-            "expected dedup count between 1 and 10, got {}",
-            n
-        );
-    }
-
-    #[test]
-    fn scaled_grid_density_caps_correctly() {
-        // s2_cost dominates -> density 0
-        assert_eq!(scaled_grid_density(1_000_000, 500_000), 0);
-        // tiny s2 cost, huge budget -> capped at BYTE * 6
-        let big = scaled_grid_density(0, 100_000_000_000);
-        assert_eq!(big, BYTE * 6);
-        // moderate: sqrt(remaining) used
-        let mid = scaled_grid_density(0, 1_000_000);
-        assert_eq!(mid, 1000);
-    }
-
-    #[test]
-    fn estimate_cost_better_excludes_grid() {
-        let points = dense_cluster([0., 0.], 100, 50.0, 2);
-        let est_better = estimate_cost(&points, &ClusterMode::Better, 10_000_000);
-        let est_best = estimate_cost(&points, &ClusterMode::Best, 10_000_000);
-        assert!(est_best >= est_better, "Best must be >= Better");
-    }
-
-    #[test]
-    fn estimate_cost_best_scales_with_budget() {
-        let points = vec![[0.0, 0.0]];
-        let est_small = estimate_cost(&points, &ClusterMode::Best, 100);
-        let est_large = estimate_cost(&points, &ClusterMode::Best, 100_000_000);
-        assert!(
-            est_small < est_large,
-            "larger budget should allow larger grid"
-        );
-    }
-
-    #[test]
     fn contains_latlng_owns_only_its_cell() {
         // Pick a stable lat/lon, get its level-10 parent.
         let center = LatLng::from_degrees(37.7749, -122.4194); // SF
@@ -451,66 +161,6 @@ mod tests {
         assert!(bb.min_lon.is_finite() && bb.max_lon.is_finite());
         assert!(bb.min_lat <= bb.max_lat);
         assert!(bb.min_lon <= bb.max_lon);
-    }
-
-    #[test]
-    fn partition_small_bbox_single_chunk() {
-        // 1000 points in roughly 1km² → should fit in one chunk at start_level=6.
-        let pts = random_points_in_bbox(1000, [37.78, -122.43, 37.79, -122.42], 42);
-        let chunks = adaptive_partition(&pts, usize::MAX, &ClusterMode::Better, 6, 18);
-        assert_eq!(
-            chunks.len(),
-            1,
-            "small bbox should be one chunk, got {}",
-            chunks.len()
-        );
-    }
-
-    #[test]
-    fn partition_subdivides_when_over_budget() {
-        // Force subdivision with a tiny budget.
-        let pts = sparse_grid(20, 20, [-30., -60., 30., 60.]);
-        let chunks = adaptive_partition(&pts, 1, &ClusterMode::Better, 6, 18);
-        assert!(chunks.len() > 1, "tiny budget should produce many chunks");
-    }
-
-    #[test]
-    fn partition_halts_at_max_level() {
-        // Dense cluster + extremely tight budget → at least one chunk at max_level=18.
-        let pts = dense_cluster([0., 0.], 5_000, 50.0, 11);
-        let chunks = adaptive_partition(&pts, 1, &ClusterMode::Best, 6, 18);
-        assert!(
-            chunks.iter().any(|c| c.cell.level() == 18),
-            "expected at least one chunk to reach max_level"
-        );
-    }
-
-    #[test]
-    fn partition_preserves_all_points() {
-        let pts = random_points_in_bbox(500, [0., 0., 5., 5.], 99);
-        let chunks = adaptive_partition(&pts, 1_000_000, &ClusterMode::Better, 6, 18);
-        let total: usize = chunks.iter().map(|c| c.owned.len()).sum();
-        assert_eq!(
-            total,
-            pts.len(),
-            "no points should be dropped during partition"
-        );
-    }
-
-    #[test]
-    fn fallback_ladder_keeps_mode_when_under_budget() {
-        let pts = random_points_in_bbox(10, [0., 0., 0.001, 0.001], 1);
-        let mode = select_effective_mode(ClusterMode::Best, &pts, usize::MAX);
-        assert_eq!(mode, ClusterMode::Best);
-    }
-
-    #[test]
-    fn fallback_ladder_walks_down_to_fast() {
-        // Force a chunk that is over budget even at Fast (impossible in practice,
-        // but we set budget = 0 to verify ladder reaches floor).
-        let pts = random_points_in_bbox(50, [-30., -60., 30., 60.], 7);
-        let mode = select_effective_mode(ClusterMode::Best, &pts, 0);
-        assert_eq!(mode, ClusterMode::Fast, "ladder must terminate at Fast");
     }
 
     #[test]
@@ -541,177 +191,6 @@ mod tests {
                 .any(|p: &Point| (p.center[1] - inside[1]).abs() < 1e-6),
             "halo should NOT include the inside point"
         );
-    }
-
-    #[test]
-    fn greedy_better_completes_huge_random_bbox() {
-        use crate::clustering::greedy::Greedy;
-        let pts = random_points_in_bbox(10_000, [-10., -10., 10., 10.], 42);
-        let mut greedy = Greedy::default();
-        greedy
-            .set_cluster_mode(ClusterMode::Better)
-            .set_radius(70.0);
-        let result = greedy.run(&pts);
-        assert!(
-            !result.is_empty(),
-            "Better mode should produce some clusters"
-        );
-    }
-
-    #[test]
-    fn greedy_best_completes_huge_random_bbox() {
-        use crate::clustering::greedy::Greedy;
-        let pts = random_points_in_bbox(5_000, [-5., -5., 5., 5.], 42);
-        let mut greedy = Greedy::default();
-        greedy.set_cluster_mode(ClusterMode::Best).set_radius(70.0);
-        let result = greedy.run(&pts);
-        assert!(!result.is_empty(), "Best mode should produce some clusters");
-    }
-
-    /// Load a CSV file in `lat,lon\n...` format. Skips header row.
-    /// Returns a SingleVec of points. Panics on parse error.
-    fn load_csv(path: &str) -> SingleVec {
-        let contents =
-            std::fs::read_to_string(path).unwrap_or_else(|e| panic!("failed to read {path}: {e}"));
-        contents
-            .lines()
-            .skip(1) // header
-            .filter_map(|line| {
-                let mut parts = line.split(',');
-                let lat = parts.next()?.trim().parse::<Precision>().ok()?;
-                let lon = parts.next()?.trim().parse::<Precision>().ok()?;
-                Some([lat, lon])
-            })
-            .collect()
-    }
-
-    fn run_bench(mode: ClusterMode, label: &str) {
-        use crate::clustering::greedy::Greedy;
-        use crate::rtree;
-        use std::time::Instant;
-
-        // CSV expected at the repo root, or one level up from the crate dir.
-        let path = if std::path::Path::new("points-nh.csv").exists() {
-            "points-nh.csv"
-        } else if std::path::Path::new("../points-nh.csv").exists() {
-            "../points-nh.csv"
-        } else {
-            eprintln!("bench_nh_{label}: skipped (points-nh.csv not found)");
-            return;
-        };
-
-        let load_t = Instant::now();
-        let pts = load_csv(path);
-        eprintln!(
-            "bench_nh_{label}: loaded {} points in {:.2}s",
-            pts.len(),
-            load_t.elapsed().as_secs_f32()
-        );
-
-        let mut greedy = Greedy::default();
-        greedy
-            .set_cluster_mode(mode)
-            .set_radius(70.0)
-            .set_min_points(5);
-
-        let run_t = Instant::now();
-        let result = greedy.run(&pts);
-        let elapsed = run_t.elapsed();
-
-        // Compute coverage: how many input points are within radius of at least one cluster center?
-        let cluster_tree = rtree::spawn(70.0, &result);
-        let covered: usize = pts
-            .iter()
-            .filter(|p| cluster_tree.locate_at_point(p).is_some())
-            .count();
-        let coverage_pct = covered as f64 * 100.0 / pts.len() as f64;
-        // mygod_score = clusters * min_points + uncovered_points (lower = better).
-        // Source of truth: stats.rs::Stats::get_score.
-        let uncovered = pts.len() - covered;
-        let mygod_score = result.len() * 5 + uncovered; // min_points=5
-
-        eprintln!(
-            "bench_nh_{label}: mode={} radius=70 min_points=5 -> {} clusters, {:.2}% coverage ({}/{}), mygod_score={} in {:.2}s",
-            label,
-            result.len(),
-            coverage_pct,
-            covered,
-            pts.len(),
-            mygod_score,
-            elapsed.as_secs_f32()
-        );
-    }
-
-    #[test]
-    #[ignore]
-    fn bench_nh_balanced() {
-        run_bench(ClusterMode::Balanced, "balanced");
-    }
-
-    #[test]
-    #[ignore]
-    fn bench_nh_better() {
-        run_bench(ClusterMode::Better, "better");
-    }
-
-    #[test]
-    #[ignore]
-    fn bench_nh_best() {
-        run_bench(ClusterMode::Best, "best");
-    }
-
-    // ── mode_tag ──────────────────────────────────────────────────────────────
-
-    #[test]
-    fn mode_tag_all_variants() {
-        assert_eq!(mode_tag(&ClusterMode::Honeycomb), "Honeycomb");
-        assert_eq!(mode_tag(&ClusterMode::Fastest), "Fastest");
-        assert_eq!(mode_tag(&ClusterMode::Fast), "Fast");
-        assert_eq!(mode_tag(&ClusterMode::Balanced), "Balanced");
-        assert_eq!(mode_tag(&ClusterMode::Better), "Better");
-        assert_eq!(mode_tag(&ClusterMode::Best), "Best");
-        assert_eq!(mode_tag(&ClusterMode::Custom("myplugin".into())), "Custom");
-    }
-
-    // ── s2_walk_cost ──────────────────────────────────────────────────────────
-
-    #[test]
-    fn s2_walk_cost_empty_is_zero() {
-        assert_eq!(s2_walk_cost(&[]), 0);
-    }
-
-    #[test]
-    fn s2_walk_cost_single_point_is_one_l16_cell() {
-        let cost = s2_walk_cost(&[[40.0, -74.0]]);
-        assert_eq!(cost, S2_WALK_COST_PER_L16, "single point → 1 L16 cell");
-    }
-
-    #[test]
-    fn s2_walk_cost_collocated_points_count_once() {
-        // 100 points at the same location → still 1 L16 cell.
-        let pts: Vec<[f64; 2]> = vec![[40.0, -74.0]; 100];
-        assert_eq!(s2_walk_cost(&pts), S2_WALK_COST_PER_L16);
-    }
-
-    #[test]
-    fn s2_walk_cost_scales_with_distinct_cells() {
-        // Two points far apart → 2 L16 cells → 2 × S2_WALK_COST_PER_L16.
-        let pts: Vec<[f64; 2]> = vec![[40.0, -74.0], [41.0, -74.0]];
-        let cost = s2_walk_cost(&pts);
-        assert!(cost >= 2 * S2_WALK_COST_PER_L16, "expected ≥2 cells, got cost {cost}");
-    }
-
-    // ── distinct_l16_cells ────────────────────────────────────────────────────
-
-    #[test]
-    fn distinct_l16_cells_single_point_is_one() {
-        assert_eq!(distinct_l16_cells(&[[40.0, -74.0]]), 1);
-    }
-
-    #[test]
-    fn distinct_l16_cells_two_far_points_is_two() {
-        let pts: Vec<[f64; 2]> = vec![[40.0, -74.0], [50.0, 10.0]];
-        assert_eq!(distinct_l16_cells(&pts), 2);
     }
 
     // ── contains_latlng: level edge cases ────────────────────────────────────
@@ -761,83 +240,5 @@ mod tests {
         assert!(bb.max_lat <= 0.0, "max_lat should be ≤ 0 for southern hemisphere cell at -45°");
         assert!(bb.min_lat <= bb.max_lat);
         assert!(bb.min_lon <= bb.max_lon);
-    }
-
-    // ── adaptive_partition: no-split on empty, degenerate levels ─────────────
-
-    #[test]
-    fn partition_empty_input_returns_empty() {
-        let empty: SingleVec = vec![];
-        let chunks = adaptive_partition(&empty, usize::MAX, &ClusterMode::Better, 6, 18);
-        assert!(chunks.is_empty());
-    }
-
-    #[test]
-    fn partition_start_equals_max_level_single_pass() {
-        // When start_level == max_level every chunk is immediately accepted.
-        let pts = random_points_in_bbox(50, [0., 0., 1., 1.], 3);
-        let chunks = adaptive_partition(&pts, 1, &ClusterMode::Better, 10, 10);
-        // All points bucketed at level 10 → no subdivision possible → all accepted.
-        let total: usize = chunks.iter().map(|c| c.owned.len()).sum();
-        assert_eq!(total, pts.len(), "no points lost when start=max level");
-    }
-
-    #[test]
-    fn partition_chunks_cells_at_or_above_start_level() {
-        let pts = sparse_grid(4, 4, [0., 0., 10., 10.]);
-        let chunks = adaptive_partition(&pts, usize::MAX, &ClusterMode::Better, 6, 18);
-        for c in &chunks {
-            assert!(
-                c.cell.level() >= 6,
-                "chunk level {} should be >= start_level 6",
-                c.cell.level()
-            );
-        }
-    }
-
-    // ── select_effective_mode: individual downgrade steps ─────────────────────
-
-    #[test]
-    fn select_effective_mode_better_under_budget_stays_better() {
-        let pts = vec![[40.0, -74.0]];
-        let mode = select_effective_mode(ClusterMode::Better, &pts, usize::MAX);
-        assert_eq!(mode, ClusterMode::Better);
-    }
-
-    #[test]
-    fn select_effective_mode_best_over_budget_steps_down() {
-        // Tiny budget forces Best → something lower.
-        let pts = random_points_in_bbox(20, [-5., -5., 5., 5.], 9);
-        let mode = select_effective_mode(ClusterMode::Best, &pts, 1);
-        assert_ne!(
-            mode,
-            ClusterMode::Best,
-            "Best should step down when budget=1"
-        );
-    }
-
-    #[test]
-    #[ignore] // run with: cargo test -p algorithms -- --ignored
-    fn manual_smoke_huge_bbox_better_mode() {
-        use crate::clustering::greedy::Greedy;
-        use std::time::Instant;
-
-        let pts = random_points_in_bbox(50_000, [-45., -90., 45., 90.], 12345);
-        let mut greedy = Greedy::default();
-        greedy
-            .set_cluster_mode(ClusterMode::Better)
-            .set_radius(70.0);
-
-        let t = Instant::now();
-        let result = greedy.run(&pts);
-        let elapsed = t.elapsed();
-
-        eprintln!(
-            "manual_smoke: {} input pts → {} clusters in {:.2}s",
-            pts.len(),
-            result.len(),
-            elapsed.as_secs_f32()
-        );
-        assert!(!result.is_empty());
     }
 }

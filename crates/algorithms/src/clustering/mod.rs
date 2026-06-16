@@ -36,7 +36,6 @@ pub fn main(
     data_points: &SingleVec,
     cfg: &ClusteringConfig,
     collection: FeatureCollection,
-    bypass_adaptive_partition: bool,
     stats: &mut Stats,
 ) -> SingleVec {
     if data_points.is_empty() {
@@ -58,15 +57,9 @@ pub fn main(
             .collect(),
         _ => match cfg.mode.clone() {
             ClusterMode::Fastest => fastest::main(data_points, cfg.radius, cfg.min_points),
-            // Quality modes all route to the mode-less `crucible` algorithm; the
-            // legacy greedy stays reachable for A/B via KOJI_LEGACY_GREEDY=1
-            // (and still backs Honeycomb, which is a layout mode, not a
-            // quality mode).
-            ClusterMode::Balanced | ClusterMode::Fast | ClusterMode::Better | ClusterMode::Best
-                if !legacy_greedy_requested() =>
-            {
+            ClusterMode::Balanced | ClusterMode::Fast | ClusterMode::Better | ClusterMode::Best => {
                 log::info!(
-                    "cluster_mode '{:?}' routes to the crucible algorithm (modes are deprecated; set KOJI_LEGACY_GREEDY=1 for the legacy greedy)",
+                    "cluster_mode '{:?}' routes to the crucible algorithm",
                     cfg.mode
                 );
                 let crucible = crucible::Crucible {
@@ -76,25 +69,18 @@ pub fn main(
                 };
                 crucible.run(data_points)
             }
-            ClusterMode::Honeycomb
-            | ClusterMode::Balanced
-            | ClusterMode::Fast
-            | ClusterMode::Better
-            | ClusterMode::Best => {
+            ClusterMode::Honeycomb => {
                 let mut greedy = Greedy::default();
                 greedy
                     .set_cluster_mode(cfg.mode.clone())
-                    .set_cluster_split_level(cfg.cluster_split_level)
                     .set_max_clusters(cfg.max_clusters)
                     .set_min_points(cfg.min_points)
-                    .set_radius(cfg.radius)
-                    .set_bypass_adaptive_partition(bypass_adaptive_partition);
-
+                    .set_radius(cfg.radius);
                 greedy.run(data_points)
             }
             #[cfg(feature = "native")]
             ClusterMode::Custom(plugin) => {
-                match plugins::resolve(PluginKind::Clustering, &plugin, cfg.cluster_split_level) {
+                match plugins::resolve(PluginKind::Clustering, &plugin, 0) {
                     Some(plugin_manager) => {
                         match plugin_manager.run_multi::<JoinFunction>(
                             data_points,
@@ -134,28 +120,12 @@ pub fn main(
     } else {
         clusters
     };
-    // let clusters = if genetic_post_processing {
-    //     let optimizer = genetic::GeneticClusterOptimizer::new(
-    //         data_points.clone(),
-    //         min_points,
-    //         max_clusters,
-    //         radius,
-    //     );
-    //     optimizer.optimize(clusters)
-    // } else {
-    //     clusters
-    // };
 
     stats.set_cluster_time(time);
     stats.cluster_stats(cfg.radius, data_points, &clusters);
     stats.set_score();
 
     clusters
-}
-
-/// Dev escape hatch: route quality modes back to the legacy greedy for A/B.
-fn legacy_greedy_requested() -> bool {
-    std::env::var("KOJI_LEGACY_GREEDY").is_ok_and(|v| v == "1" || v.eq_ignore_ascii_case("true"))
 }
 
 #[cfg(feature = "native")]
@@ -191,8 +161,7 @@ mod tests {
             mode,
             radius: 70.0,
             min_points: 1,
-            max_clusters: usize::MAX, // 0 truncates all clusters
-            cluster_split_level: 0,
+            max_clusters: usize::MAX,
             calculation_mode: CalculationMode::Radius,
             s2: S2Config::default(),
             center_clusters: false,
@@ -215,7 +184,7 @@ mod tests {
     fn empty_data_returns_empty() {
         let empty: SingleVec = vec![];
         let mut stats = Stats::new("t".into(), 1);
-        let result = main(&empty, &make_cfg(ClusterMode::Fastest), empty_collection(), false, &mut stats);
+        let result = main(&empty, &make_cfg(ClusterMode::Fastest), empty_collection(), &mut stats);
         assert!(result.is_empty());
     }
 
@@ -229,7 +198,7 @@ mod tests {
             [40.0002, -74.0002],
         ];
         let mut stats = Stats::new("t".into(), 1);
-        let result = main(&pts, &make_cfg(ClusterMode::Fastest), empty_collection(), false, &mut stats);
+        let result = main(&pts, &make_cfg(ClusterMode::Fastest), empty_collection(), &mut stats);
         assert!(!result.is_empty(), "Fastest mode should produce clusters");
         // Output stays within valid lat/lon range.
         for [lat, lon] in &result {
@@ -238,11 +207,10 @@ mod tests {
         }
     }
 
-    // ── main: quality modes (no legacy greedy env) route to crucible ──────────
+    // ── main: quality modes route to crucible ────────────────────────────────
 
     #[test]
     fn best_mode_produces_clusters() {
-        unsafe { std::env::remove_var("KOJI_LEGACY_GREEDY") };
         // Dense grid of 100 points in a 0.05° × 0.05° area; radius 500 m ensures
         // many points fall within each disk → crucible finds valid clusters.
         let pts: Vec<[f64; 2]> = (0..100)
@@ -251,20 +219,19 @@ mod tests {
         let mut cfg = make_cfg(ClusterMode::Best);
         cfg.radius = 500.0;
         let mut stats = Stats::new("t".into(), 1);
-        let result = main(&pts, &cfg, empty_collection(), false, &mut stats);
+        let result = main(&pts, &cfg, empty_collection(), &mut stats);
         assert!(!result.is_empty(), "Best mode should produce clusters for dense 100-point grid");
     }
 
     #[test]
     fn better_mode_produces_clusters() {
-        unsafe { std::env::remove_var("KOJI_LEGACY_GREEDY") };
         let pts: Vec<[f64; 2]> = (0..100)
             .map(|i| [40.0 + (i / 10) as f64 * 0.005, -74.0 + (i % 10) as f64 * 0.005])
             .collect();
         let mut cfg = make_cfg(ClusterMode::Better);
         cfg.radius = 500.0;
         let mut stats = Stats::new("t".into(), 1);
-        let result = main(&pts, &cfg, empty_collection(), false, &mut stats);
+        let result = main(&pts, &cfg, empty_collection(), &mut stats);
         assert!(!result.is_empty(), "Better mode should produce clusters for dense 100-point grid");
     }
 
@@ -274,30 +241,8 @@ mod tests {
     fn stats_cluster_time_set() {
         let pts = vec![[40.0, -74.0], [40.001, -74.0]];
         let mut stats = Stats::new("t".into(), 1);
-        main(&pts, &make_cfg(ClusterMode::Fastest), empty_collection(), false, &mut stats);
+        main(&pts, &make_cfg(ClusterMode::Fastest), empty_collection(), &mut stats);
         assert!(stats.cluster_time >= 0.0);
-    }
-
-    // ── legacy_greedy_requested ───────────────────────────────────────────────
-
-    #[test]
-    fn legacy_greedy_off_by_default() {
-        unsafe { std::env::remove_var("KOJI_LEGACY_GREEDY") };
-        assert!(!legacy_greedy_requested());
-    }
-
-    #[test]
-    fn legacy_greedy_enabled_by_env() {
-        unsafe { std::env::set_var("KOJI_LEGACY_GREEDY", "1") };
-        assert!(legacy_greedy_requested());
-        unsafe { std::env::remove_var("KOJI_LEGACY_GREEDY") };
-    }
-
-    #[test]
-    fn legacy_greedy_enabled_by_true() {
-        unsafe { std::env::set_var("KOJI_LEGACY_GREEDY", "true") };
-        assert!(legacy_greedy_requested());
-        unsafe { std::env::remove_var("KOJI_LEGACY_GREEDY") };
     }
 
     // ── all_clustering_options ────────────────────────────────────────────────
@@ -310,47 +255,17 @@ mod tests {
         assert!(opts.contains(&"honeycomb".to_string()));
     }
 
-    // ── main: Balanced and Fast modes via legacy greedy ───────────────────────
-
-    #[test]
-    fn balanced_mode_legacy_greedy_produces_clusters() {
-        unsafe { std::env::set_var("KOJI_LEGACY_GREEDY", "1") };
-        let pts: Vec<[f64; 2]> = (0..50)
-            .map(|i| [40.0 + (i / 10) as f64 * 0.005, -74.0 + (i % 10) as f64 * 0.005])
-            .collect();
-        let mut cfg = make_cfg(ClusterMode::Balanced);
-        cfg.radius = 500.0;
-        let mut stats = Stats::new("t".into(), 1);
-        let result = main(&pts, &cfg, empty_collection(), false, &mut stats);
-        unsafe { std::env::remove_var("KOJI_LEGACY_GREEDY") };
-        assert!(!result.is_empty(), "Balanced legacy greedy should produce clusters");
-    }
-
-    #[test]
-    fn fast_mode_legacy_greedy_produces_clusters() {
-        unsafe { std::env::set_var("KOJI_LEGACY_GREEDY", "1") };
-        let pts: Vec<[f64; 2]> = (0..30)
-            .map(|i| [40.0 + (i / 6) as f64 * 0.005, -74.0 + (i % 6) as f64 * 0.005])
-            .collect();
-        let mut cfg = make_cfg(ClusterMode::Fast);
-        cfg.radius = 500.0;
-        let mut stats = Stats::new("t".into(), 1);
-        let result = main(&pts, &cfg, empty_collection(), false, &mut stats);
-        unsafe { std::env::remove_var("KOJI_LEGACY_GREEDY") };
-        assert!(!result.is_empty(), "Fast legacy greedy should produce clusters");
-    }
+    // ── main: Honeycomb mode ──────────────────────────────────────────────────
 
     #[test]
     fn honeycomb_mode_produces_clusters() {
-        unsafe { std::env::set_var("KOJI_LEGACY_GREEDY", "1") };
         let pts: Vec<[f64; 2]> = (0..20)
             .map(|i| [40.0 + i as f64 * 0.001, -74.0])
             .collect();
         let mut cfg = make_cfg(ClusterMode::Honeycomb);
         cfg.radius = 500.0;
         let mut stats = Stats::new("t".into(), 1);
-        let result = main(&pts, &cfg, empty_collection(), false, &mut stats);
-        unsafe { std::env::remove_var("KOJI_LEGACY_GREEDY") };
+        let result = main(&pts, &cfg, empty_collection(), &mut stats);
         // Honeycomb is a layout mode; it should produce some output.
         assert!(!result.is_empty(), "Honeycomb mode should produce clusters");
     }
@@ -365,25 +280,9 @@ mod tests {
         let mut cfg = make_cfg(ClusterMode::Fastest);
         cfg.center_clusters = true;
         let mut stats = Stats::new("t".into(), 1);
-        let result = main(&pts, &cfg, empty_collection(), false, &mut stats);
+        let result = main(&pts, &cfg, empty_collection(), &mut stats);
         // Result may be empty or non-empty depending on SEC; just no panic.
         assert!(result.len() <= pts.len() + 1);
-    }
-
-    // ── main: bypass_adaptive_partition flag ──────────────────────────────────
-
-    #[test]
-    fn bypass_adaptive_partition_still_clusters() {
-        unsafe { std::env::set_var("KOJI_LEGACY_GREEDY", "1") };
-        let pts: Vec<[f64; 2]> = (0..20)
-            .map(|i| [40.0 + i as f64 * 0.001, -74.0])
-            .collect();
-        let mut cfg = make_cfg(ClusterMode::Better);
-        cfg.radius = 300.0;
-        let mut stats = Stats::new("t".into(), 1);
-        let result = main(&pts, &cfg, empty_collection(), true /* bypass */, &mut stats);
-        unsafe { std::env::remove_var("KOJI_LEGACY_GREEDY") };
-        assert!(!result.is_empty());
     }
 
     // ── main: mygod_score populated ───────────────────────────────────────────
@@ -392,9 +291,8 @@ mod tests {
     fn main_populates_mygod_score() {
         let pts = vec![[40.0, -74.0], [40.0001, -74.0], [40.1, -74.0]];
         let mut stats = Stats::new("t".into(), 1);
-        main(&pts, &make_cfg(ClusterMode::Fastest), empty_collection(), false, &mut stats);
+        main(&pts, &make_cfg(ClusterMode::Fastest), empty_collection(), &mut stats);
         // mygod_score is set during main(); should be non-negative.
         assert!(stats.mygod_score < usize::MAX);
     }
 }
-
