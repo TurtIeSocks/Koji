@@ -143,8 +143,8 @@ fn circle_three(a: Coord, b: Coord, c: Coord) -> (Coord, f64) {
 /// Smallest enclosing circle `(center, radius)` of `points` in the Euclidean plane.
 /// Deterministic incremental Welzl (input order, no shuffle): O(n) expected, fine for
 /// the small per-group point sets here. Returns `None` for empty input.
-// Used only by tests until the cluster path wires it in (later task); keeping the
-// dead-code allow narrowly scoped to this entry point covers its private callees too.
+// Reached only by tests and the (still test-only) `Placement` until the cluster path
+// wires it in (later task); the allow on this entry point covers its private callees too.
 #[allow(dead_code)]
 fn smallest_enclosing_circle(points: &[Coord]) -> Option<(Coord, f64)> {
     let n = points.len();
@@ -177,6 +177,90 @@ fn smallest_enclosing_circle(points: &[Coord]) -> Option<(Coord, f64)> {
         }
     }
     Some((center, r))
+}
+
+/// Disc-center placement strategy. Each variant pairs a center computation with the
+/// matching "does this group fit one radius-1 disc?" test. Benchmarked against each
+/// other; the winner is hard-coded in the final version.
+// Reached only by tests until `cluster` selects a strategy (later task); narrow
+// dead-code allow on the type covers its variants and impl until then.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Placement {
+    /// Smallest-enclosing-circle center; fit ⇔ MEC radius ≤ 1 − margin. Textbook UDC.
+    Mec,
+    /// Mean of the points; fit ⇔ union-bbox diagonal ≤ 2 − margin.
+    Centroid,
+    /// Union-bbox center; fit ⇔ union-bbox diagonal ≤ 2 − margin.
+    BboxCenter,
+}
+
+/// `(min_x, min_y, max_x, max_y)` of a non-empty point set.
+// Reached only by `Placement` (test-only) until `cluster` selects a strategy (later task).
+#[allow(dead_code)]
+fn bounds(points: &[Coord]) -> (f64, f64, f64, f64) {
+    let mut min_x = points[0].x;
+    let mut min_y = points[0].y;
+    let mut max_x = points[0].x;
+    let mut max_y = points[0].y;
+    for p in &points[1..] {
+        min_x = min_x.min(p.x);
+        min_y = min_y.min(p.y);
+        max_x = max_x.max(p.x);
+        max_y = max_y.max(p.y);
+    }
+    (min_x, min_y, max_x, max_y)
+}
+
+// `fits`/`place` are reached only by tests until `cluster` calls them (later task).
+#[allow(dead_code)]
+impl Placement {
+    /// Does `points` fit inside a single radius-1 disc (allowing `margin` of safety)?
+    fn fits(self, points: &[Coord], margin: f64) -> bool {
+        if points.is_empty() {
+            return true;
+        }
+        // Cheap necessary pre-check shared by all variants: a radius-1 cover implies the
+        // bounding-box diagonal is ≤ 2.
+        let (min_x, min_y, max_x, max_y) = bounds(points);
+        let diag2 = (max_x - min_x).powi(2) + (max_y - min_y).powi(2);
+        match self {
+            Placement::Mec => {
+                if diag2 > 4.0 {
+                    return false;
+                }
+                match smallest_enclosing_circle(points) {
+                    Some((_, r)) => r <= 1.0 - margin,
+                    None => true,
+                }
+            }
+            Placement::Centroid | Placement::BboxCenter => {
+                let limit = 2.0 - margin;
+                diag2 <= limit * limit
+            }
+        }
+    }
+
+    /// Place the disc center for `points` (assumes non-empty).
+    fn place(self, points: &[Coord]) -> Coord {
+        match self {
+            Placement::Mec => smallest_enclosing_circle(points).unwrap().0,
+            Placement::Centroid => {
+                let n = points.len() as f64;
+                let (sx, sy) = points
+                    .iter()
+                    .fold((0.0, 0.0), |(sx, sy), p| (sx + p.x, sy + p.y));
+                Coord { x: sx / n, y: sy / n }
+            }
+            Placement::BboxCenter => {
+                let (min_x, min_y, max_x, max_y) = bounds(points);
+                Coord {
+                    x: (min_x + max_x) / 2.0,
+                    y: (min_y + max_y) / 2.0,
+                }
+            }
+        }
+    }
 }
 
 /// Bucket the projected points into unit-diameter grid cells, merge adjacent cells whose combined
@@ -416,5 +500,49 @@ mod tests {
     #[test]
     fn mec_empty_is_none() {
         assert!(smallest_enclosing_circle(&[]).is_none());
+    }
+
+    // ── Placement: fit + place ────────────────────────────────────────────────
+
+    #[test]
+    fn placement_mec_fits_within_unit_disc() {
+        // Two points distance 2 apart → MEC radius exactly 1 → fits at margin 0.
+        let pts = [c(0.0, 0.0), c(2.0, 0.0)];
+        assert!(Placement::Mec.fits(&pts, 0.0));
+        // distance 2.001 apart → MEC radius > 1 → does not fit.
+        let pts2 = [c(0.0, 0.0), c(2.001, 0.0)];
+        assert!(!Placement::Mec.fits(&pts2, 0.0));
+    }
+
+    #[test]
+    fn placement_mec_margin_rejects_boundary() {
+        // radius exactly 1 fails once a positive margin is required.
+        let pts = [c(0.0, 0.0), c(2.0, 0.0)];
+        assert!(!Placement::Mec.fits(&pts, 0.01));
+    }
+
+    #[test]
+    fn placement_bbox_uses_diagonal_test() {
+        // bbox diagonal of unit square = sqrt(2) ≈ 1.414 ≤ 2 → fits.
+        let sq = [c(0.0, 0.0), c(1.0, 1.0)];
+        assert!(Placement::BboxCenter.fits(&sq, 0.0));
+        assert!(Placement::Centroid.fits(&sq, 0.0));
+        // diagonal just over 2 → does not fit.
+        let wide = [c(0.0, 0.0), c(1.5, 1.5)]; // diag = 2.121
+        assert!(!Placement::BboxCenter.fits(&wide, 0.0));
+    }
+
+    #[test]
+    fn placement_centers_are_sane() {
+        let pts = [c(0.0, 0.0), c(2.0, 0.0), c(0.0, 2.0), c(2.0, 2.0)];
+        // bbox center of the 2x2 square is its middle.
+        let b = Placement::BboxCenter.place(&pts);
+        assert!((b.x - 1.0).abs() < 1e-9 && (b.y - 1.0).abs() < 1e-9);
+        // centroid of the 4 corners is also the middle.
+        let g = Placement::Centroid.place(&pts);
+        assert!((g.x - 1.0).abs() < 1e-9 && (g.y - 1.0).abs() < 1e-9);
+        // MEC center of the square is the middle too.
+        let m = Placement::Mec.place(&pts);
+        assert!((m.x - 1.0).abs() < 1e-6 && (m.y - 1.0).abs() < 1e-6);
     }
 }
