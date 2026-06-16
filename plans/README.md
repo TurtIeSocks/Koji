@@ -16,7 +16,7 @@ DB-integration tests skip cleanly unless `KOJI_DB_URL` is set (`source ./.env.te
 | 002 | Replace zero session key + harden auth compares | P1 | M | 001 (soft) | TODO |
 | 003 | Stop `parse_property_value` panics | P1 | S | — | DONE |
 | 004 | Batch project-list geofence fetch (N+1) | P2 | M | — | TODO |
-| 005 | NaN-safe crucible comparators + frame clamp | P2 | S | — | TODO |
+| 005 | NaN-safe crucible comparators + frame clamp | P2 | S | — | DONE |
 | 006 | Split `geofence.rs` god-file | P3 | L | do last | TODO |
 | 007 | Cache crucible hot-path grid scans | P3 | S–M | benchmark harness first | **DEFERRED** |
 

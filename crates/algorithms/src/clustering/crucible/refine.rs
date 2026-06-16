@@ -48,8 +48,12 @@ impl LocalFrame {
         let lat = origin[0].to_radians();
         LocalFrame {
             origin,
-            m_per_deg_lat: 111_132.92 - 559.82 * (2.0 * lat).cos() + 1.175 * (4.0 * lat).cos(),
-            m_per_deg_lon: 111_412.84 * lat.cos() - 93.5 * (3.0 * lat).cos(),
+            // Floor at 1.0 m/deg: unreachable for real lat/lon (~111 000 at equator,
+            // ~hundreds near the poles), but prevents division by zero / NaN in
+            // to_latlng() on degenerate near-pole inputs.
+            m_per_deg_lat: (111_132.92 - 559.82 * (2.0 * lat).cos() + 1.175 * (4.0 * lat).cos())
+                .max(1.0),
+            m_per_deg_lon: (111_412.84 * lat.cos() - 93.5 * (3.0 * lat).cos()).max(1.0),
         }
     }
     fn to_xy(&self, p: PointArray) -> [f64; 2] {
@@ -547,7 +551,7 @@ impl<'a> Refiner<'a> {
             pool.sort_by(|a, b| {
                 let da = (a[0] - sec.center[0]).powi(2) + (a[1] - sec.center[1]).powi(2);
                 let db = (b[0] - sec.center[0]).powi(2) + (b[1] - sec.center[1]).powi(2);
-                db.partial_cmp(&da).unwrap()
+                db.partial_cmp(&da).unwrap_or(std::cmp::Ordering::Equal)
             });
             pool.truncate(8);
             pool.extend(nearby_uncov.iter().copied());
@@ -788,7 +792,11 @@ impl<'a> Refiner<'a> {
                     .filter(|&j| j != i && this.live[j])
                     .map(|j| (haversine_m(this.pos[i], this.pos[j]), j))
                     .collect();
-                neigh.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap().then(a.1.cmp(&b.1)));
+                neigh.sort_by(|a, b| {
+                    a.0.partial_cmp(&b.0)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then(a.1.cmp(&b.1))
+                });
                 neigh.dedup_by_key(|&mut (_, j)| j);
                 neigh.truncate(3);
                 if neigh.is_empty() {
@@ -890,7 +898,11 @@ impl<'a> Refiner<'a> {
                     .filter(|&j| j != i && this.live[j])
                     .map(|j| (haversine_m(this.pos[i], this.pos[j]), j))
                     .collect();
-                neigh.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap().then(a.1.cmp(&b.1)));
+                neigh.sort_by(|a, b| {
+                    a.0.partial_cmp(&b.0)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then(a.1.cmp(&b.1))
+                });
                 neigh.dedup_by_key(|&mut (_, j)| j);
                 neigh.truncate(4);
                 for a in 0..neigh.len() {
@@ -1065,7 +1077,11 @@ impl<'a> Refiner<'a> {
                 .filter(|&v| v != u && self.count[v as usize] == 0)
                 .map(|v| (haversine_m(p, self.reps[v as usize]), v))
                 .collect();
-            partners.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap().then(a.1.cmp(&b.1)));
+            partners.sort_by(|a, b| {
+                a.0.partial_cmp(&b.0)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then(a.1.cmp(&b.1))
+            });
             for &(_, v) in partners.iter().take(8) {
                 pairs.push((u.min(v), u.max(v)));
             }
@@ -2065,5 +2081,23 @@ mod tests {
             out.is_empty(),
             "isolated points must stay uncovered at m=3 (cheaper than clusters)"
         );
+    }
+
+    #[test]
+    fn crucible_does_not_panic_on_degenerate_input() {
+        // Exact duplicates + a tight cluster exercise the sort comparators (now
+        // `partial_cmp(...).unwrap_or(Equal)`) and must return without panicking. NOTE:
+        // the extreme-latitude case the `m_per_deg.max(1.0)` clamp guards is correct by
+        // inspection but is NOT run here — near-pole geometry drives crucible into a
+        // ~150s pathological path, unacceptable for the suite.
+        let reps: SingleVec = vec![
+            [40.0_f64, -74.0_f64],
+            [40.0, -74.0], // exact duplicate
+            [40.00001, -74.00001],
+            [40.0, -74.0], // another duplicate
+        ];
+        // Use the same Refiner entry point as neighbouring tests; any center set is fine.
+        let refiner = Refiner::new(reps.clone(), &reps, 70.0, 1);
+        let _ = refiner.run(70.0, 10);
     }
 }
