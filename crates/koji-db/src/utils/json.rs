@@ -403,14 +403,21 @@ impl JsonToModel for Value {
 
 pub fn parse_property_value(value: &String, category: &Category) -> Value {
     match category {
-        Category::String | Category::Color => serde_json::Value::String(value.to_string()),
-        Category::Number => serde_json::Value::Number(
-            serde_json::Number::from_f64(value.parse::<f64>().unwrap_or(0.)).unwrap(),
-        ),
-        Category::Boolean => serde_json::Value::Bool(value.parse::<bool>().unwrap_or(false)),
-        Category::Object => serde_json::Value::from_str(value).unwrap(),
-        Category::Array => serde_json::Value::from_str(value).unwrap(),
-        Category::Database => serde_json::Value::Null,
+        Category::String | Category::Color => Value::String(value.to_string()),
+        Category::Number => {
+            // Unparseable values fall back to 0.0; NaN/inf can't be represented as a JSON
+            // number, so they also fall back to a finite 0.0 (no panic on bad data). The
+            // result is always a float, matching `from_f64`'s output for valid numbers.
+            let parsed = value.parse::<f64>().unwrap_or(0.0);
+            let finite = if parsed.is_finite() { parsed } else { 0.0 };
+            Value::Number(
+                serde_json::Number::from_f64(finite).unwrap_or_else(|| serde_json::Number::from(0)),
+            )
+        }
+        Category::Boolean => Value::Bool(value.parse::<bool>().unwrap_or(false)),
+        // Malformed Object/Array JSON resolves to Null rather than crashing the response.
+        Category::Object | Category::Array => Value::from_str(value).unwrap_or(Value::Null),
+        Category::Database => Value::Null,
     }
 }
 
@@ -543,6 +550,49 @@ mod tests {
         // Database category is a virtual marker — value is unused, always Null.
         let v = parse_property_value(&"anything".to_string(), &Category::Database);
         assert_eq!(v, json!(null));
+    }
+
+    #[test]
+    fn parse_property_value_number_nan_falls_back_to_zero() {
+        assert_eq!(
+            parse_property_value(&"nan".to_string(), &Category::Number),
+            serde_json::json!(0.0)
+        );
+    }
+    #[test]
+    fn parse_property_value_number_inf_falls_back_to_zero() {
+        assert_eq!(
+            parse_property_value(&"inf".to_string(), &Category::Number),
+            serde_json::json!(0.0)
+        );
+    }
+    #[test]
+    fn parse_property_value_number_unparseable_falls_back_to_zero() {
+        assert_eq!(
+            parse_property_value(&"abc".to_string(), &Category::Number),
+            serde_json::json!(0.0)
+        );
+    }
+    #[test]
+    fn parse_property_value_malformed_object_is_null() {
+        assert_eq!(
+            parse_property_value(&"{not json".to_string(), &Category::Object),
+            serde_json::Value::Null
+        );
+    }
+    #[test]
+    fn parse_property_value_malformed_array_is_null() {
+        assert_eq!(
+            parse_property_value(&"[1,".to_string(), &Category::Array),
+            serde_json::Value::Null
+        );
+    }
+    #[test]
+    fn parse_property_value_valid_object_round_trips() {
+        assert_eq!(
+            parse_property_value(&r#"{"a":1}"#.to_string(), &Category::Object),
+            serde_json::json!({"a": 1})
+        );
     }
 
     // ── determine_category_by_value ─────────────────────────────────────────────
