@@ -208,7 +208,6 @@ export const CLUSTERING_MODES = [
   'Fast',
   'Balanced',
   'Better',
-  'Best',
 ] as const
 
 export const SORT_BY = [
