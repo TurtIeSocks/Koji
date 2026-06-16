@@ -33,7 +33,6 @@ pub struct ClusteringArgs {
     pub calculation_mode: Option<CalculationMode>,
     pub s2_level: Option<u8>,
     pub s2_size: Option<u8>,
-    pub cluster_split_level: Option<u64>,
     pub center_clusters: Option<bool>,
     pub genetic_post_processing: Option<bool>,
     pub plugin_args: Option<String>,
@@ -49,7 +48,6 @@ impl ClusteringArgs {
             radius,
             min_points,
             max_clusters,
-            cluster_split_level: validate_s2_cell(self.cluster_split_level, "cluster_split_level"),
             calculation_mode: self.calculation_mode.unwrap_or(CalculationMode::Radius),
             s2: S2Config {
                 level: self.s2_level.unwrap_or(DEFAULT_S2_LEVEL),
@@ -163,14 +161,12 @@ impl OutputArgs {
 #[derive(Debug, Default, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase", default)]
 pub struct DevArgs {
-    pub bypass_adaptive_partition: Option<bool>,
     pub benchmark_mode: Option<bool>,
 }
 
 impl DevArgs {
     pub fn resolve(self) -> DevConfig {
         DevConfig {
-            bypass_adaptive_partition: self.bypass_adaptive_partition.unwrap_or(false),
             benchmark_mode: self.benchmark_mode.unwrap_or(false),
         }
     }
@@ -255,20 +251,6 @@ mod tests {
         assert!(cfg.plugin_args.starts_with("--custom"));
         assert!(cfg.plugin_args.contains("--radius 40"));
         assert!(cfg.plugin_args.contains("--min_points 2"));
-    }
-
-    #[test]
-    fn clustering_args_cluster_split_level_in_range() {
-        let g: ClusteringArgs = serde_json::from_str(r#"{"clusterSplitLevel":10}"#).unwrap();
-        let cfg = g.resolve();
-        assert_eq!(cfg.cluster_split_level, 10);
-    }
-
-    #[test]
-    fn clustering_args_cluster_split_level_out_of_range_gives_zero() {
-        let g: ClusteringArgs = serde_json::from_str(r#"{"clusterSplitLevel":25}"#).unwrap();
-        let cfg = g.resolve();
-        assert_eq!(cfg.cluster_split_level, 0);
     }
 
     // ── RoutingArgs ──────────────────────────────────────────────────────────
@@ -398,19 +380,17 @@ mod tests {
     // ── DevArgs ──────────────────────────────────────────────────────────────
 
     #[test]
-    fn dev_args_defaults_all_false() {
+    fn dev_args_defaults_false() {
         let cfg = DevArgs::default().resolve();
-        assert!(!cfg.bypass_adaptive_partition);
         assert!(!cfg.benchmark_mode);
     }
 
     #[test]
-    fn dev_args_both_set_true() {
+    fn dev_args_benchmark_mode_true() {
         let g: DevArgs =
-            serde_json::from_str(r#"{"bypassAdaptivePartition":true,"benchmarkMode":true}"#)
+            serde_json::from_str(r#"{"benchmarkMode":true}"#)
                 .unwrap();
         let cfg = g.resolve();
-        assert!(cfg.bypass_adaptive_partition);
         assert!(cfg.benchmark_mode);
     }
 }

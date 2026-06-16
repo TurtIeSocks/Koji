@@ -31,7 +31,6 @@ impl ClusterRequest {
             } else {
                 self.max_clusters
             },
-            cluster_split_level: 0,
             calculation_mode,
             s2: S2Config::default(),
             center_clusters: self.center_clusters,

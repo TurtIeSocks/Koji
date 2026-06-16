@@ -199,7 +199,6 @@ fn run_cluster_route(
     area: FeatureCollection,
     clustering_config: &ClusteringConfig,
     routing_config: &RoutingConfig,
-    bypass_adaptive_partition: bool,
     instance: &str,
 ) -> (KojiGeometryCollection, Stats) {
     let mut stats = Stats::new(
@@ -214,7 +213,6 @@ fn run_cluster_route(
         data_points,
         clustering_config,
         area,
-        bypass_adaptive_partition,
         &mut stats,
     );
     let clusters = routing::main(
@@ -240,7 +238,6 @@ fn resolve_cluster_route(
 ) -> (bool, KojiGeometryCollection, Stats) {
     let dev = req.dev.resolve();
     let benchmark_mode = dev.benchmark_mode;
-    let bypass_adaptive_partition = dev.bypass_adaptive_partition;
     let clustering_config = req.clustering.resolve();
     let mut routing_config = req.routing.resolve();
     // `route` defaults to a TSP sort when none was supplied (mirrors v1).
@@ -253,7 +250,6 @@ fn resolve_cluster_route(
         area,
         &clustering_config,
         &routing_config,
-        bypass_adaptive_partition,
         &instance,
     );
     (benchmark_mode, collection, stats)

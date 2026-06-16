@@ -38,7 +38,7 @@ pub fn cluster(req: ClusterRequest) -> Result<ClusterResponse, JsError> {
         features: vec![],
         foreign_members: None,
     };
-    let clusters = algorithms::clustering::main(&points, &cfg, collection, false, &mut stats);
+    let clusters = algorithms::clustering::main(&points, &cfg, collection, &mut stats);
     Ok(ClusterResponse::from_parts(clusters, &stats))
 }
 

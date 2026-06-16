@@ -24,7 +24,6 @@ pub struct OutputConfig {
 /// Developer / experimental toggles + benchmark mode.
 #[derive(Debug, Clone, Default)]
 pub struct DevConfig {
-    pub bypass_adaptive_partition: bool,
     pub benchmark_mode: bool,
 }
 
