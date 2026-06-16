@@ -480,33 +480,26 @@ impl<'a> Greedy {
         let mut new_clusters = HashSet::<Cluster>::new();
         let mut blocked_points = HashSet::<&Point>::new();
 
+        // No candidate cluster is large enough to seed the greedy pass (e.g. data too
+        // sparse for any radius-disc to hold `min_points`): nothing to select. Also guards
+        // the `current - min_points` subtraction below against unsigned underflow.
+        if clusters_with_data.len() <= self.min_points {
+            return new_clusters;
+        }
         let mut current = clusters_with_data.len() - 1;
         let total_iterations = current - self.min_points + 1;
         let mut current_iteration = 0;
         #[cfg(feature = "native")]
         let mut stdout = std::io::stdout();
 
-        let mut clusters_of_interest_time = 0.;
-        let mut local_clusters_time = 0.;
-        let mut sorting_time = 0.;
-        let mut iterating_local_time = 0.;
-        let mut logging_time = 0.;
         let capacity = clusters_with_data.iter().map(|c| c.len()).sum::<usize>();
         let mut clusters_of_interest: Vec<&Cluster<'_>> = Vec::with_capacity(capacity);
 
         'greedy: while current >= self.min_points && new_clusters.len() < self.max_clusters {
             current_iteration += 1;
-            let time = Instant::now();
             clusters_of_interest.clear();
-            for (index, clusters) in clusters_with_data.iter().enumerate() {
-                if index < current {
-                    continue;
-                }
-                clusters_of_interest.extend(clusters);
-            }
-            clusters_of_interest_time += time.elapsed().as_secs_f32();
+            clusters_of_interest.extend(clusters_with_data[current..].iter().flatten());
 
-            let time = Instant::now();
             let mut local_clusters = clusters_of_interest
                 .par_iter()
                 .filter_map(|cluster| {
@@ -534,14 +527,12 @@ impl<'a> Greedy {
                     }
                 })
                 .collect::<Vec<Cluster>>();
-            local_clusters_time += time.elapsed().as_secs_f32();
 
             if local_clusters.is_empty() {
                 current -= 1;
                 continue;
             }
 
-            let time = Instant::now();
             local_clusters.par_sort_by(|a, b| {
                 if a.unique.len() == b.unique.len() {
                     b.all.len().cmp(&a.all.len())
@@ -549,9 +540,7 @@ impl<'a> Greedy {
                     b.unique.len().cmp(&a.unique.len())
                 }
             });
-            sorting_time += time.elapsed().as_secs_f32();
 
-            let time = Instant::now();
             'cluster: for cluster in local_clusters.into_iter() {
                 if new_clusters.len() >= self.max_clusters {
                     break 'greedy;
@@ -568,9 +557,7 @@ impl<'a> Greedy {
                     new_clusters.insert(cluster);
                 }
             }
-            iterating_local_time += time.elapsed().as_secs_f32();
 
-            let time = Instant::now();
             #[cfg(feature = "native")]
             if current >= self.min_points {
                 stdout
@@ -588,18 +575,11 @@ impl<'a> Greedy {
                     .unwrap();
                 stdout.flush().unwrap();
             }
-            logging_time += time.elapsed().as_secs_f32();
 
             current -= 1;
         }
         #[cfg(feature = "native")]
         stdout.write_all(b"\n").unwrap();
-
-        log::debug!("Interested Clusters Time: {:.4}", clusters_of_interest_time);
-        log::debug!("Local Clusters Time: {:.4}", local_clusters_time);
-        log::debug!("Sorting Time: {:.4}", sorting_time);
-        log::debug!("Iterating Local Time: {:.4}", iterating_local_time);
-        log::debug!("Logging Time: {:.4}", logging_time);
 
         log::info!("initial solution size: {}", new_clusters.len());
 
@@ -620,8 +600,6 @@ impl<'a> Greedy {
         clusters.retain(|cluster| cluster.unique.len() >= self.min_points);
 
         log::info!("unique solution size: {}", clusters.len());
-
-        // crate::utils::_debug_clusters(&clusters.clone().into_iter().collect(), "x");
     }
 
     #[time()]
@@ -643,5 +621,22 @@ impl<'a> Greedy {
 
         log::info!("final solution size: {}", result.len());
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::clustering::rtree::cluster::Cluster;
+
+    /// Regression: when association yields zero candidate clusters (data too sparse for any
+    /// radius-disc to hold `min_points`), `bucket_clusters_by_size` returns a single empty
+    /// size-bucket, so `current` is 0. The greedy loop's `current - min_points + 1`
+    /// previously underflowed (debug panic / release wraparound); it must now return empty.
+    #[test]
+    fn cluster_with_no_viable_candidates_returns_empty() {
+        let greedy = Greedy::default(); // min_points = 1
+        let empty: Vec<Vec<Cluster>> = vec![vec![]];
+        assert!(greedy.cluster(&empty).is_empty());
     }
 }
