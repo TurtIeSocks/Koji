@@ -389,6 +389,19 @@ mod tests {
         assert!(smallest_enclosing_circle(&[]).is_none());
     }
 
+    #[test]
+    fn mec_right_triangle_is_circumcircle() {
+        // Exercises circle_three: the circumcircle of (0,0),(4,0),(0,3) is centered at the
+        // hypotenuse midpoint (2, 1.5) with radius 2.5. Locks the circumcenter formula.
+        let (center, r) =
+            smallest_enclosing_circle(&[c(0.0, 0.0), c(4.0, 0.0), c(0.0, 3.0)]).unwrap();
+        assert!(
+            (center.x - 2.0).abs() < 1e-9 && (center.y - 1.5).abs() < 1e-9,
+            "circumcenter wrong: {center:?}"
+        );
+        assert!((r - 2.5).abs() < 1e-9, "circumradius wrong: {r}");
+    }
+
     // ── fit + place ───────────────────────────────────────────────────────────
 
     #[test]
