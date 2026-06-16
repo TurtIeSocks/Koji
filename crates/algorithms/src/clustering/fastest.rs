@@ -383,9 +383,11 @@ mod tests {
     #[test]
     fn deterministic_same_input() {
         let pts = vec![[40.0, -74.0], [40.001, -74.001], [40.5, -73.0]];
-        let a = main(&pts, 70.0, 1);
-        let b = main(&pts, 70.0, 1);
-        assert_eq!(a.len(), b.len(), "Fastest must be deterministic");
+        let mut a = main(&pts, 70.0, 1);
+        let mut b = main(&pts, 70.0, 1);
+        a.sort_by(|p, q| p.partial_cmp(q).unwrap());
+        b.sort_by(|p, q| p.partial_cmp(q).unwrap());
+        assert_eq!(a, b, "Fastest must be deterministic (identical set of centers)");
     }
 
     // ── MEC: geometry ─────────────────────────────────────────────────────────
