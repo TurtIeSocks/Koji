@@ -802,7 +802,7 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
                 let page = query.page();
                 let per_page = query.per_page();
                 // koji-db `paginate` is 0-based; bridge from the 1-based wire.
-                let args = koji_core::AdminReqParsed {
+                let args = koji_db::query_args::AdminReqParsed {
                     page: (page - 1) as u64,
                     per_page: per_page as u64,
                     sort_by: "id".to_string(),

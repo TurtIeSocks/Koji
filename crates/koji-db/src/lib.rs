@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 pub mod category;
 pub mod db;
 pub mod error;
+pub mod name_modifier;
+pub mod query_args;
 pub mod utils;
 
 pub use category::Category;

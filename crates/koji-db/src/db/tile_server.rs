@@ -4,7 +4,7 @@ use sea_orm::entity::prelude::*;
 use serde_json::json;
 use std::str::FromStr;
 
-use koji_core::AdminReqParsed;
+use crate::query_args::AdminReqParsed;
 
 use crate::{
     error::ModelError,

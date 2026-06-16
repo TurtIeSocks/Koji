@@ -10,12 +10,9 @@ mod unknown_id;
 
 pub use mode::Mode;
 pub use normalize::HasLatLon;
-pub use query_args::{
-    AdminReq, AdminReqParsed, ApiQueryArgs, BoundsArg, FeatureRenderSpec, Filters, OutputSpec,
-    PropertySelection, SpawnpointTth,
-};
+pub use query_args::{BoundsArg, SpawnpointTth};
 pub use s2::{create_cell_map, from_array_to_cell_id};
-pub use text_utils::{NameModifier, clean, get_mode_acronym, separate_by_comma};
+pub use text_utils::{clean, get_mode_acronym, separate_by_comma};
 pub use unknown_id::UnknownId;
 
 pub mod geometry;

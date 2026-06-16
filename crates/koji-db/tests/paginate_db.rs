@@ -4,7 +4,7 @@
 //! Run with: `set -a; source ./.env.test; set +a && cargo test -p koji-db --test paginate_db -- --nocapture`
 
 use koji_db::db::{geofence, project, property, route, tile_server};
-use koji_core::AdminReqParsed;
+use koji_db::query_args::AdminReqParsed;
 use sea_orm::{Database, DatabaseConnection};
 use serde_json::json;
 use tokio::sync::{Mutex, MutexGuard};

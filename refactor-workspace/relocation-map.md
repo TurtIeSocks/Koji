@@ -123,3 +123,51 @@ algorithms: `sec::*`, `routing::vrp::*` (disabled), `s2::ToGeo`, `s2::Dir`, util
 **Left in place (ambiguous — exported, no live caller, possibly intended API; flag only):** `s2::ToGeo`, `s2::Dir`, `koji-events::DispatchError`.
 
 **koji-core now exports only genuinely-shared vocabulary:** `Mode`, `HasLatLon`, the ApiQueryArgs read-layer, `s2::*`, text helpers (NameModifier/clean/get_mode_acronym/separate_by_comma), `UnknownId`, `geometry::*`, `TrimPrecision`.
+
+---
+
+## 2026-06-16 fresh re-scan (delta) — codebase moved since 06-14
+
+Same brief re-run. Substantial refactoring landed since 06-14 (ApiQueryArgs **resolve layer** `88ac9bf`→`d5017ed`, greedy Better/Best→crucible + #253 axe, koji-jobs hardened, nominatim cleaned). Method: 4 parallel investigators (DAG · koji-core · mid-tier+jobs · top-tier+revalidation) → main-thread ground-truth reads → 1 **adversarial** verifier told to refute every claim. Everything makes sense.
+
+### DAG correction (vs the 06-14 line)
+`koji-jobs`, `nominatim`, `migration` are **roots** (no `koji-core` dep). `koji-jobs` consumed only by koji-service + koji-cli. `koji-wasm` (L4, core+algorithms only) sits **below** `koji-service` (L5); neither depends on the other. Verified order:
+`{macros, koji-jobs, nominatim, migration} < koji-core < {koji-db, koji-dragonite, koji-events, koji-plugins, koji-scanner} < algorithms < koji-wasm < koji-service < {koji-cli, koji-server}`.
+
+### Prior A1–A4: ALL INTACT, zero regression
+12 symbols re-verified in their post-06-14 homes (ClusteringConfig/RoutingConfig/BootstrapConfig/S2Config/CalculationMode/ClusterMode/SortBy in `algorithms`; OutputConfig/DevConfig/DataFilter/ReturnTypeArg/get_return_type in `koji-service::requests::config`). No leak-back to core.
+
+### ONE new candidate — `query_args.rs` db-read layer (core → koji-db)
+`crates/koji-core/src/query_args.rs` is a grab-bag of **3 request concerns with different consumers**:
+
+| group | symbols | real consumer | verdict |
+|---|---|---|---|
+| geofence render-resolve | `ApiQueryArgs` `Filters` `PropertySelection` `OutputSpec` `FeatureRenderSpec` + resolve impls | **koji-db only** (`geofence.rs` `project_as_feature`/`project_as_koji`; service = doc-comment only at `resources.rs:27`; scanner/wasm = none) | **MOVE → koji-db** *(judgment call — see caveat)* |
+| admin pagination | `AdminReq` `AdminReqParsed` | **koji-db only** (`geofence`/`route`/`project`/`property`/`tile_server` reads; no service `web::Query` wiring) | **MOVE → koji-db** |
+| scanner bounds | `BoundsArg` `SpawnpointTth` | scanner (`entities/spawnpoint.rs`) **+** service (`s2.rs`/`scanner_data.rs`) → multi-crate | **STAYS core** |
+
+Coupling if moved: `impl From<&ApiQueryArgs> for NameModifier` (`text_utils.rs:104`) moves to koji-db (orphan-ok: `ApiQueryArgs` becomes db-local; `NameModifier` stays core, db imports it). `query_args.rs` would retain only `BoundsArg`+`SpawnpointTth`. ~5-6 files (core query_args/text_utils/lib + db new module/geofence imports + 2 db test import paths).
+
+**Caveat (why not auto-applied):** freshly-authored 06-16 code (user-planned `88ac9bf`); the 06-14 pass *deliberately* kept the cluster in core as "API request vocabulary," and service-side deserialization isn't wired yet (looks mid-integration). Reversing a 2-day-old documented decision on hot code → user sign-off first.
+
+### False positives rejected (verified — do NOT move)
+- `RoutingConfig`/`BootstrapConfig`/`SortBy` — params to `routing::main`/`bootstrap::main`/`bootstrap::radius`/`bootstrap::s2` **intra-algorithms** (cross-crate import greps miss this). Stay in algorithms.
+- `NameModifier` — core-internal: `FeatureRenderSpec` field + `From<&ApiQueryArgs>` impl + `lib.rs` re-export; zero external imports. Stays.
+- `KojiGeojsonError` — koji-core's **own** geometry `TryFrom` impls use it (`koji_geojson.rs:26,45`); not service-only. Stays.
+
+### Out of relocation scope (visibility/dead-code — see §C/§D above)
+koji-dragonite unused pub surface (`V2Envelope`/`V2ApiError`/`V2Meta`/`parse_v2`/`parse_v2_with_meta`/`Tri`) — pub→pub(crate) candidates, not relocations.
+
+**Bottom line: codebase is already well-organized — the 06-14 pass holds. The only fresh opportunity is the `query_args.rs` db-layer, and it's a judgment call.**
+
+### As-built (executed 2026-06-16, user chose "Move → koji-db")
+
+Moved `koji-core` → `koji-db`: the ApiQueryArgs resolve cluster (`ApiQueryArgs`/`Filters`/`PropertySelection`/`OutputSpec`/`FeatureRenderSpec` + resolve impls) and `AdminReq`/`AdminReqParsed`, into new `koji-db/src/query_args.rs`. Kept in core: `BoundsArg`/`SpawnpointTth` (scanner+service consumers) + the generic text helpers (`clean`/`get_mode_acronym`/`separate_by_comma`).
+
+**Two couplings the cross-crate greds couldn't see (caught at execution):**
+1. **`NameModifier` had to travel too** → new `koji-db/src/name_modifier.rs`. Its `From<&ApiQueryArgs>` builder sets *private* fields (only constructible inside the owning crate), and the From impl must live where `ApiQueryArgs` is (orphan rule). Keeping it in core would have forced a 12-arg `pub` constructor / `pub` fields. It was db-render-only anyway (sole caller `spec.name_modifier.apply()`). Its 2 private helpers (`remove_symbols`, `convert_polish_to_ascii`) + 18 tests travelled with it; `koji-core` lost its now-orphaned `regex` dep, `koji-db` gained it.
+2. **`macros` `koji_resource!` emits `AdminReqParsed`** in the generated `list` handler (a `quote!` template — invisible to import greps, expands in koji-service). Retargeted `koji_core::AdminReqParsed` → `koji_db::query_args::AdminReqParsed`. Resolves fine (koji-service depends on koji-db) and is more coherent (pagination input lives with the `paginate` that consumes it).
+
+**Verification:** `cargo check --workspace --all-targets` clean; full `cargo test --workspace` = **1221 passed, 0 failed** (DB tests skip, no env). Parity-critical `NameModifier` presence-trigger tests pass in their new db home.
+
+`koji-core` now truly exports only shared vocabulary; `query_args.rs` in core holds only the genuinely-multi-crate `BoundsArg`/`SpawnpointTth`.

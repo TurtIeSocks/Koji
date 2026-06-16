@@ -2,10 +2,9 @@
 
 use std::{collections::HashMap, str::FromStr, time::Instant};
 
-use koji_core::{
-    AdminReqParsed, ApiQueryArgs, EnsurePoints, FeatureRenderSpec, KojiGeometry,
-    KojiGeometryCollection, UnknownId,
-};
+use koji_core::{EnsurePoints, KojiGeometry, KojiGeometryCollection, UnknownId};
+
+use crate::query_args::{AdminReqParsed, ApiQueryArgs, FeatureRenderSpec};
 
 use crate::{
     error::ModelError,
