@@ -16,25 +16,18 @@ use crate::project::Plane;
 /// Integer coordinate of a cell in the scaled projection grid.
 type CellKey = (i32, i32);
 
+/// Distortion safety margin for the disc-fit test. Benchmarking (see the design doc) found
+/// `0` optimal: a positive margin only adds clusters to shave a few boundary-hugging points.
 const MARGIN: f64 = 0.0;
-
-/// Temporary benchmark knob (removed once the winning placement is hard-coded):
-/// `KOJI_FASTEST_PLACEMENT=mec|centroid|bbox`, default `mec`.
-fn placement_from_env() -> Placement {
-    match std::env::var("KOJI_FASTEST_PLACEMENT").as_deref() {
-        Ok("centroid") => Placement::Centroid,
-        Ok("bbox") => Placement::BboxCenter,
-        _ => Placement::Mec,
-    }
-}
 
 pub fn main(input: &SingleVec, radius: f64, min_points: usize) -> Vec<[f64; 2]> {
     let plane = Plane::new(input).radius(radius);
     let projected = plane.project();
 
-    let output: SingleVec = cluster(projected, min_points, placement_from_env(), MARGIN)
+    // `cluster` already drops groups below `min_points`, so every returned center survives.
+    let output: SingleVec = cluster(projected, min_points, MARGIN)
         .into_iter()
-        .filter_map(|(center, count)| (count >= min_points).then_some([center.x, center.y]))
+        .map(|(center, _count)| [center.x, center.y])
         .collect();
 
     plane.reverse(output)
@@ -125,19 +118,6 @@ fn smallest_enclosing_circle(points: &[Coord]) -> Option<(Coord, f64)> {
     Some((center, r))
 }
 
-/// Disc-center placement strategy. Each variant pairs a center computation with the
-/// matching "does this group fit one radius-1 disc?" test. Benchmarked against each
-/// other; the winner is hard-coded in the final version.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Placement {
-    /// Smallest-enclosing-circle center; fit ⇔ MEC radius ≤ 1 − margin. Textbook UDC.
-    Mec,
-    /// Mean of the points; fit ⇔ union-bbox diagonal ≤ 2 − margin.
-    Centroid,
-    /// Union-bbox center; fit ⇔ union-bbox diagonal ≤ 2 − margin.
-    BboxCenter,
-}
-
 /// `(min_x, min_y, max_x, max_y)` of a non-empty point set.
 fn bounds(points: &[Coord]) -> (f64, f64, f64, f64) {
     let mut min_x = points[0].x;
@@ -153,53 +133,27 @@ fn bounds(points: &[Coord]) -> (f64, f64, f64, f64) {
     (min_x, min_y, max_x, max_y)
 }
 
-impl Placement {
-    /// Does `points` fit inside a single radius-1 disc (allowing `margin` of safety)?
-    fn fits(self, points: &[Coord], margin: f64) -> bool {
-        if points.is_empty() {
-            return true;
-        }
-        // Cheap necessary pre-check shared by all variants: a radius-1 cover implies the
-        // bounding-box diagonal is ≤ 2.
-        let (min_x, min_y, max_x, max_y) = bounds(points);
-        let diag2 = (max_x - min_x).powi(2) + (max_y - min_y).powi(2);
-        match self {
-            Placement::Mec => {
-                if diag2 > 4.0 {
-                    return false;
-                }
-                match smallest_enclosing_circle(points) {
-                    Some((_, r)) => r <= 1.0 - margin,
-                    None => true,
-                }
-            }
-            Placement::Centroid | Placement::BboxCenter => {
-                let limit = 2.0 - margin;
-                diag2 <= limit * limit
-            }
-        }
+/// Does `points` fit inside a single radius-1 disc (allowing `margin` of safety)?
+/// Tested via the minimum enclosing circle: the group fits iff its MEC radius ≤ 1 − margin.
+/// (Placement was benchmarked across MEC / centroid / bbox-center; MEC won — see design doc.)
+fn fits(points: &[Coord], margin: f64) -> bool {
+    if points.is_empty() {
+        return true;
     }
+    // Cheap necessary pre-check: a radius-1 cover implies the bounding-box diagonal is ≤ 2.
+    let (min_x, min_y, max_x, max_y) = bounds(points);
+    if (max_x - min_x).powi(2) + (max_y - min_y).powi(2) > 4.0 {
+        return false;
+    }
+    match smallest_enclosing_circle(points) {
+        Some((_, r)) => r <= 1.0 - margin,
+        None => true,
+    }
+}
 
-    /// Place the disc center for `points` (assumes non-empty).
-    fn place(self, points: &[Coord]) -> Coord {
-        match self {
-            Placement::Mec => smallest_enclosing_circle(points).unwrap().0,
-            Placement::Centroid => {
-                let n = points.len() as f64;
-                let (sx, sy) = points
-                    .iter()
-                    .fold((0.0, 0.0), |(sx, sy), p| (sx + p.x, sy + p.y));
-                Coord { x: sx / n, y: sy / n }
-            }
-            Placement::BboxCenter => {
-                let (min_x, min_y, max_x, max_y) = bounds(points);
-                Coord {
-                    x: (min_x + max_x) / 2.0,
-                    y: (min_y + max_y) / 2.0,
-                }
-            }
-        }
-    }
+/// Place the disc center at the minimum-enclosing-circle center (assumes non-empty).
+fn place(points: &[Coord]) -> Coord {
+    smallest_enclosing_circle(points).unwrap().0
 }
 
 /// The eight grid neighbours of a cell.
@@ -220,12 +174,7 @@ fn neighbours((v, h): CellKey) -> [CellKey; 8] {
 /// order) by absorbing neighbours while the group still fits one radius-1 disc, then emit
 /// one `(center, member_count)` per group with at least `min_points` members. Coincident
 /// centers are de-duplicated.
-fn cluster(
-    points: Vec<Coord>,
-    min_points: usize,
-    placement: Placement,
-    margin: f64,
-) -> Vec<(Coord, usize)> {
+fn cluster(points: Vec<Coord>, min_points: usize, margin: f64) -> Vec<(Coord, usize)> {
     let sqrt2 = std::f64::consts::SQRT_2;
 
     // First pass: bucket. BTreeMap gives deterministic sorted iteration over cells.
@@ -264,7 +213,7 @@ fn cluster(
             for cand in &candidates {
                 let mut trial = group_points.clone();
                 trial.extend_from_slice(&cells[cand]);
-                if placement.fits(&trial, margin) {
+                if fits(&trial, margin) {
                     absorbed = Some(*cand);
                     break;
                 }
@@ -284,7 +233,7 @@ fn cluster(
         if count < min_points {
             continue;
         }
-        let center = placement.place(&group_points);
+        let center = place(&group_points);
         centers.insert((center.x.to_bits(), center.y.to_bits()), (center, count));
     }
 
@@ -440,47 +389,40 @@ mod tests {
         assert!(smallest_enclosing_circle(&[]).is_none());
     }
 
-    // ── Placement: fit + place ────────────────────────────────────────────────
+    // ── fit + place ───────────────────────────────────────────────────────────
 
     #[test]
-    fn placement_mec_fits_within_unit_disc() {
+    fn fits_within_unit_disc() {
         // Two points distance 2 apart → MEC radius exactly 1 → fits at margin 0.
         let pts = [c(0.0, 0.0), c(2.0, 0.0)];
-        assert!(Placement::Mec.fits(&pts, 0.0));
+        assert!(fits(&pts, 0.0));
         // distance 2.001 apart → MEC radius > 1 → does not fit.
         let pts2 = [c(0.0, 0.0), c(2.001, 0.0)];
-        assert!(!Placement::Mec.fits(&pts2, 0.0));
+        assert!(!fits(&pts2, 0.0));
     }
 
     #[test]
-    fn placement_mec_margin_rejects_boundary() {
+    fn fits_margin_rejects_boundary() {
         // radius exactly 1 fails once a positive margin is required.
         let pts = [c(0.0, 0.0), c(2.0, 0.0)];
-        assert!(!Placement::Mec.fits(&pts, 0.01));
+        assert!(!fits(&pts, 0.01));
     }
 
     #[test]
-    fn placement_bbox_uses_diagonal_test() {
-        // bbox diagonal of unit square = sqrt(2) ≈ 1.414 ≤ 2 → fits.
+    fn fits_rejects_group_too_wide_for_a_disc() {
+        // unit square: MEC radius √2/2 ≈ 0.707 → fits.
         let sq = [c(0.0, 0.0), c(1.0, 1.0)];
-        assert!(Placement::BboxCenter.fits(&sq, 0.0));
-        assert!(Placement::Centroid.fits(&sq, 0.0));
-        // diagonal just over 2 → does not fit.
-        let wide = [c(0.0, 0.0), c(1.5, 1.5)]; // diag = 2.121
-        assert!(!Placement::BboxCenter.fits(&wide, 0.0));
+        assert!(fits(&sq, 0.0));
+        // bbox diagonal 2.121 > 2 → cannot fit any radius-1 disc (cheap pre-check rejects).
+        let wide = [c(0.0, 0.0), c(1.5, 1.5)];
+        assert!(!fits(&wide, 0.0));
     }
 
     #[test]
-    fn placement_centers_are_sane() {
+    fn place_is_mec_center() {
+        // MEC center of the 2x2 square is its middle.
         let pts = [c(0.0, 0.0), c(2.0, 0.0), c(0.0, 2.0), c(2.0, 2.0)];
-        // bbox center of the 2x2 square is its middle.
-        let b = Placement::BboxCenter.place(&pts);
-        assert!((b.x - 1.0).abs() < 1e-9 && (b.y - 1.0).abs() < 1e-9);
-        // centroid of the 4 corners is also the middle.
-        let g = Placement::Centroid.place(&pts);
-        assert!((g.x - 1.0).abs() < 1e-9 && (g.y - 1.0).abs() < 1e-9);
-        // MEC center of the square is the middle too.
-        let m = Placement::Mec.place(&pts);
+        let m = place(&pts);
         assert!((m.x - 1.0).abs() < 1e-6 && (m.y - 1.0).abs() < 1e-6);
     }
 
@@ -493,7 +435,7 @@ mod tests {
         let pts: Vec<Coord> = (0..25)
             .map(|i| c((i % 5) as f64 * 0.3, (i / 5) as f64 * 0.3))
             .collect();
-        let centers = cluster(pts.clone(), 1, Placement::Mec, 0.0);
+        let centers = cluster(pts.clone(), 1, 0.0);
         for p in &pts {
             let covered = centers
                 .iter()
@@ -507,11 +449,11 @@ mod tests {
         let pts: Vec<Coord> = (0..40)
             .map(|i| c((i % 7) as f64 * 0.5, (i / 7) as f64 * 0.5))
             .collect();
-        let mut a: Vec<(u64, u64)> = cluster(pts.clone(), 2, Placement::Mec, 0.0)
+        let mut a: Vec<(u64, u64)> = cluster(pts.clone(), 2, 0.0)
             .into_iter()
             .map(|(ctr, _)| (ctr.x.to_bits(), ctr.y.to_bits()))
             .collect();
-        let mut b: Vec<(u64, u64)> = cluster(pts.clone(), 2, Placement::Mec, 0.0)
+        let mut b: Vec<(u64, u64)> = cluster(pts.clone(), 2, 0.0)
             .into_iter()
             .map(|(ctr, _)| (ctr.x.to_bits(), ctr.y.to_bits()))
             .collect();
@@ -525,7 +467,7 @@ mod tests {
         // x = 0.0, 0.9, 1.8 — near-collinear, MEC radius 0.9 ≤ 1 → fits ONE disc, spanning
         // two √2 grid cells. They must collapse to a single center counting all 3.
         let pts = vec![c(0.0, 0.0), c(0.9, 0.0), c(1.8, 0.0)];
-        let centers = cluster(pts, 1, Placement::Mec, 0.0);
+        let centers = cluster(pts, 1, 0.0);
         assert_eq!(centers.len(), 1, "three points fitting one disc → 1 center");
         assert_eq!(centers[0].1, 3, "the single disc should count all 3 members");
     }
@@ -534,7 +476,7 @@ mod tests {
     fn cluster_drops_sub_min_points_groups() {
         // Two far-apart singletons, min_points=2 → each group has 1 member → all dropped.
         let pts = vec![c(0.0, 0.0), c(100.0, 100.0)];
-        let centers = cluster(pts, 2, Placement::Mec, 0.0);
+        let centers = cluster(pts, 2, 0.0);
         assert!(centers.is_empty(), "groups below min_points must be dropped");
     }
 }
