@@ -58,10 +58,6 @@ pub fn main(
         _ => match cfg.mode.clone() {
             ClusterMode::Fastest => fastest::main(data_points, cfg.radius, cfg.min_points),
             ClusterMode::Better | ClusterMode::Best => {
-                log::info!(
-                    "cluster_mode '{:?}' routes to the crucible algorithm",
-                    cfg.mode
-                );
                 let crucible = crucible::Crucible {
                     radius: cfg.radius,
                     min_points: cfg.min_points,
