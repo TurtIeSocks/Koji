@@ -57,7 +57,7 @@ pub fn main(
             .collect(),
         _ => match cfg.mode.clone() {
             ClusterMode::Fastest => fastest::main(data_points, cfg.radius, cfg.min_points),
-            ClusterMode::Balanced | ClusterMode::Fast | ClusterMode::Better | ClusterMode::Best => {
+            ClusterMode::Better | ClusterMode::Best => {
                 log::info!(
                     "cluster_mode '{:?}' routes to the crucible algorithm",
                     cfg.mode
@@ -69,7 +69,7 @@ pub fn main(
                 };
                 crucible.run(data_points)
             }
-            ClusterMode::Honeycomb => {
+            ClusterMode::Honeycomb | ClusterMode::Fast | ClusterMode::Balanced => {
                 let mut greedy = Greedy::default();
                 greedy
                     .set_cluster_mode(cfg.mode.clone())
