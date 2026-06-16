@@ -9,7 +9,7 @@
 //!     --dataset urban --n 10000 --mode best --min-points 1 [--legacy] [--seed 42]
 //!
 //! Datasets: uniform | blobs | urban | csv:<path>
-//! Modes: fastest | fast | balanced | better | best
+//! Modes: fastest | honeycomb | fast | balanced | better | best
 
 use std::time::Instant;
 
@@ -249,6 +249,7 @@ fn main() {
 
     let mode = match args.mode.as_str() {
         "fastest" => ClusterMode::Fastest,
+        "honeycomb" => ClusterMode::Honeycomb,
         "fast" => ClusterMode::Fast,
         "balanced" => ClusterMode::Balanced,
         "better" => ClusterMode::Better,
