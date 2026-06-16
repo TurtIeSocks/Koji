@@ -237,7 +237,6 @@ export async function clusteringRouting({
     category: rawCategory,
     min_points,
     route_split_level,
-    cluster_split_level,
     save_to_db,
     save_to_scanner,
     skipRendering,
@@ -252,7 +251,6 @@ export async function clusteringRouting({
     clustering_args,
     bootstrapping_args,
     genetic_post_processing,
-    dev,
   } = usePersist.getState()
   const { geojson, setStatic, bounds } = useStatic.getState()
   const { add, activeRoute } = useShapes.getState().setters
@@ -323,12 +321,6 @@ export async function clusteringRouting({
         `${area.geometry.type}${area.id ? `-${area.id}` : ''}`
       const signal = useStatic.getState().loadingAbort[instance]?.signal
 
-      // The persist `dev` is snake_case (`bypass_adaptive_partition`); the v2
-      // DevArgs group is camelCase. Map it so the toggle is actually honored.
-      const devArgs = {
-        bypassAdaptivePartition: dev.bypass_adaptive_partition,
-      }
-
       // v2 calc body: a tagged CalcJobRequest. `mode` selects the op
       // (cluster | bootstrap — clusteringRouting only drives these two; reroute /
       // routeStats are separate call sites), `category` + the nested camelCase
@@ -358,7 +350,6 @@ export async function clusteringRouting({
                 pluginArgs: routing_args || undefined,
               },
               output: { returnType: 'feature', saveToDb: save_to_db, saveToScanner: save_to_scanner },
-              dev: devArgs,
             }
           : {
               mode: 'cluster',
@@ -374,7 +365,6 @@ export async function clusteringRouting({
                 calculationMode: calculation_mode,
                 s2Level: s2_level,
                 s2Size: s2_size,
-                clusterSplitLevel: cluster_split_level,
                 centerClusters: center_clusters,
                 geneticPostProcessing: genetic_post_processing,
                 pluginArgs: clustering_args || undefined,
@@ -389,11 +379,9 @@ export async function clusteringRouting({
                 lastSeen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
                 tth,
               },
-              dev: devArgs,
             }
 
-      // `fast` (v1 flag) has no v2 arg-group field — the adaptive-partition path
-      // is now controlled by `dev.bypassAdaptivePartition`. Dropped here.
+      // `fast` (v1 flag) has no v2 arg-group field. Dropped here.
       // TODO(v2-verify): confirm dropping the v1 `fast` flag is intended.
 
       // Enqueue the job, then long-poll it to a terminal state.

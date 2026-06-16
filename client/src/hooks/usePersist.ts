@@ -66,7 +66,6 @@ export interface UsePersist {
   radius: number | ''
   min_points: number | ''
   route_split_level: number | ''
-  cluster_split_level: number | ''
   save_to_db: boolean
   save_to_scanner: boolean
   skipRendering: boolean
@@ -80,21 +79,6 @@ export interface UsePersist {
   bootstrapping_args: string
   center_clusters: boolean
   genetic_post_processing: boolean
-  /**
-   * Developer / experimental request toggles. Mirrors the `DevArgs` struct on
-   * the server. Expect this object to grow and shrink between releases. Fields
-   * here are NOT part of the stable public API and may be removed without
-   * notice once the feature they were used to debug is merged.
-   */
-  dev: {
-    /**
-     * When `true`, the server skips the adaptive S2 partitioning + post-greedy
-     * gap-fill added in PR #253 and uses the pre-PR `setup()` path for every
-     * mode. Intended for side-by-side quality comparison during PR review;
-     * will be commented out after the PR merges.
-     */
-    bypass_adaptive_partition: boolean
-  }
   // generations: number | ''
   // routing_time: number | ''
   // devices: number | ''
@@ -142,14 +126,10 @@ export const usePersist = create(
       s2FillMode: 'simple',
       radius: 70,
       route_split_level: 0,
-      cluster_split_level: 0,
       center_clusters: false,
       // routing_chunk_size: 0,
       calculation_mode: 'Radius',
       genetic_post_processing: false,
-      dev: {
-        bypass_adaptive_partition: false,
-      },
       s2_level: 15,
       s2_size: 9,
       max_clusters: 0,
