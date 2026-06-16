@@ -50,6 +50,17 @@ impl Model {
     }
 }
 
+/// Row shape for the batched project→geofence join in `paginate`: carries the
+/// owning `project_id` alongside the same `geofence.id`/`geofence.name` the
+/// per-row `get_related_geofences()` selected, so results can be grouped back
+/// per project without an extra query per row.
+#[derive(Debug, FromQueryResult)]
+struct GeofenceForProject {
+    project_id: u32,
+    id: u32,
+    name: String,
+}
+
 #[macros::crud_query]
 pub struct Query;
 
@@ -102,17 +113,52 @@ impl Query {
             }
         };
 
-        let geofences = future::try_join_all(
-            results
-                .iter()
-                .map(|result| result.get_related_geofences().into_json().all(db)),
-        )
-        .await?;
+        // Batched replacement for the former per-row N+1 (one
+        // `get_related_geofences().into_json().all()` per project). One join over
+        // the `geofence_project` junction, filtered by every project id on the
+        // page, selecting the SAME `geofence.id` + `geofence.name` columns the
+        // per-row `get_related_geofences()` selected; rows are then grouped back
+        // per project. Two equivalence-preserving details:
+        //   1. Element shape — `json!({ "id", "name" })` matches the old
+        //      `select_only().column(Id).column(Name).into_json()` object (same
+        //      keys, same insertion order id→name).
+        //   2. Per-project order — the old `find_related` join carried no
+        //      ORDER BY and MySQL returned each project's geofences in
+        //      `geofence_project` insertion (PK) order (verified empirically
+        //      against the pre-change code: a project linked geofence 666 then
+        //      664 came back [666, 664], not id-sorted). Driving the batched
+        //      read off the junction entity and ordering by its primary key
+        //      reproduces that order deterministically for every project.
+        let project_ids: Vec<u32> = results.iter().map(|p| p.id).collect();
+
+        let mut geofence_map: std::collections::HashMap<u32, Vec<Json>> =
+            std::collections::HashMap::new();
+        if !project_ids.is_empty() {
+            for row in geofence_project::Entity::find()
+                .join(
+                    sea_orm::JoinType::InnerJoin,
+                    geofence_project::Relation::Geofence.def(),
+                )
+                .filter(geofence_project::Column::ProjectId.is_in(project_ids))
+                .order_by(geofence_project::Column::Id, Order::Asc)
+                .select_only()
+                .column(geofence_project::Column::ProjectId)
+                .column(geofence::Column::Id)
+                .column(geofence::Column::Name)
+                .into_model::<GeofenceForProject>()
+                .all(db)
+                .await?
+            {
+                geofence_map
+                    .entry(row.project_id)
+                    .or_default()
+                    .push(json!({ "id": row.id, "name": row.name }));
+            }
+        }
 
         let mut results: Vec<Json> = results
             .into_iter()
-            .enumerate()
-            .map(|(i, project)| {
+            .map(|project| {
                 json!({
                     "id": project.id,
                     "name": project.name,
@@ -122,7 +168,7 @@ impl Query {
                     "description": project.description,
                     // "created_at": fence.created_at,
                     // "updated_at": fence.updated_at,
-                    "geofences": geofences[i],
+                    "geofences": geofence_map.get(&project.id).cloned().unwrap_or_default(),
                 })
             })
             .collect();
