@@ -1,4 +1,3 @@
-use crate::util::RequestBuilderHelper;
 use thiserror::Error;
 
 /// A nominatim client that is binded to the nominatim web api.
@@ -65,7 +64,7 @@ impl Client {
         url.set_query(Some(&serde_urlencoded::to_string(query)?));
         let mut builder = self.client.get(url);
         for (k, v) in extra {
-            builder = builder.query_s(k, v);
+            builder = builder.query(&[(k, v)]);
         }
         let resp = builder.send().await?;
         let status = resp.status();
