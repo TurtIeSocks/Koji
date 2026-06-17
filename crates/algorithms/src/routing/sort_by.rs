@@ -14,6 +14,8 @@ pub enum SortBy {
     S2Cell,
     #[str("latlon")]
     LatLon,
+    #[str("tsp", alias("optimized", "2opt"))]
+    Tsp,
     #[str(default)]
     Custom(String),
 }
