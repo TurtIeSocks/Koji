@@ -26,7 +26,6 @@ s2 = { version = "0.0.13", default-features = false, features = ["serde"] }
 web-time = "1"
 serde = { version = "1.0.225", features = ["derive"] }
 serde_json = { workspace = true }
-# vrp-pragmatic = "1.18.3"
 sysinfo = { version = "0.37.0", optional = true }
 
 macros = { workspace = true }

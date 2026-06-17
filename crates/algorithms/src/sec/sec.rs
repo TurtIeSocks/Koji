@@ -42,12 +42,6 @@ pub fn multi_attempt<I: Iterator<Item = Point>>(
     eval_result(points, circle, radius)
 }
 
-// pub fn single_attempt<I: Iterator<Item = Point>>(points: I, radius: f64) -> CircleResult {
-//     let points: Vec<_> = points.collect();
-//     let circle = smallest_enclosing_circle(points.clone(), radius);
-//     eval_result(points, circle, radius)
-// }
-
 fn smallest_enclosing_circle(points: Vec<Point>, radius: f64) -> Circle {
     let mut p = points;
     let mut circle = Circle::None;

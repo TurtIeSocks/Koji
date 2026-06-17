@@ -57,6 +57,7 @@ pub fn main(
             .collect(),
         _ => match cfg.mode.clone() {
             ClusterMode::Fastest => fastest::main(data_points, cfg.radius, cfg.min_points),
+            // ponytail: Better|Best intentionally share the crucible arm (Best is a future-algo slot).
             ClusterMode::Better | ClusterMode::Best => {
                 let crucible = crucible::Crucible {
                     radius: cfg.radius,

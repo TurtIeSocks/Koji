@@ -4,7 +4,7 @@ use koji_core::SingleVec;
 #[cfg(feature = "native")]
 use koji_plugins::PluginKind;
 
-use self::sorting::{SortGeohash, SortLatLng, SortPointCount, SortRandom, SortS2};
+use self::sorting::{sort_geohash, sort_lat_lng, sort_point_count, sort_random, sort_s2};
 #[cfg(feature = "native")]
 use crate::plugins;
 use crate::{stats::Stats, utils};
@@ -28,16 +28,16 @@ pub fn main(
 ) -> SingleVec {
     let route_time = Instant::now();
     let clusters = match &cfg.sort_by {
-        SortBy::PointCount => clusters.sort_point_count(data_points, radius),
-        SortBy::LatLon => clusters.sort_lat_lng(),
-        SortBy::GeoHash => clusters.sort_geohash(),
-        SortBy::S2Cell => clusters.sort_s2(),
-        SortBy::Random => clusters.sort_random(),
-        SortBy::Tsp => two_opt::optimize(clusters.sort_s2()),
+        SortBy::PointCount => sort_point_count(clusters, data_points, radius),
+        SortBy::LatLon => sort_lat_lng(clusters),
+        SortBy::GeoHash => sort_geohash(clusters),
+        SortBy::S2Cell => sort_s2(clusters),
+        SortBy::Random => sort_random(clusters),
+        SortBy::Tsp => two_opt::optimize(sort_s2(clusters)),
         SortBy::Unset => clusters,
         #[cfg(feature = "native")]
         SortBy::Custom(plugin) => {
-            let clusters = clusters.sort_s2();
+            let clusters = sort_s2(clusters);
             match plugins::resolve(PluginKind::Routing, plugin, cfg.route_split_level) {
                 Some(plugin_manager) => match plugin_manager.run_multi(
                     &clusters,
@@ -56,7 +56,7 @@ pub fn main(
         #[cfg(not(feature = "native"))]
         SortBy::Custom(_plugin) => {
             log::warn!("custom routing plugins unavailable in wasm; using S2 sort");
-            clusters.sort_s2()
+            sort_s2(clusters)
         }
     };
     let clusters = utils::rotate_to_best(clusters, stats);

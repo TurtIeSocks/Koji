@@ -1,7 +1,4 @@
-use std::{
-    fmt::Display,
-    hash::{Hash, Hasher},
-};
+use std::hash::{Hash, Hasher};
 
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rstar::RTree;
@@ -32,12 +29,6 @@ impl<'a> Cluster<'a> {
         size
     }
 
-    pub fn set_all(&mut self, tree: &'a RTree<Point>) {
-        let mut points: Vec<_> = tree.locate_all_at_point(&self.point.center).collect();
-        points.sort_dedupe();
-        self.all = points;
-    }
-
     pub fn set_unique(&mut self, tree: &RTree<Point>) {
         let mut points: Vec<_> = self
             .all
@@ -63,30 +54,6 @@ impl Eq for Cluster<'_> {}
 impl Hash for Cluster<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.point.cell_id.hash(state);
-    }
-}
-
-impl Display for Cluster<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut display = format!("\n\n{}\nAll: {} (", self.point, self.all.len());
-        for (i, point) in self.all.iter().enumerate() {
-            display.push_str(&format!(
-                "{}{}",
-                point._get_geohash(),
-                if i == self.all.len() - 1 { "" } else { ", " }
-            ));
-        }
-        display.push_str(&format!(")\nPoints: {} (", self.unique.len()));
-        for (i, point) in self.unique.iter().enumerate() {
-            display.push_str(&format!(
-                "{}{}",
-                point._get_geohash(),
-                if i == self.all.len() - 1 { "" } else { ", " }
-            ));
-        }
-        display.push_str(")\n");
-
-        write!(f, "{}", display)
     }
 }
 
@@ -163,29 +130,4 @@ mod tests {
         assert_ne!(c1, c2);
     }
 
-    // ── Cluster::set_all ──────────────────────────────────────────────────────
-
-    #[test]
-    fn set_all_populates_from_tree() {
-        let data: Vec<[f64; 2]> = vec![[40.0, -74.0], [40.0001, -74.0]];
-        let radius = 1_000.0;
-        let tree = rtree::spawn(radius, &data);
-        let cp = Point::new(radius, 20, [40.0, -74.0]);
-        let mut c = Cluster::new(cp, vec![], vec![]);
-        c.set_all(&tree);
-        assert!(
-            !c.all.is_empty(),
-            "set_all must populate from tree at the center"
-        );
-    }
-
-    // ── Display smoke test ────────────────────────────────────────────────────
-
-    #[test]
-    fn display_does_not_panic() {
-        let cp = Point::new(70.0, 20, [40.0, -74.0]);
-        let c = Cluster::new(cp, vec![], vec![]);
-        let s = format!("{c}");
-        assert!(!s.is_empty());
-    }
 }
