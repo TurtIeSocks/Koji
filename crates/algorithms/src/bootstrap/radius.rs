@@ -118,7 +118,10 @@ impl<'a> BootstrapRadius<'a> {
             .collect();
 
         let x_mod = 0.75_f64.sqrt();
-        let y_mod = 0.568_f64.sqrt();
+        // 0.5625 = 0.75²: row pitch = 2·√0.5625·r = 1.5r exactly, the pointy-top
+        // hex covering pitch. (Was 0.568 → 1.5073r, over-spacing rows ~0.5% and
+        // leaving thin uncovered slivers between every trio of circles.)
+        let y_mod = 0.5625_f64.sqrt();
 
         let extremes = polygon.extremes().unwrap();
         let max = Point::new(extremes.x_max.coord.x, extremes.y_max.coord.y);
