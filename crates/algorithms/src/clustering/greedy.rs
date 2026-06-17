@@ -1,6 +1,6 @@
 use geojson::{Feature, Geometry};
 use hashbrown::HashSet;
-use koji_core::{KojiBbox, PointArray, Precision, SingleVec};
+use koji_core::{KojiBbox, Precision, SingleVec};
 use macros::time;
 
 use super::ClusterMode;
@@ -71,135 +71,6 @@ impl<'a> Greedy {
         let return_set = self.setup(points);
         log::info!("finished in {:.2}s", time.elapsed().as_secs_f32());
         return_set.into_iter().map(|p| p.center).collect()
-    }
-
-    /// Post-greedy merge: walk pairs of nearby cluster centers (within 2*radius)
-    /// and replace any pair whose union of covered points fits within `radius` of
-    /// the pair's midpoint with a single cluster at that midpoint. Lossless —
-    /// coverage is preserved by construction.
-    ///
-    /// The mygod_score formula (`clusters * min_points + uncovered_points`, source
-    /// of truth: stats.rs::Stats::get_score) drops by exactly `min_points` per
-    /// successful merge: one fewer cluster, zero new uncovered points.
-    ///
-    /// Greedy avoidance: each cluster is considered exactly once in index order.
-    /// When two clusters merge they're both marked removed; later iterations skip
-    /// them. A single pass per `run`; cheap (~O(n*k) where k is average neighbor
-    /// count, typically 1-3 for non-degenerate point distributions).
-    #[allow(dead_code)] // kept for future opt-in once SEC pre-filter is cheaper
-    fn merge_redundant_clusters(
-        &self,
-        mut solution: Vec<Cluster<'a>>,
-        all_points_tree: &'a RTree<Point>,
-    ) -> Vec<Cluster<'a>> {
-        use ::s2::cellid::CellID;
-        use rstar::AABB;
-
-        if solution.len() < 2 {
-            return solution;
-        }
-
-        // Tree over cluster centers (radius=2*self.radius so envelope queries find
-        // any cluster center within 2r of the query point — the only candidates
-        // geometrically able to merge).
-        let centers: SingleVec = solution.iter().map(|c| c.point.center).collect();
-        let center_tree: RTree<Point> = crate::rtree::spawn(self.radius * 2.0, &centers);
-
-        let id_to_idx: hashbrown::HashMap<CellID, usize> = solution
-            .iter()
-            .enumerate()
-            .map(|(i, c)| (c.point.cell_id, i))
-            .collect();
-
-        let mut removed: HashSet<CellID> = HashSet::with_capacity(solution.len() / 8);
-        let mut additions: Vec<Cluster<'a>> = Vec::new();
-        let mut attempted_merges: usize = 0;
-        let mut successful_merges: usize = 0;
-
-        for i in 0..solution.len() {
-            let cluster = &solution[i];
-            if removed.contains(&cluster.point.cell_id) {
-                continue;
-            }
-
-            // Find candidate neighbors: cluster centers within 2*radius envelope.
-            // Filter out self + already-removed.
-            let neighbors: Vec<&Point> = center_tree
-                .locate_in_envelope_intersecting(&AABB::from_point(cluster.point.center))
-                .filter(|p| p.cell_id != cluster.point.cell_id && !removed.contains(&p.cell_id))
-                .collect();
-
-            for neighbor in neighbors {
-                attempted_merges += 1;
-                let nb_idx = match id_to_idx.get(&neighbor.cell_id) {
-                    Some(idx) => *idx,
-                    None => continue,
-                };
-                let nb_cluster = &solution[nb_idx];
-
-                // Compute SEC of the union of points (de-duped). multi_attempt
-                // returns Centered iff the SEC radius is within self.radius,
-                // i.e. the merge is geometrically possible without coverage loss.
-                let union_points: Vec<&Point> = cluster
-                    .all
-                    .iter()
-                    .chain(nb_cluster.all.iter())
-                    .copied()
-                    .collect();
-                let mut union_dedup: Vec<&Point> = union_points;
-                union_dedup.sort_dedupe();
-
-                let sec_result = crate::sec::sec::multi_attempt(
-                    union_dedup
-                        .iter()
-                        .map(|p| geo::Point::new(p.center[1], p.center[0])),
-                    self.radius,
-                    16,
-                );
-                let merge_center: PointArray = match sec_result {
-                    crate::sec::sec::SmallestEnclosingCircle::Centered(g) => [g.y(), g.x()],
-                    _ => continue, // SEC won't fit — lossy merges hurt mygod_score
-                };
-
-                // Verify against rtree (planar vs geodesic distance differ).
-                let mid_coverage: HashSet<CellID> = all_points_tree
-                    .locate_all_at_point(&merge_center)
-                    .map(|p| p.cell_id)
-                    .collect();
-                let union_ids: HashSet<CellID> = union_dedup.iter().map(|p| p.cell_id).collect();
-                if !union_ids.is_subset(&mid_coverage) {
-                    continue;
-                }
-
-                // Build merged cluster.
-                let new_pt = Point::new(self.radius, 20, merge_center);
-                let mut new_all: Vec<&Point> =
-                    all_points_tree.locate_all_at_point(&merge_center).collect();
-                new_all.sort_dedupe();
-                additions.push(Cluster::new(new_pt, new_all, vec![]));
-
-                removed.insert(cluster.point.cell_id);
-                removed.insert(nb_cluster.point.cell_id);
-                successful_merges += 1;
-                break;
-            }
-        }
-
-        log::info!(
-            "merge_pass: {} attempts, {} successful merges, -{} clusters",
-            attempted_merges,
-            successful_merges,
-            successful_merges,
-        );
-
-        // Rebuild final solution: kept clusters + new merged clusters.
-        solution.retain(|c| !removed.contains(&c.point.cell_id));
-        solution.extend(additions);
-
-        // Recompute `unique` for the merged solution so downstream callers see
-        // correct uniqueness counts.
-        self.update_unique(&mut solution);
-        solution
     }
 
     /// Add clusters centered on previously-uncovered points when a single cluster
@@ -627,7 +498,8 @@ impl<'a> Greedy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::clustering::rtree::cluster::Cluster;
+    use crate::clustering::rtree::{cluster::Cluster, point::Point};
+    use ::s2::cellid::CellID;
 
     /// Regression: when association yields zero candidate clusters (data too sparse for any
     /// radius-disc to hold `min_points`), `bucket_clusters_by_size` returns a single empty
@@ -638,5 +510,82 @@ mod tests {
         let greedy = Greedy::default(); // min_points = 1
         let empty: Vec<Vec<Cluster>> = vec![vec![]];
         assert!(greedy.cluster(&empty).is_empty());
+    }
+
+    #[test]
+    fn bucket_clusters_by_size_indexes_by_all_len() {
+        let pts: Vec<Point> = (0..3)
+            .map(|i| Point::new(70.0, 20, [40.0 + i as f64 * 0.01, -74.0]))
+            .collect();
+        let center = Point::new(70.0, 20, [50.0, 0.0]);
+        let one = Cluster::new(center, vec![&pts[0]], vec![]);
+        let two = Cluster::new(center, vec![&pts[0], &pts[1]], vec![]);
+        let three = Cluster::new(center, vec![&pts[0], &pts[1], &pts[2]], vec![]);
+
+        let buckets = Greedy::default().bucket_clusters_by_size(vec![one, two, three]);
+        assert_eq!(buckets.len(), 4, "buckets span 0..=max_all_len (3)");
+        assert_eq!(buckets[0].len(), 0);
+        assert_eq!(buckets[1].len(), 1);
+        assert_eq!(buckets[2].len(), 1);
+        assert_eq!(buckets[3].len(), 1);
+    }
+
+    #[test]
+    fn recover_missing_points_filters_seen_and_caps() {
+        let points: Vec<[f64; 2]> = vec![[40.0, -74.0], [41.0, -73.0], [42.0, -72.0]];
+        let greedy = Greedy::default();
+
+        let seen_first: HashSet<CellID> = [Point::new(70.0, 20, points[0]).cell_id]
+            .into_iter()
+            .collect();
+        assert_eq!(
+            greedy.recover_missing_points(&seen_first, &points, 10).len(),
+            2,
+            "two unseen points should be recovered"
+        );
+        assert_eq!(
+            greedy.recover_missing_points(&seen_first, &points, 1).len(),
+            1,
+            "max_to_add caps the output"
+        );
+        assert!(
+            greedy.recover_missing_points(&seen_first, &points, 0).is_empty(),
+            "max_to_add = 0 is the fast path"
+        );
+
+        let seen_all: HashSet<CellID> = points
+            .iter()
+            .map(|p| Point::new(70.0, 20, *p).cell_id)
+            .collect();
+        assert!(
+            greedy.recover_missing_points(&seen_all, &points, 10).is_empty(),
+            "nothing missing when every point is seen"
+        );
+    }
+
+    #[test]
+    fn cluster_greedily_keeps_dominant_and_blocks_its_points() {
+        // Four distinct points; two overlapping candidate clusters that share `c`.
+        let a = Point::new(70.0, 20, [40.00, -74.0]);
+        let b = Point::new(70.0, 20, [40.01, -74.0]);
+        let c = Point::new(70.0, 20, [40.02, -74.0]);
+        let d = Point::new(70.0, 20, [40.03, -74.0]);
+        let center1 = Point::new(70.0, 20, [40.005, -74.0]); // candidate covering a, b, c
+        let center2 = Point::new(70.0, 20, [40.025, -74.0]); // candidate covering c, d
+        let c1 = Cluster::new(center1, vec![&a, &b, &c], vec![]);
+        let c2 = Cluster::new(center2, vec![&c, &d], vec![]);
+
+        let mut greedy = Greedy::default();
+        greedy.set_min_points(2);
+        let buckets = greedy.bucket_clusters_by_size(vec![c1, c2]);
+        let solution = greedy.cluster(&buckets);
+
+        // c1 (3 unique) is selected first and blocks a, b, c; c2 then has only d left
+        // (1 < min_points) and is dropped.
+        assert_eq!(solution.len(), 1, "only the dominant cluster survives");
+        assert!(
+            solution.iter().any(|cl| cl.point.cell_id == center1.cell_id),
+            "the surviving cluster is the max-coverage one"
+        );
     }
 }
