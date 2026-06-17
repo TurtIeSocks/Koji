@@ -5,7 +5,7 @@ use koji_core::HasLatLon;
 
 use crate::rows::{GenericData, LatLonRow, Spawnpoint};
 
-pub struct AreaPolygons {
+pub(crate) struct AreaPolygons {
     polys: Vec<Polygon<f64>>,
     multi_polys: Vec<MultiPolygon<f64>>,
 }
