@@ -41,11 +41,8 @@ use koji_jobs::{JobCtx, JobError, JobHandler};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+use crate::requests::resolve::DEFAULT_RADIUS;
 use crate::requests::{CalcRequest, ClusterReq};
-
-/// The legacy `init()` radius default (spec §2 defaults table). Used by the
-/// reroute / route-stats typed arms, whose requests carry an optional `radius`.
-const DEFAULT_RADIUS: f64 = 70.0;
 
 /// The stable `job.kind` string this handler claims.
 pub const CALC_KIND: &str = "calculate";

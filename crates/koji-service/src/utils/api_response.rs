@@ -114,24 +114,6 @@ impl ApiResponse<()> {
         };
         HttpResponse::build(status).json(ApiResponse::<()>::Error { error })
     }
-
-    /// Client-side rejection. The legacy `{"field":"message"}` value is mapped to
-    /// `error{code,message,field}`: first object key → `field`, its value →
-    /// `message`, `code` derived from the status.
-    ///
-    /// P4 re-pathed the plugins handlers onto typed `ServiceError` variants,
-    /// removing this constructor's last caller; kept (like `error`) for the
-    /// explicit-status error path, hence the scoped allow.
-    #[allow(dead_code)]
-    pub(crate) fn fail(status: StatusCode, data: Value) -> HttpResponse {
-        let (field, message) = first_field_message(&data);
-        let error = ApiError {
-            code: code_for_status(status),
-            message,
-            field,
-        };
-        HttpResponse::build(status).json(ApiResponse::<()>::Error { error })
-    }
 }
 
 /// Derive a stable error `code` from the HTTP status.
@@ -149,25 +131,6 @@ pub(crate) fn code_for_status(status: StatusCode) -> String {
         _ => "error",
     }
     .to_string()
-}
-
-/// Extract `(field, message)` from a legacy `fail` value: the first key of a
-/// JSON object becomes the field and its (stringified) value the message; a
-/// non-object value yields `(None, stringified)`. Only `fail` (now caller-less,
-/// see above) and the unit test below reference it, so the non-test build sees
-/// it as dead.
-#[allow(dead_code)]
-fn first_field_message(data: &Value) -> (Option<String>, String) {
-    if let Some(obj) = data.as_object()
-        && let Some((key, value)) = obj.iter().next()
-    {
-        let message = value
-            .as_str()
-            .map(str::to_string)
-            .unwrap_or_else(|| value.to_string());
-        return (Some(key.clone()), message);
-    }
-    (None, data.to_string())
 }
 
 #[cfg(test)]
@@ -220,14 +183,6 @@ mod tests {
         assert_eq!(v["error"]["message"], "nope");
         assert_eq!(v["error"]["field"], "id");
         assert!(v.get("data").is_none(), "no data on error");
-    }
-
-    #[test]
-    fn fail_maps_first_kv_to_field_and_message() {
-        // The mapping helper is what the `fail` constructor uses.
-        let (field, message) = first_field_message(&json!({ "geofence": "no geofence 7" }));
-        assert_eq!(field.as_deref(), Some("geofence"));
-        assert_eq!(message, "no geofence 7");
     }
 
     #[test]
@@ -297,48 +252,6 @@ mod tests {
             None,
         );
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
-    }
-
-    // ── ApiResponse::fail constructor ─────────────────────────────────────────
-
-    #[test]
-    fn fail_constructor_maps_first_kv() {
-        let resp = ApiResponse::<()>::fail(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            json!({ "name": "too long" }),
-        );
-        assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
-    }
-
-    #[test]
-    fn fail_constructor_non_object_value() {
-        let resp = ApiResponse::<()>::fail(StatusCode::BAD_REQUEST, json!("plain error string"));
-        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
-    }
-
-    // ── first_field_message edge cases ────────────────────────────────────────
-
-    #[test]
-    fn first_field_message_non_object_stringifies() {
-        let (field, message) = first_field_message(&json!(42));
-        assert!(field.is_none());
-        assert_eq!(message, "42");
-    }
-
-    #[test]
-    fn first_field_message_nested_value_is_stringified() {
-        // A non-string JSON value as the field value gets stringified.
-        let (field, message) = first_field_message(&json!({ "count": 7 }));
-        assert_eq!(field.as_deref(), Some("count"));
-        assert_eq!(message, "7");
-    }
-
-    #[test]
-    fn first_field_message_array_stringifies() {
-        let (field, message) = first_field_message(&json!([1, 2, 3]));
-        assert!(field.is_none());
-        // The array is stringified as "[1,2,3]".
-        assert!(message.contains("1"));
     }
 
     // ── ApiResponse::success_with_status ──────────────────────────────────────

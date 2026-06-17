@@ -16,11 +16,10 @@ pub(crate) mod openapi;
 pub(crate) mod pagination;
 pub(crate) mod response;
 
-pub(crate) fn is_docker() -> io::Result<bool> {
-    let mut path = env::current_dir()?;
-    path.push("dist");
-    let metadata = fs::metadata(path)?;
-    Ok(metadata.is_dir())
+pub(crate) fn is_docker() -> bool {
+    env::current_dir()
+        .map(|p| p.join("dist").is_dir())
+        .unwrap_or(false)
 }
 
 pub(crate) async fn load_collection(

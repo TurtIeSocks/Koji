@@ -58,7 +58,6 @@ pub(crate) fn response_body(
         }
         ReturnTypeArg::FeatureCollection => json!(geojson::FeatureCollection::from(coll)),
         ReturnTypeArg::Poracle => json!(coll.to_poracle_vec()),
-        ReturnTypeArg::PoracleSingle => json!(coll.to_poracle_vec().first().unwrap().clone()),
         ReturnTypeArg::Sql => json!(coll.to_sql()),
     }
 }
@@ -298,10 +297,6 @@ mod tests {
             (
                 ReturnTypeArg::Poracle,
                 json!([{"color":"#00ff00","description":"a rich fence","displayInMatches":false,"group":"alpha","id":7,"name":"poly","path":[[0.0,0.0],[0.0,10.0],[4.0,10.0],[4.0,0.0],[0.0,0.0],[1.0,2.0],[1.0,4.0],[3.0,4.0],[3.0,2.0],[1.0,2.0]],"userSelectable":false},{"displayInMatches":true,"id":2,"multipath":[[[20.0,20.0],[20.0,23.0],[22.0,23.0],[20.0,20.0]],[[30.0,30.0],[30.0,34.0],[33.0,34.0],[33.0,30.0],[30.0,30.0]]],"name":"multi","path":[],"userSelectable":true},{"displayInMatches":true,"id":3,"multipath":[[[40.0,40.0],[40.0,42.0],[41.0,42.0],[40.0,40.0]]],"name":"gc","path":[],"userSelectable":true}]),
-            ),
-            (
-                ReturnTypeArg::PoracleSingle,
-                json!({"color":"#00ff00","description":"a rich fence","displayInMatches":false,"group":"alpha","id":7,"name":"poly","path":[[0.0,0.0],[0.0,10.0],[4.0,10.0],[4.0,0.0],[0.0,0.0],[1.0,2.0],[1.0,4.0],[3.0,4.0],[3.0,2.0],[1.0,2.0]],"userSelectable":false}),
             ),
             (
                 ReturnTypeArg::Sql,

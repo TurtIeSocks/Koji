@@ -1,4 +1,4 @@
-use std::{env, fs, io, sync::Arc};
+use std::{env, io, sync::Arc};
 
 use actix_files::{Files, NamedFile};
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
@@ -291,7 +291,7 @@ pub async fn start() -> io::Result<()> {
     log::info!("[koji] spawned {concurrency} job worker(s)");
 
     let path = || {
-        if is_docker().is_ok() {
+        if is_docker() {
             "./dist"
         } else {
             "../client/dist"

@@ -258,8 +258,6 @@ pub struct ConvertReq {
     #[serde(default)]
     pub output: OutputArgs,
     pub simplify: Option<bool>,
-    pub instance: Option<String>,
-    pub benchmark_mode: Option<bool>,
 }
 
 impl ConvertReq {

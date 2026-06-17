@@ -38,7 +38,6 @@ pub enum ReturnTypeArg {
     Geometry,
     Feature,
     FeatureCollection,
-    PoracleSingle,
     Poracle,
     Sql,
 }

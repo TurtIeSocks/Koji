@@ -45,7 +45,7 @@ pub(crate) fn bootstrap_plugin_args(base: Option<String>, radius: f64) -> String
 /// defaults to 0; otherwise the value. Parity with old `init()`.
 pub(crate) fn validate_s2_cell(value_to_check: Option<u64>, label: &str) -> u64 {
     if let Some(cell_level) = value_to_check {
-        if cell_level.le(&20) && cell_level.ge(&0) {
+        if cell_level <= 20 {
             cell_level
         } else {
             log::warn!(
