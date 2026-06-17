@@ -9,24 +9,24 @@ name = "algorithms"
 path = "src/lib.rs"
 
 [dependencies]
-koji-core = { path = "../koji-core" }
-koji-plugins = { path = "../koji-plugins", optional = true }
-chrono = "0.4.42"
-colored = { version = "3.0.0", optional = true }
-geo = "0.31.0"
-geohash = "0.13.1"
-geojson = "0.24.2"
-hashbrown = "0.16.0"
-log = "0.4.28"
-map_3d = "0.1.5"
-rand = { version = "0.9.2", default-features = false, features = ["small_rng", "std", "std_rng", "thread_rng"] }
-rayon = "1.11.0"
-rstar = "0.12.2"
-s2 = { version = "0.0.13", default-features = false, features = ["serde"] }
-web-time = "1"
-serde = { version = "1.0.225", features = ["derive"] }
+koji-core = { workspace = true }
+koji-plugins = { workspace = true, optional = true }
+chrono = { workspace = true }
+colored = { workspace = true, optional = true }
+geo = { workspace = true }
+geohash = { workspace = true }
+geojson = { workspace = true }
+hashbrown = { workspace = true }
+log = { workspace = true }
+map_3d = { workspace = true }
+rand = { workspace = true }
+rayon = { workspace = true }
+rstar = { workspace = true }
+s2 = { workspace = true }
+web-time = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
-sysinfo = { version = "0.37.0", optional = true }
+sysinfo = { workspace = true, optional = true }
 
 macros = { workspace = true }
 
@@ -38,4 +38,4 @@ native = ["dep:sysinfo", "dep:koji-plugins", "dep:colored"]
 # Restore s2's `float_extras` (libc-based, wasm-incompatible) on native targets
 # only, so native behavior is unchanged while wasm32 builds exclude it.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-s2 = { version = "0.0.13", default-features = false, features = ["serde", "float_extras"] }
+s2 = { workspace = true, features = ["float_extras"] }

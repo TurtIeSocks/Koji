@@ -9,12 +9,12 @@ name = "koji-cli"
 path = "src/main.rs"
 
 [dependencies]
-koji-db = { path = "../../crates/koji-db" }
-koji-jobs = { path = "../../crates/koji-jobs" }
-koji-service = { path = "../../crates/koji-service" }
-clap = { version = "4", features = ["derive"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
-dotenv = "0.15.0"
-env_logger = "0.11.8"
-log = "0.4.28"
-serde_json = "1.0.145"
+koji-db = { workspace = true }
+koji-jobs = { workspace = true }
+koji-service = { workspace = true }
+clap = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
+dotenv = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+serde_json = { workspace = true }

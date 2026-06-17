@@ -5,8 +5,8 @@ edition = "2024"
 publish = false
 
 [dependencies]
-koji-service = { path = "../../crates/koji-service" }
-dotenv = "0.15.0"
-env_logger = "0.11.8"
-log = "0.4.28"
-tikv-jemallocator = "0.6"
+koji-service = { workspace = true }
+dotenv = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+tikv-jemallocator = { workspace = true }

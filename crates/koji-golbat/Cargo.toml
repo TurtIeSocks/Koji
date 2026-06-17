@@ -9,12 +9,12 @@ name = "koji_golbat"
 path = "src/lib.rs"
 
 [dependencies]
-koji-core = { path = "../koji-core" }
+koji-core = { workspace = true }
 macros = { workspace = true }
 geo = { workspace = true }
 geojson = { workspace = true }
 log = { workspace = true }
-sea-orm = { version = "1.1.16", features = [
+sea-orm = { workspace = true, features = [
   "sqlx-mysql",
   "runtime-actix-native-tls",
   "macros",

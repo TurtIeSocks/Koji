@@ -8,25 +8,25 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-algorithms = { path = "../algorithms", default-features = false }
-koji-core = { path = "../koji-core" }
+algorithms = { workspace = true }
+koji-core = { workspace = true }
 geojson = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde-wasm-bindgen = "0.6"
-wasm-bindgen = "0.2"
+serde-wasm-bindgen = { workspace = true }
+wasm-bindgen = { workspace = true }
 # tsify 0.5.6 is latest; 0.4 from spec no longer exists — pinned up to match
 # wasm-bindgen 0.2.101 already in Cargo.lock
-tsify = { version = "0.5", default-features = false, features = ["js"] }
-console_error_panic_hook = "0.1"
+tsify = { workspace = true }
+console_error_panic_hook = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen-rayon = "1"
-getrandom = { version = "0.2", features = ["js"] }
-getrandom03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+wasm-bindgen-rayon = { workspace = true }
+getrandom = { workspace = true }
+getrandom03 = { workspace = true }
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3"
+wasm-bindgen-test = { workspace = true }
 
 # wasm-pack's bundled wasm-opt can strip shared memory / atomics from a threaded
 # build (breaking wasm-bindgen-rayon workers with a DataCloneError). Disable it;

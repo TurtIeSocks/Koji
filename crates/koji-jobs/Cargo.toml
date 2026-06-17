@@ -9,29 +9,27 @@ name = "koji_jobs"
 path = "src/lib.rs"
 
 [dependencies]
-# Plain versions: this crate predates full workspace-dep management for the
-# job-queue stack (see docs/superpowers/specs/2026-05-28-koji-v2-architecture-design.md §2).
-sea-orm = { version = "1.1.16", features = [
+sea-orm = { workspace = true, features = [
   "sqlx-mysql",
   "runtime-tokio-native-tls",
   "macros",
   "with-json",
   "with-chrono",
 ] }
-tokio = { version = "1", features = ["sync", "time", "rt", "macros"] }
-dashmap = "6"
-ulid = "1"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-thiserror = "2"
-chrono = { version = "0.4", features = ["serde"] }
-async-trait = "0.1"
-log = "0.4"
-sha2 = "0.10"
+tokio = { workspace = true, features = ["sync", "time", "rt", "macros"] }
+dashmap = { workspace = true }
+ulid = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+async-trait = { workspace = true }
+log = { workspace = true }
+sha2 = { workspace = true }
 
 [dev-dependencies]
-serde_json = "1"
+serde_json = { workspace = true }
 # DB-integration tests (tests/queue_db.rs) need a multi-thread runtime for the
 # `await_result` poll loop, plus a direct sea-orm handle for the raw terminal
 # UPDATE + cleanup DELETEs (sea-orm itself is a normal dep, reused here).
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }

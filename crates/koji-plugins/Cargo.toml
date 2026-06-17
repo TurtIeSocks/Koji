@@ -9,11 +9,11 @@ name = "koji_plugins"
 path = "src/lib.rs"
 
 [dependencies]
-koji-core = { path = "../koji-core" }
+koji-core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-toml = "0.8.19"
+toml = { workspace = true }
 log = { workspace = true }
 
 [dev-dependencies]
-tempfile = "3.22.0"
+tempfile = { workspace = true }
