@@ -17,7 +17,7 @@
       "request": "launch",
       "name": "Client",
       "url": "http://localhost:8081",
-      "webRoot": "${workspaceFolder}/apps/client-web/src"
+      "webRoot": "${workspaceFolder}/apps/web-client/src"
     }
   ]
 }

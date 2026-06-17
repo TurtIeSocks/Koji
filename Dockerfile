@@ -1,6 +1,6 @@
 FROM node:22-alpine AS client
 WORKDIR /app
-COPY ./apps/client-web .
+COPY ./apps/web-client .
 RUN yarn install
 RUN yarn build
 

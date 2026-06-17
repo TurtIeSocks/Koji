@@ -31,8 +31,8 @@ or-tools.tar.gz
 # koji-wasm build output
 crates/koji-wasm/pkg/
 
-# docs-web
-apps/docs-web/public/_pagefind
+# web-docs
+apps/web-docs/public/_pagefind
 bench-results/
 
 # Dev Test Files

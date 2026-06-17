@@ -1,5 +1,5 @@
 <p align="center">
- <img alt="Kōji logo" src="./apps/client-web/public/favicon.png">
+ <img alt="Kōji logo" src="./apps/web-client/public/favicon.png">
 </p>
 <p align="center">
   Graphic by <a href="https://github.com/nileplumb" target="_blank">nileplumb</a>
