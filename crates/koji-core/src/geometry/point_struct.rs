@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::HasLatLon;
+
 use super::*;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -19,6 +21,15 @@ impl From<PointArray> for PointStruct {
             lat: p[0],
             lon: p[1],
         }
+    }
+}
+
+impl HasLatLon for PointStruct {
+    fn lat(&self) -> Precision {
+        self.lat
+    }
+    fn lon(&self) -> Precision {
+        self.lon
     }
 }
 
@@ -70,5 +81,32 @@ mod tests {
         q.lat = 99.0;
         assert_eq!(p.lat, 1.0, "clone should not alias original");
         assert_eq!(q.lat, 99.0, "clone mutation should be visible");
+    }
+
+    #[test]
+    fn point_struct_lat_lon_trait_returns_fields() {
+        let p = PointStruct {
+            lat: 48.85,
+            lon: 2.35,
+        };
+        assert_eq!(p.lat(), 48.85);
+        assert_eq!(p.lon(), 2.35);
+    }
+
+    #[test]
+    fn point_struct_default_is_zero() {
+        let p = PointStruct::default();
+        assert_eq!(p.lat(), 0.0);
+        assert_eq!(p.lon(), 0.0);
+    }
+
+    #[test]
+    fn point_struct_negative_coords() {
+        let p = PointStruct {
+            lat: -33.87,
+            lon: 151.21,
+        };
+        assert_eq!(p.lat(), -33.87);
+        assert_eq!(p.lon(), 151.21);
     }
 }
