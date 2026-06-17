@@ -29,11 +29,6 @@ impl KojiGeometry {
         self.geometry.bounding_rect()
     }
 
-    /// The element's bounds as a lat/lon [`KojiBbox`].
-    pub fn koji_bbox(&self) -> Option<super::KojiBbox> {
-        self.bbox().map(super::KojiBbox::from_rect)
-    }
-
     /// Douglas–Peucker simplification of the inner geometry. Only ring/line
     /// geometries (`LineString`/`Polygon`/`MultiLineString`/`MultiPolygon`) are
     /// affected; point geometries pass through unchanged. Metadata is preserved.
@@ -67,11 +62,6 @@ impl KojiGeometryCollection {
             .iter()
             .filter_map(KojiGeometry::bbox)
             .reduce(union_rect)
-    }
-
-    /// The collection bounds as a lat/lon [`KojiBbox`].
-    pub fn koji_bbox(&self) -> Option<super::KojiBbox> {
-        self.bbox().map(super::KojiBbox::from_rect)
     }
 
     /// Douglas–Peucker simplification of every item (see
@@ -151,24 +141,6 @@ mod tests {
         assert_eq!(
             c.bbox(),
             Some(Rect::new(coord! {x:0.0,y:0.0}, coord! {x:10.0,y:5.0}))
-        );
-    }
-
-    #[test]
-    fn collection_koji_bbox_is_lat_lon() {
-        // geo Points are (x=lon, y=lat): (lon=0,lat=0) and (lon=10,lat=5).
-        let c = KojiGeometryCollection::new(vec![
-            KojiGeometry::new(Point::new(0.0, 0.0)),
-            KojiGeometry::new(Point::new(10.0, 5.0)),
-        ]);
-        assert_eq!(
-            c.koji_bbox(),
-            Some(crate::KojiBbox {
-                min_lat: 0.0,
-                min_lon: 0.0,
-                max_lat: 5.0,
-                max_lon: 10.0
-            })
         );
     }
 

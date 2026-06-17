@@ -2363,7 +2363,6 @@ dependencies = [
  "geo-types",
  "geojson",
  "log",
- "macros",
  "rayon",
  "s2",
  "serde",

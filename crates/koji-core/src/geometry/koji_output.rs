@@ -229,7 +229,7 @@ impl KojiGeometryCollection {
                     } else {
                         String::new()
                     },
-                    group_to_text(&group, sep_1, sep_2, poly_sep),
+                    group_to_text(&group, sep_1, sep_2),
                     if i == last { "" } else { sep_2 }
                 )
             })
@@ -398,18 +398,18 @@ fn geojson_geometry_closed(geom: &Geometry<f64>) -> String {
 
 /// One group → text, matching `SingleVec::to_text`: the inter-point separator is
 /// suppressed on the final point of the group.
-fn group_to_text(group: &[[f64; 2]], sep_1: &str, sep_2: &str, poly_sep: bool) -> String {
+fn group_to_text(group: &[[f64; 2]], sep_1: &str, sep_2: &str) -> String {
     let last = if group.is_empty() { 0 } else { group.len() - 1 };
     group
         .iter()
         .enumerate()
-        .map(|(i, pt)| point_to_text(pt, sep_1, if i == last { "" } else { sep_2 }, poly_sep))
+        .map(|(i, pt)| point_to_text(pt, sep_1, if i == last { "" } else { sep_2 }))
         .collect()
 }
 
 /// One `[lat, lon]` point → text, matching `PointArray::to_text`:
 /// `format!("{}{}{}{}", lat, sep_1, lon, sep_2)` with default `f64` `Display`.
-fn point_to_text(pt: &[f64; 2], sep_1: &str, sep_2: &str, _poly_sep: bool) -> String {
+fn point_to_text(pt: &[f64; 2], sep_1: &str, sep_2: &str) -> String {
     format!("{}{}{}{}", pt[0], sep_1, pt[1], sep_2)
 }
 

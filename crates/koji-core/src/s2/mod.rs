@@ -4,8 +4,7 @@
 //! conversions ([`ToGeo`]/[`ToPointArray`]), region/coverage helpers
 //! ([`get_region_cells`], [`circle_coverage`], [`cell_coverage`], [`s2_grid`]),
 //! the client-facing polygon responses ([`S2Response`], [`get_cells`],
-//! [`get_polygons`]), and the point↔cell-id round-trip
-//! ([`from_array_to_cell_id`]/[`from_cell_id_to_array`]).
+//! [`get_polygons`]), and the point→cell-id mapping ([`from_array_to_cell_id`]).
 //!
 //! `create_cell_map` buckets a set of `[lat, lon]` points by their S2 cell at a
 //! requested `split_level`. It is used by the adaptive clustering partitioner
@@ -16,7 +15,6 @@
 
 use std::{
     collections::{HashSet, VecDeque},
-    fmt::Display,
     sync::{Arc, Mutex},
 };
 
@@ -41,7 +39,6 @@ pub struct S2Response {
 
 pub trait ToGeo {
     fn polygon(&self) -> geo::Polygon<f64>;
-    fn coord(&self) -> geo::Coord;
     fn geo_point(&self) -> geo::Point;
 }
 
@@ -72,42 +69,11 @@ impl ToGeo for CellID {
         )
     }
 
-    fn coord(&self) -> geo::Coord {
-        let cell = Cell::from(self);
-        geo::Coord {
-            x: cell.center().longitude().deg(),
-            y: cell.center().latitude().deg(),
-        }
-    }
-
     fn geo_point(&self) -> geo::Point {
         let cell = Cell::from(self);
         geo::Point::new(
             cell.center().longitude().deg(),
             cell.center().latitude().deg(),
-        )
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum Dir {
-    N,
-    E,
-    S,
-    W,
-}
-
-impl Display for Dir {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Dir::N => "North",
-                Dir::E => "East",
-                Dir::S => "South",
-                Dir::W => "West",
-            }
         )
     }
 }
@@ -153,32 +119,14 @@ pub fn get_cells(
         .collect()
 }
 
-pub fn get_polygon(id: &CellID) -> [[f64; 2]; 4] {
-    let cell = Cell::from(id);
-    [
-        [
-            cell.vertex(0).latitude().deg(),
-            cell.vertex(0).longitude().deg(),
-        ],
-        [
-            cell.vertex(1).latitude().deg(),
-            cell.vertex(1).longitude().deg(),
-        ],
-        [
-            cell.vertex(2).latitude().deg(),
-            cell.vertex(2).longitude().deg(),
-        ],
-        [
-            cell.vertex(3).latitude().deg(),
-            cell.vertex(3).longitude().deg(),
-        ],
-    ]
-}
-
 fn get_client_polygon(id: &CellID) -> S2Response {
+    let cell = Cell::from(id);
     S2Response {
         id: id.0.to_string(),
-        coords: get_polygon(id),
+        coords: std::array::from_fn(|i| {
+            let v = cell.vertex(i);
+            [v.latitude().deg(), v.longitude().deg()]
+        }),
     }
 }
 
@@ -352,11 +300,6 @@ pub fn from_array_to_cell_id(point: &PointArray, parent_level: u64) -> CellID {
     CellID::from(LatLng::from_degrees(point[0], point[1])).parent(parent_level)
 }
 
-pub fn from_cell_id_to_array(cell_id: CellID) -> PointArray {
-    let center = Cell::from(cell_id).center();
-    [center.latitude().deg(), center.longitude().deg()]
-}
-
 /// Bucket `points` by their S2 cell at `split_level`.
 ///
 /// Each point is first resolved to its level-20 leaf cell, then grouped by that
@@ -418,7 +361,7 @@ mod tests {
         assert!(create_cell_map(&points, 10).is_empty());
     }
 
-    // ── from_array_to_cell_id / from_cell_id_to_array round-trip ────────────
+    // ── from_array_to_cell_id / point_array round-trip ──────────────────────
 
     #[test]
     fn cell_id_round_trip_lat_lon() {
@@ -432,7 +375,7 @@ mod tests {
         let cell_id = from_array_to_cell_id(&input, level);
         assert_eq!(cell_id.level(), level);
 
-        let center = from_cell_id_to_array(cell_id);
+        let center = cell_id.point_array();
         // center is [lat, lon] — must be within ~1 km of input at level 15
         assert!((center[0] - input[0]).abs() < 0.01, "lat off: {:?}", center);
         assert!((center[1] - input[1]).abs() < 0.01, "lon off: {:?}", center);
@@ -477,33 +420,22 @@ mod tests {
     }
 
     #[test]
-    fn cell_coord_and_geo_point_agree() {
-        let input: PointArray = [-33.8688, 151.2093]; // Sydney
-        let cell_id = from_array_to_cell_id(&input, 12);
-        let coord = cell_id.coord();
-        let geo_point = cell_id.geo_point();
-        // coord.x = lon, coord.y = lat; geo_point.x() = lon, .y() = lat
-        assert_eq!(coord.x, geo_point.x());
-        assert_eq!(coord.y, geo_point.y());
-    }
-
-    #[test]
-    fn cell_point_array_matches_coord_center() {
+    fn cell_point_array_matches_geo_point_center() {
         let input: PointArray = [40.7128, -74.0060]; // NYC
         let cell_id = from_array_to_cell_id(&input, 15);
         let arr = cell_id.point_array();
-        let coord = cell_id.coord();
-        // point_array is [lat, lon]; coord is (x=lon, y=lat)
-        assert!((arr[0] - coord.y).abs() < 1e-10, "lat mismatch");
-        assert!((arr[1] - coord.x).abs() < 1e-10, "lon mismatch");
+        let geo_point = cell_id.geo_point();
+        // point_array is [lat, lon]; geo_point is (x=lon, y=lat)
+        assert!((arr[0] - geo_point.y()).abs() < 1e-10, "lat mismatch");
+        assert!((arr[1] - geo_point.x()).abs() < 1e-10, "lon mismatch");
     }
 
-    // ── get_polygon / get_client_polygon (via get_cells) ────────────────────
+    // ── get_client_polygon (via get_cells) ──────────────────────────────────
 
     #[test]
     fn get_polygon_returns_4_latlon_corners() {
         let cell_id = from_array_to_cell_id(&[51.5074, -0.1278], 15); // London
-        let corners = get_polygon(&cell_id);
+        let corners = get_client_polygon(&cell_id).coords;
         // Each corner is [lat, lon]; lat ∈ [-90,90], lon ∈ [-180,180]
         for (i, [lat, lon]) in corners.iter().enumerate() {
             assert!(
@@ -690,16 +622,6 @@ mod tests {
             vec![],
         );
         assert!(!cell_intersects_polygon(cell_id, &nyc_box));
-    }
-
-    // ── Dir Display ──────────────────────────────────────────────────────────
-
-    #[test]
-    fn dir_display_matches_expected_strings() {
-        assert_eq!(Dir::N.to_string(), "North");
-        assert_eq!(Dir::E.to_string(), "East");
-        assert_eq!(Dir::S.to_string(), "South");
-        assert_eq!(Dir::W.to_string(), "West");
     }
 
     // ── circle_coverage ──────────────────────────────────────────────────────

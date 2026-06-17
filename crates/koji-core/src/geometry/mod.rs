@@ -14,7 +14,6 @@ mod point_struct;
 mod poracle;
 mod single_struct;
 mod single_vec;
-mod text;
 
 pub use koji_bbox::KojiBbox;
 pub use koji_geojson::KojiGeojsonError;
@@ -31,7 +30,6 @@ pub use point_struct::PointStruct;
 pub use poracle::Poracle;
 pub use single_struct::SingleStruct;
 pub use single_vec::SingleVec;
-pub use text::text_test;
 
 pub type Precision = f64;
 

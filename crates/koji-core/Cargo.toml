@@ -10,7 +10,6 @@ path = "src/lib.rs"
 
 [dependencies]
 serde = { workspace = true }
-macros = { workspace = true }
 log = { workspace = true }
 geojson = { workspace = true }
 geo = { workspace = true }
