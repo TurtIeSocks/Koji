@@ -11,8 +11,6 @@ use crate::plugins;
 use crate::{stats::Stats, utils};
 
 mod config;
-#[cfg(feature = "native")]
-mod join;
 mod sort_by;
 pub mod sorting;
 mod two_opt;
@@ -39,11 +37,10 @@ pub fn main(
         #[cfg(feature = "native")]
         SortBy::Custom(plugin) => {
             let clusters = sort_s2(clusters);
-            match plugins::resolve(PluginKind::Routing, plugin, cfg.route_split_level) {
-                Some(plugin_manager) => match plugin_manager.run_multi(
-                    &clusters,
+            match plugins::resolve(PluginKind::Routing, plugin) {
+                Some(plugin_manager) => match plugin_manager.run(
+                    clusters.clone(),
                     &plugins::merged_args(PluginKind::Routing, plugin, &cfg.plugin_args),
-                    Some(join::join),
                 ) {
                     Ok(sorted_clusters) => sorted_clusters,
                     Err(e) => {
@@ -96,7 +93,6 @@ mod tests {
     fn make_cfg(sort_by: SortBy) -> RoutingConfig {
         RoutingConfig {
             sort_by,
-            route_split_level: 0,
             plugin_args: String::new(),
         }
     }

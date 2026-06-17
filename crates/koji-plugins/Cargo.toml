@@ -13,7 +13,6 @@ koji-core = { path = "../koji-core" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 toml = "0.8.19"
-rayon = "1.11.0"
 log = { workspace = true }
 
 [dev-dependencies]

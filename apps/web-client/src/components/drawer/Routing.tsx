@@ -157,9 +157,6 @@ export default function RoutingTab() {
         type="select"
         itemLabel={formatPluginName}
       />
-      <Collapse in={!SORT_BY.some((sort) => sort === sort_by)}>
-        <UserTextInput field="route_split_level" min={1} max={12} />
-      </Collapse>
       <Collapse
         in={!SORT_BY.some((sort) => sort === sort_by) && sort_by !== 'tsp'}
       >

@@ -194,7 +194,6 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
           onClick={async () => {
             setLoading(true)
             const {
-              route_split_level,
               save_to_scanner,
               save_to_db,
               sort_by,
@@ -228,7 +227,6 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
                   instance: name,
                   routing: {
                     sortBy: sort_by,
-                    routeSplitLevel: route_split_level,
                     pluginArgs: routing_args || undefined,
                   },
                   output: { returnType: 'feature', saveToScanner: save_to_scanner },

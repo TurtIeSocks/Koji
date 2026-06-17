@@ -34,15 +34,6 @@ The maximum number of clusters that should be generated
 - Generally based on external factors for the user, such as the number of devices available to scan the route
 - Since the Greedy algorithm works down from the best clusters to the worst, when the desired max is hit, the algorithm will stop and return the best result possible for the set limit
 
-### Cluster Split Level
-
-This input groups `data_points` based on their S2 cell level before clustering them. The groups are then run on separate threads in order to help with parallelizing workloads. e.g. if a user inputs a `cluster_split_level` of 10, then all of the `data_points` that are in unique level 10 S2 cells will be split up and clustered separately.
-
-<Callout type="warning" emoji="⚠️">
-  _This was more relevant with the legacy clustering algorithms that were single
-  threaded but can still be useful in some cases_
-</Callout>
-
 ## Metrics
 
 To compare the performance of multiple algorithms the normalized `mygod_score` system is used, aptly named after a colleague who came up with it. This score is calculated by multiplying the number of clusters by the `min_points` input added to the difference of the total `data_points` and the number of `data_points` that were covered by the algorithm. This incentivizes the algorithms to cover the maximum number of `data_points` possible but only if the clusters cover a number of unique `data_points` that is greater than or equal to the set `min_points`. The lower the score, the better the result.
@@ -294,7 +285,6 @@ Shortly before starting work on this algorithm, I had completed the integration 
 - The following inputs were used:
   - `min_points`: 3
   - `radius`: 70
-  - `cluster_split_level`: 1
 
 ### Small Fence
 

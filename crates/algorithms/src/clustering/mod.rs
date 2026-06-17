@@ -4,7 +4,7 @@ use koji_core::Precision;
 use web_time::Instant;
 
 #[cfg(feature = "native")]
-use koji_plugins::{JoinFunction, PluginKind};
+use koji_plugins::PluginKind;
 
 #[cfg(feature = "native")]
 use crate::plugins;
@@ -79,16 +79,15 @@ pub fn main(
             }
             #[cfg(feature = "native")]
             ClusterMode::Custom(plugin) => {
-                match plugins::resolve(PluginKind::Clustering, &plugin, 0) {
+                match plugins::resolve(PluginKind::Clustering, &plugin) {
                     Some(plugin_manager) => {
-                        match plugin_manager.run_multi::<JoinFunction>(
-                            data_points,
+                        match plugin_manager.run(
+                            data_points.clone(),
                             &plugins::merged_args(
                                 PluginKind::Clustering,
                                 &plugin,
                                 &cfg.plugin_args,
                             ),
-                            None,
                         ) {
                             Ok(sorted_clusters) => sorted_clusters,
                             Err(e) => {

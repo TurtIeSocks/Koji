@@ -2447,7 +2447,6 @@ version = "0.1.0"
 dependencies = [
  "koji-core",
  "log",
- "rayon",
  "serde",
  "serde_json",
  "tempfile",

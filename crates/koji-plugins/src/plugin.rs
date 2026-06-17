@@ -6,10 +6,6 @@
 //! [`PluginOutput`] JSON object from its stdout. A non-zero exit status or
 //! unparseable stdout is an error. The child's stderr is captured and, when
 //! non-empty, logged at warn level rather than inheriting Koji's own stderr.
-//!
-//! [`Plugin::run_multi`] preserves the original parallel-over-S2-cells fan-out:
-//! when `split_level > 0` the points are bucketed by [`create_cell_map`] and
-//! each bucket is run as an independent child process in parallel via rayon.
 
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
@@ -17,16 +13,9 @@ use std::process::{Command, Stdio};
 use std::time::Instant;
 
 use koji_core::SingleVec;
-use koji_core::create_cell_map;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::manifest::PluginManifest;
 use crate::protocol::{PluginInput, PluginOutput, PluginProtocol, decode_latlng, encode_latlng};
-
-/// Joins the per-cell outputs of a parallel [`Plugin::run_multi`] run back into
-/// a single point list. Receives the plugin (for `split_level` and re-runs) and
-/// the per-cell results.
-pub type JoinFunction = fn(&Plugin, Vec<SingleVec>) -> SingleVec;
 
 /// A ready-to-run external plugin.
 #[derive(Debug, Clone)]
@@ -39,8 +28,6 @@ pub struct Plugin {
     entrypoint_path: Option<PathBuf>,
     /// The plugin name (for logging).
     pub name: String,
-    /// S2 split level for the parallel fan-out in [`Plugin::run_multi`].
-    pub split_level: u64,
     /// The stdio encoding this plugin speaks.
     protocol: PluginProtocol,
 }
@@ -55,7 +42,6 @@ impl Plugin {
     pub fn from_manifest(
         manifest: &PluginManifest,
         plugin_dir: &std::path::Path,
-        split_level: u64,
     ) -> io::Result<Self> {
         let entrypoint_path = plugin_dir.join(&manifest.entrypoint);
         if !entrypoint_path.exists() {
@@ -79,45 +65,8 @@ impl Plugin {
             interpreter,
             entrypoint_path,
             name: manifest.name.clone(),
-            split_level,
             protocol: manifest.protocol,
         })
-    }
-
-    /// Run the plugin over `points`, fanning out across S2 cells when
-    /// `split_level > 0`.
-    ///
-    /// With `split_level == 0` the full point set is sent to a single child.
-    /// Otherwise points are bucketed by [`create_cell_map`] and each bucket runs
-    /// as an independent child process in parallel; failed buckets are dropped
-    /// (logged inside [`Plugin::run`]). The same `args` are forwarded to every
-    /// child. With a `joiner` the per-cell results are combined by it; without
-    /// one they are flattened in arbitrary order.
-    pub fn run_multi<T>(
-        &self,
-        points: &SingleVec,
-        args: &serde_json::Value,
-        joiner: Option<T>,
-    ) -> io::Result<SingleVec>
-    where
-        T: Fn(&Self, Vec<SingleVec>) -> SingleVec,
-    {
-        let handlers = if self.split_level == 0 {
-            vec![self.run(points.clone(), args)?]
-        } else {
-            create_cell_map(points, self.split_level)
-                .into_values()
-                .collect::<Vec<SingleVec>>()
-                .into_par_iter()
-                .filter_map(|cell_points| self.run(cell_points, args).ok())
-                .collect()
-        };
-
-        if let Some(joiner) = joiner {
-            Ok(joiner(self, handlers))
-        } else {
-            Ok(handlers.into_iter().flatten().collect())
-        }
     }
 
     /// Run the plugin once over `points` with `args`, via the JSON stdio
@@ -248,7 +197,7 @@ mod tests {
     #[test]
     fn from_manifest_errors_on_missing_entrypoint() {
         let tmp = tempfile::tempdir().unwrap();
-        let err = Plugin::from_manifest(&manifest("nope.sh"), tmp.path(), 0).unwrap_err();
+        let err = Plugin::from_manifest(&manifest("nope.sh"), tmp.path()).unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::NotFound);
     }
 
@@ -264,7 +213,7 @@ mod tests {
         )
         .unwrap();
 
-        let plugin = Plugin::from_manifest(&manifest("echo.sh"), tmp.path(), 0).unwrap();
+        let plugin = Plugin::from_manifest(&manifest("echo.sh"), tmp.path()).unwrap();
         let points: SingleVec = vec![[1.5, 2.5], [3.5, 4.5]];
         let out = plugin
             .run(points.clone(), &serde_json::Value::Null)
@@ -292,7 +241,7 @@ mod tests {
             description: None,
             protocol: PluginProtocol::Latlng,
         };
-        let plugin = Plugin::from_manifest(&m, tmp.path(), 0).unwrap();
+        let plugin = Plugin::from_manifest(&m, tmp.path()).unwrap();
         let out = plugin
             .run(vec![[1.0, 2.0], [3.0, 4.0]], &serde_json::Value::Null)
             .unwrap();
@@ -304,7 +253,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let script = tmp.path().join("fail.sh");
         fs::write(&script, "#!/usr/bin/env bash\nexit 3\n").unwrap();
-        let plugin = Plugin::from_manifest(&manifest("fail.sh"), tmp.path(), 0).unwrap();
+        let plugin = Plugin::from_manifest(&manifest("fail.sh"), tmp.path()).unwrap();
         let err = plugin
             .run(vec![[0.0, 0.0]], &serde_json::Value::Null)
             .unwrap_err();
@@ -320,7 +269,7 @@ mod tests {
             "#!/usr/bin/env bash\ncat >/dev/null\necho not-json\n",
         )
         .unwrap();
-        let plugin = Plugin::from_manifest(&manifest("garbage.sh"), tmp.path(), 0).unwrap();
+        let plugin = Plugin::from_manifest(&manifest("garbage.sh"), tmp.path()).unwrap();
         let err = plugin
             .run(vec![[0.0, 0.0]], &serde_json::Value::Null)
             .unwrap_err();

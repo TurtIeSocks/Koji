@@ -60,7 +60,6 @@ export default function Loading() {
     category: s.category,
     min_points: s.min_points,
     fast: s.fast,
-    route_split_level: s.route_split_level,
   }))
 
   const loadingStarted = Object.keys(loading).length

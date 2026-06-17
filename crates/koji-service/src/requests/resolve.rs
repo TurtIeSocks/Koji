@@ -1,8 +1,8 @@
 //! Shared resolution helpers + default constants used by the arg-groups.
 //!
 //! These mirror the legacy fat-`Args` `init()` exactly (the parity contract is
-//! the spec §2 defaults table). `validate_s2_cell` and `resolve_data_points` are
-//! the single source of truth for the v2 arg-groups.
+//! the spec §2 defaults table). `resolve_data_points` is the single source of
+//! truth for the v2 arg-groups.
 
 use super::inputs::DataPointsArg;
 use koji_core::Precision;
@@ -42,24 +42,6 @@ pub(crate) fn bootstrap_plugin_args(base: Option<String>, radius: Precision) -> 
     s
 }
 
-/// Validate an S2 split-cell level. `None` → 0; out-of-range (not 0–20) warns and
-/// defaults to 0; otherwise the value. Parity with old `init()`.
-pub(crate) fn validate_s2_cell(value_to_check: Option<u64>, label: &str) -> u64 {
-    if let Some(cell_level) = value_to_check {
-        if cell_level <= 20 {
-            cell_level
-        } else {
-            log::warn!(
-                "{} only supports 0-20, {} was provided, defaulting to 0",
-                label,
-                cell_level
-            );
-            0
-        }
-    } else {
-        0
-    }
-}
 
 /// Resolve an optional [`DataPointsArg`] into a flat `[lat, lon]` list. A feature
 /// with an unconvertible geometry yields no points (matches the old matrix's
@@ -113,34 +95,6 @@ mod tests {
     fn resolve_max_clusters_positive_gives_value() {
         assert_eq!(resolve_max_clusters(Some(5)), 5);
         assert_eq!(resolve_max_clusters(Some(1)), 1);
-    }
-
-    // ── validate_s2_cell ─────────────────────────────────────────────────────
-
-    #[test]
-    fn validate_s2_cell_none_gives_zero() {
-        assert_eq!(validate_s2_cell(None, "test"), 0);
-    }
-
-    #[test]
-    fn validate_s2_cell_zero_is_valid() {
-        assert_eq!(validate_s2_cell(Some(0), "test"), 0);
-    }
-
-    #[test]
-    fn validate_s2_cell_twenty_is_valid() {
-        assert_eq!(validate_s2_cell(Some(20), "test"), 20);
-    }
-
-    #[test]
-    fn validate_s2_cell_mid_range_is_valid() {
-        assert_eq!(validate_s2_cell(Some(12), "test"), 12);
-    }
-
-    #[test]
-    fn validate_s2_cell_above_twenty_defaults_to_zero() {
-        // 21 is out-of-range; must default to 0 and not panic.
-        assert_eq!(validate_s2_cell(Some(21), "label"), 0);
     }
 
     // ── clustering_plugin_args ───────────────────────────────────────────────

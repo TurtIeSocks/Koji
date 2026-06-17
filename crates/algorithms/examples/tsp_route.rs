@@ -80,7 +80,6 @@ fn derive_output(input: &str, suffix: &str, ext: Option<&str>) -> PathBuf {
 fn route(clusters: &SingleVec, sort_by: SortBy) -> (SingleVec, std::time::Duration) {
     let cfg = RoutingConfig {
         sort_by,
-        route_split_level: 0,
         plugin_args: String::new(),
     };
     let mut stats = Stats::new("route".to_string(), 1);

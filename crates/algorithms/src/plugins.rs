@@ -64,7 +64,7 @@ pub(crate) fn merged_args(kind: PluginKind, name: &str, plugin_args: &str) -> Va
 /// [`Plugin`]. Returns `None` (after logging) when the name is unknown or the
 /// plugin's entrypoint is missing — callers fall back to a safe default rather
 /// than panicking.
-pub(crate) fn resolve(kind: PluginKind, name: &str, split_level: u64) -> Option<Plugin> {
+pub(crate) fn resolve(kind: PluginKind, name: &str) -> Option<Plugin> {
     let registry = koji_plugins::current();
     let manifest = match registry.get(kind, name) {
         Some(manifest) => manifest,
@@ -77,7 +77,7 @@ pub(crate) fn resolve(kind: PluginKind, name: &str, split_level: u64) -> Option<
         }
     };
     let dir = registry.dir(kind, name)?;
-    match Plugin::from_manifest(manifest, dir, split_level) {
+    match Plugin::from_manifest(manifest, dir) {
         Ok(plugin) => Some(plugin),
         Err(e) => {
             log::error!("[PLUGINS] failed to load {kind} plugin `{name}`: {e}");
@@ -94,7 +94,7 @@ pub(crate) fn run_once(
     points: SingleVec,
     plugin_args: &str,
 ) -> Option<SingleVec> {
-    let plugin = resolve(kind, name, 0)?;
+    let plugin = resolve(kind, name)?;
     match plugin.run(points, &merged_args(kind, name, plugin_args)) {
         Ok(points) => Some(points),
         Err(e) => {

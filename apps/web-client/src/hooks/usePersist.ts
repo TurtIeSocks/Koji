@@ -65,7 +65,6 @@ export interface UsePersist {
   sort_by: typeof SORT_BY[number] | string
   radius: number | ''
   min_points: number | ''
-  route_split_level: number | ''
   save_to_db: boolean
   save_to_scanner: boolean
   skipRendering: boolean
@@ -125,7 +124,6 @@ export const usePersist = create(
       s2DisplayMode: 'none',
       s2FillMode: 'simple',
       radius: 70,
-      route_split_level: 0,
       center_clusters: false,
       // routing_chunk_size: 0,
       calculation_mode: 'Radius',

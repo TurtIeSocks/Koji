@@ -11,7 +11,7 @@ mod unknown_id;
 pub use has_lat_lon::HasLatLon;
 pub use mode::Mode;
 pub use query_args::{BoundsArg, SpawnpointTth};
-pub use s2::{create_cell_map, from_array_to_cell_id};
+pub use s2::from_array_to_cell_id;
 pub use text_utils::{clean, get_mode_acronym, separate_by_comma};
 pub use unknown_id::UnknownId;
 

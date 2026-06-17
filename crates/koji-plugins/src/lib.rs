@@ -11,11 +11,11 @@
 //! - **Registry** ([`PluginRegistry`]): discovers plugins under a directory
 //!   (conventionally `KOJI_PLUGINS_DIR`, default `./plugins`) and indexes them
 //!   by `(kind, name)`.
-//! - **Runner** ([`Plugin`]): spawns a plugin as a child process, with an
-//!   optional parallel-over-S2-cells fan-out ([`Plugin::run_multi`]).
+//! - **Runner** ([`Plugin`]): spawns a plugin as a child process and speaks the
+//!   JSON stdio protocol to it.
 //!
-//! The crate depends only on `koji-core` (for `SingleVec` + `create_cell_map`),
-//! keeping the workspace graph acyclic: `koji-core ← koji-plugins ← algorithms`.
+//! The crate depends only on `koji-core` (for `SingleVec`), keeping the
+//! workspace graph acyclic: `koji-core ← koji-plugins ← algorithms`.
 
 pub mod global;
 mod manifest;
@@ -25,6 +25,6 @@ mod registry;
 
 pub use global::{current, install};
 pub use manifest::{PluginKind, PluginManifest};
-pub use plugin::{JoinFunction, Plugin};
+pub use plugin::Plugin;
 pub use protocol::{PluginInput, PluginOutput};
 pub use registry::{DEFAULT_PLUGINS_DIR, MANIFEST_FILE, Overlay, PLUGINS_DIR_ENV, PluginRegistry};

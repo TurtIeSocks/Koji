@@ -16,7 +16,7 @@ use utoipa::ToSchema;
 use super::config::{DataFilter, DevConfig, OutputConfig, ReturnTypeArg, get_return_type};
 use super::resolve::{
     DEFAULT_MIN_POINTS, DEFAULT_RADIUS, DEFAULT_S2_LEVEL, DEFAULT_S2_SIZE, bootstrap_plugin_args,
-    clustering_plugin_args, resolve_max_clusters, validate_s2_cell,
+    clustering_plugin_args, resolve_max_clusters,
 };
 
 /// Clustering wire args → [`ClusteringConfig`].
@@ -66,7 +66,6 @@ impl ClusteringArgs {
 pub struct RoutingArgs {
     #[schema(value_type = Option<String>)]
     pub sort_by: Option<SortBy>,
-    pub route_split_level: Option<u64>,
     pub plugin_args: Option<String>,
 }
 
@@ -74,7 +73,6 @@ impl RoutingArgs {
     pub fn resolve(self) -> RoutingConfig {
         RoutingConfig {
             sort_by: self.sort_by.unwrap_or(SortBy::Unset),
-            route_split_level: validate_s2_cell(self.route_split_level, "route_split_level"),
             plugin_args: self.plugin_args.unwrap_or_default(),
         }
     }
@@ -258,7 +256,6 @@ mod tests {
     fn routing_args_defaults_to_unset_sort_and_empty_plugin_args() {
         let cfg = RoutingArgs::default().resolve();
         assert_eq!(cfg.sort_by, SortBy::Unset);
-        assert_eq!(cfg.route_split_level, 0);
         assert_eq!(cfg.plugin_args, "");
     }
 
@@ -267,13 +264,6 @@ mod tests {
         let g: RoutingArgs = serde_json::from_str(r#"{"pluginArgs":"--foo"}"#).unwrap();
         let cfg = g.resolve();
         assert_eq!(cfg.plugin_args, "--foo");
-    }
-
-    #[test]
-    fn routing_args_route_split_level_out_of_range_gives_zero() {
-        let g: RoutingArgs = serde_json::from_str(r#"{"routeSplitLevel":99}"#).unwrap();
-        let cfg = g.resolve();
-        assert_eq!(cfg.route_split_level, 0);
     }
 
     // ── BootstrapArgs ────────────────────────────────────────────────────────

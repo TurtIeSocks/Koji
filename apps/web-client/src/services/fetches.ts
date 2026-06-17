@@ -236,7 +236,6 @@ export async function clusteringRouting({
     cluster_mode,
     category: rawCategory,
     min_points,
-    route_split_level,
     save_to_db,
     save_to_scanner,
     skipRendering,
@@ -346,7 +345,6 @@ export async function clusteringRouting({
               },
               routing: {
                 sortBy: sort_by,
-                routeSplitLevel: route_split_level,
                 pluginArgs: routing_args || undefined,
               },
               output: { returnType: 'feature', saveToDb: save_to_db, saveToScanner: save_to_scanner },
@@ -371,7 +369,6 @@ export async function clusteringRouting({
               },
               routing: {
                 sortBy: sort_by,
-                routeSplitLevel: route_split_level,
                 pluginArgs: routing_args || undefined,
               },
               output: { returnType: 'feature', saveToDb: save_to_db, saveToScanner: save_to_scanner },
