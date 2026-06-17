@@ -1,4 +1,6 @@
 use std::vec;
+#[cfg(test)]
+use koji_core::Precision;
 use web_time::Instant;
 
 #[cfg(feature = "native")]
@@ -220,11 +222,11 @@ mod tests {
     fn best_mode_produces_clusters() {
         // Dense grid of 100 points in a 0.05° × 0.05° area; radius 500 m ensures
         // many points fall within each disk → crucible finds valid clusters.
-        let pts: Vec<[f64; 2]> = (0..100)
+        let pts: Vec<[Precision; 2]> = (0..100)
             .map(|i| {
                 [
-                    40.0 + (i / 10) as f64 * 0.005,
-                    -74.0 + (i % 10) as f64 * 0.005,
+                    40.0 + (i / 10) as Precision * 0.005,
+                    -74.0 + (i % 10) as Precision * 0.005,
                 ]
             })
             .collect();
@@ -240,11 +242,11 @@ mod tests {
 
     #[test]
     fn better_mode_produces_clusters() {
-        let pts: Vec<[f64; 2]> = (0..100)
+        let pts: Vec<[Precision; 2]> = (0..100)
             .map(|i| {
                 [
-                    40.0 + (i / 10) as f64 * 0.005,
-                    -74.0 + (i % 10) as f64 * 0.005,
+                    40.0 + (i / 10) as Precision * 0.005,
+                    -74.0 + (i % 10) as Precision * 0.005,
                 ]
             })
             .collect();
@@ -287,7 +289,7 @@ mod tests {
 
     #[test]
     fn honeycomb_mode_produces_clusters() {
-        let pts: Vec<[f64; 2]> = (0..20).map(|i| [40.0 + i as f64 * 0.001, -74.0]).collect();
+        let pts: Vec<[Precision; 2]> = (0..20).map(|i| [40.0 + i as Precision * 0.001, -74.0]).collect();
         let mut cfg = make_cfg(ClusterMode::Honeycomb);
         cfg.radius = 500.0;
         let mut stats = Stats::new("t".into(), 1);

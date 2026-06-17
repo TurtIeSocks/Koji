@@ -1,4 +1,6 @@
 use std::fmt::Write;
+#[cfg(test)]
+use koji_core::Precision;
 
 use geojson::{Feature, FeatureCollection, Value};
 
@@ -302,7 +304,7 @@ mod tests {
         // All numbers in the SQL string should have at most 6 decimal places.
         // Extract all decimal-containing numbers and check.
         for token in sql.split_whitespace() {
-            if let Ok(n) = token.trim_end_matches(')').parse::<f64>() {
+            if let Ok(n) = token.trim_end_matches(')').parse::<Precision>() {
                 let s = format!("{n}");
                 if let Some(dot) = s.find('.') {
                     let decimals = s.len() - dot - 1;

@@ -1,12 +1,13 @@
 use sea_orm::FromQueryResult;
+use koji_core::Precision;
 use serde::{Deserialize, Serialize};
 
 /// Query-row for `SELECT lat, lon` from scanner tables. Converts into the pure
 /// `koji_core::PointStruct`.
 #[derive(Debug, FromQueryResult)]
 pub struct LatLonRow {
-    pub lat: f64,
-    pub lon: f64,
+    pub lat: Precision,
+    pub lon: Precision,
 }
 
 impl From<LatLonRow> for koji_core::PointStruct {
@@ -20,8 +21,8 @@ impl From<LatLonRow> for koji_core::PointStruct {
 
 #[derive(Debug, Clone, FromQueryResult)]
 pub struct Spawnpoint {
-    pub lat: f64,
-    pub lon: f64,
+    pub lat: Precision,
+    pub lon: Precision,
     pub despawn_sec: Option<u16>,
 }
 
@@ -33,11 +34,11 @@ pub struct Total {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GenericData {
     pub i: String,
-    pub p: [f64; 2],
+    pub p: [Precision; 2],
 }
 
 impl GenericData {
-    pub fn new(i: String, lat: f64, lon: f64) -> Self {
+    pub fn new(i: String, lat: Precision, lon: Precision) -> Self {
         GenericData { i, p: [lat, lon] }
     }
 }

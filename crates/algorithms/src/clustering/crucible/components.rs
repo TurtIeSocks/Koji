@@ -163,8 +163,8 @@ mod tests {
         // Two tight clumps ~20 km apart, r = 70 m.
         let mut pts: SingleVec = vec![];
         for i in 0..5 {
-            pts.push([40.0 + i as f64 * 0.0003, -74.0]);
-            pts.push([40.18 + i as f64 * 0.0003, -74.0]);
+            pts.push([40.0 + i as Precision * 0.0003, -74.0]);
+            pts.push([40.18 + i as Precision * 0.0003, -74.0]);
         }
         let (reps, _) = dedupe(&pts);
         let comps = components(&reps, 70.0);
@@ -178,7 +178,7 @@ mod tests {
         // even across grouping-cell boundaries.
         let mut pts: SingleVec = vec![];
         for i in 0..60 {
-            pts.push([40.0 + i as f64 * 0.00117, -74.0]);
+            pts.push([40.0 + i as Precision * 0.00117, -74.0]);
         }
         let (reps, _) = dedupe(&pts);
         let comps = components(&reps, 70.0);

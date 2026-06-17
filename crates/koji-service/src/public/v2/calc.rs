@@ -32,6 +32,7 @@
 //! decision, flagged for the maintainer.
 
 use algorithms::bootstrap::{self, BootstrapConfig};
+use koji_core::Precision;
 use algorithms::clustering::{self, ClusteringConfig};
 use algorithms::routing::{self, RoutingConfig, SortBy};
 use algorithms::stats::Stats;
@@ -290,7 +291,7 @@ fn run_bootstrap(
 fn run_reroute(
     clusters: SingleVec,
     data_points: SingleVec,
-    radius: f64,
+    radius: Precision,
     routing_config: &RoutingConfig,
     instance: &str,
 ) -> (KojiGeometryCollection, Stats) {
@@ -312,7 +313,7 @@ fn run_reroute(
 fn run_route_stats(
     clusters: SingleVec,
     data_points: SingleVec,
-    radius: f64,
+    radius: Precision,
     min_points: usize,
     instance: &str,
 ) -> (KojiGeometryCollection, Stats) {
@@ -352,7 +353,7 @@ mod tests {
     /// `[lat, lon]` → `[lon, lat]`, then `geo::RemoveRepeatedPoints` drops the
     /// duplicate closing coord — so each route below collapses to the same three
     /// distinct points.
-    fn golden(coords: &[[f64; 2]]) -> geojson::Value {
+    fn golden(coords: &[[Precision; 2]]) -> geojson::Value {
         geojson::Value::MultiPoint(coords.iter().map(|c| vec![c[0], c[1]]).collect())
     }
 

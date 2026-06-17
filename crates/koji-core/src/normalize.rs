@@ -1,15 +1,16 @@
 use crate::PointStruct;
+use crate::Precision;
 
 pub trait HasLatLon {
-    fn lat(&self) -> f64;
-    fn lon(&self) -> f64;
+    fn lat(&self) -> Precision;
+    fn lon(&self) -> Precision;
 }
 
 impl HasLatLon for PointStruct {
-    fn lat(&self) -> f64 {
+    fn lat(&self) -> Precision {
         self.lat
     }
-    fn lon(&self) -> f64 {
+    fn lon(&self) -> Precision {
         self.lon
     }
 }

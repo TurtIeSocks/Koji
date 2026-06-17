@@ -34,11 +34,11 @@ type Covered = HashSet<u64>;
 #[derive(Debug, Clone, Serialize)]
 pub struct S2Response {
     pub id: String,
-    coords: [[f64; 2]; 4],
+    coords: [[Precision; 2]; 4],
 }
 
 pub trait ToGeo {
-    fn polygon(&self) -> geo::Polygon<f64>;
+    fn polygon(&self) -> geo::Polygon<Precision>;
     fn geo_point(&self) -> geo::Point;
 }
 
@@ -54,9 +54,9 @@ impl ToPointArray for CellID {
 }
 
 impl ToGeo for CellID {
-    fn polygon(&self) -> geo::Polygon<f64> {
+    fn polygon(&self) -> geo::Polygon<Precision> {
         let cell = Cell::from(self);
-        geo::Polygon::<f64>::new(
+        geo::Polygon::<Precision>::new(
             geo::LineString::from(
                 (0..4)
                     .map(|i| {
@@ -79,10 +79,10 @@ impl ToGeo for CellID {
 }
 
 pub fn get_region_cells(
-    min_lat: f64,
-    max_lat: f64,
-    min_lon: f64,
-    max_lon: f64,
+    min_lat: Precision,
+    max_lat: Precision,
+    min_lon: Precision,
+    max_lon: Precision,
     cell_size: u8,
 ) -> CellUnion {
     let region = Rect::from_degrees(min_lat, min_lon, max_lat, max_lon);
@@ -98,10 +98,10 @@ pub fn get_region_cells(
 
 pub fn get_cells(
     cell_size: u8,
-    min_lat: f64,
-    min_lon: f64,
-    max_lat: f64,
-    max_lon: f64,
+    min_lat: Precision,
+    min_lon: Precision,
+    max_lat: Precision,
+    max_lon: Precision,
 ) -> Vec<S2Response> {
     let cells = get_region_cells(min_lat, max_lat, min_lon, max_lon, cell_size);
 
@@ -143,13 +143,13 @@ pub fn get_polygons(cell_ids: Vec<String>) -> Vec<S2Response> {
         .collect()
 }
 
-pub fn circle_coverage(lat: f64, lon: f64, radius: f64, level: u8) -> Arc<Mutex<Covered>> {
+pub fn circle_coverage(lat: Precision, lon: Precision, radius: Precision, level: u8) -> Arc<Mutex<Covered>> {
     let mut covered = Arc::new(Mutex::new(HashSet::new()));
     let point = geo::Point::new(lon, lat);
-    let circle = geo::Polygon::<f64>::new(
+    let circle = geo::Polygon::<Precision>::new(
         geo::LineString::from(
             (0..60)
-                .map(|i| Haversine.destination(point, (i * 6) as f64, radius))
+                .map(|i| Haversine.destination(point, (i * 6) as Precision, radius))
                 .collect::<Vec<geo::Point>>(),
         ),
         vec![],
@@ -160,8 +160,8 @@ pub fn circle_coverage(lat: f64, lon: f64, radius: f64, level: u8) -> Arc<Mutex<
 }
 
 fn check_neighbors(
-    lat: f64,
-    lon: f64,
+    lat: Precision,
+    lon: Precision,
     level: u8,
     circle: &geo::Polygon,
     covered: &mut Arc<Mutex<Covered>>,
@@ -176,7 +176,7 @@ fn check_neighbors(
             log::error!("[S2] Error locking `covered` to insert: {}", e)
         }
     };
-    let mut next_neighbors: Vec<(f64, f64)> = Vec::new();
+    let mut next_neighbors: Vec<(Precision, Precision)> = Vec::new();
     let current_neighbors = center_cell.edge_neighbors();
 
     current_neighbors.iter().for_each(|neighbor| {
@@ -280,7 +280,7 @@ pub fn cell_intersects_polygon(id: CellID, poly: &Polygon<Precision>) -> bool {
     poly.intersects(&cell_poly)
 }
 
-pub fn cell_coverage(lat: f64, lon: f64, size: u8, level: u8) -> Covered {
+pub fn cell_coverage(lat: Precision, lon: Precision, size: u8, level: u8) -> Covered {
     let mut covered = HashSet::new();
     let center = CellID::from(s2::latlng::LatLng::from_degrees(lat, lon)).parent(level as u64);
 
@@ -593,7 +593,7 @@ mod tests {
         let cell_id = from_array_to_cell_id(&[lat, lon], 16);
 
         // Large box around the cell (lon±1, lat±1)
-        let big_box: Polygon<f64> = Polygon::new(
+        let big_box: Polygon<Precision> = Polygon::new(
             LineString::from(vec![
                 coord! { x: lon - 1.0, y: lat - 1.0 },
                 coord! { x: lon + 1.0, y: lat - 1.0 },
@@ -611,7 +611,7 @@ mod tests {
         use geo::{LineString, Polygon, coord};
         // Cell near Paris, polygon near NYC — no intersection.
         let cell_id = from_array_to_cell_id(&[48.85, 2.35], 15);
-        let nyc_box: Polygon<f64> = Polygon::new(
+        let nyc_box: Polygon<Precision> = Polygon::new(
             LineString::from(vec![
                 coord! { x: -75.0, y: 40.0 },
                 coord! { x: -73.0, y: 40.0 },

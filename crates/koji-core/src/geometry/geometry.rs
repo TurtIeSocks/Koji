@@ -39,7 +39,7 @@ impl EnsurePoints for Geometry {
     }
 }
 
-impl TrimPrecision for Vec<Vec<Vec<f64>>> {
+impl TrimPrecision for Vec<Vec<Vec<Precision>>> {
     fn trim_precision(self, precision: u32) -> Self {
         let mut formatted_data = Vec::new();
 
@@ -63,10 +63,10 @@ impl GeometryHelpers for Geometry {
     fn simplify(self) -> Self {
         let mut geometry = match self.value {
             Value::Polygon(_) => {
-                Geometry::from(&Polygon::<f64>::try_from(self).unwrap().simplify(0.0001))
+                Geometry::from(&Polygon::<Precision>::try_from(self).unwrap().simplify(0.0001))
             }
             Value::MultiPolygon(_) => Geometry::from(
-                &MultiPolygon::<f64>::try_from(self)
+                &MultiPolygon::<Precision>::try_from(self)
                     .unwrap()
                     .simplify(0.0001),
             ),
@@ -84,7 +84,7 @@ impl TrimPrecision for Geometry {
                 Geometry::from(geojson::Value::Polygon(value.trim_precision(precision)))
             }
             Value::MultiPolygon(value) => {
-                let mut formatted_data: Vec<Vec<Vec<Vec<f64>>>> = Vec::new();
+                let mut formatted_data: Vec<Vec<Vec<Vec<Precision>>>> = Vec::new();
                 for outer_vec in value {
                     formatted_data.push(outer_vec.trim_precision(precision))
                 }
@@ -185,11 +185,11 @@ mod tests {
         }
     }
 
-    // ── TrimPrecision for Vec<Vec<Vec<f64>>> ────────────────────────────────
+    // ── TrimPrecision for Vec<Vec<Vec<Precision>>> ────────────────────────────────
 
     #[test]
     fn trim_precision_vec3_rounds_all_coords() {
-        let v: Vec<Vec<Vec<f64>>> = vec![vec![vec![1.23456789, 9.87654321]]];
+        let v: Vec<Vec<Vec<Precision>>> = vec![vec![vec![1.23456789, 9.87654321]]];
         let trimmed = v.trim_precision(4);
         assert_eq!(trimmed[0][0][0], 1.2346);
         assert_eq!(trimmed[0][0][1], 9.8765);

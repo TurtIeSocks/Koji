@@ -2,6 +2,7 @@
 //! canonical; geojson is an edge format only.
 
 use geo::Geometry;
+use crate::Precision;
 
 use super::{KojiGeometry, KojiGeometryCollection, KojiMeta};
 
@@ -27,7 +28,7 @@ impl TryFrom<geojson::Feature> for KojiGeometry {
 
     fn try_from(f: geojson::Feature) -> Result<Self, Self::Error> {
         let gj = f.geometry.ok_or(KojiGeojsonError::MissingGeometry)?;
-        let geometry = Geometry::<f64>::try_from(&gj).map_err(KojiGeojsonError::Convert)?;
+        let geometry = Geometry::<Precision>::try_from(&gj).map_err(KojiGeojsonError::Convert)?;
 
         // Properties (a serde_json object) deserialize directly into KojiMeta;
         // typed keys populate fields, the rest land in `extra`.

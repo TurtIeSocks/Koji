@@ -8,6 +8,7 @@
 //! [`ServiceError`](crate::utils::error::ServiceError).
 
 use actix_web::{HttpResponse, post, web};
+use koji_core::Precision;
 use geo::{ChamberlainDuquetteArea, MultiPolygon, Polygon};
 use geojson::{FeatureCollection, Value};
 use koji_core::{FeatureHelpers, GeometryHelpers, TrimPrecision};
@@ -142,16 +143,16 @@ async fn merge_points(
 /// non-polygon / unconvertible geometries (logged, not erroring) so the number the
 /// frontend already expects is unchanged. Pure (no DB / async), hence unit-tested
 /// directly below against a known polygon.
-fn polygon_area_sum(collection: &FeatureCollection) -> f64 {
+fn polygon_area_sum(collection: &FeatureCollection) -> Precision {
     let mut total_area = 0.;
     for feature in collection {
         if let Some(geometry) = feature.geometry.as_ref() {
             match geometry.value {
-                Value::MultiPolygon(_) => match MultiPolygon::<f64>::try_from(geometry) {
+                Value::MultiPolygon(_) => match MultiPolygon::<Precision>::try_from(geometry) {
                     Ok(mp) => total_area += mp.chamberlain_duquette_unsigned_area(),
                     Err(err) => log::error!("Unable to calculate area for MultiPolygon: {err}"),
                 },
-                Value::Polygon(_) => match Polygon::<f64>::try_from(geometry) {
+                Value::Polygon(_) => match Polygon::<Precision>::try_from(geometry) {
                     Ok(poly) => total_area += poly.chamberlain_duquette_unsigned_area(),
                     Err(err) => log::error!("Unable to calculate area for Polygon: {err}"),
                 },
@@ -166,7 +167,7 @@ fn polygon_area_sum(collection: &FeatureCollection) -> f64 {
 /// geometry. Ports v1 `/area` (`calculate_area`): the Chamberlain–Duquette
 /// unsigned area sum over every `Polygon`/`MultiPolygon`, now in the v2 envelope.
 /// Reuses [`SimplifyReq`] for the body (it already carries the `area` input);
-/// returns `{ "area": <f64 m²> }`.
+/// returns `{ "area": <Precision m²> }`.
 #[utoipa::path(
     post,
     path = "/api/v2/geometry/area",
@@ -229,7 +230,7 @@ mod tests {
 
         // Ground truth: the exact same `geo` routine v1 `calculate_area` calls,
         // computed independently here over the identical ring.
-        let expected = Polygon::<f64>::new(
+        let expected = Polygon::<Precision>::new(
             geo::LineString::from(vec![
                 (0.0, 0.0),
                 (1.0, 0.0),
@@ -257,7 +258,7 @@ mod tests {
         )
         .unwrap();
 
-        let expected = MultiPolygon::<f64>::new(vec![Polygon::new(
+        let expected = MultiPolygon::<Precision>::new(vec![Polygon::new(
             geo::LineString::from(vec![
                 (0.0, 0.0),
                 (1.0, 0.0),

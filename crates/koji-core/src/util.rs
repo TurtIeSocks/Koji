@@ -1,13 +1,15 @@
+use crate::Precision;
+
 pub trait TrimPrecision {
     fn trim_precision(self, precision: u32) -> Self;
 }
 
-impl TrimPrecision for f64 {
-    fn trim_precision(self, precision: u32) -> f64 {
+impl TrimPrecision for Precision {
+    fn trim_precision(self, precision: u32) -> Precision {
         if !self.is_finite() {
             return self;
         }
-        let precision_factor = 10u32.pow(precision) as f64;
+        let precision_factor = 10u32.pow(precision) as Precision;
         (self * precision_factor).round() / precision_factor
     }
 }
@@ -37,19 +39,19 @@ mod tests {
 
     #[test]
     fn trim_precision_nan_passthrough() {
-        let v = f64::NAN.trim_precision(6);
+        let v = Precision::NAN.trim_precision(6);
         assert!(v.is_nan());
     }
 
     #[test]
     fn trim_precision_inf_passthrough() {
-        let v = f64::INFINITY.trim_precision(6);
+        let v = Precision::INFINITY.trim_precision(6);
         assert!(v.is_infinite() && v.is_sign_positive());
     }
 
     #[test]
     fn trim_precision_neg_inf_passthrough() {
-        let v = f64::NEG_INFINITY.trim_precision(6);
+        let v = Precision::NEG_INFINITY.trim_precision(6);
         assert!(v.is_infinite() && v.is_sign_negative());
     }
 }

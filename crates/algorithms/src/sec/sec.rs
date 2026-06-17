@@ -13,7 +13,7 @@ pub enum SmallestEnclosingCircle {
 
 pub fn multi_attempt<I: Iterator<Item = Point>>(
     points: I,
-    radius: f64,
+    radius: Precision,
     max_attempts: usize,
 ) -> SmallestEnclosingCircle {
     let points: Vec<_> = points.collect();
@@ -42,7 +42,7 @@ pub fn multi_attempt<I: Iterator<Item = Point>>(
     eval_result(points, circle, radius)
 }
 
-fn smallest_enclosing_circle(points: Vec<Point>, radius: f64) -> Circle {
+fn smallest_enclosing_circle(points: Vec<Point>, radius: Precision) -> Circle {
     let mut p = points;
     let mut circle = Circle::None;
     let mut r = Vec::new();
@@ -82,7 +82,7 @@ fn smallest_enclosing_circle(points: Vec<Point>, radius: f64) -> Circle {
     circle
 }
 
-fn eval_result(points: Vec<Point>, circle: Circle, radius: f64) -> SmallestEnclosingCircle {
+fn eval_result(points: Vec<Point>, circle: Circle, radius: Precision) -> SmallestEnclosingCircle {
     if let Some(center) = circle.center() {
         if circle.radius() > radius {
             SmallestEnclosingCircle::RadiusTooBig
@@ -101,7 +101,7 @@ mod tests {
     use super::*;
     use geo::{Distance, Haversine};
 
-    fn pt(lon: f64, lat: f64) -> Point {
+    fn pt(lon: Precision, lat: Precision) -> Point {
         Point::new(lon, lat)
     }
 

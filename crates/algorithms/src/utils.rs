@@ -94,7 +94,7 @@ mod tests {
     #[test]
     fn centroid_many_points_stays_bounded() {
         // 100 points all at the same location → centroid = that location.
-        let pts: Vec<[f64; 2]> = (0..100).map(|_| [48.8566, 2.3522]).collect();
+        let pts: Vec<[Precision; 2]> = (0..100).map(|_| [48.8566, 2.3522]).collect();
         let c = centroid(&pts);
         assert!((c[0] - 48.8566).abs() < 0.001);
         assert!((c[1] - 2.3522).abs() < 0.001);
@@ -175,8 +175,8 @@ mod tests {
     #[test]
     fn centroid_large_cluster_stays_within_bbox() {
         // 9 points in a 3×3 grid around NYC → centroid is inside the grid bbox.
-        let pts: Vec<[f64; 2]> = (0..3)
-            .flat_map(|r| (0..3).map(move |c| [40.0 + r as f64 * 0.01, -74.0 + c as f64 * 0.01]))
+        let pts: Vec<[Precision; 2]> = (0..3)
+            .flat_map(|r| (0..3).map(move |c| [40.0 + r as Precision * 0.01, -74.0 + c as Precision * 0.01]))
             .collect();
         let c = centroid(&pts);
         assert!(c[0] >= 40.0 && c[0] <= 40.02, "lat {}", c[0]);

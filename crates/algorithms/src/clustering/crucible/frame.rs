@@ -9,18 +9,18 @@ use hashbrown::HashMap;
 use koji_core::{PointArray, Precision, SingleVec};
 
 /// geo's Haversine mean earth radius (must match the scorer's metric).
-const EARTH_R: f64 = 6_371_008.8;
+const EARTH_R: Precision = 6_371_008.8;
 
 pub struct Frame {
-    lat0: f64, // radians
-    lon0: f64, // radians
-    radius: f64,
+    lat0: Precision, // radians
+    lon0: Precision, // radians
+    radius: Precision,
 }
 
 impl Frame {
     /// Project `points` into a local planar frame centered at their 3D
     /// centroid. Returns the frame and planar coords, index-aligned.
-    pub fn project(points: &SingleVec, radius: Precision) -> (Frame, Vec<[f64; 2]>) {
+    pub fn project(points: &SingleVec, radius: Precision) -> (Frame, Vec<[Precision; 2]>) {
         let centroid = crate::utils::centroid(points);
         let frame = Frame {
             lat0: centroid[0].to_radians(),
@@ -32,7 +32,7 @@ impl Frame {
     }
 
     /// Azimuthal equidistant forward projection, output in radius units.
-    pub fn project_one(&self, p: PointArray) -> [f64; 2] {
+    pub fn project_one(&self, p: PointArray) -> [Precision; 2] {
         let lat = p[0].to_radians();
         let dlon = p[1].to_radians() - self.lon0;
         let cos_c = self.lat0.sin() * lat.sin() + self.lat0.cos() * lat.cos() * dlon.cos();
@@ -48,7 +48,7 @@ impl Frame {
     }
 
     /// Inverse projection back to `[lat, lon]` degrees.
-    pub fn unproject(&self, xy: [f64; 2]) -> PointArray {
+    pub fn unproject(&self, xy: [Precision; 2]) -> PointArray {
         let x = xy[0] * self.radius / EARTH_R;
         let y = xy[1] * self.radius / EARTH_R;
         let c = (x * x + y * y).sqrt();
@@ -65,12 +65,12 @@ impl Frame {
 
 /// Uniform grid hash over planar points; neighborhood queries in O(occupants).
 pub struct Grid {
-    inv_cell: f64,
+    inv_cell: Precision,
     cells: HashMap<(i32, i32), Vec<u32>>,
 }
 
 impl Grid {
-    pub fn build(pts: &[[f64; 2]], cell_size: f64) -> Grid {
+    pub fn build(pts: &[[Precision; 2]], cell_size: Precision) -> Grid {
         let inv_cell = 1.0 / cell_size;
         let mut cells: HashMap<(i32, i32), Vec<u32>> = HashMap::new();
         for (i, p) in pts.iter().enumerate() {
@@ -88,10 +88,10 @@ impl Grid {
     /// insertion order within a cell).
     pub fn for_each_within(
         &self,
-        pts: &[[f64; 2]],
-        q: [f64; 2],
-        rho: f64,
-        mut f: impl FnMut(u32, f64),
+        pts: &[[Precision; 2]],
+        q: [Precision; 2],
+        rho: Precision,
+        mut f: impl FnMut(u32, Precision),
     ) {
         let rho2 = rho * rho;
         let min_x = ((q[0] - rho) * self.inv_cell).floor() as i32;
@@ -141,7 +141,7 @@ mod tests {
         // 21x21 lattice over ~0.27° (~30 km), mid latitude.
         for i in 0..21 {
             for j in 0..21 {
-                pts.push([40.0 + i as f64 * 0.0135, -74.0 + j as f64 * 0.0135]);
+                pts.push([40.0 + i as Precision * 0.0135, -74.0 + j as Precision * 0.0135]);
             }
         }
         let (frame, planar) = Frame::project(&pts, radius);

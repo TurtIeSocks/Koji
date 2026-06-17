@@ -11,6 +11,7 @@
 //! to v1 modulo the envelope.
 
 use actix_session::Session;
+use koji_core::Precision;
 use actix_web::{HttpResponse, get};
 
 use algorithms::{bootstrap, clustering, routing};
@@ -35,11 +36,11 @@ use crate::utils::response::ConfigResponse;
 #[allow(clippy::result_large_err)]
 #[get("/config")]
 pub(crate) async fn config(session: Session) -> Result<HttpResponse, ServiceError> {
-    let start_lat: f64 = std::env::var("START_LAT")
+    let start_lat: Precision = std::env::var("START_LAT")
         .unwrap_or_else(|_| "0.0".to_string())
         .parse()
         .unwrap_or(0.0);
-    let start_lon: f64 = std::env::var("START_LON")
+    let start_lon: Precision = std::env::var("START_LON")
         .unwrap_or_else(|_| "0.0".to_string())
         .parse()
         .unwrap_or(0.0);

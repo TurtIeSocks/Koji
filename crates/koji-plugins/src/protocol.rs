@@ -10,7 +10,7 @@
 //! {"protocol_version": 1, "points": [[lat, lon], …], "args": { … }}
 //! ```
 //!
-//! `SingleVec` is `Vec<[f64; 2]>` in `[lat, lon]` order, so the JSON point
+//! `SingleVec` is `Vec<[Precision; 2]>` in `[lat, lon]` order, so the JSON point
 //! arrays map onto it directly.
 
 use koji_core::SingleVec;

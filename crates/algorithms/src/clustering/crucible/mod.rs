@@ -309,7 +309,7 @@ impl Crucible {
                                 geo::Point::new(c.center[1], c.center[0]),
                             )
                         })
-                        .unwrap_or(f64::NAN);
+                        .unwrap_or(Precision::NAN);
                     log::warn!(
                         "crucible: audit miss at [{:.7}, {:.7}], nearest center {:.3} m (r={})",
                         p[0],
@@ -438,11 +438,11 @@ mod tests {
     use super::*;
     use geo::{Distance, Haversine};
 
-    fn hav(a: PointArray, b: PointArray) -> f64 {
+    fn hav(a: PointArray, b: PointArray) -> Precision {
         Haversine.distance(geo::Point::new(a[1], a[0]), geo::Point::new(b[1], b[0]))
     }
 
-    fn score(points: &SingleVec, centers: &SingleVec, radius: f64, m: usize) -> usize {
+    fn score(points: &SingleVec, centers: &SingleVec, radius: Precision, m: usize) -> usize {
         // Mirrors stats.rs::get_score semantics (cell-20 dedup via direct
         // distance check per input point).
         let covered = points
@@ -478,8 +478,8 @@ mod tests {
         for i in 0..20 {
             for j in 0..20 {
                 pts.push([
-                    40.0 + i as f64 * 0.0009 + ((i * 7 + j * 13) % 10) as f64 * 1e-5,
-                    -74.0 + j as f64 * 0.0009,
+                    40.0 + i as Precision * 0.0009 + ((i * 7 + j * 13) % 10) as Precision * 1e-5,
+                    -74.0 + j as Precision * 0.0009,
                 ]);
             }
         }
@@ -505,7 +505,7 @@ mod tests {
         // one center per pair; per-point singletons would be 2× worse.
         let mut pts: SingleVec = vec![];
         for g in 0..10 {
-            let lat = 40.0 + g as f64 * 0.01;
+            let lat = 40.0 + g as Precision * 0.01;
             pts.push([lat, -74.0]);
             pts.push([lat, -74.0 + 0.00118]); // ~100 m east
         }
@@ -523,7 +523,7 @@ mod tests {
     fn max_clusters_respected() {
         let mut pts: SingleVec = vec![];
         for i in 0..50 {
-            pts.push([40.0 + i as f64 * 0.01, -74.0]);
+            pts.push([40.0 + i as Precision * 0.01, -74.0]);
         }
         let crucible = Crucible {
             radius: 70.0,
@@ -548,11 +548,11 @@ mod tests {
             x = x
                 .wrapping_mul(6364136223846793005)
                 .wrapping_add(1442695040888963407);
-            let a = 40.0 + ((x >> 11) as f64 / (1u64 << 53) as f64) * 0.0285;
+            let a = 40.0 + ((x >> 11) as Precision / (1u64 << 53) as Precision) * 0.0285;
             x = x
                 .wrapping_mul(6364136223846793005)
                 .wrapping_add(1442695040888963407);
-            let b = -74.0 + ((x >> 11) as f64 / (1u64 << 53) as f64) * 0.0375;
+            let b = -74.0 + ((x >> 11) as Precision / (1u64 << 53) as Precision) * 0.0375;
             pts.push([a, b]);
         }
         let crucible = Crucible {
@@ -568,7 +568,7 @@ mod tests {
             .set_min_points(3);
         let l_centers = greedy.run(&pts);
 
-        let covered_by = |centers: &SingleVec, r: f64| -> Vec<bool> {
+        let covered_by = |centers: &SingleVec, r: Precision| -> Vec<bool> {
             pts.iter()
                 .map(|p| centers.iter().any(|c| hav(*p, *c) <= r))
                 .collect()
@@ -614,11 +614,11 @@ mod tests {
             x = x
                 .wrapping_mul(6364136223846793005)
                 .wrapping_add(1442695040888963407);
-            let a = 40.0 + ((x >> 11) as f64 / (1u64 << 53) as f64) * 0.05;
+            let a = 40.0 + ((x >> 11) as Precision / (1u64 << 53) as Precision) * 0.05;
             x = x
                 .wrapping_mul(6364136223846793005)
                 .wrapping_add(1442695040888963407);
-            let b = -74.0 + ((x >> 11) as f64 / (1u64 << 53) as f64) * 0.05;
+            let b = -74.0 + ((x >> 11) as Precision / (1u64 << 53) as Precision) * 0.05;
             pts.push([a, b]);
         }
         let crucible = Crucible {

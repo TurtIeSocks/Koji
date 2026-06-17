@@ -5,6 +5,7 @@
 //! Run with: `set -a; source ./.env.test; set +a && cargo test -p koji-db --test geofence_deep_db -- --nocapture`
 
 use koji_core::{KojiGeometry, KojiGeometryCollection, KojiMeta, Mode, UnknownId};
+use koji_core::Precision;
 use koji_db::db::geofence::{Anchor, HierarchySpec};
 use koji_db::db::{geofence, project};
 use koji_db::query_args::ApiQueryArgs;
@@ -43,14 +44,14 @@ fn unique_name(tag: &str) -> String {
 
 /// A small polygon slightly offset by the given amount so fixtures don't
 /// overlap each other (no actual spatial checks depend on the exact values).
-fn polygon_at(offset: f64) -> serde_json::Value {
+fn polygon_at(offset: Precision) -> serde_json::Value {
     json!({
         "type": "Polygon",
         "coordinates": [[[offset,offset],[offset+1.0,offset],[offset+1.0,offset+1.0],[offset,offset+1.0],[offset,offset]]]
     })
 }
 
-async fn make_geofence(db: &DatabaseConnection, name: &str, offset: f64) -> u32 {
+async fn make_geofence(db: &DatabaseConnection, name: &str, offset: Precision) -> u32 {
     let created = geofence::Query::upsert_json_return(
         db,
         0,

@@ -267,7 +267,7 @@ mod tests {
 
     /// Build a simple rectangular geojson Feature as a Polygon.
     /// coords: lon,lat (geojson convention).
-    fn rect_feature(min_lon: f64, min_lat: f64, max_lon: f64, max_lat: f64) -> Feature {
+    fn rect_feature(min_lon: Precision, min_lat: Precision, max_lon: Precision, max_lat: Precision) -> Feature {
         let ring = vec![
             vec![min_lon, min_lat],
             vec![max_lon, min_lat],
@@ -383,7 +383,7 @@ mod tests {
         (0..n_rows)
             .map(|r| {
                 (0..n_cols)
-                    .map(|c| Point::new(c as f64, (n_rows - r) as f64))
+                    .map(|c| Point::new(c as Precision, (n_rows - r) as Precision))
                     .collect()
             })
             .collect()

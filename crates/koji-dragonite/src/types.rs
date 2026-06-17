@@ -30,6 +30,7 @@
 //! Koji always sends the canonical `Feature`).
 
 use geojson::Feature;
+use koji_core::Precision;
 use serde::{Deserialize, Serialize};
 
 use crate::patch::Tri;
@@ -43,8 +44,8 @@ pub type V2GeofencePatch = Tri<Feature>;
 /// A single route point, `{"lat":…,"lon":…}` (Dragonite `ApiLocation`).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ApiLocation {
-    pub lat: f64,
-    pub lon: f64,
+    pub lat: Precision,
+    pub lon: Precision,
 }
 
 /// Per-mode geofence slot identifier, mirroring the `area_fence.mode` ENUM

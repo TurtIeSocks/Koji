@@ -59,7 +59,7 @@ mod tests {
         }
     }
 
-    fn polygon_feature(ring: Vec<Vec<f64>>) -> Feature {
+    fn polygon_feature(ring: Vec<Vec<Precision>>) -> Feature {
         Feature {
             bbox: None,
             geometry: Some(Geometry::new(Value::Polygon(vec![ring]))),

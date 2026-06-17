@@ -1,4 +1,6 @@
 use std::hash::{Hash, Hasher};
+#[cfg(test)]
+use koji_core::Precision;
 
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rstar::RTree;
@@ -66,7 +68,7 @@ mod tests {
 
     #[test]
     fn spawn_finds_nearby_point() {
-        let points: Vec<[f64; 2]> = vec![[40.0, -74.0], [41.0, -74.0]];
+        let points: Vec<[Precision; 2]> = vec![[40.0, -74.0], [41.0, -74.0]];
         let tree = rtree::spawn(1_000.0, &points);
         // Query at the first point — must find it (radius = 1 km > 0).
         let found = tree.locate_at_point(&[40.0, -74.0]);
@@ -75,7 +77,7 @@ mod tests {
 
     #[test]
     fn spawn_does_not_find_far_point() {
-        let points: Vec<[f64; 2]> = vec![[40.0, -74.0]];
+        let points: Vec<[Precision; 2]> = vec![[40.0, -74.0]];
         let tree = rtree::spawn(10.0, &points); // 10 m radius
         // ~111 km away — must not be found.
         let found = tree.locate_at_point(&[41.0, -74.0]);
@@ -84,7 +86,7 @@ mod tests {
 
     #[test]
     fn cluster_info_all_field_populated() {
-        let data: Vec<[f64; 2]> = vec![[40.0, -74.0], [40.0001, -74.0]];
+        let data: Vec<[Precision; 2]> = vec![[40.0, -74.0], [40.0001, -74.0]];
         let radius = 1_000.0; // 1 km — both points well within range.
         let tree = rtree::spawn(radius, &data);
         let cluster_centers: Vec<Point> = vec![Point::new(radius, 20, [40.0, -74.0])];

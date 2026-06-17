@@ -29,7 +29,7 @@ pub fn optimize(order: SingleVec) -> SingleVec {
     }
 
     // 3D unit vectors → cheap chord distance (no per-edge trig).
-    let verts: Vec<(f64, f64, f64)> = order
+    let verts: Vec<(Precision, Precision, Precision)> = order
         .iter()
         .map(|p| {
             let v = Point::from(LatLng::from_degrees(p[0], p[1])).0;
@@ -300,14 +300,14 @@ mod tests {
     /// Sum of unit-sphere chord lengths around the closed tour (incl. wrap).
     fn tour_len(order: &SingleVec) -> Precision {
         use s2::{latlng::LatLng, point::Point};
-        let v: Vec<(f64, f64, f64)> = order
+        let v: Vec<(Precision, Precision, Precision)> = order
             .iter()
             .map(|p| {
                 let pt = Point::from(LatLng::from_degrees(p[0], p[1])).0;
                 (pt.x, pt.y, pt.z)
             })
             .collect();
-        let chord = |a: (f64, f64, f64), b: (f64, f64, f64)| {
+        let chord = |a: (Precision, Precision, Precision), b: (Precision, Precision, Precision)| {
             ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2) + (a.2 - b.2).powi(2)).sqrt()
         };
         let n = v.len();
@@ -329,7 +329,7 @@ mod tests {
     /// Longest single edge (unit-sphere chord) around the closed tour.
     fn max_edge(order: &SingleVec) -> Precision {
         use s2::{latlng::LatLng, point::Point};
-        let v: Vec<(f64, f64, f64)> = order
+        let v: Vec<(Precision, Precision, Precision)> = order
             .iter()
             .map(|p| {
                 let pt = Point::from(LatLng::from_degrees(p[0], p[1])).0;
@@ -342,7 +342,7 @@ mod tests {
                 let (a, b) = (v[i], v[(i + 1) % n]);
                 ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2) + (a.2 - b.2).powi(2)).sqrt()
             })
-            .fold(0.0_f64, f64::max)
+            .fold(0.0_f64, Precision::max)
     }
 
     #[test]
@@ -354,10 +354,10 @@ mod tests {
         // stitch should re-cross at the nearest endpoints (~5.5 km).
         let mut order: SingleVec = Vec::new();
         for i in 0..50 {
-            order.push([i as f64 * 0.001, 0.0]); // line A (lon 0)
+            order.push([i as Precision * 0.001, 0.0]); // line A (lon 0)
         }
         for i in 0..50 {
-            order.push([i as f64 * 0.001, 0.05]); // line B (lon 0.05, ~5.5 km east)
+            order.push([i as Precision * 0.001, 0.05]); // line B (lon 0.05, ~5.5 km east)
         }
         let before = tour_len(&order);
         let out = optimize(order.clone());
@@ -435,7 +435,7 @@ mod tests {
         // perimeter. Seed scrambled. Exercises 2-opt + Or-opt jointly.
         let mut circle: SingleVec = (0..6)
             .map(|k| {
-                let t = std::f64::consts::TAU * (k as f64) / 6.0;
+                let t = std::f64::consts::TAU * (k as Precision) / 6.0;
                 [t.sin(), t.cos()] // [lat, lon] on a small circle near (0,0)
             })
             .collect();

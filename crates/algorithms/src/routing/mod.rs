@@ -1,4 +1,5 @@
 use web_time::Instant;
+use koji_core::Precision;
 
 use koji_core::SingleVec;
 #[cfg(feature = "native")]
@@ -22,7 +23,7 @@ pub use sort_by::SortBy;
 pub fn main(
     data_points: &SingleVec,
     clusters: SingleVec,
-    radius: f64,
+    radius: Precision,
     cfg: &RoutingConfig,
     stats: &mut Stats,
 ) -> SingleVec {
@@ -101,7 +102,7 @@ mod tests {
     }
 
     /// 5 clusters spread across a region, some data points nearby.
-    fn sample_data() -> (Vec<[f64; 2]>, Vec<[f64; 2]>) {
+    fn sample_data() -> (Vec<[Precision; 2]>, Vec<[Precision; 2]>) {
         let data = vec![[40.0, -74.0], [40.1, -74.0], [40.2, -74.0]];
         let clusters = vec![
             [40.0, -74.0],

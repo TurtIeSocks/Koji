@@ -56,13 +56,13 @@ impl LocalFrame {
             m_per_deg_lon: (111_412.84 * lat.cos() - 93.5 * (3.0 * lat).cos()).max(1.0),
         }
     }
-    fn to_xy(&self, p: PointArray) -> [f64; 2] {
+    fn to_xy(&self, p: PointArray) -> [Precision; 2] {
         [
             (p[1] - self.origin[1]) * self.m_per_deg_lon,
             (p[0] - self.origin[0]) * self.m_per_deg_lat,
         ]
     }
-    fn to_latlng(&self, xy: [f64; 2]) -> PointArray {
+    fn to_latlng(&self, xy: [Precision; 2]) -> PointArray {
         [
             self.origin[0] + xy[1] / self.m_per_deg_lat,
             self.origin[1] + xy[0] / self.m_per_deg_lon,
@@ -98,7 +98,7 @@ enum LnsOutcome {
 
 /// 2·RHO-connected components of a planar point set (radius units), by
 /// index. O(n²) union-find — callers cap n.
-fn planar_components(pts: &[[f64; 2]], reach: f64) -> Vec<Vec<usize>> {
+fn planar_components(pts: &[[Precision; 2]], reach: Precision) -> Vec<Vec<usize>> {
     let n = pts.len();
     let mut parent: Vec<usize> = (0..n).collect();
     fn find(parent: &mut [usize], i: usize) -> usize {
@@ -372,8 +372,8 @@ impl<'a> Refiner<'a> {
         for di in -1i8..=1 {
             for dj in -1i8..=1 {
                 let q = [
-                    (p[0] + di as f64 * dlat).clamp(-89.999, 89.999),
-                    p[1] + dj as f64 * dlon,
+                    (p[0] + di as Precision * dlat).clamp(-89.999, 89.999),
+                    p[1] + dj as Precision * dlon,
                 ];
                 let cell = self.region_of(q);
                 self.region_epoch.insert(cell, self.epoch);
@@ -520,7 +520,7 @@ impl<'a> Refiner<'a> {
             return None; // drop_pass territory
         }
         let frame = LocalFrame::new(self.pos[i]);
-        let excl_xy: Vec<[f64; 2]> = excl
+        let excl_xy: Vec<[Precision; 2]> = excl
             .iter()
             .map(|&r| frame.to_xy(self.reps[r as usize]))
             .collect();
@@ -528,26 +528,26 @@ impl<'a> Refiner<'a> {
 
         // All local reps once; candidates get a cheap planar ranking and
         // only the leaders pay for exact verification.
-        let local: Vec<(u32, [f64; 2])> = self
+        let local: Vec<(u32, [Precision; 2])> = self
             .reps_within(self.pos[i], 3.0 * self.r_eff)
             .into_iter()
             .map(|r| (r, frame.to_xy(self.reps[r as usize])))
             .collect();
-        let nearby_uncov: Vec<[f64; 2]> = local
+        let nearby_uncov: Vec<[Precision; 2]> = local
             .iter()
             .filter(|(r, _)| self.count[*r as usize] == 0)
             .map(|(_, xy)| *xy)
             .take(12)
             .collect();
 
-        let mut cand_xy: Vec<[f64; 2]> = Vec::new();
+        let mut cand_xy: Vec<[Precision; 2]> = Vec::new();
         if sec.radius <= self.r_eff {
             cand_xy.push(sec.center);
         }
         if !nearby_uncov.is_empty() {
             // Vertex pool: exclusive extremes (the binding constraints)
             // plus the nearby uncovered points.
-            let mut pool: Vec<[f64; 2]> = excl_xy.clone();
+            let mut pool: Vec<[Precision; 2]> = excl_xy.clone();
             pool.sort_by(|a, b| {
                 let da = (a[0] - sec.center[0]).powi(2) + (a[1] - sec.center[1]).powi(2);
                 let db = (b[0] - sec.center[0]).powi(2) + (b[1] - sec.center[1]).powi(2);
@@ -581,7 +581,7 @@ impl<'a> Refiner<'a> {
         }
 
         // Planar ranking by (captured uncovered, total coverage).
-        let mut ranked: Vec<(usize, usize, [f64; 2])> = cand_xy
+        let mut ranked: Vec<(usize, usize, [Precision; 2])> = cand_xy
             .into_iter()
             .map(|xy| {
                 let mut captured = 0usize;
@@ -719,7 +719,7 @@ impl<'a> Refiner<'a> {
             (self.pos[i][1] + self.pos[j][1]) / 2.0,
         ];
         let frame = LocalFrame::new(mid);
-        let xy: Vec<[f64; 2]> = required
+        let xy: Vec<[Precision; 2]> = required
             .iter()
             .map(|&r| frame.to_xy(self.reps[r as usize]))
             .collect();
@@ -814,10 +814,10 @@ impl<'a> Refiner<'a> {
                     centroid[0] += this.pos[g][0];
                     centroid[1] += this.pos[g][1];
                 }
-                centroid[0] /= group.len() as f64;
-                centroid[1] /= group.len() as f64;
+                centroid[0] /= group.len() as Precision;
+                centroid[1] /= group.len() as Precision;
                 let frame = LocalFrame::new(centroid);
-                let lost_xy: Vec<[f64; 2]> = required
+                let lost_xy: Vec<[Precision; 2]> = required
                     .iter()
                     .map(|&r| {
                         let xy = frame.to_xy(this.reps[r as usize]);
@@ -961,13 +961,13 @@ impl<'a> Refiner<'a> {
             (self.pos[i][1] + self.pos[j][1] + self.pos[k][1]) / 3.0,
         ];
         let frame = LocalFrame::new(mid);
-        let req_xy: Vec<[f64; 2]> = required
+        let req_xy: Vec<[Precision; 2]> = required
             .iter()
             .map(|&r| frame.to_xy(self.reps[r as usize]))
             .collect();
 
         // Disk-1 anchors: required points + their pair vertices.
-        let mut anchors: Vec<[f64; 2]> = req_xy.clone();
+        let mut anchors: Vec<[Precision; 2]> = req_xy.clone();
         for a in 0..req_xy.len().min(16) {
             for b in (a + 1)..req_xy.len().min(16) {
                 if let Some(vs) = circle_intersections(req_xy[a], req_xy[b], self.r_eff) {
@@ -978,7 +978,7 @@ impl<'a> Refiner<'a> {
         }
         let r2 = self.r_eff * self.r_eff;
         for c1 in anchors {
-            let mut rest: Vec<[f64; 2]> = Vec::new();
+            let mut rest: Vec<[Precision; 2]> = Vec::new();
             for &xy in &req_xy {
                 let d2 = (xy[0] - c1[0]).powi(2) + (xy[1] - c1[1]).powi(2);
                 if d2 > r2 {
@@ -1351,14 +1351,14 @@ impl<'a> Refiner<'a> {
         let old_cost = self.m * removed.len() + old_uncov;
 
         let frame = LocalFrame::new(CellID(cell_raw).point_array());
-        let pts_planar: Vec<[f64; 2]> = local
+        let pts_planar: Vec<[Precision; 2]> = local
             .iter()
             .map(|&p| {
                 let xy = frame.to_xy(self.reps[p as usize]);
                 [xy[0] / radius, xy[1] / radius]
             })
             .collect();
-        let lost: Vec<[f64; 2]> = pts_planar
+        let lost: Vec<[Precision; 2]> = pts_planar
             .iter()
             .zip(&pre)
             .filter(|(_, pre)| !**pre)
@@ -1382,7 +1382,7 @@ impl<'a> Refiner<'a> {
         // At the floor with an oversized lost set: greedy-only (no exact).
 
         // Local planar solve, best of the deterministic variants.
-        let mut best: Option<(usize, Vec<[f64; 2]>, Vec<bool>)> = None;
+        let mut best: Option<(usize, Vec<[Precision; 2]>, Vec<bool>)> = None;
         for v in 0..5u8 {
             let centers = solve_chunk(
                 &pts_planar,
@@ -1418,10 +1418,10 @@ impl<'a> Refiner<'a> {
         // spans two 2·RHO components). Falls back to greedy on node budget.
         if !lost.is_empty() && !too_big {
             let mut exact_total = 0usize;
-            let mut exact_centers: Vec<[f64; 2]> = Vec::new();
+            let mut exact_centers: Vec<[Precision; 2]> = Vec::new();
             let mut complete = true;
             for comp in &comps {
-                let comp_pts: Vec<[f64; 2]> = comp.iter().map(|&i| lost[i]).collect();
+                let comp_pts: Vec<[Precision; 2]> = comp.iter().map(|&i| lost[i]).collect();
                 match super::exact::solve_window_exact(&comp_pts, self.m, usize::MAX) {
                     Some((cost, centers)) => {
                         exact_total += cost;
@@ -1475,7 +1475,7 @@ impl<'a> Refiner<'a> {
     /// cluster count and mygod_score are provably unchanged — this pass only
     /// trades redundant overlap for margin. Runs after score convergence;
     /// strict decrease ⇒ monotone ⇒ terminates.
-    fn spread_pass(&mut self, lambda_overlap: f64) -> bool {
+    fn spread_pass(&mut self, lambda_overlap: Precision) -> bool {
         let this = &*self;
         let proposals: Vec<(usize, PointArray)> = (0..self.pos.len())
             .into_par_iter()
@@ -1492,7 +1492,7 @@ impl<'a> Refiner<'a> {
                     return None;
                 }
                 let frame = LocalFrame::new(this.pos[i]);
-                let xy: Vec<[f64; 2]> = excl
+                let xy: Vec<[Precision; 2]> = excl
                     .iter()
                     .map(|&r| frame.to_xy(this.reps[r as usize]))
                     .collect();
@@ -1564,15 +1564,15 @@ impl<'a> Refiner<'a> {
         cand: PointArray,
         shared_now: usize,
         new_shared: usize,
-        lambda_overlap: f64,
+        lambda_overlap: Precision,
         check_band: bool,
     ) -> bool {
         if lambda_overlap <= 0.0 {
             return new_shared < shared_now && (!check_band || self.band_delta(i, cand).0 == 0);
         }
         let (lost, captured) = self.band_delta(i, cand);
-        let d_shared = new_shared as f64 - shared_now as f64;
-        (lost - captured) as f64 + lambda_overlap * d_shared < 0.0
+        let d_shared = new_shared as Precision - shared_now as Precision;
+        (lost - captured) as Precision + lambda_overlap * d_shared < 0.0
     }
 
     /// Full-radius coverage change of moving center `i` to `cand`, counted
@@ -1616,7 +1616,7 @@ impl<'a> Refiner<'a> {
                     return None;
                 }
                 let frame = LocalFrame::new(this.pos[i]);
-                let xy: Vec<[f64; 2]> = this.covered[i]
+                let xy: Vec<[Precision; 2]> = this.covered[i]
                     .iter()
                     .map(|&r| frame.to_xy(this.reps[r as usize]))
                     .collect();
@@ -1694,7 +1694,7 @@ impl<'a> Refiner<'a> {
                 h = h.wrapping_mul(0x9E37_79B9_7F4A_7C15);
                 h ^= h >> 32;
                 h = h.wrapping_mul(0xD6E8_FEB8_6659_FD93);
-                let unit = (h >> 11) as f64 / (1u64 << 53) as f64;
+                let unit = (h >> 11) as Precision / (1u64 << 53) as Precision;
                 (temp * unit).floor() as usize
             }
         }
@@ -1991,7 +1991,7 @@ mod tests {
     }
 
     /// ~meters offsets around a base coordinate for test construction.
-    fn at(base: PointArray, dx_m: f64, dy_m: f64) -> PointArray {
+    fn at(base: PointArray, dx_m: Precision, dy_m: Precision) -> PointArray {
         let frame = LocalFrame::new(base);
         frame.to_latlng([dx_m, dy_m])
     }

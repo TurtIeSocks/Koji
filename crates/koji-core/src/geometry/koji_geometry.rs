@@ -3,17 +3,18 @@
 //! else converts at the edge.
 
 use geo::{BoundingRect, Geometry, MultiPoint, Point, Rect, Simplify};
+use crate::Precision;
 
 use super::KojiMeta;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct KojiGeometry {
-    pub geometry: Geometry<f64>,
+    pub geometry: Geometry<Precision>,
     pub meta: KojiMeta,
 }
 
 impl KojiGeometry {
-    pub fn new(geometry: impl Into<Geometry<f64>>) -> Self {
+    pub fn new(geometry: impl Into<Geometry<Precision>>) -> Self {
         Self {
             geometry: geometry.into(),
             meta: KojiMeta::default(),
@@ -25,7 +26,7 @@ impl KojiGeometry {
         self
     }
 
-    pub fn bbox(&self) -> Option<Rect<f64>> {
+    pub fn bbox(&self) -> Option<Rect<Precision>> {
         self.geometry.bounding_rect()
     }
 
@@ -34,7 +35,7 @@ impl KojiGeometry {
     /// affected; point geometries pass through unchanged. Metadata is preserved.
     /// Re-homed from the matrix `GeometryHelpers::simplify` (which used the same
     /// `geo` Douglas–Peucker, `epsilon = 0.0001`).
-    pub fn simplify(mut self, epsilon: f64) -> Self {
+    pub fn simplify(mut self, epsilon: Precision) -> Self {
         self.geometry = match self.geometry {
             Geometry::LineString(g) => Geometry::LineString(g.simplify(epsilon)),
             Geometry::Polygon(g) => Geometry::Polygon(g.simplify(epsilon)),
@@ -57,7 +58,7 @@ impl KojiGeometryCollection {
     }
 
     /// Smallest `geo::Rect` covering every item, computed on demand (no stored state).
-    pub fn bbox(&self) -> Option<Rect<f64>> {
+    pub fn bbox(&self) -> Option<Rect<Precision>> {
         self.items
             .iter()
             .filter_map(KojiGeometry::bbox)
@@ -66,7 +67,7 @@ impl KojiGeometryCollection {
 
     /// Douglas–Peucker simplification of every item (see
     /// [`KojiGeometry::simplify`]).
-    pub fn simplify(self, epsilon: f64) -> Self {
+    pub fn simplify(self, epsilon: Precision) -> Self {
         Self::new(
             self.items
                 .into_iter()
@@ -82,7 +83,7 @@ impl KojiGeometryCollection {
     /// points) yields a single empty-`MultiPoint` item, matching the old path
     /// which always built one `MultiPoint` feature.
     pub fn merge_points(self) -> Self {
-        let points: Vec<Point<f64>> = self
+        let points: Vec<Point<Precision>> = self
             .items
             .into_iter()
             .filter_map(|item| match item.geometry {
@@ -102,7 +103,7 @@ impl FromIterator<KojiGeometry> for KojiGeometryCollection {
 }
 
 /// Smallest rect covering both inputs.
-fn union_rect(a: Rect<f64>, b: Rect<f64>) -> Rect<f64> {
+fn union_rect(a: Rect<Precision>, b: Rect<Precision>) -> Rect<Precision> {
     use geo::coord;
     Rect::new(
         coord! { x: a.min().x.min(b.min().x), y: a.min().y.min(b.min().y) },
@@ -151,7 +152,7 @@ mod tests {
     #[test]
     fn merge_points_matches_golden_multipoint() {
         // geojson Point coords are [lon, lat].
-        let raw: Vec<Vec<f64>> = vec![vec![2.0, 1.0], vec![4.0, 3.0], vec![6.0, 5.0]];
+        let raw: Vec<Vec<Precision>> = vec![vec![2.0, 1.0], vec![4.0, 3.0], vec![6.0, 5.0]];
 
         // Golden: the matrix projected these points to a MultiPoint of [lon, lat].
         let golden =
@@ -215,7 +216,7 @@ mod tests {
         let old_value = gj.clone().simplify().value;
 
         // NEW path: geojson -> geo -> KojiGeometry::simplify -> geojson.
-        let geo_geom: geo::Geometry<f64> = geo::Geometry::try_from(&gj).unwrap();
+        let geo_geom: geo::Geometry<Precision> = geo::Geometry::try_from(&gj).unwrap();
         let simplified = KojiGeometry::new(geo_geom).simplify(0.0001);
         let new_value = geojson::Value::from(&simplified.geometry);
 

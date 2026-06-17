@@ -1,4 +1,5 @@
 use geo::Coord;
+use koji_core::Precision;
 use geohash::encode;
 use koji_core::SingleVec;
 use rand::{SeedableRng, rngs::SmallRng, seq::SliceRandom};
@@ -54,7 +55,7 @@ pub fn sort_lat_lng(mut points: SingleVec) -> SingleVec {
     points
 }
 
-pub fn sort_point_count(clusters: SingleVec, points: &SingleVec, radius: f64) -> SingleVec {
+pub fn sort_point_count(clusters: SingleVec, points: &SingleVec, radius: Precision) -> SingleVec {
     let tree = rtree::spawn(radius, points);
     let clusters: Vec<point::Point> = clusters
         .par_iter()
@@ -73,7 +74,7 @@ mod tests {
 
     #[test]
     fn sort_random_preserves_length() {
-        let pts: SingleVec = (0..10).map(|i| [i as f64, 0.0]).collect();
+        let pts: SingleVec = (0..10).map(|i| [i as Precision, 0.0]).collect();
         let sorted = sort_random(pts.clone());
         assert_eq!(sorted.len(), pts.len());
     }
@@ -81,7 +82,7 @@ mod tests {
     #[test]
     fn sort_random_is_deterministic_with_fixed_seed() {
         // SmallRng seeded at 42 → same shuffle every time.
-        let pts: SingleVec = (0..10).map(|i| [i as f64, 0.0]).collect();
+        let pts: SingleVec = (0..10).map(|i| [i as Precision, 0.0]).collect();
         let a = sort_random(pts.clone());
         let b = sort_random(pts.clone());
         assert_eq!(a, b, "sort_random must be deterministic (seed=42)");
@@ -90,7 +91,7 @@ mod tests {
     #[test]
     fn sort_random_actually_shuffles() {
         // With 20 elements, the identity order is extremely unlikely after a seeded shuffle.
-        let pts: SingleVec = (0..20).map(|i| [i as f64, 0.0]).collect();
+        let pts: SingleVec = (0..20).map(|i| [i as Precision, 0.0]).collect();
         let sorted = sort_random(pts.clone());
         assert_ne!(
             sorted, pts,
@@ -168,7 +169,7 @@ mod tests {
         // one isolated cluster at 0°N 0°E.
         let radius = 70.0;
         let dense_center = [40.0_f64, -74.0_f64];
-        let mut data: SingleVec = (0..10).map(|i| [40.0 + i as f64 * 0.0001, -74.0]).collect();
+        let mut data: SingleVec = (0..10).map(|i| [40.0 + i as Precision * 0.0001, -74.0]).collect();
         data.push([0.0, 0.0]);
 
         let clusters: SingleVec = vec![dense_center, [0.0, 0.0]];

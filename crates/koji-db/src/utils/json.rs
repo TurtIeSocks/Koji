@@ -1,4 +1,5 @@
 use std::{collections::HashMap, str::FromStr};
+use koji_core::Precision;
 
 use geojson::{GeoJson, Geometry};
 use sea_orm::Set;
@@ -350,7 +351,7 @@ pub fn parse_property_value(value: &String, category: &Category) -> Value {
             // Unparseable values fall back to 0.0; NaN/inf can't be represented as a JSON
             // number, so they also fall back to a finite 0.0 (no panic on bad data). The
             // result is always a float, matching `from_f64`'s output for valid numbers.
-            let parsed = value.parse::<f64>().unwrap_or(0.0);
+            let parsed = value.parse::<Precision>().unwrap_or(0.0);
             let finite = if parsed.is_finite() { parsed } else { 0.0 };
             Value::Number(
                 serde_json::Number::from_f64(finite).unwrap_or_else(|| serde_json::Number::from(0)),
@@ -396,7 +397,7 @@ pub fn determine_category_by_value(
     } else if value.as_object().is_some() {
         category = Category::Object;
     } else if let Some(value) = value.as_str() {
-        match value.parse::<f64>() {
+        match value.parse::<Precision>() {
             Ok(val) => {
                 category = Category::Number;
                 actual_value = Some(val.into());

@@ -13,6 +13,7 @@
 #![allow(clippy::unnecessary_wraps)]
 
 use actix_web::{HttpResponse, post, web};
+use koji_core::Precision;
 use koji_core::BoundsArg;
 use serde::Deserialize;
 use serde_json::json;
@@ -25,9 +26,9 @@ use crate::utils::error::ServiceError;
 /// Request for the S2 circle/cell coverage helpers.
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 pub(crate) struct CoverageArgs {
-    lat: f64,
-    lon: f64,
-    radius: Option<f64>,
+    lat: Precision,
+    lon: Precision,
+    radius: Option<Precision>,
     size: Option<u8>,
     level: u8,
 }
@@ -41,13 +42,13 @@ pub(crate) struct CoverageArgs {
 #[allow(dead_code)]
 pub(crate) struct S2CellsBody {
     /// Bounding box minimum latitude (flattened from `KojiBbox`).
-    min_lat: f64,
+    min_lat: Precision,
     /// Bounding box minimum longitude.
-    min_lon: f64,
+    min_lon: Precision,
     /// Bounding box maximum latitude.
-    max_lat: f64,
+    max_lat: Precision,
     /// Bounding box maximum longitude.
-    max_lon: f64,
+    max_lon: Precision,
     /// Optional "updated within the last N seconds" filter.
     last_seen: Option<u32>,
     /// Optional S2 cell-id allow-list; when omitted, every cell in the bbox.

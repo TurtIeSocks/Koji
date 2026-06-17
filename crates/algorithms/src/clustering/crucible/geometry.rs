@@ -4,26 +4,28 @@
 //! the caller projected into (the solver uses "1.0 = cluster radius" units; the
 //! refiner uses meters) — the math is unit-agnostic.
 
+use koji_core::Precision;
+
 /// A circle returned by [`smallest_enclosing_circle`].
 #[derive(Debug, Clone, Copy)]
 pub struct Circle {
-    pub center: [f64; 2],
-    pub radius: f64,
+    pub center: [Precision; 2],
+    pub radius: Precision,
 }
 
-const MULT_EPS: f64 = 1.0 + 1e-12;
+const MULT_EPS: Precision = 1.0 + 1e-12;
 
-fn dist2(a: [f64; 2], b: [f64; 2]) -> f64 {
+fn dist2(a: [Precision; 2], b: [Precision; 2]) -> Precision {
     let dx = a[0] - b[0];
     let dy = a[1] - b[1];
     dx * dx + dy * dy
 }
 
-fn contains(c: &Circle, p: [f64; 2]) -> bool {
+fn contains(c: &Circle, p: [Precision; 2]) -> bool {
     dist2(c.center, p) <= c.radius * c.radius * MULT_EPS
 }
 
-fn circle_from_two(a: [f64; 2], b: [f64; 2]) -> Circle {
+fn circle_from_two(a: [Precision; 2], b: [Precision; 2]) -> Circle {
     let center = [(a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0];
     Circle {
         center,
@@ -32,7 +34,7 @@ fn circle_from_two(a: [f64; 2], b: [f64; 2]) -> Circle {
 }
 
 /// Circumcircle of three points; `None` when (near-)collinear.
-fn circle_from_three(a: [f64; 2], b: [f64; 2], c: [f64; 2]) -> Option<Circle> {
+fn circle_from_three(a: [Precision; 2], b: [Precision; 2], c: [Precision; 2]) -> Option<Circle> {
     // Translate towards a for numerical stability.
     let bx = b[0] - a[0];
     let by = b[1] - a[1];
@@ -56,7 +58,7 @@ fn circle_from_three(a: [f64; 2], b: [f64; 2], c: [f64; 2]) -> Option<Circle> {
 /// Smallest enclosing circle, deterministic incremental construction
 /// (Welzl-style move-to-front without randomization; the point sets fed in here
 /// are small — required/exclusive sets of one or two clusters).
-pub fn smallest_enclosing_circle(pts: &[[f64; 2]]) -> Circle {
+pub fn smallest_enclosing_circle(pts: &[[Precision; 2]]) -> Circle {
     let mut c = Circle {
         center: pts.first().copied().unwrap_or([0.0, 0.0]),
         radius: 0.0,
@@ -104,7 +106,7 @@ pub fn smallest_enclosing_circle(pts: &[[f64; 2]]) -> Circle {
 
 /// The two intersection points of equal-radius (`rho`) circles centered at `a`
 /// and `b`. `None` when the centers coincide or are further than `2*rho` apart.
-pub fn circle_intersections(a: [f64; 2], b: [f64; 2], rho: f64) -> Option<[[f64; 2]; 2]> {
+pub fn circle_intersections(a: [Precision; 2], b: [Precision; 2], rho: Precision) -> Option<[[Precision; 2]; 2]> {
     let d2 = dist2(a, b);
     if d2 < 1e-18 || d2 > 4.0 * rho * rho {
         return None;
@@ -138,11 +140,11 @@ mod tests {
             x = x
                 .wrapping_mul(6364136223846793005)
                 .wrapping_add(1442695040888963407);
-            let a = ((x >> 11) as f64 / (1u64 << 53) as f64) * 4.0 - 2.0;
+            let a = ((x >> 11) as Precision / (1u64 << 53) as Precision) * 4.0 - 2.0;
             x = x
                 .wrapping_mul(6364136223846793005)
                 .wrapping_add(1442695040888963407);
-            let b = ((x >> 11) as f64 / (1u64 << 53) as f64) * 4.0 - 2.0;
+            let b = ((x >> 11) as Precision / (1u64 << 53) as Precision) * 4.0 - 2.0;
             pts.push([a, b]);
         }
         let c = smallest_enclosing_circle(&pts);

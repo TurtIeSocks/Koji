@@ -49,7 +49,7 @@ impl Circle {
         }
     }
 
-    pub fn contains(&self, point: Point, radius: f64) -> bool {
+    pub fn contains(&self, point: Point, radius: Precision) -> bool {
         match self {
             Circle::None => false,
             Circle::One(a) => a.x() == point.x() && a.y() == point.y(),
@@ -65,7 +65,7 @@ impl Circle {
         }
     }
 
-    pub fn radius(&self) -> f64 {
+    pub fn radius(&self) -> Precision {
         match self {
             Circle::None => 0.,
             Circle::One(_) => 0.,
@@ -88,7 +88,7 @@ impl Circle {
 mod tests {
     use super::*;
 
-    fn pt(lon: f64, lat: f64) -> Point {
+    fn pt(lon: Precision, lat: Precision) -> Point {
         Point::new(lon, lat)
     }
 

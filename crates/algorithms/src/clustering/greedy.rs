@@ -515,7 +515,7 @@ mod tests {
     #[test]
     fn bucket_clusters_by_size_indexes_by_all_len() {
         let pts: Vec<Point> = (0..3)
-            .map(|i| Point::new(70.0, 20, [40.0 + i as f64 * 0.01, -74.0]))
+            .map(|i| Point::new(70.0, 20, [40.0 + i as Precision * 0.01, -74.0]))
             .collect();
         let center = Point::new(70.0, 20, [50.0, 0.0]);
         let one = Cluster::new(center, vec![&pts[0]], vec![]);
@@ -532,7 +532,7 @@ mod tests {
 
     #[test]
     fn recover_missing_points_filters_seen_and_caps() {
-        let points: Vec<[f64; 2]> = vec![[40.0, -74.0], [41.0, -73.0], [42.0, -72.0]];
+        let points: Vec<[Precision; 2]> = vec![[40.0, -74.0], [41.0, -73.0], [42.0, -72.0]];
         let greedy = Greedy::default();
 
         let seen_first: HashSet<CellID> = [Point::new(70.0, 20, points[0]).cell_id]

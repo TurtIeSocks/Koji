@@ -7,13 +7,14 @@
 //! of the real Haversine radius).
 
 use super::frame::Grid;
+use koji_core::Precision;
 use super::geometry::circle_intersections;
 
 /// Effective coverage radius in planar units. The 1e-3 backoff (7 cm at 70 m)
 /// absorbs the azimuthal-equidistant projection error (≤ ~5e-5 at 50 km
 /// chunks) and guarantees the exact-Haversine scorer agrees with every
 /// coverage decision made here.
-pub const RHO: f64 = 1.0 - 1e-3;
+pub const RHO: Precision = 1.0 - 1e-3;
 
 pub struct SolveParams<'a> {
     /// Cluster cost in points (`min_points`, clamped ≥ 1).
@@ -35,7 +36,7 @@ pub struct SolveParams<'a> {
 /// Greedily cover `pts` (planar, radius units). Returns committed centers in
 /// planar coordinates. Deterministic: candidate order is a pure function of
 /// the input order.
-pub fn solve_chunk(pts: &[[f64; 2]], params: &SolveParams) -> Vec<[f64; 2]> {
+pub fn solve_chunk(pts: &[[Precision; 2]], params: &SolveParams) -> Vec<[Precision; 2]> {
     if pts.is_empty() {
         return vec![];
     }
@@ -45,11 +46,11 @@ pub fn solve_chunk(pts: &[[f64; 2]], params: &SolveParams) -> Vec<[f64; 2]> {
     // --- Candidate generation -------------------------------------------
     // C1: every input point. C2: both intersections of RHO-circles around
     // each pair within 2·RHO (capped to k_cap nearest partners per point).
-    let mut candidates: Vec<[f64; 2]> = Vec::with_capacity(pts.len() * (1 + params.k_cap));
+    let mut candidates: Vec<[Precision; 2]> = Vec::with_capacity(pts.len() * (1 + params.k_cap));
     candidates.extend_from_slice(pts);
 
     let mut pairs: Vec<(u32, u32)> = Vec::with_capacity(pts.len() * params.k_cap);
-    let mut neigh: Vec<(f64, u32)> = Vec::new();
+    let mut neigh: Vec<(Precision, u32)> = Vec::new();
     for (i, &p) in pts.iter().enumerate() {
         neigh.clear();
         grid.for_each_within(pts, p, 2.0 * RHO, |j, d2| {
@@ -89,8 +90,8 @@ pub fn solve_chunk(pts: &[[f64; 2]], params: &SolveParams) -> Vec<[f64; 2]> {
             // restart variant it is only kept when the post-refine score
             // says so — and it wins on dense clumps at m ≥ 2 where legacy's
             // fine grid placed better-centered equal-gain disks.
-            let (mut min_x, mut min_y) = (f64::INFINITY, f64::INFINITY);
-            let (mut max_x, mut max_y) = (f64::NEG_INFINITY, f64::NEG_INFINITY);
+            let (mut min_x, mut min_y) = (Precision::INFINITY, Precision::INFINITY);
+            let (mut max_x, mut max_y) = (Precision::NEG_INFINITY, Precision::NEG_INFINITY);
             for p in pts {
                 min_x = min_x.min(p[0]);
                 max_x = max_x.max(p[0]);
@@ -103,7 +104,7 @@ pub fn solve_chunk(pts: &[[f64; 2]], params: &SolveParams) -> Vec<[f64; 2]> {
             if nx.saturating_mul(ny) <= 16 * pts.len().max(1) as i64 {
                 for ix in 0..nx {
                     for iy in 0..ny {
-                        candidates.push([min_x + ix as f64 * step, min_y + iy as f64 * step]);
+                        candidates.push([min_x + ix as Precision * step, min_y + iy as Precision * step]);
                     }
                 }
             }
@@ -118,7 +119,7 @@ pub fn solve_chunk(pts: &[[f64; 2]], params: &SolveParams) -> Vec<[f64; 2]> {
         debug_assert_eq!(params.pre_covered.len(), pts.len());
         params.pre_covered.to_vec()
     };
-    let count_uncovered = |grid: &Grid, covered: &[bool], c: [f64; 2]| -> usize {
+    let count_uncovered = |grid: &Grid, covered: &[bool], c: [Precision; 2]| -> usize {
         let mut g = 0usize;
         grid.for_each_within(pts, c, RHO, |idx, _| {
             if !covered[idx as usize] {
@@ -162,7 +163,7 @@ pub fn solve_chunk(pts: &[[f64; 2]], params: &SolveParams) -> Vec<[f64; 2]> {
         }
     }
 
-    let mut centers: Vec<[f64; 2]> = Vec::new();
+    let mut centers: Vec<[Precision; 2]> = Vec::new();
     let mut cur = buckets.len() - 1;
     loop {
         while cur >= floor && buckets[cur].is_empty() {
@@ -197,7 +198,7 @@ pub fn solve_chunk(pts: &[[f64; 2]], params: &SolveParams) -> Vec<[f64; 2]> {
 mod tests {
     use super::*;
 
-    fn d(a: [f64; 2], b: [f64; 2]) -> f64 {
+    fn d(a: [Precision; 2], b: [Precision; 2]) -> Precision {
         ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2)).sqrt()
     }
 
@@ -241,7 +242,7 @@ mod tests {
         let mut pts = vec![];
         for i in 0..30 {
             for j in 0..30 {
-                pts.push([i as f64 * 0.83, j as f64 * 0.83]);
+                pts.push([i as Precision * 0.83, j as Precision * 0.83]);
             }
         }
         let centers = solve_chunk(
@@ -272,11 +273,11 @@ mod tests {
             x = x
                 .wrapping_mul(6364136223846793005)
                 .wrapping_add(1442695040888963407);
-            let a = ((x >> 11) as f64 / (1u64 << 53) as f64) * 20.0;
+            let a = ((x >> 11) as Precision / (1u64 << 53) as Precision) * 20.0;
             x = x
                 .wrapping_mul(6364136223846793005)
                 .wrapping_add(1442695040888963407);
-            let b = ((x >> 11) as f64 / (1u64 << 53) as f64) * 20.0;
+            let b = ((x >> 11) as Precision / (1u64 << 53) as Precision) * 20.0;
             pts.push([a, b]);
         }
         let a = solve_chunk(

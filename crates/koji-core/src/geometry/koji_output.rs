@@ -10,6 +10,7 @@
 //! `[coord.y, coord.x]`.
 
 use geo::{Geometry, LineString, Polygon};
+use crate::Precision;
 
 use super::{MultiStruct, MultiVec, PointStruct, Poracle, SingleStruct, SingleVec};
 use crate::UnknownId;
@@ -17,14 +18,14 @@ use crate::geometry::{KojiGeometry, KojiGeometryCollection};
 
 /// Flatten one closed/open ring (`LineString`) into the matrix's `[lat, lon]`
 /// point order, matching `Geometry::to_single_vec`'s `[point[1], point[0]]`.
-fn ring_points(line: &LineString<f64>) -> Vec<[f64; 2]> {
+fn ring_points(line: &LineString<Precision>) -> Vec<[Precision; 2]> {
     line.coords().map(|c| [c.y, c.x]).collect()
 }
 
 /// One polygon → a single flat `[lat, lon]` vec across exterior + interior
 /// rings, matching the matrix `Polygon` branch (which iterates every ring of
 /// the geojson polygon and flattens them into one inner vec).
-fn polygon_points(poly: &Polygon<f64>) -> Vec<[f64; 2]> {
+fn polygon_points(poly: &Polygon<Precision>) -> Vec<[Precision; 2]> {
     let mut out = ring_points(poly.exterior());
     for interior in poly.interiors() {
         out.extend(ring_points(interior));
@@ -35,7 +36,7 @@ fn polygon_points(poly: &Polygon<f64>) -> Vec<[f64; 2]> {
 /// The flat `[lat, lon]` coords of a geometry treated as a single group, matching
 /// the matrix's single-geometry coordinate path (Polygon flattens rings;
 /// MultiPolygon flattens every ring of every polygon; points/lines map directly).
-fn single_group(geom: &Geometry<f64>) -> Vec<[f64; 2]> {
+fn single_group(geom: &Geometry<Precision>) -> Vec<[Precision; 2]> {
     match geom {
         Geometry::Point(p) => vec![[p.y(), p.x()]],
         Geometry::MultiPoint(mp) => mp.iter().map(|p| [p.y(), p.x()]).collect(),
@@ -54,7 +55,7 @@ fn single_group(geom: &Geometry<f64>) -> Vec<[f64; 2]> {
 /// matrix `SingleVec::ensure_first_last`. The matrix applies this when going
 /// `SingleVec`/`MultiVec` → struct forms (`to_single_struct` on a `SingleVec`),
 /// so the struct adapters must reproduce it.
-fn ensure_first_last(mut points: Vec<[f64; 2]>) -> Vec<[f64; 2]> {
+fn ensure_first_last(mut points: Vec<[Precision; 2]>) -> Vec<[Precision; 2]> {
     if points.is_empty() {
         return points;
     }
@@ -66,7 +67,7 @@ fn ensure_first_last(mut points: Vec<[f64; 2]>) -> Vec<[f64; 2]> {
 
 /// `[lat, lon]` → `PointStruct`, matching `From<PointArray> for PointStruct`
 /// (`lat = p[0]`, `lon = p[1]`).
-fn to_point_struct(p: [f64; 2]) -> PointStruct {
+fn to_point_struct(p: [Precision; 2]) -> PointStruct {
     PointStruct {
         lat: p[0],
         lon: p[1],
@@ -83,7 +84,7 @@ fn to_point_struct(p: [f64; 2]) -> PointStruct {
 /// This is the canonical home for what the v2 calc core duplicated as
 /// `centers_to_multipoint`; both the calc cores and the bootstrap edge use it so
 /// the MultiPoint cluster-center output is single-sourced and matrix-free.
-pub fn single_vec_to_multipoint(centers: &SingleVec) -> geo::MultiPoint<f64> {
+pub fn single_vec_to_multipoint(centers: &SingleVec) -> geo::MultiPoint<Precision> {
     use geo::RemoveRepeatedPoints;
 
     let mut points = centers.clone();
@@ -92,7 +93,7 @@ pub fn single_vec_to_multipoint(centers: &SingleVec) -> geo::MultiPoint<f64> {
     {
         points.push(first);
     }
-    let mp: geo::MultiPoint<f64> = points
+    let mp: geo::MultiPoint<Precision> = points
         .into_iter()
         .map(|[lat, lon]| geo::Point::new(lon, lat))
         .collect();
@@ -113,14 +114,14 @@ pub fn single_vec_to_multipoint_feature(centers: &SingleVec) -> geojson::Feature
 /// reproducing the (now-deleted) matrix single-feature polygon geometry (no fence
 /// type → the `polygon()` branch): the ring is closed (`ensure_first_last`) and
 /// each `[lat, lon]` becomes `(x = lon, y = lat)`.
-pub fn single_vec_to_polygon(centers: &SingleVec) -> geo::Polygon<f64> {
+pub fn single_vec_to_polygon(centers: &SingleVec) -> geo::Polygon<Precision> {
     let mut points = centers.clone();
     if let (Some(first), Some(last)) = (points.first().copied(), points.last().copied())
         && first != last
     {
         points.push(first);
     }
-    let ring: geo::LineString<f64> = points
+    let ring: geo::LineString<Precision> = points
         .into_iter()
         .map(|[lat, lon]| geo::coord! { x: lon, y: lat })
         .collect();
@@ -139,7 +140,7 @@ pub fn single_vec_to_polygon_feature(centers: &SingleVec) -> geojson::Feature {
 impl KojiGeometryCollection {
     /// `[min_lon, min_lat, max_lon, max_lat]` (trimmed to 6 decimals) over every
     /// item's points — the geojson `bbox` member projection.
-    pub fn geojson_bbox(&self) -> Option<Vec<f64>> {
+    pub fn geojson_bbox(&self) -> Option<Vec<Precision>> {
         super::KojiBbox::from_points(&self.to_single_vec()).map(|b| b.trim(6).to_geojson_bbox_vec())
     }
 
@@ -207,7 +208,7 @@ impl KojiGeometryCollection {
     /// Parity oracle: the geojson `FeatureCollection` matrix `text` path with the
     /// same `(sep_1, sep_2, poly_sep)`, i.e. `MultiVec` text over the groups.
     /// Coordinates use the default
-    /// `f64` `Display` (no fixed precision), `lat` then `sep_1` then `lon`.
+    /// `Precision` `Display` (no fixed precision), `lat` then `sep_1` then `lon`.
     pub fn to_text(&self, sep_1: &str, sep_2: &str, poly_sep: bool) -> String {
         let groups = self.to_multi_vec();
         if groups.is_empty() {
@@ -308,7 +309,7 @@ fn item_poracle(i: usize, item: &KojiGeometry) -> Poracle {
         poracle.name = str_prop("name");
     }
     poracle.id = Some(UnknownId::Number(if let Some(v) = props.get("id") {
-        v.as_f64().unwrap_or((i + 1) as f64) as u32
+        v.as_f64().unwrap_or((i + 1) as Precision) as u32
     } else {
         (i + 1) as u32
     }));
@@ -371,11 +372,11 @@ fn item_poracle(i: usize, item: &KojiGeometry) -> Poracle {
 /// exact value the oracle embeds in the SQL (`geojson::Value::from(&geo)` is the
 /// edge geo→geojson conversion, then ring-closure inlined from the matrix
 /// `EnsurePoints for Geometry`). Not a `To*` matrix call.
-fn geojson_geometry_closed(geom: &Geometry<f64>) -> String {
+fn geojson_geometry_closed(geom: &Geometry<Precision>) -> String {
     let mut value = geojson::Value::from(geom);
     // Inline `EnsurePoints::ensure_first_last`: close each ring whose last point
     // differs from its first on *both* axes (matrix uses `&&`).
-    let close_ring = |ring: &mut Vec<Vec<f64>>| {
+    let close_ring = |ring: &mut Vec<Vec<Precision>>| {
         let needs_close = match (ring.first(), ring.last()) {
             (Some(first), Some(last)) => last[0] != first[0] && last[1] != first[1],
             _ => false,
@@ -398,7 +399,7 @@ fn geojson_geometry_closed(geom: &Geometry<f64>) -> String {
 
 /// One group → text, matching `SingleVec::to_text`: the inter-point separator is
 /// suppressed on the final point of the group.
-fn group_to_text(group: &[[f64; 2]], sep_1: &str, sep_2: &str) -> String {
+fn group_to_text(group: &[[Precision; 2]], sep_1: &str, sep_2: &str) -> String {
     let last = if group.is_empty() { 0 } else { group.len() - 1 };
     group
         .iter()
@@ -408,8 +409,8 @@ fn group_to_text(group: &[[f64; 2]], sep_1: &str, sep_2: &str) -> String {
 }
 
 /// One `[lat, lon]` point → text, matching `PointArray::to_text`:
-/// `format!("{}{}{}{}", lat, sep_1, lon, sep_2)` with default `f64` `Display`.
-fn point_to_text(pt: &[f64; 2], sep_1: &str, sep_2: &str) -> String {
+/// `format!("{}{}{}{}", lat, sep_1, lon, sep_2)` with default `Precision` `Display`.
+fn point_to_text(pt: &[Precision; 2], sep_1: &str, sep_2: &str) -> String {
     format!("{}{}{}{}", pt[0], sep_1, pt[1], sep_2)
 }
 

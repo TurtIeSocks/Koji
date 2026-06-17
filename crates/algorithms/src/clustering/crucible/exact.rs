@@ -17,6 +17,7 @@
 //! greedy re-solve.
 
 use super::geometry::circle_intersections;
+use koji_core::Precision;
 use super::solve::RHO;
 
 type Mask = u128;
@@ -117,17 +118,17 @@ impl Bb<'_> {
 /// point. Returns the optimal disk centers when the search completes within
 /// budget AND beats `incumbent_cost`; `None` otherwise.
 pub fn solve_window_exact(
-    lost: &[[f64; 2]],
+    lost: &[[Precision; 2]],
     m: usize,
     incumbent_cost: usize,
-) -> Option<(usize, Vec<[f64; 2]>)> {
+) -> Option<(usize, Vec<[Precision; 2]>)> {
     let n = lost.len();
     if n == 0 || n > MAX_EXACT_POINTS {
         return None;
     }
 
     // Candidates: the lost points + pair vertices of pairs within 2·RHO.
-    let mut cands: Vec<[f64; 2]> = lost.to_vec();
+    let mut cands: Vec<[Precision; 2]> = lost.to_vec();
     for a in 0..n {
         for b in (a + 1)..n {
             if let Some(vs) = circle_intersections(lost[a], lost[b], RHO) {
@@ -141,7 +142,7 @@ pub fn solve_window_exact(
     let r2 = RHO * RHO;
     let mut seen: hashbrown::HashMap<Mask, u32> = hashbrown::HashMap::new();
     let mut masks: Vec<Mask> = Vec::new();
-    let mut positions: Vec<[f64; 2]> = Vec::new();
+    let mut positions: Vec<[Precision; 2]> = Vec::new();
     for c in cands {
         let mut mask: Mask = 0;
         for (i, p) in lost.iter().enumerate() {
@@ -169,7 +170,7 @@ pub fn solve_window_exact(
         vec![true; masks.len()]
     };
     let mut kept_masks: Vec<Mask> = Vec::new();
-    let mut kept_pos: Vec<[f64; 2]> = Vec::new();
+    let mut kept_pos: Vec<[Precision; 2]> = Vec::new();
     for (i, &k) in keep.iter().enumerate() {
         if k {
             kept_masks.push(masks[i]);
@@ -297,13 +298,13 @@ mod tests {
     }
 
     /// k tight 16-point blobs spaced far apart; optimal is one disk per blob.
-    fn blobs(k: usize) -> Vec<[f64; 2]> {
+    fn blobs(k: usize) -> Vec<[Precision; 2]> {
         let mut pts = Vec::new();
         for b in 0..k {
-            let cx = b as f64 * 10.0;
+            let cx = b as Precision * 10.0;
             for gy in 0..4 {
                 for gx in 0..4 {
-                    pts.push([cx + gx as f64 * 0.3, gy as f64 * 0.3]);
+                    pts.push([cx + gx as Precision * 0.3, gy as Precision * 0.3]);
                 }
             }
         }
@@ -339,10 +340,10 @@ mod tests {
 
     /// Reference solver: memoized exhaustive search over the same candidate
     /// construction, no pruning beyond the memo — independent of the B&B.
-    fn brute_force(lost: &[[f64; 2]], m: usize) -> usize {
+    fn brute_force(lost: &[[Precision; 2]], m: usize) -> usize {
         let n = lost.len();
         let r2 = RHO * RHO;
-        let mut cands: Vec<[f64; 2]> = lost.to_vec();
+        let mut cands: Vec<[Precision; 2]> = lost.to_vec();
         for a in 0..n {
             for b in (a + 1)..n {
                 if let Some(vs) = circle_intersections(lost[a], lost[b], RHO) {
@@ -403,8 +404,8 @@ mod tests {
         let mut rng = SmallRng::seed_from_u64(7);
         for trial in 0..40 {
             let n = 4 + (trial % 7);
-            let lost: Vec<[f64; 2]> = (0..n)
-                .map(|_| [rng.random::<f64>() * 4.0, rng.random::<f64>() * 4.0])
+            let lost: Vec<[Precision; 2]> = (0..n)
+                .map(|_| [rng.random::<Precision>() * 4.0, rng.random::<Precision>() * 4.0])
                 .collect();
             for m in [1usize, 3] {
                 let expected = brute_force(&lost, m);

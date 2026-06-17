@@ -232,7 +232,7 @@ impl Stats {
                     self.total_distance as u32,
                     self.longest_distance as u32,
                     if self.total_clusters > 0 {
-                        (self.total_distance / self.total_clusters as f64) as u32
+                        (self.total_distance / self.total_clusters as Precision) as u32
                     } else {
                         0
                     },
@@ -793,7 +793,7 @@ mod tests {
     #[test]
     fn cooldown_anchor_endpoints_exact() {
         // Verify every anchor pair boundary is hit exactly.
-        let anchors: &[(f64, f64)] = &[
+        let anchors: &[(Precision, Precision)] = &[
             (0.0, 0.0),
             (1_000.0, 60.0),
             (2_000.0, 120.0),
@@ -816,7 +816,7 @@ mod tests {
         // Anything ≥ 500 000 m → capped at 7200 s.
         assert_eq!(cooldown_seconds(500_000.0), 7_200.0);
         assert_eq!(cooldown_seconds(1_000_000.0), 7_200.0);
-        assert_eq!(cooldown_seconds(f64::MAX), 7_200.0);
+        assert_eq!(cooldown_seconds(Precision::MAX), 7_200.0);
     }
 
     #[test]
@@ -880,7 +880,7 @@ mod tests {
         // 9 points on a 3×3 grid spaced 0.01° apart (~1.1 km).
         // Radius 70 m → 2r ≈ 140 m << 1.1 km spacing → all are independent → LB = 9.
         let pts: SingleVec = (0..3)
-            .flat_map(|r| (0..3).map(move |c| [40.0 + r as f64 * 0.01, -74.0 + c as f64 * 0.01]))
+            .flat_map(|r| (0..3).map(move |c| [40.0 + r as Precision * 0.01, -74.0 + c as Precision * 0.01]))
             .collect();
         assert_eq!(independent_set_lb(&pts, 70.0), 9);
     }

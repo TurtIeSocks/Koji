@@ -8,6 +8,7 @@
 //! dropped. O(n) expected, grid-only: no spatial index or candidate lattice.
 
 use geo::Coord;
+use koji_core::Precision;
 use koji_core::SingleVec;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -18,9 +19,9 @@ type CellKey = (i32, i32);
 
 /// Distortion safety margin for the disc-fit test. Benchmarking (see the design doc) found
 /// `0` optimal: a positive margin only adds clusters to shave a few boundary-hugging points.
-const MARGIN: f64 = 0.0;
+const MARGIN: Precision = 0.0;
 
-pub fn main(input: &SingleVec, radius: f64, min_points: usize) -> Vec<[f64; 2]> {
+pub fn main(input: &SingleVec, radius: Precision, min_points: usize) -> Vec<[Precision; 2]> {
     let plane = Plane::new(input).radius(radius);
     let projected = plane.project();
 
@@ -33,22 +34,22 @@ pub fn main(input: &SingleVec, radius: f64, min_points: usize) -> Vec<[f64; 2]> 
     plane.reverse(output)
 }
 
-const EPS: f64 = 1e-7;
+const EPS: Precision = 1e-7;
 
 #[inline]
-fn dist2(a: Coord, b: Coord) -> f64 {
+fn dist2(a: Coord, b: Coord) -> Precision {
     let dx = a.x - b.x;
     let dy = a.y - b.y;
     dx * dx + dy * dy
 }
 
 #[inline]
-fn in_disc(center: Coord, r: f64, p: Coord) -> bool {
+fn in_disc(center: Coord, r: Precision, p: Coord) -> bool {
     dist2(center, p) <= r * r + EPS
 }
 
 /// Circle through two points: center at their midpoint, radius half their distance.
-fn circle_two(a: Coord, b: Coord) -> (Coord, f64) {
+fn circle_two(a: Coord, b: Coord) -> (Coord, Precision) {
     let center = Coord {
         x: (a.x + b.x) / 2.0,
         y: (a.y + b.y) / 2.0,
@@ -58,7 +59,7 @@ fn circle_two(a: Coord, b: Coord) -> (Coord, f64) {
 
 /// Circumcircle of three points; falls back to the diameter circle of the farthest
 /// pair when the points are (near-)collinear.
-fn circle_three(a: Coord, b: Coord, c: Coord) -> (Coord, f64) {
+fn circle_three(a: Coord, b: Coord, c: Coord) -> (Coord, Precision) {
     let d = 2.0 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
     if d.abs() < 1e-12 {
         // Collinear: the smallest enclosing circle is the diameter of the two
@@ -85,7 +86,7 @@ fn circle_three(a: Coord, b: Coord, c: Coord) -> (Coord, f64) {
 /// Smallest enclosing circle `(center, radius)` of `points` in the Euclidean plane.
 /// Deterministic incremental Welzl (input order, no shuffle): O(n) expected, fine for
 /// the small per-group point sets here. Returns `None` for empty input.
-fn smallest_enclosing_circle(points: &[Coord]) -> Option<(Coord, f64)> {
+fn smallest_enclosing_circle(points: &[Coord]) -> Option<(Coord, Precision)> {
     let n = points.len();
     if n == 0 {
         return None;
@@ -119,7 +120,7 @@ fn smallest_enclosing_circle(points: &[Coord]) -> Option<(Coord, f64)> {
 }
 
 /// `(min_x, min_y, max_x, max_y)` of a non-empty point set.
-fn bounds(points: &[Coord]) -> (f64, f64, f64, f64) {
+fn bounds(points: &[Coord]) -> (Precision, Precision, Precision, Precision) {
     let mut min_x = points[0].x;
     let mut min_y = points[0].y;
     let mut max_x = points[0].x;
@@ -136,7 +137,7 @@ fn bounds(points: &[Coord]) -> (f64, f64, f64, f64) {
 /// Does `points` fit inside a single radius-1 disc (allowing `margin` of safety)?
 /// Tested via the minimum enclosing circle: the group fits iff its MEC radius ≤ 1 − margin.
 /// (Placement was benchmarked across MEC / centroid / bbox-center; MEC won — see design doc.)
-fn fits(points: &[Coord], margin: f64) -> bool {
+fn fits(points: &[Coord], margin: Precision) -> bool {
     if points.is_empty() {
         return true;
     }
@@ -174,7 +175,7 @@ fn neighbours((v, h): CellKey) -> [CellKey; 8] {
 /// order) by absorbing neighbours while the group still fits one radius-1 disc, then emit
 /// one `(center, member_count)` per group with at least `min_points` members. Coincident
 /// centers are de-duplicated.
-fn cluster(points: Vec<Coord>, min_points: usize, margin: f64) -> Vec<(Coord, usize)> {
+fn cluster(points: Vec<Coord>, min_points: usize, margin: Precision) -> Vec<(Coord, usize)> {
     let sqrt2 = std::f64::consts::SQRT_2;
 
     // First pass: bucket. BTreeMap gives deterministic sorted iteration over cells.
@@ -270,7 +271,7 @@ mod tests {
 
     #[test]
     fn clusters_do_not_exceed_input_points() {
-        let pts: Vec<[f64; 2]> = (0..20).map(|i| [40.0 + i as f64 * 0.01, -74.0]).collect();
+        let pts: Vec<[Precision; 2]> = (0..20).map(|i| [40.0 + i as Precision * 0.01, -74.0]).collect();
         let result = main(&pts, 70.0, 1);
         assert!(
             result.len() <= pts.len(),
@@ -301,8 +302,8 @@ mod tests {
     #[test]
     fn tight_cluster_yields_one_center() {
         // 10 points within ~1 m of each other — Fastest should group into 1 cluster.
-        let pts: Vec<[f64; 2]> = (0..10)
-            .map(|i| [40.0 + i as f64 * 0.000001, -74.0 + i as f64 * 0.000001])
+        let pts: Vec<[Precision; 2]> = (0..10)
+            .map(|i| [40.0 + i as Precision * 0.000001, -74.0 + i as Precision * 0.000001])
             .collect();
         let result = main(&pts, 1_000.0, 2); // 1 km radius, 2 min points
         assert!(
@@ -341,11 +342,11 @@ mod tests {
 
     // ── MEC: geometry ─────────────────────────────────────────────────────────
 
-    fn c(x: f64, y: f64) -> Coord {
+    fn c(x: Precision, y: Precision) -> Coord {
         Coord { x, y }
     }
 
-    fn covers(center: Coord, r: f64, pts: &[Coord]) -> bool {
+    fn covers(center: Coord, r: Precision, pts: &[Coord]) -> bool {
         pts.iter().all(|p| {
             let dx = p.x - center.x;
             let dy = p.y - center.y;
@@ -446,7 +447,7 @@ mod tests {
         // A handful of nearby points; with min_points=1 nothing is dropped, so every
         // projected point must be within radius 1 of some returned center.
         let pts: Vec<Coord> = (0..25)
-            .map(|i| c((i % 5) as f64 * 0.3, (i / 5) as f64 * 0.3))
+            .map(|i| c((i % 5) as Precision * 0.3, (i / 5) as Precision * 0.3))
             .collect();
         let centers = cluster(pts.clone(), 1, 0.0);
         for p in &pts {
@@ -460,7 +461,7 @@ mod tests {
     #[test]
     fn cluster_is_deterministic_as_a_set() {
         let pts: Vec<Coord> = (0..40)
-            .map(|i| c((i % 7) as f64 * 0.5, (i / 7) as f64 * 0.5))
+            .map(|i| c((i % 7) as Precision * 0.5, (i / 7) as Precision * 0.5))
             .collect();
         let mut a: Vec<(u64, u64)> = cluster(pts.clone(), 2, 0.0)
             .into_iter()

@@ -17,6 +17,7 @@
 //! `400` before any DB work.
 
 use actix_web::{HttpResponse, post, web};
+use koji_core::Precision;
 use geojson::{Feature, FeatureCollection, Geometry, Value};
 use koji_core::{KojiBbox, SpawnpointTth};
 use koji_db::KojiDb;
@@ -179,10 +180,10 @@ impl Default for AreaReq {
 #[derive(Debug, Clone, Copy, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct BboxInput {
-    min_lat: f64,
-    min_lon: f64,
-    max_lat: f64,
-    max_lon: f64,
+    min_lat: Precision,
+    min_lon: Precision,
+    max_lat: Precision,
+    max_lon: Precision,
 }
 
 impl From<BboxInput> for KojiBbox {

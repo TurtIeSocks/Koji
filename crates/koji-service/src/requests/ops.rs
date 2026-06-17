@@ -200,7 +200,7 @@ pub struct RerouteReq {
     pub output: OutputArgs,
     #[serde(default)]
     pub dev: DevArgs,
-    #[schema(value_type = Option<f64>)]
+    #[schema(value_type = Option<Precision>)]
     pub radius: Option<Precision>,
     pub instance: Option<String>,
 }
@@ -239,7 +239,7 @@ pub struct StatsReq {
     pub data_points: Option<DataPointsArg>,
     #[schema(value_type = Option<Object>)]
     pub clusters: Option<DataPointsArg>,
-    #[schema(value_type = Option<f64>)]
+    #[schema(value_type = Option<Precision>)]
     pub radius: Option<Precision>,
     pub min_points: Option<usize>,
     #[serde(default)]

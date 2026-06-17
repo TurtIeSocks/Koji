@@ -2,6 +2,8 @@
 //! Plugins, routing, bootstrap, DB and network are intentionally excluded.
 
 use wasm_bindgen::prelude::*;
+#[cfg(test)]
+use koji_core::Precision;
 
 mod convert;
 mod dto;
@@ -50,9 +52,9 @@ mod tests {
 
     /// Build a minimal `ClusterRequest` with sensible defaults.
     fn req(
-        points: Vec<[f64; 2]>,
+        points: Vec<[Precision; 2]>,
         cluster_mode: &str,
-        radius: f64,
+        radius: Precision,
         min_points: usize,
         max_clusters: usize,
         center_clusters: bool,
@@ -106,7 +108,7 @@ mod tests {
     #[test]
     fn cluster_fastest_tight_group_gives_one_cluster() {
         // Six points within ~10 m of each other — well within a 200 m radius.
-        let pts: Vec<[f64; 2]> = vec![
+        let pts: Vec<[Precision; 2]> = vec![
             [35.6895, 139.6917],
             [35.6895, 139.6918],
             [35.6896, 139.6917],
@@ -130,7 +132,7 @@ mod tests {
     #[test]
     fn cluster_fastest_isolated_points_high_min_points_gives_no_clusters() {
         // Three points ~111 km apart — a 100 m radius can't group any two.
-        let pts: Vec<[f64; 2]> = vec![[40.0, -74.0], [41.0, -74.0], [42.0, -74.0]];
+        let pts: Vec<[Precision; 2]> = vec![[40.0, -74.0], [41.0, -74.0], [42.0, -74.0]];
         let resp = cluster(req(pts, "fastest", 100.0, 3, 0, false)).expect("should succeed");
         assert_eq!(
             resp.clusters.len(),
@@ -146,8 +148,8 @@ mod tests {
     /// produce ≥ 1 cluster and report sane stats.
     #[test]
     fn cluster_balanced_dense_group_produces_clusters() {
-        let pts: Vec<[f64; 2]> = (0..10)
-            .map(|i| [35.0 + i as f64 * 0.00001, 139.0])
+        let pts: Vec<[Precision; 2]> = (0..10)
+            .map(|i| [35.0 + i as Precision * 0.00001, 139.0])
             .collect();
         let resp = cluster(req(pts, "balanced", 300.0, 1, 0, false)).expect("should succeed");
         assert!(
@@ -163,7 +165,7 @@ mod tests {
     /// in `into_core`). A single tight group must not be silently dropped.
     #[test]
     fn cluster_max_clusters_zero_means_unlimited() {
-        let pts: Vec<[f64; 2]> = vec![[35.0, 139.0], [35.0001, 139.0]];
+        let pts: Vec<[Precision; 2]> = vec![[35.0, 139.0], [35.0001, 139.0]];
         let resp = cluster(req(pts, "balanced", 200.0, 1, 0, false))
             .expect("max_clusters=0 should succeed");
         // At least one cluster must be returned (points are close together).
@@ -176,7 +178,7 @@ mod tests {
     /// still be non-empty and have valid lat/lng ranges.
     #[test]
     fn cluster_center_clusters_produces_valid_coords() {
-        let pts: Vec<[f64; 2]> = vec![
+        let pts: Vec<[Precision; 2]> = vec![
             [35.0, 139.0],
             [35.0001, 139.0],
             [35.0002, 139.0],
@@ -204,7 +206,7 @@ mod tests {
     /// exceed `total_points`.
     #[test]
     fn cluster_stats_invariants_hold() {
-        let pts: Vec<[f64; 2]> = vec![[40.0, -74.0], [40.0001, -74.0], [40.0002, -74.0]];
+        let pts: Vec<[Precision; 2]> = vec![[40.0, -74.0], [40.0001, -74.0], [40.0002, -74.0]];
         let resp = cluster(req(pts, "fastest", 500.0, 1, 0, false)).expect("should succeed");
         assert!(
             resp.stats.cluster_time_ms >= 0.0,
@@ -221,7 +223,7 @@ mod tests {
     /// total_clusters in stats must equal the length of the clusters vec.
     #[test]
     fn cluster_stats_total_clusters_matches_vec_len() {
-        let pts: Vec<[f64; 2]> = vec![
+        let pts: Vec<[Precision; 2]> = vec![
             [35.0, 139.0],
             [35.0001, 139.0],
             [36.0, 139.0], // far from first two

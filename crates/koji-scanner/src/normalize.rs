@@ -1,4 +1,5 @@
 use geo::{Contains, MultiPolygon, Point, Polygon};
+use koji_core::Precision;
 use geojson::{FeatureCollection, Value};
 
 use koji_core::HasLatLon;
@@ -6,8 +7,8 @@ use koji_core::HasLatLon;
 use crate::rows::{GenericData, LatLonRow, Spawnpoint};
 
 pub(crate) struct AreaPolygons {
-    polys: Vec<Polygon<f64>>,
-    multi_polys: Vec<MultiPolygon<f64>>,
+    polys: Vec<Polygon<Precision>>,
+    multi_polys: Vec<MultiPolygon<Precision>>,
 }
 
 impl AreaPolygons {
@@ -34,7 +35,7 @@ impl AreaPolygons {
         Self { polys, multi_polys }
     }
 
-    pub fn contains(&self, lat: f64, lon: f64) -> bool {
+    pub fn contains(&self, lat: Precision, lon: Precision) -> bool {
         let point = Point::new(lon, lat);
         self.polys.iter().any(|poly| poly.contains(&point))
             || self.multi_polys.iter().any(|mp| mp.contains(&point))
@@ -50,19 +51,19 @@ pub fn count_in_area<T: HasLatLon>(items: &[T], area: &FeatureCollection) -> i32
 }
 
 impl HasLatLon for Spawnpoint {
-    fn lat(&self) -> f64 {
+    fn lat(&self) -> Precision {
         self.lat
     }
-    fn lon(&self) -> f64 {
+    fn lon(&self) -> Precision {
         self.lon
     }
 }
 
 impl HasLatLon for LatLonRow {
-    fn lat(&self) -> f64 {
+    fn lat(&self) -> Precision {
         self.lat
     }
-    fn lon(&self) -> f64 {
+    fn lon(&self) -> Precision {
         self.lon
     }
 }

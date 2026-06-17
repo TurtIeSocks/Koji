@@ -1,6 +1,6 @@
 //! Koji → Dragonite conversions + per-mode PATCH builders.
 //!
-//! `koji_core::SingleVec` is `Vec<[f64; 2]>` ordered `[lat, lon]` (confirmed by
+//! `koji_core::SingleVec` is `Vec<[Precision; 2]>` ordered `[lat, lon]` (confirmed by
 //! `koji_core::KojiBbox::from_points`, which reads `point[0]` as latitude).
 //! Dragonite routes are `[{lat, lon}]` objects, so the conversion is
 //! a field rename — documented + tested here so the ordering can't silently

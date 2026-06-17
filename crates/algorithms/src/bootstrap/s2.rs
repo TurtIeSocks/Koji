@@ -104,7 +104,7 @@ impl<'a> BootstrapS2<'a> {
         results
     }
 
-    /// Core implementation operating on geo-types::Polygon<f64>.
+    /// Core implementation operating on geo-types::Polygon<Precision>.
     pub fn centers_for_polygon(&self, poly: &Polygon<Precision>) -> Vec<[Precision; 2]> {
         let time = Instant::now();
         // 1) Bounding box and S2 Rect (note: simple case, no antimeridian split).
@@ -268,7 +268,7 @@ mod tests {
         latlng::LatLng,
     };
 
-    fn rect_feature(min_lon: f64, min_lat: f64, max_lon: f64, max_lat: f64) -> Feature {
+    fn rect_feature(min_lon: Precision, min_lat: Precision, max_lon: Precision, max_lat: Precision) -> Feature {
         let ring = vec![
             vec![min_lon, min_lat],
             vec![max_lon, min_lat],

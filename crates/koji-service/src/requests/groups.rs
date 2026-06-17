@@ -23,7 +23,7 @@ use super::resolve::{
 #[derive(Debug, Default, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ClusteringArgs {
-    #[schema(value_type = Option<f64>)]
+    #[schema(value_type = Option<Precision>)]
     pub radius: Option<Precision>,
     pub min_points: Option<usize>,
     pub max_clusters: Option<usize>,
@@ -86,7 +86,7 @@ impl RoutingArgs {
 pub struct BootstrapArgs {
     #[schema(value_type = Option<String>)]
     pub calculation_mode: Option<CalculationMode>,
-    #[schema(value_type = Option<f64>)]
+    #[schema(value_type = Option<Precision>)]
     pub radius: Option<Precision>,
     pub s2_level: Option<u8>,
     pub s2_size: Option<u8>,

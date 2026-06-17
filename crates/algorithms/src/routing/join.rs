@@ -1,4 +1,5 @@
 use crate::utils;
+use koji_core::Precision;
 use geo::{Distance, Haversine, Point};
 use koji_core::{PointArray, SingleVec};
 use koji_plugins::{JoinFunction, Plugin};
@@ -64,7 +65,7 @@ pub(crate) fn stitch_routes(clusters: Vec<SingleVec>) -> SingleVec {
             clusters[i + 1].as_ref()
         };
 
-        let mut shortest = f64::MAX;
+        let mut shortest = Precision::MAX;
         let mut shortest_current_index = 0;
 
         for (current_index, current_point) in current.iter().enumerate() {

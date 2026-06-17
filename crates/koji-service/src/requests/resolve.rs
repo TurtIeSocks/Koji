@@ -5,9 +5,10 @@
 //! the single source of truth for the v2 arg-groups.
 
 use super::inputs::DataPointsArg;
+use koji_core::Precision;
 use koji_core::{KojiGeometry, KojiGeometryCollection};
 
-pub(crate) const DEFAULT_RADIUS: f64 = 70.0;
+pub(crate) const DEFAULT_RADIUS: Precision = 70.0;
 pub(crate) const DEFAULT_S2_LEVEL: u8 = 15;
 pub(crate) const DEFAULT_S2_SIZE: u8 = 9;
 pub(crate) const DEFAULT_MIN_POINTS: usize = 1;
@@ -23,7 +24,7 @@ pub(crate) fn resolve_max_clusters(v: Option<usize>) -> usize {
 /// Appends the clustering plugin-arg tail exactly as the old `init()` did.
 pub(crate) fn clustering_plugin_args(
     base: Option<String>,
-    radius: f64,
+    radius: Precision,
     min_points: usize,
     max_clusters: usize,
 ) -> String {
@@ -35,7 +36,7 @@ pub(crate) fn clustering_plugin_args(
 }
 
 /// Appends the bootstrap plugin-arg tail exactly as the old `init()` did.
-pub(crate) fn bootstrap_plugin_args(base: Option<String>, radius: f64) -> String {
+pub(crate) fn bootstrap_plugin_args(base: Option<String>, radius: Precision) -> String {
     let mut s = base.unwrap_or_default();
     s += &format!(" --radius {radius}");
     s

@@ -2,16 +2,16 @@ use geo::Coord;
 use koji_core::{Precision, SingleVec};
 use map_3d::{self, Ellipsoid};
 
-type Geocentric = (f64, f64, f64);
-type Topocentric = (f64, f64);
+type Geocentric = (Precision, Precision, Precision);
+type Topocentric = (Precision, Precision);
 
 pub struct Plane {
     center: Geocentric,
     x: Geocentric,
     y: Geocentric,
     z: Geocentric,
-    radius: f64,
-    adjusted_radius: f64,
+    radius: Precision,
+    adjusted_radius: Precision,
     points: Vec<Geocentric>,
 }
 
@@ -30,11 +30,11 @@ impl Default for Plane {
 }
 
 impl Plane {
-    fn euclidean_norm2(&self, x: Geocentric) -> f64 {
+    fn euclidean_norm2(&self, x: Geocentric) -> Precision {
         x.0 * x.0 + x.1 * x.1 + x.2 * x.2
     }
 
-    fn dot_product(&self, x: Geocentric, y: Geocentric) -> f64 {
+    fn dot_product(&self, x: Geocentric, y: Geocentric) -> Precision {
         x.0 * y.0 + x.1 * y.1 + x.2 * y.2
     }
 
@@ -105,7 +105,7 @@ impl Plane {
         plane
     }
 
-    pub fn radius(mut self, radius: f64) -> Self {
+    pub fn radius(mut self, radius: Precision) -> Self {
         self.radius = radius;
         let earth_minor = Ellipsoid::default().parameters().1;
         self.adjusted_radius = 0.5 * earth_minor * (2. * self.radius / earth_minor).sin();
@@ -196,7 +196,7 @@ mod tests {
     #[test]
     fn plane_project_preserves_count() {
         let pts: SingleVec = (0..20)
-            .map(|i| [40.0 + i as f64 * 0.001, -74.0 + i as f64 * 0.001])
+            .map(|i| [40.0 + i as Precision * 0.001, -74.0 + i as Precision * 0.001])
             .collect();
         let plane = Plane::new(&pts).radius(500.0);
         let projected = plane.project();

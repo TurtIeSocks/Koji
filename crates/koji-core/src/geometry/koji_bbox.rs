@@ -1,25 +1,26 @@
 //! `KojiBbox` — the Koji-owned, serializable bounding box in explicit lat/lon
 //! degrees. It serves the compute and boundary layers; the geometry layer's
-//! internal canonical is `geo::Rect<f64>` (x=lon, y=lat), and `from_rect`/
+//! internal canonical is `geo::Rect<Precision>` (x=lon, y=lat), and `from_rect`/
 //! `to_rect` is the single bridge between the two. Fields are named, never
 //! positional, eliminating the coordinate-order ambiguity of the legacy zoo.
 
 use geo::{Rect, coord};
+use crate::Precision;
 use serde::{Deserialize, Serialize};
 
 use crate::TrimPrecision;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct KojiBbox {
-    pub min_lat: f64,
-    pub min_lon: f64,
-    pub max_lat: f64,
-    pub max_lon: f64,
+    pub min_lat: Precision,
+    pub min_lon: Precision,
+    pub max_lat: Precision,
+    pub max_lon: Precision,
 }
 
 impl KojiBbox {
     /// Bridge in from the geometry-layer canonical (`geo::Rect` is x=lon, y=lat).
-    pub fn from_rect(r: Rect<f64>) -> Self {
+    pub fn from_rect(r: Rect<Precision>) -> Self {
         Self {
             min_lat: r.min().y,
             min_lon: r.min().x,
@@ -29,7 +30,7 @@ impl KojiBbox {
     }
 
     /// Bridge out to the geometry-layer canonical.
-    pub fn to_rect(self) -> Rect<f64> {
+    pub fn to_rect(self) -> Rect<Precision> {
         Rect::new(
             coord! { x: self.min_lon, y: self.min_lat },
             coord! { x: self.max_lon, y: self.max_lat },
@@ -39,15 +40,15 @@ impl KojiBbox {
     /// Build from the internal `[lat, lon]` compute currency (`SingleVec` /
     /// `PointArray`). `None` for an empty set. Full precision — apply
     /// [`KojiBbox::trim`] for the 6-decimal geojson/SQL output convention.
-    pub fn from_points(points: &[[f64; 2]]) -> Option<Self> {
+    pub fn from_points(points: &[[Precision; 2]]) -> Option<Self> {
         if points.is_empty() {
             return None;
         }
         let mut b = Self {
-            min_lat: f64::INFINITY,
-            min_lon: f64::INFINITY,
-            max_lat: f64::NEG_INFINITY,
-            max_lon: f64::NEG_INFINITY,
+            min_lat: Precision::INFINITY,
+            min_lon: Precision::INFINITY,
+            max_lat: Precision::NEG_INFINITY,
+            max_lon: Precision::NEG_INFINITY,
         };
         for &[lat, lon] in points {
             b.min_lat = b.min_lat.min(lat);
@@ -59,7 +60,7 @@ impl KojiBbox {
     }
 
     /// Grow the box outward by `deg` degrees on every side.
-    pub fn expand(self, deg: f64) -> Self {
+    pub fn expand(self, deg: Precision) -> Self {
         Self {
             min_lat: self.min_lat - deg,
             min_lon: self.min_lon - deg,
@@ -69,11 +70,11 @@ impl KojiBbox {
     }
 
     /// Latitude midpoint.
-    pub fn center_lat(&self) -> f64 {
+    pub fn center_lat(&self) -> Precision {
         0.5 * (self.min_lat + self.max_lat)
     }
 
-    /// Round all four corners to `precision` decimals (matches `TrimPrecision for f64`).
+    /// Round all four corners to `precision` decimals (matches `TrimPrecision for Precision`).
     pub fn trim(self, precision: u32) -> Self {
         Self {
             min_lat: self.min_lat.trim_precision(precision),
@@ -84,12 +85,12 @@ impl KojiBbox {
     }
 
     /// GeoJSON-standard bbox array `[min_lon, min_lat, max_lon, max_lat]`.
-    pub fn to_geojson_bbox(self) -> [f64; 4] {
+    pub fn to_geojson_bbox(self) -> [Precision; 4] {
         [self.min_lon, self.min_lat, self.max_lon, self.max_lat]
     }
 
-    /// GeoJSON-standard bbox as a `Vec<f64>` (the `geojson::Bbox` slot shape).
-    pub fn to_geojson_bbox_vec(self) -> Vec<f64> {
+    /// GeoJSON-standard bbox as a `Vec<Precision>` (the `geojson::Bbox` slot shape).
+    pub fn to_geojson_bbox_vec(self) -> Vec<Precision> {
         self.to_geojson_bbox().to_vec()
     }
 }
@@ -112,7 +113,7 @@ mod tests {
 
     #[test]
     fn from_points_empty_is_none() {
-        let empty: [[f64; 2]; 0] = [];
+        let empty: [[Precision; 2]; 0] = [];
         assert_eq!(KojiBbox::from_points(&empty), None);
     }
 
@@ -124,7 +125,7 @@ mod tests {
             max_lat: 3.0,
             max_lon: 4.0,
         };
-        let r: Rect<f64> = b.to_rect();
+        let r: Rect<Precision> = b.to_rect();
         // geo::Rect is x=lon, y=lat.
         assert_eq!(r.min(), coord! { x: 2.0, y: 1.0 });
         assert_eq!(r.max(), coord! { x: 4.0, y: 3.0 });

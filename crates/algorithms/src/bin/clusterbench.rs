@@ -34,7 +34,7 @@ struct Args {
     /// After the cold run: churn the input, then compare a fresh cold run
     /// against `Crucible::run_seeded` warm-started from the pre-churn solution.
     warm: bool,
-    churn_pct: f64,
+    churn_pct: Precision,
     /// Sweep KOJI_SCORE_LAMBDA_OVERLAP over a grid and print the
     /// (score, overlap) Pareto frontier instead of a single run. Route and
     /// knife lambdas are report-only weights, so only overlap is swept.
@@ -383,7 +383,7 @@ fn main() {
 
 /// Deterministic ±pct% churn: drop every k-th point, add the same count of
 /// new points jittered up to ~±220 m around random survivors.
-fn churn(points: &SingleVec, pct: f64, seed: u64) -> SingleVec {
+fn churn(points: &SingleVec, pct: Precision, seed: u64) -> SingleVec {
     let mut rng = SmallRng::seed_from_u64(seed ^ 0x4348_5552); // "CHUR"
     let k = (100.0 / pct.max(0.01)).round().max(1.0) as usize;
     let mut out: SingleVec = points
@@ -409,7 +409,7 @@ fn report(
     points: &SingleVec,
     clusters: &SingleVec,
     stats: &Stats,
-    wall_s: f64,
+    wall_s: Precision,
 ) {
     let lb = if args.min_points == 1 {
         algorithms::stats::independent_set_lb(points, args.radius)

@@ -34,7 +34,7 @@ mod tests {
     use super::*;
     use geojson::{Feature, Geometry, Value};
 
-    fn feat_with_ring(ring: Vec<Vec<f64>>) -> Feature {
+    fn feat_with_ring(ring: Vec<Vec<Precision>>) -> Feature {
         Feature {
             bbox: None,
             geometry: Some(Geometry::new(Value::Polygon(vec![ring]))),

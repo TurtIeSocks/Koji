@@ -11,6 +11,7 @@
 //! `<stem>_out.<ext>` (route order) plus `<stem>_route.svg` (before/after map).
 
 use std::path::{Path, PathBuf};
+use koji_core::Precision;
 use std::time::Instant;
 
 use algorithms::clustering::{self, CalculationMode, ClusterMode, ClusteringConfig, S2Config};
@@ -19,10 +20,10 @@ use algorithms::stats::Stats;
 use geojson::FeatureCollection;
 use koji_core::SingleVec;
 
-const RADIUS: f64 = 70.0;
+const RADIUS: Precision = 70.0;
 
 /// Great-circle metres between two `[lat, lon]` points.
-fn haversine_m(a: [f64; 2], b: [f64; 2]) -> f64 {
+fn haversine_m(a: [Precision; 2], b: [Precision; 2]) -> Precision {
     let r = 6_371_000.0_f64;
     let (lat1, lat2) = (a[0].to_radians(), b[0].to_radians());
     let dlat = (b[0] - a[0]).to_radians();
@@ -32,12 +33,12 @@ fn haversine_m(a: [f64; 2], b: [f64; 2]) -> f64 {
 }
 
 /// (total cyclic length, closing-leg length) in metres.
-fn metrics(order: &[[f64; 2]]) -> (f64, f64) {
+fn metrics(order: &[[Precision; 2]]) -> (Precision, Precision) {
     let n = order.len();
     if n < 2 {
         return (0.0, 0.0);
     }
-    let total: f64 = (0..n).map(|i| haversine_m(order[i], order[(i + 1) % n])).sum();
+    let total: Precision = (0..n).map(|i| haversine_m(order[i], order[(i + 1) % n])).sum();
     (total, haversine_m(order[n - 1], order[0]))
 }
 
@@ -50,8 +51,8 @@ fn parse_points(raw: &str) -> SingleVec {
             let mut it = line
                 .split(|c: char| c == ',' || c.is_whitespace())
                 .filter(|s| !s.is_empty());
-            let lat = it.next()?.parse::<f64>().ok()?;
-            let lon = it.next()?.parse::<f64>().ok()?;
+            let lat = it.next()?.parse::<Precision>().ok()?;
+            let lon = it.next()?.parse::<Precision>().ok()?;
             (lat.abs() <= 90.0 && lon.abs() <= 180.0).then_some([lat, lon])
         })
         .collect()
@@ -136,7 +137,7 @@ fn main() {
     let (s2_total, s2_close) = metrics(&s2_order);
     let (tsp_total, tsp_close) = metrics(&tsp_order);
 
-    let km = |m: f64| m / 1000.0;
+    let km = |m: Precision| m / 1000.0;
     println!("\n──────────── routing comparison ({} clusters) ────────────", clusters.len());
     println!("                     S2 seed (s2cell)      Tsp (2-opt+Or-opt)");
     println!(
@@ -179,15 +180,15 @@ fn main() {
 fn render_svg(
     s2: &SingleVec,
     tsp: &SingleVec,
-    s2_total: f64,
-    s2_close: f64,
-    tsp_total: f64,
-    tsp_close: f64,
+    s2_total: Precision,
+    s2_close: Precision,
+    tsp_total: Precision,
+    tsp_close: Precision,
 ) -> String {
-    let lat_min = s2.iter().map(|p| p[0]).fold(f64::MAX, f64::min);
-    let lat_max = s2.iter().map(|p| p[0]).fold(f64::MIN, f64::max);
-    let lon_min = s2.iter().map(|p| p[1]).fold(f64::MAX, f64::min);
-    let lon_max = s2.iter().map(|p| p[1]).fold(f64::MIN, f64::max);
+    let lat_min = s2.iter().map(|p| p[0]).fold(Precision::MAX, Precision::min);
+    let lat_max = s2.iter().map(|p| p[0]).fold(Precision::MIN, Precision::max);
+    let lon_min = s2.iter().map(|p| p[1]).fold(Precision::MAX, Precision::min);
+    let lon_max = s2.iter().map(|p| p[1]).fold(Precision::MIN, Precision::max);
     let mean_lat = (0.5 * (lat_min + lat_max)).to_radians();
     let inner_w = 282.0_f64;
     let geo_w = ((lon_max - lon_min) * mean_lat.cos()).max(1e-9);
@@ -196,12 +197,12 @@ fn render_svg(
     let top = 70.0_f64;
     let height = top + inner_h + 30.0;
 
-    let project = |p: &[f64; 2], px: f64| -> (f64, f64) {
+    let project = |p: &[Precision; 2], px: Precision| -> (Precision, Precision) {
         let x = px + (p[1] - lon_min) * mean_lat.cos() * scale;
         let y = top + (lat_max - p[0]) * scale;
         (x, y)
     };
-    let polyline = |order: &SingleVec, px: f64| -> String {
+    let polyline = |order: &SingleVec, px: Precision| -> String {
         order
             .iter()
             .map(|p| {
@@ -211,7 +212,7 @@ fn render_svg(
             .collect::<Vec<_>>()
             .join(" ")
     };
-    let closing = |order: &SingleVec, px: f64| -> (f64, f64, f64, f64) {
+    let closing = |order: &SingleVec, px: Precision| -> (Precision, Precision, Precision, Precision) {
         let (x1, y1) = project(&order[order.len() - 1], px);
         let (x2, y2) = project(&order[0], px);
         (x1, y1, x2, y2)
