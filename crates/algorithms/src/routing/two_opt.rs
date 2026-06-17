@@ -87,6 +87,12 @@ pub fn optimize(order: SingleVec) -> SingleVec {
                 }
                 let gain = dist(a, b) + dist(c, d) - dist(a, c) - dist(b, d);
                 if gain > EPS {
+                    // Reverse the contiguous arc between the two cut points. The
+                    // cuts sit after positions min/max(pa,pc); reversing the
+                    // inner arc removes edges (a,b)+(c,d) and adds (a,c)+(b,d) —
+                    // exactly the gain above — regardless of which edge wraps
+                    // (succ uses `% n`). Reversing the *other* (wrapping) arc
+                    // would yield the same cycle; the contiguous one is simpler.
                     let (lo, hi) = if pa < pc { (pa, pc) } else { (pc, pa) };
                     tour[lo + 1..=hi].reverse();
                     for p in lo + 1..=hi {
@@ -279,3 +285,4 @@ mod tests {
         );
     }
 }
+
