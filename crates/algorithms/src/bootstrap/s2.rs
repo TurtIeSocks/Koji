@@ -200,24 +200,18 @@ impl<'a> BootstrapS2<'a> {
         let center =
             CellID::from_face_ij(face, center_i_leaf, center_j_leaf).parent(self.level as u64);
 
-        let (off_i, off_j) = cells_to_nearest_face_edges(center);
-        let f_i = (off_i - half) % size_i32;
-        let f_j = (off_j - half) % size_i32;
-
-        if f_i == 0 && f_j == 0 {
-            return Some(center);
-        }
-
+        // A boundary block whose center column/row lands past the face edge wraps
+        // onto an adjacent cube face; skip it (an in-face block's size×size
+        // neighbourhood still covers the polygon along that seam). The previous
+        // `cells_to_nearest_face_edges` "correction" here conflated distance-to-seam
+        // with block-local offset, spuriously shifting the center +1 cell on the
+        // east/north half of every face — `block_i * size + half` is already the
+        // block center, so emit it directly.
         if center.face() != face {
             return None;
         }
 
-        let center_i = (center_i_l + f_i) << shift;
-        let center_j = (center_j_l + f_j) << shift;
-
-        let final_center = CellID::from_face_ij(face, center_i, center_j).parent(self.level as u64);
-
-        Some(final_center)
+        Some(center)
     }
 }
 
@@ -269,7 +263,10 @@ pub fn cells_to_nearest_face_edges(id: CellID) -> (i32, i32) {
 mod tests {
     use super::*;
     use geojson::{Feature, Geometry, Value};
-    use s2::{cellid::CellID, latlng::LatLng};
+    use s2::{
+        cellid::{CellID, MAX_LEVEL},
+        latlng::LatLng,
+    };
 
     fn rect_feature(min_lon: f64, min_lat: f64, max_lon: f64, max_lat: f64) -> Feature {
         let ring = vec![
@@ -377,6 +374,36 @@ mod tests {
         // If size=1, block_center returns each cell unchanged; points must be present.
         assert!(!pts.is_empty());
         let _ = cell; // suppress unused warning
+    }
+
+    #[test]
+    fn block_center_no_spurious_shift_on_east_half() {
+        // Regression: the removed `cells_to_nearest_face_edges` correction shifted
+        // the block center +1 cell on the east/north half of every face. The true
+        // center is `block_i * size + half`, so an east-half cell must map to it
+        // unshifted. (Pre-fix this returned column 1022 instead of 1021.)
+        let feature = rect_feature(-74.003, 39.997, -73.997, 40.003);
+        let level: u8 = 10;
+        let size: u8 = 3;
+        let bs = BootstrapS2::new(&feature, level, size);
+        let shift = MAX_LEVEL as i32 - level as i32;
+
+        // i_l = 1022 lives in block 340 (340*3 = 1020); its center column is
+        // 340*3 + 1 = 1021, and the block stays on-face (1021 < 2^10 = 1024).
+        let face: u8 = 0;
+        let input = CellID::from_face_ij(face, 1022 << shift, 5 << shift).parent(level as u64);
+
+        let center = bs
+            .block_center_cell(input)
+            .expect("on-face block must yield a center");
+        let (got_face, got_i, got_j, _) = center.face_ij_orientation();
+        assert_eq!(got_face, face);
+        assert_eq!(
+            got_i >> shift,
+            1021,
+            "east-half block center must not shift +1"
+        );
+        assert_eq!(got_j >> shift, 4); // block 1 → center 1*3 + 1 = 4
     }
 
     // ── BootstrapS2: size > 1 produces fewer (grouped) centers ────────────────
