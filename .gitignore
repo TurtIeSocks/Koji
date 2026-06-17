@@ -35,3 +35,6 @@ crates/koji-wasm/pkg/
 docs/public/_pagefind
 bench-results/
 
+# Dev Test Files
+*.csv
+*.txt
