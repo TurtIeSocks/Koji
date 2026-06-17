@@ -1,5 +1,5 @@
 [package]
-name = "koji-dragonite"
+name    = "koji-dragonite"
 version = "0.1.0"
 edition = "2024"
 publish = false
@@ -9,13 +9,13 @@ name = "koji_dragonite"
 path = "src/lib.rs"
 
 [dependencies]
-koji-core = { workspace = true }
-reqwest = { workspace = true, features = ["json"] }
-serde = { workspace = true }
+koji-core  = { workspace = true }
+reqwest    = { workspace = true, features = ["json"] }
+serde      = { workspace = true }
 serde_json = { workspace = true }
-geojson = { workspace = true }
-thiserror = { workspace = true }
-log = { workspace = true }
+geojson    = { workspace = true }
+thiserror  = { workspace = true }
+log        = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

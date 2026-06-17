@@ -1,5 +1,5 @@
 [package]
-name = "koji-plugins"
+name    = "koji-plugins"
 version = "0.1.0"
 edition = "2024"
 publish = false
@@ -9,11 +9,11 @@ name = "koji_plugins"
 path = "src/lib.rs"
 
 [dependencies]
-koji-core = { workspace = true }
-serde = { workspace = true }
+koji-core  = { workspace = true }
+serde      = { workspace = true }
 serde_json = { workspace = true }
-toml = { workspace = true }
-log = { workspace = true }
+toml       = { workspace = true }
+log        = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

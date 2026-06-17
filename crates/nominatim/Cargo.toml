@@ -1,5 +1,5 @@
 [package]
-name = "nominatim"
+name    = "nominatim"
 version = "1.1.0"
 edition = "2024"
 publish = false
@@ -9,12 +9,12 @@ name = "nominatim"
 path = "src/lib.rs"
 
 [dependencies]
-geojson = { workspace = true }
-reqwest = { workspace = true, features = ["query"] }
-serde = { workspace = true }
-serde_json = { workspace = true }
+geojson          = { workspace = true }
+reqwest          = { workspace = true, features = ["query"] }
+serde            = { workspace = true }
+serde_json       = { workspace = true }
 serde_urlencoded = { workspace = true }
-log = { workspace = true }
-url = { workspace = true }
-derive_builder = { workspace = true }
-thiserror = { workspace = true }
+log              = { workspace = true }
+url              = { workspace = true }
+derive_builder   = { workspace = true }
+thiserror        = { workspace = true }

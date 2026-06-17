@@ -1,5 +1,5 @@
 [package]
-name = "koji-jobs"
+name    = "koji-jobs"
 version = "0.1.0"
 edition = "2024"
 publish = false
@@ -9,13 +9,6 @@ name = "koji_jobs"
 path = "src/lib.rs"
 
 [dependencies]
-sea-orm = { workspace = true, features = [
-  "sqlx-mysql",
-  "runtime-tokio-native-tls",
-  "macros",
-  "with-json",
-  "with-chrono",
-] }
 tokio = { workspace = true, features = ["sync", "time", "rt", "macros"] }
 dashmap = { workspace = true }
 ulid = { workspace = true }
@@ -26,6 +19,13 @@ chrono = { workspace = true, features = ["serde"] }
 async-trait = { workspace = true }
 log = { workspace = true }
 sha2 = { workspace = true }
+sea-orm = { workspace = true, features = [
+  "sqlx-mysql",
+  "runtime-tokio-native-tls",
+  "macros",
+  "with-json",
+  "with-chrono",
+] }
 
 [dev-dependencies]
 serde_json = { workspace = true }

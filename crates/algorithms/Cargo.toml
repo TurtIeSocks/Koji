@@ -1,5 +1,5 @@
 [package]
-name = "algorithms"
+name    = "algorithms"
 version = "1.3.0"
 edition = "2024"
 publish = false
@@ -9,24 +9,24 @@ name = "algorithms"
 path = "src/lib.rs"
 
 [dependencies]
-koji-core = { workspace = true }
+koji-core    = { workspace = true }
 koji-plugins = { workspace = true, optional = true }
-chrono = { workspace = true }
-colored = { workspace = true, optional = true }
-geo = { workspace = true }
-geohash = { workspace = true }
-geojson = { workspace = true }
-hashbrown = { workspace = true }
-log = { workspace = true }
-map_3d = { workspace = true }
-rand = { workspace = true }
-rayon = { workspace = true }
-rstar = { workspace = true }
-s2 = { workspace = true }
-web-time = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-sysinfo = { workspace = true, optional = true }
+chrono       = { workspace = true }
+colored      = { workspace = true, optional = true }
+geo          = { workspace = true }
+geohash      = { workspace = true }
+geojson      = { workspace = true }
+hashbrown    = { workspace = true }
+log          = { workspace = true }
+map_3d       = { workspace = true }
+rand         = { workspace = true }
+rayon        = { workspace = true }
+rstar        = { workspace = true }
+s2           = { workspace = true }
+web-time     = { workspace = true }
+serde        = { workspace = true }
+serde_json   = { workspace = true }
+sysinfo      = { workspace = true, optional = true }
 
 macros = { workspace = true }
 

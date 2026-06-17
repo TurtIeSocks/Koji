@@ -1,12 +1,12 @@
 [package]
-name = "koji"
+name    = "koji"
 version = "1.5.4"
 edition = "2024"
 publish = false
 
 [dependencies]
-koji-service = { workspace = true }
-dotenv = { workspace = true }
-env_logger = { workspace = true }
-log = { workspace = true }
+koji-service      = { workspace = true }
+dotenv            = { workspace = true }
+env_logger        = { workspace = true }
+log               = { workspace = true }
 tikv-jemallocator = { workspace = true }

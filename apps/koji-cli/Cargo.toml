@@ -1,5 +1,5 @@
 [package]
-name = "koji-cli"
+name    = "koji-cli"
 version = "0.1.0"
 edition = "2024"
 publish = false
@@ -9,12 +9,12 @@ name = "koji-cli"
 path = "src/main.rs"
 
 [dependencies]
-koji-db = { workspace = true }
-koji-jobs = { workspace = true }
+koji-db      = { workspace = true }
+koji-jobs    = { workspace = true }
 koji-service = { workspace = true }
-clap = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
-dotenv = { workspace = true }
-env_logger = { workspace = true }
-log = { workspace = true }
-serde_json = { workspace = true }
+clap         = { workspace = true }
+tokio        = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
+dotenv       = { workspace = true }
+env_logger   = { workspace = true }
+log          = { workspace = true }
+serde_json   = { workspace = true }

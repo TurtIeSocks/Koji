@@ -1,5 +1,5 @@
 [package]
-name = "koji-service"
+name    = "koji-service"
 version = "1.5.1"
 edition = "2024"
 publish = false
@@ -9,32 +9,35 @@ name = "koji_service"
 path = "src/lib.rs"
 
 [dependencies]
-koji-core = { workspace = true }
-koji-golbat = { workspace = true }
-koji-db = { workspace = true }
-koji-plugins = { workspace = true }
-koji-jobs = { workspace = true }
-koji-events = { workspace = true }
-koji-dragonite = { workspace = true }
-macros = { workspace = true }
-actix-web = { workspace = true }
-actix-files = { workspace = true }
-actix-session = { workspace = true }
+koji-core          = { workspace = true }
+koji-golbat        = { workspace = true }
+koji-db            = { workspace = true }
+koji-plugins       = { workspace = true }
+koji-jobs          = { workspace = true }
+koji-events        = { workspace = true }
+koji-dragonite     = { workspace = true }
+macros             = { workspace = true }
+actix-web          = { workspace = true }
+actix-files        = { workspace = true }
+actix-session      = { workspace = true }
 actix-web-httpauth = { workspace = true }
-algorithms = { workspace = true, features = ["native"] }
-async-trait = { workspace = true }
-geo = { workspace = true }
-geojson = { workspace = true }
-log = { workspace = true }
-migration = { workspace = true }
-nominatim = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-subtle = { workspace = true }
-thiserror = { workspace = true }
-url = { workspace = true }
-utoipa = { workspace = true }
+algorithms         = { workspace = true, features = ["native"] }
+async-trait        = { workspace = true }
+geo                = { workspace = true }
+geojson            = { workspace = true }
+log                = { workspace = true }
+migration          = { workspace = true }
+nominatim          = { workspace = true }
+serde              = { workspace = true }
+serde_json         = { workspace = true }
+subtle             = { workspace = true }
+thiserror          = { workspace = true }
+url                = { workspace = true }
+utoipa             = { workspace = true }
 
 [dev-dependencies]
 # Used by `tests/v2_db.rs` for raw SQL cleanup (DELETE) and direct DB connection.
-sea-orm = { workspace = true, features = ["sqlx-mysql", "runtime-tokio-rustls"] }
+sea-orm = { workspace = true, features = [
+  "sqlx-mysql",
+  "runtime-tokio-rustls",
+] }

@@ -1,5 +1,5 @@
 [package]
-name = "migration"
+name    = "migration"
 version = "1.4.0"
 edition = "2024"
 publish = false
@@ -9,8 +9,8 @@ name = "migration"
 path = "src/lib.rs"
 
 [dependencies]
-async-std = { workspace = true }
-geojson = { workspace = true }
-log = { workspace = true }
-serde_json = { workspace = true }
+async-std         = { workspace = true }
+geojson           = { workspace = true }
+log               = { workspace = true }
+serde_json        = { workspace = true }
 sea-orm-migration = { workspace = true }

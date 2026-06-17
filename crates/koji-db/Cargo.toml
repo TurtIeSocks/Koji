@@ -1,5 +1,5 @@
 [package]
-name = "koji-db"
+name    = "koji-db"
 version = "0.1.0"
 edition = "2024"
 publish = false
@@ -32,5 +32,5 @@ thiserror = { workspace = true }
 # DB-integration tests (tests/crud_db.rs) — a tokio runtime for `#[tokio::test]`
 # plus a direct `serde_json`/`sea-orm` handle for cleanup DELETEs. sea-orm is a
 # normal dep above (reused for the connection + raw statements).
-tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tokio      = { workspace = true, features = ["macros", "rt-multi-thread"] }
 serde_json = { workspace = true }

@@ -1,5 +1,5 @@
 [package]
-name = "koji-events"
+name    = "koji-events"
 version = "0.1.0"
 edition = "2024"
 publish = false
@@ -31,6 +31,6 @@ async-trait = { workspace = true }
 log = { workspace = true }
 
 [dev-dependencies]
-serde_json = { workspace = true }
-tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+serde_json  = { workspace = true }
+tokio       = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 async-trait = { workspace = true }

@@ -1,5 +1,5 @@
 [package]
-name = "koji-core"
+name    = "koji-core"
 version = "0.1.0"
 edition = "2024"
 publish = false
@@ -9,15 +9,15 @@ name = "koji_core"
 path = "src/lib.rs"
 
 [dependencies]
-serde = { workspace = true }
-log = { workspace = true }
-geojson = { workspace = true }
-geo = { workspace = true }
-geo-types = { workspace = true }
+serde      = { workspace = true }
+log        = { workspace = true }
+geojson    = { workspace = true }
+geo        = { workspace = true }
+geo-types  = { workspace = true }
 serde_with = { workspace = true }
 serde_json = { workspace = true }
-rayon = { workspace = true }
-s2 = { workspace = true }
+rayon      = { workspace = true }
+s2         = { workspace = true }
 
 # Restore s2's `float_extras` (libc-based, wasm-incompatible) on native targets
 # only, so native behavior is unchanged while wasm32 builds exclude it.

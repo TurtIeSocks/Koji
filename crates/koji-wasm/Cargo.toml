@@ -1,5 +1,5 @@
 [package]
-name = "koji-wasm"
+name    = "koji-wasm"
 version = "0.1.0"
 edition = "2024"
 publish = false
@@ -8,21 +8,21 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-algorithms = { workspace = true }
-koji-core = { workspace = true }
-geojson = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
+algorithms         = { workspace = true }
+koji-core          = { workspace = true }
+geojson            = { workspace = true }
+serde              = { workspace = true }
+serde_json         = { workspace = true }
 serde-wasm-bindgen = { workspace = true }
-wasm-bindgen = { workspace = true }
+wasm-bindgen       = { workspace = true }
 # tsify 0.5.6 is latest; 0.4 from spec no longer exists — pinned up to match
 # wasm-bindgen 0.2.101 already in Cargo.lock
-tsify = { workspace = true }
+tsify                    = { workspace = true }
 console_error_panic_hook = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-rayon = { workspace = true }
-getrandom = { workspace = true }
+getrandom          = { workspace = true }
 
 [dev-dependencies]
 wasm-bindgen-test = { workspace = true }
