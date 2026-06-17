@@ -5,9 +5,17 @@ use koji_core::{Precision, SingleVec};
 use rstar::{primitives::GeomWithData, RTree};
 use s2::{latlng::LatLng, point::Point};
 
-const K: usize = 8; // candidate neighbors per node
+// Candidate neighbors per node. Must be large enough that points just across a
+// narrow gap (e.g. a river between an island and the mainland) reach the
+// candidate set — otherwise the seed's long crossings freeze, since local
+// search only ever proposes moves between candidates. 24 clears NYC-density
+// water gaps (~18 same-bank points within a ~300 m crossing); truly
+// disconnected components beyond any k are handled by the stitch pass below.
+const K: usize = 24;
 const MAX_PASSES: usize = 60;
 const EPS: Precision = 1e-9; // unit-sphere chord units
+const CUT_FACTOR: Precision = 4.0; // cut edges longer than CUT_FACTOR × median
+const MAX_RUNS: usize = 64; // bail on degenerate inputs with too many "components"
 
 type IdxPt = GeomWithData<[Precision; 2], usize>;
 
@@ -67,6 +75,37 @@ pub fn optimize(order: SingleVec) -> SingleVec {
     let mut tour: Vec<usize> = (0..n).collect();
     let mut pos: Vec<usize> = (0..n).collect();
 
+    local_search(&mut tour, &mut pos, &candidates, &dist);
+
+    // Cross-component repair: k-NN-restricted local search cannot touch edges
+    // that bridge spatially separate components (islands across water) — a far
+    // component's nodes never enter a candidate list, so the seed's crossings
+    // stay frozen. Cut the tour at its few long edges, re-stitch the runs at
+    // their nearest endpoints, then re-polish. Guarded to only ever shorten.
+    if let Some(stitched) = stitch_runs(&tour, &dist) {
+        tour = stitched;
+        for (p, &node) in tour.iter().enumerate() {
+            pos[node] = p;
+        }
+        local_search(&mut tour, &mut pos, &candidates, &dist);
+    }
+
+    tour.into_iter().map(|i| order[i]).collect()
+}
+
+/// Alternating 2-opt + Or-opt sweeps over the closed tour until a full sweep
+/// makes no improving move (or `MAX_PASSES` is hit). Mutates `tour` and its
+/// inverse `pos` in place.
+fn local_search(
+    tour: &mut Vec<usize>,
+    pos: &mut [usize],
+    candidates: &[Vec<usize>],
+    dist: &dyn Fn(usize, usize) -> Precision,
+) {
+    let n = tour.len();
+    if n < 4 {
+        return;
+    }
     let mut pass = 0;
     loop {
         let mut improved = false;
@@ -124,7 +163,6 @@ pub fn optimize(order: SingleVec) -> SingleVec {
                 if removed <= EPS {
                     continue; // insertion cost is ≥0, so no net gain possible
                 }
-                let mut applied = false;
                 for &c in candidates[first].iter().chain(candidates[last].iter()) {
                     if seg.contains(&c) || c == prev {
                         continue;
@@ -152,16 +190,14 @@ pub fn optimize(order: SingleVec) -> SingleVec {
                             ins.reverse();
                         }
                         rest.splice(cpos + 1..cpos + 1, ins);
-                        tour = rest;
+                        *tour = rest;
                         for (p, &node) in tour.iter().enumerate() {
                             pos[node] = p;
                         }
                         improved = true;
-                        applied = true;
                         break;
                     }
                 }
-                let _ = applied;
             }
         }
 
@@ -170,8 +206,91 @@ pub fn optimize(order: SingleVec) -> SingleVec {
             break;
         }
     }
+}
 
-    tour.into_iter().map(|i| order[i]).collect()
+/// Cut the closed tour at edges far longer than the median (component
+/// boundaries — e.g. water crossings) and re-stitch the runs so each connects
+/// at its nearest endpoints. Returns a strictly-shorter tour, or `None` when
+/// there is nothing to gain (single component / degenerate).
+fn stitch_runs(tour: &[usize], dist: &dyn Fn(usize, usize) -> Precision) -> Option<Vec<usize>> {
+    let n = tour.len();
+    if n < 4 {
+        return None;
+    }
+    let lens: Vec<Precision> = (0..n).map(|i| dist(tour[i], tour[(i + 1) % n])).collect();
+    let mut sorted = lens.clone();
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let threshold = CUT_FACTOR * sorted[n / 2]; // CUT_FACTOR × median edge
+    let cuts: Vec<usize> = (0..n).filter(|&i| lens[i] > threshold).collect();
+    if cuts.len() < 2 || cuts.len() > MAX_RUNS {
+        return None;
+    }
+
+    // Split the cycle into contiguous runs between consecutive cut edges.
+    let m = cuts.len();
+    let mut runs: Vec<Vec<usize>> = Vec::with_capacity(m);
+    for k in 0..m {
+        let start = (cuts[k] + 1) % n;
+        let end = cuts[(k + 1) % m];
+        let mut run = Vec::new();
+        let mut idx = start;
+        loop {
+            run.push(tour[idx]);
+            if idx == end {
+                break;
+            }
+            idx = (idx + 1) % n;
+        }
+        runs.push(run);
+    }
+
+    let stitched = stitch_order(&runs, dist);
+    let old_total: Precision = lens.iter().sum();
+    let len = stitched.len();
+    let new_total: Precision = (0..len)
+        .map(|i| dist(stitched[i], stitched[(i + 1) % len]))
+        .sum();
+    (new_total + EPS < old_total).then_some(stitched)
+}
+
+/// Greedy nearest-endpoint chaining of runs (each usable forward or reversed),
+/// minimizing the connecting edges. Deterministic: starts at run 0, ties to the
+/// lower index. Returns the concatenated node order (a full permutation).
+fn stitch_order(runs: &[Vec<usize>], dist: &dyn Fn(usize, usize) -> Precision) -> Vec<usize> {
+    let m = runs.len();
+    let mut used = vec![false; m];
+    let total: usize = runs.iter().map(|r| r.len()).sum();
+    let mut out: Vec<usize> = Vec::with_capacity(total);
+
+    used[0] = true;
+    out.extend(runs[0].iter().copied());
+    let mut tail = *runs[0].last().unwrap();
+
+    for _ in 1..m {
+        let mut best: Option<(usize, bool, Precision)> = None;
+        for j in 0..m {
+            if used[j] {
+                continue;
+            }
+            let df = dist(tail, runs[j][0]);
+            let dr = dist(tail, *runs[j].last().unwrap());
+            let (d, rev) = if dr < df { (dr, true) } else { (df, false) };
+            match best {
+                Some((_, _, bd)) if d >= bd => {}
+                _ => best = Some((j, rev, d)),
+            }
+        }
+        let (j, rev, _) = best.unwrap();
+        used[j] = true;
+        if rev {
+            out.extend(runs[j].iter().rev().copied());
+            tail = runs[j][0];
+        } else {
+            out.extend(runs[j].iter().copied());
+            tail = *runs[j].last().unwrap();
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -205,6 +324,53 @@ mod tests {
             .collect();
         s.sort();
         s
+    }
+
+    /// Longest single edge (unit-sphere chord) around the closed tour.
+    fn max_edge(order: &SingleVec) -> Precision {
+        use s2::{latlng::LatLng, point::Point};
+        let v: Vec<(f64, f64, f64)> = order
+            .iter()
+            .map(|p| {
+                let pt = Point::from(LatLng::from_degrees(p[0], p[1])).0;
+                (pt.x, pt.y, pt.z)
+            })
+            .collect();
+        let n = v.len();
+        (0..n)
+            .map(|i| {
+                let (a, b) = (v[i], v[(i + 1) % n]);
+                ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2) + (a.2 - b.2).powi(2)).sqrt()
+            })
+            .fold(0.0_f64, f64::max)
+    }
+
+    #[test]
+    fn stitch_fixes_frozen_cross_component_crossings() {
+        // Two dense vertical lines (~5.5 km tall) 5.5 km apart — like Manhattan +
+        // an island. Cross-component points sit far outside any node's 8 nearest,
+        // so 2-opt/Or-opt alone cannot touch the crossings. The seed exits each
+        // line at the *far* end, forcing ~7.8 km diagonal crossings; cut-and-
+        // stitch should re-cross at the nearest endpoints (~5.5 km).
+        let mut order: SingleVec = Vec::new();
+        for i in 0..50 {
+            order.push([i as f64 * 0.001, 0.0]); // line A (lon 0)
+        }
+        for i in 0..50 {
+            order.push([i as f64 * 0.001, 0.05]); // line B (lon 0.05, ~5.5 km east)
+        }
+        let before = tour_len(&order);
+        let out = optimize(order.clone());
+
+        assert_eq!(sorted_xy(&out), sorted_xy(&order), "permutation");
+        assert!(tour_len(&out) < before - 1e-9, "stitch must shorten the tour");
+        // ~7.8 km diagonal (chord ≈ 1.22e-3) should drop to the ~5.5 km nearest
+        // crossing (chord ≈ 8.6e-4). Assert the longest edge falls below ~6.4 km.
+        assert!(
+            max_edge(&out) < 1.0e-3,
+            "longest crossing should drop to the nearest-endpoint ~5.5 km, got {}",
+            max_edge(&out)
+        );
     }
 
     #[test]
