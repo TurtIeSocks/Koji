@@ -58,21 +58,9 @@ impl HandlerRegistry {
         self
     }
 
-    /// Register an already-`Arc`'d handler (useful when a handler is shared
-    /// elsewhere).
-    pub fn register_arc(mut self, handler: Arc<dyn JobHandler>) -> Self {
-        self.handlers.insert(handler.kind(), handler);
-        self
-    }
-
     /// Look up the handler for a `job.kind`, if any.
     pub fn get(&self, kind: &str) -> Option<Arc<dyn JobHandler>> {
         self.handlers.get(kind).cloned()
-    }
-
-    /// Whether a handler is registered for `kind`.
-    pub fn contains(&self, kind: &str) -> bool {
-        self.handlers.contains_key(kind)
     }
 }
 
@@ -178,23 +166,21 @@ mod tests {
     #[test]
     fn new_registry_is_empty() {
         let reg = HandlerRegistry::new();
-        assert!(!reg.contains("echo"));
         assert!(reg.get("echo").is_none());
     }
 
     #[test]
     fn default_registry_is_empty() {
         let reg = HandlerRegistry::default();
-        assert!(!reg.contains("anything"));
+        assert!(reg.get("anything").is_none());
     }
 
-    // ── HandlerRegistry::register + contains + get ─────────────────────────
+    // ── HandlerRegistry::register + get ────────────────────────────────────
 
     #[test]
     fn register_single_handler_then_get() {
         let ctx = make_ctx();
         let reg = HandlerRegistry::new().register(EchoHandler);
-        assert!(reg.contains("echo"));
         let h = reg.get("echo").expect("handler must be present");
         let result = h.run(json!({"x": 1}), &ctx);
         assert_eq!(result.unwrap(), json!({"x": 1}));
@@ -204,7 +190,6 @@ mod tests {
     fn get_unknown_kind_returns_none() {
         let reg = HandlerRegistry::new().register(EchoHandler);
         assert!(reg.get("unknown").is_none());
-        assert!(!reg.contains("unknown"));
     }
 
     #[test]
@@ -213,10 +198,10 @@ mod tests {
             .register(EchoHandler)
             .register(FailingHandler)
             .register(CalcHandler);
-        assert!(reg.contains("echo"));
-        assert!(reg.contains("fail"));
-        assert!(reg.contains("calc.route"));
-        assert!(!reg.contains("missing"));
+        assert!(reg.get("echo").is_some());
+        assert!(reg.get("fail").is_some());
+        assert!(reg.get("calc.route").is_some());
+        assert!(reg.get("missing").is_none());
     }
 
     #[test]
@@ -255,33 +240,6 @@ mod tests {
         let h = reg.get("dupe").unwrap();
         // Second registration wins.
         assert_eq!(h.run(json!(null), &ctx).unwrap(), json!("second"));
-    }
-
-    // ── HandlerRegistry::register_arc ─────────────────────────────────────
-
-    #[test]
-    fn register_arc_makes_handler_findable() {
-        let ctx = make_ctx();
-        let arc: Arc<dyn JobHandler> = Arc::new(EchoHandler);
-        let reg = HandlerRegistry::new().register_arc(arc);
-        assert!(reg.contains("echo"));
-        let h = reg.get("echo").unwrap();
-        assert_eq!(h.run(json!(42), &ctx).unwrap(), json!(42));
-    }
-
-    #[test]
-    fn register_arc_clone_retains_shared_handler() {
-        let ctx = make_ctx();
-        // The caller-retained clone and the registered copy are the same Arc.
-        let shared: Arc<dyn JobHandler> = Arc::new(EchoHandler);
-        let shared2 = Arc::clone(&shared);
-        let reg = HandlerRegistry::new().register_arc(shared);
-        let from_registry = reg.get("echo").unwrap();
-        assert_eq!(
-            from_registry.run(json!("via registry"), &ctx).unwrap(),
-            json!("via registry")
-        );
-        assert_eq!(shared2.run(json!("direct"), &ctx).unwrap(), json!("direct"));
     }
 
     // ── HandlerRegistry::get returns independent Arc clones ───────────────
@@ -348,7 +306,7 @@ mod tests {
         let ctx = make_ctx();
         let reg = HandlerRegistry::new().register(EchoHandler);
         let reg2 = reg.clone();
-        assert!(reg2.contains("echo"));
+        assert!(reg2.get("echo").is_some());
         let h = reg2.get("echo").unwrap();
         assert_eq!(h.run(json!("hello"), &ctx).unwrap(), json!("hello"));
     }
@@ -359,11 +317,11 @@ mod tests {
         let reg = HandlerRegistry::new().register(EchoHandler);
         let reg2 = reg.clone().register(FailingHandler);
         // Original has only "echo".
-        assert!(reg.contains("echo"));
-        assert!(!reg.contains("fail"));
+        assert!(reg.get("echo").is_some());
+        assert!(reg.get("fail").is_none());
         // Clone has both.
-        assert!(reg2.contains("echo"));
-        assert!(reg2.contains("fail"));
+        assert!(reg2.get("echo").is_some());
+        assert!(reg2.get("fail").is_some());
     }
 
     // ── kind() accessor on trait object ───────────────────────────────────

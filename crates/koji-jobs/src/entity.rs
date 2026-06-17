@@ -71,17 +71,6 @@ pub enum JobStatus {
 }
 
 impl JobStatus {
-    /// The DB string value (matches the ENUM definition).
-    pub fn as_str(self) -> &'static str {
-        match self {
-            JobStatus::Queued => "queued",
-            JobStatus::Running => "running",
-            JobStatus::Succeeded => "succeeded",
-            JobStatus::Failed => "failed",
-            JobStatus::Canceled => "canceled",
-        }
-    }
-
     /// `true` for `succeeded` / `failed` / `canceled` — states that will never
     /// change again, so `await_result` can short-circuit on them.
     pub fn is_terminal(self) -> bool {
@@ -95,19 +84,6 @@ impl JobStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // ── JobStatus::as_str ──────────────────────────────────────────────────
-
-    #[test]
-    fn as_str_matches_db_enum_values() {
-        // These strings are what lives in the DB ENUM column — they must never
-        // change without a migration.
-        assert_eq!(JobStatus::Queued.as_str(), "queued");
-        assert_eq!(JobStatus::Running.as_str(), "running");
-        assert_eq!(JobStatus::Succeeded.as_str(), "succeeded");
-        assert_eq!(JobStatus::Failed.as_str(), "failed");
-        assert_eq!(JobStatus::Canceled.as_str(), "canceled");
-    }
 
     // ── JobStatus::is_terminal ─────────────────────────────────────────────
 
@@ -158,9 +134,9 @@ mod tests {
 
     /// Document the serde/DB split: lowercase DB strings are NOT the serde form.
     ///
-    /// `as_str()` returns lower-case for SQL; serde uses PascalCase variant names.
-    /// If the API ever serializes a `JobStatus` to JSON and round-trips it, the
-    /// consumer must use `"Queued"` not `"queued"`.
+    /// The DB ENUM uses lower-case string values (raw SQL); serde uses PascalCase
+    /// variant names. If the API ever serializes a `JobStatus` to JSON and
+    /// round-trips it, the consumer must use `"Queued"` not `"queued"`.
     #[test]
     fn job_status_db_strings_are_not_serde_strings() {
         assert!(serde_json::from_str::<JobStatus>(r#""queued""#).is_err());

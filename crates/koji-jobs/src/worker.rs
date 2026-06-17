@@ -72,8 +72,7 @@ impl Shutdown {
 /// Owns the spawned worker tasks + a shutdown signal.
 ///
 /// Drop does **not** auto-stop the workers (their `JoinHandle`s would just
-/// detach); call [`WorkerSet::shutdown`] for a graceful stop, or
-/// [`WorkerSet::abort`] to cancel immediately.
+/// detach); call [`WorkerSet::shutdown`] for a graceful stop.
 pub struct WorkerSet {
     handles: Vec<JoinHandle<()>>,
     shutdown: Arc<Shutdown>,
@@ -95,13 +94,6 @@ impl WorkerSet {
             if let Err(e) = handle.await {
                 log::error!("[koji-jobs] worker task join error during shutdown: {e}");
             }
-        }
-    }
-
-    /// Abort all workers immediately without waiting for in-flight jobs.
-    pub fn abort(self) {
-        for handle in &self.handles {
-            handle.abort();
         }
     }
 

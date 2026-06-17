@@ -179,10 +179,7 @@ impl ProgressHandle {
             "UPDATE `job` SET `progress` = ?, `phase` = ? WHERE `id` = ?",
             [
                 Value::from(progress),
-                match phase {
-                    Some(p) => Value::from(p.to_owned()),
-                    None => Value::from(Option::<String>::None),
-                },
+                Value::from(phase.map(str::to_owned)),
                 Value::from(self.job_id),
             ],
         );

@@ -172,10 +172,7 @@ impl JobQueue {
             [
                 Value::from(id.as_string()),
                 Value::from(kind.to_owned()),
-                match dedup_key {
-                    Some(k) => Value::from(k.to_owned()),
-                    None => Value::from(Option::<String>::None),
-                },
+                Value::from(dedup_key.map(str::to_owned)),
                 Value::from(priority),
                 Value::from(payload_json),
             ],
