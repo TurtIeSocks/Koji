@@ -31,11 +31,7 @@ pub trait JsonToModel {
 impl JsonToModel for Value {
     fn to_geofence(&self) -> Result<geofence::ActiveModel, ModelError> {
         if let Some(incoming) = self.as_object() {
-            let name = if let Some(name) = incoming.get("name") {
-                name.as_str()
-            } else {
-                None
-            };
+            let name = incoming.get("name").and_then(|v| v.as_str());
             if let Some(name) = name {
                 if let Some(geometry) = incoming.get("geometry") {
                     match Geometry::from_json_value(geometry.to_owned()) {
@@ -44,11 +40,10 @@ impl JsonToModel for Value {
                             let mode = incoming
                                 .get("mode")
                                 .map(|mode| mode.as_str().unwrap_or("unset").to_string());
-                            let parent = if let Some(parent) = incoming.get("parent") {
-                                parent.as_u64().map(|parent| parent as u32)
-                            } else {
-                                None
-                            };
+                            let parent = incoming
+                                .get("parent")
+                                .and_then(|v| v.as_u64())
+                                .map(|parent| parent as u32);
                             let mode = get_enum(mode);
                             Ok(geofence::ActiveModel {
                                 name: Set(name.to_string()),
@@ -85,17 +80,9 @@ impl JsonToModel for Value {
 
     fn to_geofence_project(&self) -> Result<geofence_project::ActiveModel, ModelError> {
         if let Some(object) = self.as_object() {
-            let geofence_id = if let Some(id) = self.get("geofence_id") {
-                id.as_u64()
-            } else {
-                None
-            };
+            let geofence_id = self.get("geofence_id").and_then(|v| v.as_u64());
             if let Some(geofence_id) = geofence_id {
-                let project_id = if let Some(id) = self.get("project_id") {
-                    id.as_u64()
-                } else {
-                    None
-                };
+                let project_id = self.get("project_id").and_then(|v| v.as_u64());
                 if let Some(project_id) = project_id {
                     Ok(geofence_project::ActiveModel {
                         project_id: Set(project_id as u32),
@@ -129,17 +116,11 @@ impl JsonToModel for Value {
         if let Some(object) = self.as_object() {
             let geofence_id = if let Some(geofence_id) = geofence_id {
                 Some(geofence_id as u64)
-            } else if let Some(id) = self.get("geofence_id") {
-                id.as_u64()
             } else {
-                None
+                self.get("geofence_id").and_then(|v| v.as_u64())
             };
             if let Some(geofence_id) = geofence_id {
-                let property_id = if let Some(id) = self.get("property_id") {
-                    id.as_u64()
-                } else {
-                    None
-                };
+                let property_id = self.get("property_id").and_then(|v| v.as_u64());
                 if let Some(property_id) = property_id {
                     let value = if let Some(value) = self.get("value") {
                         if let Some(value) = value.as_str() {
@@ -184,36 +165,24 @@ impl JsonToModel for Value {
 
     fn to_project(&self) -> Result<project::ActiveModel, ModelError> {
         if let Some(incoming) = self.as_object() {
-            let name = if let Some(name) = incoming.get("name") {
-                name.as_str()
-            } else {
-                None
-            };
-            let scanner = if let Some(scanner) = incoming.get("scanner") {
-                scanner.as_bool().unwrap_or(false)
-            } else {
-                false
-            };
+            let name = incoming.get("name").and_then(|v| v.as_str());
+            let scanner = incoming
+                .get("scanner")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
             if let Some(name) = name {
-                let api_endpoint = if let Some(api_endpoint) = incoming.get("api_endpoint") {
-                    api_endpoint
-                        .as_str()
-                        .map(|api_endpoint| api_endpoint.to_string())
-                } else {
-                    None
-                };
-                let api_key = if let Some(api_key) = incoming.get("api_key") {
-                    api_key.as_str().map(|api_key| api_key.to_string())
-                } else {
-                    None
-                };
-                let description = if let Some(description) = incoming.get("description") {
-                    description
-                        .as_str()
-                        .map(|description| description.to_string())
-                } else {
-                    None
-                };
+                let api_endpoint = incoming
+                    .get("api_endpoint")
+                    .and_then(|v| v.as_str())
+                    .map(|api_endpoint| api_endpoint.to_string());
+                let api_key = incoming
+                    .get("api_key")
+                    .and_then(|v| v.as_str())
+                    .map(|api_key| api_key.to_string());
+                let description = incoming
+                    .get("description")
+                    .and_then(|v| v.as_str())
+                    .map(|description| description.to_string());
                 Ok(project::ActiveModel {
                     name: Set(name.to_string()),
                     scanner: Set(scanner),
@@ -238,18 +207,11 @@ impl JsonToModel for Value {
 
     fn to_property(&self) -> Result<property::ActiveModel, ModelError> {
         if let Some(incoming) = self.as_object() {
-            let name = if let Some(name) = incoming.get("name") {
-                name.as_str()
-            } else {
-                None
-            };
-            let category = if let Some(category) = incoming.get("category") {
-                category
-                    .as_str()
-                    .map(|category| get_category_enum(category.to_string()))
-            } else {
-                None
-            };
+            let name = incoming.get("name").and_then(|v| v.as_str());
+            let category = incoming
+                .get("category")
+                .and_then(|v| v.as_str())
+                .map(|category| get_category_enum(category.to_string()));
             let mut default_value = if let Some(default_value) = incoming.get("default_value") {
                 if let Some(default_value) = default_value.as_str() {
                     Some(default_value.to_string())
@@ -294,16 +256,8 @@ impl JsonToModel for Value {
 
     fn to_route(&self) -> Result<route::ActiveModel, ModelError> {
         if let Some(incoming) = self.as_object() {
-            let name = if let Some(name) = incoming.get("name") {
-                name.as_str()
-            } else {
-                None
-            };
-            let geofence_id = if let Some(geofence_id) = incoming.get("geofence_id") {
-                geofence_id.as_u64()
-            } else {
-                None
-            };
+            let name = incoming.get("name").and_then(|v| v.as_str());
+            let geofence_id = incoming.get("geofence_id").and_then(|v| v.as_u64());
             if let Some(name) = name {
                 if let Some(geofence_id) = geofence_id {
                     if let Some(geometry) = incoming.get("geometry") {
@@ -314,14 +268,10 @@ impl JsonToModel for Value {
                                     .get("mode")
                                     .map(|mode| mode.as_str().unwrap_or("unset").to_string());
                                 let mode = get_enum(mode);
-                                let description =
-                                    if let Some(description) = incoming.get("description") {
-                                        description
-                                            .as_str()
-                                            .map(|description| description.to_string())
-                                    } else {
-                                        None
-                                    };
+                                let description = incoming
+                                    .get("description")
+                                    .and_then(|v| v.as_str())
+                                    .map(|description| description.to_string());
                                 Ok(route::ActiveModel {
                                     name: Set(name.to_string()),
                                     geometry: Set(value),
@@ -363,16 +313,8 @@ impl JsonToModel for Value {
 
     fn to_tileserver(&self) -> Result<tile_server::ActiveModel, ModelError> {
         if let Some(incoming) = self.as_object() {
-            let name = if let Some(name) = incoming.get("name") {
-                name.as_str()
-            } else {
-                None
-            };
-            let url = if let Some(url) = incoming.get("url") {
-                url.as_str()
-            } else {
-                None
-            };
+            let name = incoming.get("name").and_then(|v| v.as_str());
+            let url = incoming.get("url").and_then(|v| v.as_str());
             if let Some(name) = name {
                 if let Some(url) = url {
                     Ok(tile_server::ActiveModel {

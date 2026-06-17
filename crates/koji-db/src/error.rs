@@ -21,8 +21,6 @@ pub enum ModelError {
     Route(String),
     #[error("[TileServer]: {0}")]
     TileServer(String),
-    #[error("Not Implemented: {0}")]
-    NotImplemented(String),
     #[error("{0}")]
     Custom(String),
 }
@@ -85,12 +83,6 @@ mod tests {
     fn display_tile_server() {
         let e = ModelError::TileServer("no url".to_string());
         assert_eq!(format!("{e}"), "[TileServer]: no url");
-    }
-
-    #[test]
-    fn display_not_implemented() {
-        let e = ModelError::NotImplemented("future feature".to_string());
-        assert_eq!(format!("{e}"), "Not Implemented: future feature");
     }
 
     #[test]

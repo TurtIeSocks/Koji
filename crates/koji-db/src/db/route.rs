@@ -68,11 +68,6 @@ pub struct RouteNoGeometry {
     pub updated_at: DateTimeUtc,
 }
 
-#[derive(Serialize, Deserialize, FromQueryResult)]
-pub(crate) struct OnlyGeofenceId {
-    pub geofence_id: u32,
-}
-
 /// Route name: the legacy `__name`/`name` passthrough in `meta.extra` wins (so
 /// existing producers keep working), else the typed `meta.name`.
 fn route_name(item: &KojiGeometry) -> Option<String> {
@@ -145,8 +140,9 @@ impl Model {
     }
 }
 
-impl ToFeatureFromModel for Model {
-    fn to_feature(self, internal: bool) -> Result<Feature, ModelError> {
+impl Model {
+    #[allow(clippy::result_large_err)]
+    pub fn to_feature(self, internal: bool) -> Result<Feature, ModelError> {
         let Self {
             geometry,
             name,
@@ -499,23 +495,21 @@ impl Query {
             .map(|model| (format!("{}_{}", model.name, model.mode.to_value()), model))
             .collect();
 
-        let mut inserts_updates = InsertsUpdates {
-            inserts: 0,
-            updates: 0,
-        };
+        let mut inserts = 0;
+        let mut updates = 0;
 
         for item in &area.items {
             // Persist directly from the Koji item — name/mode/geofence_id come
             // from `KojiMeta` (with `__`-prefixed `extra` passthrough for legacy
             // producers); no geojson `Feature` round-trip.
             if Query::upsert_koji_item(conn, item, &existing).await? {
-                inserts_updates.updates += 1;
+                updates += 1;
             } else {
-                inserts_updates.inserts += 1;
+                inserts += 1;
             }
         }
 
-        Ok((inserts_updates.inserts, inserts_updates.updates))
+        Ok((inserts, updates))
     }
 
     pub async fn by_geofence(
@@ -623,26 +617,6 @@ impl Query {
             .await
     }
 
-    pub async fn unique_geofence(db: &DatabaseConnection) -> Result<Vec<Json>, ModelError> {
-        let items = Entity::find()
-            .select_only()
-            .column(Column::GeofenceId)
-            .distinct()
-            .into_model::<OnlyGeofenceId>()
-            .all(db)
-            .await?;
-        let items = geofence::Entity::find()
-            .order_by(geofence::Column::Name, Order::Asc)
-            .filter(geofence::Column::Id.is_in(items.into_iter().map(|item| item.geofence_id)))
-            .select_only()
-            .column(geofence::Column::Id)
-            .column(geofence::Column::Name)
-            .distinct()
-            .into_json()
-            .all(db)
-            .await?;
-        Ok(items)
-    }
 }
 
 #[cfg(test)]
