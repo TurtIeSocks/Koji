@@ -35,9 +35,9 @@ impl JsonToModel for Value {
             let name = incoming.get("name").and_then(|v| v.as_str());
             if let Some(name) = name {
                 if let Some(geometry) = incoming.get("geometry") {
-                    match Geometry::from_json_value(geometry.to_owned()) {
+                    match serde_json::from_value::<geojson::Geometry>(geometry.to_owned()) {
                         Ok(geometry) => {
-                            let value = GeoJson::Geometry(geometry).to_json_value();
+                            let value = serde_json::to_value(&GeoJson::Geometry(geometry)).expect("geojson serializes");
                             let mode = incoming
                                 .get("mode")
                                 .map(|mode| mode.as_str().unwrap_or("unset").to_string());
@@ -262,9 +262,9 @@ impl JsonToModel for Value {
             if let Some(name) = name {
                 if let Some(geofence_id) = geofence_id {
                     if let Some(geometry) = incoming.get("geometry") {
-                        match Geometry::from_json_value(geometry.to_owned()) {
+                        match serde_json::from_value::<geojson::Geometry>(geometry.to_owned()) {
                             Ok(geometry) => {
-                                let value = GeoJson::Geometry(geometry).to_json_value();
+                                let value = serde_json::to_value(&GeoJson::Geometry(geometry)).expect("geojson serializes");
                                 let mode = incoming
                                     .get("mode")
                                     .map(|mode| mode.as_str().unwrap_or("unset").to_string());

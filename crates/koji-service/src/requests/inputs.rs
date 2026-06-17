@@ -83,7 +83,7 @@ pub fn area_collection(area: &Option<GeoInput>) -> FeatureCollection {
 #[allow(clippy::result_large_err)]
 fn geometry_to_koji(g: &Geometry) -> Result<KojiGeometryCollection, koji_core::KojiGeojsonError> {
     let children: Vec<Geometry> = match &g.value {
-        geojson::Value::GeometryCollection(geometries) => geometries.clone(),
+        geojson::Value::GeometryCollection { geometries: geometries } => geometries.clone(),
         _ => vec![g.clone()],
     };
     let items = children
@@ -106,13 +106,13 @@ mod tests {
     use super::*;
 
     fn polygon_geometry() -> Geometry {
-        Geometry::new(geojson::Value::Polygon(vec![vec![
-            vec![0.0, 0.0],
-            vec![1.0, 0.0],
-            vec![1.0, 1.0],
-            vec![0.0, 1.0],
-            vec![0.0, 0.0],
-        ]]))
+        Geometry::new(geojson::Value::Polygon { coordinates: vec![vec![
+            geojson::Position::from([0.0, 0.0]),
+            geojson::Position::from([1.0, 0.0]),
+            geojson::Position::from([1.0, 1.0]),
+            geojson::Position::from([0.0, 1.0]),
+            geojson::Position::from([0.0, 0.0]),
+        ]] })
     }
 
     fn polygon_feature() -> Feature {

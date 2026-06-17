@@ -152,11 +152,11 @@ mod tests {
     #[test]
     fn merge_points_matches_golden_multipoint() {
         // geojson Point coords are [lon, lat].
-        let raw: Vec<Vec<Precision>> = vec![vec![2.0, 1.0], vec![4.0, 3.0], vec![6.0, 5.0]];
+        let raw: Vec<geojson::Position> = vec![geojson::Position::from([2.0, 1.0]), geojson::Position::from([4.0, 3.0]), geojson::Position::from([6.0, 5.0])];
 
         // Golden: the matrix projected these points to a MultiPoint of [lon, lat].
         let golden =
-            geojson::Value::MultiPoint(vec![vec![2.0, 1.0], vec![4.0, 3.0], vec![6.0, 5.0]]);
+            geojson::Value::MultiPoint { coordinates: vec![geojson::Position::from([2.0, 1.0]), geojson::Position::from([4.0, 3.0]), geojson::Position::from([6.0, 5.0])] };
 
         // NEW path: Point items -> merge_points -> geojson Geometry.
         let coll = KojiGeometryCollection::new(
@@ -188,10 +188,10 @@ mod tests {
             KojiGeometry::new(Point::new(2.0, 2.0)),
         ])
         .merge_points();
-        let geojson::Value::MultiPoint(pts) = geojson::Value::from(&coll.items[0].geometry) else {
+        let geojson::Value::MultiPoint { coordinates: pts } = geojson::Value::from(&coll.items[0].geometry) else {
             panic!("expected MultiPoint");
         };
-        assert_eq!(pts, vec![vec![1.0, 1.0], vec![2.0, 2.0]]);
+        assert_eq!(pts, vec![geojson::Position::from([1.0, 1.0]), geojson::Position::from([2.0, 2.0])]);
     }
 
     /// `simplify` parity vs the matrix `GeometryHelpers::simplify` on a polygon
@@ -203,14 +203,14 @@ mod tests {
 
         // A polygon with a nearly-collinear vertex that DP should drop.
         let ring = vec![
-            vec![0.0, 0.0],
-            vec![1.0, 0.00001],
-            vec![2.0, 0.0],
-            vec![2.0, 2.0],
-            vec![0.0, 2.0],
-            vec![0.0, 0.0],
+            geojson::Position::from([0.0, 0.0]),
+            geojson::Position::from([1.0, 0.00001]),
+            geojson::Position::from([2.0, 0.0]),
+            geojson::Position::from([2.0, 2.0]),
+            geojson::Position::from([0.0, 2.0]),
+            geojson::Position::from([0.0, 0.0]),
         ];
-        let gj = GjGeometry::new(GjValue::Polygon(vec![ring]));
+        let gj = GjGeometry::new(GjValue::Polygon { coordinates: vec![ring] });
 
         // OLD matrix path on the geojson geometry.
         let old_value = gj.clone().simplify().value;

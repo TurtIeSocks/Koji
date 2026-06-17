@@ -354,7 +354,7 @@ mod tests {
     /// duplicate closing coord — so each route below collapses to the same three
     /// distinct points.
     fn golden(coords: &[[Precision; 2]]) -> geojson::Value {
-        geojson::Value::MultiPoint(coords.iter().map(|c| vec![c[0], c[1]]).collect())
+        geojson::Value::MultiPoint { coordinates: coords.iter().map(|c| geojson::Position::from([c[0], c[1]])).collect() }
     }
 
     /// An OPEN routed center set (ring not pre-closed).

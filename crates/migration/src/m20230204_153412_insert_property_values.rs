@@ -51,7 +51,7 @@ impl MigrationTrait for Migration {
             if let Some(fence) = fence.as_object()
                 && let Some(area) = fence.get("area")
             {
-                let feature = Feature::from_json_value(area.clone());
+                let feature = serde_json::from_value::<Feature>(area.clone());
                 if let Ok(feature) = feature {
                     'props: for (key, value) in feature.properties_iter() {
                         if key == "Name" {

@@ -73,11 +73,11 @@ impl<'a> BootstrapS2<'a> {
     fn build_polygons(&self) -> Vec<geo::Polygon> {
         if let Some(geometry) = self.feature.geometry.as_ref() {
             match geometry.value {
-                Value::Polygon(_) => match Polygon::<Precision>::try_from(geometry) {
+                Value::Polygon { .. } => match Polygon::<Precision>::try_from(geometry) {
                     Ok(poly) => vec![poly],
                     Err(_) => vec![],
                 },
-                Value::MultiPolygon(_) => match MultiPolygon::<Precision>::try_from(geometry) {
+                Value::MultiPolygon { .. } => match MultiPolygon::<Precision>::try_from(geometry) {
                     Ok(multi_poly) => multi_poly.0.into_iter().collect(),
                     Err(_) => vec![],
                 },
@@ -270,15 +270,15 @@ mod tests {
 
     fn rect_feature(min_lon: Precision, min_lat: Precision, max_lon: Precision, max_lat: Precision) -> Feature {
         let ring = vec![
-            vec![min_lon, min_lat],
-            vec![max_lon, min_lat],
-            vec![max_lon, max_lat],
-            vec![min_lon, max_lat],
-            vec![min_lon, min_lat],
+            geojson::Position::from([min_lon, min_lat]),
+            geojson::Position::from([max_lon, min_lat]),
+            geojson::Position::from([max_lon, max_lat]),
+            geojson::Position::from([min_lon, max_lat]),
+            geojson::Position::from([min_lon, min_lat]),
         ];
         Feature {
             bbox: None,
-            geometry: Some(Geometry::new(Value::Polygon(vec![ring]))),
+            geometry: Some(Geometry::new(Value::Polygon { coordinates: vec![ring] })),
             id: None,
             properties: None,
             foreign_members: None,
@@ -491,25 +491,25 @@ mod tests {
         use geojson::{Feature, Geometry, Value};
         // Two non-overlapping rectangles as a MultiPolygon.
         let ring1 = vec![
-            vec![-74.003_f64, 39.997_f64],
-            vec![-73.997, 39.997],
-            vec![-73.997, 40.003],
-            vec![-74.003, 40.003],
-            vec![-74.003, 39.997],
+            geojson::Position::from([-74.003_f64, 39.997_f64]),
+            geojson::Position::from([-73.997, 39.997]),
+            geojson::Position::from([-73.997, 40.003]),
+            geojson::Position::from([-74.003, 40.003]),
+            geojson::Position::from([-74.003, 39.997]),
         ];
         let ring2 = vec![
-            vec![-74.103_f64, 39.997_f64],
-            vec![-74.097, 39.997],
-            vec![-74.097, 40.003],
-            vec![-74.103, 40.003],
-            vec![-74.103, 39.997],
+            geojson::Position::from([-74.103_f64, 39.997_f64]),
+            geojson::Position::from([-74.097, 39.997]),
+            geojson::Position::from([-74.097, 40.003]),
+            geojson::Position::from([-74.103, 40.003]),
+            geojson::Position::from([-74.103, 39.997]),
         ];
         let feature = Feature {
             bbox: None,
-            geometry: Some(Geometry::new(Value::MultiPolygon(vec![
+            geometry: Some(Geometry::new(Value::MultiPolygon { coordinates: vec![
                 vec![ring1],
                 vec![ring2],
-            ]))),
+            ] })),
             id: None,
             properties: None,
             foreign_members: None,

@@ -19,11 +19,11 @@ impl AreaPolygons {
         for feature in &area.features {
             if let Some(geometry) = &feature.geometry {
                 match &geometry.value {
-                    Value::Polygon(_) => match Polygon::try_from(geometry) {
+                    Value::Polygon { .. } => match Polygon::try_from(geometry) {
                         Ok(poly) => polys.push(poly),
                         Err(e) => log::warn!("Failed to convert Polygon: {}", e),
                     },
-                    Value::MultiPolygon(_) => match MultiPolygon::try_from(geometry) {
+                    Value::MultiPolygon { .. } => match MultiPolygon::try_from(geometry) {
                         Ok(mp) => multi_polys.push(mp),
                         Err(e) => log::warn!("Failed to convert MultiPolygon: {}", e),
                     },

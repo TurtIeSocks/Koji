@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "apps/koji-cli", "apps/koji-server"]
+members  = ["crates/*", "apps/koji-cli", "apps/koji-server"]
 
 # Single source of truth for every dependency version used across the workspace.
 # Each crate references these with `dep = { workspace = true }` and layers on its
@@ -11,95 +11,105 @@ members = ["crates/*", "apps/koji-cli", "apps/koji-server"]
 # ── Internal crates (path) ────────────────────────────────────────────────
 # default-features off so koji-wasm can exclude the `native` feature; native
 # consumers (koji-service) re-add `features = ["native"]`.
-algorithms = { path = "crates/algorithms", default-features = false }
-koji-core = { path = "crates/koji-core" }
-koji-db = { path = "crates/koji-db" }
+algorithms     = { path = "crates/algorithms", default-features = false }
+koji-core      = { path = "crates/koji-core" }
+koji-db        = { path = "crates/koji-db" }
 koji-dragonite = { path = "crates/koji-dragonite" }
-koji-events = { path = "crates/koji-events" }
-koji-golbat = { path = "crates/koji-golbat" }
-koji-jobs = { path = "crates/koji-jobs" }
-koji-plugins = { path = "crates/koji-plugins" }
-koji-service = { path = "crates/koji-service" }
-macros = { path = "crates/macros" }
-migration = { path = "crates/migration" }
-nominatim = { path = "crates/nominatim" }
+koji-events    = { path = "crates/koji-events" }
+koji-golbat    = { path = "crates/koji-golbat" }
+koji-jobs      = { path = "crates/koji-jobs" }
+koji-plugins   = { path = "crates/koji-plugins" }
+koji-service   = { path = "crates/koji-service" }
+macros         = { path = "crates/macros" }
+migration      = { path = "crates/migration" }
+nominatim      = { path = "crates/nominatim" }
 
 # ── External: shared by several crates ────────────────────────────────────
 # Features that every consumer shares are declared here; per-crate extras are
 # added at the use site.
-serde = { version = "1.0.225", features = ["derive"] }
-serde_json = "1.0.145"
-serde_with = "3.14.0"
-log = "0.4.28"
-thiserror = "2.0.16"
-chrono = "0.4.42"               # consumers add features = ["serde"] as needed
-reqwest = "0.12.23"             # consumers add features = ["json"] as needed
-regex = "1.11.2"
-async-trait = "0.1"
-sha2 = "0.10"
-ulid = "1"
-url = "2.5.7"
-rayon = "1.11.0"
-geo = "0.31.0"
-geo-types = "0.7.17"
-geojson = "0.24.2"
+serde       = { version = "1.0.228", features = ["derive"] }
+serde_json  = "1.0.150"
+serde_with  = "3.21.0"
+log         = "0.4.32"
+thiserror   = "2.0.18"
+chrono      = "0.4.45"                                       # consumers add features = ["serde"] as needed
+reqwest     = "0.13.4"                                       # consumers add features = ["json"] as needed
+regex       = "1.12.4"
+async-trait = "0.1.89"
+sha2        = "0.11.0"
+ulid        = "1.2.1"
+url         = "2.5.8"
+rayon       = "1.12.0"
+geo         = "0.33.1"
+geo-types   = "0.7.19"
+geojson     = "1.0.0"
 # default-features off (libc-based `float_extras` is wasm-incompatible); native
 # targets re-add it at the use site.
 s2 = { version = "0.0.13", default-features = false, features = ["serde"] }
 # Runtimes/extra features differ per crate (actix vs tokio runtime, with-json,
 # with-chrono); declared at each use site. Only the version is pinned here.
-sea-orm = "1.1.16"
-utoipa = { version = "5", features = ["actix_extras"] }
-actix-web = "4.11.0"
-tokio = "1"                     # consumers select their own runtime features
-dotenv = "0.15.0"
-env_logger = "0.11.8"
+sea-orm    = "1.1.20"
+utoipa     = { version = "5.5.0", features = ["actix_extras"] }
+actix-web  = "4.13.0"
+tokio      = "1.52.3"                                           # consumers select their own runtime features
+dotenv     = "0.15.0"
+env_logger = "0.11.10"
 
 # ── External: single-consumer (centralized for one-place version bumps) ───
 # CLI
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4.6.1", features = ["derive"] }
 # server
-tikv-jemallocator = "0.6"
+tikv-jemallocator = "0.7.0"
 # algorithms
-colored = "3.0.0"
-geohash = "0.13.1"
-hashbrown = "0.16.0"
-map_3d = "0.1.5"
-rand = { version = "0.9.2", default-features = false, features = ["small_rng", "std", "std_rng", "thread_rng"] }
-rstar = "0.12.2"
-web-time = "1"
-sysinfo = "0.37.0"
+colored = "3.1.1"
+geohash = "0.13.2"
+hashbrown = "0.17.1"
+map_3d = "0.1.7"
+rand = { version = "0.10.1", default-features = false, features = [
+  "std",
+  "std_rng",
+  "thread_rng",
+  "sys_rng",
+] }
+rstar = "0.13.0"
+web-time = "1.1.0"
+sysinfo = "0.39.3"
 # koji-db
-futures = "0.3.31"
+futures = "0.3.32"
 # koji-jobs
-dashmap = "6"
+dashmap = "6.2.1"
 # koji-events
-hmac = "0.12"
-hex = "0.4"
+hmac = "0.13.0"
+hex  = "0.4.3"
 # koji-plugins
-toml = "0.8.19"
-tempfile = "3.22.0"
+toml     = "1.1.2"
+tempfile = "3.27.0"
 # koji-service
-actix-files = "0.6.8"
-actix-session = { version = "0.11.0", features = ["cookie-session"] }
+actix-files        = "0.6.10"
+actix-session      = { version = "0.11.0", features = ["cookie-session"] }
 actix-web-httpauth = "0.8.2"
-subtle = "2.6"
+subtle             = "2.6.1"
 # migration
 async-std = { version = "1.13.2", features = ["attributes", "tokio1"] }
-sea-orm-migration = { version = "1.1.16", features = ["runtime-actix-native-tls", "sqlx-mysql", "with-json"] }
+sea-orm-migration = { version = "1.1.20", features = [
+  "runtime-actix-native-tls",
+  "sqlx-mysql",
+  "with-json",
+] }
 # nominatim
 serde_urlencoded = "0.7.1"
-derive_builder = "0.20.2"
+derive_builder   = "0.20.2"
 # koji-wasm
-serde-wasm-bindgen = "0.6"
-wasm-bindgen = "0.2"
-tsify = { version = "0.5", default-features = false, features = ["js"] }
-console_error_panic_hook = "0.1"
-wasm-bindgen-rayon = "1"
-getrandom = { version = "0.2", features = ["js"] }
-getrandom03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
-wasm-bindgen-test = "0.3"
+serde-wasm-bindgen = "0.6.5"
+wasm-bindgen = "0.2.125"
+tsify = { version = "0.5.6", default-features = false, features = ["js"] }
+console_error_panic_hook = "0.1.7"
+wasm-bindgen-rayon = "1.3.0"
+# Web backend for any transitive getrandom user on wasm. 0.2's "js" feature
+# became "wasm_js" in 0.3+; both old majors collapsed into one at 0.4.
+getrandom = { version = "0.4.3", features = ["wasm_js"] }
+wasm-bindgen-test = "0.3.75"
 # macros (proc-macro toolchain)
-syn = { version = "2.0", features = ["full"] }
-quote = "1.0"
-proc-macro2 = "1.0"
+syn         = { version = "2.0.118", features = ["full"] }
+quote       = "1.0.45"
+proc-macro2 = "1.0.106"

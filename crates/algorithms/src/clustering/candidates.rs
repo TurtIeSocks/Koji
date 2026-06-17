@@ -2,13 +2,13 @@ use std::cell::RefCell;
 
 use koji_core::{KojiBbox, Precision, SingleVec};
 use macros::time;
-use rand::{Rng, SeedableRng, rngs::SmallRng};
+use rand::{RngExt, SeedableRng, rngs::SmallRng};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::utils;
 
 thread_local! {
-    static TLS_RNG: RefCell<SmallRng> = RefCell::new(SmallRng::from_os_rng());
+    static TLS_RNG: RefCell<SmallRng> = RefCell::new(SmallRng::from_rng(&mut rand::rng()));
 }
 
 pub fn generate_clusters_from_points(

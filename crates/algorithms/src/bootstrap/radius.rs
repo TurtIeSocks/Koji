@@ -17,11 +17,11 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 /// reached here, but the fallthrough keeps the behavior total.
 fn split_multipolygon(geometry: Geometry) -> Vec<Geometry> {
     match geometry.value {
-        Value::MultiPolygon(polygons) => polygons
+        Value::MultiPolygon { coordinates: polygons } => polygons
             .into_iter()
             .map(|polygon| Geometry {
                 bbox: geometry.bbox.clone(),
-                value: Value::Polygon(polygon),
+                value: Value::Polygon { coordinates: polygon },
                 foreign_members: None,
             })
             .collect(),
@@ -95,7 +95,7 @@ impl<'a> BootstrapRadius<'a> {
     fn flatten_circles(&self) -> Vec<Point> {
         if let Some(geometry) = self.feature.geometry.clone() {
             match geometry.value {
-                Value::MultiPolygon(_) => split_multipolygon(geometry)
+                Value::MultiPolygon { .. } => split_multipolygon(geometry)
                     .par_iter()
                     .flat_map(|geo| self.generate_circles(geo))
                     .collect(),
@@ -269,15 +269,15 @@ mod tests {
     /// coords: lon,lat (geojson convention).
     fn rect_feature(min_lon: Precision, min_lat: Precision, max_lon: Precision, max_lat: Precision) -> Feature {
         let ring = vec![
-            vec![min_lon, min_lat],
-            vec![max_lon, min_lat],
-            vec![max_lon, max_lat],
-            vec![min_lon, max_lat],
-            vec![min_lon, min_lat], // closed
+            geojson::Position::from([min_lon, min_lat]),
+            geojson::Position::from([max_lon, min_lat]),
+            geojson::Position::from([max_lon, max_lat]),
+            geojson::Position::from([min_lon, max_lat]),
+            geojson::Position::from([min_lon, min_lat]), // closed
         ];
         Feature {
             bbox: None,
-            geometry: Some(Geometry::new(Value::Polygon(vec![ring]))),
+            geometry: Some(Geometry::new(Value::Polygon { coordinates: vec![ring] })),
             id: None,
             properties: None,
             foreign_members: None,
@@ -323,37 +323,37 @@ mod tests {
     #[test]
     fn split_multipolygon_polygon_passthrough() {
         let ring = vec![vec![
-            vec![0.0_f64, 0.0],
-            vec![1.0, 0.0],
-            vec![1.0, 1.0],
-            vec![0.0, 0.0],
+            geojson::Position::from([0.0_f64, 0.0]),
+            geojson::Position::from([1.0, 0.0]),
+            geojson::Position::from([1.0, 1.0]),
+            geojson::Position::from([0.0, 0.0]),
         ]];
-        let geo = Geometry::new(Value::Polygon(ring.clone()));
+        let geo = Geometry::new(Value::Polygon { coordinates: ring.clone() });
         let result = split_multipolygon(geo);
         assert_eq!(result.len(), 1);
         // Single polygon passthrough.
-        assert!(matches!(result[0].value, Value::Polygon(_)));
+        assert!(matches!(result[0].value, Value::Polygon { .. }));
     }
 
     #[test]
     fn split_multipolygon_splits_multi() {
         let ring1 = vec![vec![
-            vec![0.0_f64, 0.0],
-            vec![1.0, 0.0],
-            vec![0.5, 1.0],
-            vec![0.0, 0.0],
+            geojson::Position::from([0.0_f64, 0.0]),
+            geojson::Position::from([1.0, 0.0]),
+            geojson::Position::from([0.5, 1.0]),
+            geojson::Position::from([0.0, 0.0]),
         ]];
         let ring2 = vec![vec![
-            vec![2.0_f64, 0.0],
-            vec![3.0, 0.0],
-            vec![2.5, 1.0],
-            vec![2.0, 0.0],
+            geojson::Position::from([2.0_f64, 0.0]),
+            geojson::Position::from([3.0, 0.0]),
+            geojson::Position::from([2.5, 1.0]),
+            geojson::Position::from([2.0, 0.0]),
         ]];
-        let geo = Geometry::new(Value::MultiPolygon(vec![ring1, ring2]));
+        let geo = Geometry::new(Value::MultiPolygon { coordinates: vec![ring1, ring2] });
         let result = split_multipolygon(geo);
         assert_eq!(result.len(), 2);
         for g in &result {
-            assert!(matches!(g.value, Value::Polygon(_)));
+            assert!(matches!(g.value, Value::Polygon { .. }));
         }
     }
 

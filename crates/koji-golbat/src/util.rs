@@ -32,7 +32,7 @@ pub fn sql_raw_bbox(area: &FeatureCollection) -> String {
         };
         if let Some(geometry) = &feature.geometry {
             match geometry.value {
-                Value::Polygon(_) | Value::MultiPolygon(_) => {
+                Value::Polygon { .. } | Value::MultiPolygon { .. } => {
                     let _ = write!(
                         string,
                         "{} (lon BETWEEN {} AND {} AND lat BETWEEN {} AND {})",

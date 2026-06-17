@@ -87,7 +87,7 @@ fn topics_match(topics: &serde_json::Value, topic: &str) -> bool {
 // pub(crate) is enough for tests inside the module; re-exported via `use
 // crate::webhook::sign` in lib.rs tests.
 pub(crate) fn sign(secret: &str, body: &[u8]) -> String {
-    use hmac::{Hmac, Mac};
+    use hmac::{Hmac, KeyInit, Mac};
     use sha2::Sha256;
 
     type HmacSha256 = Hmac<Sha256>;

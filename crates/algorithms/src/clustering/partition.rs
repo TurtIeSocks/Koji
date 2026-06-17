@@ -65,7 +65,7 @@ pub(crate) fn gather_halo(
     );
 
     all_points_tree
-        .locate_in_envelope_intersecting(&envelope)
+        .locate_in_envelope_intersecting(envelope)
         .filter(|p| !contains_latlng(cell, p.center))
         .cloned()
         .collect()
@@ -75,7 +75,7 @@ pub(crate) fn gather_halo(
 mod tests {
     use super::*;
     use koji_core::{Precision, SingleVec};
-    use rand::{Rng, SeedableRng, rngs::SmallRng};
+    use rand::{RngExt, SeedableRng, rngs::SmallRng};
 
     pub(super) fn random_points_in_bbox(n: usize, bbox: [Precision; 4], seed: u64) -> SingleVec {
         let [min_lat, min_lon, max_lat, max_lon] = bbox;

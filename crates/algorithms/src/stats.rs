@@ -363,7 +363,7 @@ impl Stats {
                 self.cluster_stats
                     .increment(cluster.unique.len(), cluster.all.len());
 
-                if let Some(point) = tree.locate_at_point(&cluster.point.center) {
+                if let Some(point) = tree.locate_at_point(cluster.point.center) {
                     points_covered.insert(point);
                 }
                 points_covered.extend(&cluster.all);

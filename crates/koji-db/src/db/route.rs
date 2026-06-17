@@ -112,7 +112,7 @@ fn route_geofence_id(item: &KojiGeometry) -> Option<u64> {
 /// `to_koji_geometry`'s parse (`geo` → geojson → Json object).
 fn route_geometry_json(item: &KojiGeometry) -> Json {
     let gj = geojson::Geometry::new(geojson::Value::from(&item.geometry));
-    GeoJson::Geometry(gj).to_json_value()
+    serde_json::to_value(&GeoJson::Geometry(gj)).expect("geojson serializes")
 }
 
 impl Model {
@@ -124,7 +124,7 @@ impl Model {
     /// their defaults.
     #[allow(clippy::result_large_err)]
     pub fn to_koji_geometry(&self) -> Result<koji_core::KojiGeometry, ModelError> {
-        let gj = geojson::Geometry::from_json_value(self.geometry.clone())
+        let gj = serde_json::from_value::<geojson::Geometry>(self.geometry.clone())
             .map_err(|e| ModelError::Custom(format!("[GEOMETRY]: {e}")))?;
         let geometry = geo::Geometry::<Precision>::try_from(&gj)
             .map_err(|e| ModelError::Custom(format!("[GEOMETRY]: {e}")))?;
@@ -159,7 +159,7 @@ impl Model {
         // which only reshaped the already-MultiPoint coordinates back to themselves
         // and injected a `bbox` the downstream `KojiGeometryCollection::try_from`
         // discards — see the golden test `route_to_feature_matrix_free_golden`.)
-        let geometry = Geometry::from_json_value(geometry)?;
+        let geometry = serde_json::from_value::<geojson::Geometry>(geometry)?;
         let mut feature = Feature {
             geometry: Some(geometry),
             ..Feature::default()
@@ -292,10 +292,10 @@ impl Query {
     /// Creates a new Geofence model, only used from admin panel when creating a single geofence.
     /// Does not try to remove internal props since they do not exist yet
     pub async fn create(db: &DatabaseConnection, incoming: Model) -> Result<Model, DbErr> {
-        let new_fence = Geometry::from_json_value(incoming.geometry);
+        let new_fence = serde_json::from_value::<geojson::Geometry>(incoming.geometry);
         match new_fence {
             Ok(new_feature) => {
-                let value = GeoJson::Geometry(new_feature).to_json_value();
+                let value = serde_json::to_value(&GeoJson::Geometry(new_feature)).expect("geojson serializes");
                 ActiveModel {
                     name: Set(incoming.name.to_owned()),
                     geofence_id: Set(incoming.geofence_id),
@@ -341,9 +341,9 @@ impl Query {
         new_model: Model,
     ) -> Result<Model, DbErr> {
         let old_model: Option<Model> = Entity::find_by_id(id).one(db).await?;
-        let new_geometry = Geometry::from_json_value(new_model.geometry);
+        let new_geometry = serde_json::from_value::<geojson::Geometry>(new_model.geometry);
         if let Ok(new_geometry) = new_geometry {
-            let value = GeoJson::Geometry(new_geometry).to_json_value();
+            let value = serde_json::to_value(&GeoJson::Geometry(new_geometry)).expect("geojson serializes");
 
             let mut old_model: ActiveModel = old_model.unwrap().into();
             old_model.name = Set(new_model.name.to_owned());

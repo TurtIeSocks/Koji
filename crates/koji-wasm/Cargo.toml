@@ -23,7 +23,6 @@ console_error_panic_hook = { workspace = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-rayon = { workspace = true }
 getrandom = { workspace = true }
-getrandom03 = { workspace = true }
 
 [dev-dependencies]
 wasm-bindgen-test = { workspace = true }

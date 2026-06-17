@@ -164,7 +164,7 @@ fn build_geofence_upsert_map(item: &KojiGeometry) -> Result<GeofenceUpsertInputs
     };
 
     let gj = geojson::Geometry::new(geojson::Value::from(&item.geometry));
-    new_map.insert("geometry", GeoJson::Geometry(gj).to_json_value());
+    new_map.insert("geometry", serde_json::to_value(&GeoJson::Geometry(gj)).expect("geojson serializes"));
 
     if let Some(mode) = extra
         .get("__mode")
@@ -321,7 +321,7 @@ impl Model {
                 value: serde_json::Value::from(parent_name.clone()),
             });
         }
-        let geometry = Geometry::from_json_value(self.geometry)?;
+        let geometry = serde_json::from_value::<geojson::Geometry>(self.geometry)?;
 
         let mut feature = Feature {
             geometry: Some(if spec.output.skip_precision_trim() {
@@ -393,7 +393,7 @@ impl Model {
     /// `enum_bridge!` `From` impl.
     #[allow(clippy::result_large_err)]
     pub fn to_koji_geometry(&self) -> Result<koji_core::KojiGeometry, ModelError> {
-        let gj = geojson::Geometry::from_json_value(self.geometry.clone())
+        let gj = serde_json::from_value::<geojson::Geometry>(self.geometry.clone())
             .map_err(|e| ModelError::Custom(format!("[GEOMETRY]: {e}")))?;
         let geometry = geo::Geometry::<Precision>::try_from(&gj)
             .map_err(|e| ModelError::Custom(format!("[GEOMETRY]: {e}")))?;

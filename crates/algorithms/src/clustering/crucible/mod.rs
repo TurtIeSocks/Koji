@@ -291,7 +291,7 @@ impl Crucible {
             let audit_tree = rtree::spawn(r_eff, &refined);
             let missing: Vec<PointArray> = reps
                 .par_iter()
-                .filter(|p| audit_tree.locate_at_point(p).is_none())
+                .filter(|p| audit_tree.locate_at_point(**p).is_none())
                 .copied()
                 .collect();
             if !missing.is_empty() {
@@ -302,7 +302,7 @@ impl Crucible {
                 for p in missing.iter().take(8) {
                     use geo::{Distance, Haversine};
                     let nearest = audit_tree
-                        .nearest_neighbor(p)
+                        .nearest_neighbor(*p)
                         .map(|c| {
                             Haversine.distance(
                                 geo::Point::new(p[1], p[0]),
@@ -345,7 +345,7 @@ impl Crucible {
             })
             .collect();
         for c in centers {
-            for pt in tree.locate_all_at_point(c) {
+            for pt in tree.locate_all_at_point(*c) {
                 if let Some(&r) = id_to_idx.get(&pt.cell_id.0) {
                     covered[r as usize] = true;
                 }
@@ -364,7 +364,7 @@ impl Crucible {
         let mut scored: Vec<(usize, usize)> = centers
             .par_iter()
             .enumerate()
-            .map(|(i, c)| (tree.locate_all_at_point(c).count(), i))
+            .map(|(i, c)| (tree.locate_all_at_point(*c).count(), i))
             .collect();
         scored.sort_unstable_by(|a, b| b.cmp(a));
         let mut kept: Vec<PointArray> = scored

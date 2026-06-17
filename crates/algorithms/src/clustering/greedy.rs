@@ -105,7 +105,7 @@ impl<'a> Greedy {
         let mut still_uncovered: HashSet<::s2::cellid::CellID> = all_points
             .iter()
             .filter_map(|p| {
-                if center_tree.locate_at_point(p).is_some() {
+                if center_tree.locate_at_point(*p).is_some() {
                     None
                 } else {
                     let cell_id =
@@ -136,7 +136,7 @@ impl<'a> Greedy {
 
             // Find points within self.radius of `p` that are STILL uncovered.
             let candidates: Vec<&Point> = all_points_tree
-                .locate_all_at_point(p)
+                .locate_all_at_point(*p)
                 .filter(|q| still_uncovered.contains(&q.cell_id))
                 .collect();
 
@@ -241,13 +241,13 @@ impl<'a> Greedy {
             geometry: Some(Geometry {
                 bbox,
                 foreign_members: None,
-                value: geojson::Value::Polygon(vec![vec![
-                    vec![arr[0], arr[1]],
-                    vec![arr[2], arr[1]],
-                    vec![arr[2], arr[3]],
-                    vec![arr[0], arr[3]],
-                    vec![arr[0], arr[1]],
-                ]]),
+                value: geojson::Value::Polygon { coordinates: vec![vec![
+                    geojson::Position::from([arr[0], arr[1]]),
+                    geojson::Position::from([arr[2], arr[1]]),
+                    geojson::Position::from([arr[2], arr[3]]),
+                    geojson::Position::from([arr[0], arr[3]]),
+                    geojson::Position::from([arr[0], arr[1]]),
+                ]] },
             }),
             ..Default::default()
         };
@@ -285,7 +285,7 @@ impl<'a> Greedy {
             .generate_candidates_for_mode(points, self.cluster_mode.clone())
             .into_par_iter()
             .filter_map(|cluster| {
-                let iter = point_tree.locate_all_at_point(&cluster);
+                let iter = point_tree.locate_all_at_point(cluster);
                 let mut points = Vec::with_capacity(iter.size_hint().0);
                 points.extend(iter);
 

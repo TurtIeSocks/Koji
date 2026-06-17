@@ -248,7 +248,7 @@ pub fn solve_window_exact(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::{Rng, SeedableRng, rngs::SmallRng};
+    use rand::{RngExt, SeedableRng, rngs::SmallRng};
 
     #[test]
     fn exact_covers_pair_with_one_disk_at_m1() {

@@ -376,7 +376,7 @@ fn geojson_geometry_closed(geom: &Geometry<Precision>) -> String {
     let mut value = geojson::Value::from(geom);
     // Inline `EnsurePoints::ensure_first_last`: close each ring whose last point
     // differs from its first on *both* axes (matrix uses `&&`).
-    let close_ring = |ring: &mut Vec<Vec<Precision>>| {
+    let close_ring = |ring: &mut Vec<geojson::Position>| {
         let needs_close = match (ring.first(), ring.last()) {
             (Some(first), Some(last)) => last[0] != first[0] && last[1] != first[1],
             _ => false,
@@ -387,8 +387,8 @@ fn geojson_geometry_closed(geom: &Geometry<Precision>) -> String {
         }
     };
     match &mut value {
-        geojson::Value::Polygon(rings) => rings.iter_mut().for_each(close_ring),
-        geojson::Value::MultiPolygon(polys) => polys
+        geojson::Value::Polygon { coordinates: rings } => rings.iter_mut().for_each(close_ring),
+        geojson::Value::MultiPolygon { coordinates: polys } => polys
             .iter_mut()
             .flat_map(|p| p.iter_mut())
             .for_each(close_ring),
@@ -770,7 +770,7 @@ mod tests {
         use crate::geometry::single_vec_to_multipoint_feature;
 
         let golden =
-            geojson::Value::MultiPoint(vec![vec![2.0, 1.0], vec![4.0, 3.0], vec![6.0, 5.0]]);
+            geojson::Value::MultiPoint { coordinates: vec![geojson::Position::from([2.0, 1.0]), geojson::Position::from([4.0, 3.0]), geojson::Position::from([6.0, 5.0])] };
         for centers in [
             vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],             // open
             vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2.0]], // pre-closed
@@ -793,12 +793,12 @@ mod tests {
     fn single_vec_polygon_feature_matches_golden() {
         use crate::geometry::single_vec_to_polygon_feature;
 
-        let golden = geojson::Value::Polygon(vec![vec![
-            vec![2.0, 1.0],
-            vec![4.0, 3.0],
-            vec![6.0, 5.0],
-            vec![2.0, 1.0],
-        ]]);
+        let golden = geojson::Value::Polygon { coordinates: vec![vec![
+            geojson::Position::from([2.0, 1.0]),
+            geojson::Position::from([4.0, 3.0]),
+            geojson::Position::from([6.0, 5.0]),
+            geojson::Position::from([2.0, 1.0]),
+        ]] };
         for centers in [
             vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], // open ring
             vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2.0]], // pre-closed

@@ -5,8 +5,10 @@ use thiserror::Error;
 pub enum ModelError {
     #[error("Database Error: {0}")]
     Database(DbErr),
+    // geojson 1.0 parses geometries via serde, so geojson decode failures now
+    // surface as `serde_json::Error`.
     #[error("Geojson Error: {0}")]
-    Geojson(geojson::Error),
+    Geojson(serde_json::Error),
     #[error("[PROJECT]: {0}")]
     Project(String),
     #[error("[PROPERTY]: {0}")]
@@ -31,8 +33,8 @@ impl From<DbErr> for ModelError {
     }
 }
 
-impl From<geojson::Error> for ModelError {
-    fn from(error: geojson::Error) -> Self {
+impl From<serde_json::Error> for ModelError {
+    fn from(error: serde_json::Error) -> Self {
         Self::Geojson(error)
     }
 }
@@ -107,7 +109,7 @@ mod tests {
     fn from_geojson_error_wraps_in_geojson_variant() {
         // Force a geojson parse error by trying to build a Geometry from a string.
         let bad = serde_json::json!("not a geometry");
-        let result = geojson::Geometry::from_json_value(bad);
+        let result = serde_json::from_value::<geojson::Geometry>(bad);
         let gj_err = result.unwrap_err();
         let model_err = ModelError::from(gj_err);
         assert!(matches!(model_err, ModelError::Geojson(_)));

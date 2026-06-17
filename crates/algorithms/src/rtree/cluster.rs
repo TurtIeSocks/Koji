@@ -36,7 +36,7 @@ impl<'a> Cluster<'a> {
             .all
             .par_iter()
             .filter_map(|p| {
-                let points = tree.locate_all_at_point(&p.center).count();
+                let points = tree.locate_all_at_point(p.center).count();
                 if points == 1 { Some(*p) } else { None }
             })
             .collect();
@@ -71,7 +71,7 @@ mod tests {
         let points: Vec<[Precision; 2]> = vec![[40.0, -74.0], [41.0, -74.0]];
         let tree = rtree::spawn(1_000.0, &points);
         // Query at the first point — must find it (radius = 1 km > 0).
-        let found = tree.locate_at_point(&[40.0, -74.0]);
+        let found = tree.locate_at_point([40.0, -74.0]);
         assert!(found.is_some(), "should find the exact point");
     }
 
@@ -80,7 +80,7 @@ mod tests {
         let points: Vec<[Precision; 2]> = vec![[40.0, -74.0]];
         let tree = rtree::spawn(10.0, &points); // 10 m radius
         // ~111 km away — must not be found.
-        let found = tree.locate_at_point(&[41.0, -74.0]);
+        let found = tree.locate_at_point([41.0, -74.0]);
         assert!(found.is_none(), "far point must not be within 10 m radius");
     }
 

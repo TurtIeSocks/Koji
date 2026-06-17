@@ -667,7 +667,7 @@ impl<'a> Refiner<'a> {
             .par_iter()
             .filter_map(|&i| {
                 let neighbors: Vec<usize> = center_tree
-                    .locate_all_at_point(&this.pos[i])
+                    .locate_all_at_point(this.pos[i])
                     .filter_map(|pt| cell_to_centers.get(&pt.cell_id.0))
                     .flatten()
                     .copied()
@@ -785,7 +785,7 @@ impl<'a> Refiner<'a> {
                 // Dedupe before forming groups — a duplicated index would
                 // double-kill a center and corrupt the coverage counts.
                 let mut neigh: Vec<(Precision, usize)> = center_tree
-                    .locate_all_at_point(&this.pos[i])
+                    .locate_all_at_point(this.pos[i])
                     .filter_map(|pt| cell_to_centers.get(&pt.cell_id.0))
                     .flatten()
                     .copied()
@@ -891,7 +891,7 @@ impl<'a> Refiner<'a> {
             .par_iter()
             .filter_map(|&i| {
                 let mut neigh: Vec<(Precision, usize)> = center_tree
-                    .locate_all_at_point(&this.pos[i])
+                    .locate_all_at_point(this.pos[i])
                     .filter_map(|pt| cell_to_centers.get(&pt.cell_id.0))
                     .flatten()
                     .copied()

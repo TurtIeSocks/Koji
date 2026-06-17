@@ -17,7 +17,7 @@ use algorithms::clustering::{CalculationMode, ClusterMode, ClusteringConfig, S2C
 use algorithms::{clustering, stats::Stats};
 use geojson::FeatureCollection;
 use koji_core::{Precision, SingleVec};
-use rand::{Rng, SeedableRng, rngs::SmallRng};
+use rand::{RngExt, SeedableRng, rngs::SmallRng};
 
 const CENTER_LAT: Precision = 40.7128;
 const CENTER_LON: Precision = -74.0060;

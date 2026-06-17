@@ -202,15 +202,15 @@ impl From<BboxInput> for KojiBbox {
 /// lat]`, wound CCW and closed.
 fn bbox_collection(bbox: KojiBbox) -> FeatureCollection {
     let ring = vec![
-        vec![bbox.min_lon, bbox.min_lat],
-        vec![bbox.max_lon, bbox.min_lat],
-        vec![bbox.max_lon, bbox.max_lat],
-        vec![bbox.min_lon, bbox.max_lat],
-        vec![bbox.min_lon, bbox.min_lat],
+        geojson::Position::from([bbox.min_lon, bbox.min_lat]),
+        geojson::Position::from([bbox.max_lon, bbox.min_lat]),
+        geojson::Position::from([bbox.max_lon, bbox.max_lat]),
+        geojson::Position::from([bbox.min_lon, bbox.max_lat]),
+        geojson::Position::from([bbox.min_lon, bbox.min_lat]),
     ];
     let feature = Feature {
         bbox: None,
-        geometry: Some(Geometry::new(Value::Polygon(vec![ring]))),
+        geometry: Some(Geometry::new(Value::Polygon { coordinates: vec![ring] })),
         id: None,
         properties: None,
         foreign_members: None,
@@ -455,14 +455,14 @@ mod tests {
         assert_eq!(fc.features.len(), 1);
         let geom = fc.features[0].geometry.as_ref().unwrap();
         match &geom.value {
-            Value::Polygon(rings) => {
+            Value::Polygon { coordinates: rings } => {
                 assert_eq!(rings.len(), 1);
                 let ring = &rings[0];
                 // 5 coords, closed; geojson order is [lon, lat].
                 assert_eq!(ring.len(), 5);
                 assert_eq!(ring.first(), ring.last());
-                assert_eq!(ring[0], vec![2.0, 1.0]); // [min_lon, min_lat]
-                assert_eq!(ring[2], vec![4.0, 3.0]); // [max_lon, max_lat]
+                assert_eq!(ring[0], geojson::Position::from([2.0, 1.0])); // [min_lon, min_lat]
+                assert_eq!(ring[2], geojson::Position::from([4.0, 3.0])); // [max_lon, max_lat]
             }
             other => panic!("expected Polygon, got {other:?}"),
         }

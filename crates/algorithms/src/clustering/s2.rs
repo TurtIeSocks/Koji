@@ -48,15 +48,15 @@ mod tests {
 
     fn rect_feature(min_lon: Precision, min_lat: Precision, max_lon: Precision, max_lat: Precision) -> Feature {
         let ring = vec![
-            vec![min_lon, min_lat],
-            vec![max_lon, min_lat],
-            vec![max_lon, max_lat],
-            vec![min_lon, max_lat],
-            vec![min_lon, min_lat],
+            geojson::Position::from([min_lon, min_lat]),
+            geojson::Position::from([max_lon, min_lat]),
+            geojson::Position::from([max_lon, max_lat]),
+            geojson::Position::from([min_lon, max_lat]),
+            geojson::Position::from([min_lon, min_lat]),
         ];
         Feature {
             bbox: None,
-            geometry: Some(Geometry::new(Value::Polygon(vec![ring]))),
+            geometry: Some(Geometry::new(Value::Polygon { coordinates: vec![ring] })),
             id: None,
             properties: None,
             foreign_members: None,

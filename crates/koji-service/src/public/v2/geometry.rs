@@ -148,11 +148,11 @@ fn polygon_area_sum(collection: &FeatureCollection) -> Precision {
     for feature in collection {
         if let Some(geometry) = feature.geometry.as_ref() {
             match geometry.value {
-                Value::MultiPolygon(_) => match MultiPolygon::<Precision>::try_from(geometry) {
+                Value::MultiPolygon { .. } => match MultiPolygon::<Precision>::try_from(geometry) {
                     Ok(mp) => total_area += mp.chamberlain_duquette_unsigned_area(),
                     Err(err) => log::error!("Unable to calculate area for MultiPolygon: {err}"),
                 },
-                Value::Polygon(_) => match Polygon::<Precision>::try_from(geometry) {
+                Value::Polygon { .. } => match Polygon::<Precision>::try_from(geometry) {
                     Ok(poly) => total_area += poly.chamberlain_duquette_unsigned_area(),
                     Err(err) => log::error!("Unable to calculate area for Polygon: {err}"),
                 },

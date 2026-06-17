@@ -357,7 +357,7 @@ async fn publish(
     // `GeofenceUpdated.geofence` shape is locked, so it stays property-less. This
     // path already touches no `To*` matrix method, so it needs no rewire.
     let geometry =
-        Geometry::from_json_value(model.geometry.clone()).map_err(ServiceError::internal)?;
+        serde_json::from_value::<Geometry>(model.geometry.clone()).map_err(ServiceError::internal)?;
     let feature = Feature {
         bbox: None,
         geometry: Some(geometry),

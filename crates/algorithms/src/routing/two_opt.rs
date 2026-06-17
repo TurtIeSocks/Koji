@@ -56,7 +56,7 @@ pub fn optimize(order: SingleVec) -> SingleVec {
         .map(|i| {
             let q = [order[i][0], order[i][1]];
             let mut c: Vec<usize> = tree
-                .nearest_neighbor_iter(&q)
+                .nearest_neighbor_iter(q)
                 .filter(|g| g.data != i)
                 .take(K)
                 .map(|g| g.data)

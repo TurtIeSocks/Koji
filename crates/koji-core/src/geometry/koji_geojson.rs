@@ -92,7 +92,7 @@ impl From<&KojiGeometryCollection> for geojson::Geometry {
             .iter()
             .map(|g| geojson::Geometry::new(geojson::Value::from(&g.geometry)))
             .collect();
-        geojson::Geometry::new(geojson::Value::GeometryCollection(geometries))
+        geojson::Geometry::new(geojson::Value::GeometryCollection { geometries: geometries })
     }
 }
 
@@ -167,7 +167,7 @@ mod outbound_tests {
     fn collection_to_geometrycollection_is_property_less() {
         let c = KojiGeometryCollection::new(vec![sample(), sample()]);
         let g = geojson::Geometry::from(&c);
-        assert!(matches!(g.value, geojson::Value::GeometryCollection(ref v) if v.len() == 2));
+        assert!(matches!(g.value, geojson::Value::GeometryCollection { geometries: ref v } if v.len() == 2));
     }
 
     #[test]

@@ -120,7 +120,7 @@ pub fn components(reps: &SingleVec, radius: Precision) -> Vec<Vec<u32>> {
 
     let mut uf = UnionFind::new(cell_ids.len());
     for (i, center) in cell_centers.iter().enumerate() {
-        for nb in tree.locate_all_at_point(center) {
+        for nb in tree.locate_all_at_point(*center) {
             if let Some(&j) = center_to_cell_idx.get(&nb.cell_id.0) {
                 uf.union(i as u32, j);
             }
