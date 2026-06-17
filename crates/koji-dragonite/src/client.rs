@@ -1,26 +1,21 @@
 //! Async HTTP client for Dragonite's `/v2/areas/*` API.
 //!
-//! Reconciled against the real contract (`routes/v2_areas.go`): collection at
-//! `/v2/areas/` (trailing slash), single resource at `/v2/areas/{id}`,
-//! zero-based `?page` + `?per_page` (max 1000) pagination with a `V2Meta` block,
-//! optional `?q=` name filter, and the [`V2Envelope`](crate::envelope) response
-//! shape. Every request carries `Authorization: Bearer` + `User-Agent`.
+//! Reconciled against the real contract (`routes/v2_areas.go`): single resource
+//! at `/v2/areas/{id}` patched via PATCH, decoded through the
+//! [`V2Envelope`](crate::envelope) response shape. Every request carries
+//! `Authorization: Bearer` + `User-Agent`.
 
 use reqwest::header::USER_AGENT;
 use serde::de::DeserializeOwned;
 
-use crate::envelope::{V2Meta, parse_v2, parse_v2_with_meta};
+use crate::envelope::{V2Meta, parse_v2_with_meta};
 use crate::error::DragoniteError;
 use crate::types::ApiArea;
-
-/// Dragonite's documented maximum `per_page`.
-const MAX_PER_PAGE: i64 = 1000;
 
 /// Typed client over Dragonite's `/v2/areas` API.
 ///
 /// Construct with [`DragoniteClient::new`]; the `User-Agent` defaults to
-/// `koji-dragonite/<crate-version>` and can be overridden with
-/// [`DragoniteClient::with_user_agent`].
+/// `koji-dragonite/<crate-version>`.
 #[derive(Debug, Clone)]
 pub struct DragoniteClient {
     http: reqwest::Client,
@@ -43,12 +38,6 @@ impl DragoniteClient {
             bearer: bearer.into(),
             user_agent,
         }
-    }
-
-    /// Override the `User-Agent` header (builder-style).
-    pub fn with_user_agent(mut self, user_agent: impl Into<String>) -> Self {
-        self.user_agent = user_agent.into();
-        self
     }
 
     /// Join the base URL with a path (which should start with `/`).
@@ -90,70 +79,6 @@ impl DragoniteClient {
         self.exec(req).await.map(|(data, _)| data)
     }
 
-    /// List one page of areas. `page` is zero-based; `per_page` is capped at
-    /// [`MAX_PER_PAGE`]. `q` is an optional case-insensitive name substring
-    /// filter. Returns the page plus its [`V2Meta`].
-    pub async fn list_areas(
-        &self,
-        page: i64,
-        per_page: i64,
-        q: Option<&str>,
-    ) -> Result<(Vec<ApiArea>, V2Meta), DragoniteError> {
-        let per_page = per_page.clamp(1, MAX_PER_PAGE);
-        let mut query: Vec<(&str, String)> = vec![
-            ("page", page.to_string()),
-            ("per_page", per_page.to_string()),
-        ];
-        if let Some(q) = q.filter(|s| !s.is_empty()) {
-            query.push(("q", q.to_string()));
-        }
-        let req = self.http.get(self.url("/v2/areas/")).query(&query);
-        let (data, meta) = self.exec::<Vec<ApiArea>>(req).await?;
-        // A list endpoint should always carry meta; synthesize a single-page
-        // block if Dragonite ever omits it so callers needn't special-case None.
-        let meta = meta.unwrap_or(V2Meta {
-            total: data.len() as i64,
-            page,
-            per_page,
-            total_pages: 1,
-            has_next: false,
-            has_prev: page > 0,
-        });
-        Ok((data, meta))
-    }
-
-    /// Walk every page (zero-based, `per_page = MAX_PER_PAGE`) following
-    /// `meta.has_next`, concatenating the results. Uses the server's pagination
-    /// metadata as the terminator — no empty-page guessing.
-    pub async fn list_all_areas(&self) -> Result<Vec<ApiArea>, DragoniteError> {
-        let mut all = Vec::new();
-        let mut page = 0;
-        loop {
-            let (batch, meta) = self.list_areas(page, MAX_PER_PAGE, None).await?;
-            all.extend(batch);
-            if !meta.has_next {
-                break;
-            }
-            page += 1;
-        }
-        Ok(all)
-    }
-
-    /// Fetch a single area by its Dragonite area id.
-    pub async fn get_area(&self, dragonite_area_id: i64) -> Result<ApiArea, DragoniteError> {
-        let req = self
-            .http
-            .get(self.url(&format!("/v2/areas/{dragonite_area_id}")));
-        self.exec_data(req).await
-    }
-
-    /// Create an area. Send an [`ApiArea`] with `id == None` (the server assigns
-    /// it); returns the created area read back from Dragonite.
-    pub async fn create_area(&self, area: &ApiArea) -> Result<ApiArea, DragoniteError> {
-        let req = self.http.post(self.url("/v2/areas/")).json(area);
-        self.exec_data(req).await
-    }
-
     /// PATCH an area, sending only the fields present in `patch` (omitted fields
     /// are left unchanged; a `geofence: Tri::Null` clears that fence). Returns
     /// the updated area. Build `patch` with the
@@ -169,32 +94,6 @@ impl DragoniteClient {
             .patch(self.url(&format!("/v2/areas/{dragonite_area_id}")))
             .json(patch);
         self.exec_data(req).await
-    }
-
-    /// Delete an area by its Dragonite area id. Dragonite returns `204 No
-    /// Content` on success (no body); a non-2xx surfaces the V2 error envelope.
-    pub async fn delete_area(&self, dragonite_area_id: i64) -> Result<(), DragoniteError> {
-        let resp = self
-            .http
-            .delete(self.url(&format!("/v2/areas/{dragonite_area_id}")))
-            .bearer_auth(&self.bearer)
-            .header(USER_AGENT, &self.user_agent)
-            .send()
-            .await?;
-        let status = resp.status();
-        if status.is_success() {
-            return Ok(());
-        }
-        let bytes = resp.bytes().await?;
-        // An error response carries the V2 error envelope → surface it.
-        match parse_v2::<serde_json::Value>(&bytes) {
-            Err(e) => Err(e),
-            Ok(_) => Err(DragoniteError::Api {
-                code: Some(format!("http_{}", status.as_u16())),
-                message: "delete returned a non-2xx status with an `ok` envelope".to_string(),
-                field: None,
-            }),
-        }
     }
 }
 
@@ -246,35 +145,12 @@ mod tests {
     }
 
     #[test]
-    fn with_user_agent_overrides_default() {
-        let c = DragoniteClient::new("https://x", "t").with_user_agent("custom-agent/1.0");
-        assert_eq!(c.user_agent, "custom-agent/1.0");
-    }
-
-    #[test]
-    fn with_user_agent_is_builder_returns_client() {
-        // Verify the builder pattern actually mutates self (not a no-op clone).
-        let c = DragoniteClient::new("https://x", "t").with_user_agent("test/2");
-        assert_eq!(c.user_agent, "test/2");
-        // Default is gone — no "koji-dragonite/" prefix remains.
-        assert!(!c.user_agent.starts_with("koji-dragonite/"));
-    }
-
-    #[test]
-    fn with_user_agent_accepts_empty_string() {
-        // Unusual but valid — no panic.
-        let c = DragoniteClient::new("https://x", "t").with_user_agent("");
-        assert_eq!(c.user_agent, "");
-    }
-
-    #[test]
     fn clone_preserves_all_fields() {
-        let orig = DragoniteClient::new("https://dragonite.example/", "secret-token")
-            .with_user_agent("agent/99");
+        let orig = DragoniteClient::new("https://dragonite.example/", "secret-token");
         let cloned = orig.clone();
         assert_eq!(cloned.base_url, "https://dragonite.example");
         assert_eq!(cloned.bearer, "secret-token");
-        assert_eq!(cloned.user_agent, "agent/99");
+        assert!(cloned.user_agent.starts_with("koji-dragonite/"));
     }
 
     #[test]
@@ -296,7 +172,7 @@ mod tests {
     #[test]
     fn url_area_id_path_format() {
         let c = DragoniteClient::new("https://d.example", "tok");
-        // Verify area-id path matches expected format used by get/patch/delete.
+        // Verify area-id path matches expected format used by patch_area.
         let id: i64 = 42;
         assert_eq!(
             c.url(&format!("/v2/areas/{id}")),
@@ -364,7 +240,7 @@ mod tests {
 
     #[test]
     fn parse_v2_area_list_has_next_true() {
-        // has_next = true means list_all_areas should continue paginating.
+        // has_next = true is surfaced through the envelope meta block.
         let body = br#"{"status":"ok","data":[{"id":1,"name":"a"}],
             "meta":{"total":5,"page":0,"per_page":1,"total_pages":5,"has_next":true,"has_prev":false}}"#;
         let (_, meta) = parse_v2_with_meta::<Vec<ApiArea>>(body).expect("should parse");
@@ -471,76 +347,11 @@ mod tests {
     }
 
     #[test]
-    fn parse_v2_delete_ok_envelope_data_is_unit() {
-        // delete_area calls parse_v2::<serde_json::Value> on error bodies.
+    fn parse_v2_ok_envelope_data_is_unit() {
         // Verify an ok-shaped envelope with a JSON object decodes fine.
         let body = br#"{"status":"ok","data":{}}"#;
         let val: serde_json::Value = parse_v2(body).expect("ok data:{} should parse");
         assert!(val.is_object());
     }
 
-    // ── per_page clamping — tested via the MAX_PER_PAGE constant ─────────────
-
-    #[test]
-    fn max_per_page_is_1000() {
-        // The Dragonite contract specifies max=1000; changing this breaks the API.
-        assert_eq!(MAX_PER_PAGE, 1000);
-    }
-
-    #[test]
-    fn per_page_clamp_low_boundary() {
-        // clamp(1, MAX_PER_PAGE): 0 → 1, 1 → 1.
-        assert_eq!(0_i64.clamp(1, MAX_PER_PAGE), 1);
-        assert_eq!(1_i64.clamp(1, MAX_PER_PAGE), 1);
-    }
-
-    #[test]
-    fn per_page_clamp_high_boundary() {
-        // clamp: 1000 → 1000, 1001 → 1000, i64::MAX → 1000.
-        assert_eq!(1000_i64.clamp(1, MAX_PER_PAGE), 1000);
-        assert_eq!(1001_i64.clamp(1, MAX_PER_PAGE), 1000);
-        assert_eq!(i64::MAX.clamp(1, MAX_PER_PAGE), 1000);
-    }
-
-    #[test]
-    fn per_page_clamp_negative() {
-        // Negative values are invalid → clamped to 1.
-        assert_eq!((-5_i64).clamp(1, MAX_PER_PAGE), 1);
-    }
-
-    // ── synthesized V2Meta (when server omits it) ─────────────────────────────
-    // The actual synthesis is inline in list_areas (async, needs HTTP), but we
-    // can verify the V2Meta fields we construct are logically consistent.
-
-    #[test]
-    fn synthesized_meta_for_page_0_has_no_prev() {
-        let data_len = 3_i64;
-        let page = 0_i64;
-        let per_page = 50_i64;
-        let synth = V2Meta {
-            total: data_len,
-            page,
-            per_page,
-            total_pages: 1,
-            has_next: false,
-            has_prev: page > 0,
-        };
-        assert!(!synth.has_prev);
-        assert!(!synth.has_next);
-        assert_eq!(synth.total, 3);
-    }
-
-    #[test]
-    fn synthesized_meta_for_page_1_has_prev() {
-        let page = 1_i64;
-        let synth = V2Meta {
-            total: 10,
-            page,
-            per_page: 10,
-            total_pages: 2,
-            has_next: false,
-            has_prev: page > 0,
-        };
-        assert!(synth.has_prev);
-    }
 }
