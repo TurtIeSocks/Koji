@@ -381,7 +381,7 @@ git commit -m "feat(koji-service): offset pagination (?limit/&offset) + Meta::bu
 
 ## Task 3: `?format=` negotiation (`respond_geo`)
 
-Geometry-bearing reads return enveloped GeoJSON by default; explicit export formats (`sql`, `poracle`, `text`, `array`, …) return a **raw** body for drop-in scanner-tool compatibility. Reuses the existing `response_body` serializer.
+Geometry-bearing reads return enveloped GeoJSON by default; explicit export formats (`sql`, `poracle`, `text`, `array`, …) return a **raw** body for drop-in golbat-tool compatibility. Reuses the existing `response_body` serializer.
 
 **Files:**
 - Modify: `crates/koji-service/src/utils/response.rs` (expose `response_body`)
@@ -405,7 +405,7 @@ Create `crates/koji-service/src/utils/format.rs`:
 ```rust
 //! `?format=` negotiation for geometry-bearing reads. The default (geojson)
 //! shapes ride inside the v2 envelope; the explicit export formats are returned
-//! raw (no envelope) so they stay drop-in compatible with scanner tooling.
+//! raw (no envelope) so they stay drop-in compatible with golbat tooling.
 //! Serialization itself is delegated to [`response_body`].
 
 use actix_web::{HttpResponse, http::StatusCode};
@@ -416,7 +416,7 @@ use crate::utils::api_response::ApiResponse;
 use crate::utils::response::response_body;
 
 /// `true` for the GeoJSON shapes that ride inside the v2 envelope; `false` for
-/// the raw export formats returned bare for scanner-tool compatibility.
+/// the raw export formats returned bare for golbat-tool compatibility.
 pub(crate) fn is_enveloped(rt: &ReturnTypeArg) -> bool {
     matches!(
         rt,

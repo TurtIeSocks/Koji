@@ -242,7 +242,7 @@ export const useImportExport = create<UseImportExport>((set, get) => ({
       // `clusters` (StatsReq takes dataPoints/clusters/radius/minPoints/instance —
       // no area/tth/last_seen). POST /api/v2/jobs → pollJob → result.stats.
       // TODO(v2-verify): v1 passed `area` (+ tth/last_seen) so the server fetched
-      // the scanner data points to score against; v2 StatsReq has no area field —
+      // the golbat data points to score against; v2 StatsReq has no area field —
       // it scores only against supplied `dataPoints` (empty here). The distance
       // stats still compute, but the coverage/score (which need data points) may
       // be 0 until dataPoints are supplied. Runtime-unverified; flagged.

@@ -4,7 +4,7 @@
 
 **Goal:** Physically relocate the now-pure geometry types, conversion traits/impls, `GeoFormats`, `BBox`, `Precision`, and the pure utils they need (`TrimPrecision`, `sql_raw`, `sql_raw_bbox`) from `crates/model/src/api` into `crates/koji-core`, **and migrate every consumer to import them from `koji_core` directly — no re-export facade, no transitional debt.** `algorithms`/`api` gain a direct `koji-core` dep; the P1a strategy-enum shims in `model::api` are deleted too (consumers move to `koji_core::{ClusterMode,…}`). After P1b, `model::api` holds only `args` (the super-struct, P1d) + the RDM `text.rs`.
 
-**Architecture:** koji-core grows from "enums only" to the full geometry/GeoJSON domain layer. Two carve-outs: (1) `PointStruct` moves to core *pure* (no sea-orm `FromQueryResult`); `model::db` gains a `LatLonRow` query-row type that derives `FromQueryResult` and converts to `PointStruct`, used by the 12 scanner SELECT sites. (2) `text.rs` splits — pure `To*` impls for `String` move to core; the RDM-coupled `TextHelpers`/`parse_scanner_instance` stays in `model` (removed in P6).
+**Architecture:** koji-core grows from "enums only" to the full geometry/GeoJSON domain layer. Two carve-outs: (1) `PointStruct` moves to core *pure* (no sea-orm `FromQueryResult`); `model::db` gains a `LatLonRow` query-row type that derives `FromQueryResult` and converts to `PointStruct`, used by the 12 golbat SELECT sites. (2) `text.rs` splits — pure `To*` impls for `String` move to core; the RDM-coupled `TextHelpers`/`parse_golbat_instance` stays in `model` (removed in P6).
 
 **Not in scope (next phase):** modernizing the `To*` conversion zoo into `From`/`Into`/`TryFrom` + a `FeatureCtx` for the param-carrying conversions + a derive macro. P1b is a *pure move + import migration* — call style is unchanged. The redesign is its own designed/reviewed phase right after.
 
@@ -121,7 +121,7 @@ pub type Precision = f64;
 ```rust
 use sea_orm::FromQueryResult;
 
-/// Query-row for `SELECT lat, lon` from scanner tables. Converts to the pure
+/// Query-row for `SELECT lat, lon` from golbat tables. Converts to the pure
 /// koji-core PointStruct.
 #[derive(Debug, FromQueryResult)]
 pub struct LatLonRow {
@@ -147,7 +147,7 @@ impl From<LatLonRow> for koji_core::PointStruct {
 
 - [ ] **Step 1: Create `koji-core/src/geometry/text.rs`** with the PURE impls moved from `model/src/api/text.rs`: `impl ToPointArray/ToSingleVec/ToMultiVec/ToPointStruct/ToSingleStruct/ToMultiStruct/ToFeature/ToCollection/ToPoracle for String` (lines 49-159). `use super::*;` for the traits.
 
-- [ ] **Step 2: Trim `model/src/api/text.rs`** to keep ONLY the RDM-coupled `TextHelpers` trait + `impl TextHelpers for String` (lines 3-46, `parse_scanner_instance` using `InstanceParsing`/`RdmInstanceArea`). It now needs the To* traits from koji-core: change its imports to `use koji_core::{ToFeature, ToSingleVec, ...}` as the compiler requires. (This whole file is deleted in P6 with RDM.)
+- [ ] **Step 2: Trim `model/src/api/text.rs`** to keep ONLY the RDM-coupled `TextHelpers` trait + `impl TextHelpers for String` (lines 3-46, `parse_golbat_instance` using `InstanceParsing`/`RdmInstanceArea`). It now needs the To* traits from koji-core: change its imports to `use koji_core::{ToFeature, ToSingleVec, ...}` as the compiler requires. (This whole file is deleted in P6 with RDM.)
 
 ---
 
@@ -194,7 +194,7 @@ PointArray, PointStruct, Poracle), GeoFormats, BBox, Precision, and the pure
 utils (TrimPrecision, sql_raw) into koji-core. Consumers (algorithms, api,
 model internals) migrate to import from koji_core directly; model::api keeps
 only args + RDM text — NO re-export facade. PointStruct is pure in core;
-model::db::LatLonRow carries the FromQueryResult for the 12 scanner SELECT
+model::db::LatLonRow carries the FromQueryResult for the 12 golbat SELECT
 sites. text.rs split: pure String impls -> core, RDM TextHelpers stays in
 model (removed in P6).
 

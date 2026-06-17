@@ -27,8 +27,8 @@ Koji/
     koji-algorithms/    ← was algorithms/ (minus plugin.rs)
                          Action: keep logic, restructure inputs. cluster()/route()/bootstrap() take config structs
                          (was 15 primitives). stats.rs kept. rayon retained.
-    koji-scanner/       ← was model/db/{gym,pokestop,spawnpoint,station}.rs
-                         Action: move + isolate. Read-only golbat (SCANNER_DB_URL). Returns koji-core points.
+    koji-golbat/       ← was model/db/{gym,pokestop,spawnpoint,station}.rs
+                         Action: move + isolate. Read-only golbat (GOLBAT_DB_URL). Returns koji-core points.
     koji-db/            ← was model/db/{geofence,route,project,property,geofence_project,geofence_property,tile_server}
                          Action: refactor. Koji's OWN db. sea-orm entities stop being public DTOs; From/Into to
                          core domain enums at the boundary. + NEW area_fence + dragonite_area_id linkage.
@@ -45,7 +45,7 @@ Koji/
                          Action: keep history; ADD job, event_outbox, webhook_subscription, area_fence,
                          area.dragonite_area_id.
     koji-service/       ← was api/  [RW]
-                         Action: rewrite. actix app. v2 typed resources + /jobs + /calc sugar + scanner-data +
+                         Action: rewrite. actix app. v2 typed resources + /jobs + /calc sugar + golbat-data +
                          geo utils + meta. v1 shim module. Managed AppState (DB pool, JobQueue, Dispatcher,
                          registries, dragonite client). Concrete CalculateHandler (jobs) + DragoniteSubscriber (events).
                          Explicit response DTOs (entity→DTO mapping). JSend envelope.
@@ -67,10 +67,10 @@ Koji/
 ## Dropped (not in V2)
 - `model/db/instance.rs` — RDM `instance` writes. **Replaced by koji-dragonite API calls.**
 - `model/db/area.rs` controller-write logic (`upsert_from_geometry` to controller) — the "rude" path. **Replaced by DragoniteSubscriber.**
-- `ScannerType` (+ `Unown`/`RDM`/`Hybrid`) & scanner-type autodetect — **single path now**; no RDM, no Hybrid.
-- `RdmInstance`, `RdmInstanceArea`, `InstanceParsing::Rdm`, `parse_scanner_instance` RDM arms.
-- `KojiDb.controller` connection — replaced by the Dragonite HTTP client. (KojiDb: 3 conns → 2: `koji`+`scanner`.)
-- Deprecated env: `UNOWN_DB_URL`, `UNOWN_DB`, `DATABASE_URL`. Keep `SCANNER_DB_URL` + Koji DB + `DRAGONITE_URL`/`DRAGONITE_TOKEN`.
+- `GolbatType` (+ `Unown`/`RDM`/`Hybrid`) & golbat-type autodetect — **single path now**; no RDM, no Hybrid.
+- `RdmInstance`, `RdmInstanceArea`, `InstanceParsing::Rdm`, `parse_golbat_instance` RDM arms.
+- `KojiDb.controller` connection — replaced by the Dragonite HTTP client. (KojiDb: 3 conns → 2: `koji`+`golbat`.)
+- Deprecated env: `UNOWN_DB_URL`, `UNOWN_DB`, `DATABASE_URL`. Keep `GOLBAT_DB_URL` + Koji DB + `DRAGONITE_URL`/`DRAGONITE_TOKEN`.
 - `Args` deprecated fields: `devices`, `fast`, `generations`, `only_unique`, `route_chunk_size`, `routing_time`.
 - GET-that-mutates `push/{id}` routes — become `POST /:id/publish` (+ event).
 

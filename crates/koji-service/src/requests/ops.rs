@@ -65,7 +65,7 @@ pub struct EnqueueInputs {
     pub instance: String,
     /// A parent geofence id whose children form the area (cluster / bootstrap).
     pub parent: Option<UnknownId>,
-    /// The scanner data-point filter (`last_seen` / `tth`).
+    /// The golbat data-point filter (`last_seen` / `tth`).
     pub data_filter: DataFilter,
 }
 
@@ -122,7 +122,7 @@ impl CalcRequest {
 pub struct CalcJobRequest {
     #[serde(flatten)]
     pub request: CalcRequest,
-    /// Scanner data category; defaults to `pokestop`. Ignored when points are
+    /// Golbat data category; defaults to `pokestop`. Ignored when points are
     /// pre-supplied (reroute / route-stats / explicit `dataPoints`).
     #[serde(default = "default_category")]
     pub category: String,
@@ -150,7 +150,7 @@ impl CalcJobRequest {
 /// clustering, routing, output, dev, and data-filter groups.
 ///
 /// `parent` + the `data_filter` group ride along so the HTTP enqueue layer can do
-/// the same async area / scanner resolution the legacy flat `Args` drove
+/// the same async area / golbat resolution the legacy flat `Args` drove
 /// (`create_or_find_collection` reads `parent`; `points_from_area` reads
 /// `data_filter.last_seen`/`tth`).
 #[derive(Debug, Deserialize, Serialize, ToSchema)]

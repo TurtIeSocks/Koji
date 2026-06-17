@@ -116,7 +116,7 @@ const V2_RESOURCE_SEG: Record<'geofence' | 'project' | 'route', string> = {
  * Refresh one Kōji metadata cache from v2.
  *
  * - `project` → `GET /api/v2/projects?per_page=9999` returns ROW records
- *   (`{ id, name, scanner, ... }`) — used as-is.
+ *   (`{ id, name, golbat, ... }`) — used as-is.
  * - `geofence`/`route` → `GET /api/v2/{seg}?per_page=9999` returns a GeoJSON
  *   `FeatureCollection` (these resources are geometry-bearing in v2). We derive a
  *   best-effort `DbOption` from each feature's `properties` (KojiMeta `id`/`name`/
@@ -195,29 +195,29 @@ export async function refreshKojiCache() {
 }
 
 /**
- * Scanner-sourced routes cache.
+ * Golbat-sourced routes cache.
  *
- * TODO(v2-gap): the v1 `/internal/routes/from_scanner` endpoint (routes pulled
- * from the scanner DB's `instance`/`area` tables) has NO v2 equivalent — the v2
- * surface does not expose scanner-sourced routes. Stubbed to clear the `scanner`
- * cache so callers (`SaveToScanner`, the calc `save_to_scanner` refresh, the
- * `Instance` selector's scanner mode) build + run without crashing; they simply
- * see an empty scanner list. Flagged for the user — if scanner-route browsing is
+ * TODO(v2-gap): the v1 `/internal/routes/from_golbat` endpoint (routes pulled
+ * from the golbat DB's `instance`/`area` tables) has NO v2 equivalent — the v2
+ * surface does not expose golbat-sourced routes. Stubbed to clear the `golbat`
+ * cache so callers (`SaveToGolbat`, the calc `save_to_golbat` refresh, the
+ * `Instance` selector's golbat mode) build + run without crashing; they simply
+ * see an empty golbat list. Flagged for the user — if golbat-route browsing is
  * still needed, a v2 endpoint must be added (P7+).
  */
-export async function getScannerCache(): Promise<
+export async function getGolbatCache(): Promise<
   Record<string, DbOption> | undefined
 > {
   const asObject: Record<string, DbOption> = {}
-  useDbCache.setState({ scanner: asObject })
-  console.log('Cache set:', 'scanner', '(v2-gap: stubbed empty)')
+  useDbCache.setState({ golbat: asObject })
+  console.log('Cache set:', 'golbat', '(v2-gap: stubbed empty)')
   return asObject
 }
 
 export async function getFullCache() {
   Promise.all(
-    (['geofence', 'route', 'project', 'scanner'] as const).map((resource) =>
-      resource === 'scanner' ? getScannerCache() : getKojiCache(resource),
+    (['geofence', 'route', 'project', 'golbat'] as const).map((resource) =>
+      resource === 'golbat' ? getGolbatCache() : getKojiCache(resource),
     ),
   )
 }
@@ -237,7 +237,7 @@ export async function clusteringRouting({
     category: rawCategory,
     min_points,
     save_to_db,
-    save_to_scanner,
+    save_to_golbat,
     skipRendering,
     last_seen: raw,
     sort_by,
@@ -347,7 +347,7 @@ export async function clusteringRouting({
                 sortBy: sort_by,
                 pluginArgs: routing_args || undefined,
               },
-              output: { returnType: 'feature', saveToDb: save_to_db, saveToScanner: save_to_scanner },
+              output: { returnType: 'feature', saveToDb: save_to_db, saveToGolbat: save_to_golbat },
             }
           : {
               mode: 'cluster',
@@ -371,7 +371,7 @@ export async function clusteringRouting({
                 sortBy: sort_by,
                 pluginArgs: routing_args || undefined,
               },
-              output: { returnType: 'feature', saveToDb: save_to_db, saveToScanner: save_to_scanner },
+              output: { returnType: 'feature', saveToDb: save_to_db, saveToGolbat: save_to_golbat },
               dataFilter: {
                 lastSeen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
                 tth,
@@ -470,14 +470,14 @@ export async function clusteringRouting({
   setStatic('totalStartTime', 0)
   if (!skipRendering) add(features.filter((f) => !!f.geometry))
   if (save_to_db) await getKojiCache('route')
-  if (save_to_scanner) await getScannerCache()
+  if (save_to_golbat) await getGolbatCache()
   return {
     type: 'FeatureCollection',
     features,
   }
 }
 
-/** Scanner-data marker icon prefix per category (matches koji-scanner's
+/** Golbat-data marker icon prefix per category (matches koji-golbat's
  * `normalize::fort` id-prefix). spawnpoint's confirmed/unconfirmed `v`/`u` split
  * is not recoverable from the v2 `{points}` payload, so we use `v`. */
 const MARKER_PREFIX: Record<Category, PixiMarker['i'][0]> = {
@@ -497,12 +497,12 @@ export async function getMarkers(
   if (data === 'area' && !geojson.features.length) return []
   const last_seen = typeof raw === 'string' ? new Date(raw) : raw
 
-  // v2 `POST /api/v2/scanner-data/{category}`: the drawn area rides the body as
+  // v2 `POST /api/v2/golbat-data/{category}`: the drawn area rides the body as
   // an `area` geojson container OR a flat camelCase `bbox`. There is no v2 "all"
   // mode (v1 `/internal/data/all` returned every point with no area filter); for
   // `data === 'all'` we send no area, which yields an empty set.
   // TODO(v2-gap): the v1 `data: 'all'` (unbounded "all markers") mode has no v2
-  // scanner-data equivalent — it now returns nothing. Bound/area modes work.
+  // golbat-data equivalent — it now returns nothing. Bound/area modes work.
   const body: Record<string, unknown> = {
     last_seen: Math.floor((last_seen?.getTime?.() || 0) / 1000),
     tth,
@@ -531,7 +531,7 @@ export async function getMarkers(
     // TODO(v2-verify): the {points}→PixiMarker adaptation + the spawnpoint v/u
     // collapse are runtime-unverified (no backend/DB here).
     const res = await fetchWrapper<{ points: [number, number][] }>(
-      `/api/v2/scanner-data/${category}`,
+      `/api/v2/golbat-data/${category}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

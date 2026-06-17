@@ -2,7 +2,7 @@
 
 Companion to `relocation-map.md` / `dry-report.md` (earlier refactors). This pass = **test coverage**: drive every testable crate up, env-gated DB integration where infra exists, and let characterization tests flush out bugs.
 
-**Tooling:** `cargo-llvm-cov` (installed this session; `llvm-tools` component already present). DB tests run against a live brew MySQL `koji_test` via `.env.test` (`set -a; source ./.env.test; set +a`, sandbox off). golbat (`192.168.1.254`) was **unreachable** this session → live-scanner paths deferred.
+**Tooling:** `cargo-llvm-cov` (installed this session; `llvm-tools` component already present). DB tests run against a live brew MySQL `koji_test` via `.env.test` (`set -a; source ./.env.test; set +a`, sandbox off). golbat (`192.168.1.254`) was **unreachable** this session → live-golbat paths deferred.
 
 **Method:** subagent-driven, one owner per crate per wave (commits use `git add <crate-path>`, never `-A`, so concurrent same-branch commits don't cross-contaminate). Every DB test mirrors the gold-standard template `crates/koji-jobs/tests/queue_db.rs`: `KOJI_DB_URL` env-gate (skip-on-unset so no-env `cargo test` passes), process-wide `SERIAL` mutex (dodges MySQL 1213), ULID-unique row keys, panic-safe capture→delete→assert cleanup. A fresh-eyes reviewer audited the wave: no coverage-chasing, isolation sound, lib helpers `#[doc(hidden)]`.
 
@@ -18,7 +18,7 @@ Companion to `relocation-map.md` / `dry-report.md` (earlier refactors). This pas
 | koji-db | 39% | 88% | ✅ deep paginate/geometry-hierarchy paths now covered |
 | koji-dragonite | 68% | 84% | HTTP send path needs a mock |
 | algorithms | 62% | 84% | greedy✂️ + clusterbench-bin + crucible-already-high excluded |
-| koji-service | 48% | 80% | handler cases + calc/scanner_data(golbat) + bug-paths |
+| koji-service | 48% | 80% | handler cases + calc/golbat_data(golbat) + bug-paths |
 | macros | 75% | 75% | compile_error! paths need `trybuild` |
 | nominatim | 0% | 0% | SKIPPED — upstream-crate swap pending |
 | migration | 18% | 18% | SKIPPED — append-only ledger |
@@ -30,7 +30,7 @@ Companion to `relocation-map.md` / `dry-report.md` (earlier refactors). This pas
 Every remaining uncovered region now has a reason:
 
 1. **Deliberate exclusions** — nominatim (218, upstream swap), `clustering/greedy.rs` (224, crucible cut), `bin/clusterbench.rs` (342, dev bench), migration (136, ledger).
-2. **golbat-blocked (deferred until `192.168.1.254` reachable)** — `koji-scanner/entities/{gym,pokestop,spawnpoint,station}` (~250), `koji-service/public/v2/scanner_data` (93), `calc.rs` scanner-dependent ops.
+2. **golbat-blocked (deferred until `192.168.1.254` reachable)** — `koji-golbat/entities/{gym,pokestop,spawnpoint,station}` (~250), `koji-service/public/v2/golbat_data` (93), `calc.rs` golbat-dependent ops.
 3. **Needs a test dependency (your call)** — `macros` compile_error! diagnostics (~81 → `trybuild`); `koji-dragonite`/`nominatim`-handler HTTP send (~160 → `wiremock`/`mockito`).
 4. **Native-gated / diminishing** — `bootstrap/mod.rs` (`#[cfg(feature="native")]`), crucible (already 90%+).
 5. **Pinned bugs** — broken paths can't go green until fixed (below); characterization tests assert the *current* behavior with `// BUG:` notes.
@@ -55,4 +55,4 @@ Each was first pinned by a characterization test asserting the broken behavior; 
 
 - ~~Fix the bugs?~~ ✅ **All 6 fixed + verified** (commits above; workspace green, koji_test clean).
 - **Add `trybuild` (macros) + `wiremock` (dragonite/nominatim HTTP)?** Pushes those crates higher at the cost of two dev-deps.
-- **Scanner + scanner_data + calc:** re-run when golbat is reachable (the tests are scoped + waiting).
+- **Golbat + golbat_data + calc:** re-run when golbat is reachable (the tests are scoped + waiting).

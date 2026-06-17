@@ -16,7 +16,7 @@ A[Dragonite Admin]
 RG[rdmGruber]
 end
 K[Koji API]
-S[(Scanner/Controller DB)]
+S[(Golbat/Controller DB)]
 R --> K
 P --> K
 G --> K
@@ -161,7 +161,7 @@ API Key: x-golbat-secret:{golbat_config.api_secret}
 
 ### Project Setup
 
-Use these values for your "scanner project" if Kōji and Dragonite are on the **same** network.
+Use these values for your "golbat project" if Kōji and Dragonite are on the **same** network.
 
 ```yml
 API endpoint: http://{drago_host_ip}:{drago_port}/reload
@@ -186,7 +186,7 @@ API key: Leave empty. Dragonite currently does not support authentication
 
 ### Project Setup
 
-Use these values for your "scanner project" if Kōji and Dragonite are on **different** networks. This will proxy the request through Dragonite Admin to Dragonite utilizing the `api_secret` value.
+Use these values for your "golbat project" if Kōji and Dragonite are on **different** networks. This will proxy the request through Dragonite Admin to Dragonite utilizing the `api_secret` value.
 
 ```yml
 API endpoint: http://{drago_admin_host_ip}:{drago_admin_port}/api/reload

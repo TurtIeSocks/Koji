@@ -11,16 +11,16 @@
 ## Delegate-mode decisions (recorded)
 
 - **Code-first (utoipa), not a hand-rewrite** — drift-proof; the scaffold exists.
-- **Scope:** annotate the whole v2 surface. If the sweep proves too large to finish cleanly, annotate the **core** (envelope/error schemas + jobs + the 5 CRUD resources + geometry/s2/scanner-data) and flag the remainder (plugins/auth/health/nominatim) as `// TODO(openapi)` — a partial-but-accurate generated doc still beats the static lie. Report exactly what's covered.
+- **Scope:** annotate the whole v2 surface. If the sweep proves too large to finish cleanly, annotate the **core** (envelope/error schemas + jobs + the 5 CRUD resources + geometry/s2/golbat-data) and flag the remainder (plugins/auth/health/nominatim) as `// TODO(openapi)` — a partial-but-accurate generated doc still beats the static lie. Report exactly what's covered.
 - **Documentation-only phase** — no runtime behavior changes. Verified by the doc building + containing the routes.
 
 ---
 
 ## Task 1: Schemas — `ToSchema` on the types
 
-**Files:** `utils/api_response.rs` (envelope), `requests/ops.rs` + `requests/groups.rs` (calc), the per-resource DTOs (`public/v2/resources.rs` generated DTOs, `geofences.rs`/`routes.rs` DTOs), `s2`/`geometry`/`scanner_data` request types, `plugins.rs` `Plugin`/`PluginPatch`.
+**Files:** `utils/api_response.rs` (envelope), `requests/ops.rs` + `requests/groups.rs` (calc), the per-resource DTOs (`public/v2/resources.rs` generated DTOs, `geofences.rs`/`routes.rs` DTOs), `s2`/`geometry`/`golbat_data` request types, `plugins.rs` `Plugin`/`PluginPatch`.
 
-- [ ] **Step 1** — Derive `utoipa::ToSchema` on: `ApiError`, `Meta`, and the per-endpoint payload/DTO types (`CalcJobRequest`, the arg-groups, `CreateGeofence`/`PatchGeofence`/`CreateRoute`/`PatchRoute`, the generated `Create*`/`Patch*` for plain resources, `CoverageArgs`/`BoundsArg`, `GeometryArgs`/`AreaReq`, the scanner-data `AreaReq`/`BboxInput`, `Plugin`/`PluginPatch`, `ConfigResponse`, `JobRecord`). For the macro-generated DTOs (`koji_resource!`), add `ToSchema` to the macro's emitted `#[derive(...)]` list.
+- [ ] **Step 1** — Derive `utoipa::ToSchema` on: `ApiError`, `Meta`, and the per-endpoint payload/DTO types (`CalcJobRequest`, the arg-groups, `CreateGeofence`/`PatchGeofence`/`CreateRoute`/`PatchRoute`, the generated `Create*`/`Patch*` for plain resources, `CoverageArgs`/`BoundsArg`, `GeometryArgs`/`AreaReq`, the golbat-data `AreaReq`/`BboxInput`, `Plugin`/`PluginPatch`, `ConfigResponse`, `JobRecord`). For the macro-generated DTOs (`koji_resource!`), add `ToSchema` to the macro's emitted `#[derive(...)]` list.
 - [ ] **Step 2** — `cargo build -p koji-service` green. Commit.
 
 ```bash
@@ -33,7 +33,7 @@ git commit -am "feat(koji-service): derive utoipa::ToSchema on v2 DTOs + envelop
 
 **Files:** all `public/v2/*.rs` handler modules.
 
-- [ ] **Step 1** — Add `#[utoipa::path(...)]` above each v2 handler: method, path (full `/api/v2/...`), `params`, `request_body` (the DTO), `responses` (the status codes + the envelope/`ApiError` schema, `tag`). Work module-by-module (jobs, resources, geofences, routes, geometry, s2, scanner_data, plugins, auth, config, nominatim), building after each so the compiler guides the annotation.
+- [ ] **Step 1** — Add `#[utoipa::path(...)]` above each v2 handler: method, path (full `/api/v2/...`), `params`, `request_body` (the DTO), `responses` (the status codes + the envelope/`ApiError` schema, `tag`). Work module-by-module (jobs, resources, geofences, routes, geometry, s2, golbat_data, plugins, auth, config, nominatim), building after each so the compiler guides the annotation.
 - [ ] **Step 2** — `cargo build -p koji-service` green. Commit (can be one commit or per-module).
 
 ```bash

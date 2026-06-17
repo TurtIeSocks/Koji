@@ -17,7 +17,7 @@ export interface UseDbCache {
   route: Record<string | number, DbOption>
   project: Record<string | number, DbOption>
   geofence: Record<string | number, DbOption>
-  scanner: Record<KojiKey, DbOption>
+  golbat: Record<KojiKey, DbOption>
   feature: Record<KojiKey, Feature>
   getOptions: (
     ...args: Exclude<CacheKey, 'feature'>[]
@@ -50,7 +50,7 @@ export const useDbCache = create<UseDbCache>((set, get) => ({
   route: {},
   project: {},
   geofence: {},
-  scanner: {},
+  golbat: {},
   feature: {},
   tileServer: {},
   getOptions: (...args) => {
@@ -60,7 +60,7 @@ export const useDbCache = create<UseDbCache>((set, get) => ({
       Object.values(state[key]).forEach((value) => {
         returnObj[
           `${value.id}__${value.mode}__${
-            key === 'scanner' ? 'SCANNER' : 'KOJI'
+            key === 'golbat' ? 'GOLBAT' : 'KOJI'
           }`
         ] = value
       })
@@ -115,8 +115,8 @@ export const useDbCache = create<UseDbCache>((set, get) => ({
     const [id, mode, source] = key.split('__')
 
     if (source === 'CLIENT') return null
-    if (source === 'SCANNER') {
-      return get().scanner[key as KojiKey] || null
+    if (source === 'GOLBAT') {
+      return get().golbat[key as KojiKey] || null
     }
     if (ALL_FENCES.includes(mode as typeof ALL_FENCES[number])) {
       return get().geofence[id] || null

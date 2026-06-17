@@ -53,13 +53,13 @@ const ImportStep = React.forwardRef<
         <ShapeFile setter={handleChange} />
       </Grid2>
       <Divider sx={{ width: '95%', my: 1 }} />
-      {/* Scanner */}
+      {/* Golbat */}
       <Grid2 xs={2}>
-        <Typography variant="h5">Scanner</Typography>
+        <Typography variant="h5">Golbat</Typography>
       </Grid2>
       <Grid2 xs={6}>
         <Typography sx={{ my: 1 }}>
-          Import fences directly from your scanner database.
+          Import fences directly from your golbat database.
         </Typography>
       </Grid2>
       <Grid2 xs={4}>
@@ -74,23 +74,23 @@ const ImportStep = React.forwardRef<
                   )
                   .map((feat) => ({
                     ...feat,
-                    id: `${feat.properties?.__id}__${feat.properties?.__mode}__SCANNER`,
+                    id: `${feat.properties?.__id}__${feat.properties?.__mode}__GOLBAT`,
                     properties: {
                       ...feat.properties,
                       name: feat.properties?.__name,
                       mode: feat.properties?.__mode,
-                      __scanner: true,
+                      __golbat: true,
                     },
                   })),
               },
-              '__scanner',
+              '__golbat',
               deleted,
             )
           }}
           controlled
           filters={UNOWN_FENCES}
           initialState={geojson.features
-            .filter((feat) => feat.properties?.__scanner)
+            .filter((feat) => feat.properties?.__golbat)
             .map((feat) => feat.id as KojiKey)}
         />
       </Grid2>

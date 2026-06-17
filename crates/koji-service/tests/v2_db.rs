@@ -88,16 +88,16 @@ async fn cleanup_route(db: &DatabaseConnection, id: u64) {
         .await;
 }
 
-/// Build a `KojiDb` pointing both `koji` and `scanner` at the same `KOJI_DB_URL`
-/// (scanner is used only for reads; a standalone test DB is fine as a dummy).
+/// Build a `KojiDb` pointing both `koji` and `golbat` at the same `KOJI_DB_URL`
+/// (golbat is used only for reads; a standalone test DB is fine as a dummy).
 async fn build_test_koji_db(koji_db: DatabaseConnection) -> KojiDb {
-    // Re-connect under the scanner field (scanner is SELECT-only and we don't
-    // test scanner-data here, so reusing the same DB is safe).
+    // Re-connect under the golbat field (golbat is SELECT-only and we don't
+    // test golbat-data here, so reusing the same DB is safe).
     let url = std::env::var("KOJI_DB_URL").unwrap();
-    let scanner = Database::connect(&url).await.expect("scanner re-connect");
+    let golbat = Database::connect(&url).await.expect("golbat re-connect");
     KojiDb {
         koji: koji_db,
-        scanner,
+        golbat,
     }
 }
 
@@ -1091,8 +1091,8 @@ async fn jobs_create_convert_job_returns_202_with_job_id() {
     let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
     let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
 
-    // A minimal cluster job with a small FeatureCollection area; no scanner data
-    // needed for the enqueue path (data_points resolution hits the scanner DB,
+    // A minimal cluster job with a small FeatureCollection area; no golbat data
+    // needed for the enqueue path (data_points resolution hits the golbat DB,
     // but since we supply data_points directly the handler skips that branch).
     let body = serde_json::json!({
         "mode": "cluster",

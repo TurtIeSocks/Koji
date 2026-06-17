@@ -1,18 +1,18 @@
-//! v2 scanner-data fetch — two complementary surfaces over the same koji-scanner
-//! query path (architecture §4.5, §6), both returning the scanner points of a
+//! v2 golbat-data fetch — two complementary surfaces over the same koji-golbat
+//! query path (architecture §4.5, §6), both returning the golbat points of a
 //! category (`gym|pokestop|spawnpoint|station|fort`):
 //!
-//! - `GET /api/v2/geofences/{id}/scanner-data` — the **saved-fence** convenience:
+//! - `GET /api/v2/geofences/{id}/golbat-data` — the **saved-fence** convenience:
 //!   the area is the path `{id}` geofence (by id or name), resolved via
 //!   [`utils::create_or_find_collection`]; a missing geofence ⇒ `404`. Mounted
-//!   under [`super::geofences::scope()`] as the `/{id}/scanner-data` sub-resource.
-//! - `POST /api/v2/scanner-data/{category}` (+ `/stats`) — the **arbitrary-area**
+//!   under [`super::geofences::scope()`] as the `/{id}/golbat-data` sub-resource.
+//! - `POST /api/v2/golbat-data/{category}` (+ `/stats`) — the **arbitrary-area**
 //!   surface: the drawn area / bbox rides the request body (a GET can't carry a
 //!   polygon). Ports the v1 `/internal/data/area`(+`bound`) and `/area_stats`
 //!   handlers. Mounted via [`scope()`]. Category in the path (matches the old
 //!   `/internal/data/area/{category}`).
 //!
-//! Both reuse the same `koji-scanner` area query ([`utils::points_from_area`]) and
+//! Both reuse the same `koji-golbat` area query ([`utils::points_from_area`]) and
 //! the up-front [`VALID_CATEGORIES`] allow-list, so an unknown category is a clean
 //! `400` before any DB work.
 
@@ -21,8 +21,8 @@ use koji_core::Precision;
 use geojson::{Feature, FeatureCollection, Geometry, Value};
 use koji_core::{KojiBbox, SpawnpointTth};
 use koji_db::KojiDb;
-use koji_scanner::GenericDataToVec;
-use koji_scanner::entities::{gym, pokestop, spawnpoint, station};
+use koji_golbat::GenericDataToVec;
+use koji_golbat::entities::{gym, pokestop, spawnpoint, station};
 use serde::Deserialize;
 use serde_json::json;
 use utoipa::{IntoParams, ToSchema};
@@ -31,19 +31,19 @@ use crate::utils::api_response::{ApiError, ApiResponse};
 use crate::utils::error::ServiceError;
 use crate::utils::{self};
 
-/// The scanner-data categories the koji-scanner query path understands. Kept in
+/// The golbat-data categories the koji-golbat query path understands. Kept in
 /// sync with the `match category` arms in [`utils::points_from_area`]; validating
 /// up-front lets an unknown category surface as a clean `400` before any DB work.
 const VALID_CATEGORIES: [&str; 5] = ["gym", "pokestop", "spawnpoint", "station", "fort"];
 
-/// Query for `GET /api/v2/geofences/{id}/scanner-data`. `pub(crate)` because the
+/// Query for `GET /api/v2/geofences/{id}/golbat-data`. `pub(crate)` because the
 /// handler is mounted cross-module (from [`super::geofences::scope()`]), so its
-/// `web::Query<ScannerDataQuery>` arg type must be at least as visible as the
+/// `web::Query<GolbatDataQuery>` arg type must be at least as visible as the
 /// handler the route names.
 #[derive(Debug, Deserialize, IntoParams)]
 #[into_params(parameter_in = Query)]
-pub(crate) struct ScannerDataQuery {
-    /// Scanner data category (`gym|pokestop|spawnpoint|station|fort`).
+pub(crate) struct GolbatDataQuery {
+    /// Golbat data category (`gym|pokestop|spawnpoint|station|fort`).
     category: String,
     /// Only points updated within the last N seconds (`0` = no filter).
     /// camelCase wire (a config-style query param), defaulting to `0`.
@@ -51,8 +51,8 @@ pub(crate) struct ScannerDataQuery {
     last_seen: u32,
 }
 
-/// `GET /api/v2/geofences/{id}/scanner-data?category=&lastSeen=` — the category's
-/// scanner points within the path `{id}` geofence (by id or name), wrapped in the
+/// `GET /api/v2/geofences/{id}/golbat-data?category=&lastSeen=` — the category's
+/// golbat points within the path `{id}` geofence (by id or name), wrapped in the
 /// v2 [`ApiResponse`] envelope.
 ///
 /// Mounted under [`super::geofences::scope()`] alongside `/{id}` and
@@ -60,14 +60,14 @@ pub(crate) struct ScannerDataQuery {
 /// `category` ⇒ `400`; a missing geofence ⇒ `404`.
 #[utoipa::path(
     get,
-    path = "/api/v2/geofences/{id}/scanner-data",
-    tag = "scanner-data",
+    path = "/api/v2/geofences/{id}/golbat-data",
+    tag = "golbat-data",
     params(
         ("id" = String, Path, description = "Geofence id or name"),
-        ScannerDataQuery,
+        GolbatDataQuery,
     ),
     responses(
-        (status = 200, description = "The category's scanner points within the geofence", body = Object),
+        (status = 200, description = "The category's golbat points within the geofence", body = Object),
         (status = 400, description = "Unknown category", body = ApiError),
         (status = 404, description = "No such geofence", body = ApiError),
     ),
@@ -75,10 +75,10 @@ pub(crate) struct ScannerDataQuery {
 // `ServiceError` is intentionally large (carries `DbErr`/`ModelError` by value) —
 // matches the crate-wide allow in `utils::error`.
 #[allow(clippy::result_large_err)]
-pub(crate) async fn scanner_data(
+pub(crate) async fn golbat_data(
     conn: web::Data<KojiDb>,
     path: web::Path<String>,
-    query: web::Query<ScannerDataQuery>,
+    query: web::Query<GolbatDataQuery>,
 ) -> Result<HttpResponse, ServiceError> {
     let instance = path.into_inner();
     let query = query.into_inner();
@@ -122,13 +122,13 @@ pub(crate) async fn scanner_data(
 }
 
 // ---------------------------------------------------------------------------
-// Arbitrary-area surface: `POST /api/v2/scanner-data/{category}` (+ `/stats`).
+// Arbitrary-area surface: `POST /api/v2/golbat-data/{category}` (+ `/stats`).
 // Ports v1 `/internal/data/area`(+`bound`) and `/internal/data/area_stats`.
 // ---------------------------------------------------------------------------
 
-/// Body for the arbitrary-area scanner-data POSTs. The drawn area rides the body
+/// Body for the arbitrary-area golbat-data POSTs. The drawn area rides the body
 /// (a GET can't carry a polygon) as either a `area` geojson container OR a flat
-/// `bbox`; `lastSeen`/`tth` mirror the v1 scanner filters. All fields optional —
+/// `bbox`; `lastSeen`/`tth` mirror the v1 golbat filters. All fields optional —
 /// an empty body resolves to an empty area (no points), matching v1's
 /// empty-`area` behavior.
 ///
@@ -223,7 +223,7 @@ fn bbox_collection(bbox: KojiBbox) -> FeatureCollection {
 }
 
 /// Resolve the request body's `area`/`bbox` into the algorithm-edge
-/// `FeatureCollection` the scanner query consumes: `area` if present, else a
+/// `FeatureCollection` the golbat query consumes: `area` if present, else a
 /// polygon built from `bbox`, else empty.
 fn resolve_area(req: &AreaReq) -> FeatureCollection {
     if req.area.is_some() {
@@ -236,7 +236,7 @@ fn resolve_area(req: &AreaReq) -> FeatureCollection {
 }
 
 /// Reject an unknown `{category}` up-front as a clean `400` (before any DB work),
-/// mirroring [`scanner_data`]'s guard and the v1 category set.
+/// mirroring [`golbat_data`]'s guard and the v1 category set.
 #[allow(clippy::result_large_err)]
 fn validate_category(category: &str) -> Result<(), ServiceError> {
     if VALID_CATEGORIES.contains(&category) {
@@ -252,17 +252,17 @@ fn validate_category(category: &str) -> Result<(), ServiceError> {
     }
 }
 
-/// `POST /api/v2/scanner-data/{category}` — the category's scanner points within
+/// `POST /api/v2/golbat-data/{category}` — the category's golbat points within
 /// the body's drawn `area` (or `bbox`), as a `SingleVec` of `[lat, lon]` pairs.
 /// Ports v1 `/internal/data/area`(+`bound`); unknown `category` ⇒ `400`.
 #[utoipa::path(
     post,
-    path = "/api/v2/scanner-data/{category}",
-    tag = "scanner-data",
-    params(("category" = String, Path, description = "Scanner data category (`gym|pokestop|spawnpoint|station|fort`)")),
+    path = "/api/v2/golbat-data/{category}",
+    tag = "golbat-data",
+    params(("category" = String, Path, description = "Golbat data category (`gym|pokestop|spawnpoint|station|fort`)")),
     request_body = AreaReq,
     responses(
-        (status = 200, description = "The category's scanner points: `{ \"points\": [[lat, lon], …] }`", body = Object),
+        (status = 200, description = "The category's golbat points: `{ \"points\": [[lat, lon], …] }`", body = Object),
         (status = 400, description = "Unknown category", body = ApiError),
     ),
 )]
@@ -287,17 +287,17 @@ pub(crate) async fn by_area(
     Ok(ApiResponse::success(json!({ "points": points })))
 }
 
-/// `POST /api/v2/scanner-data/{category}/stats` — the count of the category's
-/// scanner points within the body's drawn `area` (or `bbox`). Ports v1
+/// `POST /api/v2/golbat-data/{category}/stats` — the count of the category's
+/// golbat points within the body's drawn `area` (or `bbox`). Ports v1
 /// `/internal/data/area_stats`; returns `{ "total": <usize> }`.
 #[utoipa::path(
     post,
-    path = "/api/v2/scanner-data/{category}/stats",
-    tag = "scanner-data",
-    params(("category" = String, Path, description = "Scanner data category (`gym|pokestop|spawnpoint|station|fort`)")),
+    path = "/api/v2/golbat-data/{category}/stats",
+    tag = "golbat-data",
+    params(("category" = String, Path, description = "Golbat data category (`gym|pokestop|spawnpoint|station|fort`)")),
     request_body = AreaReq,
     responses(
-        (status = 200, description = "Count of the category's scanner points: `{ \"total\": <usize> }`", body = Object),
+        (status = 200, description = "Count of the category's golbat points: `{ \"total\": <usize> }`", body = Object),
         (status = 400, description = "Unknown category", body = ApiError),
     ),
 )]
@@ -319,33 +319,33 @@ pub(crate) async fn area_stats(
     // `points_from_area` treats `fort`.
     let total = match category.as_str() {
         "gym" => {
-            gym::Query::stats(&conn.scanner, &area, last_seen)
+            gym::Query::stats(&conn.golbat, &area, last_seen)
                 .await?
                 .total
         }
         "pokestop" => {
-            pokestop::Query::stats(&conn.scanner, &area, last_seen)
+            pokestop::Query::stats(&conn.golbat, &area, last_seen)
                 .await?
                 .total
         }
         "station" => {
-            station::Query::stats(&conn.scanner, &area, last_seen)
+            station::Query::stats(&conn.golbat, &area, last_seen)
                 .await?
                 .total
         }
         "spawnpoint" => {
-            spawnpoint::Query::stats(&conn.scanner, &area, last_seen, req.tth)
+            spawnpoint::Query::stats(&conn.golbat, &area, last_seen, req.tth)
                 .await?
                 .total
         }
         "fort" => {
-            let gyms = gym::Query::stats(&conn.scanner, &area, last_seen)
+            let gyms = gym::Query::stats(&conn.golbat, &area, last_seen)
                 .await?
                 .total;
-            let pokestops = pokestop::Query::stats(&conn.scanner, &area, last_seen)
+            let pokestops = pokestop::Query::stats(&conn.golbat, &area, last_seen)
                 .await?
                 .total;
-            let stations = station::Query::stats(&conn.scanner, &area, last_seen)
+            let stations = station::Query::stats(&conn.golbat, &area, last_seen)
                 .await?
                 .total;
             gyms + pokestops + stations
@@ -358,11 +358,11 @@ pub(crate) async fn area_stats(
     Ok(ApiResponse::success(json!({ "total": total })))
 }
 
-/// The `/scanner-data` scope: the arbitrary-area markers + stats POSTs. Mounted
+/// The `/golbat-data` scope: the arbitrary-area markers + stats POSTs. Mounted
 /// into `/api/v2` by [`crate::start`]. (The saved-fence GET lives under
 /// [`super::geofences::scope()`], not here.)
 pub(crate) fn scope() -> actix_web::Scope {
-    web::scope("/scanner-data")
+    web::scope("/golbat-data")
         .service(by_area)
         .service(area_stats)
 }
@@ -375,14 +375,14 @@ mod tests {
     #[test]
     fn query_defaults_last_seen_to_zero() {
         // Exercises the exact actix query-deser path the handler relies on.
-        let q = Query::<ScannerDataQuery>::from_query("category=pokestop").unwrap();
+        let q = Query::<GolbatDataQuery>::from_query("category=pokestop").unwrap();
         assert_eq!(q.category, "pokestop");
         assert_eq!(q.last_seen, 0);
     }
 
     #[test]
     fn query_reads_camelcase_last_seen() {
-        let q = Query::<ScannerDataQuery>::from_query("category=gym&lastSeen=3600").unwrap();
+        let q = Query::<GolbatDataQuery>::from_query("category=gym&lastSeen=3600").unwrap();
         assert_eq!(q.category, "gym");
         assert_eq!(q.last_seen, 3600);
     }
@@ -390,12 +390,12 @@ mod tests {
     #[test]
     fn query_requires_category() {
         // `category` is required (not Option) — a query missing it fails to deser.
-        assert!(Query::<ScannerDataQuery>::from_query("lastSeen=10").is_err());
+        assert!(Query::<GolbatDataQuery>::from_query("lastSeen=10").is_err());
     }
 
     #[test]
     fn valid_categories_match_points_from_area_arms() {
-        // Guard: the up-front allow-list mirrors the koji-scanner query arms.
+        // Guard: the up-front allow-list mirrors the koji-golbat query arms.
         assert!(VALID_CATEGORIES.contains(&"gym"));
         assert!(VALID_CATEGORIES.contains(&"pokestop"));
         assert!(VALID_CATEGORIES.contains(&"spawnpoint"));

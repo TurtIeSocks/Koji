@@ -1,11 +1,11 @@
 [package]
-name = "koji-scanner"
+name = "koji-golbat"
 version = "0.1.0"
 edition = "2024"
 publish = false
 
 [lib]
-name = "koji_scanner"
+name = "koji_golbat"
 path = "src/lib.rs"
 
 [dependencies]

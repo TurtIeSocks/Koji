@@ -791,7 +791,7 @@ Expected: PASS (2 tests).
 
 - [ ] **Step 6: Wire startup install + scope** in `crates/koji-service/src/lib.rs`:
   - In `start()`, after `KojiDb` is constructed and before/at server build, call the rebuild once: `public::v2::plugins::rebuild_and_install(&db).await.ok();` (so the registry reflects the DB overlay from boot; `.ok()` — a failure just leaves the lazy disk default).
-  - Add `.service(public::v2::plugins::scope())` to the `/api/v2` service list (next to `geo`/`scanner_data`).
+  - Add `.service(public::v2::plugins::scope())` to the `/api/v2` service list (next to `geo`/`golbat_data`).
   - Add `pub mod plugins;` to `crates/koji-service/src/public/v2/mod.rs`.
 
 - [ ] **Step 7: Build + runtime smoke** (no actix test harness — verify live)

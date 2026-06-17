@@ -24,7 +24,7 @@
 - [ ] **Step 2** — `cargo build -p koji 2>&1 | rg "Finished|error"` → `Finished`. Commit.
 
 ```bash
-git commit -am "refactor(koji-service): delete /internal/{data,admin} (subsumed by v2 CRUD + scanner-data)"
+git commit -am "refactor(koji-service): delete /internal/{data,admin} (subsumed by v2 CRUD + golbat-data)"
 ```
 
 ---

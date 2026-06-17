@@ -167,8 +167,8 @@ impl JsonToModel for Value {
     fn to_project(&self) -> Result<project::ActiveModel, ModelError> {
         if let Some(incoming) = self.as_object() {
             let name = incoming.get("name").and_then(|v| v.as_str());
-            let scanner = incoming
-                .get("scanner")
+            let golbat = incoming
+                .get("golbat")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
             if let Some(name) = name {
@@ -186,7 +186,7 @@ impl JsonToModel for Value {
                     .map(|description| description.to_string());
                 Ok(project::ActiveModel {
                     name: Set(name.to_string()),
-                    scanner: Set(scanner),
+                    golbat: Set(golbat),
                     api_endpoint: Set(api_endpoint),
                     api_key: Set(api_key),
                     description: Set(description),
@@ -707,21 +707,21 @@ mod tests {
         let v = json!({ "name": "MyProject" });
         let model = v.to_project().unwrap();
         assert_eq!(model.name.unwrap(), "MyProject");
-        assert!(!model.scanner.unwrap());
+        assert!(!model.golbat.unwrap());
     }
 
     #[test]
     fn to_project_ok_full() {
         let v = json!({
             "name": "Full",
-            "scanner": true,
+            "golbat": true,
             "api_endpoint": "https://example.com",
             "api_key": "secret",
             "description": "A project"
         });
         let model = v.to_project().unwrap();
         assert_eq!(model.name.unwrap(), "Full");
-        assert!(model.scanner.unwrap());
+        assert!(model.golbat.unwrap());
         assert_eq!(
             model.api_endpoint.unwrap(),
             Some("https://example.com".to_string())
@@ -732,7 +732,7 @@ mod tests {
 
     #[test]
     fn to_project_no_name_is_err() {
-        let v = json!({ "scanner": false });
+        let v = json!({ "golbat": false });
         assert!(v.to_project().is_err());
     }
 

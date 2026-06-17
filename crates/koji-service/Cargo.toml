@@ -10,7 +10,7 @@ path = "src/lib.rs"
 
 [dependencies]
 koji-core = { path = "../koji-core" }
-koji-scanner = { path = "../koji-scanner" }
+koji-golbat = { path = "../koji-golbat" }
 koji-db = { path = "../koji-db" }
 koji-plugins = { path = "../koji-plugins" }
 koji-jobs = { path = "../koji-jobs" }

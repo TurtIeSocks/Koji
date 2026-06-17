@@ -30,7 +30,7 @@ real system never had.
 | blobs | 500k | **97,029** | 125,806 | −22.9% | **215,857** | 217,462 | −0.7% |
 | urban | 500k | **139,145** | 163,854 | −15.1% | **286,253** | 288,955 | −0.9% |
 
-## Real scanner data (dev DB exports, r = 70 m)
+## Real golbat data (dev DB exports, r = 70 m)
 
 The decisive table — real POI/spawn geometry favors auto far more than the
 synthetic generators do:

@@ -51,13 +51,13 @@ curl -sS -X POST \
   }'
 ```
 
-## cURL: Save Geofences to Scanner
+## cURL: Save Geofences to Golbat
 
 ```bash
 curl -sS -X POST \
   -H "Authorization: Bearer KOJI_SECRET" \
   -H "Content-Type: application/json" \
-  "http://127.0.0.1:8080/api/v1/geofence/save-scanner" \
+  "http://127.0.0.1:8080/api/v1/geofence/save-golbat" \
   -d '{
     "area": {
       "type": "FeatureCollection",
@@ -74,7 +74,7 @@ curl -sS -X DELETE \
   "http://127.0.0.1:8080/api/v1/geofence/42"
 ```
 
-## JavaScript: Sync All Project Geofences to Scanner
+## JavaScript: Sync All Project Geofences to Golbat
 
 ```js
 const syncProject = async ({ baseUrl, secret, project }) => {

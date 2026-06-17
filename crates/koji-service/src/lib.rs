@@ -365,10 +365,10 @@ pub async fn start() -> io::Result<()> {
                             // the geometry scope.
                             .service(public::v2::geometry::scope())
                             .service(public::v2::s2::scope())
-                            // Arbitrary-area scanner-data: POST `/scanner-data/
+                            // Arbitrary-area golbat-data: POST `/golbat-data/
                             // {category}`(+`/stats`) — the drawn-area markers/count
                             // surface (the saved-fence GET rides geofences::scope()).
-                            .service(public::v2::scanner_data::scope())
+                            .service(public::v2::golbat_data::scope())
                             // App bootstrap blob: GET `/config` (map center, tile
                             // server, plugin lists, login state).
                             .service(public::v2::config::config)

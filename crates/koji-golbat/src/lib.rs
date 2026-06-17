@@ -1,6 +1,6 @@
-//! koji-scanner — read-only access to the golbat data (scanner) database.
+//! koji-golbat — read-only access to the golbat data (golbat) database.
 //! Depends only on koji-core; queries take a `&DatabaseConnection` (the
-//! caller's `scanner` connection) and return `sea_orm::DbErr` directly.
+//! caller's `golbat` connection) and return `sea_orm::DbErr` directly.
 
 pub mod entities;
 mod normalize;

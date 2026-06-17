@@ -6,14 +6,14 @@ truly-shared vocabulary. Scope: cross-crate + intra-crate + visibility. Verified
 `use <crate>::Sym` imports (bare word-greps over-report — several caught & discarded, e.g.
 `clean`, `migration::Mode`, `OutputConfig`→algorithms mistag).
 
-DAG (low→high): macros · koji-core · {db,dragonite,events,plugins,scanner} · algorithms · {service,wasm} · bins.
+DAG (low→high): macros · koji-core · {db,dragonite,events,plugins,golbat} · algorithms · {service,wasm} · bins.
 
 ---
 
 ## Validation + decisions (locked 2026-06-14)
 Fresh-eyes adversarial validator: **A1/A2/A4 CONFIRMED**, no missed movers, `sql_raw` confirmed dead.
 **A3 REVISED** — `HasLatLon` trait STAYS in koji-core: `impl HasLatLon for PointStruct` (core geometry
-type) would orphan if the trait moved. Only `count_in_area`/`AreaPolygons`/`sql_raw_bbox` move; scanner
+type) would orphan if the trait moved. Only `count_in_area`/`AreaPolygons`/`sql_raw_bbox` move; golbat
 already imports `HasLatLon` from core.
 Granularity: **A1 = distribute** into clustering/routing/bootstrap · **A2 = new `requests::config`** ·
 optionals (A4 macro+get_category_enum, koji-service 47-visibility, dead-code verify) **all IN**.
@@ -53,13 +53,13 @@ Consumers = koji-service only (verified — koji-core agent mis-tagged as algori
 New home: **`koji-service/src/requests/`** (beside the calc-Args). config.rs SPLITS across
 two crates — expected; different real consumers.
 
-### A3 · koji-core → koji-scanner  (sole consumer)
+### A3 · koji-core → koji-golbat  (sole consumer)
 
 | symbol | from | action | notes |
 |---|---|---|---|
-| `count_in_area`, `AreaPolygons` | normalize.rs | move | scanner-only consumers |
-| `HasLatLon` (trait) | normalize.rs | **STAYS core** | `impl HasLatLon for PointStruct` pins it (orphan); scanner imports it from core |
-| `sql_raw_bbox` | util.rs:67 | move | scanner-only SQL helper |
+| `count_in_area`, `AreaPolygons` | normalize.rs | move | golbat-only consumers |
+| `HasLatLon` (trait) | normalize.rs | **STAYS core** | `impl HasLatLon for PointStruct` pins it (orphan); golbat imports it from core |
+| `sql_raw_bbox` | util.rs:67 | move | golbat-only SQL helper |
 
 ### A4 · koji-core → koji-db  (sole consumer — optional / lower value)
 
@@ -73,14 +73,14 @@ two crates — expected; different real consumers.
 
 ## B. Stays put (DAG-pinned / internally coupled) — WHY, no action
 - **geometry::*** — koji-core internal use + sibling consumers (db,dragonite,algorithms,plugins) → LCA koji-core.
-- **ApiQueryArgs cluster** (ApiQueryArgs/Filters/OutputSpec/PropertySelection/FeatureRenderSpec/AdminReq*/BoundsArg/SpawnpointTth) — consumers span db+scanner+service siblings → LCA koji-core. Refactored TODAY; leave.
+- **ApiQueryArgs cluster** (ApiQueryArgs/Filters/OutputSpec/PropertySelection/FeatureRenderSpec/AdminReq*/BoundsArg/SpawnpointTth) — consumers span db+golbat+service siblings → LCA koji-core. Refactored TODAY; leave.
 - **Mode, Category** — multi-sibling consumers → koji-core. **UnknownId, TrimPrecision, create_cell_map, most s2::*** — internal use / sibling consumers.
 - **NameModifier, separate_by_comma, get_mode_acronym, clean** — koji-core-internal args/text layer (NameModifier fresh).
 
 ## C. Visibility tightening (intra-crate; pub → pub(crate) unless noted)
 - koji-core: `sql_raw` (no caller — remove/pub(crate))
 - koji-db (~12): sea-orm `Relation` enums; NameId, InsertsUpdates, VecToJson, GeofenceNoGeometry, OnlyParent, RouteNoGeometry, OnlyGeofenceId, HierarchyArgError, Basic, FullPropertyModel, parse_order
-- koji-scanner (8): gym/pokestop/spawnpoint/station `Model`+`Query`
+- koji-golbat (8): gym/pokestop/spawnpoint/station `Model`+`Query`
 - koji-events (~6): DispatchError, DispatcherHandle, SIGNATURE_HEADER, EVENT_ID_HEADER, sign, entity Relations
 - koji-dragonite (~3): ApiAreaRarePokemonMode (unused), V2Envelope, V2ApiError
 - koji-plugins: MANIFEST_FILE
@@ -110,7 +110,7 @@ algorithms: `sec::*`, `routing::vrp::*` (disabled), `s2::ToGeo`, `s2::Dir`, util
 |---|---|
 | `99356c5` | A1 — algo configs (Clustering/Routing/Bootstrap/S2Config + Cluster/CalculationMode, SortBy) → algorithms (distributed into clustering/routing/bootstrap) |
 | `bff1f41` | A2 — request/output config (OutputConfig/DevConfig/DataFilter/ReturnTypeArg/get_return_type) → koji-service::requests::config |
-| `65b625c` | A3 — count_in_area/AreaPolygons/sql_raw_bbox → koji-scanner (HasLatLon stayed — orphan rule) |
+| `65b625c` | A3 — count_in_area/AreaPolygons/sql_raw_bbox → koji-golbat (HasLatLon stayed — orphan rule) |
 | `1867656` | A4 — json_related_sort + get_category_enum (merged) + enum_bridge! macro → koji-db |
 | `913f7a6` | removed dead sql_raw + orphaned feature_single_vec from koji-core |
 | `fa3fbe8` | visibility: 9 internal items → pub(crate) (db/events); 5 auto-reverted (real interface leaks) |
@@ -132,7 +132,7 @@ Same brief re-run. Substantial refactoring landed since 06-14 (ApiQueryArgs **re
 
 ### DAG correction (vs the 06-14 line)
 `koji-jobs`, `nominatim`, `migration` are **roots** (no `koji-core` dep). `koji-jobs` consumed only by koji-service + koji-cli. `koji-wasm` (L4, core+algorithms only) sits **below** `koji-service` (L5); neither depends on the other. Verified order:
-`{macros, koji-jobs, nominatim, migration} < koji-core < {koji-db, koji-dragonite, koji-events, koji-plugins, koji-scanner} < algorithms < koji-wasm < koji-service < {koji-cli, koji-server}`.
+`{macros, koji-jobs, nominatim, migration} < koji-core < {koji-db, koji-dragonite, koji-events, koji-plugins, koji-golbat} < algorithms < koji-wasm < koji-service < {koji-cli, koji-server}`.
 
 ### Prior A1–A4: ALL INTACT, zero regression
 12 symbols re-verified in their post-06-14 homes (ClusteringConfig/RoutingConfig/BootstrapConfig/S2Config/CalculationMode/ClusterMode/SortBy in `algorithms`; OutputConfig/DevConfig/DataFilter/ReturnTypeArg/get_return_type in `koji-service::requests::config`). No leak-back to core.
@@ -142,9 +142,9 @@ Same brief re-run. Substantial refactoring landed since 06-14 (ApiQueryArgs **re
 
 | group | symbols | real consumer | verdict |
 |---|---|---|---|
-| geofence render-resolve | `ApiQueryArgs` `Filters` `PropertySelection` `OutputSpec` `FeatureRenderSpec` + resolve impls | **koji-db only** (`geofence.rs` `project_as_feature`/`project_as_koji`; service = doc-comment only at `resources.rs:27`; scanner/wasm = none) | **MOVE → koji-db** *(judgment call — see caveat)* |
+| geofence render-resolve | `ApiQueryArgs` `Filters` `PropertySelection` `OutputSpec` `FeatureRenderSpec` + resolve impls | **koji-db only** (`geofence.rs` `project_as_feature`/`project_as_koji`; service = doc-comment only at `resources.rs:27`; golbat/wasm = none) | **MOVE → koji-db** *(judgment call — see caveat)* |
 | admin pagination | `AdminReq` `AdminReqParsed` | **koji-db only** (`geofence`/`route`/`project`/`property`/`tile_server` reads; no service `web::Query` wiring) | **MOVE → koji-db** |
-| scanner bounds | `BoundsArg` `SpawnpointTth` | scanner (`entities/spawnpoint.rs`) **+** service (`s2.rs`/`scanner_data.rs`) → multi-crate | **STAYS core** |
+| golbat bounds | `BoundsArg` `SpawnpointTth` | golbat (`entities/spawnpoint.rs`) **+** service (`s2.rs`/`golbat_data.rs`) → multi-crate | **STAYS core** |
 
 Coupling if moved: `impl From<&ApiQueryArgs> for NameModifier` (`text_utils.rs:104`) moves to koji-db (orphan-ok: `ApiQueryArgs` becomes db-local; `NameModifier` stays core, db imports it). `query_args.rs` would retain only `BoundsArg`+`SpawnpointTth`. ~5-6 files (core query_args/text_utils/lib + db new module/geofence imports + 2 db test import paths).
 
@@ -162,7 +162,7 @@ koji-dragonite unused pub surface (`V2Envelope`/`V2ApiError`/`V2Meta`/`parse_v2`
 
 ### As-built (executed 2026-06-16, user chose "Move → koji-db")
 
-Moved `koji-core` → `koji-db`: the ApiQueryArgs resolve cluster (`ApiQueryArgs`/`Filters`/`PropertySelection`/`OutputSpec`/`FeatureRenderSpec` + resolve impls) and `AdminReq`/`AdminReqParsed`, into new `koji-db/src/query_args.rs`. Kept in core: `BoundsArg`/`SpawnpointTth` (scanner+service consumers) + the generic text helpers (`clean`/`get_mode_acronym`/`separate_by_comma`).
+Moved `koji-core` → `koji-db`: the ApiQueryArgs resolve cluster (`ApiQueryArgs`/`Filters`/`PropertySelection`/`OutputSpec`/`FeatureRenderSpec` + resolve impls) and `AdminReq`/`AdminReqParsed`, into new `koji-db/src/query_args.rs`. Kept in core: `BoundsArg`/`SpawnpointTth` (golbat+service consumers) + the generic text helpers (`clean`/`get_mode_acronym`/`separate_by_comma`).
 
 **Two couplings the cross-crate greds couldn't see (caught at execution):**
 1. **`NameModifier` had to travel too** → new `koji-db/src/name_modifier.rs`. Its `From<&ApiQueryArgs>` builder sets *private* fields (only constructible inside the owning crate), and the From impl must live where `ApiQueryArgs` is (orphan rule). Keeping it in core would have forced a 12-arg `pub` constructor / `pub` fields. It was db-render-only anyway (sole caller `spec.name_modifier.apply()`). Its 2 private helpers (`remove_symbols`, `convert_polish_to_ascii`) + 18 tests travelled with it; `koji-core` lost its now-orphaned `regex` dep, `koji-db` gained it.

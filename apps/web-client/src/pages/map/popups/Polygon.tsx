@@ -95,10 +95,10 @@ const MemoStat = React.memo(
       setLoading(true)
       setStats((prev) => (prev === null ? 0 : null))
       const last_seen = typeof raw === 'string' ? new Date(raw) : raw
-      // v2 `POST /api/v2/scanner-data/{category}/stats` → `{ total }` (enveloped;
+      // v2 `POST /api/v2/golbat-data/{category}/stats` → `{ total }` (enveloped;
       // fetchWrapper unwraps to `{ total }`). Body carries the drawn `area`.
       fetchWrapper<{ total: number }>(
-        `/api/v2/scanner-data/${category}/stats`,
+        `/api/v2/golbat-data/${category}/stats`,
         {
           method: 'POST',
           headers: {
@@ -196,7 +196,7 @@ export function PolygonPopup({
   }, [feature])
 
   const isKoji = feature.id.toString().endsWith('KOJI')
-  // const isScanner = feature.id.endsWith('SCANNER')
+  // const isGolbat = feature.id.endsWith('GOLBAT')
 
   const options = Object.values(geofence)
 
@@ -482,8 +482,8 @@ export function PolygonPopup({
         >
           Delete from Kōji
         </MenuItem>
-        {/* Disabled (v2): scanner-direct save has no v2 equivalent — use the
-            admin publish action on a saved geofence instead. See SaveToScanner.
+        {/* Disabled (v2): golbat-direct save has no v2 equivalent — use the
+            admin publish action on a saved geofence instead. See SaveToGolbat.
         <MenuItem
           disabled={name === undefined}
           onClick={async () => {
@@ -493,13 +493,13 @@ export function PolygonPopup({
                 ...feature,
                 properties: {
                   ...feature.properties,
-                  __id: isScanner ? dbRef?.id : undefined,
+                  __id: isGolbat ? dbRef?.id : undefined,
                 },
               }),
             ).then((res) => {
               if (res) {
                 if (dbRef && mode) {
-                  setRecord('scanner', feature.id as KojiKey, {
+                  setRecord('golbat', feature.id as KojiKey, {
                     ...dbRef,
                     mode,
                     geo_type: feature.geometry.type,
@@ -514,7 +514,7 @@ export function PolygonPopup({
             })
           }}
         >
-          Update Scanner
+          Update Golbat
         </MenuItem> */}
       </Menu>
     </React.Fragment>

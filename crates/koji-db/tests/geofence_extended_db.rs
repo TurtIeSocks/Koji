@@ -56,7 +56,7 @@ async fn make_geofence(db: &DatabaseConnection, name: &str) -> u32 {
 
 async fn make_project(db: &DatabaseConnection, name: &str) -> u32 {
     let created =
-        project::Query::upsert_json_return(db, 0, json!({ "name": name, "scanner": false }))
+        project::Query::upsert_json_return(db, 0, json!({ "name": name, "golbat": false }))
             .await
             .expect("make_project");
     created["id"].as_u64().expect("has id") as u32

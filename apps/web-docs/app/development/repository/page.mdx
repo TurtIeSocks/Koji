@@ -19,7 +19,7 @@ This page maps source folders to runtime behavior so contributors can find code 
       <FileTree.File name="clustering/routing/bootstrap implementations + plugins" />
     </FileTree.Folder>
     <FileTree.Folder name="model">
-      <FileTree.File name="DB models, query layer, scanner adapters" />
+      <FileTree.File name="DB models, query layer, golbat adapters" />
     </FileTree.Folder>
     <FileTree.Folder name="migration">
       <FileTree.File name="SeaORM migrations" />
@@ -63,7 +63,7 @@ P --> MOD[model crate];
 I --> MOD;
 C --> NOM[nominatim crate];
 MOD --> DB1[(Koji DB)];
-MOD --> DB2[(Scanner DB)];
+MOD --> DB2[(Golbat DB)];
 MOD --> DB3[(Controller DB)];
 ```
 
@@ -72,7 +72,7 @@ MOD --> DB3[(Controller DB)];
 - `server`: binary entrypoint and workspace root.
 - `server/api`: HTTP layer, auth, route wiring, request/response shaping.
 - `server/algorithms`: clustering, routing, bootstrap logic and plugin execution.
-- `server/model`: SeaORM models/query helpers and scanner-specific data access.
+- `server/model`: SeaORM models/query helpers and golbat-specific data access.
 - `server/migration`: database schema migrations.
 - `server/nominatim`: geosearch client abstraction.
 - `server/macros`: shared proc macros.

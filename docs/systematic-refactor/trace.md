@@ -2,7 +2,7 @@
 
 > Trace depth: **flow / module hybrid**. Repo ≈ 19k LOC Rust (10k–100k band). Per user
 > direction, algorithm *math* is NOT traced; crate boundaries, the `Args` super-struct,
-> the HTTP surface, scanner integration, plugin system, and concurrency model ARE.
+> the HTTP surface, golbat integration, plugin system, and concurrency model ARE.
 
 ## Signal tags
 
@@ -48,7 +48,7 @@ Three concerns fused in one crate. `model/src/`:
 
 - `db/` — 13 **sea-orm-codegen** entities (area, geofence, geofence_project, geofence_property, gym, instance, pokestop, project, property, route, spawnpoint, station, tile_server) + `sea_orm_active_enums.rs` (`Type`, `Category`, `FenceMode`) + hand-written query structs in `db/mod.rs` (`NameId`, `AreaRef`, `PaginateResults<T>`, `GenericData`, `InstanceParsing`, `RdmInstance*` …).
 - `api/` — request/response DTOs + ~18 conversion traits (`ToCollection`, `ToFeature`, `ToSingleVec`, `ToPoracle`, `ToSql` …), `GeoFormats` enum, `BBox`, and the `Args` super-struct.
-- `utils/` — `get_database_struct()` (DB bootstrap + scanner-type detection), `name_modifier()`, `sql_raw()`, enum lookups.
+- `utils/` — `get_database_struct()` (DB bootstrap + golbat-type detection), `name_modifier()`, `sql_raw()`, enum lookups.
 
 **Separation-of-concerns violations (evidence):**
 | Site | Problem |
@@ -69,7 +69,7 @@ Three concerns fused in one crate. `model/src/`:
 - **routing:** `sort_by`, `route_split_level`, `routing_args`
 - **bootstrap:** `calculation_mode`, `s2_level`, `s2_size`, `bootstrapping_args`
 - **output:** `return_type`, `geometry_type`, `simplify`, `benchmark_mode`
-- **persistence:** `save_to_db`, `save_to_scanner`, `save_to_scanner_only`
+- **persistence:** `save_to_db`, `save_to_golbat`, `save_to_golbat_only`
 - **filters:** `last_seen`, `tth`, `mode`
 - **dev:** `dev: DevArgs { bypass_adaptive_partition }`
 - **`[DEPRECATED]`** (6): `devices`, `fast`, `generations`, `only_unique`, `route_chunk_size`, `routing_time`
@@ -104,7 +104,7 @@ Dispatch: clustering → `Greedy::run` (builder, greedy.rs:85) `[HOT]` 26 commit
 
 ## 4. `api` crate — HTTP surface  [HOT]  (actix-web 4.11)
 
-**61 routes** (35 public `/api/v1`, 26 private `/internal`). State = `web::Data<KojiDb>` (3 DB conns + scanner_type) injected per handler; `nominatim::Client` injected; `SessionMiddleware` (cookie); bearer auth on `/api/v1`, session auth on `/internal`. Bootstrap = `api/src/lib.rs:26` (`start()`).
+**61 routes** (35 public `/api/v1`, 26 private `/internal`). State = `web::Data<KojiDb>` (3 DB conns + golbat_type) injected per handler; `nominatim::Client` injected; `SessionMiddleware` (cookie); bearer auth on `/api/v1`, session auth on `/internal`. Bootstrap = `api/src/lib.rs:26` (`start()`).
 
 **Response envelope** `api/src/utils/response.rs:29`: `{ message, status, status_code, data, stats }`.
 
@@ -118,9 +118,9 @@ Dispatch: clustering → `Greedy::run` (builder, greedy.rs:85) `[HOT]` 26 commit
 
 ---
 
-## 5. Scanner integration (RDM / Unown / Hybrid)  [RDM removal + Dragonite-API target]
+## 5. Golbat integration (RDM / Unown / Hybrid)  [RDM removal + Dragonite-API target]
 
-`ScannerType` enum (`model/src/lib.rs:13-18`) = **RDM | Unown | Hybrid**. Auto-detected in `model/src/utils/mod.rs:231-246`: no `CONTROLLER_DB_URL` → RDM; else probe `instance` table → exists ⇒ Hybrid, else ⇒ Unown. `KojiDb` (lib.rs:57) holds 3 conns: `koji`, `scanner` (golbat data), `controller` (dragonite/rdm).
+`GolbatType` enum (`model/src/lib.rs:13-18`) = **RDM | Unown | Hybrid**. Auto-detected in `model/src/utils/mod.rs:231-246`: no `CONTROLLER_DB_URL` → RDM; else probe `instance` table → exists ⇒ Hybrid, else ⇒ Unown. `KojiDb` (lib.rs:57) holds 3 conns: `koji`, `golbat` (golbat data), `controller` (dragonite/rdm).
 
 **Reads (golbat data DB) — keep:** `gym/pokestop/spawnpoint/station::Query::{all,area}` (`model/src/db/*.rs`) — SELECT lat/lon (+ despawn_sec / end_time filters).
 
@@ -132,9 +132,9 @@ Dispatch: clustering → `Greedy::run` (builder, greedy.rs:85) `[HOT]` 26 commit
 
 Call sites (all controller writes): `calculate.rs:117-130`, `calculate.rs:291-305`, `geofence.rs:114-123`, `geofence.rs:157-161`, `route.rs:136-139`, `project.rs:38-47`.
 
-**`ScannerType` branch points (14)** — every one collapses once RDM/Hybrid die and writes move to API: `api/src/utils/{mod.rs:48,request.rs:29}`, `calculate.rs:{103,116,213,290}`, `geofence.rs:{113,156}`, `project.rs:37`, `route.rs:135`, `private/instance.rs:{23,98}`.
+**`GolbatType` branch points (14)** — every one collapses once RDM/Hybrid die and writes move to API: `api/src/utils/{mod.rs:48,request.rs:29}`, `calculate.rs:{103,116,213,290}`, `geofence.rs:{113,156}`, `project.rs:37`, `route.rs:135`, `private/instance.rs:{23,98}`.
 
-**RDM removal checklist:** `model/src/db/mod.rs:95-105,145` (`RdmInstanceArea`, `RdmInstance`, `InstanceParsing::Rdm`); `model/src/api/text.rs:21-31`; `model/src/db/instance.rs:16,200-209`; `model/src/api/mod.rs:2`; `ScannerType::RDM` + `Hybrid` arms everywhere; deprecated env fallbacks `UNOWN_DB_URL`/`UNOWN_DB`/`DATABASE_URL` in `utils/mod.rs:173-191`. The whole `instance` table path + `controller` direct-write path goes away.
+**RDM removal checklist:** `model/src/db/mod.rs:95-105,145` (`RdmInstanceArea`, `RdmInstance`, `InstanceParsing::Rdm`); `model/src/api/text.rs:21-31`; `model/src/db/instance.rs:16,200-209`; `model/src/api/mod.rs:2`; `GolbatType::RDM` + `Hybrid` arms everywhere; deprecated env fallbacks `UNOWN_DB_URL`/`UNOWN_DB`/`DATABASE_URL` in `utils/mod.rs:173-191`. The whole `instance` table path + `controller` direct-write path goes away.
 
 ---
 

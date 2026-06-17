@@ -133,8 +133,8 @@ impl DataFilterArgs {
 pub struct OutputArgs {
     pub return_type: Option<String>,
     pub save_to_db: Option<bool>,
-    pub save_to_scanner: Option<bool>,
-    pub save_to_scanner_only: Option<bool>,
+    pub save_to_golbat: Option<bool>,
+    pub save_to_golbat_only: Option<bool>,
     pub simplify: Option<bool>,
 }
 
@@ -148,8 +148,8 @@ impl OutputArgs {
         OutputConfig {
             return_type,
             save_to_db: self.save_to_db.unwrap_or(false),
-            save_to_scanner: self.save_to_scanner.unwrap_or(false),
-            save_to_scanner_only: self.save_to_scanner_only.unwrap_or(false),
+            save_to_golbat: self.save_to_golbat.unwrap_or(false),
+            save_to_golbat_only: self.save_to_golbat_only.unwrap_or(false),
             simplify: self.simplify.unwrap_or(false),
         }
     }
@@ -331,8 +331,8 @@ mod tests {
         let cfg = OutputArgs::default().resolve(ReturnTypeArg::Feature);
         assert_eq!(cfg.return_type, ReturnTypeArg::Feature);
         assert!(!cfg.save_to_db);
-        assert!(!cfg.save_to_scanner);
-        assert!(!cfg.save_to_scanner_only);
+        assert!(!cfg.save_to_golbat);
+        assert!(!cfg.save_to_golbat_only);
         assert!(!cfg.simplify);
     }
 
@@ -355,14 +355,14 @@ mod tests {
     #[test]
     fn output_args_save_flags_set() {
         let g: OutputArgs = serde_json::from_str(
-            r#"{"saveToDb":true,"saveToScanner":true,"saveToScannerOnly":true,"simplify":true}"#,
+            r#"{"saveToDb":true,"saveToGolbat":true,"saveToGolbatOnly":true,"simplify":true}"#,
         )
         .unwrap();
         use crate::requests::config::ReturnTypeArg;
         let cfg = g.resolve(ReturnTypeArg::SingleArray);
         assert!(cfg.save_to_db);
-        assert!(cfg.save_to_scanner);
-        assert!(cfg.save_to_scanner_only);
+        assert!(cfg.save_to_golbat);
+        assert!(cfg.save_to_golbat_only);
         assert!(cfg.simplify);
     }
 

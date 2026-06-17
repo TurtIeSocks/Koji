@@ -33,7 +33,7 @@ export default function ProjectsAc({
 
   const saveProject = async (newProject: NewKojiProject) => {
     // v2 `POST /api/v2/projects` → the created record (enveloped; fetchWrapper
-    // unwraps to the record). `scanner` is required by the v2 create DTO.
+    // unwraps to the record). `golbat` is required by the v2 create DTO.
     const res = await fetchWrapper<KojiProject>('/api/v2/projects', {
       method: 'POST',
       headers: {
@@ -41,7 +41,7 @@ export default function ProjectsAc({
       },
       body: JSON.stringify({
         name: newProject.inputValue,
-        scanner: false,
+        golbat: false,
       }),
     })
     return res ?? undefined
@@ -136,7 +136,7 @@ export default function ProjectsAc({
             inputValue,
             created_at: new Date(),
             updated_at: new Date(),
-            scanner: false,
+            golbat: false,
           })
         }
         return filtered

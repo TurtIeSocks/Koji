@@ -11,7 +11,7 @@ algorithm, for demo/portfolio use. No plugins, no server, no database. The real
 `algorithms` crate code runs in the browser, multithreaded, unmodified.
 
 Non-goals (Phase 1): routing/VRP (native or-tools), bootstrap, plugin execution,
-any DB/network/scanner functionality, a polished demo UI.
+any DB/network/golbat functionality, a polished demo UI.
 
 ## 2. The shape of the work
 

@@ -67,10 +67,10 @@ use utoipa::OpenApi;
         crate::public::v2::s2::cell_coverage,
         crate::public::v2::s2::cell_polygons,
         crate::public::v2::s2::s2_cells,
-        // scanner-data
-        crate::public::v2::scanner_data::scanner_data,
-        crate::public::v2::scanner_data::by_area,
-        crate::public::v2::scanner_data::area_stats,
+        // golbat-data
+        crate::public::v2::golbat_data::golbat_data,
+        crate::public::v2::golbat_data::by_area,
+        crate::public::v2::golbat_data::area_stats,
         // plugins
         crate::public::v2::plugins::list,
         crate::public::v2::plugins::get_one,
@@ -117,11 +117,11 @@ use utoipa::OpenApi;
         crate::public::v2::resources::property::PatchProperty,
         crate::public::v2::resources::tile_server::CreateTileServer,
         crate::public::v2::resources::tile_server::PatchTileServer,
-        // s2 / scanner-data
+        // s2 / golbat-data
         crate::public::v2::s2::CoverageArgs,
         crate::public::v2::s2::S2CellsBody,
-        crate::public::v2::scanner_data::AreaReq,
-        crate::public::v2::scanner_data::BboxInput,
+        crate::public::v2::golbat_data::AreaReq,
+        crate::public::v2::golbat_data::BboxInput,
         // config / plugins / auth
         crate::utils::response::ConfigResponse,
         crate::public::v2::plugins::PluginPatch,
@@ -136,7 +136,7 @@ use utoipa::OpenApi;
         (name = "tile-servers", description = "Tile-server CRUD"),
         (name = "geometry", description = "Geometry transforms (convert/simplify/merge-points/area)"),
         (name = "s2", description = "S2 cell helpers"),
-        (name = "scanner-data", description = "Scanner data fetch (saved-fence + arbitrary-area)"),
+        (name = "golbat-data", description = "Golbat data fetch (saved-fence + arbitrary-area)"),
         (name = "plugins", description = "DB-managed plugin config overlay"),
         (name = "auth", description = "Session auth (login/logout/me)"),
         (name = "config", description = "App bootstrap blob"),
@@ -174,7 +174,7 @@ mod tests {
             "/api/v2/geometry/convert",
             "/api/v2/geometry/area",
             "/api/v2/s2/{cell_level}",
-            "/api/v2/scanner-data/{category}",
+            "/api/v2/golbat-data/{category}",
             "/api/v2/plugins",
             "/api/v2/auth/login",
             "/api/v2/config",

@@ -66,7 +66,7 @@ export interface UsePersist {
   radius: number | ''
   min_points: number | ''
   save_to_db: boolean
-  save_to_scanner: boolean
+  save_to_golbat: boolean
   skipRendering: boolean
   fast: boolean
   calculation_mode: typeof CALC_MODE[number] | string
@@ -133,7 +133,7 @@ export const usePersist = create(
       max_clusters: 0,
       min_points: 3,
       save_to_db: false,
-      save_to_scanner: false,
+      save_to_golbat: false,
       skipRendering: false,
       showCircles: true,
       showLines: true,

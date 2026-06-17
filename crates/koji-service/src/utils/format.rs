@@ -1,6 +1,6 @@
 //! `?format=` negotiation for geometry-bearing reads. The default (geojson)
 //! shapes ride inside the v2 envelope; the explicit export formats are returned
-//! raw (no envelope) so they stay drop-in compatible with scanner tooling.
+//! raw (no envelope) so they stay drop-in compatible with golbat tooling.
 //! Serialization itself is delegated to [`response_body`].
 //!
 //! Phase 0 builds `respond_geo` ahead of its consumers: the geometry-read
@@ -17,7 +17,7 @@ use crate::utils::api_response::ApiResponse;
 use crate::utils::response::response_body;
 
 /// `true` for the GeoJSON shapes that ride inside the v2 envelope; `false` for
-/// the raw export formats returned bare for scanner-tool compatibility.
+/// the raw export formats returned bare for golbat-tool compatibility.
 pub(crate) fn is_enveloped(rt: &ReturnTypeArg) -> bool {
     matches!(
         rt,

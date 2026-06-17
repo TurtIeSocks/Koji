@@ -2425,6 +2425,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "koji-golbat"
+version = "0.1.0"
+dependencies = [
+ "geo",
+ "geojson",
+ "koji-core",
+ "log",
+ "macros",
+ "sea-orm",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "koji-jobs"
 version = "0.1.0"
 dependencies = [
@@ -2454,20 +2468,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "koji-scanner"
-version = "0.1.0"
-dependencies = [
- "geo",
- "geojson",
- "koji-core",
- "log",
- "macros",
- "sea-orm",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "koji-service"
 version = "1.5.1"
 dependencies = [
@@ -2483,9 +2483,9 @@ dependencies = [
  "koji-db",
  "koji-dragonite",
  "koji-events",
+ "koji-golbat",
  "koji-jobs",
  "koji-plugins",
- "koji-scanner",
  "log",
  "macros",
  "migration",

@@ -1,10 +1,10 @@
-# Koji V2 — Phase 1c: split `model` → `koji-db` + `koji-scanner`
+# Koji V2 — Phase 1c: split `model` → `koji-db` + `koji-golbat`
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:executing-plans or superpowers:subagent-driven-development. Steps use checkbox (`- [ ]`).
 
-**Goal:** Extract `koji-scanner` (golbat read-only) and `koji-db` (Koji's own entities + db infra + RDM + `KojiDb`) out of the fused `model` crate; move the cycle-breaking shared types (`GeoFormats` + query/admin args + pure utils + domain-enum mappers) into `koji-core`; migrate all consumers. No facades.
+**Goal:** Extract `koji-golbat` (golbat read-only) and `koji-db` (Koji's own entities + db infra + RDM + `KojiDb`) out of the fused `model` crate; move the cycle-breaking shared types (`GeoFormats` + query/admin args + pure utils + domain-enum mappers) into `koji-core`; migrate all consumers. No facades.
 
-**Architecture:** Compiler-driven structural refactor. Each task is a green sub-commit (`cargo build --workspace` + `cargo test --workspace` parity with P1b: **16+3 pass, 4+1 ignored**). Final dep graph: everything → `koji-core`; `api` → core + koji-db + koji-scanner + model + algorithms; no cycles. Design: `docs/superpowers/specs/2026-05-29-koji-v2-p1c-db-scanner-split-design.md`.
+**Architecture:** Compiler-driven structural refactor. Each task is a green sub-commit (`cargo build --workspace` + `cargo test --workspace` parity with P1b: **16+3 pass, 4+1 ignored**). Final dep graph: everything → `koji-core`; `api` → core + koji-db + koji-golbat + model + algorithms; no cycles. Design: `docs/superpowers/specs/2026-05-29-koji-v2-p1c-db-golbat-split-design.md`.
 
 **Tech Stack:** Rust 2024, sea-orm 1.1, cargo workspace (`members = ["crates/*","bins/*"]`).
 
@@ -14,7 +14,7 @@
 
 ### Task 1: Move cycle-breaking shared types into `koji-core`
 
-Moves `GeoFormats`, the query/admin arg structs, pure utils, and the domain-enum mappers from `model` into `koji-core`, so `koji-db`/`koji-scanner` (Task 2/3) can depend only on `koji-core`.
+Moves `GeoFormats`, the query/admin arg structs, pure utils, and the domain-enum mappers from `model` into `koji-core`, so `koji-db`/`koji-golbat` (Task 2/3) can depend only on `koji-core`.
 
 **Files:**
 - Create: `crates/koji-core/src/geo_formats.rs`, `crates/koji-core/src/query_args.rs`, `crates/koji-core/src/text_utils.rs`, `crates/koji-core/src/enum_map.rs`, `crates/koji-core/src/normalize.rs`
@@ -36,7 +36,7 @@ Moves `GeoFormats`, the query/admin arg structs, pure utils, and the domain-enum
   - `get_enum_by_geometry_string(Option<String>) -> Option<FenceType>` (point→Leveling, multipoint→CirclePokemon, multipolygon→AutoQuest, else None).
   Imports: `use crate::{FenceType, Category}; use geojson::Value;`.
 
-- [ ] **Step 6: Create `normalize.rs`** — move the **pure** bits from `model/src/utils/normalize.rs`: trait `HasLatLon`, its `impl HasLatLon for PointStruct`, struct `AreaPolygons` (+ impl), `count_in_area<T: HasLatLon>`. Imports: `use crate::PointStruct; use geo::{Contains, MultiPolygon, Point, Polygon}; use geojson::{FeatureCollection, Value};`. (The `Spawnpoint`/`LatLonRow` impls + `fort`/`spawnpoint*` go to koji-scanner in Task 2; `instance`/`area`/`area_ref` go to koji-db in Task 3.)
+- [ ] **Step 6: Create `normalize.rs`** — move the **pure** bits from `model/src/utils/normalize.rs`: trait `HasLatLon`, its `impl HasLatLon for PointStruct`, struct `AreaPolygons` (+ impl), `count_in_area<T: HasLatLon>`. Imports: `use crate::PointStruct; use geo::{Contains, MultiPolygon, Point, Polygon}; use geojson::{FeatureCollection, Value};`. (The `Spawnpoint`/`LatLonRow` impls + `fort`/`spawnpoint*` go to koji-golbat in Task 2; `instance`/`area`/`area_ref` go to koji-db in Task 3.)
 
 - [ ] **Step 7: Wire `lib.rs`** — add to `crates/koji-core/src/lib.rs`:
 ```rust
@@ -53,7 +53,7 @@ pub use query_args::{AdminReq, AdminReqParsed, ApiQueryArgs, BoundsArg, Spawnpoi
 pub use text_utils::{clean, get_mode_acronym, json_related_sort, name_modifier, separate_by_comma};
 ```
 
-- [ ] **Step 8: Delete moved items from `model`** and leave the rest. In `model/src/api/mod.rs` delete `GeoFormats` + its impl (keep the enum's old consumers compiling via re-export only if needed — prefer no re-export; consumers re-point in Step 10). In `model/src/api/args.rs` delete the 5 moved structs. In `model/src/utils/mod.rs` delete the 5 moved fns + the moved enum-mappers (keep `get_database_struct`, `parse_order`, env bootstrap — those go to koji-db in Task 3, still here for now). In `model/src/utils/normalize.rs` delete the moved pure items (keep `fort`/`spawnpoint*`/`instance`/`area`/`area_ref` + scanner HasLatLon impls for now).
+- [ ] **Step 8: Delete moved items from `model`** and leave the rest. In `model/src/api/mod.rs` delete `GeoFormats` + its impl (keep the enum's old consumers compiling via re-export only if needed — prefer no re-export; consumers re-point in Step 10). In `model/src/api/args.rs` delete the 5 moved structs. In `model/src/utils/mod.rs` delete the 5 moved fns + the moved enum-mappers (keep `get_database_struct`, `parse_order`, env bootstrap — those go to koji-db in Task 3, still here for now). In `model/src/utils/normalize.rs` delete the moved pure items (keep `fort`/`spawnpoint*`/`instance`/`area`/`area_ref` + golbat HasLatLon impls for now).
 
 - [ ] **Step 9: Build koji-core alone.** Run: `cargo build -p koji-core`. Expected: PASS. Fix any missing `use`/`Precision`/derive in the new files.
 
@@ -86,22 +86,22 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ---
 
-### Task 2: Extract `koji-scanner` (golbat read-only)
+### Task 2: Extract `koji-golbat` (golbat read-only)
 
 **Files:**
-- Create: `crates/koji-scanner/Cargo.toml`, `crates/koji-scanner/src/lib.rs`, `crates/koji-scanner/src/error.rs`, `crates/koji-scanner/src/entities/{mod.rs,gym.rs,pokestop.rs,spawnpoint.rs,station.rs}`, `crates/koji-scanner/src/rows.rs`, `crates/koji-scanner/src/normalize.rs`
+- Create: `crates/koji-golbat/Cargo.toml`, `crates/koji-golbat/src/lib.rs`, `crates/koji-golbat/src/error.rs`, `crates/koji-golbat/src/entities/{mod.rs,gym.rs,pokestop.rs,spawnpoint.rs,station.rs}`, `crates/koji-golbat/src/rows.rs`, `crates/koji-golbat/src/normalize.rs`
 - Modify: root `Cargo.toml` (workspace.dependencies), consumers (`api`)
 
-- [ ] **Step 1: Scaffold crate.** Create `crates/koji-scanner/Cargo.toml`:
+- [ ] **Step 1: Scaffold crate.** Create `crates/koji-golbat/Cargo.toml`:
 ```toml
 [package]
-name = "koji-scanner"
+name = "koji-golbat"
 version = "0.1.0"
 edition = "2024"
 publish = false
 
 [lib]
-name = "koji_scanner"
+name = "koji_golbat"
 path = "src/lib.rs"
 
 [dependencies]
@@ -113,7 +113,7 @@ serde = { workspace = true }
 log = { workspace = true }
 thiserror = { workspace = true }
 ```
-Add to root `Cargo.toml` `[workspace.dependencies]`: `koji-scanner = { path = "crates/koji-scanner" }` and `koji-db = { path = "crates/koji-db" }` (used in Task 3).
+Add to root `Cargo.toml` `[workspace.dependencies]`: `koji-golbat = { path = "crates/koji-golbat" }` and `koji-db = { path = "crates/koji-db" }` (used in Task 3).
 
 - [ ] **Step 2: `error.rs`** — own error:
 ```rust
@@ -121,7 +121,7 @@ use sea_orm::DbErr;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum ScannerError {
+pub enum GolbatError {
     #[error("Database Error: {0}")]
     Database(#[from] DbErr),
     #[error("Geojson Error: {0}")]
@@ -131,7 +131,7 @@ pub enum ScannerError {
 }
 ```
 
-- [ ] **Step 3: Move entities.** `git mv crates/model/src/db/{gym,pokestop,spawnpoint,station}.rs crates/koji-scanner/src/entities/`. Create `entities/mod.rs` with `pub mod gym; pub mod pokestop; pub mod spawnpoint; pub mod station;`. In each entity file: replace `use super::*;` and `use crate::...` with explicit imports — they need `sea_orm` prelude, `koji_core::{BoundsArg, SpawnpointTth, PointStruct, SingleVec, ...}`, the row types (Step 4), and `ScannerError`. Replace `ModelError` → `ScannerError`, `model::api::args::BoundsArg` → `koji_core::BoundsArg`.
+- [ ] **Step 3: Move entities.** `git mv crates/model/src/db/{gym,pokestop,spawnpoint,station}.rs crates/koji-golbat/src/entities/`. Create `entities/mod.rs` with `pub mod gym; pub mod pokestop; pub mod spawnpoint; pub mod station;`. In each entity file: replace `use super::*;` and `use crate::...` with explicit imports — they need `sea_orm` prelude, `koji_core::{BoundsArg, SpawnpointTth, PointStruct, SingleVec, ...}`, the row types (Step 4), and `GolbatError`. Replace `ModelError` → `GolbatError`, `model::api::args::BoundsArg` → `koji_core::BoundsArg`.
 
 - [ ] **Step 4: `rows.rs`** — move from `model/src/db/mod.rs`: `LatLonRow` (+ its `From<LatLonRow> for koji_core::PointStruct`), `Spawnpoint`, `GenericData` (+ its `koji_core::ToPointArray`/`ToPointStruct` impls), `GenericDataToVec` (+ impl). `use koji_core::{PointArray, PointStruct, SingleVec, ToPointArray};`.
 
@@ -144,24 +144,24 @@ mod error;
 mod normalize;
 mod rows;
 
-pub use error::ScannerError;
+pub use error::GolbatError;
 pub use normalize::{fort, fort_filtered, spawnpoint, spawnpoint_filtered};
 pub use rows::{GenericData, GenericDataToVec, LatLonRow, Spawnpoint};
 ```
-(Re-export entities as `koji_scanner::entities::gym` etc.; adjust to match how `api` referenced `model::db::gym` — see Step 8.)
+(Re-export entities as `koji_golbat::entities::gym` etc.; adjust to match how `api` referenced `model::db::gym` — see Step 8.)
 
-- [ ] **Step 7: Build koji-scanner alone.** Run: `cargo build -p koji-scanner`. Fix imports/feature-gates until PASS.
+- [ ] **Step 7: Build koji-golbat alone.** Run: `cargo build -p koji-golbat`. Fix imports/feature-gates until PASS.
 
-- [ ] **Step 8: Re-point consumers.** In `api` (and anywhere): `model::db::{gym,pokestop,spawnpoint,station}` → `koji_scanner::entities::{…}`; `model::db::{GenericData,GenericDataToVec,Spawnpoint,LatLonRow}` → `koji_scanner::{…}`; `model::utils::normalize::{fort,fort_filtered,spawnpoint,spawnpoint_filtered}` → `koji_scanner::{…}`. Add `koji-scanner = { workspace = true }` to `crates/api/Cargo.toml`. The scanner queries take `&conn.scanner` (a `&DatabaseConnection`) — unchanged at call sites. Build → fix → repeat.
+- [ ] **Step 8: Re-point consumers.** In `api` (and anywhere): `model::db::{gym,pokestop,spawnpoint,station}` → `koji_golbat::entities::{…}`; `model::db::{GenericData,GenericDataToVec,Spawnpoint,LatLonRow}` → `koji_golbat::{…}`; `model::utils::normalize::{fort,fort_filtered,spawnpoint,spawnpoint_filtered}` → `koji_golbat::{…}`. Add `koji-golbat = { workspace = true }` to `crates/api/Cargo.toml`. The golbat queries take `&conn.golbat` (a `&DatabaseConnection`) — unchanged at call sites. Build → fix → repeat.
 
 - [ ] **Step 9: Test + commit.** `cargo test --workspace 2>&1 | tail -20` (16+3 / 4+1). Commit:
 ```bash
 git add -A
-git commit -m "refactor(scanner): extract koji-scanner crate (golbat read-only)
+git commit -m "refactor(golbat): extract koji-golbat crate (golbat read-only)
 
-gym/pokestop/spawnpoint/station entities + scanner row types (LatLonRow,
-Spawnpoint, GenericData) + scanner normalizers + own ScannerError, moved out
-of model into koji-scanner (-> koji-core only). Consumers re-pointed.
+gym/pokestop/spawnpoint/station entities + golbat row types (LatLonRow,
+Spawnpoint, GenericData) + golbat normalizers + own GolbatError, moved out
+of model into koji-golbat (-> koji-core only). Consumers re-pointed.
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
@@ -200,16 +200,16 @@ serde_with = { workspace = true }
 thiserror = { workspace = true }
 ```
 
-- [ ] **Step 2: Move db modules.** `git mv` the Koji-owned entity files + infra from `crates/model/src/db/` to `crates/koji-db/src/`: `area.rs geofence.rs geofence_project.rs geofence_property.rs instance.rs project.rs property.rs route.rs tile_server.rs enum_bridge.rs sea_orm_active_enums.rs prelude.rs`. Move `model/src/db/mod.rs`'s remaining shared items (after Task 2 removed scanner rows) into `crates/koji-db/src/helpers.rs`: `NameId, NameType, NameTypeId, AreaRef, Total, PaginateResults, InsertsUpdates, VecToJson, ToFeatureFromModel, RdmInstanceArea, RdmInstance, InstanceParsing`.
+- [ ] **Step 2: Move db modules.** `git mv` the Koji-owned entity files + infra from `crates/model/src/db/` to `crates/koji-db/src/`: `area.rs geofence.rs geofence_project.rs geofence_property.rs instance.rs project.rs property.rs route.rs tile_server.rs enum_bridge.rs sea_orm_active_enums.rs prelude.rs`. Move `model/src/db/mod.rs`'s remaining shared items (after Task 2 removed golbat rows) into `crates/koji-db/src/helpers.rs`: `NameId, NameType, NameTypeId, AreaRef, Total, PaginateResults, InsertsUpdates, VecToJson, ToFeatureFromModel, RdmInstanceArea, RdmInstance, InstanceParsing`.
 
 - [ ] **Step 3: Move error + conn + text + json + db-utils + db-normalize.**
   - `git mv crates/model/src/error.rs crates/koji-db/src/error.rs` (`ModelError`).
-  - Create `crates/koji-db/src/conn.rs`: move `KojiDb`, `ScannerType` (from `model/src/lib.rs`) + `get_database_struct`, `parse_order` (from `model/src/utils/mod.rs`).
+  - Create `crates/koji-db/src/conn.rs`: move `KojiDb`, `GolbatType` (from `model/src/lib.rs`) + `get_database_struct`, `parse_order` (from `model/src/utils/mod.rs`).
   - `git mv crates/model/src/api/text.rs crates/koji-db/src/text.rs` (`TextHelpers`; uses `RdmInstance`/`InstanceParsing` now local, `koji_core::ToFeature`/`FeatureCtx`).
   - `git mv crates/model/src/utils/json.rs crates/koji-db/src/json.rs` (`JsonToModel`, `parse_property_value`, `determine_category_by_value`).
   - Create `crates/koji-db/src/normalize.rs`: move `instance`, `area`, `area_ref` from `model/src/utils/normalize.rs` (use `TextHelpers`, entity models, `AreaRef`, `sea_orm_active_enums::Type`).
 
-- [ ] **Step 4: `lib.rs`** — declare modules + re-exports mirroring how consumers used `model::db::*` and `model::{KojiDb,ScannerType}`:
+- [ ] **Step 4: `lib.rs`** — declare modules + re-exports mirroring how consumers used `model::db::*` and `model::{KojiDb,GolbatType}`:
 ```rust
 pub mod area;
 pub mod geofence;
@@ -230,7 +230,7 @@ mod json;
 mod text;
 pub mod normalize;
 
-pub use conn::{get_database_struct, parse_order, KojiDb, ScannerType};
+pub use conn::{get_database_struct, parse_order, KojiDb, GolbatType};
 pub use error::ModelError;
 pub use helpers::*;
 pub use json::JsonToModel;
@@ -247,7 +247,7 @@ pub use text::TextHelpers;
 | `model::db::{area,geofence,geofence_project,geofence_property,instance,project,property,route,tile_server}` | `koji_db::{…}` |
 | `model::db::sea_orm_active_enums::{Type,Category}` | `koji_db::sea_orm_active_enums::{…}` |
 | `model::db::{NameId,NameTypeId,AreaRef,Total,PaginateResults,…}` | `koji_db::{…}` |
-| `model::{KojiDb,ScannerType}` | `koji_db::{KojiDb,ScannerType}` |
+| `model::{KojiDb,GolbatType}` | `koji_db::{KojiDb,GolbatType}` |
 | `model::error::ModelError` | `koji_db::ModelError` |
 | `model::api::text::TextHelpers` | `koji_db::TextHelpers` |
 | `model::utils::{get_database_struct,parse_order}` | `koji_db::{…}` |
@@ -274,23 +274,23 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 **Files:** `crates/model/src/lib.rs`, `crates/model/src/api/mod.rs`, `crates/model/Cargo.toml`
 
-- [ ] **Step 1: Trim `model`.** `model/src/lib.rs` → drop the `db`, `error`, `utils` modules and the `KojiDb`/`ScannerType` defs (all moved); keep `pub mod api;`. Delete now-empty `crates/model/src/db/` and `crates/model/src/utils/` directories (all files moved). `model/src/api/mod.rs` → keep only what remains (after `GeoFormats` + `text` moved): re-export nothing db. `model/src/api/args.rs` retains `Args, ArgsUnwrapped, ReturnTypeArg, Auth, DataPointsArg, Search, get_return_type`.
+- [ ] **Step 1: Trim `model`.** `model/src/lib.rs` → drop the `db`, `error`, `utils` modules and the `KojiDb`/`GolbatType` defs (all moved); keep `pub mod api;`. Delete now-empty `crates/model/src/db/` and `crates/model/src/utils/` directories (all files moved). `model/src/api/mod.rs` → keep only what remains (after `GeoFormats` + `text` moved): re-export nothing db. `model/src/api/args.rs` retains `Args, ArgsUnwrapped, ReturnTypeArg, Auth, DataPointsArg, Search, get_return_type`.
 
-- [ ] **Step 2: Trim `model/Cargo.toml` deps.** Remove now-unused deps (`sea-orm`, `regex`, `futures`, likely `chrono`); keep `koji-core`, `geojson`, `geo`/`geo-types` (if args uses them), `serde`, `serde_json`, `serde_with`. Run `cargo build -p model` → add back any dep the compiler still needs. Confirm `model` depends on **koji-core only** (no koji-db/koji-scanner).
+- [ ] **Step 2: Trim `model/Cargo.toml` deps.** Remove now-unused deps (`sea-orm`, `regex`, `futures`, likely `chrono`); keep `koji-core`, `geojson`, `geo`/`geo-types` (if args uses them), `serde`, `serde_json`, `serde_with`. Run `cargo build -p model` → add back any dep the compiler still needs. Confirm `model` depends on **koji-core only** (no koji-db/koji-golbat).
 
 - [ ] **Step 3: Full green build + test.** Run in parallel:
   - `cargo build --workspace`
   - `cargo test --workspace 2>&1 | tail -20` → expect 16+3 pass, 4+1 ignored.
   - `cargo tree -p model -e normal --depth 1` → confirm only `koji-core` among internal crates.
 
-- [ ] **Step 4: rustfmt the touched/new files.** `rustfmt --edition 2024` on the new koji-db/koji-scanner/koji-core files (scoped; no repo-wide fmt). Rebuild to confirm green.
+- [ ] **Step 4: rustfmt the touched/new files.** `rustfmt --edition 2024` on the new koji-db/koji-golbat/koji-core files (scoped; no repo-wide fmt). Rebuild to confirm green.
 
 - [ ] **Step 5: Commit.**
 ```bash
 git add -A
 git commit -m "refactor(model): shrink model to the calc-args remainder (-> koji-core only)
 
-db/scanner/error/utils all extracted to koji-db/koji-scanner/koji-core. model
+db/golbat/error/utils all extracted to koji-db/koji-golbat/koji-core. model
 now holds only api::args (Args/ArgsUnwrapped/ReturnTypeArg/Auth/DataPointsArg/
 get_return_type) pending the P1d Args breakup. Dep graph acyclic; tests parity.
 
@@ -303,10 +303,10 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ## Self-Review
 
-**Spec coverage:** ✅ koji-scanner (Task 2), koji-db (Task 3), utils split (Task 1 pure→core, Task 2 scanner-normalizers, Task 3 db-utils+db-normalize), cycle break (Task 1 GeoFormats+args→core; TextHelpers→koji-db Task 3), enums-at-boundary (Task 1 mappers return domain enums; Task 3 keeps sea-orm enums + bridge). Refinement vs spec: `model` ends `→ koji-core only` (TextHelpers moving to koji-db removes model's last db edge) — strictly better than the spec's conservative "core + koji-db".
+**Spec coverage:** ✅ koji-golbat (Task 2), koji-db (Task 3), utils split (Task 1 pure→core, Task 2 golbat-normalizers, Task 3 db-utils+db-normalize), cycle break (Task 1 GeoFormats+args→core; TextHelpers→koji-db Task 3), enums-at-boundary (Task 1 mappers return domain enums; Task 3 keeps sea-orm enums + bridge). Refinement vs spec: `model` ends `→ koji-core only` (TextHelpers moving to koji-db removes model's last db edge) — strictly better than the spec's conservative "core + koji-db".
 
 **Placeholder scan:** Cargo.toml/lib.rs/error.rs contents are concrete. Import fixes use the explicit translation tables + compiler-driven sweep (the approved P1-conv method), not "fix as needed".
 
-**Type consistency:** crate lib names `koji_db`/`koji_scanner`; `ScannerError` (scanner) vs `ModelError` (koji-db); mappers return `FenceType`/`Category` (core) with `.into()` bridge at db sites. `entities::{gym,…}` path for scanner.
+**Type consistency:** crate lib names `koji_db`/`koji_golbat`; `GolbatError` (golbat) vs `ModelError` (koji-db); mappers return `FenceType`/`Category` (core) with `.into()` bridge at db sites. `entities::{gym,…}` path for golbat.
 
-**Risks:** (1) a hidden koji-db↔koji-scanner edge (a koji-db query using a scanner row type) — investigator found none; if one surfaces, move that helper to koji-core. (2) `enum_bridge` may lack a `Category` arm — add it in Task 3 Step 4. (3) dep bumps deferred to avoid ballooning (note any skipped). (4) `prelude.rs` may reference scanner entities — split it in Task 3 if so.
+**Risks:** (1) a hidden koji-db↔koji-golbat edge (a koji-db query using a golbat row type) — investigator found none; if one surfaces, move that helper to koji-core. (2) `enum_bridge` may lack a `Category` arm — add it in Task 3 Step 4. (3) dep bumps deferred to avoid ballooning (note any skipped). (4) `prelude.rs` may reference golbat entities — split it in Task 3 if so.

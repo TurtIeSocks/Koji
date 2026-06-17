@@ -18,7 +18,7 @@ Unlike Geofences, Kōji does not enforce unique names when it comes to creating 
 
 Since all routes are required to be associated with a geofence, Kōji has a special built-in function to keep them in sync as painlessly as possible.
 
-If the routes associated with a geofence share the same name as that geofence, their name will be updated whenever the geofence's name is updated. This is a great way to keep your routes organized and synced up with the scanner.
+If the routes associated with a geofence share the same name as that geofence, their name will be updated whenever the geofence's name is updated. This is a great way to keep your routes organized and synced up with the golbat.
 
 ### Properties
 
@@ -26,31 +26,31 @@ Properties can have duplicate names, however they still must have a unique combi
 
 While it is generally recommended to use the `database` category whenever possible in order to reduce manual edits whenever you change a geofence's property, such as its name, adding an override property such as a string based `name` can sometimes help for unique situations depending on what your project's endpoints are expecting.
 
-## Scanner Integration
+## Golbat Integration
 
 ### API Syncing
 
-While Kōji does connect directly to your scanner's database, most scanners have their geofences or routes loaded into memory and must reload these in order to make use of the latest changes. Instead of restarting your scanner process, you can set up Kōji to call the refresh endpoint automatically whenever a geofence or route is updated in the scanner database.
+While Kōji does connect directly to your golbat's database, most golbats have their geofences or routes loaded into memory and must reload these in order to make use of the latest changes. Instead of restarting your golbat process, you can set up Kōji to call the refresh endpoint automatically whenever a geofence or route is updated in the golbat database.
 
 <Steps>
 
 #### In the Admin Panel, navigate to the `projects` page.
 
-#### Edit (or create) a scanner project.
+#### Edit (or create) a golbat project.
 
-#### Set `scanner` to `true`.
+#### Set `golbat` to `true`.
 
-#### Add the `api_endpoint` value. A hint is provided for both RDM and Dragonite scanner endpoints.
+#### Add the `api_endpoint` value. A hint is provided for both RDM and Dragonite golbat endpoints.
 
-#### Add the `api_key` value. A hint is provided for both RDM and Dragonite scanner endpoints.
+#### Add the `api_key` value. A hint is provided for both RDM and Dragonite golbat endpoints.
 
 </Steps>
 
-Now when you click the `Sync` button, either next to the respective project, geofence, or route, Kōji will automatically call this endpoint after saving the changes to the scanner database, making them immediately available to the scanner.
+Now when you click the `Sync` button, either next to the respective project, geofence, or route, Kōji will automatically call this endpoint after saving the changes to the golbat database, making them immediately available to the golbat.
 
 ### Default Templates
 
-Since most scanners have many other properties associated with their geofences and routes, Kōji provides a way to automatically add these properties to your geofences and routes when they are created.
+Since most golbats have many other properties associated with their geofences and routes, Kōji provides a way to automatically add these properties to your geofences and routes when they are created.
 
 - If using Dragonite, in the Dragonite Admin panel create a new `area` named `Default` and set any properties that you want, such as worker counts, to be added to all geofences and routes that are saved from Kōji.
 - If using RDM, you will need to name the files a little differently. For each available instance mode, you will need to take note of its acronym, below is the code that Kōji uses for your reference:

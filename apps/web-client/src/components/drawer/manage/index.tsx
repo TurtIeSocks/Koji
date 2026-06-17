@@ -79,18 +79,18 @@ export default function ImportExport() {
       <InstanceSelect
         controlled
         initialState={[
-          ...(addPoint && addPoint.endsWith('__SCANNER') ? [addPoint] : []),
+          ...(addPoint && addPoint.endsWith('__GOLBAT') ? [addPoint] : []),
           ...geojson.features
             .filter(
               (feat) =>
                 feat.geometry.type !== 'LineString' &&
                 feat.geometry.type !== 'Point' &&
                 typeof feat.id === 'string' &&
-                feat.id.endsWith('__SCANNER'),
+                feat.id.endsWith('__GOLBAT'),
             )
             .map((feat) => feat.id as KojiKey),
         ]}
-        label="Import from Scanner"
+        label="Import from Golbat"
       />
       <InstanceSelect
         fences

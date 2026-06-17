@@ -10,7 +10,7 @@ same logic/structure written more than once → candidate for a shared abstracti
   parallel-structure dup that jscpd misses (different identifiers, divergent text, same shape).
 
 **jscpd per-crate (clones / dup-lines):** koji-service 49/674 · koji-db 30/431 · migration 24/254 ·
-koji-scanner 17/218 · algorithms 9/121 · nominatim 4/106 · koji-core 4/89 · events 1/12 · jobs 1/12.
+koji-golbat 17/218 · algorithms 9/121 · nominatim 4/106 · koji-core 4/89 · events 1/12 · jobs 1/12.
 
 > ⚠️ **Test-vs-prod split matters.** jscpd counts `#[cfg(test)]` clones as equal to prod. Verified:
 > koji-core's 89 dup-lines + the largest cross-crate clone (35+23+22L, `koji_output.rs` ↔
@@ -36,14 +36,14 @@ Biggest prod hotspot. jscpd #1 crate. Agent-C top-3.
 macro or fn-ptr table · `KojiError`→`actix Error` via `ResponseError`/`From` impl (kills the 26 `map_err`) ·
 fold v1 s2 endpoints onto v2 (or shared inner fn).
 
-### T1b · koji-db + koji-scanner — per-entity Query boilerplate
+### T1b · koji-db + koji-golbat — per-entity Query boilerplate
 jscpd: project.rs↔tile_server.rs 30+25L, geofence↔project 28L, gym↔pokestop 24+24L. Agent-A top-3.
 | dup | sites | ~LOC | locations |
 |---|---|---|---|
-| Fort geo-query chain `all/bound/area/stats` (table+prefix vary) | 3 entities | ~73 | scanner/entities gym.rs:53-136, pokestop.rs:61-142, spawnpoint.rs:30-123 |
+| Fort geo-query chain `all/bound/area/stats` (table+prefix vary) | 3 entities | ~73 | golbat/entities gym.rs:53-136, pokestop.rs:61-142, spawnpoint.rs:30-123 |
 | CRUD `get_one/get_one_json/delete/search` | 3 entities | ~23 | db/property.rs, project.rs, tile_server.rs |
 | `upsert_related_by_geofence_id` ≈ `upsert_related_by_project_id` (mirror) | 2 | 39 ea (~78) | db/geofence_project.rs:174,214 |
-| normalize `fort/fort_filtered/spawnpoint/spawnpoint_filtered` (enumerate+prefix) | 4 | ~59 | scanner/normalize.rs:71-141 |
+| normalize `fort/fort_filtered/spawnpoint/spawnpoint_filtered` (enumerate+prefix) | 4 | ~59 | golbat/normalize.rs:71-141 |
 | raw-SQL `SELECT lat,lon FROM {t} WHERE enabled=1 AND deleted=0 AND updated>={} AND ({})` | 2+ | — | gym.rs:109, pokestop.rs:114 |
 
 **Abstractions:** generic `EntityQuery` trait w/ default `get_one/delete/search` (entity-param) ·

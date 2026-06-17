@@ -306,7 +306,7 @@ async fn remove(
 /// linked Dragonite area.
 ///
 /// Replaces the v1 GET-that-mutates `/geofence/push/{id}` and the old direct
-/// controller-DB write (P5, architecture §7): instead of writing the scanner DB
+/// controller-DB write (P5, architecture §7): instead of writing the golbat DB
 /// inline, it appends an [`area.geofence_updated`](TOPIC_GEOFENCE_UPDATED) event
 /// to the outbox, which the dispatcher delivers to the `DragoniteSubscriber`
 /// (PATCH `/v2/areas/{id}`). Returns `202 { event_id }`.
@@ -387,7 +387,7 @@ async fn publish(
 }
 
 /// The `web::Scope` wiring the geofence handlers under `/geofences`, mounted into
-/// `/api/v2` by [`crate::start`]. The `/{id}/publish` and `/{id}/scanner-data`
+/// `/api/v2` by [`crate::start`]. The `/{id}/publish` and `/{id}/golbat-data`
 /// sub-resources are registered before the `/{id}` catch-all so the more specific
 /// routes match first.
 pub(crate) fn scope() -> actix_web::Scope {
@@ -398,12 +398,12 @@ pub(crate) fn scope() -> actix_web::Scope {
                 .route(web::post().to(create)),
         )
         .service(web::resource("/{id}/publish").route(web::post().to(publish)))
-        // scanner-data as a geofence sub-resource (architecture §4.5): the
-        // category's scanner points within the path `{id}` geofence. The handler
-        // lives in `super::scanner_data` (re-keyed off the path id in P3).
+        // golbat-data as a geofence sub-resource (architecture §4.5): the
+        // category's golbat points within the path `{id}` geofence. The handler
+        // lives in `super::golbat_data` (re-keyed off the path id in P3).
         .service(
-            web::resource("/{id}/scanner-data")
-                .route(web::get().to(crate::public::v2::scanner_data::scanner_data)),
+            web::resource("/{id}/golbat-data")
+                .route(web::get().to(crate::public::v2::golbat_data::golbat_data)),
         )
         .service(
             web::resource("/{id}")

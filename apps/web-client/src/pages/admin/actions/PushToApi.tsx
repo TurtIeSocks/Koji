@@ -15,9 +15,9 @@ import { SxProps, capitalize } from '@mui/material'
 import { fetchWrapper } from '@services/fetches'
 
 // react-admin resource name → v2 segment for the publish action.
-// TODO(v2-verify): the v1 GET `/{resource}/push/{id}` (sync scanner-sync) maps to
+// TODO(v2-verify): the v1 GET `/{resource}/push/{id}` (sync golbat-sync) maps to
 // the v2 `POST /api/v2/{seg}/{id}/publish` (async Dragonite-area publish via the
-// event outbox). The semantics differ (publish vs scanner-sync) and a geofence
+// event outbox). The semantics differ (publish vs golbat-sync) and a geofence
 // with no linked Dragonite area returns 422 — confirm the intended behavior +
 // success/error UX against a live deploy.
 const PUBLISH_SEG: Record<string, string> = {
@@ -58,7 +58,7 @@ export function PushToProd<T extends BasicKojiEntry>({
       }),
     {
       onSuccess: () => {
-        notify(`${record.name} synced with scanner`, {
+        notify(`${record.name} synced with golbat`, {
           type: 'success',
         })
       },
@@ -106,7 +106,7 @@ export function BulkPushToProd<T extends BasicKojiEntry>({
         notify(
           `${selectedIds.length} ${capitalize(resource)}${
             selectedIds.length > 1 ? 's' : ''
-          } synced with scanner`,
+          } synced with golbat`,
           {
             type: 'success',
           },

@@ -2,18 +2,18 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:subagent-driven-development / executing-plans + test-driven-development. Steps use `- [ ]`.
 
-**Goal:** Fill the v2 surface gaps the frontend migration revealed, so the frontend can move off v1/`/internal` entirely (P6). Three backend additions: polygon area calc, arbitrary-area scanner-data (+ stats), and the app-config blob. All ported from existing v1/`/internal` handlers.
+**Goal:** Fill the v2 surface gaps the frontend migration revealed, so the frontend can move off v1/`/internal` entirely (P6). Three backend additions: polygon area calc, arbitrary-area golbat-data (+ stats), and the app-config blob. All ported from existing v1/`/internal` handlers.
 
 **Architecture:** Each new endpoint ports its v1/`/internal` sibling's logic onto the v2 conventions (`ServiceError`, envelope, typed body). No new domain logic — these are surface-shape ports of working handlers.
 
-**Tech Stack:** Rust, actix-web, sea-orm, geojson, koji-scanner.
+**Tech Stack:** Rust, actix-web, sea-orm, geojson, koji-golbat.
 
 ## Delegate-mode decisions (recorded)
 
-- **Arbitrary-area scanner-data is a POST** (`/api/v2/scanner-data/{category}`, body carries the area/bbox) — a GET can't carry a drawn polygon. This coexists with P3's `GET /api/v2/geofences/{id}/scanner-data` (saved-fence convenience). Category stays in the path (matches the old `/internal/data/area/{category}`).
+- **Arbitrary-area golbat-data is a POST** (`/api/v2/golbat-data/{category}`, body carries the area/bbox) — a GET can't carry a drawn polygon. This coexists with P3's `GET /api/v2/geofences/{id}/golbat-data` (saved-fence convenience). Category stays in the path (matches the old `/internal/data/area/{category}`).
 - **`GET /api/v2/config`** ports the existing `/config` (`private/misc.rs::config`) `ConfigResponse` into the v2 envelope — it's the app bootstrap blob (map center, tile server, plugin lists, login state), distinct from `/auth/me` (auth state only).
 - **Area unit** matches v1 `calculate_area` exactly (don't reinterpret the unit — port the number the frontend already expects).
-- **NOT in P5 (flagged for the user, domain-ambiguous):** `save-scanner`/`push`→`publish` equivalence, and `/internal/routes/from_scanner` (external scanner-sourced routes). The P6 frontend migration maps these best-guess and flags them; they are NOT resolved blind here.
+- **NOT in P5 (flagged for the user, domain-ambiguous):** `save-golbat`/`push`→`publish` equivalence, and `/internal/routes/from_golbat` (external golbat-sourced routes). The P6 frontend migration maps these best-guess and flags them; they are NOT resolved blind here.
 - **DB-test strategy:** no DB here → compile/clippy + pure-logic tests; live behavior on a real-DB run.
 
 ---
@@ -37,22 +37,22 @@ git commit -m "feat(koji-service): POST /api/v2/geometry/area (port v1 calc/area
 
 ---
 
-## Task 2: `POST /api/v2/scanner-data/{category}` + `/stats`
+## Task 2: `POST /api/v2/golbat-data/{category}` + `/stats`
 
-**Files:** Modify `crates/koji-service/src/public/v2/scanner_data.rs`. Read `crates/koji-service/src/private/points.rs` (`by_area`, `area_stats`, and the `bound` variant) — the `/internal/data/*` handlers to port.
+**Files:** Modify `crates/koji-service/src/public/v2/golbat_data.rs`. Read `crates/koji-service/src/private/points.rs` (`by_area`, `area_stats`, and the `bound` variant) — the `/internal/data/*` handlers to port.
 
 - [ ] **Step 1: Add the arbitrary-area handlers**
 
-- `POST /api/v2/scanner-data/{category}` — body `{ area?: <GeoInput/FeatureCollection>, bbox?: {minLat,minLon,maxLat,maxLon}, lastSeen?: u32, tth?: <SpawnpointTth> }`. Resolve points within the supplied area (or bbox) for `{category}` via the same koji-scanner query the `/internal/data/area`(+`bound`) handler uses. Return `ApiResponse::success(json!({ "points": <SingleVec> }))`. Unknown category ⇒ `ServiceError::Invalid { field: Some("category".into()), … }`.
-- `POST /api/v2/scanner-data/{category}/stats` — same body → `ApiResponse::success(json!({ "total": <usize> }))` (port `area_stats`).
-- Add a `pub(crate) fn scope() -> actix_web::Scope` = `web::scope("/scanner-data")` with `web::resource("/{category}")` (POST) + `web::resource("/{category}/stats")` (POST). (The geofence-nested GET from P3 stays where it is, in `geofences::scope()`.)
+- `POST /api/v2/golbat-data/{category}` — body `{ area?: <GeoInput/FeatureCollection>, bbox?: {minLat,minLon,maxLat,maxLon}, lastSeen?: u32, tth?: <SpawnpointTth> }`. Resolve points within the supplied area (or bbox) for `{category}` via the same koji-golbat query the `/internal/data/area`(+`bound`) handler uses. Return `ApiResponse::success(json!({ "points": <SingleVec> }))`. Unknown category ⇒ `ServiceError::Invalid { field: Some("category".into()), … }`.
+- `POST /api/v2/golbat-data/{category}/stats` — same body → `ApiResponse::success(json!({ "total": <usize> }))` (port `area_stats`).
+- Add a `pub(crate) fn scope() -> actix_web::Scope` = `web::scope("/golbat-data")` with `web::resource("/{category}")` (POST) + `web::resource("/{category}/stats")` (POST). (The geofence-nested GET from P3 stays where it is, in `geofences::scope()`.)
 - All handlers `-> Result<HttpResponse, ServiceError>`.
 
 - [ ] **Step 2: Compile + commit**
 
 ```bash
-git add crates/koji-service/src/public/v2/scanner_data.rs
-git commit -m "feat(koji-service): POST /api/v2/scanner-data/{category}(+/stats) — arbitrary-area markers (port /internal/data)"
+git add crates/koji-service/src/public/v2/golbat_data.rs
+git commit -m "feat(koji-service): POST /api/v2/golbat-data/{category}(+/stats) — arbitrary-area markers (port /internal/data)"
 ```
 
 ---
@@ -80,7 +80,7 @@ git commit -m "feat(koji-service): GET /api/v2/config (app bootstrap blob)"
 
 - [ ] **Step 1: Mount the new scopes**
 
-In the `/v2` scope add `.service(public::v2::scanner_data::scope())` and the `/config` registration. (`/geometry/area` rides the existing `geometry::scope()`.)
+In the `/v2` scope add `.service(public::v2::golbat_data::scope())` and the `/config` registration. (`/geometry/area` rides the existing `geometry::scope()`.)
 
 - [ ] **Step 2: Build / lint / test**
 
@@ -94,7 +94,7 @@ Expected: clean; lib tests pass (P4 = 79 + new); builds.
 - [ ] **Step 3: Confirm the surface**
 
 ```bash
-rg -n "geometry/area|scanner_data::scope|/api/v2/config|\"/config\"" crates/koji-service/src/lib.rs crates/koji-service/src/public/v2/geometry.rs crates/koji-service/src/public/v2/scanner_data.rs
+rg -n "geometry/area|golbat_data::scope|/api/v2/config|\"/config\"" crates/koji-service/src/lib.rs crates/koji-service/src/public/v2/geometry.rs crates/koji-service/src/public/v2/golbat_data.rs
 ```
 Expected: the three new mounts present.
 
@@ -102,15 +102,15 @@ Expected: the three new mounts present.
 
 ```bash
 git add crates/koji-service/src/lib.rs
-git commit -m "feat(koji-service): mount /scanner-data + /config v2 scopes"
+git commit -m "feat(koji-service): mount /golbat-data + /config v2 scopes"
 ```
 
 ---
 
 ## Self-Review
 
-**Spec coverage:** closes the frontend-revealed gaps — area calc, arbitrary-area scanner-data (+stats), app-config — all ported onto v2 conventions. (`save-scanner`/`push`/`from_scanner` deliberately deferred + flagged, not guessed.)
+**Spec coverage:** closes the frontend-revealed gaps — area calc, arbitrary-area golbat-data (+stats), app-config — all ported onto v2 conventions. (`save-golbat`/`push`/`from_golbat` deliberately deferred + flagged, not guessed.)
 
 **Placeholder scan:** none — each task ports a named v1/`/internal` handler; "read the v1 handler" is the grounding step; DB-only verification flagged.
 
-**Type consistency:** `ServiceError::{Invalid,…}`, `ApiResponse::success`, `ConfigResponse`, `GeoInput`/`SingleVec`/`SpawnpointTth`, the koji-scanner area query — consistent with P0–P4 + the v1 handlers being ported.
+**Type consistency:** `ServiceError::{Invalid,…}`, `ApiResponse::success`, `ConfigResponse`, `GeoInput`/`SingleVec`/`SpawnpointTth`, the koji-golbat area query — consistent with P0–P4 + the v1 handlers being ported.
