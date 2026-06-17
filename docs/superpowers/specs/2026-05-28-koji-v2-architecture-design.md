@@ -47,7 +47,7 @@ crates/
   koji-nominatim   geocoding client (→ core)
   koji-plugins     AlgorithmPlugin trait + SubprocessPlugin + registry (→ core)
   koji-algorithms  clustering/routing/bootstrap/s2/stats (→ core, plugins, macros)
-  koji-scanner     read-only golbat data access (→ core)
+  koji-golbat     read-only golbat data access (→ core)
   koji-db          Koji's own sea-orm entities + queries (→ core)
   koji-dragonite   typed Dragonite v2 API client (→ core)
   koji-jobs        persistent queue runtime + JobHandler trait (→ core, db)
@@ -88,7 +88,7 @@ Full design in the [job-queue spec](2026-05-28-koji-job-queue-design.md). Summar
 POST /jobs · GET /jobs/:id · GET /jobs · DELETE /jobs/:id          # calc (+ POST /calc/* sugar)
 GET|POST /geofences · GET|PATCH|DELETE /geofences/:id · POST /geofences/:id/publish
 …same shape… /routes /projects /properties /tile-servers · GET|PUT /projects/:id/geofences
-GET /scanner-data/:type · POST /geo/{s2/cells,s2/coverage,simplify,convert}
+GET /golbat-data/:type · POST /geo/{s2/cells,s2/coverage,simplify,convert}
 GET /meta/algorithms · GET /healthz · GET /config · POST /auth/login|logout · GET /geocode
 ```
 Kills the four sins: GET-that-mutates → `POST /:id/publish` (or event), catch-all `/{return_type}` → `?format=`, raw-vs-envelope → one JSend format, in-body `status_code` → real HTTP codes.
@@ -115,7 +115,7 @@ A geofence can fill multiple `(area,mode)` slots; per-mode rows override `base`.
 
 ## 9. RDM removal
 
-Pure deletion: `ScannerType` (RDM/Unown/Hybrid) gone entirely — single path, no auto-detect. Delete `instance.rs` + the `area.rs` controller-write logic (→ `koji-dragonite`); drop `RdmInstance*`, `InstanceParsing::Rdm`, deprecated env fallbacks (`UNOWN_DB_URL`/`UNOWN_DB`/`DATABASE_URL`); collapse the 14 `ScannerType` branches. `KojiDb` 3 connections → **2** (`koji`, `scanner`); the `controller` connection is replaced by the Dragonite HTTP client.
+Pure deletion: `GolbatType` (RDM/Unown/Hybrid) gone entirely — single path, no auto-detect. Delete `instance.rs` + the `area.rs` controller-write logic (→ `koji-dragonite`); drop `RdmInstance*`, `InstanceParsing::Rdm`, deprecated env fallbacks (`UNOWN_DB_URL`/`UNOWN_DB`/`DATABASE_URL`); collapse the 14 `GolbatType` branches. `KojiDb` 3 connections → **2** (`koji`, `golbat`); the `controller` connection is replaced by the Dragonite HTTP client.
 
 ## 10. Phasing
 

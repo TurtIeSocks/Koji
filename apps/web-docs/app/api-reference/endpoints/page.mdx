@@ -42,7 +42,7 @@ All routes below are mounted under `/api/v1`.
     <Table.Tr>
       <Table.Td>`POST`</Table.Td>
       <Table.Td>`/calc/bootstrap`</Table.Td>
-      <Table.Td>Builds bootstrap points from `area`, `instance`, or `parent`, optionally saves to DB/scanner.</Table.Td>
+      <Table.Td>Builds bootstrap points from `area`, `instance`, or `parent`, optionally saves to DB/golbat.</Table.Td>
     </Table.Tr>
     <Table.Tr>
       <Table.Td>`POST`</Table.Td>
@@ -156,8 +156,8 @@ All routes below are mounted under `/api/v1`.
     </Table.Tr>
     <Table.Tr>
       <Table.Td>`POST`</Table.Td>
-      <Table.Td>`/geofence/save-scanner`</Table.Td>
-      <Table.Td>Upserts provided geofences into scanner/controller DB and triggers project API call.</Table.Td>
+      <Table.Td>`/geofence/save-golbat`</Table.Td>
+      <Table.Td>Upserts provided geofences into golbat/controller DB and triggers project API call.</Table.Td>
     </Table.Tr>
     <Table.Tr>
       <Table.Td>`DELETE`</Table.Td>
@@ -167,7 +167,7 @@ All routes below are mounted under `/api/v1`.
     <Table.Tr>
       <Table.Td>`GET`</Table.Td>
       <Table.Td>`/geofence/push/{id}`</Table.Td>
-      <Table.Td>Pushes one Koji geofence to scanner/controller DB and triggers project API call.</Table.Td>
+      <Table.Td>Pushes one Koji geofence to golbat/controller DB and triggers project API call.</Table.Td>
     </Table.Tr>
   </tbody>
 </Table>
@@ -221,7 +221,7 @@ All routes below are mounted under `/api/v1`.
     <Table.Tr>
       <Table.Td>`GET`</Table.Td>
       <Table.Td>`/route/push/{id}`</Table.Td>
-      <Table.Td>Pushes one Koji route to scanner/controller DB and triggers project API call.</Table.Td>
+      <Table.Td>Pushes one Koji route to golbat/controller DB and triggers project API call.</Table.Td>
     </Table.Tr>
   </tbody>
 </Table>
@@ -240,7 +240,7 @@ All routes below are mounted under `/api/v1`.
     <Table.Tr>
       <Table.Td>`GET`</Table.Td>
       <Table.Td>`/project/push/{id}`</Table.Td>
-      <Table.Td>Pushes every geofence in a project to scanner/controller DB and triggers project API call.</Table.Td>
+      <Table.Td>Pushes every geofence in a project to golbat/controller DB and triggers project API call.</Table.Td>
     </Table.Tr>
   </tbody>
 </Table>

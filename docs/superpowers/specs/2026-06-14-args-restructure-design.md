@@ -134,7 +134,7 @@ requests (`ConvertReq`, `SimplifyReq`, `MergePointsReq`) composing just `area` /
 | `center_clusters`, `genetic_post_processing` | `false` | |
 | `dev.bypass_adaptive_partition`, `benchmark_mode` | `false` | |
 | `last_seen` | `0` | |
-| `save_to_db` / `save_to_scanner` / `save_to_scanner_only` / `simplify` | `false` | |
+| `save_to_db` / `save_to_golbat` / `save_to_golbat_only` / `simplify` | `false` | |
 | `sort_by` | `Unset` | **`/calc` `route` mode** overrides `Unset` → `Custom("tsp")` (keep in handler) |
 | `tth` | `All` | |
 | `routing_args` | `""` | |

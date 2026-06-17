@@ -50,7 +50,7 @@ Accepted forms resolve into a list of points (`[lat, lon]`):
       <Table.Td>string</Table.Td>
       <Table.Td>No</Table.Td>
       <Table.Td>`""`</Table.Td>
-      <Table.Td>Area lookup key in Koji/scanner DB.</Table.Td>
+      <Table.Td>Area lookup key in Koji/golbat DB.</Table.Td>
     </Table.Tr>
     <Table.Tr>
       <Table.Td>`parent`</Table.Td>
@@ -137,18 +137,18 @@ Accepted forms resolve into a list of points (`[lat, lon]`):
       <Table.Td>Saves generated route to Koji DB.</Table.Td>
     </Table.Tr>
     <Table.Tr>
-      <Table.Td>`save_to_scanner`</Table.Td>
+      <Table.Td>`save_to_golbat`</Table.Td>
       <Table.Td>boolean</Table.Td>
       <Table.Td>No</Table.Td>
       <Table.Td>`false`</Table.Td>
-      <Table.Td>Saves to scanner/controller DB and triggers project update API.</Table.Td>
+      <Table.Td>Saves to golbat/controller DB and triggers project update API.</Table.Td>
     </Table.Tr>
     <Table.Tr>
-      <Table.Td>`save_to_scanner_only`</Table.Td>
+      <Table.Td>`save_to_golbat_only`</Table.Td>
       <Table.Td>boolean</Table.Td>
       <Table.Td>No</Table.Td>
       <Table.Td>`false`</Table.Td>
-      <Table.Td>Saves to scanner/controller DB without project update API call.</Table.Td>
+      <Table.Td>Saves to golbat/controller DB without project update API call.</Table.Td>
     </Table.Tr>
   </tbody>
 </Table>
@@ -328,18 +328,18 @@ Accepted forms resolve into a list of points (`[lat, lon]`):
       <Table.Td>Saves output route to Koji DB.</Table.Td>
     </Table.Tr>
     <Table.Tr>
-      <Table.Td>`save_to_scanner`</Table.Td>
+      <Table.Td>`save_to_golbat`</Table.Td>
       <Table.Td>boolean</Table.Td>
       <Table.Td>No</Table.Td>
       <Table.Td>`false`</Table.Td>
-      <Table.Td>Saves to scanner/controller DB and triggers project update API.</Table.Td>
+      <Table.Td>Saves to golbat/controller DB and triggers project update API.</Table.Td>
     </Table.Tr>
     <Table.Tr>
-      <Table.Td>`save_to_scanner_only`</Table.Td>
+      <Table.Td>`save_to_golbat_only`</Table.Td>
       <Table.Td>boolean</Table.Td>
       <Table.Td>No</Table.Td>
       <Table.Td>`false`</Table.Td>
-      <Table.Td>Saves to scanner/controller DB without project update API call.</Table.Td>
+      <Table.Td>Saves to golbat/controller DB without project update API call.</Table.Td>
     </Table.Tr>
   </tbody>
 </Table>
@@ -713,7 +713,7 @@ Accepted forms resolve into a list of points (`[lat, lon]`):
 ## Geofence and Route Save Endpoints
 
 ### `POST /api/v1/geofence/save-koji`
-### `POST /api/v1/geofence/save-scanner`
+### `POST /api/v1/geofence/save-golbat`
 ### `POST /api/v1/route/save-koji`
 
 <Table>

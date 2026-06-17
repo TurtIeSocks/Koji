@@ -50,11 +50,11 @@ export interface UseShapes {
     combine: (all?: boolean) => void
     setFromCollection: (
       collection: FeatureCollection,
-      source?: '__SCANNER' | '',
+      source?: '__GOLBAT' | '',
     ) => void
     add: (
       feature?: Feature | Feature[],
-      source?: '__SCANNER' | '' | '__KOJI',
+      source?: '__GOLBAT' | '' | '__KOJI',
     ) => void
     remove: (key: GeometryTypes, id?: number | string) => void
     update: <T extends GeometryTypes, U extends number | string>(

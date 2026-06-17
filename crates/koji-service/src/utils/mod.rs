@@ -3,7 +3,7 @@ use super::*;
 use geojson::{Geometry, Value};
 use koji_core::{EnsurePoints, KojiBbox, SingleVec, SpawnpointTth, UnknownId};
 use koji_db::{KojiDb, ModelError, db::geofence};
-use koji_scanner::{
+use koji_golbat::{
     GenericData,
     entities::{gym, pokestop, spawnpoint, station},
 };
@@ -112,15 +112,15 @@ pub(crate) async fn points_from_area(
 ) -> Result<Vec<GenericData>, DbErr> {
     if !area.features.is_empty() {
         match category {
-            "gym" => gym::Query::area(&conn.scanner, area, last_seen).await,
-            "pokestop" => pokestop::Query::area(&conn.scanner, area, last_seen).await,
-            "station" => station::Query::area(&conn.scanner, area, last_seen).await,
-            "spawnpoint" => spawnpoint::Query::area(&conn.scanner, area, last_seen, tth).await,
+            "gym" => gym::Query::area(&conn.golbat, area, last_seen).await,
+            "pokestop" => pokestop::Query::area(&conn.golbat, area, last_seen).await,
+            "station" => station::Query::area(&conn.golbat, area, last_seen).await,
+            "spawnpoint" => spawnpoint::Query::area(&conn.golbat, area, last_seen, tth).await,
             "fort" => {
                 // "fort" aggregates gym + pokestop + station results
-                let gyms = gym::Query::area(&conn.scanner, area, last_seen).await?;
-                let pokestops = pokestop::Query::area(&conn.scanner, area, last_seen).await?;
-                let stations = station::Query::area(&conn.scanner, area, last_seen).await?;
+                let gyms = gym::Query::area(&conn.golbat, area, last_seen).await?;
+                let pokestops = pokestop::Query::area(&conn.golbat, area, last_seen).await?;
+                let stations = station::Query::area(&conn.golbat, area, last_seen).await?;
                 Ok(gyms.into_iter().chain(pokestops).chain(stations).collect())
             }
             _ => Err(DbErr::Custom("Invalid Category".to_string())),

@@ -52,7 +52,7 @@ export default function ProjectList() {
           <TextField source="description" />
           <BooleanField source="api_endpoint" looseValue />
           <BooleanField source="api_key" looseValue />
-          <BooleanField source="scanner" />
+          <BooleanField source="golbat" />
           <NumberField source="geofences.length" label="Geofences" />
           <EditButton />
           <DeleteWithUndoButton />

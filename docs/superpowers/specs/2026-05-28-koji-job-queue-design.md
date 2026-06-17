@@ -28,7 +28,7 @@ V2 introduces a **persistent, DB-backed job queue** so that: long work is decoup
 
 ## 3. Crate placement
 - **`koji-jobs`** (generic): `job` entity, claim/lease/heartbeat, worker pool, `JobHandler` trait, `JobQueue` API, `ProgressHandle`, `CancelToken`, in-process waiter registry. No knowledge of clustering.
-- **`koji-service`**: concrete `KojiJob` payload, `CalculateHandler` (pulls data via `koji-scanner`, runs `koji-algorithms`, emits persistence events), worker bootstrap in `AppState`, the sync-bridge HTTP glue.
+- **`koji-service`**: concrete `KojiJob` payload, `CalculateHandler` (pulls data via `koji-golbat`, runs `koji-algorithms`, emits persistence events), worker bootstrap in `AppState`, the sync-bridge HTTP glue.
 - **`koji-migration`**: the `job` table DDL.
 
 ## 4. Schema

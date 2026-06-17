@@ -8,7 +8,7 @@
 //! `spawn_blocking` because the algorithms are CPU/rayon-bound). But two inputs
 //! the legacy `calculate.rs` resolves are **async**: the area
 //! ([`crate::utils::create_or_find_collection`], which hits the DB) and the data
-//! points ([`crate::utils::points_from_area`], which queries the scanner DB).
+//! points ([`crate::utils::points_from_area`], which queries the golbat DB).
 //!
 //! We resolve those in the HTTP handler **before** enqueue and bake them into
 //! [`CalcPayload`] (`area` + `data_points`), so `run` is pure-sync compute and
@@ -25,7 +25,7 @@
 //! `Stats`, serializes the collection to a geojson `FeatureCollection` at the wire
 //! boundary (Phase 1 outbound `From`), and returns `{ "data": <geojson>, "stats":
 //! <stats> }`. The legacy
-//! persistence side effects (`save_to_db` / `save_to_scanner`, the scanner reload
+//! persistence side effects (`save_to_db` / `save_to_golbat`, the golbat reload
 //! call, the parent-name lookup) are **not** performed here — those are async DB
 //! writes and are deferred (the v2 calc job is pure compute; persistence /
 //! event-emission wire in a later phase). This is a deliberate P4 scoping
@@ -60,7 +60,7 @@ pub struct CalcPayload {
     /// observability / dedup.
     pub mode: String,
     /// The data category (`pokestop`, `gym`/`fort`, `station`, `spawnpoint`).
-    /// Used by the HTTP handlers to resolve scanner data points; the compute core
+    /// Used by the HTTP handlers to resolve golbat data points; the compute core
     /// no longer derives an output shape from it (calc output is always MultiPoint
     /// cluster centers).
     pub category: String,
@@ -268,7 +268,7 @@ fn run_bootstrap(
     );
     let mut features: Vec<Feature> =
         bootstrap::main(area, bootstrap_config, routing_config, &mut stats);
-    // Label each feature with the instance name (the scanner-family `__mode`
+    // Label each feature with the instance name (the golbat-family `__mode`
     // nuance is a persistence concern, deferred — see module docs).
     for feat in features.iter_mut() {
         if !feat.contains_property("__name") && !instance.is_empty() {

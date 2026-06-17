@@ -98,7 +98,7 @@ export type KojiRouteModes =
   | typeof UNOWN_ROUTES[number]
 export type KojiModes = KojiFenceModes | KojiRouteModes | 'unset'
 
-export type KojiSource = 'KOJI' | 'SCANNER' | 'CLIENT'
+export type KojiSource = 'KOJI' | 'GOLBAT' | 'CLIENT'
 
 export type KojiKey = `${number}__${KojiModes}__${KojiSource}`
 
@@ -131,7 +131,7 @@ export interface KojiGeoProperty
 export interface KojiProject extends BasicKojiEntry {
   api_endpoint?: string
   api_key?: string
-  scanner: boolean
+  golbat: boolean
   description?: string
 }
 

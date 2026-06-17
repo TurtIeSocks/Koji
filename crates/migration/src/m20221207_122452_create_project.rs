@@ -43,7 +43,7 @@ pub enum Project {
     Name,
     ApiEndpoint,
     ApiKey,
-    Scanner,
+    Golbat,
     CreatedAt,
     UpdatedAt,
     Description,

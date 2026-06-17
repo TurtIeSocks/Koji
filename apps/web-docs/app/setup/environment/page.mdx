@@ -25,15 +25,15 @@ ENV=.env.production koji
   </thead>
   <tbody>
     <Table.Tr>
-      <Table.Td>`SCANNER_DB_URL`</Table.Td>
+      <Table.Td>`GOLBAT_DB_URL`</Table.Td>
       <Table.Td>Yes</Table.Td>
       <Table.Td>None</Table.Td>
-      <Table.Td>Primary scanner database connection.</Table.Td>
+      <Table.Td>Primary golbat database connection.</Table.Td>
     </Table.Tr>
     <Table.Tr>
       <Table.Td>`CONTROLLER_DB_URL`</Table.Td>
       <Table.Td>No</Table.Td>
-      <Table.Td>Empty (falls back to scanner DB)</Table.Td>
+      <Table.Td>Empty (falls back to golbat DB)</Table.Td>
       <Table.Td>Controller/instance DB connection for hybrid setups.</Table.Td>
     </Table.Tr>
     <Table.Tr>
@@ -124,7 +124,7 @@ ENV=.env.production koji
   <tbody>
     <Table.Tr>
       <Table.Td>`DATABASE_URL`</Table.Td>
-      <Table.Td>`SCANNER_DB_URL`</Table.Td>
+      <Table.Td>`GOLBAT_DB_URL`</Table.Td>
       <Table.Td>Still accepted with warning log.</Table.Td>
     </Table.Tr>
     <Table.Tr>

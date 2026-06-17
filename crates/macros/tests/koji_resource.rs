@@ -139,7 +139,7 @@ macros::koji_resource! {
     create: {
         name: String,
         api_endpoint: Option<String>,
-        scanner: bool,
+        golbat: bool,
     }
 }
 
@@ -180,10 +180,10 @@ fn project_create_dto_fields_and_types() {
     let dto = project::CreateProject {
         name: "My Project".to_string(),
         api_endpoint: None,
-        scanner: false,
+        golbat: false,
     };
     assert_eq!(dto.name, "My Project");
-    assert!(!dto.scanner);
+    assert!(!dto.golbat);
 }
 
 /// Patch DTO wraps non-Option fields in `Option`; leaves `Option<T>` unchanged.
@@ -194,7 +194,7 @@ fn project_patch_dto_non_option_fields_become_option() {
     let patch = project::PatchProject {
         name: Some("renamed".to_string()),
         api_endpoint: None,
-        scanner: Some(true),
+        golbat: Some(true),
     };
     assert_eq!(patch.name.unwrap(), "renamed");
     assert!(patch.api_endpoint.is_none());
@@ -203,11 +203,11 @@ fn project_patch_dto_non_option_fields_become_option() {
 /// Patch DTO fields are `default` + `skip_serializing_if`, so missing JSON keys → `None`.
 #[test]
 fn project_patch_dto_missing_fields_deserialize_to_none() {
-    // Provide only `name`; `api_endpoint` and `scanner` should default to None.
+    // Provide only `name`; `api_endpoint` and `golbat` should default to None.
     let patch: project::PatchProject = serde_json::from_str(r#"{"name":"partial"}"#).unwrap();
     assert_eq!(patch.name.unwrap(), "partial");
     assert!(patch.api_endpoint.is_none());
-    assert!(patch.scanner.is_none());
+    assert!(patch.golbat.is_none());
 }
 
 /// Multi-word pascal_case: `tile_server` → `TileServer`.
@@ -273,9 +273,9 @@ fn create_dtos_serialize() {
     let dto = project::CreateProject {
         name: "p".to_string(),
         api_endpoint: Some("https://example.com".to_string()),
-        scanner: true,
+        golbat: true,
     };
     let json = serde_json::to_string(&dto).unwrap();
     assert!(json.contains("\"name\""));
-    assert!(json.contains("\"scanner\""));
+    assert!(json.contains("\"golbat\""));
 }

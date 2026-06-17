@@ -159,8 +159,8 @@ impl ClusteringArgs { pub fn resolve(self) -> koji_core::ClusteringConfig { /* d
 pub struct RoutingArgs   { /* sort_by, route_split_level, plugin_args */ }   // resolve -> RoutingConfig
 pub struct BootstrapArgs { /* calculation_mode, radius, s2_level, s2_size, plugin_args */ } // -> BootstrapConfig
 pub struct DataFilterArgs{ /* last_seen, tth */ }                            // -> DataFilter
-pub struct OutputArgs    { /* return_type: Option<String>, save_to_db, save_to_scanner,
-    save_to_scanner_only, simplify */ }                                     // resolve(default_rt) -> OutputConfig
+pub struct OutputArgs    { /* return_type: Option<String>, save_to_db, save_to_golbat,
+    save_to_golbat_only, simplify */ }                                     // resolve(default_rt) -> OutputConfig
 pub struct DevArgs       { /* bypass_adaptive_partition, benchmark_mode */ }  // -> DevConfig
 ```
 

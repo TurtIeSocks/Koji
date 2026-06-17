@@ -33,7 +33,7 @@ v2 handlers return `JSend` + a semantic HTTP status. (Mirrors `koji_dragonite::j
 - **sync bridge** (job-queue §7): `POST /api/v2/calc/*?wait=1` (and the v1 calc shim) → `enqueue_or_attach(priority=HIGH)` then `await_result(290s)` → `200 {data,stats}` | `504` (job continues). dedup via content-hash.
 
 ## v2 typed resources (best-practice CRUD)
-`GET|POST /api/v2/{geofences,routes,projects,properties,tile-servers}` · `GET|PATCH|DELETE …/:id` · `POST /geofences/:id/publish` (replaces the GET-that-mutates `/push/{id}`). `GET /api/v2/scanner-data/:type` · `POST /api/v2/geo/{s2,simplify,convert}` · `GET /api/v2/meta/algorithms` · `GET /healthz`. Handlers reuse the koji-db `Query::*` methods (already there) + wrap in JSend. `?format=` query replaces the path `/{return_type}` catch-all.
+`GET|POST /api/v2/{geofences,routes,projects,properties,tile-servers}` · `GET|PATCH|DELETE …/:id` · `POST /geofences/:id/publish` (replaces the GET-that-mutates `/push/{id}`). `GET /api/v2/golbat-data/:type` · `POST /api/v2/geo/{s2,simplify,convert}` · `GET /api/v2/meta/algorithms` · `GET /healthz`. Handlers reuse the koji-db `Query::*` methods (already there) + wrap in JSend. `?format=` query replaces the path `/{return_type}` catch-all.
 **Macro the CRUD** (`koji-macros`) once the geofences/routes/projects/properties/tile-servers handlers show the repeated shape (architecture §2 convention).
 
 ## v1 shim

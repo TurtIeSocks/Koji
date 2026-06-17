@@ -6,7 +6,7 @@ import useDeepCompareEffect from 'use-deep-compare-effect'
 
 import SplitMultiPolygonsBtn from '@components/buttons/SplitMultiPolygons'
 import SaveToKoji from '@components/buttons/SaveToKoji'
-import SaveToScanner from '@components/buttons/SaveToScanner'
+import SaveToGolbat from '@components/buttons/SaveToGolbat'
 import { safeParse } from '@services/utils'
 import { useStatic } from '@hooks/useStatic'
 
@@ -47,7 +47,7 @@ export default function Manager() {
           setter={(fc) => setCode(JSON.stringify(fc))}
         />
         <SaveToKoji fc={safe} />
-        <SaveToScanner fc={code} />
+        <SaveToGolbat fc={code} />
         <Button onClick={setOpen}>Close</Button>
       </DialogActions>
     </Dialog>

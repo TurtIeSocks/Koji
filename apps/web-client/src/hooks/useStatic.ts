@@ -36,7 +36,7 @@ export interface UseStatic {
   bootstrap_plugins: string[]
   tileServers: KojiTileServer[]
   kojiRoutes: { name: string; id: number; type: string }[]
-  scannerRoutes: { name: string; id: number; type: string }[]
+  golbatRoutes: { name: string; id: number; type: string }[]
   dangerous: boolean
   geojson: FeatureCollection
   layerEditing: {
@@ -99,7 +99,7 @@ export const useStatic = create<UseStatic>((set, get) => ({
   totalLoadingTime: 0,
   updateButton: false,
   selected: [],
-  scannerRoutes: [],
+  golbatRoutes: [],
   kojiRoutes: [],
   tileServers: [],
   instances: {},

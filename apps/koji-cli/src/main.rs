@@ -18,7 +18,7 @@
 //! Startup mirrors `apps/koji-server/src/main.rs`: load `.env` (override via the
 //! `ENV` var) and init `env_logger` from `LOG_LEVEL`. It then bootstraps the DB
 //! via [`koji_db::utils::get_database_struct`] (needs `KOJI_DB_URL` +
-//! `SCANNER_DB_URL`), so it is **not** runnable without a live DB.
+//! `GOLBAT_DB_URL`), so it is **not** runnable without a live DB.
 
 use std::error::Error;
 use std::process;

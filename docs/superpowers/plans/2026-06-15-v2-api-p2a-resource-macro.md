@@ -58,7 +58,7 @@ koji_resource! {
         name: String,
         api_endpoint: Option<String>,
         api_key: Option<String>,
-        scanner: bool,
+        golbat: bool,
         description: Option<String>,
     }
 }
@@ -108,7 +108,7 @@ git commit -m "feat(macros): koji_resource! — typed CRUD DTOs + handlers + sco
 ```rust
 koji_resource! {
     module: project, seg: "projects",
-    create: { name: String, api_endpoint: Option<String>, api_key: Option<String>, scanner: bool, description: Option<String> }
+    create: { name: String, api_endpoint: Option<String>, api_key: Option<String>, golbat: bool, description: Option<String> }
 }
 koji_resource! {
     module: property, seg: "properties",
@@ -162,7 +162,7 @@ Expected: `CLEAN`; three `koji_resource!` invocations.
 
 - [ ] **Step 3: DB-run note**
 
-Live smoke on a real DB: `POST /api/v2/projects {"name":"x","scanner":false}` → `201`+`Location`; `GET /api/v2/projects?page=1&per_page=20` → enveloped list + `meta`; `GET /api/v2/projects/{id}` (404 for missing); `DELETE` → `204` (404 for missing). Recorded in the spec's P2 testing notes.
+Live smoke on a real DB: `POST /api/v2/projects {"name":"x","golbat":false}` → `201`+`Location`; `GET /api/v2/projects?page=1&per_page=20` → enveloped list + `meta`; `GET /api/v2/projects/{id}` (404 for missing); `DELETE` → `204` (404 for missing). Recorded in the spec's P2 testing notes.
 
 ---
 

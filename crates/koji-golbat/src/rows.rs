@@ -2,7 +2,7 @@ use sea_orm::FromQueryResult;
 use koji_core::Precision;
 use serde::{Deserialize, Serialize};
 
-/// Query-row for `SELECT lat, lon` from scanner tables. Converts into the pure
+/// Query-row for `SELECT lat, lon` from golbat tables. Converts into the pure
 /// `koji_core::PointStruct`.
 #[derive(Debug, FromQueryResult)]
 pub struct LatLonRow {

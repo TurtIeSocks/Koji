@@ -44,10 +44,10 @@ async fn test_db() -> Option<sea_orm::DatabaseConnection> {
 
 async fn build_test_koji_db(koji_db: sea_orm::DatabaseConnection) -> koji_db::KojiDb {
     let url = std::env::var("KOJI_DB_URL").unwrap();
-    let scanner = Database::connect(&url).await.expect("scanner re-connect");
+    let golbat = Database::connect(&url).await.expect("golbat re-connect");
     koji_db::KojiDb {
         koji: koji_db,
-        scanner,
+        golbat,
     }
 }
 

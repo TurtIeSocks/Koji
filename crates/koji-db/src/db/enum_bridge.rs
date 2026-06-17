@@ -3,7 +3,7 @@
 //! crate-local `enum_bridge!` macro. Keeps sea-orm confined to the db layer.
 //!
 //! The `Mode` bridge lives alongside its `DeriveActiveEnum` in
-//! `sea_orm_active_enums.rs`. The legacy scanner-type bridge was removed in the
+//! `sea_orm_active_enums.rs`. The legacy golbat-type bridge was removed in the
 //! Phase 2 `Type` → `Mode` migration.
 
 crate::enum_bridge!(

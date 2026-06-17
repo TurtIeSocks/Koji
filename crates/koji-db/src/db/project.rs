@@ -18,7 +18,7 @@ pub struct Model {
     pub name: String,
     pub api_endpoint: Option<String>,
     pub api_key: Option<String>,
-    pub scanner: bool,
+    pub golbat: bool,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
     pub description: Option<String>,
@@ -164,7 +164,7 @@ impl Query {
                     "name": project.name,
                     "api_endpoint": project.api_endpoint,
                     "api_key": project.api_key,
-                    "scanner": project.scanner,
+                    "golbat": project.golbat,
                     "description": project.description,
                     // "created_at": fence.created_at,
                     // "updated_at": fence.updated_at,
@@ -215,9 +215,9 @@ impl Query {
             .collect())
     }
 
-    pub async fn get_scanner_project(db: &DatabaseConnection) -> Result<Option<Model>, DbErr> {
+    pub async fn get_golbat_project(db: &DatabaseConnection) -> Result<Option<Model>, DbErr> {
         project::Entity::find()
-            .filter(Column::Scanner.eq(true))
+            .filter(Column::Golbat.eq(true))
             .filter(Column::ApiEndpoint.is_not_null())
             .one(db)
             .await

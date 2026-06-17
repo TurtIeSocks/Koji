@@ -21,7 +21,7 @@ export default function ProjectShow() {
         <TextField source="description" />
         <TextField source="api_endpoint" />
         <TextField source="api_key" />
-        <BooleanField source="scanner" />
+        <BooleanField source="golbat" />
         <ReferenceArrayField
           label="Geofences"
           source="geofences"

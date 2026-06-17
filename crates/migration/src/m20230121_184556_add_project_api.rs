@@ -14,7 +14,7 @@ impl MigrationTrait for Migration {
             .add_column(ColumnDef::new(Project::ApiEndpoint).string())
             .add_column(ColumnDef::new(Project::ApiKey).string())
             .add_column(
-                ColumnDef::new(Project::Scanner)
+                ColumnDef::new(Project::Golbat)
                     .boolean()
                     .not_null()
                     .default(false),
@@ -30,7 +30,7 @@ impl MigrationTrait for Migration {
             .table(Project::Table)
             .drop_column(Project::ApiEndpoint)
             .drop_column(Project::ApiKey)
-            .drop_column(Project::Scanner)
+            .drop_column(Project::Golbat)
             .to_owned();
 
         manager.alter_table(table).await

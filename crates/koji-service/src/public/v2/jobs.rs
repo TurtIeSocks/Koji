@@ -89,7 +89,7 @@ async fn create_job(
     } else if op == "reroute" {
         inputs.data_points
     } else if inputs.data_points.is_empty() {
-        use koji_scanner::GenericDataToVec;
+        use koji_golbat::GenericDataToVec;
         utils::points_from_area(
             &area,
             &category,

@@ -42,5 +42,5 @@ macro_rules! enum_bridge {
 #[derive(Debug, Clone)]
 pub struct KojiDb {
     pub koji: DatabaseConnection,
-    pub scanner: DatabaseConnection,
+    pub golbat: DatabaseConnection,
 }

@@ -333,7 +333,7 @@ pub fn crud_query(_attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// Generates the verbatim-identical `impl Query { all, bound, area, stats }`
-/// block shared by fort-shaped scanner entities (gym, pokestop), which differ
+/// block shared by fort-shaped golbat entities (gym, pokestop), which differ
 /// only by raw-SQL table name and id prefix. Place on `pub struct Query;`:
 ///
 /// ```ignore
@@ -346,7 +346,7 @@ pub fn crud_query(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// site (via the entity module's `use sea_orm::entity::prelude::*`); the query
 /// -builder methods need `QueryFilter`/`QuerySelect` in scope there too. All
 /// `sea_orm`/`crate` items the impl references are fully qualified, so this
-/// macro never names a koji-scanner type directly (no crate dep, no cycle).
+/// macro never names a koji-golbat type directly (no crate dep, no cycle).
 #[proc_macro_attribute]
 pub fn fort_query(attr: TokenStream, item: TokenStream) -> TokenStream {
     // Parse `table = "gym", prefix = "g"` as two `Ident = LitStr` pairs.
@@ -713,7 +713,7 @@ fn pascal_case(ident: &Ident) -> Ident {
 ///     create: {                 // Create DTO fields (required unless `Option<…>`)
 ///         name: String,
 ///         api_endpoint: Option<String>,
-///         scanner: bool,
+///         golbat: bool,
 ///     }
 /// }
 /// ```

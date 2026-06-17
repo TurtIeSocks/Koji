@@ -216,7 +216,7 @@ macro_rules! enum_bridge {
 ```rust
 use macros::StrEnum;
 
-/// Domain equivalent of the scanner `type` column. Mirrors the legacy sea-orm
+/// Domain equivalent of the golbat `type` column. Mirrors the legacy sea-orm
 /// `Type` variant-for-variant; `model::db` bridges the two via `enum_bridge!`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, StrEnum)]
 pub enum FenceType {
@@ -382,7 +382,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ## Self-Review
 
-**Spec coverage:** ✅ koji-core (pure); ✅ macros-first (StrEnum derive + enum_bridge!, per §2 convention); ✅ FenceType/Category domain enums via derive; ✅ Type coupling broken in conversion layer; ✅ full 12-variant mirror kept (decision 1). ⏭ geometry/conversion file relocation = P1b; strategy-enum macro-ization (needs catch-all `Custom` support) = fast-follow; koji-db/scanner = P1c; Args = P1d.
+**Spec coverage:** ✅ koji-core (pure); ✅ macros-first (StrEnum derive + enum_bridge!, per §2 convention); ✅ FenceType/Category domain enums via derive; ✅ Type coupling broken in conversion layer; ✅ full 12-variant mirror kept (decision 1). ⏭ geometry/conversion file relocation = P1b; strategy-enum macro-ization (needs catch-all `Custom` support) = fast-follow; koji-db/golbat = P1c; Args = P1d.
 
 **Placeholder scan:** `StrEnum` proc-macro, `enum_bridge!`, `FenceType`, `Category`, and tests are complete code. Task 6 Step 4 is a compiler-driven sweep (the reliable way to find every call site in a param-type change), not a placeholder.
 

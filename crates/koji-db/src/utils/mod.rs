@@ -43,7 +43,7 @@ pub fn get_category_enum(category: String) -> Category {
 pub async fn get_database_struct() -> KojiDb {
     let koji_db_url = env::var("KOJI_DB_URL").expect("Need KOJI_DB_URL env var to run migrations");
 
-    let scanner_db_url = env::var("SCANNER_DB_URL").expect("Need SCANNER_DB_URL env var");
+    let golbat_db_url = env::var("GOLBAT_DB_URL").expect("Need GOLBAT_DB_URL env var");
 
     let max_connections: u32 = env::var("MAX_CONNECTIONS")
         .unwrap_or("100".to_string())
@@ -64,14 +64,14 @@ pub async fn get_database_struct() -> KojiDb {
     let enable_logging = log_level == LevelFilter::Trace || log_level == LevelFilter::Debug;
 
     KojiDb {
-        scanner: {
-            let mut opt = ConnectOptions::new(scanner_db_url);
+        golbat: {
+            let mut opt = ConnectOptions::new(golbat_db_url);
             opt.max_connections(max_connections);
             opt.sqlx_logging_level(log_level);
             opt.sqlx_logging(enable_logging);
             match Database::connect(opt).await {
                 Ok(db) => db,
-                Err(err) => panic!("Cannot connect to Scanner DB: {}", err),
+                Err(err) => panic!("Cannot connect to Golbat DB: {}", err),
             }
         },
         koji: {

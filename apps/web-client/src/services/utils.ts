@@ -294,7 +294,7 @@ export function getCategory(mode: KojiModes): Category {
 }
 
 export function getPolygonColor(id: string) {
-  return id.includes('__SCANNER') ? VECTOR_COLORS.GREEN : VECTOR_COLORS.BLUE
+  return id.includes('__GOLBAT') ? VECTOR_COLORS.GREEN : VECTOR_COLORS.BLUE
 }
 
 export function getPointColor(
@@ -306,7 +306,7 @@ export function getPointColor(
     ? VECTOR_COLORS.RED
     : index === 0
     ? VECTOR_COLORS.PURPLE
-    : id.includes('__SCANNER')
+    : id.includes('__GOLBAT')
     ? VECTOR_COLORS.GREEN
     : VECTOR_COLORS.BLUE
 }

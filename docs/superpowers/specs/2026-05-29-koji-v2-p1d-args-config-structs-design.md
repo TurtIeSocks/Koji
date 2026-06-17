@@ -56,8 +56,8 @@ pub struct DataFilter { pub last_seen: u32, pub tth: SpawnpointTth }
 pub struct OutputConfig {
     pub return_type: ReturnTypeArg,
     pub save_to_db: bool,
-    pub save_to_scanner: bool,
-    pub save_to_scanner_only: bool,
+    pub save_to_golbat: bool,
+    pub save_to_golbat_only: bool,
     pub simplify: bool,
 }
 

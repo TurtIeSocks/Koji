@@ -12,8 +12,8 @@
 
 - **Type-first migration.** Update `KojiResponse`/job/envelope types to v2, then fix the cascade of `tsc` errors. This is the safety net.
 - **Envelope adapter centralized in `fetchWrapper`** — unwrap `{status:"ok",data,meta?}` → `data` (+ surface `meta`); on `{status:"error",error}` / `!res.ok` → notify with `error.message`. Raw `?format=` exports (e.g. `sql` text) handled where those specific calls are made.
-- **`save-scanner` / `push/{id}` → `POST /api/v2/{resource}/{id}/publish`** as the BEST-GUESS mapping, with a `// TODO(v2-verify): publish vs scanner-sync semantics` comment at each site. NOT resolved blind — flagged for the user's smoke.
-- **`/internal/routes/from_scanner` (scanner-sourced routes)** has no v2 backend equivalent → leave the call commented with a `// TODO(v2-gap): no v2 endpoint` + a stub returning empty, so the build passes; flagged.
+- **`save-golbat` / `push/{id}` → `POST /api/v2/{resource}/{id}/publish`** as the BEST-GUESS mapping, with a `// TODO(v2-verify): publish vs golbat-sync semantics` comment at each site. NOT resolved blind — flagged for the user's smoke.
+- **`/internal/routes/from_golbat` (golbat-sourced routes)** has no v2 backend equivalent → leave the call commented with a `// TODO(v2-gap): no v2 endpoint` + a stub returning empty, so the build passes; flagged.
 - **react-admin `dataProvider`** adapts to v2: `getList` → `{data, total}` (total from `meta`), `page/perPage` → `?page=&per_page=`, sort/filter → `?sortBy=&order=&q=`.
 
 ---
@@ -54,11 +54,11 @@ git add client/src && git commit -m "feat(client): calc via v2 async jobs (POST 
 - [ ] **Step 1** — Swap URLs to v2:
   - `convert` → `POST /api/v2/geometry/convert` (pass `?format=` for non-geojson outputs); merge-points → `POST /api/v2/geometry/merge-points`; polygon area → `POST /api/v2/geometry/area`.
   - `getS2Cells`/`s2Coverage` → `POST /api/v2/s2/{level}` | `/s2/circle-coverage` | `/s2/cell-coverage` (these stay synchronous).
-  - `getMarkers` → `POST /api/v2/scanner-data/{category}` with `{ area | bbox, lastSeen, tth }`; area-stats → `POST /api/v2/scanner-data/{category}/stats`.
+  - `getMarkers` → `POST /api/v2/golbat-data/{category}` with `{ area | bbox, lastSeen, tth }`; area-stats → `POST /api/v2/golbat-data/{category}/stats`.
 - [ ] **Step 2** — `tsc --noEmit` clean. Commit.
 
 ```bash
-git add client/src && git commit -m "feat(client): geometry/s2/scanner-data on v2 endpoints"
+git add client/src && git commit -m "feat(client): geometry/s2/golbat-data on v2 endpoints"
 ```
 
 ---
@@ -79,11 +79,11 @@ git add client/src && git commit -m "feat(client): react-admin dataProvider + ad
 
 ## Task 5: Auth / config + the flagged maps
 
-**Files:** `App.tsx`, `Login.tsx`, `Settings.tsx`, `SaveToKoji.tsx`, `SaveToScanner.tsx`, `PushToApi.tsx`, `Nominatim.tsx`, `getScannerCache`/`getKojiCache` in `fetches.ts`.
+**Files:** `App.tsx`, `Login.tsx`, `Settings.tsx`, `SaveToKoji.tsx`, `SaveToGolbat.tsx`, `PushToApi.tsx`, `Nominatim.tsx`, `getGolbatCache`/`getKojiCache` in `fetches.ts`.
 
 - [ ] **Step 1** — Auth/config: `GET /config/` → `GET /api/v2/config`; `POST /config/login` → `POST /api/v2/auth/login`; logout link → `POST /api/v2/auth/logout`; Nominatim → keep `/config/nominatim` for now (or `/api/v2/...` if a v2 route exists — else leave + flag).
 - [ ] **Step 2** — save-koji → `POST /api/v2/geofences` / `POST /api/v2/routes` (loop the drawn features; one create per feature). cache refreshers (`getKojiCache`) → `GET /api/v2/{resource}?per_page=9999`.
-- [ ] **Step 3** — The FLAGGED maps: `save-scanner` + `push/{id}` → `POST /api/v2/{resource}/{id}/publish` with a `// TODO(v2-verify)` comment; `getScannerCache` (`/internal/routes/from_scanner`) → stub-empty + `// TODO(v2-gap)`.
+- [ ] **Step 3** — The FLAGGED maps: `save-golbat` + `push/{id}` → `POST /api/v2/{resource}/{id}/publish` with a `// TODO(v2-verify)` comment; `getGolbatCache` (`/internal/routes/from_golbat`) → stub-empty + `// TODO(v2-gap)`.
 - [ ] **Step 4** — `tsc --noEmit` clean. Commit.
 
 ```bash
@@ -112,7 +112,7 @@ git add client && git commit -m "chore(client): v2 migration build-green; flag r
 
 ## Self-Review
 
-**Spec coverage:** frontend off v1/`/internal` → v2 (§P5 of the design) ✓ · calc async-poll ✓ · envelope adapter ✓ · dataProvider ✓ · auth/config ✓ · gap endpoints wired ✓. Domain-ambiguous maps (save-scanner/push/from_scanner) flagged, not guessed-as-fact.
+**Spec coverage:** frontend off v1/`/internal` → v2 (§P5 of the design) ✓ · calc async-poll ✓ · envelope adapter ✓ · dataProvider ✓ · auth/config ✓ · gap endpoints wired ✓. Domain-ambiguous maps (save-golbat/push/from_golbat) flagged, not guessed-as-fact.
 
 **Verification honesty:** type-checked + build-verified only; runtime requires a real-deploy smoke (stated up front + per flagged site). This is the agreed ceiling for a no-backend/no-DB environment.
 

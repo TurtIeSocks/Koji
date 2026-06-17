@@ -61,7 +61,7 @@ export default function InstanceSelect({
       ? s.getOptions('route')
       : koji
       ? s.getOptions('geofence', 'route')
-      : s.getOptions('scanner'),
+      : s.getOptions('golbat'),
   )
   const [loading, setLoading] = React.useState(false)
   const [selected, setSelected] = React.useState<KojiKey[]>([])
@@ -86,8 +86,8 @@ export default function InstanceSelect({
     setLoading(true)
     // v2: a single saved feature by id is `GET /api/v2/{routes|geofences}/{id}
     // ?format=feature` (the resource depends on whether the mode is a route mode).
-    // The scanner source has no v2 equivalent.
-    // TODO(v2-gap): the v1 `/internal/routes/one/scanner/{id}/{mode}` (scanner-
+    // The golbat source has no v2 equivalent.
+    // TODO(v2-gap): the v1 `/internal/routes/one/golbat/{id}/{mode}` (golbat-
     // sourced single feature) is gone — `koji=false` now resolves to nothing.
     // TODO(v2-verify): the route-vs-geofence split is inferred from the mode
     // (ALL_ROUTES) — confirm route/fence id resolution against a live deploy.
@@ -128,7 +128,7 @@ export default function InstanceSelect({
         deleted,
       )
     } else {
-      add(cleaned, koji ? '__KOJI' : '__SCANNER')
+      add(cleaned, koji ? '__KOJI' : '__GOLBAT')
       deleted.forEach((d) => {
         const { geo_type } = options[d]
         if (geo_type) {
@@ -138,9 +138,9 @@ export default function InstanceSelect({
     }
     if (controlled) setSelected(newValue)
     if (!koji) {
-      const { scanner } = useDbCache.getState()
-      setRecords('scanner', {
-        ...scanner,
+      const { golbat } = useDbCache.getState()
+      setRecords('golbat', {
+        ...golbat,
         ...Object.fromEntries(
           cleaned.map((c) => [
             c.id,

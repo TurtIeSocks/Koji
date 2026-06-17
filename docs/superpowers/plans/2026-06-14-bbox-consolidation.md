@@ -6,7 +6,7 @@
 
 **Architecture:** `geo::Rect<f64>` stays the geometry-layer internal canonical (x=lon, y=lat); a new `KojiBbox` serves the compute/boundary layer with explicit named lat/lon fields. A single `from_rect`/`to_rect` bridge connects them. The cached `KojiGeometryCollection.bbox` field becomes an on-demand accessor (no stale state). `BoundsArg` embeds `KojiBbox` via `#[serde(flatten)]` (wire-identical). The duplicated `BBox` / `LatLonBBox` / `GetBbox` / `bbox_of` paths fold into `KojiBbox`.
 
-**Tech Stack:** Rust (edition 2024), `geo` / `geojson` crates, `serde`, sea-orm; workspace crates `koji-core`, `algorithms`, `koji-service`, `koji-scanner`.
+**Tech Stack:** Rust (edition 2024), `geo` / `geojson` crates, `serde`, sea-orm; workspace crates `koji-core`, `algorithms`, `koji-service`, `koji-golbat`.
 
 **Spec:** [`docs/superpowers/specs/2026-06-14-bbox-consolidation-design.md`](../specs/2026-06-14-bbox-consolidation-design.md)
 
@@ -39,7 +39,7 @@ These are surfaced here and in the handoff so they can be vetoed during plan rev
 | `crates/algorithms/src/clustering/greedy.rs` | Route `get_bbox` calls through `KojiBbox` | Modify |
 | `crates/koji-service/src/utils/mod.rs` | Route `load_collection`/`create_or_find_collection` through `KojiBbox` (bug fix) | Modify |
 | `crates/koji-service/src/public/{v1/s2.rs,v2/geo.rs}` | `bounds.<f>` → `bounds.bbox.<f>` | Modify |
-| `crates/koji-scanner/src/entities/{station,spawnpoint,gym,pokestop}.rs` | `payload.<f>` → `payload.bbox.<f>` | Modify |
+| `crates/koji-golbat/src/entities/{station,spawnpoint,gym,pokestop}.rs` | `payload.<f>` → `payload.bbox.<f>` | Modify |
 
 ---
 
@@ -397,7 +397,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Files:**
 - Modify: `crates/koji-core/src/query_args.rs`
 - Modify: `crates/koji-service/src/public/v2/geo.rs`, `crates/koji-service/src/public/v1/s2.rs`
-- Modify: `crates/koji-scanner/src/entities/{station,spawnpoint,gym,pokestop}.rs`
+- Modify: `crates/koji-golbat/src/entities/{station,spawnpoint,gym,pokestop}.rs`
 
 - [ ] **Step 1: Write the failing wire-parity test**
 
@@ -457,7 +457,7 @@ Each `<var>.min_lat/min_lon/max_lat/max_lon` becomes `<var>.bbox.<field>`. The `
 
 `crates/koji-service/src/public/v1/s2.rs:98-101` — same change (`bounds.min_lat` → `bounds.bbox.min_lat`, etc.).
 
-`crates/koji-scanner/src/entities/station.rs:85-86`, `spawnpoint.rs:64-65`, `gym.rs:87-88`, `pokestop.rs:95-96` — change `payload.min_lat`/`payload.max_lat`/`payload.min_lon`/`payload.max_lon` to `payload.bbox.min_lat`/`.bbox.max_lat`/`.bbox.min_lon`/`.bbox.max_lon`. Leave `payload.last_seen` and `payload.tth` unchanged.
+`crates/koji-golbat/src/entities/station.rs:85-86`, `spawnpoint.rs:64-65`, `gym.rs:87-88`, `pokestop.rs:95-96` — change `payload.min_lat`/`payload.max_lat`/`payload.min_lon`/`payload.max_lon` to `payload.bbox.min_lat`/`.bbox.max_lat`/`.bbox.min_lon`/`.bbox.max_lon`. Leave `payload.last_seen` and `payload.tth` unchanged.
 
 - [ ] **Step 5: Verify OpenAPI is unchanged**
 
@@ -471,14 +471,14 @@ Expected: properties `min_lat, min_lon, max_lat, max_lon, last_seen, ...` at the
 Run these in parallel:
 ```bash
 cargo test -p koji-core --lib bounds_arg
-cargo build -p koji-service -p koji-scanner
+cargo build -p koji-service -p koji-golbat
 ```
 Expected: test PASS; both crates compile.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add crates/koji-core/src/query_args.rs crates/koji-service/src/public crates/koji-scanner/src/entities
+git add crates/koji-core/src/query_args.rs crates/koji-service/src/public crates/koji-golbat/src/entities
 git commit -m "refactor(query): BoundsArg embeds KojiBbox via serde(flatten)
 
 Wire JSON unchanged; callers read .bbox.<field>. Folds the 5th hand-rolled

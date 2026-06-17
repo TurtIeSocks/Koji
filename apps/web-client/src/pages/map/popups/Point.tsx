@@ -195,7 +195,7 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
             setLoading(true)
             const {
               route_split_level,
-              save_to_scanner,
+              save_to_golbat,
               save_to_db,
               sort_by,
               routing_args,
@@ -231,7 +231,7 @@ export function PointPopup({ id, lat, lon, type: geoType, dbRef }: Props) {
                     routeSplitLevel: route_split_level,
                     pluginArgs: routing_args || undefined,
                   },
-                  output: { returnType: 'feature', saveToScanner: save_to_scanner },
+                  output: { returnType: 'feature', saveToGolbat: save_to_golbat },
                 }),
               },
             )

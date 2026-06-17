@@ -35,7 +35,7 @@ koji_resource! {
         name: String,
         api_endpoint: Option<String>,
         api_key: Option<String>,
-        scanner: bool,
+        golbat: bool,
         description: Option<String>,
     }
 }
@@ -72,22 +72,22 @@ mod tests {
             "name": "Test",
             "api_endpoint": "http://x",
             "api_key": "k",
-            "scanner": true,
+            "golbat": true,
             "description": "d"
         }))
         .unwrap();
         assert_eq!(dto.name, "Test");
         assert_eq!(dto.api_endpoint.as_deref(), Some("http://x"));
-        assert!(dto.scanner);
+        assert!(dto.golbat);
     }
 
     #[test]
     fn create_project_requires_required_fields() {
-        // `name` + `scanner` are required (not Option) — a body missing them fails.
+        // `name` + `golbat` are required (not Option) — a body missing them fails.
         let err = serde_json::from_value::<project::CreateProject>(json!({ "name": "x" }));
         assert!(
             err.is_err(),
-            "missing required `scanner` must fail to deserialize"
+            "missing required `golbat` must fail to deserialize"
         );
     }
 
@@ -97,11 +97,11 @@ mod tests {
             serde_json::from_value(json!({ "description": "only this" })).unwrap();
         assert_eq!(dto.description.as_deref(), Some("only this"));
         assert!(dto.name.is_none());
-        assert!(dto.scanner.is_none());
+        assert!(dto.golbat.is_none());
         // Omitted fields are dropped from the serialized upsert value.
         let v = serde_json::to_value(&dto).unwrap();
         assert!(v.get("name").is_none(), "None name omitted");
-        assert!(v.get("scanner").is_none(), "None scanner omitted");
+        assert!(v.get("golbat").is_none(), "None golbat omitted");
         assert_eq!(v["description"], "only this");
     }
 
@@ -112,7 +112,7 @@ mod tests {
             name: "n".into(),
             api_endpoint: Some("e".into()),
             api_key: Some("k".into()),
-            scanner: false,
+            golbat: false,
             description: None,
         };
         let v = serde_json::to_value(&dto).unwrap();

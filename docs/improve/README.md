@@ -72,7 +72,7 @@ rationale).
 - **Error responses leak internals** — already compliant. `utils/error.rs` returns generic
   500s and has a regression test (`db_error_is_500_generic_and_does_not_leak`).
 - **"Under-tested crates"** — restates the known, documented residuals in
-  `refactor-workspace/coverage-report.md` (golbat-blocked scanner, `trybuild` for macros,
+  `refactor-workspace/coverage-report.md` (golbat-blocked golbat, `trybuild` for macros,
   HTTP mocking for dragonite). Not new; tracked there.
 - **CORS / security headers absent** — low value. The server serves its own react-admin
   frontend same-origin, so CORS is not needed; security headers are a minor hardening folded
