@@ -6,5 +6,3 @@
 
 pub mod event_outbox;
 pub mod webhook_subscription;
-
-pub use event_outbox::EventStatus;

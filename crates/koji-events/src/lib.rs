@@ -11,8 +11,9 @@
 //! [`WebhookSubscriber`] reads a `webhook_subscription` registry and POSTs the
 //! payload with an HMAC-SHA256 signature.
 //!
-//! This crate is **additive and unwired** — nothing imports it yet. The concrete
-//! `DragoniteSubscriber` and the actual event emission wire in later phases.
+//! This crate is wired into `koji-service` (the dispatcher + webhook subscriber
+//! are constructed there); the concrete `DragoniteSubscriber` and the actual
+//! event emission land in later phases.
 //!
 //! ## Shape
 //! - [`EventDispatcher`] — `publish` (outbox append) + `spawn`
@@ -38,8 +39,7 @@ pub mod webhook;
 // ---- Public surface ------------------------------------------------------
 
 pub use dispatcher::{DispatcherHandle, EventDispatcher};
-pub use entity::EventStatus;
-pub use error::{DeliverError, DispatchError, PublishError};
+pub use error::{DeliverError, PublishError};
 pub use subscriber::Subscriber;
 pub use types::{Event, EventId};
 pub use webhook::WebhookSubscriber;
@@ -66,14 +66,6 @@ mod tests {
     fn event_id_rejects_malformed_strings() {
         assert!(EventId::from_str("not-a-ulid").is_err());
         assert!(EventId::from_str("").is_err());
-    }
-
-    #[test]
-    fn event_status_terminal_classification() {
-        assert!(EventStatus::Delivered.is_terminal());
-        assert!(EventStatus::Dead.is_terminal());
-        assert!(!EventStatus::Pending.is_terminal());
-        assert!(!EventStatus::Delivering.is_terminal());
     }
 
     // ---- HMAC-SHA256 signature stability --------------------------------

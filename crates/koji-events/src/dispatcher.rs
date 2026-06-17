@@ -66,18 +66,11 @@ const ERROR_BACKOFF: Duration = Duration::from_secs(1);
 /// `attempts` is the post-increment value (≥ 1). Saturates so a large
 /// `attempts` can never overflow the shift — it just clamps at the cap.
 fn backoff_secs(attempts: i32) -> i64 {
-    if attempts <= 0 {
-        return 1;
-    }
-    // 2^attempts via shift, guarding the shift width (anything ≥ 63 overflows
-    // i64 and is well past the cap anyway).
-    let delay = if attempts >= 63 {
-        BACKOFF_CAP_SECS
-    } else {
-        1i64.checked_shl(attempts as u32)
-            .unwrap_or(BACKOFF_CAP_SECS)
-    };
-    delay.min(BACKOFF_CAP_SECS)
+    // 2^attempts via shift, clamping the shift width to a safe range (a huge
+    // `attempts` just lands on the cap, never overflows the shift).
+    1i64.checked_shl(attempts.clamp(0, 62) as u32)
+        .unwrap_or(i64::MAX)
+        .clamp(1, BACKOFF_CAP_SECS)
 }
 
 /// A row claimed by the dispatcher loop: the fields needed to deliver + persist.
@@ -163,10 +156,9 @@ impl EventDispatcher {
     /// Spawn the claim→deliver→backoff loop, returning a [`DispatcherHandle`]
     /// for graceful shutdown.
     ///
-    /// The loop runs until [`DispatcherHandle::shutdown`] is called (or the
-    /// handle is [`DispatcherHandle::abort`]ed). It is safe to run multiple
-    /// dispatchers (this process or others) against the same DB: `SKIP LOCKED`
-    /// guarantees no row is double-claimed.
+    /// The loop runs until [`DispatcherHandle::shutdown`] is called. It is safe
+    /// to run multiple dispatchers (this process or others) against the same DB:
+    /// `SKIP LOCKED` guarantees no row is double-claimed.
     pub fn spawn(self: Arc<Self>) -> DispatcherHandle {
         let shutdown = Arc::new(Shutdown::default());
         let loop_shutdown = Arc::clone(&shutdown);
@@ -454,8 +446,7 @@ impl Shutdown {
 /// Owns the spawned dispatch task + its shutdown signal.
 ///
 /// Drop does **not** auto-stop the loop (the `JoinHandle` would just detach);
-/// call [`DispatcherHandle::shutdown`] for a graceful stop, or
-/// [`DispatcherHandle::abort`] to cancel immediately.
+/// call [`DispatcherHandle::shutdown`] for a graceful stop.
 pub struct DispatcherHandle {
     handle: Option<JoinHandle<()>>,
     shutdown: Arc<Shutdown>,
@@ -470,13 +461,6 @@ impl DispatcherHandle {
             && let Err(e) = handle.await
         {
             log::error!("[koji-events] dispatcher join error during shutdown: {e}");
-        }
-    }
-
-    /// Abort the loop immediately without waiting for an in-flight delivery.
-    pub fn abort(mut self) {
-        if let Some(handle) = self.handle.take() {
-            handle.abort();
         }
     }
 }

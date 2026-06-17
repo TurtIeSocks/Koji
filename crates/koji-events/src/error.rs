@@ -5,8 +5,6 @@
 //!   back off + retry the whole event.
 //! - [`PublishError`] wraps failures of [`crate::EventDispatcher::publish`]
 //!   (append-to-outbox).
-//! - [`DispatchError`] covers failures of the claim/backoff loop's DB
-//!   bookkeeping.
 
 use thiserror::Error;
 
@@ -40,15 +38,6 @@ pub enum PublishError {
     Serialize(#[from] serde_json::Error),
 
     /// An underlying database error occurred while inserting the outbox row.
-    #[error("database error: {0}")]
-    Db(#[from] sea_orm::DbErr),
-}
-
-/// Failure of the dispatcher's claim / backoff bookkeeping (the loop logs and
-/// retries these; never fails an event by itself).
-#[derive(Debug, Error)]
-pub enum DispatchError {
-    /// An underlying database error occurred while claiming / updating a row.
     #[error("database error: {0}")]
     Db(#[from] sea_orm::DbErr),
 }
