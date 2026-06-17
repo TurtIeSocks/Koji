@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "bins/*"]
+members = ["crates/*", "apps/koji-cli", "apps/koji-server"]
 
 [workspace.dependencies]
 # Internal crates

@@ -1,4 +1,5 @@
-client/node_modules
+apps/client-web/node_modules
+apps/docs-web/node_modules
 dist
 .env
 target

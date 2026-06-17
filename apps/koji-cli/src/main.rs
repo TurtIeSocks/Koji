@@ -1,7 +1,7 @@
 //! # koji-cli
 //!
 //! A thin operator CLI over the Koji V2 job queue (`koji-jobs`). It wires the
-//! same `JobQueue` the server does (`bins/koji-server`) against the Koji DB and
+//! same `JobQueue` the server does (`apps/koji-server`) against the Koji DB and
 //! exposes three subcommands:
 //!
 //! - `worker`  — run a job-worker pool (registers the `calculate` handler) until
@@ -15,7 +15,7 @@
 //! HTTP `run_calc` path). For the `calculate` kind, the payload must be a
 //! fully-resolved [`koji_service::CalcPayload`] shape.
 //!
-//! Startup mirrors `bins/koji-server/src/main.rs`: load `.env` (override via the
+//! Startup mirrors `apps/koji-server/src/main.rs`: load `.env` (override via the
 //! `ENV` var) and init `env_logger` from `LOG_LEVEL`. It then bootstraps the DB
 //! via [`koji_db::utils::get_database_struct`] (needs `KOJI_DB_URL` +
 //! `SCANNER_DB_URL`), so it is **not** runnable without a live DB.

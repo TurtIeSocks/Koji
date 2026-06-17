@@ -1,6 +1,6 @@
 FROM node:22-alpine AS client
 WORKDIR /app
-COPY ./client .
+COPY ./apps/client-web .
 RUN yarn install
 RUN yarn build
 
@@ -9,9 +9,10 @@ ENV PKG_CONFIG_ALLOW_CROSS=1
 WORKDIR /usr/src/koji
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
-COPY bins ./bins
+COPY apps/koji-cli ./apps/koji-cli
+COPY apps/koji-server ./apps/koji-server
 RUN apt-get update && apt-get install -y
-RUN cargo install --path bins/koji-server --locked
+RUN cargo install --path apps/koji-server --locked
 
 FROM debian:bookworm AS or-tools
 RUN mkdir -p /algorithms/src/routing/plugins
