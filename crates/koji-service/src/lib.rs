@@ -153,6 +153,7 @@ pub fn test_db_free_app() -> actix_web::App<
 use crate::dragonite::DragoniteSubscriber;
 
 mod dragonite;
+mod internal;
 mod private;
 mod public;
 pub mod requests;
