@@ -150,6 +150,27 @@ pub fn test_db_free_app() -> actix_web::App<
         .service(web::resource("/healthz").route(web::get().to(HttpResponse::Ok)))
 }
 
+/// Test surface: a fresh `RealtimeHub`.
+#[doc(hidden)]
+pub fn test_realtime_hub() -> internal::realtime::RealtimeHub {
+    internal::realtime::RealtimeHub::new()
+}
+
+/// Test surface: the WS handler, re-exported so integration tests in `tests/`
+/// can mount it with `web::get().to(koji_service::realtime_ws)`.
+/// Function items (unlike closures) implement `actix_web::dev::Handler`.
+#[doc(hidden)]
+pub use internal::realtime::realtime_ws;
+
+/// Test surface: build a `ServerEvent`.
+#[doc(hidden)]
+pub fn test_server_event(
+    t: &str,
+    payload: serde_json::Value,
+) -> internal::realtime::ServerEvent {
+    internal::realtime::ServerEvent::new(t, payload)
+}
+
 use crate::dragonite::DragoniteSubscriber;
 
 mod dragonite;

@@ -40,8 +40,97 @@ pub enum ClientFrame {
     Publish { topic: String, event: ServerEvent },
     Ping,
 }
-// `ServerEvent` needs Deserialize for the `publish` frame; add `#[derive(Deserialize)]`
-// to it in topics.rs alongside Serialize (and `#[serde(default)]` on payload/meta).
+use actix_session::SessionExt;
+use actix_web::{web, HttpRequest, HttpResponse};
+use futures_util::StreamExt;
+use std::collections::HashSet;
+
+/// Auth gate for the WS upgrade: mirror `public_validator` (session `logged_in`
+/// OR empty `KOJI_SECRET` OR `?token=` == secret). Same-origin only.
+fn ws_authorized(req: &HttpRequest) -> bool {
+    let session = req.get_session();
+    if session.get::<bool>("logged_in").ok().flatten().unwrap_or(false) {
+        return true;
+    }
+    let secret = std::env::var("KOJI_SECRET").unwrap_or_default();
+    if secret.is_empty() {
+        return true;
+    }
+    // bearer via query (?token=) — browsers can't set WS headers; subprotocol is
+    // the shadmin transport's path, query is the simpler fallback.
+    if let Some(tok) = req
+        .query_string()
+        .split('&')
+        .find_map(|kv| kv.strip_prefix("token="))
+    {
+        if crate::utils::auth::ct_eq(tok, &secret) {
+            return true;
+        }
+    }
+    false
+}
+
+pub async fn realtime_ws(
+    req: HttpRequest,
+    body: web::Payload,
+    hub: web::Data<RealtimeHub>,
+) -> Result<HttpResponse, actix_web::Error> {
+    if !ws_authorized(&req) {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+    let (response, mut session, mut msg_stream) = actix_ws::handle(&req, body)?;
+    let mut rx = hub.subscribe();
+    actix_web::rt::spawn(async move {
+        let mut topics: HashSet<String> = HashSet::new();
+        loop {
+            tokio::select! {
+                // inbound client frames
+                Some(Ok(msg)) = msg_stream.next() => {
+                    match msg {
+                        actix_ws::Message::Text(txt) => {
+                            if let Ok(frame) = serde_json::from_str::<ClientFrame>(&txt) {
+                                match frame {
+                                    ClientFrame::Subscribe { topic } => { topics.insert(topic); }
+                                    ClientFrame::Unsubscribe { topic } => { topics.remove(&topic); }
+                                    ClientFrame::Ping => {
+                                        if session.text(r#"{"op":"pong"}"#).await.is_err() { break; }
+                                    }
+                                    ClientFrame::Publish { topic, event } => {
+                                        hub.publish(&topic, event);
+                                    }
+                                }
+                            }
+                        }
+                        actix_ws::Message::Ping(bytes) => { let _ = session.pong(&bytes).await; }
+                        actix_ws::Message::Close(_) => break,
+                        _ => {}
+                    }
+                }
+                // outbound hub events
+                ev = rx.recv() => {
+                    match ev {
+                        Ok((topic, event)) => {
+                            if topics.contains(&topic) {
+                                let frame = serde_json::json!({
+                                    "topic": topic,
+                                    "type": event.r#type,
+                                    "payload": event.payload,
+                                    "meta": event.meta,
+                                });
+                                if session.text(frame.to_string()).await.is_err() { break; }
+                            }
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                        Err(_) => break,
+                    }
+                }
+                else => break,
+            }
+        }
+        let _ = session.close(None).await;
+    });
+    Ok(response)
+}
 
 #[cfg(test)]
 mod hub_tests {

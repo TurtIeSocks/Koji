@@ -39,7 +39,8 @@ url                = { workspace = true }
 utoipa             = { workspace = true }
 
 [dev-dependencies]
-awc     = { workspace = true }
+actix-test = { workspace = true }
+awc        = { workspace = true }
 tokio   = { workspace = true, features = ["macros", "rt"] }
 # Used by `tests/v2_db.rs` for raw SQL cleanup (DELETE) and direct DB connection.
 sea-orm = { workspace = true, features = [
