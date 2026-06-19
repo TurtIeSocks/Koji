@@ -21,6 +21,8 @@ actix-web          = { workspace = true }
 actix-files        = { workspace = true }
 actix-session      = { workspace = true }
 actix-web-httpauth = { workspace = true }
+actix-ws           = { workspace = true }
+futures-util       = { workspace = true }
 algorithms         = { workspace = true, features = ["native"] }
 async-trait        = { workspace = true }
 geo                = { workspace = true }
@@ -36,6 +38,7 @@ url                = { workspace = true }
 utoipa             = { workspace = true }
 
 [dev-dependencies]
+awc     = { workspace = true }
 # Used by `tests/v2_db.rs` for raw SQL cleanup (DELETE) and direct DB connection.
 sea-orm = { workspace = true, features = [
   "sqlx-mysql",
