@@ -25,6 +25,8 @@ export default defineConfig({
       "react-leaflet",
       "react-leaflet-geoman-v2",
       "@geoman-io/leaflet-geoman-free",
+      "@monaco-editor/react",
+      "monaco-editor",
     ],
   },
   server: {
