@@ -1,4 +1,10 @@
-import { TextField, ReferenceField } from "@/components/admin";
+import {
+  TextField,
+  ReferenceField,
+  ReferenceArrayField,
+  SingleFieldList,
+  ChipField,
+} from "@/components/admin";
 import { ShowLive } from "@/components/realtime";
 import { GeoJsonField } from "@/components/leaflet";
 import { DEFAULT_TILE_URL } from "@/lib/constants";
@@ -12,6 +18,11 @@ export const GeofenceShow = (props: Pick<ShowProps, "id">) => (
         <TextField source="mode" />
         <TextField source="geo_type" label="Geometry" />
         <ReferenceField source="parent" reference="geofence" empty="—" />
+        <ReferenceArrayField source="projects" reference="project">
+          <SingleFieldList>
+            <ChipField source="name" />
+          </SingleFieldList>
+        </ReferenceArrayField>
       </div>
       <GeoJsonField source="geometry" tileUrl={DEFAULT_TILE_URL} height={400} />
     </div>

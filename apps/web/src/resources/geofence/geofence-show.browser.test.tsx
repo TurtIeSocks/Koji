@@ -11,6 +11,7 @@ const record = {
   mode: "pokemon",
   geo_type: "Polygon",
   parent: null,
+  projects: [20],
   geometry: { type: "Polygon", coordinates: [[[0, 0], [0, 1], [1, 1], [0, 0]]] },
 };
 
@@ -21,7 +22,7 @@ const stubDataProvider = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getList: async () => ({ data: [] as any, total: 0 }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getMany: async () => ({ data: [] as any }),
+    getMany: async () => ({ data: [{ id: 20, name: "ProjectBeta" }] as any }),
   }),
   // subscribe() required by realtime context providers
   subscribe: () => () => undefined,
@@ -49,5 +50,16 @@ describe("GeofenceShow", () => {
     await expect
       .element(screen.container.querySelector(".leaflet-container"))
       .toBeInTheDocument();
+  });
+
+  it("renders project chips in the projects field", async () => {
+    const screen = render(
+      <AdminContext dataProvider={stubDataProvider} authProvider={stubAuthProvider}>
+        <ResourceContextProvider value="geofence">
+          <GeofenceShow id={1} />
+        </ResourceContextProvider>
+      </AdminContext>,
+    );
+    await expect.element(screen.getByText("ProjectBeta")).toBeVisible();
   });
 });

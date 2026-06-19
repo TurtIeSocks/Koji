@@ -11,6 +11,7 @@ const MULTI_POLYGON_RECORD = {
   name: "Test MultiPolygon",
   mode: "unset",
   parent: null,
+  projects: [10],
   geometry: {
     type: "MultiPolygon" as const,
     coordinates: [
@@ -25,7 +26,7 @@ const stubDataProvider = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getList: async () => ({ data: [] as any, total: 0 }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getMany: async () => ({ data: [] as any }),
+    getMany: async () => ({ data: [{ id: 10, name: "ProjectAlpha" }] as any }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getOne: async () => ({ data: MULTI_POLYGON_RECORD as any }),
   }),
@@ -85,5 +86,24 @@ describe("Geofence form", () => {
     await expect
       .element(screen.container.querySelector(".leaflet-pm-toolbar"))
       .toBeInTheDocument();
+  });
+
+  // shadmin's AutocompleteArrayInput renders a "Projects" <label> but without the
+  // for/id association getByLabelText needs, so match the label text directly.
+  // Split into two single-render tests — rendering two <AdminContext> + leaflet
+  // forms in one test double-mounts the query client and the first never settles.
+  it("renders the projects autocomplete in Edit", async () => {
+    const screen = render(wrap(<GeofenceEdit id={1} />));
+    await expect.element(screen.getByText("Projects")).toBeVisible();
+  });
+
+  it("does NOT render projects in Create", async () => {
+    const screen = render(wrap(<GeofenceCreate />));
+    await expect.element(screen.getByLabelText(/name/i)).toBeVisible();
+    expect(
+      [...screen.container.querySelectorAll("label")].some((l) =>
+        /projects/i.test(l.textContent ?? ""),
+      ),
+    ).toBe(false);
   });
 });
