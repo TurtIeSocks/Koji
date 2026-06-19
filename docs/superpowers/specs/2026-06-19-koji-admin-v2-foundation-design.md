@@ -16,9 +16,10 @@ cutover is a later, deliberate step.
 ## Locked decisions (from brainstorming)
 
 - **V2 client home:** new `apps/web` in the Koji repo (standalone, like `apps/web-client`).
-- **Map framework:** **MapLibre GL** + (later) **Terra Draw** as the editing layer — *not* shadmin's
-  Leaflet+geoman suite (so shadmin's Leaflet shape inputs are reference-only). One map stack across
-  admin + future `/map`.
+- **Map framework:** **Leaflet via shadmin's included geo suite** (geoman-based shape Inputs/Fields,
+  RHF-bridged, copy-in via the registry) — **interactive geometry editing for free** in the admin
+  forms. (MapLibre GL + Terra Draw was considered and dropped for the initial push; revisit only if a
+  future need forces it.)
 - **Realtime:** full — frontend decorator **and** a koji-server WS hub with macro-emitted resource
   events + job-progress events, plus a minimal live dashboard.
 - **API architecture:** public `/api/v2` stays clean + versioned (no client-specific shapes — the v1
@@ -43,8 +44,9 @@ cutover is a later, deliberate step.
   → `http://0.0.0.0:8080` (the client hits `/internal`; `/api` proxied for WS + any shared assets).
   koji-server keeps serving the old
   `web-client/dist` this phase; `apps/web` is dev/standalone.
-- **MapLibre deps now:** `maplibre-gl` + `react-map-gl` (`/maplibre` subpath). `terra-draw` deferred
-  to the editor spec.
+- **Geo deps:** come in with shadmin's leaflet registry items (`shadcn add` pulls `leaflet` +
+  `react-leaflet` + `@geoman-io/leaflet-geoman-free` + `react-leaflet-geoman-v2` + `@turf/*`). No
+  MapLibre.
 - **Skipped:** root JS monorepo/turborepo (YAGNI for two independent apps), Storybook, i18n setup.
 
 ## Section 2 — Admin shell, auth & layout
@@ -145,30 +147,31 @@ live feed). Richer recharts analytics dashboard deferred.
   `mode` / `geo_type`. Sidebar `<FilterLiveSearch>` (q) + `<FilterList>` for project / parent /
   geotype / mode. Server pagination+sort+filter via `GET /internal/geofences`. Bulk: **delete only**.
 - **Edit / Create** — `<EditLive>` / `<Create>` + `<SimpleForm>`: `name` (required), `mode`
-  (SelectInput), `parent` (ReferenceInput→geofence + Autocomplete), `geometry` (**Monaco JSON input +
-  read-only MapLibre preview**, Section 6). Create = single form only.
-- **Show** — `<ShowLive>` + layout: name / mode / geo_type / parent ref / **MapLibre geometry
-  preview** + raw geometry (Monaco read-only).
+  (SelectInput), `parent` (ReferenceInput→geofence + Autocomplete), `geometry` (**shadmin's
+  interactive Leaflet geometry input** — `GeoJsonInput`/`PolygonInput` as fits geofence's
+  Polygon|MultiPolygon, geoman draw/edit + RHF, Section 6). Create = single form only.
+- **Show** — `<ShowLive>` + layout: name / mode / geo_type / parent ref / **shadmin Leaflet geometry
+  field** (read-only map render).
 - **Mode set** — reconcile v1 12-mode `KojiModes` vs v2's collapsed set into one canonical list in
   `lib/constants.ts`; SelectInput choices derive from it.
 - **Deferred (geofence's heavy bits, follow-up specs):** properties array-input (category-driven
   dynamic value), projects array-ref, import wizard (shapefile/Nominatim/golbat), publish + assign
   bulk actions.
 
-## Section 6 — MapLibre geometry preview
+## Section 6 — Geometry editing via shadmin's Leaflet suite
 
-`src/components/geometry/geometry-preview.tsx` — read-only, reusable in geofence edit + show; the
-seed of the future Terra Draw editor.
+No bespoke map component — `shadcn add` shadmin's leaflet geometry items and use them directly.
 
-- **`react-map-gl/maplibre` `<Map>`** + `<Source type="geojson">` + `<Layer>` (fill+outline for
-  polygons, circle for points). Read-only (pan/zoom only).
-- **Reads the RHF geometry field** (`useWatch`) in edit / the record in show. Monaco JSON input is
-  source of truth; preview re-renders on change. Invalid JSON → holds last-valid / empty, no crash.
-- **Fit bounds** to geometry on change (turf `bbox`).
-- **Basemap = raster style from Koji's tile-servers.** `tileServerToMapLibreStyle(url)` builds a
-  MapLibre raster style from an XYZ tile URL — defaults to CartoDB Voyager (matching today's map),
-  upgradeable to `/api/v2/tile-servers` later. Deliberately reuses Koji's tile-server concept.
-- **Skipped:** vector/glyph styles, Terra Draw interaction, layer toggles, the 10k-point GL layer.
+- **Edit input:** shadmin's `GeoJsonInput` / `PolygonInput` (`packages/shadmin/src/components/leaflet/`)
+  — `<BaseMap>` + `<FeatureGroup>` + `<GeomanControls>` with the `use-geoman-rhf.ts` two-way bridge.
+  Interactive draw/edit/drag/cut on Polygon|MultiPolygon, RHF-synced. Editing integration (geoman
+  toolbar ↔ shadcn theme, hydration-echo dedup, multi/collection modes) is **solved upstream** — we
+  copy it in, not rebuild it.
+- **Show field:** shadmin's matching `*Field` — read-only `<GeoJSON>` render + auto fit-to-bounds.
+- **Tiles:** point shadmin's `<BaseMap tileUrl>` at Koji's default tile-server (CartoDB Voyager today;
+  later read `/internal` → tile-servers). Reuses Koji's tile-server concept.
+- **Skipped (still deferred to the full `/map` backport):** the 10k+ point data layer, S2 cells,
+  arrowheaded routes, clustering/calc controls, import wizard.
 
 ## Section 7 — Testing & verification
 
@@ -178,8 +181,8 @@ seed of the future Terra Draw editor.
   publish — a test WS client asserting frames). Needs the test DB (`KOJI_DB_URL`; reconstruct
   `.env.test`; copy into any worktree).
 - **Frontend:** dataProvider unit tests vs a mock backend (row-mode mapping, envelope unwrap);
-  component tests (vitest-browser-react / Playwright provider) — geofence list/edit, MapLibre preview
-  renders a geometry, a realtime check (mutation → `<ListLive>` updates). Browser suite runs at **end
+  component tests (vitest-browser-react / Playwright provider) — geofence list/edit, shadmin geometry
+  input edits a polygon, a realtime check (mutation → `<ListLive>` updates). Browser suite runs at **end
   of each TDD task**, not per-step.
 - **TDD throughout.** Manual verify via **Claude Preview on :5273** (inline, no Chromium window).
 
@@ -190,7 +193,8 @@ This spec = foundation only. Deferred, each its own spec → plan → implement:
 1. **Route resource** + geofence's heavy bits (properties array, projects ref, import wizard,
    publish/assign) + route row-shape.
 2. **project / property / tileserver / plugins** resources (lighter).
-3. **MapLibre + Terra Draw interactive editor** — adopted by all geometry forms at once.
+3. _(shelved)_ **MapLibre GL + Terra Draw upgrade** — only if Leaflet/geoman proves limiting at the
+   `/map` backport (interactive editing already ships in the foundation via shadmin's geoman suite).
 4. **Rich dashboard** (recharts analytics + `/stats`) + P1/P2 endpoints (batch `?ids=`, `/choices`,
    bulk-delete).
 5. **Full `/map` backport** — drawer, popups, clustering/bootstrap calc UI, S2 layers, pixi→native-GL
@@ -203,9 +207,9 @@ This spec = foundation only. Deferred, each its own spec → plan → implement:
   event emission) is a third unknown alongside shadcn theming and the data layer. Accepted explicitly.
 - **shadmin churn** — realtime, native-CSS theming, granular registry are `[Unreleased]`/0.1.0. The
   copied-in source is committed to Koji (pins it); track shadmin's contract as ra-core 5.14.
-- **Terra Draw #197** (React re-render layer-loss) is *not* in this spec (preview is read-only) but is
-  the thing to prototype first in the editor spec; Koji is structurally positioned to dodge it
-  (markers live in imperative layers, not React state).
+- **geoman editing** is shadmin's pre-integrated layer (the demo `map` resource proves it) — we copy
+  it in rather than rebuild. Watch for geoman toolbar/CSS vs Tailwind theming, but shadmin already
+  reconciled that upstream. (No Terra Draw / MapLibre risk — that path is shelved.)
 - **actix-ws auth** — validate the session cookie on the `/internal/realtime` WS handshake;
   same-origin only (no CORS today).
 - **Private `/internal` scope** — must sit behind the same auth gate as `/api/v2`; forwards via
