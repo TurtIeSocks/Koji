@@ -109,11 +109,17 @@ directly. Public `/api/v2` gets **no client-specific shapes**.
 ## Section 4 — Realtime (frontend + koji-server WS)
 
 **Frontend:**
-- `dataProvider = addEventsForMutations(realtimeDataProvider(base, wsTransport, { lockProvider }), …)`
+- `dataProvider = realtimeDataProvider(base, wsTransport, { lockProvider: inMemoryLockProvider() })`
   where `wsTransport = webSocketTransport({ url: '/internal/realtime' })` — shadmin's production WS
   client (reconnect/heartbeat/auth/pending-publish queue).
-- Resources use `<ListLive>` / `<EditLive>` / `<ShowLive>`; reference counts via live `<Count>`.
-  Topic names match shadmin's `resourceTopic`/`recordTopic` helpers exactly.
+- **No `addEventsForMutations`** — the **server is the single event source** (the macro emits on every
+  mutation, incl. this client's). react-admin's optimistic cache already updates the mutating client's
+  UI immediately, so realtime is purely for *other* clients/tabs; client-side publish would
+  double-fire. (Dev/storybook against fakerest can opt into `broadcastChannelTransport` +
+  `addEventsForMutations` instead — that path has no server.)
+- Resources use `<ListLive>` / `<EditLive>` / `<ShowLive>`; reference counts via live `<Count>`. Topic
+  names match shadmin's `resourceTopic`/`recordTopic` helpers exactly. Locks = client-side
+  `inMemoryLockProvider` (per-tab) this phase; server-backed locks deferred.
 
 **Backend (koji-service, Rust):**
 - **`GET /internal/realtime`** WS upgrade via **`actix-ws`** (modern non-actor API). Session-cookie auth
