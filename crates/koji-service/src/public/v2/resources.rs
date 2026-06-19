@@ -31,6 +31,7 @@ use macros::koji_resource;
 koji_resource! {
     module: project,
     seg: "projects",
+    topic: "project",
     create: {
         name: String,
         api_endpoint: Option<String>,
@@ -43,6 +44,7 @@ koji_resource! {
 koji_resource! {
     module: property,
     seg: "properties",
+    topic: "property",
     create: {
         name: String,
         category: koji_db::Category,
@@ -53,6 +55,7 @@ koji_resource! {
 koji_resource! {
     module: tile_server,
     seg: "tile-servers",
+    topic: "tileserver",
     create: {
         name: String,
         url: String,

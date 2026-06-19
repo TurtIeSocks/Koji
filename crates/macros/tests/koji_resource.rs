@@ -128,6 +128,46 @@ pub mod utils {
 }
 
 // ---------------------------------------------------------------------------
+// crate::internal stubs (the macro emits `crate::internal::realtime::…`
+// references for hub publication).
+// ---------------------------------------------------------------------------
+
+pub mod internal {
+    pub mod realtime {
+        use serde::Serialize;
+
+        /// Stub `RealtimeHub` — just enough for the macro's `hub.publish()` call
+        /// to compile in this test crate (no actual broadcasting).
+        #[derive(Clone)]
+        pub struct RealtimeHub;
+        impl RealtimeHub {
+            pub fn publish(&self, _topic: &str, _event: ServerEvent) {}
+        }
+
+        /// Stub `ServerEvent` matching the shape the macro passes to `hub.publish`.
+        #[derive(Clone, Serialize)]
+        pub struct ServerEvent {
+            pub r#type: String,
+            pub payload: Option<serde_json::Value>,
+        }
+
+        pub mod topics {
+            use super::ServerEvent;
+
+            pub fn created(_name: &str, _id: i64) -> Vec<(String, ServerEvent)> {
+                vec![]
+            }
+            pub fn updated(_name: &str, _id: i64, _data: serde_json::Value) -> Vec<(String, ServerEvent)> {
+                vec![]
+            }
+            pub fn deleted(_name: &str, _id: i64) -> Vec<(String, ServerEvent)> {
+                vec![]
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // `koji_resource!` invocations under test.
 // ---------------------------------------------------------------------------
 
@@ -136,6 +176,7 @@ pub mod utils {
 macros::koji_resource! {
     module: project,
     seg: "projects",
+    topic: "project",
     create: {
         name: String,
         api_endpoint: Option<String>,
@@ -148,6 +189,7 @@ macros::koji_resource! {
 macros::koji_resource! {
     module: tile_server,
     seg: "tile-servers",
+    topic: "tileserver",
     create: {
         name: String,
         url: String,
@@ -162,6 +204,7 @@ macros::koji_resource! {
 macros::koji_resource! {
     module: property,
     seg: "properties",
+    topic: "property",
     create: {
         name: String,
         category: koji_db::Category,

@@ -519,13 +519,15 @@ struct ResourceField {
     ty: Type,
 }
 
-/// The parsed `koji_resource! { module:, seg:, create: { … } }` invocation.
+/// The parsed `koji_resource! { module:, seg:, topic:, create: { … } }` invocation.
 struct ResourceDef {
     /// koji-db `db::<module>::Query` module + emitted submodule name (the
     /// singular canonical resource name, e.g. `project`).
     module: Ident,
     /// URL path segment, e.g. `"projects"`.
     seg: LitStr,
+    /// Realtime event topic name, e.g. `"project"`.
+    topic: LitStr,
     /// The Create DTO fields, in declaration order.
     fields: Vec<ResourceField>,
 }
@@ -534,17 +536,19 @@ impl Parse for ResourceDef {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut module: Option<Ident> = None;
         let mut seg: Option<LitStr> = None;
+        let mut topic: Option<LitStr> = None;
         let mut fields: Option<Vec<ResourceField>> = None;
 
         // Grammar: a comma-separated list of `key: value`, where `value` is an
-        // ident (`module`), a string literal (`seg`), or a `{ … }` field block
-        // (`create`). A trailing comma is allowed.
+        // ident (`module`), a string literal (`seg`, `topic`), or a `{ … }` field
+        // block (`create`). A trailing comma is allowed.
         while !input.is_empty() {
             let key: Ident = input.parse()?;
             input.parse::<Token![:]>()?;
             match key.to_string().as_str() {
                 "module" => module = Some(input.parse()?),
                 "seg" => seg = Some(input.parse()?),
+                "topic" => topic = Some(input.parse()?),
                 "create" => {
                     let content;
                     braced!(content in input);
@@ -562,7 +566,9 @@ impl Parse for ResourceDef {
                 other => {
                     return Err(syn::Error::new_spanned(
                         &key,
-                        format!("unexpected key `{other}` (expected `module`, `seg`, or `create`)"),
+                        format!(
+                            "unexpected key `{other}` (expected `module`, `seg`, `topic`, or `create`)"
+                        ),
                     ));
                 }
             }
@@ -584,6 +590,12 @@ impl Parse for ResourceDef {
                 "koji_resource! requires `seg:`",
             )
         })?;
+        let topic = topic.ok_or_else(|| {
+            syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "koji_resource! requires `topic:`",
+            )
+        })?;
         let fields = fields.ok_or_else(|| {
             syn::Error::new(
                 proc_macro2::Span::call_site(),
@@ -594,6 +606,7 @@ impl Parse for ResourceDef {
         Ok(ResourceDef {
             module,
             seg,
+            topic,
             fields,
         })
     }
@@ -738,6 +751,7 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
     let ResourceDef {
         module,
         seg,
+        topic,
         fields,
     } = parse_macro_input!(input as ResourceDef);
 
@@ -875,12 +889,16 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
             )]
             pub(crate) async fn create(
                 db: actix_web::web::Data<koji_db::KojiDb>,
+                hub: actix_web::web::Data<crate::internal::realtime::RealtimeHub>,
                 body: actix_web::web::Json<#create_ty>,
             ) -> ::core::result::Result<actix_web::HttpResponse, crate::utils::error::ServiceError> {
                 let value = serde_json::to_value(&body.into_inner())
                     .map_err(crate::utils::error::ServiceError::internal)?;
                 let record = koji_db::db::#module::Query::upsert_json_return(&db.koji, 0, value).await?;
                 let id = record.get("id").and_then(serde_json::Value::as_u64).unwrap_or(0);
+                for (t, ev) in crate::internal::realtime::topics::created(#topic, id as i64) {
+                    hub.publish(&t, ev);
+                }
                 ::core::result::Result::Ok(
                     actix_web::HttpResponse::build(actix_web::http::StatusCode::CREATED)
                         .insert_header(("Location", format!(concat!("/api/v2/", #seg, "/{}"), id)))
@@ -927,6 +945,7 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
             )]
             pub(crate) async fn update(
                 db: actix_web::web::Data<koji_db::KojiDb>,
+                hub: actix_web::web::Data<crate::internal::realtime::RealtimeHub>,
                 path: actix_web::web::Path<u32>,
                 body: actix_web::web::Json<#patch_ty>,
             ) -> ::core::result::Result<actix_web::HttpResponse, crate::utils::error::ServiceError> {
@@ -941,6 +960,9 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
                 let value = serde_json::to_value(&body.into_inner())
                     .map_err(crate::utils::error::ServiceError::internal)?;
                 let record = koji_db::db::#module::Query::upsert_json_return(&db.koji, id, value).await?;
+                for (t, ev) in crate::internal::realtime::topics::updated(#topic, id as i64, record.clone()) {
+                    hub.publish(&t, ev);
+                }
                 ::core::result::Result::Ok(crate::utils::api_response::ApiResponse::success(record))
             }
 
@@ -957,14 +979,19 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
             )]
             pub(crate) async fn remove(
                 db: actix_web::web::Data<koji_db::KojiDb>,
+                hub: actix_web::web::Data<crate::internal::realtime::RealtimeHub>,
                 path: actix_web::web::Path<u32>,
             ) -> ::core::result::Result<actix_web::HttpResponse, crate::utils::error::ServiceError> {
-                let result = koji_db::db::#module::Query::delete(&db.koji, path.into_inner()).await?;
+                let id = path.into_inner();
+                let result = koji_db::db::#module::Query::delete(&db.koji, id).await?;
                 if result.rows_affected == 0 {
                     return ::core::result::Result::Err(crate::utils::error::ServiceError::NotFound {
                         field: #field_name,
                         message: "does not exist".to_string(),
                     });
+                }
+                for (t, ev) in crate::internal::realtime::topics::deleted(#topic, id as i64) {
+                    hub.publish(&t, ev);
                 }
                 ::core::result::Result::Ok(
                     actix_web::HttpResponse::build(actix_web::http::StatusCode::NO_CONTENT).finish(),

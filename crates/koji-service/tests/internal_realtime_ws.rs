@@ -12,6 +12,7 @@
 //! hold `ENV_LOCK` for their duration so concurrent test threads don't race.
 use actix_web::{web, App};
 use futures_util::{SinkExt, StreamExt};
+use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
 use std::sync::Mutex;
 
 /// Serializes all env-var mutations across the test suite to prevent races.
@@ -149,4 +150,107 @@ async fn url_encoded_token_is_accepted() {
     );
 
     unsafe { std::env::remove_var("KOJI_SECRET"); }
+}
+
+// ---------------------------------------------------------------------------
+// DB-gated: mutation → WS event
+// ---------------------------------------------------------------------------
+
+/// Returns `Some(conn)` when `KOJI_DB_URL` is set, otherwise `None`
+/// (so DB-gated tests skip cleanly in CI without a database).
+async fn db_or_skip() -> Option<DatabaseConnection> {
+    let url = std::env::var("KOJI_DB_URL").ok()?;
+    Database::connect(&url).await.ok()
+}
+
+/// Build a `KojiDb` pointing both `koji` and `golbat` at the same `KOJI_DB_URL`
+/// (golbat is used for reads only; the test DB is a fine dummy).
+async fn build_test_koji_db(koji_db: DatabaseConnection) -> koji_db::KojiDb {
+    let url = std::env::var("KOJI_DB_URL").unwrap();
+    let golbat = Database::connect(&url).await.expect("golbat re-connect");
+    koji_db::KojiDb {
+        koji: koji_db,
+        golbat,
+    }
+}
+
+/// Returns a short random slug for unique test record names.
+fn uuid_slug() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .subsec_nanos()
+        .to_string()
+}
+
+/// DB-gated: a POST /internal/geofences that succeeds must publish a
+/// `resource/geofence` `created` event to subscribers.
+///
+/// Boots a live actix server with the full /internal scope + the shared hub.
+/// Connects a WS subscriber on `resource/geofence`, fires the POST, and
+/// asserts the created-event frame arrives with the new id.
+#[actix_web::test]
+async fn creating_a_geofence_publishes_resource_event() {
+    let Some(conn) = db_or_skip().await else { return; };
+    let _guard = ENV_LOCK.lock().unwrap();
+    // SAFETY: test-only env mutation — serialized by ENV_LOCK so no KOJI_SECRET
+    // set by a concurrent auth test bleeds into the WS upgrade.
+    unsafe { std::env::set_var("KOJI_SECRET", ""); }
+    let db = build_test_koji_db(conn.clone()).await;
+    let hub = koji_service::test_realtime_hub();
+    let hub2 = hub.clone();
+    let dbc = db.clone();
+    let srv = actix_test::start(move || koji_service::test_internal_live_app(dbc.clone(), hub2.clone()));
+    let ws_url = srv.url("/internal/realtime").replace("http://", "ws://");
+    let (_r, mut ws) = awc::Client::new().ws(ws_url).connect().await.unwrap();
+    ws.send(awc::ws::Message::Text(
+        r#"{"op":"subscribe","topic":"resource/geofence"}"#.into(),
+    ))
+    .await
+    .unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+    // POST a minimal geofence via /api/v2/geofences (same create handler as
+    // /internal/geofences but avoids the internal collection-route ordering).
+    let name = format!("ws-rt-test-{}", uuid_slug());
+    let body = serde_json::json!({
+        "name": name,
+        "geometry": {
+            "type": "Polygon",
+            "coordinates": [[[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,0.0]]]
+        }
+    });
+    let resp = awc::Client::new()
+        .post(srv.url("/api/v2/geofences"))
+        .send_json(&body)
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 201, "geofence create must succeed");
+
+    // Expect the WS frame
+    let frame = tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        ws.next(),
+    )
+    .await
+    .expect("timed out waiting for WS frame")
+    .unwrap()
+    .unwrap();
+    let awc::ws::Frame::Text(bytes) = frame else {
+        panic!("expected text frame, got {:?}", frame);
+    };
+    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(v["topic"], "resource/geofence");
+    assert_eq!(v["type"], "created");
+    let ids = v["payload"]["ids"].as_array().expect("payload.ids must be array");
+    assert_eq!(ids.len(), 1, "exactly one id in created event");
+    let id = ids[0].as_i64().unwrap();
+
+    // Cleanup
+    let _ = conn.execute(sea_orm::Statement::from_sql_and_values(
+        sea_orm::DbBackend::MySql,
+        "DELETE FROM geofence WHERE id = ?",
+        [sea_orm::Value::from(id)],
+    )).await;
 }

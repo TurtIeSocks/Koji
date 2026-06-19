@@ -167,6 +167,7 @@ async fn list(
 )]
 async fn create(
     conn: web::Data<KojiDb>,
+    hub: web::Data<crate::internal::realtime::RealtimeHub>,
     body: web::Json<CreateGeofence>,
 ) -> Result<HttpResponse, ServiceError> {
     let value = serde_json::to_value(body.into_inner()).map_err(ServiceError::internal)?;
@@ -175,6 +176,9 @@ async fn create(
         .get("id")
         .and_then(serde_json::Value::as_u64)
         .unwrap_or(0);
+    for (t, ev) in crate::internal::realtime::topics::created("geofence", id as i64) {
+        hub.publish(&t, ev);
+    }
     Ok(HttpResponse::build(StatusCode::CREATED)
         .insert_header(("Location", format!("/api/v2/geofences/{id}")))
         .json(ApiResponse::Ok {
@@ -252,6 +256,7 @@ async fn get_one(
 )]
 async fn update(
     conn: web::Data<KojiDb>,
+    hub: web::Data<crate::internal::realtime::RealtimeHub>,
     path: web::Path<u32>,
     body: web::Json<PatchGeofence>,
 ) -> Result<HttpResponse, ServiceError> {
@@ -274,6 +279,9 @@ async fn update(
         }
     }
     let record = geofence::Query::upsert_json_return(&conn.koji, id, merged).await?;
+    for (t, ev) in crate::internal::realtime::topics::updated("geofence", id as i64, record.clone()) {
+        hub.publish(&t, ev);
+    }
     Ok(ApiResponse::success(record))
 }
 
@@ -290,14 +298,19 @@ async fn update(
 )]
 async fn remove(
     conn: web::Data<KojiDb>,
+    hub: web::Data<crate::internal::realtime::RealtimeHub>,
     path: web::Path<u32>,
 ) -> Result<HttpResponse, ServiceError> {
-    let result = geofence::Query::delete(&conn.koji, path.into_inner()).await?;
+    let id = path.into_inner();
+    let result = geofence::Query::delete(&conn.koji, id).await?;
     if result.rows_affected == 0 {
         return Err(ServiceError::NotFound {
             field: "geofence",
             message: "does not exist".to_string(),
         });
+    }
+    for (t, ev) in crate::internal::realtime::topics::deleted("geofence", id as i64) {
+        hub.publish(&t, ev);
     }
     Ok(HttpResponse::build(StatusCode::NO_CONTENT).finish())
 }

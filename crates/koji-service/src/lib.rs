@@ -86,10 +86,12 @@ pub fn test_db_app(
         vec![], // no-op: no subscribers in tests
         "test-worker",
     ));
+    let hub = Arc::new(internal::realtime::RealtimeHub::new());
     App::new()
         .app_data(web::Data::new(db))
         .app_data(web::Data::from(jobs))
         .app_data(web::Data::from(events))
+        .app_data(web::Data::from(hub))
         .app_data(web::JsonConfig::default().limit(1024 * 1024 * 10))
         .wrap(
             actix_session::SessionMiddleware::builder(
@@ -186,8 +188,11 @@ pub fn test_projects_app(
         InitError = (),
     >,
 > {
+    use std::sync::Arc;
+    let hub = Arc::new(internal::realtime::RealtimeHub::new());
     App::new()
         .app_data(web::Data::new(db))
+        .app_data(web::Data::from(hub))
         .service(web::scope("/api/v2").service(public::v2::resources::project::scope()))
 }
 
@@ -195,6 +200,54 @@ pub fn test_projects_app(
 #[doc(hidden)]
 pub fn test_realtime_hub() -> internal::realtime::RealtimeHub {
     internal::realtime::RealtimeHub::new()
+}
+
+/// Test surface: a full App mounting `/internal` scope + `/api/v2/geofences`
+/// (no auth on either) with `KojiDb`, `RealtimeHub`, and `EventDispatcher` in
+/// app_data. Used by `internal_realtime_ws.rs` to verify that mutation handlers
+/// publish WS events end-to-end.
+///
+/// Both scopes are mounted so the test can POST to `/api/v2/geofences` (which
+/// avoids the `internal` collection-route ordering issue) while still using the
+/// WS hub at `/internal/realtime`.
+#[doc(hidden)]
+pub fn test_internal_live_app(
+    db: koji_db::KojiDb,
+    hub: internal::realtime::RealtimeHub,
+) -> actix_web::App<
+    impl actix_web::dev::ServiceFactory<
+        actix_web::dev::ServiceRequest,
+        Config = (),
+        Response = actix_web::dev::ServiceResponse,
+        Error = actix_web::Error,
+        InitError = (),
+    >,
+> {
+    use std::sync::Arc;
+    let events = Arc::new(EventDispatcher::new(
+        db.koji.clone(),
+        vec![],
+        "test-worker",
+    ));
+    let hub_arc = Arc::new(hub);
+    App::new()
+        .app_data(web::Data::new(db))
+        .app_data(web::Data::from(hub_arc))
+        .app_data(web::Data::from(events))
+        .app_data(web::JsonConfig::default().limit(1024 * 1024 * 10))
+        .wrap(
+            actix_session::SessionMiddleware::builder(
+                actix_session::storage::CookieSessionStore::default(),
+                actix_web::cookie::Key::from(&[0u8; 64]),
+            )
+            .cookie_secure(false)
+            .build(),
+        )
+        .service(
+            web::scope("/api/v2")
+                .service(public::v2::geofences::scope()),
+        )
+        .service(internal::scope())
 }
 
 /// Test surface: the WS handler, re-exported so integration tests in `tests/`
