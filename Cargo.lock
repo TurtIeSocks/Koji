@@ -3064,6 +3064,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
+ "serde_urlencoded",
  "syn 2.0.118",
  "utoipa",
 ]

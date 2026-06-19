@@ -386,6 +386,32 @@ async fn publish(
     ))
 }
 
+/// Like [`scope`] but omits the collection `GET` (list). Used by the `/internal`
+/// scope, which overrides `GET /internal/geofences` with the bespoke row-list
+/// handler while forwarding all other geofence operations unchanged.
+///
+/// Collection `POST` (create) + all `/{id}` routes (getOne / patch / delete /
+/// publish / golbat-data) are forwarded as-is. Mounted at `/geofences` so the
+/// caller's parent scope (`/internal`) contributes the full path prefix.
+pub(crate) fn internal_item_scope() -> actix_web::Scope {
+    web::scope("/geofences")
+        .service(
+            web::resource("")
+                .route(web::post().to(create)),
+        )
+        .service(web::resource("/{id}/publish").route(web::post().to(publish)))
+        .service(
+            web::resource("/{id}/golbat-data")
+                .route(web::get().to(crate::public::v2::golbat_data::golbat_data)),
+        )
+        .service(
+            web::resource("/{id}")
+                .route(web::get().to(get_one))
+                .route(web::patch().to(update))
+                .route(web::delete().to(remove)),
+        )
+}
+
 /// The `web::Scope` wiring the geofence handlers under `/geofences`, mounted into
 /// `/api/v2` by [`crate::start`]. The `/{id}/publish` and `/{id}/golbat-data`
 /// sub-resources are registered before the `/{id}` catch-all so the more specific

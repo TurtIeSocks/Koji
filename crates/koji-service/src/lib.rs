@@ -212,6 +212,101 @@ pub fn test_server_event(
     internal::realtime::ServerEvent::new(t, payload)
 }
 
+/// Test surface: the DB-free members of `/internal` wrapped in real auth middleware.
+///
+/// Mounts `config`, `auth`, and `realtime` under `/internal` behind
+/// `HttpAuthentication::with_fn(public_validator)`. DB-backed routes (geofences,
+/// routes, resources, plugins, nominatim) are omitted so the test binary doesn't
+/// need a live database. The session middleware is included because `public_validator`
+/// reads the `logged_in` session key.
+#[doc(hidden)]
+pub fn test_internal_authed_app() -> actix_web::App<
+    impl actix_web::dev::ServiceFactory<
+        actix_web::dev::ServiceRequest,
+        Config = (),
+        Response = actix_web::dev::ServiceResponse,
+        Error = actix_web::Error,
+        InitError = (),
+    >,
+> {
+    let hub = std::sync::Arc::new(internal::realtime::RealtimeHub::new());
+    App::new()
+        .app_data(web::Data::from(hub))
+        .app_data(web::JsonConfig::default().limit(1024 * 1024 * 10))
+        // Session middleware first (outermost wrap = last applied to request,
+        // first to see the response — matches prod ordering).
+        .wrap(
+            actix_session::SessionMiddleware::builder(
+                actix_session::storage::CookieSessionStore::default(),
+                actix_web::cookie::Key::from(&[0u8; 64]),
+            )
+            .cookie_secure(false)
+            .build(),
+        )
+        // DB-free /internal members only, behind real auth.
+        .service(
+            web::scope("/internal")
+                .wrap(HttpAuthentication::with_fn(auth::public_validator))
+                .service(public::v2::config::config)
+                .service(public::v2::auth::scope())
+                .service(
+                    web::resource("/realtime")
+                        .route(web::get().to(internal::realtime::realtime_ws)),
+                ),
+        )
+}
+
+/// Like [`test_db_app`] but also mounts `internal::scope()` (no auth, like the
+/// public scope) so the parity test can hit both `/api/v2/geofences/{id}` and
+/// `/internal/geofences/{id}` in the same `App`.
+#[doc(hidden)]
+pub fn test_db_app_with_internal(
+    db: koji_db::KojiDb,
+    jobs: std::sync::Arc<koji_jobs::JobQueue>,
+) -> actix_web::App<
+    impl actix_web::dev::ServiceFactory<
+        actix_web::dev::ServiceRequest,
+        Config = (),
+        Response = actix_web::dev::ServiceResponse,
+        Error = actix_web::Error,
+        InitError = (),
+    >,
+> {
+    use std::sync::Arc;
+    let events = Arc::new(EventDispatcher::new(
+        db.koji.clone(),
+        vec![],
+        "test-worker",
+    ));
+    let hub = Arc::new(internal::realtime::RealtimeHub::new());
+    App::new()
+        .app_data(web::Data::new(db))
+        .app_data(web::Data::from(jobs))
+        .app_data(web::Data::from(events))
+        .app_data(web::Data::from(hub))
+        .app_data(web::JsonConfig::default().limit(1024 * 1024 * 10))
+        .wrap(
+            actix_session::SessionMiddleware::builder(
+                actix_session::storage::CookieSessionStore::default(),
+                actix_web::cookie::Key::from(&[0; 64]),
+            )
+            .cookie_secure(false)
+            .build(),
+        )
+        .service(
+            web::scope("/api/v2")
+                .service(public::v2::jobs::create_job)
+                .service(public::v2::jobs::list_jobs)
+                .service(public::v2::jobs::get_job)
+                .service(public::v2::jobs::cancel_job)
+                .service(public::v2::jobs::algorithms)
+                .service(public::v2::geofences::scope())
+                .service(public::v2::routes::scope())
+                .service(public::v2::plugins::scope()),
+        )
+        .service(internal::scope())
+}
+
 use crate::dragonite::DragoniteSubscriber;
 
 mod dragonite;
@@ -353,6 +448,12 @@ pub async fn start() -> io::Result<()> {
     let _workers = Arc::clone(&jobs).spawn_workers(concurrency, registry);
     log::info!("[koji] spawned {concurrency} job worker(s)");
 
+    // In-process realtime pub/sub hub — shared into every request via app_data.
+    // The WS handler at `GET /internal/realtime` reads it to subscribe/publish.
+    // Built once here (pre-`HttpServer::new`) and cloned across workers via Arc.
+    let hub = Arc::new(internal::realtime::RealtimeHub::new());
+    log::info!("[koji] realtime hub initialized");
+
     let path = || {
         if is_docker() {
             "./dist"
@@ -383,6 +484,7 @@ pub async fn start() -> io::Result<()> {
             .app_data(web::Data::from(jobs.clone()))
             .app_data(web::Data::from(events.clone()))
             .app_data(web::Data::new(dragonite.clone()))
+            .app_data(web::Data::from(hub.clone()))
             // increase max payload size to 50MB
             .app_data(web::JsonConfig::default().limit(1024 * 1024 * 50))
             .wrap(middleware::Logger::new("%s | %r - %b bytes in %D ms (%a)"))
@@ -445,6 +547,14 @@ pub async fn start() -> io::Result<()> {
                             // Session auth: login/logout/me.
                             .service(public::v2::auth::scope()),
                     ),
+            )
+            // `/internal` scope: same handlers as `/api/v2` (forward-aliases) +
+            // bespoke row-list at `GET /internal/geofences` + WS hub at
+            // `GET /internal/realtime`. Behind the same `public_validator` auth.
+            // Not in OpenAPI (internal surface only).
+            .service(
+                internal::scope()
+                    .wrap(HttpAuthentication::with_fn(auth::public_validator)),
             )
             // Liveness + readiness probes (top-level, unauthenticated).
             // `/healthz` = process up; `/readyz` = DB reachable (200) or 503.
