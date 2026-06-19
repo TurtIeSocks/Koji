@@ -21,6 +21,10 @@ cutover is a later, deliberate step.
   admin + future `/map`.
 - **Realtime:** full — frontend decorator **and** a koji-server WS hub with macro-emitted resource
   events + job-progress events, plus a minimal live dashboard.
+- **API architecture:** public `/api/v2` stays clean + versioned (no client-specific shapes — the v1
+  mistake). The client uses a **private, unversioned `/internal/*` surface exclusively** —
+  **forwards** to the public handler via route alias / shared handler where identical, **bespoke**
+  private handlers only where genuinely client-specific (row lists, WS, future dashboards).
 - **Engagement:** participate (section-by-section sign-off — done).
 
 ## Section 1 — App scaffold & stack
@@ -35,8 +39,9 @@ cutover is a later, deliberate step.
   source is owned + inherently pinned). Registry source = published
   `https://shadmin.turtlesocks.dev/r/`, with a local `pnpm --filter shadmin registry:build` of the
   sibling repo (`/Users/rin/GitHub/shadcn-admin-kit`) as fallback when the published one lags.
-- **Dev/serving:** Vite on **port 5273** (+100 offset convention) with a proxy `/api` →
-  `http://0.0.0.0:8080` (mirrors `web-client`'s proxy). koji-server keeps serving the old
+- **Dev/serving:** Vite on **port 5273** (+100 offset convention) with proxies `/internal` + `/api`
+  → `http://0.0.0.0:8080` (the client hits `/internal`; `/api` proxied for WS + any shared assets).
+  koji-server keeps serving the old
   `web-client/dist` this phase; `apps/web` is dev/standalone.
 - **MapLibre deps now:** `maplibre-gl` + `react-map-gl` (`/maplibre` subpath). `terra-draw` deferred
   to the editor spec.
@@ -61,41 +66,55 @@ cutover is a later, deliberate step.
   shadmin palettes + Kōji branding polish are a later pass.
 - **Skipped:** RBAC, multi-locale, palette theming.
 
-## Section 3 — Data layer (dataProvider + Rust endpoints)
+## Section 3 — Data layer (private `/internal` API + dataProvider)
 
-**Backend (koji-service, Rust) — P0:**
-- **Row-list mode** on the geofence list handler: returns `{data: Row[], meta:{total,page,per_page,
-  total_pages,…}}` honoring `page/per_page/sortBy/order/q` + filters. Geofence row ≈
-  `{id,name,mode,parent,geo_type,projects[],property_count}`. The DB layer (`AdminReqParsed` /
-  `paginate`) already supports sort/order/q/the filters — this is wiring, not new DB surface.
-  Implemented as a **new return-type in the existing `?format=`/`?rt=` negotiation** (`rt=adminList`)
-  riding the `respond_geo` machinery — not a bolt-on `?view=`. The GeoJSON FC reads stay untouched
-  (map backport needs them). Route's row-shape rides the same mechanism but lands **with the route
-  UI** (no consumer yet → not built now).
-- **Server-side sort/filter/q on the macro CRUD** (`koji_resource!` list currently hardcodes
-  `sort_by:"id"`, `order:"ASC"`, `q:""`) for project/property/tileserver — thread
-  `Pagination → AdminReqParsed`. Pure wiring.
+The client uses a **private, unversioned `/internal/*` surface exclusively** — never `/api/v2`
+directly. Public `/api/v2` gets **no client-specific shapes**.
+
+**Backend (koji-service, Rust):**
+- **Mount a private `/internal` scope** with the same session/bearer auth gate as `/api/v2`
+  (`public_validator`).
+- **Forwards (route alias / shared handler):** for endpoints identical to public, register the
+  **same handler** under `/internal/X` as `/api/v2/X` (or a 1-line wrapper) — no HTTP redirect, no
+  round-trip, zero duplicated logic. Covers: geofence/route `getOne`+create+update+delete,
+  project/property/tile-server/plugins CRUD, config, auth/*, nominatim, geometry/*, s2/*, jobs/*,
+  golbat-data/*.
+- **Bespoke private endpoints (own handler, own shape — NOT in public/OpenAPI):**
+  - **`GET /internal/geofences`** — row list: `{data: Row[], meta:{total,page,per_page,total_pages,…}}`
+    honoring `page/per_page/sortBy/order/q` + filters. Row ≈
+    `{id,name,mode,parent,geo_type,projects[],property_count}`. **Reuses the same DB query layer**
+    (`AdminReqParsed`/`paginate`) the public geofence handler uses — just serialized as rows instead
+    of GeoJSON. (Route's row list rides the same pattern but lands **with the route UI**.)
+  - **`GET /internal/realtime`** — the WS hub (Section 4); private infra.
+- **One public-API change (general correctness, not a client shape):** the macro CRUD list
+  (`koji_resource!`) currently hardcodes `sort_by:"id"`, `order:"ASC"`, `q:""` — thread
+  `Pagination → AdminReqParsed` so it honors `sortBy/order/q`. The client reaches it via the
+  `/internal` forward. Public's GeoJSON FC reads (geofence/route `?format=feature`) stay untouched —
+  the map backport needs them.
 
 **Frontend dataProvider (`src/data-provider.ts`):**
-- Thin ra-data adapter over `/api/v2`, envelope-unwrapped. **Reads** (`getList`/`getManyReference`)
-  hit the row mode for geofence + the now-honored macro CRUD → real `{data, total}`, server-side
-  sort/filter. **No lossy `featureToRecord` client projection.**
-- **Writes** (`create`/`update`/`delete`) use the **existing** CRUD endpoints unchanged (form posts
-  GeoJSON; backend already accepts it). Only reads gain the row mode.
-- `getMany` stays **N-parallel** for now (batch `?ids=` is P1, deferred). `getOne` normal.
-- **Deferred (P1/P2):** batch `?ids=`, `/choices`, `/stats`, bulk-delete `?ids=`.
+- Thin ra-data adapter, **base URL `/internal`**, envelope-unwrapped.
+- `getList`/`getManyReference` for **geofence** → `GET /internal/geofences` (row list); for
+  project/property/tile-server/plugins → the forwarded macro CRUD (now server-sorted/filtered) →
+  real `{data, total}`. **No lossy `featureToRecord` client projection.**
+- `getOne(geofence)` → forwarded public Feature read; map the single Feature → record
+  (lossless — only the *list* collection was the problem).
+- **Writes** (`create`/`update`/`delete`) → forwarded public CRUD unchanged (form posts GeoJSON).
+- `getMany` stays **N-parallel** for now. `getOne` normal.
+- **Deferred (later specs):** bespoke `/internal/stats`, `/internal/.../choices`, batch `?ids=`,
+  bulk-delete `?ids=`.
 
 ## Section 4 — Realtime (frontend + koji-server WS)
 
 **Frontend:**
 - `dataProvider = addEventsForMutations(realtimeDataProvider(base, wsTransport, { lockProvider }), …)`
-  where `wsTransport = webSocketTransport({ url: '/api/v2/realtime' })` — shadmin's production WS
+  where `wsTransport = webSocketTransport({ url: '/internal/realtime' })` — shadmin's production WS
   client (reconnect/heartbeat/auth/pending-publish queue).
 - Resources use `<ListLive>` / `<EditLive>` / `<ShowLive>`; reference counts via live `<Count>`.
   Topic names match shadmin's `resourceTopic`/`recordTopic` helpers exactly.
 
 **Backend (koji-service, Rust):**
-- **`GET /api/v2/realtime`** WS upgrade via **`actix-ws`** (modern non-actor API). Session-cookie auth
+- **`GET /internal/realtime`** WS upgrade via **`actix-ws`** (modern non-actor API). Session-cookie auth
   on the handshake (reuse `public_validator`); reject unauthenticated upgrades.
 - **`RealtimeHub`** in app state — in-process pub/sub. *ponytail: single `tokio::broadcast` of
   `(topic, event)` + per-connection topic filter; shard to a `DashMap<topic, …>` only if connection
@@ -124,7 +143,7 @@ live feed). Richer recharts analytics dashboard deferred.
   recordRepresentation:'name', icon }` (lucide); `<Resource {...geofence} group="Geo" />`.
 - **List** — `<ListLive>` + shadmin `<DataTable>` cols `name` / `parent` (ReferenceField→geofence) /
   `mode` / `geo_type`. Sidebar `<FilterLiveSearch>` (q) + `<FilterList>` for project / parent /
-  geotype / mode. Server pagination+sort+filter via `rt=adminList`. Bulk: **delete only**.
+  geotype / mode. Server pagination+sort+filter via `GET /internal/geofences`. Bulk: **delete only**.
 - **Edit / Create** — `<EditLive>` / `<Create>` + `<SimpleForm>`: `name` (required), `mode`
   (SelectInput), `parent` (ReferenceInput→geofence + Autocomplete), `geometry` (**Monaco JSON input +
   read-only MapLibre preview**, Section 6). Create = single form only.
@@ -153,7 +172,8 @@ seed of the future Terra Draw editor.
 
 ## Section 7 — Testing & verification
 
-- **Backend (Rust):** integration tests for `rt=adminList` (pagination/sort/filter/q), macro-CRUD
+- **Backend (Rust):** integration tests for `GET /internal/geofences` (pagination/sort/filter/q) +
+  the `/internal` forward-aliases (auth applies, shapes match public), macro-CRUD
   sort/filter wiring, and the WS hub (subscribe→delivery, resource-mutation publish, job-event
   publish — a test WS client asserting frames). Needs the test DB (`KOJI_DB_URL`; reconstruct
   `.env.test`; copy into any worktree).
@@ -186,4 +206,8 @@ This spec = foundation only. Deferred, each its own spec → plan → implement:
 - **Terra Draw #197** (React re-render layer-loss) is *not* in this spec (preview is read-only) but is
   the thing to prototype first in the editor spec; Koji is structurally positioned to dodge it
   (markers live in imperative layers, not React state).
-- **actix-ws auth** — validate the session cookie on the WS handshake; same-origin only (no CORS today).
+- **actix-ws auth** — validate the session cookie on the `/internal/realtime` WS handshake;
+  same-origin only (no CORS today).
+- **Private `/internal` scope** — must sit behind the same auth gate as `/api/v2`; forwards via
+  shared handler mean a handler is mounted under two scopes (verify the auth middleware applies to
+  both). Keep `/internal` out of the OpenAPI doc — it's intentionally uncontracted.
