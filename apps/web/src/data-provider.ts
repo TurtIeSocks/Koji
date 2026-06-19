@@ -132,3 +132,15 @@ export const baseDataProvider: DataProvider = {
     return { data: params.ids };
   },
 };
+
+import {
+  realtimeDataProvider,
+  webSocketTransport,
+  inMemoryLockProvider,
+} from "@/components/realtime";
+
+export const dataProvider = realtimeDataProvider(
+  baseDataProvider,
+  webSocketTransport({ url: "/internal/realtime" }),
+  { locks: inMemoryLockProvider() },
+);

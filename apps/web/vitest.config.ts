@@ -11,9 +11,12 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
       "shadmin-core": path.resolve(__dirname, "./node_modules/ra-core"),
     },
+    // Deduplicate react-router so ra-core's nested copy and the top-level
+    // copy share the same RouterProvider context (avoids null context in
+    // browser tests where Vite's normal dedup doesn't apply).
+    dedupe: ["react-router", "react", "react-dom"],
   },
   test: {
-    setupFiles: ["./vitest.setup.ts"],
     projects: [
       {
         extends: true,
@@ -21,6 +24,7 @@ export default defineConfig({
           name: "unit",
           environment: "jsdom",
           include: ["src/**/*.test.{ts,tsx}"],
+          setupFiles: ["./vitest.setup.ts"],
         },
       },
       {
@@ -28,6 +32,7 @@ export default defineConfig({
         test: {
           name: "browser",
           include: ["src/**/*.browser.test.{ts,tsx}"],
+          setupFiles: [],
           browser: {
             enabled: true,
             provider: "playwright",
