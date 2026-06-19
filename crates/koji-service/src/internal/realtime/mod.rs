@@ -46,7 +46,7 @@ use futures_util::StreamExt;
 use std::collections::HashSet;
 
 /// Auth gate for the WS upgrade: mirror `public_validator` (session `logged_in`
-/// OR empty `KOJI_SECRET` OR `?token=` == secret). Same-origin only.
+/// OR empty `KOJI_SECRET` OR `?token=` query param == secret). Same-origin only.
 fn ws_authorized(req: &HttpRequest) -> bool {
     let session = req.get_session();
     if session.get::<bool>("logged_in").ok().flatten().unwrap_or(false) {
@@ -56,14 +56,15 @@ fn ws_authorized(req: &HttpRequest) -> bool {
     if secret.is_empty() {
         return true;
     }
-    // bearer via query (?token=) — browsers can't set WS headers; subprotocol is
-    // the shadmin transport's path, query is the simpler fallback.
-    if let Some(tok) = req
-        .query_string()
-        .split('&')
-        .find_map(|kv| kv.strip_prefix("token="))
+    // Bearer via `?token=` query param — browsers can't set Authorization headers
+    // on WS upgrades, so the token is passed as a percent-encoded query value.
+    // Parse + decode the query string properly so secrets containing `+`, `%`, `=`,
+    // or spaces round-trip correctly before the constant-time compare.
+    if let Some(tok) = url::form_urlencoded::parse(req.query_string().as_bytes())
+        .find(|(k, _)| k == "token")
+        .map(|(_, v)| v.into_owned())
     {
-        if crate::utils::auth::ct_eq(tok, &secret) {
+        if crate::utils::auth::ct_eq(&tok, &secret) {
             return true;
         }
     }
