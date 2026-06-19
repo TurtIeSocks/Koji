@@ -71,7 +71,12 @@ describe("Geofence form", () => {
     // GeofenceEdit hydrates the map from the record's geometry. If PolygonInput
     // were still in place it would coerce MultiPolygon to Polygon on save,
     // silently dropping sub-polygons. MultiPolygonInput must hydrate both rings.
-    const screen = render(wrap(<GeofenceEdit />));
+    // Pass id={1} so useEditController resolves the record (no route params in test).
+    const screen = render(wrap(<GeofenceEdit id={1} />));
+    // Wait for the record to load — EditView gates children on context.record,
+    // so the name input appearing proves the async getOne resolved and the form
+    // (including the Leaflet map) has mounted.
+    await expect.element(screen.getByLabelText(/name/i)).toBeVisible();
     // Map must mount — no thrown error or missing container.
     await expect
       .element(screen.container.querySelector(".leaflet-container"))
