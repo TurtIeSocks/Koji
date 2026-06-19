@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@geoman-io/leaflet-geoman-free": "^2.19.3",
+    "@monaco-editor/react": "^4.7.0",
     "@tanstack/react-query": "^5.101.0",
     "@turf/area": "^7.3.5",
     "@turf/bbox": "^7.3.5",
@@ -32,6 +33,7 @@
     "leaflet": "^1.9.4",
     "lodash": "^4.18.1",
     "lucide-react": "^1.21.0",
+    "monaco-editor": "^0.55.1",
     "next-themes": "^0.4.6",
     "osmtogeojson": "^3.0.0-beta.5",
     "query-string": "^9.4.0",

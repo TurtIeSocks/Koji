@@ -21,3 +21,17 @@ export const GEOMETRY_TYPES = [
   { id: "Polygon", name: "Polygon" },
   { id: "MultiPolygon", name: "MultiPolygon" },
 ] as const;
+
+export const PROPERTY_CATEGORIES = [
+  { id: "boolean", name: "Boolean" },
+  { id: "string", name: "String" },
+  { id: "number", name: "Number" },
+  { id: "object", name: "Object (JSON)" },
+  { id: "array", name: "Array (JSON)" },
+  { id: "database", name: "Database (runtime)" },
+  { id: "color", name: "Color" },
+] as const;
+
+// Route modes mirror geofence modes — route.mode uses the same DB enum
+// (koji_core::Mode: Unset/Pokemon/Fort/Quest, confirmed in sea_orm_active_enums.rs).
+export const ROUTE_MODES = GEOFENCE_MODES;
