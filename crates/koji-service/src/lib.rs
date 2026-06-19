@@ -448,7 +448,19 @@ pub async fn start() -> io::Result<()> {
         env::var("HOSTNAME").unwrap_or_else(|_| "koji".to_string()),
         std::process::id()
     );
-    let jobs = Arc::new(JobQueue::new(databases.koji.clone(), worker_id.clone()));
+    // In-process realtime pub/sub hub — built before the job queue so it can be
+    // injected as the `JobEventSink`. Shared into every request via app_data.
+    // The WS handler at `GET /internal/realtime` reads it to subscribe/publish.
+    // Built once here (pre-`HttpServer::new`) and cloned across workers via Arc.
+    let hub = Arc::new(internal::realtime::RealtimeHub::new());
+    log::info!("[koji] realtime hub initialized");
+
+    // Wire the hub as the job event sink so the worker emits jobs/{id} and jobs
+    // realtime events on claim + terminal outcomes + progress ticks.
+    let jobs = Arc::new(
+        JobQueue::new(databases.koji.clone(), worker_id.clone())
+            .with_event_sink(hub.clone() as Arc<dyn koji_jobs::JobEventSink>),
+    );
 
     // Optional Dragonite client, configured purely from env. `None` until both
     // the URL and bearer are set; when present it backs the `DragoniteSubscriber`
@@ -495,12 +507,6 @@ pub async fn start() -> io::Result<()> {
         .unwrap_or(1);
     let _workers = Arc::clone(&jobs).spawn_workers(concurrency, registry);
     log::info!("[koji] spawned {concurrency} job worker(s)");
-
-    // In-process realtime pub/sub hub — shared into every request via app_data.
-    // The WS handler at `GET /internal/realtime` reads it to subscribe/publish.
-    // Built once here (pre-`HttpServer::new`) and cloned across workers via Arc.
-    let hub = Arc::new(internal::realtime::RealtimeHub::new());
-    log::info!("[koji] realtime hub initialized");
 
     let path = || {
         if is_docker() {

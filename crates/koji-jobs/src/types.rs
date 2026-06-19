@@ -21,6 +21,19 @@ use ulid::Ulid;
 
 use crate::entity::JobStatus;
 
+/// Fire-and-forget sink for job lifecycle events (realtime hub in koji-service
+/// implements it; koji-jobs stays transport-agnostic). All methods are sync +
+/// best-effort — never block or fail the job.
+pub trait JobEventSink: Send + Sync {
+    /// Called when a job enters a terminal state or is claimed (`running`).
+    /// Implementations should publish to `jobs/{id}` (type `"status"`) AND
+    /// to `jobs` (type `"updated"`).
+    fn on_job_status(&self, id: &str, status: &str, progress: f32, phase: Option<&str>);
+    /// Called after each progress update persisted to DB.
+    /// Implementations should publish to `jobs/{id}` (type `"progress"`).
+    fn on_job_progress(&self, id: &str, status: &str, progress: f32, phase: Option<&str>);
+}
+
 /// Opaque, sortable, API-facing job identifier — the `public_id` column.
 ///
 /// Backed by a ULID (Crockford base32, 26 chars): lexicographically sortable by
@@ -160,12 +173,23 @@ pub struct ProgressHandle {
     db: DatabaseConnection,
     /// The numeric PK (`job.id`) — internal, never exposed to clients.
     job_id: u64,
+    /// The API-facing `public_id` string — passed to the sink so it can publish
+    /// to the correct `jobs/{public_id}` topic.
+    public_id: String,
+    /// Optional realtime sink; if present, `set` fires `on_job_progress` after
+    /// the DB write (best-effort: a sink error never fails the job).
+    sink: Option<Arc<dyn JobEventSink>>,
 }
 
 impl ProgressHandle {
     /// Build a handle bound to a specific job row.
-    pub(crate) fn new(db: DatabaseConnection, job_id: u64) -> Self {
-        ProgressHandle { db, job_id }
+    pub(crate) fn new(
+        db: DatabaseConnection,
+        job_id: u64,
+        public_id: String,
+        sink: Option<Arc<dyn JobEventSink>>,
+    ) -> Self {
+        ProgressHandle { db, job_id, public_id, sink }
     }
 
     /// Persist `progress` (clamped to `[0.0, 1.0]`) and an optional `phase`.
@@ -189,6 +213,10 @@ impl ProgressHandle {
                 self.job_id
             );
         }
+        // Best-effort realtime notification — never block or fail the job.
+        if let Some(s) = &self.sink {
+            s.on_job_progress(&self.public_id, "running", progress, phase);
+        }
     }
 }
 
@@ -196,6 +224,7 @@ impl fmt::Debug for ProgressHandle {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ProgressHandle")
             .field("job_id", &self.job_id)
+            .field("public_id", &self.public_id)
             .finish_non_exhaustive()
     }
 }
@@ -225,6 +254,53 @@ mod tests {
     use super::*;
     use serde_json::json;
     use std::str::FromStr;
+
+    // ── JobEventSink ──────────────────────────────────────────────────────
+
+    #[test]
+    fn job_event_sink_receives_status() {
+        use std::sync::Mutex;
+        #[derive(Default)]
+        struct Rec(Mutex<Vec<(String, String, f32, Option<String>)>>);
+        impl JobEventSink for Rec {
+            fn on_job_status(
+                &self,
+                id: &str,
+                status: &str,
+                progress: f32,
+                phase: Option<&str>,
+            ) {
+                self.0
+                    .lock()
+                    .unwrap()
+                    .push((id.into(), status.into(), progress, phase.map(Into::into)));
+            }
+            fn on_job_progress(
+                &self,
+                id: &str,
+                status: &str,
+                progress: f32,
+                phase: Option<&str>,
+            ) {
+                self.0.lock().unwrap().push((
+                    id.into(),
+                    format!("p:{status}"),
+                    progress,
+                    phase.map(Into::into),
+                ));
+            }
+        }
+        let rec = Arc::new(Rec::default());
+        let sink: Arc<dyn JobEventSink> = rec.clone();
+        sink.on_job_status("01J", "running", 0.0, None);
+        sink.on_job_progress("01J", "running", 0.5, Some("clustering"));
+        let got = rec.0.lock().unwrap();
+        assert_eq!(
+            got[0],
+            ("01J".into(), "running".into(), 0.0, None)
+        );
+        assert_eq!(got[1].3.as_deref(), Some("clustering"));
+    }
 
     // ── JobId ─────────────────────────────────────────────────────────────
 

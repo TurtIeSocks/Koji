@@ -38,7 +38,7 @@ pub use entity::JobStatus;
 pub use error::{AwaitError, EnqueueError, JobError};
 pub use handler::{HandlerRegistry, JobHandler};
 pub use queue::{ClaimedJob, JobQueue, dedup_key};
-pub use types::{CancelToken, JobCtx, JobId, JobOutcome, JobRecord, ProgressHandle};
+pub use types::{CancelToken, JobCtx, JobEventSink, JobId, JobOutcome, JobRecord, ProgressHandle};
 pub use worker::WorkerSet;
 
 #[cfg(test)]

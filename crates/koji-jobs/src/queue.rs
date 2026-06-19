@@ -32,7 +32,7 @@ use tokio::sync::{Notify, oneshot};
 
 use crate::entity::{self, JobStatus};
 use crate::error::{AwaitError, EnqueueError};
-use crate::types::{JobId, JobOutcome, JobRecord};
+use crate::types::{JobEventSink, JobId, JobOutcome, JobRecord};
 
 /// Lease duration applied on claim/renew: a claimed job's `lease_expires` is set
 /// `NOW() + LEASE_SECS` (spec §9: 60s lease).
@@ -80,6 +80,10 @@ pub struct JobQueue {
     pub waiters: Arc<DashMap<String, Vec<oneshot::Sender<JobOutcome>>>>,
     /// This process/worker-pool identity, written to `locked_by` on claim.
     pub worker_id: String,
+    /// Optional realtime event sink. When set, the worker emits status + progress
+    /// events through it (transport-agnostic: the hub in koji-service implements
+    /// it; koji-jobs has no direct dependency on the hub).
+    pub event_sink: Option<Arc<dyn JobEventSink>>,
 }
 
 impl JobQueue {
@@ -91,7 +95,19 @@ impl JobQueue {
             notify: Arc::new(Notify::new()),
             waiters: Arc::new(DashMap::new()),
             worker_id: worker_id.into(),
+            event_sink: None,
         }
+    }
+
+    /// Attach a realtime event sink. Returns `self` for builder chaining.
+    ///
+    /// The sink receives `on_job_status` on claim (`running`) and on terminal
+    /// outcomes (`succeeded`/`failed`/`canceled`), and `on_job_progress` on each
+    /// `ProgressHandle::set` call. All calls are fire-and-forget — a sink error
+    /// never fails a job.
+    pub fn with_event_sink(mut self, sink: Arc<dyn JobEventSink>) -> Self {
+        self.event_sink = Some(sink);
+        self
     }
 
     // ---------------------------------------------------------------------

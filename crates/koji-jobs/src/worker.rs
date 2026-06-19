@@ -195,6 +195,11 @@ async fn run_claimed_job(
         claimed.attempts
     );
 
+    // Emit "running" status event now that the job is claimed.
+    if let Some(s) = &queue.event_sink {
+        s.on_job_status(&public_id, "running", 0.0, None);
+    }
+
     // No handler for this kind: fail the job rather than spin (a misconfigured
     // registry shouldn't wedge the queue).
     let Some(handler) = registry.get(&claimed.kind) else {
@@ -208,13 +213,22 @@ async fn run_claimed_job(
             code: "internal_error".to_owned(),
         };
         persist_outcome(queue, claimed.id, &outcome).await;
+        // Emit terminal status before waking waiters.
+        if let Some(s) = &queue.event_sink {
+            s.on_job_status(&public_id, "failed", 0.0, None);
+        }
         queue.notify_local_waiters(&public_id, outcome);
         return;
     };
 
     // Per-job cancellation flag + progress sink.
     let cancel = CancelToken::new();
-    let progress = ProgressHandle::new(queue.db.clone(), claimed.id);
+    let progress = ProgressHandle::new(
+        queue.db.clone(),
+        claimed.id,
+        public_id.clone(),
+        queue.event_sink.clone(),
+    );
     let ctx = JobCtx::new(cancel.clone(), progress);
 
     // Start the heartbeat: renew the lease every 20s so another worker doesn't
@@ -263,6 +277,17 @@ async fn run_claimed_job(
 
     // Persist terminal state + result/error + finished_at, then wake waiters.
     persist_outcome(queue, claimed.id, &outcome).await;
+
+    // Emit terminal status event (best-effort, fire-and-forget).
+    if let Some(s) = &queue.event_sink {
+        let (status, progress) = match &outcome {
+            JobOutcome::Succeeded(_) => ("succeeded", 1.0_f32),
+            JobOutcome::Failed { .. } => ("failed", 0.0_f32),
+            JobOutcome::Canceled => ("canceled", 0.0_f32),
+        };
+        s.on_job_status(&public_id, status, progress, None);
+    }
+
     queue.notify_local_waiters(&public_id, outcome);
 }
 

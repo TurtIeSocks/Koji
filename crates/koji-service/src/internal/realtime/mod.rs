@@ -31,6 +31,49 @@ impl RealtimeHub {
 }
 impl Default for RealtimeHub { fn default() -> Self { Self::new() } }
 
+impl koji_jobs::JobEventSink for RealtimeHub {
+    /// Publish a job status change to `jobs/{id}` (type `"status"`) AND to
+    /// `jobs` (type `"updated"`). Fire-and-forget — a zero-subscriber send is a
+    /// silent no-op (broadcast returns Err, which publish ignores).
+    fn on_job_status(&self, id: &str, status: &str, progress: f32, phase: Option<&str>) {
+        self.publish(
+            &topics::job_topic(id),
+            topics::ServerEvent::new(
+                "status",
+                serde_json::json!({
+                    "id": id,
+                    "status": status,
+                    "progress": progress,
+                    "phase": phase,
+                }),
+            ),
+        );
+        self.publish(
+            topics::jobs_topic(),
+            topics::ServerEvent::new(
+                "updated",
+                serde_json::json!({ "id": id, "status": status }),
+            ),
+        );
+    }
+
+    /// Publish a progress tick to `jobs/{id}` (type `"progress"`).
+    fn on_job_progress(&self, id: &str, status: &str, progress: f32, phase: Option<&str>) {
+        self.publish(
+            &topics::job_topic(id),
+            topics::ServerEvent::new(
+                "progress",
+                serde_json::json!({
+                    "id": id,
+                    "status": status,
+                    "progress": progress,
+                    "phase": phase,
+                }),
+            ),
+        );
+    }
+}
+
 /// Client → server frames (contract §3). `#[serde(tag="op")]` internally-tagged.
 #[derive(Debug, Deserialize)]
 #[serde(tag = "op", rename_all = "lowercase")]
