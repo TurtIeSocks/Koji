@@ -1,5 +1,6 @@
 pub(crate) mod geofences;
 pub(crate) mod realtime;
+pub(crate) mod routes;
 
 use actix_web::web;
 
@@ -40,8 +41,13 @@ pub(crate) fn scope() -> actix_web::Scope {
         // All /{id} geofence routes (getOne/patch/delete/publish/golbat-data)
         // forwarded from the public handler, collection POST excluded (handled above).
         .service(v2::geofences::internal_item_scope())
-        // Plain CRUD resources — macro-generated scopes forward unchanged.
-        .service(v2::routes::scope())
+        // Route row-list (bespoke) + POST collection + /{id} CRUD forwarded.
+        .service(
+            web::resource("/routes")
+                .route(web::get().to(routes::list_rows))
+                .route(web::post().to(v2::routes::create)),
+        )
+        .service(v2::routes::internal_item_scope())
         .service(v2::resources::project::scope())
         .service(v2::resources::property::scope())
         .service(v2::resources::tile_server::scope())

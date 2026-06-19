@@ -173,6 +173,27 @@ pub fn test_internal_geofences_app(
         ))
 }
 
+/// Test surface: a minimal App mounting `GET /internal/routes` (row list).
+#[doc(hidden)]
+pub fn test_internal_routes_app(
+    db: koji_db::KojiDb,
+) -> actix_web::App<
+    impl actix_web::dev::ServiceFactory<
+        actix_web::dev::ServiceRequest,
+        Config = (),
+        Response = actix_web::dev::ServiceResponse,
+        Error = actix_web::Error,
+        InitError = (),
+    >,
+> {
+    App::new()
+        .app_data(web::Data::new(db))
+        .service(web::scope("/internal").service(
+            web::resource("/routes")
+                .route(web::get().to(internal::routes::list_rows)),
+        ))
+}
+
 /// Test surface: a minimal App mounting `/api/v2/projects` (the macro-generated
 /// `project::scope()`). Used by `tests/internal_geofences_rows.rs` to verify
 /// that the `list` handler honors `sortBy/order/q`.

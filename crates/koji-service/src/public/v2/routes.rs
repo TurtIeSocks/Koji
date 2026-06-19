@@ -123,7 +123,7 @@ async fn list(
         (status = 500, description = "Internal error", body = ApiError),
     ),
 )]
-async fn create(
+pub(crate) async fn create(
     conn: web::Data<KojiDb>,
     hub: web::Data<crate::internal::realtime::RealtimeHub>,
     body: web::Json<CreateRoute>,
@@ -345,6 +345,20 @@ pub(crate) fn scope() -> actix_web::Scope {
                 .route(web::get().to(list))
                 .route(web::post().to(create)),
         )
+        .service(web::resource("/{id}/publish").route(web::post().to(publish)))
+        .service(
+            web::resource("/{id}")
+                .route(web::get().to(get_one))
+                .route(web::patch().to(update))
+                .route(web::delete().to(remove)),
+        )
+}
+
+/// Like [`scope`] but omits the collection `GET` (list). Used by the `/internal`
+/// scope, which overrides `GET /internal/routes` with the bespoke row-list
+/// handler while forwarding all other route operations unchanged.
+pub(crate) fn internal_item_scope() -> actix_web::Scope {
+    web::scope("/routes")
         .service(web::resource("/{id}/publish").route(web::post().to(publish)))
         .service(
             web::resource("/{id}")
