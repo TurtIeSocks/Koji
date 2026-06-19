@@ -266,6 +266,34 @@ fn scope_fns_compile() {
     let _s3: actix_web::Scope = property::scope();
 }
 
+/// Guard the wire shape of the generated `ListQuery`: `sortBy` (camelCase alias),
+/// `order`, `q`, and `parent` all deserialize correctly from a URL query string.
+/// The macro test crate cannot reach `pub(crate)` items generated inside
+/// `koji_service`, so we re-declare the identical struct here and assert the
+/// serde contract the macro must produce.
+#[test]
+fn list_query_accepts_camel_sort_and_filters() {
+    #[derive(serde::Deserialize, Default, Debug)]
+    struct ListQuery {
+        page: Option<i64>,
+        per_page: Option<i64>,
+        #[serde(alias = "sortBy")]
+        sort_by: Option<String>,
+        order: Option<String>,
+        q: Option<String>,
+        project: Option<u32>,
+        parent: Option<u32>,
+        geotype: Option<String>,
+        mode: Option<String>,
+    }
+    let q: ListQuery =
+        serde_urlencoded::from_str("sortBy=name&order=DESC&q=foo&parent=3").unwrap();
+    assert_eq!(q.sort_by.as_deref(), Some("name"));
+    assert_eq!(q.order.as_deref(), Some("DESC"));
+    assert_eq!(q.q.as_deref(), Some("foo"));
+    assert_eq!(q.parent, Some(3));
+}
+
 /// Both Create DTOs implement `serde::Serialize` (derived) + `utoipa::ToSchema`.
 /// Verify via JSON roundtrip.
 #[test]

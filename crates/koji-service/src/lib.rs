@@ -171,6 +171,26 @@ pub fn test_internal_geofences_app(
         ))
 }
 
+/// Test surface: a minimal App mounting `/api/v2/projects` (the macro-generated
+/// `project::scope()`). Used by `tests/internal_geofences_rows.rs` to verify
+/// that the `list` handler honors `sortBy/order/q`.
+#[doc(hidden)]
+pub fn test_projects_app(
+    db: koji_db::KojiDb,
+) -> actix_web::App<
+    impl actix_web::dev::ServiceFactory<
+        actix_web::dev::ServiceRequest,
+        Config = (),
+        Response = actix_web::dev::ServiceResponse,
+        Error = actix_web::Error,
+        InitError = (),
+    >,
+> {
+    App::new()
+        .app_data(web::Data::new(db))
+        .service(web::scope("/api/v2").service(public::v2::resources::project::scope()))
+}
+
 /// Test surface: a fresh `RealtimeHub`.
 #[doc(hidden)]
 pub fn test_realtime_hub() -> internal::realtime::RealtimeHub {

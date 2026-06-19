@@ -802,7 +802,22 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
                 #(#patch_fields),*
             }
 
-            /// `GET /api/v2/#seg` — paginated list (`?page=&per_page=`).
+            /// Query parameters for the `list` handler: pagination + sort + filter.
+            #[derive(::core::default::Default, ::serde::Deserialize)]
+            pub(crate) struct ListQuery {
+                pub page: ::core::option::Option<i64>,
+                pub per_page: ::core::option::Option<i64>,
+                #[serde(alias = "sortBy")]
+                pub sort_by: ::core::option::Option<String>,
+                pub order: ::core::option::Option<String>,
+                pub q: ::core::option::Option<String>,
+                pub project: ::core::option::Option<u32>,
+                pub parent: ::core::option::Option<u32>,
+                pub geotype: ::core::option::Option<String>,
+                pub mode: ::core::option::Option<String>,
+            }
+
+            /// `GET /api/v2/#seg` — paginated list (`?page=&per_page=&sortBy=&order=&q=`).
             #[utoipa::path(
                 get,
                 path = #coll_path,
@@ -810,6 +825,9 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
                 params(
                     ("page" = ::core::option::Option<i64>, Query, description = "1-based page number"),
                     ("per_page" = ::core::option::Option<i64>, Query, description = "Page size (clamped to [1, 500])"),
+                    ("sortBy" = ::core::option::Option<String>, Query, description = "Column to sort by (default: id)"),
+                    ("order" = ::core::option::Option<String>, Query, description = "Sort direction: ASC or DESC (default: ASC)"),
+                    ("q" = ::core::option::Option<String>, Query, description = "Free-text search filter"),
                 ),
                 responses(
                     (status = 200, description = "Paginated records (with a `meta` block)", body = Object),
@@ -817,21 +835,21 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
             )]
             pub(crate) async fn list(
                 db: actix_web::web::Data<koji_db::KojiDb>,
-                query: actix_web::web::Query<crate::utils::pagination::Pagination>,
+                query: actix_web::web::Query<ListQuery>,
             ) -> ::core::result::Result<actix_web::HttpResponse, crate::utils::error::ServiceError> {
-                let page = query.page();
-                let per_page = query.per_page();
+                let page = query.page.unwrap_or(1).max(1);
+                let per_page = query.per_page.unwrap_or(50).clamp(1, 500);
                 // koji-db `paginate` is 0-based; bridge from the 1-based wire.
                 let args = koji_db::query_args::AdminReqParsed {
                     page: (page - 1) as u64,
                     per_page: per_page as u64,
-                    sort_by: "id".to_string(),
-                    order: "ASC".to_string(),
-                    q: String::new(),
-                    geotype: ::core::option::Option::None,
-                    project: ::core::option::Option::None,
-                    mode: ::core::option::Option::None,
-                    parent: ::core::option::Option::None,
+                    sort_by: query.sort_by.clone().unwrap_or_else(|| "id".to_string()),
+                    order: query.order.clone().unwrap_or_else(|| "ASC".to_string()),
+                    q: query.q.clone().unwrap_or_default(),
+                    geotype: query.geotype.clone(),
+                    project: query.project,
+                    mode: query.mode.clone(),
+                    parent: query.parent,
                     geofenceid: ::core::option::Option::None,
                     pointsmin: ::core::option::Option::None,
                     pointsmax: ::core::option::Option::None,

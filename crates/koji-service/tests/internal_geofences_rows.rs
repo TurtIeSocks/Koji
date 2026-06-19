@@ -102,6 +102,55 @@ async fn row_list_returns_geofence_row_shape_and_meta() {
     cleanup(&conn, id).await;
 }
 
+/// Verify that the macro-generated `list` handler for `project` honors
+/// `?sortBy=name&order=ASC`. We insert "zzz…" first (lower auto-increment id)
+/// then "aaa…", so id-order would yield zzz before aaa. Name-order must flip it.
+#[actix_web::test]
+async fn macro_list_sorts_by_name_server_side() {
+    let _g = serial_guard();
+    let Some(conn) = test_db().await else {
+        return;
+    };
+    let db = build_test_koji_db(conn.clone()).await;
+    let z = unique_name("zzz");
+    let a = unique_name("aaa");
+    // Insert zzz first → lower id; aaa second → higher id. id-sort gives zzz,aaa.
+    conn.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "INSERT INTO project (name, golbat) VALUES (?, 0), (?, 0)",
+        [Value::from(z.clone()), Value::from(a.clone())],
+    ))
+    .await
+    .unwrap();
+
+    let app = test::init_service(koji_service::test_projects_app(db)).await;
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/v2/projects?per_page=500&sortBy=name&order=ASC"))
+        .to_request();
+    let v = body_json(test::call_service(&app, req).await).await;
+
+    let names: Vec<&str> = v["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|r| r["name"].as_str())
+        .filter(|n| *n == a.as_str() || *n == z.as_str())
+        .collect();
+    assert_eq!(
+        names,
+        vec![a.as_str(), z.as_str()],
+        "aaa must sort before zzz when sortBy=name&order=ASC"
+    );
+
+    conn.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "DELETE FROM project WHERE name IN (?, ?)",
+        [Value::from(a), Value::from(z)],
+    ))
+    .await
+    .unwrap();
+}
+
 #[actix_web::test]
 async fn row_list_honors_mode_filter_and_sort() {
     let _g = serial_guard();
