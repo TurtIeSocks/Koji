@@ -106,11 +106,9 @@ fn ws_authorized(req: &HttpRequest) -> bool {
     if let Some(tok) = url::form_urlencoded::parse(req.query_string().as_bytes())
         .find(|(k, _)| k == "token")
         .map(|(_, v)| v.into_owned())
-    {
-        if crate::utils::auth::ct_eq(&tok, &secret) {
+        && crate::utils::auth::ct_eq(&tok, &secret) {
             return true;
         }
-    }
     false
 }
 

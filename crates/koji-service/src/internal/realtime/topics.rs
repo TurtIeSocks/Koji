@@ -17,7 +17,9 @@ impl ServerEvent {
 }
 pub fn resource_topic(name: &str) -> String { format!("resource/{name}") }
 pub fn record_topic(name: &str, id: impl std::fmt::Display) -> String { format!("resource/{name}/{id}") }
+#[allow(dead_code)]
 pub fn lock_topic(name: &str) -> String { format!("lock/{name}") }
+#[allow(dead_code)]
 pub fn lock_record_topic(name: &str, id: impl std::fmt::Display) -> String { format!("lock/{name}/{id}") }
 pub fn jobs_topic() -> &'static str { "jobs" }
 pub fn job_topic(id: impl std::fmt::Display) -> String { format!("jobs/{id}") }

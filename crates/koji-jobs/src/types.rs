@@ -261,6 +261,7 @@ mod tests {
     fn job_event_sink_receives_status() {
         use std::sync::Mutex;
         #[derive(Default)]
+        #[allow(clippy::type_complexity)]
         struct Rec(Mutex<Vec<(String, String, f32, Option<String>)>>);
         impl JobEventSink for Rec {
             fn on_job_status(

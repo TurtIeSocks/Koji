@@ -125,7 +125,7 @@ async fn macro_list_sorts_by_name_server_side() {
 
     let app = test::init_service(koji_service::test_projects_app(db)).await;
     let req = test::TestRequest::get()
-        .uri(&format!("/api/v2/projects?per_page=500&sortBy=name&order=ASC"))
+        .uri("/api/v2/projects?per_page=500&sortBy=name&order=ASC")
         .to_request();
     let v = body_json(test::call_service(&app, req).await).await;
 

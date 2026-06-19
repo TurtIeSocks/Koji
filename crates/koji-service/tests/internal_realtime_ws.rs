@@ -40,6 +40,7 @@ macro_rules! realtime_test_app {
 }
 
 #[actix_web::test]
+#[allow(clippy::await_holding_lock)]
 async fn ping_gets_pong_and_subscribed_event_is_delivered() {
     let _guard = ENV_LOCK.lock().unwrap();
     // SAFETY: test-only env mutation; serialized by ENV_LOCK.
@@ -69,6 +70,7 @@ async fn ping_gets_pong_and_subscribed_event_is_delivered() {
 }
 
 #[actix_web::test]
+#[allow(clippy::await_holding_lock)]
 async fn unsubscribed_topic_is_not_delivered() {
     let _guard = ENV_LOCK.lock().unwrap();
     unsafe { std::env::set_var("KOJI_SECRET", ""); }
@@ -88,6 +90,7 @@ async fn unsubscribed_topic_is_not_delivered() {
 }
 
 #[actix_web::test]
+#[allow(clippy::await_holding_lock)]
 async fn no_token_is_rejected_when_secret_set() {
     let _guard = ENV_LOCK.lock().unwrap();
     unsafe { std::env::set_var("KOJI_SECRET", "topsecret"); }
@@ -107,6 +110,7 @@ async fn no_token_is_rejected_when_secret_set() {
 }
 
 #[actix_web::test]
+#[allow(clippy::await_holding_lock)]
 async fn wrong_token_is_rejected_when_secret_set() {
     let _guard = ENV_LOCK.lock().unwrap();
     unsafe { std::env::set_var("KOJI_SECRET", "topsecret"); }
@@ -126,6 +130,7 @@ async fn wrong_token_is_rejected_when_secret_set() {
 }
 
 #[actix_web::test]
+#[allow(clippy::await_holding_lock)]
 async fn url_encoded_token_is_accepted() {
     let _guard = ENV_LOCK.lock().unwrap();
     // Secret contains chars that need percent-encoding when placed in a query string:
@@ -191,6 +196,7 @@ fn uuid_slug() -> String {
 /// Connects a WS subscriber on `resource/geofence`, fires the POST, and
 /// asserts the created-event frame arrives with the new id.
 #[actix_web::test]
+#[allow(clippy::await_holding_lock)]
 async fn creating_a_geofence_publishes_resource_event() {
     let Some(conn) = db_or_skip().await else { return; };
     let _guard = ENV_LOCK.lock().unwrap();
