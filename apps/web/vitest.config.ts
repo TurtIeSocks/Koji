@@ -17,7 +17,13 @@ export default defineConfig({
     dedupe: ["react-router", "react", "react-dom", "ra-core"],
   },
   optimizeDeps: {
-    include: ["ra-core"],
+    include: [
+      "ra-core",
+      "leaflet",
+      "react-leaflet",
+      "react-leaflet-geoman-v2",
+      "@geoman-io/leaflet-geoman-free",
+    ],
   },
   test: {
     projects: [
