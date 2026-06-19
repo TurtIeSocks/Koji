@@ -202,14 +202,13 @@ pub fn test_realtime_hub() -> internal::realtime::RealtimeHub {
     internal::realtime::RealtimeHub::new()
 }
 
-/// Test surface: a full App mounting `/internal` scope + `/api/v2/geofences`
-/// (no auth on either) with `KojiDb`, `RealtimeHub`, and `EventDispatcher` in
-/// app_data. Used by `internal_realtime_ws.rs` to verify that mutation handlers
-/// publish WS events end-to-end.
+/// Test surface: a full App mounting `/internal` scope (no auth) with `KojiDb`,
+/// `RealtimeHub`, and `EventDispatcher` in app_data. Used by
+/// `internal_realtime_ws.rs` to verify that mutation handlers publish WS events
+/// end-to-end.
 ///
-/// Both scopes are mounted so the test can POST to `/api/v2/geofences` (which
-/// avoids the `internal` collection-route ordering issue) while still using the
-/// WS hub at `/internal/realtime`.
+/// Tests POST to `/internal/geofences` directly — the collection resource now
+/// carries both GET and POST so no separate `/api/v2/geofences` scope is needed.
 #[doc(hidden)]
 pub fn test_internal_live_app(
     db: koji_db::KojiDb,
@@ -242,10 +241,6 @@ pub fn test_internal_live_app(
             )
             .cookie_secure(false)
             .build(),
-        )
-        .service(
-            web::scope("/api/v2")
-                .service(public::v2::geofences::scope()),
         )
         .service(internal::scope())
 }

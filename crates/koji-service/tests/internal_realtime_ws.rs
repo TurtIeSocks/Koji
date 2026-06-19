@@ -211,8 +211,8 @@ async fn creating_a_geofence_publishes_resource_event() {
     .unwrap();
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
-    // POST a minimal geofence via /api/v2/geofences (same create handler as
-    // /internal/geofences but avoids the internal collection-route ordering).
+    // POST a minimal geofence via /internal/geofences — proving the route
+    // now correctly handles POST (not 405) and publishes the WS event.
     let name = format!("ws-rt-test-{}", uuid_slug());
     let body = serde_json::json!({
         "name": name,
@@ -222,11 +222,11 @@ async fn creating_a_geofence_publishes_resource_event() {
         }
     });
     let resp = awc::Client::new()
-        .post(srv.url("/api/v2/geofences"))
+        .post(srv.url("/internal/geofences"))
         .send_json(&body)
         .await
         .unwrap();
-    assert_eq!(resp.status().as_u16(), 201, "geofence create must succeed");
+    assert_eq!(resp.status().as_u16(), 201, "POST /internal/geofences must return 201, not 405");
 
     // Expect the WS frame
     let frame = tokio::time::timeout(

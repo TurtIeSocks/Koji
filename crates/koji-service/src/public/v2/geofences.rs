@@ -165,7 +165,7 @@ async fn list(
         (status = 500, description = "Internal error", body = ApiError),
     ),
 )]
-async fn create(
+pub(crate) async fn create(
     conn: web::Data<KojiDb>,
     hub: web::Data<crate::internal::realtime::RealtimeHub>,
     body: web::Json<CreateGeofence>,
@@ -408,10 +408,6 @@ async fn publish(
 /// caller's parent scope (`/internal`) contributes the full path prefix.
 pub(crate) fn internal_item_scope() -> actix_web::Scope {
     web::scope("/geofences")
-        .service(
-            web::resource("")
-                .route(web::post().to(create)),
-        )
         .service(web::resource("/{id}/publish").route(web::post().to(publish)))
         .service(
             web::resource("/{id}/golbat-data")

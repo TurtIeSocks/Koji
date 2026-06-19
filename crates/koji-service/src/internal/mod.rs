@@ -29,13 +29,16 @@ use actix_web::web;
 pub(crate) fn scope() -> actix_web::Scope {
     use crate::public::v2;
     web::scope("/internal")
-        // Bespoke row-list at the collection GET; POST forwards to create.
+        // Bespoke row-list at the collection GET; POST forwards to public create.
+        // Both methods on a single resource — actix-web would 405 if GET-only
+        // resource and a separate scope both match "/geofences".
         .service(
             web::resource("/geofences")
-                .route(web::get().to(geofences::list_rows)),
+                .route(web::get().to(geofences::list_rows))
+                .route(web::post().to(v2::geofences::create)),
         )
         // All /{id} geofence routes (getOne/patch/delete/publish/golbat-data)
-        // forwarded from the public handler, collection GET excluded.
+        // forwarded from the public handler, collection POST excluded (handled above).
         .service(v2::geofences::internal_item_scope())
         // Plain CRUD resources — macro-generated scopes forward unchanged.
         .service(v2::routes::scope())
