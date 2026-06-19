@@ -109,7 +109,8 @@ directly. Public `/api/v2` gets **no client-specific shapes**.
 ## Section 4 — Realtime (frontend + koji-server WS)
 
 **Frontend:**
-- `dataProvider = realtimeDataProvider(base, wsTransport, { lockProvider: inMemoryLockProvider() })`
+- `dataProvider = realtimeDataProvider(base, wsTransport, { locks: inMemoryLockProvider() })`
+  (option key is `locks` — shadmin's real `RealtimeDataProviderOptions` field)
   where `wsTransport = webSocketTransport({ url: '/internal/realtime' })` — shadmin's production WS
   client (reconnect/heartbeat/auth/pending-publish queue).
 - **No `addEventsForMutations`** — the **server is the single event source** (the macro emits on every

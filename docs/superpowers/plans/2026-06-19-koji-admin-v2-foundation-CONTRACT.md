@@ -86,7 +86,8 @@ MUST publish is the `resource/{name}` event with `payload.ids`. The record-topic
 
 ## 5. Frontend wiring
 
-- `dataProvider = realtimeDataProvider(base, webSocketTransport({ url:'/internal/realtime' }), { lockProvider: inMemoryLockProvider() })`.
+- `dataProvider = realtimeDataProvider(base, webSocketTransport({ url:'/internal/realtime' }), { locks: inMemoryLockProvider() })`.
+  (Option key is **`locks`** — shadmin's real `RealtimeDataProviderOptions` field, `realtime/types.ts:120`.)
   **No `addEventsForMutations`** (server is the single event source — would double-publish).
 - `base` = thin ra-data adapter, base URL `/internal`, envelope-unwrapped:
   - `getList`/`getManyReference` (geofence) → `GET /internal/geofences` (row list, `{data, total}` from meta).
