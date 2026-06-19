@@ -150,6 +150,27 @@ pub fn test_db_free_app() -> actix_web::App<
         .service(web::resource("/healthz").route(web::get().to(HttpResponse::Ok)))
 }
 
+/// Test surface: a minimal App mounting `GET /internal/geofences` (row list).
+#[doc(hidden)]
+pub fn test_internal_geofences_app(
+    db: koji_db::KojiDb,
+) -> actix_web::App<
+    impl actix_web::dev::ServiceFactory<
+        actix_web::dev::ServiceRequest,
+        Config = (),
+        Response = actix_web::dev::ServiceResponse,
+        Error = actix_web::Error,
+        InitError = (),
+    >,
+> {
+    App::new()
+        .app_data(web::Data::new(db))
+        .service(web::scope("/internal").service(
+            web::resource("/geofences")
+                .route(web::get().to(internal::geofences::list_rows)),
+        ))
+}
+
 /// Test surface: a fresh `RealtimeHub`.
 #[doc(hidden)]
 pub fn test_realtime_hub() -> internal::realtime::RealtimeHub {
