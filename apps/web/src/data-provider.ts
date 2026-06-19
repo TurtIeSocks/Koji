@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataProvider, RaRecord } from "ra-core";
-import { internalFetch, unwrap, type Meta } from "@/lib/http";
+import { internalFetch, unwrapResponse, type Meta } from "@/lib/http";
 
 interface ResourceDef {
   seg: string;
@@ -55,9 +55,9 @@ const toQuery = (params: any): string => {
 };
 
 const getListImpl = async (resource: string, params: any): Promise<{ data: any[]; total: number }> => {
-  const { json } = await internalFetch(`/${segFor(resource)}?${toQuery(params)}`);
-  const data = unwrap<any[]>(json as any);
-  const meta = (json as { meta?: Meta }).meta;
+  const res = await internalFetch(`/${segFor(resource)}?${toQuery(params)}`);
+  const data = unwrapResponse<any[]>(res);
+  const meta = (res.json as { meta?: Meta }).meta;
   return { data, total: meta?.total ?? data.length };
 };
 
@@ -66,8 +66,8 @@ export const baseDataProvider: DataProvider = {
   getManyReference: (resource, params) => getListImpl(resource, params) as any,
 
   getOne: async (resource, params) => {
-    const { json } = await internalFetch(itemPath(resource, params.id));
-    const data = unwrap<any>(json as any);
+    const res = await internalFetch(itemPath(resource, params.id));
+    const data = unwrapResponse<any>(res);
     if (RESOURCE_MAP[resource]?.geo) {
       const feature = data?.type === "FeatureCollection" ? data.features?.[0] : data;
       return { data: featureToRecord(feature) };
@@ -89,20 +89,20 @@ export const baseDataProvider: DataProvider = {
   },
 
   create: async (resource, params) => {
-    const { json } = await internalFetch(`/${segFor(resource)}`, {
+    const res = await internalFetch(`/${segFor(resource)}`, {
       method: "POST",
       body: JSON.stringify(params.data),
     });
-    const data = unwrap<any>(json as any);
+    const data = unwrapResponse<any>(res);
     return { data: { ...data, id: data?.id ?? 0 } } as any;
   },
 
   update: async (resource, params) => {
-    const { json } = await internalFetch(itemPath(resource, params.id), {
+    const res = await internalFetch(itemPath(resource, params.id), {
       method: "PATCH",
       body: JSON.stringify(params.data),
     });
-    const data = unwrap<any>(json as any);
+    const data = unwrapResponse<any>(res);
     return { data: { ...data, id: data?.id ?? params.id } } as any;
   },
 
