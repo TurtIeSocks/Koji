@@ -102,6 +102,50 @@ async fn row_list_returns_geofence_row_shape_and_meta() {
     cleanup(&conn, id).await;
 }
 
+/// Regression guard for the `has_prev` fix (`crates/koji-db/src/db/*` previously
+/// computed `has_prev: number_of_pages == page + 1` — i.e. "is last page", which
+/// is `false` on every middle page). A middle page MUST report BOTH
+/// `has_prev` and `has_next` as `true`.
+#[actix_web::test]
+async fn row_list_middle_page_reports_has_prev_and_has_next() {
+    let _g = serial_guard();
+    let Some(conn) = test_db().await else {
+        return;
+    };
+    let db = build_test_koji_db(conn.clone()).await;
+    // Three geofences sharing a unique tag so `q` filters to exactly these three.
+    let tag = format!("midpg-{}", JobId::new().as_string());
+    let mut ids = Vec::new();
+    for suffix in ["a", "b", "c"] {
+        ids.push(insert_geofence(&conn, &format!("test-{tag}-{suffix}"), "pokemon").await);
+    }
+
+    let app = test::init_service(koji_service::test_internal_geofences_app(db)).await;
+    // per_page=1, page=2 → the MIDDLE page of three (1-based wire page).
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/internal/geofences?per_page=1&page=2&q={tag}&sortBy=name&order=ASC"
+        ))
+        .to_request();
+    let v = body_json(test::call_service(&app, req).await).await;
+
+    assert_eq!(v["meta"]["page"], 2);
+    assert_eq!(v["meta"]["total"], 3);
+    assert_eq!(v["data"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        v["meta"]["has_prev"], true,
+        "middle page must report has_prev=true (this is the regression under test)"
+    );
+    assert_eq!(
+        v["meta"]["has_next"], true,
+        "middle page must report has_next=true"
+    );
+
+    for id in ids {
+        cleanup(&conn, id).await;
+    }
+}
+
 /// Verify that the macro-generated `list` handler for `project` honors
 /// `?sortBy=name&order=ASC`. We insert "zzz…" first (lower auto-increment id)
 /// then "aaa…", so id-order would yield zzz before aaa. Name-order must flip it.

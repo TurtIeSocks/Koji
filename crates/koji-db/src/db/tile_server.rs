@@ -57,7 +57,7 @@ impl Query {
         Ok(PaginateResults {
             results,
             total: total.number_of_items,
-            has_prev: total.number_of_pages == args.page + 1,
+            has_prev: args.page > 0,
             has_next: args.page + 1 < total.number_of_pages,
         })
     }
