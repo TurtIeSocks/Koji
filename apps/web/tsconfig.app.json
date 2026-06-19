@@ -14,7 +14,11 @@
     "verbatimModuleSyntax": true,
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
-    "paths": { "@/*": ["./src/*"] }
+    "paths": {
+      "@/*": ["./src/*"],
+      "shadmin-core": ["./node_modules/ra-core"],
+      "shadmin-core/*": ["./node_modules/ra-core/*"]
+    }
   },
   "include": ["src"]
 }

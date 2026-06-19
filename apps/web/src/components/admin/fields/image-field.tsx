@@ -1,0 +1,110 @@
+import type { HTMLAttributes } from "react";
+import get from "lodash/get.js";
+import {
+  type ExtractRecordPaths,
+  type HintedString,
+  sanitizeFieldRestProps,
+  useFieldValue,
+  useTranslate,
+} from "shadmin-core";
+import { cn } from "@/lib/utils";
+
+import type { FieldProps } from "@/lib/field-types";
+import type { UnknownRecord, UnknownValue } from "@/lib/unknown-types";
+
+/**
+ * Displays an image or a list of images from a record field inside an img element or a ul of img elements.
+ *
+ * @see {@link https://shadmin.turtlesocks.dev/docs/image-field ImageField documentation}
+ *
+ * @example
+ * import { ImageField } from '@/components/admin';
+ *
+ * <ImageField
+ *     source="avatar_url"
+ *     className="[&_img]:w-8 [&_img]:h-8 [&_img]:rounded-full"
+ *     empty={
+ *         <div className="size-8 rounded-full bg-muted flex items-center justify-center">
+ *           👤
+ *         </div>
+ *     }
+ * />
+ */
+interface ImageFieldProps<RecordType extends UnknownRecord = UnknownRecord>
+  extends FieldProps<RecordType>,
+    Omit<HTMLAttributes<HTMLSpanElement>, "defaultValue"> {
+  defaultValue?: UnknownValue;
+  src?: string;
+  title?: HintedString<ExtractRecordPaths<RecordType>>;
+}
+
+function ImageField<RecordType extends UnknownRecord = UnknownRecord>(
+  props: ImageFieldProps<RecordType>,
+) {
+  const { src, defaultValue, source, record, empty, title, ...rest } = props;
+  const value = useFieldValue({ defaultValue, source, record });
+  const titleValue =
+    useFieldValue({
+      ...props,
+      // @ts-expect-error We ignore here because title might be a custom label or undefined instead of a field name
+      source: title,
+    })?.toString() ?? title;
+  const translate = useTranslate();
+
+  // the field may render either an empty element, an image, or a ul.
+  // We choose to always apply the rest props to an enclosing span
+  // to allow styling each case.
+  if (value == null) {
+    if (!empty) {
+      return null;
+    }
+    return (
+      <span
+        {...sanitizeFieldRestProps(rest)}
+        className={cn("image-empty", rest.className)}
+      >
+        {typeof empty === "string" ? translate(empty, { _: empty }) : empty}
+      </span>
+    );
+  }
+
+  if (Array.isArray(value)) {
+    return (
+      <span
+        {...sanitizeFieldRestProps(rest)}
+        className={cn("image-list", rest.className)}
+      >
+        <ul>
+          {value.map((file, index) => {
+            const fileTitleValue = title ? get(file, title, title) : title;
+            const srcValue = src ? get(file, src, title) : title;
+
+            return (
+              <li key={srcValue ?? index}>
+                <img
+                  alt={fileTitleValue}
+                  title={fileTitleValue}
+                  src={srcValue}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      </span>
+    );
+  }
+
+  return (
+    <span
+      {...sanitizeFieldRestProps(rest)}
+      className={cn("image-single", rest.className)}
+    >
+      <img title={titleValue} alt={titleValue} src={value?.toString()} />
+    </span>
+  );
+}
+
+// What? TypeScript loses the displayName if we don't set it explicitly
+ImageField.displayName = "ImageField";
+
+export { ImageField, type ImageFieldProps };

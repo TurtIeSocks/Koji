@@ -6,7 +6,12 @@ import path from "node:path";
 export default defineConfig({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   plugins: [react(), tailwindcss()] as any,
-  resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+      "shadmin-core": path.resolve(__dirname, "./node_modules/ra-core"),
+    },
+  },
   test: {
     setupFiles: ["./vitest.setup.ts"],
     projects: [

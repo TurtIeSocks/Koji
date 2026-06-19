@@ -8,7 +8,10 @@ const BACKEND = "http://0.0.0.0:8080";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+      "shadmin-core": path.resolve(__dirname, "./node_modules/ra-core"),
+    },
   },
   server: {
     port: 5273,
