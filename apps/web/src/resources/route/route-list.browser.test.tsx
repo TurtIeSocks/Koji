@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { render } from "vitest-browser-react";
 import { AdminContext } from "@/components/admin";
-import { ResourceContextProvider, testDataProvider } from "shadmin-core";
+import {
+  ResourceContextProvider,
+  ListContextProvider,
+  testDataProvider,
+} from "shadmin-core";
 import type { AuthProvider } from "shadmin-core";
-import { RouteList } from "@/resources/route/route-list";
+import { RouteList, RouteBulkToolbar } from "@/resources/route/route-list";
 
 const fakeRows = [
   { id: 1, name: "North Loop", mode: "pokemon", geofence_id: 10, points: 42, description: null },
@@ -45,5 +49,27 @@ describe("RouteList", () => {
   it("renders the live-search filter input", async () => {
     const screen = render(wrap(<RouteList />));
     await expect.element(screen.getByPlaceholder(/search/i)).toBeVisible();
+  });
+
+  it("renders BulkPublishButton in the bulk toolbar when rows are selected", async () => {
+    const screen = render(
+      <AdminContext dataProvider={stubDataProvider} authProvider={stubAuthProvider}>
+        <ResourceContextProvider value="route">
+          <ListContextProvider
+            value={
+              {
+                selectedIds: [1],
+                onUnselectItems: () => undefined,
+              } as any // eslint-disable-line @typescript-eslint/no-explicit-any
+            }
+          >
+            <RouteBulkToolbar />
+          </ListContextProvider>
+        </ResourceContextProvider>
+      </AdminContext>,
+    );
+    await expect
+      .element(screen.getByRole("button", { name: /publish/i }))
+      .toBeVisible();
   });
 });

@@ -4,9 +4,14 @@ import {
   FilterLiveSearch,
   FilterList,
   FilterListItem,
+  BulkActionsToolbar,
+  BulkDeleteButton,
 } from "@/components/admin";
 import { ListLive } from "@/components/realtime";
 import { GEOFENCE_MODES, GEOMETRY_TYPES } from "@/lib/constants";
+import { BulkPublishButton } from "@/components/actions/publish-button";
+import { AssignParentBulkButton } from "@/components/actions/assign-parent-bulk";
+import { AssignProjectsBulkButton } from "@/components/actions/assign-projects-bulk";
 
 const GeofenceFilters = () => (
   <div className="flex w-56 flex-col gap-4">
@@ -24,9 +29,18 @@ const GeofenceFilters = () => (
   </div>
 );
 
+export const GeofenceBulkToolbar = () => (
+  <BulkActionsToolbar>
+    <BulkPublishButton />
+    <AssignParentBulkButton />
+    <AssignProjectsBulkButton />
+    <BulkDeleteButton />
+  </BulkActionsToolbar>
+);
+
 export const GeofenceList = () => (
   <ListLive aside={<GeofenceFilters />}>
-    <DataTable>
+    <DataTable bulkActionsToolbar={<GeofenceBulkToolbar />}>
       <DataTable.Col source="name" />
       <DataTable.Col source="parent" label="Parent">
         <ReferenceField source="parent" reference="geofence" />

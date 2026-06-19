@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { render } from "vitest-browser-react";
 import { AdminContext } from "@/components/admin";
-import { ResourceContextProvider, testDataProvider } from "shadmin-core";
+import {
+  ResourceContextProvider,
+  ListContextProvider,
+  testDataProvider,
+} from "shadmin-core";
 import type { AuthProvider } from "shadmin-core";
-import { GeofenceList } from "@/resources/geofence/geofence-list";
+import {
+  GeofenceList,
+  GeofenceBulkToolbar,
+} from "@/resources/geofence/geofence-list";
 
 const fakeRows = [
   { id: 1, name: "Alpha", mode: "pokemon", parent: null, geo_type: "Polygon" },
@@ -49,5 +56,30 @@ describe("GeofenceList", () => {
   it("renders the live-search filter input", async () => {
     const screen = render(wrap(<GeofenceList />));
     await expect.element(screen.getByPlaceholder(/search/i)).toBeVisible();
+  });
+
+  it("renders BulkPublishButton in the bulk toolbar when rows are selected", async () => {
+    const screen = render(
+      <AdminContext
+        dataProvider={stubDataProvider}
+        authProvider={stubAuthProvider}
+      >
+        <ResourceContextProvider value="geofence">
+          <ListContextProvider
+            value={
+              {
+                selectedIds: [1],
+                onUnselectItems: () => undefined,
+              } as any // eslint-disable-line @typescript-eslint/no-explicit-any
+            }
+          >
+            <GeofenceBulkToolbar />
+          </ListContextProvider>
+        </ResourceContextProvider>
+      </AdminContext>,
+    );
+    await expect
+      .element(screen.getByRole("button", { name: /publish/i }))
+      .toBeVisible();
   });
 });
