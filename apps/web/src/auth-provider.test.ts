@@ -26,7 +26,7 @@ describe("authProvider", () => {
   });
 
   it("grants all permissions (no RBAC)", async () => {
-    await expect(authProvider.getPermissions({})).resolves.toBe("admin");
+    await expect(authProvider.getPermissions!({})).resolves.toBe("admin");
     await expect(authProvider.canAccess!({ resource: "geofence", action: "edit" })).resolves.toBe(true);
   });
 });
