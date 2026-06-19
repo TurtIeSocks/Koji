@@ -14,7 +14,10 @@ export default defineConfig({
     // Deduplicate react-router so ra-core's nested copy and the top-level
     // copy share the same RouterProvider context (avoids null context in
     // browser tests where Vite's normal dedup doesn't apply).
-    dedupe: ["react-router", "react", "react-dom"],
+    dedupe: ["react-router", "react", "react-dom", "ra-core"],
+  },
+  optimizeDeps: {
+    include: ["ra-core"],
   },
   test: {
     projects: [

@@ -4,6 +4,7 @@ import { authProvider } from "@/auth-provider";
 import { geofence } from "@/resources/geofence";
 import { Dashboard } from "@/dashboard/dashboard";
 import { KojiAppBar } from "@/components/app-bar";
+import { PasswordLoginPage } from "@/components/login/password-login-page";
 
 const KojiLayout = (props: React.ComponentProps<typeof Layout>) => (
   <Layout {...props} appBar={KojiAppBar} />
@@ -17,6 +18,7 @@ function App() {
       layout={KojiLayout}
       dashboard={Dashboard}
       title="Kōji Admin"
+      loginPage={PasswordLoginPage}
       disableTelemetry
     >
       <Resource {...geofence} group="Geo" />
