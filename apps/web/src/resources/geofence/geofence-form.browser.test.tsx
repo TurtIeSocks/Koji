@@ -4,6 +4,21 @@ import { AdminContext } from "@/components/admin";
 import { ResourceContextProvider, testDataProvider } from "shadmin-core";
 import type { AuthProvider } from "shadmin-core";
 import { GeofenceCreate } from "@/resources/geofence/geofence-create";
+import { GeofenceEdit } from "@/resources/geofence/geofence-edit";
+
+const MULTI_POLYGON_RECORD = {
+  id: 1,
+  name: "Test MultiPolygon",
+  mode: "unset",
+  parent: null,
+  geometry: {
+    type: "MultiPolygon" as const,
+    coordinates: [
+      [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+      [[[2, 2], [3, 2], [3, 3], [2, 3], [2, 2]]],
+    ],
+  },
+};
 
 const stubDataProvider = {
   ...testDataProvider({
@@ -11,6 +26,8 @@ const stubDataProvider = {
     getList: async () => ({ data: [] as any, total: 0 }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getMany: async () => ({ data: [] as any }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getOne: async () => ({ data: MULTI_POLYGON_RECORD as any }),
   }),
   // subscribe() required by realtime context providers
   subscribe: () => () => undefined,
@@ -45,6 +62,21 @@ describe("Geofence form", () => {
       .element(screen.container.querySelector(".leaflet-container"))
       .toBeInTheDocument();
     // GeomanControls renders the geoman toolbar (react-leaflet-geoman-v2)
+    await expect
+      .element(screen.container.querySelector(".leaflet-pm-toolbar"))
+      .toBeInTheDocument();
+  });
+
+  it("renders the geometry map without error when a MultiPolygon record is loaded", async () => {
+    // GeofenceEdit hydrates the map from the record's geometry. If PolygonInput
+    // were still in place it would coerce MultiPolygon to Polygon on save,
+    // silently dropping sub-polygons. MultiPolygonInput must hydrate both rings.
+    const screen = render(wrap(<GeofenceEdit />));
+    // Map must mount — no thrown error or missing container.
+    await expect
+      .element(screen.container.querySelector(".leaflet-container"))
+      .toBeInTheDocument();
+    // Geoman toolbar must also be present.
     await expect
       .element(screen.container.querySelector(".leaflet-pm-toolbar"))
       .toBeInTheDocument();
