@@ -9,6 +9,7 @@ interface ResourceDef {
 
 const RESOURCE_MAP: Record<string, ResourceDef> = {
   geofence: { seg: "geofences", geo: true },
+  route: { seg: "routes", geo: true },
   project: { seg: "projects", geo: false },
   property: { seg: "properties", geo: false },
   tileserver: { seg: "tile-servers", geo: false },
