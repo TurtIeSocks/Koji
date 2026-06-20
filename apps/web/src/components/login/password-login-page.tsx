@@ -4,6 +4,7 @@ import type { SubmitHandler, FieldValues } from "react-hook-form";
 import { TextInput } from "@/components/admin";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { KojiLogo } from "@/components/koji-logo";
 
 export const PasswordLoginPage = () => {
   const [loading, setLoading] = useState(false);
@@ -18,9 +19,10 @@ export const PasswordLoginPage = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
+      <KojiLogo />
       <Card className="w-full max-w-sm p-6">
-        <h1 className="mb-4 text-lg font-semibold">Kōji Admin</h1>
+        <h2 className="mb-4 text-sm font-medium text-muted-foreground">Admin</h2>
         <Form onSubmit={handleSubmit} mode="onChange" noValidate>
           <TextInput
             label="Password"

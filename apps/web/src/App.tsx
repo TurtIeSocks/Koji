@@ -29,9 +29,9 @@ function App() {
       loginPage={PasswordLoginPage}
       disableTelemetry
     >
+      <Resource {...project} group="Config" />
       <Resource {...geofence} group="Geo" />
       <Resource {...route} group="Geo" />
-      <Resource {...project} group="Config" />
       <Resource {...property} group="Config" />
       <Resource {...tileserver} group="Config" />
       <Resource {...plugins} group="Config" />

@@ -24,15 +24,18 @@ const stubAuthProvider: AuthProvider = {
 };
 
 describe("Dashboard", () => {
-  it("renders the geofence count card and the job queue panel", async () => {
+  it("renders a count card per resource and the job queue panel", async () => {
     const screen = render(
       <AdminContext dataProvider={stubDataProvider} authProvider={stubAuthProvider}>
         <Dashboard />
       </AdminContext>,
     );
+    // Cards for every list resource now, not just geofences.
     await expect.element(screen.getByText(/geofences/i)).toBeVisible();
+    await expect.element(screen.getByText(/projects/i)).toBeVisible();
+    await expect.element(screen.getByText(/routes/i)).toBeVisible();
     await expect.element(screen.getByText(/job queue/i)).toBeVisible();
-    // Count card resolves to the mock total (2).
-    await expect.element(screen.getByText("2")).toBeVisible();
+    // Each count card resolves to the mock total (2) — many cards, so scope to one.
+    await expect.element(screen.getByText("2").first()).toBeVisible();
   });
 });
