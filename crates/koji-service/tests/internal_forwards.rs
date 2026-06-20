@@ -141,10 +141,13 @@ async fn cleanup_geofence(db: &sea_orm::DatabaseConnection, id: &str) {
         .await;
 }
 
-/// `GET /internal/geofences/{id}` must return the same JSON body as
-/// `GET /api/v2/geofences/{id}` for the same geofence.
+/// `GET /internal/geofences/{id}` returns a RICHER body than the public
+/// `GET /api/v2/geofences/{id}`: same Feature geometry and shared id/name/mode,
+/// but the internal reshape (slice 4 `internal_get_one`) additionally carries the
+/// editable related data (`projects`/`properties`/`parent`) in the properties bag
+/// so the admin edit form can hydrate it. They are intentionally NOT byte-equal.
 #[actix_web::test]
-async fn internal_geofence_getone_parity() {
+async fn internal_geofence_getone_returns_richer_related_data() {
     let Some(raw_db) = test_db().await else { return };
     let _serial = serial_guard();
 
@@ -215,8 +218,35 @@ async fn internal_geofence_getone_parity() {
     // the final body equality).
     cleanup_geofence(&raw_db, &id).await;
 
+    // Bodies are the `{status, data}` envelope; the Feature is under `data`.
+    let pub_feat = &pub_json["data"];
+    let int_feat = &int_json["data"];
+    // Both are GeoJSON Features with the SAME geometry.
+    assert_eq!(int_feat["type"], "Feature", "internal get_one is a Feature");
     assert_eq!(
-        pub_json, int_json,
-        "public and internal get_one must return the same body"
+        pub_feat["geometry"], int_feat["geometry"],
+        "public and internal get_one must share the same geometry"
     );
+    // Shared scalar identity fields match across both bodies.
+    let pub_props = &pub_feat["properties"];
+    let int_props = &int_feat["properties"];
+    for key in ["id", "name", "mode"] {
+        assert_eq!(
+            pub_props[key], int_props[key],
+            "shared property `{key}` must match between public and internal"
+        );
+    }
+    // The internal reshape is a SUPERSET: it carries the editable related data
+    // that the public feature omits (slice 4 `internal_get_one`). A fresh fence
+    // has empty relations, but the KEYS must be present for the edit form.
+    for key in ["projects", "properties", "parent"] {
+        assert!(
+            int_props.get(key).is_some(),
+            "internal get_one must carry the `{key}` related-data key (got: {int_props})"
+        );
+        assert!(
+            pub_props.get(key).is_none(),
+            "public get_one must NOT carry the `{key}` related-data key"
+        );
+    }
 }
