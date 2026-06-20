@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render } from "vitest-browser-react";
 import { userEvent } from "@vitest/browser/context";
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { AdminContext } from "@/components/admin";
 import { testDataProvider, ResourceContextProvider } from "shadmin-core";
 import type { AuthProvider } from "shadmin-core";
@@ -62,6 +62,19 @@ function Wrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Reads the live RHF form state so a test can assert each row's mode by index
+// (not by counting display spans, which can't distinguish row 0 from row 1).
+function ModesProbe() {
+  const features = useWatch({ name: "features" }) as
+    | Array<{ mode?: string }>
+    | undefined;
+  return (
+    <output data-testid="row-modes">
+      {(features ?? []).map((f) => f?.mode ?? "").join(",")}
+    </output>
+  );
+}
+
 describe("AssignStep", () => {
   it("renders 2 rows, each with a name input and mode label", async () => {
     const screen = render(
@@ -95,11 +108,17 @@ describe("AssignStep", () => {
     const screen = render(
       <Wrapper>
         <AssignStep />
+        <ModesProbe />
       </Wrapper>,
     );
 
     // Wait for name inputs to render (confirms rows are mounted).
     await expect.element(screen.getByText("Features")).toBeVisible();
+
+    // Both rows start unset (the probe reflects the live RHF features array).
+    await expect
+      .element(screen.getByTestId("row-modes"))
+      .not.toHaveTextContent("pokemon");
 
     // Change the bulk mode native select to "pokemon".
     const nativeSelect = screen.container.querySelector<HTMLSelectElement>(
@@ -113,16 +132,11 @@ describe("AssignStep", () => {
       screen.getByRole("button", { name: /apply mode to all/i }),
     );
 
-    // After bulk apply, each row's Mode combobox should display "Pokémon".
-    // SelectInput renders <span data-slot="select-value">Pokémon</span> inside
-    // the combobox button when selected. Two rows → at least 2 such spans.
-    const valueSpans = screen.container.querySelectorAll(
-      '[data-slot="select-value"]',
-    );
-    const pokemonSpans = Array.from(valueSpans).filter(
-      (el) => el.textContent?.trim() === "Pokémon",
-    );
-    expect(pokemonSpans.length).toBeGreaterThanOrEqual(2);
+    // Assert each row's mode independently via the live form state — both rows
+    // must be "pokemon" (row-anchored; cannot false-pass on a stray display span).
+    await expect
+      .element(screen.getByTestId("row-modes"))
+      .toHaveTextContent("pokemon,pokemon");
   });
 
   it("Polygon row shows Parent input; MultiPoint row shows Route parent input", async () => {
