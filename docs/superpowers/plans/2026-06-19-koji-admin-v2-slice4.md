@@ -616,10 +616,28 @@ git commit -m "feat(internal): geofence getOne returns related projects/properti
 
 ---
 
-## Final Verification (controller, after all tasks)
+## Final Verification (controller, after all tasks) — DONE 2026-06-20
 
-- [ ] `bun run typecheck` — 0 errors
-- [ ] `bun run test` (non-browser) — all green
-- [ ] `bun run test:browser` — full browser suite green
-- [ ] `bun run build` — clean
-- [ ] Live verify via Claude Preview: edit a geofence that has properties → rows hydrate with correct widgets; add a row, pick a property, set a value, save → reload shows it persisted; remove a row → save → gone.
+- [x] `bun run typecheck` — 0 errors
+- [x] `bun run test` (non-browser) — 23/23 green (incl. `serializeGeofenceWrite` cases)
+- [x] `bun run test:browser` — 41/41 green (19 files)
+- [x] `bun run build` — clean
+- [x] Live verify via Claude Preview (geofence 54, against the running koji binary + DB):
+  - **Read (Task 4):** `GET /internal/geofences/54` returns the reshaped Feature — geometry lifted out, `properties` bag carries `projects/properties/routes/parent/name/mode`. Confirmed live.
+  - **Widget typing (Tasks 1–2):** added a row, picked a `boolean` property → the value widget live-switched from TextInput to a boolean switch. Property-create form's category→widget switch also confirmed.
+  - **Write round-trip (Task 3):** set the switch true → Save → the captured PATCH body was exactly `{"properties":[{"property_id":17,"value":true}], ...}` — `serializeGeofenceWrite` stripped the row to the wire shape. Backend persisted (200).
+  - **Hydration:** reload → the row rehydrated with `is_event_verify` selected + boolean switch = true. Full add→save→reload loop verified.
+
+### Live-verify finding (OUT OF SCOPE — pre-existing, not slice-4 code)
+
+Undoable Edit/Delete/bulk saves **never auto-commit**. The success toast is created with an
+infinite duration (`apps/web/src/components/admin/feedback/notification.tsx:142` maps
+`autoHideDuration === null → Infinity`), so sonner's `onAutoClose` never fires → the deferred
+`mutation({isUndo:false})` in `handleExited` never runs → no PATCH/DELETE is sent. The mutation
+only commits when the user **manually dismisses** the toast (close button). An ignored toast =
+silently lost edit. Verified deterministically: a `name` edit + Save produced the optimistic
+"Element updated / Undo" toast and redirect, but no PATCH for 9s+; clicking the toast close
+button fired the PATCH and persisted. Affects every resource, not just geofence properties.
+Slice 4 only added the serializer + the read endpoint — neither touches the save/notification
+path. Tracked separately for a focused fix (needs a finite undoable timeout that still preserves
+the Undo window).
