@@ -1,5 +1,8 @@
 import { Admin, Resource, Layout } from "@/components/admin";
+import { CustomRoutes } from "shadmin-core";
+import { Route } from "react-router";
 import { dataProvider } from "@/data-provider";
+import { ImportWizard } from "@/resources/import/import-wizard";
 import { authProvider } from "@/auth-provider";
 import { geofence } from "@/resources/geofence";
 import { route } from "@/resources/route";
@@ -32,6 +35,9 @@ function App() {
       <Resource {...property} group="Config" />
       <Resource {...tileserver} group="Config" />
       <Resource {...plugins} group="Config" />
+      <CustomRoutes>
+        <Route path="/import" element={<ImportWizard />} />
+      </CustomRoutes>
     </Admin>
   );
 }
