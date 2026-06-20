@@ -24,19 +24,31 @@ describe("featuresToImportItems", () => {
     expect("parent" in item).toBe(false);
   });
 
-  it("maps a MultiPoint feature to a route item with route_parent", () => {
+  it("maps a MultiPoint feature to a route item with route_parent (a geofence NAME)", () => {
     const result = featuresToImportItems([
       {
         geometry: { type: "MultiPoint" },
         name: "R",
-        route_parent: "7",
+        // route_parent is the parent geofence's NAME — the backend resolves it
+        // by name (import.rs name_to_id), so the Assign step stores names.
+        route_parent: "Area-1",
       },
     ]);
     const item = result[0];
     expect(item.kind).toBe("route");
-    expect(item.route_parent).toBe("7");
+    expect(item.route_parent).toBe("Area-1");
     expect(item.projects).toEqual([]);
     expect(item.on_collision).toBe("skip");
+  });
+
+  it("carries a geofence parent through as a NAME string (not an id)", () => {
+    const result = featuresToImportItems([
+      { geometry: { type: "Polygon" }, name: "Child", parent: "Area-1" },
+    ]);
+    const item = result[0];
+    expect(item.kind).toBe("geofence");
+    expect(item.parent).toBe("Area-1");
+    expect("route_parent" in item).toBe(false);
   });
 
   it("kind override wins over geometry type", () => {

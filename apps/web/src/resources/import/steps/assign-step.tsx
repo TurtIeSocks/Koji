@@ -1,12 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
-import { useWrappedSource } from "shadmin-core";
+import { useGetList, useWrappedSource } from "shadmin-core";
 import {
   ArrayInput,
   AutocompleteArrayInput,
   AutocompleteInput,
   ReferenceArrayInput,
-  ReferenceInput,
   SelectInput,
   SimpleFormIterator,
   TextInput,
@@ -30,6 +29,11 @@ const COLLISION_CHOICES = [
 
 type GeoJsonGeometry = { type?: string } | undefined;
 
+interface NameChoice {
+  id: string;
+  name: string;
+}
+
 function isRouteGeometry(geom: GeoJsonGeometry): boolean {
   return (
     geom?.type === "MultiPoint" ||
@@ -43,7 +47,7 @@ function isRouteGeometry(geom: GeoJsonGeometry): boolean {
 // useWrappedSource + useWatch to derive default kind, then reads the user's
 // current kind choice to pick the parent field variant.
 
-function FeatureRow() {
+function FeatureRow({ parentChoices }: { parentChoices: NameChoice[] }) {
   const geomSource = useWrappedSource("geometry");
   const geom = useWatch({ name: geomSource }) as GeoJsonGeometry;
 
@@ -79,15 +83,28 @@ function FeatureRow() {
         />
       </div>
       <div className="flex flex-wrap gap-2">
+        {/* parent/route_parent store the geofence NAME, not its id — the import
+            backend resolves them by name (crates/koji-db/src/db/import.rs,
+            name_to_id) so a parent can forward-reference a fence created in the
+            same batch. A ReferenceInput would store the id and silently fail
+            resolution. Choices come from existing geofences (by name). */}
         {!isRoute && (
-          <ReferenceInput source="parent" reference="geofence">
-            <AutocompleteInput optionText="name" label="Parent" />
-          </ReferenceInput>
+          <AutocompleteInput
+            source="parent"
+            label="Parent"
+            choices={parentChoices}
+            optionText="name"
+            optionValue="name"
+          />
         )}
         {isRoute && (
-          <ReferenceInput source="route_parent" reference="geofence">
-            <AutocompleteInput optionText="name" label="Route parent" />
-          </ReferenceInput>
+          <AutocompleteInput
+            source="route_parent"
+            label="Route parent"
+            choices={parentChoices}
+            optionText="name"
+            optionValue="name"
+          />
         )}
         <ReferenceArrayInput source="projects" reference="project">
           <AutocompleteArrayInput label="Projects" />
@@ -185,6 +202,23 @@ function BulkBar() {
 function AssignStep() {
   const { getValues, setValue } = useFormContext();
 
+  // Parent options are EXISTING geofences keyed by NAME — the import backend
+  // resolves parent/route_parent by name (import.rs name_to_id), not id.
+  // ponytail: only existing geofences are offered; parenting to a sibling
+  // created in the same batch is a Phase C nicety (the backend already supports
+  // it by name, so the wire is forward-compatible).
+  const { data: geofences } = useGetList("geofence", {
+    pagination: { page: 1, perPage: 1000 },
+    sort: { field: "name", order: "ASC" },
+  });
+  const parentChoices = useMemo<NameChoice[]>(
+    () =>
+      (geofences ?? [])
+        .map((g) => ({ id: String(g.name), name: String(g.name) }))
+        .filter((c) => c.name),
+    [geofences],
+  );
+
   // Name seeding — runs ONCE on mount, only fills empty names.
   useEffect(() => {
     const features = (getValues("features") as Record<string, unknown>[]) ?? [];
@@ -209,7 +243,7 @@ function AssignStep() {
       <BulkBar />
       <ArrayInput source="features" label="Features">
         <SimpleFormIterator inline>
-          <FeatureRow />
+          <FeatureRow parentChoices={parentChoices} />
         </SimpleFormIterator>
       </ArrayInput>
     </div>
