@@ -1,5 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { baseDataProvider } from "@/data-provider";
+import { baseDataProvider, serializeGeofenceWrite } from "@/data-provider";
+
+describe("serializeGeofenceWrite", () => {
+  it("strips read-only keys from each properties row to {property_id, value}", () => {
+    const out = serializeGeofenceWrite({
+      name: "F",
+      mode: "unset",
+      properties: [
+        { id: 100, geofence_id: 9, property_id: 1, name: "is_event", category: "boolean", value: true },
+        { property_id: 2, value: { a: 1 } },
+      ],
+    });
+    expect(out.properties).toEqual([
+      { property_id: 1, value: true },
+      { property_id: 2, value: { a: 1 } },
+    ]);
+    // Non-properties fields pass through untouched.
+    expect(out.name).toBe("F");
+    expect(out.mode).toBe("unset");
+  });
+
+  it("passes data through unchanged when properties is absent", () => {
+    const data = { name: "F", projects: [1, 2] };
+    expect(serializeGeofenceWrite(data)).toEqual(data);
+  });
+});
 
 describe("baseDataProvider geofence", () => {
   it("getList returns flat rows + total from meta (no featureToRecord)", async () => {

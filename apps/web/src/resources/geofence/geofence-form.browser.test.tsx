@@ -23,8 +23,12 @@ const MULTI_POLYGON_RECORD = {
 
 const stubDataProvider = {
   ...testDataProvider({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getList: async () => ({ data: [] as any, total: 0 }),
+    getList: async (resource: string) =>
+      resource === "property"
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          { data: [{ id: 10, name: "is_event", category: "boolean" }] as any, total: 1 }
+        : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          { data: [] as any, total: 0 },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getMany: async () => ({ data: [{ id: 10, name: "ProjectAlpha" }] as any }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -105,5 +109,14 @@ describe("Geofence form", () => {
         /projects/i.test(l.textContent ?? ""),
       ),
     ).toBe(false);
+  });
+
+  it("renders the properties array input in the geofence form", async () => {
+    const screen = render(wrap(<GeofenceCreate />));
+    await expect.element(screen.getByLabelText(/name/i)).toBeVisible();
+    // ArrayInput for properties renders the add control.
+    await expect
+      .element(screen.container.querySelector(".button-add-properties"))
+      .toBeInTheDocument();
   });
 });

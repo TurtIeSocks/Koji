@@ -62,6 +62,20 @@ const getListImpl = async (resource: string, params: any): Promise<{ data: any[]
   return { data, total: meta?.total ?? data.length };
 };
 
+/** Strip a geofence's `properties` rows to the write wire shape
+ *  `{ property_id, value }`, dropping read-only keys (id/name/category/...).
+ *  Idempotent; returns data unchanged when there are no properties. */
+export const serializeGeofenceWrite = (data: any): any => {
+  if (!Array.isArray(data?.properties)) return data;
+  return {
+    ...data,
+    properties: data.properties.map((p: any) => ({
+      property_id: p.property_id,
+      value: p.value,
+    })),
+  };
+};
+
 export const baseDataProvider: DataProvider = {
   getList: (resource, params) => getListImpl(resource, params) as any,
   getManyReference: (resource, params) => getListImpl(resource, params) as any,
@@ -90,18 +104,22 @@ export const baseDataProvider: DataProvider = {
   },
 
   create: async (resource, params) => {
+    const body =
+      resource === "geofence" ? serializeGeofenceWrite(params.data) : params.data;
     const res = await internalFetch(`/${segFor(resource)}`, {
       method: "POST",
-      body: JSON.stringify(params.data),
+      body: JSON.stringify(body),
     });
     const data = unwrapResponse<any>(res);
     return { data: { ...data, id: data?.id ?? 0 } } as any;
   },
 
   update: async (resource, params) => {
+    const body =
+      resource === "geofence" ? serializeGeofenceWrite(params.data) : params.data;
     const res = await internalFetch(itemPath(resource, params.id), {
       method: "PATCH",
-      body: JSON.stringify(params.data),
+      body: JSON.stringify(body),
     });
     const data = unwrapResponse<any>(res);
     return { data: { ...data, id: data?.id ?? params.id } } as any;

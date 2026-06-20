@@ -8,6 +8,7 @@ import {
 import { MultiPolygonInput } from "@/components/leaflet";
 import { GEOFENCE_MODES, DEFAULT_TILE_URL } from "@/lib/constants";
 import { required } from "ra-core";
+import { GeofencePropertiesInput } from "@/resources/geofence/geofence-properties-input";
 
 export const GeofenceFormFields = () => (
   <>
@@ -21,6 +22,7 @@ export const GeofenceFormFields = () => (
         data loss) or GeoJsonInput (wraps in GeometryCollection / keeps-most-
         recent => wrong type or truncation). */}
     <MultiPolygonInput source="geometry" tileUrl={DEFAULT_TILE_URL} height={400} />
+    <GeofencePropertiesInput />
   </>
 );
 
