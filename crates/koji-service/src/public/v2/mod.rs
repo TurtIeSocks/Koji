@@ -10,6 +10,7 @@ pub(crate) mod calc;
 pub(crate) mod config;
 pub(crate) mod geofences;
 pub(crate) mod geometry;
+pub(crate) mod import;
 pub(crate) mod jobs;
 pub(crate) mod nominatim;
 pub(crate) mod plugins;
