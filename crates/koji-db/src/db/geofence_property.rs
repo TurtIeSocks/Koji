@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use crate::utils::json::{JsonToModel, parse_property_value};
 
 use super::{sea_orm_active_enums::Category, *};
-use futures::future;
 use sea_orm::{UpdateResult, entity::prelude::*};
 use serde_json::json;
 
@@ -101,8 +100,8 @@ impl FullPropertyModel {
 pub struct Query;
 
 impl Query {
-    pub async fn upsert(
-        db: &DatabaseConnection,
+    pub async fn upsert<C: ConnectionTrait>(
+        db: &C,
         json: &Json,
         geofence_id: Option<u32>,
     ) -> Result<Model, ModelError> {
@@ -133,8 +132,8 @@ impl Query {
         }
     }
 
-    pub async fn update_properties_by_geofence(
-        db: &DatabaseConnection,
+    pub async fn update_properties_by_geofence<C: ConnectionTrait>(
+        db: &C,
         incoming: &[Json],
         geofence_id: Option<u32>,
     ) -> Result<Vec<Model>, ModelError> {
@@ -146,12 +145,12 @@ impl Query {
             .map(|model| (model.id, false))
             .collect::<HashMap<_, _>>();
 
-        let models = future::try_join_all(
-            incoming
-                .iter()
-                .map(|json| Query::upsert(db, json, geofence_id)),
-        )
-        .await?;
+        // Sequential (not try_join_all): may run inside a DatabaseTransaction,
+        // where concurrent statements on the one connection are unsound.
+        let mut models = Vec::with_capacity(incoming.len());
+        for json in incoming {
+            models.push(Query::upsert(db, json, geofence_id).await?);
+        }
 
         for model in models.iter() {
             existing.entry(model.id).and_modify(|e| *e = true);
@@ -171,8 +170,8 @@ impl Query {
         Ok(models)
     }
 
-    pub async fn add_db_property(
-        db: &DatabaseConnection,
+    pub async fn add_db_property<C: ConnectionTrait>(
+        db: &C,
         id: u32,
         prop: &str,
     ) -> Result<Model, ModelError> {
