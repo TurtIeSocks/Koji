@@ -60,10 +60,15 @@ describe("GeofencePropertiesInput", () => {
 
   it("hydrates an existing boolean property row with a boolean value widget", async () => {
     const screen = render(wrap(<GeofencePropertiesInput />, RECORD));
-    // The categoryById map is built from an async useGetList; the switch/checkbox
-    // appears only after the list resolves. Fall back to asserting the property
-    // selector shows the linked property's name — row mounting proves hydration.
-    // (Brief-specified fallback for the async-hydration case.)
+    // The property selector resolves property_id=1 → shows its name.
     await expect.element(screen.getByText("is_event")).toBeInTheDocument();
+    // The value widget is typed by the looked-up category. categoryById is built
+    // from an async useGetList, so the boolean widget appears only after the list
+    // resolves — use a retrying locator (getByRole), NOT an eager querySelector,
+    // so the poll spans the resolve. This proves the category lookup actually
+    // drives the widget (the whole point of the row), not just the selector.
+    await expect
+      .element(screen.getByRole("switch").or(screen.getByRole("checkbox")))
+      .toBeInTheDocument();
   });
 });
