@@ -1,3 +1,6 @@
 
 # vitest browser-provider failure screenshots
 __screenshots__/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
