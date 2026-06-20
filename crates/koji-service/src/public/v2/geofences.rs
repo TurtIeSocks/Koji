@@ -399,6 +399,36 @@ async fn publish(
     ))
 }
 
+/// Reshape the related-read JSON (`{geometry, name, mode, parent, projects,
+/// properties, ...}`) into a GeoJSON Feature: geometry lifted to the Feature
+/// level, everything else kept in the `properties` bag so the admin client's
+/// `featureToRecord` hydrates the related data without a data-provider change.
+fn related_to_feature(mut related: serde_json::Value) -> serde_json::Value {
+    let geometry = related
+        .as_object_mut()
+        .and_then(|o| o.remove("geometry"))
+        .unwrap_or(serde_json::Value::Null);
+    json!({ "type": "Feature", "geometry": geometry, "properties": related })
+}
+
+/// `GET /internal/geofences/{id}` — the full editable record as a GeoJSON
+/// Feature whose `properties` bag carries the related `projects`/`properties`
+/// (+ name/mode/parent) that the admin edit form hydrates. The public `get_one`
+/// returns only id/mode/name in the feature, which is insufficient for editing.
+pub(crate) async fn internal_get_one(
+    conn: web::Data<KojiDb>,
+    path: web::Path<u32>,
+) -> Result<HttpResponse, ServiceError> {
+    let id = path.into_inner();
+    let related = geofence::Query::get_one_json_with_related(&conn.koji, id.to_string())
+        .await
+        .map_err(|_| ServiceError::NotFound {
+            field: "geofence",
+            message: format!("no geofence {id}"),
+        })?;
+    Ok(ApiResponse::success(related_to_feature(related)))
+}
+
 /// Like [`scope`] but omits the collection `GET` (list). Used by the `/internal`
 /// scope, which overrides `GET /internal/geofences` with the bespoke row-list
 /// handler while forwarding all other geofence operations unchanged.
@@ -415,7 +445,7 @@ pub(crate) fn internal_item_scope() -> actix_web::Scope {
         )
         .service(
             web::resource("/{id}")
-                .route(web::get().to(get_one))
+                .route(web::get().to(internal_get_one))
                 .route(web::patch().to(update))
                 .route(web::delete().to(remove)),
         )
@@ -573,6 +603,26 @@ mod tests {
             q.return_type(ReturnTypeArg::Feature),
             ReturnTypeArg::Feature
         );
+    }
+
+    #[test]
+    fn related_to_feature_moves_geometry_and_keeps_related() {
+        let related = json!({
+            "id": 9, "name": "F", "mode": "pokemon", "parent": null,
+            "geometry": { "type": "Polygon", "coordinates": [] },
+            "projects": [1, 2],
+            "properties": [{ "property_id": 5, "value": true, "category": "boolean", "name": "is_event" }],
+        });
+        let feature = related_to_feature(related);
+        assert_eq!(feature["type"], "Feature");
+        // geometry is lifted out to the Feature level
+        assert_eq!(feature["geometry"]["type"], "Polygon");
+        // the related data rides in the properties bag (so featureToRecord hydrates it)
+        assert_eq!(feature["properties"]["projects"], json!([1, 2]));
+        assert_eq!(feature["properties"]["properties"][0]["property_id"], 5);
+        assert_eq!(feature["properties"]["name"], "F");
+        // geometry key is not duplicated inside properties (it was removed)
+        assert!(feature["properties"].get("geometry").map_or(true, |g| g.is_null()));
     }
 
     #[test]
