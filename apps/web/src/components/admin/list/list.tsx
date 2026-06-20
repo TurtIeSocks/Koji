@@ -1,13 +1,10 @@
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbPage,
-} from "@/components/admin/layout/breadcrumb";
+import type { ElementType, ReactElement, ReactNode } from 'react'
+import { Link } from 'react-router'
 import type {
   ListBaseProps,
   ListControllerResult,
   RaRecord,
-} from "shadmin-core";
+} from 'shadmin-core'
 import {
   FilterContext,
   ListBase,
@@ -18,16 +15,19 @@ import {
   useResourceContext,
   useResourceDefinition,
   useTranslate,
-} from "shadmin-core";
-import type { ElementType, ReactElement, ReactNode } from "react";
-import { Link } from "react-router";
-import { cn } from "@/lib/utils";
-import { CreateButton } from "@/components/admin/buttons/create-button";
-import { Empty } from "@/components/admin/feedback/empty";
-import { ExportButton } from "@/components/admin/buttons/export-button";
-import { ListPagination } from "@/components/admin/list/list-pagination";
-import { FilterButton } from "@/components/admin/buttons/filter-button";
-import { FilterForm } from "@/components/admin/list/filter-form";
+} from 'shadmin-core'
+import { CreateButton } from '@/components/admin/buttons/create-button'
+import { ExportButton } from '@/components/admin/buttons/export-button'
+import { FilterButton } from '@/components/admin/buttons/filter-button'
+import { Empty } from '@/components/admin/feedback/empty'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbPage,
+} from '@/components/admin/layout/breadcrumb'
+import { FilterForm } from '@/components/admin/list/filter-form'
+import { ListPagination } from '@/components/admin/list/list-pagination'
+import { cn } from '@/lib/utils'
 
 /**
  * A complete list page with breadcrumb, title, filters, and pagination.
@@ -74,7 +74,7 @@ function List<RecordType extends RaRecord = RaRecord>(
     sort,
     storeKey,
     ...rest
-  } = props;
+  } = props
 
   return (
     <ListBase<RecordType>
@@ -93,7 +93,7 @@ function List<RecordType extends RaRecord = RaRecord>(
     >
       <ListView<RecordType> {...rest} />
     </ListBase>
-  );
+  )
 }
 
 interface ListProps<RecordType extends RaRecord = RaRecord>
@@ -113,7 +113,7 @@ function ListView<RecordType extends RaRecord = RaRecord>(
 ) {
   const {
     aside,
-    component: Content = "div",
+    component: Content = 'div',
     disableBreadcrumb,
     empty = defaultEmpty,
     filters,
@@ -121,32 +121,32 @@ function ListView<RecordType extends RaRecord = RaRecord>(
     title,
     children,
     actions,
-  } = props;
-  const translate = useTranslate();
-  const resource = useResourceContext();
+  } = props
+  const translate = useTranslate()
+  const resource = useResourceContext()
   if (!resource) {
     throw new Error(
-      "The ListView component must be used within a ResourceContextProvider",
-    );
+      'The ListView component must be used within a ResourceContextProvider',
+    )
   }
-  const getResourceLabel = useGetResourceLabel();
-  const resourceLabel = getResourceLabel(resource, 2);
+  const getResourceLabel = useGetResourceLabel()
+  const resourceLabel = getResourceLabel(resource, 2)
   const finalTitle =
     title !== undefined
       ? title
-      : translate("ra.page.list", {
+      : translate('ra.page.list', {
           name: resourceLabel,
-        });
-  const { hasCreate } = useResourceDefinition({ resource });
-  const hasDashboard = useHasDashboard();
-  const { data, isPending, filterValues, total } = useListContext<RecordType>();
+        })
+  const { hasCreate } = useResourceDefinition({ resource })
+  const hasDashboard = useHasDashboard()
+  const { data, isPending, filterValues, total } = useListContext<RecordType>()
 
-  const dataIsEmpty = !data || (data as RecordType[]).length === 0;
+  const dataIsEmpty = !data || (data as RecordType[]).length === 0
   const shouldRenderEmpty =
     !isPending &&
     (total === 0 || (total == null && dataIsEmpty)) &&
     !Object.keys(filterValues).length &&
-    empty !== false;
+    empty !== false
 
   return (
     <>
@@ -178,13 +178,13 @@ function ListView<RecordType extends RaRecord = RaRecord>(
         </div>
         <FilterForm />
 
-        <div className={cn("flex", aside ? "gap-4" : undefined)}>
+        <div className={cn('flex', aside ? 'gap-4' : undefined)}>
           {aside}
           <div className="flex-1 min-w-0">
             {shouldRenderEmpty ? (
               empty
             ) : (
-              <Content className={cn("my-2", props.className)}>
+              <Content className={cn('my-2', props.className)}>
                 {children}
               </Content>
             )}
@@ -193,24 +193,24 @@ function ListView<RecordType extends RaRecord = RaRecord>(
         </div>
       </FilterContext.Provider>
     </>
-  );
+  )
 }
 
-const defaultPagination = <ListPagination />;
-const defaultEmpty = <Empty />;
+const defaultPagination = <ListPagination />
+const defaultEmpty = <Empty />
 
 interface ListViewProps<RecordType extends RaRecord = RaRecord> {
-  aside?: ReactNode;
-  children?: ReactNode;
-  component?: ElementType;
-  disableBreadcrumb?: boolean;
-  empty?: ReactNode | false;
-  render?: (props: ListControllerResult<RecordType, Error>) => ReactNode;
-  actions?: ReactElement | false;
-  filters?: ReactNode[];
-  pagination?: ReactNode;
-  title?: ReactNode | string | false;
-  className?: string;
+  aside?: ReactNode
+  children?: ReactNode
+  component?: ElementType
+  disableBreadcrumb?: boolean
+  empty?: ReactNode | false
+  render?: (props: ListControllerResult<RecordType, Error>) => ReactNode
+  actions?: ReactElement | false
+  filters?: ReactNode[]
+  pagination?: ReactNode
+  title?: ReactNode | string | false
+  className?: string
 }
 
-export { List, ListView, type ListProps, type ListViewProps };
+export { List, type ListProps, ListView, type ListViewProps }

@@ -1,37 +1,37 @@
 import {
-  CoreAdminUI,
-  type CoreAdminUIProps,
   CoreAdminContext,
   type CoreAdminContextProps,
   type CoreAdminProps,
+  CoreAdminUI,
+  type CoreAdminUIProps,
   localStorageStore,
-} from "shadmin-core";
-import { i18nProvider as defaultI18nProvider } from "@/lib/i18n-provider";
-import { Layout } from "@/components/admin/layout/layout";
-import { LoginPage } from "@/components/admin/auth/login-page";
-import { NotFound } from "@/components/admin/feedback/not-found";
-import { Ready } from "@/components/admin/feedback/ready";
-import { ThemeProvider } from "@/components/admin/layout/theme-provider";
-import { AuthCallback } from "@/components/admin/auth/auth-callback";
+} from 'shadmin-core'
+import { AuthCallback } from '@/components/admin/auth/auth-callback'
+import { LoginPage } from '@/components/admin/auth/login-page'
+import { NotFound } from '@/components/admin/feedback/not-found'
+import { Ready } from '@/components/admin/feedback/ready'
+import { Layout } from '@/components/admin/layout/layout'
+import { ThemeProvider } from '@/components/admin/layout/theme-provider'
+import { i18nProvider as defaultI18nProvider } from '@/lib/i18n-provider'
 
 /**
  * Props accepted by the `<Admin>` component on top of ra-core's `CoreAdminProps`.
  */
-type AdminProps = CoreAdminProps;
+type AdminProps = CoreAdminProps
 
 /**
  * Props accepted by the {@link AdminContext} component. Identical to ra-core's
  * `CoreAdminContextProps` — re-exported so callers composing `<AdminContext>`
  * and `<AdminUI>` manually don't need to import from ra-core directly.
  */
-type AdminContextProps = CoreAdminContextProps;
+type AdminContextProps = CoreAdminContextProps
 
 /**
  * Props accepted by the {@link AdminUI} component.
  */
-type AdminUIProps = CoreAdminUIProps;
+type AdminUIProps = CoreAdminUIProps
 
-const defaultStore = localStorageStore();
+const defaultStore = localStorageStore()
 
 /**
  * Provider half of `<Admin>`.
@@ -67,7 +67,7 @@ function AdminContext({
 }: AdminContextProps) {
   return (
     <CoreAdminContext i18nProvider={i18nProvider} store={store} {...rest} />
-  );
+  )
 }
 
 /**
@@ -86,9 +86,9 @@ function AdminUI(props: AdminUIProps) {
     layout = Layout,
     loginPage = LoginPage,
     ready = Ready,
-    title = "Shadmin",
+    title = 'Shadmin',
     ...rest
-  } = props;
+  } = props
 
   return (
     <ThemeProvider>
@@ -103,7 +103,7 @@ function AdminUI(props: AdminUIProps) {
         disableTelemetry // forced off: the kit never pings an external telemetry endpoint
       />
     </ThemeProvider>
-  );
+  )
 }
 
 /**
@@ -163,7 +163,7 @@ function Admin(props: AdminProps) {
     requireAuth,
     store,
     title,
-  } = props;
+  } = props
 
   return (
     <AdminContext
@@ -192,14 +192,14 @@ function Admin(props: AdminProps) {
         {children}
       </AdminUI>
     </AdminContext>
-  );
+  )
 }
 
 export {
   Admin,
   AdminContext,
-  AdminUI,
-  type AdminProps,
   type AdminContextProps,
+  type AdminProps,
+  AdminUI,
   type AdminUIProps,
-};
+}

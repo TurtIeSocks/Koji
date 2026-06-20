@@ -1,33 +1,27 @@
-import { Admin, Resource, Layout } from "@/components/admin";
-import { CustomRoutes } from "shadmin-core";
-import { Route } from "react-router";
-import { dataProvider } from "@/data-provider";
-import { ImportWizard } from "@/resources/import/import-wizard";
-import { authProvider } from "@/auth-provider";
-import { geofence } from "@/resources/geofence";
-import { route } from "@/resources/route";
-import { project } from "@/resources/project";
-import { property } from "@/resources/property";
-import { tileserver } from "@/resources/tileserver";
-import { plugins } from "@/resources/plugins";
-import { Dashboard } from "@/dashboard/dashboard";
-import { KojiAppBar } from "@/components/app-bar";
-import { PasswordLoginPage } from "@/components/login/password-login-page";
-
-const KojiLayout = (props: React.ComponentProps<typeof Layout>) => (
-  <Layout {...props} appBar={KojiAppBar} />
-);
+import { Route } from 'react-router'
+import { CustomRoutes } from 'shadmin-core'
+import { authProvider } from '@/auth-provider'
+import { Admin, Resource } from '@/components/admin'
+import { PasswordLoginPage } from '@/components/login/password-login-page'
+import { Dashboard } from '@/dashboard/dashboard'
+import { dataProvider } from '@/data-provider'
+import { geofence } from '@/resources/geofence'
+import { ImportWizard } from '@/resources/import/import-wizard'
+import { plugins } from '@/resources/plugins'
+import { project } from '@/resources/project'
+import { property } from '@/resources/property'
+import { route } from '@/resources/route'
+import { tileserver } from '@/resources/tileserver'
 
 function App() {
   return (
     <Admin
-      dataProvider={dataProvider}
       authProvider={authProvider}
-      layout={KojiLayout}
       dashboard={Dashboard}
-      title="Kōji Admin"
-      loginPage={PasswordLoginPage}
+      dataProvider={dataProvider}
       disableTelemetry
+      loginPage={PasswordLoginPage}
+      title="Kōji"
     >
       <Resource {...project} group="Config" />
       <Resource {...geofence} group="Geo" />
@@ -36,10 +30,10 @@ function App() {
       <Resource {...tileserver} group="Config" />
       <Resource {...plugins} group="Config" />
       <CustomRoutes>
-        <Route path="/import" element={<ImportWizard />} />
+        <Route element={<ImportWizard />} path="/import" />
       </CustomRoutes>
     </Admin>
-  );
+  )
 }
 
-export default App;
+export default App

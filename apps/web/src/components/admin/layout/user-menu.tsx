@@ -1,28 +1,27 @@
-import { Children, useCallback, useState, type ReactNode } from "react";
+import { Children, type ReactNode, useCallback, useState } from 'react'
 import {
+  UserMenuContext,
   useAuthProvider,
   useGetIdentity,
   useTranslate,
-  UserMenuContext,
-} from "shadmin-core";
+} from 'shadmin-core'
+import { Logout } from '@/components/admin/auth/logout'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-
-import { Logout } from "@/components/admin/auth/logout";
+} from '@/components/ui/dropdown-menu'
+import { Skeleton } from '@/components/ui/skeleton'
 
 type UserMenuProps = {
-  children?: ReactNode;
-  label?: string;
-  icon?: ReactNode;
-};
+  children?: ReactNode
+  label?: string
+  icon?: ReactNode
+}
 
 /**
  * A user menu component displayed in the top right corner of the admin layout.
@@ -34,52 +33,51 @@ type UserMenuProps = {
  * @see {@link https://shadmin.turtlesocks.dev/docs/user-menu UserMenu documentation}
  */
 function UserMenu({ children, label, icon }: UserMenuProps) {
-  const authProvider = useAuthProvider();
-  const { isPending, data: identity } = useGetIdentity();
-  const translate = useTranslate();
+  const authProvider = useAuthProvider()
+  const { isPending, data: identity } = useGetIdentity()
+  const translate = useTranslate()
 
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false)
 
   const handleToggleOpen = useCallback(() => {
-    setOpen((prevOpen) => !prevOpen);
-  }, []);
+    setOpen((prevOpen) => !prevOpen)
+  }, [])
 
   const handleClose = useCallback(() => {
-    setOpen(false);
-  }, []);
+    setOpen(false)
+  }, [])
 
-  if (!authProvider) return null;
+  if (!authProvider) return null
 
   if (isPending) {
-    return <Skeleton className="size-8 rounded-full ml-2" />;
+    return <Skeleton className="size-8 rounded-full ml-2" />
   }
 
   const ariaLabel =
     label != null
       ? translate(label, { _: label })
-      : identity?.fullName ||
-        translate("ra.auth.user_menu", { _: "User menu" });
+      : identity?.fullName || translate('ra.auth.user_menu', { _: 'User menu' })
 
   return (
     <UserMenuContext.Provider value={{ onClose: handleClose }}>
-      <DropdownMenu open={open} onOpenChange={handleToggleOpen}>
+      <DropdownMenu onOpenChange={handleToggleOpen} open={open}>
         <DropdownMenuTrigger asChild>
           <Button
-            variant="ghost"
-            className="relative size-8 ml-2 rounded-full"
             aria-label={ariaLabel}
+            className="relative size-8 ml-2 rounded-full"
+            variant="ghost"
           >
             {icon ? (
               icon
             ) : (
               <Avatar className="size-8">
-                <AvatarImage src={identity?.avatar} alt={identity?.fullName} />
+                <AvatarImage alt="Kōji User" src="favicon.png" />
                 <AvatarFallback>{identity?.fullName?.charAt(0)}</AvatarFallback>
               </Avatar>
             )}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56" align="end" forceMount>
+        <DropdownMenuContent align="end" className="w-56" forceMount>
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col gap-y-1">
               <p className="text-sm font-medium leading-none">
@@ -94,7 +92,7 @@ function UserMenu({ children, label, icon }: UserMenuProps) {
         </DropdownMenuContent>
       </DropdownMenu>
     </UserMenuContext.Provider>
-  );
+  )
 }
 
-export { UserMenu, type UserMenuProps };
+export { UserMenu, type UserMenuProps }

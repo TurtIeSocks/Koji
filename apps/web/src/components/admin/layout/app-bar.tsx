@@ -1,11 +1,11 @@
-import type { HTMLAttributes, ReactNode } from "react";
-import { cn } from "@/lib/utils";
-import { SidebarToggleButton } from "@/components/admin/buttons/sidebar-toggle-button";
-import { TitlePortal } from "@/components/admin/layout/title-portal";
-import { LocalesMenuButton } from "@/components/admin/buttons/locales-menu-button";
-import { ThemeModeToggle } from "@/components/admin/layout/theme-mode-toggle";
-import { RefreshButton } from "@/components/admin/buttons/refresh-button";
-import { UserMenu } from "@/components/admin/layout/user-menu";
+import type { HTMLAttributes, ReactNode } from 'react'
+import { LocalesMenuButton } from '@/components/admin/buttons/locales-menu-button'
+import { RefreshButton } from '@/components/admin/buttons/refresh-button'
+import { SidebarToggleButton } from '@/components/admin/buttons/sidebar-toggle-button'
+import { ThemeModeToggle } from '@/components/admin/layout/theme-mode-toggle'
+import { TitlePortal } from '@/components/admin/layout/title-portal'
+import { UserMenu } from '@/components/admin/layout/user-menu'
+import { cn } from '@/lib/utils'
 
 type AppBarProps = HTMLAttributes<HTMLElement> & {
   /**
@@ -13,19 +13,19 @@ type AppBarProps = HTMLAttributes<HTMLElement> & {
    * sidebar trigger, breadcrumb portal (with title portal inside), locales menu,
    * theme toggle, refresh button, user menu.
    */
-  children?: ReactNode;
+  children?: ReactNode
   /**
    * Replaces the default right-side action cluster (LocalesMenuButton +
    * ThemeModeToggle + RefreshButton). Pass a ReactNode to supply custom
    * actions, or omit to keep the default cluster.
    */
-  toolbar?: ReactNode;
+  toolbar?: ReactNode
   /**
    * Replaces the default `<UserMenu />`. Pass `false` to suppress it entirely,
    * or a ReactNode to render a custom user menu.
    */
-  userMenu?: ReactNode | false;
-};
+  userMenu?: ReactNode | false
+}
 
 /**
  * The header at the top of the admin layout.
@@ -59,7 +59,7 @@ function AppBar({
   return (
     <header
       className={cn(
-        "flex h-16 md:h-12 shrink-0 items-center gap-2 px-4",
+        'flex h-16 md:h-12 shrink-0 items-center gap-2 px-4',
         className,
       )}
       {...rest}
@@ -82,7 +82,7 @@ function AppBar({
         </>
       )}
     </header>
-  );
+  )
 }
 
-export { AppBar, type AppBarProps };
+export { AppBar, type AppBarProps }
