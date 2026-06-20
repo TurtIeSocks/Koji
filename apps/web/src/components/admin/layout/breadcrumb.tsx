@@ -60,7 +60,6 @@ function Breadcrumb({ children, ref }: BreadcrumbProps) {
   const [open, setOpen] = React.useState(false)
   if (!breadcrumbPortal) return null
 
-  console.log(breadcrumbPortal)
   return createPortal(
     <BaseBreadcrumb ref={ref}>
       <BreadcrumbList>
