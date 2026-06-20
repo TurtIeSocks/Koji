@@ -179,6 +179,7 @@ function ListView<RecordType extends RaRecord = RaRecord>(
         <FilterForm />
 
         <div className={cn("flex", aside ? "gap-4" : undefined)}>
+          {aside}
           <div className="flex-1 min-w-0">
             {shouldRenderEmpty ? (
               empty
@@ -189,7 +190,6 @@ function ListView<RecordType extends RaRecord = RaRecord>(
             )}
             {!shouldRenderEmpty && pagination}
           </div>
-          {aside}
         </div>
       </FilterContext.Provider>
     </>

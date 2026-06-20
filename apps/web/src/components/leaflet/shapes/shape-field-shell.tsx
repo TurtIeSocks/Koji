@@ -36,7 +36,7 @@ function FitToData({ geom, padding, maxZoom }: FitToDataProps) {
 function ShapeFieldShell({
   source,
   zoom = 13,
-  defaultCenter = [0, 0],
+  defaultCenter,
   height = 300,
   tileUrl,
   attribution,

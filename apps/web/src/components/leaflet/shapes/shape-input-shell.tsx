@@ -59,7 +59,7 @@ function ShapeInputShell({
   collection,
   geomanShapes,
   zoom = 13,
-  defaultCenter = [0, 0],
+  defaultCenter,
   height = 300,
   tileUrl,
   attribution,
