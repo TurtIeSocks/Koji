@@ -83,10 +83,10 @@ pub(crate) fn validate(items: &[ImportItem], existing_names: &HashSet<String>) -
             if it.kind == ImportKind::Geofence && dup_fences.contains(name) {
                 return Some(format!("duplicate geofence name `{name}` in batch"));
             }
-            if let Some(p) = it.parent.as_deref() {
-                if !resolvable(p) {
-                    return Some(format!("parent `{p}` not found"));
-                }
+            if let Some(p) = it.parent.as_deref()
+                && !resolvable(p)
+            {
+                return Some(format!("parent `{p}` not found"));
             }
             if it.kind == ImportKind::Route {
                 match it.route_parent.as_deref() {
