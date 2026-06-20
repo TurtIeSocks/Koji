@@ -14,6 +14,7 @@ export * from "@/components/admin/inputs/autocomplete-input";
 export * from "@/components/admin/fields/badge-field";
 export * from "@/components/admin/fields/boolean-field";
 export * from "@/components/admin/inputs/boolean-input";
+export * from "@/components/admin/fields/color-field";
 export * from "@/components/admin/inputs/color-input";
 export * from "@/components/admin/list/bulk-actions-toolbar";
 export * from "@/components/admin/buttons/bulk-delete-button";
