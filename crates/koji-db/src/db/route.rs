@@ -393,7 +393,7 @@ impl Query {
         record.to_koji_geometry()
     }
 
-    pub async fn upsert(db: &DatabaseConnection, id: u32, json: Json) -> Result<Model, ModelError> {
+    pub async fn upsert<C: ConnectionTrait>(db: &C, id: u32, json: Json) -> Result<Model, ModelError> {
         let old_model = Entity::find_by_id(id).one(db).await?;
         let mut new_model = json.to_route()?;
 
@@ -406,8 +406,8 @@ impl Query {
         Ok(model)
     }
 
-    pub async fn upsert_json_return(
-        db: &DatabaseConnection,
+    pub async fn upsert_json_return<C: ConnectionTrait>(
+        db: &C,
         id: u32,
         json: Json,
     ) -> Result<Json, ModelError> {
