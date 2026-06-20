@@ -129,13 +129,22 @@ impl Model {
         let geometry = geo::Geometry::<Precision>::try_from(&gj)
             .map_err(|e| ModelError::Custom(format!("[GEOMETRY]: {e}")))?;
 
+        // Route-only fields (no named slot in KojiMeta) ride in `extra`, which the
+        // geojson serializer flattens into Feature `properties` — so the show page
+        // (and any consumer) sees `geofence_id` + `description`, not just id/name/mode.
+        let mut extra = serde_json::Map::new();
+        extra.insert("geofence_id".to_string(), serde_json::json!(self.geofence_id));
+        if let Some(description) = &self.description {
+            extra.insert("description".to_string(), serde_json::json!(description));
+        }
+
         let meta = koji_core::KojiMeta {
             id: Some(self.id),
             name: Some(self.name.clone()),
             mode: self.mode.into(),
             parent_id: None,
             ancestors: Vec::new(),
-            extra: serde_json::Map::new(),
+            extra,
         };
         Ok(koji_core::KojiGeometry { geometry, meta })
     }
