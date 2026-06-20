@@ -180,8 +180,8 @@ impl Query {
     /// byte-identical to the two former mirror fns: the existing-map is keyed on
     /// the OTHER column, inserts pin fixed + loop value, and the final delete
     /// filters `fixed.eq(fixed_val)` AND `other.is_in(stale)`.
-    async fn upsert_related(
-        db: &DatabaseConnection,
+    async fn upsert_related<C: ConnectionTrait>(
+        db: &C,
         ids: &[serde_json::Value],
         fixed_val: u32,
         fixed_col: Column,
@@ -220,8 +220,8 @@ impl Query {
         Ok(())
     }
 
-    pub async fn upsert_related_by_geofence_id(
-        db: &DatabaseConnection,
+    pub async fn upsert_related_by_geofence_id<C: ConnectionTrait>(
+        db: &C,
         projects: &[serde_json::Value],
         geofence_id: u32,
     ) -> Result<(), DbErr> {

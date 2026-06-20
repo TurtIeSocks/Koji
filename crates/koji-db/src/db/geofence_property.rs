@@ -185,8 +185,8 @@ impl Query {
         .await
     }
 
-    pub async fn update_values_for_property(
-        db: &DatabaseConnection,
+    pub async fn update_values_for_property<C: ConnectionTrait>(
+        db: &C,
         property_id: u32,
         new_value: &Option<String>,
     ) -> Result<UpdateResult, DbErr> {

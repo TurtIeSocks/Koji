@@ -108,8 +108,8 @@ impl Query {
         Ok(results)
     }
 
-    pub async fn upsert(
-        db: &DatabaseConnection,
+    pub async fn upsert<C: ConnectionTrait>(
+        db: &C,
         id: u32,
         new_model: Json,
     ) -> Result<Model, ModelError> {
@@ -153,8 +153,8 @@ impl Query {
         Ok(json!(result))
     }
 
-    pub async fn get_or_create_db_prop(
-        db: &DatabaseConnection,
+    pub async fn get_or_create_db_prop<C: ConnectionTrait>(
+        db: &C,
         prop: &str,
     ) -> Result<Model, DbErr> {
         let record = Entity::find()
