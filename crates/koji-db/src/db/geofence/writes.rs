@@ -207,8 +207,8 @@ impl Query {
         Ok(())
     }
 
-    pub async fn assign(
-        db: &DatabaseConnection,
+    pub async fn assign<C: ConnectionTrait>(
+        db: &C,
         id: u32,
         property: String,
         payload: serde_json::Value,

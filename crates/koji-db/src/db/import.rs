@@ -168,7 +168,9 @@ pub async fn import(
             results.push(predicted[index].clone());
             continue;
         }
-        let parent_id = it.parent.as_deref().and_then(|p| name_to_id.get(p).copied());
+        // Parent is set in a deferred pass below (after every batch fence is in
+        // name_to_id), so a parent that forward-references a fence listed later
+        // in the batch still links — never silently dropped.
         let mut body = json!({
             "name": name,
             "geometry": it.geometry,
@@ -177,9 +179,6 @@ pub async fn import(
         });
         if let Some(mode) = &it.mode {
             body["mode"] = json!(mode);
-        }
-        if let Some(pid) = parent_id {
-            body["parent"] = json!(pid);
         }
         match geofence::Query::upsert(&txn, 0, body).await {
             Ok(model) => {
@@ -196,6 +195,33 @@ pub async fn import(
                 txn.rollback().await?;
                 return Ok(fail_result(index, name, e.to_string()));
             }
+        }
+    }
+
+    // Parent-association pass: every batch geofence is now in name_to_id, so a
+    // parent that forward-references a fence listed later in the batch resolves
+    // here (validation already guaranteed it exists). Skipped-collision fences
+    // keep whatever parent they already have.
+    for (index, it) in items.iter().enumerate() {
+        if it.kind != ImportKind::Geofence || predicted[index].action == ImportAction::Skip {
+            continue;
+        }
+        let Some(parent_name) = it.parent.as_deref() else {
+            continue;
+        };
+        let name = it.name.trim().to_string();
+        let (Some(child_id), Some(parent_id)) = (
+            name_to_id.get(&name).copied(),
+            name_to_id.get(parent_name).copied(),
+        ) else {
+            txn.rollback().await?;
+            return Ok(fail_result(index, name, format!("parent `{parent_name}` not found")));
+        };
+        if let Err(e) =
+            geofence::Query::assign(&txn, child_id, "parent".to_string(), json!(parent_id)).await
+        {
+            txn.rollback().await?;
+            return Ok(fail_result(index, name, e.to_string()));
         }
     }
 

@@ -57,3 +57,31 @@ async fn rollback_on_unresolvable_route_parent_leaves_nothing() {
     assert!(!r.committed);
     assert!(r.results.iter().any(|o| o.action == ImportAction::Fail));
 }
+
+#[tokio::test]
+async fn geofence_parent_forward_reference_links() {
+    use koji_db::db::geofence;
+    let Some(db) = conn().await else { eprintln!("skip: KOJI_DB_URL unset"); return; };
+    let parent_name = "itest-parent-fwd";
+    let child_name = "itest-child-fwd";
+
+    // Child lists its parent by name, and the child appears BEFORE the parent in
+    // the batch — a single-pass import would resolve the parent to None and drop
+    // the link silently. Overwrite so the assertion holds on repeated runs.
+    let mut child = fence(child_name);
+    child.parent = Some(parent_name.to_string());
+    child.on_collision = OnCollision::Overwrite;
+    let mut parent = fence(parent_name);
+    parent.on_collision = OnCollision::Overwrite;
+
+    let r = import(&db, vec![child, parent], false).await.unwrap();
+    assert!(r.committed, "import should commit: {:?}", r.results);
+
+    let parent_model = geofence::Query::get_one(&db, parent_name.to_string()).await.unwrap();
+    let child_model = geofence::Query::get_one(&db, child_name.to_string()).await.unwrap();
+    assert_eq!(
+        child_model.parent,
+        Some(parent_model.id),
+        "child's parent must link the fence listed later in the batch"
+    );
+}
