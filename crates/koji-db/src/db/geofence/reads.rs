@@ -59,7 +59,7 @@ impl Query {
     }
 
     /// Returns a single Geofence model and it's related projects as tuple
-    pub async fn get_one(db: &DatabaseConnection, id: String) -> Result<Model, ModelError> {
+    pub async fn get_one<C: ConnectionTrait>(db: &C, id: String) -> Result<Model, ModelError> {
         let record = match id.parse::<u32>() {
             Ok(id) => Entity::find_by_id(id).one(db).await?,
             Err(_) => Entity::find().filter(Column::Name.eq(id)).one(db).await?,

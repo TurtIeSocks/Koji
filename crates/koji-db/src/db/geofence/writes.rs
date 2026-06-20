@@ -14,8 +14,8 @@ use super::*;
 use serde_json::json;
 
 impl Query {
-    pub async fn update_related_route_names(
-        conn: &DatabaseConnection,
+    pub async fn update_related_route_names<C: ConnectionTrait>(
+        conn: &C,
         old_model: &Model,
         new_name: String,
     ) -> Result<UpdateResult, DbErr> {
@@ -27,8 +27,8 @@ impl Query {
             .await
     }
 
-    pub async fn upsert_related_properties(
-        db: &DatabaseConnection,
+    pub async fn upsert_related_properties<C: ConnectionTrait>(
+        db: &C,
         json: &serde_json::Value,
         geofence_id: u32,
     ) -> Result<(), ModelError> {
@@ -46,13 +46,12 @@ impl Query {
                     }
                 }
             });
-            let upserted_props = future::try_join_all(
-                new_props
-                    .clone()
-                    .into_iter()
-                    .map(|result| property::Query::upsert(db, 0, result)),
-            )
-            .await?;
+
+            // Sequential (not try_join_all): may run inside a DatabaseTransaction.
+            let mut upserted_props = Vec::with_capacity(new_props.len());
+            for result in new_props.clone() {
+                upserted_props.push(property::Query::upsert(db, 0, result).await?);
+            }
 
             upserted_props
                 .into_iter()
@@ -75,8 +74,8 @@ impl Query {
         Ok(())
     }
 
-    pub async fn upsert_related_projects(
-        db: &DatabaseConnection,
+    pub async fn upsert_related_projects<C: ConnectionTrait>(
+        db: &C,
         json: &serde_json::Value,
         geofence_id: u32,
     ) -> Result<(), DbErr> {
@@ -90,7 +89,7 @@ impl Query {
     }
 
     /// Updates or creates a Geofence model, returns a model struct
-    pub async fn upsert(db: &DatabaseConnection, id: u32, json: Json) -> Result<Model, ModelError> {
+    pub async fn upsert<C: ConnectionTrait>(db: &C, id: u32, json: Json) -> Result<Model, ModelError> {
         let mut json = json;
 
         let mut new_model = json.to_geofence()?;
@@ -129,8 +128,8 @@ impl Query {
     }
 
     /// Updates or creates a Geofence model, returns a json
-    pub async fn upsert_json_return(
-        db: &DatabaseConnection,
+    pub async fn upsert_json_return<C: ConnectionTrait>(
+        db: &C,
         id: u32,
         json: Json,
     ) -> Result<Json, ModelError> {
