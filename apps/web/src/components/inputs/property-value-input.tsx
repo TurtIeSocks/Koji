@@ -14,6 +14,10 @@ interface PropertyValueInputProps {
    * Defaults to "category".
    */
   categorySource?: string;
+  /** Explicit category — overrides the watched sibling when provided. */
+  category?: string;
+  /** Field label. Defaults to "Default Value". */
+  label?: string;
 }
 
 const JSON_CATEGORIES = new Set(["object", "array"]);
@@ -29,30 +33,35 @@ const JSON_CATEGORIES = new Set(["object", "array"]);
  * @example
  * <PropertyValueInput source="default_value" />
  * <PropertyValueInput source="value" categorySource="prop_category" />
+ * <PropertyValueInput source="value" category="boolean" label="Value" />
  */
 function PropertyValueInput({
   source,
   categorySource = "category",
+  category: categoryProp,
+  label = "Default Value",
 }: PropertyValueInputProps) {
-  const category = useWatch({ name: categorySource }) as string | undefined;
+  // Hooks rule: always call useWatch; ignore its result when an explicit category is given.
+  const watched = useWatch({ name: categorySource }) as string | undefined;
+  const category = categoryProp ?? watched;
 
   if (category === "boolean") {
-    return <BooleanInput source={source} label="Default Value" />;
+    return <BooleanInput source={source} label={label} />;
   }
 
   if (category === "number") {
-    return <NumberInput source={source} label="Default Value" />;
+    return <NumberInput source={source} label={label} />;
   }
 
   if (category === "color") {
-    return <ColorInput source={source} label="Default Value" />;
+    return <ColorInput source={source} label={label} />;
   }
 
   if (category != null && JSON_CATEGORIES.has(category)) {
     return (
       <MonacoJsonInput
         source={source}
-        label="Default Value"
+        label={label}
         height={200}
         helperText={`Must be a JSON ${category}.`}
       />
@@ -63,7 +72,7 @@ function PropertyValueInput({
     return (
       <TextInput
         source={source}
-        label="Default Value"
+        label={label}
         disabled
         helperText="Resolved from the database at runtime — cannot be set here."
       />
@@ -71,7 +80,7 @@ function PropertyValueInput({
   }
 
   // Fallback: string / unknown / undefined → plain TextInput
-  return <TextInput source={source} label="Default Value" />;
+  return <TextInput source={source} label={label} />;
 }
 
 export { PropertyValueInput, type PropertyValueInputProps };

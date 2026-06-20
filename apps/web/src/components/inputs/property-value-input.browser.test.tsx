@@ -30,6 +30,21 @@ const wrap = (node: React.ReactNode) => (
   </AdminContext>
 );
 
+/** Render a node inside a minimal RHF form with AdminContext. */
+const renderInForm = (
+  node: React.ReactNode,
+  options?: { defaultValues?: Record<string, unknown> },
+) =>
+  render(
+    wrap(
+      <Create>
+        <SimpleForm defaultValues={options?.defaultValues ?? {}}>
+          {node}
+        </SimpleForm>
+      </Create>,
+    ),
+  );
+
 describe("PropertyValueInput", () => {
   it("renders a TextInput by default (string category)", async () => {
     const screen = render(
@@ -65,5 +80,38 @@ describe("PropertyValueInput", () => {
     );
     // category=boolean → BooleanInput (a switch)
     await expect.element(screen.getByRole("switch")).toBeVisible();
+  });
+
+  // --- New cases: explicit category prop ---
+
+  it("renders BooleanInput when category prop is 'boolean' (explicit, no sibling)", async () => {
+    const screen = renderInForm(
+      <PropertyValueInput source="value" category="boolean" label="Value" />,
+    );
+    await expect.element(screen.getByLabelText(/value/i)).toBeVisible();
+    // BooleanInput renders a switch/checkbox role
+    await expect
+      .element(screen.getByRole("switch").or(screen.getByRole("checkbox")))
+      .toBeVisible();
+  });
+
+  it("renders a Monaco JSON editor when category prop is 'object'", async () => {
+    const screen = renderInForm(
+      <PropertyValueInput source="value" category="object" label="Value" />,
+    );
+    // MonacoJsonInput shows the helperText naming the JSON category.
+    await expect.element(screen.getByText(/must be a json object/i)).toBeVisible();
+  });
+
+  it("uses the explicit category over the watched sibling field", async () => {
+    // Sibling category field says "number" but the prop says "color" → prop wins.
+    const screen = renderInForm(
+      <PropertyValueInput source="value" category="color" />,
+      { defaultValues: { category: "number", value: "#ff0000" } },
+    );
+    // ColorInput renders a native color input.
+    await expect
+      .element(screen.container.querySelector('input[type="color"]'))
+      .toBeInTheDocument();
   });
 });
