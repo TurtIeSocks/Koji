@@ -6,10 +6,21 @@ import {
   FilterListItem,
   BulkActionsToolbar,
   BulkDeleteButton,
+  CreateButton,
+  ExportButton,
 } from "@/components/admin";
 import { ListLive } from "@/components/realtime";
 import { ROUTE_MODES } from "@/lib/constants";
 import { BulkPublishButton } from "@/components/actions/publish-button";
+import { ImportButton } from "@/resources/import/import-button";
+
+const RouteListActions = () => (
+  <div className="flex items-center gap-2">
+    <CreateButton />
+    <ExportButton />
+    <ImportButton />
+  </div>
+);
 
 const RouteFilters = () => (
   <div className="flex w-56 flex-col gap-4">
@@ -30,7 +41,7 @@ export const RouteBulkToolbar = () => (
 );
 
 export const RouteList = () => (
-  <ListLive aside={<RouteFilters />}>
+  <ListLive aside={<RouteFilters />} actions={<RouteListActions />}>
     <DataTable bulkActionsToolbar={<RouteBulkToolbar />}>
       <DataTable.Col source="name" />
       <DataTable.Col source="description" />

@@ -58,6 +58,15 @@ describe("GeofenceList", () => {
     await expect.element(screen.getByPlaceholder(/search/i)).toBeVisible();
   });
 
+  it("renders an Import action linking to /import", async () => {
+    const screen = render(wrap(<GeofenceList />));
+    const importLink = screen.getByRole("link", { name: /import/i });
+    await expect.element(importLink).toBeVisible();
+    // Router-agnostic: hash history renders "#/import", browser history "/import".
+    const href = (importLink.element() as HTMLAnchorElement).getAttribute("href");
+    expect(href).toMatch(/\/import$/);
+  });
+
   it("renders BulkPublishButton in the bulk toolbar when rows are selected", async () => {
     const screen = render(
       <AdminContext
