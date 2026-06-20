@@ -506,6 +506,116 @@ git commit -m "feat(web): wire geofence properties array into the form + DP writ
 
 ---
 
+### Task 4: Backend — internal geofence getOne returns related data (read-path fix)
+
+**Discovered by live verify.** `GET /internal/geofences/{id}` forwards to the public GeoJSON feature `get_one`, whose feature `properties` carry only `id`/`mode`/`name` — NOT the geofence's custom `properties`, `projects`, or `parent`. So the admin edit form cannot hydrate existing related data (properties added in one edit vanish from the form on the next). The full related-read already exists (`geofence::Query::get_one_json_with_related`, `crates/koji-db/src/db/geofence/reads.rs:81`) but is wired to no endpoint. This task points the internal item GET at a bespoke handler that reshapes that related-read into a GeoJSON Feature whose `properties` bag carries the related data — so the existing frontend `featureToRecord` hydrates it with NO data-provider change. Also retroactively fixes slice 3's projects/parent hydration.
+
+**Files:**
+- Modify: `crates/koji-service/src/public/v2/geofences.rs` (add `related_to_feature` helper + `internal_get_one` handler; repoint `internal_item_scope`'s item GET)
+
+**Interfaces:**
+- Consumes: `geofence::Query::get_one_json_with_related(db, id: String) -> Result<Json, ModelError>`.
+- Produces: `GET /internal/geofences/{id}` → `{ type: "Feature", geometry, properties: { id, name, mode, parent, projects: [u32], properties: [{property_id, value, category, name, ...}], routes: [...] } }` inside the `{status,data}` envelope.
+
+- [ ] **Step 1: Write the failing unit test for the reshape helper**
+
+In `crates/koji-service/src/public/v2/geofences.rs`'s `#[cfg(test)] mod tests`, add a test for a pure `related_to_feature(related: serde_json::Value) -> serde_json::Value` helper (no DB — exercises only the JSON reshape):
+
+```rust
+#[test]
+fn related_to_feature_moves_geometry_and_keeps_related() {
+    let related = json!({
+        "id": 9, "name": "F", "mode": "pokemon", "parent": null,
+        "geometry": { "type": "Polygon", "coordinates": [] },
+        "projects": [1, 2],
+        "properties": [{ "property_id": 5, "value": true, "category": "boolean", "name": "is_event" }],
+    });
+    let feature = related_to_feature(related);
+    assert_eq!(feature["type"], "Feature");
+    // geometry is lifted out to the Feature level
+    assert_eq!(feature["geometry"]["type"], "Polygon");
+    // the related data rides in the properties bag (so featureToRecord hydrates it)
+    assert_eq!(feature["properties"]["projects"], json!([1, 2]));
+    assert_eq!(feature["properties"]["properties"][0]["property_id"], 5);
+    assert_eq!(feature["properties"]["name"], "F");
+    // geometry key is not duplicated inside properties (it was removed)
+    assert!(feature["properties"].get("geometry").map_or(true, |g| g.is_null()));
+}
+```
+
+- [ ] **Step 2: Run it, verify it fails**
+
+Run: `cargo test -p koji --lib internal::geofences related_to_feature 2>&1 | tail -20` (the bin package is `koji`; if the path filter misses, run `cargo test -p koji related_to_feature`)
+Expected: FAIL — `related_to_feature` not found.
+
+- [ ] **Step 3: Implement the helper + handler + rewire**
+
+Add near `internal_item_scope` in `geofences.rs`:
+
+```rust
+/// Reshape the related-read JSON (`{geometry, name, mode, parent, projects,
+/// properties, ...}`) into a GeoJSON Feature: geometry lifted to the Feature
+/// level, everything else kept in the `properties` bag so the admin client's
+/// `featureToRecord` hydrates the related data without a data-provider change.
+fn related_to_feature(mut related: serde_json::Value) -> serde_json::Value {
+    let geometry = related
+        .as_object_mut()
+        .and_then(|o| o.remove("geometry"))
+        .unwrap_or(serde_json::Value::Null);
+    json!({ "type": "Feature", "geometry": geometry, "properties": related })
+}
+
+/// `GET /internal/geofences/{id}` — the full editable record as a GeoJSON
+/// Feature whose `properties` bag carries the related `projects`/`properties`
+/// (+ name/mode/parent) that the admin edit form hydrates. The public `get_one`
+/// returns only id/mode/name in the feature, which is insufficient for editing.
+pub(crate) async fn internal_get_one(
+    conn: web::Data<KojiDb>,
+    path: web::Path<u32>,
+) -> Result<HttpResponse, ServiceError> {
+    let id = path.into_inner();
+    let related = geofence::Query::get_one_json_with_related(&conn.koji, id.to_string())
+        .await
+        .map_err(|_| ServiceError::NotFound {
+            field: "geofence",
+            message: format!("no geofence {id}"),
+        })?;
+    Ok(ApiResponse::success(related_to_feature(related)))
+}
+```
+
+Then repoint the internal item GET (do NOT add a separate GET-only resource — that re-creates the 405 trap from foundation Task A6). In `internal_item_scope()` change the `/{id}` GET route:
+
+```rust
+        .service(
+            web::resource("/{id}")
+                .route(web::get().to(internal_get_one))
+                .route(web::patch().to(update))
+                .route(web::delete().to(remove)),
+        )
+```
+
+Leave the PUBLIC `scope()` (line ~428) untouched — its `/{id}` GET stays `get_one` (the clean public feature read).
+
+- [ ] **Step 4: Run the unit test, verify green**
+
+Run: `cargo test -p koji related_to_feature 2>&1 | tail -20`
+Expected: PASS.
+
+- [ ] **Step 5: Clippy + build the server binary**
+
+Run: `cargo clippy -p koji -p koji-service 2>&1 | tail -20` then `cargo build -p koji 2>&1 | tail -5`
+Expected: 0 warnings, build succeeds.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add crates/koji-service/src/public/v2/geofences.rs
+git commit -m "feat(internal): geofence getOne returns related projects/properties for the admin edit form"
+```
+
+---
+
 ## Final Verification (controller, after all tasks)
 
 - [ ] `bun run typecheck` — 0 errors
