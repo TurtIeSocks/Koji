@@ -59,6 +59,33 @@ async fn rollback_on_unresolvable_route_parent_leaves_nothing() {
 }
 
 #[tokio::test]
+async fn rollback_after_begin_leaves_nothing_written() {
+    use koji_db::db::geofence;
+    let Some(db) = conn().await else { eprintln!("skip: KOJI_DB_URL unset"); return; };
+    let name = "itest-rollback-mid-tx";
+
+    // Validation passes (project ids are not pre-checked), but committing a
+    // geofence_project row for a non-existent project violates the FK AFTER
+    // db.begin() — exercising the post-begin rollback path (the route-parent
+    // test fails at validation, before begin, so it does NOT cover this). The
+    // whole tx must roll back, leaving the geofence UNwritten.
+    let mut g = fence(name);
+    g.projects = vec![999_999_999];
+
+    let r = import(&db, vec![g], false).await.unwrap();
+    assert!(!r.committed, "FK violation mid-tx must abort the commit: {:?}", r.results);
+    assert!(
+        r.results.iter().any(|o| o.action == ImportAction::Fail),
+        "the offending item must be reported as a failure"
+    );
+    // Atomicity: the geofence inserted earlier in the same tx must be gone.
+    assert!(
+        geofence::Query::get_one(&db, name.to_string()).await.is_err(),
+        "a rolled-back geofence must not be persisted"
+    );
+}
+
+#[tokio::test]
 async fn geofence_parent_forward_reference_links() {
     use koji_db::db::geofence;
     let Some(db) = conn().await else { eprintln!("skip: KOJI_DB_URL unset"); return; };
