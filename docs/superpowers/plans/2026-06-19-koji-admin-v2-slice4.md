@@ -628,16 +628,27 @@ git commit -m "feat(internal): geofence getOne returns related projects/properti
   - **Write round-trip (Task 3):** set the switch true → Save → the captured PATCH body was exactly `{"properties":[{"property_id":17,"value":true}], ...}` — `serializeGeofenceWrite` stripped the row to the wire shape. Backend persisted (200).
   - **Hydration:** reload → the row rehydrated with `is_event_verify` selected + boolean switch = true. Full add→save→reload loop verified.
 
-### Live-verify finding (OUT OF SCOPE — pre-existing, not slice-4 code)
+### Live-verify note (NOT a bug — Claude Preview environment artifact)
 
-Undoable Edit/Delete/bulk saves **never auto-commit**. The success toast is created with an
-infinite duration (`apps/web/src/components/admin/feedback/notification.tsx:142` maps
-`autoHideDuration === null → Infinity`), so sonner's `onAutoClose` never fires → the deferred
-`mutation({isUndo:false})` in `handleExited` never runs → no PATCH/DELETE is sent. The mutation
-only commits when the user **manually dismisses** the toast (close button). An ignored toast =
-silently lost edit. Verified deterministically: a `name` edit + Save produced the optimistic
-"Element updated / Undo" toast and redirect, but no PATCH for 9s+; clicking the toast close
-button fired the PATCH and persisted. Affects every resource, not just geofence properties.
-Slice 4 only added the serializer + the read endpoint — neither touches the save/notification
-path. Tracked separately for a focused fix (needs a finite undoable timeout that still preserves
-the Undo window).
+During live-verify the undoable Edit toast appeared to never auto-commit (Save → "Element
+updated / Undo" toast + redirect, but no PATCH; only manually dismissing the toast committed).
+**This is NOT a production bug — it is an artifact of the headless Claude Preview browser.**
+
+Root cause: the preview browser renders offscreen, so `document.hidden === true` /
+`document.visibilityState === "hidden"`. sonner pauses every toast's auto-close timer while the
+document is hidden (`apps/web/node_modules/sonner/dist/index.mjs:605`:
+`if (expanded || interacting || isDocumentHidden) pauseTimer()`). With the timer paused
+indefinitely, the toast never auto-closes, so the deferred `mutation({isUndo:false})` (wired to
+sonner's `onAutoClose` in `notification.tsx:handleExited`) never fires. ra-core's Edit success
+notify (`useEditController`) passes only `{ undoable: true }` with NO `autoHideDuration`, so
+sonner uses its default 4000ms — which works fine in a real, visible tab.
+
+Proven: forcing `document.hidden → false` + dispatching `visibilitychange` (so sonner resumes
+the timer), then editing the name and Saving → the toast auto-closed after ~4s and the PATCH
+fired and persisted (`updated_at` bumped) with NO manual dismissal. The undoable auto-commit
+works correctly for real users. No code change needed. The bridge's `null → Infinity` mapping is
+correct (for genuinely persistent non-undoable toasts).
+
+**Verification lesson:** Claude Preview = `document.hidden`; any visibility-gated timer (sonner
+auto-dismiss, undoable commits, polling that pauses when hidden) will not fire in the preview.
+To live-verify such flows, force visibility or manually trigger the close.
