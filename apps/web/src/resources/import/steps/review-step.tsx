@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Link } from "react-router";
 import { postImport, type ImportResult } from "@/lib/import-api";
@@ -29,12 +29,23 @@ export function ReviewStep({ onCommitted }: ReviewStepProps) {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<ImportResult | null>(null);
 
+  // Serialize the form features ONCE when the step mounts, so the dry-run
+  // preview and the real commit send byte-identical payloads. Steps are
+  // conditionally rendered, so the step remounts on revisit and re-reads the
+  // latest features then — re-reading per call would not reflect edits anyway.
+  const items = useMemo(
+    () =>
+      featuresToImportItems(
+        getValues("features") as Parameters<typeof featuresToImportItems>[0],
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   async function runDryRun() {
     setLoading(true);
     setError(null);
     try {
-      const features = getValues("features") as unknown[];
-      const items = featuresToImportItems(features as Parameters<typeof featuresToImportItems>[0]);
       const result = await postImport({ dry_run: true, items });
       setReport(result);
     } catch (err) {
@@ -52,8 +63,6 @@ export function ReviewStep({ onCommitted }: ReviewStepProps) {
     setLoading(true);
     setError(null);
     try {
-      const features = getValues("features") as unknown[];
-      const items = featuresToImportItems(features as Parameters<typeof featuresToImportItems>[0]);
       const result = await postImport({ dry_run: false, items });
       if (result.committed) {
         setDone(result);

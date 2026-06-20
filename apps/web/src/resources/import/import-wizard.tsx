@@ -31,36 +31,28 @@ function ImportWizard() {
     return () => window.removeEventListener("beforeunload", beforeunload);
   }, [isDirty, committed]);
 
-  // --- Leave-guard: in-app navigation (react-router v8 data router) -----
-  // ponytail: useBlocker only works when the router is a data router (TanStack/
-  // RR v6.4+ createBrowserRouter). If the Admin shell uses the legacy BrowserRouter,
-  // this throws on mount — wrap in try/catch and fall back to beforeunload-only.
-  let blocker: ReturnType<typeof useBlocker> | null = null;
-  try {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    blocker = useBlocker(
-      ({ currentLocation, nextLocation }) =>
-        isDirty && !committed && currentLocation.pathname !== nextLocation.pathname,
-    );
-  } catch {
-    // ponytail: Admin router is not a data router — in-app blocker not available.
-    // beforeunload guard above still covers tab-close/reload.
-    blocker = null;
-  }
+  // --- Leave-guard: in-app navigation (react-router data router) --------
+  // The Admin shell mounts a data router, so useBlocker is available. It is
+  // called unconditionally (hooks must never be conditional); the condition
+  // returns false unless there is unsaved, uncommitted work, so the blocker
+  // stays inert until the form is dirty.
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      isDirty && !committed && currentLocation.pathname !== nextLocation.pathname,
+  );
 
-  // Show confirm dialog when in-app blocker fires
+  // Confirm before discarding an in-progress import on an in-app navigation.
   useEffect(() => {
-    if (!blocker || blocker.state !== "blocked") return;
-    if (
-      window.confirm(
-        "Discard this import? Unsaved features will be lost.",
-      )
-    ) {
+    if (blocker.state !== "blocked") return;
+    if (window.confirm("Discard this import? Unsaved features will be lost.")) {
       blocker.proceed();
     } else {
       blocker.reset();
     }
-  }, [blocker, blocker?.state]);
+    // Re-run only on a state transition — not on every blocker identity change —
+    // so answering the confirm once does not re-prompt while still "blocked".
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocker.state]);
 
   return (
     <ResourceContextProvider value="geofence">

@@ -62,9 +62,14 @@ describe("ReviewStep", () => {
     // Wait for dry-run to complete
     await expect.element(screen.getByText(/create:\s*2/i)).toBeVisible();
 
-    // Both rows render with "create" badge
-    const badges = screen.getByText("create");
-    await expect.element(badges.first()).toBeVisible();
+    // Both rows render a "create" action badge — count leaf elements whose
+    // exact text is "create" (the summary uses "Create:", so it won't match).
+    const createBadges = Array.from(
+      screen.container.querySelectorAll("*"),
+    ).filter(
+      (el) => el.children.length === 0 && el.textContent?.trim() === "create",
+    );
+    expect(createBadges.length).toBe(2);
 
     // Commit button enabled (fail === 0)
     const commitBtn = screen.getByRole("button", { name: /commit import/i });
