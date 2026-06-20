@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Stepper } from "@/components/import/stepper";
 import { SourceStep } from "./steps/source-step";
 import { MapNameStep } from "./steps/map-name-step";
+import { AssignStep } from "./steps/assign-step";
 import { IMPORT_STEPS, useImportStep } from "./wizard-context";
 
 /** The import wizard page (`/import`). One RHF form hosts all steps; the
@@ -22,7 +23,7 @@ function ImportWizard() {
           <div className="min-h-[40vh]">
             {active === 0 && <SourceStep onLoaded={next} />}
             {active === 1 && <MapNameStep />}
-            {active === 2 && <p className="text-muted-foreground">Assign (B6)</p>}
+            {active === 2 && <AssignStep />}
             {active === 3 && <p className="text-muted-foreground">Review (B7)</p>}
           </div>
           <div className="flex justify-between">
