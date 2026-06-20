@@ -3,6 +3,7 @@ import { ResourceContextProvider } from "shadmin-core";
 import { Button } from "@/components/ui/button";
 import { Stepper } from "@/components/import/stepper";
 import { SourceStep } from "./steps/source-step";
+import { MapNameStep } from "./steps/map-name-step";
 import { IMPORT_STEPS, useImportStep } from "./wizard-context";
 
 /** The import wizard page (`/import`). One RHF form hosts all steps; the
@@ -20,9 +21,7 @@ function ImportWizard() {
           <Stepper steps={[...IMPORT_STEPS]} active={active} />
           <div className="min-h-[40vh]">
             {active === 0 && <SourceStep onLoaded={next} />}
-            {active === 1 && (
-              <p className="text-muted-foreground">Map &amp; Name (B5)</p>
-            )}
+            {active === 1 && <MapNameStep />}
             {active === 2 && <p className="text-muted-foreground">Assign (B6)</p>}
             {active === 3 && <p className="text-muted-foreground">Review (B7)</p>}
           </div>
