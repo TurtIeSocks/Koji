@@ -26,7 +26,7 @@ use crate::utils::error::ServiceError;
 use crate::utils::pagination::Pagination;
 use crate::utils::{self, api_response::ApiError, api_response::ApiResponse};
 
-/// Priority for calc jobs (spec §6/§8: calc = HIGH).
+/// Priority for calc jobs (job-queue-design §4/§8: calc = HIGH).
 const PRIORITY_HIGH: i16 = 100;
 /// Max sync-bridge wait the `GET /jobs/{id}?wait=` long-poll honors.
 const MAX_WAIT_SECS: u64 = 290;

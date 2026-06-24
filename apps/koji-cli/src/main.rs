@@ -12,8 +12,9 @@
 //!
 //! It deliberately stays generic: `enqueue` takes the raw payload JSON the
 //! handler expects and performs **no** calc-input resolution (that lives in the
-//! HTTP `run_calc` path). For the `calculate` kind, the payload must be a
-//! fully-resolved [`koji_service::CalcPayload`] shape.
+//! HTTP `create_job` handler, `koji-service/src/public/v2/jobs.rs`). For the
+//! `calculate` kind, the payload must be a fully-resolved
+//! [`koji_service::CalcPayload`] shape.
 //!
 //! Startup mirrors `apps/koji-server/src/main.rs`: load `.env` (override via the
 //! `ENV` var) and init `env_logger` from `LOG_LEVEL`. It then bootstraps the DB
@@ -29,13 +30,14 @@ use clap::{Parser, Subcommand};
 use koji_jobs::{AwaitError, HandlerRegistry, JobId, JobOutcome, JobQueue};
 use koji_service::CalculateHandler;
 
-/// Wait budget for `enqueue --wait`, matching the HTTP sync bridge (spec §7:
-/// 290s, then report the job id as "still running").
+/// Wait budget for `enqueue --wait`, matching the HTTP sync bridge (v2-api
+/// redesign §4.1: 290s, then report the job id as "still running").
 const WAIT_BUDGET: Duration = Duration::from_secs(290);
 
 /// Default job priority for CLI enqueues. `0` is the DB default and the same
 /// value the generic `POST /api/v2/jobs` endpoint uses for async work (sync calc
-/// uses a higher priority; CLI/async work is normal-priority — spec §6/§8).
+/// uses a higher priority; CLI/async work is normal-priority — job-queue-design
+/// §4 schema + §8 claim order).
 const PRIORITY_NORMAL: i16 = 0;
 
 /// Operator CLI over the Koji V2 job queue.
@@ -263,7 +265,7 @@ async fn enqueue(
             process::exit(1);
         }
         // Timeout is NOT a failure: the job keeps running. Report the id so the
-        // caller can poll it later with `get` (spec §7/§11).
+        // caller can poll it later with `get` (v2-api redesign §4.1).
         Err(AwaitError::Timeout) => {
             println!(
                 "{}",
