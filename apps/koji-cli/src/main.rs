@@ -39,8 +39,35 @@ const WAIT_BUDGET: Duration = Duration::from_secs(290);
 const PRIORITY_NORMAL: i16 = 0;
 
 /// Operator CLI over the Koji V2 job queue.
+///
+/// Wires the same `JobQueue` the HTTP server uses against the Koji DB, so you can
+/// drive the queue out-of-process: run workers, push jobs, and read their state.
+///
+/// REQUIRES A LIVE DB. On startup it loads `.env` (override the file via the `ENV`
+/// env var) and bootstraps the DB from `KOJI_DB_URL` + `GOLBAT_DB_URL` — every
+/// subcommand, `get` included, opens the DB before doing anything. Logging uses
+/// `env_logger`, reading `LOG_LEVEL` (default `info`) and writing to stdout.
 #[derive(Debug, Parser)]
-#[command(name = "koji-cli", version, about, long_about = None)]
+#[command(
+    name = "koji-cli",
+    version,
+    after_long_help = r#"EXAMPLES:
+  # Drain the queue with 4 workers until Ctrl-C
+  koji-cli worker --concurrency 4
+
+  # Enqueue a calc job from a file and block for the result
+  koji-cli enqueue --kind calculate --payload @calc.json --wait
+
+  # Enqueue async (prints {"job_id": "..."}), then poll it later
+  koji-cli enqueue --kind calculate --payload @calc.json
+  koji-cli get --id 01J9Z6P7QK8X3M2YQF3V8B7C9D
+
+ENVIRONMENT:
+  ENV            dotenv file to load                    [default: .env]
+  KOJI_DB_URL    Koji database URL                      [required]
+  GOLBAT_DB_URL  Golbat database URL                    [required]
+  LOG_LEVEL      env_logger filter directive            [default: info]"#
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -49,29 +76,83 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum Command {
     /// Run a job-worker pool (registers the `calculate` handler) until Ctrl-C.
+    ///
+    /// Registers the `calculate` handler (same as the server) and claims jobs in
+    /// `priority DESC` order. Use it to process the queue out-of-process from the
+    /// HTTP server; run as many as you like across processes/machines — job claims
+    /// are atomic, so workers never double-run a job. On Ctrl-C it stops claiming
+    /// new jobs and drains the in-flight ones before exiting.
     Worker {
         /// Number of concurrent workers in this process.
+        ///
+        /// Each worker runs one job at a time, so this is the per-process
+        /// parallelism. Clamped to at least 1.
         #[arg(long, default_value_t = 1)]
         concurrency: usize,
     },
     /// Enqueue a job and optionally wait for its result.
+    ///
+    /// Generic: takes any handler `--kind` plus the raw `--payload` JSON that
+    /// handler expects, and performs NO input resolution. For `--kind calculate`
+    /// the payload must already be a fully-resolved `koji_service::CalcPayload`
+    /// (the HTTP `POST /api/v2/jobs` path resolves area / data-points before
+    /// enqueue; the CLI does not). Every CLI enqueue is its own job — no dedup
+    /// (the HTTP path composes a dedup key; the CLI passes none).
+    #[command(after_long_help = r#"CALC PAYLOAD (--kind calculate):
+  A `CalcPayload` JSON object carrying the already-resolved inputs:
+    mode         calc mode string (e.g. `fastest`, `route`, `bootstrap`)
+    category     data category (`pokestop`, `fort`, `station`, `spawnpoint`)
+    request      the tagged CalcRequest body (its `mode` field selects the op)
+    area         pre-resolved GeoJSON FeatureCollection
+    data_points  pre-resolved [[lat, lon], ...] (may be empty for bootstrap)
+    clusters     pre-resolved cluster set for reroute / route-stats (optional)
+  This is the resolved shape, NOT the HTTP request body. See
+  `koji_service::CalcPayload` / the server OpenAPI schema for the exact,
+  current field set.
+
+EXAMPLES:
+  koji-cli enqueue --kind calculate --payload @calc.json --wait
+  koji-cli enqueue --kind calculate --payload '{"mode":"fastest","category":"pokestop", ...}'"#)]
     Enqueue {
         /// Handler kind to run (e.g. `calculate`).
+        ///
+        /// Must match a handler registered by a running `worker` (or the server).
+        /// The calc handler's kind is `calculate`; an unknown kind enqueues a job
+        /// no worker will ever claim.
         #[arg(long)]
         kind: String,
         /// Job payload as a JSON string, or `@path` to read JSON from a file.
+        ///
+        /// A leading `@` reads the JSON from the named file (`--payload @calc.json`);
+        /// otherwise the argument itself is parsed as JSON. Must match the shape the
+        /// target handler expects — see the CALC PAYLOAD notes for `--kind calculate`.
         #[arg(long)]
         payload: String,
         /// Block for the result (up to ~290s) instead of returning the id.
+        ///
+        /// Without `--wait`, prints `{"job_id": "..."}` immediately. With `--wait`,
+        /// blocks for a terminal outcome: on success prints the result JSON (exit 0);
+        /// on job failure/cancel prints the error (exit 1). If the ~290s budget
+        /// elapses the job keeps running and it prints
+        /// `{"job_id": "...", "status": "still running"}` (exit 0) — poll it with `get`.
         #[arg(long, default_value_t = false)]
         wait: bool,
-        /// Job priority (`priority DESC` claim order). Defaults to normal (0).
+        /// Job priority; workers claim highest-first (`priority DESC`).
+        ///
+        /// Defaults to normal (0) — the same priority async HTTP work gets. Raise it
+        /// to jump ahead of normal jobs in the claim order.
         #[arg(long)]
         priority: Option<i16>,
     },
     /// Read a job's status / progress / result by id.
+    ///
+    /// Prints the job's observable state as pretty JSON: id, kind, status, progress,
+    /// phase, result, and error. If no job has that id, prints
+    /// `{"error": "not found"}` and exits 0.
     Get {
-        /// The job id (26-char ULID `public_id`).
+        /// The job id — a 26-character ULID (`public_id`).
+        ///
+        /// This is the `job_id` printed by `enqueue`.
         #[arg(long)]
         id: String,
     },
