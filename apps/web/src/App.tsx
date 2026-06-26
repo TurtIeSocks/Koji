@@ -7,6 +7,7 @@ import { Dashboard } from '@/dashboard/dashboard'
 import { dataProvider } from '@/data-provider'
 import { geofence } from '@/resources/geofence'
 import { ImportWizard } from '@/resources/import/import-wizard'
+import { MapRoute } from '@/map/map-route'
 import { plugins } from '@/resources/plugins'
 import { project } from '@/resources/project'
 import { property } from '@/resources/property'
@@ -31,6 +32,7 @@ function App() {
       <Resource {...plugins} group="Config" />
       <CustomRoutes>
         <Route element={<ImportWizard />} path="/import" />
+        <Route element={<MapRoute />} path="/map" />
       </CustomRoutes>
     </Admin>
   )

@@ -53,6 +53,28 @@ export function unwrapResponse<T>(res: {
   return unwrap(res.json as Envelope<T>);
 }
 
+export const API_V2_BASE = "/api/v2";
+
+/** Like `internalFetch`, but targets the public `/api/v2` surface (markers,
+ *  s2, jobs, GeoJSON reads). Same session-cookie auth (`credentials: include`). */
+export async function apiV2Fetch(
+  path: string,
+  init?: RequestInit,
+): Promise<{ status: number; json: unknown }> {
+  const res = await fetch(`${API_V2_BASE}${path}`, {
+    credentials: "include",
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
+  const text = await res.text();
+  const json = text ? JSON.parse(text) : null;
+  return { status: res.status, json };
+}
+
 export async function internalFetch(
   path: string,
   init?: RequestInit,
