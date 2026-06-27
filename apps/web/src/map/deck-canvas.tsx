@@ -1,11 +1,12 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import DeckGL from "@deck.gl/react";
 import { Map as MapLibre } from "react-map-gl/maplibre";
 import { WebMercatorViewport } from "@deck.gl/core";
+import type { PickingInfo } from "@deck.gl/core";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { DEFAULT_TILE_URL } from "@/lib/constants";
 import { rasterStyle } from "@/map/lib/map-style";
-import { buildLayers } from "@/map/lib/layers";
+import { buildBaseLayers, buildEditLayer } from "@/map/lib/layers";
 import { useMapViewStore } from "@/map/stores/map-view-store";
 import { useMapUIStore } from "@/map/stores/map-ui-store";
 import { useMapSettingsStore } from "@/map/stores/map-settings-store";
@@ -32,6 +33,7 @@ export function DeckCanvas() {
   const draftFeatures = useMapUIStore((s) => s.draftFeatures);
   const selectedFeatureIndexes = useMapUIStore((s) => s.selectedFeatureIndexes);
   const setDraftFeatures = useMapUIStore((s) => s.setDraftFeatures);
+  const setSelectedFeatureIndexes = useMapUIStore((s) => s.setSelectedFeatureIndexes);
   const markerRadius = useMapSettingsStore((s) => s.markerRadius);
   const tileServerId = useMapSettingsStore((s) => s.tileServerId); // (Phase 1: maps to DEFAULT_TILE_URL)
 
@@ -57,9 +59,22 @@ export function DeckCanvas() {
   const routes = useGeoFeatures("routes", visibility.routes);
   const s2 = useS2Cells(s2Level, bounds, visibility.s2);
 
-  const layers = useMemo(
+  // Stable so the base-layer memo isn't invalidated every render.
+  const handleClick = useCallback(
+    (info: PickingInfo) => {
+      const id = info.layer?.id ?? "";
+      if (id.startsWith("markers-")) setSelection({ kind: "marker", id: String(info.index) });
+      else if (id === "geofences") setSelection({ kind: "geofence", id: String(info.index) });
+      else if (id === "routes") setSelection({ kind: "route", id: String(info.index) });
+    },
+    [setSelection],
+  );
+
+  // Base data layers — rebuilt ONLY when their data/visibility change, NOT on
+  // every edit click (that would repack the marker Float32Array each vertex).
+  const baseLayers = useMemo(
     () =>
-      buildLayers({
+      buildBaseLayers({
         visibility,
         markerSets: [
           { id: "gyms", points: gyms.data ?? [], color: [230, 80, 80] },
@@ -71,21 +86,25 @@ export function DeckCanvas() {
         routes: routes.data ?? { type: "FeatureCollection", features: [] },
         s2Cells: s2.data ?? [],
         markerRadius,
-        onClick: (info) => {
-          const id = info.layer?.id ?? "";
-          if (id.startsWith("markers-")) setSelection({ kind: "marker", id: String(info.index) });
-          else if (id === "geofences") setSelection({ kind: "geofence", id: String(info.index) });
-          else if (id === "routes") setSelection({ kind: "route", id: String(info.index) });
-        },
-        draft: {
-          mode: drawMode,
-          features: draftFeatures,
-          selectedIndexes: selectedFeatureIndexes,
-          onEdit: (e) => setDraftFeatures(e.updatedData),
-        },
+        onClick: handleClick,
       }),
-    [visibility, gyms.data, stops.data, spawns.data, stations.data, geofences.data, routes.data, s2.data, markerRadius, setSelection, drawMode, draftFeatures, selectedFeatureIndexes, setDraftFeatures],
+    [visibility, gyms.data, stops.data, spawns.data, stations.data, geofences.data, routes.data, s2.data, markerRadius, handleClick],
   );
+
+  // Edit layer — the only thing that rebuilds on a per-click draft change.
+  const editLayer = useMemo(
+    () =>
+      buildEditLayer({
+        mode: drawMode,
+        features: draftFeatures,
+        selectedIndexes: selectedFeatureIndexes,
+        onEdit: (e) => setDraftFeatures(e.updatedData),
+        onSelect: setSelectedFeatureIndexes,
+      }),
+    [drawMode, draftFeatures, selectedFeatureIndexes, setDraftFeatures, setSelectedFeatureIndexes],
+  );
+
+  const layers = useMemo(() => [...baseLayers, ...editLayer], [baseLayers, editLayer]);
 
   const mapStyle = useMemo(() => rasterStyle(DEFAULT_TILE_URL), [tileServerId]);
 

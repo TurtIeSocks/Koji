@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useMapUIStore } from "@/map/stores/map-ui-store";
-import { firstGeometry } from "@/map/lib/edit-serialize";
+import { allGeometries } from "@/map/lib/edit-serialize";
 import { mergeSelected } from "@/map/lib/merge-polygons";
 import type { DrawMode } from "@/map/lib/edit-modes";
 import { useDataProvider, useNotify } from "shadmin-core";
@@ -16,7 +16,6 @@ const MODES: { mode: DrawMode; label: string }[] = [
 export function DrawToolbar() {
   const drawMode = useMapUIStore((s) => s.drawMode);
   const draftFeatures = useMapUIStore((s) => s.draftFeatures);
-  const selectedFeatureIndexes = useMapUIStore((s) => s.selectedFeatureIndexes);
   const setDrawMode = useMapUIStore((s) => s.setDrawMode);
   const setDraftFeatures = useMapUIStore((s) => s.setDraftFeatures);
   const setSelectedFeatureIndexes = useMapUIStore((s) => s.setSelectedFeatureIndexes);
@@ -25,18 +24,27 @@ export function DrawToolbar() {
   const notify = useNotify();
 
   const handleMerge = () => {
-    setDraftFeatures(mergeSelected(draftFeatures, selectedFeatureIndexes));
+    // Merge ALL drawn polygons (single-click can only hold one selection, so
+    // "Merge" combining everything is the intuitive behavior here).
+    const allIdx = draftFeatures.features.map((_, i) => i);
+    setDraftFeatures(mergeSelected(draftFeatures, allIdx));
     setSelectedFeatureIndexes([]);
   };
 
   const handleSave = async () => {
-    const geometry = firstGeometry(draftFeatures);
-    if (!geometry) return;
-    await dataProvider.create("geofence", {
-      data: { name: `map-${Date.now()}`, mode: "Unset", geometry },
-    });
+    const geometries = allGeometries(draftFeatures);
+    if (geometries.length === 0) return;
+    // One geofence per drawn shape (not just the first).
+    const stamp = Date.now();
+    await Promise.all(
+      geometries.map((geometry, i) =>
+        dataProvider.create("geofence", {
+          data: { name: `map-${stamp}-${i + 1}`, mode: "Unset", geometry },
+        }),
+      ),
+    );
     clearDraft();
-    notify("Geofence saved", { type: "info" });
+    notify(`Saved ${geometries.length} geofence(s)`, { type: "info" });
   };
 
   return (
@@ -54,7 +62,7 @@ export function DrawToolbar() {
       <Button
         size="sm"
         variant="ghost"
-        disabled={selectedFeatureIndexes.length < 2}
+        disabled={draftFeatures.features.length < 2}
         onClick={handleMerge}
       >
         Merge

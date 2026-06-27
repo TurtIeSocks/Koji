@@ -74,7 +74,27 @@ describe("DrawToolbar", () => {
     expect(useMapUIStore.getState().draftFeatures.features).toHaveLength(0);
     // notify called
     expect(notifyMock).toHaveBeenCalledWith(
-      "Geofence saved",
+      "Saved 1 geofence(s)",
+      expect.objectContaining({ type: "info" }),
+    );
+  });
+
+  it("Save persists EVERY drawn shape, not just the first", async () => {
+    const poly = (x: number): GeoJSON.Feature => ({
+      type: "Feature",
+      properties: {},
+      geometry: { type: "Polygon", coordinates: [[[x, 0], [x + 1, 0], [x + 1, 1], [x, 0]]] },
+    });
+    useMapUIStore.setState({
+      draftFeatures: { type: "FeatureCollection", features: [poly(0), poly(5)] },
+    });
+
+    const screen = render(<DrawToolbar />);
+    await screen.getByRole("button", { name: /save/i }).click();
+
+    await vi.waitFor(() => expect(dataProviderMock.create).toHaveBeenCalledTimes(2));
+    expect(notifyMock).toHaveBeenCalledWith(
+      "Saved 2 geofence(s)",
       expect.objectContaining({ type: "info" }),
     );
   });
