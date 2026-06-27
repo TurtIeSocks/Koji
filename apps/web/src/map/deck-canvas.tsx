@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Map as MapLibre, useControl } from "react-map-gl/maplibre";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -36,13 +36,24 @@ export function DeckCanvas() {
   const markerRadius = useMapSettingsStore((s) => s.markerRadius);
   const tileServerId = useMapSettingsStore((s) => s.tileServerId); // (Phase 1: maps to DEFAULT_TILE_URL)
 
+  // Filter state — per-field S3 subscriptions.
+  const lastSeenLive = useMapUIStore((s) => s.filters.lastSeen);
+  const tth = useMapUIStore((s) => s.filters.tth);
+
+  // Debounce lastSeen 400ms so slider drags don't spam the server.
+  const [lastSeen, setLastSeenDebounced] = useState(lastSeenLive);
+  useEffect(() => {
+    const id = setTimeout(() => setLastSeenDebounced(lastSeenLive), 400);
+    return () => clearTimeout(id);
+  }, [lastSeenLive]);
+
   // settledBounds drives the fetches; subscribing to it re-renders ~5×/sec, not per frame.
   const bounds = useMapViewStore((s) => s.settledBounds);
 
-  const gyms = useMarkers("gym", bounds, 0, visibility.gyms);
-  const stops = useMarkers("pokestop", bounds, 0, visibility.pokestops);
-  const spawns = useMarkers("spawnpoint", bounds, 0, visibility.spawnpoints);
-  const stations = useMarkers("station", bounds, 0, visibility.stations);
+  const gyms = useMarkers("gym", bounds, lastSeen, visibility.gyms);
+  const stops = useMarkers("pokestop", bounds, lastSeen, visibility.pokestops);
+  const spawns = useMarkers("spawnpoint", bounds, lastSeen, visibility.spawnpoints, tth);
+  const stations = useMarkers("station", bounds, lastSeen, visibility.stations);
   const geofences = useGeoFeatures("geofences", visibility.geofences);
   const routes = useGeoFeatures("routes", visibility.routes);
   const s2 = useS2Cells(s2Level, bounds, visibility.s2);

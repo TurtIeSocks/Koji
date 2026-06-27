@@ -30,3 +30,15 @@ test("fetchMarkers also accepts a raw (non-enveloped) {points} body", async () =
   ));
   expect(await fetchMarkers("gym", B, 0)).toEqual([[1, 2]]);
 });
+
+test("fetchMarkers sends tth only for spawnpoint", async () => {
+  const makeResp = () =>
+    new Response(JSON.stringify({ status: "ok", data: { points: [] } }), { status: 200 });
+  const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(makeResp()));
+  vi.stubGlobal("fetch", fetchMock);
+  await fetchMarkers("spawnpoint", B, 100, "Known");
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ lastSeen: 100, tth: "Known" });
+  fetchMock.mockClear();
+  await fetchMarkers("gym", B, 100, "Known");
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body).tth).toBeUndefined();
+});

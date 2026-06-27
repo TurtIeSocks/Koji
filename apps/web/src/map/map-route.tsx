@@ -7,6 +7,7 @@ import { CoordinateReadout } from "@/map/panels/coordinate-readout";
 import { TileServerSelect } from "@/map/panels/tile-server-select";
 import { SelectionPopup } from "@/map/panels/selection-popup";
 import { DrawToolbar } from "@/map/panels/draw-toolbar";
+import { FilterPanel } from "@/map/panels/filter-panel";
 
 export function MapRoute() {
   return (
@@ -25,6 +26,7 @@ export function MapRoute() {
       <CoordinateReadout />
       <SelectionPopup />
       <DrawToolbar />
+      <FilterPanel />
     </div>
   );
 }

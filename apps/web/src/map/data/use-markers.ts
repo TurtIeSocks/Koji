@@ -18,14 +18,21 @@ function toBboxWire(bounds: Bounds): { minLat: number; minLon: number; maxLat: n
   return { minLat: b.min_lat, minLon: b.min_lon, maxLat: b.max_lat, maxLon: b.max_lon };
 }
 
+type TthFilter = "All" | "Known" | "Unknown";
+
 export async function fetchMarkers(
   category: MarkerCategory,
   bounds: Bounds,
   lastSeen: number,
+  tth?: TthFilter,
 ): Promise<[number, number][]> {
+  const body: Record<string, unknown> = { bbox: toBboxWire(bounds), lastSeen };
+  if (category === "spawnpoint" && tth && tth !== "All") {
+    body.tth = tth;
+  }
   const res = await apiV2Fetch(`/golbat-data/${category}`, {
     method: "POST",
-    body: JSON.stringify({ bbox: toBboxWire(bounds), lastSeen }),
+    body: JSON.stringify(body),
   });
   if (res.status < 200 || res.status >= 300) return [];
   return readPoints(res.json);
@@ -36,10 +43,11 @@ export function useMarkers(
   bounds: Bounds,
   lastSeen: number,
   enabled: boolean,
+  tth?: TthFilter,
 ) {
   return useQuery({
-    queryKey: ["markers", category, bounds, lastSeen],
-    queryFn: () => fetchMarkers(category, bounds, lastSeen),
+    queryKey: ["markers", category, bounds, lastSeen, tth],
+    queryFn: () => fetchMarkers(category, bounds, lastSeen, tth),
     enabled,
     staleTime: 30_000,
   });
