@@ -16,7 +16,15 @@ export default defineConfig({
     // copy share one RouterProvider context. Without this the real dev/build
     // bundle renders <Link> against a null router context → "Cannot destructure
     // property 'basename'". (Mirror of vitest.config.ts — keep them in sync.)
-    dedupe: ["react-router", "react", "react-dom", "ra-core"],
+    // Also dedupe luma.gl + deck core: deck.gl-as-root pulls @deck.gl/react,
+    // /core, /layers, /geo-layers and editable-layers, each resolving luma.gl —
+    // two luma copies throws "This version of luma.gl has already been
+    // initialized" and breaks WebGL. One copy each fixes it.
+    dedupe: [
+      "react-router", "react", "react-dom", "ra-core",
+      "@deck.gl/core", "@luma.gl/core", "@luma.gl/engine",
+      "@luma.gl/constants", "@luma.gl/shadertools", "@luma.gl/webgl",
+    ],
   },
   optimizeDeps: {
     include: [
@@ -27,6 +35,12 @@ export default defineConfig({
       "@geoman-io/leaflet-geoman-free",
       "@monaco-editor/react",
       "monaco-editor",
+      // Pre-bundle the deck stack together so they share one luma instance.
+      "@deck.gl/core",
+      "@deck.gl/react",
+      "@deck.gl/layers",
+      "@deck.gl/geo-layers",
+      "@deck.gl-community/editable-layers",
     ],
   },
   server: {

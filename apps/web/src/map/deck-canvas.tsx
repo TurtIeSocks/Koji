@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
-import { Map as MapLibre, useControl } from "react-map-gl/maplibre";
-import { MapboxOverlay } from "@deck.gl/mapbox";
+import DeckGL from "@deck.gl/react";
+import { Map as MapLibre } from "react-map-gl/maplibre";
+import { WebMercatorViewport } from "@deck.gl/core";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { DEFAULT_TILE_URL } from "@/lib/constants";
 import { rasterStyle } from "@/map/lib/map-style";
@@ -13,12 +14,6 @@ import { useGeoFeatures } from "@/map/data/use-geo-features";
 import { useS2Cells } from "@/map/data/use-s2-cells";
 import { useMapRealtime } from "@/map/data/use-map-realtime";
 import type { Bounds } from "@/map/stores/types";
-
-function DeckOverlay({ layers }: { layers: ReturnType<typeof buildLayers> }) {
-  const overlay = useControl(() => new MapboxOverlay({ interleaved: false, layers }));
-  (overlay as MapboxOverlay).setProps?.({ layers });
-  return null;
-}
 
 export function DeckCanvas() {
   // Subscribe to geofence/route realtime deltas → refetch GeoJSON layers.
@@ -94,34 +89,51 @@ export function DeckCanvas() {
 
   const mapStyle = useMemo(() => rasterStyle(DEFAULT_TILE_URL), [tileServerId]);
 
+  // deck.gl is the INTERACTION ROOT (controller), MapLibre is a child that syncs
+  // to deck's viewState. This is required for @deck.gl-community/editable-layers:
+  // as a MapboxOverlay, deck only gets a subset of inputs (no onDrag) so drawing
+  // breaks. doubleClickZoom is off so a double-click FINISHES a drawn polygon.
   return (
-    <MapLibre
+    <DeckGL
       initialViewState={{ longitude: 0, latitude: 0, zoom: 2 }}
-      mapStyle={mapStyle}
-      onMove={(e: {
-        viewState: { longitude: number; latitude: number; zoom: number; pitch: number; bearing: number };
-        target?: { getBounds?: () => { getWest(): number; getSouth(): number; getEast(): number; getNorth(): number } };
-      }) => {
-        const vs = e.viewState;
-        // Prefer the map's real viewport bounds; fall back to an approximation
-        // only when the instance isn't queryable (e.g. the headless test mock).
-        const lb = e.target?.getBounds?.();
-        const b: Bounds = lb
-          ? [lb.getWest(), lb.getSouth(), lb.getEast(), lb.getNorth()]
-          : boundsFromViewState(vs);
+      controller={{ doubleClickZoom: false }}
+      layers={layers}
+      getCursor={({ isDragging }) =>
+        drawMode !== "none" ? "crosshair" : isDragging ? "grabbing" : "grab"
+      }
+      onViewStateChange={(params) => {
+        const vs = params.viewState as unknown as ViewStateLike;
         // Transient hot-path write: no component subscribes to liveViewState via a hook.
-        useMapViewStore.getState().setLive(vs, b);
+        useMapViewStore.getState().setLive(toViewState(vs), boundsOf(vs));
       }}
-      style={{ width: "100%", height: "100%" }}
     >
-      <DeckOverlay layers={layers} />
-    </MapLibre>
+      <MapLibre mapStyle={mapStyle} reuseMaps />
+    </DeckGL>
   );
 }
 
-/** Fallback bounds approximation used only when the live map can't be queried
- *  (the headless test mock). The real path reads `e.target.getBounds()`. */
-function boundsFromViewState(vs: { longitude: number; latitude: number; zoom: number }): Bounds {
-  const span = 360 / 2 ** vs.zoom;
-  return [vs.longitude - span, vs.latitude - span / 2, vs.longitude + span, vs.latitude + span / 2];
+interface ViewStateLike {
+  longitude: number;
+  latitude: number;
+  zoom: number;
+  pitch?: number;
+  bearing?: number;
+}
+
+function toViewState(vs: ViewStateLike) {
+  return { longitude: vs.longitude, latitude: vs.latitude, zoom: vs.zoom, pitch: vs.pitch ?? 0, bearing: vs.bearing ?? 0 };
+}
+
+/** Real viewport bounds from the deck view; falls back to an approximation if the
+ *  WebMercator projection can't be built (e.g. the headless test with no window). */
+function boundsOf(vs: ViewStateLike): Bounds {
+  const width = typeof window !== "undefined" ? window.innerWidth || 800 : 800;
+  const height = typeof window !== "undefined" ? window.innerHeight || 600 : 600;
+  try {
+    const [w, s, e, n] = new WebMercatorViewport({ ...toViewState(vs), width, height }).getBounds();
+    return [w, s, e, n];
+  } catch {
+    const span = 360 / 2 ** vs.zoom;
+    return [vs.longitude - span, vs.latitude - span / 2, vs.longitude + span, vs.latitude + span / 2];
+  }
 }

@@ -1,14 +1,20 @@
 import { render } from "vitest-browser-react";
 import { expect, test, vi } from "vitest";
 
-// Mock the WebGL-bound libs so the smoke test runs headless.
-vi.mock("react-map-gl/maplibre", () => ({
-  Map: ({ children, onMove }: any) => (
-    <div data-testid="maplibre" onClick={() => onMove?.({ viewState: { longitude: 1, latitude: 2, zoom: 5, pitch: 0, bearing: 0 } })}>
+// Mock the WebGL-bound libs so the smoke test runs headless. deck.gl is the
+// interaction root now; the MapLibre Map is its child.
+vi.mock("@deck.gl/react", () => ({
+  default: ({ children, onViewStateChange }: any) => (
+    <div
+      data-testid="deckgl"
+      onClick={() => onViewStateChange?.({ viewState: { longitude: 1, latitude: 2, zoom: 5 } })}
+    >
       {children}
     </div>
   ),
-  useControl: () => ({}),
+}));
+vi.mock("react-map-gl/maplibre", () => ({
+  Map: ({ children }: any) => <div data-testid="maplibre">{children}</div>,
 }));
 vi.mock("@/map/data/use-markers", () => ({ useMarkers: () => ({ data: [] }) }));
 vi.mock("@/map/data/use-geo-features", () => ({ useGeoFeatures: () => ({ data: { type: "FeatureCollection", features: [] } }) }));
