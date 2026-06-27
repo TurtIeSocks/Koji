@@ -8,12 +8,11 @@ import { useMapSettingsStore } from "@/map/stores/map-settings-store";
 export function TileServerSelect() {
   const tileServerId = useMapSettingsStore((s) => s.tileServerId);
   const setTileServerId = useMapSettingsStore((s) => s.setTileServerId);
+  // Positioned by the parent (MapRoute) so it can sit in the top-left toolbar row.
   return (
-    <div className="absolute top-4 left-4 z-10">
-      <Select value={tileServerId} onValueChange={setTileServerId}>
-        <SelectTrigger className="w-40 bg-background/90"><SelectValue /></SelectTrigger>
-        <SelectContent><SelectItem value="default">Default</SelectItem></SelectContent>
-      </Select>
-    </div>
+    <Select value={tileServerId} onValueChange={setTileServerId}>
+      <SelectTrigger className="w-40 bg-background/90"><SelectValue /></SelectTrigger>
+      <SelectContent><SelectItem value="default">Default</SelectItem></SelectContent>
+    </Select>
   );
 }

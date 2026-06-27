@@ -56,6 +56,9 @@ function App() {
       <Resource {...plugins} group="Config" />
       <CustomRoutes>
         <Route element={<ImportWizard />} path="/import" />
+      </CustomRoutes>
+      {/* Map is full-bleed (no admin sidebar/appbar chrome) — its own viewport. */}
+      <CustomRoutes noLayout>
         <Route element={<MapRoute />} path="/map" />
       </CustomRoutes>
     </Admin>
