@@ -35,3 +35,20 @@ test("filter actions update lastSeen and tth independently", () => {
   useMapUIStore.getState().setTth("Known");
   expect(useMapUIStore.getState().filters).toEqual({ lastSeen: 3600, tth: "Known" });
 });
+
+test("editFeature loads an existing geofence into the modify editor with its id", () => {
+  const feature: GeoJSON.Feature = {
+    type: "Feature",
+    properties: { id: 42, name: "test_tight" },
+    geometry: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] },
+  };
+  useMapUIStore.getState().editFeature(feature);
+  const s = useMapUIStore.getState();
+  expect(s.drawMode).toBe("modify");
+  expect(s.draftFeatures.features).toEqual([feature]);
+  expect(s.selectedFeatureIndexes).toEqual([0]);
+  expect(s.editingGeofenceId).toBe("42");
+  // clearDraft resets the editing id so a later Save creates, not updates
+  useMapUIStore.getState().clearDraft();
+  expect(useMapUIStore.getState().editingGeofenceId).toBeNull();
+});

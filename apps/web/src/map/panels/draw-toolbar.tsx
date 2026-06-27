@@ -19,6 +19,7 @@ export function DrawToolbar() {
   const setDrawMode = useMapUIStore((s) => s.setDrawMode);
   const setDraftFeatures = useMapUIStore((s) => s.setDraftFeatures);
   const setSelectedFeatureIndexes = useMapUIStore((s) => s.setSelectedFeatureIndexes);
+  const editingGeofenceId = useMapUIStore((s) => s.editingGeofenceId);
   const clearDraft = useMapUIStore((s) => s.clearDraft);
   const dataProvider = useDataProvider();
   const notify = useNotify();
@@ -34,7 +35,18 @@ export function DrawToolbar() {
   const handleSave = async () => {
     const geometries = allGeometries(draftFeatures);
     if (geometries.length === 0) return;
-    // One geofence per drawn shape (not just the first).
+    if (editingGeofenceId) {
+      // Editing an EXISTING geofence → update its geometry in place.
+      await dataProvider.update("geofence", {
+        id: editingGeofenceId,
+        data: { geometry: geometries[0] },
+        previousData: { id: editingGeofenceId },
+      });
+      clearDraft();
+      notify("Geofence updated", { type: "info" });
+      return;
+    }
+    // New shapes → one geofence per drawn feature.
     const stamp = Date.now();
     await Promise.all(
       geometries.map((geometry, i) =>

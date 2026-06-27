@@ -29,6 +29,7 @@ export function DeckCanvas() {
   const visibility = useMapUIStore((s) => s.layerVisibility);
   const s2Level = useMapUIStore((s) => s.s2Level);
   const setSelection = useMapUIStore((s) => s.setSelection);
+  const setSelectedFeature = useMapUIStore((s) => s.setSelectedFeature);
   const drawMode = useMapUIStore((s) => s.drawMode);
   const draftFeatures = useMapUIStore((s) => s.draftFeatures);
   const selectedFeatureIndexes = useMapUIStore((s) => s.selectedFeatureIndexes);
@@ -64,10 +65,13 @@ export function DeckCanvas() {
     (info: PickingInfo) => {
       const id = info.layer?.id ?? "";
       if (id.startsWith("markers-")) setSelection({ kind: "marker", id: String(info.index) });
-      else if (id === "geofences") setSelection({ kind: "geofence", id: String(info.index) });
-      else if (id === "routes") setSelection({ kind: "route", id: String(info.index) });
+      else if (id === "geofences") {
+        setSelection({ kind: "geofence", id: String(info.index) });
+        // Stash the clicked feature so the popup can offer "Edit geometry".
+        setSelectedFeature((info.object as GeoJSON.Feature) ?? null);
+      } else if (id === "routes") setSelection({ kind: "route", id: String(info.index) });
     },
-    [setSelection],
+    [setSelection, setSelectedFeature],
   );
 
   // Base data layers — rebuilt ONLY when their data/visibility change, NOT on
