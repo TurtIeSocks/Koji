@@ -1,6 +1,6 @@
 import { ScatterplotLayer, GeoJsonLayer } from "@deck.gl/layers";
 import { S2Layer } from "@deck.gl/geo-layers";
-import type { Layer } from "@deck.gl/core";
+import type { Layer, PickingInfo } from "@deck.gl/core";
 import type { LayerId } from "@/map/stores/types";
 import { packMarkers } from "@/map/lib/coords";
 
@@ -12,7 +12,7 @@ export interface BuildLayersInput {
   routes: GeoJSON.FeatureCollection;
   s2CellIds: string[];
   markerRadius: number;
-  onClick: (info: { layer?: { id?: string }; object?: unknown; index: number }) => void;
+  onClick: (info: PickingInfo) => void;
 }
 
 export function buildLayers(input: BuildLayersInput): Layer[] {
