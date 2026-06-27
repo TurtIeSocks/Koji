@@ -11,6 +11,7 @@ import { useMapSettingsStore } from "@/map/stores/map-settings-store";
 import { useMarkers } from "@/map/data/use-markers";
 import { useGeoFeatures } from "@/map/data/use-geo-features";
 import { useS2Cells } from "@/map/data/use-s2-cells";
+import { useMapRealtime } from "@/map/data/use-map-realtime";
 import type { Bounds } from "@/map/stores/types";
 
 function DeckOverlay({ layers }: { layers: ReturnType<typeof buildLayers> }) {
@@ -20,6 +21,9 @@ function DeckOverlay({ layers }: { layers: ReturnType<typeof buildLayers> }) {
 }
 
 export function DeckCanvas() {
+  // Subscribe to geofence/route realtime deltas → refetch GeoJSON layers.
+  useMapRealtime();
+
   // DeckCanvas is the layer AGGREGATOR: it rebuilds the whole layer list and so
   // legitimately needs every visibility flag. Subscribing to the whole
   // `layerVisibility` map is correct here (not the prop-drill anti-pattern) — it
