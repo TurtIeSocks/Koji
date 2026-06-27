@@ -1,7 +1,6 @@
-import { ScatterplotLayer, GeoJsonLayer } from "@deck.gl/layers";
-import { S2Layer } from "@deck.gl/geo-layers";
+import { ScatterplotLayer, GeoJsonLayer, PolygonLayer } from "@deck.gl/layers";
 import type { Layer, PickingInfo } from "@deck.gl/core";
-import type { LayerId } from "@/map/stores/types";
+import type { LayerId, S2Cell } from "@/map/stores/types";
 import { packMarkers } from "@/map/lib/coords";
 
 interface MarkerSet { id: LayerId; points: [number, number][]; color: [number, number, number]; }
@@ -10,13 +9,13 @@ export interface BuildLayersInput {
   markerSets: MarkerSet[];
   geofences: GeoJSON.FeatureCollection;
   routes: GeoJSON.FeatureCollection;
-  s2CellIds: string[];
+  s2Cells: S2Cell[];
   markerRadius: number;
   onClick: (info: PickingInfo) => void;
 }
 
 export function buildLayers(input: BuildLayersInput): Layer[] {
-  const { visibility, markerSets, geofences, routes, s2CellIds, markerRadius, onClick } = input;
+  const { visibility, markerSets, geofences, routes, s2Cells, markerRadius, onClick } = input;
 
   const markerLayers = markerSets.map((set) => {
     const positions = packMarkers(set.points);
@@ -45,9 +44,9 @@ export function buildLayers(input: BuildLayersInput): Layer[] {
       pointType: "circle", getPointRadius: 8, pointRadiusUnits: "pixels",
       pickable: true, onClick,
     }),
-    new S2Layer({
-      id: "s2", visible: visibility.s2, data: s2CellIds,
-      getS2Token: (d: string) => d, filled: false, stroked: true,
+    new PolygonLayer<S2Cell>({
+      id: "s2", visible: visibility.s2, data: s2Cells,
+      getPolygon: (d) => d.ring, filled: false, stroked: true,
       getLineColor: [255, 0, 0, 160], lineWidthMinPixels: 1,
     }),
     ...markerLayers,

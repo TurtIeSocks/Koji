@@ -10,3 +10,14 @@ test("rasterStyle wraps an XYZ url in a single raster source + layer", () => {
   expect(style.layers).toHaveLength(1);
   expect(style.layers[0]).toMatchObject({ type: "raster", source: "osm" });
 });
+
+test("rasterStyle expands Leaflet {s} subdomains and strips {r} (MapLibre can't)", () => {
+  const style = rasterStyle("https://{s}.tiles.example/voyager/{z}/{x}/{y}{r}.png");
+  const src = style.sources.osm as { tiles: string[] };
+  expect(src.tiles).toEqual([
+    "https://a.tiles.example/voyager/{z}/{x}/{y}.png",
+    "https://b.tiles.example/voyager/{z}/{x}/{y}.png",
+    "https://c.tiles.example/voyager/{z}/{x}/{y}.png",
+    "https://d.tiles.example/voyager/{z}/{x}/{y}.png",
+  ]);
+});

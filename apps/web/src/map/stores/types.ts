@@ -24,3 +24,10 @@ export interface Selection {
   kind: "marker" | "geofence" | "route" | null;
   id: string | null;
 }
+
+/** An S2 cell from `/s2/{level}`: the cell id plus its corner ring already
+ *  transposed to deck `[lng, lat]` order (the server sends `[lat, lon]`). */
+export interface S2Cell {
+  id: string;
+  ring: [number, number][];
+}

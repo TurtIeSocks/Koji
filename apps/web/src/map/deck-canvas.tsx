@@ -55,7 +55,7 @@ export function DeckCanvas() {
         ],
         geofences: geofences.data ?? { type: "FeatureCollection", features: [] },
         routes: routes.data ?? { type: "FeatureCollection", features: [] },
-        s2CellIds: s2.data ?? [],
+        s2Cells: s2.data ?? [],
         markerRadius,
         onClick: (info) => {
           const id = info.layer?.id ?? "";

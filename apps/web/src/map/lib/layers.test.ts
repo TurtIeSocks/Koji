@@ -13,7 +13,7 @@ test("buildLayers emits one visible scatter layer per visible marker set + wires
   const layers = buildLayers({
     visibility: vis(),
     markerSets: [{ id: "pokestops", points: [[47.5, -122.3]], color: [0, 120, 255] }],
-    geofences: EMPTY, routes: EMPTY, s2CellIds: [],
+    geofences: EMPTY, routes: EMPTY, s2Cells: [],
     markerRadius: 30, onClick,
   });
   const stop = layers.find((l) => l.id === "markers-pokestops");
@@ -31,7 +31,8 @@ test("buildLayers emits one visible scatter layer per visible marker set + wires
 test("S2 layer is present but hidden when s2 visibility is off", () => {
   const layers = buildLayers({
     visibility: vis({ s2: false }), markerSets: [],
-    geofences: EMPTY, routes: EMPTY, s2CellIds: ["abc"],
+    geofences: EMPTY, routes: EMPTY,
+    s2Cells: [{ id: "abc", ring: [[-122.3, 47.5], [-122.2, 47.6]] }],
     markerRadius: 30, onClick: vi.fn(),
   });
   expect(layers.find((l) => l.id === "s2")!.props.visible).toBe(false);
