@@ -1,5 +1,5 @@
 import { Route } from 'react-router'
-import { CustomRoutes } from 'shadmin-core'
+import { Authenticated, CustomRoutes } from 'shadmin-core'
 import { MapIcon } from 'lucide-react'
 import { authProvider } from '@/auth-provider'
 import { Admin, Layout, Menu, Resource } from '@/components/admin'
@@ -46,6 +46,9 @@ function App() {
       disableTelemetry
       layout={KojiLayout}
       loginPage={PasswordLoginPage}
+      // Secure-by-default: gate EVERY route incl. noLayout custom routes (/map)
+      // behind auth. Without this, noLayout CustomRoutes render publicly.
+      requireAuth
       title="Kōji"
     >
       <Resource {...project} group="Config" />
@@ -57,9 +60,18 @@ function App() {
       <CustomRoutes>
         <Route element={<ImportWizard />} path="/import" />
       </CustomRoutes>
-      {/* Map is full-bleed (no admin sidebar/appbar chrome) — its own viewport. */}
+      {/* Map is full-bleed (no admin sidebar/appbar chrome) — its own viewport.
+          noLayout routes are PUBLIC by default (requireAuth doesn't cover them),
+          so gate it explicitly with <Authenticated> → redirect to login if not. */}
       <CustomRoutes noLayout>
-        <Route element={<MapRoute />} path="/map" />
+        <Route
+          element={
+            <Authenticated>
+              <MapRoute />
+            </Authenticated>
+          }
+          path="/map"
+        />
       </CustomRoutes>
     </Admin>
   )
