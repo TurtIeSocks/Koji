@@ -91,8 +91,12 @@ export function DeckCanvas() {
         s2Cells: s2.data ?? [],
         markerRadius,
         onClick: handleClick,
+        // While editing, the heavy base layers don't need picking — turning it
+        // off means each pointer-move only re-renders + readPixels the edit
+        // layer, not all geofences/routes/markers (the draw-lag culprit).
+        pickable: drawMode === "none",
       }),
-    [visibility, gyms.data, stops.data, spawns.data, stations.data, geofences.data, routes.data, s2.data, markerRadius, handleClick],
+    [visibility, gyms.data, stops.data, spawns.data, stations.data, geofences.data, routes.data, s2.data, markerRadius, handleClick, drawMode],
   );
 
   // Edit layer — the only thing that rebuilds on a per-click draft change.

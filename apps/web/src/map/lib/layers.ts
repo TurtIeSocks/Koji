@@ -27,6 +27,9 @@ export interface BaseLayersInput {
   s2Cells: S2Cell[];
   markerRadius: number;
   onClick: (info: PickingInfo) => void;
+  /** When false, base layers skip the picking pass. Turn OFF while drawing so
+   *  every pointer-move doesn't re-render + readPixels all the heavy layers. */
+  pickable?: boolean;
 }
 
 export interface BuildLayersInput extends BaseLayersInput {
@@ -35,6 +38,7 @@ export interface BuildLayersInput extends BaseLayersInput {
 
 export function buildBaseLayers(input: BaseLayersInput): Layer[] {
   const { visibility, markerSets, geofences, routes, s2Cells, markerRadius, onClick } = input;
+  const pickable = input.pickable ?? true;
 
   const markerLayers = markerSets.map((set) => {
     const positions = packMarkers(set.points);
@@ -46,7 +50,7 @@ export function buildBaseLayers(input: BaseLayersInput): Layer[] {
       radiusUnits: "meters",
       radiusMinPixels: 2,
       getFillColor: [...set.color, 200],
-      pickable: true,
+      pickable,
       onClick,
     });
   });
@@ -55,13 +59,13 @@ export function buildBaseLayers(input: BaseLayersInput): Layer[] {
     new GeoJsonLayer({
       id: "geofences", visible: visibility.geofences, data: geofences,
       filled: true, getFillColor: [255, 140, 0, 40], getLineColor: [255, 140, 0, 220],
-      lineWidthMinPixels: 1, pickable: true, onClick,
+      lineWidthMinPixels: 1, pickable, onClick,
     }),
     new GeoJsonLayer({
       id: "routes", visible: visibility.routes, data: routes,
       stroked: true, getLineColor: [0, 200, 120, 220], lineWidthMinPixels: 2,
       pointType: "circle", getPointRadius: 8, pointRadiusUnits: "pixels",
-      pickable: true, onClick,
+      pickable, onClick,
     }),
     new PolygonLayer<S2Cell>({
       id: "s2", visible: visibility.s2, data: s2Cells,
