@@ -34,6 +34,7 @@ export default defineConfig({
         test: {
           name: "unit",
           environment: "jsdom",
+          environmentOptions: { jsdom: { url: "http://localhost" } },
           include: ["src/**/*.test.{ts,tsx}"],
           exclude: ["src/**/*.browser.test.{ts,tsx}"],
           setupFiles: ["./vitest.setup.ts"],
