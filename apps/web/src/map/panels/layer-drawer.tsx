@@ -24,7 +24,7 @@ function LayerToggle({ id, label }: { id: LayerId; label: string }) {
 
 export function LayerDrawer() {
   return (
-    <div className="absolute top-4 right-4 z-10 w-56 rounded-lg border bg-background/90 p-3 shadow-md backdrop-blur">
+    <div className="w-full rounded-lg border bg-background/90 p-3 shadow-md backdrop-blur">
       <p className="mb-2 text-sm font-medium">Layers</p>
       {LAYERS.map((l) => <LayerToggle key={l.id} id={l.id} label={l.label} />)}
     </div>

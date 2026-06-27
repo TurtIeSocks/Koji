@@ -54,7 +54,7 @@ function TthSelect() {
 /** FilterPanel: server re-query filters for last-seen + spawnpoint TTH. */
 export function FilterPanel() {
   return (
-    <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-3 rounded-lg border bg-background/90 p-3 shadow-md backdrop-blur">
+    <div className="flex w-full flex-col gap-3 rounded-lg border bg-background/90 p-3 shadow-md backdrop-blur">
       <LastSeenSlider />
       <TthSelect />
     </div>

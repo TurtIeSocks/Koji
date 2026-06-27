@@ -22,11 +22,14 @@ export function MapRoute() {
         </Button>
         <TileServerSelect />
       </div>
-      <LayerDrawer />
+      {/* Top-right column: layers card, then the filter card stacked below it. */}
+      <div className="absolute top-4 right-4 z-10 flex w-56 flex-col gap-2">
+        <LayerDrawer />
+        <FilterPanel />
+      </div>
       <CoordinateReadout />
       <SelectionPopup />
       <DrawToolbar />
-      <FilterPanel />
     </div>
   );
 }
