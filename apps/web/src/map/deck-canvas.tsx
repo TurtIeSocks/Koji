@@ -102,7 +102,14 @@ export function DeckCanvas() {
         mode: drawMode,
         features: draftFeatures,
         selectedIndexes: selectedFeatureIndexes,
-        onEdit: (e) => setDraftFeatures(e.updatedData),
+        onEdit: (e) => {
+          // editable-layers fires onEdit ~hundreds of times per polygon for the
+          // tentative cursor-follow line. Those don't change committed geometry
+          // and must NOT hit the store (a zustand set per pointer-move janks the
+          // draw). Commit only real edits; the tentative is rendered internally.
+          if (e.editType === "updateTentativeFeature" || e.editType === "addTentativePosition") return;
+          setDraftFeatures(e.updatedData);
+        },
         onSelect: setSelectedFeatureIndexes,
       }),
     [drawMode, draftFeatures, selectedFeatureIndexes, setDraftFeatures, setSelectedFeatureIndexes],
