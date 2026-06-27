@@ -28,4 +28,6 @@ test("rapid setLive calls notify settled subscribers at most once per window", (
   expect(settledSpy).not.toHaveBeenCalled(); // throttled, not yet flushed
   vi.advanceTimersByTime(200);
   expect(settledSpy).toHaveBeenCalledTimes(1);
+  // coalesces to the LAST pending value, not the first/intermediate
+  expect(store.getState().settledViewState.zoom).toBe(19);
 });

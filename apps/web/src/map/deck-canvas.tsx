@@ -20,7 +20,12 @@ function DeckOverlay({ layers }: { layers: ReturnType<typeof buildLayers> }) {
 }
 
 export function DeckCanvas() {
-  // Render-subscriptions: narrow primitives only (S3).
+  // DeckCanvas is the layer AGGREGATOR: it rebuilds the whole layer list and so
+  // legitimately needs every visibility flag. Subscribing to the whole
+  // `layerVisibility` map is correct here (not the prop-drill anti-pattern) — it
+  // re-renders only when a flag actually toggles (selection/hover writes don't
+  // touch this slice, so they don't churn it). Per-field S3 selectors live in
+  // the leaf panels (<LayerToggle>), where render isolation actually matters.
   const visibility = useMapUIStore((s) => s.layerVisibility);
   const s2Level = useMapUIStore((s) => s.s2Level);
   const setSelection = useMapUIStore((s) => s.setSelection);

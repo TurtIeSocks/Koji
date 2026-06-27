@@ -13,6 +13,12 @@ test("packMarkers produces a stride-2 [lng,lat,...] Float32Array", () => {
   expect(Array.from(out)).toEqual([-122.3, 47.5, 20, 10].map((n) => Math.fround(n)));
 });
 
+test("packMarkers returns an empty Float32Array for no points", () => {
+  const out = packMarkers([]);
+  expect(out).toBeInstanceOf(Float32Array);
+  expect(out.length).toBe(0);
+});
+
 test("boundsToBboxArg maps [minLng,minLat,maxLng,maxLat] to Koji lat/lon snake_case", () => {
   const b: Bounds = [-122.4, 47.4, -122.2, 47.6];
   expect(boundsToBboxArg(b)).toEqual({

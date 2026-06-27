@@ -16,8 +16,11 @@ test("fetchMarkers POSTs the bbox and returns [lat,lon] pairs (enveloped)", asyn
   const [url, init] = fetchMock.mock.calls[0];
   expect(url).toBe("/api/v2/golbat-data/pokestop");
   expect(init.method).toBe("POST");
-  // Real Rust BboxInput uses serde rename_all = "camelCase" → minLat/maxLon on wire
-  expect(JSON.parse(init.body).bbox).toMatchObject({ minLat: 47.4, maxLon: -122.2 });
+  // Real Rust BboxInput uses serde rename_all = "camelCase" → minLat/maxLon on wire.
+  // Assert ALL four corners so a transpose/casing regression in any field is caught.
+  expect(JSON.parse(init.body).bbox).toEqual({
+    minLat: 47.4, minLon: -122.4, maxLat: 47.6, maxLon: -122.2,
+  });
   expect(pts).toEqual([[47.5, -122.3]]);
 });
 
