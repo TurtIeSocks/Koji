@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useMapUIStore } from "@/map/stores/map-ui-store";
 import { firstGeometry } from "@/map/lib/edit-serialize";
+import { mergeSelected } from "@/map/lib/merge-polygons";
 import type { DrawMode } from "@/map/lib/edit-modes";
 import { useDataProvider, useNotify } from "shadmin-core";
 
@@ -15,10 +16,18 @@ const MODES: { mode: DrawMode; label: string }[] = [
 export function DrawToolbar() {
   const drawMode = useMapUIStore((s) => s.drawMode);
   const draftFeatures = useMapUIStore((s) => s.draftFeatures);
+  const selectedFeatureIndexes = useMapUIStore((s) => s.selectedFeatureIndexes);
   const setDrawMode = useMapUIStore((s) => s.setDrawMode);
+  const setDraftFeatures = useMapUIStore((s) => s.setDraftFeatures);
+  const setSelectedFeatureIndexes = useMapUIStore((s) => s.setSelectedFeatureIndexes);
   const clearDraft = useMapUIStore((s) => s.clearDraft);
   const dataProvider = useDataProvider();
   const notify = useNotify();
+
+  const handleMerge = () => {
+    setDraftFeatures(mergeSelected(draftFeatures, selectedFeatureIndexes));
+    setSelectedFeatureIndexes([]);
+  };
 
   const handleSave = async () => {
     const geometry = firstGeometry(draftFeatures);
@@ -42,6 +51,14 @@ export function DrawToolbar() {
           {m.label}
         </Button>
       ))}
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={selectedFeatureIndexes.length < 2}
+        onClick={handleMerge}
+      >
+        Merge
+      </Button>
       <Button
         size="sm"
         variant="ghost"
