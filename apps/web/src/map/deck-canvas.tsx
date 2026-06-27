@@ -29,6 +29,10 @@ export function DeckCanvas() {
   const visibility = useMapUIStore((s) => s.layerVisibility);
   const s2Level = useMapUIStore((s) => s.s2Level);
   const setSelection = useMapUIStore((s) => s.setSelection);
+  const drawMode = useMapUIStore((s) => s.drawMode);
+  const draftFeatures = useMapUIStore((s) => s.draftFeatures);
+  const selectedFeatureIndexes = useMapUIStore((s) => s.selectedFeatureIndexes);
+  const setDraftFeatures = useMapUIStore((s) => s.setDraftFeatures);
   const markerRadius = useMapSettingsStore((s) => s.markerRadius);
   const tileServerId = useMapSettingsStore((s) => s.tileServerId); // (Phase 1: maps to DEFAULT_TILE_URL)
 
@@ -63,8 +67,14 @@ export function DeckCanvas() {
           else if (id === "geofences") setSelection({ kind: "geofence", id: String(info.index) });
           else if (id === "routes") setSelection({ kind: "route", id: String(info.index) });
         },
+        draft: {
+          mode: drawMode,
+          features: draftFeatures,
+          selectedIndexes: selectedFeatureIndexes,
+          onEdit: (e) => setDraftFeatures(e.updatedData),
+        },
       }),
-    [visibility, gyms.data, stops.data, spawns.data, stations.data, geofences.data, routes.data, s2.data, markerRadius, setSelection],
+    [visibility, gyms.data, stops.data, spawns.data, stations.data, geofences.data, routes.data, s2.data, markerRadius, setSelection, drawMode, draftFeatures, selectedFeatureIndexes, setDraftFeatures],
   );
 
   const mapStyle = useMemo(() => rasterStyle(DEFAULT_TILE_URL), [tileServerId]);

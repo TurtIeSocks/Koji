@@ -2,8 +2,18 @@ import { ScatterplotLayer, GeoJsonLayer, PolygonLayer } from "@deck.gl/layers";
 import type { Layer, PickingInfo } from "@deck.gl/core";
 import type { LayerId, S2Cell } from "@/map/stores/types";
 import { packMarkers } from "@/map/lib/coords";
+import { EditableGeoJsonLayer } from "@deck.gl-community/editable-layers";
+import { editModeFor, type DrawMode } from "@/map/lib/edit-modes";
 
 interface MarkerSet { id: LayerId; points: [number, number][]; color: [number, number, number]; }
+
+interface DraftInput {
+  mode: DrawMode;
+  features: GeoJSON.FeatureCollection;
+  selectedIndexes: number[];
+  onEdit: (e: { updatedData: GeoJSON.FeatureCollection }) => void;
+}
+
 export interface BuildLayersInput {
   visibility: Record<LayerId, boolean>;
   markerSets: MarkerSet[];
@@ -12,10 +22,11 @@ export interface BuildLayersInput {
   s2Cells: S2Cell[];
   markerRadius: number;
   onClick: (info: PickingInfo) => void;
+  draft?: DraftInput;
 }
 
 export function buildLayers(input: BuildLayersInput): Layer[] {
-  const { visibility, markerSets, geofences, routes, s2Cells, markerRadius, onClick } = input;
+  const { visibility, markerSets, geofences, routes, s2Cells, markerRadius, onClick, draft } = input;
 
   const markerLayers = markerSets.map((set) => {
     const positions = packMarkers(set.points);
@@ -32,7 +43,7 @@ export function buildLayers(input: BuildLayersInput): Layer[] {
     });
   });
 
-  return [
+  const baseLayers: Layer[] = [
     new GeoJsonLayer({
       id: "geofences", visible: visibility.geofences, data: geofences,
       filled: true, getFillColor: [255, 140, 0, 40], getLineColor: [255, 140, 0, 220],
@@ -51,4 +62,21 @@ export function buildLayers(input: BuildLayersInput): Layer[] {
     }),
     ...markerLayers,
   ];
+
+  const editLayer: Layer[] =
+    draft && draft.mode !== "none"
+      ? [
+          new EditableGeoJsonLayer({
+            id: "edit",
+            data: draft.features,
+            mode: editModeFor(draft.mode),
+            selectedFeatureIndexes: draft.selectedIndexes,
+            onEdit: draft.onEdit,
+            getFillColor: [0, 150, 255, 60],
+            getLineColor: [0, 150, 255, 220],
+          }) as unknown as Layer,
+        ]
+      : [];
+
+  return [...baseLayers, ...editLayer];
 }

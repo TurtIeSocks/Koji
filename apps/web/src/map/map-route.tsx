@@ -6,6 +6,7 @@ import { LayerDrawer } from "@/map/panels/layer-drawer";
 import { CoordinateReadout } from "@/map/panels/coordinate-readout";
 import { TileServerSelect } from "@/map/panels/tile-server-select";
 import { SelectionPopup } from "@/map/panels/selection-popup";
+import { DrawToolbar } from "@/map/panels/draw-toolbar";
 
 export function MapRoute() {
   return (
@@ -23,6 +24,7 @@ export function MapRoute() {
       <LayerDrawer />
       <CoordinateReadout />
       <SelectionPopup />
+      <DrawToolbar />
     </div>
   );
 }

@@ -37,3 +37,19 @@ test("S2 layer is present but hidden when s2 visibility is off", () => {
   });
   expect(layers.find((l) => l.id === "s2")!.props.visible).toBe(false);
 });
+
+test("buildLayers appends an editable layer only when a draw mode is active", () => {
+  const draftOff = buildLayers({
+    visibility: vis(), markerSets: [], geofences: EMPTY, routes: EMPTY, s2Cells: [],
+    markerRadius: 30, onClick: vi.fn(),
+    draft: { mode: "none", features: EMPTY, selectedIndexes: [], onEdit: vi.fn() },
+  });
+  expect(draftOff.find((l) => l.id === "edit")).toBeUndefined();
+
+  const draftOn = buildLayers({
+    visibility: vis(), markerSets: [], geofences: EMPTY, routes: EMPTY, s2Cells: [],
+    markerRadius: 30, onClick: vi.fn(),
+    draft: { mode: "drawPolygon", features: EMPTY, selectedIndexes: [], onEdit: vi.fn() },
+  });
+  expect(draftOn.find((l) => l.id === "edit")).toBeDefined();
+});
