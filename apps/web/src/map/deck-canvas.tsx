@@ -73,10 +73,18 @@ export function DeckCanvas() {
     <MapLibre
       initialViewState={{ longitude: 0, latitude: 0, zoom: 2 }}
       mapStyle={mapStyle}
-      onMove={(e: { viewState: { longitude: number; latitude: number; zoom: number; pitch: number; bearing: number } }) => {
+      onMove={(e: {
+        viewState: { longitude: number; latitude: number; zoom: number; pitch: number; bearing: number };
+        target?: { getBounds?: () => { getWest(): number; getSouth(): number; getEast(): number; getNorth(): number } };
+      }) => {
         const vs = e.viewState;
+        // Prefer the map's real viewport bounds; fall back to an approximation
+        // only when the instance isn't queryable (e.g. the headless test mock).
+        const lb = e.target?.getBounds?.();
+        const b: Bounds = lb
+          ? [lb.getWest(), lb.getSouth(), lb.getEast(), lb.getNorth()]
+          : boundsFromViewState(vs);
         // Transient hot-path write: no component subscribes to liveViewState via a hook.
-        const b = boundsFromViewState(vs);
         useMapViewStore.getState().setLive(vs, b);
       }}
       style={{ width: "100%", height: "100%" }}
@@ -86,9 +94,8 @@ export function DeckCanvas() {
   );
 }
 
-/** Approximate bounds from a viewState when the map instance isn't queried directly.
- *  Phase 1 uses the map's own getBounds via onMove event target where available;
- *  this fallback keeps the fetch keyed on a stable bbox. */
+/** Fallback bounds approximation used only when the live map can't be queried
+ *  (the headless test mock). The real path reads `e.target.getBounds()`. */
 function boundsFromViewState(vs: { longitude: number; latitude: number; zoom: number }): Bounds {
   const span = 360 / 2 ** vs.zoom;
   return [vs.longitude - span, vs.latitude - span / 2, vs.longitude + span, vs.latitude + span / 2];
