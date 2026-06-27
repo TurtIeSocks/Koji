@@ -1,7 +1,8 @@
 import { Route } from 'react-router'
 import { CustomRoutes } from 'shadmin-core'
+import { MapIcon } from 'lucide-react'
 import { authProvider } from '@/auth-provider'
-import { Admin, Resource } from '@/components/admin'
+import { Admin, Layout, Menu, Resource } from '@/components/admin'
 import { PasswordLoginPage } from '@/components/login/password-login-page'
 import { Dashboard } from '@/dashboard/dashboard'
 import { dataProvider } from '@/data-provider'
@@ -13,6 +14,28 @@ import { project } from '@/resources/project'
 import { property } from '@/resources/property'
 import { route } from '@/resources/route'
 import { tileserver } from '@/resources/tileserver'
+import { SidebarGroup, SidebarGroupContent, SidebarMenu } from '@/components/ui/sidebar'
+
+/** Sidebar menu: auto-resource groups + a Views group with the Map link. */
+function KojiMenu() {
+  return (
+    <>
+      <Menu />
+      <SidebarGroup>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <Menu.Item to="/map" primaryText="Map" leftIcon={<MapIcon className="size-4" />} />
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </>
+  )
+}
+
+/** Layout variant that injects the Koji-specific sidebar menu. */
+function KojiLayout(props: Parameters<typeof Layout>[0]) {
+  return <Layout {...props} menu={KojiMenu} />
+}
 
 function App() {
   return (
@@ -21,6 +44,7 @@ function App() {
       dashboard={Dashboard}
       dataProvider={dataProvider}
       disableTelemetry
+      layout={KojiLayout}
       loginPage={PasswordLoginPage}
       title="Kōji"
     >

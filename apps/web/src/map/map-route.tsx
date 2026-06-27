@@ -1,4 +1,17 @@
-/** Phase 1 placeholder — replaced by the full map in Task 12. */
+import { DeckCanvas } from "@/map/deck-canvas";
+import { LayerDrawer } from "@/map/panels/layer-drawer";
+import { CoordinateReadout } from "@/map/panels/coordinate-readout";
+import { TileServerSelect } from "@/map/panels/tile-server-select";
+import { SelectionPopup } from "@/map/panels/selection-popup";
+
 export function MapRoute() {
-  return <div className="grid h-screen w-screen place-items-center">Map (Phase 1 WIP)</div>;
+  return (
+    <div className="relative h-screen w-screen overflow-hidden">
+      <DeckCanvas />
+      <TileServerSelect />
+      <LayerDrawer />
+      <CoordinateReadout />
+      <SelectionPopup />
+    </div>
+  );
 }
