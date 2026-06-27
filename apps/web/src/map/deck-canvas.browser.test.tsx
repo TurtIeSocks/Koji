@@ -13,6 +13,8 @@ vi.mock("react-map-gl/maplibre", () => ({
 vi.mock("@/map/data/use-markers", () => ({ useMarkers: () => ({ data: [] }) }));
 vi.mock("@/map/data/use-geo-features", () => ({ useGeoFeatures: () => ({ data: { type: "FeatureCollection", features: [] } }) }));
 vi.mock("@/map/data/use-s2-cells", () => ({ useS2Cells: () => ({ data: [] }) }));
+// Realtime needs a QueryClient + realtime context the smoke test doesn't mount.
+vi.mock("@/map/data/use-map-realtime", () => ({ useMapRealtime: () => {} }));
 
 import { DeckCanvas } from "@/map/deck-canvas";
 
