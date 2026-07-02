@@ -31,6 +31,7 @@ export function CalcPanel() {
   const radius = useMapCalcStore((s) => s.radius);
   const minPoints = useMapCalcStore((s) => s.minPoints);
   const clusterMode = useMapCalcStore((s) => s.clusterMode);
+  const sortBy = useMapCalcStore((s) => s.sortBy);
   const job = useMapCalcStore((s) => s.job);
   const stats = useMapCalcStore((s) => s.stats);
   const error = useMapCalcStore((s) => s.error);
@@ -39,6 +40,7 @@ export function CalcPanel() {
   const setRadius = useMapCalcStore((s) => s.setRadius);
   const setMinPoints = useMapCalcStore((s) => s.setMinPoints);
   const setClusterMode = useMapCalcStore((s) => s.setClusterMode);
+  const setSortBy = useMapCalcStore((s) => s.setSortBy);
   const startJob = useMapCalcStore((s) => s.startJob);
   const setError = useMapCalcStore((s) => s.setError);
   const clear = useMapCalcStore((s) => s.clear);
@@ -59,6 +61,7 @@ export function CalcPanel() {
   const isAreaMode = AREA_MODES.includes(mode);
   const isRouteInput = ROUTE_INPUT_MODES.includes(mode);
   const showClusterMode = mode === "cluster" || mode === "route";
+  const showSortBy = mode === "route" || mode === "reroute";
   const showMinPoints = mode === "cluster" || mode === "route" || mode === "routeStats";
 
   const inFlight = !!job && (job.status === "queued" || job.status === "running");
@@ -75,7 +78,7 @@ export function CalcPanel() {
     const inputs = isRouteInput
       ? { clusters: routeCoordsToClusters(ui.selectedFeature) }
       : { area: featureToAreaFC(editedGeofence) };
-    const body = buildCalcBody({ mode, category, radius, minPoints, clusterMode }, inputs);
+    const body = buildCalcBody({ mode, category, radius, minPoints, clusterMode, sortBy }, inputs);
     try {
       const id = await submitCalc(body);
       startJob(id);
@@ -118,6 +121,18 @@ export function CalcPanel() {
             <SelectContent>
               <SelectItem value="default">Default</SelectItem>
               {algorithms.clustering.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </Field>
+      ) : null}
+
+      {showSortBy && algorithms?.routing?.length ? (
+        <Field label="Routing (sort)">
+          <Select value={sortBy ?? "default"} onValueChange={(v) => setSortBy(v === "default" ? null : v)}>
+            <SelectTrigger aria-label="Routing"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Default (TSP)</SelectItem>
+              {algorithms.routing.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
             </SelectContent>
           </Select>
         </Field>

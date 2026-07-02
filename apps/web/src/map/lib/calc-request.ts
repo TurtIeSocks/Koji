@@ -13,6 +13,8 @@ export interface CalcParams {
   minPoints: number;
   /** clustering algorithm from GET /algorithms (cluster/route); server default if unset. */
   clusterMode?: string | null;
+  /** routing sort from GET /algorithms (route/reroute); server default if unset. */
+  sortBy?: string | null;
 }
 
 /** Wrap any feature/geometry as a single-feature FeatureCollection area. */
@@ -45,12 +47,18 @@ export function buildCalcBody(p: CalcParams, inp: CalcInputs): Record<string, un
     case "route": {
       const clustering: Record<string, unknown> = { radius: p.radius, minPoints: p.minPoints };
       if (p.clusterMode) clustering.mode = p.clusterMode;
-      return { mode: p.mode, category: p.category, area: inp.area, clustering };
+      return {
+        mode: p.mode, category: p.category, area: inp.area, clustering,
+        ...(p.sortBy ? { routing: { sortBy: p.sortBy } } : {}),
+      };
     }
     case "bootstrap":
       return { mode: "bootstrap", category: p.category, area: inp.area, bootstrap: { radius: p.radius } };
     case "reroute":
-      return { mode: "reroute", clusters: inp.clusters ?? [], radius: p.radius };
+      return {
+        mode: "reroute", clusters: inp.clusters ?? [], radius: p.radius,
+        ...(p.sortBy ? { routing: { sortBy: p.sortBy } } : {}),
+      };
     case "routeStats":
       return { mode: "routeStats", clusters: inp.clusters ?? [], radius: p.radius, minPoints: p.minPoints };
   }

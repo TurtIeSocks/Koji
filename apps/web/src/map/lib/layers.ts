@@ -1,9 +1,10 @@
-import { ScatterplotLayer, GeoJsonLayer, PolygonLayer } from "@deck.gl/layers";
+import { ScatterplotLayer, GeoJsonLayer, PolygonLayer, LineLayer } from "@deck.gl/layers";
 import type { Layer, PickingInfo } from "@deck.gl/core";
 import type { LayerId, S2Cell } from "@/map/stores/types";
 import { packMarkers } from "@/map/lib/coords";
 import { EditableGeoJsonLayer } from "@deck.gl-community/editable-layers";
 import { modeSpecFor, type DrawMode } from "@/map/lib/edit-modes";
+import { routeCoords, routeSegments, segmentColors, type RouteSegment } from "@/map/lib/calc-overlay";
 
 interface MarkerSet { id: LayerId; points: [number, number][]; color: [number, number, number]; }
 
@@ -36,6 +37,9 @@ export interface BaseLayersInput {
   pickable?: boolean;
   /** Calc-job result (cluster centers + route order) to overlay, if any. */
   calcResult?: GeoJSON.FeatureCollection | null;
+  /** True for route-family results (route/reroute/route-stats) → draw the ordered
+   *  path connecting the centers, colored by leg length. */
+  calcResultIsRoute?: boolean;
   /** The geofence currently open in the editor — its ORIGINAL is drawn dimmed so
    *  it's distinguishable from the other (orange) geofences and the blue draft. */
   editingGeofenceId?: string | null;
@@ -100,21 +104,35 @@ export function buildBaseLayers(input: BaseLayersInput): Layer[] {
       getLineColor: [255, 0, 0, 160], lineWidthMinPixels: 1,
     }),
     ...markerLayers,
-    // Calc result overlay (magenta): MultiPoint centers as dots + any route line.
-    ...(input.calcResult
-      ? [
-          new GeoJsonLayer({
-            id: "calc-result",
-            data: input.calcResult,
-            stroked: true, filled: true,
-            getFillColor: [255, 0, 200, 180], getLineColor: [255, 0, 200, 220],
-            lineWidthMinPixels: 2,
-            pointType: "circle", getPointRadius: 5, pointRadiusUnits: "pixels",
-            pickable: false,
-          }),
-        ]
-      : []),
+    ...(input.calcResult ? calcResultLayers(input.calcResult, input.calcResultIsRoute ?? false) : []),
   ];
+}
+
+/** Calc result overlay: magenta centers as dots, plus (for route-family results)
+ *  the ordered path connecting them, each leg colored green→red by its length. */
+function calcResultLayers(fc: GeoJSON.FeatureCollection, isRoute: boolean): Layer[] {
+  const dots = new GeoJsonLayer({
+    id: "calc-result", data: fc,
+    stroked: true, filled: true,
+    getFillColor: [255, 0, 200, 200], getLineColor: [255, 0, 200, 230],
+    lineWidthMinPixels: 2,
+    pointType: "circle", getPointRadius: 5, pointRadiusUnits: "pixels",
+    pickable: false,
+  });
+  if (!isRoute) return [dots];
+  const segs = routeSegments(routeCoords(fc));
+  if (segs.length === 0) return [dots];
+  const colors = segmentColors(segs);
+  const path = new LineLayer<RouteSegment>({
+    id: "calc-route",
+    data: segs,
+    getSourcePosition: (s) => s.source,
+    getTargetPosition: (s) => s.target,
+    getColor: (_s, info) => colors[info.index],
+    getWidth: 3, widthUnits: "pixels", widthMinPixels: 2,
+    pickable: false,
+  });
+  return [path, dots]; // path drawn under the dots
 }
 
 export function buildEditLayer(draft: DraftInput | undefined): Layer[] {

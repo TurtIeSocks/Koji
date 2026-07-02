@@ -40,6 +40,16 @@ test("buildCalcBody: bootstrap uses the bootstrap group; route omits routing (se
   expect(route).not.toHaveProperty("routing");
 });
 
+test("buildCalcBody: route/reroute carry routing.sortBy only when set", () => {
+  const area = featureToAreaFC({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [0, 0] } });
+  const route = buildCalcBody({ mode: "route", category: "pokestop", radius: 70, minPoints: 1, sortBy: "geohash" }, { area });
+  expect((route.routing as { sortBy: string }).sortBy).toBe("geohash");
+  const reroute = buildCalcBody({ mode: "reroute", category: "pokestop", radius: 70, minPoints: 1, sortBy: "s2" }, { clusters: [[1, 2]] });
+  expect((reroute.routing as { sortBy: string }).sortBy).toBe("s2");
+  // unset → no routing key (server default)
+  expect(buildCalcBody({ mode: "route", category: "pokestop", radius: 70, minPoints: 1 }, { area })).not.toHaveProperty("routing");
+});
+
 test("buildCalcBody: reroute/routeStats carry clusters ([lat,lon]) not area", () => {
   const clusters: [number, number][] = [[47.6, -122.3], [47.4, -122.1]];
   expect(buildCalcBody({ mode: "reroute", category: "pokestop", radius: 70, minPoints: 1 }, { clusters })).toEqual({

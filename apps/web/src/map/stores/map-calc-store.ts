@@ -17,8 +17,13 @@ export interface MapCalcState {
   radius: number;
   minPoints: number;
   clusterMode: string | null;
+  /** Routing sort (route/reroute), from GET /algorithms; server default if unset. */
+  sortBy: string | null;
   job: CalcJob | null;
   resultFC: GeoJSON.FeatureCollection | null;
+  /** The mode that produced resultFC (captured at submit) — route-family results
+   *  get the connecting path drawn; cluster/bootstrap are dots only. */
+  resultMode: CalcMode | null;
   stats: unknown;
   error: string | null;
   setMode: (m: CalcMode) => void;
@@ -26,6 +31,7 @@ export interface MapCalcState {
   setRadius: (n: number) => void;
   setMinPoints: (n: number) => void;
   setClusterMode: (m: string | null) => void;
+  setSortBy: (s: string | null) => void;
   /** Enqueued → track it; clears any prior result/error. */
   startJob: (id: string) => void;
   updateJob: (p: { status: string; progress?: number; phase?: string | null }) => void;
@@ -41,8 +47,10 @@ export const useMapCalcStore = create<MapCalcState>()((set) => ({
   radius: 70,
   minPoints: 1,
   clusterMode: null,
+  sortBy: null,
   job: null,
   resultFC: null,
+  resultMode: null,
   stats: null,
   error: null,
   setMode: (mode) => set({ mode }),
@@ -50,8 +58,13 @@ export const useMapCalcStore = create<MapCalcState>()((set) => ({
   setRadius: (radius) => set({ radius }),
   setMinPoints: (minPoints) => set({ minPoints }),
   setClusterMode: (clusterMode) => set({ clusterMode }),
+  setSortBy: (sortBy) => set({ sortBy }),
   startJob: (id) =>
-    set({ job: { id, status: "queued", progress: 0, phase: null }, resultFC: null, stats: null, error: null }),
+    set((s) => ({
+      job: { id, status: "queued", progress: 0, phase: null },
+      resultMode: s.mode, // capture the submitted mode for the overlay
+      resultFC: null, stats: null, error: null,
+    })),
   updateJob: (p) =>
     set((s) =>
       s.job
@@ -68,5 +81,5 @@ export const useMapCalcStore = create<MapCalcState>()((set) => ({
   setResult: (resultFC, stats) =>
     set((s) => ({ resultFC, stats, job: s.job ? { ...s.job, status: "succeeded", progress: 1 } : null })),
   setError: (error) => set((s) => ({ error, job: s.job ? { ...s.job, status: "failed" } : null })),
-  clear: () => set({ job: null, resultFC: null, stats: null, error: null }),
+  clear: () => set({ job: null, resultFC: null, resultMode: null, stats: null, error: null }),
 }));

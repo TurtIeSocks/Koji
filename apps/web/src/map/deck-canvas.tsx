@@ -43,6 +43,8 @@ export function DeckCanvas() {
   const setSelectedFeatureIndexes = useMapUIStore((s) => s.setSelectedFeatureIndexes);
   const editingGeofenceId = useMapUIStore((s) => s.editingGeofenceId);
   const calcResult = useMapCalcStore((s) => s.resultFC);
+  const resultMode = useMapCalcStore((s) => s.resultMode);
+  const calcResultIsRoute = resultMode === "route" || resultMode === "reroute" || resultMode === "routeStats";
   const markerRadius = useMapSettingsStore((s) => s.markerRadius);
   const tileServerId = useMapSettingsStore((s) => s.tileServerId); // (Phase 1: maps to DEFAULT_TILE_URL)
 
@@ -112,9 +114,10 @@ export function DeckCanvas() {
         // layer, not all geofences/routes/markers (the draw-lag culprit).
         pickable: drawMode === "none",
         calcResult,
+        calcResultIsRoute,
         editingGeofenceId,
       }),
-    [visibility, gyms.data, stops.data, spawns.data, stations.data, geofences.data, routes.data, s2.data, markerRadius, handleClick, drawMode, calcResult, editingGeofenceId],
+    [visibility, gyms.data, stops.data, spawns.data, stations.data, geofences.data, routes.data, s2.data, markerRadius, handleClick, drawMode, calcResult, calcResultIsRoute, editingGeofenceId],
   );
 
   // Edit layer — the only thing that rebuilds on a per-click draft change.
