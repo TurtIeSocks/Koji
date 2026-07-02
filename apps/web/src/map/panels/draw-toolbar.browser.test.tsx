@@ -186,6 +186,22 @@ describe("DrawToolbar", () => {
     expect(useMapUIStore.getState().selectedFeatureIndexes).toEqual([]);
   });
 
+  it("Circle is a selectable draw mode", async () => {
+    const screen = render(<DrawToolbar />);
+    await screen.getByRole("button", { name: /circle/i }).click();
+    expect(useMapUIStore.getState().drawMode).toBe("drawCircle");
+  });
+
+  it("Cut hole and Split are disabled until a shape is selected", async () => {
+    const screen = render(<DrawToolbar />);
+    await expect.element(screen.getByRole("button", { name: /cut hole/i })).toBeDisabled();
+    await expect.element(screen.getByRole("button", { name: /split/i })).toBeDisabled();
+    // Selecting a target (as modify/transform would on click) enables them.
+    useMapUIStore.setState({ selectedFeatureIndexes: [0] });
+    await expect.element(screen.getByRole("button", { name: /cut hole/i })).toBeEnabled();
+    await expect.element(screen.getByRole("button", { name: /split/i })).toBeEnabled();
+  });
+
   it("Merge is disabled with fewer than two shapes", async () => {
     useMapUIStore.setState({
       draftFeatures: {

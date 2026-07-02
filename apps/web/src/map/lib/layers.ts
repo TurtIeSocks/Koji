@@ -3,7 +3,7 @@ import type { Layer, PickingInfo } from "@deck.gl/core";
 import type { LayerId, S2Cell } from "@/map/stores/types";
 import { packMarkers } from "@/map/lib/coords";
 import { EditableGeoJsonLayer } from "@deck.gl-community/editable-layers";
-import { editModeFor, type DrawMode } from "@/map/lib/edit-modes";
+import { modeSpecFor, type DrawMode } from "@/map/lib/edit-modes";
 
 interface MarkerSet { id: LayerId; points: [number, number][]; color: [number, number, number]; }
 
@@ -12,7 +12,7 @@ export interface DraftInput {
   features: GeoJSON.FeatureCollection;
   selectedIndexes: number[];
   onEdit: (e: { updatedData: GeoJSON.FeatureCollection; editType?: string }) => void;
-  /** Click-to-select while in modify/translate so those modes have a target. */
+  /** Click-to-select while in modify/transform so those modes have a target. */
   onSelect?: (indexes: number[]) => void;
 }
 
@@ -78,17 +78,20 @@ export function buildBaseLayers(input: BaseLayersInput): Layer[] {
 
 export function buildEditLayer(draft: DraftInput | undefined): Layer[] {
   if (!draft || draft.mode === "none") return [];
-  const canSelect = draft.mode === "modify" || draft.mode === "translate";
+  const spec = modeSpecFor(draft.mode);
   return [
     new EditableGeoJsonLayer({
       id: "edit",
       data: draft.features,
-      mode: editModeFor(draft.mode),
+      mode: spec.ModeClass,
+      // Boolean op (e.g. cut-hole = 'difference') applied against the selection.
+      modeConfig: spec.modeConfig,
       selectedFeatureIndexes: draft.selectedIndexes,
       onEdit: draft.onEdit,
-      // Click a feature to select it so modify/translate have a target.
+      // Click a feature to select it so modify/transform have a target. Draw
+      // modes (incl. cut-hole/split) leave this off — their clicks draw.
       onClick: (info: PickingInfo) => {
-        if (!canSelect || !draft.onSelect) return;
+        if (!spec.clickToSelect || !draft.onSelect) return;
         const i = info.index;
         draft.onSelect(typeof i === "number" && i >= 0 ? [i] : []);
       },
