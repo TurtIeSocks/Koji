@@ -241,7 +241,7 @@ impl<'a> Greedy {
             geometry: Some(Geometry {
                 bbox,
                 foreign_members: None,
-                value: geojson::Value::Polygon { coordinates: vec![vec![
+                value: geojson::GeometryValue::Polygon { coordinates: vec![vec![
                     geojson::Position::from([arr[0], arr[1]]),
                     geojson::Position::from([arr[2], arr[1]]),
                     geojson::Position::from([arr[2], arr[3]]),

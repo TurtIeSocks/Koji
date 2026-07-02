@@ -1,7 +1,7 @@
 use std::{collections::HashMap, str::FromStr};
 use koji_core::Precision;
 
-use geojson::{GeoJson, Geometry};
+use geojson::GeoJson;
 use sea_orm::Set;
 use serde_json::Value;
 
@@ -37,7 +37,7 @@ impl JsonToModel for Value {
                 if let Some(geometry) = incoming.get("geometry") {
                     match serde_json::from_value::<geojson::Geometry>(geometry.to_owned()) {
                         Ok(geometry) => {
-                            let value = serde_json::to_value(&GeoJson::Geometry(geometry)).expect("geojson serializes");
+                            let value = serde_json::to_value(GeoJson::Geometry(geometry)).expect("geojson serializes");
                             let mode = incoming
                                 .get("mode")
                                 .map(|mode| mode.as_str().unwrap_or("unset").to_string());
@@ -264,7 +264,7 @@ impl JsonToModel for Value {
                     if let Some(geometry) = incoming.get("geometry") {
                         match serde_json::from_value::<geojson::Geometry>(geometry.to_owned()) {
                             Ok(geometry) => {
-                                let value = serde_json::to_value(&GeoJson::Geometry(geometry)).expect("geojson serializes");
+                                let value = serde_json::to_value(GeoJson::Geometry(geometry)).expect("geojson serializes");
                                 let mode = incoming
                                     .get("mode")
                                     .map(|mode| mode.as_str().unwrap_or("unset").to_string());

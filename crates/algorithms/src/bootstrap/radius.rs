@@ -3,7 +3,7 @@ use web_time::Instant;
 use crate::{routing, stats::Stats};
 
 use geo::{Contains, Destination, Distance, Extremes, Haversine, Point, Polygon};
-use geojson::{Feature, Geometry, Value};
+use geojson::{Feature, Geometry, GeometryValue};
 use koji_core::{Precision, SingleVec};
 
 use crate::routing::RoutingConfig;
@@ -11,17 +11,17 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 /// Split a `MultiPolygon` geometry into one `Geometry` per polygon, geo-native
 /// (no `To*` matrix). Matches the matrix `ToGeometryVec for Geometry`'s
-/// `MultiPolygon` arm: each polygon becomes its own `Value::Polygon` geometry,
+/// `MultiPolygon` arm: each polygon becomes its own `GeometryValue::Polygon` geometry,
 /// carrying the parent's bbox. A non-MultiPolygon geometry passes through as a
 /// single-element vec (the matrix's `_ =>` arm). Only the MultiPolygon case is
 /// reached here, but the fallthrough keeps the behavior total.
 fn split_multipolygon(geometry: Geometry) -> Vec<Geometry> {
     match geometry.value {
-        Value::MultiPolygon { coordinates: polygons } => polygons
+        GeometryValue::MultiPolygon { coordinates: polygons } => polygons
             .into_iter()
             .map(|polygon| Geometry {
                 bbox: geometry.bbox.clone(),
-                value: Value::Polygon { coordinates: polygon },
+                value: GeometryValue::Polygon { coordinates: polygon },
                 foreign_members: None,
             })
             .collect(),
@@ -95,7 +95,7 @@ impl<'a> BootstrapRadius<'a> {
     fn flatten_circles(&self) -> Vec<Point> {
         if let Some(geometry) = self.feature.geometry.clone() {
             match geometry.value {
-                Value::MultiPolygon { .. } => split_multipolygon(geometry)
+                GeometryValue::MultiPolygon { .. } => split_multipolygon(geometry)
                     .par_iter()
                     .flat_map(|geo| self.generate_circles(geo))
                     .collect(),
@@ -263,7 +263,7 @@ fn comb_order(rows: Vec<Vec<Point>>) -> Vec<Point> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use geojson::{Feature, Geometry, Value};
+    use geojson::{Feature, Geometry, GeometryValue};
 
     /// Build a simple rectangular geojson Feature as a Polygon.
     /// coords: lon,lat (geojson convention).
@@ -277,7 +277,7 @@ mod tests {
         ];
         Feature {
             bbox: None,
-            geometry: Some(Geometry::new(Value::Polygon { coordinates: vec![ring] })),
+            geometry: Some(Geometry::new(GeometryValue::Polygon { coordinates: vec![ring] })),
             id: None,
             properties: None,
             foreign_members: None,
@@ -328,11 +328,11 @@ mod tests {
             geojson::Position::from([1.0, 1.0]),
             geojson::Position::from([0.0, 0.0]),
         ]];
-        let geo = Geometry::new(Value::Polygon { coordinates: ring.clone() });
+        let geo = Geometry::new(GeometryValue::Polygon { coordinates: ring.clone() });
         let result = split_multipolygon(geo);
         assert_eq!(result.len(), 1);
         // Single polygon passthrough.
-        assert!(matches!(result[0].value, Value::Polygon { .. }));
+        assert!(matches!(result[0].value, GeometryValue::Polygon { .. }));
     }
 
     #[test]
@@ -349,11 +349,11 @@ mod tests {
             geojson::Position::from([2.5, 1.0]),
             geojson::Position::from([2.0, 0.0]),
         ]];
-        let geo = Geometry::new(Value::MultiPolygon { coordinates: vec![ring1, ring2] });
+        let geo = Geometry::new(GeometryValue::MultiPolygon { coordinates: vec![ring1, ring2] });
         let result = split_multipolygon(geo);
         assert_eq!(result.len(), 2);
         for g in &result {
-            assert!(matches!(g.value, Value::Polygon { .. }));
+            assert!(matches!(g.value, GeometryValue::Polygon { .. }));
         }
     }
 

@@ -337,7 +337,7 @@ mod tests {
     use super::*;
 
     /// Extract the lone feature's geojson geometry `Value` from a FeatureCollection.
-    fn only_geom_value(fc: &geojson::FeatureCollection) -> geojson::Value {
+    fn only_geom_value(fc: &geojson::FeatureCollection) -> geojson::GeometryValue {
         fc.features[0].geometry.as_ref().unwrap().value.clone()
     }
 
@@ -345,7 +345,7 @@ mod tests {
     /// centers' MultiPoint collection via [`centers_collection`], then project to
     /// geojson via the Phase 1 outbound `From<&KojiGeometryCollection>` (the locked
     /// Phase 2 path).
-    fn new_geom_value(centers: &SingleVec, instance: &str) -> geojson::Value {
+    fn new_geom_value(centers: &SingleVec, instance: &str) -> geojson::GeometryValue {
         let koji = centers_collection(centers, instance);
         let fc = geojson::FeatureCollection::from(&koji);
         only_geom_value(&fc)
@@ -359,8 +359,8 @@ mod tests {
     /// `[lat, lon]` → `[lon, lat]`, then `geo::RemoveRepeatedPoints` drops the
     /// duplicate closing coord — so each route below collapses to the same three
     /// distinct points.
-    fn golden(coords: &[[Precision; 2]]) -> geojson::Value {
-        geojson::Value::MultiPoint { coordinates: coords.iter().map(|c| geojson::Position::from([c[0], c[1]])).collect() }
+    fn golden(coords: &[[Precision; 2]]) -> geojson::GeometryValue {
+        geojson::GeometryValue::MultiPoint { coordinates: coords.iter().map(|c| geojson::Position::from([c[0], c[1]])).collect() }
     }
 
     /// An OPEN routed center set (ring not pre-closed).

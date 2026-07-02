@@ -2,7 +2,7 @@ use std::fmt::Write;
 #[cfg(test)]
 use koji_core::Precision;
 
-use geojson::{Feature, FeatureCollection, Value};
+use geojson::{Feature, FeatureCollection, GeometryValue};
 
 use koji_core::{KojiBbox, KojiGeometry, KojiGeometryCollection, SingleVec};
 
@@ -32,7 +32,7 @@ pub fn sql_raw_bbox(area: &FeatureCollection) -> String {
         };
         if let Some(geometry) = &feature.geometry {
             match geometry.value {
-                Value::Polygon { .. } | Value::MultiPolygon { .. } => {
+                GeometryValue::Polygon { .. } | GeometryValue::MultiPolygon { .. } => {
                     let _ = write!(
                         string,
                         "{} (lon BETWEEN {} AND {} AND lat BETWEEN {} AND {})",

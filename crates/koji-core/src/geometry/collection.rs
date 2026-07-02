@@ -49,7 +49,7 @@ impl TrimPrecision for FeatureCollection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use geojson::{Feature, FeatureCollection, Geometry, Value};
+    use geojson::{Feature, FeatureCollection, Geometry, GeometryValue};
 
     fn make_fc(features: Vec<Feature>) -> FeatureCollection {
         FeatureCollection {
@@ -62,7 +62,7 @@ mod tests {
     fn polygon_feature(ring: Vec<geojson::Position>) -> Feature {
         Feature {
             bbox: None,
-            geometry: Some(Geometry::new(Value::Polygon { coordinates: vec![ring] })),
+            geometry: Some(Geometry::new(GeometryValue::Polygon { coordinates: vec![ring] })),
             id: None,
             properties: None,
             foreign_members: None,
@@ -87,7 +87,7 @@ mod tests {
         let fc = make_fc(vec![polygon_feature(ring)]);
         let closed = fc.ensure_first_last();
         let ring_out = match &closed.features[0].geometry.as_ref().unwrap().value {
-            Value::Polygon { coordinates: rings } => rings[0].clone(),
+            GeometryValue::Polygon { coordinates: rings } => rings[0].clone(),
             _ => panic!("expected Polygon"),
         };
         assert_eq!(
@@ -126,7 +126,7 @@ mod tests {
         let fc = make_fc(vec![polygon_feature(ring)]);
         let simplified = fc.simplify();
         let ring_out = match &simplified.features[0].geometry.as_ref().unwrap().value {
-            Value::Polygon { coordinates: rings } => rings[0].clone(),
+            GeometryValue::Polygon { coordinates: rings } => rings[0].clone(),
             _ => panic!("expected Polygon"),
         };
         assert!(
@@ -151,7 +151,7 @@ mod tests {
         let fc = make_fc(vec![polygon_feature(ring)]);
         let trimmed = fc.trim_precision(4);
         let ring_out = match &trimmed.features[0].geometry.as_ref().unwrap().value {
-            Value::Polygon { coordinates: rings } => rings[0].clone(),
+            GeometryValue::Polygon { coordinates: rings } => rings[0].clone(),
             _ => panic!("expected Polygon"),
         };
         assert_eq!(ring_out[0][0], 1.2346);

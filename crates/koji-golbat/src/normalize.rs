@@ -1,6 +1,6 @@
 use geo::{Contains, MultiPolygon, Point, Polygon};
 use koji_core::Precision;
-use geojson::{FeatureCollection, Value};
+use geojson::{FeatureCollection, GeometryValue};
 
 use koji_core::HasLatLon;
 
@@ -19,11 +19,11 @@ impl AreaPolygons {
         for feature in &area.features {
             if let Some(geometry) = &feature.geometry {
                 match &geometry.value {
-                    Value::Polygon { .. } => match Polygon::try_from(geometry) {
+                    GeometryValue::Polygon { .. } => match Polygon::try_from(geometry) {
                         Ok(poly) => polys.push(poly),
                         Err(e) => log::warn!("Failed to convert Polygon: {}", e),
                     },
-                    Value::MultiPolygon { .. } => match MultiPolygon::try_from(geometry) {
+                    GeometryValue::MultiPolygon { .. } => match MultiPolygon::try_from(geometry) {
                         Ok(mp) => multi_polys.push(mp),
                         Err(e) => log::warn!("Failed to convert MultiPolygon: {}", e),
                     },

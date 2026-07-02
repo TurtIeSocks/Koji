@@ -44,7 +44,7 @@ pub fn cluster(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use geojson::{Feature, Geometry, Value};
+    use geojson::{Feature, Geometry, GeometryValue};
 
     fn rect_feature(min_lon: Precision, min_lat: Precision, max_lon: Precision, max_lat: Precision) -> Feature {
         let ring = vec![
@@ -56,7 +56,7 @@ mod tests {
         ];
         Feature {
             bbox: None,
-            geometry: Some(Geometry::new(Value::Polygon { coordinates: vec![ring] })),
+            geometry: Some(Geometry::new(GeometryValue::Polygon { coordinates: vec![ring] })),
             id: None,
             properties: None,
             foreign_members: None,

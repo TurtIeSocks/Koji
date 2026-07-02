@@ -18,7 +18,7 @@
 
 use actix_web::{HttpResponse, post, web};
 use koji_core::Precision;
-use geojson::{Feature, FeatureCollection, Geometry, Value};
+use geojson::{Feature, FeatureCollection, Geometry, GeometryValue};
 use koji_core::{KojiBbox, SpawnpointTth};
 use koji_db::KojiDb;
 use koji_golbat::GenericDataToVec;
@@ -210,7 +210,7 @@ fn bbox_collection(bbox: KojiBbox) -> FeatureCollection {
     ];
     let feature = Feature {
         bbox: None,
-        geometry: Some(Geometry::new(Value::Polygon { coordinates: vec![ring] })),
+        geometry: Some(Geometry::new(GeometryValue::Polygon { coordinates: vec![ring] })),
         id: None,
         properties: None,
         foreign_members: None,
@@ -455,7 +455,7 @@ mod tests {
         assert_eq!(fc.features.len(), 1);
         let geom = fc.features[0].geometry.as_ref().unwrap();
         match &geom.value {
-            Value::Polygon { coordinates: rings } => {
+            GeometryValue::Polygon { coordinates: rings } => {
                 assert_eq!(rings.len(), 1);
                 let ring = &rings[0];
                 // 5 coords, closed; geojson order is [lon, lat].

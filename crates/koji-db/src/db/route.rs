@@ -4,7 +4,7 @@ use super::*;
 use koji_core::Precision;
 
 use chrono::Utc;
-use geojson::{self, GeoJson, Geometry};
+use geojson::{self, GeoJson};
 use sea_orm::{FromQueryResult, Order, QueryOrder, QuerySelect, entity::prelude::*};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -111,8 +111,8 @@ fn route_geofence_id(item: &KojiGeometry) -> Option<u64> {
 /// The stored geojson geometry Json for a route row — the reverse of
 /// `to_koji_geometry`'s parse (`geo` → geojson → Json object).
 fn route_geometry_json(item: &KojiGeometry) -> Json {
-    let gj = geojson::Geometry::new(geojson::Value::from(&item.geometry));
-    serde_json::to_value(&GeoJson::Geometry(gj)).expect("geojson serializes")
+    let gj = geojson::Geometry::new(geojson::GeometryValue::from(&item.geometry));
+    serde_json::to_value(GeoJson::Geometry(gj)).expect("geojson serializes")
 }
 
 impl Model {
@@ -304,7 +304,7 @@ impl Query {
         let new_fence = serde_json::from_value::<geojson::Geometry>(incoming.geometry);
         match new_fence {
             Ok(new_feature) => {
-                let value = serde_json::to_value(&GeoJson::Geometry(new_feature)).expect("geojson serializes");
+                let value = serde_json::to_value(GeoJson::Geometry(new_feature)).expect("geojson serializes");
                 ActiveModel {
                     name: Set(incoming.name.to_owned()),
                     geofence_id: Set(incoming.geofence_id),
@@ -352,7 +352,7 @@ impl Query {
         let old_model: Option<Model> = Entity::find_by_id(id).one(db).await?;
         let new_geometry = serde_json::from_value::<geojson::Geometry>(new_model.geometry);
         if let Ok(new_geometry) = new_geometry {
-            let value = serde_json::to_value(&GeoJson::Geometry(new_geometry)).expect("geojson serializes");
+            let value = serde_json::to_value(GeoJson::Geometry(new_geometry)).expect("geojson serializes");
 
             let mut old_model: ActiveModel = old_model.unwrap().into();
             old_model.name = Set(new_model.name.to_owned());

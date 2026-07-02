@@ -369,11 +369,11 @@ fn item_poracle(i: usize, item: &KojiGeometry) -> Poracle {
 }
 
 /// The item's geojson `Geometry`, ring-closed, rendered to its JSON string — the
-/// exact value the oracle embeds in the SQL (`geojson::Value::from(&geo)` is the
+/// exact value the oracle embeds in the SQL (`geojson::GeometryValue::from(&geo)` is the
 /// edge geo→geojson conversion, then ring-closure inlined from the matrix
 /// `EnsurePoints for Geometry`). Not a `To*` matrix call.
 fn geojson_geometry_closed(geom: &Geometry<Precision>) -> String {
-    let mut value = geojson::Value::from(geom);
+    let mut value = geojson::GeometryValue::from(geom);
     // Inline `EnsurePoints::ensure_first_last`: close each ring whose last point
     // differs from its first on *both* axes (matrix uses `&&`).
     let close_ring = |ring: &mut Vec<geojson::Position>| {
@@ -387,8 +387,8 @@ fn geojson_geometry_closed(geom: &Geometry<Precision>) -> String {
         }
     };
     match &mut value {
-        geojson::Value::Polygon { coordinates: rings } => rings.iter_mut().for_each(close_ring),
-        geojson::Value::MultiPolygon { coordinates: polys } => polys
+        geojson::GeometryValue::Polygon { coordinates: rings } => rings.iter_mut().for_each(close_ring),
+        geojson::GeometryValue::MultiPolygon { coordinates: polys } => polys
             .iter_mut()
             .flat_map(|p| p.iter_mut())
             .for_each(close_ring),
@@ -770,7 +770,7 @@ mod tests {
         use crate::geometry::single_vec_to_multipoint_feature;
 
         let golden =
-            geojson::Value::MultiPoint { coordinates: vec![geojson::Position::from([2.0, 1.0]), geojson::Position::from([4.0, 3.0]), geojson::Position::from([6.0, 5.0])] };
+            geojson::GeometryValue::MultiPoint { coordinates: vec![geojson::Position::from([2.0, 1.0]), geojson::Position::from([4.0, 3.0]), geojson::Position::from([6.0, 5.0])] };
         for centers in [
             vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],             // open
             vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2.0]], // pre-closed
@@ -793,7 +793,7 @@ mod tests {
     fn single_vec_polygon_feature_matches_golden() {
         use crate::geometry::single_vec_to_polygon_feature;
 
-        let golden = geojson::Value::Polygon { coordinates: vec![vec![
+        let golden = geojson::GeometryValue::Polygon { coordinates: vec![vec![
             geojson::Position::from([2.0, 1.0]),
             geojson::Position::from([4.0, 3.0]),
             geojson::Position::from([6.0, 5.0]),

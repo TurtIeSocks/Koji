@@ -78,7 +78,7 @@ impl KojiGeometryCollection {
 
     /// Collapse every `Point` item into a single `MultiPoint` item, dropping all
     /// other geometries (re-homed from the v1/v2 `/merge-points` endpoints, which
-    /// pulled `Value::Point` features into one `MultiPoint`). Point order is
+    /// pulled `GeometryValue::Point` features into one `MultiPoint`). Point order is
     /// preserved; the merged item carries default metadata. An empty input (or no
     /// points) yields a single empty-`MultiPoint` item, matching the old path
     /// which always built one `MultiPoint` feature.
@@ -146,8 +146,8 @@ mod tests {
     }
 
     /// `merge_points` vs a golden frozen from the old `/merge-points` matrix path:
-    /// it collected `Value::Point` coords (`[lon, lat]`) into one
-    /// `Value::MultiPoint`. The Koji-native path must emit the identical
+    /// it collected `GeometryValue::Point` coords (`[lon, lat]`) into one
+    /// `GeometryValue::MultiPoint`. The Koji-native path must emit the identical
     /// `MultiPoint` geojson.
     #[test]
     fn merge_points_matches_golden_multipoint() {
@@ -156,7 +156,7 @@ mod tests {
 
         // Golden: the matrix projected these points to a MultiPoint of [lon, lat].
         let golden =
-            geojson::Value::MultiPoint { coordinates: vec![geojson::Position::from([2.0, 1.0]), geojson::Position::from([4.0, 3.0]), geojson::Position::from([6.0, 5.0])] };
+            geojson::GeometryValue::MultiPoint { coordinates: vec![geojson::Position::from([2.0, 1.0]), geojson::Position::from([4.0, 3.0]), geojson::Position::from([6.0, 5.0])] };
 
         // NEW path: Point items -> merge_points -> geojson Geometry.
         let coll = KojiGeometryCollection::new(
@@ -166,7 +166,7 @@ mod tests {
         )
         .merge_points();
         assert_eq!(coll.items.len(), 1);
-        let new_value = geojson::Value::from(&coll.items[0].geometry);
+        let new_value = geojson::GeometryValue::from(&coll.items[0].geometry);
 
         assert_eq!(
             new_value, golden,
@@ -175,7 +175,7 @@ mod tests {
     }
 
     /// Non-point geometries are dropped by `merge_points` (the old path only read
-    /// `Value::Point` features).
+    /// `GeometryValue::Point` features).
     #[test]
     fn merge_points_drops_non_points() {
         use geo::{LineString, coord};
@@ -188,7 +188,7 @@ mod tests {
             KojiGeometry::new(Point::new(2.0, 2.0)),
         ])
         .merge_points();
-        let geojson::Value::MultiPoint { coordinates: pts } = geojson::Value::from(&coll.items[0].geometry) else {
+        let geojson::GeometryValue::MultiPoint { coordinates: pts } = geojson::GeometryValue::from(&coll.items[0].geometry) else {
             panic!("expected MultiPoint");
         };
         assert_eq!(pts, vec![geojson::Position::from([1.0, 1.0]), geojson::Position::from([2.0, 2.0])]);
@@ -199,7 +199,7 @@ mod tests {
     #[test]
     fn simplify_matches_matrix_on_polygon() {
         use crate::geometry::GeometryHelpers;
-        use geojson::{Geometry as GjGeometry, Value as GjValue};
+        use geojson::{Geometry as GjGeometry, GeometryValue as GjValue};
 
         // A polygon with a nearly-collinear vertex that DP should drop.
         let ring = vec![
@@ -218,7 +218,7 @@ mod tests {
         // NEW path: geojson -> geo -> KojiGeometry::simplify -> geojson.
         let geo_geom: geo::Geometry<Precision> = geo::Geometry::try_from(&gj).unwrap();
         let simplified = KojiGeometry::new(geo_geom).simplify(0.0001);
-        let new_value = geojson::Value::from(&simplified.geometry);
+        let new_value = geojson::GeometryValue::from(&simplified.geometry);
 
         assert_eq!(
             new_value, old_value,

@@ -22,7 +22,7 @@ use super::{
 };
 
 use futures::future;
-use geojson::{GeoJson, Geometry};
+use geojson::GeoJson;
 use koji_core::TrimPrecision;
 use sea_orm::{DbBackend, Statement, UpdateResult, Value, entity::prelude::*};
 use serde::{Deserialize, Serialize};
@@ -163,8 +163,8 @@ fn build_geofence_upsert_map(item: &KojiGeometry) -> Result<GeofenceUpsertInputs
         None => return Err(ModelError::Geofence("Missing name property".to_string())),
     };
 
-    let gj = geojson::Geometry::new(geojson::Value::from(&item.geometry));
-    new_map.insert("geometry", serde_json::to_value(&GeoJson::Geometry(gj)).expect("geojson serializes"));
+    let gj = geojson::Geometry::new(geojson::GeometryValue::from(&item.geometry));
+    new_map.insert("geometry", serde_json::to_value(GeoJson::Geometry(gj)).expect("geojson serializes"));
 
     if let Some(mode) = extra
         .get("__mode")

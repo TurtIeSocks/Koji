@@ -8,7 +8,7 @@
 //! [`ServiceError::internal`] (logged; generic 500 to the client).
 
 use actix_web::{HttpResponse, get, web};
-use geojson::{FeatureCollection, Value};
+use geojson::{FeatureCollection, GeometryValue};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -64,7 +64,7 @@ pub(crate) async fn search_nominatim(
         .filter_map(|feat| {
             if let Some(geometry) = feat.geometry.as_ref() {
                 match geometry.value {
-                    Value::Polygon { .. } | Value::MultiPolygon { .. } => return Some(feat),
+                    GeometryValue::Polygon { .. } | GeometryValue::MultiPolygon { .. } => return Some(feat),
                     _ => {
                         if let Some(id) = feat.property("osm_id")
                             && let Some(id) = id.as_u64()

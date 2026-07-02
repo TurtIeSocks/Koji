@@ -4,7 +4,7 @@ use web_time::Instant;
 use crate::{routing, stats::Stats};
 
 use geo::{BoundingRect, MultiPolygon, Polygon};
-use geojson::{Feature, Value};
+use geojson::{Feature, GeometryValue};
 use koji_core::{Precision, SingleVec};
 
 use crate::routing::RoutingConfig;
@@ -73,11 +73,11 @@ impl<'a> BootstrapS2<'a> {
     fn build_polygons(&self) -> Vec<geo::Polygon> {
         if let Some(geometry) = self.feature.geometry.as_ref() {
             match geometry.value {
-                Value::Polygon { .. } => match Polygon::<Precision>::try_from(geometry) {
+                GeometryValue::Polygon { .. } => match Polygon::<Precision>::try_from(geometry) {
                     Ok(poly) => vec![poly],
                     Err(_) => vec![],
                 },
-                Value::MultiPolygon { .. } => match MultiPolygon::<Precision>::try_from(geometry) {
+                GeometryValue::MultiPolygon { .. } => match MultiPolygon::<Precision>::try_from(geometry) {
                     Ok(multi_poly) => multi_poly.0.into_iter().collect(),
                     Err(_) => vec![],
                 },
@@ -262,7 +262,7 @@ pub fn cells_to_nearest_face_edges(id: CellID) -> (i32, i32) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use geojson::{Feature, Geometry, Value};
+    use geojson::{Feature, Geometry, GeometryValue};
     use s2::{
         cellid::{CellID, MAX_LEVEL},
         latlng::LatLng,
@@ -278,7 +278,7 @@ mod tests {
         ];
         Feature {
             bbox: None,
-            geometry: Some(Geometry::new(Value::Polygon { coordinates: vec![ring] })),
+            geometry: Some(Geometry::new(GeometryValue::Polygon { coordinates: vec![ring] })),
             id: None,
             properties: None,
             foreign_members: None,
@@ -488,7 +488,7 @@ mod tests {
 
     #[test]
     fn multipolygon_feature_produces_cells() {
-        use geojson::{Feature, Geometry, Value};
+        use geojson::{Feature, Geometry, GeometryValue};
         // Two non-overlapping rectangles as a MultiPolygon.
         let ring1 = vec![
             geojson::Position::from([-74.003_f64, 39.997_f64]),
@@ -506,7 +506,7 @@ mod tests {
         ];
         let feature = Feature {
             bbox: None,
-            geometry: Some(Geometry::new(Value::MultiPolygon { coordinates: vec![
+            geometry: Some(Geometry::new(GeometryValue::MultiPolygon { coordinates: vec![
                 vec![ring1],
                 vec![ring2],
             ] })),

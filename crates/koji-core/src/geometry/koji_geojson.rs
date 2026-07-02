@@ -57,7 +57,7 @@ impl TryFrom<geojson::FeatureCollection> for KojiGeometryCollection {
 
 impl From<&KojiGeometry> for geojson::Feature {
     fn from(g: &KojiGeometry) -> Self {
-        let value = geojson::Value::from(&g.geometry);
+        let value = geojson::GeometryValue::from(&g.geometry);
         let properties = match serde_json::to_value(&g.meta) {
             Ok(serde_json::Value::Object(map)) if !map.is_empty() => Some(map),
             _ => None,
@@ -90,9 +90,9 @@ impl From<&KojiGeometryCollection> for geojson::Geometry {
         let geometries = c
             .items
             .iter()
-            .map(|g| geojson::Geometry::new(geojson::Value::from(&g.geometry)))
+            .map(|g| geojson::Geometry::new(geojson::GeometryValue::from(&g.geometry)))
             .collect();
-        geojson::Geometry::new(geojson::Value::GeometryCollection { geometries: geometries })
+        geojson::Geometry::new(geojson::GeometryValue::GeometryCollection { geometries })
     }
 }
 
@@ -167,7 +167,7 @@ mod outbound_tests {
     fn collection_to_geometrycollection_is_property_less() {
         let c = KojiGeometryCollection::new(vec![sample(), sample()]);
         let g = geojson::Geometry::from(&c);
-        assert!(matches!(g.value, geojson::Value::GeometryCollection { geometries: ref v } if v.len() == 2));
+        assert!(matches!(g.value, geojson::GeometryValue::GeometryCollection { geometries: ref v } if v.len() == 2));
     }
 
     #[test]

@@ -622,7 +622,7 @@ mod tests {
         assert_eq!(feature["properties"]["properties"][0]["property_id"], 5);
         assert_eq!(feature["properties"]["name"], "F");
         // geometry key is not duplicated inside properties (it was removed)
-        assert!(feature["properties"].get("geometry").map_or(true, |g| g.is_null()));
+        assert!(feature["properties"].get("geometry").is_none_or(|g| g.is_null()));
     }
 
     #[test]
