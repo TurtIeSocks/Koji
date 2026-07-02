@@ -34,11 +34,10 @@ pub enum PluginProtocol {
     /// The canonical v1 JSON protocol ([`PluginInput`]/[`PluginOutput`]).
     #[default]
     Json,
-    /// Legacy line protocol of the bundled OR-Tools `tsp` router: whitespace-
-    /// separated `lat,lng` tokens on stdin, `lat,lng` tokens (any whitespace) on
-    /// stdout, and the `args.raw` string split into `--flag value` argv. Lets a
-    /// pre-existing binary plugin run unchanged under the manifest/registry
-    /// system (it predates the JSON protocol).
+    /// Legacy whitespace `lat,lng` line protocol (predates the JSON protocol;
+    /// kept for external plugins that speak it): whitespace-separated `lat,lng`
+    /// tokens on stdin, `lat,lng` tokens (any whitespace) on stdout, and the
+    /// `args.raw` string split into `--flag value` argv.
     Latlng,
 }
 

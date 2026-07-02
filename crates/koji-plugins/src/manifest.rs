@@ -53,8 +53,8 @@ pub struct PluginManifest {
     /// Optional human-readable description.
     #[serde(default)]
     pub description: Option<String>,
-    /// The stdio protocol the plugin speaks (`json` default, or `latlng` for the
-    /// legacy OR-Tools `tsp` binary).
+    /// The stdio protocol the plugin speaks (`json` default, or `latlng` for
+    /// external plugins that speak the legacy whitespace `lat,lng` protocol).
     #[serde(default)]
     pub protocol: crate::protocol::PluginProtocol,
 }
