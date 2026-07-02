@@ -50,4 +50,13 @@ export default defineConfig({
       "/api": { target: BACKEND, changeOrigin: true, ws: true },
     },
   },
+  // `vite preview` (prod build) needs the same proxy as dev, else /api + /internal
+  // 404 and the auth gate can't reach the backend. Keep in sync with server.proxy.
+  preview: {
+    port: 4273,
+    proxy: {
+      "/internal": { target: BACKEND, changeOrigin: true, ws: true },
+      "/api": { target: BACKEND, changeOrigin: true, ws: true },
+    },
+  },
 });
