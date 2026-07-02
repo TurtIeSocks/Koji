@@ -1,7 +1,8 @@
 //! Real-data routing harness: cluster a file of `lat,lon` points with crucible
-//! (min_points = 1, radius = 70 m), then route the cluster centers with both
-//! the S2 seed sort and the `SortBy::Tsp` refiner, and compare. Pure compute,
-//! no database.
+//! (min_points = 1, radius = 70 m), then route the cluster centers with the
+//! S2 seed sort, the standalone `SortBy::Tsp` solver, and the
+//! `SortBy::TspHybrid` S2-seeded refiner, and compare. Pure compute, no
+//! database.
 //!
 //! Run: `cargo run --release --example tsp_route -- points.csv`
 //!
@@ -130,31 +131,38 @@ fn main() {
         t.elapsed().as_secs_f64()
     );
 
-    // ── 3. Route: S2 seed vs the Tsp refiner ─────────────────────────────────
+    // ── 3. Route: S2 seed vs the standalone Tsp solver vs the TspHybrid refiner
     let (s2_order, s2_dur) = route(&clusters, SortBy::S2Cell);
     let (tsp_order, tsp_dur) = route(&clusters, SortBy::Tsp);
+    let (hyb_order, hyb_dur) = route(&clusters, SortBy::TspHybrid);
     let (s2_total, s2_close) = metrics(&s2_order);
     let (tsp_total, tsp_close) = metrics(&tsp_order);
+    let (hyb_total, hyb_close) = metrics(&hyb_order);
 
     let km = |m: Precision| m / 1000.0;
     println!("\n──────────── routing comparison ({} clusters) ────────────", clusters.len());
-    println!("                     S2 seed (s2cell)      Tsp (2-opt+Or-opt)");
+    println!("                     S2 seed (s2cell)      Tsp (2-opt+Or-opt)     TspHybrid (S2+refine)");
     println!(
-        "total tour          {:>12.2} km     {:>12.2} km   ({:+.1}%)",
+        "total tour          {:>12.2} km     {:>12.2} km   ({:+.1}%)     {:>12.2} km   ({:+.1}%)",
         km(s2_total),
         km(tsp_total),
-        100.0 * (tsp_total - s2_total) / s2_total
+        100.0 * (tsp_total - s2_total) / s2_total,
+        km(hyb_total),
+        100.0 * (hyb_total - s2_total) / s2_total
     );
     println!(
-        "closing leg         {:>12.0} m      {:>12.0} m    ({:+.1}%)",
+        "closing leg         {:>12.0} m      {:>12.0} m    ({:+.1}%)     {:>12.0} m    ({:+.1}%)",
         s2_close,
         tsp_close,
-        100.0 * (tsp_close - s2_close) / s2_close
+        100.0 * (tsp_close - s2_close) / s2_close,
+        hyb_close,
+        100.0 * (hyb_close - s2_close) / s2_close
     );
     println!(
-        "compute time        {:>12.2}s       {:>12.2}s",
+        "compute time        {:>12.2}s       {:>12.2}s                 {:>12.2}s",
         s2_dur.as_secs_f64(),
-        tsp_dur.as_secs_f64()
+        tsp_dur.as_secs_f64(),
+        hyb_dur.as_secs_f64()
     );
 
     // ── 4. Write outputs next to the input ───────────────────────────────────
