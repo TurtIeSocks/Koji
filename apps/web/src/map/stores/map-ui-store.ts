@@ -64,15 +64,21 @@ export const useMapUIStore = create<MapUIState>()((set) => ({
   setDrawMode: (m) => set({ drawMode: m }),
   setDraftFeatures: (fc) => set({ draftFeatures: fc }),
   setSelectedFeatureIndexes: (ix) => set({ selectedFeatureIndexes: ix }),
-  editFeature: (feature) =>
+  editFeature: (feature) => {
+    // koji serializes a geofence's id as the geojson top-level `feature.id`
+    // (koji_geojson.rs), NOT properties.id — read that first. Getting this wrong
+    // leaves editingGeofenceId null → Save creates a duplicate instead of
+    // updating → the edit appears to revert.
+    const rawId = feature.id ?? feature.properties?.id;
     set({
       draftFeatures: { type: "FeatureCollection", features: [feature] },
       drawMode: "modify",
       selectedFeatureIndexes: [0],
-      editingGeofenceId: feature.properties?.id != null ? String(feature.properties.id) : null,
+      editingGeofenceId: rawId != null ? String(rawId) : null,
       selection: { kind: null, id: null },
       selectedFeature: null,
-    }),
+    });
+  },
   clearDraft: () =>
     set({ draftFeatures: EMPTY_FC, selectedFeatureIndexes: [], drawMode: "none", editingGeofenceId: null }),
   setLastSeen: (secs) => set((s) => ({ filters: { ...s.filters, lastSeen: secs } })),

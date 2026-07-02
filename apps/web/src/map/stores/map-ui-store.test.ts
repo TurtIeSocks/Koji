@@ -36,10 +36,13 @@ test("filter actions update lastSeen and tth independently", () => {
   expect(useMapUIStore.getState().filters).toEqual({ lastSeen: 3600, tth: "Known" });
 });
 
-test("editFeature loads an existing geofence into the modify editor with its id", () => {
+test("editFeature loads a geofence into the modify editor, id from top-level feature.id", () => {
+  // The REAL server shape: koji serializes the geofence id as the geojson
+  // top-level `feature.id` (koji_geojson.rs), NOT properties.id.
   const feature: GeoJSON.Feature = {
     type: "Feature",
-    properties: { id: 42, name: "test_tight" },
+    id: 42,
+    properties: { name: "test_tight", mode: "Unset" },
     geometry: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] },
   };
   useMapUIStore.getState().editFeature(feature);
@@ -51,4 +54,14 @@ test("editFeature loads an existing geofence into the modify editor with its id"
   // clearDraft resets the editing id so a later Save creates, not updates
   useMapUIStore.getState().clearDraft();
   expect(useMapUIStore.getState().editingGeofenceId).toBeNull();
+});
+
+test("editFeature falls back to properties.id when there's no top-level id", () => {
+  const feature: GeoJSON.Feature = {
+    type: "Feature",
+    properties: { id: 7 },
+    geometry: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] },
+  };
+  useMapUIStore.getState().editFeature(feature);
+  expect(useMapUIStore.getState().editingGeofenceId).toBe("7");
 });
