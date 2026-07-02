@@ -26,9 +26,10 @@ beforeEach(() => {
 
 test("subscribes to jobs/{id} and resolves an already-succeeded job on mount", async () => {
   const fc: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+  // The REAL API serializes JobStatus as PascalCase ("Succeeded"), not lowercase.
   getJobMock.mockResolvedValue({
     id: 5,
-    status: "succeeded",
+    status: "Succeeded",
     progress: 1,
     phase: "done",
     result: { data: fc, stats: { total_clusters: 2 } },
@@ -44,13 +45,13 @@ test("subscribes to jobs/{id} and resolves an already-succeeded job on mount", a
 });
 
 test("a realtime running event updates live progress + phase", async () => {
-  getJobMock.mockResolvedValue({ id: 6, status: "running", progress: 0.2, phase: "clustering" });
+  getJobMock.mockResolvedValue({ id: 6, status: "Running", progress: 0.2, phase: "clustering" });
   useMapCalcStore.getState().startJob("6");
   render(<Probe />);
   await vi.waitFor(() => expect(subscribeMock).toHaveBeenCalled());
 
   const cb = subscribeMock.mock.calls[0][1] as (e: { type: string; payload: unknown }) => void;
-  cb({ type: "updated", payload: { id: 6, status: "running", progress: 0.6, phase: "routing" } });
+  cb({ type: "updated", payload: { id: 6, status: "Running", progress: 0.6, phase: "routing" } });
 
   await vi.waitFor(() => expect(useMapCalcStore.getState().job?.progress).toBe(0.6));
   expect(useMapCalcStore.getState().job?.phase).toBe("routing");

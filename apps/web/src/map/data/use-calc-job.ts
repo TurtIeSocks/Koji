@@ -14,14 +14,19 @@ interface JobEventPayload {
 type SetResult = (fc: GeoJSON.FeatureCollection | null, stats: unknown) => void;
 type SetError = (e: string | null) => void;
 
+/** The API serializes JobStatus as PascalCase ("Succeeded"/"Failed"/…); the
+ *  realtime topic may use either case. Normalize so comparisons are case-safe. */
+const norm = (s: string | undefined): string => (s ?? "").toLowerCase();
+
 /** Fetch the job record and push its terminal outcome into the store. */
 async function resolveTerminal(id: string, setResult: SetResult, setError: SetError): Promise<void> {
   try {
     const rec = await getJob(id);
-    if (rec.status === "succeeded") {
+    const st = norm(rec.status);
+    if (st === "succeeded") {
       const { fc, stats } = parseCalcResult(rec);
       setResult(fc, stats);
-    } else if (rec.status === "failed") {
+    } else if (st === "failed") {
       setError(rec.error ?? "job failed");
     }
   } catch (e) {
@@ -42,9 +47,10 @@ export function useCalcJob(): void {
     jobId ? `jobs/${jobId}` : "",
     (event) => {
       const p = event.payload;
-      if (!p?.status || !jobId) return;
-      updateJob({ status: p.status, progress: p.progress, phase: p.phase ?? undefined });
-      if (p.status === "succeeded" || p.status === "failed") {
+      const st = norm(p?.status);
+      if (!st || !jobId) return;
+      updateJob({ status: st, progress: p.progress, phase: p.phase ?? undefined });
+      if (st === "succeeded" || st === "failed") {
         void resolveTerminal(jobId, setResult, setError);
       }
     },
@@ -60,11 +66,12 @@ export function useCalcJob(): void {
       try {
         const rec = await getJob(jobId);
         if (cancelled) return;
-        updateJob({ status: rec.status, progress: rec.progress, phase: rec.phase ?? undefined });
-        if (rec.status === "succeeded") {
+        const st = norm(rec.status);
+        updateJob({ status: st, progress: rec.progress, phase: rec.phase ?? undefined });
+        if (st === "succeeded") {
           const { fc, stats } = parseCalcResult(rec);
           setResult(fc, stats);
-        } else if (rec.status === "failed") {
+        } else if (st === "failed") {
           setError(rec.error ?? "job failed");
         }
       } catch {
