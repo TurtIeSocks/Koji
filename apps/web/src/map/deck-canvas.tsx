@@ -35,6 +35,7 @@ export function DeckCanvas() {
   const s2Level = useMapUIStore((s) => s.s2Level);
   const setSelection = useMapUIStore((s) => s.setSelection);
   const setSelectedFeature = useMapUIStore((s) => s.setSelectedFeature);
+  const editFeature = useMapUIStore((s) => s.editFeature);
   const drawMode = useMapUIStore((s) => s.drawMode);
   const draftFeatures = useMapUIStore((s) => s.draftFeatures);
   const selectedFeatureIndexes = useMapUIStore((s) => s.selectedFeatureIndexes);
@@ -70,22 +71,22 @@ export function DeckCanvas() {
   const handleClick = useCallback(
     (info: PickingInfo) => {
       const id = info.layer?.id ?? "";
-      // Stash the clicked feature (geofence → offers "Edit geometry"; markers are
-      // binary ScatterplotLayer data with no info.object → null). Always set it so
-      // a non-geofence click doesn't inherit the PREVIOUS geofence's name.
       const feature = (info.object as GeoJSON.Feature) ?? null;
       if (id.startsWith("markers-")) {
         setSelection({ kind: "marker", id: String(info.index) });
         setSelectedFeature(null);
       } else if (id === "geofences") {
-        setSelection({ kind: "geofence", id: String(info.index) });
-        setSelectedFeature(feature);
+        // Click a geofence → load it straight into the modify editor (no popup
+        // step). editFeature tracks editingGeofenceId so Save updates in place.
+        if (feature) editFeature(feature);
       } else if (id === "routes") {
+        // Routes stay select-only (route-save isn't wired; a selected route is
+        // also the reroute/route-stats calc input). Keep the feature for the popup.
         setSelection({ kind: "route", id: String(info.index) });
         setSelectedFeature(feature);
       }
     },
-    [setSelection, setSelectedFeature],
+    [setSelection, setSelectedFeature, editFeature],
   );
 
   // Base data layers — rebuilt ONLY when their data/visibility change, NOT on

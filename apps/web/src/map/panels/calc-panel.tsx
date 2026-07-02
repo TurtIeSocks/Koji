@@ -48,6 +48,9 @@ export function CalcPanel() {
   const clear = useMapCalcStore((s) => s.clear);
 
   const selectionKind = useMapUIStore((s) => s.selection.kind);
+  // Clicking a geofence loads it into the editor → it IS the "selected geofence"
+  // for area="selected" (its live-edited geometry is used).
+  const editingGeofenceId = useMapUIStore((s) => s.editingGeofenceId);
 
   // Cluster-algorithm options (cluster/route only). If the endpoint is down the
   // select just hides and the server default applies.
@@ -64,16 +67,24 @@ export function CalcPanel() {
 
   const inFlight = !!job && (job.status === "queued" || job.status === "running");
   const needRoute = isRouteInput && selectionKind !== "route";
-  const needGeofence = isAreaMode && areaSource === "selected" && selectionKind !== "geofence";
+  const needGeofence = isAreaMode && areaSource === "selected" && !editingGeofenceId;
   const blocked = inFlight || needRoute || needGeofence;
 
   const handleCalculate = async () => {
     // Read transient inputs at click time (avoids subscribing to per-frame camera).
     const bounds = useMapViewStore.getState().settledBounds;
-    const feature = useMapUIStore.getState().selectedFeature;
+    const ui = useMapUIStore.getState();
+    // route input → the selected route's coords; selected area → the geofence in
+    // the editor (its live-edited geometry); else the current viewport bbox.
+    const editedGeofence = ui.draftFeatures.features[0];
     const inputs = isRouteInput
-      ? { clusters: routeCoordsToClusters(feature) }
-      : { area: areaSource === "selected" && feature ? featureToAreaFC(feature) : boundsToAreaFC(bounds) };
+      ? { clusters: routeCoordsToClusters(ui.selectedFeature) }
+      : {
+          area:
+            areaSource === "selected" && editedGeofence
+              ? featureToAreaFC(editedGeofence)
+              : boundsToAreaFC(bounds),
+        };
     const body = buildCalcBody({ mode, category, radius, minPoints, clusterMode }, inputs);
     try {
       const id = await submitCalc(body);
