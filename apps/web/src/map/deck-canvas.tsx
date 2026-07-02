@@ -7,6 +7,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { DEFAULT_TILE_URL } from "@/lib/constants";
 import { rasterStyle } from "@/map/lib/map-style";
 import { buildBaseLayers, buildEditLayer } from "@/map/lib/layers";
+import { shouldCommitEdit } from "@/map/lib/edit-serialize";
 import { useMapViewStore } from "@/map/stores/map-view-store";
 import { useMapUIStore } from "@/map/stores/map-ui-store";
 import { useMapSettingsStore } from "@/map/stores/map-settings-store";
@@ -64,12 +65,20 @@ export function DeckCanvas() {
   const handleClick = useCallback(
     (info: PickingInfo) => {
       const id = info.layer?.id ?? "";
-      if (id.startsWith("markers-")) setSelection({ kind: "marker", id: String(info.index) });
-      else if (id === "geofences") {
+      // Stash the clicked feature (geofence → offers "Edit geometry"; markers are
+      // binary ScatterplotLayer data with no info.object → null). Always set it so
+      // a non-geofence click doesn't inherit the PREVIOUS geofence's name.
+      const feature = (info.object as GeoJSON.Feature) ?? null;
+      if (id.startsWith("markers-")) {
+        setSelection({ kind: "marker", id: String(info.index) });
+        setSelectedFeature(null);
+      } else if (id === "geofences") {
         setSelection({ kind: "geofence", id: String(info.index) });
-        // Stash the clicked feature so the popup can offer "Edit geometry".
-        setSelectedFeature((info.object as GeoJSON.Feature) ?? null);
-      } else if (id === "routes") setSelection({ kind: "route", id: String(info.index) });
+        setSelectedFeature(feature);
+      } else if (id === "routes") {
+        setSelection({ kind: "route", id: String(info.index) });
+        setSelectedFeature(feature);
+      }
     },
     [setSelection, setSelectedFeature],
   );
@@ -106,13 +115,10 @@ export function DeckCanvas() {
         mode: drawMode,
         features: draftFeatures,
         selectedIndexes: selectedFeatureIndexes,
+        // Commit only real edits; tentative cursor-follow events are rendered
+        // internally by the layer and must not hit the store (see shouldCommitEdit).
         onEdit: (e) => {
-          // editable-layers fires onEdit ~hundreds of times per polygon for the
-          // tentative cursor-follow line. Those don't change committed geometry
-          // and must NOT hit the store (a zustand set per pointer-move janks the
-          // draw). Commit only real edits; the tentative is rendered internally.
-          if (e.editType === "updateTentativeFeature" || e.editType === "addTentativePosition") return;
-          setDraftFeatures(e.updatedData);
+          if (shouldCommitEdit(e.editType)) setDraftFeatures(e.updatedData);
         },
         onSelect: setSelectedFeatureIndexes,
       }),

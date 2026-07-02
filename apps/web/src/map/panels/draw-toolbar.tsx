@@ -32,29 +32,37 @@ export function DrawToolbar() {
     setSelectedFeatureIndexes([]);
   };
 
-  const handleSave = async () => {
-    const geometries = allGeometries(draftFeatures);
-    if (geometries.length === 0) return;
-    if (editingGeofenceId) {
-      // Editing an EXISTING geofence → update its geometry in place.
-      await dataProvider.update("geofence", {
-        id: editingGeofenceId,
-        data: { geometry: geometries[0] },
-        previousData: { id: editingGeofenceId },
-      });
-      clearDraft();
-      notify("Geofence updated", { type: "info" });
-      return;
-    }
-    // New shapes → one geofence per drawn feature.
+  const createGeometries = (geometries: GeoJSON.Geometry[]) => {
     const stamp = Date.now();
-    await Promise.all(
+    return Promise.all(
       geometries.map((geometry, i) =>
         dataProvider.create("geofence", {
           data: { name: `map-${stamp}-${i + 1}`, mode: "Unset", geometry },
         }),
       ),
     );
+  };
+
+  const handleSave = async () => {
+    const geometries = allGeometries(draftFeatures);
+    if (geometries.length === 0) return;
+    if (editingGeofenceId) {
+      // Editing an EXISTING geofence → update it in place with the first shape.
+      // Any ADDITIONAL shapes drawn during the edit session are saved as new
+      // geofences too, not silently dropped.
+      const [first, ...rest] = geometries;
+      await dataProvider.update("geofence", {
+        id: editingGeofenceId,
+        data: { geometry: first },
+        previousData: { id: editingGeofenceId },
+      });
+      if (rest.length > 0) await createGeometries(rest);
+      clearDraft();
+      notify(rest.length > 0 ? `Geofence updated (+${rest.length} new)` : "Geofence updated", { type: "info" });
+      return;
+    }
+    // New shapes → one geofence per drawn feature.
+    await createGeometries(geometries);
     clearDraft();
     notify(`Saved ${geometries.length} geofence(s)`, { type: "info" });
   };
