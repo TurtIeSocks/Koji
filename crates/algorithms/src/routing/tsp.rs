@@ -30,7 +30,7 @@ fn reorder(clusters: SingleVec, order: Vec<u32>) -> SingleVec {
 }
 
 /// Standalone tsp-mt: greedy construction + ILS over the raw clusters.
-/// Solver rejection (non-finite coords) logs and falls back to the S2 sort.
+/// Solver rejection (out-of-range or non-finite coords) logs and falls back to the S2 sort.
 pub(super) fn solve(clusters: SingleVec) -> SingleVec {
     if clusters.len() < 2 {
         return clusters;
@@ -51,6 +51,9 @@ pub(super) fn refine(clusters: SingleVec) -> SingleVec {
         return clusters;
     }
     let initial: Vec<u32> = (0..clusters.len() as u32).collect();
+    // `initial` is a freshly-built identity tour of the correct length, so
+    // `refine_order`'s permutation-rejection Err arm is dead by construction here;
+    // the only reachable Err is coord validation, which the fallback below handles.
     match tsp_geo::refine_order(&geo_points(&clusters), &initial, &config()) {
         Ok(order) => reorder(clusters, order),
         Err(e) => {

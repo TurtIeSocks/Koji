@@ -219,6 +219,15 @@ fn run_cluster_route(
     (centers_collection(&clusters, instance), stats)
 }
 
+/// `route` defaults to the standalone tsp-mt sort when none was supplied.
+fn effective_sort(is_route: bool, sort_by: SortBy) -> SortBy {
+    if is_route && sort_by == SortBy::Unset {
+        SortBy::Tsp
+    } else {
+        sort_by
+    }
+}
+
 /// Resolve a typed [`ClusterReq`] into configs and run the cluster/route core.
 /// `is_route` selects the `Route` variant's `sort_by Unset -> Tsp` override
 /// (spec §2 defaults table); the `Cluster` variant passes `false`.
@@ -233,10 +242,7 @@ fn resolve_cluster_route(
     let benchmark_mode = dev.benchmark_mode;
     let clustering_config = req.clustering.resolve();
     let mut routing_config = req.routing.resolve();
-    // `route` defaults to the standalone tsp-mt sort when none was supplied.
-    if is_route && routing_config.sort_by == SortBy::Unset {
-        routing_config.sort_by = SortBy::Tsp;
-    }
+    routing_config.sort_by = effective_sort(is_route, routing_config.sort_by);
     let instance = req.instance.unwrap_or_default();
     let (collection, stats) = run_cluster_route(
         data_points,
@@ -386,5 +392,23 @@ mod tests {
             new_geom_value(&centers, "y"),
             golden(&[[2.0, 1.0], [4.0, 3.0], [6.0, 5.0]]),
         );
+    }
+
+    /// `route` with no explicit `sort_by` defaults to the standalone tsp-mt sort.
+    #[test]
+    fn effective_sort_route_unset_defaults_to_tsp() {
+        assert_eq!(effective_sort(true, SortBy::Unset), SortBy::Tsp);
+    }
+
+    /// `cluster` never applies the Route-only default override.
+    #[test]
+    fn effective_sort_cluster_unset_stays_unset() {
+        assert_eq!(effective_sort(false, SortBy::Unset), SortBy::Unset);
+    }
+
+    /// An explicit `sort_by` on `route` is left untouched (no default applied).
+    #[test]
+    fn effective_sort_route_explicit_is_untouched() {
+        assert_eq!(effective_sort(true, SortBy::S2Cell), SortBy::S2Cell);
     }
 }
