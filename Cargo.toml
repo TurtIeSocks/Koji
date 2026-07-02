@@ -46,6 +46,9 @@ geojson     = "1.0.0"
 # default-features off (libc-based `float_extras` is wasm-incompatible); native
 # targets re-add it at the use site.
 s2 = { version = "0.0.13", default-features = false, features = ["serde"] }
+# Sequential core by default so koji-wasm stays rayon-free here; the
+# algorithms crate's `native` feature re-adds `tsp-geo/parallel`.
+tsp-geo = { version = "0.3", default-features = false, features = ["std"] }
 # Runtimes/extra features differ per crate (actix vs tokio runtime, with-json,
 # with-chrono); declared at each use site. Only the version is pinned here.
 sea-orm    = "1.1.20"

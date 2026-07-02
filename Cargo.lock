@@ -407,6 +407,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sysinfo",
+ "tsp-geo",
  "web-time",
 ]
 
@@ -4304,9 +4305,9 @@ checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
 name = "ryu"
-version = "1.0.20"
+version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
+checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
 name = "s2"
@@ -5589,6 +5590,30 @@ dependencies = [
  "quote",
  "serde_derive_internals",
  "syn 2.0.118",
+]
+
+[[package]]
+name = "tsp-geo"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5f00994563329c04d8d9e4e4b36f4f170768d0692d7bc7d692c1554d75ac93b"
+dependencies = [
+ "geo-types",
+ "log",
+ "ryu",
+ "thiserror",
+ "tsp-ils",
+]
+
+[[package]]
+name = "tsp-ils"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7cc2e62aed1b5f987b11c91a6f86c952ad4855f68d9f15611211e2cea4ea6ab0"
+dependencies = [
+ "log",
+ "rayon",
+ "web-time",
 ]
 
 [[package]]
