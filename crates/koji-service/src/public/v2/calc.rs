@@ -121,7 +121,7 @@ impl JobHandler for CalculateHandler {
             .map_err(|e| JobError::validation(format!("invalid calc request: {e}")))?;
         let (benchmark_mode, collection, stats): (bool, KojiGeometryCollection, Stats) = match req {
             // `Cluster` and `Route` share `ClusterReq`; only `Route` applies the
-            // `sort_by Unset -> Custom("tsp")` override (spec §2 table).
+            // `sort_by Unset -> Tsp` override (spec §2 table).
             CalcRequest::Cluster(c) => resolve_cluster_route(c, false, &data_points, area),
             CalcRequest::Route(c) => resolve_cluster_route(c, true, &data_points, area),
             CalcRequest::Reroute(r) => {
@@ -220,8 +220,8 @@ fn run_cluster_route(
 }
 
 /// Resolve a typed [`ClusterReq`] into configs and run the cluster/route core.
-/// `is_route` selects the `Route` variant's `sort_by Unset -> Custom("tsp")`
-/// override (spec §2 defaults table); the `Cluster` variant passes `false`.
+/// `is_route` selects the `Route` variant's `sort_by Unset -> Tsp` override
+/// (spec §2 defaults table); the `Cluster` variant passes `false`.
 /// Returns `(benchmark_mode, collection, stats)` for the shared result-shaping tail.
 fn resolve_cluster_route(
     req: ClusterReq,
@@ -233,9 +233,9 @@ fn resolve_cluster_route(
     let benchmark_mode = dev.benchmark_mode;
     let clustering_config = req.clustering.resolve();
     let mut routing_config = req.routing.resolve();
-    // `route` defaults to a TSP sort when none was supplied (mirrors v1).
+    // `route` defaults to the standalone tsp-mt sort when none was supplied.
     if is_route && routing_config.sort_by == SortBy::Unset {
-        routing_config.sort_by = SortBy::Custom(String::from("tsp"));
+        routing_config.sort_by = SortBy::Tsp;
     }
     let instance = req.instance.unwrap_or_default();
     let (collection, stats) = run_cluster_route(
