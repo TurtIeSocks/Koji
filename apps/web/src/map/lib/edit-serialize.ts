@@ -17,3 +17,26 @@ export function shouldCommitEdit(editType: string | undefined): boolean {
 export function allGeometries(fc: GeoJSON.FeatureCollection): GeoJSON.Geometry[] {
   return fc.features.map((f) => f.geometry).filter((g): g is GeoJSON.Geometry => g != null);
 }
+
+/** editable-layers' SplitPolygonMode replaces the split polygon with ONE
+ *  MultiPolygon feature (both halves + a gap), so they select/move together.
+ *  Explode the split feature(s)' MultiPolygon parts into INDEPENDENT Polygon
+ *  features — the expected "split into two separate shapes" semantics. Other
+ *  features (and non-MultiPolygon geometries) pass through untouched. */
+export function explodeSplitFeatures(
+  fc: GeoJSON.FeatureCollection,
+  featureIndexes: number[],
+): GeoJSON.FeatureCollection {
+  const split = new Set(featureIndexes);
+  const features: GeoJSON.Feature[] = [];
+  fc.features.forEach((f, i) => {
+    if (split.has(i) && f.geometry?.type === "MultiPolygon") {
+      for (const coordinates of (f.geometry as GeoJSON.MultiPolygon).coordinates) {
+        features.push({ ...f, geometry: { type: "Polygon", coordinates } });
+      }
+    } else {
+      features.push(f);
+    }
+  });
+  return { type: "FeatureCollection", features };
+}

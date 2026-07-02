@@ -11,7 +11,11 @@ export interface DraftInput {
   mode: DrawMode;
   features: GeoJSON.FeatureCollection;
   selectedIndexes: number[];
-  onEdit: (e: { updatedData: GeoJSON.FeatureCollection; editType?: string }) => void;
+  onEdit: (e: {
+    updatedData: GeoJSON.FeatureCollection;
+    editType?: string;
+    editContext?: { featureIndexes?: number[] };
+  }) => void;
   /** Click-to-select while in modify/transform so those modes have a target. */
   onSelect?: (indexes: number[]) => void;
 }

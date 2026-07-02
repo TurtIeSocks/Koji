@@ -7,7 +7,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { DEFAULT_TILE_URL } from "@/lib/constants";
 import { rasterStyle } from "@/map/lib/map-style";
 import { buildBaseLayers, buildEditLayer } from "@/map/lib/layers";
-import { shouldCommitEdit } from "@/map/lib/edit-serialize";
+import { shouldCommitEdit, explodeSplitFeatures } from "@/map/lib/edit-serialize";
 import { useMapViewStore } from "@/map/stores/map-view-store";
 import { useMapUIStore } from "@/map/stores/map-ui-store";
 import { useMapCalcStore } from "@/map/stores/map-calc-store";
@@ -124,7 +124,15 @@ export function DeckCanvas() {
         // Commit only real edits; tentative cursor-follow events are rendered
         // internally by the layer and must not hit the store (see shouldCommitEdit).
         onEdit: (e) => {
-          if (shouldCommitEdit(e.editType)) setDraftFeatures(e.updatedData);
+          if (!shouldCommitEdit(e.editType)) return;
+          // SplitPolygonMode yields ONE MultiPolygon feature (halves move
+          // together) — explode it into independent features so each half is
+          // separately selectable/movable (the expected split behavior).
+          if (e.editType === "split" && e.editContext?.featureIndexes) {
+            setDraftFeatures(explodeSplitFeatures(e.updatedData, e.editContext.featureIndexes));
+          } else {
+            setDraftFeatures(e.updatedData);
+          }
         },
         onSelect: setSelectedFeatureIndexes,
       }),
