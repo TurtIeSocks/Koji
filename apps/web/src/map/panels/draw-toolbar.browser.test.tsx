@@ -14,6 +14,14 @@ const { dataProviderMock } = vi.hoisted(() => ({
   },
 }));
 
+// Spy useQueryClient so we can assert the post-save geofence-layer invalidation
+// (and avoid needing a QueryClientProvider around every render).
+const { invalidateQueriesMock } = vi.hoisted(() => ({ invalidateQueriesMock: vi.fn() }));
+vi.mock("@tanstack/react-query", async (importActual) => {
+  const actual = await importActual<typeof import("@tanstack/react-query")>();
+  return { ...actual, useQueryClient: () => ({ invalidateQueries: invalidateQueriesMock }) };
+});
+
 vi.mock("shadmin-core", async (importActual) => {
   const actual = await importActual<typeof import("shadmin-core")>();
   return {
@@ -26,6 +34,7 @@ vi.mock("shadmin-core", async (importActual) => {
 beforeEach(() => {
   useMapUIStore.setState(useMapUIStore.getInitialState());
   notifyMock.mockClear();
+  invalidateQueriesMock.mockClear();
   dataProviderMock.create.mockClear();
   dataProviderMock.create.mockResolvedValue({ data: { id: 1 } });
   dataProviderMock.update.mockClear();
@@ -82,6 +91,8 @@ describe("DrawToolbar", () => {
       "Saved 1 geofence(s)",
       expect.objectContaining({ type: "info" }),
     );
+    // Refetch the geofence layer directly (don't rely on the racy realtime event).
+    expect(invalidateQueriesMock).toHaveBeenCalledWith({ queryKey: ["geo", "geofences"] });
   });
 
   it("Save persists EVERY drawn shape, not just the first", async () => {

@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Pentagon, Square, Circle, Spline, Move, Donut, Scissors, Combine, Check, X } from "lucide-react";
 import { useMapUIStore } from "@/map/stores/map-ui-store";
@@ -37,6 +38,12 @@ export function DrawToolbar() {
   const clearDraft = useMapUIStore((s) => s.clearDraft);
   const dataProvider = useDataProvider();
   const notify = useNotify();
+  const queryClient = useQueryClient();
+
+  // Refetch the geofence layer right after our OWN save committed, rather than
+  // waiting on the realtime `resource/geofence` event (which races the DB commit
+  // and intermittently drops the just-saved shape until a manual refresh).
+  const refetchGeofences = () => void queryClient.invalidateQueries({ queryKey: ["geo", "geofences"] });
 
   const hasSelection = selectedFeatureIndexes.length > 0;
 
@@ -73,12 +80,14 @@ export function DrawToolbar() {
         previousData: { id: editingGeofenceId },
       });
       if (rest.length > 0) await createGeometries(rest);
+      refetchGeofences();
       clearDraft();
       notify(rest.length > 0 ? `Geofence updated (+${rest.length} new)` : "Geofence updated", { type: "info" });
       return;
     }
     // New shapes → one geofence per drawn feature.
     await createGeometries(geometries);
+    refetchGeofences();
     clearDraft();
     notify(`Saved ${geometries.length} geofence(s)`, { type: "info" });
   };
