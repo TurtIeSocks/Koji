@@ -49,8 +49,10 @@ pub fn refine_order(points: &[GeoPoint], initial_tour: &[u32], cfg: &SolverConfi
 **Cargo** (`crates/algorithms`):
 
 ```toml
-tsp-geo = { version = "0.3", default-features = false, features = ["std", "geo-types"] }
+tsp-geo = { version = "0.3", default-features = false, features = ["std"] }
 ```
+
+*(Amended during planning: the `geo-types` feature is unnecessary — Koji routing operates on `SingleVec = Vec<[Precision; 2]>` raw `[lat, lng]` arrays, so `GeoPoint::from_lat_lng` maps directly.)*
 
 - `tsp-geo/parallel` added to the algorithms crate's existing `native` feature → server gets rayon, koji-wasm gets the single-threaded solver automatically.
 
@@ -90,12 +92,12 @@ SolverConfig { max_neighbors: 20, ..Default::default() }
 ## Error handling
 
 - `n < 2`: identity order, solver skipped.
-- `tsp_geo::Error` (NaN / out-of-range coords, bad seed tour) → mapped into the existing routing error path → normal API error response. No panics reachable from the server path.
+- `tsp_geo::Error` (NaN / out-of-range coords, bad seed tour) → log + fall back to the S2-sorted order — this mirrors the existing plugin-failure path in `routing::main`, which returns `SingleVec` (not `Result`); a solver rejection degrades the sort rather than failing the request. No panics reachable from the server path. *(Amended during planning to match `routing::main`'s actual error convention.)*
 
 ## Testing
 
 - **tsp-mt (pre-publish):** `refine()` unit tests — permutation validation, result length ≤ initial tour length, same-seed determinism.
-- **Koji algorithms:** standalone tour length ≤ S2 baseline on fixtures; hybrid length ≤ its S2 seed; same-seed determinism; migrate existing tests touching `two_opt`.
+- **Koji algorithms:** standalone tour length ≤ S2 baseline on fixtures; hybrid length ≤ its S2 seed; migrate existing tests touching `two_opt`. *(Amended: no same-seed determinism tests — the solver's wall-clock budget makes round counts machine-dependent, so identical output across runs isn't guaranteed even with the fixed seed.)*
 - **wasm:** `cargo check` for wasm32 via the koji-wasm path (nightly + `-Z build-std`; plain cargo build is a known false-failure trap).
 - Full test suite at phase end only.
 
