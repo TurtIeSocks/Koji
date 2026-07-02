@@ -129,4 +129,71 @@ describe("DrawToolbar", () => {
       expect.objectContaining({ type: "info" }),
     );
   });
+
+  it("Save UPDATES the edited fence AND creates extra shapes drawn in the session", async () => {
+    const editGeom: GeoJSON.Polygon = {
+      type: "Polygon",
+      coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]],
+    };
+    const extra: GeoJSON.Feature = {
+      type: "Feature",
+      properties: {},
+      geometry: { type: "Polygon", coordinates: [[[9, 9], [10, 9], [10, 10], [9, 9]]] },
+    };
+    useMapUIStore.getState().editFeature({ type: "Feature", properties: { id: 42 }, geometry: editGeom });
+    // User then draws a NEW polygon mid-edit → editable-layers appends it.
+    useMapUIStore.setState((s) => ({
+      draftFeatures: { type: "FeatureCollection", features: [...s.draftFeatures.features, extra] },
+    }));
+
+    const screen = render(<DrawToolbar />);
+    await screen.getByRole("button", { name: /save/i }).click();
+
+    await vi.waitFor(() => expect(dataProviderMock.update).toHaveBeenCalledTimes(1));
+    expect(dataProviderMock.update).toHaveBeenCalledWith(
+      "geofence",
+      expect.objectContaining({ id: "42", data: expect.objectContaining({ geometry: editGeom }) }),
+    );
+    // The extra shape is NOT dropped — it's created as a new geofence.
+    await vi.waitFor(() => expect(dataProviderMock.create).toHaveBeenCalledTimes(1));
+    expect(dataProviderMock.create).toHaveBeenCalledWith(
+      "geofence",
+      expect.objectContaining({ data: expect.objectContaining({ geometry: extra.geometry }) }),
+    );
+    expect(notifyMock).toHaveBeenCalledWith(
+      "Geofence updated (+1 new)",
+      expect.objectContaining({ type: "info" }),
+    );
+  });
+
+  it("Merge combines all drawn polygons into one and clears the selection", async () => {
+    const poly = (x: number): GeoJSON.Feature => ({
+      type: "Feature",
+      properties: {},
+      geometry: { type: "Polygon", coordinates: [[[x, 0], [x + 2, 0], [x + 2, 2], [x, 0]]] },
+    });
+    useMapUIStore.setState({
+      draftFeatures: { type: "FeatureCollection", features: [poly(0), poly(1)] },
+      selectedFeatureIndexes: [0, 1],
+    });
+
+    const screen = render(<DrawToolbar />);
+    const mergeBtn = screen.getByRole("button", { name: /merge/i });
+    await expect.element(mergeBtn).toBeEnabled();
+    await mergeBtn.click();
+
+    expect(useMapUIStore.getState().draftFeatures.features).toHaveLength(1);
+    expect(useMapUIStore.getState().selectedFeatureIndexes).toEqual([]);
+  });
+
+  it("Merge is disabled with fewer than two shapes", async () => {
+    useMapUIStore.setState({
+      draftFeatures: {
+        type: "FeatureCollection",
+        features: [{ type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] } }],
+      },
+    });
+    const screen = render(<DrawToolbar />);
+    await expect.element(screen.getByRole("button", { name: /merge/i })).toBeDisabled();
+  });
 });

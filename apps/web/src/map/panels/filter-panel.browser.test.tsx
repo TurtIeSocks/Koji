@@ -14,3 +14,11 @@ test("selecting a TTH option updates the store", async () => {
   await screen.getByText("Known", { exact: true }).first().click();
   expect(useMapUIStore.getState().filters.tth).toBe("Known");
 });
+
+test("the last-seen label reflects the store value (All → Nh)", async () => {
+  const screen = render(<FilterPanel />);
+  await expect.element(screen.getByText("Last seen: All")).toBeInTheDocument();
+  useMapUIStore.setState((s) => ({ filters: { ...s.filters, lastSeen: 7200 } }));
+  await expect.element(screen.getByText("Last seen: 2h")).toBeInTheDocument();
+  await expect.element(screen.getByRole("slider")).toHaveAttribute("aria-valuenow", "7200");
+});
