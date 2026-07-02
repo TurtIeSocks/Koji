@@ -25,7 +25,7 @@ import { Callout, Table } from 'nextra/components'
 - Mode
   - `Bootstrap` - creates systematic patterns to cover all drawn Polygons on the map in a uniform manner
   - `Cluster` - clusters the points of the selected category in all drawn Polygons on the map
-  - `Route` - clusters and routes the points using OR-Tools
+  - `Route` - clusters and routes the points using tsp-mt (native Rust)
 - Category
   - Select the category/table for the clustering algorithm to read from the database
   - `Fort` will include both Pokestops and Gyms

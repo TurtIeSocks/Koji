@@ -26,25 +26,6 @@ See [Environment](/setup/environment) for a full variable reference and defaults
 git clone https://github.com/TurtIeSocks/Koji.git
 ```
 
-#### Install OR-Tools:
-
-<Callout type="warning" emoji="⚠️">
-
-[Check the OR-Tools Prerequisites](https://developers.google.com/optimization/install/cpp/binary_linux#prerequisites)
-
-For example, on Ubuntu 20.04:
-
-```bash
-sudo apt update
-sudo apt install -y build-essential cmake lsb-release
-```
-
-</Callout>
-
-```bash
-sudo chmod +x or-tools/install.sh && ./or-tools/install.sh
-```
-
 #### Create a new schema in your database for Kōji.
 
 #### Copy the env file:
@@ -116,9 +97,6 @@ pm2 start koji # from the /server folder
 ```bash
 # pull latest
 git pull
-
-# recompile OR-Tools
-./or-tools/install.sh
 
 # recompile client
 cd client && yarn install && yarn build

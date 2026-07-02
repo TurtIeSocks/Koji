@@ -47,9 +47,9 @@ services:
     #extra_hosts:
     #  - "host.docker.internal:host-gateway"
     volumes:
-      - './routing:/algorithms/src/routing/plugins'
-      - './bootstrap:/algorithms/src/bootstrap/plugins'
-      - './clustering:/algorithms/src/clustering/plugins'
+      # External plugins live in subdirectories with a `plugin.toml` manifest;
+      # the image sets KOJI_PLUGINS_DIR=/plugins.
+      - './plugins:/plugins'
 networks:
   default:
     name: golbat

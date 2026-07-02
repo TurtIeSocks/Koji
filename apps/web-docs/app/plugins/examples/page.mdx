@@ -1,8 +1,6 @@
 # Plugin Examples
 
-## C++
-
-The TSP routing method is actually a plugin and can be viewed in the codebase [here](https://github.com/TurtIeSocks/Koji/blob/main/or-tools/tsp/tsp.cc).
+As of v2, TSP routing is native Rust (the `tsp-ils`/`tsp-geo` crates, in-process — see `SortBy::Tsp`/`SortBy::TspHybrid`), not a plugin. Plugins remain available for custom routing, clustering, and bootstrap strategies via `KOJI_PLUGINS_DIR`; the examples below show the stdin/stdout contract they must implement.
 
 ## Python
 

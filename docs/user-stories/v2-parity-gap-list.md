@@ -216,7 +216,7 @@ Ground-truth verdict tally: **56 done / 28 partial / 26 missing / 1 out-of-scope
 - **Epic 14** — login/logout UI (show/hide toggle, Enter submits).
 - **Epic 15** — area→format convert (14+ formats), simplify (Douglas-Peucker) + merge-points.
 - **Epic 16** — clustering with chosen algorithm, reroute-without-recluster, benchmark mode.
-- **Epic 17** — sort clusters (6 strategies + plugins), genetic-post-processing stub, route+area stats.
+- **Epic 17** — sort clusters (6 strategies + plugins), genetic-post-processing stub, route+area stats. (2026-07-02: the v2 Route default is now in-process tsp-mt (`SortBy::Tsp`), superseding the or-tools plugin — see `crates/koji-service/src/public/v2/calc.rs`.)
 - **Epic 18** — S2 coverage (circle/grid/bounds/polygons) + neighbor-traversal expansion (fully done).
 - **Epic 20** — data-point queries (all/bound/area by category), area-stats aggregation, public geofence reads in many formats.
 - **Epic 21** — public+private auth, config/algorithm discovery, Nominatim search + reverse-geocode client (fully done).

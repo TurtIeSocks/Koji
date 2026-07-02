@@ -276,7 +276,7 @@ Concept wise, it was very similar to how Greedy operates now and it ran decently
   [viewable](https://github.com/TurtIeSocks/Koji/blob/6802c1fabaac2942393467ea855c91f3b40ea9a8/server/algorithms/src/clustering/bruteforce.rs)._
 </Callout>
 
-Shortly before starting work on this algorithm, I had completed the integration with OR-Tools, which utilizes a distance matrix in the C++ wrapper. I attempted to apply that same logic here as a sort of lookup table for checking which `data_points` are within the given `radius` of neighboring `data_points`, and since the values weren't reliant on each other, this calculation could be parallelized with Rayon. The core clustering algorithm is very recognizable as it was the base of the Greedy algorithm. However, it was still slower than what I had hoped for and my attempt to write another merge function wasn't very successful.
+Shortly before starting work on this algorithm, I had completed the integration with the (since-removed) C++ TSP solver wrapper, which used a distance matrix. I attempted to apply that same logic here as a sort of lookup table for checking which `data_points` are within the given `radius` of neighboring `data_points`, and since the values weren't reliant on each other, this calculation could be parallelized with Rayon. The core clustering algorithm is very recognizable as it was the base of the Greedy algorithm. However, it was still slower than what I had hoped for and my attempt to write another merge function wasn't very successful.
 
 ## Result Comparison
 
