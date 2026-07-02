@@ -21,6 +21,7 @@ vi.mock("@/map/data/use-geo-features", () => ({ useGeoFeatures: () => ({ data: {
 vi.mock("@/map/data/use-s2-cells", () => ({ useS2Cells: () => ({ data: [] }) }));
 // Realtime needs a QueryClient + realtime context the smoke test doesn't mount.
 vi.mock("@/map/data/use-map-realtime", () => ({ useMapRealtime: () => {} }));
+vi.mock("@/map/data/use-calc-job", () => ({ useCalcJob: () => {} }));
 
 import { DeckCanvas } from "@/map/deck-canvas";
 

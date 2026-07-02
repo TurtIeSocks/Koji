@@ -10,16 +10,20 @@ import { buildBaseLayers, buildEditLayer } from "@/map/lib/layers";
 import { shouldCommitEdit } from "@/map/lib/edit-serialize";
 import { useMapViewStore } from "@/map/stores/map-view-store";
 import { useMapUIStore } from "@/map/stores/map-ui-store";
+import { useMapCalcStore } from "@/map/stores/map-calc-store";
 import { useMapSettingsStore } from "@/map/stores/map-settings-store";
 import { useMarkers } from "@/map/data/use-markers";
 import { useGeoFeatures } from "@/map/data/use-geo-features";
 import { useS2Cells } from "@/map/data/use-s2-cells";
 import { useMapRealtime } from "@/map/data/use-map-realtime";
+import { useCalcJob } from "@/map/data/use-calc-job";
 import type { Bounds } from "@/map/stores/types";
 
 export function DeckCanvas() {
   // Subscribe to geofence/route realtime deltas → refetch GeoJSON layers.
   useMapRealtime();
+  // Watch the active calc job (live progress + result via jobs/{id}).
+  useCalcJob();
 
   // DeckCanvas is the layer AGGREGATOR: it rebuilds the whole layer list and so
   // legitimately needs every visibility flag. Subscribing to the whole
@@ -36,6 +40,7 @@ export function DeckCanvas() {
   const selectedFeatureIndexes = useMapUIStore((s) => s.selectedFeatureIndexes);
   const setDraftFeatures = useMapUIStore((s) => s.setDraftFeatures);
   const setSelectedFeatureIndexes = useMapUIStore((s) => s.setSelectedFeatureIndexes);
+  const calcResult = useMapCalcStore((s) => s.resultFC);
   const markerRadius = useMapSettingsStore((s) => s.markerRadius);
   const tileServerId = useMapSettingsStore((s) => s.tileServerId); // (Phase 1: maps to DEFAULT_TILE_URL)
 
@@ -104,8 +109,9 @@ export function DeckCanvas() {
         // off means each pointer-move only re-renders + readPixels the edit
         // layer, not all geofences/routes/markers (the draw-lag culprit).
         pickable: drawMode === "none",
+        calcResult,
       }),
-    [visibility, gyms.data, stops.data, spawns.data, stations.data, geofences.data, routes.data, s2.data, markerRadius, handleClick, drawMode],
+    [visibility, gyms.data, stops.data, spawns.data, stations.data, geofences.data, routes.data, s2.data, markerRadius, handleClick, drawMode, calcResult],
   );
 
   // Edit layer — the only thing that rebuilds on a per-click draft change.

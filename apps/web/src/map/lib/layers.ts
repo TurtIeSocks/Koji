@@ -30,6 +30,8 @@ export interface BaseLayersInput {
   /** When false, base layers skip the picking pass. Turn OFF while drawing so
    *  every pointer-move doesn't re-render + readPixels all the heavy layers. */
   pickable?: boolean;
+  /** Calc-job result (cluster centers + route order) to overlay, if any. */
+  calcResult?: GeoJSON.FeatureCollection | null;
 }
 
 export interface BuildLayersInput extends BaseLayersInput {
@@ -73,6 +75,20 @@ export function buildBaseLayers(input: BaseLayersInput): Layer[] {
       getLineColor: [255, 0, 0, 160], lineWidthMinPixels: 1,
     }),
     ...markerLayers,
+    // Calc result overlay (magenta): MultiPoint centers as dots + any route line.
+    ...(input.calcResult
+      ? [
+          new GeoJsonLayer({
+            id: "calc-result",
+            data: input.calcResult,
+            stroked: true, filled: true,
+            getFillColor: [255, 0, 200, 180], getLineColor: [255, 0, 200, 220],
+            lineWidthMinPixels: 2,
+            pointType: "circle", getPointRadius: 5, pointRadiusUnits: "pixels",
+            pickable: false,
+          }),
+        ]
+      : []),
   ];
 }
 
