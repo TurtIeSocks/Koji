@@ -36,6 +36,22 @@ export interface BaseLayersInput {
   pickable?: boolean;
   /** Calc-job result (cluster centers + route order) to overlay, if any. */
   calcResult?: GeoJSON.FeatureCollection | null;
+  /** The geofence currently open in the editor — its ORIGINAL is drawn dimmed so
+   *  it's distinguishable from the other (orange) geofences and the blue draft. */
+  editingGeofenceId?: string | null;
+}
+
+const GEOFENCE_FILL: [number, number, number, number] = [255, 140, 0, 40];
+const GEOFENCE_LINE: [number, number, number, number] = [255, 140, 0, 220];
+const EDITING_FILL: [number, number, number, number] = [130, 130, 130, 25];
+const EDITING_LINE: [number, number, number, number] = [130, 130, 130, 140];
+
+/** Is this geofence feature the one currently open in the editor? (id lives at the
+ *  geojson top-level `feature.id`; fall back to properties.id.) */
+function isEditingOriginal(f: GeoJSON.Feature, editingId: string | null | undefined): boolean {
+  if (editingId == null) return false;
+  const id = f.id ?? (f.properties as { id?: string | number } | null)?.id;
+  return id != null && String(id) === editingId;
 }
 
 export interface BuildLayersInput extends BaseLayersInput {
@@ -64,7 +80,12 @@ export function buildBaseLayers(input: BaseLayersInput): Layer[] {
   return [
     new GeoJsonLayer({
       id: "geofences", visible: visibility.geofences, data: geofences,
-      filled: true, getFillColor: [255, 140, 0, 40], getLineColor: [255, 140, 0, 220],
+      filled: true,
+      // The one being edited → dimmed; every other geofence → orange.
+      getFillColor: (f: GeoJSON.Feature) => (isEditingOriginal(f, input.editingGeofenceId) ? EDITING_FILL : GEOFENCE_FILL),
+      getLineColor: (f: GeoJSON.Feature) => (isEditingOriginal(f, input.editingGeofenceId) ? EDITING_LINE : GEOFENCE_LINE),
+      // Accessors are memoized by deck — re-evaluate them when the edit target changes.
+      updateTriggers: { getFillColor: input.editingGeofenceId, getLineColor: input.editingGeofenceId },
       lineWidthMinPixels: 1, pickable, onClick,
     }),
     new GeoJsonLayer({

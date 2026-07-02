@@ -38,6 +38,20 @@ test("S2 layer is present but hidden when s2 visibility is off", () => {
   expect(layers.find((l) => l.id === "s2")!.props.visible).toBe(false);
 });
 
+test("the geofence being edited is dimmed; other geofences stay orange", () => {
+  const layers = buildLayers({
+    visibility: vis(), markerSets: [], geofences: EMPTY, routes: EMPTY, s2Cells: [],
+    markerRadius: 30, onClick: vi.fn(), editingGeofenceId: "42",
+  });
+  const geo = layers.find((l) => l.id === "geofences")!;
+  const getFill = (geo.props as unknown as { getFillColor: (f: GeoJSON.Feature) => number[] }).getFillColor;
+  const pt: GeoJSON.Point = { type: "Point", coordinates: [0, 0] };
+  const editing: GeoJSON.Feature = { type: "Feature", id: 42, properties: {}, geometry: pt };
+  const other: GeoJSON.Feature = { type: "Feature", id: 7, properties: {}, geometry: pt };
+  expect(getFill(editing)).toEqual([130, 130, 130, 25]); // dimmed
+  expect(getFill(other)).toEqual([255, 140, 0, 40]); // orange
+});
+
 test("buildLayers appends an editable layer only when a draw mode is active", () => {
   const draftOff = buildLayers({
     visibility: vis(), markerSets: [], geofences: EMPTY, routes: EMPTY, s2Cells: [],
