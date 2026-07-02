@@ -1,21 +1,10 @@
 import { expect, test } from "vitest";
 import {
-  boundsToAreaFC,
   featureToAreaFC,
   routeCoordsToClusters,
   buildCalcBody,
   parseCalcResult,
 } from "@/map/lib/calc-request";
-import type { Bounds } from "@/map/stores/types";
-
-test("boundsToAreaFC builds a closed [lon,lat] polygon from deck bounds", () => {
-  const bounds: Bounds = [-122.4, 47.5, -122.2, 47.7]; // [w,s,e,n]
-  const fc = boundsToAreaFC(bounds);
-  const ring = (fc.features[0].geometry as GeoJSON.Polygon).coordinates[0];
-  expect(ring[0]).toEqual([-122.4, 47.5]); // SW, [lon,lat]
-  expect(ring[2]).toEqual([-122.2, 47.7]); // NE
-  expect(ring[0]).toEqual(ring[ring.length - 1]); // closed
-});
 
 test("routeCoordsToClusters transposes geojson [lon,lat] → koji [lat,lon]", () => {
   const line: GeoJSON.Feature = {
@@ -40,7 +29,7 @@ test("buildCalcBody: cluster carries area + clustering, and mode only when chose
 });
 
 test("buildCalcBody: bootstrap uses the bootstrap group; route omits routing (server default)", () => {
-  const area = boundsToAreaFC([0, 0, 1, 1]);
+  const area = featureToAreaFC({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [0, 0] } });
   expect(buildCalcBody({ mode: "bootstrap", category: "pokestop", radius: 90, minPoints: 1 }, { area })).toEqual({
     mode: "bootstrap",
     category: "pokestop",

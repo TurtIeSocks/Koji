@@ -1,8 +1,6 @@
 import { create } from "zustand";
 import type { CalcMode } from "@/map/lib/calc-request";
 
-export type AreaSource = "viewport" | "selected";
-
 export interface CalcJob {
   id: string;
   status: string; // queued | running | succeeded | failed | canceled
@@ -19,7 +17,6 @@ export interface MapCalcState {
   radius: number;
   minPoints: number;
   clusterMode: string | null;
-  areaSource: AreaSource;
   job: CalcJob | null;
   resultFC: GeoJSON.FeatureCollection | null;
   stats: unknown;
@@ -29,7 +26,6 @@ export interface MapCalcState {
   setRadius: (n: number) => void;
   setMinPoints: (n: number) => void;
   setClusterMode: (m: string | null) => void;
-  setAreaSource: (a: AreaSource) => void;
   /** Enqueued → track it; clears any prior result/error. */
   startJob: (id: string) => void;
   updateJob: (p: { status: string; progress?: number; phase?: string | null }) => void;
@@ -45,9 +41,6 @@ export const useMapCalcStore = create<MapCalcState>()((set) => ({
   radius: 70,
   minPoints: 1,
   clusterMode: null,
-  // Default to the selected geofence — the common workflow is "calc over this
-  // fence". Viewport is the ad-hoc fallback.
-  areaSource: "selected",
   job: null,
   resultFC: null,
   stats: null,
@@ -57,7 +50,6 @@ export const useMapCalcStore = create<MapCalcState>()((set) => ({
   setRadius: (radius) => set({ radius }),
   setMinPoints: (minPoints) => set({ minPoints }),
   setClusterMode: (clusterMode) => set({ clusterMode }),
-  setAreaSource: (areaSource) => set({ areaSource }),
   startJob: (id) =>
     set({ job: { id, status: "queued", progress: 0, phase: null }, resultFC: null, stats: null, error: null }),
   updateJob: (p) =>

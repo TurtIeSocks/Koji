@@ -6,12 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMapCalcStore } from "@/map/stores/map-calc-store";
 import { useMapUIStore } from "@/map/stores/map-ui-store";
-import { useMapViewStore } from "@/map/stores/map-view-store";
 import { submitCalc, getAlgorithms } from "@/map/data/calc-client";
 import {
   AREA_MODES,
   ROUTE_INPUT_MODES,
-  boundsToAreaFC,
   featureToAreaFC,
   routeCoordsToClusters,
   buildCalcBody,
@@ -33,7 +31,6 @@ export function CalcPanel() {
   const radius = useMapCalcStore((s) => s.radius);
   const minPoints = useMapCalcStore((s) => s.minPoints);
   const clusterMode = useMapCalcStore((s) => s.clusterMode);
-  const areaSource = useMapCalcStore((s) => s.areaSource);
   const job = useMapCalcStore((s) => s.job);
   const stats = useMapCalcStore((s) => s.stats);
   const error = useMapCalcStore((s) => s.error);
@@ -42,14 +39,13 @@ export function CalcPanel() {
   const setRadius = useMapCalcStore((s) => s.setRadius);
   const setMinPoints = useMapCalcStore((s) => s.setMinPoints);
   const setClusterMode = useMapCalcStore((s) => s.setClusterMode);
-  const setAreaSource = useMapCalcStore((s) => s.setAreaSource);
   const startJob = useMapCalcStore((s) => s.startJob);
   const setError = useMapCalcStore((s) => s.setError);
   const clear = useMapCalcStore((s) => s.clear);
 
   const selectionKind = useMapUIStore((s) => s.selection.kind);
-  // Clicking a geofence loads it into the editor → it IS the "selected geofence"
-  // for area="selected" (its live-edited geometry is used).
+  // Clicking a geofence loads it into the editor → it IS the calc area for the
+  // area modes (its live-edited geometry is used).
   const editingGeofenceId = useMapUIStore((s) => s.editingGeofenceId);
 
   // Cluster-algorithm options (cluster/route only). If the endpoint is down the
@@ -67,24 +63,18 @@ export function CalcPanel() {
 
   const inFlight = !!job && (job.status === "queued" || job.status === "running");
   const needRoute = isRouteInput && selectionKind !== "route";
-  const needGeofence = isAreaMode && areaSource === "selected" && !editingGeofenceId;
+  const needGeofence = isAreaMode && !editingGeofenceId;
   const blocked = inFlight || needRoute || needGeofence;
 
   const handleCalculate = async () => {
-    // Read transient inputs at click time (avoids subscribing to per-frame camera).
-    const bounds = useMapViewStore.getState().settledBounds;
     const ui = useMapUIStore.getState();
-    // route input → the selected route's coords; selected area → the geofence in
-    // the editor (its live-edited geometry); else the current viewport bbox.
+    // route input → the selected route's coords; area modes → the geofence in the
+    // editor (its live-edited geometry). Both are gated above, so the input exists.
     const editedGeofence = ui.draftFeatures.features[0];
+    if (isAreaMode && !editedGeofence) return;
     const inputs = isRouteInput
       ? { clusters: routeCoordsToClusters(ui.selectedFeature) }
-      : {
-          area:
-            areaSource === "selected" && editedGeofence
-              ? featureToAreaFC(editedGeofence)
-              : boundsToAreaFC(bounds),
-        };
+      : { area: featureToAreaFC(editedGeofence) };
     const body = buildCalcBody({ mode, category, radius, minPoints, clusterMode }, inputs);
     try {
       const id = await submitCalc(body);
@@ -111,25 +101,14 @@ export function CalcPanel() {
       </Field>
 
       {isAreaMode && (
-        <>
-          <Field label="Category">
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger aria-label="Category"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map((c) => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Area">
-            <Select value={areaSource} onValueChange={(v) => setAreaSource(v as "viewport" | "selected")}>
-              <SelectTrigger aria-label="Area"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="viewport">Current viewport</SelectItem>
-                <SelectItem value="selected">Selected geofence</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-        </>
+        <Field label="Category">
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger aria-label="Category"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {CATEGORIES.map((c) => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </Field>
       )}
 
       {showClusterMode && algorithms?.clustering?.length ? (

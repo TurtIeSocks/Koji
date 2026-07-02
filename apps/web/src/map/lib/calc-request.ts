@@ -1,5 +1,3 @@
-import type { Bounds } from "@/map/stores/types";
-
 export type CalcMode = "cluster" | "route" | "bootstrap" | "reroute" | "routeStats";
 
 /** Modes that compute over an AREA + golbat category (vs. re-processing a route). */
@@ -15,21 +13,6 @@ export interface CalcParams {
   minPoints: number;
   /** clustering algorithm from GET /algorithms (cluster/route); server default if unset. */
   clusterMode?: string | null;
-}
-
-/** Viewport bounds → a geojson Polygon FeatureCollection area (standard [lon,lat]). */
-export function boundsToAreaFC(bounds: Bounds): GeoJSON.FeatureCollection {
-  const [w, s, e, n] = bounds;
-  return {
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        properties: {},
-        geometry: { type: "Polygon", coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] },
-      },
-    ],
-  };
 }
 
 /** Wrap any feature/geometry as a single-feature FeatureCollection area. */
