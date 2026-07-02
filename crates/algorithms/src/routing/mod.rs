@@ -13,7 +13,7 @@ use crate::{stats::Stats, utils};
 mod config;
 mod sort_by;
 pub mod sorting;
-mod two_opt;
+mod tsp;
 
 pub use config::RoutingConfig;
 pub use sort_by::SortBy;
@@ -32,7 +32,8 @@ pub fn main(
         SortBy::GeoHash => sort_geohash(clusters),
         SortBy::S2Cell => sort_s2(clusters),
         SortBy::Random => sort_random(clusters),
-        SortBy::Tsp => two_opt::optimize(sort_s2(clusters)),
+        SortBy::Tsp => tsp::solve(clusters),
+        SortBy::TspHybrid => tsp::refine(sort_s2(clusters)),
         SortBy::Unset => clusters,
         #[cfg(feature = "native")]
         SortBy::Custom(plugin) => {
@@ -82,6 +83,7 @@ pub fn all_routing_options() -> Vec<String> {
     options.push("geohash".to_string());
     options.push("s2".to_string());
     options.push("tsp".to_string());
+    options.push("tsphybrid".to_string());
     options.push("random".to_string());
     options
 }
@@ -205,6 +207,21 @@ mod tests {
         assert!(stats.total_distance > 0.0);
     }
 
+    #[test]
+    fn tsp_hybrid_preserves_all_clusters_and_routes() {
+        let (data, clusters) = sample_data();
+        let mut stats = Stats::new("t".into(), 1);
+        let out = main(
+            &data,
+            clusters.clone(),
+            70.0,
+            &make_cfg(SortBy::TspHybrid),
+            &mut stats,
+        );
+        assert_eq!(out.len(), clusters.len());
+        assert!(stats.total_distance > 0.0);
+    }
+
     // ── stats are populated after routing ─────────────────────────────────────
 
     #[test]
@@ -235,5 +252,6 @@ mod tests {
         assert!(opts.contains(&"random".to_string()));
         assert!(opts.contains(&"point_count".to_string()));
         assert!(opts.contains(&"tsp".to_string()));
+        assert!(opts.contains(&"tsphybrid".to_string()));
     }
 }

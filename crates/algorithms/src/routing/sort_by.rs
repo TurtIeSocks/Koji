@@ -16,6 +16,8 @@ pub enum SortBy {
     LatLon,
     #[str("tsp", alias("optimized", "2opt"))]
     Tsp,
+    #[str("tsphybrid", alias("hybrid"))]
+    TspHybrid,
     #[str(default)]
     Custom(String),
 }
@@ -89,5 +91,12 @@ mod tests {
         assert_eq!(format!("{}", SortBy::GeoHash), "geohash");
         assert_eq!(format!("{}", SortBy::S2Cell), "s2cell");
         assert_eq!(format!("{}", SortBy::LatLon), "latlon");
+    }
+
+    #[test]
+    fn tsp_hybrid_parses_and_displays() {
+        assert_eq!(SortBy::from_str_opt("tsphybrid"), Some(SortBy::TspHybrid));
+        assert_eq!(SortBy::from_str_opt("hybrid"), Some(SortBy::TspHybrid));
+        assert_eq!(format!("{}", SortBy::TspHybrid), "tsphybrid");
     }
 }
