@@ -35,6 +35,7 @@ beforeEach(() => {
 });
 
 test("Calculate submits a cluster job over the viewport and tracks it", async () => {
+  useMapCalcStore.setState({ areaSource: "viewport" }); // default is now "selected"
   const screen = renderPanel();
   await screen.getByRole("button", { name: /calculate/i }).click();
 

@@ -45,7 +45,9 @@ export const useMapCalcStore = create<MapCalcState>()((set) => ({
   radius: 70,
   minPoints: 1,
   clusterMode: null,
-  areaSource: "viewport",
+  // Default to the selected geofence — the common workflow is "calc over this
+  // fence". Viewport is the ad-hoc fallback.
+  areaSource: "selected",
   job: null,
   resultFC: null,
   stats: null,
