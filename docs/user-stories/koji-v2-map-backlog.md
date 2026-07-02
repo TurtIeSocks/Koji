@@ -31,11 +31,14 @@ dataProvider (exists). Decide UX: shift-click vs a "merge mode".
 
 - **Save calc result as route/geofence** — calc is overlay-only; can't persist the
   computed clusters/route. *Highest value — closes the calc loop.*
+- **Calc panel UX review** (deferred 2026-07-02) — owner has reservations about some
+  of the calc-panel decisions (mode/area/algorithm layout, dots-vs-path per mode,
+  where reroute/route-stats live, wording). Revisit the whole panel's UX in one pass.
 - **Import / export GeoJSON** on the map.
-- **Routing `sortBy` select** in the calc panel — deferred until the enum wire casing
-  is resolved (`geohash` from `/algorithms` vs `geoHash` the `SortBy` enum expects).
 - **Snapping** (`SnappableMode` wraps a draw/modify mode) · **ellipse** draw ·
   **map-side delete** of a shape.
+- **Verify reroute / route-stats** end-to-end (route path now renders for both; the
+  input-from-selected-route flow is still unconfirmed in the user's tab).
 - **Route-mode editing** — the toolbar Save targets geofences only; a selected route
   can't be geometry-edited + saved back.
 - **`HexagonLayer` density heat** (deferred from Phase 2, optional).
