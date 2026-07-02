@@ -66,3 +66,21 @@ test("explodeSplitFeatures turns a split MultiPolygon into independent features"
   // non-split index → no change
   expect(explodeSplitFeatures(fc, []).features).toHaveLength(2);
 });
+
+test("explodeSplitFeatures re-nests a hole the split line didn't cross", () => {
+  const outerA = [[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]];
+  const hole = [[1, 1], [3, 1], [3, 3], [1, 3], [1, 1]]; // inside outerA
+  const outerB = [[6, 0], [10, 0], [10, 4], [6, 4], [6, 0]]; // disjoint, to the right
+  // SplitPolygonMode flattens the split-with-hole into 3 single-ring polygons.
+  const mp: GeoJSON.MultiPolygon = { type: "MultiPolygon", coordinates: [[outerA], [hole], [outerB]] };
+  const fc: GeoJSON.FeatureCollection = {
+    type: "FeatureCollection",
+    features: [{ type: "Feature", properties: { id: 5 }, geometry: mp }],
+  };
+
+  const out = explodeSplitFeatures(fc, [0]);
+  expect(out.features).toHaveLength(2); // NOT 3 — the hole is not its own geofence
+  expect(out.features[0].geometry).toEqual({ type: "Polygon", coordinates: [outerA, hole] });
+  expect(out.features[1].geometry).toEqual({ type: "Polygon", coordinates: [outerB] });
+  expect(out.features[0].properties).toEqual({ id: 5 });
+});
