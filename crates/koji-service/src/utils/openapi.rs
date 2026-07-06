@@ -57,6 +57,11 @@ use utoipa::OpenApi;
         crate::public::v2::resources::tile_server::get_one,
         crate::public::v2::resources::tile_server::update,
         crate::public::v2::resources::tile_server::remove,
+        crate::public::v2::resources::webhook::list,
+        crate::public::v2::resources::webhook::create,
+        crate::public::v2::resources::webhook::get_one,
+        crate::public::v2::resources::webhook::update,
+        crate::public::v2::resources::webhook::remove,
         // geometry
         crate::public::v2::geometry::convert,
         crate::public::v2::geometry::simplify,
@@ -117,6 +122,8 @@ use utoipa::OpenApi;
         crate::public::v2::resources::property::PatchProperty,
         crate::public::v2::resources::tile_server::CreateTileServer,
         crate::public::v2::resources::tile_server::PatchTileServer,
+        crate::public::v2::resources::webhook::CreateWebhook,
+        crate::public::v2::resources::webhook::PatchWebhook,
         // s2 / golbat-data
         crate::public::v2::s2::CoverageArgs,
         crate::public::v2::s2::S2CellsBody,
@@ -134,6 +141,7 @@ use utoipa::OpenApi;
         (name = "projects", description = "Project CRUD"),
         (name = "properties", description = "Property CRUD"),
         (name = "tile-servers", description = "Tile-server CRUD"),
+        (name = "webhooks", description = "Webhook subscription CRUD"),
         (name = "geometry", description = "Geometry transforms (convert/simplify/merge-points/area)"),
         (name = "s2", description = "S2 cell helpers"),
         (name = "golbat-data", description = "Golbat data fetch (saved-fence + arbitrary-area)"),

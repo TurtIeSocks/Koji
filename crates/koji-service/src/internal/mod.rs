@@ -19,6 +19,7 @@ use actix_web::web;
 ///   `*    /internal/projects/**`           → forwarded `project::scope()`
 ///   `*    /internal/properties/**`         → forwarded `property::scope()`
 ///   `*    /internal/tile-servers/**`       → forwarded `tile_server::scope()`
+///   `*    /internal/webhooks/**`           → forwarded `webhook::scope()`
 ///   `*    /internal/plugins/**`            → forwarded `plugins::scope()`
 ///   `GET  /internal/config`                → forwarded `config::config`
 ///   `GET  /internal/nominatim`             → forwarded `nominatim::search_nominatim`
@@ -51,6 +52,7 @@ pub(crate) fn scope() -> actix_web::Scope {
         .service(v2::resources::project::scope())
         .service(v2::resources::property::scope())
         .service(v2::resources::tile_server::scope())
+        .service(v2::resources::webhook::scope())
         // Plugin overlay CRUD.
         .service(v2::plugins::scope())
         // Single-handler registrations (proc-macro `#[get]` attrs).

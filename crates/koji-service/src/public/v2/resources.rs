@@ -62,6 +62,23 @@ koji_resource! {
     }
 }
 
+koji_resource! {
+    module: webhook,
+    seg: "webhooks",
+    topic: "webhook",
+    create: {
+        name: String,
+        url: String,
+        secret: Option<String>,
+        topics: Option<serde_json::Value>,
+        active: Option<bool>,
+        project_id: Option<u32>,
+        mode: Option<koji_db::WebhookMode>,
+        method: Option<koji_db::WebhookMethod>,
+        headers: Option<serde_json::Value>,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -110,7 +110,11 @@ pub fn test_db_app(
                 .service(public::v2::jobs::algorithms)
                 .service(public::v2::geofences::scope())
                 .service(public::v2::routes::scope())
-                .service(public::v2::plugins::scope()),
+                .service(public::v2::plugins::scope())
+                .service(public::v2::resources::project::scope())
+                .service(public::v2::resources::property::scope())
+                .service(public::v2::resources::tile_server::scope())
+                .service(public::v2::resources::webhook::scope()),
         )
 }
 
@@ -598,6 +602,7 @@ pub async fn start() -> io::Result<()> {
                             .service(public::v2::resources::project::scope())
                             .service(public::v2::resources::property::scope())
                             .service(public::v2::resources::tile_server::scope())
+                            .service(public::v2::resources::webhook::scope())
                             // Geometry transforms (convert/simplify/merge-points)
                             // and the S2 cell helpers — split out of the old
                             // `/geo` grab-bag into honest `/geometry` + `/s2`
