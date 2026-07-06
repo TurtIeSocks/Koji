@@ -19,6 +19,7 @@ pub mod property;
 pub mod route;
 pub mod sea_orm_active_enums;
 pub mod tile_server;
+pub mod webhook;
 
 #[derive(Debug, Serialize, FromQueryResult)]
 pub(crate) struct NameId {

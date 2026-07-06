@@ -51,6 +51,56 @@ pub enum Mode {
 
 crate::enum_bridge!(Mode, koji_core::Mode, [Unset, Pokemon, Fort, Quest]);
 
+/// `webhook_subscription.mode` — "event" (signed JSON POST of the outbox
+/// payload) vs "ping" (legacy reload GET/POST, no signing). No domain-type
+/// bridge: unlike `Category`/`Mode`, webhooks have no pre-existing domain enum
+/// to reconcile with, so the active enum IS the wire type (YAGNI per Task 3
+/// brief).
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mode")]
+pub enum WebhookMode {
+    #[sea_orm(string_value = "event")]
+    Event,
+    #[sea_orm(string_value = "ping")]
+    Ping,
+}
+
+/// `webhook_subscription.method` — HTTP method used for `ping`-mode delivery.
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "method")]
+pub enum WebhookMethod {
+    #[sea_orm(string_value = "GET")]
+    Get,
+    #[sea_orm(string_value = "POST")]
+    Post,
+}
+
+#[cfg(test)]
+mod webhook_enum_tests {
+    use super::{WebhookMethod, WebhookMode};
+
+    #[test]
+    fn mode_wire_strings_are_lowercase() {
+        assert_eq!(serde_json::to_string(&WebhookMode::Event).unwrap(), "\"event\"");
+        assert_eq!(serde_json::to_string(&WebhookMode::Ping).unwrap(), "\"ping\"");
+    }
+
+    #[test]
+    fn method_wire_strings_are_uppercase() {
+        assert_eq!(serde_json::to_string(&WebhookMethod::Get).unwrap(), "\"GET\"");
+        assert_eq!(serde_json::to_string(&WebhookMethod::Post).unwrap(), "\"POST\"");
+    }
+
+    #[test]
+    fn db_string_values_match_wire() {
+        use sea_orm::ActiveEnum;
+        assert_eq!(WebhookMode::Event.to_value(), "event");
+        assert_eq!(WebhookMethod::Post.to_value(), "POST");
+    }
+}
+
 #[cfg(test)]
 mod mode_bridge_tests {
     use super::Mode as DbMode;

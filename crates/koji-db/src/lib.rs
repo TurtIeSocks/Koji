@@ -14,6 +14,7 @@ pub mod query_args;
 pub mod utils;
 
 pub use category::Category;
+pub use db::sea_orm_active_enums::{WebhookMethod, WebhookMode};
 pub use error::ModelError;
 
 /// Generates 1:1 `From` impls both directions between two enums whose variant

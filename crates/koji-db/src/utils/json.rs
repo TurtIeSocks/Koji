@@ -8,9 +8,10 @@ use serde_json::Value;
 use crate::{
     db::{
         geofence, geofence_project, geofence_property, project, property, route,
-        sea_orm_active_enums::Category, tile_server,
+        sea_orm_active_enums::Category, tile_server, webhook,
     },
     error::ModelError,
+    WebhookMethod, WebhookMode,
 };
 
 use super::{get_category_enum, get_enum};
@@ -27,6 +28,7 @@ pub trait JsonToModel {
     fn to_property(&self) -> Result<property::ActiveModel, ModelError>;
     fn to_route(&self) -> Result<route::ActiveModel, ModelError>;
     fn to_tileserver(&self) -> Result<tile_server::ActiveModel, ModelError>;
+    fn to_webhook(&self) -> Result<webhook::ActiveModel, ModelError>;
 }
 
 impl JsonToModel for Value {
@@ -306,6 +308,80 @@ impl JsonToModel for Value {
             }
         } else {
             Err(ModelError::Route(format!(
+                "model is not an object: {:?}",
+                self
+            )))
+        }
+    }
+
+    fn to_webhook(&self) -> Result<webhook::ActiveModel, ModelError> {
+        if let Some(incoming) = self.as_object() {
+            let name = incoming.get("name").and_then(|v| v.as_str());
+            let url = incoming.get("url").and_then(|v| v.as_str());
+            if let Some(name) = name {
+                if let Some(url) = url {
+                    let secret = incoming
+                        .get("secret")
+                        .and_then(|v| v.as_str())
+                        .map(|secret| secret.to_string());
+                    let topics = incoming.get("topics").cloned().unwrap_or(Value::Array(vec![]));
+                    let active = incoming
+                        .get("active")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(true);
+                    let project_id = incoming
+                        .get("project_id")
+                        .and_then(|v| v.as_u64())
+                        .map(|project_id| project_id as u32);
+                    let mode = if let Some(mode) = incoming.get("mode") {
+                        serde_json::from_value::<WebhookMode>(mode.clone())
+                            .map_err(|err| ModelError::Custom(format!("mode is invalid: {:?}", err)))?
+                    } else {
+                        WebhookMode::Event
+                    };
+                    let method = if let Some(method) = incoming.get("method") {
+                        serde_json::from_value::<WebhookMethod>(method.clone()).map_err(|err| {
+                            ModelError::Custom(format!("method is invalid: {:?}", err))
+                        })?
+                    } else {
+                        WebhookMethod::Get
+                    };
+                    let headers = match incoming.get("headers") {
+                        None | Some(Value::Null) => None,
+                        Some(value) if value.is_object() => Some(value.clone()),
+                        Some(value) => {
+                            return Err(ModelError::Custom(format!(
+                                "headers must be an object: {:?}",
+                                value
+                            )));
+                        }
+                    };
+                    Ok(webhook::ActiveModel {
+                        name: Set(name.to_string()),
+                        url: Set(url.to_string()),
+                        secret: Set(secret),
+                        topics: Set(topics),
+                        active: Set(active),
+                        project_id: Set(project_id),
+                        mode: Set(mode),
+                        method: Set(method),
+                        headers: Set(headers),
+                        ..Default::default()
+                    })
+                } else {
+                    Err(ModelError::Custom(format!(
+                        "model does not have a url property: {:?}",
+                        self
+                    )))
+                }
+            } else {
+                Err(ModelError::Custom(format!(
+                    "model does not have a name property: {:?}",
+                    self
+                )))
+            }
+        } else {
+            Err(ModelError::Custom(format!(
                 "model is not an object: {:?}",
                 self
             )))
@@ -823,6 +899,59 @@ mod tests {
     }
 
     // ── JsonToModel — to_tileserver ─────────────────────────────────────────────
+
+    // ── JsonToModel — to_webhook ────────────────────────────────────────────────
+
+    #[test]
+    fn to_webhook_minimal_defaults() {
+        let m = json!({"name": "n", "url": "http://x"}).to_webhook().unwrap();
+        assert_eq!(m.name.unwrap(), "n");
+        assert_eq!(m.url.unwrap(), "http://x");
+        assert_eq!(m.topics.unwrap(), json!([]));
+        assert!(m.active.unwrap());
+        assert_eq!(m.mode.unwrap(), crate::WebhookMode::Event);
+        assert_eq!(m.method.unwrap(), crate::WebhookMethod::Get);
+        assert_eq!(m.secret.unwrap(), None);
+        assert_eq!(m.project_id.unwrap(), None);
+        assert_eq!(m.headers.unwrap(), None);
+    }
+
+    #[test]
+    fn to_webhook_requires_name_and_url() {
+        assert!(json!({"url": "http://x"}).to_webhook().is_err());
+        assert!(json!({"name": "n"}).to_webhook().is_err());
+    }
+
+    #[test]
+    fn to_webhook_full_row() {
+        let m = json!({
+            "name": "reactmap", "url": "http://rm/reload", "secret": "s",
+            "topics": ["geofence.updated"], "active": false, "project_id": 7,
+            "mode": "ping", "method": "POST", "headers": {"react-map-secret": "v"}
+        })
+        .to_webhook()
+        .unwrap();
+        assert_eq!(m.name.unwrap(), "reactmap");
+        assert_eq!(m.url.unwrap(), "http://rm/reload");
+        assert_eq!(m.secret.unwrap(), Some("s".to_string()));
+        assert_eq!(m.topics.unwrap(), json!(["geofence.updated"]));
+        assert!(!m.active.unwrap());
+        assert_eq!(m.project_id.unwrap(), Some(7));
+        assert_eq!(m.mode.unwrap(), crate::WebhookMode::Ping);
+        assert_eq!(m.method.unwrap(), crate::WebhookMethod::Post);
+        assert_eq!(m.headers.unwrap(), Some(json!({"react-map-secret": "v"})));
+    }
+
+    #[test]
+    fn to_webhook_non_object_headers_is_err() {
+        let v = json!({"name": "n", "url": "http://x", "headers": "not-an-object"});
+        assert!(v.to_webhook().is_err());
+    }
+
+    #[test]
+    fn to_webhook_not_object_is_err() {
+        assert!(json!(42).to_webhook().is_err());
+    }
 
     #[test]
     fn to_tileserver_ok() {
