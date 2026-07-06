@@ -9,6 +9,11 @@
 //! - `secret` VARCHAR(255) NULL → `Option<String>` (HMAC-SHA256 signing key)
 //! - `topics` JSON → `Json` (a JSON array of topic strings; empty = all)
 //! - `active` TINYINT(1) → `bool`
+//! - `name` VARCHAR(255) → `String` (admin-UI label)
+//! - `project_id` INT UNSIGNED NULL → `Option<u32>` (FK → project; NULL = global)
+//! - `mode` ENUM('event','ping') → `String` ("event" = signed JSON POST, "ping" = legacy reload)
+//! - `method` ENUM('GET','POST') → `String` (ping mode only)
+//! - `headers` JSON NULL → `Option<Json>` (custom header map, both modes)
 //! - `created_at` / `updated_at` DATETIME → sea-orm `DateTime`.
 
 use sea_orm::entity::prelude::*;
@@ -23,6 +28,11 @@ pub struct Model {
     pub secret: Option<String>,
     pub topics: Json,
     pub active: bool,
+    pub name: String,
+    pub project_id: Option<u32>,
+    pub mode: String,
+    pub method: String,
+    pub headers: Option<Json>,
     pub created_at: DateTime,
     pub updated_at: DateTime,
 }
