@@ -104,6 +104,15 @@ async fn webhooks_full_crud_cycle_and_project_filter() {
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 201, "create webhook must return 201");
+    let location = resp
+        .headers()
+        .get("Location")
+        .expect("Location header missing");
+    let location = location.to_str().unwrap();
+    assert!(
+        location.starts_with("/api/v2/webhooks/"),
+        "Location: {location}"
+    );
     let created = body_json(resp).await;
     let id = created["data"]["id"].as_u64().unwrap();
 
@@ -190,6 +199,7 @@ async fn webhook_cascade_dies_with_project() {
     let project_name = unique_name("proj-cascade");
     let req = test::TestRequest::post()
         .uri("/api/v2/projects")
+        // NOTE: after Task 9 lands, drop the `golbat` field from this body.
         .set_json(serde_json::json!({"name": project_name, "golbat": false}))
         .to_request();
     let resp = test::call_service(&app, req).await;
