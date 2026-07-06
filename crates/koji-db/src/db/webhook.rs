@@ -76,10 +76,11 @@ pub struct Query;
 /// CANNOT receive `null` through the API: the koji_resource! Patch DTO types
 /// them `Option<T>`, and serde maps JSON null to `None`, which
 /// `skip_serializing_if` then omits entirely. A direct Rust caller passing
-/// `null` for one of them falls through to_webhook's default (see tests) —
+/// `null` for one of them falls through to_webhook's default (`topics` keeps
+/// the literal JSON Null, since its column is the JSON type — see tests) —
 /// documented behavior, not a supported path.
 fn merge_patch(old: &Model, patch: &Json) -> Json {
-    let mut merged = serde_json::to_value(old).unwrap();
+    let mut merged = serde_json::to_value(old).expect("Model serializes to a JSON object");
     if let (Some(merged_obj), Some(patch_obj)) = (merged.as_object_mut(), patch.as_object()) {
         for (k, v) in patch_obj {
             merged_obj.insert(k.clone(), v.clone());
@@ -241,7 +242,7 @@ mod tests {
         let merged = merge_patch(&old, &json!({"topics": null, "active": null}));
         let m = merged.to_webhook().unwrap();
         assert_eq!(m.topics.unwrap(), json!(null)); // Null stays.
-        assert_eq!(m.active.unwrap(), true);         // Null → as_bool none → true default.
+        assert!(m.active.unwrap()); // Null → as_bool none → true default.
     }
 
     #[test]
