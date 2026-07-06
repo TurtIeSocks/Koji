@@ -237,3 +237,100 @@ async fn webhook_cascade_dies_with_project() {
         "webhook must be cascade-deleted with its project"
     );
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WEBHOOK TEST-FIRE — POST /api/v2/webhooks/{id}/test (synchronous single fire)
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[actix_web::test]
+async fn webhook_test_endpoint_404_on_missing() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+    let req = test::TestRequest::post()
+        .uri("/api/v2/webhooks/999999999/test")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 404);
+}
+
+#[actix_web::test]
+async fn webhook_test_endpoint_fires_ping_at_live_listener() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+
+    // Real listener on an OS-assigned port; records method + headers.
+    use std::sync::{Arc as StdArc, Mutex as StdMutex};
+    #[derive(Clone, Default)]
+    #[allow(clippy::type_complexity)]
+    struct Seen(StdArc<StdMutex<Vec<(String, Option<String>, Option<String>)>>>);
+    let seen = Seen::default();
+    let seen_c = seen.clone();
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = actix_web::HttpServer::new(move || {
+        let seen = seen_c.clone();
+        actix_web::App::new().default_service(actix_web::web::to(
+            move |req: actix_web::HttpRequest| {
+                let seen = seen.clone();
+                async move {
+                    let hdr = |n: &str| {
+                        req.headers().get(n).and_then(|v| v.to_str().ok()).map(String::from)
+                    };
+                    seen.0.lock().unwrap().push((
+                        req.method().to_string(),
+                        hdr("x-golbat-secret"),
+                        hdr("X-Koji-Event-Id"),
+                    ));
+                    actix_web::HttpResponse::Ok().finish()
+                }
+            },
+        ))
+    })
+    .listen(listener)
+    .unwrap()
+    .workers(1)
+    .run();
+    let handle = server.handle();
+    tokio::spawn(server);
+
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+    let name = unique_name("hook");
+    let req = test::TestRequest::post()
+        .uri("/api/v2/webhooks")
+        .set_json(serde_json::json!({
+            "name": name, "url": format!("http://127.0.0.1:{port}/reload"),
+            "mode": "ping", "method": "POST",
+            "headers": {"x-golbat-secret": "abc"}
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    let id = body_json(resp).await["data"]["id"].as_u64().unwrap();
+
+    let req = test::TestRequest::post()
+        .uri(&format!("/api/v2/webhooks/{id}/test"))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    let status = resp.status().as_u16();
+    let body = body_json(resp).await;
+
+    // Cleanup before asserting.
+    let req = test::TestRequest::delete()
+        .uri(&format!("/api/v2/webhooks/{id}"))
+        .to_request();
+    test::call_service(&app, req).await;
+    handle.stop(true).await;
+
+    assert_eq!(status, 200);
+    assert_eq!(body["data"]["delivered"], true);
+    assert_eq!(body["data"]["upstream_status"], 200);
+    let seen = seen.0.lock().unwrap();
+    assert_eq!(seen.len(), 1, "exactly one ping");
+    assert_eq!(seen[0].0, "POST", "honors method");
+    assert_eq!(seen[0].1.as_deref(), Some("abc"), "custom header sent");
+    assert!(seen[0].2.is_some(), "X-Koji-Event-Id sent");
+}

@@ -31,6 +31,7 @@ geojson            = { workspace = true }
 log                = { workspace = true }
 migration          = { workspace = true }
 nominatim          = { workspace = true }
+sea-orm            = { workspace = true }
 serde              = { workspace = true }
 serde_json         = { workspace = true }
 subtle             = { workspace = true }

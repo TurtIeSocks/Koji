@@ -114,6 +114,10 @@ pub fn test_db_app(
                 .service(public::v2::resources::project::scope())
                 .service(public::v2::resources::property::scope())
                 .service(public::v2::resources::tile_server::scope())
+                .service(
+                    web::resource("/webhooks/{id}/test")
+                        .route(web::post().to(public::v2::webhooks_test::test_fire)),
+                )
                 .service(public::v2::resources::webhook::scope()),
         )
 }
@@ -602,6 +606,10 @@ pub async fn start() -> io::Result<()> {
                             .service(public::v2::resources::project::scope())
                             .service(public::v2::resources::property::scope())
                             .service(public::v2::resources::tile_server::scope())
+                            .service(
+                                web::resource("/webhooks/{id}/test")
+                                    .route(web::post().to(public::v2::webhooks_test::test_fire)),
+                            )
                             .service(public::v2::resources::webhook::scope())
                             // Geometry transforms (convert/simplify/merge-points)
                             // and the S2 cell helpers — split out of the old

@@ -18,3 +18,4 @@ pub(crate) mod resources;
 pub(crate) mod routes;
 pub(crate) mod s2;
 pub(crate) mod golbat_data;
+pub(crate) mod webhooks_test;
