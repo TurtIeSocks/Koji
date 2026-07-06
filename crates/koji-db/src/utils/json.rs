@@ -324,7 +324,17 @@ impl JsonToModel for Value {
                         .get("secret")
                         .and_then(|v| v.as_str())
                         .map(|secret| secret.to_string());
-                    let topics = incoming.get("topics").cloned().unwrap_or(Value::Array(vec![]));
+                    // Absent OR explicit JSON `null` both mean "no topics" (empty
+                    // array = fires on all events). The distinction matters because
+                    // `koji_resource!`'s generated `CreateWebhook` DTO has no
+                    // `skip_serializing_if` (only its `Patch…` twin does), so an
+                    // omitted `topics` in a POST body round-trips through
+                    // `Option<Value>::None` back out as an explicit `"topics":
+                    // null` — mirrors `headers`' None-or-Null handling below.
+                    let topics = match incoming.get("topics") {
+                        None | Some(Value::Null) => Value::Array(vec![]),
+                        Some(value) => value.clone(),
+                    };
                     let active = incoming
                         .get("active")
                         .and_then(|v| v.as_bool())
@@ -951,6 +961,19 @@ mod tests {
     #[test]
     fn to_webhook_not_object_is_err() {
         assert!(json!(42).to_webhook().is_err());
+    }
+
+    #[test]
+    fn to_webhook_explicit_null_topics_defaults_to_empty_array() {
+        // Explicit JSON `null` (not just an absent key) must default the same
+        // way an absent key does. Reachable via the API: `koji_resource!`'s
+        // generated `CreateWebhook` DTO has no `skip_serializing_if`, so an
+        // omitted `topics` in a POST body round-trips `Option<Value>::None`
+        // back out as `"topics": null` — mirrors `headers`' None-or-Null arm.
+        let m = json!({"name": "n", "url": "http://x", "topics": null})
+            .to_webhook()
+            .unwrap();
+        assert_eq!(m.topics.unwrap(), json!([]));
     }
 
     #[test]

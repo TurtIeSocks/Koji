@@ -232,16 +232,18 @@ mod tests {
     }
 
     #[test]
-    fn null_on_defaulted_field_unreachable_via_api() {
-        // Unreachable via the API (serde drops null Option<T> fields); pinned so
-        // the fallback is deliberate, not accidental. Direct Rust callers passing
-        // null for defaulted fields fall through to_webhook's defaults:
-        // topics.cloned().unwrap_or([]) keeps Null, but active.and_then(as_bool)
-        // .unwrap_or(true) treats Null as missing and resets to true.
+    fn null_on_defaulted_field_reachable_via_create_dto() {
+        // IS reachable via the API: `koji_resource!`'s generated `CreateWebhook`
+        // DTO has no `skip_serializing_if` (only its `Patch…` twin does), so a
+        // POST body that omits `topics` round-trips `Option<Value>::None` back
+        // out as an explicit `"topics": null` before hitting `to_webhook`. Both
+        // `topics` and `active` treat explicit null the same as absent: topics
+        // defaults to `[]` (mirrors `headers`' None-or-Null handling), active
+        // defaults to `true` (as_bool on Null → None → unwrap_or default).
         let old = sample_old();
         let merged = merge_patch(&old, &json!({"topics": null, "active": null}));
         let m = merged.to_webhook().unwrap();
-        assert_eq!(m.topics.unwrap(), json!(null)); // Null stays.
+        assert_eq!(m.topics.unwrap(), json!([])); // Null → default empty array.
         assert!(m.active.unwrap()); // Null → as_bool none → true default.
     }
 
