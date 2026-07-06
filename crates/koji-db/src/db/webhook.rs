@@ -68,6 +68,26 @@ impl ActiveModelBehavior for ActiveModel {}
 
 pub struct Query;
 
+/// Overlay `patch`'s keys onto `old`'s JSON (flat object merge). A key present
+/// in the patch replaces the old value — including explicit `null`, which is
+/// how nullable columns (`secret`, `project_id`, `headers`) are cleared.
+///
+/// Non-nullable-with-default fields (`topics`, `active`, `mode`, `method`)
+/// CANNOT receive `null` through the API: the koji_resource! Patch DTO types
+/// them `Option<T>`, and serde maps JSON null to `None`, which
+/// `skip_serializing_if` then omits entirely. A direct Rust caller passing
+/// `null` for one of them falls through to_webhook's default (see tests) —
+/// documented behavior, not a supported path.
+fn merge_patch(old: &Model, patch: &Json) -> Json {
+    let mut merged = serde_json::to_value(old).unwrap();
+    if let (Some(merged_obj), Some(patch_obj)) = (merged.as_object_mut(), patch.as_object()) {
+        for (k, v) in patch_obj {
+            merged_obj.insert(k.clone(), v.clone());
+        }
+    }
+    merged
+}
+
 impl Query {
     pub async fn get_one(db: &DatabaseConnection, id: String) -> Result<Model, ModelError> {
         let record = match id.parse::<u64>() {
@@ -124,12 +144,7 @@ impl Query {
         let old_model: Option<Model> = Entity::find_by_id(id as u64).one(db).await?;
 
         let model = if let Some(old_model) = old_model {
-            let mut merged = serde_json::to_value(&old_model)?;
-            if let (Some(merged_obj), Some(patch_obj)) = (merged.as_object_mut(), json.as_object()) {
-                for (k, v) in patch_obj {
-                    merged_obj.insert(k.clone(), v.clone());
-                }
-            }
+            let merged = merge_patch(&old_model, &json);
             let mut new_model = merged.to_webhook()?;
             new_model.id = Set(old_model.id);
             new_model.updated_at = Set(Utc::now().naive_utc());
@@ -166,12 +181,7 @@ mod tests {
     /// overlay-then-`to_webhook` composition does not). Guards the #1 PATCH
     /// risk: a partial patch must NOT clobber fields it didn't mention.
     fn merge_and_convert(old: &Model, patch: Json) -> webhook::ActiveModel {
-        let mut merged = serde_json::to_value(old).unwrap();
-        if let (Some(merged_obj), Some(patch_obj)) = (merged.as_object_mut(), patch.as_object()) {
-            for (k, v) in patch_obj {
-                merged_obj.insert(k.clone(), v.clone());
-            }
-        }
+        let merged = merge_patch(old, &patch);
         merged.to_webhook().unwrap()
     }
 
@@ -218,5 +228,28 @@ mod tests {
         assert_eq!(patched.secret.unwrap(), None);
         // Unrelated fields still untouched.
         assert_eq!(patched.url.unwrap(), old.url);
+    }
+
+    #[test]
+    fn null_on_defaulted_field_unreachable_via_api() {
+        // Unreachable via the API (serde drops null Option<T> fields); pinned so
+        // the fallback is deliberate, not accidental. Direct Rust callers passing
+        // null for defaulted fields fall through to_webhook's defaults:
+        // topics.cloned().unwrap_or([]) keeps Null, but active.and_then(as_bool)
+        // .unwrap_or(true) treats Null as missing and resets to true.
+        let old = sample_old();
+        let merged = merge_patch(&old, &json!({"topics": null, "active": null}));
+        let m = merged.to_webhook().unwrap();
+        assert_eq!(m.topics.unwrap(), json!(null)); // Null stays.
+        assert_eq!(m.active.unwrap(), true);         // Null → as_bool none → true default.
+    }
+
+    #[test]
+    fn non_object_patch_is_noop_overlay() {
+        let old = sample_old();
+        let merged = merge_patch(&old, &json!("not an object"));
+        let m = merged.to_webhook().unwrap();
+        assert_eq!(m.url.unwrap(), old.url);
+        assert_eq!(m.name.unwrap(), old.name);
     }
 }
