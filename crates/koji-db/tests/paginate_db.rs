@@ -281,7 +281,7 @@ async fn project_paginate_finds_inserted_row() {
 
     let name = unique_name("proj-pag");
     let created =
-        project::Query::upsert_json_return(&db, 0, json!({ "name": name, "golbat": false }))
+        project::Query::upsert_json_return(&db, 0, json!({ "name": name }))
             .await
             .expect("insert");
     let id = created["id"].as_u64().unwrap() as u32;

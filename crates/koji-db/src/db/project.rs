@@ -16,9 +16,6 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: u32,
     pub name: String,
-    pub api_endpoint: Option<String>,
-    pub api_key: Option<String>,
-    pub golbat: bool,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
     pub description: Option<String>,
@@ -162,9 +159,6 @@ impl Query {
                 json!({
                     "id": project.id,
                     "name": project.name,
-                    "api_endpoint": project.api_endpoint,
-                    "api_key": project.api_key,
-                    "golbat": project.golbat,
                     "description": project.description,
                     // "created_at": fence.created_at,
                     // "updated_at": fence.updated_at,
@@ -213,14 +207,6 @@ impl Query {
                 })
             })
             .collect())
-    }
-
-    pub async fn get_golbat_project(db: &DatabaseConnection) -> Result<Option<Model>, DbErr> {
-        project::Entity::find()
-            .filter(Column::Golbat.eq(true))
-            .filter(Column::ApiEndpoint.is_not_null())
-            .one(db)
-            .await
     }
 
     // ponytail: project PATCH "geofences" bulk-assign emits no membership

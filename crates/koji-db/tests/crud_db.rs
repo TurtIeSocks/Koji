@@ -68,7 +68,7 @@ async fn project_crud_round_trip() {
     let created = project::Query::upsert_json_return(
         &db,
         0,
-        json!({ "name": name, "golbat": false, "description": "integration test" }),
+        json!({ "name": name, "description": "integration test" }),
     )
     .await
     .expect("project upsert should insert");
@@ -85,7 +85,7 @@ async fn project_crud_round_trip() {
     // read (get_one_json)
     let got = got.expect("get_one_json should find the project");
     assert_eq!(got["name"], json!(name), "name round-trips through get_one");
-    assert_eq!(got["golbat"], json!(false));
+    assert_eq!(got["description"], json!("integration test"));
 
     // list (get_json_cache contains it)
     let cache = cache.expect("get_json_cache");

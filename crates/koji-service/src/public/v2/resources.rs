@@ -19,8 +19,7 @@
 //! **Wire shape:** the DTOs use **snake_case** field names (the established Koji
 //! wire — the frontend types and koji-db's `to_project`/`to_property` readers all
 //! use snake; see the field round-trip below). A camelCase rename would diverge
-//! from that and silently drop multi-word fields (`api_endpoint`, `api_key`,
-//! `default_value`) on write.
+//! from that and silently drop multi-word fields (`default_value`) on write.
 //!
 //! Geofences and routes are hand-written (see [`super::geofences`] /
 //! [`super::routes`]) because their koji-db signatures genuinely differ (they
@@ -35,9 +34,6 @@ koji_resource! {
     outbox: true,
     create: {
         name: String,
-        api_endpoint: Option<String>,
-        api_key: Option<String>,
-        golbat: bool,
         description: Option<String>,
     }
 }
@@ -91,24 +87,20 @@ mod tests {
     fn create_project_deserializes_full_body() {
         let dto: project::CreateProject = serde_json::from_value(json!({
             "name": "Test",
-            "api_endpoint": "http://x",
-            "api_key": "k",
-            "golbat": true,
             "description": "d"
         }))
         .unwrap();
         assert_eq!(dto.name, "Test");
-        assert_eq!(dto.api_endpoint.as_deref(), Some("http://x"));
-        assert!(dto.golbat);
+        assert_eq!(dto.description.as_deref(), Some("d"));
     }
 
     #[test]
     fn create_project_requires_required_fields() {
-        // `name` + `golbat` are required (not Option) — a body missing them fails.
-        let err = serde_json::from_value::<project::CreateProject>(json!({ "name": "x" }));
+        // `name` is required (not Option) — a body missing it fails.
+        let err = serde_json::from_value::<project::CreateProject>(json!({ "description": "d" }));
         assert!(
             err.is_err(),
-            "missing required `golbat` must fail to deserialize"
+            "missing required `name` must fail to deserialize"
         );
     }
 
@@ -118,11 +110,9 @@ mod tests {
             serde_json::from_value(json!({ "description": "only this" })).unwrap();
         assert_eq!(dto.description.as_deref(), Some("only this"));
         assert!(dto.name.is_none());
-        assert!(dto.golbat.is_none());
         // Omitted fields are dropped from the serialized upsert value.
         let v = serde_json::to_value(&dto).unwrap();
         assert!(v.get("name").is_none(), "None name omitted");
-        assert!(v.get("golbat").is_none(), "None golbat omitted");
         assert_eq!(v["description"], "only this");
     }
 
@@ -131,17 +121,11 @@ mod tests {
         // The serialized value feeds koji-db `to_project`, which reads snake keys.
         let dto = project::CreateProject {
             name: "n".into(),
-            api_endpoint: Some("e".into()),
-            api_key: Some("k".into()),
-            golbat: false,
-            description: None,
+            description: Some("desc".into()),
         };
         let v = serde_json::to_value(&dto).unwrap();
-        assert!(
-            v.get("api_endpoint").is_some(),
-            "snake `api_endpoint` on the wire"
-        );
-        assert!(v.get("apiEndpoint").is_none(), "not camelCase");
+        assert_eq!(v["name"], "n");
+        assert_eq!(v["description"], "desc");
     }
 
     // ---- property ---------------------------------------------------------

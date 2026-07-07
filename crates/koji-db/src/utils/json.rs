@@ -169,28 +169,13 @@ impl JsonToModel for Value {
     fn to_project(&self) -> Result<project::ActiveModel, ModelError> {
         if let Some(incoming) = self.as_object() {
             let name = incoming.get("name").and_then(|v| v.as_str());
-            let golbat = incoming
-                .get("golbat")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
             if let Some(name) = name {
-                let api_endpoint = incoming
-                    .get("api_endpoint")
-                    .and_then(|v| v.as_str())
-                    .map(|api_endpoint| api_endpoint.to_string());
-                let api_key = incoming
-                    .get("api_key")
-                    .and_then(|v| v.as_str())
-                    .map(|api_key| api_key.to_string());
                 let description = incoming
                     .get("description")
                     .and_then(|v| v.as_str())
                     .map(|description| description.to_string());
                 Ok(project::ActiveModel {
                     name: Set(name.to_string()),
-                    golbat: Set(golbat),
-                    api_endpoint: Set(api_endpoint),
-                    api_key: Set(api_key),
                     description: Set(description),
                     ..Default::default()
                 })
@@ -793,32 +778,22 @@ mod tests {
         let v = json!({ "name": "MyProject" });
         let model = v.to_project().unwrap();
         assert_eq!(model.name.unwrap(), "MyProject");
-        assert!(!model.golbat.unwrap());
     }
 
     #[test]
     fn to_project_ok_full() {
         let v = json!({
             "name": "Full",
-            "golbat": true,
-            "api_endpoint": "https://example.com",
-            "api_key": "secret",
             "description": "A project"
         });
         let model = v.to_project().unwrap();
         assert_eq!(model.name.unwrap(), "Full");
-        assert!(model.golbat.unwrap());
-        assert_eq!(
-            model.api_endpoint.unwrap(),
-            Some("https://example.com".to_string())
-        );
-        assert_eq!(model.api_key.unwrap(), Some("secret".to_string()));
         assert_eq!(model.description.unwrap(), Some("A project".to_string()));
     }
 
     #[test]
     fn to_project_no_name_is_err() {
-        let v = json!({ "golbat": false });
+        let v = json!({ "description": "no name" });
         assert!(v.to_project().is_err());
     }
 

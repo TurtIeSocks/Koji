@@ -126,9 +126,8 @@ async fn webhooks_full_crud_cycle_and_project_filter() {
     let project_name = unique_name("proj");
     let req = test::TestRequest::post()
         .uri("/api/v2/projects")
-        .set_json(serde_json::json!({"name": project_name, "golbat": false}))
+        .set_json(serde_json::json!({"name": project_name}))
         .to_request();
-    // NOTE: after Task 9 lands, drop the `golbat` field from this body.
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 201);
     let project_id = body_json(resp).await["data"]["id"].as_u64().unwrap();
@@ -240,8 +239,7 @@ async fn webhook_cascade_dies_with_project() {
     let project_name = unique_name("proj-cascade");
     let req = test::TestRequest::post()
         .uri("/api/v2/projects")
-        // NOTE: after Task 9 lands, drop the `golbat` field from this body.
-        .set_json(serde_json::json!({"name": project_name, "golbat": false}))
+        .set_json(serde_json::json!({"name": project_name}))
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 201);
@@ -298,7 +296,7 @@ async fn project_patch_and_delete_emit_outbox_events() {
     let name = unique_name("proj");
     let req = test::TestRequest::post()
         .uri("/api/v2/projects")
-        .set_json(serde_json::json!({"name": name, "golbat": false}))
+        .set_json(serde_json::json!({"name": name}))
         .to_request();
     let project_id = body_json(test::call_service(&app, req).await).await["data"]["id"]
         .as_u64()
@@ -362,7 +360,7 @@ async fn geofence_update_emits_event_with_project_ids() {
     let pname = unique_name("proj");
     let req = test::TestRequest::post()
         .uri("/api/v2/projects")
-        .set_json(serde_json::json!({"name": pname, "golbat": false}))
+        .set_json(serde_json::json!({"name": pname}))
         .to_request();
     let project_id = body_json(test::call_service(&app, req).await).await["data"]["id"]
         .as_u64()
@@ -435,7 +433,7 @@ async fn route_update_emits_event_with_project_ids() {
     let pname = unique_name("proj");
     let req = test::TestRequest::post()
         .uri("/api/v2/projects")
-        .set_json(serde_json::json!({"name": pname, "golbat": false}))
+        .set_json(serde_json::json!({"name": pname}))
         .to_request();
     let project_id = body_json(test::call_service(&app, req).await).await["data"]["id"]
         .as_u64()
@@ -527,7 +525,7 @@ async fn geofence_membership_change_emits_geofences_changed() {
     for _ in 0..2 {
         let req = test::TestRequest::post()
             .uri("/api/v2/projects")
-            .set_json(serde_json::json!({"name": unique_name("proj"), "golbat": false}))
+            .set_json(serde_json::json!({"name": unique_name("proj")}))
             .to_request();
         ids.push(
             body_json(test::call_service(&app, req).await).await["data"]["id"]
@@ -620,7 +618,7 @@ async fn bulk_import_emits_one_geofences_changed_event_per_project() {
     // only `/internal/projects`, which forwards to the same resource.)
     let req = test::TestRequest::post()
         .uri("/internal/projects")
-        .set_json(serde_json::json!({"name": unique_name("proj"), "golbat": false}))
+        .set_json(serde_json::json!({"name": unique_name("proj")}))
         .to_request();
     let project_id = body_json(test::call_service(&app, req).await).await["data"]["id"]
         .as_u64()

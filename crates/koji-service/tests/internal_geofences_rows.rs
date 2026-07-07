@@ -161,7 +161,7 @@ async fn macro_list_sorts_by_name_server_side() {
     // Insert zzz first → lower id; aaa second → higher id. id-sort gives zzz,aaa.
     conn.execute(Statement::from_sql_and_values(
         DbBackend::MySql,
-        "INSERT INTO project (name, golbat) VALUES (?, 0), (?, 0)",
+        "INSERT INTO project (name) VALUES (?), (?)",
         [Value::from(z.clone()), Value::from(a.clone())],
     ))
     .await
