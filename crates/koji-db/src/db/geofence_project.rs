@@ -241,6 +241,23 @@ impl Query {
         .await
     }
 
+    /// The project ids a geofence is currently linked to (for event payloads:
+    /// `geofence.updated`/`route.updated` carry `projectIds[]` resolved at
+    /// emit time, not at the moment of the upsert, so a route's parent
+    /// geofence resolves through this same helper).
+    pub async fn project_ids_for_geofence(
+        db: &DatabaseConnection,
+        geofence_id: u32,
+    ) -> Result<Vec<u32>, DbErr> {
+        Ok(Entity::find()
+            .filter(Column::GeofenceId.eq(geofence_id))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|m| m.project_id)
+            .collect())
+    }
+
     pub async fn upsert_related_by_project_id(
         db: &DatabaseConnection,
         geofences: &[serde_json::Value],

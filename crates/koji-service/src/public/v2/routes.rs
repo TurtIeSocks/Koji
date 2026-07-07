@@ -137,6 +137,7 @@ pub(crate) async fn create(
     for (t, ev) in crate::internal::realtime::topics::created("route", id as i64) {
         hub.publish(&t, ev);
     }
+    emit_route_updated(&conn.koji, id, &record).await;
     Ok(HttpResponse::build(StatusCode::CREATED)
         .insert_header(("Location", format!("/api/v2/routes/{id}")))
         .json(ApiResponse::Ok {
@@ -222,7 +223,34 @@ async fn update(
     for (t, ev) in crate::internal::realtime::topics::updated("route", id as i64, record.clone()) {
         hub.publish(&t, ev);
     }
+    emit_route_updated(&conn.koji, id as u64, &record).await;
     Ok(ApiResponse::success(record))
+}
+
+/// Emit `route.updated` to the outbox. `record` is the flat `route::Model`
+/// JSON returned by `upsert_json_return` (top-level `name`/`geofence_id`).
+/// `projectIds[]` is resolved through the route's PARENT geofence (routes
+/// have no direct project link of their own) via the same
+/// `geofence_project` helper `geofences.rs` uses.
+async fn emit_route_updated(db: &sea_orm::DatabaseConnection, id: u64, record: &serde_json::Value) {
+    let geofence_id = record
+        .get("geofence_id")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or_default() as u32;
+    let project_ids = koji_db::db::geofence_project::Query::project_ids_for_geofence(db, geofence_id)
+        .await
+        .unwrap_or_default();
+    crate::utils::outbox::emit_event(
+        db,
+        "route.updated",
+        serde_json::json!({
+            "routeId": id,
+            "geofenceId": geofence_id,
+            "name": record.get("name").cloned().unwrap_or(serde_json::Value::Null),
+            "projectIds": project_ids,
+        }),
+    )
+    .await;
 }
 
 /// `DELETE /api/v2/routes/{id}` — `204 No Content`; `404` on a missing id.

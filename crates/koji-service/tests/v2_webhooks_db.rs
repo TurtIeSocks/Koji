@@ -68,6 +68,47 @@ async fn build_test_koji_db(koji_db: DatabaseConnection) -> KojiDb {
     }
 }
 
+/// Minimal GeoJSON polygon (a triangle at (0,0)) — mirrors `v2_db.rs`'s helper
+/// (test binaries don't share modules, so it's duplicated here).
+fn triangle_geometry() -> serde_json::Value {
+    serde_json::json!({
+        "type": "Polygon",
+        "coordinates": [[[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,0.0]]]
+    })
+}
+
+/// A route `MultiPoint` geometry — mirrors `v2_db.rs`'s helper.
+fn route_geometry() -> serde_json::Value {
+    serde_json::json!({
+        "type": "MultiPoint",
+        "coordinates": [[0.0,0.0],[1.0,1.0]]
+    })
+}
+
+/// Delete a `geofence` row by id (best-effort cleanup).
+async fn cleanup_geofence(db: &DatabaseConnection, id: u64) {
+    use sea_orm::{ConnectionTrait, Statement};
+    let _ = db
+        .execute(Statement::from_sql_and_values(
+            sea_orm::DbBackend::MySql,
+            "DELETE FROM `geofence` WHERE `id` = ?",
+            [id.into()],
+        ))
+        .await;
+}
+
+/// Delete a `route` row by id (best-effort cleanup).
+async fn cleanup_route(db: &DatabaseConnection, id: u64) {
+    use sea_orm::{ConnectionTrait, Statement};
+    let _ = db
+        .execute(Statement::from_sql_and_values(
+            sea_orm::DbBackend::MySql,
+            "DELETE FROM `route` WHERE `id` = ?",
+            [id.into()],
+        ))
+        .await;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // WEBHOOKS — full CRUD cycle + ?project= filter + parity canary
 // ═══════════════════════════════════════════════════════════════════════════
@@ -302,6 +343,161 @@ async fn project_patch_and_delete_emit_outbox_events() {
     .unwrap();
     assert!(!updated.is_empty(), "PATCH must emit project.updated");
     assert!(!deleted.is_empty(), "DELETE must emit project.deleted");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GEOFENCE/ROUTE OUTBOX — create + update emit geofence.updated/route.updated
+// with projectIds[] resolved from geofence_project
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[actix_web::test]
+async fn geofence_update_emits_event_with_project_ids() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    // project + geofence linked to it (geofence create accepts "projects").
+    let pname = unique_name("proj");
+    let req = test::TestRequest::post()
+        .uri("/api/v2/projects")
+        .set_json(serde_json::json!({"name": pname, "golbat": false}))
+        .to_request();
+    let project_id = body_json(test::call_service(&app, req).await).await["data"]["id"]
+        .as_u64()
+        .unwrap();
+
+    let gname = unique_name("fence");
+    let req = test::TestRequest::post()
+        .uri("/api/v2/geofences")
+        .set_json(serde_json::json!({
+            "name": gname, "mode": "pokemon", "geometry": triangle_geometry(),
+            "projects": [project_id]
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 201);
+    let geofence_id = body_json(resp).await["data"]["id"].as_u64().unwrap();
+
+    // The create itself must have emitted geofence.updated w/ projectIds.
+    use sea_orm::{ConnectionTrait, Statement};
+    let rows = db
+        .query_all(Statement::from_sql_and_values(
+            sea_orm::DbBackend::MySql,
+            "SELECT CAST(payload AS CHAR) AS p FROM event_outbox WHERE topic = 'geofence.updated' \
+             AND JSON_EXTRACT(payload, '$.geofenceId') = ?",
+            [geofence_id.into()],
+        ))
+        .await
+        .unwrap();
+    // Cleanup (fence cascade-cleans geofence_project; outbox rows by hand).
+    cleanup_geofence(&db, geofence_id).await;
+    let req = test::TestRequest::delete()
+        .uri(&format!("/api/v2/projects/{project_id}"))
+        .to_request();
+    test::call_service(&app, req).await;
+    db.execute(Statement::from_sql_and_values(
+        sea_orm::DbBackend::MySql,
+        "DELETE FROM event_outbox WHERE JSON_EXTRACT(payload, '$.geofenceId') = ?",
+        [geofence_id.into()],
+    ))
+    .await
+    .unwrap();
+
+    assert!(!rows.is_empty(), "geofence create must emit geofence.updated");
+    let payload: serde_json::Value =
+        serde_json::from_str(rows[0].try_get::<String>("", "p").unwrap().as_str()).unwrap();
+    assert!(
+        payload["projectIds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v.as_u64() == Some(project_id)),
+        "payload must carry linked projectIds: {payload}"
+    );
+}
+
+#[actix_web::test]
+async fn route_update_emits_event_with_project_ids() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    // project + geofence linked to it, then a route under that geofence.
+    let pname = unique_name("proj");
+    let req = test::TestRequest::post()
+        .uri("/api/v2/projects")
+        .set_json(serde_json::json!({"name": pname, "golbat": false}))
+        .to_request();
+    let project_id = body_json(test::call_service(&app, req).await).await["data"]["id"]
+        .as_u64()
+        .unwrap();
+
+    let gname = unique_name("fence-for-route");
+    let req = test::TestRequest::post()
+        .uri("/api/v2/geofences")
+        .set_json(serde_json::json!({
+            "name": gname, "mode": "pokemon", "geometry": triangle_geometry(),
+            "projects": [project_id]
+        }))
+        .to_request();
+    let geofence_id = body_json(test::call_service(&app, req).await).await["data"]["id"]
+        .as_u64()
+        .unwrap();
+
+    let rname = unique_name("route");
+    let req = test::TestRequest::post()
+        .uri("/api/v2/routes")
+        .set_json(serde_json::json!({
+            "name": rname, "geofence_id": geofence_id,
+            "mode": "pokemon", "geometry": route_geometry()
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 201);
+    let route_id = body_json(resp).await["data"]["id"].as_u64().unwrap();
+
+    use sea_orm::{ConnectionTrait, Statement};
+    let rows = db
+        .query_all(Statement::from_sql_and_values(
+            sea_orm::DbBackend::MySql,
+            "SELECT CAST(payload AS CHAR) AS p FROM event_outbox WHERE topic = 'route.updated' \
+             AND JSON_EXTRACT(payload, '$.routeId') = ?",
+            [route_id.into()],
+        ))
+        .await
+        .unwrap();
+
+    // Cleanup: route, then geofence (FK), then project, then outbox rows.
+    cleanup_route(&db, route_id).await;
+    cleanup_geofence(&db, geofence_id).await;
+    let req = test::TestRequest::delete()
+        .uri(&format!("/api/v2/projects/{project_id}"))
+        .to_request();
+    test::call_service(&app, req).await;
+    db.execute(Statement::from_sql_and_values(
+        sea_orm::DbBackend::MySql,
+        "DELETE FROM event_outbox WHERE JSON_EXTRACT(payload, '$.routeId') = ?",
+        [route_id.into()],
+    ))
+    .await
+    .unwrap();
+
+    assert!(!rows.is_empty(), "route create must emit route.updated");
+    let payload: serde_json::Value =
+        serde_json::from_str(rows[0].try_get::<String>("", "p").unwrap().as_str()).unwrap();
+    assert_eq!(payload["geofenceId"].as_u64(), Some(geofence_id));
+    assert!(
+        payload["projectIds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v.as_u64() == Some(project_id)),
+        "payload must carry linked projectIds via parent geofence: {payload}"
+    );
 }
 
 #[actix_web::test]

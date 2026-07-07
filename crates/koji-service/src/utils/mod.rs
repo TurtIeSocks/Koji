@@ -13,6 +13,7 @@ pub(crate) mod auth;
 pub(crate) mod error;
 pub(crate) mod format;
 pub(crate) mod openapi;
+pub(crate) mod outbox;
 pub(crate) mod pagination;
 pub(crate) mod response;
 

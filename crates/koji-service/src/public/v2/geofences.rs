@@ -179,6 +179,7 @@ pub(crate) async fn create(
     for (t, ev) in crate::internal::realtime::topics::created("geofence", id as i64) {
         hub.publish(&t, ev);
     }
+    emit_geofence_updated(&conn.koji, id, &record).await;
     Ok(HttpResponse::build(StatusCode::CREATED)
         .insert_header(("Location", format!("/api/v2/geofences/{id}")))
         .json(ApiResponse::Ok {
@@ -282,7 +283,30 @@ async fn update(
     for (t, ev) in crate::internal::realtime::topics::updated("geofence", id as i64, record.clone()) {
         hub.publish(&t, ev);
     }
+    emit_geofence_updated(&conn.koji, id as u64, &record).await;
     Ok(ApiResponse::success(record))
+}
+
+/// Emit `geofence.updated` to the outbox with the current `projectIds[]`
+/// (resolved fresh from `geofence_project`, not from the upsert body — a
+/// PATCH may not touch `projects` at all, so the join table is the source of
+/// truth at emit time). `record` is the flat `geofence::Model` JSON returned
+/// by `upsert_json_return` (top-level `name`, not nested under `properties` —
+/// the geofence handlers return the raw row, not a GeoJSON Feature).
+async fn emit_geofence_updated(db: &sea_orm::DatabaseConnection, id: u64, record: &serde_json::Value) {
+    let project_ids = koji_db::db::geofence_project::Query::project_ids_for_geofence(db, id as u32)
+        .await
+        .unwrap_or_default();
+    crate::utils::outbox::emit_event(
+        db,
+        "geofence.updated",
+        serde_json::json!({
+            "geofenceId": id,
+            "name": record.get("name").cloned().unwrap_or(serde_json::Value::Null),
+            "projectIds": project_ids,
+        }),
+    )
+    .await;
 }
 
 /// `DELETE /api/v2/geofences/{id}` — `204 No Content`; `404` on a missing id.
