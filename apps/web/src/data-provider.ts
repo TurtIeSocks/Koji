@@ -14,6 +14,7 @@ const RESOURCE_MAP: Record<string, ResourceDef> = {
   property: { seg: "properties", geo: false },
   tileserver: { seg: "tile-servers", geo: false },
   plugins: { seg: "plugins", geo: false },
+  webhook: { seg: "webhooks", geo: false },
 };
 
 const segFor = (resource: string): string =>

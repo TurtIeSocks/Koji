@@ -35,3 +35,21 @@ export const PROPERTY_CATEGORIES = [
 // Route modes mirror geofence modes — route.mode uses the same DB enum
 // (koji_core::Mode: Unset/Pokemon/Fort/Quest, confirmed in sea_orm_active_enums.rs).
 export const ROUTE_MODES = GEOFENCE_MODES;
+
+export const WEBHOOK_MODES = [
+  { id: "event", name: "Event (signed POST)" },
+  { id: "ping", name: "Ping (legacy reload)" },
+] as const;
+
+export const WEBHOOK_METHODS = [
+  { id: "GET", name: "GET" },
+  { id: "POST", name: "POST" },
+] as const;
+
+export const WEBHOOK_TOPICS = [
+  { id: "project.updated", name: "project.updated" },
+  { id: "project.deleted", name: "project.deleted" },
+  { id: "project.geofences_changed", name: "project.geofences_changed" },
+  { id: "geofence.updated", name: "geofence.updated" },
+  { id: "route.updated", name: "route.updated" },
+] as const;

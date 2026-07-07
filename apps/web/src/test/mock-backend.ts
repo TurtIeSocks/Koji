@@ -75,6 +75,37 @@ handlers.push(
       meta: { total: 1, page: 1, per_page: 10, total_pages: 1, has_next: false, has_prev: false },
     }),
   ),
+  http.get("/internal/webhooks", ({ request }) => {
+    const url = new URL(request.url);
+    const project = url.searchParams.get("project");
+    const rows = [
+      { id: 1, name: "ReactMap reload", url: "http://rm/reload", mode: "ping", method: "POST", secret: null, topics: [], active: true, project_id: 10, headers: { "x-golbat-secret": "abc" } },
+      { id: 2, name: "Global events", url: "http://ev/hook", mode: "event", method: "GET", secret: "s", topics: ["geofence.updated"], active: true, project_id: null, headers: null },
+    ].filter((r) => (project ? String(r.project_id) === project : true));
+    return HttpResponse.json({
+      status: "ok",
+      data: rows,
+      meta: { total: rows.length, page: 1, per_page: 10, total_pages: 1, has_next: false, has_prev: false },
+    });
+  }),
+  http.get("/internal/webhooks/:id", ({ params }) =>
+    HttpResponse.json({
+      status: "ok",
+      data: { id: Number(params.id), name: "ReactMap reload", url: "http://rm/reload", mode: "ping", method: "POST", secret: null, topics: [], active: true, project_id: 10, headers: { "x-golbat-secret": "abc" } },
+    }),
+  ),
+  http.post("/internal/webhooks", async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({ status: "ok", data: { ...body, id: 3 } });
+  }),
+  http.patch("/internal/webhooks/:id", async ({ request, params }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({ status: "ok", data: { ...body, id: Number(params.id) } });
+  }),
+  http.delete("/internal/webhooks/:id", () => new HttpResponse(null, { status: 204 })),
+  http.post("/internal/webhooks/:id/test", () =>
+    HttpResponse.json({ status: "ok", data: { delivered: true, upstream_status: 200, error: null } }),
+  ),
 );
 
 export const server = setupServer(...handlers);

@@ -14,6 +14,7 @@ import { project } from '@/resources/project'
 import { property } from '@/resources/property'
 import { route } from '@/resources/route'
 import { tileserver } from '@/resources/tileserver'
+import { webhook } from '@/resources/webhook'
 import { SidebarGroup, SidebarGroupContent, SidebarMenu } from '@/components/ui/sidebar'
 
 /** Sidebar menu: auto-resource groups + a Views group with the Map link. */
@@ -57,6 +58,7 @@ function App() {
       <Resource {...property} group="Config" />
       <Resource {...tileserver} group="Config" />
       <Resource {...plugins} group="Config" />
+      <Resource {...webhook} group="Config" />
       <CustomRoutes>
         <Route element={<ImportWizard />} path="/import" />
       </CustomRoutes>
