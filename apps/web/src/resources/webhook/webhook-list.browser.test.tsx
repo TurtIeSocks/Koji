@@ -7,7 +7,7 @@ import { WebhookList } from "@/resources/webhook/webhook-list";
 
 const fakeRows = [
   { id: 1, name: "ReactMap reload", url: "http://rm/reload", mode: "ping", active: true, project_id: 10 },
-  { id: 2, name: "Global events", url: "http://ev/hook", mode: "event", active: true, project_id: null },
+  { id: 2, name: "Unscoped events", url: "http://ev/hook", mode: "event", active: true, project_id: null },
 ];
 
 const stubDataProvider = {
@@ -37,6 +37,18 @@ describe("WebhookList", () => {
       </AdminContext>,
     );
     await expect.element(screen.getByText("ReactMap reload")).toBeVisible();
-    await expect.element(screen.getByText("Global events")).toBeVisible();
+    await expect.element(screen.getByText("Unscoped events")).toBeVisible();
+  });
+
+  it("shows Global for an unscoped webhook and the mode", async () => {
+    const screen = render(
+      <AdminContext dataProvider={stubDataProvider} authProvider={stubAuthProvider}>
+        <ResourceContextProvider value="webhook">
+          <WebhookList />
+        </ResourceContextProvider>
+      </AdminContext>,
+    );
+    await expect.element(screen.getByText("Global")).toBeVisible();
+    await expect.element(screen.getByText("ping")).toBeVisible();
   });
 });
