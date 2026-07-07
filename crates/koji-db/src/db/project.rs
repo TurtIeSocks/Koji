@@ -223,6 +223,11 @@ impl Query {
             .await
     }
 
+    // ponytail: project PATCH "geofences" bulk-assign emits no membership
+    // events yet — wire when E9.1 builds the reverse-assign UI (snapshot
+    // before/after around Query::upsert in a thin unsealed wrapper or macro
+    // hook). koji-db must not write outbox itself, and the project PATCH
+    // macro handler is sealed, so there is no clean hook here today.
     pub async fn upsert_related_geofences(
         db: &DatabaseConnection,
         json: &serde_json::Value,

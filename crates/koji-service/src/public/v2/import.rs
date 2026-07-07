@@ -1,11 +1,14 @@
 //! `POST /internal/import` — atomic bulk import. Maps the HTTP DTO to the
 //! koji-db `import` orchestrator (one tx; dry-run = validate-only preview).
 
+use std::collections::{BTreeSet, HashMap, HashSet};
+
 use actix_web::{HttpResponse, web};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use koji_db::KojiDb;
+use koji_db::db::geofence_project;
 use koji_db::db::import as dbimport;
 
 use crate::utils::api_response::ApiResponse;
@@ -101,6 +104,18 @@ fn result_to_json(r: &dbimport::ImportResult) -> serde_json::Value {
 }
 
 /// `POST /internal/import` — atomic bulk import (dry-run preview when `dry_run`).
+///
+/// Membership-diff emission (`project.geofences_changed`, Task 8): the import
+/// tx lives entirely inside `dbimport::import` (one `txn.begin()`/`commit()`),
+/// so this handler snapshots each mentioned project's linked-fence set
+/// *before* calling it, then — only if the import actually committed —
+/// re-resolves the same projects *after* and diffs. Snapshot-before/resolve-
+/// after (not accumulate-in-loop) because an `Overwrite` collision replaces an
+/// existing fence's project links wholesale (`geofence_project`'s
+/// `upsert_related_*` deletes stale rows), so accumulate-only would miss
+/// removals. Emitting only when `result.committed` is true keeps a
+/// rolled-back/dry-run import from lying about a membership change that never
+/// happened.
 pub(crate) async fn import_handler(
     conn: web::Data<KojiDb>,
     body: web::Json<ImportRequest>,
@@ -108,10 +123,42 @@ pub(crate) async fn import_handler(
     let req = body.into_inner();
     let dry_run = req.dry_run;
     let items = to_db_items(&req);
+
+    // Every project id any geofence item in this batch mentions.
+    let touched_projects: HashSet<u32> = req
+        .items
+        .iter()
+        .flat_map(|it| it.projects.iter().copied())
+        .collect();
+
+    let before = snapshot_project_membership(&conn.koji, &touched_projects).await;
+
     let result = dbimport::import(&conn.koji, items, dry_run)
         .await
         .map_err(ServiceError::internal)?;
+
+    if result.committed {
+        let after = snapshot_project_membership(&conn.koji, &touched_projects).await;
+        crate::utils::outbox::emit_membership_diff(&conn.koji, &before, &after).await;
+    }
+
     Ok(ApiResponse::success(result_to_json(&result)))
+}
+
+/// Resolve `project_id -> {linked geofence ids}` for a set of projects, for
+/// before/after membership-diff snapshots around the import tx.
+async fn snapshot_project_membership(
+    db: &sea_orm::DatabaseConnection,
+    project_ids: &HashSet<u32>,
+) -> HashMap<u32, BTreeSet<u32>> {
+    let mut map = HashMap::new();
+    for &pid in project_ids {
+        let ids = geofence_project::Query::geofence_ids_for_project(db, pid)
+            .await
+            .unwrap_or_default();
+        map.insert(pid, ids.into_iter().collect());
+    }
+    map
 }
 
 #[cfg(test)]

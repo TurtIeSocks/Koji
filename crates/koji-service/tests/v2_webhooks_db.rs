@@ -510,6 +510,193 @@ async fn route_update_emits_event_with_project_ids() {
     );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PROJECT MEMBERSHIP OUTBOX — project.geofences_changed (Task 8)
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[actix_web::test]
+async fn geofence_membership_change_emits_geofences_changed() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    // Two projects; fence starts in A, moves to B.
+    let mut ids = vec![];
+    for _ in 0..2 {
+        let req = test::TestRequest::post()
+            .uri("/api/v2/projects")
+            .set_json(serde_json::json!({"name": unique_name("proj"), "golbat": false}))
+            .to_request();
+        ids.push(
+            body_json(test::call_service(&app, req).await).await["data"]["id"]
+                .as_u64()
+                .unwrap(),
+        );
+    }
+    let (a, b) = (ids[0], ids[1]);
+    let req = test::TestRequest::post()
+        .uri("/api/v2/geofences")
+        .set_json(serde_json::json!({
+            "name": unique_name("fence"), "mode": "pokemon",
+            "geometry": triangle_geometry(), "projects": [a]
+        }))
+        .to_request();
+    let fence = body_json(test::call_service(&app, req).await).await["data"]["id"]
+        .as_u64()
+        .unwrap();
+
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v2/geofences/{fence}"))
+        .set_json(serde_json::json!({"projects": [b]}))
+        .to_request();
+    assert_eq!(test::call_service(&app, req).await.status(), 200);
+
+    use sea_orm::{ConnectionTrait, Statement};
+    let rows = db
+        .query_all(Statement::from_sql_and_values(
+            sea_orm::DbBackend::MySql,
+            "SELECT CAST(payload AS CHAR) AS p FROM event_outbox \
+             WHERE topic = 'project.geofences_changed' \
+             AND JSON_EXTRACT(payload, '$.projectId') IN (?, ?)",
+            [a.into(), b.into()],
+        ))
+        .await
+        .unwrap();
+
+    // Cleanup: fence, projects, outbox rows.
+    cleanup_geofence(&db, fence).await;
+    for pid in [a, b] {
+        let req = test::TestRequest::delete()
+            .uri(&format!("/api/v2/projects/{pid}"))
+            .to_request();
+        test::call_service(&app, req).await;
+    }
+    db.execute(Statement::from_sql_and_values(
+        sea_orm::DbBackend::MySql,
+        "DELETE FROM event_outbox WHERE topic = 'project.geofences_changed' \
+         AND JSON_EXTRACT(payload, '$.projectId') IN (?, ?)",
+        [a.into(), b.into()],
+    ))
+    .await
+    .unwrap();
+
+    let payloads: Vec<serde_json::Value> = rows
+        .iter()
+        .map(|r| serde_json::from_str(r.try_get::<String>("", "p").unwrap().as_str()).unwrap())
+        .collect();
+    // A lost the fence, B gained it (from the PATCH; the create also emitted one for A).
+    assert!(
+        payloads.iter().any(|p| p["projectId"].as_u64() == Some(a)
+            && p["removedIds"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|v| v.as_u64() == Some(fence))),
+        "project A must see the fence in removedIds: {payloads:?}"
+    );
+    assert!(
+        payloads.iter().any(|p| p["projectId"].as_u64() == Some(b)
+            && p["addedIds"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|v| v.as_u64() == Some(fence))),
+        "project B must see the fence in addedIds: {payloads:?}"
+    );
+}
+
+#[actix_web::test]
+async fn bulk_import_emits_one_geofences_changed_event_per_project() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app_with_internal(koji_db, jobs)).await;
+
+    // One project; import 3 geofences all linked to it in a single request.
+    // (`test_db_app_with_internal` doesn't mount plain `/api/v2/projects` —
+    // only `/internal/projects`, which forwards to the same resource.)
+    let req = test::TestRequest::post()
+        .uri("/internal/projects")
+        .set_json(serde_json::json!({"name": unique_name("proj"), "golbat": false}))
+        .to_request();
+    let project_id = body_json(test::call_service(&app, req).await).await["data"]["id"]
+        .as_u64()
+        .unwrap();
+
+    let names: Vec<String> = (0..3).map(|_| unique_name("import-fence")).collect();
+    let items: Vec<serde_json::Value> = names
+        .iter()
+        .map(|n| {
+            serde_json::json!({
+                "kind": "geofence",
+                "name": n,
+                "geometry": triangle_geometry(),
+                "mode": "pokemon",
+                "projects": [project_id]
+            })
+        })
+        .collect();
+    let req = test::TestRequest::post()
+        .uri("/internal/import")
+        .set_json(serde_json::json!({"dry_run": false, "items": items}))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let result = body_json(resp).await;
+    assert_eq!(result["data"]["summary"]["create"], 3);
+
+    use sea_orm::{ConnectionTrait, Statement};
+    let rows = db
+        .query_all(Statement::from_sql_and_values(
+            sea_orm::DbBackend::MySql,
+            "SELECT CAST(payload AS CHAR) AS p FROM event_outbox \
+             WHERE topic = 'project.geofences_changed' \
+             AND JSON_EXTRACT(payload, '$.projectId') = ?",
+            [project_id.into()],
+        ))
+        .await
+        .unwrap();
+
+    // Cleanup: fences (by name, since ids weren't captured individually), project, outbox.
+    for n in &names {
+        db.execute(Statement::from_sql_and_values(
+            sea_orm::DbBackend::MySql,
+            "DELETE FROM `geofence` WHERE `name` = ?",
+            [n.clone().into()],
+        ))
+        .await
+        .unwrap();
+    }
+    let req = test::TestRequest::delete()
+        .uri(&format!("/internal/projects/{project_id}"))
+        .to_request();
+    test::call_service(&app, req).await;
+    db.execute(Statement::from_sql_and_values(
+        sea_orm::DbBackend::MySql,
+        "DELETE FROM event_outbox WHERE topic = 'project.geofences_changed' \
+         AND JSON_EXTRACT(payload, '$.projectId') = ?",
+        [project_id.into()],
+    ))
+    .await
+    .unwrap();
+
+    assert_eq!(
+        rows.len(),
+        1,
+        "bulk import of 3 fences into one project must emit exactly ONE project.geofences_changed row, not N: {rows:?}"
+    );
+    let payload: serde_json::Value =
+        serde_json::from_str(rows[0].try_get::<String>("", "p").unwrap().as_str()).unwrap();
+    assert_eq!(
+        payload["addedIds"].as_array().unwrap().len(),
+        3,
+        "addedIds must carry all 3 imported fence ids: {payload}"
+    );
+}
+
 #[actix_web::test]
 async fn webhook_test_endpoint_404_on_missing() {
     let Some(db) = test_db().await else { return };

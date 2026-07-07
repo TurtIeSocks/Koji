@@ -258,6 +258,23 @@ impl Query {
             .collect())
     }
 
+    /// The geofence ids linked to a project (mirror of
+    /// [`project_ids_for_geofence`](Self::project_ids_for_geofence); for
+    /// membership-diff payloads — `project.geofences_changed` before/after
+    /// maps are built from this, resolved fresh at diff time).
+    pub async fn geofence_ids_for_project(
+        db: &DatabaseConnection,
+        project_id: u32,
+    ) -> Result<Vec<u32>, DbErr> {
+        Ok(Entity::find()
+            .filter(Column::ProjectId.eq(project_id))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|m| m.geofence_id)
+            .collect())
+    }
+
     pub async fn upsert_related_by_project_id(
         db: &DatabaseConnection,
         geofences: &[serde_json::Value],

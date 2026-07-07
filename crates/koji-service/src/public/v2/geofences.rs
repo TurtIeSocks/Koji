@@ -171,6 +171,7 @@ pub(crate) async fn create(
     body: web::Json<CreateGeofence>,
 ) -> Result<HttpResponse, ServiceError> {
     let value = serde_json::to_value(body.into_inner()).map_err(ServiceError::internal)?;
+    let projects = value.get("projects").cloned();
     let record = geofence::Query::upsert_json_return(&conn.koji, 0, value).await?;
     let id = record
         .get("id")
@@ -180,6 +181,11 @@ pub(crate) async fn create(
         hub.publish(&t, ev);
     }
     emit_geofence_updated(&conn.koji, id, &record).await;
+    // Membership diff only when the body carried `projects` (create starts
+    // from an empty `before`, since the fence didn't exist a moment ago).
+    if projects.is_some() {
+        emit_geofence_membership_diff(&conn.koji, id as u32, &[]).await;
+    }
     Ok(HttpResponse::build(StatusCode::CREATED)
         .insert_header(("Location", format!("/api/v2/geofences/{id}")))
         .json(ApiResponse::Ok {
@@ -274,17 +280,62 @@ async fn update(
     // absent fields are absent from the patch value).
     let mut merged = serde_json::to_value(&existing).map_err(ServiceError::internal)?;
     let patch_value = serde_json::to_value(body.into_inner()).map_err(ServiceError::internal)?;
+    let carries_projects = patch_value.get("projects").is_some();
     if let (Some(base), Some(patch)) = (merged.as_object_mut(), patch_value.as_object()) {
         for (k, v) in patch {
             base.insert(k.clone(), v.clone());
         }
     }
+    // Snapshot pre-mutation project links (only needed when the PATCH body
+    // carries `projects` — otherwise membership isn't touched at all).
+    let before_pids = if carries_projects {
+        koji_db::db::geofence_project::Query::project_ids_for_geofence(&conn.koji, id)
+            .await
+            .unwrap_or_default()
+    } else {
+        vec![]
+    };
     let record = geofence::Query::upsert_json_return(&conn.koji, id, merged).await?;
     for (t, ev) in crate::internal::realtime::topics::updated("geofence", id as i64, record.clone()) {
         hub.publish(&t, ev);
     }
     emit_geofence_updated(&conn.koji, id as u64, &record).await;
+    if carries_projects {
+        emit_geofence_membership_diff(&conn.koji, id, &before_pids).await;
+    }
     Ok(ApiResponse::success(record))
+}
+
+/// Diff a single geofence's project membership before vs after a
+/// create/update and emit `project.geofences_changed` (via
+/// [`crate::utils::outbox::emit_membership_diff`]) for every affected
+/// project. `before_pids` is the pre-mutation link set (empty on create);
+/// `after` is resolved fresh from `geofence_project` (source of truth at
+/// emit time, mirroring [`emit_geofence_updated`]).
+async fn emit_geofence_membership_diff(
+    db: &sea_orm::DatabaseConnection,
+    geofence_id: u32,
+    before_pids: &[u32],
+) {
+    let after_pids = koji_db::db::geofence_project::Query::project_ids_for_geofence(db, geofence_id)
+        .await
+        .unwrap_or_default();
+
+    let mut before = std::collections::HashMap::new();
+    for pid in before_pids {
+        before
+            .entry(*pid)
+            .or_insert_with(std::collections::BTreeSet::new)
+            .insert(geofence_id);
+    }
+    let mut after = std::collections::HashMap::new();
+    for pid in &after_pids {
+        after
+            .entry(*pid)
+            .or_insert_with(std::collections::BTreeSet::new)
+            .insert(geofence_id);
+    }
+    crate::utils::outbox::emit_membership_diff(db, &before, &after).await;
 }
 
 /// Emit `geofence.updated` to the outbox with the current `projectIds[]`
