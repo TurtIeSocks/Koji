@@ -519,7 +519,8 @@ struct ResourceField {
     ty: Type,
 }
 
-/// The parsed `koji_resource! { module:, seg:, topic:, create: { … } }` invocation.
+/// The parsed `koji_resource! { module:, seg:, topic:, outbox:, create: { … } }`
+/// invocation.
 struct ResourceDef {
     /// koji-db `db::<module>::Query` module + emitted submodule name (the
     /// singular canonical resource name, e.g. `project`).
@@ -528,6 +529,10 @@ struct ResourceDef {
     seg: LitStr,
     /// Realtime event topic name, e.g. `"project"`.
     topic: LitStr,
+    /// Optional `outbox: true` flag (default `false`). When set, `update`/
+    /// `remove` additionally publish `"{topic}.updated"` / `"{topic}.deleted"`
+    /// to the `koji_events` outbox. Only the `project` invocation opts in.
+    outbox: bool,
     /// The Create DTO fields, in declaration order.
     fields: Vec<ResourceField>,
 }
@@ -537,11 +542,13 @@ impl Parse for ResourceDef {
         let mut module: Option<Ident> = None;
         let mut seg: Option<LitStr> = None;
         let mut topic: Option<LitStr> = None;
+        let mut outbox: Option<bool> = None;
         let mut fields: Option<Vec<ResourceField>> = None;
 
         // Grammar: a comma-separated list of `key: value`, where `value` is an
-        // ident (`module`), a string literal (`seg`, `topic`), or a `{ … }` field
-        // block (`create`). A trailing comma is allowed.
+        // ident (`module`), a string literal (`seg`, `topic`), a bool literal
+        // (`outbox`), or a `{ … }` field block (`create`). A trailing comma is
+        // allowed.
         while !input.is_empty() {
             let key: Ident = input.parse()?;
             input.parse::<Token![:]>()?;
@@ -549,6 +556,10 @@ impl Parse for ResourceDef {
                 "module" => module = Some(input.parse()?),
                 "seg" => seg = Some(input.parse()?),
                 "topic" => topic = Some(input.parse()?),
+                "outbox" => {
+                    let lit: syn::LitBool = input.parse()?;
+                    outbox = Some(lit.value);
+                }
                 "create" => {
                     let content;
                     braced!(content in input);
@@ -567,7 +578,7 @@ impl Parse for ResourceDef {
                     return Err(syn::Error::new_spanned(
                         &key,
                         format!(
-                            "unexpected key `{other}` (expected `module`, `seg`, `topic`, or `create`)"
+                            "unexpected key `{other}` (expected `module`, `seg`, `topic`, `outbox`, or `create`)"
                         ),
                     ));
                 }
@@ -607,6 +618,7 @@ impl Parse for ResourceDef {
             module,
             seg,
             topic,
+            outbox: outbox.unwrap_or(false),
             fields,
         })
     }
@@ -752,6 +764,7 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
         module,
         seg,
         topic,
+        outbox,
         fields,
     } = parse_macro_input!(input as ResourceDef);
 
@@ -768,6 +781,55 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
     let item_path = LitStr::new(&format!("/api/v2/{}/{{id}}", seg.value()), seg.span());
     // The OpenAPI tag groups this resource's operations (the URL segment).
     let tag = seg.clone();
+
+    // `outbox: true` (project only) additionally publishes to the
+    // `koji_events` outbox from `update`/`remove`. Absent/false emits nothing
+    // here, keeping the non-outbox expansion byte-identical to before this
+    // flag existed.
+    let outbox_update_publish = if outbox {
+        quote! {
+            if let ::core::result::Result::Err(e) = koji_events::EventDispatcher::publish(
+                &db.koji,
+                concat!(#topic, ".updated"),
+                &serde_json::json!({
+                    "projectId": id,
+                    "name": record.get("name").cloned().unwrap_or(serde_json::Value::Null),
+                }),
+            )
+            .await
+            {
+                log::warn!(concat!("[", #seg, "] outbox publish failed: {}"), e);
+            }
+        }
+    } else {
+        quote! {}
+    };
+    let outbox_remove_prefetch = if outbox {
+        quote! {
+            let __name = koji_db::db::#module::Query::get_one(&db.koji, id.to_string())
+                .await
+                .ok()
+                .map(|m| serde_json::json!(m.name))
+                .unwrap_or(serde_json::Value::Null);
+        }
+    } else {
+        quote! {}
+    };
+    let outbox_remove_publish = if outbox {
+        quote! {
+            if let ::core::result::Result::Err(e) = koji_events::EventDispatcher::publish(
+                &db.koji,
+                concat!(#topic, ".deleted"),
+                &serde_json::json!({ "projectId": id, "name": __name }),
+            )
+            .await
+            {
+                log::warn!(concat!("[", #seg, "] outbox publish failed: {}"), e);
+            }
+        }
+    } else {
+        quote! {}
+    };
 
     // Create DTO fields, verbatim (+ a `value_type` hint on non-primitive leaves
     // so `ToSchema` derives without forcing utoipa into the data crates).
@@ -963,6 +1025,7 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
                 for (t, ev) in crate::internal::realtime::topics::updated(#topic, id as i64, record.clone()) {
                     hub.publish(&t, ev);
                 }
+                #outbox_update_publish
                 ::core::result::Result::Ok(crate::utils::api_response::ApiResponse::success(record))
             }
 
@@ -983,6 +1046,7 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
                 path: actix_web::web::Path<u32>,
             ) -> ::core::result::Result<actix_web::HttpResponse, crate::utils::error::ServiceError> {
                 let id = path.into_inner();
+                #outbox_remove_prefetch
                 let result = koji_db::db::#module::Query::delete(&db.koji, id).await?;
                 if result.rows_affected == 0 {
                     return ::core::result::Result::Err(crate::utils::error::ServiceError::NotFound {
@@ -993,6 +1057,7 @@ pub fn koji_resource(input: TokenStream) -> TokenStream {
                 for (t, ev) in crate::internal::realtime::topics::deleted(#topic, id as i64) {
                     hub.publish(&t, ev);
                 }
+                #outbox_remove_publish
                 ::core::result::Result::Ok(
                     actix_web::HttpResponse::build(actix_web::http::StatusCode::NO_CONTENT).finish(),
                 )

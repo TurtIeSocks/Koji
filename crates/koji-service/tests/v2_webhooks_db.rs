@@ -242,6 +242,68 @@ async fn webhook_cascade_dies_with_project() {
 // WEBHOOK TEST-FIRE — POST /api/v2/webhooks/{id}/test (synchronous single fire)
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PROJECT OUTBOX — PATCH/DELETE emit project.updated/project.deleted
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[actix_web::test]
+async fn project_patch_and_delete_emit_outbox_events() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    let name = unique_name("proj");
+    let req = test::TestRequest::post()
+        .uri("/api/v2/projects")
+        .set_json(serde_json::json!({"name": name, "golbat": false}))
+        .to_request();
+    let project_id = body_json(test::call_service(&app, req).await).await["data"]["id"]
+        .as_u64()
+        .unwrap();
+
+    let new_name = unique_name("proj2");
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v2/projects/{project_id}"))
+        .set_json(serde_json::json!({"name": new_name}))
+        .to_request();
+    assert_eq!(test::call_service(&app, req).await.status(), 200);
+
+    let req = test::TestRequest::delete()
+        .uri(&format!("/api/v2/projects/{project_id}"))
+        .to_request();
+    assert_eq!(test::call_service(&app, req).await.status(), 204);
+
+    // Outbox rows exist for both topics with the project id in payload.
+    use sea_orm::{ConnectionTrait, Statement};
+    let fetch = |topic: &'static str| {
+        let db = db.clone();
+        async move {
+            db.query_all(Statement::from_sql_and_values(
+                sea_orm::DbBackend::MySql,
+                "SELECT CAST(payload AS CHAR) AS p FROM event_outbox WHERE topic = ? \
+                 AND JSON_EXTRACT(payload, '$.projectId') = ?",
+                [topic.into(), project_id.into()],
+            ))
+            .await
+            .unwrap()
+        }
+    };
+    let updated = fetch("project.updated").await;
+    let deleted = fetch("project.deleted").await;
+    // Cleanup outbox rows before asserting (panic-safe).
+    db.execute(Statement::from_sql_and_values(
+        sea_orm::DbBackend::MySql,
+        "DELETE FROM event_outbox WHERE JSON_EXTRACT(payload, '$.projectId') = ?",
+        [project_id.into()],
+    ))
+    .await
+    .unwrap();
+    assert!(!updated.is_empty(), "PATCH must emit project.updated");
+    assert!(!deleted.is_empty(), "DELETE must emit project.deleted");
+}
+
 #[actix_web::test]
 async fn webhook_test_endpoint_404_on_missing() {
     let Some(db) = test_db().await else { return };

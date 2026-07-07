@@ -32,6 +32,7 @@ koji_resource! {
     module: project,
     seg: "projects",
     topic: "project",
+    outbox: true,
     create: {
         name: String,
         api_endpoint: Option<String>,
