@@ -79,7 +79,17 @@ export const serializeGeofenceWrite = (data: any): any => {
 
 export const baseDataProvider: DataProvider = {
   getList: (resource, params) => getListImpl(resource, params) as any,
-  getManyReference: (resource, params) => getListImpl(resource, params) as any,
+  getManyReference: (resource, params) => {
+    const filterParam = params.target ? params.target.replace(/_id$/, "") : undefined;
+    const merged = {
+      ...params,
+      filter: {
+        ...(params.filter ?? {}),
+        ...(filterParam ? { [filterParam]: params.id } : {}),
+      },
+    };
+    return getListImpl(resource, merged) as any;
+  },
 
   getOne: async (resource, params) => {
     const res = await internalFetch(itemPath(resource, params.id));

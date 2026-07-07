@@ -5,16 +5,22 @@ import { RecordContextProvider, ResourceContextProvider, testDataProvider } from
 import type { AuthProvider } from "shadmin-core";
 import { ProjectShow } from "@/resources/project/project-show";
 
+// biome-ignore lint/suspicious/noExplicitAny: test-local capture of ra-core's getManyReference params
+let captured: any;
+
 const stubDataProvider = {
   ...testDataProvider({
     getList: async () => ({
       data: [{ id: 1, name: "ReactMap reload", url: "http://rm/reload", mode: "ping", active: true, project_id: 10 }] as any,
       total: 1,
     }),
-    getManyReference: async () => ({
-      data: [{ id: 1, name: "ReactMap reload", url: "http://rm/reload", mode: "ping", active: true, project_id: 10 }] as any,
-      total: 1,
-    }),
+    getManyReference: async (_resource, params) => {
+      captured = params;
+      return {
+        data: [{ id: 1, name: "ReactMap reload", url: "http://rm/reload", mode: "ping", active: true, project_id: 10 }] as any,
+        total: 1,
+      };
+    },
     getOne: async () => ({ data: { id: 10, name: "Proj-A" } as any }),
     getMany: async () => ({ data: [] as any }),
   }),
@@ -41,5 +47,13 @@ describe("ProjectShow webhooks section", () => {
       </AdminContext>,
     );
     await expect.element(screen.getByText("ReactMap reload")).toBeVisible();
+    // Guards the ra-core→dataProvider wiring: ReferenceManyField must pass
+    // target="project_id" and id=10 through to getManyReference so the
+    // dataProvider can translate them into a `?project=10` filter. Without
+    // this, the fixed-return stub above would pass even if the section
+    // silently listed every webhook in the system (see data-provider.ts
+    // getManyReference override).
+    expect(captured?.target).toBe("project_id");
+    expect(captured?.id).toBe(10);
   });
 });

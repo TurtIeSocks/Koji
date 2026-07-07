@@ -32,11 +32,21 @@ describe("WebhookCreate mode-conditional fields", () => {
     );
     // default mode = event → secret label visible, method label not
     await expect.element(screen.getByLabelText(/secret/i)).toBeVisible();
+    await expect.element(screen.getByLabelText(/method/i)).not.toBeInTheDocument();
     // switch mode to ping: shadcn Select is not a native <select>, so drive it
     // by opening the trigger (labelled "Mode") then clicking the option text
     // (precedent: src/map/panels/filter-panel.browser.test.tsx).
     await screen.getByLabelText(/mode/i).click();
     await screen.getByRole("option", { name: "Ping (legacy reload)" }).click();
     await expect.element(screen.getByLabelText(/method/i)).toBeVisible();
+    // ping mode unmounts the event-only fields (secret, topics)
+    await expect.element(screen.getByLabelText(/secret/i)).not.toBeInTheDocument();
+    await expect.element(screen.getByLabelText(/topics/i)).not.toBeInTheDocument();
+
+    // switch back to event: method should unmount, secret should reappear
+    await screen.getByLabelText(/mode/i).click();
+    await screen.getByRole("option", { name: "Event (signed POST)" }).click();
+    await expect.element(screen.getByLabelText(/secret/i)).toBeVisible();
+    await expect.element(screen.getByLabelText(/method/i)).not.toBeInTheDocument();
   });
 });
