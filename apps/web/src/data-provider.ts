@@ -80,6 +80,12 @@ export const serializeGeofenceWrite = (data: any): any => {
 export const baseDataProvider: DataProvider = {
   getList: (resource, params) => getListImpl(resource, params) as any,
   getManyReference: (resource, params) => {
+    // ReferenceManyField passes `target`/`id` separately; translate them into a
+    // list filter so the backend `?<param>=<id>` query actually scopes the
+    // results. Convention: the backend filter param is `target` minus a trailing
+    // `_id` (e.g. `project_id` → `?project=`). Only holds for FKs whose backend
+    // param drops the `_id`; a future ReferenceManyField with a different param
+    // shape must special-case here.
     const filterParam = params.target ? params.target.replace(/_id$/, "") : undefined;
     const merged = {
       ...params,
