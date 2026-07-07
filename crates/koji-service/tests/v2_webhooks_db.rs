@@ -416,6 +416,11 @@ async fn geofence_update_emits_event_with_project_ids() {
             .any(|v| v.as_u64() == Some(project_id)),
         "payload must carry linked projectIds: {payload}"
     );
+    assert_eq!(
+        payload["name"],
+        serde_json::json!(gname),
+        "payload must pin the geofence name (guards the record[\"name\"] path)"
+    );
 }
 
 #[actix_web::test]
@@ -497,6 +502,11 @@ async fn route_update_emits_event_with_project_ids() {
             .iter()
             .any(|v| v.as_u64() == Some(project_id)),
         "payload must carry linked projectIds via parent geofence: {payload}"
+    );
+    assert_eq!(
+        payload["name"],
+        serde_json::json!(rname),
+        "payload must pin the route name (guards the record[\"name\"] path)"
     );
 }
 
