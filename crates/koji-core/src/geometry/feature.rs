@@ -37,7 +37,9 @@ mod tests {
     fn feat_with_ring(ring: Vec<geojson::Position>) -> Feature {
         Feature {
             bbox: None,
-            geometry: Some(Geometry::new(GeometryValue::Polygon { coordinates: vec![ring] })),
+            geometry: Some(Geometry::new(GeometryValue::Polygon {
+                coordinates: vec![ring],
+            })),
             id: None,
             properties: None,
             foreign_members: None,
@@ -59,7 +61,11 @@ mod tests {
 
     #[test]
     fn ensure_first_last_closes_open_ring() {
-        let ring = vec![geojson::Position::from([0.0, 0.0]), geojson::Position::from([1.0, 0.0]), geojson::Position::from([1.0, 1.0])];
+        let ring = vec![
+            geojson::Position::from([0.0, 0.0]),
+            geojson::Position::from([1.0, 0.0]),
+            geojson::Position::from([1.0, 1.0]),
+        ];
         let f = feat_with_ring(ring).ensure_first_last();
         if let Some(geom) = &f.geometry {
             if let GeometryValue::Polygon { coordinates: rings } = &geom.value {

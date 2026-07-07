@@ -329,6 +329,9 @@ mod tests {
         assert_eq!(props["osm_type"], "relation");
         // geometry is a MultiPolygon
         let geom = feat.geometry.as_ref().unwrap();
-        assert!(matches!(geom.value, geojson::GeometryValue::MultiPolygon { .. }));
+        assert!(matches!(
+            geom.value,
+            geojson::GeometryValue::MultiPolygon { .. }
+        ));
     }
 }

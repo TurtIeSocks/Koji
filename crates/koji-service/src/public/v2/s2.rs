@@ -13,8 +13,8 @@
 #![allow(clippy::unnecessary_wraps)]
 
 use actix_web::{HttpResponse, post, web};
-use koji_core::Precision;
 use koji_core::BoundsArg;
+use koji_core::Precision;
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashSet;

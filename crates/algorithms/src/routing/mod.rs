@@ -1,5 +1,5 @@
-use web_time::Instant;
 use koji_core::Precision;
+use web_time::Instant;
 
 use koji_core::SingleVec;
 #[cfg(feature = "native")]
@@ -202,7 +202,13 @@ mod tests {
     fn tsp_preserves_all_clusters_and_routes() {
         let (data, clusters) = sample_data();
         let mut stats = Stats::new("t".into(), 1);
-        let out = main(&data, clusters.clone(), 70.0, &make_cfg(SortBy::Tsp), &mut stats);
+        let out = main(
+            &data,
+            clusters.clone(),
+            70.0,
+            &make_cfg(SortBy::Tsp),
+            &mut stats,
+        );
         assert_eq!(out.len(), clusters.len());
         assert!(stats.total_distance > 0.0);
     }

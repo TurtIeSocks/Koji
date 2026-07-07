@@ -183,7 +183,10 @@ mod tests {
         assert!(matches!(items[0].on_collision, dbimport::OnCollision::Skip));
         assert!(items[0].projects.is_empty());
         assert!(matches!(items[1].kind, dbimport::ImportKind::Route));
-        assert!(matches!(items[1].on_collision, dbimport::OnCollision::Overwrite));
+        assert!(matches!(
+            items[1].on_collision,
+            dbimport::OnCollision::Overwrite
+        ));
         assert_eq!(items[1].route_parent.as_deref(), Some("A"));
         assert_eq!(items[1].projects, vec![1, 2]);
     }

@@ -271,7 +271,9 @@ mod tests {
 
     #[test]
     fn clusters_do_not_exceed_input_points() {
-        let pts: Vec<[Precision; 2]> = (0..20).map(|i| [40.0 + i as Precision * 0.01, -74.0]).collect();
+        let pts: Vec<[Precision; 2]> = (0..20)
+            .map(|i| [40.0 + i as Precision * 0.01, -74.0])
+            .collect();
         let result = main(&pts, 70.0, 1);
         assert!(
             result.len() <= pts.len(),
@@ -303,7 +305,12 @@ mod tests {
     fn tight_cluster_yields_one_center() {
         // 10 points within ~1 m of each other — Fastest should group into 1 cluster.
         let pts: Vec<[Precision; 2]> = (0..10)
-            .map(|i| [40.0 + i as Precision * 0.000001, -74.0 + i as Precision * 0.000001])
+            .map(|i| {
+                [
+                    40.0 + i as Precision * 0.000001,
+                    -74.0 + i as Precision * 0.000001,
+                ]
+            })
             .collect();
         let result = main(&pts, 1_000.0, 2); // 1 km radius, 2 min points
         assert!(
@@ -337,7 +344,10 @@ mod tests {
         let mut b = main(&pts, 70.0, 1);
         a.sort_by(|p, q| p.partial_cmp(q).unwrap());
         b.sort_by(|p, q| p.partial_cmp(q).unwrap());
-        assert_eq!(a, b, "Fastest must be deterministic (identical set of centers)");
+        assert_eq!(
+            a, b,
+            "Fastest must be deterministic (identical set of centers)"
+        );
     }
 
     // ── MEC: geometry ─────────────────────────────────────────────────────────
@@ -370,11 +380,20 @@ mod tests {
 
     #[test]
     fn mec_encloses_all_points() {
-        let pts = [c(0.0, 0.0), c(1.0, 0.0), c(0.0, 1.0), c(1.0, 1.0), c(0.5, 0.5)];
+        let pts = [
+            c(0.0, 0.0),
+            c(1.0, 0.0),
+            c(0.0, 1.0),
+            c(1.0, 1.0),
+            c(0.5, 0.5),
+        ];
         let (center, r) = smallest_enclosing_circle(&pts).unwrap();
         assert!(covers(center, r, &pts), "MEC must enclose every point");
         // tightest enclosing circle of the unit square has r = sqrt(2)/2
-        assert!((r - std::f64::consts::SQRT_2 / 2.0).abs() < 1e-6, "got r={r}");
+        assert!(
+            (r - std::f64::consts::SQRT_2 / 2.0).abs() < 1e-6,
+            "got r={r}"
+        );
     }
 
     #[test]
@@ -382,7 +401,10 @@ mod tests {
         let pts = [c(-3.0, 0.0), c(0.0, 0.0), c(5.0, 0.0)];
         let (center, r) = smallest_enclosing_circle(&pts).unwrap();
         assert!(covers(center, r, &pts), "collinear MEC must enclose all");
-        assert!((r - 4.0).abs() < 1e-6, "radius should span -3..5 → 4, got {r}");
+        assert!(
+            (r - 4.0).abs() < 1e-6,
+            "radius should span -3..5 → 4, got {r}"
+        );
     }
 
     #[test]
@@ -451,9 +473,7 @@ mod tests {
             .collect();
         let centers = cluster(pts.clone(), 1, 0.0);
         for p in &pts {
-            let covered = centers
-                .iter()
-                .any(|(ctr, _)| dist2(*ctr, *p) <= 1.0 + 1e-6);
+            let covered = centers.iter().any(|(ctr, _)| dist2(*ctr, *p) <= 1.0 + 1e-6);
             assert!(covered, "point {p:?} not covered by any disc");
         }
     }
@@ -483,7 +503,10 @@ mod tests {
         let pts = vec![c(0.0, 0.0), c(0.9, 0.0), c(1.8, 0.0)];
         let centers = cluster(pts, 1, 0.0);
         assert_eq!(centers.len(), 1, "three points fitting one disc → 1 center");
-        assert_eq!(centers[0].1, 3, "the single disc should count all 3 members");
+        assert_eq!(
+            centers[0].1, 3,
+            "the single disc should count all 3 members"
+        );
     }
 
     #[test]
@@ -491,6 +514,9 @@ mod tests {
         // Two far-apart singletons, min_points=2 → each group has 1 member → all dropped.
         let pts = vec![c(0.0, 0.0), c(100.0, 100.0)];
         let centers = cluster(pts, 2, 0.0);
-        assert!(centers.is_empty(), "groups below min_points must be dropped");
+        assert!(
+            centers.is_empty(),
+            "groups below min_points must be dropped"
+        );
     }
 }

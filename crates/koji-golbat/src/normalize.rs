@@ -1,6 +1,6 @@
 use geo::{Contains, MultiPolygon, Point, Polygon};
-use koji_core::Precision;
 use geojson::{FeatureCollection, GeometryValue};
+use koji_core::Precision;
 
 use koji_core::HasLatLon;
 

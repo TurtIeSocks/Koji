@@ -17,11 +17,15 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 /// reached here, but the fallthrough keeps the behavior total.
 fn split_multipolygon(geometry: Geometry) -> Vec<Geometry> {
     match geometry.value {
-        GeometryValue::MultiPolygon { coordinates: polygons } => polygons
+        GeometryValue::MultiPolygon {
+            coordinates: polygons,
+        } => polygons
             .into_iter()
             .map(|polygon| Geometry {
                 bbox: geometry.bbox.clone(),
-                value: GeometryValue::Polygon { coordinates: polygon },
+                value: GeometryValue::Polygon {
+                    coordinates: polygon,
+                },
                 foreign_members: None,
             })
             .collect(),
@@ -267,7 +271,12 @@ mod tests {
 
     /// Build a simple rectangular geojson Feature as a Polygon.
     /// coords: lon,lat (geojson convention).
-    fn rect_feature(min_lon: Precision, min_lat: Precision, max_lon: Precision, max_lat: Precision) -> Feature {
+    fn rect_feature(
+        min_lon: Precision,
+        min_lat: Precision,
+        max_lon: Precision,
+        max_lat: Precision,
+    ) -> Feature {
         let ring = vec![
             geojson::Position::from([min_lon, min_lat]),
             geojson::Position::from([max_lon, min_lat]),
@@ -277,7 +286,9 @@ mod tests {
         ];
         Feature {
             bbox: None,
-            geometry: Some(Geometry::new(GeometryValue::Polygon { coordinates: vec![ring] })),
+            geometry: Some(Geometry::new(GeometryValue::Polygon {
+                coordinates: vec![ring],
+            })),
             id: None,
             properties: None,
             foreign_members: None,
@@ -328,7 +339,9 @@ mod tests {
             geojson::Position::from([1.0, 1.0]),
             geojson::Position::from([0.0, 0.0]),
         ]];
-        let geo = Geometry::new(GeometryValue::Polygon { coordinates: ring.clone() });
+        let geo = Geometry::new(GeometryValue::Polygon {
+            coordinates: ring.clone(),
+        });
         let result = split_multipolygon(geo);
         assert_eq!(result.len(), 1);
         // Single polygon passthrough.
@@ -349,7 +362,9 @@ mod tests {
             geojson::Position::from([2.5, 1.0]),
             geojson::Position::from([2.0, 0.0]),
         ]];
-        let geo = Geometry::new(GeometryValue::MultiPolygon { coordinates: vec![ring1, ring2] });
+        let geo = Geometry::new(GeometryValue::MultiPolygon {
+            coordinates: vec![ring1, ring2],
+        });
         let result = split_multipolygon(geo);
         assert_eq!(result.len(), 2);
         for g in &result {
@@ -393,7 +408,12 @@ mod tests {
     fn sorted_xy(pts: &[Point]) -> Vec<(i64, i64)> {
         let mut v: Vec<(i64, i64)> = pts
             .iter()
-            .map(|p| ((p.x() * 1000.0).round() as i64, (p.y() * 1000.0).round() as i64))
+            .map(|p| {
+                (
+                    (p.x() * 1000.0).round() as i64,
+                    (p.y() * 1000.0).round() as i64,
+                )
+            })
             .collect();
         v.sort();
         v
@@ -439,7 +459,11 @@ mod tests {
         let out = comb_order(rows);
         assert_eq!(out.len(), 6, "empty rows contribute nothing");
         for p in &out {
-            assert!([1.0, 2.0, 3.0].contains(&p.y()), "no phantom points: {:?}", p);
+            assert!(
+                [1.0, 2.0, 3.0].contains(&p.y()),
+                "no phantom points: {:?}",
+                p
+            );
         }
     }
 
@@ -451,7 +475,11 @@ mod tests {
         let feature = rect_feature(-74.0009, 39.990, -73.9991, 40.010);
         let radius = 70.0;
         let pts = BootstrapRadius::new(&feature, radius).result();
-        assert!(pts.len() > 4, "expected a multi-row fill, got {}", pts.len());
+        assert!(
+            pts.len() > 4,
+            "expected a multi-row fill, got {}",
+            pts.len()
+        );
 
         let first = Point::new(pts.first().unwrap()[1], pts.first().unwrap()[0]);
         let last = Point::new(pts.last().unwrap()[1], pts.last().unwrap()[0]);

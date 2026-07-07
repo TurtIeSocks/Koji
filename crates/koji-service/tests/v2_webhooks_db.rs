@@ -403,7 +403,10 @@ async fn geofence_update_emits_event_with_project_ids() {
     .await
     .unwrap();
 
-    assert!(!rows.is_empty(), "geofence create must emit geofence.updated");
+    assert!(
+        !rows.is_empty(),
+        "geofence create must emit geofence.updated"
+    );
     let payload: serde_json::Value =
         serde_json::from_str(rows[0].try_get::<String>("", "p").unwrap().as_str()).unwrap();
     assert!(
@@ -730,7 +733,10 @@ async fn webhook_test_endpoint_fires_ping_at_live_listener() {
                 let seen = seen.clone();
                 async move {
                     let hdr = |n: &str| {
-                        req.headers().get(n).and_then(|v| v.to_str().ok()).map(String::from)
+                        req.headers()
+                            .get(n)
+                            .and_then(|v| v.to_str().ok())
+                            .map(String::from)
                     };
                     seen.0.lock().unwrap().push((
                         req.method().to_string(),

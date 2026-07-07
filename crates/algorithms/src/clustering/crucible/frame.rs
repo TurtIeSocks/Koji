@@ -141,7 +141,10 @@ mod tests {
         // 21x21 lattice over ~0.27° (~30 km), mid latitude.
         for i in 0..21 {
             for j in 0..21 {
-                pts.push([40.0 + i as Precision * 0.0135, -74.0 + j as Precision * 0.0135]);
+                pts.push([
+                    40.0 + i as Precision * 0.0135,
+                    -74.0 + j as Precision * 0.0135,
+                ]);
             }
         }
         let (frame, planar) = Frame::project(&pts, radius);

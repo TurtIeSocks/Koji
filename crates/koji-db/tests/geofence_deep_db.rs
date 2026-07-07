@@ -4,8 +4,8 @@
 //! Gates on `KOJI_DB_URL`; skips cleanly with no env.
 //! Run with: `set -a; source ./.env.test; set +a && cargo test -p koji-db --test geofence_deep_db -- --nocapture`
 
-use koji_core::{KojiGeometry, KojiGeometryCollection, KojiMeta, Mode, UnknownId};
 use koji_core::Precision;
+use koji_core::{KojiGeometry, KojiGeometryCollection, KojiMeta, Mode, UnknownId};
 use koji_db::db::geofence::{Anchor, HierarchySpec};
 use koji_db::db::{geofence, project};
 use koji_db::query_args::ApiQueryArgs;
@@ -63,10 +63,9 @@ async fn make_geofence(db: &DatabaseConnection, name: &str, offset: Precision) -
 }
 
 async fn make_project(db: &DatabaseConnection, name: &str) -> u32 {
-    let created =
-        project::Query::upsert_json_return(db, 0, json!({ "name": name }))
-            .await
-            .expect("make_project");
+    let created = project::Query::upsert_json_return(db, 0, json!({ "name": name }))
+        .await
+        .expect("make_project");
     created["id"].as_u64().expect("has id") as u32
 }
 

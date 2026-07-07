@@ -880,7 +880,9 @@ mod tests {
         // 9 points on a 3×3 grid spaced 0.01° apart (~1.1 km).
         // Radius 70 m → 2r ≈ 140 m << 1.1 km spacing → all are independent → LB = 9.
         let pts: SingleVec = (0..3)
-            .flat_map(|r| (0..3).map(move |c| [40.0 + r as Precision * 0.01, -74.0 + c as Precision * 0.01]))
+            .flat_map(|r| {
+                (0..3).map(move |c| [40.0 + r as Precision * 0.01, -74.0 + c as Precision * 0.01])
+            })
             .collect();
         assert_eq!(independent_set_lb(&pts, 70.0), 9);
     }

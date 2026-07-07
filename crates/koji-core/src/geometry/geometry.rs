@@ -8,7 +8,9 @@ impl EnsurePoints for Geometry {
     fn ensure_first_last(self) -> Self {
         let mut return_value = self;
         match &mut return_value.value {
-            GeometryValue::MultiPolygon { coordinates: polygons } => {
+            GeometryValue::MultiPolygon {
+                coordinates: polygons,
+            } => {
                 for polygon in polygons.iter_mut() {
                     for line_string in polygon.iter_mut() {
                         let last = match line_string.last() {
@@ -64,9 +66,11 @@ impl<T: TrimPrecision> TrimPrecision for Vec<T> {
 impl GeometryHelpers for Geometry {
     fn simplify(self) -> Self {
         let mut geometry = match self.value {
-            GeometryValue::Polygon { .. } => {
-                Geometry::from(&Polygon::<Precision>::try_from(self).unwrap().simplify(0.0001))
-            }
+            GeometryValue::Polygon { .. } => Geometry::from(
+                &Polygon::<Precision>::try_from(self)
+                    .unwrap()
+                    .simplify(0.0001),
+            ),
             GeometryValue::MultiPolygon { .. } => Geometry::from(
                 &MultiPolygon::<Precision>::try_from(self)
                     .unwrap()
@@ -83,11 +87,15 @@ impl TrimPrecision for Geometry {
     fn trim_precision(self, precision: u32) -> Self {
         let mut geometry = match self.value {
             GeometryValue::Polygon { coordinates: value } => {
-                Geometry::from(geojson::GeometryValue::Polygon { coordinates: value.trim_precision(precision) })
+                Geometry::from(geojson::GeometryValue::Polygon {
+                    coordinates: value.trim_precision(precision),
+                })
             }
-            GeometryValue::MultiPolygon { coordinates: value } => Geometry::from(
-                geojson::GeometryValue::MultiPolygon { coordinates: value.trim_precision(precision) },
-            ),
+            GeometryValue::MultiPolygon { coordinates: value } => {
+                Geometry::from(geojson::GeometryValue::MultiPolygon {
+                    coordinates: value.trim_precision(precision),
+                })
+            }
             _ => self,
         };
         geometry.bbox = geometry_geojson_bbox(&geometry);
@@ -121,9 +129,15 @@ mod tests {
                 geojson::Position::from([0.0, 0.0]),
             ]
         } else {
-            vec![geojson::Position::from([0.0, 0.0]), geojson::Position::from([1.0, 0.0]), geojson::Position::from([1.0, 1.0])]
+            vec![
+                geojson::Position::from([0.0, 0.0]),
+                geojson::Position::from([1.0, 0.0]),
+                geojson::Position::from([1.0, 1.0]),
+            ]
         };
-        Geometry::new(GeometryValue::Polygon { coordinates: vec![ring] })
+        Geometry::new(GeometryValue::Polygon {
+            coordinates: vec![ring],
+        })
     }
 
     // ── EnsurePoints for Geometry ────────────────────────────────────────────
@@ -165,15 +179,23 @@ mod tests {
     #[test]
     fn ensure_first_last_non_polygon_passthrough() {
         // Point geometry passes through unchanged.
-        let g = Geometry::new(GeometryValue::Point { coordinates: geojson::Position::from([1.0, 2.0]) });
+        let g = Geometry::new(GeometryValue::Point {
+            coordinates: geojson::Position::from([1.0, 2.0]),
+        });
         let out = g.clone().ensure_first_last();
         assert_eq!(out.value, g.value);
     }
 
     #[test]
     fn ensure_first_last_multipolygon_closes_rings() {
-        let ring = vec![geojson::Position::from([0.0, 0.0]), geojson::Position::from([2.0, 0.0]), geojson::Position::from([2.0, 2.0])];
-        let mp = Geometry::new(GeometryValue::MultiPolygon { coordinates: vec![vec![ring]] });
+        let ring = vec![
+            geojson::Position::from([0.0, 0.0]),
+            geojson::Position::from([2.0, 0.0]),
+            geojson::Position::from([2.0, 2.0]),
+        ];
+        let mp = Geometry::new(GeometryValue::MultiPolygon {
+            coordinates: vec![vec![ring]],
+        });
         let out = mp.ensure_first_last();
         if let GeometryValue::MultiPolygon { coordinates: polys } = &out.value {
             let ring = &polys[0][0];
@@ -187,7 +209,8 @@ mod tests {
 
     #[test]
     fn trim_precision_vec3_rounds_all_coords() {
-        let v: Vec<Vec<geojson::Position>> = vec![vec![geojson::Position::from([1.23456789, 9.87654321])]];
+        let v: Vec<Vec<geojson::Position>> =
+            vec![vec![geojson::Position::from([1.23456789, 9.87654321])]];
         let trimmed = v.trim_precision(4);
         assert_eq!(trimmed[0][0][0], 1.2346);
         assert_eq!(trimmed[0][0][1], 9.8765);
@@ -198,7 +221,9 @@ mod tests {
     #[test]
     fn trim_precision_geometry_polygon() {
         let ring = vec![geojson::Position::from([1.23456789f64, 2.34567890])];
-        let g = Geometry::new(GeometryValue::Polygon { coordinates: vec![ring] });
+        let g = Geometry::new(GeometryValue::Polygon {
+            coordinates: vec![ring],
+        });
         let trimmed = g.trim_precision(4);
         if let GeometryValue::Polygon { coordinates: rings } = &trimmed.value {
             assert_eq!(rings[0][0][0], 1.2346);
@@ -211,7 +236,9 @@ mod tests {
     #[test]
     fn trim_precision_geometry_multipolygon() {
         let ring = vec![geojson::Position::from([1.111111f64, 2.222222])];
-        let g = Geometry::new(GeometryValue::MultiPolygon { coordinates: vec![vec![ring]] });
+        let g = Geometry::new(GeometryValue::MultiPolygon {
+            coordinates: vec![vec![ring]],
+        });
         let trimmed = g.trim_precision(3);
         if let GeometryValue::MultiPolygon { coordinates: polys } = &trimmed.value {
             assert_eq!(polys[0][0][0][0], 1.111);
@@ -225,7 +252,9 @@ mod tests {
     fn trim_precision_geometry_non_polygon_passthrough() {
         // Point geometry: TrimPrecision for Geometry falls through the `_ => self` arm.
         // Uses 2-element coord (lon, lat) as required by geojson spec.
-        let g = Geometry::new(GeometryValue::Point { coordinates: geojson::Position::from([1.999999, 2.888888]) });
+        let g = Geometry::new(GeometryValue::Point {
+            coordinates: geojson::Position::from([1.999999, 2.888888]),
+        });
         let out = g.clone().trim_precision(2);
         assert_eq!(out.value, g.value);
     }
@@ -243,7 +272,9 @@ mod tests {
             geojson::Position::from([0.0, 2.0]),
             geojson::Position::from([0.0, 0.0]),
         ];
-        let g = Geometry::new(GeometryValue::Polygon { coordinates: vec![ring] });
+        let g = Geometry::new(GeometryValue::Polygon {
+            coordinates: vec![ring],
+        });
         let simplified = g.simplify();
         if let GeometryValue::Polygon { coordinates: rings } = &simplified.value {
             // The collinear point should be dropped → fewer vertices.
@@ -258,7 +289,9 @@ mod tests {
 
     #[test]
     fn simplify_non_polygon_passthrough() {
-        let g = Geometry::new(GeometryValue::Point { coordinates: geojson::Position::from([0.0, 0.0]) });
+        let g = Geometry::new(GeometryValue::Point {
+            coordinates: geojson::Position::from([0.0, 0.0]),
+        });
         let out = g.clone().simplify();
         assert_eq!(out.value, g.value);
     }

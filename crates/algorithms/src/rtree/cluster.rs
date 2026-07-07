@@ -1,6 +1,6 @@
-use std::hash::{Hash, Hasher};
 #[cfg(test)]
 use koji_core::Precision;
+use std::hash::{Hash, Hasher};
 
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use rstar::RTree;
@@ -131,5 +131,4 @@ mod tests {
         let c2 = Cluster::new(cp2, vec![], vec![]);
         assert_ne!(c1, c2);
     }
-
 }

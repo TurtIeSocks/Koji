@@ -1,5 +1,5 @@
-use sea_orm::FromQueryResult;
 use koji_core::Precision;
+use sea_orm::FromQueryResult;
 use serde::{Deserialize, Serialize};
 
 /// Query-row for `SELECT lat, lon` from golbat tables. Converts into the pure

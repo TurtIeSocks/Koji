@@ -64,7 +64,9 @@ pub(crate) async fn search_nominatim(
         .filter_map(|feat| {
             if let Some(geometry) = feat.geometry.as_ref() {
                 match geometry.value {
-                    GeometryValue::Polygon { .. } | GeometryValue::MultiPolygon { .. } => return Some(feat),
+                    GeometryValue::Polygon { .. } | GeometryValue::MultiPolygon { .. } => {
+                        return Some(feat);
+                    }
                     _ => {
                         if let Some(id) = feat.property("osm_id")
                             && let Some(id) = id.as_u64()

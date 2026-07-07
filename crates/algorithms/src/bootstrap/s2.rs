@@ -77,10 +77,12 @@ impl<'a> BootstrapS2<'a> {
                     Ok(poly) => vec![poly],
                     Err(_) => vec![],
                 },
-                GeometryValue::MultiPolygon { .. } => match MultiPolygon::<Precision>::try_from(geometry) {
-                    Ok(multi_poly) => multi_poly.0.into_iter().collect(),
-                    Err(_) => vec![],
-                },
+                GeometryValue::MultiPolygon { .. } => {
+                    match MultiPolygon::<Precision>::try_from(geometry) {
+                        Ok(multi_poly) => multi_poly.0.into_iter().collect(),
+                        Err(_) => vec![],
+                    }
+                }
                 _ => vec![],
             }
         } else {
@@ -268,7 +270,12 @@ mod tests {
         latlng::LatLng,
     };
 
-    fn rect_feature(min_lon: Precision, min_lat: Precision, max_lon: Precision, max_lat: Precision) -> Feature {
+    fn rect_feature(
+        min_lon: Precision,
+        min_lat: Precision,
+        max_lon: Precision,
+        max_lat: Precision,
+    ) -> Feature {
         let ring = vec![
             geojson::Position::from([min_lon, min_lat]),
             geojson::Position::from([max_lon, min_lat]),
@@ -278,7 +285,9 @@ mod tests {
         ];
         Feature {
             bbox: None,
-            geometry: Some(Geometry::new(GeometryValue::Polygon { coordinates: vec![ring] })),
+            geometry: Some(Geometry::new(GeometryValue::Polygon {
+                coordinates: vec![ring],
+            })),
             id: None,
             properties: None,
             foreign_members: None,
@@ -506,10 +515,9 @@ mod tests {
         ];
         let feature = Feature {
             bbox: None,
-            geometry: Some(Geometry::new(GeometryValue::MultiPolygon { coordinates: vec![
-                vec![ring1],
-                vec![ring2],
-            ] })),
+            geometry: Some(Geometry::new(GeometryValue::MultiPolygon {
+                coordinates: vec![vec![ring1], vec![ring2]],
+            })),
             id: None,
             properties: None,
             foreign_members: None,

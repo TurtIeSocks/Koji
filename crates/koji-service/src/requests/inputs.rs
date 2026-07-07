@@ -106,13 +106,15 @@ mod tests {
     use super::*;
 
     fn polygon_geometry() -> Geometry {
-        Geometry::new(geojson::GeometryValue::Polygon { coordinates: vec![vec![
-            geojson::Position::from([0.0, 0.0]),
-            geojson::Position::from([1.0, 0.0]),
-            geojson::Position::from([1.0, 1.0]),
-            geojson::Position::from([0.0, 1.0]),
-            geojson::Position::from([0.0, 0.0]),
-        ]] })
+        Geometry::new(geojson::GeometryValue::Polygon {
+            coordinates: vec![vec![
+                geojson::Position::from([0.0, 0.0]),
+                geojson::Position::from([1.0, 0.0]),
+                geojson::Position::from([1.0, 1.0]),
+                geojson::Position::from([0.0, 1.0]),
+                geojson::Position::from([0.0, 0.0]),
+            ]],
+        })
     }
 
     fn polygon_feature() -> Feature {

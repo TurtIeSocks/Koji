@@ -241,13 +241,15 @@ impl<'a> Greedy {
             geometry: Some(Geometry {
                 bbox,
                 foreign_members: None,
-                value: geojson::GeometryValue::Polygon { coordinates: vec![vec![
-                    geojson::Position::from([arr[0], arr[1]]),
-                    geojson::Position::from([arr[2], arr[1]]),
-                    geojson::Position::from([arr[2], arr[3]]),
-                    geojson::Position::from([arr[0], arr[3]]),
-                    geojson::Position::from([arr[0], arr[1]]),
-                ]] },
+                value: geojson::GeometryValue::Polygon {
+                    coordinates: vec![vec![
+                        geojson::Position::from([arr[0], arr[1]]),
+                        geojson::Position::from([arr[2], arr[1]]),
+                        geojson::Position::from([arr[2], arr[3]]),
+                        geojson::Position::from([arr[0], arr[3]]),
+                        geojson::Position::from([arr[0], arr[1]]),
+                    ]],
+                },
             }),
             ..Default::default()
         };
@@ -539,7 +541,9 @@ mod tests {
             .into_iter()
             .collect();
         assert_eq!(
-            greedy.recover_missing_points(&seen_first, &points, 10).len(),
+            greedy
+                .recover_missing_points(&seen_first, &points, 10)
+                .len(),
             2,
             "two unseen points should be recovered"
         );
@@ -549,7 +553,9 @@ mod tests {
             "max_to_add caps the output"
         );
         assert!(
-            greedy.recover_missing_points(&seen_first, &points, 0).is_empty(),
+            greedy
+                .recover_missing_points(&seen_first, &points, 0)
+                .is_empty(),
             "max_to_add = 0 is the fast path"
         );
 
@@ -558,7 +564,9 @@ mod tests {
             .map(|p| Point::new(70.0, 20, *p).cell_id)
             .collect();
         assert!(
-            greedy.recover_missing_points(&seen_all, &points, 10).is_empty(),
+            greedy
+                .recover_missing_points(&seen_all, &points, 10)
+                .is_empty(),
             "nothing missing when every point is seen"
         );
     }
@@ -584,7 +592,9 @@ mod tests {
         // (1 < min_points) and is dropped.
         assert_eq!(solution.len(), 1, "only the dominant cluster survives");
         assert!(
-            solution.iter().any(|cl| cl.point.cell_id == center1.cell_id),
+            solution
+                .iter()
+                .any(|cl| cl.point.cell_id == center1.cell_id),
             "the surviving cluster is the max-coverage one"
         );
     }

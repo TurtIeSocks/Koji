@@ -89,7 +89,11 @@ impl Query {
     }
 
     /// Updates or creates a Geofence model, returns a model struct
-    pub async fn upsert<C: ConnectionTrait>(db: &C, id: u32, json: Json) -> Result<Model, ModelError> {
+    pub async fn upsert<C: ConnectionTrait>(
+        db: &C,
+        id: u32,
+        json: Json,
+    ) -> Result<Model, ModelError> {
         let mut json = json;
 
         let mut new_model = json.to_geofence()?;

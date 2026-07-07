@@ -1,6 +1,6 @@
-use std::fmt::Write;
 #[cfg(test)]
 use koji_core::Precision;
+use std::fmt::Write;
 
 use geojson::{Feature, FeatureCollection, GeometryValue};
 

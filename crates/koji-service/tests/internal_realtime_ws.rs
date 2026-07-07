@@ -10,7 +10,7 @@
 //!
 //! Env-var isolation: `KOJI_SECRET` is process-global. All tests that mutate it
 //! hold `ENV_LOCK` for their duration so concurrent test threads don't race.
-use actix_web::{web, App};
+use actix_web::{App, web};
 use futures_util::{SinkExt, StreamExt};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
 use std::sync::Mutex;
@@ -44,7 +44,9 @@ macro_rules! realtime_test_app {
 async fn ping_gets_pong_and_subscribed_event_is_delivered() {
     let _guard = ENV_LOCK.lock().unwrap();
     // SAFETY: test-only env mutation; serialized by ENV_LOCK.
-    unsafe { std::env::set_var("KOJI_SECRET", ""); }
+    unsafe {
+        std::env::set_var("KOJI_SECRET", "");
+    }
     let hub = koji_service::test_realtime_hub();
     let hub_data = web::Data::new(hub.clone());
     let srv = actix_test::start(move || realtime_test_app!(hub_data.clone()));
@@ -52,17 +54,28 @@ async fn ping_gets_pong_and_subscribed_event_is_delivered() {
     let (_resp, mut conn) = awc::Client::new().ws(url).connect().await.unwrap();
 
     // ping → pong
-    conn.send(awc::ws::Message::Text(r#"{"op":"ping"}"#.into())).await.unwrap();
+    conn.send(awc::ws::Message::Text(r#"{"op":"ping"}"#.into()))
+        .await
+        .unwrap();
     let msg = conn.next().await.unwrap().unwrap();
     assert!(matches!(msg, awc::ws::Frame::Text(ref b) if b.starts_with(b"{\"op\":\"pong\"")));
 
     // subscribe then publish on the hub → event frame delivered
-    conn.send(awc::ws::Message::Text(r#"{"op":"subscribe","topic":"resource/geofence"}"#.into())).await.unwrap();
+    conn.send(awc::ws::Message::Text(
+        r#"{"op":"subscribe","topic":"resource/geofence"}"#.into(),
+    ))
+    .await
+    .unwrap();
     // give the reader task a tick to register the subscription
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-    hub.publish("resource/geofence", koji_service::test_server_event("created", serde_json::json!({"ids":[1]})));
+    hub.publish(
+        "resource/geofence",
+        koji_service::test_server_event("created", serde_json::json!({"ids":[1]})),
+    );
     let msg = conn.next().await.unwrap().unwrap();
-    let awc::ws::Frame::Text(bytes) = msg else { panic!("expected text frame") };
+    let awc::ws::Frame::Text(bytes) = msg else {
+        panic!("expected text frame")
+    };
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(v["topic"], "resource/geofence");
     assert_eq!(v["type"], "created");
@@ -73,19 +86,32 @@ async fn ping_gets_pong_and_subscribed_event_is_delivered() {
 #[allow(clippy::await_holding_lock)]
 async fn unsubscribed_topic_is_not_delivered() {
     let _guard = ENV_LOCK.lock().unwrap();
-    unsafe { std::env::set_var("KOJI_SECRET", ""); }
+    unsafe {
+        std::env::set_var("KOJI_SECRET", "");
+    }
     let hub = koji_service::test_realtime_hub();
     let hub_data = web::Data::new(hub.clone());
     let srv = actix_test::start(move || realtime_test_app!(hub_data.clone()));
     let url = srv.url("/internal/realtime").replace("http://", "ws://");
     let (_r, mut conn) = awc::Client::new().ws(url).connect().await.unwrap();
-    conn.send(awc::ws::Message::Text(r#"{"op":"subscribe","topic":"jobs"}"#.into())).await.unwrap();
+    conn.send(awc::ws::Message::Text(
+        r#"{"op":"subscribe","topic":"jobs"}"#.into(),
+    ))
+    .await
+    .unwrap();
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-    hub.publish("resource/geofence", koji_service::test_server_event("created", serde_json::json!({"ids":[1]})));
+    hub.publish(
+        "resource/geofence",
+        koji_service::test_server_event("created", serde_json::json!({"ids":[1]})),
+    );
     // round-trip a ping; the only frame we should see back is the pong, not the event.
-    conn.send(awc::ws::Message::Text(r#"{"op":"ping"}"#.into())).await.unwrap();
+    conn.send(awc::ws::Message::Text(r#"{"op":"ping"}"#.into()))
+        .await
+        .unwrap();
     let msg = conn.next().await.unwrap().unwrap();
-    let awc::ws::Frame::Text(bytes) = msg else { panic!("text") };
+    let awc::ws::Frame::Text(bytes) = msg else {
+        panic!("text")
+    };
     assert!(bytes.starts_with(b"{\"op\":\"pong\""), "got {:?}", bytes);
 }
 
@@ -93,7 +119,9 @@ async fn unsubscribed_topic_is_not_delivered() {
 #[allow(clippy::await_holding_lock)]
 async fn no_token_is_rejected_when_secret_set() {
     let _guard = ENV_LOCK.lock().unwrap();
-    unsafe { std::env::set_var("KOJI_SECRET", "topsecret"); }
+    unsafe {
+        std::env::set_var("KOJI_SECRET", "topsecret");
+    }
     let hub_data = web::Data::new(koji_service::test_realtime_hub());
     let srv = actix_test::start(move || realtime_test_app!(hub_data.clone()));
 
@@ -106,14 +134,18 @@ async fn no_token_is_rejected_when_secret_set() {
         result.ok().map(|(r, _)| r.status())
     );
 
-    unsafe { std::env::remove_var("KOJI_SECRET"); }
+    unsafe {
+        std::env::remove_var("KOJI_SECRET");
+    }
 }
 
 #[actix_web::test]
 #[allow(clippy::await_holding_lock)]
 async fn wrong_token_is_rejected_when_secret_set() {
     let _guard = ENV_LOCK.lock().unwrap();
-    unsafe { std::env::set_var("KOJI_SECRET", "topsecret"); }
+    unsafe {
+        std::env::set_var("KOJI_SECRET", "topsecret");
+    }
     let hub_data = web::Data::new(koji_service::test_realtime_hub());
     let srv = actix_test::start(move || realtime_test_app!(hub_data.clone()));
 
@@ -126,7 +158,9 @@ async fn wrong_token_is_rejected_when_secret_set() {
         "expected WS connect to fail with wrong token, got ok"
     );
 
-    unsafe { std::env::remove_var("KOJI_SECRET"); }
+    unsafe {
+        std::env::remove_var("KOJI_SECRET");
+    }
 }
 
 #[actix_web::test]
@@ -136,7 +170,9 @@ async fn url_encoded_token_is_accepted() {
     // Secret contains chars that need percent-encoding when placed in a query string:
     // `+` (encodes to `%2B`), space (encodes to `+`), `=` (encodes to `%3D`).
     let secret = "top+sec ret=value";
-    unsafe { std::env::set_var("KOJI_SECRET", secret); }
+    unsafe {
+        std::env::set_var("KOJI_SECRET", secret);
+    }
     let hub_data = web::Data::new(koji_service::test_realtime_hub());
     let srv = actix_test::start(move || realtime_test_app!(hub_data.clone()));
 
@@ -154,7 +190,9 @@ async fn url_encoded_token_is_accepted() {
         result.err()
     );
 
-    unsafe { std::env::remove_var("KOJI_SECRET"); }
+    unsafe {
+        std::env::remove_var("KOJI_SECRET");
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -198,16 +236,21 @@ fn uuid_slug() -> String {
 #[actix_web::test]
 #[allow(clippy::await_holding_lock)]
 async fn creating_a_geofence_publishes_resource_event() {
-    let Some(conn) = db_or_skip().await else { return; };
+    let Some(conn) = db_or_skip().await else {
+        return;
+    };
     let _guard = ENV_LOCK.lock().unwrap();
     // SAFETY: test-only env mutation — serialized by ENV_LOCK so no KOJI_SECRET
     // set by a concurrent auth test bleeds into the WS upgrade.
-    unsafe { std::env::set_var("KOJI_SECRET", ""); }
+    unsafe {
+        std::env::set_var("KOJI_SECRET", "");
+    }
     let db = build_test_koji_db(conn.clone()).await;
     let hub = koji_service::test_realtime_hub();
     let hub2 = hub.clone();
     let dbc = db.clone();
-    let srv = actix_test::start(move || koji_service::test_internal_live_app(dbc.clone(), hub2.clone()));
+    let srv =
+        actix_test::start(move || koji_service::test_internal_live_app(dbc.clone(), hub2.clone()));
     let ws_url = srv.url("/internal/realtime").replace("http://", "ws://");
     let (_r, mut ws) = awc::Client::new().ws(ws_url).connect().await.unwrap();
     ws.send(awc::ws::Message::Text(
@@ -232,31 +275,36 @@ async fn creating_a_geofence_publishes_resource_event() {
         .send_json(&body)
         .await
         .unwrap();
-    assert_eq!(resp.status().as_u16(), 201, "POST /internal/geofences must return 201, not 405");
+    assert_eq!(
+        resp.status().as_u16(),
+        201,
+        "POST /internal/geofences must return 201, not 405"
+    );
 
     // Expect the WS frame
-    let frame = tokio::time::timeout(
-        std::time::Duration::from_secs(3),
-        ws.next(),
-    )
-    .await
-    .expect("timed out waiting for WS frame")
-    .unwrap()
-    .unwrap();
+    let frame = tokio::time::timeout(std::time::Duration::from_secs(3), ws.next())
+        .await
+        .expect("timed out waiting for WS frame")
+        .unwrap()
+        .unwrap();
     let awc::ws::Frame::Text(bytes) = frame else {
         panic!("expected text frame, got {:?}", frame);
     };
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(v["topic"], "resource/geofence");
     assert_eq!(v["type"], "created");
-    let ids = v["payload"]["ids"].as_array().expect("payload.ids must be array");
+    let ids = v["payload"]["ids"]
+        .as_array()
+        .expect("payload.ids must be array");
     assert_eq!(ids.len(), 1, "exactly one id in created event");
     let id = ids[0].as_i64().unwrap();
 
     // Cleanup
-    let _ = conn.execute(sea_orm::Statement::from_sql_and_values(
-        sea_orm::DbBackend::MySql,
-        "DELETE FROM geofence WHERE id = ?",
-        [sea_orm::Value::from(id)],
-    )).await;
+    let _ = conn
+        .execute(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DbBackend::MySql,
+            "DELETE FROM geofence WHERE id = ?",
+            [sea_orm::Value::from(id)],
+        ))
+        .await;
 }

@@ -1,8 +1,8 @@
 //! Edge conversions between geojson and the KojiGeometry types. geo-types stays
 //! canonical; geojson is an edge format only.
 
-use geo::Geometry;
 use crate::Precision;
+use geo::Geometry;
 
 use super::{KojiGeometry, KojiGeometryCollection, KojiMeta};
 
@@ -167,7 +167,9 @@ mod outbound_tests {
     fn collection_to_geometrycollection_is_property_less() {
         let c = KojiGeometryCollection::new(vec![sample(), sample()]);
         let g = geojson::Geometry::from(&c);
-        assert!(matches!(g.value, geojson::GeometryValue::GeometryCollection { geometries: ref v } if v.len() == 2));
+        assert!(
+            matches!(g.value, geojson::GeometryValue::GeometryCollection { geometries: ref v } if v.len() == 2)
+        );
     }
 
     #[test]

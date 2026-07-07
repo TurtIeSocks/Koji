@@ -73,13 +73,15 @@ pub(crate) async fn create_or_find_collection(
             features: vec![Feature {
                 bbox: Some(kb.to_geojson_bbox_vec()),
                 geometry: Some(Geometry {
-                    value: GeometryValue::Polygon { coordinates: vec![vec![
-                        geojson::Position::from([kb.min_lon, kb.min_lat]),
-                        geojson::Position::from([kb.min_lon, kb.max_lat]),
-                        geojson::Position::from([kb.max_lon, kb.max_lat]),
-                        geojson::Position::from([kb.max_lon, kb.min_lat]),
-                        geojson::Position::from([kb.min_lon, kb.min_lat]),
-                    ]] },
+                    value: GeometryValue::Polygon {
+                        coordinates: vec![vec![
+                            geojson::Position::from([kb.min_lon, kb.min_lat]),
+                            geojson::Position::from([kb.min_lon, kb.max_lat]),
+                            geojson::Position::from([kb.max_lon, kb.max_lat]),
+                            geojson::Position::from([kb.max_lon, kb.min_lat]),
+                            geojson::Position::from([kb.min_lon, kb.min_lat]),
+                        ]],
+                    },
                     bbox: None,
                     foreign_members: None,
                 }),

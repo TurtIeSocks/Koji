@@ -42,7 +42,6 @@ pub(crate) fn bootstrap_plugin_args(base: Option<String>, radius: Precision) -> 
     s
 }
 
-
 /// Resolve an optional [`DataPointsArg`] into a flat `[lat, lon]` list. A feature
 /// with an unconvertible geometry yields no points (matches the old matrix's
 /// empty arm). Parity with old `init()`.

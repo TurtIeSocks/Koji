@@ -14,13 +14,10 @@ async fn test_db() -> Option<DatabaseConnection> {
         eprintln!("skip: KOJI_DB_URL unset");
         return None;
     };
-    Database::connect(&url)
-        .await
-        .ok()
-        .or_else(|| {
-            eprintln!("skip: connect failed");
-            None
-        })
+    Database::connect(&url).await.ok().or_else(|| {
+        eprintln!("skip: connect failed");
+        None
+    })
 }
 fn unique_name(tag: &str) -> String {
     format!("test-{tag}-{}", JobId::new().as_string())
@@ -214,21 +211,15 @@ async fn row_list_honors_mode_filter_and_sort() {
         .uri("/internal/geofences?per_page=500&mode=fort&sortBy=name&order=ASC")
         .to_request();
     let v = body_json(test::call_service(&app, req).await).await;
-    assert!(v["data"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .all(|r| r["mode"] == "fort"));
-    assert!(v["data"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|r| r["id"] == ida));
-    assert!(v["data"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .all(|r| r["id"] != idz));
+    assert!(
+        v["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|r| r["mode"] == "fort")
+    );
+    assert!(v["data"].as_array().unwrap().iter().any(|r| r["id"] == ida));
+    assert!(v["data"].as_array().unwrap().iter().all(|r| r["id"] != idz));
     cleanup(&conn, ida).await;
     cleanup(&conn, idz).await;
 }

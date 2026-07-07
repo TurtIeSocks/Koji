@@ -7,8 +7,8 @@
 //! of the real Haversine radius).
 
 use super::frame::Grid;
-use koji_core::Precision;
 use super::geometry::circle_intersections;
+use koji_core::Precision;
 
 /// Effective coverage radius in planar units. The 1e-3 backoff (7 cm at 70 m)
 /// absorbs the azimuthal-equidistant projection error (≤ ~5e-5 at 50 km
@@ -104,7 +104,10 @@ pub fn solve_chunk(pts: &[[Precision; 2]], params: &SolveParams) -> Vec<[Precisi
             if nx.saturating_mul(ny) <= 16 * pts.len().max(1) as i64 {
                 for ix in 0..nx {
                     for iy in 0..ny {
-                        candidates.push([min_x + ix as Precision * step, min_y + iy as Precision * step]);
+                        candidates.push([
+                            min_x + ix as Precision * step,
+                            min_y + iy as Precision * step,
+                        ]);
                     }
                 }
             }

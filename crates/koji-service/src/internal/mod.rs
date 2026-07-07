@@ -66,15 +66,9 @@ pub(crate) fn scope() -> actix_web::Scope {
         // Session auth: login / logout / me.
         .service(v2::auth::scope())
         // WebSocket hub — session-auth gated inside the handler itself.
-        .service(
-            web::resource("/realtime")
-                .route(web::get().to(realtime::realtime_ws)),
-        )
+        .service(web::resource("/realtime").route(web::get().to(realtime::realtime_ws)))
         // Atomic bulk import (one tx; dry-run preview).
-        .service(
-            web::resource("/import")
-                .route(web::post().to(v2::import::import_handler)),
-        )
+        .service(web::resource("/import").route(web::post().to(v2::import::import_handler)))
         // Geometry normalize/convert (+ simplify/merge-points/area), aliased from
         // /api/v2 so the admin client (which only talks to /internal) can reach it.
         .service(v2::geometry::scope())

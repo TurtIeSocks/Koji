@@ -147,7 +147,10 @@ ALTER TABLE `webhook_subscription`
         ))
         .all(db)
         .await?;
-        log::info!("[MIGRATION] migrating {} project push config(s) to ping webhooks", rows.len());
+        log::info!(
+            "[MIGRATION] migrating {} project push config(s) to ping webhooks",
+            rows.len()
+        );
         for row in rows {
             let headers = row.api_key.as_deref().and_then(parse_api_key);
             db.execute(Statement::from_sql_and_values(

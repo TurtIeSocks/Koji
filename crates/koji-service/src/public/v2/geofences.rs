@@ -296,7 +296,8 @@ async fn update(
         vec![]
     };
     let record = geofence::Query::upsert_json_return(&conn.koji, id, merged).await?;
-    for (t, ev) in crate::internal::realtime::topics::updated("geofence", id as i64, record.clone()) {
+    for (t, ev) in crate::internal::realtime::topics::updated("geofence", id as i64, record.clone())
+    {
         hub.publish(&t, ev);
     }
     emit_geofence_updated(&conn.koji, id as u64, &record).await;
@@ -317,9 +318,10 @@ async fn emit_geofence_membership_diff(
     geofence_id: u32,
     before_pids: &[u32],
 ) {
-    let after_pids = koji_db::db::geofence_project::Query::project_ids_for_geofence(db, geofence_id)
-        .await
-        .unwrap_or_default();
+    let after_pids =
+        koji_db::db::geofence_project::Query::project_ids_for_geofence(db, geofence_id)
+            .await
+            .unwrap_or_default();
 
     let mut before = std::collections::HashMap::new();
     for pid in before_pids {
@@ -344,7 +346,11 @@ async fn emit_geofence_membership_diff(
 /// truth at emit time). `record` is the flat `geofence::Model` JSON returned
 /// by `upsert_json_return` (top-level `name`, not nested under `properties` —
 /// the geofence handlers return the raw row, not a GeoJSON Feature).
-async fn emit_geofence_updated(db: &sea_orm::DatabaseConnection, id: u64, record: &serde_json::Value) {
+async fn emit_geofence_updated(
+    db: &sea_orm::DatabaseConnection,
+    id: u64,
+    record: &serde_json::Value,
+) {
     let project_ids = koji_db::db::geofence_project::Query::project_ids_for_geofence(db, id as u32)
         .await
         .unwrap_or_default();
@@ -444,8 +450,8 @@ async fn publish(
     // adding those props would change the external PATCH payload; the
     // `GeofenceUpdated.geofence` shape is locked, so it stays property-less. This
     // path already touches no `To*` matrix method, so it needs no rewire.
-    let geometry =
-        serde_json::from_value::<Geometry>(model.geometry.clone()).map_err(ServiceError::internal)?;
+    let geometry = serde_json::from_value::<Geometry>(model.geometry.clone())
+        .map_err(ServiceError::internal)?;
     let feature = Feature {
         bbox: None,
         geometry: Some(geometry),
@@ -697,7 +703,11 @@ mod tests {
         assert_eq!(feature["properties"]["properties"][0]["property_id"], 5);
         assert_eq!(feature["properties"]["name"], "F");
         // geometry key is not duplicated inside properties (it was removed)
-        assert!(feature["properties"].get("geometry").is_none_or(|g| g.is_null()));
+        assert!(
+            feature["properties"]
+                .get("geometry")
+                .is_none_or(|g| g.is_null())
+        );
     }
 
     #[test]

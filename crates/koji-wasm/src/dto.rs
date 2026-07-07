@@ -2,8 +2,8 @@
 //! `serde` drives (de)serialization across the JS boundary. These mirror a flat,
 //! demo-friendly subset of `algorithms::clustering::ClusteringConfig`.
 
-use serde::{Deserialize, Serialize};
 use koji_core::Precision;
+use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 
 /// Clustering request. `points` is `[[lat, lng], ...]`.

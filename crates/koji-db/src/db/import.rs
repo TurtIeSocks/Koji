@@ -11,13 +11,24 @@ use crate::db::{geofence, route};
 use crate::error::ModelError;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ImportKind { Geofence, Route }
+pub enum ImportKind {
+    Geofence,
+    Route,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum OnCollision { Skip, Overwrite }
+pub enum OnCollision {
+    Skip,
+    Overwrite,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ImportAction { Create, Update, Skip, Fail }
+pub enum ImportAction {
+    Create,
+    Update,
+    Skip,
+    Fail,
+}
 
 #[derive(Clone, Debug)]
 pub struct ImportItem {
@@ -41,7 +52,12 @@ pub struct ImportOutcome {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-pub struct ImportSummary { pub create: usize, pub update: usize, pub skip: usize, pub fail: usize }
+pub struct ImportSummary {
+    pub create: usize,
+    pub update: usize,
+    pub skip: usize,
+    pub fail: usize,
+}
 
 #[derive(Clone, Debug)]
 pub struct ImportResult {
@@ -52,7 +68,10 @@ pub struct ImportResult {
 
 /// Pure per-item validation. Returns `Some(reason)` for each item that cannot
 /// be imported, else `None`. `existing_names` = geofence names already in the DB.
-pub(crate) fn validate(items: &[ImportItem], existing_names: &HashSet<String>) -> Vec<Option<String>> {
+pub(crate) fn validate(
+    items: &[ImportItem],
+    existing_names: &HashSet<String>,
+) -> Vec<Option<String>> {
     // Names of geofences that WILL exist after this batch (existing ∪ batch).
     let mut batch_fences: HashSet<String> = HashSet::new();
     let mut seen_fences: HashSet<String> = HashSet::new();
@@ -90,7 +109,9 @@ pub(crate) fn validate(items: &[ImportItem], existing_names: &HashSet<String>) -
             }
             if it.kind == ImportKind::Route {
                 match it.route_parent.as_deref() {
-                    Some(p) if !resolvable(p) => return Some(format!("route parent `{p}` not found")),
+                    Some(p) if !resolvable(p) => {
+                        return Some(format!("route parent `{p}` not found"));
+                    }
                     None => return Some("route has no parent geofence".to_string()),
                     _ => {}
                 }
@@ -107,7 +128,9 @@ async fn existing_geofence_names(db: &DatabaseConnection) -> Result<HashSet<Stri
 }
 
 /// Map existing geofence name -> id (for parent resolution against the DB).
-async fn existing_geofence_ids(db: &DatabaseConnection) -> Result<HashMap<String, u32>, ModelError> {
+async fn existing_geofence_ids(
+    db: &DatabaseConnection,
+) -> Result<HashMap<String, u32>, ModelError> {
     let rows = geofence::Entity::find().all(db).await?;
     Ok(rows.into_iter().map(|m| (m.name, m.id)).collect())
 }
@@ -127,7 +150,13 @@ pub async fn import(
         .map(|(index, it)| {
             let name = it.name.trim().to_string();
             if let Some(reason) = reasons[index].clone() {
-                return ImportOutcome { index, name, action: ImportAction::Fail, id: None, reason: Some(reason) };
+                return ImportOutcome {
+                    index,
+                    name,
+                    action: ImportAction::Fail,
+                    id: None,
+                    reason: Some(reason),
+                };
             }
             if it.kind == ImportKind::Geofence && existing_names.contains(&name) {
                 let action = match it.on_collision {
@@ -136,9 +165,21 @@ pub async fn import(
                 };
                 let reason = (action == ImportAction::Skip)
                     .then(|| "collision, on_collision=skip".to_string());
-                return ImportOutcome { index, name, action, id: None, reason };
+                return ImportOutcome {
+                    index,
+                    name,
+                    action,
+                    id: None,
+                    reason,
+                };
             }
-            ImportOutcome { index, name, action: ImportAction::Create, id: None, reason: None }
+            ImportOutcome {
+                index,
+                name,
+                action: ImportAction::Create,
+                id: None,
+                reason: None,
+            }
         })
         .collect();
 
@@ -215,7 +256,11 @@ pub async fn import(
             name_to_id.get(parent_name).copied(),
         ) else {
             txn.rollback().await?;
-            return Ok(fail_result(index, name, format!("parent `{parent_name}` not found")));
+            return Ok(fail_result(
+                index,
+                name,
+                format!("parent `{parent_name}` not found"),
+            ));
         };
         if let Err(e) =
             geofence::Query::assign(&txn, child_id, "parent".to_string(), json!(parent_id)).await
@@ -231,10 +276,17 @@ pub async fn import(
             continue;
         }
         let name = it.name.trim().to_string();
-        let parent_id = it.route_parent.as_deref().and_then(|p| name_to_id.get(p).copied());
+        let parent_id = it
+            .route_parent
+            .as_deref()
+            .and_then(|p| name_to_id.get(p).copied());
         let Some(parent_id) = parent_id else {
             txn.rollback().await?;
-            return Ok(fail_result(index, name, "route parent not found".to_string()));
+            return Ok(fail_result(
+                index,
+                name,
+                "route parent not found".to_string(),
+            ));
         };
         let mut body = json!({
             "name": name,
@@ -260,7 +312,11 @@ pub async fn import(
     }
 
     txn.commit().await?;
-    Ok(ImportResult { committed: true, summary: summarize(&results), results })
+    Ok(ImportResult {
+        committed: true,
+        summary: summarize(&results),
+        results,
+    })
 }
 
 fn summarize(results: &[ImportOutcome]) -> ImportSummary {
@@ -286,7 +342,11 @@ fn fail_result(index: usize, name: String, reason: String) -> ImportResult {
         id: None,
         reason: Some(reason),
     }];
-    ImportResult { committed: false, summary: summarize(&results), results }
+    ImportResult {
+        committed: false,
+        summary: summarize(&results),
+        results,
+    }
 }
 
 #[cfg(test)]
@@ -316,7 +376,10 @@ mod tests {
 
     #[test]
     fn duplicate_geofence_names_in_batch_fail_both() {
-        let items = vec![item(ImportKind::Geofence, "Dup"), item(ImportKind::Geofence, "Dup")];
+        let items = vec![
+            item(ImportKind::Geofence, "Dup"),
+            item(ImportKind::Geofence, "Dup"),
+        ];
         let reasons = validate(&items, &HashSet::new());
         assert!(reasons[0].is_some() && reasons[1].is_some());
     }

@@ -9,9 +9,9 @@ use sea_orm::{
 
 mod enum_bridge;
 pub mod geofence;
-pub mod import;
 pub mod geofence_project;
 pub mod geofence_property;
+pub mod import;
 pub mod plugin_config;
 pub mod prelude;
 pub mod project;

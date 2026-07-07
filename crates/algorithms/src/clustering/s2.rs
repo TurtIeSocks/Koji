@@ -1,7 +1,7 @@
 use geojson::Feature;
+use hashbrown::HashMap;
 #[cfg(test)]
 use koji_core::Precision;
-use hashbrown::HashMap;
 use koji_core::SingleVec;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use s2::cellid::CellID;
@@ -46,7 +46,12 @@ mod tests {
     use super::*;
     use geojson::{Feature, Geometry, GeometryValue};
 
-    fn rect_feature(min_lon: Precision, min_lat: Precision, max_lon: Precision, max_lat: Precision) -> Feature {
+    fn rect_feature(
+        min_lon: Precision,
+        min_lat: Precision,
+        max_lon: Precision,
+        max_lat: Precision,
+    ) -> Feature {
         let ring = vec![
             geojson::Position::from([min_lon, min_lat]),
             geojson::Position::from([max_lon, min_lat]),
@@ -56,7 +61,9 @@ mod tests {
         ];
         Feature {
             bbox: None,
-            geometry: Some(Geometry::new(GeometryValue::Polygon { coordinates: vec![ring] })),
+            geometry: Some(Geometry::new(GeometryValue::Polygon {
+                coordinates: vec![ring],
+            })),
             id: None,
             properties: None,
             foreign_members: None,
@@ -103,7 +110,9 @@ mod tests {
     #[test]
     fn output_valid_lat_lon() {
         let feature = rect_feature(-74.003, 39.997, -73.997, 40.003);
-        let data: Vec<[Precision; 2]> = (0..5).map(|i| [40.0 + i as Precision * 0.0005, -74.0]).collect();
+        let data: Vec<[Precision; 2]> = (0..5)
+            .map(|i| [40.0 + i as Precision * 0.0005, -74.0])
+            .collect();
         let result = cluster(feature, &data, 15, 1, 1);
         for [lat, lon] in &result {
             assert!(lat.abs() < 90.0, "bad lat: {lat}");

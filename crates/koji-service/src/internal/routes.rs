@@ -1,6 +1,6 @@
 //! Bespoke `GET /internal/routes` — paginated flat rows for the shadmin
 //! DataTable. Reuses `route::Query::paginate` (koji-db) — serialization only.
-use actix_web::{web, HttpResponse};
+use actix_web::{HttpResponse, web};
 use koji_db::{KojiDb, query_args::AdminReqParsed};
 use serde::{Deserialize, Serialize};
 
@@ -54,29 +54,57 @@ pub(crate) async fn list_rows(
         parent: None,
     };
 
-    let (rows, total, has_next, has_prev) =
-        koji_db::db::route::Query::paginate(&conn.koji, args)
-            .await?
-            .into_parts();
+    let (rows, total, has_next, has_prev) = koji_db::db::route::Query::paginate(&conn.koji, args)
+        .await?
+        .into_parts();
 
     let data: Vec<RouteRow> = rows
         .into_iter()
         .map(|r| RouteRow {
             id: r.get("id").and_then(serde_json::Value::as_i64).unwrap_or(0),
-            name: r.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            description: r
-                .get("description")
-                .and_then(|v| if v.is_null() { None } else { v.as_str().map(str::to_string) }),
-            mode: r.get("mode").and_then(|v| v.as_str()).unwrap_or("unset").to_string(),
-            geofence_id: r.get("geofence_id").and_then(serde_json::Value::as_i64).unwrap_or(0),
-            points: r.get("points").and_then(serde_json::Value::as_u64).unwrap_or(0) as usize,
+            name: r
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            description: r.get("description").and_then(|v| {
+                if v.is_null() {
+                    None
+                } else {
+                    v.as_str().map(str::to_string)
+                }
+            }),
+            mode: r
+                .get("mode")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unset")
+                .to_string(),
+            geofence_id: r
+                .get("geofence_id")
+                .and_then(serde_json::Value::as_i64)
+                .unwrap_or(0),
+            points: r
+                .get("points")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0) as usize,
         })
         .collect();
 
-    let total_pages = if per_page > 0 { ((total as i64) + per_page - 1) / per_page } else { 0 };
+    let total_pages = if per_page > 0 {
+        ((total as i64) + per_page - 1) / per_page
+    } else {
+        0
+    };
 
     Ok(ApiResponse::success_paginated(
         data,
-        Meta { total: total as i64, page, per_page, total_pages, has_next, has_prev },
+        Meta {
+            total: total as i64,
+            page,
+            per_page,
+            total_pages,
+            has_next,
+            has_prev,
+        },
     ))
 }

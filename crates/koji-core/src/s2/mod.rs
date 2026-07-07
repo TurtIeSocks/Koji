@@ -137,7 +137,12 @@ pub fn get_polygons(cell_ids: Vec<String>) -> Vec<S2Response> {
         .collect()
 }
 
-pub fn circle_coverage(lat: Precision, lon: Precision, radius: Precision, level: u8) -> Arc<Mutex<Covered>> {
+pub fn circle_coverage(
+    lat: Precision,
+    lon: Precision,
+    radius: Precision,
+    level: u8,
+) -> Arc<Mutex<Covered>> {
     let mut covered = Arc::new(Mutex::new(HashSet::new()));
     let point = geo::Point::new(lon, lat);
     let circle = geo::Polygon::<Precision>::new(

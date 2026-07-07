@@ -17,8 +17,8 @@
 //! greedy re-solve.
 
 use super::geometry::circle_intersections;
-use koji_core::Precision;
 use super::solve::RHO;
+use koji_core::Precision;
 
 type Mask = u128;
 
@@ -405,7 +405,12 @@ mod tests {
         for trial in 0..40 {
             let n = 4 + (trial % 7);
             let lost: Vec<[Precision; 2]> = (0..n)
-                .map(|_| [rng.random::<Precision>() * 4.0, rng.random::<Precision>() * 4.0])
+                .map(|_| {
+                    [
+                        rng.random::<Precision>() * 4.0,
+                        rng.random::<Precision>() * 4.0,
+                    ]
+                })
                 .collect();
             for m in [1usize, 3] {
                 let expected = brute_force(&lost, m);

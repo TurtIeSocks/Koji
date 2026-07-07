@@ -237,9 +237,10 @@ async fn emit_route_updated(db: &sea_orm::DatabaseConnection, id: u64, record: &
         .get("geofence_id")
         .and_then(serde_json::Value::as_u64)
         .unwrap_or_default() as u32;
-    let project_ids = koji_db::db::geofence_project::Query::project_ids_for_geofence(db, geofence_id)
-        .await
-        .unwrap_or_default();
+    let project_ids =
+        koji_db::db::geofence_project::Query::project_ids_for_geofence(db, geofence_id)
+            .await
+            .unwrap_or_default();
     crate::utils::outbox::emit_event(
         db,
         "route.updated",

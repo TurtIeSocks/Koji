@@ -196,7 +196,12 @@ mod tests {
     #[test]
     fn plane_project_preserves_count() {
         let pts: SingleVec = (0..20)
-            .map(|i| [40.0 + i as Precision * 0.001, -74.0 + i as Precision * 0.001])
+            .map(|i| {
+                [
+                    40.0 + i as Precision * 0.001,
+                    -74.0 + i as Precision * 0.001,
+                ]
+            })
             .collect();
         let plane = Plane::new(&pts).radius(500.0);
         let projected = plane.project();

@@ -11,8 +11,8 @@
 //! to v1 modulo the envelope.
 
 use actix_session::Session;
-use koji_core::Precision;
 use actix_web::{HttpResponse, get};
+use koji_core::Precision;
 
 use algorithms::{bootstrap, clustering, routing};
 

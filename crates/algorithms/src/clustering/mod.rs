@@ -1,6 +1,6 @@
-use std::vec;
 #[cfg(test)]
 use koji_core::Precision;
+use std::vec;
 use web_time::Instant;
 
 #[cfg(feature = "native")]
@@ -288,7 +288,9 @@ mod tests {
 
     #[test]
     fn honeycomb_mode_produces_clusters() {
-        let pts: Vec<[Precision; 2]> = (0..20).map(|i| [40.0 + i as Precision * 0.001, -74.0]).collect();
+        let pts: Vec<[Precision; 2]> = (0..20)
+            .map(|i| [40.0 + i as Precision * 0.001, -74.0])
+            .collect();
         let mut cfg = make_cfg(ClusterMode::Honeycomb);
         cfg.radius = 500.0;
         let mut stats = Stats::new("t".into(), 1);

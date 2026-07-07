@@ -11,8 +11,8 @@
 //! or `.txt` (any extension, really). Output is written next to the input as
 //! `<stem>_out.<ext>` (route order) plus `<stem>_route.svg` (before/after map).
 
-use std::path::{Path, PathBuf};
 use koji_core::Precision;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use algorithms::clustering::{self, CalculationMode, ClusterMode, ClusteringConfig, S2Config};
@@ -39,7 +39,9 @@ fn metrics(order: &[[Precision; 2]]) -> (Precision, Precision) {
     if n < 2 {
         return (0.0, 0.0);
     }
-    let total: Precision = (0..n).map(|i| haversine_m(order[i], order[(i + 1) % n])).sum();
+    let total: Precision = (0..n)
+        .map(|i| haversine_m(order[i], order[(i + 1) % n]))
+        .sum();
     (total, haversine_m(order[n - 1], order[0]))
 }
 
@@ -140,8 +142,13 @@ fn main() {
     let (hyb_total, hyb_close) = metrics(&hyb_order);
 
     let km = |m: Precision| m / 1000.0;
-    println!("\n──────────── routing comparison ({} clusters) ────────────", clusters.len());
-    println!("                     S2 seed (s2cell)      Tsp (2-opt+Or-opt)     TspHybrid (S2+refine)");
+    println!(
+        "\n──────────── routing comparison ({} clusters) ────────────",
+        clusters.len()
+    );
+    println!(
+        "                     S2 seed (s2cell)      Tsp (2-opt+Or-opt)     TspHybrid (S2+refine)"
+    );
     println!(
         "total tour          {:>12.2} km     {:>12.2} km   ({:+.1}%)     {:>12.2} km   ({:+.1}%)",
         km(s2_total),
@@ -173,10 +180,16 @@ fn main() {
         .collect::<Vec<_>>()
         .join("\n");
     std::fs::write(&out_csv, body).expect("write route csv");
-    println!("\nTsp route ({} points) → {}", tsp_order.len(), out_csv.display());
+    println!(
+        "\nTsp route ({} points) → {}",
+        tsp_order.len(),
+        out_csv.display()
+    );
 
     let out_svg = derive_output(&input, "_route", Some("svg"));
-    let svg = render_svg(&s2_order, &tsp_order, s2_total, s2_close, tsp_total, tsp_close);
+    let svg = render_svg(
+        &s2_order, &tsp_order, s2_total, s2_close, tsp_total, tsp_close,
+    );
     std::fs::write(&out_svg, svg).expect("write svg");
     println!("route map → {}", out_svg.display());
 }
@@ -219,11 +232,12 @@ fn render_svg(
             .collect::<Vec<_>>()
             .join(" ")
     };
-    let closing = |order: &SingleVec, px: Precision| -> (Precision, Precision, Precision, Precision) {
-        let (x1, y1) = project(&order[order.len() - 1], px);
-        let (x2, y2) = project(&order[0], px);
-        (x1, y1, x2, y2)
-    };
+    let closing =
+        |order: &SingleVec, px: Precision| -> (Precision, Precision, Precision, Precision) {
+            let (x1, y1) = project(&order[order.len() - 1], px);
+            let (x2, y2) = project(&order[0], px);
+            (x1, y1, x2, y2)
+        };
 
     let (lx, rx) = (24.0_f64, 374.0_f64);
     let s2_line = polyline(s2, lx);

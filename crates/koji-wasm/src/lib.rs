@@ -1,9 +1,9 @@
 //! Browser WASM build of Koji's clustering algorithm (demo/portfolio).
 //! Plugins, routing, bootstrap, DB and network are intentionally excluded.
 
-use wasm_bindgen::prelude::*;
 #[cfg(test)]
 use koji_core::Precision;
+use wasm_bindgen::prelude::*;
 
 mod convert;
 mod dto;

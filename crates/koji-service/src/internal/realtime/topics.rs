@@ -12,37 +12,70 @@ pub struct ServerEvent {
 }
 impl ServerEvent {
     pub fn new(r#type: impl Into<String>, payload: serde_json::Value) -> Self {
-        ServerEvent { r#type: r#type.into(), payload: Some(payload), meta: None }
+        ServerEvent {
+            r#type: r#type.into(),
+            payload: Some(payload),
+            meta: None,
+        }
     }
 }
-pub fn resource_topic(name: &str) -> String { format!("resource/{name}") }
-pub fn record_topic(name: &str, id: impl std::fmt::Display) -> String { format!("resource/{name}/{id}") }
+pub fn resource_topic(name: &str) -> String {
+    format!("resource/{name}")
+}
+pub fn record_topic(name: &str, id: impl std::fmt::Display) -> String {
+    format!("resource/{name}/{id}")
+}
 #[allow(dead_code)]
-pub fn lock_topic(name: &str) -> String { format!("lock/{name}") }
+pub fn lock_topic(name: &str) -> String {
+    format!("lock/{name}")
+}
 #[allow(dead_code)]
-pub fn lock_record_topic(name: &str, id: impl std::fmt::Display) -> String { format!("lock/{name}/{id}") }
-pub fn jobs_topic() -> &'static str { "jobs" }
-pub fn job_topic(id: impl std::fmt::Display) -> String { format!("jobs/{id}") }
+pub fn lock_record_topic(name: &str, id: impl std::fmt::Display) -> String {
+    format!("lock/{name}/{id}")
+}
+pub fn jobs_topic() -> &'static str {
+    "jobs"
+}
+pub fn job_topic(id: impl std::fmt::Display) -> String {
+    format!("jobs/{id}")
+}
 
 /// created → collection event only (`{type:"created", payload:{ids:[id]}}`).
 pub fn created(name: &str, id: impl std::fmt::Display) -> Vec<(String, ServerEvent)> {
-    let id_val: serde_json::Value = id.to_string().parse::<i64>()
+    let id_val: serde_json::Value = id
+        .to_string()
+        .parse::<i64>()
         .map(serde_json::Value::from)
         .unwrap_or_else(|_| serde_json::Value::String(id.to_string()));
-    vec![(resource_topic(name), ServerEvent::new("created", serde_json::json!({"ids":[id_val]})))]
+    vec![(
+        resource_topic(name),
+        ServerEvent::new("created", serde_json::json!({"ids":[id_val]})),
+    )]
 }
 /// updated → record event then collection event.
 pub fn updated(name: &str, id: i64, data: serde_json::Value) -> Vec<(String, ServerEvent)> {
     vec![
-        (record_topic(name, id), ServerEvent::new("updated", serde_json::json!({"id":id, "data":data}))),
-        (resource_topic(name), ServerEvent::new("updated", serde_json::json!({"ids":[id]}))),
+        (
+            record_topic(name, id),
+            ServerEvent::new("updated", serde_json::json!({"id":id, "data":data})),
+        ),
+        (
+            resource_topic(name),
+            ServerEvent::new("updated", serde_json::json!({"ids":[id]})),
+        ),
     ]
 }
 /// deleted → record event then collection event.
 pub fn deleted(name: &str, id: i64) -> Vec<(String, ServerEvent)> {
     vec![
-        (record_topic(name, id), ServerEvent::new("deleted", serde_json::json!({"id":id}))),
-        (resource_topic(name), ServerEvent::new("deleted", serde_json::json!({"ids":[id]}))),
+        (
+            record_topic(name, id),
+            ServerEvent::new("deleted", serde_json::json!({"id":id})),
+        ),
+        (
+            resource_topic(name),
+            ServerEvent::new("deleted", serde_json::json!({"ids":[id]})),
+        ),
     ]
 }
 
@@ -64,7 +97,10 @@ mod tests {
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0].0, "resource/geofence");
         assert_eq!(pairs[0].1.r#type, "created");
-        assert_eq!(pairs[0].1.payload.as_ref().unwrap()["ids"], serde_json::json!([5]));
+        assert_eq!(
+            pairs[0].1.payload.as_ref().unwrap()["ids"],
+            serde_json::json!([5])
+        );
     }
     #[test]
     fn updated_emits_record_then_collection() {
@@ -74,7 +110,10 @@ mod tests {
         assert_eq!(pairs[0].1.payload.as_ref().unwrap()["id"], 9);
         assert_eq!(pairs[0].1.payload.as_ref().unwrap()["data"]["name"], "x");
         assert_eq!(pairs[1].0, "resource/route");
-        assert_eq!(pairs[1].1.payload.as_ref().unwrap()["ids"], serde_json::json!([9]));
+        assert_eq!(
+            pairs[1].1.payload.as_ref().unwrap()["ids"],
+            serde_json::json!([9])
+        );
     }
     #[test]
     fn deleted_emits_record_then_collection() {
@@ -83,6 +122,9 @@ mod tests {
         assert_eq!(pairs[0].1.r#type, "deleted");
         assert_eq!(pairs[0].1.payload.as_ref().unwrap()["id"], 2);
         assert_eq!(pairs[1].0, "resource/project");
-        assert_eq!(pairs[1].1.payload.as_ref().unwrap()["ids"], serde_json::json!([2]));
+        assert_eq!(
+            pairs[1].1.payload.as_ref().unwrap()["ids"],
+            serde_json::json!([2])
+        );
     }
 }

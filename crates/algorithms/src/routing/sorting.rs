@@ -1,6 +1,6 @@
 use geo::Coord;
-use koji_core::Precision;
 use geohash::encode;
+use koji_core::Precision;
 use koji_core::SingleVec;
 use rand::{SeedableRng, rngs::SmallRng, seq::SliceRandom};
 use rayon::{
@@ -169,7 +169,9 @@ mod tests {
         // one isolated cluster at 0°N 0°E.
         let radius = 70.0;
         let dense_center = [40.0_f64, -74.0_f64];
-        let mut data: SingleVec = (0..10).map(|i| [40.0 + i as Precision * 0.0001, -74.0]).collect();
+        let mut data: SingleVec = (0..10)
+            .map(|i| [40.0 + i as Precision * 0.0001, -74.0])
+            .collect();
         data.push([0.0, 0.0]);
 
         let clusters: SingleVec = vec![dense_center, [0.0, 0.0]];

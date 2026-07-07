@@ -1,17 +1,17 @@
-use std::{collections::HashMap, str::FromStr};
 use koji_core::Precision;
+use std::{collections::HashMap, str::FromStr};
 
 use geojson::GeoJson;
 use sea_orm::Set;
 use serde_json::Value;
 
 use crate::{
+    WebhookMethod, WebhookMode,
     db::{
         geofence, geofence_project, geofence_property, project, property, route,
         sea_orm_active_enums::Category, tile_server, webhook,
     },
     error::ModelError,
-    WebhookMethod, WebhookMode,
 };
 
 use super::{get_category_enum, get_enum};
@@ -39,7 +39,8 @@ impl JsonToModel for Value {
                 if let Some(geometry) = incoming.get("geometry") {
                     match serde_json::from_value::<geojson::Geometry>(geometry.to_owned()) {
                         Ok(geometry) => {
-                            let value = serde_json::to_value(GeoJson::Geometry(geometry)).expect("geojson serializes");
+                            let value = serde_json::to_value(GeoJson::Geometry(geometry))
+                                .expect("geojson serializes");
                             let mode = incoming
                                 .get("mode")
                                 .map(|mode| mode.as_str().unwrap_or("unset").to_string());
@@ -251,7 +252,8 @@ impl JsonToModel for Value {
                     if let Some(geometry) = incoming.get("geometry") {
                         match serde_json::from_value::<geojson::Geometry>(geometry.to_owned()) {
                             Ok(geometry) => {
-                                let value = serde_json::to_value(GeoJson::Geometry(geometry)).expect("geojson serializes");
+                                let value = serde_json::to_value(GeoJson::Geometry(geometry))
+                                    .expect("geojson serializes");
                                 let mode = incoming
                                     .get("mode")
                                     .map(|mode| mode.as_str().unwrap_or("unset").to_string());
@@ -329,8 +331,9 @@ impl JsonToModel for Value {
                         .and_then(|v| v.as_u64())
                         .map(|project_id| project_id as u32);
                     let mode = if let Some(mode) = incoming.get("mode") {
-                        serde_json::from_value::<WebhookMode>(mode.clone())
-                            .map_err(|err| ModelError::Custom(format!("mode is invalid: {:?}", err)))?
+                        serde_json::from_value::<WebhookMode>(mode.clone()).map_err(|err| {
+                            ModelError::Custom(format!("mode is invalid: {:?}", err))
+                        })?
                     } else {
                         WebhookMode::Event
                     };
@@ -889,7 +892,9 @@ mod tests {
 
     #[test]
     fn to_webhook_minimal_defaults() {
-        let m = json!({"name": "n", "url": "http://x"}).to_webhook().unwrap();
+        let m = json!({"name": "n", "url": "http://x"})
+            .to_webhook()
+            .unwrap();
         assert_eq!(m.name.unwrap(), "n");
         assert_eq!(m.url.unwrap(), "http://x");
         assert_eq!(m.topics.unwrap(), json!([]));

@@ -31,7 +31,9 @@ impl SecretGuard {
     fn set(v: &str) -> Self {
         let orig = std::env::var("KOJI_SECRET").ok();
         // SAFETY: single-threaded actix_web::test runtime; serialised by SERIAL.
-        unsafe { std::env::set_var("KOJI_SECRET", v); }
+        unsafe {
+            std::env::set_var("KOJI_SECRET", v);
+        }
         Self(orig)
     }
 }
@@ -59,7 +61,9 @@ async fn internal_config_requires_auth_when_secret_set() {
     let app = test::init_service(koji_service::test_internal_authed_app()).await;
 
     // No bearer → 401.
-    let req = test::TestRequest::get().uri("/internal/config").to_request();
+    let req = test::TestRequest::get()
+        .uri("/internal/config")
+        .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status().as_u16(), 401, "no bearer → 401");
 
@@ -148,15 +152,20 @@ async fn cleanup_geofence(db: &sea_orm::DatabaseConnection, id: &str) {
 /// so the admin edit form can hydrate it. They are intentionally NOT byte-equal.
 #[actix_web::test]
 async fn internal_geofence_getone_returns_richer_related_data() {
-    let Some(raw_db) = test_db().await else { return };
+    let Some(raw_db) = test_db().await else {
+        return;
+    };
     let _serial = serial_guard();
 
     let koji_db = build_koji_db(raw_db.clone()).await;
     let jobs = std::sync::Arc::new(koji_jobs::JobQueue::new(raw_db.clone(), "test-worker"));
 
     // Use the extended test_db_app_with_internal (mounts both /api/v2 and /internal).
-    let app =
-        test::init_service(koji_service::test_db_app_with_internal(koji_db.clone(), jobs)).await;
+    let app = test::init_service(koji_service::test_db_app_with_internal(
+        koji_db.clone(),
+        jobs,
+    ))
+    .await;
 
     // Create a geofence via the public API.
     let tag = format!("int-parity-{}", koji_jobs::JobId::new().as_string());

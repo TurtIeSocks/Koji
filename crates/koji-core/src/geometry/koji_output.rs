@@ -9,8 +9,8 @@
 //! `geo::Geometry` stores `[x, y]` (lon, lat), so every extraction flips to
 //! `[coord.y, coord.x]`.
 
-use geo::{Geometry, LineString, Polygon};
 use crate::Precision;
+use geo::{Geometry, LineString, Polygon};
 
 use super::{MultiStruct, MultiVec, PointStruct, Poracle, SingleStruct, SingleVec};
 use crate::UnknownId;
@@ -387,7 +387,9 @@ fn geojson_geometry_closed(geom: &Geometry<Precision>) -> String {
         }
     };
     match &mut value {
-        geojson::GeometryValue::Polygon { coordinates: rings } => rings.iter_mut().for_each(close_ring),
+        geojson::GeometryValue::Polygon { coordinates: rings } => {
+            rings.iter_mut().for_each(close_ring)
+        }
         geojson::GeometryValue::MultiPolygon { coordinates: polys } => polys
             .iter_mut()
             .flat_map(|p| p.iter_mut())
@@ -769,8 +771,13 @@ mod tests {
     fn single_vec_multipoint_feature_matches_golden() {
         use crate::geometry::single_vec_to_multipoint_feature;
 
-        let golden =
-            geojson::GeometryValue::MultiPoint { coordinates: vec![geojson::Position::from([2.0, 1.0]), geojson::Position::from([4.0, 3.0]), geojson::Position::from([6.0, 5.0])] };
+        let golden = geojson::GeometryValue::MultiPoint {
+            coordinates: vec![
+                geojson::Position::from([2.0, 1.0]),
+                geojson::Position::from([4.0, 3.0]),
+                geojson::Position::from([6.0, 5.0]),
+            ],
+        };
         for centers in [
             vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],             // open
             vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2.0]], // pre-closed
@@ -793,12 +800,14 @@ mod tests {
     fn single_vec_polygon_feature_matches_golden() {
         use crate::geometry::single_vec_to_polygon_feature;
 
-        let golden = geojson::GeometryValue::Polygon { coordinates: vec![vec![
-            geojson::Position::from([2.0, 1.0]),
-            geojson::Position::from([4.0, 3.0]),
-            geojson::Position::from([6.0, 5.0]),
-            geojson::Position::from([2.0, 1.0]),
-        ]] };
+        let golden = geojson::GeometryValue::Polygon {
+            coordinates: vec![vec![
+                geojson::Position::from([2.0, 1.0]),
+                geojson::Position::from([4.0, 3.0]),
+                geojson::Position::from([6.0, 5.0]),
+                geojson::Position::from([2.0, 1.0]),
+            ]],
+        };
         for centers in [
             vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], // open ring
             vec![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2.0]], // pre-closed

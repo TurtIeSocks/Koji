@@ -353,5 +353,4 @@ mod tests {
         let val: serde_json::Value = parse_v2(body).expect("ok data:{} should parse");
         assert!(val.is_object());
     }
-
 }

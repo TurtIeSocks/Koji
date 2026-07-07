@@ -117,10 +117,15 @@ impl WebhookSubscriber {
                 }
             }
         }
-        let resp = req.send().await.map_err(|e| DeliverError::Http(e.to_string()))?;
+        let resp = req
+            .send()
+            .await
+            .map_err(|e| DeliverError::Http(e.to_string()))?;
         let status = resp.status();
         if !status.is_success() {
-            return Err(DeliverError::Status { status: status.as_u16() });
+            return Err(DeliverError::Status {
+                status: status.as_u16(),
+            });
         }
         Ok(status.as_u16())
     }
@@ -147,7 +152,9 @@ fn topics_match(topics: &serde_json::Value, topic: &str) -> bool {
 /// payload's `projectIds` array contains `pid`, or its scalar `projectId`
 /// equals `pid`. Events with neither key never match a scoped subscription.
 fn project_matches(sub_project_id: Option<u32>, payload: &serde_json::Value) -> bool {
-    let Some(pid) = sub_project_id else { return true };
+    let Some(pid) = sub_project_id else {
+        return true;
+    };
     let pid = pid as u64;
     if payload.get("projectId").and_then(serde_json::Value::as_u64) == Some(pid) {
         return true;

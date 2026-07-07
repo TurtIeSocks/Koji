@@ -173,12 +173,11 @@ pub fn test_internal_geofences_app(
         InitError = (),
     >,
 > {
-    App::new()
-        .app_data(web::Data::new(db))
-        .service(web::scope("/internal").service(
-            web::resource("/geofences")
-                .route(web::get().to(internal::geofences::list_rows)),
-        ))
+    App::new().app_data(web::Data::new(db)).service(
+        web::scope("/internal").service(
+            web::resource("/geofences").route(web::get().to(internal::geofences::list_rows)),
+        ),
+    )
 }
 
 /// Test surface: a minimal App mounting `GET /internal/routes` (row list).
@@ -194,12 +193,10 @@ pub fn test_internal_routes_app(
         InitError = (),
     >,
 > {
-    App::new()
-        .app_data(web::Data::new(db))
-        .service(web::scope("/internal").service(
-            web::resource("/routes")
-                .route(web::get().to(internal::routes::list_rows)),
-        ))
+    App::new().app_data(web::Data::new(db)).service(
+        web::scope("/internal")
+            .service(web::resource("/routes").route(web::get().to(internal::routes::list_rows))),
+    )
 }
 
 /// Test surface: a minimal App mounting `/api/v2/projects` (the macro-generated
@@ -252,11 +249,7 @@ pub fn test_internal_live_app(
     >,
 > {
     use std::sync::Arc;
-    let events = Arc::new(EventDispatcher::new(
-        db.koji.clone(),
-        vec![],
-        "test-worker",
-    ));
+    let events = Arc::new(EventDispatcher::new(db.koji.clone(), vec![], "test-worker"));
     let hub_arc = Arc::new(hub);
     App::new()
         .app_data(web::Data::new(db))
@@ -282,10 +275,7 @@ pub use internal::realtime::realtime_ws;
 
 /// Test surface: build a `ServerEvent`.
 #[doc(hidden)]
-pub fn test_server_event(
-    t: &str,
-    payload: serde_json::Value,
-) -> internal::realtime::ServerEvent {
+pub fn test_server_event(t: &str, payload: serde_json::Value) -> internal::realtime::ServerEvent {
     internal::realtime::ServerEvent::new(t, payload)
 }
 
@@ -350,11 +340,7 @@ pub fn test_db_app_with_internal(
     >,
 > {
     use std::sync::Arc;
-    let events = Arc::new(EventDispatcher::new(
-        db.koji.clone(),
-        vec![],
-        "test-worker",
-    ));
+    let events = Arc::new(EventDispatcher::new(db.koji.clone(), vec![], "test-worker"));
     let hub = Arc::new(internal::realtime::RealtimeHub::new());
     App::new()
         .app_data(web::Data::new(db))
@@ -640,10 +626,7 @@ pub async fn start() -> io::Result<()> {
             // bespoke row-list at `GET /internal/geofences` + WS hub at
             // `GET /internal/realtime`. Behind the same `public_validator` auth.
             // Not in OpenAPI (internal surface only).
-            .service(
-                internal::scope()
-                    .wrap(HttpAuthentication::with_fn(auth::public_validator)),
-            )
+            .service(internal::scope().wrap(HttpAuthentication::with_fn(auth::public_validator)))
             // Liveness + readiness probes (top-level, unauthenticated).
             // `/healthz` = process up; `/readyz` = DB reachable (200) or 503.
             .service(web::resource("/healthz").route(web::get().to(HttpResponse::Ok)))

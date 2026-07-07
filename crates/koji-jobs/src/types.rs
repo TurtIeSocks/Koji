@@ -189,7 +189,12 @@ impl ProgressHandle {
         public_id: String,
         sink: Option<Arc<dyn JobEventSink>>,
     ) -> Self {
-        ProgressHandle { db, job_id, public_id, sink }
+        ProgressHandle {
+            db,
+            job_id,
+            public_id,
+            sink,
+        }
     }
 
     /// Persist `progress` (clamped to `[0.0, 1.0]`) and an optional `phase`.
@@ -264,25 +269,15 @@ mod tests {
         #[allow(clippy::type_complexity)]
         struct Rec(Mutex<Vec<(String, String, f32, Option<String>)>>);
         impl JobEventSink for Rec {
-            fn on_job_status(
-                &self,
-                id: &str,
-                status: &str,
-                progress: f32,
-                phase: Option<&str>,
-            ) {
-                self.0
-                    .lock()
-                    .unwrap()
-                    .push((id.into(), status.into(), progress, phase.map(Into::into)));
+            fn on_job_status(&self, id: &str, status: &str, progress: f32, phase: Option<&str>) {
+                self.0.lock().unwrap().push((
+                    id.into(),
+                    status.into(),
+                    progress,
+                    phase.map(Into::into),
+                ));
             }
-            fn on_job_progress(
-                &self,
-                id: &str,
-                status: &str,
-                progress: f32,
-                phase: Option<&str>,
-            ) {
+            fn on_job_progress(&self, id: &str, status: &str, progress: f32, phase: Option<&str>) {
                 self.0.lock().unwrap().push((
                     id.into(),
                     format!("p:{status}"),
@@ -296,10 +291,7 @@ mod tests {
         sink.on_job_status("01J", "running", 0.0, None);
         sink.on_job_progress("01J", "running", 0.5, Some("clustering"));
         let got = rec.0.lock().unwrap();
-        assert_eq!(
-            got[0],
-            ("01J".into(), "running".into(), 0.0, None)
-        );
+        assert_eq!(got[0], ("01J".into(), "running".into(), 0.0, None));
         assert_eq!(got[1].3.as_deref(), Some("clustering"));
     }
 

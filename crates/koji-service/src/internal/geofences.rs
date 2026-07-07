@@ -2,7 +2,7 @@
 //! DataTable. Reuses the public geofence list DB path
 //! (`geofence::Query::paginate` / `AdminReqParsed`) — only the serialization
 //! differs (rows, not a GeoJSON FeatureCollection). Contract §2 `GeofenceRow`.
-use actix_web::{web, HttpResponse};
+use actix_web::{HttpResponse, web};
 use koji_db::{KojiDb, query_args::AdminReqParsed};
 use serde::{Deserialize, Serialize};
 
@@ -44,14 +44,8 @@ pub(crate) async fn list_rows(
     let args = AdminReqParsed {
         page: (page - 1) as u64, // koji-db paginate is 0-based
         per_page: per_page as u64,
-        sort_by: query
-            .sort_by
-            .clone()
-            .unwrap_or_else(|| "id".to_string()),
-        order: query
-            .order
-            .clone()
-            .unwrap_or_else(|| "ASC".to_string()),
+        sort_by: query.sort_by.clone().unwrap_or_else(|| "id".to_string()),
+        order: query.order.clone().unwrap_or_else(|| "ASC".to_string()),
         q: query.q.clone().unwrap_or_default(),
         geotype: query.geotype.clone(),
         project: query.project,

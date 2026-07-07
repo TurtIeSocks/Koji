@@ -17,8 +17,8 @@
 //! `400` before any DB work.
 
 use actix_web::{HttpResponse, post, web};
-use koji_core::Precision;
 use geojson::{Feature, FeatureCollection, Geometry, GeometryValue};
+use koji_core::Precision;
 use koji_core::{KojiBbox, SpawnpointTth};
 use koji_db::KojiDb;
 use koji_golbat::GenericDataToVec;
@@ -210,7 +210,9 @@ fn bbox_collection(bbox: KojiBbox) -> FeatureCollection {
     ];
     let feature = Feature {
         bbox: None,
-        geometry: Some(Geometry::new(GeometryValue::Polygon { coordinates: vec![ring] })),
+        geometry: Some(Geometry::new(GeometryValue::Polygon {
+            coordinates: vec![ring],
+        })),
         id: None,
         properties: None,
         foreign_members: None,

@@ -83,14 +83,26 @@ mod webhook_enum_tests {
 
     #[test]
     fn mode_wire_strings_are_lowercase() {
-        assert_eq!(serde_json::to_string(&WebhookMode::Event).unwrap(), "\"event\"");
-        assert_eq!(serde_json::to_string(&WebhookMode::Ping).unwrap(), "\"ping\"");
+        assert_eq!(
+            serde_json::to_string(&WebhookMode::Event).unwrap(),
+            "\"event\""
+        );
+        assert_eq!(
+            serde_json::to_string(&WebhookMode::Ping).unwrap(),
+            "\"ping\""
+        );
     }
 
     #[test]
     fn method_wire_strings_are_uppercase() {
-        assert_eq!(serde_json::to_string(&WebhookMethod::Get).unwrap(), "\"GET\"");
-        assert_eq!(serde_json::to_string(&WebhookMethod::Post).unwrap(), "\"POST\"");
+        assert_eq!(
+            serde_json::to_string(&WebhookMethod::Get).unwrap(),
+            "\"GET\""
+        );
+        assert_eq!(
+            serde_json::to_string(&WebhookMethod::Post).unwrap(),
+            "\"POST\""
+        );
     }
 
     #[test]

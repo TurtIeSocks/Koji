@@ -4,8 +4,8 @@
 //! `to_rect` is the single bridge between the two. Fields are named, never
 //! positional, eliminating the coordinate-order ambiguity of the legacy zoo.
 
-use geo::{Rect, coord};
 use crate::Precision;
+use geo::{Rect, coord};
 use serde::{Deserialize, Serialize};
 
 use crate::TrimPrecision;

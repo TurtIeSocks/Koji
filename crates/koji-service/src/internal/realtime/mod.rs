@@ -29,7 +29,11 @@ impl RealtimeHub {
         self.tx.subscribe()
     }
 }
-impl Default for RealtimeHub { fn default() -> Self { Self::new() } }
+impl Default for RealtimeHub {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl koji_jobs::JobEventSink for RealtimeHub {
     /// Publish a job status change to `jobs/{id}` (type `"status"`) AND to
@@ -50,10 +54,7 @@ impl koji_jobs::JobEventSink for RealtimeHub {
         );
         self.publish(
             topics::jobs_topic(),
-            topics::ServerEvent::new(
-                "updated",
-                serde_json::json!({ "id": id, "status": status }),
-            ),
+            topics::ServerEvent::new("updated", serde_json::json!({ "id": id, "status": status })),
         );
     }
 
@@ -84,7 +85,7 @@ pub enum ClientFrame {
     Ping,
 }
 use actix_session::SessionExt;
-use actix_web::{web, HttpRequest, HttpResponse};
+use actix_web::{HttpRequest, HttpResponse, web};
 use futures_util::StreamExt;
 use std::collections::HashSet;
 
@@ -92,7 +93,12 @@ use std::collections::HashSet;
 /// OR empty `KOJI_SECRET` OR `?token=` query param == secret). Same-origin only.
 fn ws_authorized(req: &HttpRequest) -> bool {
     let session = req.get_session();
-    if session.get::<bool>("logged_in").ok().flatten().unwrap_or(false) {
+    if session
+        .get::<bool>("logged_in")
+        .ok()
+        .flatten()
+        .unwrap_or(false)
+    {
         return true;
     }
     let secret = std::env::var("KOJI_SECRET").unwrap_or_default();
@@ -106,9 +112,10 @@ fn ws_authorized(req: &HttpRequest) -> bool {
     if let Some(tok) = url::form_urlencoded::parse(req.query_string().as_bytes())
         .find(|(k, _)| k == "token")
         .map(|(_, v)| v.into_owned())
-        && crate::utils::auth::ct_eq(&tok, &secret) {
-            return true;
-        }
+        && crate::utils::auth::ct_eq(&tok, &secret)
+    {
+        return true;
+    }
     false
 }
 
@@ -181,7 +188,10 @@ mod hub_tests {
     async fn publish_reaches_a_live_subscriber() {
         let hub = RealtimeHub::new();
         let mut rx = hub.subscribe();
-        hub.publish("resource/geofence", topics::ServerEvent::new("created", serde_json::json!({"ids":[1]})));
+        hub.publish(
+            "resource/geofence",
+            topics::ServerEvent::new("created", serde_json::json!({"ids":[1]})),
+        );
         let (topic, ev) = rx.recv().await.unwrap();
         assert_eq!(topic, "resource/geofence");
         assert_eq!(ev.r#type, "created");
@@ -189,6 +199,9 @@ mod hub_tests {
     #[tokio::test]
     async fn publish_with_no_subscribers_does_not_panic() {
         let hub = RealtimeHub::new();
-        hub.publish("jobs", topics::ServerEvent::new("updated", serde_json::json!({"id":"x","status":"queued"})));
+        hub.publish(
+            "jobs",
+            topics::ServerEvent::new("updated", serde_json::json!({"id":"x","status":"queued"})),
+        );
     }
 }

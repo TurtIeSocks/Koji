@@ -133,7 +133,10 @@ impl Model {
         // geojson serializer flattens into Feature `properties` — so the show page
         // (and any consumer) sees `geofence_id` + `description`, not just id/name/mode.
         let mut extra = serde_json::Map::new();
-        extra.insert("geofence_id".to_string(), serde_json::json!(self.geofence_id));
+        extra.insert(
+            "geofence_id".to_string(),
+            serde_json::json!(self.geofence_id),
+        );
         if let Some(description) = &self.description {
             extra.insert("description".to_string(), serde_json::json!(description));
         }
@@ -304,7 +307,8 @@ impl Query {
         let new_fence = serde_json::from_value::<geojson::Geometry>(incoming.geometry);
         match new_fence {
             Ok(new_feature) => {
-                let value = serde_json::to_value(GeoJson::Geometry(new_feature)).expect("geojson serializes");
+                let value = serde_json::to_value(GeoJson::Geometry(new_feature))
+                    .expect("geojson serializes");
                 ActiveModel {
                     name: Set(incoming.name.to_owned()),
                     geofence_id: Set(incoming.geofence_id),
@@ -352,7 +356,8 @@ impl Query {
         let old_model: Option<Model> = Entity::find_by_id(id).one(db).await?;
         let new_geometry = serde_json::from_value::<geojson::Geometry>(new_model.geometry);
         if let Ok(new_geometry) = new_geometry {
-            let value = serde_json::to_value(GeoJson::Geometry(new_geometry)).expect("geojson serializes");
+            let value =
+                serde_json::to_value(GeoJson::Geometry(new_geometry)).expect("geojson serializes");
 
             let mut old_model: ActiveModel = old_model.unwrap().into();
             old_model.name = Set(new_model.name.to_owned());
@@ -402,7 +407,11 @@ impl Query {
         record.to_koji_geometry()
     }
 
-    pub async fn upsert<C: ConnectionTrait>(db: &C, id: u32, json: Json) -> Result<Model, ModelError> {
+    pub async fn upsert<C: ConnectionTrait>(
+        db: &C,
+        id: u32,
+        json: Json,
+    ) -> Result<Model, ModelError> {
         let old_model = Entity::find_by_id(id).one(db).await?;
         let mut new_model = json.to_route()?;
 
@@ -626,7 +635,6 @@ impl Query {
             .all(db)
             .await
     }
-
 }
 
 #[cfg(test)]

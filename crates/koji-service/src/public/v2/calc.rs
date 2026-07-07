@@ -32,11 +32,11 @@
 //! decision, flagged for the maintainer.
 
 use algorithms::bootstrap::{self, BootstrapConfig};
-use koji_core::Precision;
 use algorithms::clustering::{self, ClusteringConfig};
 use algorithms::routing::{self, RoutingConfig, SortBy};
 use algorithms::stats::Stats;
 use geojson::{Feature, FeatureCollection};
+use koji_core::Precision;
 use koji_core::{KojiGeometry, KojiGeometryCollection, KojiMeta, SingleVec};
 use koji_jobs::{JobCtx, JobError, JobHandler};
 use serde::{Deserialize, Serialize};
@@ -360,7 +360,12 @@ mod tests {
     /// duplicate closing coord — so each route below collapses to the same three
     /// distinct points.
     fn golden(coords: &[[Precision; 2]]) -> geojson::GeometryValue {
-        geojson::GeometryValue::MultiPoint { coordinates: coords.iter().map(|c| geojson::Position::from([c[0], c[1]])).collect() }
+        geojson::GeometryValue::MultiPoint {
+            coordinates: coords
+                .iter()
+                .map(|c| geojson::Position::from([c[0], c[1]]))
+                .collect(),
+        }
     }
 
     /// An OPEN routed center set (ring not pre-closed).

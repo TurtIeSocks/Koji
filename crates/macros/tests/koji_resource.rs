@@ -157,7 +157,11 @@ pub mod internal {
             pub fn created(_name: &str, _id: i64) -> Vec<(String, ServerEvent)> {
                 vec![]
             }
-            pub fn updated(_name: &str, _id: i64, _data: serde_json::Value) -> Vec<(String, ServerEvent)> {
+            pub fn updated(
+                _name: &str,
+                _id: i64,
+                _data: serde_json::Value,
+            ) -> Vec<(String, ServerEvent)> {
                 vec![]
             }
             pub fn deleted(_name: &str, _id: i64) -> Vec<(String, ServerEvent)> {
@@ -329,8 +333,7 @@ fn list_query_accepts_camel_sort_and_filters() {
         geotype: Option<String>,
         mode: Option<String>,
     }
-    let q: ListQuery =
-        serde_urlencoded::from_str("sortBy=name&order=DESC&q=foo&parent=3").unwrap();
+    let q: ListQuery = serde_urlencoded::from_str("sortBy=name&order=DESC&q=foo&parent=3").unwrap();
     assert_eq!(q.sort_by.as_deref(), Some("name"));
     assert_eq!(q.order.as_deref(), Some("DESC"));
     assert_eq!(q.q.as_deref(), Some("foo"));

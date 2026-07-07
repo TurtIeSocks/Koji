@@ -106,7 +106,11 @@ pub fn smallest_enclosing_circle(pts: &[[Precision; 2]]) -> Circle {
 
 /// The two intersection points of equal-radius (`rho`) circles centered at `a`
 /// and `b`. `None` when the centers coincide or are further than `2*rho` apart.
-pub fn circle_intersections(a: [Precision; 2], b: [Precision; 2], rho: Precision) -> Option<[[Precision; 2]; 2]> {
+pub fn circle_intersections(
+    a: [Precision; 2],
+    b: [Precision; 2],
+    rho: Precision,
+) -> Option<[[Precision; 2]; 2]> {
     let d2 = dist2(a, b);
     if d2 < 1e-18 || d2 > 4.0 * rho * rho {
         return None;
