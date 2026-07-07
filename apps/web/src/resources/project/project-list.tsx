@@ -1,6 +1,5 @@
 import {
   DataTable,
-  BooleanField,
   FilterLiveSearch,
   FunctionField,
 } from "@/components/admin";
@@ -16,9 +15,6 @@ export const ProjectList = () => (
   >
     <DataTable>
       <DataTable.Col source="name" />
-      <DataTable.Col source="golbat" label="Golbat Sync">
-        <BooleanField source="golbat" />
-      </DataTable.Col>
       <DataTable.Col source="geofences" label="Geofences">
         <FunctionField
           source="geofences"
