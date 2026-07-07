@@ -181,3 +181,56 @@ fields (macro-regenerated).
 - E3.1: project `get_one` hydration fix (geofences[] in the response).
 - Per-subscription delivery log / per-subscription retry.
 - Payload templates per subscription (rejected as YAGNI in brainstorming).
+
+## 11. As built (2026-07-06)
+
+Backend landed as commits `c733a9ab..64fe9388` on `claude/v2` (10-task plan
+`docs/superpowers/plans/2026-07-06-projects-webhooks-v2-backend.md`). Deviations
+and clarifications relative to §1–9 above:
+
+- **Wire format is snake_case, list filter is `?project=`.** §5 sketched
+  camelCase (`projectId`); the shipped resource follows the established
+  `koji_resource!` convention — DTO field `project_id`, list query param
+  `?project=` (the existing `ListQuery` field). Event *payloads* remain
+  camelCase (`projectId`, `projectIds`, `geofenceId`, `routeId`, `addedIds`,
+  `removedIds`), matching the dragonite payload style.
+- **Two migrations, not one (§6).** The v1→ping data move
+  (`m20260706_000001`) must *read* `project.api_endpoint`/`api_key`, so the
+  column *drop* lives in a second migration (`m20260706_000002`) registered
+  after it. Same net effect; safer ordering.
+- **`webhook_subscription.id` is `u64` (`BIGINT`, pre-existing).** The
+  `koji_resource!`-generated `update`/`remove`/`test` handlers take `Path<u32>`
+  and cast `as u64` — the whole macro family is u32-pathed. Accepted; the
+  u32 id space is not a real ceiling. Flagged for a future macro-wide u64
+  path sweep.
+- **koji-events entity stays stringly-typed; koji-db entity is enum-typed.**
+  Delivery-side (`koji_events::…webhook_subscription`) keeps `mode`/`method`
+  as `String` (dependency-light crate); CRUD-side (`koji_db::db::webhook`)
+  uses `WebhookMode`/`WebhookMethod` `DeriveActiveEnum`s. A parity test in
+  `v2_webhooks_db.rs` asserts both entities read the same row identically.
+- **PATCH overlay-merge is webhook-only.** `webhook::Query::upsert` overlays
+  the patch JSON onto the stored row before converting, so a partial PATCH
+  never clobbers unset fields. `project`/`property`/`tile_server` still carry
+  the pre-existing clobber-prone PATCH (a partial patch rebuilds the row from
+  the patch alone) — a separate bug, spun off as its own task, not fixed here.
+- **`/test` returns 200 with `{delivered:false, upstream_status:null,
+  error:<string>}` on upstream failure;** only an unknown webhook id is 404.
+  It fires synchronously via `WebhookSubscriber::deliver_to`, bypassing the
+  outbox (no retries — the admin is watching the response).
+- **`project.geofences_changed` for project-PATCH bulk-assign is deferred.**
+  Geofence create/update and the atomic import path emit it; a project PATCH
+  carrying `"geofences"` does not (the macro handler is sealed and koji-db
+  must not write the outbox). Marked with a `ponytail:` comment on
+  `project::upsert_related_geofences`, to wire when E9.1 builds the reverse
+  bulk-assign UI. Import emits **one** event per affected project, after the
+  transaction commits, using a before/after snapshot (it can add *and* remove
+  links via Overwrite reconciliation).
+
+Verification: `cargo test --workspace` green; `cargo clippy --workspace
+--all-targets` clean. `cargo fmt --all --check` shows repo-wide drift already
+present at the branch base under the local rustfmt (a toolchain-version skew,
+not introduced by this work) — deferred to CI's `@stable` rustfmt.
+
+Follow-on (UI + docs) is a separate plan: the admin `webhooks` resource page,
+project-show webhooks section, project-form field removal, and the
+`apps/web-docs` integrations rewrite (§7–8) are not in this backend branch.
