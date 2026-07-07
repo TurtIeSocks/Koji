@@ -735,10 +735,11 @@ fn pascal_case(ident: &Ident) -> Ident {
 /// koji_resource! {
 ///     module: project,          // koji-db `db::project::Query`
 ///     seg: "projects",          // URL segment
+///     topic: "project",         // realtime + outbox topic base
+///     outbox: true,             // optional: also publish `<topic>.updated`/`.deleted` to the events outbox
 ///     create: {                 // Create DTO fields (required unless `Option<…>`)
 ///         name: String,
-///         api_endpoint: Option<String>,
-///         golbat: bool,
+///         description: Option<String>,
 ///     }
 /// }
 /// ```
