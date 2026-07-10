@@ -15,11 +15,16 @@ function makeCalc(overrides?: Partial<UseCalcReturn>): UseCalcReturn {
 	return {
 		params: {
 			mode: "cluster",
-			category: "pokestop",
+			strategy: "radius",
 			radius: 70,
-			minPoints: 1,
+			s2Level: 15,
+			s2Size: 9,
+			minPoints: 3,
 			clusterMode: null,
+			maxClusters: null,
+			centerClusters: false,
 			sortBy: null,
+			tth: "All",
 		},
 		setParams: vi.fn(),
 		job: null,
@@ -41,7 +46,7 @@ function renderControls(props: Partial<React.ComponentProps<typeof CalcControls>
 		onRun,
 		screen: render(
 			<QueryClientProvider client={qc}>
-				<CalcControls calc={calc} onRun={onRun} disabled={props.disabled} disabledReason={props.disabledReason} />
+				<CalcControls calc={calc} category={props.category ?? "pokestop"} onRun={onRun} disabled={props.disabled} disabledReason={props.disabledReason} />
 			</QueryClientProvider>,
 		),
 	};
@@ -54,7 +59,7 @@ beforeEach(() => {
 
 test("renders the mode select and clicking Calculate calls onRun", async () => {
 	const { screen, onRun } = renderControls();
-	await expect.element(screen.getByRole("combobox", { name: /mode/i })).toBeInTheDocument();
+	await expect.element(screen.getByRole("combobox", { name: "Mode", exact: true })).toBeInTheDocument();
 	const btn = screen.getByRole("button", { name: /calculate/i });
 	await expect.element(btn).toBeEnabled();
 	await btn.click();
@@ -70,9 +75,9 @@ test("disabled prop disables the Calculate button and shows the reason", async (
 test("changing the mode via the calc prop calls setParams", async () => {
 	const calc = makeCalc();
 	const { screen } = renderControls({ calc });
-	await screen.getByRole("combobox", { name: /mode/i }).click();
-	await screen.getByText("Route", { exact: true }).first().click();
-	expect(calc.setParams).toHaveBeenCalledWith({ mode: "route" });
+	await screen.getByRole("combobox", { name: "Mode", exact: true }).click();
+	await screen.getByText("Bootstrap", { exact: true }).first().click();
+	expect(calc.setParams).toHaveBeenCalledWith({ mode: "bootstrap" });
 });
 
 test("shows progress + stats while a job is present", async () => {
@@ -82,6 +87,6 @@ test("shows progress + stats while a job is present", async () => {
 	});
 	const { screen } = renderControls({ calc });
 	await expect.element(screen.getByText("running")).toBeInTheDocument();
-	await expect.element(screen.getByText(/clustering/i)).toBeInTheDocument();
+	await expect.element(screen.getByText("clustering", { exact: true })).toBeInTheDocument();
 	await expect.element(screen.getByText(/3 clusters/i)).toBeInTheDocument();
 });

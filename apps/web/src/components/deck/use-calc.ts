@@ -21,11 +21,16 @@ const norm = (s: string | undefined): string => (s ?? "").toLowerCase();
 
 const DEFAULTS: CalcParams = {
 	mode: "cluster",
-	category: "pokestop",
+	strategy: "radius",
 	radius: 70,
-	minPoints: 1,
+	s2Level: 15,
+	s2Size: 9,
+	minPoints: 3,
 	clusterMode: null,
+	maxClusters: null,
+	centerClusters: false,
 	sortBy: null,
+	tth: "All",
 };
 
 export interface UseCalcReturn {

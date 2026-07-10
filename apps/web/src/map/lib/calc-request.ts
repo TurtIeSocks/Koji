@@ -1,20 +1,33 @@
-export type CalcMode = "cluster" | "route" | "bootstrap" | "reroute" | "routeStats";
+/** UI calc modes. "cluster" maps to the backend `route` mode (cluster + route)
+ *  — we always produce an ordered route now; `sortBy` chooses the ordering
+ *  (or None). "bootstrap" maps to backend `bootstrap`. */
+export type CalcMode = "cluster" | "bootstrap";
 
-/** Modes that compute over an AREA + golbat category (vs. re-processing a route). */
-export const AREA_MODES: CalcMode[] = ["cluster", "route", "bootstrap"];
-/** Modes that take an existing route's points as input (`clusters`). */
-export const ROUTE_INPUT_MODES: CalcMode[] = ["reroute", "routeStats"];
+/** Clustering/bootstrap strategy → backend `calculationMode`. */
+export type CalcStrategy = "radius" | "s2";
+
+export type TthFilter = "All" | "Known" | "Unknown";
 
 export interface CalcParams {
   mode: CalcMode;
-  /** golbat data category (cluster/route/bootstrap). */
-  category: string;
+  strategy: CalcStrategy;
+  /** meters (radius strategy). */
   radius: number;
+  /** S2 strategy. */
+  s2Level: number;
+  s2Size: number;
   minPoints: number;
-  /** clustering algorithm from GET /algorithms (cluster/route); server default if unset. */
+  /** clustering algorithm (`clustering.mode`) — honeycomb/fastest/fast/balanced/
+   *  better/best from GET /algorithms. null = server default (balanced). */
   clusterMode?: string | null;
-  /** routing sort from GET /algorithms (route/reroute); server default if unset. */
+  /** `clustering.maxClusters`. null/0 = unlimited. Radius strategy only. */
+  maxClusters?: number | null;
+  /** `clustering.centerClusters` — smallest-enclosing-circle recentre. Radius only. */
+  centerClusters: boolean;
+  /** routing algorithm (`routing.sortBy`). null = server default (TSP for route). */
   sortBy?: string | null;
+  /** spawnpoint confirmed/unconfirmed filter (`dataFilter.tth`). */
+  tth: TthFilter;
 }
 
 /** Wrap any feature/geometry as a single-feature FeatureCollection area. */
@@ -22,8 +35,7 @@ export function featureToAreaFC(feature: GeoJSON.Feature): GeoJSON.FeatureCollec
   return { type: "FeatureCollection", features: [feature] };
 }
 
-/** A selected route's geojson coords ([lon,lat]) → koji SingleVec ([lat,lon]).
- *  reroute/routeStats consume `clusters` in koji [lat,lon] order, NOT geojson. */
+/** A selected route's geojson coords ([lon,lat]) → koji SingleVec ([lat,lon]). */
 export function routeCoordsToClusters(feature: GeoJSON.Feature | null): [number, number][] {
   const geom = feature?.geometry;
   let ring: number[][] = [];
@@ -33,35 +45,49 @@ export function routeCoordsToClusters(feature: GeoJSON.Feature | null): [number,
 }
 
 export interface CalcInputs {
-  /** geojson area for cluster/route/bootstrap. */
+  /** geojson area for cluster/bootstrap. */
   area?: GeoJSON.FeatureCollection;
-  /** [lat,lon] clusters for reroute/routeStats. */
-  clusters?: [number, number][];
+  /** golbat data category (derived from the route's mode). */
+  category?: string;
 }
 
-/** Build the POST /api/v2/jobs body. `routing` is omitted so the server applies
- *  its per-mode default (route → TSP); `clustering.mode` rides only when chosen. */
+/** Build the POST /api/v2/jobs body from the panel params + resolved inputs.
+ *  Field names are the v2 backend wire names (camelCase). */
 export function buildCalcBody(p: CalcParams, inp: CalcInputs): Record<string, unknown> {
-  switch (p.mode) {
-    case "cluster":
-    case "route": {
-      const clustering: Record<string, unknown> = { radius: p.radius, minPoints: p.minPoints };
-      if (p.clusterMode) clustering.mode = p.clusterMode;
-      return {
-        mode: p.mode, category: p.category, area: inp.area, clustering,
-        ...(p.sortBy ? { routing: { sortBy: p.sortBy } } : {}),
-      };
+  const routing = p.sortBy ? { routing: { sortBy: p.sortBy } } : {};
+
+  if (p.mode === "bootstrap") {
+    const bootstrap: Record<string, unknown> = { calculationMode: p.strategy, radius: p.radius };
+    if (p.strategy === "s2") {
+      bootstrap.s2Level = p.s2Level;
+      bootstrap.s2Size = p.s2Size;
     }
-    case "bootstrap":
-      return { mode: "bootstrap", category: p.category, area: inp.area, bootstrap: { radius: p.radius } };
-    case "reroute":
-      return {
-        mode: "reroute", clusters: inp.clusters ?? [], radius: p.radius,
-        ...(p.sortBy ? { routing: { sortBy: p.sortBy } } : {}),
-      };
-    case "routeStats":
-      return { mode: "routeStats", clusters: inp.clusters ?? [], radius: p.radius, minPoints: p.minPoints };
+    return { mode: "bootstrap", category: inp.category, area: inp.area, bootstrap, ...routing };
   }
+
+  // "cluster" → backend `route` mode: cluster then order into a route.
+  const clustering: Record<string, unknown> = {
+    calculationMode: p.strategy,
+    minPoints: p.minPoints,
+  };
+  if (p.strategy === "s2") {
+    clustering.s2Level = p.s2Level;
+    clustering.s2Size = p.s2Size;
+  } else {
+    clustering.radius = p.radius;
+    if (p.clusterMode) clustering.mode = p.clusterMode;
+    if (p.maxClusters && p.maxClusters > 0) clustering.maxClusters = p.maxClusters;
+    if (p.centerClusters) clustering.centerClusters = true;
+  }
+  const dataFilter = p.tth && p.tth !== "All" ? { dataFilter: { tth: p.tth } } : {};
+  return {
+    mode: "route",
+    category: inp.category,
+    area: inp.area,
+    clustering,
+    ...routing,
+    ...dataFilter,
+  };
 }
 
 export interface CalcResult {

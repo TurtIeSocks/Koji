@@ -70,7 +70,7 @@ describe("useCalc", () => {
 
 	it("resolves via the safety-net when the job is already terminal at submit", async () => {
 		const rendered = renderHook(() =>
-			useCalc({ mode: "route", category: "spawnpoint" }),
+			useCalc({ mode: "cluster" }),
 		);
 		mounted = rendered;
 		const { result } = rendered;
@@ -109,7 +109,7 @@ describe("useCalc", () => {
 			.mockResolvedValue(succeeded({ total_clusters: 7 }));
 
 		const rendered = renderHook(() =>
-			useCalc({ mode: "route", category: "spawnpoint" }),
+			useCalc({ mode: "cluster" }),
 		);
 		mounted = rendered;
 		const { result } = rendered;

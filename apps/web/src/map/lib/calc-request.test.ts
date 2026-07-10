@@ -4,7 +4,25 @@ import {
   routeCoordsToClusters,
   buildCalcBody,
   parseCalcResult,
+  type CalcParams,
 } from "@/map/lib/calc-request";
+
+const P = (over: Partial<CalcParams> = {}): CalcParams => ({
+  mode: "cluster",
+  strategy: "radius",
+  radius: 70,
+  s2Level: 15,
+  s2Size: 9,
+  minPoints: 3,
+  clusterMode: null,
+  maxClusters: null,
+  centerClusters: false,
+  sortBy: null,
+  tth: "All",
+  ...over,
+});
+
+const AREA = featureToAreaFC({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [0, 0] } });
 
 test("routeCoordsToClusters transposes geojson [lon,lat] → koji [lat,lon]", () => {
   const line: GeoJSON.Feature = {
@@ -16,49 +34,59 @@ test("routeCoordsToClusters transposes geojson [lon,lat] → koji [lat,lon]", ()
   expect(routeCoordsToClusters(null)).toEqual([]);
 });
 
-test("buildCalcBody: cluster carries area + clustering, and mode only when chosen", () => {
-  const area = featureToAreaFC({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [0, 0] } });
-  const bare = buildCalcBody({ mode: "cluster", category: "gym", radius: 70, minPoints: 3 }, { area });
-  expect(bare).toEqual({ mode: "cluster", category: "gym", area, clustering: { radius: 70, minPoints: 3 } });
-
-  const withMode = buildCalcBody(
-    { mode: "cluster", category: "pokestop", radius: 70, minPoints: 1, clusterMode: "fastest" },
-    { area },
-  );
-  expect((withMode.clustering as Record<string, unknown>).mode).toBe("fastest");
+test("cluster (radius) → backend route mode with radius clustering", () => {
+  const body = buildCalcBody(P(), { area: AREA, category: "gym" });
+  expect(body).toEqual({
+    mode: "route",
+    category: "gym",
+    area: AREA,
+    clustering: { calculationMode: "radius", minPoints: 3, radius: 70 },
+  });
 });
 
-test("buildCalcBody: bootstrap uses the bootstrap group; route omits routing (server default)", () => {
-  const area = featureToAreaFC({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [0, 0] } });
-  expect(buildCalcBody({ mode: "bootstrap", category: "pokestop", radius: 90, minPoints: 1 }, { area })).toEqual({
+test("cluster (s2) sends s2Level/s2Size, not radius", () => {
+  const body = buildCalcBody(P({ strategy: "s2", s2Level: 16, s2Size: 5 }), { area: AREA, category: "pokestop" });
+  const clustering = body.clustering as Record<string, unknown>;
+  expect(clustering.calculationMode).toBe("s2");
+  expect(clustering.s2Level).toBe(16);
+  expect(clustering.s2Size).toBe(5);
+  expect(clustering).not.toHaveProperty("radius");
+});
+
+test("radius-only knobs ride only when set (clusterMode / maxClusters / centerClusters)", () => {
+  const body = buildCalcBody(P({ clusterMode: "better", maxClusters: 12, centerClusters: true }), { area: AREA, category: "pokestop" });
+  expect(body.clustering).toEqual({
+    calculationMode: "radius",
+    minPoints: 3,
+    radius: 70,
+    mode: "better",
+    maxClusters: 12,
+    centerClusters: true,
+  });
+  // maxClusters 0 → omitted (unlimited).
+  const zero = buildCalcBody(P({ maxClusters: 0 }), { area: AREA });
+  expect(zero.clustering).not.toHaveProperty("maxClusters");
+});
+
+test("routing.sortBy rides only when set; unset omits routing (server default)", () => {
+  expect(buildCalcBody(P({ sortBy: "geohash" }), { area: AREA }).routing).toEqual({ sortBy: "geohash" });
+  expect(buildCalcBody(P(), { area: AREA })).not.toHaveProperty("routing");
+});
+
+test("dataFilter.tth rides only when not All", () => {
+  expect((buildCalcBody(P({ tth: "Known" }), { area: AREA }).dataFilter as { tth: string }).tth).toBe("Known");
+  expect(buildCalcBody(P({ tth: "All" }), { area: AREA })).not.toHaveProperty("dataFilter");
+});
+
+test("bootstrap uses the bootstrap group", () => {
+  expect(buildCalcBody(P({ mode: "bootstrap", radius: 90 }), { area: AREA, category: "pokestop" })).toEqual({
     mode: "bootstrap",
     category: "pokestop",
-    area,
-    bootstrap: { radius: 90 },
+    area: AREA,
+    bootstrap: { calculationMode: "radius", radius: 90 },
   });
-  const route = buildCalcBody({ mode: "route", category: "pokestop", radius: 70, minPoints: 1 }, { area });
-  expect(route).not.toHaveProperty("routing");
-});
-
-test("buildCalcBody: route/reroute carry routing.sortBy only when set", () => {
-  const area = featureToAreaFC({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [0, 0] } });
-  const route = buildCalcBody({ mode: "route", category: "pokestop", radius: 70, minPoints: 1, sortBy: "geohash" }, { area });
-  expect((route.routing as { sortBy: string }).sortBy).toBe("geohash");
-  const reroute = buildCalcBody({ mode: "reroute", category: "pokestop", radius: 70, minPoints: 1, sortBy: "s2" }, { clusters: [[1, 2]] });
-  expect((reroute.routing as { sortBy: string }).sortBy).toBe("s2");
-  // unset → no routing key (server default)
-  expect(buildCalcBody({ mode: "route", category: "pokestop", radius: 70, minPoints: 1 }, { area })).not.toHaveProperty("routing");
-});
-
-test("buildCalcBody: reroute/routeStats carry clusters ([lat,lon]) not area", () => {
-  const clusters: [number, number][] = [[47.6, -122.3], [47.4, -122.1]];
-  expect(buildCalcBody({ mode: "reroute", category: "pokestop", radius: 70, minPoints: 1 }, { clusters })).toEqual({
-    mode: "reroute",
-    clusters,
-    radius: 70,
-  });
-  const stats = buildCalcBody({ mode: "routeStats", category: "pokestop", radius: 70, minPoints: 2 }, { clusters });
-  expect(stats).toEqual({ mode: "routeStats", clusters, radius: 70, minPoints: 2 });
+  const s2 = buildCalcBody(P({ mode: "bootstrap", strategy: "s2", s2Level: 14, s2Size: 7 }), { area: AREA });
+  expect(s2.bootstrap).toEqual({ calculationMode: "s2", radius: 70, s2Level: 14, s2Size: 7 });
 });
 
 test("parseCalcResult pulls the FC + stats from a succeeded record", () => {
@@ -66,7 +94,6 @@ test("parseCalcResult pulls the FC + stats from a succeeded record", () => {
   const r = parseCalcResult({ result: { data: fc, stats: { total_clusters: 5 } } });
   expect(r.fc).toBe(fc);
   expect(r.stats).toEqual({ total_clusters: 5 });
-  // Non-FC / missing → null fc, no throw.
   expect(parseCalcResult({ result: null }).fc).toBeNull();
   expect(parseCalcResult(null).fc).toBeNull();
 });

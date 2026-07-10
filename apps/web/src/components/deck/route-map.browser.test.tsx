@@ -10,7 +10,7 @@ import type { UseCalcReturn } from "./use-calc";
 // without needing a real calc-client round trip.
 const { calcMock, useCalcSpy } = vi.hoisted(() => {
   const calcMock: import("./use-calc").UseCalcReturn = {
-    params: { mode: "cluster", category: "pokestop", radius: 70, minPoints: 1, clusterMode: null, sortBy: null },
+    params: { mode: "cluster", strategy: "radius", radius: 70, s2Level: 15, s2Size: 9, minPoints: 3, clusterMode: null, maxClusters: null, centerClusters: false, sortBy: null, tth: "All" },
     setParams: vi.fn(),
     job: null,
     result: null,
@@ -57,7 +57,7 @@ function renderRouteMap(record: Record<string, unknown> = { geofence_id: 7, geom
 
 function resetCalc(overrides: Partial<UseCalcReturn> = {}) {
   Object.assign(calcMock, {
-    params: { mode: "cluster", category: "pokestop", radius: 70, minPoints: 1, clusterMode: null, sortBy: null },
+    params: { mode: "cluster", strategy: "radius", radius: 70, s2Level: 15, s2Size: 9, minPoints: 3, clusterMode: null, maxClusters: null, centerClusters: false, sortBy: null, tth: "All" },
     job: null,
     result: null,
     stats: null,
@@ -93,15 +93,22 @@ describe("RouteMap", () => {
     );
   });
 
-  it("an AREA-mode result also sets the route mode via categoryToRouteMode", async () => {
+  it("derives the golbat category from the route mode (shown in the panel)", async () => {
+    // route.mode "pokemon" → spawnpoint. The category is read-only in the panel
+    // now (no dropdown); the calc uses it, and it drives the spawnpoint-only Tth.
+    const { screen } = renderRouteMap({ geofence_id: 7, geometry: null, mode: "pokemon" });
+    await expect.element(screen.getByText("spawnpoint")).toBeVisible();
+  });
+
+  it("a succeeded result does NOT overwrite the user-chosen route mode", async () => {
     resetCalc({
-      params: { mode: "cluster", category: "pokestop", radius: 70, minPoints: 1, clusterMode: null, sortBy: null },
       result: {
         type: "FeatureCollection",
         features: [{ type: "Feature", geometry: { type: "MultiPoint", coordinates: [[1, 2]] }, properties: {} }],
       },
     });
-    const { screen } = renderRouteMap();
+    const { screen } = renderRouteMap({ geofence_id: 7, geometry: null, mode: "quest" });
+    // geometry is written, but mode stays what the user set (was auto-set before).
     await expect.element(screen.getByTestId("geometry-probe")).toHaveAttribute("data-mode", "quest");
   });
 });
