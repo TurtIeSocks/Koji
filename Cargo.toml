@@ -89,7 +89,8 @@ hex  = "0.4.3"
 toml     = "1.1.2"
 tempfile = "3.27.0"
 # koji-service
-actix-files        = "0.6.10"
+rust-embed         = "8"
+mime_guess         = "2"
 actix-session      = { version = "0.11.0", features = ["cookie-session"] }
 actix-web-httpauth = "0.8.2"
 actix-test         = "0.1.5"

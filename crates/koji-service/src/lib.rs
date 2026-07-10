@@ -1,12 +1,7 @@
 use std::{env, io, sync::Arc};
 
-use actix_files::{Files, NamedFile};
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
-use actix_web::{
-    App, HttpResponse, HttpServer,
-    dev::{ServiceRequest, ServiceResponse},
-    middleware, web,
-};
+use actix_web::{App, HttpRequest, HttpResponse, HttpServer, middleware, web};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use geojson::{Feature, FeatureCollection};
 
@@ -19,7 +14,47 @@ use migration::{DbErr, Migrator, MigratorTrait};
 // private `mod public` is allowed; `start()` below still references
 // `CalculateHandler` via this path.
 pub use public::v2::calc::{CALC_KIND, CalcPayload, CalculateHandler};
-use utils::{auth, is_docker};
+use utils::auth;
+
+/// The compiled web app (`apps/web/dist`), copied into `web/` by the Makefile
+/// and embedded here. rust-embed's default: a RELEASE build bakes the bytes into
+/// the binary (single-file deploy); a DEBUG build reads `web/` live from disk
+/// (fast iteration). So embedding is "production only" with no extra gating.
+use rust_embed::Embed;
+
+#[derive(Embed)]
+#[folder = "web/"]
+struct WebAssets;
+
+/// Serve one embedded asset with a guessed content-type and a cache policy
+/// (Vite fingerprints `assets/*` → immutable; the HTML shell → no-cache).
+fn web_asset(path: &str) -> Option<HttpResponse> {
+    let file = WebAssets::get(path)?;
+    let mime = mime_guess::from_path(path).first_or_octet_stream();
+    let cache = if path.starts_with("assets/") {
+        "public, max-age=31536000, immutable"
+    } else {
+        "no-cache"
+    };
+    Some(
+        HttpResponse::Ok()
+            .content_type(mime.to_string())
+            .append_header(("Cache-Control", cache))
+            .body(file.data.into_owned()),
+    )
+}
+
+/// Default handler for everything the API scopes don't claim: serve the matching
+/// embedded asset, else fall back to `index.html` so client-side routes resolve.
+async fn serve_web(req: HttpRequest) -> HttpResponse {
+    let raw = req.path().trim_start_matches('/');
+    let path = if raw.is_empty() { "index.html" } else { raw };
+    web_asset(path)
+        .or_else(|| web_asset("index.html"))
+        .unwrap_or_else(|| {
+            HttpResponse::NotFound().body("web assets not embedded — run `make build`")
+        })
+}
 
 // ── Test-surface re-exports ───────────────────────────────────────────────
 //
@@ -523,15 +558,6 @@ pub async fn start() -> io::Result<()> {
     let _workers = Arc::clone(&jobs).spawn_workers(concurrency, registry);
     log::info!("[koji] spawned {concurrency} job worker(s)");
 
-    let path = || {
-        if is_docker() {
-            "./dist"
-        } else {
-            "../client/dist"
-        }
-        .to_string()
-    };
-
     HttpServer::new(move || {
         let client = nominatim::Client::new(
             url::Url::parse(
@@ -631,19 +657,9 @@ pub async fn start() -> io::Result<()> {
             // `/healthz` = process up; `/readyz` = DB reachable (200) or 503.
             .service(web::resource("/healthz").route(web::get().to(HttpResponse::Ok)))
             .service(web::resource("/readyz").route(web::get().to(readyz)))
-            .service(
-                Files::new("/", path())
-                    .index_file("index.html")
-                    .default_handler(move |req: ServiceRequest| {
-                        // "enables" wildcards for react-router && react-admin
-                        let (http_req, _) = req.into_parts();
-                        async move {
-                            let response = NamedFile::open(format!("{}/index.html", path()))?
-                                .into_response(&http_req);
-                            Ok(ServiceResponse::new(http_req, response))
-                        }
-                    }),
-            )
+            // Serve the embedded web app for everything the API scopes above
+            // don't claim; unknown paths fall back to index.html (SPA routing).
+            .default_service(web::route().to(serve_web))
     })
     .bind((
         std::env::var("HOST").unwrap_or("0.0.0.0".to_string()),

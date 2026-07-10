@@ -26,6 +26,12 @@ target/
 # koji-wasm build output
 crates/koji-wasm/pkg/
 
+# Embedded web app: apps/web/dist is copied here by `make build`, then baked
+# into the server binary by rust-embed. Track only the .gitkeep so the folder
+# (and thus a release build) works on a fresh checkout.
+crates/koji-service/web/*
+!crates/koji-service/web/.gitkeep
+
 # web-docs
 apps/web-docs/public/_pagefind
 bench-results/

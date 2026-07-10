@@ -18,7 +18,8 @@ koji-events        = { workspace = true }
 koji-dragonite     = { workspace = true }
 macros             = { workspace = true }
 actix-web          = { workspace = true }
-actix-files        = { workspace = true }
+rust-embed         = { workspace = true }
+mime_guess         = { workspace = true }
 actix-session      = { workspace = true }
 actix-web-httpauth = { workspace = true }
 actix-ws           = { workspace = true }

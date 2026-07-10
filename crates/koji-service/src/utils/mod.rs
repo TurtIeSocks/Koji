@@ -17,12 +17,6 @@ pub(crate) mod outbox;
 pub(crate) mod pagination;
 pub(crate) mod response;
 
-pub(crate) fn is_docker() -> bool {
-    env::current_dir()
-        .map(|p| p.join("dist").is_dir())
-        .unwrap_or(false)
-}
-
 pub(crate) async fn load_collection(
     instance: &String,
     conn: &KojiDb,
