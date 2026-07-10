@@ -47,9 +47,7 @@ describe("GeofenceShow", () => {
       </AdminContext>,
     );
     await expect.element(screen.getByText("Alpha", { exact: true }).first()).toBeVisible();
-    await expect
-      .element(screen.container.querySelector(".leaflet-container"))
-      .toBeInTheDocument();
+    await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
   });
 
   it("renders project chips in the projects field", async () => {

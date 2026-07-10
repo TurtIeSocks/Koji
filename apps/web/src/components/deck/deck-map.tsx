@@ -31,7 +31,8 @@ export interface DeckMapProps {
 
 export function DeckMap({
   layers, fitBounds, initialViewState, height = 400,
-  tileUrl = DEFAULT_TILE_URL, onViewStateChange, controller = true, getCursor, children,
+  tileUrl = DEFAULT_TILE_URL, onViewStateChange, controller = true,
+  getCursor = ({ isDragging }) => (isDragging ? "grabbing" : "grab"), children,
 }: DeckMapProps) {
   // Fit once on mount — a stable initial camera. Live camera stays transient.
   const [initial] = useState<ViewState>(() => {

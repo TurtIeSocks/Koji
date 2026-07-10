@@ -1,7 +1,6 @@
 import { TextField, ReferenceField } from "@/components/admin";
 import { ShowLive } from "@/components/realtime";
-import { MultiPointField } from "@/components/leaflet";
-import { DEFAULT_TILE_URL } from "@/lib/constants";
+import { DeckGeoJsonField } from "@/components/deck";
 import type { ShowProps } from "@/components/admin/views/show";
 
 export const RouteShow = (props: Pick<ShowProps, "id">) => (
@@ -13,7 +12,7 @@ export const RouteShow = (props: Pick<ShowProps, "id">) => (
         <TextField source="description" />
         <ReferenceField source="geofence_id" reference="geofence" empty="—" />
       </div>
-      <MultiPointField source="geometry" tileUrl={DEFAULT_TILE_URL} height={400} />
+      <DeckGeoJsonField source="geometry" variant="route" height={400} />
     </div>
   </ShowLive>
 );

@@ -6,8 +6,7 @@ import {
   ChipField,
 } from "@/components/admin";
 import { ShowLive } from "@/components/realtime";
-import { GeoJsonField } from "@/components/leaflet";
-import { DEFAULT_TILE_URL } from "@/lib/constants";
+import { DeckGeoJsonField } from "@/components/deck";
 import type { ShowProps } from "@/components/admin/views/show";
 
 export const GeofenceShow = (props: Pick<ShowProps, "id">) => (
@@ -24,7 +23,7 @@ export const GeofenceShow = (props: Pick<ShowProps, "id">) => (
           </SingleFieldList>
         </ReferenceArrayField>
       </div>
-      <GeoJsonField source="geometry" tileUrl={DEFAULT_TILE_URL} height={400} />
+      <DeckGeoJsonField source="geometry" height={400} />
     </div>
   </ShowLive>
 );
