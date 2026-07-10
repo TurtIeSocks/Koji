@@ -72,30 +72,16 @@ describe("Geofence form", () => {
       .toBeInTheDocument();
   });
 
-  it("renders the geometry map without error when a MultiPolygon record is loaded", async () => {
-    // GeofenceEdit hydrates the map from the record's geometry. If PolygonInput
-    // were still in place it would coerce MultiPolygon to Polygon on save,
-    // silently dropping sub-polygons. MultiPolygonInput must hydrate both rings.
-    // Pass id={1} so useEditController resolves the record (no route params in test).
-    const screen = render(wrap(<GeofenceEdit id={1} />));
-    // Wait for the record to load — EditView gates children on context.record,
-    // so the name input appearing proves the async getOne resolved and the form
-    // (including the Leaflet map) has mounted.
-    await expect.element(screen.getByLabelText(/name/i)).toBeVisible();
-    // Map must mount — no thrown error or missing container.
-    await expect
-      .element(screen.container.querySelector(".leaflet-container"))
-      .toBeInTheDocument();
-    // Geoman toolbar must also be present.
-    await expect
-      .element(screen.container.querySelector(".leaflet-pm-toolbar"))
-      .toBeInTheDocument();
-  });
-
-  it("renders the deck geometry input in the edit form", async () => {
+  it("renders the deck geometry map (NOT Leaflet) in the edit form for a MultiPolygon record", async () => {
+    // Edit uses the deck <GeofenceMap>, not Leaflet. Pass id={1} so
+    // useEditController resolves MULTI_POLYGON_RECORD (no route params in test);
+    // the name input appearing proves the async getOne resolved and the form mounted.
     const screen = render(wrap(<GeofenceEdit id={1} />));
     await expect.element(screen.getByLabelText(/name/i)).toBeVisible();
+    // The deck map must mount for the MultiPolygon record...
     await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
+    // ...and there must be NO Leaflet map on the edit page (single-map requirement).
+    expect(screen.container.querySelector(".leaflet-container")).toBeNull();
   });
 
   // shadmin's AutocompleteArrayInput renders a "Projects" <label> but without the
