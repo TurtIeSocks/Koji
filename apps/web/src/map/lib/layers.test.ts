@@ -52,6 +52,29 @@ test("the geofence being edited is dimmed; other geofences stay orange", () => {
   expect(getFill(other)).toEqual([255, 140, 0, 40]); // orange
 });
 
+test("calc cluster circles use the exact meter radius, and only when calcResultRadius is set", () => {
+  const fc: GeoJSON.FeatureCollection = {
+    type: "FeatureCollection",
+    features: [{ type: "Feature", geometry: { type: "MultiPoint", coordinates: [[-122.3, 47.5]] }, properties: {} }],
+  };
+  const withRadius = buildLayers({
+    visibility: vis(), markerSets: [], geofences: EMPTY, routes: EMPTY, s2Cells: [],
+    markerRadius: 30, onClick: vi.fn(),
+    calcResult: fc, calcResultIsRoute: true, calcResultRadius: 70,
+  });
+  const circles = withRadius.find((l) => l.id === "calc-circles");
+  expect(circles).toBeDefined();
+  expect((circles!.props as unknown as { radiusUnits: string }).radiusUnits).toBe("meters");
+  expect((circles!.props as unknown as { getRadius: number }).getRadius).toBe(70);
+
+  // No radius (e.g. S2 strategy) → no coverage circles.
+  const noRadius = buildLayers({
+    visibility: vis(), markerSets: [], geofences: EMPTY, routes: EMPTY, s2Cells: [],
+    markerRadius: 30, onClick: vi.fn(), calcResult: fc, calcResultIsRoute: true,
+  });
+  expect(noRadius.find((l) => l.id === "calc-circles")).toBeUndefined();
+});
+
 test("buildLayers appends an editable layer only when a draw mode is active", () => {
   const draftOff = buildLayers({
     visibility: vis(), markerSets: [], geofences: EMPTY, routes: EMPTY, s2Cells: [],

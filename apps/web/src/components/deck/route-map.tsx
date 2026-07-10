@@ -79,8 +79,11 @@ export function RouteMap() {
       ],
       geofences: fenceFC, routes: routeFC, s2Cells: [], markerRadius: 70, onClick: () => {}, pickable: false,
       calcResult: calc.result, calcResultIsRoute: true,
+      // Cluster circles at the exact calc radius (radius strategy only) — updates
+      // live as the user drags the radius.
+      calcResultRadius: calc.params.strategy === "radius" ? calc.params.radius : undefined,
     });
-  }, [fenceFeature, geometry, calc.result, gyms.data, stops.data, spawns.data, stations.data, routeMode]);
+  }, [fenceFeature, geometry, calc.result, gyms.data, stops.data, spawns.data, stations.data, routeMode, calc.params.radius, calc.params.strategy]);
 
   const fit = geometry ? geometryBounds(geometry) : fenceFeature?.geometry ? geometryBounds(fenceFeature.geometry) : null;
   const areaMissing = !fenceFeature;

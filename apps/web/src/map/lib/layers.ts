@@ -40,6 +40,10 @@ export interface BaseLayersInput {
   /** True for route-family results (route/reroute/route-stats) → draw the ordered
    *  path connecting the centers, colored by leg length. */
   calcResultIsRoute?: boolean;
+  /** When set, draw each calc cluster center as a circle of THIS radius in METERS
+   *  (the calc radius) — so you can verify which points fall inside each cluster.
+   *  Omit for non-radius strategies (e.g. S2). */
+  calcResultRadius?: number;
   /** The geofence currently open in the editor — its ORIGINAL is drawn dimmed so
    *  it's distinguishable from the other (orange) geofences and the blue draft. */
   editingGeofenceId?: string | null;
@@ -109,35 +113,63 @@ export function buildBaseLayers(input: BaseLayersInput): Layer[] {
       getLineColor: [255, 0, 0, 160], lineWidthMinPixels: 1,
     }),
     ...markerLayers,
-    ...(input.calcResult ? calcResultLayers(input.calcResult, input.calcResultIsRoute ?? false) : []),
+    ...(input.calcResult ? calcResultLayers(input.calcResult, input.calcResultIsRoute ?? false, input.calcResultRadius) : []),
   ];
 }
 
-/** Calc result overlay: magenta centers as dots, plus (for route-family results)
- *  the ordered path connecting them, each leg colored green→red by its length. */
-function calcResultLayers(fc: GeoJSON.FeatureCollection, isRoute: boolean): Layer[] {
-  const dots = new GeoJsonLayer({
+/** Calc result overlay: the ordered route path (route-family results), the cluster
+ *  coverage circles at the exact calc radius (when `radius` is given), and the
+ *  cluster centers as small dots. Bottom → top: path, circles, dots. */
+function calcResultLayers(fc: GeoJSON.FeatureCollection, isRoute: boolean, radius?: number): Layer[] {
+  const centers = routeCoords(fc);
+  const out: Layer[] = [];
+
+  if (isRoute) {
+    const segs = routeSegments(centers);
+    if (segs.length > 0) {
+      const colors = segmentColors(segs);
+      out.push(new LineLayer<RouteSegment>({
+        id: "calc-route",
+        data: segs,
+        getSourcePosition: (s) => s.source,
+        getTargetPosition: (s) => s.target,
+        getColor: (_s, info) => colors[info.index],
+        getWidth: 3, widthUnits: "pixels", widthMinPixels: 2,
+        pickable: false,
+      }));
+    }
+  }
+
+  // Coverage circles at the EXACT calc radius in METERS — stroked ring + faint
+  // fill so points inside show through. radiusMinPixels 0 (no floor) keeps the
+  // meters exact at every zoom; no max cap for the same reason.
+  if (radius && radius > 0) {
+    out.push(new ScatterplotLayer<[number, number]>({
+      id: "calc-circles",
+      data: centers,
+      getPosition: (d) => d,
+      getRadius: radius,
+      radiusUnits: "meters",
+      radiusMinPixels: 0,
+      stroked: true, filled: true,
+      getFillColor: [255, 0, 200, 25],
+      getLineColor: [255, 0, 200, 220],
+      lineWidthMinPixels: 1,
+      pickable: false,
+      updateTriggers: { getRadius: radius },
+    }));
+  }
+
+  out.push(new GeoJsonLayer({
     id: "calc-result", data: fc,
     stroked: true, filled: true,
     getFillColor: [255, 0, 200, 200], getLineColor: [255, 0, 200, 230],
     lineWidthMinPixels: 2,
-    pointType: "circle", getPointRadius: 5, pointRadiusUnits: "pixels",
+    pointType: "circle", getPointRadius: radius ? 3 : 5, pointRadiusUnits: "pixels",
     pickable: false,
-  });
-  if (!isRoute) return [dots];
-  const segs = routeSegments(routeCoords(fc));
-  if (segs.length === 0) return [dots];
-  const colors = segmentColors(segs);
-  const path = new LineLayer<RouteSegment>({
-    id: "calc-route",
-    data: segs,
-    getSourcePosition: (s) => s.source,
-    getTargetPosition: (s) => s.target,
-    getColor: (_s, info) => colors[info.index],
-    getWidth: 3, widthUnits: "pixels", widthMinPixels: 2,
-    pickable: false,
-  });
-  return [path, dots]; // path drawn under the dots
+  }));
+
+  return out;
 }
 
 export function buildEditLayer(draft: DraftInput | undefined): Layer[] {
