@@ -87,13 +87,17 @@ function PlaygroundBody() {
 
   const overlay = (
     <>
-      <CalcControls
-        calc={calc}
-        category={category}
-        onRun={onRun}
-        disabled={!geometry}
-        disabledReason={!geometry ? "Draw an area first" : undefined}
-      />
+      {/* Dock stops above the bottom draw toolbar so the two don't overlap at the
+          lower-left corner (the toolbar spans full width beneath it). */}
+      <div className="absolute bottom-14 left-0 top-0 z-10">
+        <CalcControls
+          calc={calc}
+          category={category}
+          onRun={onRun}
+          disabled={!geometry}
+          disabledReason={!geometry ? "Draw an area first" : undefined}
+        />
+      </div>
       <div className="absolute top-2 right-2 z-10 flex items-center gap-2">
         <div className="flex gap-1 rounded-md border bg-background/95 p-1 shadow-sm backdrop-blur">
           {DATA_MODES.map((m) => (
