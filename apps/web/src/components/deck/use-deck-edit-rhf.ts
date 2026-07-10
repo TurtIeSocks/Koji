@@ -37,6 +37,8 @@ export interface UseDeckEditRHFReturn {
     editContext?: { featureIndexes?: number[] };
   }) => void;
   onSelect: (indexes: number[]) => void;
+  /** Remove the currently-selected feature(s) from the geometry (undoable). */
+  deleteSelected: () => void;
 }
 
 export function useDeckEditRHF({
@@ -101,5 +103,23 @@ export function useDeckEditRHF({
     [commit],
   );
 
-  return { draft, mode, setMode, selectedIndexes, onEdit, onSelect: setSelectedIndexes };
+  const deleteSelected = useCallback(() => {
+    if (selectedIndexes.length === 0) return;
+    const remove = new Set(selectedIndexes);
+    commit({
+      type: "FeatureCollection",
+      features: draft.features.filter((_, i) => !remove.has(i)),
+    });
+    setSelectedIndexes([]);
+  }, [draft, selectedIndexes, commit]);
+
+  return {
+    draft,
+    mode,
+    setMode,
+    selectedIndexes,
+    onEdit,
+    onSelect: setSelectedIndexes,
+    deleteSelected,
+  };
 }

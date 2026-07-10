@@ -2,7 +2,6 @@ import {
   SimpleForm,
   ReferenceArrayInput,
   AutocompleteArrayInput,
-  Toolbar,
 } from "@/components/admin";
 import type { EditProps } from "@/components/admin/views/edit";
 import { EditLive } from "@/components/realtime";
@@ -21,9 +20,7 @@ const GeofenceEditFields = () => (
 
 export const GeofenceEdit = (props: Pick<EditProps, "id">) => (
   <EditLive {...props}>
-    {/* Toolbar = Save + Delete (the default SimpleForm toolbar is Cancel+Save,
-        no delete). Gives per-record geofence deletion; the list also has bulk. */}
-    <SimpleForm toolbar={<Toolbar />}>
+    <SimpleForm>
       <GeofenceEditFields />
     </SimpleForm>
   </EditLive>

@@ -10,6 +10,7 @@ import {
 	Scissors,
 	Spline,
 	Square,
+	Trash2,
 	Undo2,
 } from "lucide-react";
 import React, { type ReactNode, useMemo } from "react";
@@ -66,12 +67,15 @@ function DeckDrawToolbar({
 	setMode,
 	hasSelection,
 	history,
+	onDelete,
 }: {
 	mode: DrawMode;
 	setMode: (m: DrawMode) => void;
 	hasSelection: boolean;
 	/** Optional undo/redo controls docked at the toolbar's left. */
 	history?: HistoryControls;
+	/** Delete the selected shape(s). Gated on `hasSelection`. */
+	onDelete: () => void;
 }) {
 	return (
 		// Flush bottom dock — sits on the map's bottom edge (no gap to the sides or
@@ -144,6 +148,24 @@ function DeckDrawToolbar({
 					</React.Fragment>
 				))}
 			</ButtonGroup>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						type="button"
+						size="icon-sm"
+						variant="ghost"
+						disabled={!hasSelection}
+						aria-label="Delete shape"
+						className="text-destructive hover:text-destructive"
+						onClick={onDelete}
+					>
+						<Trash2 />
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>
+					{hasSelection ? "Delete selected shape" : "Select a shape first"}
+				</TooltipContent>
+			</Tooltip>
 		</div>
 	);
 }
@@ -181,7 +203,7 @@ export function DeckGeoJsonInput({
 	onViewStateChange,
 	...editOpts
 }: DeckGeoJsonInputProps) {
-	const { draft, mode, setMode, selectedIndexes, onEdit, onSelect } =
+	const { draft, mode, setMode, selectedIndexes, onEdit, onSelect, deleteSelected } =
 		useDeckEditRHF(editOpts);
 
 	// buildEditLayer takes a single DraftInput (not separate args — the plan's
@@ -255,6 +277,7 @@ export function DeckGeoJsonInput({
 							setMode={setMode}
 							hasSelection={selectedIndexes.length > 0}
 							history={history}
+							onDelete={deleteSelected}
 						/>
 					) : null}
 					{overlay}

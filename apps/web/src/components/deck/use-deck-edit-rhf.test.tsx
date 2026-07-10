@@ -139,4 +139,25 @@ describe("useDeckEditRHF", () => {
       expect.anything(),
     );
   });
+
+  it("deleteSelected removes the selected feature and commits", () => {
+    const spy = vi.fn();
+    const rendered = renderHook(() => useDeckEditRHF({ source: "geometry" }), {
+      wrapper: ({ children }) => {
+        const form = useForm({ defaultValues: { geometry: poly } });
+        vi.spyOn(form, "setValue").mockImplementation((...a: unknown[]) => {
+          spy(...a);
+        });
+        return <FormProvider {...form}>{children}</FormProvider>;
+      },
+    });
+    mounted = rendered;
+    const { result } = rendered;
+
+    act(() => result.current.onSelect([0]));
+    act(() => result.current.deleteSelected());
+
+    // The only feature was removed → default fromFeatures([]) → null geometry.
+    expect(spy).toHaveBeenCalledWith("geometry", null, expect.anything());
+  });
 });
