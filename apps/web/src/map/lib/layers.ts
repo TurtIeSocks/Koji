@@ -120,24 +120,31 @@ export function buildBaseLayers(input: BaseLayersInput): Layer[] {
 /** Calc result overlay: the ordered route path (route-family results), the cluster
  *  coverage circles at the exact calc radius (when `radius` is given), and the
  *  cluster centers as small dots. Bottom → top: path, circles, dots. */
+/** The ordered route as distance-colored segments (green→red by leg length) —
+ *  the "distance lines" connecting each point. Null for <2 points. Reused by both
+ *  the calc-result overlay and the loaded-route path. */
+export function routePathLayer(id: string, coords: [number, number][]): Layer | null {
+  const segs = routeSegments(coords);
+  if (segs.length === 0) return null;
+  const colors = segmentColors(segs);
+  return new LineLayer<RouteSegment>({
+    id,
+    data: segs,
+    getSourcePosition: (s) => s.source,
+    getTargetPosition: (s) => s.target,
+    getColor: (_s, info) => colors[info.index],
+    getWidth: 3, widthUnits: "pixels", widthMinPixels: 2,
+    pickable: false,
+  });
+}
+
 function calcResultLayers(fc: GeoJSON.FeatureCollection, isRoute: boolean, radius?: number): Layer[] {
   const centers = routeCoords(fc);
   const out: Layer[] = [];
 
   if (isRoute) {
-    const segs = routeSegments(centers);
-    if (segs.length > 0) {
-      const colors = segmentColors(segs);
-      out.push(new LineLayer<RouteSegment>({
-        id: "calc-route",
-        data: segs,
-        getSourcePosition: (s) => s.source,
-        getTargetPosition: (s) => s.target,
-        getColor: (_s, info) => colors[info.index],
-        getWidth: 3, widthUnits: "pixels", widthMinPixels: 2,
-        pickable: false,
-      }));
-    }
+    const path = routePathLayer("calc-route", centers);
+    if (path) out.push(path);
   }
 
   // Coverage circles at the EXACT calc radius in METERS — stroked ring + faint

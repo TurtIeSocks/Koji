@@ -1,5 +1,5 @@
 import { expect, test, vi } from "vitest";
-import { buildLayers } from "@/map/lib/layers";
+import { buildLayers, routePathLayer } from "@/map/lib/layers";
 import type { LayerId } from "@/map/stores/types";
 
 const vis = (over: Partial<Record<LayerId, boolean>> = {}): Record<LayerId, boolean> => ({
@@ -73,6 +73,13 @@ test("calc cluster circles use the exact meter radius, and only when calcResultR
     markerRadius: 30, onClick: vi.fn(), calcResult: fc, calcResultIsRoute: true,
   });
   expect(noRadius.find((l) => l.id === "calc-circles")).toBeUndefined();
+});
+
+test("routePathLayer builds a segment layer, and is null under 2 points", () => {
+  expect(routePathLayer("route-path", [[0, 0]])).toBeNull();
+  const layer = routePathLayer("route-path", [[0, 0], [1, 1], [2, 0]]);
+  expect(layer).not.toBeNull();
+  expect(layer!.id).toBe("route-path");
 });
 
 test("buildLayers appends an editable layer only when a draw mode is active", () => {

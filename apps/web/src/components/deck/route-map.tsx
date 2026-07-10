@@ -2,7 +2,7 @@ import { useEffect, useMemo } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { useGetOne } from "shadmin-core";
 import type { Layer } from "@deck.gl/core";
-import { buildBaseLayers } from "@/map/lib/layers";
+import { buildBaseLayers, routePathLayer } from "@/map/lib/layers";
 import { featureToAreaFC } from "@/map/lib/calc-request";
 import { routeCoords } from "@/map/lib/calc-overlay";
 import { useMarkers } from "@/map/data/use-markers";
@@ -69,7 +69,7 @@ export function RouteMap() {
     const on = (c: MarkerCategory) => !!fenceFeature && cats.includes(c);
     const fenceFC: GeoJSON.FeatureCollection = fenceFeature ? { type: "FeatureCollection", features: [fenceFeature] } : { type: "FeatureCollection", features: [] };
     const routeFC: GeoJSON.FeatureCollection = geometry ? { type: "FeatureCollection", features: [{ type: "Feature", geometry, properties: {} }] } : { type: "FeatureCollection", features: [] };
-    return buildBaseLayers({
+    const base = buildBaseLayers({
       visibility: { gyms: on("gym"), pokestops: on("pokestop"), spawnpoints: on("spawnpoint"), stations: on("station"), geofences: true, routes: true, s2: false },
       markerSets: [
         { id: "gyms", points: gyms.data ?? [], color: [230, 80, 80], radius: 70, maxPixels: 12 },
@@ -83,6 +83,17 @@ export function RouteMap() {
       // live as the user drags the radius.
       calcResultRadius: calc.params.strategy === "radius" ? calc.params.radius : undefined,
     });
+    // Loaded route (no active calc result): draw its distance-colored connecting
+    // lines. A calc result renders its own path, so skip then to avoid doubling.
+    if (!calc.result) {
+      const coords =
+        geometry?.type === "MultiPoint" || geometry?.type === "LineString"
+          ? (geometry.coordinates as [number, number][])
+          : [];
+      const path = routePathLayer("route-path", coords);
+      if (path) return [...base, path];
+    }
+    return base;
   }, [fenceFeature, geometry, calc.result, gyms.data, stops.data, spawns.data, stations.data, routeMode, calc.params.radius, calc.params.strategy]);
 
   const fit = geometry ? geometryBounds(geometry) : fenceFeature?.geometry ? geometryBounds(fenceFeature.geometry) : null;
