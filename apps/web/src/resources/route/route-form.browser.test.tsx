@@ -56,11 +56,11 @@ describe("Route form", () => {
       .toBeInTheDocument();
   });
 
-  it("renders the Leaflet map when a MultiPoint record is loaded in edit view", async () => {
+  it("renders the calc workbench (deck map) and keeps the metadata fields in edit view", async () => {
     const screen = render(wrap(<RouteEdit id={1} />));
     await expect.element(screen.getByLabelText(/name/i)).toBeVisible();
-    await expect
-      .element(screen.container.querySelector(".leaflet-container"))
-      .toBeInTheDocument();
+    await expect.element(screen.getByLabelText(/mode/i).first()).toBeVisible();
+    await expect.element(screen.getByLabelText(/geofence/i)).toBeVisible();
+    await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
   });
 });
