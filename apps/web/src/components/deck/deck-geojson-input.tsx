@@ -49,10 +49,13 @@ function DeckDrawToolbar({
   hasSelection: boolean;
 }) {
   return (
-    <div className="absolute top-2 left-2 z-10 flex flex-wrap items-center gap-1 rounded-md bg-background/90 p-1 shadow-md backdrop-blur">
+    // Flush bottom dock — sits on the map's bottom edge (no gap to the sides or
+    // bottom), a top border rather than a shadow so it reads as a bar BELOW the
+    // map, not a card floating on top.
+    <div className="absolute inset-x-0 bottom-0 z-10 flex flex-wrap items-center gap-1 border-t bg-background/95 px-2 py-1.5 backdrop-blur">
       {DRAW_GROUPS.map((group, gi) => (
         <div key={group.name} className="flex items-center gap-1">
-          {gi > 0 ? <div className="mx-0.5 h-5 w-px shrink-0 bg-border" /> : null}
+          {gi > 0 ? <div className="mx-1 h-5 w-px shrink-0 bg-border" /> : null}
           {group.buttons.map((b) => {
             // split / cutHole draw ONTO a selected shape → disabled until one is
             // selected (modify/transform select on click; drawing selects nothing).
@@ -62,7 +65,7 @@ function DeckDrawToolbar({
                 key={b.mode}
                 type="button"
                 size="sm"
-                variant={mode === b.mode ? "default" : "secondary"}
+                variant={mode === b.mode ? "default" : "ghost"}
                 disabled={disabled}
                 title={disabled ? "Select a shape first" : undefined}
                 onClick={() => setMode(mode === b.mode ? "none" : b.mode)}
