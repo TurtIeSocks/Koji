@@ -30,9 +30,11 @@ describe("MapPlayground", () => {
     await expect.element(screen.getByRole("button", { name: /quest/i })).toBeInTheDocument();
     // calc panel present, disabled until an area is drawn
     await expect.element(screen.getByRole("button", { name: /calculate/i })).toBeDisabled();
-    // save-route lives in the calc footer, disabled until a calc result exists
-    await expect.element(screen.getByRole("button", { name: /save route/i })).toBeDisabled();
-    // back to admin
+    // single Save button in the calc footer, disabled until an area is drawn
+    await expect.element(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
+    // undo/redo in the draw toolbar, disabled with empty history
+    await expect.element(screen.getByRole("button", { name: "Undo" })).toBeDisabled();
+    // Admin back-link (now at the top of the calc sidebar)
     await expect.element(screen.getByRole("link", { name: /Admin/ })).toBeInTheDocument();
   });
 });

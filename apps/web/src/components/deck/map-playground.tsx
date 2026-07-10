@@ -20,9 +20,11 @@ import { geometryBounds } from "./bounds";
 import { CalcControls } from "./calc-controls";
 import { DeckGeoJsonInput } from "./deck-geojson-input";
 import { featuresToGeofence, geofenceToFeatures } from "./geofence-geometry";
+import { loadCamera, saveCamera } from "./map-camera-storage";
 import { routeModeMarkerCategories, routeModeToCategory } from "./route-mode";
-import { SaveDialog } from "./save-dialog";
+import { SaveDialog, type SavePayload } from "./save-dialog";
 import { useCalc } from "./use-calc";
+import { useGeometryHistory } from "./use-geometry-history";
 
 const WORLD: Bounds = [-180, -85, 180, 85];
 const EMPTY_FC: GeoJSON.FeatureCollection = {
@@ -64,6 +66,16 @@ function PlaygroundBody() {
 	const category = routeModeToCategory(mode);
 
 	const [startLat, startLon] = useStartCenter();
+	// Persisted camera wins over the server start center; read once at mount.
+	const storedCamera = useMemo(() => loadCamera(), []);
+	const defaultViewState = storedCamera ?? {
+		longitude: startLon,
+		latitude: startLat,
+		zoom: 11,
+	};
+
+	// Undo/redo over the drawn geometry (playground only).
+	const history = useGeometryHistory("geometry");
 
 	// Markers scoped to the drawn area, by data mode. Nothing until something's drawn.
 	const area = geometry ?? null;
@@ -88,41 +100,43 @@ function PlaygroundBody() {
 		});
 	};
 
-	// Persist the scratch drawing. Geofence: just the polygon. Route: create the
-	// geofence from the drawing AND the calc result as a route linked to it (a
-	// route's geofence_id is required), in one action.
+	// Persist the scratch drawing. Always creates a geofence from the polygon; if
+	// the payload includes a route (a calc result exists), also creates that route
+	// linked to the geofence (route.geofence_id is required), in one action.
 	const dataProvider = useDataProvider();
 	const notify = useNotify();
-	const [saveKind, setSaveKind] = useState<"geofence" | "route" | null>(null);
+	const [saveOpen, setSaveOpen] = useState(false);
 	const [busy, setBusy] = useState(false);
 
-	const onSave = async (name: string, saveMode: string) => {
+	const onSave = async (payload: SavePayload) => {
 		if (!geometry) return;
-		const isRoute = saveKind === "route";
-		const pts = isRoute && calc.result ? routeCoords(calc.result) : null;
-		if (isRoute && (!pts || pts.length === 0)) {
+		const pts = payload.route && calc.result ? routeCoords(calc.result) : null;
+		if (payload.route && (!pts || pts.length === 0)) {
 			notify("Run a calculation first", { type: "warning" });
 			return;
 		}
+		const { name, mode: saveMode, parent } = payload.geofence;
 		setBusy(true);
 		try {
 			const { data: fence } = await dataProvider.create("geofence", {
-				data: { name, mode: saveMode, geometry },
+				data: { name, mode: saveMode, parent, geometry },
 			});
-			if (isRoute && pts) {
+			if (payload.route && pts) {
 				await dataProvider.create("route", {
 					data: {
-						name,
+						name: payload.route.name,
 						mode: saveMode,
 						geofence_id: fence.id,
 						geometry: { type: "MultiPoint", coordinates: pts },
 					},
 				});
-				notify(`Saved route "${name}" + its area`, { type: "success" });
+				notify(`Saved geofence "${name}" + route "${payload.route.name}"`, {
+					type: "success",
+				});
 			} else {
 				notify(`Saved geofence "${name}"`, { type: "success" });
 			}
-			setSaveKind(null);
+			setSaveOpen(false);
 		} catch (e) {
 			notify(`Save failed: ${e instanceof Error ? e.message : String(e)}`, {
 				type: "error",
@@ -209,15 +223,27 @@ function PlaygroundBody() {
 					onRun={onRun}
 					disabled={!geometry}
 					disabledReason={!geometry ? "Draw an area first" : undefined}
+					header={
+						<Button
+							asChild
+							size="sm"
+							variant="ghost"
+							className="-mx-1 justify-start"
+						>
+							<Link to="/">
+								<ArrowLeft className="size-4" /> Admin
+							</Link>
+						</Button>
+					}
 					footer={
 						<Button
 							type="button"
 							size="sm"
 							className="w-full"
-							disabled={!calc.result}
-							onClick={() => setSaveKind("route")}
+							disabled={!geometry}
+							onClick={() => setSaveOpen(true)}
 						>
-							<Save className="size-4" /> Save route
+							<Save className="size-4" /> Save
 						</Button>
 					}
 				/>
@@ -236,16 +262,6 @@ function PlaygroundBody() {
 						</Button>
 					))}
 				</div>
-				<Button
-					asChild
-					size="sm"
-					variant="secondary"
-					className="bg-background/95 shadow-sm backdrop-blur"
-				>
-					<Link to="/">
-						<ArrowLeft className="size-4" /> Admin
-					</Link>
-				</Button>
 			</div>
 		</>
 	);
@@ -258,32 +274,21 @@ function PlaygroundBody() {
 				contextLayers={contextLayers}
 				toFeatures={geofenceToFeatures}
 				fromFeatures={featuresToGeofence}
-				defaultViewState={{ longitude: startLon, latitude: startLat, zoom: 11 }}
+				defaultViewState={defaultViewState}
 				overlay={overlay}
-				toolbarExtra={
-					geometry ? (
-						<Button
-							type="button"
-							size="sm"
-							variant="secondary"
-							onClick={() => setSaveKind("geofence")}
-						>
-							<Save className="size-4" /> Save geofence
-						</Button>
-					) : undefined
+				history={history}
+				onViewStateChange={(vs) =>
+					saveCamera({
+						longitude: vs.longitude,
+						latitude: vs.latitude,
+						zoom: vs.zoom,
+					})
 				}
 			/>
 			<SaveDialog
-				open={saveKind != null}
-				onOpenChange={(o) => {
-					if (!o) setSaveKind(null);
-				}}
-				title={saveKind === "route" ? "Save route + area" : "Save geofence"}
-				description={
-					saveKind === "route"
-						? "Saves the drawn area as a geofence and the calc result as a route linked to it."
-						: "Saves the drawn area as a new geofence."
-				}
+				open={saveOpen}
+				onOpenChange={setSaveOpen}
+				hasRoute={!!calc.result}
 				defaultMode={mode}
 				busy={busy}
 				onConfirm={onSave}

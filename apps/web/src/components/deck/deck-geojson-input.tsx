@@ -6,9 +6,11 @@ import {
 	type LucideIcon,
 	Move,
 	Pentagon,
+	Redo2,
 	Scissors,
 	Spline,
 	Square,
+	Undo2,
 } from "lucide-react";
 import React, { type ReactNode, useMemo } from "react";
 import { useWatch } from "react-hook-form";
@@ -18,7 +20,8 @@ import { buildEditLayer } from "@/map/lib/layers";
 import { ButtonGroup, ButtonGroupSeparator } from "../ui/button-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { geometryBounds } from "./bounds";
-import { DeckMap } from "./deck-map";
+import { DeckMap, type DeckMapProps } from "./deck-map";
+import type { HistoryControls } from "./use-geometry-history";
 import {
 	type UseDeckEditRHFOptions,
 	useDeckEditRHF,
@@ -62,19 +65,53 @@ function DeckDrawToolbar({
 	mode,
 	setMode,
 	hasSelection,
-	extra,
+	history,
 }: {
 	mode: DrawMode;
 	setMode: (m: DrawMode) => void;
 	hasSelection: boolean;
-	/** Optional trailing content docked at the toolbar's right (e.g. a Save button). */
-	extra?: ReactNode;
+	/** Optional undo/redo controls docked at the toolbar's left. */
+	history?: HistoryControls;
 }) {
 	return (
 		// Flush bottom dock — sits on the map's bottom edge (no gap to the sides or
 		// bottom), a top border rather than a shadow so it reads as a bar BELOW the
 		// map, not a card floating on top.
 		<div className="absolute inset-x-0 bottom-0 z-10 flex items-center gap-2 border-t bg-background/95 px-2 py-1.5 backdrop-blur">
+			{history ? (
+				<ButtonGroup>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button
+								type="button"
+								size="icon-sm"
+								variant="ghost"
+								disabled={!history.canUndo}
+								aria-label="Undo"
+								onClick={history.undo}
+							>
+								<Undo2 />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>Undo</TooltipContent>
+					</Tooltip>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button
+								type="button"
+								size="icon-sm"
+								variant="ghost"
+								disabled={!history.canRedo}
+								aria-label="Redo"
+								onClick={history.redo}
+							>
+								<Redo2 />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>Redo</TooltipContent>
+					</Tooltip>
+				</ButtonGroup>
+			) : null}
 			<ButtonGroup className="flex-1 justify-evenly">
 				{DRAW_GROUPS.map((group, gi) => (
 					<React.Fragment key={group.name}>
@@ -107,7 +144,6 @@ function DeckDrawToolbar({
 					</React.Fragment>
 				))}
 			</ButtonGroup>
-			{extra}
 		</div>
 	);
 }
@@ -126,9 +162,10 @@ export interface DeckGeoJsonInputProps extends UseDeckEditRHFOptions {
 	/** Extra absolutely-positioned overlay children on the map (e.g. a calc panel
 	 *  dock) rendered alongside the draw toolbar. */
 	overlay?: ReactNode;
-	/** Trailing content docked at the right of the bottom draw toolbar (e.g. a
-	 *  "Save geofence" button). Only shown when the toolbar is (not `disabled`). */
-	toolbarExtra?: ReactNode;
+	/** Undo/redo controls for the draw toolbar (playground only). */
+	history?: HistoryControls;
+	/** Observe camera pan/zoom (e.g. to persist it). Forwarded to `<DeckMap>`. */
+	onViewStateChange?: DeckMapProps["onViewStateChange"];
 }
 
 export function DeckGeoJsonInput({
@@ -140,7 +177,8 @@ export function DeckGeoJsonInput({
 	contextLayers,
 	defaultViewState,
 	overlay,
-	toolbarExtra,
+	history,
+	onViewStateChange,
 	...editOpts
 }: DeckGeoJsonInputProps) {
 	const { draft, mode, setMode, selectedIndexes, onEdit, onSelect } =
@@ -206,6 +244,7 @@ export function DeckGeoJsonInput({
 					height={height}
 					tileUrl={tileUrl}
 					controller={{ doubleClickZoom: false }}
+					onViewStateChange={onViewStateChange}
 					getCursor={({ isDragging }) =>
 						mode !== "none" ? "crosshair" : isDragging ? "grabbing" : "grab"
 					}
@@ -215,7 +254,7 @@ export function DeckGeoJsonInput({
 							mode={mode}
 							setMode={setMode}
 							hasSelection={selectedIndexes.length > 0}
-							extra={toolbarExtra}
+							history={history}
 						/>
 					) : null}
 					{overlay}

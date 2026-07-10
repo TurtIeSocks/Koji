@@ -91,5 +91,8 @@ test("shows progress + stats while a job is present", async () => {
 	const { screen } = renderControls({ calc });
 	await expect.element(screen.getByText("running")).toBeInTheDocument();
 	await expect.element(screen.getByText("clustering", { exact: true })).toBeInTheDocument();
-	await expect.element(screen.getByText(/3 clusters/i)).toBeInTheDocument();
+	// Stats now render as a labeled grid (Distance / … — avoid "Clusters" which
+	// substring-matches the "Center clusters" switch label in the same panel).
+	await expect.element(screen.getByText("Distance")).toBeInTheDocument();
+	await expect.element(screen.getByText("120 m")).toBeInTheDocument();
 });
