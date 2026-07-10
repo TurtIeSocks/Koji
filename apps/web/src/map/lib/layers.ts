@@ -6,7 +6,7 @@ import { EditableGeoJsonLayer } from "@deck.gl-community/editable-layers";
 import { modeSpecFor, type DrawMode } from "@/map/lib/edit-modes";
 import { routeCoords, routeSegments, segmentColors, type RouteSegment } from "@/map/lib/calc-overlay";
 
-interface MarkerSet { id: LayerId; points: [number, number][]; color: [number, number, number]; }
+interface MarkerSet { id: LayerId; points: [number, number][]; color: [number, number, number]; radius?: number; }
 
 export interface DraftInput {
   mode: DrawMode;
@@ -72,7 +72,7 @@ export function buildBaseLayers(input: BaseLayersInput): Layer[] {
       id: `markers-${set.id}`,
       visible: visibility[set.id],
       data: { length: set.points.length, attributes: { getPosition: { value: positions, size: 2 } } },
-      getRadius: markerRadius,
+      getRadius: set.radius ?? markerRadius,
       radiusUnits: "meters",
       radiusMinPixels: 2,
       getFillColor: [...set.color, 200],
