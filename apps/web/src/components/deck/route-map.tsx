@@ -5,11 +5,15 @@ import type { Layer } from "@deck.gl/core";
 import { buildBaseLayers } from "@/map/lib/layers";
 import { featureToAreaFC } from "@/map/lib/calc-request";
 import { routeCoords } from "@/map/lib/calc-overlay";
+import { useMarkers } from "@/map/data/use-markers";
+import type { Bounds, MarkerCategory } from "@/map/stores/types";
 import { DeckMap } from "./deck-map";
 import { geometryBounds } from "./bounds";
 import { useCalc } from "./use-calc";
 import { CalcControls } from "./calc-controls";
-import { routeModeToCategory } from "./route-mode";
+import { routeModeToCategory, routeModeMarkerCategories } from "./route-mode";
+
+const WORLD: Bounds = [-180, -85, 180, 85];
 
 /** Route-edit calc workbench: reactively loads the parent geofence's area
  *  (`geofence_id`), runs a cluster/bootstrap calc over it, and writes the
@@ -30,6 +34,21 @@ export function RouteMap() {
     [fence],
   );
 
+  // Golbat markers to preview for the route's mode, scoped to the fence polygon.
+  // Nothing shows until a geofence is selected (→ the fence loads): `want` gates
+  // every fetch on fenceFeature.
+  const markerArea = fenceFeature?.geometry ?? null;
+  const markerBbox = useMemo<Bounds>(
+    () => (fenceFeature?.geometry ? (geometryBounds(fenceFeature.geometry) ?? WORLD) : WORLD),
+    [fenceFeature],
+  );
+  const showCats = routeModeMarkerCategories(routeMode);
+  const want = (c: MarkerCategory) => !!fenceFeature && showCats.includes(c);
+  const gyms = useMarkers("gym", markerArea, markerBbox, 0, want("gym"));
+  const stops = useMarkers("pokestop", markerArea, markerBbox, 0, want("pokestop"));
+  const spawns = useMarkers("spawnpoint", markerArea, markerBbox, 0, want("spawnpoint"));
+  const stations = useMarkers("station", markerArea, markerBbox, 0, want("station"));
+
   const calc = useCalc();
 
   // A succeeded calc result → the route's geometry (MultiPoint of ordered points).
@@ -46,15 +65,22 @@ export function RouteMap() {
   };
 
   const layers = useMemo<Layer[]>(() => {
+    const cats = routeModeMarkerCategories(routeMode);
+    const on = (c: MarkerCategory) => !!fenceFeature && cats.includes(c);
     const fenceFC: GeoJSON.FeatureCollection = fenceFeature ? { type: "FeatureCollection", features: [fenceFeature] } : { type: "FeatureCollection", features: [] };
     const routeFC: GeoJSON.FeatureCollection = geometry ? { type: "FeatureCollection", features: [{ type: "Feature", geometry, properties: {} }] } : { type: "FeatureCollection", features: [] };
     return buildBaseLayers({
-      visibility: { gyms: false, pokestops: false, spawnpoints: false, stations: false, geofences: true, routes: true, s2: false },
-      markerSets: [],
+      visibility: { gyms: on("gym"), pokestops: on("pokestop"), spawnpoints: on("spawnpoint"), stations: on("station"), geofences: true, routes: true, s2: false },
+      markerSets: [
+        { id: "gyms", points: gyms.data ?? [], color: [230, 80, 80], radius: 70, maxPixels: 12 },
+        { id: "pokestops", points: stops.data ?? [], color: [0, 120, 255], radius: 40, maxPixels: 6 },
+        { id: "spawnpoints", points: spawns.data ?? [], color: [240, 180, 0], radius: 12, maxPixels: 2 },
+        { id: "stations", points: stations.data ?? [], color: [150, 80, 220], radius: 40, maxPixels: 6 },
+      ],
       geofences: fenceFC, routes: routeFC, s2Cells: [], markerRadius: 70, onClick: () => {}, pickable: false,
       calcResult: calc.result, calcResultIsRoute: true,
     });
-  }, [fenceFeature, geometry, calc.result]);
+  }, [fenceFeature, geometry, calc.result, gyms.data, stops.data, spawns.data, stations.data, routeMode]);
 
   const fit = geometry ? geometryBounds(geometry) : fenceFeature?.geometry ? geometryBounds(fenceFeature.geometry) : null;
   const areaMissing = !fenceFeature;

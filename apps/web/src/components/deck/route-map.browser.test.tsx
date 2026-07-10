@@ -22,7 +22,9 @@ const { calcMock, useCalcSpy } = vi.hoisted(() => {
   return { calcMock, useCalcSpy: vi.fn(() => calcMock) };
 });
 vi.mock("./use-calc", () => ({ useCalc: useCalcSpy }));
+vi.mock("@/map/data/use-markers", () => ({ useMarkers: vi.fn(() => ({ data: [] })) }));
 
+import { useMarkers } from "@/map/data/use-markers";
 import { RouteMap } from "./route-map";
 
 const fencePoly: GeoJSON.Polygon = {
@@ -93,11 +95,30 @@ describe("RouteMap", () => {
     );
   });
 
-  it("derives the golbat category from the route mode (shown in the panel)", async () => {
-    // route.mode "pokemon" → spawnpoint. The category is read-only in the panel
-    // now (no dropdown); the calc uses it, and it drives the spawnpoint-only Tth.
+  it("derives spawnpoint from route mode 'pokemon' (offers the spawnpoint-only Tth)", async () => {
+    // route.mode "pokemon" → category spawnpoint; the panel then shows the
+    // spawnpoint-only Tth control (the category itself isn't rendered).
     const { screen } = renderRouteMap({ geofence_id: 7, geometry: null, mode: "pokemon" });
-    await expect.element(screen.getByText("spawnpoint")).toBeVisible();
+    await expect.element(screen.getByRole("combobox", { name: "Tth" })).toBeInTheDocument();
+  });
+
+  it("previews the mode's markers scoped to the fence (fort → gyms)", async () => {
+    const markersMock = vi.mocked(useMarkers);
+    renderRouteMap({ geofence_id: 7, geometry: null, mode: "fort" });
+    // fort shows gym + station + pokestop; each is fetched with the fence polygon
+    // as the area and enabled once the fence loads.
+    await vi.waitFor(() => {
+      expect(markersMock).toHaveBeenCalledWith("gym", fencePoly, expect.anything(), 0, true);
+    });
+  });
+
+  it("shows no markers until a geofence is selected (all fetches disabled)", async () => {
+    const markersMock = vi.mocked(useMarkers);
+    markersMock.mockClear();
+    renderRouteMap({ geofence_id: null, geometry: null, mode: "fort" });
+    await vi.waitFor(() => expect(markersMock).toHaveBeenCalled());
+    // Every useMarkers call has enabled=false (5th arg) — no geofence, no data.
+    expect(markersMock.mock.calls.every((c) => c[4] === false)).toBe(true);
   });
 
   it("a succeeded result does NOT overwrite the user-chosen route mode", async () => {

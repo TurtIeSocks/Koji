@@ -15,6 +15,21 @@ export function routeModeToCategory(mode: string | undefined): string {
 	return MODE_TO_CATEGORY[mode ?? ""] ?? "pokestop";
 }
 
+import type { MarkerCategory } from "@/map/stores/types";
+
+/** Golbat marker categories to preview on the route map for a given route mode.
+ *  (Distinct from the single calc category — fort previews its constituents.) */
+const MODE_MARKERS: Record<string, MarkerCategory[]> = {
+	pokemon: ["spawnpoint"],
+	quest: ["pokestop"],
+	fort: ["gym", "station", "pokestop"],
+};
+
+/** route.mode → the marker categories to show. Empty (nothing) for unset/unknown. */
+export function routeModeMarkerCategories(mode: string | undefined): MarkerCategory[] {
+	return MODE_MARKERS[mode ?? ""] ?? [];
+}
+
 const CATEGORY_TO_MODE: Record<string, string> = {
 	spawnpoint: "pokemon",
 	pokestop: "quest",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { categoryToRouteMode, routeModeToCategory } from "./route-mode";
+import { categoryToRouteMode, routeModeToCategory, routeModeMarkerCategories } from "./route-mode";
 
 describe("categoryToRouteMode", () => {
 	it("maps calc categories to route modes", () => {
@@ -17,5 +17,15 @@ describe("routeModeToCategory", () => {
 		expect(routeModeToCategory("fort")).toBe("fort");
 		expect(routeModeToCategory("unset")).toBe("pokestop");
 		expect(routeModeToCategory(undefined)).toBe("pokestop");
+	});
+});
+
+describe("routeModeMarkerCategories", () => {
+	it("maps route modes to the marker categories to preview", () => {
+		expect(routeModeMarkerCategories("pokemon")).toEqual(["spawnpoint"]);
+		expect(routeModeMarkerCategories("quest")).toEqual(["pokestop"]);
+		expect(routeModeMarkerCategories("fort")).toEqual(["gym", "station", "pokestop"]);
+		expect(routeModeMarkerCategories("unset")).toEqual([]);
+		expect(routeModeMarkerCategories(undefined)).toEqual([]);
 	});
 });
