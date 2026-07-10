@@ -60,16 +60,10 @@ describe("Geofence form", () => {
     await expect.element(screen.getByLabelText(/mode/i)).toBeVisible();
   });
 
-  it("renders an interactive Leaflet map with geoman controls", async () => {
+  it("renders the deck geometry map (NOT Leaflet) in the create form", async () => {
     const screen = render(wrap(<GeofenceCreate />));
-    // leaflet-container is the standard Leaflet root div
-    await expect
-      .element(screen.container.querySelector(".leaflet-container"))
-      .toBeInTheDocument();
-    // GeomanControls renders the geoman toolbar (react-leaflet-geoman-v2)
-    await expect
-      .element(screen.container.querySelector(".leaflet-pm-toolbar"))
-      .toBeInTheDocument();
+    await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
+    expect(screen.container.querySelector(".leaflet-container")).toBeNull();
   });
 
   it("renders the deck geometry map (NOT Leaflet) in the edit form for a MultiPolygon record", async () => {

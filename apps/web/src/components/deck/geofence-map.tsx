@@ -6,6 +6,7 @@ import { useMarkers } from "@/map/data/use-markers";
 import { useS2Cells } from "@/map/data/use-s2-cells";
 import { buildBaseLayers } from "@/map/lib/layers";
 import type { Bounds } from "@/map/stores/types";
+import { useStartCenter } from "@/components/leaflet/use-start-center";
 import { geometryBounds } from "./bounds";
 import { DeckGeoJsonInput } from "./deck-geojson-input";
 import { featuresToGeofence, geofenceToFeatures } from "./geofence-geometry";
@@ -32,10 +33,16 @@ export function GeofenceMap() {
 		spawnpoints: false,
 		s2: false,
 	});
-	const gyms = useMarkers("gym", area, bbox, 0, show.gyms);
-	const stops = useMarkers("pokestop", area, bbox, 0, show.pokestops);
-	const spawns = useMarkers("spawnpoint", area, bbox, 0, show.spawnpoints);
-	const s2 = useS2Cells(15, bbox, show.s2);
+	// Gate data fetches on having a geometry — on create there's no fence yet, so
+	// area/bbox would be the whole world (a catastrophic golbat query).
+	const hasGeom = !!geometry;
+	const gyms = useMarkers("gym", area, bbox, 0, show.gyms && hasGeom);
+	const stops = useMarkers("pokestop", area, bbox, 0, show.pokestops && hasGeom);
+	const spawns = useMarkers("spawnpoint", area, bbox, 0, show.spawnpoints && hasGeom);
+	const s2 = useS2Cells(15, bbox, show.s2 && hasGeom);
+
+	// Empty (create) start view: the server's configured center, not [0,0].
+	const [startLat, startLon] = useStartCenter();
 
 	const contextLayers = useMemo<Layer[]>(
 		() =>
@@ -108,6 +115,7 @@ export function GeofenceMap() {
 				contextLayers={contextLayers}
 				toFeatures={geofenceToFeatures}
 				fromFeatures={featuresToGeofence}
+				defaultViewState={{ longitude: startLon, latitude: startLat, zoom: 10 }}
 			/>
 		</div>
 	);

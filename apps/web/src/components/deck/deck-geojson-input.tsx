@@ -116,6 +116,9 @@ export interface DeckGeoJsonInputProps extends UseDeckEditRHFOptions {
 	disabled?: boolean;
 	/** Extra read-only layers drawn under the edit layer (e.g. marker/S2 context). */
 	contextLayers?: Layer[];
+	/** Initial camera for the EMPTY case (no geometry yet, e.g. a create form) so
+	 *  it doesn't open at [0,0]. Ignored once there's geometry to fit. */
+	defaultViewState?: { longitude: number; latitude: number; zoom?: number };
 }
 
 export function DeckGeoJsonInput({
@@ -125,6 +128,7 @@ export function DeckGeoJsonInput({
 	tileUrl,
 	disabled,
 	contextLayers,
+	defaultViewState,
 	...editOpts
 }: DeckGeoJsonInputProps) {
 	const { draft, mode, setMode, selectedIndexes, onEdit, onSelect } =
@@ -186,6 +190,7 @@ export function DeckGeoJsonInput({
 				<DeckMap
 					layers={layers}
 					fitBounds={fit}
+					initialViewState={fit ? undefined : defaultViewState}
 					height={height}
 					tileUrl={tileUrl}
 					controller={{ doubleClickZoom: false }}
