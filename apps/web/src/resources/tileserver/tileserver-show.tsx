@@ -1,7 +1,7 @@
 import { TextField, UrlField } from "@/components/admin";
 import { ShowLive } from "@/components/realtime";
 import { DeckMap } from "@/components/deck";
-import { useStartCenter } from "@/components/leaflet/use-start-center";
+import { useStartCenter } from "@/lib/use-start-center";
 import type { ShowProps } from "@/components/admin/views/show";
 import { useRecordContext } from "shadmin-core";
 import { DEFAULT_TILE_URL } from "@/lib/constants";

@@ -6,7 +6,7 @@ import { useMarkers } from "@/map/data/use-markers";
 import { useS2Cells } from "@/map/data/use-s2-cells";
 import { buildBaseLayers } from "@/map/lib/layers";
 import type { Bounds } from "@/map/stores/types";
-import { useStartCenter } from "@/components/leaflet/use-start-center";
+import { useStartCenter } from "@/lib/use-start-center";
 import { geometryBounds } from "./bounds";
 import { DeckGeoJsonInput } from "./deck-geojson-input";
 import { featuresToGeofence, geofenceToFeatures } from "./geofence-geometry";

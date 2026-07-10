@@ -9,12 +9,6 @@ describe("shadmin registry import", () => {
     expect(admin.Count).toBeTypeOf("function");
   });
 
-  it("exposes leaflet inputs and fields", async () => {
-    const leaflet = await import("@/components/leaflet");
-    expect(leaflet.PolygonInput).toBeTypeOf("function");
-    expect(leaflet.GeoJsonField).toBeTypeOf("function");
-  });
-
   it("exposes realtime decorator + transport + ListLive", async () => {
     const rt = await import("@/components/realtime");
     expect(rt.realtimeDataProvider).toBeTypeOf("function");
