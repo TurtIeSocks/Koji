@@ -1,7 +1,7 @@
 import type { Layer } from "@deck.gl/core";
 import { ArrowLeft, Save } from "lucide-react";
 import { useDataProvider, useNotify } from "ra-core";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
 	FormProvider,
 	useForm,
@@ -73,6 +73,12 @@ function PlaygroundBody() {
 		latitude: startLat,
 		zoom: 11,
 	};
+	// DeckMap locks its camera on mount. A stored camera is known synchronously,
+	// but the start-center fallback resolves async (useStartCenter). Key the map on
+	// the resolved fallback so a cold first load (no stored camera, config still
+	// in-flight → [0,0]) remounts once onto the real center instead of sticking at
+	// [0,0]. Stable once resolved, so a later pan doesn't remount.
+	const camKey = storedCamera ? "cam-stored" : `cam-${startLat}-${startLon}`;
 
 	// Undo/redo over the drawn geometry (playground only).
 	const history = useGeometryHistory("geometry");
@@ -100,42 +106,59 @@ function PlaygroundBody() {
 		});
 	};
 
-	// Persist the scratch drawing. Always creates a geofence from the polygon; if
-	// the payload includes a route (a calc result exists), also creates that route
-	// linked to the geofence (route.geofence_id is required), in one action.
+	// Persist the scratch drawing. ALWAYS creates a geofence from the polygon; if
+	// the payload includes a route (a calc result exists) AND it has points, also
+	// creates that route linked to the geofence (route.geofence_id is required).
 	const dataProvider = useDataProvider();
 	const notify = useNotify();
 	const [saveOpen, setSaveOpen] = useState(false);
 	const [busy, setBusy] = useState(false);
+	// Idempotency latch: the two creates aren't atomic, so if the route step fails
+	// after the geofence was created we keep its id and reuse it on retry (rather
+	// than orphan + duplicate the geofence). Cleared when the drawing changes.
+	const savedFenceRef = useRef<number | string | null>(null);
+	useEffect(() => {
+		savedFenceRef.current = null;
+	}, [geometry]);
 
 	const onSave = async (payload: SavePayload) => {
 		if (!geometry) return;
-		const pts = payload.route && calc.result ? routeCoords(calc.result) : null;
-		if (payload.route && (!pts || pts.length === 0)) {
-			notify("Run a calculation first", { type: "warning" });
-			return;
-		}
+		const route = payload.route;
+		const pts = route && calc.result ? routeCoords(calc.result) : null;
+		const routeReady = !!route && !!pts && pts.length > 0;
 		const { name, mode: saveMode, parent } = payload.geofence;
 		setBusy(true);
 		try {
-			const { data: fence } = await dataProvider.create("geofence", {
-				data: { name, mode: saveMode, parent, geometry },
-			});
-			if (payload.route && pts) {
+			// Reuse a geofence already created earlier in this save session; else create it.
+			let fenceId = savedFenceRef.current;
+			if (fenceId == null) {
+				const { data: fence } = await dataProvider.create("geofence", {
+					data: { name, mode: saveMode, parent, geometry },
+				});
+				fenceId = fence.id;
+				savedFenceRef.current = fenceId;
+			}
+			if (routeReady && route && pts) {
 				await dataProvider.create("route", {
 					data: {
-						name: payload.route.name,
+						name: route.name,
 						mode: saveMode,
-						geofence_id: fence.id,
+						geofence_id: fenceId,
 						geometry: { type: "MultiPoint", coordinates: pts },
 					},
 				});
-				notify(`Saved geofence "${name}" + route "${payload.route.name}"`, {
+				notify(`Saved geofence "${name}" + route "${route.name}"`, {
 					type: "success",
+				});
+			} else if (route) {
+				// Route requested but the calc produced no points — geofence still saved.
+				notify(`Saved geofence "${name}" — calc had no route points, route skipped`, {
+					type: "warning",
 				});
 			} else {
 				notify(`Saved geofence "${name}"`, { type: "success" });
 			}
+			savedFenceRef.current = null;
 			setSaveOpen(false);
 		} catch (e) {
 			notify(`Save failed: ${e instanceof Error ? e.message : String(e)}`, {
@@ -269,6 +292,7 @@ function PlaygroundBody() {
 	return (
 		<>
 			<DeckGeoJsonInput
+				key={camKey}
 				source="geometry"
 				height="100dvh"
 				contextLayers={contextLayers}

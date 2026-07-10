@@ -401,7 +401,9 @@ function CalcStats({ stats }: { stats: unknown }) {
 			best != null || worst != null ? `${best ?? "–"} / ${worst ?? "–"}` : undefined,
 		],
 		["Score", score != null ? score.toLocaleString() : undefined],
-		["Quality", quality != null ? `${Math.round(quality * 100)}%` : undefined],
+		// quality is 0.0 unless the lower bound was computed (min_points === 1), so
+		// treat 0 as "not computed" and hide the row rather than show a bogus 0%.
+		["Quality", quality ? `${Math.round(quality * 100)}%` : undefined],
 		["Route est.", routeEst != null ? secs(routeEst) : undefined],
 		["Knife-edge", knife != null ? String(knife) : undefined],
 		["Overlap", overlap != null ? String(overlap) : undefined],
