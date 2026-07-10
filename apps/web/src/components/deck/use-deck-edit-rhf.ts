@@ -60,13 +60,14 @@ export function useDeckEditRHF({
     setDraft(features.length ? { type: "FeatureCollection", features } : EMPTY_FC);
     lastWritten.current = value;
     hydrated.current = true;
-    // With an existing shape, default straight into modify + select every part so
-    // it's editable immediately — no "click the shape first". Once only; after
-    // that the user owns the mode/selection.
+    // With an existing shape, default straight into modify + select the first
+    // part so it's editable immediately — no "click the shape first". Select ONE
+    // (not all) so split/cut-hole have an unambiguous target; the user clicks
+    // another part to switch. Once only; after that the user owns mode/selection.
     if (!autoInited.current && features.length) {
       autoInited.current = true;
       setMode("modify");
-      setSelectedIndexes(features.map((_, i) => i));
+      setSelectedIndexes([0]);
     }
   }, [value, toFeatures]);
 

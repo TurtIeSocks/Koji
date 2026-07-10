@@ -3,7 +3,7 @@ import { useWatch } from "react-hook-form";
 import type { Layer } from "@deck.gl/core";
 import { GeoJsonLayer } from "@deck.gl/layers";
 import { buildEditLayer } from "@/map/lib/layers";
-import type { DrawMode } from "@/map/lib/edit-modes";
+import { requiresPriorSelection, type DrawMode } from "@/map/lib/edit-modes";
 import { Button } from "@/components/ui/button";
 import { DeckMap } from "./deck-map";
 import { geometryBounds } from "./bounds";
@@ -12,36 +12,66 @@ import { useDeckEditRHF, type UseDeckEditRHFOptions } from "./use-deck-edit-rhf"
 const DRAFT_FILL: [number, number, number, number] = [0, 150, 255, 60];
 const DRAFT_LINE: [number, number, number, number] = [0, 150, 255, 220];
 
-// DrawMode union (from edit-modes.ts) is:
-//   "none" | "drawPolygon" | "drawRectangle" | "drawCircle" | "modify"
-//   | "transform" | "split" | "cutHole"
-// Core geofence-editing set only (split/cutHole need a prior selection — omit for v1).
-const DRAW_BUTTONS: { mode: DrawMode; label: string }[] = [
-  { mode: "drawPolygon", label: "Polygon" },
-  { mode: "drawRectangle", label: "Rectangle" },
-  { mode: "modify", label: "Modify" },
-  { mode: "transform", label: "Move" },
+// The full editable-layers toolset (edit-modes.ts), grouped. split/cutHole draw
+// against an already-selected shape, so they're gated on a selection below.
+const DRAW_GROUPS: { name: string; buttons: { mode: DrawMode; label: string }[] }[] = [
+  {
+    name: "draw",
+    buttons: [
+      { mode: "drawPolygon", label: "Polygon" },
+      { mode: "drawRectangle", label: "Rectangle" },
+      { mode: "drawCircle", label: "Circle" },
+    ],
+  },
+  {
+    name: "edit",
+    buttons: [
+      { mode: "modify", label: "Modify" },
+      { mode: "transform", label: "Move" },
+    ],
+  },
+  {
+    name: "shape-ops",
+    buttons: [
+      { mode: "split", label: "Split" },
+      { mode: "cutHole", label: "Cut hole" },
+    ],
+  },
 ];
 
 function DeckDrawToolbar({
   mode,
   setMode,
+  hasSelection,
 }: {
   mode: DrawMode;
   setMode: (m: DrawMode) => void;
+  hasSelection: boolean;
 }) {
   return (
-    <div className="absolute top-2 left-2 z-10 flex gap-1 rounded-md bg-background/90 p-1 shadow-md backdrop-blur">
-      {DRAW_BUTTONS.map((b) => (
-        <Button
-          key={b.mode}
-          type="button"
-          size="sm"
-          variant={mode === b.mode ? "default" : "secondary"}
-          onClick={() => setMode(mode === b.mode ? "none" : b.mode)}
-        >
-          {b.label}
-        </Button>
+    <div className="absolute top-2 left-2 z-10 flex flex-wrap items-center gap-1 rounded-md bg-background/90 p-1 shadow-md backdrop-blur">
+      {DRAW_GROUPS.map((group, gi) => (
+        <div key={group.name} className="flex items-center gap-1">
+          {gi > 0 ? <div className="mx-0.5 h-5 w-px shrink-0 bg-border" /> : null}
+          {group.buttons.map((b) => {
+            // split / cutHole draw ONTO a selected shape → disabled until one is
+            // selected (modify/transform select on click; drawing selects nothing).
+            const disabled = requiresPriorSelection(b.mode) && !hasSelection;
+            return (
+              <Button
+                key={b.mode}
+                type="button"
+                size="sm"
+                variant={mode === b.mode ? "default" : "secondary"}
+                disabled={disabled}
+                title={disabled ? "Select a shape first" : undefined}
+                onClick={() => setMode(mode === b.mode ? "none" : b.mode)}
+              >
+                {b.label}
+              </Button>
+            );
+          })}
+        </div>
       ))}
     </div>
   );
@@ -120,7 +150,9 @@ export function DeckGeoJsonInput({
           controller={{ doubleClickZoom: false }}
           getCursor={({ isDragging }) => (mode !== "none" ? "crosshair" : isDragging ? "grabbing" : "grab")}
         >
-          {!disabled ? <DeckDrawToolbar mode={mode} setMode={setMode} /> : null}
+          {!disabled ? (
+            <DeckDrawToolbar mode={mode} setMode={setMode} hasSelection={selectedIndexes.length > 0} />
+          ) : null}
         </DeckMap>
       </div>
       {helperText ? <div className="text-xs text-muted-foreground">{helperText}</div> : null}
