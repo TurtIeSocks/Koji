@@ -6,7 +6,7 @@ import { EditableGeoJsonLayer } from "@deck.gl-community/editable-layers";
 import { modeSpecFor, type DrawMode } from "@/map/lib/edit-modes";
 import { routeCoords, routeSegments, segmentColors, type RouteSegment } from "@/map/lib/calc-overlay";
 
-interface MarkerSet { id: LayerId; points: [number, number][]; color: [number, number, number]; radius?: number; }
+interface MarkerSet { id: LayerId; points: [number, number][]; color: [number, number, number]; radius?: number; maxPixels?: number; }
 
 export interface DraftInput {
   mode: DrawMode;
@@ -72,9 +72,14 @@ export function buildBaseLayers(input: BaseLayersInput): Layer[] {
       id: `markers-${set.id}`,
       visible: visibility[set.id],
       data: { length: set.points.length, attributes: { getPosition: { value: positions, size: 2 } } },
+      // Radius is in METERS → the GPU scales it with zoom for free (no re-render).
+      // radiusMinPixels/radiusMaxPixels bound it: stays visible when zoomed out,
+      // and caps at maxPixels when zoomed in so dense markers stop overlapping
+      // (past the cap, zooming in spreads the points but not the dots → de-crowds).
       getRadius: set.radius ?? markerRadius,
       radiusUnits: "meters",
-      radiusMinPixels: 2,
+      radiusMinPixels: 1,
+      radiusMaxPixels: set.maxPixels,
       getFillColor: [...set.color, 200],
       pickable,
       onClick,

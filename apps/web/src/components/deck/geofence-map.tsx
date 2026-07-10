@@ -38,12 +38,13 @@ export function GeofenceMap() {
           routes: false,
           s2: show.s2,
         },
-        // Per-category radius (meters) — spawnpoints are dense, so much smaller;
-        // pokestops a bit smaller; gyms keep the default. Tune here.
+        // Per-category radius (meters, GPU-scaled by zoom) + a pixel cap so dense
+        // markers stop overlapping when zoomed in. Spawnpoints are densest → the
+        // smallest cap; gyms the largest. Tune here.
         markerSets: [
-          { id: "gyms", points: gyms.data ?? [], color: [230, 80, 80], radius: 70 },
-          { id: "pokestops", points: stops.data ?? [], color: [0, 120, 255], radius: 40 },
-          { id: "spawnpoints", points: spawns.data ?? [], color: [240, 180, 0], radius: 12 },
+          { id: "gyms", points: gyms.data ?? [], color: [230, 80, 80], radius: 70, maxPixels: 14 },
+          { id: "pokestops", points: stops.data ?? [], color: [0, 120, 255], radius: 40, maxPixels: 8 },
+          { id: "spawnpoints", points: spawns.data ?? [], color: [240, 180, 0], radius: 12, maxPixels: 4 },
         ],
         geofences: { type: "FeatureCollection", features: [] },
         routes: { type: "FeatureCollection", features: [] },
