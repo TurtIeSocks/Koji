@@ -896,15 +896,17 @@ git commit -m "feat(web): GeofenceMap workbench — polygon editing + fence-scop
 **Interfaces:**
 - Consumes: `ReferenceManyField`, `DataTable`, `CreateButton` from `@/components/admin`; the getManyReference `target`→filter translation in `data-provider.ts`.
 
-- [ ] **Step 1: Confirm the route list filter param.** Read `crates/koji-service/src/public/v2/routes.rs` for the query arg name. The generic `getManyReference` maps `target="geofence_id"` → `?geofence=`. If the backend expects `geofence_id` or `geofenceid`, add a special case:
+- [ ] **Step 1: Special-case the route list filter param.** CONFIRMED against `crates/koji-service/src/internal/routes.rs` — the internal routes list (`GET /internal/routes`, what `getManyReference` hits) takes `?geofenceid=<id>` (NO underscore): `struct RowQuery { ... geofenceid: Option<u32> }`. The generic `getManyReference` strips a trailing `_id`, which would give `geofence` (wrong). Replace the `_id`-strip line in `data-provider.ts` `getManyReference` with an explicit map:
 
 ```ts
-// data-provider.ts getManyReference — replace the _id-strip line with a map:
-const TARGET_TO_PARAM: Record<string, string> = { project_id: "project", geofence_id: "geofence_id" };
+// ReferenceManyField target -> backend list filter param. Explicit map because
+// the strip-_id convention doesn't hold for routes (backend wants `geofenceid`,
+// not `geofence`). project_id -> project is the webhook precedent.
+const TARGET_TO_PARAM: Record<string, string> = { project_id: "project", geofence_id: "geofenceid" };
 const filterParam = params.target ? (TARGET_TO_PARAM[params.target] ?? params.target.replace(/_id$/, "")) : undefined;
 ```
 
-Pick the exact right-hand value from the backend. Add/adjust the doc comment.
+Update the existing doc comment above `getManyReference` to describe the explicit map (it currently documents only the strip-`_id` convention).
 
 - [ ] **Step 2: Write a failing browser test** — geofence-show lists a route scoped to the fence (assert `getManyReference` receives `target="geofence_id"`, `id=<fence>`), mirroring the webhook section test in `project-show.browser.test.tsx`.
 
