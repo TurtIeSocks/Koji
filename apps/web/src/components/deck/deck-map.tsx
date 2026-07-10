@@ -74,7 +74,7 @@ export function DeckMap({
   const mapStyle = useMemo(() => rasterStyle(tileUrl), [tileUrl]);
 
   return (
-    <div ref={containerRef} data-testid="deck-map" className="relative overflow-hidden rounded-md border" style={{ height, width: "100%" }}>
+    <div ref={containerRef} data-testid="deck-map" className="relative overflow-hidden rounded-sm border" style={{ height, width: "100%" }}>
       {initial ? (
         <DeckGL
           initialViewState={initial}

@@ -5,6 +5,7 @@ import { GeoJsonLayer } from "@deck.gl/layers";
 import { buildEditLayer } from "@/map/lib/layers";
 import { requiresPriorSelection, type DrawMode } from "@/map/lib/edit-modes";
 import { Button } from "@/components/ui/button";
+import { Pentagon, Square, Circle, Spline, Move, Scissors, Eraser, type LucideIcon } from "lucide-react";
 import { DeckMap } from "./deck-map";
 import { geometryBounds } from "./bounds";
 import { useDeckEditRHF, type UseDeckEditRHFOptions } from "./use-deck-edit-rhf";
@@ -12,29 +13,30 @@ import { useDeckEditRHF, type UseDeckEditRHFOptions } from "./use-deck-edit-rhf"
 const DRAFT_FILL: [number, number, number, number] = [0, 150, 255, 60];
 const DRAFT_LINE: [number, number, number, number] = [0, 150, 255, 220];
 
-// The full editable-layers toolset (edit-modes.ts), grouped. split/cutHole draw
-// against an already-selected shape, so they're gated on a selection below.
-const DRAW_GROUPS: { name: string; buttons: { mode: DrawMode; label: string }[] }[] = [
+// The full editable-layers toolset (edit-modes.ts), grouped, as icon buttons so
+// all of it fits one row. split/cutHole draw against an already-selected shape,
+// so they're gated on a selection below.
+const DRAW_GROUPS: { name: string; buttons: { mode: DrawMode; label: string; Icon: LucideIcon }[] }[] = [
   {
     name: "draw",
     buttons: [
-      { mode: "drawPolygon", label: "Polygon" },
-      { mode: "drawRectangle", label: "Rectangle" },
-      { mode: "drawCircle", label: "Circle" },
+      { mode: "drawPolygon", label: "Polygon", Icon: Pentagon },
+      { mode: "drawRectangle", label: "Rectangle", Icon: Square },
+      { mode: "drawCircle", label: "Circle", Icon: Circle },
     ],
   },
   {
     name: "edit",
     buttons: [
-      { mode: "modify", label: "Modify" },
-      { mode: "transform", label: "Move" },
+      { mode: "modify", label: "Modify", Icon: Spline },
+      { mode: "transform", label: "Move", Icon: Move },
     ],
   },
   {
     name: "shape-ops",
     buttons: [
-      { mode: "split", label: "Split" },
-      { mode: "cutHole", label: "Cut hole" },
+      { mode: "split", label: "Split", Icon: Scissors },
+      { mode: "cutHole", label: "Cut hole", Icon: Eraser },
     ],
   },
 ];
@@ -52,7 +54,7 @@ function DeckDrawToolbar({
     // Flush bottom dock — sits on the map's bottom edge (no gap to the sides or
     // bottom), a top border rather than a shadow so it reads as a bar BELOW the
     // map, not a card floating on top.
-    <div className="absolute inset-x-0 bottom-0 z-10 flex flex-wrap items-center gap-1 border-t bg-background/95 px-2 py-1.5 backdrop-blur">
+    <div className="absolute inset-x-0 bottom-0 z-10 flex items-center gap-1 border-t bg-background/95 px-2 py-1.5 backdrop-blur">
       {DRAW_GROUPS.map((group, gi) => (
         <div key={group.name} className="flex items-center gap-1">
           {gi > 0 ? <div className="mx-1 h-5 w-px shrink-0 bg-border" /> : null}
@@ -64,13 +66,14 @@ function DeckDrawToolbar({
               <Button
                 key={b.mode}
                 type="button"
-                size="sm"
+                size="icon-sm"
                 variant={mode === b.mode ? "default" : "ghost"}
                 disabled={disabled}
-                title={disabled ? "Select a shape first" : undefined}
+                aria-label={b.label}
+                title={disabled ? "Select a shape first" : b.label}
                 onClick={() => setMode(mode === b.mode ? "none" : b.mode)}
               >
-                {b.label}
+                <b.Icon />
               </Button>
             );
           })}
