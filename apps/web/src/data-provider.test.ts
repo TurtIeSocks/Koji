@@ -75,3 +75,29 @@ describe("baseDataProvider geofence", () => {
     expect(res.data.id).toBe(2);
   });
 });
+
+describe("baseDataProvider getManyReference target->filter translation", () => {
+  it("translates target=geofence_id to the backend's ?geofenceid= param (no underscore)", async () => {
+    const res = await baseDataProvider.getManyReference("route", {
+      target: "geofence_id",
+      id: 1,
+      pagination: { page: 1, perPage: 10 },
+      sort: { field: "name", order: "ASC" },
+      filter: {},
+    });
+    expect(res.data).toHaveLength(1);
+    expect(res.data[0]).toMatchObject({ id: 1, name: "Route-A" });
+  });
+
+  it("translates target=project_id to the backend's ?project= param", async () => {
+    const res = await baseDataProvider.getManyReference("webhook", {
+      target: "project_id",
+      id: 10,
+      pagination: { page: 1, perPage: 10 },
+      sort: { field: "name", order: "ASC" },
+      filter: {},
+    });
+    expect(res.data).toHaveLength(1);
+    expect(res.data[0]).toMatchObject({ id: 1, name: "ReactMap reload" });
+  });
+});

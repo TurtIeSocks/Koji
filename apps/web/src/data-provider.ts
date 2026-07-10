@@ -77,16 +77,24 @@ export const serializeGeofenceWrite = (data: any): any => {
   };
 };
 
+// ReferenceManyField target -> backend list filter param. Explicit map because
+// the strip-_id convention doesn't hold for routes (backend wants `geofenceid`,
+// not `geofence`). project_id -> project is the webhook precedent.
+const TARGET_TO_PARAM: Record<string, string> = { project_id: "project", geofence_id: "geofenceid" };
+
 export const baseDataProvider: DataProvider = {
   getList: (resource, params) => getListImpl(resource, params) as any,
   getManyReference: (resource, params) => {
     // ReferenceManyField passes `target`/`id` separately; translate them into a
     // list filter so the backend `?<param>=<id>` query actually scopes the
-    // results. Convention: the backend filter param is `target` minus a trailing
-    // `_id` (e.g. `project_id` → `?project=`). Only holds for FKs whose backend
-    // param drops the `_id`; a future ReferenceManyField with a different param
-    // shape must special-case here.
-    const filterParam = params.target ? params.target.replace(/_id$/, "") : undefined;
+    // results. Explicit map because the strip-`_id` convention doesn't hold
+    // universally — e.g. routes' backend filter param is `geofenceid` (no
+    // underscore), not `geofence`. project_id -> project is the webhook
+    // precedent (strip-`_id` happens to match there); anything not listed
+    // falls back to stripping a trailing `_id`.
+    const filterParam = params.target
+      ? (TARGET_TO_PARAM[params.target] ?? params.target.replace(/_id$/, ""))
+      : undefined;
     const merged = {
       ...params,
       filter: {

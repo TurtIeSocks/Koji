@@ -106,6 +106,19 @@ handlers.push(
   http.post("/internal/webhooks/:id/test", () =>
     HttpResponse.json({ status: "ok", data: { delivered: true, upstream_status: 200, error: null } }),
   ),
+  http.get("/internal/routes", ({ request }) => {
+    const url = new URL(request.url);
+    const geofenceid = url.searchParams.get("geofenceid");
+    const rows = [
+      { id: 1, name: "Route-A", mode: "circle_route", points: 12, geofence_id: 1 },
+      { id: 2, name: "Route-B", mode: "circle_route", points: 8, geofence_id: 2 },
+    ].filter((r) => (geofenceid ? String(r.geofence_id) === geofenceid : true));
+    return HttpResponse.json({
+      status: "ok",
+      data: rows,
+      meta: { total: rows.length, page: 1, per_page: 10, total_pages: 1, has_next: false, has_prev: false },
+    });
+  }),
 );
 
 export const server = setupServer(...handlers);
