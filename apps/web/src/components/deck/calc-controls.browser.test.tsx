@@ -46,7 +46,10 @@ function renderControls(props: Partial<React.ComponentProps<typeof CalcControls>
 		onRun,
 		screen: render(
 			<QueryClientProvider client={qc}>
+				{/* Positioned, sized parent — CalcControls is an absolute left dock. */}
+				<div className="relative" style={{ height: 600, width: 320 }}>
 				<CalcControls calc={calc} category={props.category ?? "pokestop"} onRun={onRun} disabled={props.disabled} disabledReason={props.disabledReason} />
+				</div>
 			</QueryClientProvider>,
 		),
 	};

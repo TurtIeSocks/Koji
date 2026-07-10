@@ -63,7 +63,10 @@ export function CalcControls({ calc, category, onRun, disabled, disabledReason }
 	const blocked = !!disabled;
 
 	return (
-		<div className="flex max-h-[460px] w-64 flex-col gap-3 overflow-y-auto rounded-lg border bg-background/90 p-3 shadow-md backdrop-blur">
+		// Flush left dock — pinned to the map's left edge, full height, a right
+		// border instead of a shadow so it reads as a sidebar of the map, not a
+		// floating card. Scrolls independently when the controls overflow.
+		<div className="absolute inset-y-0 left-0 z-10 flex w-64 flex-col gap-3 overflow-y-auto border-r bg-background/95 p-3 backdrop-blur">
 			<div className="flex items-center justify-between">
 				<span className="text-sm font-medium">Calculate</span>
 				{job && <Badge variant={job.status === "failed" ? "destructive" : "secondary"}>{job.status}</Badge>}

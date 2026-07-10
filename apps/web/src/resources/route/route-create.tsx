@@ -25,7 +25,8 @@ export const RouteFormFields = () => (
 
 export const RouteCreate = () => (
   <Create>
-    <SimpleForm>
+    {/* Wider than the default max-w-lg — the calc workbench map needs the room. */}
+    <SimpleForm className="max-w-4xl">
       <RouteFormFields />
     </SimpleForm>
   </Create>

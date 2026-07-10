@@ -67,11 +67,9 @@ export function RouteMap() {
 
   return (
     <div className="relative">
-      <DeckMap key={fitKey} layers={layers} fitBounds={fit} height={520} controller={{ doubleClickZoom: true }}>
-        <div className="absolute top-2 left-2 z-10">
-          <CalcControls calc={calc} category={category} onRun={onRun} disabled={areaMissing}
-            disabledReason={areaMissing ? "Select a geofence first." : undefined} />
-        </div>
+      <DeckMap key={fitKey} layers={layers} fitBounds={fit} height={640} controller={{ doubleClickZoom: true }}>
+        <CalcControls calc={calc} category={category} onRun={onRun} disabled={areaMissing}
+          disabledReason={areaMissing ? "Select a geofence first." : undefined} />
       </DeckMap>
     </div>
   );
