@@ -62,16 +62,22 @@ export function useCalc(initial?: Partial<CalcParams>): UseCalcReturn {
 
 	const resolveTerminal = useCallback(async (id: string) => {
 		if (resolvedRef.current === id) return;
-		resolvedRef.current = id;
 		try {
 			const rec = await getJob(id);
 			const st = norm(rec.status);
 			if (st === "succeeded") {
+				// Latch ONLY once terminal — the safety-net effect fires this while
+				// the job is still queued/running; latching before the status check
+				// would block the later realtime succeeded/failed event from ever
+				// resolving the result (silent data loss). Double-resolution on a
+				// terminal job is idempotent, so latching-on-terminal is enough.
+				resolvedRef.current = id;
 				const r = parseCalcResult(rec);
 				setResult(r.fc);
 				setStats(r.stats);
 				setJob((j) => j && { ...j, status: "succeeded", progress: 1 });
 			} else if (st === "failed") {
+				resolvedRef.current = id;
 				setError(rec.error ?? "job failed");
 				setJob((j) => j && { ...j, status: "failed" });
 			}

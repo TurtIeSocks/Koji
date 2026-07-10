@@ -28,7 +28,6 @@ function DeckDrawToolbar({
 }: {
   mode: DrawMode;
   setMode: (m: DrawMode) => void;
-  selectedCount?: number;
 }) {
   return (
     <div className="absolute top-2 left-2 z-10 flex gap-1 rounded-md bg-background/90 p-1 shadow-md backdrop-blur">
@@ -109,7 +108,7 @@ export function DeckGeoJsonInput({
           controller={{ doubleClickZoom: false }}
           getCursor={({ isDragging }) => (mode !== "none" ? "crosshair" : isDragging ? "grabbing" : "grab")}
         >
-          {!disabled ? <DeckDrawToolbar mode={mode} setMode={setMode} selectedCount={selectedIndexes.length} /> : null}
+          {!disabled ? <DeckDrawToolbar mode={mode} setMode={setMode} /> : null}
         </DeckMap>
       </div>
       {helperText ? <div className="text-xs text-muted-foreground">{helperText}</div> : null}

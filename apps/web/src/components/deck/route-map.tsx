@@ -31,6 +31,9 @@ export function RouteMap() {
   const calc = useCalc();
 
   // A succeeded calc result → the route's geometry (MultiPoint of ordered points).
+  // ponytail: re-fires if mode/category change after a result (a dep) — benign
+  // today (re-writes the same points; no manual point editor). Guard on a
+  // result-identity ref if a manual editor is ever added.
   useEffect(() => {
     if (!calc.result) return;
     const pts = routeCoords(calc.result); // [lon,lat][]

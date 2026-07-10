@@ -5,6 +5,10 @@ import type { Layer } from "@deck.gl/core";
 import { routeCoords, routeSegments, segmentColors, type RouteSegment } from "@/map/lib/calc-overlay";
 import { DeckMap } from "./deck-map";
 
+// Mirrors Leaflet `BaseFieldProps` (components/leaflet/types.ts) for drop-in
+// parity, with one deliberate divergence: styling is deck-native RGBA
+// `fillColor`/`lineColor` instead of Leaflet's `pathOptions`. A future
+// Leaflet→deck backport must translate `pathOptions` → these two props.
 export interface DeckGeoJsonFieldProps {
   source: string;
   height?: number | string;
@@ -24,6 +28,8 @@ export function DeckGeoJsonField({
   variant = "geometry", fillColor = DEFAULT_FILL, lineColor = DEFAULT_LINE,
 }: DeckGeoJsonFieldProps) {
   const record = useRecordContext();
+  // GeoJSON.GeoJSON (the full union), not GeoJsonObject — matches DeckMap's
+  // fitBounds prop + geometryBounds' param so the value flows through untyped-cast.
   const geom = record?.[source] as GeoJSON.GeoJSON | null | undefined;
 
   const layers = useMemo<Layer[]>(() => {
