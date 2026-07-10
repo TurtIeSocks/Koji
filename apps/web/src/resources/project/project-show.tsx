@@ -15,7 +15,13 @@ import { useRecordContext } from "ra-core";
 const AddWebhookButton = () => {
   const record = useRecordContext();
   if (!record) return null;
-  return <CreateButton resource="webhook" label="Add webhook" />;
+  return (
+    <CreateButton
+      resource="webhook"
+      label="Add webhook"
+      state={{ record: { project_id: record.id } }}
+    />
+  );
 };
 
 export const ProjectShow = (props: Pick<ShowProps, "id">) => (

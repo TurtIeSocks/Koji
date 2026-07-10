@@ -16,7 +16,13 @@ import { useRecordContext } from "ra-core";
 const NewRouteButton = () => {
   const record = useRecordContext();
   if (!record) return null;
-  return <CreateButton resource="route" label="New route" />;
+  return (
+    <CreateButton
+      resource="route"
+      label="New route"
+      state={{ record: { geofence_id: record.id } }}
+    />
+  );
 };
 
 export const GeofenceShow = (props: Pick<ShowProps, "id">) => (

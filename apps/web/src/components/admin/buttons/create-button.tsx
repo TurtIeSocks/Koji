@@ -15,6 +15,12 @@ type CreateButtonProps = {
   icon?: React.ReactNode;
   resource?: string;
   scrollToTop?: boolean;
+  /**
+   * Extra router location state merged into the link. Pass `{ record: {...} }`
+   * to pre-fill the Create form — ra-core's `useRecordFromLocation` reads
+   * `location.state.record` as the new record's default values.
+   */
+  state?: Record<string, unknown>;
   ref?: Ref<HTMLAnchorElement>;
 };
 
@@ -46,6 +52,7 @@ function CreateButton(props: CreateButtonProps) {
     label: labelProp,
     icon = defaultIcon,
     scrollToTop = true,
+    state,
     ref,
   } = props;
   const resource = useResourceContext(props);
@@ -72,7 +79,7 @@ function CreateButton(props: CreateButtonProps) {
       ref={ref}
       className={buttonVariants({ variant: "outline" })}
       to={link}
-      state={{ _scrollToTop: scrollToTop }}
+      state={{ _scrollToTop: scrollToTop, ...state }}
       onClick={stopPropagation}
       aria-label={typeof label === "string" ? label : undefined}
     >
