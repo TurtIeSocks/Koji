@@ -1,14 +1,15 @@
-import { Route } from 'react-router'
+import { ArrowLeft, MapIcon } from 'lucide-react'
+import { Link, Route } from 'react-router'
 import { Authenticated, CustomRoutes } from 'shadmin-core'
-import { MapIcon } from 'lucide-react'
 import { authProvider } from '@/auth-provider'
 import { Admin, Layout, Menu, Resource } from '@/components/admin'
+import { MapIndex } from '@/components/deck'
 import { PasswordLoginPage } from '@/components/login/password-login-page'
+import { Button } from '@/components/ui/button'
 import { Dashboard } from '@/dashboard/dashboard'
 import { dataProvider } from '@/data-provider'
 import { geofence } from '@/resources/geofence'
 import { ImportWizard } from '@/resources/import/import-wizard'
-import { MapRoute } from '@/map/map-route'
 import { plugins } from '@/resources/plugins'
 import { project } from '@/resources/project'
 import { property } from '@/resources/property'
@@ -69,7 +70,19 @@ function App() {
         <Route
           element={
             <Authenticated>
-              <MapRoute />
+              <div className="relative h-screen w-screen overflow-hidden">
+                <MapIndex />
+                <Button
+                  asChild
+                  size="sm"
+                  variant="secondary"
+                  className="absolute top-4 left-4 z-10 bg-background/90 shadow-md backdrop-blur"
+                >
+                  <Link to="/">
+                    <ArrowLeft className="size-4" /> Admin
+                  </Link>
+                </Button>
+              </div>
             </Authenticated>
           }
           path="/map"
