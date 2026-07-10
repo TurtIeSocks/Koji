@@ -13,14 +13,17 @@ import { geofenceToFeatures, featuresToGeofence } from "./geofence-geometry";
 const WORLD: Bounds = [-180, -85, 180, 85];
 
 export function GeofenceMap() {
-  // Live geometry from the form drives the marker/S2 bbox as the fence is edited.
+  // Live geometry from the form drives the marker query as the fence is edited.
+  // Markers use the actual polygon `area` (so a MultiPolygon returns points
+  // inside its parts, not the whole bbox); S2 cells stay bbox-based (a grid).
   const geometry = useWatch({ name: "geometry" }) as GeoJSON.Geometry | null | undefined;
+  const area = geometry ?? null;
   const bbox = useMemo<Bounds>(() => (geometry ? (geometryBounds(geometry) ?? WORLD) : WORLD), [geometry]);
 
   const [show, setShow] = useState({ gyms: false, pokestops: false, spawnpoints: false, s2: false });
-  const gyms = useMarkers("gym", bbox, 0, show.gyms);
-  const stops = useMarkers("pokestop", bbox, 0, show.pokestops);
-  const spawns = useMarkers("spawnpoint", bbox, 0, show.spawnpoints);
+  const gyms = useMarkers("gym", area, bbox, 0, show.gyms);
+  const stops = useMarkers("pokestop", area, bbox, 0, show.pokestops);
+  const spawns = useMarkers("spawnpoint", area, bbox, 0, show.spawnpoints);
   const s2 = useS2Cells(15, bbox, show.s2);
 
   const contextLayers = useMemo<Layer[]>(

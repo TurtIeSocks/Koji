@@ -22,11 +22,18 @@ type TthFilter = "All" | "Known" | "Unknown";
 
 export async function fetchMarkers(
   category: MarkerCategory,
+  area: GeoJSON.Geometry | null,
   bounds: Bounds,
   lastSeen: number,
   tth?: TthFilter,
 ): Promise<[number, number][]> {
-  const body: Record<string, unknown> = { bbox: toBboxWire(bounds), lastSeen };
+  // Prefer the actual polygon `area` — the `/golbat-data` POST surface runs
+  // points_from_area, which filters to the real shape. A MultiPolygon's bbox
+  // would wrongly return points in the gaps between its parts. Fall back to the
+  // bbox only when there's no geometry.
+  const body: Record<string, unknown> = area
+    ? { area, lastSeen }
+    : { bbox: toBboxWire(bounds), lastSeen };
   if (category === "spawnpoint" && tth && tth !== "All") {
     body.tth = tth;
   }
@@ -40,14 +47,15 @@ export async function fetchMarkers(
 
 export function useMarkers(
   category: MarkerCategory,
+  area: GeoJSON.Geometry | null,
   bounds: Bounds,
   lastSeen: number,
   enabled: boolean,
   tth?: TthFilter,
 ) {
   return useQuery({
-    queryKey: ["markers", category, bounds, lastSeen, tth],
-    queryFn: () => fetchMarkers(category, bounds, lastSeen, tth),
+    queryKey: ["markers", category, area ?? bounds, lastSeen, tth],
+    queryFn: () => fetchMarkers(category, area, bounds, lastSeen, tth),
     enabled,
     staleTime: 30_000,
   });
