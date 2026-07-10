@@ -68,9 +68,15 @@ export function RouteMap() {
   const areaMissing = AREA_MODES.includes(calc.params.mode) && !fenceFeature;
   const routeMissing = ROUTE_INPUT_MODES.includes(calc.params.mode) && !geometry;
 
+  // DeckMap fits its camera once on mount. On CREATE the form starts empty, so
+  // remount (via key) when the framing target first appears — a picked fence,
+  // then the calc result — so the map isn't stuck at [0,0]. On EDIT geometry is
+  // present from the first render, so the key is stable ("geo") → no remount.
+  const fitKey = geometry ? "geo" : fenceFeature ? `fence-${geofenceId}` : "empty";
+
   return (
     <div className="relative">
-      <DeckMap layers={layers} fitBounds={fit} height={520} controller={{ doubleClickZoom: true }}>
+      <DeckMap key={fitKey} layers={layers} fitBounds={fit} height={520} controller={{ doubleClickZoom: true }}>
         <div className="absolute top-2 left-2 z-10">
           <CalcControls calc={calc} onRun={onRun} disabled={areaMissing || routeMissing}
             disabledReason={areaMissing ? "Select a geofence first." : routeMissing ? "Route has no points yet." : undefined} />

@@ -5,18 +5,21 @@ import {
   SelectInput,
   ReferenceInput,
 } from "@/components/admin";
-import { MultiPointInput } from "@/components/leaflet";
-import { ROUTE_MODES, DEFAULT_TILE_URL } from "@/lib/constants";
+import { RouteMap } from "@/components/deck";
+import { ROUTE_MODES } from "@/lib/constants";
 import { required } from "ra-core";
-// required is used for TextInput name validation
 
+/** Shared route form body (create + edit): metadata + the deck calc workbench.
+ *  Routes are calc results over a geofence — `<RouteMap>` reactively loads the
+ *  fence from `geofence_id`, runs the calc, and writes the result to `geometry`.
+ *  (No Leaflet: the map is the deck `<RouteMap>` on both create and edit.) */
 export const RouteFormFields = () => (
   <>
     <TextInput source="name" validate={required()} />
     <TextInput source="description" />
     <SelectInput source="mode" choices={[...ROUTE_MODES]} defaultValue="unset" />
     <ReferenceInput source="geofence_id" reference="geofence" />
-    <MultiPointInput source="geometry" tileUrl={DEFAULT_TILE_URL} height={400} />
+    <RouteMap />
   </>
 );
 

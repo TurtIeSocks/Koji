@@ -46,14 +46,14 @@ describe("Route form", () => {
   it("renders name and mode inputs in create view", async () => {
     const screen = render(wrap(<RouteCreate />));
     await expect.element(screen.getByLabelText(/name/i)).toBeVisible();
-    await expect.element(screen.getByLabelText(/mode/i)).toBeVisible();
+    // .first() — RouteMap's CalcControls also renders a "Mode" combobox.
+    await expect.element(screen.getByLabelText(/mode/i).first()).toBeVisible();
   });
 
-  it("renders a Leaflet map in create view", async () => {
+  it("renders the deck calc workbench (NOT Leaflet) in create view", async () => {
     const screen = render(wrap(<RouteCreate />));
-    await expect
-      .element(screen.container.querySelector(".leaflet-container"))
-      .toBeInTheDocument();
+    await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
+    expect(screen.container.querySelector(".leaflet-container")).toBeNull();
   });
 
   it("renders the calc workbench (deck map) and keeps the metadata fields in edit view", async () => {
