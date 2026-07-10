@@ -25,6 +25,7 @@ web: ## Build the frontend and stage it into the server's embed folder
 build: web ## Build the release binary with the web app embedded (deploy artifact)
 	cargo build --release -p koji
 	@echo "==> built $(BIN) (web embedded)"
+	cp ./target/release/koji koji
 
 release: build ## Alias for `build`
 

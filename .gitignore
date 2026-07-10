@@ -39,3 +39,4 @@ bench-results/
 # Dev Test Files
 *.csv
 *.txt
+/koji
