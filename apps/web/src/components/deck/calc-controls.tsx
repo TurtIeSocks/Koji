@@ -120,11 +120,11 @@ export function CalcControls({ calc, onRun, disabled, disabledReason }: CalcCont
 					{job.phase && <span className="text-xs text-muted-foreground">{job.phase}</span>}
 					{error && <span className="text-xs text-destructive">{error}</span>}
 					{stats != null && <CalcStats stats={stats} />}
-					<Button size="sm" variant="ghost" onClick={clear}>Clear</Button>
+					<Button type="button" size="sm" variant="ghost" onClick={clear}>Clear</Button>
 				</div>
 			) : (
 				<>
-					<Button size="sm" disabled={blocked} onClick={onRun}>Calculate</Button>
+					<Button type="button" size="sm" disabled={blocked} onClick={onRun}>Calculate</Button>
 					{blocked && disabledReason && <span className="text-xs text-muted-foreground">{disabledReason}</span>}
 					{error && !blocked && <span className="text-xs text-destructive">{error}</span>}
 				</>

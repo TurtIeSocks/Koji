@@ -34,6 +34,7 @@ function DeckDrawToolbar({
       {DRAW_BUTTONS.map((b) => (
         <Button
           key={b.mode}
+          type="button"
           size="sm"
           variant={mode === b.mode ? "default" : "secondary"}
           onClick={() => setMode(mode === b.mode ? "none" : b.mode)}

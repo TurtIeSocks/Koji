@@ -16,4 +16,22 @@ describe("DeckGeoJsonInput", () => {
     await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
     await expect.element(screen.getByRole("button", { name: /polygon/i })).toBeInTheDocument();
   });
+
+  it("draw-toolbar buttons are type=button so a click never submits the form", async () => {
+    // Regression: shadcn <Button> spreads props with no default `type`, so inside
+    // a SimpleForm a toolbar click defaulted to type="submit" → submitted the form
+    // and navigated away. The buttons must carry type="button". (Asserting the
+    // attribute rather than clicking: deck's canvas wrapper intercepts synthetic
+    // pointer events in headless, though the toolbar is clickable in a real tab.)
+    const screen = render(
+      <AdminContext dataProvider={testDataProvider()}>
+        <SimpleForm onSubmit={() => {}}>
+          <DeckGeoJsonInput source="geometry" label="Geometry" />
+        </SimpleForm>
+      </AdminContext>,
+    );
+    await expect
+      .element(screen.getByRole("button", { name: /polygon/i }))
+      .toHaveAttribute("type", "button");
+  });
 });

@@ -55,6 +55,7 @@ export function GeofenceMap() {
         {(["gyms", "pokestops", "spawnpoints", "s2"] as const).map((k) => (
           <Button
             key={k}
+            type="button"
             size="sm"
             variant={show[k] ? "default" : "secondary"}
             onClick={() => setShow((s) => ({ ...s, [k]: !s[k] }))}
