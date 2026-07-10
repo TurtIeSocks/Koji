@@ -119,6 +119,9 @@ export interface DeckGeoJsonInputProps extends UseDeckEditRHFOptions {
 	/** Initial camera for the EMPTY case (no geometry yet, e.g. a create form) so
 	 *  it doesn't open at [0,0]. Ignored once there's geometry to fit. */
 	defaultViewState?: { longitude: number; latitude: number; zoom?: number };
+	/** Extra absolutely-positioned overlay children on the map (e.g. a calc panel
+	 *  dock) rendered alongside the draw toolbar. */
+	overlay?: ReactNode;
 }
 
 export function DeckGeoJsonInput({
@@ -129,6 +132,7 @@ export function DeckGeoJsonInput({
 	disabled,
 	contextLayers,
 	defaultViewState,
+	overlay,
 	...editOpts
 }: DeckGeoJsonInputProps) {
 	const { draft, mode, setMode, selectedIndexes, onEdit, onSelect } =
@@ -205,6 +209,7 @@ export function DeckGeoJsonInput({
 							hasSelection={selectedIndexes.length > 0}
 						/>
 					) : null}
+					{overlay}
 				</DeckMap>
 			</div>
 			{helperText ? (

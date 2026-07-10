@@ -15,27 +15,23 @@ vi.mock("@/auth-provider", () => ({
   },
 }));
 
-// MapIndex pulls in useGeoFeatures (ra-core useGetList -> live dataProvider) —
-// stub it, same precedent as the old map-route test stubbing DeckCanvas. Other
-// exports from this barrel (GeofenceMap, RouteMap, ...) are used elsewhere in
-// the app's import graph, so pass them through untouched.
+// MapPlayground pulls in useMarkers/useCalc (real query + calc-client) — stub it,
+// same precedent as the old test stubbing DeckCanvas/MapIndex. Other exports from
+// this barrel are used elsewhere in the import graph, so pass them through.
 vi.mock("@/components/deck", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/components/deck")>();
-  return { ...actual, MapIndex: () => <div data-testid="deck-map" /> };
+  return { ...actual, MapPlayground: () => <div data-testid="deck-map" /> };
 });
 
 import App from "@/App";
 
 describe("/map route", () => {
-  it("renders the read-only map index full-bleed with a back-to-admin link, no draw toolbar or calc panel", async () => {
+  it("renders the playground full-bleed, gated behind auth", async () => {
     const screen = render(
       <MemoryRouter initialEntries={["/map"]}>
         <App />
       </MemoryRouter>,
     );
     await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
-    await expect.element(screen.getByRole("link", { name: /Admin/ })).toBeInTheDocument();
-    expect(screen.getByTestId("draw-toolbar").query()).toBeNull();
-    expect(screen.getByTestId("calc-panel").query()).toBeNull();
   });
 });

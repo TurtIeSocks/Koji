@@ -3,7 +3,7 @@ export * from "./deck-geojson-field";
 export * from "./deck-geojson-input";
 export * from "./deck-map";
 export * from "./geofence-map";
-export * from "./map-index";
+export * from "./map-playground";
 export * from "./route-map";
 export * from "./route-mode";
 export * from "./use-calc";
