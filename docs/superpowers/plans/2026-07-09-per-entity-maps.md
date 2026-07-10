@@ -15,7 +15,7 @@
 - **Coord discipline:** golbat markers arrive `[lat,lon]` → transpose to `[lng,lat]` for deck (`coords.fromKojiLatLon` / `packMarkers`); geofence/route GeoJSON is already `[lng,lat]`. Marker bbox wire is camelCase (`minLat`…); S2 `BoundsArg` is snake_case (`min_lat`…).
 - **deck WebGL renders offscreen-black in Claude Preview.** Verify by DOM geometry + layer props + network, never `preview_screenshot`.
 - **Camera stays transient:** never subscribe a render to live viewState; write it via callback only.
-- **TDD, frequent commits.** Browser tests for React components (`*.browser.test.tsx`), jsdom units for pure logic (`*.test.ts`). Run `bun run typecheck`, `bun run test:unit`, `bun run test:browser` from `apps/web/`.
+- **TDD, frequent commits.** Browser tests for React components (`*.browser.test.tsx`), jsdom units for pure logic (`*.test.ts`). Run `bun run typecheck`, `bun run test`, `bun run test:browser` from `apps/web/`.
 - **Commit message convention:** conventional commits, scope `web`, end with the Co-Authored-By trailer.
 
 ---
@@ -104,7 +104,7 @@ describe("boundsToViewState", () => {
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd apps/web && bun run test:unit src/components/deck/bounds.test.ts`
+Run: `cd apps/web && bun run test src/components/deck/bounds.test.ts`
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Implement `bounds.ts`**
@@ -153,7 +153,7 @@ export function boundsToViewState(
 
 - [ ] **Step 4: Run bounds test → PASS**
 
-Run: `cd apps/web && bun run test:unit src/components/deck/bounds.test.ts`
+Run: `cd apps/web && bun run test src/components/deck/bounds.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Write failing browser test for `<DeckMap>`**
@@ -665,9 +665,13 @@ import { DeckMap } from "./deck-map";
 import { geometryBounds } from "./bounds";
 import { useDeckEditRHF, type UseDeckEditRHFOptions } from "./use-deck-edit-rhf";
 
+// DrawMode union (from edit-modes.ts) is:
+//   "none" | "drawPolygon" | "drawRectangle" | "drawCircle" | "modify"
+//   | "transform" | "split" | "cutHole"
+// Core geofence-editing set only (split/cutHole need a prior selection — omit for v1).
 const DRAW_BUTTONS: { mode: DrawMode; label: string }[] = [
-  { mode: "polygon", label: "Polygon" },
-  { mode: "rectangle", label: "Rectangle" },
+  { mode: "drawPolygon", label: "Polygon" },
+  { mode: "drawRectangle", label: "Rectangle" },
   { mode: "modify", label: "Modify" },
   { mode: "transform", label: "Move" },
 ];
@@ -1086,15 +1090,15 @@ import { categoryToRouteMode } from "./route-mode";
 
 describe("categoryToRouteMode", () => {
   it("maps calc categories to route modes", () => {
-    expect(categoryToRouteMode("spawnpoint")).toBe("circle_smart_pokemon");
-    expect(categoryToRouteMode("pokestop")).toBe("circle_quest");
-    expect(categoryToRouteMode("gym")).toBe("circle_raid");
+    expect(categoryToRouteMode("spawnpoint")).toBe("pokemon");
+    expect(categoryToRouteMode("pokestop")).toBe("quest");
+    expect(categoryToRouteMode("gym")).toBe("fort");
     expect(categoryToRouteMode("unknown")).toBe("unset");
   });
 });
 ```
 
-> Confirm the exact `ROUTE_MODES` ids in `apps/web/src/lib/constants.ts` and the enum in `crates/koji-db/src/db/route.rs` before finalizing the mapping values.
+> CONFIRMED: `ROUTE_MODES = GEOFENCE_MODES` in `apps/web/src/lib/constants.ts` = the collapsed 4-value set `{unset, pokemon, fort, quest}` (the backend `get_enum` maps legacy `circle_pokemon→Pokemon`, `circle_raid→Fort`, etc.). Map to THESE ids, not the legacy `circle_*` strings.
 
 - [ ] **Step 2: Run → FAIL. Implement `route-mode.ts`:**
 
@@ -1102,10 +1106,10 @@ describe("categoryToRouteMode", () => {
 /** Calc golbat category → route mode (v1: category auto-sets the route mode).
  *  Values MUST match ROUTE_MODES ids in lib/constants.ts / the Rust Mode enum. */
 const MAP: Record<string, string> = {
-  spawnpoint: "circle_smart_pokemon",
-  pokestop: "circle_quest",
-  gym: "circle_raid",
-  fort: "circle_raid",
+  spawnpoint: "pokemon",
+  pokestop: "quest",
+  gym: "fort",
+  fort: "fort",
 };
 export function categoryToRouteMode(category: string): string {
   return MAP[category] ?? "unset";
@@ -1384,7 +1388,7 @@ Run: `cd apps/web && rg -l "map/panels/|map/deck-canvas|map/map-route|map/stores
 
 - [ ] **Step 4: Run full gate**
 
-Run: `cd apps/web && bun run typecheck && bun run test:unit && bun run test:browser`
+Run: `cd apps/web && bun run typecheck && bun run test && bun run test:browser`
 Expected: all PASS. Fix any dangling import.
 
 - [ ] **Step 5: Commit**
