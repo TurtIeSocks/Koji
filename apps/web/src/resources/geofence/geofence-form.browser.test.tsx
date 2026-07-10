@@ -92,6 +92,12 @@ describe("Geofence form", () => {
       .toBeInTheDocument();
   });
 
+  it("renders the deck geometry input in the edit form", async () => {
+    const screen = render(wrap(<GeofenceEdit id={1} />));
+    await expect.element(screen.getByLabelText(/name/i)).toBeVisible();
+    await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
+  });
+
   // shadmin's AutocompleteArrayInput renders a "Projects" <label> but without the
   // for/id association getByLabelText needs, so match the label text directly.
   // Split into two single-render tests — rendering two <AdminContext> + leaflet
