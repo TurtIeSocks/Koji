@@ -1,0 +1,81 @@
+import { act, type ReactNode } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { FormProvider, useForm } from "react-hook-form";
+import type { Layer } from "@deck.gl/core";
+
+// `DeckMap` mounts a real DeckGL/MapLibre WebGL canvas — not viable under
+// jsdom. Stub it to capture the `layers` prop instead, mirroring the
+// hand-rolled renderHook approach in use-deck-edit-rhf.test.tsx (this
+// project has no @testing-library/react dependency).
+const { capturedLayers } = vi.hoisted(() => ({ capturedLayers: { current: [] as Layer[] } }));
+vi.mock("./deck-map", () => ({
+  DeckMap: (props: { layers: Layer[]; children?: ReactNode }) => {
+    capturedLayers.current = props.layers;
+    return props.children ?? null;
+  },
+}));
+
+import { DeckGeoJsonInput } from "./deck-geojson-input";
+
+(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+const poly: GeoJSON.Polygon = {
+  type: "Polygon",
+  coordinates: [
+    [
+      [0, 0],
+      [1, 0],
+      [1, 1],
+      [0, 1],
+      [0, 0],
+    ],
+  ],
+};
+
+function wrapper(defaultValues: Record<string, unknown>) {
+  return ({ children }: { children: ReactNode }) => {
+    const form = useForm({ defaultValues });
+    return <FormProvider {...form}>{children}</FormProvider>;
+  };
+}
+
+function renderWithForm(defaultValues: Record<string, unknown>, props: { disabled?: boolean } = {}) {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  let root: Root;
+  const Wrapper = wrapper(defaultValues);
+  act(() => {
+    root = createRoot(container);
+    root.render(
+      <Wrapper>
+        <DeckGeoJsonInput source="geometry" {...props} />
+      </Wrapper>,
+    );
+  });
+  return { unmount: () => act(() => root.unmount()) };
+}
+
+let mounted: { unmount: () => void } | null = null;
+afterEach(() => {
+  mounted?.unmount();
+  mounted = null;
+  capturedLayers.current = [];
+});
+
+describe("DeckGeoJsonInput", () => {
+  it("renders the hydrated draft read-only while mode is 'none' (the default)", () => {
+    mounted = renderWithForm({ geometry: poly });
+    expect(capturedLayers.current.some((l) => l.id === "edit-static")).toBe(true);
+  });
+
+  it("still renders the hydrated draft read-only when disabled", () => {
+    mounted = renderWithForm({ geometry: poly }, { disabled: true });
+    expect(capturedLayers.current.some((l) => l.id === "edit-static")).toBe(true);
+  });
+
+  it("renders nothing extra when there is no existing value", () => {
+    mounted = renderWithForm({ geometry: null });
+    expect(capturedLayers.current).toHaveLength(0);
+  });
+});

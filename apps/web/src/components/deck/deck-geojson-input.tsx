@@ -1,11 +1,15 @@
 import { type ReactNode, useMemo } from "react";
 import type { Layer } from "@deck.gl/core";
+import { GeoJsonLayer } from "@deck.gl/layers";
 import { buildEditLayer } from "@/map/lib/layers";
 import type { DrawMode } from "@/map/lib/edit-modes";
 import { Button } from "@/components/ui/button";
 import { DeckMap } from "./deck-map";
 import { geometryBounds } from "./bounds";
 import { useDeckEditRHF, type UseDeckEditRHFOptions } from "./use-deck-edit-rhf";
+
+const DRAFT_FILL: [number, number, number, number] = [0, 150, 255, 60];
+const DRAFT_LINE: [number, number, number, number] = [0, 150, 255, 220];
 
 // DrawMode union (from edit-modes.ts) is:
 //   "none" | "drawPolygon" | "drawRectangle" | "drawCircle" | "modify"
@@ -65,10 +69,31 @@ export function DeckGeoJsonInput({
 
   // buildEditLayer takes a single DraftInput (not separate args — the plan's
   // snippet used a spread signature that doesn't match apps/web/src/map/lib/layers.ts).
-  const editLayers = useMemo<Layer[]>(
-    () => buildEditLayer({ mode, features: draft, selectedIndexes, onEdit, onSelect }),
-    [mode, draft, selectedIndexes, onEdit, onSelect],
-  );
+  // buildEditLayer short-circuits to [] whenever mode === "none" (the default,
+  // and the only state while `disabled`) — without a fallback here, a
+  // hydrated draft (e.g. editing an existing geofence) would render as a
+  // blank map. Draw a static read-only GeoJsonLayer for the draft instead,
+  // same treatment as <DeckGeoJsonField>.
+  const editLayers = useMemo<Layer[]>(() => {
+    if (mode !== "none") {
+      return buildEditLayer({ mode, features: draft, selectedIndexes, onEdit, onSelect });
+    }
+    if (draft.features.length === 0) return [];
+    return [
+      new GeoJsonLayer({
+        id: "edit-static",
+        data: draft,
+        filled: true,
+        getFillColor: DRAFT_FILL,
+        stroked: true,
+        getLineColor: DRAFT_LINE,
+        lineWidthMinPixels: 2,
+        pointType: "circle",
+        getPointRadius: 5,
+        pointRadiusUnits: "pixels",
+      }),
+    ];
+  }, [mode, draft, selectedIndexes, onEdit, onSelect]);
   const layers = useMemo(() => [...(contextLayers ?? []), ...editLayers], [contextLayers, editLayers]);
   const fit = draft.features[0]?.geometry ? geometryBounds(draft.features[0].geometry) : null;
 
