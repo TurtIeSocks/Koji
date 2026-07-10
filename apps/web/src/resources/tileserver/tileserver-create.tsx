@@ -1,11 +1,13 @@
 import { Create, SimpleForm, TextInput } from "@/components/admin";
-import { BaseMap } from "@/components/leaflet";
+import { DeckMap } from "@/components/deck";
+import { useStartCenter } from "@/components/leaflet/use-start-center";
 import { useWatch } from "react-hook-form";
 import { required } from "ra-core";
 
 function TileserverPreview() {
   const url = useWatch({ name: "url" }) as string | undefined;
   const tileUrl = url && url.trim().length > 0 ? url : null;
+  const [lat, lon] = useStartCenter();
   if (!tileUrl) {
     return (
       <div className="flex h-40 items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground">
@@ -13,7 +15,14 @@ function TileserverPreview() {
       </div>
     );
   }
-  return <BaseMap tileUrl={tileUrl} height={300} />;
+  return (
+    <DeckMap
+      layers={[]}
+      tileUrl={tileUrl}
+      height={300}
+      initialViewState={{ longitude: lon, latitude: lat, zoom: 10 }}
+    />
+  );
 }
 
 export const TileserverFormFields = () => (

@@ -29,7 +29,7 @@ describe("MapNameStep", () => {
     const features = [makeFeature({ title: "Zone A" })];
     const screen = render(<Harness features={features} />);
     await expect
-      .element(screen.getByTestId("import-map-preview"))
+      .element(screen.getByTestId("deck-map"))
       .toBeInTheDocument();
   });
 

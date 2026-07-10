@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useWatch, useFormContext } from "react-hook-form";
 import { RecordContextProvider } from "shadmin-core";
-import { FeatureCollectionField } from "@/components/leaflet";
+import { DeckGeoJsonField } from "@/components/deck";
 import { cn } from "@/lib/utils";
 
 interface Feature {
@@ -57,7 +57,7 @@ function MapNameStep() {
           </div>
         ) : (
           <RecordContextProvider value={{ _preview_fc: fc }}>
-            <FeatureCollectionField source="_preview_fc" testId="import-map-preview" />
+            <DeckGeoJsonField source="_preview_fc" height={300} />
           </RecordContextProvider>
         )}
       </div>
