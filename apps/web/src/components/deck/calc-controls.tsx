@@ -1,9 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import {
 	Select,
 	SelectContent,
@@ -11,6 +10,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { getAlgorithms } from "@/map/data/calc-client";
 import type { CalcMode, CalcStrategy, TthFilter } from "@/map/lib/calc-request";
 import type { UseCalcReturn } from "./use-calc";
@@ -40,9 +40,27 @@ export interface CalcControlsProps {
 /** Presentational calc panel — driven entirely by the `calc` prop (`useCalc`),
  *  no global store. The parent owns the area input, the derived `category`, and
  *  gating; this renders params/progress and calls `onRun`. */
-export function CalcControls({ calc, category, onRun, disabled, disabledReason }: CalcControlsProps) {
+export function CalcControls({
+	calc,
+	category,
+	onRun,
+	disabled,
+	disabledReason,
+}: CalcControlsProps) {
 	const { params, setParams, job, stats, error, clear } = calc;
-	const { mode, strategy, radius, s2Level, s2Size, minPoints, clusterMode, maxClusters, centerClusters, sortBy, tth } = params;
+	const {
+		mode,
+		strategy,
+		radius,
+		s2Level,
+		s2Size,
+		minPoints,
+		clusterMode,
+		maxClusters,
+		centerClusters,
+		sortBy,
+		tth,
+	} = params;
 
 	// Algorithm option lists (GET /algorithms). If the endpoint is down the
 	// selects fall back to just Default and the server default applies.
@@ -66,67 +84,147 @@ export function CalcControls({ calc, category, onRun, disabled, disabledReason }
 		// Flush left dock — pinned to the map's left edge, full height, a right
 		// border instead of a shadow so it reads as a sidebar of the map, not a
 		// floating card. Scrolls independently when the controls overflow.
-		<div className="absolute inset-y-0 left-0 z-10 flex w-64 flex-col gap-3 overflow-y-auto border-r bg-background/95 p-3 backdrop-blur">
+		<div className="absolute inset-y-0 left-0 z-10 flex w-48 flex-col gap-3 overflow-y-auto border-r bg-background/95 p-3 backdrop-blur">
 			<div className="flex items-center justify-between">
 				<span className="text-sm font-medium">Calculate</span>
-				{job && <Badge variant={job.status === "failed" ? "destructive" : "secondary"}>{job.status}</Badge>}
+				{job && (
+					<Badge
+						variant={job.status === "failed" ? "destructive" : "secondary"}
+					>
+						{job.status}
+					</Badge>
+				)}
 			</div>
 
 			<Field label="Mode">
-				<Select value={mode} onValueChange={(v) => setParams({ mode: v as CalcMode })}>
-					<SelectTrigger aria-label="Mode"><SelectValue /></SelectTrigger>
+				<Select
+					value={mode}
+					onValueChange={(v) => setParams({ mode: v as CalcMode })}
+				>
+					<SelectTrigger aria-label="Mode" className="w-full">
+						<SelectValue />
+					</SelectTrigger>
 					<SelectContent>
-						{MODES.map((m) => <SelectItem key={m.mode} value={m.mode}>{m.label}</SelectItem>)}
+						{MODES.map((m) => (
+							<SelectItem key={m.mode} value={m.mode}>
+								{m.label}
+							</SelectItem>
+						))}
 					</SelectContent>
 				</Select>
 			</Field>
 
-			<div className="flex flex-col gap-0.5">
+			{/* <div className="flex flex-col gap-0.5">
 				<Label className="text-xs text-muted-foreground">Category (from route mode)</Label>
 				<span className="text-sm capitalize">{category}</span>
 			</div>
-
+ */}
 			{showTth && (
 				<Field label="Tth">
-					<Select value={tth} onValueChange={(v) => setParams({ tth: v as TthFilter })}>
-						<SelectTrigger aria-label="Tth"><SelectValue /></SelectTrigger>
+					<Select
+						value={tth}
+						onValueChange={(v) => setParams({ tth: v as TthFilter })}
+					>
+						<SelectTrigger aria-label="Tth" className="w-full">
+							<SelectValue />
+						</SelectTrigger>
 						<SelectContent>
-							{TTHS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+							{TTHS.map((t) => (
+								<SelectItem key={t} value={t}>
+									{t}
+								</SelectItem>
+							))}
 						</SelectContent>
 					</Select>
 				</Field>
 			)}
 
 			<Field label="Strategy">
-				<Select value={strategy} onValueChange={(v) => setParams({ strategy: v as CalcStrategy })}>
-					<SelectTrigger aria-label="Strategy"><SelectValue /></SelectTrigger>
+				<Select
+					value={strategy}
+					onValueChange={(v) => setParams({ strategy: v as CalcStrategy })}
+				>
+					<SelectTrigger aria-label="Strategy" className="w-full">
+						<SelectValue />
+					</SelectTrigger>
 					<SelectContent>
-						{STRATEGIES.map((s) => <SelectItem key={s.strategy} value={s.strategy}>{s.label}</SelectItem>)}
+						{STRATEGIES.map((s) => (
+							<SelectItem key={s.strategy} value={s.strategy}>
+								{s.label}
+							</SelectItem>
+						))}
 					</SelectContent>
 				</Select>
 			</Field>
 
+			{showClusterKnobs && (
+				<Field label="Clustering mode">
+					<Select
+						value={clusterMode ?? "default"}
+						onValueChange={(v) =>
+							setParams({ clusterMode: v === "default" ? null : v })
+						}
+					>
+						<SelectTrigger aria-label="Clustering mode" className="w-full">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="default">Default</SelectItem>
+							{(algorithms?.clustering ?? []).map((c) => (
+								<SelectItem key={c} value={c}>
+									{c}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</Field>
+			)}
+
 			{showRadius && (
 				<Field label="Radius (m)">
-					<Input type="number" aria-label="Radius" value={radius} min={1} onChange={(e) => setParams({ radius: Number(e.target.value) })} />
+					<Input
+						type="number"
+						aria-label="Radius"
+						value={radius}
+						min={1}
+						onChange={(e) => setParams({ radius: Number(e.target.value) })}
+					/>
 				</Field>
 			)}
 
 			{showS2 && (
 				<>
 					<Field label="S2 level">
-						<Select value={String(s2Level)} onValueChange={(v) => setParams({ s2Level: Number(v) })}>
-							<SelectTrigger aria-label="S2 level"><SelectValue /></SelectTrigger>
+						<Select
+							value={String(s2Level)}
+							onValueChange={(v) => setParams({ s2Level: Number(v) })}
+						>
+							<SelectTrigger aria-label="S2 level" className="w-full">
+								<SelectValue />
+							</SelectTrigger>
 							<SelectContent>
-								{S2_LEVELS.map((l) => <SelectItem key={l} value={String(l)}>Level {l}</SelectItem>)}
+								{S2_LEVELS.map((l) => (
+									<SelectItem key={l} value={String(l)}>
+										Level {l}
+									</SelectItem>
+								))}
 							</SelectContent>
 						</Select>
 					</Field>
 					<Field label="S2 size">
-						<Select value={String(s2Size)} onValueChange={(v) => setParams({ s2Size: Number(v) })}>
-							<SelectTrigger aria-label="S2 size"><SelectValue /></SelectTrigger>
+						<Select
+							value={String(s2Size)}
+							onValueChange={(v) => setParams({ s2Size: Number(v) })}
+						>
+							<SelectTrigger aria-label="S2 size" className="w-full">
+								<SelectValue />
+							</SelectTrigger>
 							<SelectContent>
-								{S2_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}x{s}</SelectItem>)}
+								{S2_SIZES.map((s) => (
+									<SelectItem key={s} value={String(s)}>
+										{s}x{s}
+									</SelectItem>
+								))}
 							</SelectContent>
 						</Select>
 					</Field>
@@ -135,42 +233,63 @@ export function CalcControls({ calc, category, onRun, disabled, disabledReason }
 
 			{isCluster && (
 				<Field label="Min points">
-					<Input type="number" aria-label="Min points" value={minPoints} min={1} onChange={(e) => setParams({ minPoints: Number(e.target.value) })} />
-				</Field>
-			)}
-
-			{showClusterKnobs && (
-				<Field label="Clustering mode">
-					<Select value={clusterMode ?? "default"} onValueChange={(v) => setParams({ clusterMode: v === "default" ? null : v })}>
-						<SelectTrigger aria-label="Clustering mode"><SelectValue /></SelectTrigger>
-						<SelectContent>
-							<SelectItem value="default">Default</SelectItem>
-							{(algorithms?.clustering ?? []).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-						</SelectContent>
-					</Select>
+					<Input
+						type="number"
+						aria-label="Min points"
+						value={minPoints}
+						min={1}
+						onChange={(e) => setParams({ minPoints: Number(e.target.value) })}
+					/>
 				</Field>
 			)}
 
 			{showMaxClusters && (
 				<Field label="Max clusters (0 = unlimited)">
-					<Input type="number" aria-label="Max clusters" value={maxClusters ?? 0} min={0} onChange={(e) => setParams({ maxClusters: Number(e.target.value) })} />
+					<Input
+						type="number"
+						aria-label="Max clusters"
+						value={maxClusters ?? 0}
+						min={0}
+						onChange={(e) => setParams({ maxClusters: Number(e.target.value) })}
+					/>
 				</Field>
 			)}
 
 			{showClusterKnobs && (
 				<div className="flex items-center justify-between">
-					<Label htmlFor="center-clusters" className="text-xs text-muted-foreground">Center clusters</Label>
-					<Switch id="center-clusters" aria-label="Center clusters" checked={centerClusters} onCheckedChange={(v) => setParams({ centerClusters: v })} />
+					<Label
+						htmlFor="center-clusters"
+						className="text-xs text-muted-foreground"
+					>
+						Center clusters
+					</Label>
+					<Switch
+						id="center-clusters"
+						aria-label="Center clusters"
+						checked={centerClusters}
+						onCheckedChange={(v) => setParams({ centerClusters: v })}
+					/>
 				</div>
 			)}
 
 			<Field label="Routing algorithm">
-				<Select value={sortBy ?? "default"} onValueChange={(v) => setParams({ sortBy: v === "default" ? null : v })}>
-					<SelectTrigger aria-label="Routing algorithm"><SelectValue /></SelectTrigger>
+				<Select
+					value={sortBy ?? "default"}
+					onValueChange={(v) =>
+						setParams({ sortBy: v === "default" ? null : v })
+					}
+				>
+					<SelectTrigger aria-label="Routing algorithm" className="w-full">
+						<SelectValue />
+					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value="default">Default (TSP)</SelectItem>
 						<SelectItem value="unset">None</SelectItem>
-						{(algorithms?.routing ?? []).map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+						{(algorithms?.routing ?? []).map((r) => (
+							<SelectItem key={r} value={r}>
+								{r}
+							</SelectItem>
+						))}
 					</SelectContent>
 				</Select>
 			</Field>
@@ -178,25 +297,46 @@ export function CalcControls({ calc, category, onRun, disabled, disabledReason }
 			{job ? (
 				<div className="flex flex-col gap-1">
 					<div className="h-1.5 w-full overflow-hidden rounded bg-muted">
-						<div className="h-full bg-primary transition-[width]" style={{ width: `${Math.round(job.progress * 100)}%` }} />
+						<div
+							className="h-full bg-primary transition-[width]"
+							style={{ width: `${Math.round(job.progress * 100)}%` }}
+						/>
 					</div>
-					{job.phase && <span className="text-xs text-muted-foreground">{job.phase}</span>}
+					{job.phase && (
+						<span className="text-xs text-muted-foreground">{job.phase}</span>
+					)}
 					{error && <span className="text-xs text-destructive">{error}</span>}
 					{stats != null && <CalcStats stats={stats} />}
-					<Button type="button" size="sm" variant="ghost" onClick={clear}>Clear</Button>
+					<Button type="button" size="sm" variant="ghost" onClick={clear}>
+						Clear
+					</Button>
 				</div>
 			) : (
 				<>
-					<Button type="button" size="sm" disabled={blocked} onClick={onRun}>Calculate</Button>
-					{blocked && disabledReason && <span className="text-xs text-muted-foreground">{disabledReason}</span>}
-					{error && !blocked && <span className="text-xs text-destructive">{error}</span>}
+					<Button type="button" size="sm" disabled={blocked} onClick={onRun}>
+						Calculate
+					</Button>
+					{blocked && disabledReason && (
+						<span className="text-xs text-muted-foreground">
+							{disabledReason}
+						</span>
+					)}
+					{error && !blocked && (
+						<span className="text-xs text-destructive">{error}</span>
+					)}
 				</>
 			)}
 		</div>
 	);
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+	label,
+	children,
+}: {
+	label: string;
+	children: React.ReactNode;
+}) {
 	return (
 		<div className="flex flex-col gap-1">
 			<Label className="text-xs text-muted-foreground">{label}</Label>
@@ -208,8 +348,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 /** Render the couple of headline numbers from the job's Stats blob (best-effort). */
 function CalcStats({ stats }: { stats: unknown }) {
 	const s = stats as Record<string, unknown>;
-	const total = typeof s?.total_clusters === "number" ? s.total_clusters : undefined;
-	const distance = typeof s?.total_distance === "number" ? s.total_distance : undefined;
+	const total =
+		typeof s?.total_clusters === "number" ? s.total_clusters : undefined;
+	const distance =
+		typeof s?.total_distance === "number" ? s.total_distance : undefined;
 	if (total == null && distance == null) return null;
 	return (
 		<span className="text-xs text-muted-foreground">
