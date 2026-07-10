@@ -73,6 +73,25 @@ describe("useDeckEditRHF", () => {
     expect(result.current.draft.features[0].geometry).toEqual(poly);
   });
 
+  it("defaults to modify mode + selects the shape when a geometry is already present", () => {
+    // So an existing fence is editable on load without clicking a toolbar button.
+    const rendered = renderHook(() => useDeckEditRHF({ source: "geometry" }), {
+      wrapper: wrapper({ geometry: poly }),
+    });
+    mounted = rendered;
+    expect(rendered.result.current.mode).toBe("modify");
+    expect(rendered.result.current.selectedIndexes).toEqual([0]);
+  });
+
+  it("stays in 'none' mode when there is no geometry (create/empty)", () => {
+    const rendered = renderHook(() => useDeckEditRHF({ source: "geometry" }), {
+      wrapper: wrapper({ geometry: null }),
+    });
+    mounted = rendered;
+    expect(rendered.result.current.mode).toBe("none");
+    expect(rendered.result.current.draft.features).toHaveLength(0);
+  });
+
   it("commits an edited geometry back to the form value", () => {
     const spy = vi.fn();
     const rendered = renderHook(() => useDeckEditRHF({ source: "geometry" }), {

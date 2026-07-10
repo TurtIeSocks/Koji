@@ -8,6 +8,7 @@ import type { Bounds } from "@/map/stores/types";
 import { Button } from "@/components/ui/button";
 import { DeckGeoJsonInput } from "./deck-geojson-input";
 import { geometryBounds } from "./bounds";
+import { geofenceToFeatures, featuresToGeofence } from "./geofence-geometry";
 
 const WORLD: Bounds = [-180, -85, 180, 85];
 
@@ -65,7 +66,14 @@ export function GeofenceMap() {
           </Button>
         ))}
       </div>
-      <DeckGeoJsonInput source="geometry" label="Geometry" height={480} contextLayers={contextLayers} />
+      <DeckGeoJsonInput
+        source="geometry"
+        label="Geometry"
+        height={480}
+        contextLayers={contextLayers}
+        toFeatures={geofenceToFeatures}
+        fromFeatures={featuresToGeofence}
+      />
     </div>
   );
 }

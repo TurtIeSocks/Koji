@@ -64,14 +64,18 @@ afterEach(() => {
 });
 
 describe("DeckGeoJsonInput", () => {
-  it("renders the hydrated draft read-only while mode is 'none' (the default)", () => {
+  it("auto-enters modify (editable layer) when a geometry is already present", () => {
+    // An existing shape is editable on load without clicking a toolbar button.
     mounted = renderWithForm({ geometry: poly });
-    expect(capturedLayers.current.some((l) => l.id === "edit-static")).toBe(true);
+    expect(capturedLayers.current.some((l) => l.id === "edit")).toBe(true);
+    expect(capturedLayers.current.some((l) => l.id === "edit-static")).toBe(false);
   });
 
-  it("still renders the hydrated draft read-only when disabled", () => {
+  it("stays read-only (static layer, no editable layer) when disabled", () => {
+    // `disabled` overrides the auto-modify default.
     mounted = renderWithForm({ geometry: poly }, { disabled: true });
     expect(capturedLayers.current.some((l) => l.id === "edit-static")).toBe(true);
+    expect(capturedLayers.current.some((l) => l.id === "edit")).toBe(false);
   });
 
   it("renders nothing extra when there is no existing value", () => {

@@ -1,4 +1,5 @@
 import { type ReactNode, useMemo } from "react";
+import { useWatch } from "react-hook-form";
 import type { Layer } from "@deck.gl/core";
 import { GeoJsonLayer } from "@deck.gl/layers";
 import { buildEditLayer } from "@/map/lib/layers";
@@ -75,7 +76,9 @@ export function DeckGeoJsonInput({
   // blank map. Draw a static read-only GeoJsonLayer for the draft instead,
   // same treatment as <DeckGeoJsonField>.
   const editLayers = useMemo<Layer[]>(() => {
-    if (mode !== "none") {
+    // `disabled` forces read-only, overriding the auto-modify default so a
+    // disabled input never becomes editable.
+    if (mode !== "none" && !disabled) {
       return buildEditLayer({ mode, features: draft, selectedIndexes, onEdit, onSelect });
     }
     if (draft.features.length === 0) return [];
@@ -93,9 +96,17 @@ export function DeckGeoJsonInput({
         pointRadiusUnits: "pixels",
       }),
     ];
-  }, [mode, draft, selectedIndexes, onEdit, onSelect]);
+  }, [mode, draft, selectedIndexes, onEdit, onSelect, disabled]);
   const layers = useMemo(() => [...(contextLayers ?? []), ...editLayers], [contextLayers, editLayers]);
-  const fit = draft.features[0]?.geometry ? geometryBounds(draft.features[0].geometry) : null;
+  // Frame the map on the whole stored geometry. Read it from the FORM VALUE
+  // (available synchronously at mount) rather than `draft` — the draft hydrates
+  // in a post-mount effect, so it's empty when DeckMap locks its initial camera,
+  // which left the map stuck at [0,0].
+  const value = useWatch({ name: editOpts.source });
+  const fit = useMemo(() => {
+    const g = value as GeoJSON.GeoJSON | null | undefined;
+    return g ? geometryBounds(g) : null;
+  }, [value]);
 
   return (
     <div className="flex flex-col gap-1" data-slot="deck-geojson-input">

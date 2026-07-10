@@ -5,11 +5,12 @@ import type { DrawMode } from "@/map/lib/edit-modes";
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 
-function defaultToFeature(value: unknown): GeoJSON.Feature | null {
-  if (value == null) return null;
+/** Default: the form value IS a single geometry (or Feature) → one draft feature. */
+function defaultToFeatures(value: unknown): GeoJSON.Feature[] {
+  if (value == null) return [];
   const v = value as GeoJSON.Feature | GeoJSON.Geometry;
-  if ((v as GeoJSON.Feature).type === "Feature") return v as GeoJSON.Feature;
-  return { type: "Feature", geometry: v as GeoJSON.Geometry, properties: {} };
+  if ((v as GeoJSON.Feature).type === "Feature") return [v as GeoJSON.Feature];
+  return [{ type: "Feature", geometry: v as GeoJSON.Geometry, properties: {} }];
 }
 function defaultFromFeatures(features: GeoJSON.Feature[]): unknown {
   return features[0]?.geometry ?? null;
@@ -17,8 +18,11 @@ function defaultFromFeatures(features: GeoJSON.Feature[]): unknown {
 
 export interface UseDeckEditRHFOptions {
   source: string;
-  /** How the form value maps to/from the draft FeatureCollection. */
-  toFeature?: (value: unknown) => GeoJSON.Feature | null;
+  /** Map the form value → the draft features to edit (default: one feature).
+   *  Return several features to edit a multi-part geometry (e.g. a MultiPolygon
+   *  split into one editable Polygon feature per part). */
+  toFeatures?: (value: unknown) => GeoJSON.Feature[];
+  /** Map the edited features → the stored form value (default: first geometry). */
   fromFeatures?: (features: GeoJSON.Feature[], prev: unknown) => unknown;
 }
 
@@ -37,7 +41,7 @@ export interface UseDeckEditRHFReturn {
 
 export function useDeckEditRHF({
   source,
-  toFeature = defaultToFeature,
+  toFeatures = defaultToFeatures,
   fromFeatures = defaultFromFeatures,
 }: UseDeckEditRHFOptions): UseDeckEditRHFReturn {
   const form = useFormContext();
@@ -47,15 +51,24 @@ export function useDeckEditRHF({
   const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
   const lastWritten = useRef<unknown>(undefined);
   const hydrated = useRef(false);
+  const autoInited = useRef(false);
 
   // Hydrate from the form value; skip the echo of our own writes.
   useEffect(() => {
     if (hydrated.current && JSON.stringify(value) === JSON.stringify(lastWritten.current)) return;
-    const feat = toFeature(value);
-    setDraft(feat ? { type: "FeatureCollection", features: [feat] } : EMPTY_FC);
+    const features = toFeatures(value);
+    setDraft(features.length ? { type: "FeatureCollection", features } : EMPTY_FC);
     lastWritten.current = value;
     hydrated.current = true;
-  }, [value, toFeature]);
+    // With an existing shape, default straight into modify + select every part so
+    // it's editable immediately — no "click the shape first". Once only; after
+    // that the user owns the mode/selection.
+    if (!autoInited.current && features.length) {
+      autoInited.current = true;
+      setMode("modify");
+      setSelectedIndexes(features.map((_, i) => i));
+    }
+  }, [value, toFeatures]);
 
   const commit = useCallback(
     (fc: GeoJSON.FeatureCollection) => {
