@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,9 @@ export interface CalcControlsProps {
 	onRun: () => void;
 	disabled?: boolean;
 	disabledReason?: string;
+	/** Optional trailing content pinned at the bottom of the dock (e.g. a
+	 *  "Save route" button in the playground). */
+	footer?: ReactNode;
 }
 
 /** Presentational calc panel — driven entirely by the `calc` prop (`useCalc`),
@@ -46,6 +50,7 @@ export function CalcControls({
 	onRun,
 	disabled,
 	disabledReason,
+	footer,
 }: CalcControlsProps) {
 	const { params, setParams, job, stats, error, clear } = calc;
 	const {
@@ -327,6 +332,7 @@ export function CalcControls({
 					)}
 				</>
 			)}
+			{footer && <div className="mt-auto border-t pt-3">{footer}</div>}
 		</div>
 	);
 }

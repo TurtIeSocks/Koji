@@ -1,10 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { FormProvider, useForm, useFormContext, useWatch } from "react-hook-form";
 import { Link } from "react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
+import { useDataProvider, useNotify } from "ra-core";
 import type { Layer } from "@deck.gl/core";
 import { buildBaseLayers } from "@/map/lib/layers";
 import { featureToAreaFC } from "@/map/lib/calc-request";
+import { routeCoords } from "@/map/lib/calc-overlay";
 import { useMarkers } from "@/map/data/use-markers";
 import type { Bounds, MarkerCategory } from "@/map/stores/types";
 import { useStartCenter } from "@/lib/use-start-center";
@@ -14,6 +16,7 @@ import { geometryBounds } from "./bounds";
 import { geofenceToFeatures, featuresToGeofence } from "./geofence-geometry";
 import { useCalc } from "./use-calc";
 import { CalcControls } from "./calc-controls";
+import { SaveDialog } from "./save-dialog";
 import { routeModeToCategory, routeModeMarkerCategories } from "./route-mode";
 
 const WORLD: Bounds = [-180, -85, 180, 85];
@@ -68,6 +71,48 @@ function PlaygroundBody() {
     void calc.run({ area: featureToAreaFC({ type: "Feature", geometry, properties: {} }), category });
   };
 
+  // Persist the scratch drawing. Geofence: just the polygon. Route: create the
+  // geofence from the drawing AND the calc result as a route linked to it (a
+  // route's geofence_id is required), in one action.
+  const dataProvider = useDataProvider();
+  const notify = useNotify();
+  const [saveKind, setSaveKind] = useState<"geofence" | "route" | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const onSave = async (name: string, saveMode: string) => {
+    if (!geometry) return;
+    const isRoute = saveKind === "route";
+    const pts = isRoute && calc.result ? routeCoords(calc.result) : null;
+    if (isRoute && (!pts || pts.length === 0)) {
+      notify("Run a calculation first", { type: "warning" });
+      return;
+    }
+    setBusy(true);
+    try {
+      const { data: fence } = await dataProvider.create("geofence", {
+        data: { name, mode: saveMode, geometry },
+      });
+      if (isRoute && pts) {
+        await dataProvider.create("route", {
+          data: {
+            name,
+            mode: saveMode,
+            geofence_id: fence.id,
+            geometry: { type: "MultiPoint", coordinates: pts },
+          },
+        });
+        notify(`Saved route "${name}" + its area`, { type: "success" });
+      } else {
+        notify(`Saved geofence "${name}"`, { type: "success" });
+      }
+      setSaveKind(null);
+    } catch (e) {
+      notify(`Save failed: ${e instanceof Error ? e.message : String(e)}`, { type: "error" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const contextLayers = useMemo<Layer[]>(() => {
     const cats = routeModeMarkerCategories(mode);
     const on = (c: MarkerCategory) => !!geometry && cats.includes(c);
@@ -96,6 +141,17 @@ function PlaygroundBody() {
           onRun={onRun}
           disabled={!geometry}
           disabledReason={!geometry ? "Draw an area first" : undefined}
+          footer={
+            <Button
+              type="button"
+              size="sm"
+              className="w-full"
+              disabled={!calc.result}
+              onClick={() => setSaveKind("route")}
+            >
+              <Save className="size-4" /> Save route
+            </Button>
+          }
         />
       </div>
       <div className="absolute top-2 right-2 z-10 flex items-center gap-2">
@@ -122,14 +178,43 @@ function PlaygroundBody() {
   );
 
   return (
-    <DeckGeoJsonInput
-      source="geometry"
-      height="100dvh"
-      contextLayers={contextLayers}
-      toFeatures={geofenceToFeatures}
-      fromFeatures={featuresToGeofence}
-      defaultViewState={{ longitude: startLon, latitude: startLat, zoom: 11 }}
-      overlay={overlay}
-    />
+    <>
+      <DeckGeoJsonInput
+        source="geometry"
+        height="100dvh"
+        contextLayers={contextLayers}
+        toFeatures={geofenceToFeatures}
+        fromFeatures={featuresToGeofence}
+        defaultViewState={{ longitude: startLon, latitude: startLat, zoom: 11 }}
+        overlay={overlay}
+        toolbarExtra={
+          geometry ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => setSaveKind("geofence")}
+            >
+              <Save className="size-4" /> Save geofence
+            </Button>
+          ) : undefined
+        }
+      />
+      <SaveDialog
+        open={saveKind != null}
+        onOpenChange={(o) => {
+          if (!o) setSaveKind(null);
+        }}
+        title={saveKind === "route" ? "Save route + area" : "Save geofence"}
+        description={
+          saveKind === "route"
+            ? "Saves the drawn area as a geofence and the calc result as a route linked to it."
+            : "Saves the drawn area as a new geofence."
+        }
+        defaultMode={mode}
+        busy={busy}
+        onConfirm={onSave}
+      />
+    </>
   );
 }

@@ -62,17 +62,20 @@ function DeckDrawToolbar({
 	mode,
 	setMode,
 	hasSelection,
+	extra,
 }: {
 	mode: DrawMode;
 	setMode: (m: DrawMode) => void;
 	hasSelection: boolean;
+	/** Optional trailing content docked at the toolbar's right (e.g. a Save button). */
+	extra?: ReactNode;
 }) {
 	return (
 		// Flush bottom dock — sits on the map's bottom edge (no gap to the sides or
 		// bottom), a top border rather than a shadow so it reads as a bar BELOW the
 		// map, not a card floating on top.
-		<div className="absolute inset-x-0 bottom-0 z-10 flex items-center gap-1 border-t bg-background/95 px-2 py-1.5 backdrop-blur">
-			<ButtonGroup className="w-full justify-evenly">
+		<div className="absolute inset-x-0 bottom-0 z-10 flex items-center gap-2 border-t bg-background/95 px-2 py-1.5 backdrop-blur">
+			<ButtonGroup className="flex-1 justify-evenly">
 				{DRAW_GROUPS.map((group, gi) => (
 					<React.Fragment key={group.name}>
 						{gi > 0 ? <ButtonGroupSeparator /> : null}
@@ -104,6 +107,7 @@ function DeckDrawToolbar({
 					</React.Fragment>
 				))}
 			</ButtonGroup>
+			{extra}
 		</div>
 	);
 }
@@ -122,6 +126,9 @@ export interface DeckGeoJsonInputProps extends UseDeckEditRHFOptions {
 	/** Extra absolutely-positioned overlay children on the map (e.g. a calc panel
 	 *  dock) rendered alongside the draw toolbar. */
 	overlay?: ReactNode;
+	/** Trailing content docked at the right of the bottom draw toolbar (e.g. a
+	 *  "Save geofence" button). Only shown when the toolbar is (not `disabled`). */
+	toolbarExtra?: ReactNode;
 }
 
 export function DeckGeoJsonInput({
@@ -133,6 +140,7 @@ export function DeckGeoJsonInput({
 	contextLayers,
 	defaultViewState,
 	overlay,
+	toolbarExtra,
 	...editOpts
 }: DeckGeoJsonInputProps) {
 	const { draft, mode, setMode, selectedIndexes, onEdit, onSelect } =
@@ -207,6 +215,7 @@ export function DeckGeoJsonInput({
 							mode={mode}
 							setMode={setMode}
 							hasSelection={selectedIndexes.length > 0}
+							extra={toolbarExtra}
 						/>
 					) : null}
 					{overlay}

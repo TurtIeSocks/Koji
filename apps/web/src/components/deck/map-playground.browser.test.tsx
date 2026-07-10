@@ -30,6 +30,8 @@ describe("MapPlayground", () => {
     await expect.element(screen.getByRole("button", { name: /quest/i })).toBeInTheDocument();
     // calc panel present, disabled until an area is drawn
     await expect.element(screen.getByRole("button", { name: /calculate/i })).toBeDisabled();
+    // save-route lives in the calc footer, disabled until a calc result exists
+    await expect.element(screen.getByRole("button", { name: /save route/i })).toBeDisabled();
     // back to admin
     await expect.element(screen.getByRole("link", { name: /Admin/ })).toBeInTheDocument();
   });
