@@ -19,6 +19,10 @@ export interface DraftInput {
   }) => void;
   /** Click-to-select while in modify/transform so those modes have a target. */
   onSelect?: (indexes: number[]) => void;
+  /** Bumped on a programmatic feature delete so the edit layer's `id` changes and
+   *  deck mounts a fresh EditableGeoJsonLayer — it otherwise caches its internal
+   *  FeatureCollection and won't reflect an external delete until a pointer event. */
+  version?: number;
 }
 
 /** The data layers (markers/geofences/routes/s2). Kept separate from the edit
@@ -184,7 +188,7 @@ export function buildEditLayer(draft: DraftInput | undefined): Layer[] {
   const spec = modeSpecFor(draft.mode);
   return [
     new EditableGeoJsonLayer({
-      id: "edit",
+      id: `edit-${draft.version ?? 0}`,
       data: draft.features,
       mode: spec.ModeClass,
       // Boolean op (e.g. cut-hole = 'difference') applied against the selection.

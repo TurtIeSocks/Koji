@@ -203,8 +203,16 @@ export function DeckGeoJsonInput({
 	onViewStateChange,
 	...editOpts
 }: DeckGeoJsonInputProps) {
-	const { draft, mode, setMode, selectedIndexes, onEdit, onSelect, deleteSelected } =
-		useDeckEditRHF(editOpts);
+	const {
+		draft,
+		mode,
+		setMode,
+		selectedIndexes,
+		onEdit,
+		onSelect,
+		deleteSelected,
+		version,
+	} = useDeckEditRHF(editOpts);
 
 	// buildEditLayer takes a single DraftInput (not separate args — the plan's
 	// snippet used a spread signature that doesn't match apps/web/src/map/lib/layers.ts).
@@ -223,6 +231,7 @@ export function DeckGeoJsonInput({
 				selectedIndexes,
 				onEdit,
 				onSelect,
+				version,
 			});
 		}
 		if (draft.features.length === 0) return [];
@@ -240,7 +249,7 @@ export function DeckGeoJsonInput({
 				pointRadiusUnits: "pixels",
 			}),
 		];
-	}, [mode, draft, selectedIndexes, onEdit, onSelect, disabled]);
+	}, [mode, draft, selectedIndexes, onEdit, onSelect, disabled, version]);
 	const layers = useMemo(
 		() => [...(contextLayers ?? []), ...editLayers],
 		[contextLayers, editLayers],

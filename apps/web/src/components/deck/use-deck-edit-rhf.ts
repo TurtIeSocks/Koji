@@ -39,6 +39,8 @@ export interface UseDeckEditRHFReturn {
   onSelect: (indexes: number[]) => void;
   /** Remove the currently-selected feature(s) from the geometry (undoable). */
   deleteSelected: () => void;
+  /** Edit-layer remount key — bumped on a programmatic delete (see DraftInput). */
+  version: number;
 }
 
 export function useDeckEditRHF({
@@ -51,6 +53,7 @@ export function useDeckEditRHF({
   const [draft, setDraft] = useState<GeoJSON.FeatureCollection>(EMPTY_FC);
   const [mode, setMode] = useState<DrawMode>("none");
   const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
+  const [version, setVersion] = useState(0);
   const lastWritten = useRef<unknown>(undefined);
   const hydrated = useRef(false);
   const autoInited = useRef(false);
@@ -111,6 +114,9 @@ export function useDeckEditRHF({
       features: draft.features.filter((_, i) => !remove.has(i)),
     });
     setSelectedIndexes([]);
+    // Force a fresh EditableGeoJsonLayer — it caches its internal features and
+    // won't drop the deleted one until a pointer event otherwise.
+    setVersion((v) => v + 1);
   }, [draft, selectedIndexes, commit]);
 
   return {
@@ -121,5 +127,6 @@ export function useDeckEditRHF({
     onEdit,
     onSelect: setSelectedIndexes,
     deleteSelected,
+    version,
   };
 }
