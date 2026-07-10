@@ -77,7 +77,7 @@ export function GeofenceMap() {
 					{
 						id: "spawnpoints",
 						points: spawns.data ?? [],
-						color: [240, 180, 0],
+						color: [40, 200, 120],
 						radius: 12,
 						maxPixels: 2,
 					},

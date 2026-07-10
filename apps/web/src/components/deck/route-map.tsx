@@ -74,7 +74,7 @@ export function RouteMap() {
       markerSets: [
         { id: "gyms", points: gyms.data ?? [], color: [230, 80, 80], radius: 70, maxPixels: 12 },
         { id: "pokestops", points: stops.data ?? [], color: [0, 120, 255], radius: 40, maxPixels: 6 },
-        { id: "spawnpoints", points: spawns.data ?? [], color: [240, 180, 0], radius: 12, maxPixels: 2 },
+        { id: "spawnpoints", points: spawns.data ?? [], color: [40, 200, 120], radius: 12, maxPixels: 2 },
         { id: "stations", points: stations.data ?? [], color: [150, 80, 220], radius: 40, maxPixels: 6 },
       ],
       geofences: fenceFC, routes: routeFC, s2Cells: [], markerRadius: 70, onClick: () => {}, pickable: false,
