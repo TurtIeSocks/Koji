@@ -64,11 +64,16 @@ impl NameModifier {
     pub fn apply(&self, name: &str) -> String {
         let string = name.to_string();
         let mut mutable = string.clone();
+        // Char-based, saturating trims: the offsets arrive from the wire DTO, so
+        // raw byte slicing panicked on over-length values (usize underflow for
+        // trimend) and on offsets landing mid-multibyte-char (Polish names are
+        // the expected domain here — see `unpolish`).
         if let Some(trimstart) = self.trimstart {
-            mutable = mutable[trimstart..].to_string();
+            mutable = mutable.chars().skip(trimstart).collect();
         }
         if let Some(trimend) = self.trimend {
-            mutable = mutable[..(mutable.len() - trimend)].to_string();
+            let keep = mutable.chars().count().saturating_sub(trimend);
+            mutable = mutable.chars().take(keep).collect();
         }
         if self.alphanumeric {
             mutable = remove_symbols(&mutable);
@@ -237,6 +242,22 @@ mod tests {
     fn name_modifier_trimend() {
         let nm = NameModifier::from(&args_with(serde_json::json!({ "trimend": 3 })));
         assert_eq!(nm.apply("hello"), "he");
+    }
+
+    #[test]
+    fn name_modifier_trims_are_total_on_hostile_offsets_and_multibyte() {
+        // Regression: raw byte slicing panicked on all three of these.
+        // Over-length trimstart → empty (falls back to original name).
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "trimstart": 99 })));
+        assert_eq!(nm.apply("hello"), "hello");
+        // Over-length trimend → usize underflow before; now empty → fallback.
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "trimend": 99 })));
+        assert_eq!(nm.apply("hello"), "hello");
+        // Multibyte: trim counts chars, never splits a codepoint.
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "trimstart": 1 })));
+        assert_eq!(nm.apply("łódź"), "ódź");
+        let nm = NameModifier::from(&args_with(serde_json::json!({ "trimend": 1 })));
+        assert_eq!(nm.apply("łódź"), "łód");
     }
 
     #[test]
