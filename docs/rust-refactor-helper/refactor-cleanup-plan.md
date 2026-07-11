@@ -3,6 +3,20 @@
 Produced by a 20-agent audit workflow (16 crate shards + 4 cross-cut sweeps) with adversarial
 verification, plus a workspace clippy run. Branch `claude/v2` @ `ee75201c`.
 
+> **EXECUTION STATUS (2026-07-10, ~45 commits `831532a1..`):** Executed same-day.
+> - **DONE**: all of P0 (0.1–0.19 — every ⏳ item was hand-verified and confirmed real — plus the
+>   fastest-determinism fix), the full koji-db P1 purge (route/geofence v1 chains, json-cache
+>   surface, AdminReq, to_geofence_project, stale allows), P1 other-crates (Stats::log,
+>   cells_to_nearest_face_edges, event_outbox, dragonite envelope, golbat all/bound,
+>   lock topics, nominatim write-only fields, genetic_post_processing), all of P2 (2.1–2.12),
+>   P3 3.2 (Crucible::run + hoisting), P4 4.1–4.4 (greedy, sec, enqueue_inputs was NOT done — see
+>   remaining), P5 jobs waiter-leak + field privacy + dragonite typed HttpStatus + s2 BFS rewrite.
+> - **REMAINING** (deliberately deferred): P3 3.1 refine.rs module split + 3.4 stats.rs split
+>   (pure code motion), 4.3 enqueue_inputs move-not-clone, 4.5–4.7 perf batch, P5 s2 KojiBbox
+>   signatures + root re-export trims + JobStatus lowercase (needs web-client coordination),
+>   P6 refine LNS tests + webhook wiremock test + lint policy, the ~85 ▫️ LOW batch,
+>   nominatim lookup/reverse delete (product decision), koji-plugins collapse (closed: keep).
+
 **Verification status legend**
 - ✅ **CONFIRMED** — an independent adversarial verifier read the code and upheld the finding.
 - ⏳ **UNVERIFIED** — found by an auditor; the verifier never ran (spend limit hit mid-run).
