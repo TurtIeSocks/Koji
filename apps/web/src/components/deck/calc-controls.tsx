@@ -285,8 +285,14 @@ export function CalcControls({
 						<span className="text-xs text-muted-foreground">{job.phase}</span>
 					)}
 					{error && <span className="text-xs text-destructive">{error}</span>}
-					<Button type="button" size="sm" variant="ghost" onClick={clear}>
-						Clear
+					<Button
+						type="button"
+						size="sm"
+						variant="ghost"
+						onClick={clear}
+						title="Dismiss this calc result and its map overlay, returning to the Calculate button. A job already running on the server is not cancelled."
+					>
+						Clear result
 					</Button>
 				</div>
 			) : (
