@@ -73,7 +73,7 @@ impl JsonToModel for Value {
         let mode = get_enum(
             incoming
                 .get("mode")
-                .map(|mode| mode.as_str().unwrap_or("unset").to_string()),
+                .map(|mode| mode.as_str().unwrap_or("unset")),
         );
         let parent = incoming
             .get("parent")
@@ -146,7 +146,7 @@ impl JsonToModel for Value {
         let category = incoming
             .get("category")
             .and_then(|v| v.as_str())
-            .map(|category| get_category_enum(category.to_string()))
+            .map(get_category_enum)
             .ok_or_else(|| {
                 ModelError::Property(format!("model does not have a category property: {self:?}"))
             })?;
@@ -177,7 +177,7 @@ impl JsonToModel for Value {
         let mode = get_enum(
             incoming
                 .get("mode")
-                .map(|mode| mode.as_str().unwrap_or("unset").to_string()),
+                .map(|mode| mode.as_str().unwrap_or("unset")),
         );
         let description = incoming
             .get("description")
@@ -265,7 +265,7 @@ impl JsonToModel for Value {
     }
 }
 
-pub fn parse_property_value(value: &String, category: &Category) -> Value {
+pub fn parse_property_value(value: &str, category: &Category) -> Value {
     match category {
         Category::String | Category::Color => Value::String(value.to_string()),
         Category::Number => {
@@ -357,104 +357,104 @@ mod tests {
 
     #[test]
     fn parse_string_category_returns_string() {
-        let v = parse_property_value(&"hello".to_string(), &Category::String);
+        let v = parse_property_value("hello", &Category::String);
         assert_eq!(v, json!("hello"));
     }
 
     #[test]
     fn parse_color_category_returns_string() {
-        let v = parse_property_value(&"#ff0000".to_string(), &Category::Color);
+        let v = parse_property_value("#ff0000", &Category::Color);
         assert_eq!(v, json!("#ff0000"));
     }
 
     #[test]
     fn parse_number_category_valid_float() {
-        let v = parse_property_value(&"3.15".to_string(), &Category::Number);
+        let v = parse_property_value("3.15", &Category::Number);
         assert_eq!(v.as_f64().unwrap(), 3.15);
     }
 
     #[test]
     fn parse_number_category_invalid_falls_back_to_zero() {
-        let v = parse_property_value(&"not-a-number".to_string(), &Category::Number);
+        let v = parse_property_value("not-a-number", &Category::Number);
         assert_eq!(v.as_f64().unwrap(), 0.0);
     }
 
     #[test]
     fn parse_boolean_true() {
-        let v = parse_property_value(&"true".to_string(), &Category::Boolean);
+        let v = parse_property_value("true", &Category::Boolean);
         assert_eq!(v, json!(true));
     }
 
     #[test]
     fn parse_boolean_false() {
-        let v = parse_property_value(&"false".to_string(), &Category::Boolean);
+        let v = parse_property_value("false", &Category::Boolean);
         assert_eq!(v, json!(false));
     }
 
     #[test]
     fn parse_boolean_invalid_falls_back_to_false() {
-        let v = parse_property_value(&"yes".to_string(), &Category::Boolean);
+        let v = parse_property_value("yes", &Category::Boolean);
         assert_eq!(v, json!(false));
     }
 
     #[test]
     fn parse_object_category() {
-        let v = parse_property_value(&r#"{"key":"val"}"#.to_string(), &Category::Object);
+        let v = parse_property_value(r#"{"key":"val"}"#, &Category::Object);
         assert_eq!(v["key"], json!("val"));
     }
 
     #[test]
     fn parse_array_category() {
-        let v = parse_property_value(&"[1,2,3]".to_string(), &Category::Array);
+        let v = parse_property_value("[1,2,3]", &Category::Array);
         assert_eq!(v, json!([1, 2, 3]));
     }
 
     #[test]
     fn parse_database_category_returns_null() {
         // Database category is a virtual marker — value is unused, always Null.
-        let v = parse_property_value(&"anything".to_string(), &Category::Database);
+        let v = parse_property_value("anything", &Category::Database);
         assert_eq!(v, json!(null));
     }
 
     #[test]
     fn parse_property_value_number_nan_falls_back_to_zero() {
         assert_eq!(
-            parse_property_value(&"nan".to_string(), &Category::Number),
+            parse_property_value("nan", &Category::Number),
             serde_json::json!(0.0)
         );
     }
     #[test]
     fn parse_property_value_number_inf_falls_back_to_zero() {
         assert_eq!(
-            parse_property_value(&"inf".to_string(), &Category::Number),
+            parse_property_value("inf", &Category::Number),
             serde_json::json!(0.0)
         );
     }
     #[test]
     fn parse_property_value_number_unparseable_falls_back_to_zero() {
         assert_eq!(
-            parse_property_value(&"abc".to_string(), &Category::Number),
+            parse_property_value("abc", &Category::Number),
             serde_json::json!(0.0)
         );
     }
     #[test]
     fn parse_property_value_malformed_object_is_null() {
         assert_eq!(
-            parse_property_value(&"{not json".to_string(), &Category::Object),
+            parse_property_value("{not json", &Category::Object),
             serde_json::Value::Null
         );
     }
     #[test]
     fn parse_property_value_malformed_array_is_null() {
         assert_eq!(
-            parse_property_value(&"[1,".to_string(), &Category::Array),
+            parse_property_value("[1,", &Category::Array),
             serde_json::Value::Null
         );
     }
     #[test]
     fn parse_property_value_valid_object_round_trips() {
         assert_eq!(
-            parse_property_value(&r#"{"a":1}"#.to_string(), &Category::Object),
+            parse_property_value(r#"{"a":1}"#, &Category::Object),
             serde_json::json!({"a": 1})
         );
     }
