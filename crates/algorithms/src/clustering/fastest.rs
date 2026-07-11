@@ -10,7 +10,7 @@
 use geo::Coord;
 use koji_core::Precision;
 use koji_core::SingleVec;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::project::Plane;
 
@@ -185,7 +185,9 @@ fn cluster(points: Vec<Coord>, min_points: usize, margin: Precision) -> Vec<(Coo
         cells.entry(key).or_default().push(p);
     }
 
-    let mut centers: HashMap<(u64, u64), (Coord, usize)> = HashMap::new();
+    // BTreeMap: output order must be deterministic (HashMap's RandomState
+    // reseeds per instance, randomizing downstream routes/stats run-to-run).
+    let mut centers: BTreeMap<(u64, u64), (Coord, usize)> = BTreeMap::new();
     let mut claimed: BTreeSet<CellKey> = BTreeSet::new();
 
     // Second pass: region-grow from each unclaimed cell in sorted order.
@@ -339,14 +341,15 @@ mod tests {
 
     #[test]
     fn deterministic_same_input() {
+        // Compare UNSORTED output: order itself is part of the determinism
+        // contract (a HashMap here once randomized it per process; sorting both
+        // sides masked that).
         let pts = vec![[40.0, -74.0], [40.001, -74.001], [40.5, -73.0]];
-        let mut a = main(&pts, 70.0, 1);
-        let mut b = main(&pts, 70.0, 1);
-        a.sort_by(|p, q| p.partial_cmp(q).unwrap());
-        b.sort_by(|p, q| p.partial_cmp(q).unwrap());
+        let a = main(&pts, 70.0, 1);
+        let b = main(&pts, 70.0, 1);
         assert_eq!(
             a, b,
-            "Fastest must be deterministic (identical set of centers)"
+            "Fastest must be deterministic (identical centers, identical order)"
         );
     }
 
@@ -479,21 +482,19 @@ mod tests {
     }
 
     #[test]
-    fn cluster_is_deterministic_as_a_set() {
+    fn cluster_is_deterministic_including_order() {
         let pts: Vec<Coord> = (0..40)
             .map(|i| c((i % 7) as Precision * 0.5, (i / 7) as Precision * 0.5))
             .collect();
-        let mut a: Vec<(u64, u64)> = cluster(pts.clone(), 2, 0.0)
+        let a: Vec<(u64, u64)> = cluster(pts.clone(), 2, 0.0)
             .into_iter()
             .map(|(ctr, _)| (ctr.x.to_bits(), ctr.y.to_bits()))
             .collect();
-        let mut b: Vec<(u64, u64)> = cluster(pts.clone(), 2, 0.0)
+        let b: Vec<(u64, u64)> = cluster(pts.clone(), 2, 0.0)
             .into_iter()
             .map(|(ctr, _)| (ctr.x.to_bits(), ctr.y.to_bits()))
             .collect();
-        a.sort();
-        b.sort();
-        assert_eq!(a, b, "cluster output must be a deterministic set");
+        assert_eq!(a, b, "cluster output must be deterministic, order included");
     }
 
     #[test]
