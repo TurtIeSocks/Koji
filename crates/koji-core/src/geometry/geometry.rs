@@ -68,17 +68,28 @@ impl<T: TrimPrecision> TrimPrecision for Vec<T> {
 
 impl GeometryHelpers for Geometry {
     fn simplify(self) -> Self {
-        let mut geometry = match self.value {
-            GeometryValue::Polygon { .. } => Geometry::from(
-                &Polygon::<Precision>::try_from(self)
-                    .unwrap()
-                    .simplify(0.0001),
-            ),
-            GeometryValue::MultiPolygon { .. } => Geometry::from(
-                &MultiPolygon::<Precision>::try_from(self)
-                    .unwrap()
-                    .simplify(0.0001),
-            ),
+        // Malformed coordinates (user geojson reaches this via the v2 geometry
+        // endpoint) must pass through unchanged, not panic the request handler —
+        // mirroring the `_ => self` arm.
+        let mut geometry = match &self.value {
+            GeometryValue::Polygon { .. } => match Polygon::<Precision>::try_from(&self) {
+                Ok(p) => Geometry::from(&p.simplify(0.0001)),
+                Err(e) => {
+                    log::warn!("simplify: geojson->geo conversion failed, passing through: {e}");
+                    self
+                }
+            },
+            GeometryValue::MultiPolygon { .. } => {
+                match MultiPolygon::<Precision>::try_from(&self) {
+                    Ok(mp) => Geometry::from(&mp.simplify(0.0001)),
+                    Err(e) => {
+                        log::warn!(
+                            "simplify: geojson->geo conversion failed, passing through: {e}"
+                        );
+                        self
+                    }
+                }
+            }
             _ => self,
         };
         geometry.bbox = geometry_geojson_bbox(&geometry);
