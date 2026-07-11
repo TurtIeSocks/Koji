@@ -37,6 +37,18 @@ pub struct PaginateResults<T> {
 
 
 impl<T> PaginateResults<T> {
+    /// Assemble a page from fetched results + sea-orm's totals. The
+    /// has_prev/has_next formula lives here ONLY — it was previously
+    /// copy-pasted across all six entities' paginate epilogues.
+    pub(crate) fn from_page(results: T, total: sea_orm::ItemsAndPagesNumber, page: u64) -> Self {
+        PaginateResults {
+            results,
+            total: total.number_of_items,
+            has_prev: page > 0,
+            has_next: page + 1 < total.number_of_pages,
+        }
+    }
+
     /// Decompose into `(results, total, has_next, has_prev)`. The fields are
     /// private (the struct's `Serialize` shape is the v1 wire contract); this
     /// accessor lets cross-crate v2 callers read the page data without exposing

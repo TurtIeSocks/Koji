@@ -8,9 +8,8 @@
 //! **Not** `#[macros::crud_query]`: that macro's generated `get_one`/`delete`
 //! hard-code a `u32` PK (`id.parse::<u32>()`, `Entity::delete_by_id(id: u32)`),
 //! but `webhook_subscription.id` is `BIGINT UNSIGNED` (`u64`). All five Query
-//! methods are hand-written here to match (mirroring `route.rs`'s hand-rolled
-//! `get_one`/`delete`, which predate `crud_query` for the same reason —
-//! `route` doesn't use the macro either).
+//! methods are hand-written here to match — the only entity that can't use
+//! the macro.
 //!
 //! **PATCH merge:** the `koji_resource!`-generated `update` handler serializes
 //! only the patch DTO's *present* fields (`skip_serializing_if =
@@ -127,12 +126,7 @@ impl Query {
             .into_iter()
             .map(|m| json!(m))
             .collect();
-        Ok(PaginateResults {
-            results,
-            total: total.number_of_items,
-            has_prev: args.page > 0,
-            has_next: args.page + 1 < total.number_of_pages,
-        })
+        Ok(PaginateResults::from_page(results, total, args.page))
     }
 
     /// Insert (`id == 0`, no existing row) or update, honoring PATCH's partial

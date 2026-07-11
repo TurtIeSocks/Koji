@@ -128,12 +128,7 @@ impl Query {
             json_related_sort(&mut results, &args.sort_by, &args.order);
         }
 
-        Ok(PaginateResults {
-            results,
-            total: total.number_of_items,
-            has_prev: args.page > 0,
-            has_next: args.page + 1 < total.number_of_pages,
-        })
+        Ok(PaginateResults::from_page(results, total, args.page))
     }
 
     pub async fn get_all(db: &DatabaseConnection) -> Result<Vec<Model>, DbErr> {

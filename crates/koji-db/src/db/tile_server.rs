@@ -48,12 +48,7 @@ impl Query {
 
         let results: Vec<Json> = results.into_iter().map(|model| json!(model)).collect();
 
-        Ok(PaginateResults {
-            results,
-            total: total.number_of_items,
-            has_prev: args.page > 0,
-            has_next: args.page + 1 < total.number_of_pages,
-        })
+        Ok(PaginateResults::from_page(results, total, args.page))
     }
 
     pub async fn upsert(
