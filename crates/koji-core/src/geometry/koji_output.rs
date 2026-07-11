@@ -375,10 +375,11 @@ fn item_poracle(i: usize, item: &KojiGeometry) -> Poracle {
 fn geojson_geometry_closed(geom: &Geometry<Precision>) -> String {
     let mut value = geojson::GeometryValue::from(geom);
     // Inline `EnsurePoints::ensure_first_last`: close each ring whose last point
-    // differs from its first on *both* axes (matrix uses `&&`).
+    // differs from its first on either axis (mirrors the fixed `||` in
+    // `EnsurePoints for Geometry`).
     let close_ring = |ring: &mut Vec<geojson::Position>| {
         let needs_close = match (ring.first(), ring.last()) {
-            (Some(first), Some(last)) => last[0] != first[0] && last[1] != first[1],
+            (Some(first), Some(last)) => last[0] != first[0] || last[1] != first[1],
             _ => false,
         };
         if needs_close {

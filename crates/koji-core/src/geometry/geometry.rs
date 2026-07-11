@@ -17,7 +17,10 @@ impl EnsurePoints for Geometry {
                             Some(last) => last,
                             None => continue,
                         };
-                        if last[0] != line_string[0][0] && last[1] != line_string[0][1] {
+                        // `||`: the ring is open if the endpoints differ on EITHER axis. (`&&`
+                        // left any axis-aligned open ring — e.g. an open rectangle — unclosed,
+                        // which MySQL ST_GeomFromGeoJSON rejects downstream.)
+                        if last[0] != line_string[0][0] || last[1] != line_string[0][1] {
                             line_string.push(line_string[0].clone())
                         }
                     }
@@ -30,7 +33,7 @@ impl EnsurePoints for Geometry {
                         Some(last) => last,
                         None => continue,
                     };
-                    if last[0] != line_string[0][0] && last[1] != line_string[0][1] {
+                    if last[0] != line_string[0][0] || last[1] != line_string[0][1] {
                         line_string.push(line_string[0].clone())
                     }
                 }
@@ -153,6 +156,30 @@ mod tests {
                 ring[ring.len() - 1],
                 "first and last must match after closing"
             );
+        } else {
+            panic!("expected Polygon");
+        }
+    }
+
+    #[test]
+    fn ensure_first_last_closes_ring_sharing_one_axis_with_first_point() {
+        // Regression: with `&&` an open ring whose last point shares EITHER
+        // axis with the first (any axis-aligned rectangle drawn open) was left
+        // unclosed. [0,1] shares x with [0,0].
+        let ring = vec![
+            geojson::Position::from([0.0, 0.0]),
+            geojson::Position::from([1.0, 0.0]),
+            geojson::Position::from([1.0, 1.0]),
+            geojson::Position::from([0.0, 1.0]),
+        ];
+        let g = Geometry::new(GeometryValue::Polygon {
+            coordinates: vec![ring],
+        });
+        let closed = g.ensure_first_last();
+        if let GeometryValue::Polygon { coordinates: rings } = &closed.value {
+            let ring = &rings[0];
+            assert_eq!(ring.len(), 5, "open axis-aligned ring must gain a closing point");
+            assert_eq!(ring[0], ring[ring.len() - 1]);
         } else {
             panic!("expected Polygon");
         }
