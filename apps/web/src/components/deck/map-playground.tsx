@@ -23,8 +23,8 @@ import { DeckGeoJsonInput } from "./deck-geojson-input";
 import { featuresToGeofence, geofenceToFeatures } from "./geofence-geometry";
 import { LastSeenPicker } from "./last-seen-picker";
 import { loadCamera, saveCamera } from "./map-camera-storage";
-import { RouteStatsPanel } from "./route-stats-panel";
 import { routeModeMarkerCategories, routeModeToCategory } from "./route-mode";
+import { RouteStatsPanel } from "./route-stats-panel";
 import { SaveDialog, type SavePayload } from "./save-dialog";
 import { useCalc } from "./use-calc";
 import { useGeometryHistory } from "./use-geometry-history";
@@ -98,9 +98,27 @@ function PlaygroundBody() {
 	const showCats = routeModeMarkerCategories(mode);
 	const want = (c: MarkerCategory) => !!geometry && showCats.includes(c);
 	const gyms = useMarkers("gym", area, bbox, lastSeen.epoch, want("gym"));
-	const stops = useMarkers("pokestop", area, bbox, lastSeen.epoch, want("pokestop"));
-	const spawns = useMarkers("spawnpoint", area, bbox, lastSeen.epoch, want("spawnpoint"));
-	const stations = useMarkers("station", area, bbox, lastSeen.epoch, want("station"));
+	const stops = useMarkers(
+		"pokestop",
+		area,
+		bbox,
+		lastSeen.epoch,
+		want("pokestop"),
+	);
+	const spawns = useMarkers(
+		"spawnpoint",
+		area,
+		bbox,
+		lastSeen.epoch,
+		want("spawnpoint"),
+	);
+	const stations = useMarkers(
+		"station",
+		area,
+		bbox,
+		lastSeen.epoch,
+		want("station"),
+	);
 
 	const calc = useCalc();
 
@@ -109,6 +127,8 @@ function PlaygroundBody() {
 		void calc.run({
 			area: featureToAreaFC({ type: "Feature", geometry, properties: {} }),
 			category,
+			// Cluster the same fresh points the markers show (0 = no filter).
+			lastSeen: lastSeen.epoch,
 		});
 	};
 
@@ -158,9 +178,12 @@ function PlaygroundBody() {
 				});
 			} else if (route) {
 				// Route requested but the calc produced no points — geofence still saved.
-				notify(`Saved geofence "${name}" — calc had no route points, route skipped`, {
-					type: "warning",
-				});
+				notify(
+					`Saved geofence "${name}" — calc had no route points, route skipped`,
+					{
+						type: "warning",
+					},
+				);
 			} else {
 				notify(`Saved geofence "${name}"`, { type: "success" });
 			}

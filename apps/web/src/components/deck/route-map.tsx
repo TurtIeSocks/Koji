@@ -1,21 +1,21 @@
+import type { Layer } from "@deck.gl/core";
 import { useEffect, useMemo } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { useGetOne } from "shadmin-core";
-import type { Layer } from "@deck.gl/core";
+import { useMarkers } from "@/map/data/use-markers";
+import { routeCoords } from "@/map/lib/calc-overlay";
+import { featureToAreaFC, routeCoordsToClusters } from "@/map/lib/calc-request";
 import { buildBaseLayers } from "@/map/lib/layers";
 import { COLOR } from "@/map/lib/map-colors";
-import { featureToAreaFC, routeCoordsToClusters } from "@/map/lib/calc-request";
-import { routeCoords } from "@/map/lib/calc-overlay";
-import { useMarkers } from "@/map/data/use-markers";
 import type { Bounds, MarkerCategory } from "@/map/stores/types";
-import { DeckMap } from "./deck-map";
 import { geometryBounds } from "./bounds";
-import { useCalc } from "./use-calc";
 import { CalcControls } from "./calc-controls";
+import { DeckMap } from "./deck-map";
 import { LastSeenPicker } from "./last-seen-picker";
+import { routeModeMarkerCategories, routeModeToCategory } from "./route-mode";
 import { RouteStatsPanel } from "./route-stats-panel";
+import { useCalc } from "./use-calc";
 import { useLastSeen } from "./use-last-seen";
-import { routeModeToCategory, routeModeMarkerCategories } from "./route-mode";
 
 const WORLD: Bounds = [-180, -85, 180, 85];
 
@@ -25,137 +25,273 @@ const WORLD: Bounds = [-180, -85, 180, 85];
  *  the route's `mode` (not a panel dropdown). No props — reads/writes the
  *  surrounding route form via react-hook-form context. */
 export function RouteMap() {
-  const form = useFormContext();
-  const geofenceId = useWatch({ name: "geofence_id" }) as number | string | undefined;
-  const geometry = useWatch({ name: "geometry" }) as GeoJSON.Geometry | null | undefined;
-  const routeMode = useWatch({ name: "mode" }) as string | undefined;
-  const category = routeModeToCategory(routeMode);
+	const form = useFormContext();
+	const geofenceId = useWatch({ name: "geofence_id" }) as
+		| number
+		| string
+		| undefined;
+	const geometry = useWatch({ name: "geometry" }) as
+		| GeoJSON.Geometry
+		| null
+		| undefined;
+	const routeMode = useWatch({ name: "mode" }) as string | undefined;
+	const category = routeModeToCategory(routeMode);
 
-  // Reactive area: the parent fence, re-fetched when geofence_id changes.
-  const { data: fence } = useGetOne("geofence", { id: geofenceId! }, { enabled: geofenceId != null });
-  const fenceFeature = useMemo<GeoJSON.Feature | null>(
-    () => (fence?.geometry ? { type: "Feature", geometry: fence.geometry as GeoJSON.Geometry, properties: {} } : null),
-    [fence],
-  );
+	// Reactive area: the parent fence, re-fetched when geofence_id changes.
+	const { data: fence } = useGetOne(
+		"geofence",
+		{ id: geofenceId! },
+		{ enabled: geofenceId != null },
+	);
+	const fenceFeature = useMemo<GeoJSON.Feature | null>(
+		() =>
+			fence?.geometry
+				? {
+						type: "Feature",
+						geometry: fence.geometry as GeoJSON.Geometry,
+						properties: {},
+					}
+				: null,
+		[fence],
+	);
 
-  // Golbat markers to preview for the route's mode, scoped to the fence polygon.
-  // Nothing shows until a geofence is selected (→ the fence loads): `want` gates
-  // every fetch on fenceFeature.
-  const markerArea = fenceFeature?.geometry ?? null;
-  const markerBbox = useMemo<Bounds>(
-    () => (fenceFeature?.geometry ? (geometryBounds(fenceFeature.geometry) ?? WORLD) : WORLD),
-    [fenceFeature],
-  );
-  // "Last seen after" filter (epoch seconds); 0 = show all.
-  const lastSeen = useLastSeen();
-  const showCats = routeModeMarkerCategories(routeMode);
-  const want = (c: MarkerCategory) => !!fenceFeature && showCats.includes(c);
-  const gyms = useMarkers("gym", markerArea, markerBbox, lastSeen.epoch, want("gym"));
-  const stops = useMarkers("pokestop", markerArea, markerBbox, lastSeen.epoch, want("pokestop"));
-  const spawns = useMarkers("spawnpoint", markerArea, markerBbox, lastSeen.epoch, want("spawnpoint"));
-  const stations = useMarkers("station", markerArea, markerBbox, lastSeen.epoch, want("station"));
+	// Golbat markers to preview for the route's mode, scoped to the fence polygon.
+	// Nothing shows until a geofence is selected (→ the fence loads): `want` gates
+	// every fetch on fenceFeature.
+	const markerArea = fenceFeature?.geometry ?? null;
+	const markerBbox = useMemo<Bounds>(
+		() =>
+			fenceFeature?.geometry
+				? (geometryBounds(fenceFeature.geometry) ?? WORLD)
+				: WORLD,
+		[fenceFeature],
+	);
+	// "Last seen after" filter (epoch seconds); 0 = show all.
+	const lastSeen = useLastSeen();
+	const showCats = routeModeMarkerCategories(routeMode);
+	const want = (c: MarkerCategory) => !!fenceFeature && showCats.includes(c);
+	const gyms = useMarkers(
+		"gym",
+		markerArea,
+		markerBbox,
+		lastSeen.epoch,
+		want("gym"),
+	);
+	const stops = useMarkers(
+		"pokestop",
+		markerArea,
+		markerBbox,
+		lastSeen.epoch,
+		want("pokestop"),
+	);
+	const spawns = useMarkers(
+		"spawnpoint",
+		markerArea,
+		markerBbox,
+		lastSeen.epoch,
+		want("spawnpoint"),
+	);
+	const stations = useMarkers(
+		"station",
+		markerArea,
+		markerBbox,
+		lastSeen.epoch,
+		want("station"),
+	);
 
-  const calc = useCalc();
-  // Separate instance so the loaded-route stats job never disturbs the main
-  // calc's result (which writes back into the route geometry).
-  const statsCalc = useCalc();
+	const calc = useCalc();
+	// Separate instance so the loaded-route stats job never disturbs the main
+	// calc's result (which writes back into the route geometry).
+	const statsCalc = useCalc();
 
-  // A succeeded calc result → the route's geometry (MultiPoint of ordered points).
-  useEffect(() => {
-    if (!calc.result) return;
-    const pts = routeCoords(calc.result); // [lon,lat][]
-    if (pts.length === 0) return;
-    form.setValue("geometry", { type: "MultiPoint", coordinates: pts }, { shouldDirty: true });
-  }, [calc.result, form]);
+	// A succeeded calc result → the route's geometry (MultiPoint of ordered points).
+	useEffect(() => {
+		if (!calc.result) return;
+		const pts = routeCoords(calc.result); // [lon,lat][]
+		if (pts.length === 0) return;
+		form.setValue(
+			"geometry",
+			{ type: "MultiPoint", coordinates: pts },
+			{ shouldDirty: true },
+		);
+	}, [calc.result, form]);
 
-  // The loaded/edited route as ordered [lat,lon] centers, and the golbat points it
-  // should cover (union of the mode's categories) → a `routeStats` job so an
-  // existing route reports coverage/score/distance without re-clustering.
-  const clusters = useMemo(
-    () => routeCoordsToClusters(geometry ? { type: "Feature", geometry, properties: {} } : null),
-    [geometry],
-  );
-  const dataPoints = useMemo<[number, number][]>(() => {
-    const byCat: Record<string, [number, number][]> = {
-      gym: gyms.data ?? [],
-      pokestop: stops.data ?? [],
-      spawnpoint: spawns.data ?? [],
-      station: stations.data ?? [],
-    };
-    return showCats.flatMap((c) => byCat[c] ?? []);
-  }, [gyms.data, stops.data, spawns.data, stations.data, showCats]);
+	// The loaded/edited route as ordered [lat,lon] centers, and the golbat points it
+	// should cover (union of the mode's categories) → a `routeStats` job so an
+	// existing route reports coverage/score/distance without re-clustering.
+	const clusters = useMemo(
+		() =>
+			routeCoordsToClusters(
+				geometry ? { type: "Feature", geometry, properties: {} } : null,
+			),
+		[geometry],
+	);
+	const dataPoints = useMemo<[number, number][]>(() => {
+		const byCat: Record<string, [number, number][]> = {
+			gym: gyms.data ?? [],
+			pokestop: stops.data ?? [],
+			spawnpoint: spawns.data ?? [],
+			station: stations.data ?? [],
+		};
+		return showCats.flatMap((c) => byCat[c] ?? []);
+	}, [gyms.data, stops.data, spawns.data, stations.data, showCats]);
 
-  const { runStats } = statsCalc;
-  const { radius, minPoints } = calc.params;
-  useEffect(() => {
-    // A live calc supplies its own stats; only auto-compute for a loaded route.
-    if (calc.result) return;
-    if (clusters.length === 0 || dataPoints.length === 0) return;
-    // Debounced: radius/minPoints edits and marker refetches shouldn't spam jobs.
-    const t = setTimeout(() => {
-      void runStats({ dataPoints, clusters, radius, minPoints });
-    }, 600);
-    return () => clearTimeout(t);
-  }, [clusters, dataPoints, calc.result, radius, minPoints, runStats]);
+	const { runStats } = statsCalc;
+	const { radius, minPoints } = calc.params;
+	useEffect(() => {
+		// A live calc supplies its own stats; only auto-compute for a loaded route.
+		if (calc.result) return;
+		if (clusters.length === 0 || dataPoints.length === 0) return;
+		// Debounced: radius/minPoints edits and marker refetches shouldn't spam jobs.
+		const t = setTimeout(() => {
+			void runStats({ dataPoints, clusters, radius, minPoints });
+		}, 600);
+		return () => clearTimeout(t);
+	}, [clusters, dataPoints, calc.result, radius, minPoints, runStats]);
 
-  const onRun = () => {
-    if (!fenceFeature) return;
-    void calc.run({ area: featureToAreaFC(fenceFeature), category });
-  };
+	const onRun = () => {
+		if (!fenceFeature) return;
+		// lastSeen rides along so the server clusters the same fresh points the
+		// marker preview shows (0 = no filter).
+		void calc.run({
+			area: featureToAreaFC(fenceFeature),
+			category,
+			lastSeen: lastSeen.epoch,
+		});
+	};
 
-  // Floating-panel stats: a live calc's stats win, else the loaded route's.
-  const panelStats = calc.stats ?? statsCalc.stats;
-  const panelLoading = panelStats == null && (calc.job != null || statsCalc.job != null);
+	// Floating-panel stats: a live calc's stats win, else the loaded route's.
+	const panelStats = calc.stats ?? statsCalc.stats;
+	const panelLoading =
+		panelStats == null && (calc.job != null || statsCalc.job != null);
 
-  const layers = useMemo<Layer[]>(() => {
-    const cats = routeModeMarkerCategories(routeMode);
-    const on = (c: MarkerCategory) => !!fenceFeature && cats.includes(c);
-    const fenceFC: GeoJSON.FeatureCollection = fenceFeature ? { type: "FeatureCollection", features: [fenceFeature] } : { type: "FeatureCollection", features: [] };
-    const routeFC: GeoJSON.FeatureCollection = geometry ? { type: "FeatureCollection", features: [{ type: "Feature", geometry, properties: {} }] } : { type: "FeatureCollection", features: [] };
-    // The active calc result OR (when just editing) the loaded route — rendered
-    // the SAME way: ordered centers, coverage circles at the current radius, and
-    // the distance-colored path. So an edited route shows its cluster circles too,
-    // not only the centers.
-    const displayResult = calc.result ?? (geometry ? routeFC : null);
-    return buildBaseLayers({
-      // `routes` off: displayResult already draws the route (path + centers), so
-      // the plain routes layer would double it.
-      visibility: { gyms: on("gym"), pokestops: on("pokestop"), spawnpoints: on("spawnpoint"), stations: on("station"), geofences: true, routes: false, s2: false },
-      markerSets: [
-        { id: "gyms", points: gyms.data ?? [], color: COLOR.gym, radius: 70, maxPixels: 12 },
-        { id: "pokestops", points: stops.data ?? [], color: COLOR.pokestop, radius: 40, maxPixels: 6 },
-        { id: "spawnpoints", points: spawns.data ?? [], color: COLOR.spawnpoint, radius: 12, maxPixels: 2 },
-        { id: "stations", points: stations.data ?? [], color: COLOR.station, radius: 40, maxPixels: 6 },
-      ],
-      geofences: fenceFC, routes: { type: "FeatureCollection", features: [] }, s2Cells: [], markerRadius: 70, onClick: () => {}, pickable: false,
-      calcResult: displayResult, calcResultIsRoute: true,
-      // Coverage circles at the exact calc radius (radius strategy only) — updates
-      // live as the user drags the radius, for both a calc result and a loaded route.
-      calcResultRadius: calc.params.strategy === "radius" ? calc.params.radius : undefined,
-    });
-  }, [fenceFeature, geometry, calc.result, gyms.data, stops.data, spawns.data, stations.data, routeMode, calc.params.radius, calc.params.strategy]);
+	const layers = useMemo<Layer[]>(() => {
+		const cats = routeModeMarkerCategories(routeMode);
+		const on = (c: MarkerCategory) => !!fenceFeature && cats.includes(c);
+		const fenceFC: GeoJSON.FeatureCollection = fenceFeature
+			? { type: "FeatureCollection", features: [fenceFeature] }
+			: { type: "FeatureCollection", features: [] };
+		const routeFC: GeoJSON.FeatureCollection = geometry
+			? {
+					type: "FeatureCollection",
+					features: [{ type: "Feature", geometry, properties: {} }],
+				}
+			: { type: "FeatureCollection", features: [] };
+		// The active calc result OR (when just editing) the loaded route — rendered
+		// the SAME way: ordered centers, coverage circles at the current radius, and
+		// the distance-colored path. So an edited route shows its cluster circles too,
+		// not only the centers.
+		const displayResult = calc.result ?? (geometry ? routeFC : null);
+		return buildBaseLayers({
+			// `routes` off: displayResult already draws the route (path + centers), so
+			// the plain routes layer would double it.
+			visibility: {
+				gyms: on("gym"),
+				pokestops: on("pokestop"),
+				spawnpoints: on("spawnpoint"),
+				stations: on("station"),
+				geofences: true,
+				routes: false,
+				s2: false,
+			},
+			markerSets: [
+				{
+					id: "gyms",
+					points: gyms.data ?? [],
+					color: COLOR.gym,
+					radius: 70,
+					maxPixels: 12,
+				},
+				{
+					id: "pokestops",
+					points: stops.data ?? [],
+					color: COLOR.pokestop,
+					radius: 40,
+					maxPixels: 6,
+				},
+				{
+					id: "spawnpoints",
+					points: spawns.data ?? [],
+					color: COLOR.spawnpoint,
+					radius: 12,
+					maxPixels: 2,
+				},
+				{
+					id: "stations",
+					points: stations.data ?? [],
+					color: COLOR.station,
+					radius: 40,
+					maxPixels: 6,
+				},
+			],
+			geofences: fenceFC,
+			routes: { type: "FeatureCollection", features: [] },
+			s2Cells: [],
+			markerRadius: 70,
+			onClick: () => {},
+			pickable: false,
+			calcResult: displayResult,
+			calcResultIsRoute: true,
+			// Coverage circles at the exact calc radius (radius strategy only) — updates
+			// live as the user drags the radius, for both a calc result and a loaded route.
+			calcResultRadius:
+				calc.params.strategy === "radius" ? calc.params.radius : undefined,
+		});
+	}, [
+		fenceFeature,
+		geometry,
+		calc.result,
+		gyms.data,
+		stops.data,
+		spawns.data,
+		stations.data,
+		routeMode,
+		calc.params.radius,
+		calc.params.strategy,
+	]);
 
-  const fit = geometry ? geometryBounds(geometry) : fenceFeature?.geometry ? geometryBounds(fenceFeature.geometry) : null;
-  const areaMissing = !fenceFeature;
+	const fit = geometry
+		? geometryBounds(geometry)
+		: fenceFeature?.geometry
+			? geometryBounds(fenceFeature.geometry)
+			: null;
+	const areaMissing = !fenceFeature;
 
-  // DeckMap fits its camera once on mount. On CREATE the form starts empty, so
-  // remount (via key) when the framing target first appears — a picked fence,
-  // then the calc result — so the map isn't stuck at [0,0]. On EDIT geometry is
-  // present from the first render, so the key is stable ("geo") → no remount.
-  const fitKey = geometry ? "geo" : fenceFeature ? `fence-${geofenceId}` : "empty";
+	// DeckMap fits its camera once on mount. On CREATE the form starts empty, so
+	// remount (via key) when the framing target first appears — a picked fence,
+	// then the calc result — so the map isn't stuck at [0,0]. On EDIT geometry is
+	// present from the first render, so the key is stable ("geo") → no remount.
+	const fitKey = geometry
+		? "geo"
+		: fenceFeature
+			? `fence-${geofenceId}`
+			: "empty";
 
-  return (
-    <div className="relative">
-      <DeckMap key={fitKey} layers={layers} fitBounds={fit} height={640} controller={{ doubleClickZoom: true }}>
-        <div className="absolute inset-y-0 left-0 z-10">
-          <CalcControls calc={calc} category={category} onRun={onRun} disabled={areaMissing}
-            disabledReason={areaMissing ? "Select a geofence first." : undefined} />
-        </div>
-        <div className="absolute right-2 top-2 z-10">
-          <LastSeenPicker value={lastSeen.value} onChange={lastSeen.setValue} />
-        </div>
-        <RouteStatsPanel stats={panelStats} loading={panelLoading} />
-      </DeckMap>
-    </div>
-  );
+	return (
+		<div className="relative">
+			<DeckMap
+				key={fitKey}
+				layers={layers}
+				fitBounds={fit}
+				height={640}
+				controller={{ doubleClickZoom: true }}
+			>
+				<div className="absolute inset-y-0 left-0 z-10">
+					<CalcControls
+						calc={calc}
+						category={category}
+						onRun={onRun}
+						disabled={areaMissing}
+						disabledReason={
+							areaMissing ? "Select a geofence first." : undefined
+						}
+					/>
+				</div>
+				<div className="absolute right-2 top-2 z-10">
+					<LastSeenPicker value={lastSeen.value} onChange={lastSeen.setValue} />
+				</div>
+				<RouteStatsPanel stats={panelStats} loading={panelLoading} />
+			</DeckMap>
+		</div>
+	);
 }
