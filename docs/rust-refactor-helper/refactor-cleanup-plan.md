@@ -16,6 +16,14 @@ verification, plus a workspace clippy run. Branch `claude/v2` @ `ee75201c`.
 >   signatures + root re-export trims + JobStatus lowercase (needs web-client coordination),
 >   P6 refine LNS tests + webhook wiremock test + lint policy, the ~85 ▫️ LOW batch,
 >   nominatim lookup/reverse delete (product decision), koji-plugins collapse (closed: keep).
+> - **VERIFICATION TAIL COMPLETE (same evening):** resumed workflow finished 106/106 agents.
+>   56/57 refutations independently cite the landed fixes (adversarial confirmation of the day's
+>   work). Panic sweep found ONE new bug — BootstrapS2 empty-polygon bounding_rect panic — fixed
+>   in b124edc9. 29 findings remain open, all matching the deferred list above plus small new
+>   items: koji_resource! macro duplicating the crud helpers, tile_server/route upsert twins,
+>   golbat area_stats category-match dup, AdminReqParsed builder, greedy stdout unwraps,
+>   name_modifier regex recompile, koji-core geometry clone trio, GeofenceNoGeometry now fully
+>   unreferenced. Full verdicts: tasks/wgj3czaar.output + the workflow journal.
 
 **Verification status legend**
 - ✅ **CONFIRMED** — an independent adversarial verifier read the code and upheld the finding.
