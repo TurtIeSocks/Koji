@@ -395,29 +395,28 @@ impl Crucible {
         centers.len() * m + uncovered
     }
 
-    /// Rare path: keep the most valuable centers when over the cap.
+    /// Rare path: keep the most valuable centers when over the cap. Delegates
+    /// to the shared max-coverage selector (MARGINAL gain over the distinct
+    /// cells) — the previous absolute-count top-N double-counted overlap, so
+    /// two overlapping dense centers could both survive while a disjoint
+    /// medium one was dropped.
     fn enforce_max_clusters(&self, centers: SingleVec, reps: &SingleVec) -> SingleVec {
         if centers.len() <= self.max_clusters {
             return centers;
         }
-        let tree = rtree::spawn(self.radius, reps);
-        let mut scored: Vec<(usize, usize)> = centers
-            .par_iter()
-            .enumerate()
-            .map(|(i, c)| (tree.locate_all_at_point(*c).count(), i))
-            .collect();
-        scored.sort_unstable_by(|a, b| b.cmp(a));
-        let mut kept: Vec<PointArray> = scored
-            .into_iter()
-            .take(self.max_clusters)
-            .map(|(_, i)| centers[i])
-            .collect();
+        let n = centers.len();
+        let mut kept = crate::clustering::select::cap_radius_clusters(
+            centers,
+            reps,
+            self.radius,
+            self.max_clusters,
+        );
         // total_cmp per axis: NaN coords must not panic (matches refine.rs hardening).
         kept.sort_by(|a, b| a[0].total_cmp(&b[0]).then(a[1].total_cmp(&b[1])));
         log::warn!(
-            "crucible: truncated {} → {} clusters to honor max_clusters",
-            centers.len(),
-            kept.len()
+            "crucible: kept the best {} of {} clusters to honor max_clusters",
+            kept.len(),
+            n
         );
         kept
     }

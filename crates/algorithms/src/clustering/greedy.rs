@@ -29,9 +29,12 @@ use crate::{
     utils,
 };
 
+// `max_clusters` is deliberately NOT a greedy knob: the algorithm runs
+// unbounded and `clustering::main` keeps the best subset afterwards
+// (select.rs) — an internal early-stop would pre-trim the candidate pool and
+// lock in a worse selection (e.g. gap-fill clumps never considered).
 pub struct Greedy {
     cluster_mode: ClusterMode,
-    max_clusters: usize,
     min_points: usize,
     radius: Precision,
 }
@@ -40,7 +43,6 @@ impl Default for Greedy {
     fn default() -> Self {
         Greedy {
             cluster_mode: ClusterMode::Balanced,
-            max_clusters: usize::MAX,
             min_points: 1,
             radius: 70.,
         }
@@ -54,10 +56,6 @@ impl<'a> Greedy {
     }
     pub fn set_radius(&mut self, radius: Precision) -> &mut Self {
         self.radius = radius;
-        self
-    }
-    pub fn set_max_clusters(&mut self, max_clusters: usize) -> &mut Self {
-        self.max_clusters = max_clusters;
         self
     }
     pub fn set_min_points(&mut self, min_points: usize) -> &mut Self {
@@ -92,15 +90,6 @@ impl<'a> Greedy {
         all_points_tree: &'a RTree<Point>,
     ) -> Vec<Cluster<'a>> {
         if all_points.is_empty() || self.min_points == 0 {
-            return solution;
-        }
-
-        // Respect `max_clusters`: the greedy pass already capped the solution, so
-        // gap-fill may only add up to the remaining budget (else the cap has no
-        // effect — every uncovered clump gets a cluster regardless of the ceiling).
-        // Mirrors the cap `check_missing` applies to its own recovery pass.
-        let budget = self.max_clusters.saturating_sub(solution.len());
-        if budget == 0 {
             return solution;
         }
 
@@ -158,10 +147,6 @@ impl<'a> Greedy {
                     still_uncovered.remove(&q.cell_id);
                 }
                 additions.push(Cluster::new(new_pt, all_vec, vec![]));
-                // Stop once the cap's remaining budget is spent.
-                if additions.len() >= budget {
-                    break;
-                }
             }
         }
 
@@ -381,7 +366,7 @@ impl<'a> Greedy {
         let capacity = clusters_with_data.iter().map(|c| c.len()).sum::<usize>();
         let mut clusters_of_interest: Vec<&Cluster<'_>> = Vec::with_capacity(capacity);
 
-        'greedy: while current >= self.min_points && new_clusters.len() < self.max_clusters {
+        while current >= self.min_points {
             current_iteration += 1;
             clusters_of_interest.clear();
             clusters_of_interest.extend(clusters_with_data[current..].iter().flatten());
@@ -427,9 +412,6 @@ impl<'a> Greedy {
             });
 
             'cluster: for (source, unique) in local_clusters.into_iter() {
-                if new_clusters.len() >= self.max_clusters {
-                    break 'greedy;
-                }
                 if unique.len() >= current {
                     for point in unique.iter() {
                         if blocked_points.contains(point) {
@@ -494,19 +476,15 @@ impl<'a> Greedy {
     #[time()]
     fn check_missing(&self, clusters: Vec<Cluster>, points: &SingleVec) -> HashSet<Point> {
         let mut result: HashSet<Point> = clusters.iter().map(|c| c.point).collect();
-        // Respect `max_clusters`: never let missing-point recovery push the
-        // final solution above the cap. If greedy already hit the cap, skip
-        // the check entirely (cap == 0).
-        let cap = self.max_clusters.saturating_sub(result.len());
-        if cap > 0 {
-            let seen_cell_ids: HashSet<CellID> = clusters
-                .iter()
-                .flat_map(|c| c.all.iter())
-                .map(|p| p.cell_id)
-                .collect();
-            let missing = self.recover_missing_points(&seen_cell_ids, points, cap);
-            result.extend(missing);
-        }
+        // Unbounded: the min_points == 1 contract is "every input point covered".
+        // If max_clusters was set, `clustering::main` keeps the best subset after.
+        let seen_cell_ids: HashSet<CellID> = clusters
+            .iter()
+            .flat_map(|c| c.all.iter())
+            .map(|p| p.cell_id)
+            .collect();
+        let missing = self.recover_missing_points(&seen_cell_ids, points, usize::MAX);
+        result.extend(missing);
 
         log::info!("final solution size: {}", result.len());
         result
@@ -530,36 +508,9 @@ mod tests {
         assert!(greedy.cluster(&empty).is_empty());
     }
 
-    #[test]
-    fn run_respects_max_clusters_with_gap_fill() {
-        // 6 dense clumps (5 pts each within ~44 m), ~1.1 km apart, so each clump
-        // needs its own cluster. With min_points=3 the greedy pass caps at
-        // max_clusters, but the gap-fill pass (which runs for min_points>1) must
-        // ALSO respect the ceiling — otherwise it adds the remaining clumps back.
-        // Regression: the cap was enforced in cluster() but ignored by
-        // fill_coverage_gaps, so max_clusters had no effect for the default
-        // (Balanced / min_points=3) path.
-        let mut pts: SingleVec = Vec::new();
-        for clump in 0..6 {
-            let base_lat = 40.0 + clump as Precision * 0.01; // ~1.1 km between clumps
-            for j in 0..5 {
-                pts.push([base_lat + j as Precision * 0.0001, -74.0]); // ~11 m within
-            }
-        }
-        let mut greedy = Greedy::default();
-        greedy
-            .set_cluster_mode(crate::clustering::ClusterMode::Balanced)
-            .set_min_points(3)
-            .set_radius(70.0)
-            .set_max_clusters(3);
-        let result = greedy.run(&pts);
-        assert!(
-            result.len() <= 3,
-            "max_clusters=3 must cap the final solution (gap-fill included), got {}",
-            result.len()
-        );
-        assert!(!result.is_empty(), "the cap should bind, not zero the output");
-    }
+    // NOTE: max_clusters is no longer a Greedy knob — enforcement lives in
+    // `clustering::main` (select.rs max-coverage subset); see the mode-matrix
+    // tests in mod.rs (`*_respects_max_clusters_selectively`).
 
     #[test]
     fn bucket_clusters_by_size_indexes_by_all_len() {

@@ -29,6 +29,7 @@ pub(crate) mod geometry;
 mod greedy;
 mod partition;
 mod s2;
+pub(crate) mod select;
 
 pub use calc_mode::CalculationMode;
 pub use cluster_mode::ClusterMode;
@@ -75,7 +76,6 @@ pub fn main(
                 let mut greedy = Greedy::default();
                 greedy
                     .set_cluster_mode(cfg.mode.clone())
-                    .set_max_clusters(cfg.max_clusters)
                     .set_min_points(cfg.min_points)
                     .set_radius(cfg.radius);
                 greedy.run(data_points)
@@ -116,6 +116,29 @@ pub fn main(
             }
         },
     };
+    // max_clusters enforcement — uniform across EVERY mode (greedy, crucible,
+    // fastest, s2, plugins): keep the max-coverage subset, never an arbitrary
+    // prefix or truncation. Algorithms run unbounded so the selector sees the
+    // full candidate pool; an internal early-stop would lock in a worse subset.
+    // Deliberate trade-off: a BINDING cap now pays the full unbounded
+    // clustering cost (measured ~2–2.7× vs the old early-stop on large inputs)
+    // in exchange for keeping the best clusters instead of the first ones.
+    // Capped requests are the rare path; revisit only if it hurts in practice.
+    let clusters = if clusters.len() > cfg.max_clusters {
+        match cfg.calculation_mode {
+            CalculationMode::S2 => select::cap_s2_clusters(
+                clusters,
+                data_points,
+                cfg.s2.level,
+                cfg.s2.size,
+                cfg.max_clusters,
+            ),
+            _ => select::cap_radius_clusters(clusters, data_points, cfg.radius, cfg.max_clusters),
+        }
+    } else {
+        clusters
+    };
+
     let clusters = if cfg.center_clusters {
         sec::with_data(cfg.radius, data_points, &clusters)
     } else {
@@ -314,6 +337,125 @@ mod tests {
         let result = main(&pts, &cfg, empty_collection(), &mut stats);
         // Result may be empty or non-empty depending on SEC; just no panic.
         assert!(result.len() <= pts.len() + 1);
+    }
+
+    // ── main: max_clusters caps EVERY mode and keeps the best clusters ────────
+
+    /// 3 dense clumps (8 pts) + 3 small clumps (3 pts), all ~1.1 km apart.
+    /// With cap = 3 the kept centers must be the DENSE clumps — selective
+    /// best-N, not an arbitrary prefix/truncation.
+    fn clumped_points() -> SingleVec {
+        let mut pts: SingleVec = Vec::new();
+        for (clump, n) in [(0, 8), (1, 8), (2, 8), (3, 3), (4, 3), (5, 3)] {
+            let base_lat = 40.0 + clump as Precision * 0.01;
+            for j in 0..n {
+                pts.push([base_lat + j as Precision * 0.0001, -74.0]); // ~11 m apart
+            }
+        }
+        pts
+    }
+
+    /// Count input points within `radius` meters of `center` (Haversine).
+    fn covered_by(center: [Precision; 2], pts: &SingleVec, radius: Precision) -> usize {
+        use geo::{Distance, Haversine};
+        pts.iter()
+            .filter(|p| {
+                Haversine.distance(
+                    geo::Point::new(center[1], center[0]),
+                    geo::Point::new(p[1], p[0]),
+                ) <= radius
+            })
+            .count()
+    }
+
+    fn assert_capped_and_best(mode: ClusterMode) {
+        let pts = clumped_points();
+        let mut cfg = make_cfg(mode.clone());
+        cfg.min_points = 3;
+        cfg.max_clusters = 3;
+        let mut stats = Stats::new("t".into(), 3);
+        let result = main(&pts, &cfg, empty_collection(), &mut stats);
+        assert!(
+            result.len() <= 3,
+            "{mode:?}: max_clusters=3 must cap the solution, got {}",
+            result.len()
+        );
+        assert!(
+            !result.is_empty(),
+            "{mode:?}: the cap should bind, not zero the output"
+        );
+        // Selective: every kept center sits on a DENSE clump (8 pts), never a
+        // small one (3 pts) — with 6 candidate clumps and cap 3, max-coverage
+        // must prefer the dense three.
+        for c in &result {
+            let covered = covered_by(*c, &pts, cfg.radius);
+            assert!(
+                covered >= 8,
+                "{mode:?}: kept center {c:?} covers only {covered} points — a small clump was kept over a dense one"
+            );
+        }
+    }
+
+    #[test]
+    fn fastest_mode_respects_max_clusters_selectively() {
+        assert_capped_and_best(ClusterMode::Fastest);
+    }
+
+    #[test]
+    fn balanced_mode_respects_max_clusters_selectively() {
+        assert_capped_and_best(ClusterMode::Balanced);
+    }
+
+    #[test]
+    fn better_mode_respects_max_clusters_selectively() {
+        assert_capped_and_best(ClusterMode::Better);
+    }
+
+    #[test]
+    fn s2_mode_respects_max_clusters() {
+        // S2 calc mode over a rect containing the clumps; cap must bind here too
+        // (the s2 clusterer itself has no cap concept).
+        let pts = clumped_points();
+        let ring = vec![
+            geojson::Position::from([-74.1, 39.9]),
+            geojson::Position::from([-73.9, 39.9]),
+            geojson::Position::from([-73.9, 40.2]),
+            geojson::Position::from([-74.1, 40.2]),
+            geojson::Position::from([-74.1, 39.9]),
+        ];
+        let feature = geojson::Feature {
+            bbox: None,
+            geometry: Some(geojson::Geometry::new(geojson::GeometryValue::Polygon {
+                coordinates: vec![ring],
+            })),
+            id: None,
+            properties: None,
+            foreign_members: None,
+        };
+        let collection = FeatureCollection {
+            bbox: None,
+            features: vec![feature],
+            foreign_members: None,
+        };
+        let mut cfg = make_cfg(ClusterMode::Balanced);
+        cfg.calculation_mode = CalculationMode::S2;
+        // Derived S2Config::default() is zeroed (size 0 div-by-zero in the grid
+        // walk) — use the real serve-path defaults' shape: one level-15 cell per
+        // candidate so each ~1.1 km-spaced clump gets its own cell.
+        cfg.s2 = S2Config { level: 15, size: 1 };
+        cfg.min_points = 3;
+        cfg.max_clusters = 3;
+        let mut stats = Stats::new("t".into(), 3);
+        let result = main(&pts, &cfg, collection, &mut stats);
+        assert!(
+            result.len() <= 3,
+            "S2 mode: max_clusters=3 must cap the solution, got {}",
+            result.len()
+        );
+        assert!(
+            !result.is_empty(),
+            "S2 mode: the cap should bind, not zero the output"
+        );
     }
 
     // ── main: mygod_score populated ───────────────────────────────────────────
