@@ -70,26 +70,26 @@ pub struct ClaimedJob {
 #[derive(Clone)]
 pub struct JobQueue {
     /// Koji DB connection (MySQL 8+ / MariaDB 10.6+ for `SKIP LOCKED`).
-    pub db: DatabaseConnection,
+    pub(crate) db: DatabaseConnection,
     /// Poked on local enqueue so the in-process worker skips poll latency
     /// (spec §8). Shared with the worker loop.
-    pub notify: Arc<Notify>,
+    pub(crate) notify: Arc<Notify>,
     /// In-process waiter registry: `public_id` → oneshot senders awaiting that
     /// job's outcome. Never persisted; cross-process waiters poll instead
     /// (spec §4/§7).
-    pub waiters: Arc<DashMap<String, Vec<oneshot::Sender<JobOutcome>>>>,
+    pub(crate) waiters: Arc<DashMap<String, Vec<oneshot::Sender<JobOutcome>>>>,
     /// Running-job cancel tokens: `public_id` → the token handed to that job's
     /// handler ctx. The worker registers on claim and removes on completion;
     /// `cancel` flips the token so same-process handlers see the signal
     /// immediately (cross-process workers pick up `phase='canceling'` via their
     /// heartbeat).
-    pub running_tokens: Arc<DashMap<String, crate::types::CancelToken>>,
+    pub(crate) running_tokens: Arc<DashMap<String, crate::types::CancelToken>>,
     /// This process/worker-pool identity, written to `locked_by` on claim.
-    pub worker_id: String,
+    pub(crate) worker_id: String,
     /// Optional realtime event sink. When set, the worker emits status + progress
     /// events through it (transport-agnostic: the hub in koji-service implements
     /// it; koji-jobs has no direct dependency on the hub).
-    pub event_sink: Option<Arc<dyn JobEventSink>>,
+    pub(crate) event_sink: Option<Arc<dyn JobEventSink>>,
 }
 
 impl JobQueue {
