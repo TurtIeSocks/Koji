@@ -4,7 +4,7 @@ use koji_core::Precision;
 use koji_core::SingleVec;
 use rand::{SeedableRng, rngs::SmallRng, seq::SliceRandom};
 use rayon::{
-    iter::{IntoParallelRefIterator, ParallelIterator},
+    iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator},
     slice::ParallelSliceMut,
 };
 use s2::{cellid::CellID, latlng::LatLng};
@@ -17,33 +17,33 @@ pub fn sort_random(mut clusters: SingleVec) -> SingleVec {
     clusters
 }
 
-pub fn sort_geohash(mut points: SingleVec) -> SingleVec {
-    points.par_sort_by(|a, b| {
-        match encode(Coord { x: a[1], y: a[0] }, 12) {
-            Ok(geohash) => geohash,
-            Err(e) => {
+pub fn sort_geohash(points: SingleVec) -> SingleVec {
+    // Precompute one key per point (the comparator version re-encoded BOTH
+    // sides on every comparison — 2·n·log n allocating encodes); unencodable
+    // points sort first on an empty key.
+    let mut keyed: Vec<(String, [Precision; 2])> = points
+        .into_par_iter()
+        .map(|p| {
+            let key = encode(Coord { x: p[1], y: p[0] }, 12).unwrap_or_else(|e| {
                 log::warn!("Error while encoding geohash: {}", e);
-                "".to_string()
-            }
-        }
-        .cmp(&match encode(Coord { x: b[1], y: b[0] }, 12) {
-            Ok(geohash) => geohash,
-            Err(e) => {
-                log::warn!("Error while encoding geohash: {}", e);
-                "".to_string()
-            }
+                String::new()
+            });
+            (key, p)
         })
-    });
-    points
+        .collect();
+    keyed.par_sort_by(|a, b| a.0.cmp(&b.0));
+    keyed.into_iter().map(|(_, p)| p).collect()
 }
 
-pub fn sort_s2(mut points: SingleVec) -> SingleVec {
-    points.par_sort_by(|a, b| {
-        let a: CellID = LatLng::from_degrees(a[0], a[1]).into();
-        let b: CellID = LatLng::from_degrees(b[0], b[1]).into();
-        a.0.cmp(&b.0)
-    });
-    points
+pub fn sort_s2(points: SingleVec) -> SingleVec {
+    // Same shape as sort_geohash: one CellID per point instead of two
+    // trig-heavy LatLng->CellID conversions per comparison.
+    let mut keyed: Vec<(u64, [Precision; 2])> = points
+        .into_par_iter()
+        .map(|p| (CellID::from(LatLng::from_degrees(p[0], p[1])).0, p))
+        .collect();
+    keyed.par_sort_by_key(|(k, _)| *k);
+    keyed.into_iter().map(|(_, p)| p).collect()
 }
 
 pub fn sort_lat_lng(mut points: SingleVec) -> SingleVec {

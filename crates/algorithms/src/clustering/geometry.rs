@@ -84,8 +84,8 @@ pub fn smallest_enclosing_circle<P: Copy + Into<[Precision; 2]>>(pts: &[P]) -> C
             }
             // p and q on the boundary.
             c = circle_from_two(p, q);
-            for k in 0..j {
-                let s: [Precision; 2] = pts[k].into();
+            for pk in pts.iter().take(j) {
+                let s: [Precision; 2] = (*pk).into();
                 if contains(&c, s) {
                     continue;
                 }
