@@ -50,14 +50,21 @@ pub fn info_log(file_name: &str, message: String) -> String {
 pub fn rotate_to_best(clusters: SingleVec, stats: &Stats) -> SingleVec {
     let mut final_clusters = VecDeque::<PointArray>::new();
 
+    // Unencodable coords (NaN / out-of-range from a plugin or solver) are skipped
+    // rather than panicking the whole routing call — matches sort_geohash.
     let best_cluster_set = stats
         .best_clusters
         .iter()
-        .map(|x| encode(Coord { x: x[1], y: x[0] }, 12).unwrap())
+        .filter_map(|x| encode(Coord { x: x[1], y: x[0] }, 12).ok())
         .collect::<HashSet<String>>();
     let mut rotate_count = 0;
     for (i, [lat, lon]) in clusters.into_iter().enumerate() {
-        if best_cluster_set.contains(&encode(Coord { x: lon, y: lat }, 12).unwrap()) {
+        let Ok(hash) = encode(Coord { x: lon, y: lat }, 12) else {
+            log::warn!("rotate_to_best: skipping unencodable point [{lat}, {lon}]");
+            final_clusters.push_back([lat, lon]);
+            continue;
+        };
+        if best_cluster_set.contains(&hash) {
             rotate_count = i;
             log::debug!("Found Best! {}, {} - {}", lat, lon, i);
         }
