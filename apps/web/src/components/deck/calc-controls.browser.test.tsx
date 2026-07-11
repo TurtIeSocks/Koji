@@ -1,6 +1,6 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CalcControls } from "./calc-controls";
 import type { UseCalcReturn } from "./use-calc";
 
@@ -32,12 +32,15 @@ function makeCalc(overrides?: Partial<UseCalcReturn>): UseCalcReturn {
 		stats: null,
 		error: null,
 		run: vi.fn(async () => {}),
+		runStats: vi.fn(async () => {}),
 		clear: vi.fn(),
 		...overrides,
 	};
 }
 
-function renderControls(props: Partial<React.ComponentProps<typeof CalcControls>> = {}) {
+function renderControls(
+	props: Partial<React.ComponentProps<typeof CalcControls>> = {},
+) {
 	const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	const calc = props.calc ?? makeCalc();
 	const onRun = props.onRun ?? vi.fn();
@@ -48,7 +51,13 @@ function renderControls(props: Partial<React.ComponentProps<typeof CalcControls>
 			<QueryClientProvider client={qc}>
 				{/* Positioned, sized parent — CalcControls is an absolute left dock. */}
 				<div className="relative" style={{ height: 600, width: 320 }}>
-				<CalcControls calc={calc} category={props.category ?? "pokestop"} onRun={onRun} disabled={props.disabled} disabledReason={props.disabledReason} />
+					<CalcControls
+						calc={calc}
+						category={props.category ?? "pokestop"}
+						onRun={onRun}
+						disabled={props.disabled}
+						disabledReason={props.disabledReason}
+					/>
 				</div>
 			</QueryClientProvider>,
 		),
@@ -57,12 +66,18 @@ function renderControls(props: Partial<React.ComponentProps<typeof CalcControls>
 
 beforeEach(() => {
 	getAlgorithmsMock.mockReset();
-	getAlgorithmsMock.mockResolvedValue({ clustering: [], routing: [], bootstrap: [] });
+	getAlgorithmsMock.mockResolvedValue({
+		clustering: [],
+		routing: [],
+		bootstrap: [],
+	});
 });
 
 test("renders the mode select and clicking Calculate calls onRun", async () => {
 	const { screen, onRun } = renderControls();
-	await expect.element(screen.getByRole("combobox", { name: "Mode", exact: true })).toBeInTheDocument();
+	await expect
+		.element(screen.getByRole("combobox", { name: "Mode", exact: true }))
+		.toBeInTheDocument();
 	const btn = screen.getByRole("button", { name: /calculate/i });
 	await expect.element(btn).toBeEnabled();
 	await btn.click();
@@ -70,9 +85,16 @@ test("renders the mode select and clicking Calculate calls onRun", async () => {
 });
 
 test("disabled prop disables the Calculate button and shows the reason", async () => {
-	const { screen } = renderControls({ disabled: true, disabledReason: "Select a geofence first." });
-	await expect.element(screen.getByRole("button", { name: /calculate/i })).toBeDisabled();
-	await expect.element(screen.getByText(/select a geofence first/i)).toBeInTheDocument();
+	const { screen } = renderControls({
+		disabled: true,
+		disabledReason: "Select a geofence first.",
+	});
+	await expect
+		.element(screen.getByRole("button", { name: /calculate/i }))
+		.toBeDisabled();
+	await expect
+		.element(screen.getByText(/select a geofence first/i))
+		.toBeInTheDocument();
 });
 
 test("changing the mode via the calc prop calls setParams", async () => {
@@ -83,16 +105,17 @@ test("changing the mode via the calc prop calls setParams", async () => {
 	expect(calc.setParams).toHaveBeenCalledWith({ mode: "bootstrap" });
 });
 
-test("shows progress + stats while a job is present", async () => {
+test("shows job progress + phase while a job is present", async () => {
 	const calc = makeCalc({
 		job: { id: "9", status: "running", progress: 0.5, phase: "clustering" },
 		stats: { total_clusters: 3, total_distance: 120 },
 	});
 	const { screen } = renderControls({ calc });
 	await expect.element(screen.getByText("running")).toBeInTheDocument();
-	await expect.element(screen.getByText("clustering", { exact: true })).toBeInTheDocument();
-	// Stats now render as a labeled grid (Distance / … — avoid "Clusters" which
-	// substring-matches the "Center clusters" switch label in the same panel).
-	await expect.element(screen.getByText("Distance")).toBeInTheDocument();
-	await expect.element(screen.getByText("120 m")).toBeInTheDocument();
+	await expect
+		.element(screen.getByText("clustering", { exact: true }))
+		.toBeInTheDocument();
+	// Stats no longer render in the dock — they live in the floating <RouteStatsPanel>
+	// (see route-stats-panel.browser.test.tsx). The dock only shows job progress.
+	await expect.element(screen.getByText("Distance")).not.toBeInTheDocument();
 });

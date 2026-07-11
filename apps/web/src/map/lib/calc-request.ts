@@ -90,6 +90,29 @@ export function buildCalcBody(p: CalcParams, inp: CalcInputs): Record<string, un
   };
 }
 
+export interface RouteStatsInputs {
+  /** Golbat points `[lat, lon]` the route is meant to cover. */
+  dataPoints: [number, number][];
+  /** The route's ordered cluster centers `[lat, lon]`. */
+  clusters: [number, number][];
+  /** Coverage radius in meters (the calc panel's current radius). */
+  radius: number;
+  minPoints: number;
+}
+
+/** POST /api/v2/jobs body for the `routeStats` op — stats for an EXISTING route
+ *  (its `clusters`) against its `dataPoints`, with NO re-clustering. Lets a
+ *  loaded route report coverage/score/distance without recomputing the route. */
+export function buildRouteStatsBody(inp: RouteStatsInputs): Record<string, unknown> {
+  return {
+    mode: "routeStats",
+    dataPoints: inp.dataPoints,
+    clusters: inp.clusters,
+    radius: inp.radius,
+    minPoints: inp.minPoints,
+  };
+}
+
 export interface CalcResult {
   fc: GeoJSON.FeatureCollection | null;
   stats: unknown;

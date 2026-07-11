@@ -17,6 +17,7 @@ const { calcMock, useCalcSpy } = vi.hoisted(() => {
     stats: null,
     error: null,
     run: vi.fn(async () => {}),
+    runStats: vi.fn(async () => {}),
     clear: vi.fn(),
   };
   return { calcMock, useCalcSpy: vi.fn(() => calcMock) };

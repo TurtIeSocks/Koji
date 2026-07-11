@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useMarkers } from "@/map/data/use-markers";
 import { useS2Cells } from "@/map/data/use-s2-cells";
 import { buildBaseLayers } from "@/map/lib/layers";
+import { COLOR } from "@/map/lib/map-colors";
 import type { Bounds } from "@/map/stores/types";
 import { useStartCenter } from "@/lib/use-start-center";
 import { geometryBounds } from "./bounds";
@@ -68,21 +69,21 @@ export function GeofenceMap() {
 					{
 						id: "gyms",
 						points: gyms.data ?? [],
-						color: [230, 80, 80],
+						color: COLOR.gym,
 						radius: 70,
 						maxPixels: 12,
 					},
 					{
 						id: "pokestops",
 						points: stops.data ?? [],
-						color: [0, 120, 255],
+						color: COLOR.pokestop,
 						radius: 40,
 						maxPixels: 6,
 					},
 					{
 						id: "spawnpoints",
 						points: spawns.data ?? [],
-						color: [40, 200, 120],
+						color: COLOR.spawnpoint,
 						radius: 12,
 						maxPixels: 2,
 					},

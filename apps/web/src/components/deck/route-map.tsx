@@ -2,8 +2,9 @@ import { useEffect, useMemo } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { useGetOne } from "shadmin-core";
 import type { Layer } from "@deck.gl/core";
-import { buildBaseLayers, routePathLayer } from "@/map/lib/layers";
-import { featureToAreaFC } from "@/map/lib/calc-request";
+import { buildBaseLayers } from "@/map/lib/layers";
+import { COLOR } from "@/map/lib/map-colors";
+import { featureToAreaFC, routeCoordsToClusters } from "@/map/lib/calc-request";
 import { routeCoords } from "@/map/lib/calc-overlay";
 import { useMarkers } from "@/map/data/use-markers";
 import type { Bounds, MarkerCategory } from "@/map/stores/types";
@@ -12,6 +13,7 @@ import { geometryBounds } from "./bounds";
 import { useCalc } from "./use-calc";
 import { CalcControls } from "./calc-controls";
 import { LastSeenPicker } from "./last-seen-picker";
+import { RouteStatsPanel } from "./route-stats-panel";
 import { useLastSeen } from "./use-last-seen";
 import { routeModeToCategory, routeModeMarkerCategories } from "./route-mode";
 
@@ -54,6 +56,9 @@ export function RouteMap() {
   const stations = useMarkers("station", markerArea, markerBbox, lastSeen.epoch, want("station"));
 
   const calc = useCalc();
+  // Separate instance so the loaded-route stats job never disturbs the main
+  // calc's result (which writes back into the route geometry).
+  const statsCalc = useCalc();
 
   // A succeeded calc result → the route's geometry (MultiPoint of ordered points).
   useEffect(() => {
@@ -63,41 +68,71 @@ export function RouteMap() {
     form.setValue("geometry", { type: "MultiPoint", coordinates: pts }, { shouldDirty: true });
   }, [calc.result, form]);
 
+  // The loaded/edited route as ordered [lat,lon] centers, and the golbat points it
+  // should cover (union of the mode's categories) → a `routeStats` job so an
+  // existing route reports coverage/score/distance without re-clustering.
+  const clusters = useMemo(
+    () => routeCoordsToClusters(geometry ? { type: "Feature", geometry, properties: {} } : null),
+    [geometry],
+  );
+  const dataPoints = useMemo<[number, number][]>(() => {
+    const byCat: Record<string, [number, number][]> = {
+      gym: gyms.data ?? [],
+      pokestop: stops.data ?? [],
+      spawnpoint: spawns.data ?? [],
+      station: stations.data ?? [],
+    };
+    return showCats.flatMap((c) => byCat[c] ?? []);
+  }, [gyms.data, stops.data, spawns.data, stations.data, showCats]);
+
+  const { runStats } = statsCalc;
+  const { radius, minPoints } = calc.params;
+  useEffect(() => {
+    // A live calc supplies its own stats; only auto-compute for a loaded route.
+    if (calc.result) return;
+    if (clusters.length === 0 || dataPoints.length === 0) return;
+    // Debounced: radius/minPoints edits and marker refetches shouldn't spam jobs.
+    const t = setTimeout(() => {
+      void runStats({ dataPoints, clusters, radius, minPoints });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [clusters, dataPoints, calc.result, radius, minPoints, runStats]);
+
   const onRun = () => {
     if (!fenceFeature) return;
     void calc.run({ area: featureToAreaFC(fenceFeature), category });
   };
+
+  // Floating-panel stats: a live calc's stats win, else the loaded route's.
+  const panelStats = calc.stats ?? statsCalc.stats;
+  const panelLoading = panelStats == null && (calc.job != null || statsCalc.job != null);
 
   const layers = useMemo<Layer[]>(() => {
     const cats = routeModeMarkerCategories(routeMode);
     const on = (c: MarkerCategory) => !!fenceFeature && cats.includes(c);
     const fenceFC: GeoJSON.FeatureCollection = fenceFeature ? { type: "FeatureCollection", features: [fenceFeature] } : { type: "FeatureCollection", features: [] };
     const routeFC: GeoJSON.FeatureCollection = geometry ? { type: "FeatureCollection", features: [{ type: "Feature", geometry, properties: {} }] } : { type: "FeatureCollection", features: [] };
-    const base = buildBaseLayers({
-      visibility: { gyms: on("gym"), pokestops: on("pokestop"), spawnpoints: on("spawnpoint"), stations: on("station"), geofences: true, routes: true, s2: false },
+    // The active calc result OR (when just editing) the loaded route — rendered
+    // the SAME way: ordered centers, coverage circles at the current radius, and
+    // the distance-colored path. So an edited route shows its cluster circles too,
+    // not only the centers.
+    const displayResult = calc.result ?? (geometry ? routeFC : null);
+    return buildBaseLayers({
+      // `routes` off: displayResult already draws the route (path + centers), so
+      // the plain routes layer would double it.
+      visibility: { gyms: on("gym"), pokestops: on("pokestop"), spawnpoints: on("spawnpoint"), stations: on("station"), geofences: true, routes: false, s2: false },
       markerSets: [
-        { id: "gyms", points: gyms.data ?? [], color: [230, 80, 80], radius: 70, maxPixels: 12 },
-        { id: "pokestops", points: stops.data ?? [], color: [0, 120, 255], radius: 40, maxPixels: 6 },
-        { id: "spawnpoints", points: spawns.data ?? [], color: [40, 200, 120], radius: 12, maxPixels: 2 },
-        { id: "stations", points: stations.data ?? [], color: [150, 80, 220], radius: 40, maxPixels: 6 },
+        { id: "gyms", points: gyms.data ?? [], color: COLOR.gym, radius: 70, maxPixels: 12 },
+        { id: "pokestops", points: stops.data ?? [], color: COLOR.pokestop, radius: 40, maxPixels: 6 },
+        { id: "spawnpoints", points: spawns.data ?? [], color: COLOR.spawnpoint, radius: 12, maxPixels: 2 },
+        { id: "stations", points: stations.data ?? [], color: COLOR.station, radius: 40, maxPixels: 6 },
       ],
-      geofences: fenceFC, routes: routeFC, s2Cells: [], markerRadius: 70, onClick: () => {}, pickable: false,
-      calcResult: calc.result, calcResultIsRoute: true,
-      // Cluster circles at the exact calc radius (radius strategy only) — updates
-      // live as the user drags the radius.
+      geofences: fenceFC, routes: { type: "FeatureCollection", features: [] }, s2Cells: [], markerRadius: 70, onClick: () => {}, pickable: false,
+      calcResult: displayResult, calcResultIsRoute: true,
+      // Coverage circles at the exact calc radius (radius strategy only) — updates
+      // live as the user drags the radius, for both a calc result and a loaded route.
       calcResultRadius: calc.params.strategy === "radius" ? calc.params.radius : undefined,
     });
-    // Loaded route (no active calc result): draw its distance-colored connecting
-    // lines. A calc result renders its own path, so skip then to avoid doubling.
-    if (!calc.result) {
-      const coords =
-        geometry?.type === "MultiPoint" || geometry?.type === "LineString"
-          ? (geometry.coordinates as [number, number][])
-          : [];
-      const path = routePathLayer("route-path", coords);
-      if (path) return [...base, path];
-    }
-    return base;
   }, [fenceFeature, geometry, calc.result, gyms.data, stops.data, spawns.data, stations.data, routeMode, calc.params.radius, calc.params.strategy]);
 
   const fit = geometry ? geometryBounds(geometry) : fenceFeature?.geometry ? geometryBounds(fenceFeature.geometry) : null;
@@ -119,6 +154,7 @@ export function RouteMap() {
         <div className="absolute right-2 top-2 z-10">
           <LastSeenPicker value={lastSeen.value} onChange={lastSeen.setValue} />
         </div>
+        <RouteStatsPanel stats={panelStats} loading={panelLoading} />
       </DeckMap>
     </div>
   );

@@ -5,6 +5,7 @@ import { packMarkers } from "@/map/lib/coords";
 import { EditableGeoJsonLayer } from "@deck.gl-community/editable-layers";
 import { modeSpecFor, type DrawMode } from "@/map/lib/edit-modes";
 import { routeCoords, routeSegments, segmentColors, type RouteSegment } from "@/map/lib/calc-overlay";
+import { COLOR } from "@/map/lib/map-colors";
 
 interface MarkerSet { id: LayerId; points: [number, number][]; color: [number, number, number]; radius?: number; maxPixels?: number; }
 
@@ -53,8 +54,8 @@ export interface BaseLayersInput {
   editingGeofenceId?: string | null;
 }
 
-const GEOFENCE_FILL: [number, number, number, number] = [255, 140, 0, 40];
-const GEOFENCE_LINE: [number, number, number, number] = [255, 140, 0, 220];
+const GEOFENCE_FILL: [number, number, number, number] = [...COLOR.geofence, 40];
+const GEOFENCE_LINE: [number, number, number, number] = [...COLOR.geofence, 220];
 const EDITING_FILL: [number, number, number, number] = [130, 130, 130, 25];
 const EDITING_LINE: [number, number, number, number] = [130, 130, 130, 140];
 
@@ -107,14 +108,15 @@ export function buildBaseLayers(input: BaseLayersInput): Layer[] {
     }),
     new GeoJsonLayer({
       id: "routes", visible: visibility.routes, data: routes,
-      stroked: true, getLineColor: [0, 200, 120, 220], lineWidthMinPixels: 2,
-      pointType: "circle", getPointRadius: 8, pointRadiusUnits: "pixels",
+      stroked: true, getLineColor: [...COLOR.route, 220], lineWidthMinPixels: 2,
+      pointType: "circle", getPointRadius: 3, pointRadiusUnits: "pixels",
+      getPointFillColor: [...COLOR.route, 230],
       pickable, onClick,
     }),
     new PolygonLayer<S2Cell>({
       id: "s2", visible: visibility.s2, data: s2Cells,
       getPolygon: (d) => d.ring, filled: false, stroked: true,
-      getLineColor: [255, 0, 0, 160], lineWidthMinPixels: 1,
+      getLineColor: [...COLOR.s2, 160], lineWidthMinPixels: 1,
     }),
     ...markerLayers,
     ...(input.calcResult ? calcResultLayers(input.calcResult, input.calcResultIsRoute ?? false, input.calcResultRadius) : []),
@@ -163,8 +165,8 @@ function calcResultLayers(fc: GeoJSON.FeatureCollection, isRoute: boolean, radiu
       radiusUnits: "meters",
       radiusMinPixels: 0,
       stroked: true, filled: true,
-      getFillColor: [255, 0, 200, 25],
-      getLineColor: [255, 0, 200, 220],
+      getFillColor: [...COLOR.calcCenter, 25],
+      getLineColor: [...COLOR.calcCenter, 220],
       lineWidthMinPixels: 1,
       pickable: false,
       updateTriggers: { getRadius: radius },
@@ -174,9 +176,11 @@ function calcResultLayers(fc: GeoJSON.FeatureCollection, isRoute: boolean, radiu
   out.push(new GeoJsonLayer({
     id: "calc-result", data: fc,
     stroked: true, filled: true,
-    getFillColor: [255, 0, 200, 200], getLineColor: [255, 0, 200, 230],
+    getFillColor: [...COLOR.calcCenter, 200], getLineColor: [...COLOR.calcCenter, 230],
     lineWidthMinPixels: 2,
-    pointType: "circle", getPointRadius: radius ? 3 : 5, pointRadiusUnits: "pixels",
+    // Cluster-center dots kept small so the coverage circles + underlying markers
+    // stay readable (they were 3–5 px "blobs").
+    pointType: "circle", getPointRadius: radius ? 1.5 : 2.5, pointRadiusUnits: "pixels",
     pickable: false,
   }));
 

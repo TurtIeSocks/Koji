@@ -15,6 +15,7 @@ import { useMarkers } from "@/map/data/use-markers";
 import { routeCoords } from "@/map/lib/calc-overlay";
 import { featureToAreaFC } from "@/map/lib/calc-request";
 import { buildBaseLayers } from "@/map/lib/layers";
+import { COLOR } from "@/map/lib/map-colors";
 import type { Bounds, MarkerCategory } from "@/map/stores/types";
 import { geometryBounds } from "./bounds";
 import { CalcControls } from "./calc-controls";
@@ -22,6 +23,7 @@ import { DeckGeoJsonInput } from "./deck-geojson-input";
 import { featuresToGeofence, geofenceToFeatures } from "./geofence-geometry";
 import { LastSeenPicker } from "./last-seen-picker";
 import { loadCamera, saveCamera } from "./map-camera-storage";
+import { RouteStatsPanel } from "./route-stats-panel";
 import { routeModeMarkerCategories, routeModeToCategory } from "./route-mode";
 import { SaveDialog, type SavePayload } from "./save-dialog";
 import { useCalc } from "./use-calc";
@@ -190,28 +192,28 @@ function PlaygroundBody() {
 				{
 					id: "gyms",
 					points: gyms.data ?? [],
-					color: [230, 80, 80],
+					color: COLOR.gym,
 					radius: 70,
 					maxPixels: 12,
 				},
 				{
 					id: "pokestops",
 					points: stops.data ?? [],
-					color: [0, 120, 255],
+					color: COLOR.pokestop,
 					radius: 40,
 					maxPixels: 6,
 				},
 				{
 					id: "spawnpoints",
 					points: spawns.data ?? [],
-					color: [40, 200, 120],
+					color: COLOR.spawnpoint,
 					radius: 12,
 					maxPixels: 2,
 				},
 				{
 					id: "stations",
 					points: stations.data ?? [],
-					color: [150, 80, 220],
+					color: COLOR.station,
 					radius: 40,
 					maxPixels: 6,
 				},
@@ -291,6 +293,11 @@ function PlaygroundBody() {
 				</div>
 				<LastSeenPicker value={lastSeen.value} onChange={lastSeen.setValue} />
 			</div>
+			<RouteStatsPanel
+				stats={calc.stats}
+				loading={calc.job != null && calc.stats == null}
+				title="Calc stats"
+			/>
 		</>
 	);
 

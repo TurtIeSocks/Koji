@@ -69,9 +69,7 @@ describe("useCalc", () => {
 	});
 
 	it("resolves via the safety-net when the job is already terminal at submit", async () => {
-		const rendered = renderHook(() =>
-			useCalc({ mode: "cluster" }),
-		);
+		const rendered = renderHook(() => useCalc({ mode: "cluster" }));
 		mounted = rendered;
 		const { result } = rendered;
 
@@ -108,9 +106,7 @@ describe("useCalc", () => {
 			})
 			.mockResolvedValue(succeeded({ total_clusters: 7 }));
 
-		const rendered = renderHook(() =>
-			useCalc({ mode: "cluster" }),
-		);
+		const rendered = renderHook(() => useCalc({ mode: "cluster" }));
 		mounted = rendered;
 		const { result } = rendered;
 
@@ -130,5 +126,39 @@ describe("useCalc", () => {
 		});
 		await vi.waitFor(() => expect(result.current.result).not.toBeNull());
 		expect(result.current.stats).toEqual({ total_clusters: 7 });
+	});
+
+	it("runStats submits a routeStats job and resolves its stats", async () => {
+		getJobMock.mockResolvedValue(
+			succeeded({ total_clusters: 5, total_distance: 999 }),
+		);
+		const rendered = renderHook(() => useCalc());
+		mounted = rendered;
+		const { result } = rendered;
+
+		await act(async () => {
+			await result.current.runStats({
+				dataPoints: [[40, -74]],
+				clusters: [[40, -74]],
+				radius: 70,
+				minPoints: 3,
+			});
+		});
+
+		// The submitted body is the routeStats op with the pre-resolved inputs.
+		const body = submitMock.mock.calls[0][0];
+		expect(body).toMatchObject({
+			mode: "routeStats",
+			radius: 70,
+			minPoints: 3,
+			clusters: [[40, -74]],
+			dataPoints: [[40, -74]],
+		});
+		await vi.waitFor(() =>
+			expect(result.current.stats).toEqual({
+				total_clusters: 5,
+				total_distance: 999,
+			}),
+		);
 	});
 });

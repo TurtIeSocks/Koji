@@ -3,9 +3,11 @@ import { useSubscribe } from "@/components/realtime";
 import { getJob, submitCalc } from "@/map/data/calc-client";
 import {
 	buildCalcBody,
+	buildRouteStatsBody,
 	type CalcInputs,
 	type CalcParams,
 	parseCalcResult,
+	type RouteStatsInputs,
 } from "@/map/lib/calc-request";
 
 interface Job {
@@ -41,6 +43,10 @@ export interface UseCalcReturn {
 	stats: unknown;
 	error: string | null;
 	run: (inputs: CalcInputs) => Promise<void>;
+	/** Submit a `routeStats` job for an existing route (no re-clustering). The
+	 *  result resolves into `stats` just like `run`; use a dedicated instance so
+	 *  it doesn't disturb a real calc's `result`. */
+	runStats: (inputs: RouteStatsInputs) => Promise<void>;
 	clear: () => void;
 }
 
@@ -116,20 +122,27 @@ export function useCalc(initial?: Partial<CalcParams>): UseCalcReturn {
 		if (jobId) void resolveTerminal(jobId);
 	}, [jobId, resolveTerminal]);
 
+	const submit = useCallback(async (body: Record<string, unknown>) => {
+		setError(null);
+		setResult(null);
+		setStats(null);
+		resolvedRef.current = null;
+		try {
+			const id = await submitCalc(body);
+			setJob({ id, status: "queued", progress: 0, phase: null });
+		} catch (e) {
+			setError(e instanceof Error ? e.message : "failed to submit calc");
+		}
+	}, []);
+
 	const run = useCallback(
-		async (inputs: CalcInputs) => {
-			setError(null);
-			setResult(null);
-			setStats(null);
-			resolvedRef.current = null;
-			try {
-				const id = await submitCalc(buildCalcBody(params, inputs));
-				setJob({ id, status: "queued", progress: 0, phase: null });
-			} catch (e) {
-				setError(e instanceof Error ? e.message : "failed to submit calc");
-			}
-		},
-		[params],
+		(inputs: CalcInputs) => submit(buildCalcBody(params, inputs)),
+		[submit, params],
+	);
+
+	const runStats = useCallback(
+		(inputs: RouteStatsInputs) => submit(buildRouteStatsBody(inputs)),
+		[submit],
 	);
 
 	const clear = useCallback(() => {
@@ -140,5 +153,5 @@ export function useCalc(initial?: Partial<CalcParams>): UseCalcReturn {
 		resolvedRef.current = null;
 	}, []);
 
-	return { params, setParams, job, result, stats, error, run, clear };
+	return { params, setParams, job, result, stats, error, run, runStats, clear };
 }

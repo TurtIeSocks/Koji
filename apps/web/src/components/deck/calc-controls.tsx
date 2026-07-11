@@ -56,7 +56,7 @@ export function CalcControls({
 	header,
 	footer,
 }: CalcControlsProps) {
-	const { params, setParams, job, stats, error, clear } = calc;
+	const { params, setParams, job, error, clear } = calc;
 	const {
 		mode,
 		strategy,
@@ -317,7 +317,6 @@ export function CalcControls({
 						<span className="text-xs text-muted-foreground">{job.phase}</span>
 					)}
 					{error && <span className="text-xs text-destructive">{error}</span>}
-					{stats != null && <CalcStats stats={stats} />}
 					<Button type="button" size="sm" variant="ghost" onClick={clear}>
 						Clear
 					</Button>
@@ -354,72 +353,5 @@ function Field({
 			<Label className="text-xs text-muted-foreground">{label}</Label>
 			{children}
 		</div>
-	);
-}
-
-/** Labeled grid of the job's `algorithms::stats::Stats` blob (best-effort — only
- *  rows whose value is a finite number render). Field names are the snake_case
- *  wire keys from crates/algorithms/src/stats.rs. */
-function CalcStats({ stats }: { stats: unknown }) {
-	const s = (stats ?? {}) as Record<string, unknown>;
-	const sc = (s.score_components ?? {}) as Record<string, unknown>;
-	const n = (v: unknown): number | undefined =>
-		typeof v === "number" && Number.isFinite(v) ? v : undefined;
-	const meters = (m: number) =>
-		m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`;
-	const secs = (x: number) =>
-		x < 1 ? `${Math.round(x * 1000)} ms` : `${x.toFixed(2)} s`;
-
-	const covered = n(s.points_covered);
-	const totalPoints = n(s.total_points);
-	const coverage =
-		covered != null && totalPoints
-			? `${covered} / ${totalPoints} (${Math.round((covered / totalPoints) * 100)}%)`
-			: covered != null
-				? String(covered)
-				: undefined;
-	const best = n(s.best_cluster_point_count);
-	const worst = n(s.worst_cluster_point_count);
-	const totalClusters = n(s.total_clusters);
-	const distance = n(s.total_distance);
-	const longest = n(s.longest_distance);
-	const score = n(s.mygod_score);
-	const quality = n(sc.quality);
-	const routeEst = n(sc.route_est_s);
-	const knife = n(sc.knife_edge);
-	const overlap = n(sc.overlap_excess);
-	const clusterTime = n(s.cluster_time);
-	const routeTime = n(s.route_time);
-
-	const rows: [string, string | undefined][] = [
-		["Clusters", totalClusters != null ? String(totalClusters) : undefined],
-		["Coverage", coverage],
-		["Distance", distance != null ? meters(distance) : undefined],
-		["Longest hop", longest != null ? meters(longest) : undefined],
-		[
-			"Cluster pts (best/worst)",
-			best != null || worst != null ? `${best ?? "–"} / ${worst ?? "–"}` : undefined,
-		],
-		["Score", score != null ? score.toLocaleString() : undefined],
-		// quality is 0.0 unless the lower bound was computed (min_points === 1), so
-		// treat 0 as "not computed" and hide the row rather than show a bogus 0%.
-		["Quality", quality ? `${Math.round(quality * 100)}%` : undefined],
-		["Route est.", routeEst != null ? secs(routeEst) : undefined],
-		["Knife-edge", knife != null ? String(knife) : undefined],
-		["Overlap", overlap != null ? String(overlap) : undefined],
-		["Cluster time", clusterTime != null ? secs(clusterTime) : undefined],
-		["Route time", routeTime != null ? secs(routeTime) : undefined],
-	];
-	const shown = rows.filter((r): r is [string, string] => r[1] != null);
-	if (shown.length === 0) return null;
-	return (
-		<dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-			{shown.map(([label, value]) => (
-				<div key={label} className="contents">
-					<dt className="text-muted-foreground">{label}</dt>
-					<dd className="text-right tabular-nums">{value}</dd>
-				</div>
-			))}
-		</dl>
 	);
 }
