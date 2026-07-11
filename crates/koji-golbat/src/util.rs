@@ -20,7 +20,7 @@ fn feature_single_vec(feature: &Feature) -> SingleVec {
 
 pub fn sql_raw_bbox(area: &FeatureCollection) -> String {
     let mut string = String::new();
-    for (i, feature) in area.into_iter().enumerate() {
+    for feature in area.into_iter() {
         let bbox = if let Some(bbox) = feature.bbox.as_ref() {
             bbox.clone()
         } else if let Some(bbox) = KojiBbox::from_points(&feature_single_vec(feature))
@@ -36,7 +36,11 @@ pub fn sql_raw_bbox(area: &FeatureCollection) -> String {
                     let _ = write!(
                         string,
                         "{} (lon BETWEEN {} AND {} AND lat BETWEEN {} AND {})",
-                        if i == 0 { "" } else { "\nOR" },
+                        // Gate the OR on whether a clause was already WRITTEN, not on
+                        // the feature index — a skipped first feature (Point/LineString/
+                        // null geometry) used to yield a leading "\nOR", a MySQL syntax
+                        // error from user-suppliable areas.
+                        if string.is_empty() { "" } else { "\nOR" },
                         bbox[0],
                         bbox[2],
                         bbox[1],
@@ -47,7 +51,13 @@ pub fn sql_raw_bbox(area: &FeatureCollection) -> String {
             }
         }
     }
-    string
+    if string.is_empty() {
+        // Callers interpolate as `AND ({})`; an empty string produced `AND ()`,
+        // another syntax error. No polygon clause means no area can match.
+        "FALSE".to_string()
+    } else {
+        string
+    }
 }
 
 #[cfg(test)]
@@ -85,9 +95,9 @@ mod tests {
     // ── basic output shape ─────────────────────────────────────────────────────
 
     #[test]
-    fn empty_collection_returns_empty_string() {
+    fn empty_collection_returns_false_clause() {
         let area = fc(serde_json::json!({ "type": "FeatureCollection", "features": [] }));
-        assert_eq!(sql_raw_bbox(&area), "");
+        assert_eq!(sql_raw_bbox(&area), "FALSE");
     }
 
     #[test]
@@ -167,8 +177,8 @@ mod tests {
                 "properties": null
             }]
         }));
-        // LineString has no polygon bbox — sql_raw_bbox must skip it silently.
-        assert_eq!(sql_raw_bbox(&area), "");
+        // LineString has no polygon bbox — skipped; FALSE keeps `AND ({})` valid.
+        assert_eq!(sql_raw_bbox(&area), "FALSE");
     }
 
     #[test]
@@ -181,7 +191,7 @@ mod tests {
                 "properties": null
             }]
         }));
-        assert_eq!(sql_raw_bbox(&area), "");
+        assert_eq!(sql_raw_bbox(&area), "FALSE");
     }
 
     // ── feature with null geometry ────────────────────────────────────────────
@@ -196,7 +206,7 @@ mod tests {
                 "properties": null
             }]
         }));
-        assert_eq!(sql_raw_bbox(&area), "");
+        assert_eq!(sql_raw_bbox(&area), "FALSE");
     }
 
     // ── multiple polygon features → OR separator ──────────────────────────────
@@ -238,6 +248,33 @@ mod tests {
             2,
             "expected 2 lat clauses: {sql}"
         );
+    }
+
+    #[test]
+    fn skipped_first_feature_does_not_produce_leading_or() {
+        // Regression: separator was keyed on feature index, so a collection whose
+        // FIRST feature is a Point emitted "\nOR (...)" — invalid inside `AND ({})`.
+        let area = fc(serde_json::json!({
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": { "type": "Point", "coordinates": [1.0, 2.0] },
+                    "properties": null
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[0.0,0.0],[5.0,0.0],[5.0,5.0],[0.0,5.0],[0.0,0.0]]]
+                    },
+                    "properties": null
+                }
+            ]
+        }));
+        let sql = sql_raw_bbox(&area);
+        assert!(!sql.trim_start().starts_with("OR"), "leading OR: {sql}");
+        assert!(sql.starts_with(" (lon"), "expected clause without separator: {sql}");
     }
 
     #[test]
