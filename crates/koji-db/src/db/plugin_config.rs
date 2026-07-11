@@ -2,7 +2,6 @@ use super::*;
 
 use sea_orm::IntoActiveModel;
 use sea_orm::entity::prelude::*;
-use serde_json::json;
 
 use crate::error::ModelError;
 
@@ -82,15 +81,6 @@ impl Query {
             .ok_or_else(|| ModelError::Custom("plugin_config upsert read-back failed".to_string()))
     }
 
-    pub async fn get_one_json(
-        db: &DatabaseConnection,
-        kind: &str,
-        name: &str,
-    ) -> Result<Json, ModelError> {
-        Ok(json!(Query::get_one(db, kind, name).await?))
-    }
-
-    /// Delete the overlay for `(kind, name)` (reset to defaults).
     pub async fn delete(
         db: &DatabaseConnection,
         kind: &str,

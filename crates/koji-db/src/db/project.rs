@@ -37,15 +37,6 @@ impl Related<geofence::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-impl Model {
-    fn get_related_geofences(&self) -> Select<geofence::Entity> {
-        self.find_related(geofence::Entity)
-            .select_only()
-            .column(geofence::Column::Id)
-            .column(geofence::Column::Name)
-    }
-}
-
 /// Row shape for the batched project→geofence join in `paginate`: carries the
 /// owning `project_id` alongside the same `geofence.id`/`geofence.name` the
 /// per-row `get_related_geofences()` selected, so results can be grouped back
@@ -61,33 +52,6 @@ struct GeofenceForProject {
 pub struct Query;
 
 impl Query {
-    pub async fn get_one_json_with_related(
-        db: &DatabaseConnection,
-        id: String,
-    ) -> Result<Json, ModelError> {
-        match Query::get_one(db, id).await {
-            Ok(record) => {
-                let mut json = json!(record);
-                let json = json.as_object_mut().unwrap();
-                json.insert(
-                    "geofences".to_string(),
-                    json!(
-                        record
-                            .get_related_geofences()
-                            .into_model::<NameId>()
-                            .all(db)
-                            .await?
-                            .into_iter()
-                            .map(|p| p.id)
-                            .collect::<Vec<u32>>()
-                    ),
-                );
-                Ok(json!(json))
-            }
-            Err(err) => Err(err),
-        }
-    }
-
     pub async fn paginate(
         db: &DatabaseConnection,
         args: AdminReqParsed,

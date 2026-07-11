@@ -56,10 +56,6 @@ impl Query {
         })
     }
 
-    pub async fn get_all(db: &DatabaseConnection) -> Result<Vec<Model>, DbErr> {
-        Entity::find().all(db).await
-    }
-
     pub async fn upsert(
         db: &DatabaseConnection,
         id: u32,

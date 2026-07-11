@@ -93,10 +93,6 @@ impl Query {
         })
     }
 
-    pub async fn get_all(db: &DatabaseConnection) -> Result<Vec<Model>, DbErr> {
-        property::Entity::find().all(db).await
-    }
-
     pub async fn upsert<C: ConnectionTrait>(
         db: &C,
         id: u32,
