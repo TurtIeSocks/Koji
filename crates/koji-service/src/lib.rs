@@ -479,7 +479,12 @@ pub async fn start() -> io::Result<()> {
 
     match Migrator::up(&databases.koji, None).await {
         Ok(_) => log::info!("Migrations successful"),
-        Err(err) => log::error!("Migration Error {:?}", err),
+        Err(err) => {
+            log::error!("Migration Error {:?}", err);
+            return Err(io::Error::other(format!(
+                "database migration failed, refusing to serve against an un-migrated schema: {err}"
+            )));
+        }
     };
 
     // Build the process-global plugin registry from disk ∪ the DB `plugin_config`
