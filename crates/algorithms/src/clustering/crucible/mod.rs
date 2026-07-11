@@ -372,7 +372,8 @@ impl Crucible {
             .take(self.max_clusters)
             .map(|(_, i)| centers[i])
             .collect();
-        kept.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        // total_cmp per axis: NaN coords must not panic (matches refine.rs hardening).
+        kept.sort_by(|a, b| a[0].total_cmp(&b[0]).then(a[1].total_cmp(&b[1])));
         log::warn!(
             "crucible: truncated {} → {} clusters to honor max_clusters",
             centers.len(),

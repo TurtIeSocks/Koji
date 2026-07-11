@@ -59,7 +59,9 @@ pub fn solve_chunk(pts: &[[Precision; 2]], params: &SolveParams) -> Vec<[Precisi
             }
         });
         // K nearest partners; ties broken by index for determinism.
-        neigh.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap().then(a.1.cmp(&b.1)));
+        // total_cmp: NaN distances (degenerate input coords) must not panic — same
+        // hardening refine.rs comparators already carry.
+        neigh.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
         for &(_, j) in neigh.iter().take(params.k_cap) {
             let (a, b) = if (i as u32) < j {
                 (i as u32, j)
