@@ -306,7 +306,7 @@ mod tests {
             ),
         ];
         for (rt, want) in expected {
-            let got = response_body(&c, rt.clone());
+            let got = response_body(&c, *rt);
             assert_eq!(&got, want, "return type {rt:?} diverged from its golden");
         }
     }

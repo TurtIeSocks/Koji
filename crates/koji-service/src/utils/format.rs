@@ -23,7 +23,7 @@ pub(crate) fn is_enveloped(rt: &ReturnTypeArg) -> bool {
 /// GeoJSON for the default shapes, a raw body for the export formats (`sql` as
 /// `text/plain`; the rest as bare JSON).
 pub(crate) fn respond_geo(coll: KojiGeometryCollection, rt: ReturnTypeArg) -> HttpResponse {
-    let body = response_body(&coll, rt.clone());
+    let body = response_body(&coll, rt);
     if is_enveloped(&rt) {
         ApiResponse::success(body)
     } else if matches!(rt, ReturnTypeArg::Sql) {

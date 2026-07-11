@@ -592,9 +592,9 @@ async fn cancel_running_job_flips_token_and_persists_canceled() {
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
     assert!(started.load(Ordering::SeqCst), "handler never started");
-    q.cancel(id.clone()).await.expect("cancel");
+    q.cancel(id).await.expect("cancel");
 
-    let outcome = q.await_result(id.clone(), Duration::from_secs(10)).await;
+    let outcome = q.await_result(id, Duration::from_secs(10)).await;
     workers.shutdown().await;
 
     // Read the persisted status before cleanup.

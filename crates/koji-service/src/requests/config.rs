@@ -70,7 +70,7 @@ pub fn get_return_type(return_type: &str, default_return_type: &ReturnTypeArg) -
         "poracle" => ReturnTypeArg::Poracle,
         "featurecollection" | "feature_collection" => ReturnTypeArg::FeatureCollection,
         "sql" => ReturnTypeArg::Sql,
-        _ => default_return_type.clone(),
+        _ => *default_return_type,
     }
 }
 

@@ -34,91 +34,6 @@ pub fn main(input: &SingleVec, radius: Precision, min_points: usize) -> Vec<[Pre
     plane.reverse(output)
 }
 
-const EPS: Precision = 1e-7;
-
-#[inline]
-fn dist2(a: Coord, b: Coord) -> Precision {
-    let dx = a.x - b.x;
-    let dy = a.y - b.y;
-    dx * dx + dy * dy
-}
-
-#[inline]
-fn in_disc(center: Coord, r: Precision, p: Coord) -> bool {
-    dist2(center, p) <= r * r + EPS
-}
-
-/// Circle through two points: center at their midpoint, radius half their distance.
-fn circle_two(a: Coord, b: Coord) -> (Coord, Precision) {
-    let center = Coord {
-        x: (a.x + b.x) / 2.0,
-        y: (a.y + b.y) / 2.0,
-    };
-    (center, dist2(a, b).sqrt() / 2.0)
-}
-
-/// Circumcircle of three points; falls back to the diameter circle of the farthest
-/// pair when the points are (near-)collinear.
-fn circle_three(a: Coord, b: Coord, c: Coord) -> (Coord, Precision) {
-    let d = 2.0 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
-    if d.abs() < 1e-12 {
-        // Collinear: the smallest enclosing circle is the diameter of the two
-        // extreme points (the third lies between them).
-        let (ab, bc, ca) = (dist2(a, b), dist2(b, c), dist2(c, a));
-        return if ab >= bc && ab >= ca {
-            circle_two(a, b)
-        } else if bc >= ca {
-            circle_two(b, c)
-        } else {
-            circle_two(c, a)
-        };
-    }
-    let a2 = a.x * a.x + a.y * a.y;
-    let b2 = b.x * b.x + b.y * b.y;
-    let c2 = c.x * c.x + c.y * c.y;
-    let center = Coord {
-        x: (a2 * (b.y - c.y) + b2 * (c.y - a.y) + c2 * (a.y - b.y)) / d,
-        y: (a2 * (c.x - b.x) + b2 * (a.x - c.x) + c2 * (b.x - a.x)) / d,
-    };
-    (center, dist2(center, a).sqrt())
-}
-
-/// Smallest enclosing circle `(center, radius)` of `points` in the Euclidean plane.
-/// Deterministic incremental Welzl (input order, no shuffle): O(n) expected, fine for
-/// the small per-group point sets here. Returns `None` for empty input.
-fn smallest_enclosing_circle(points: &[Coord]) -> Option<(Coord, Precision)> {
-    let n = points.len();
-    if n == 0 {
-        return None;
-    }
-    let mut center = points[0];
-    let mut r = 0.0_f64;
-    for i in 1..n {
-        if in_disc(center, r, points[i]) {
-            continue;
-        }
-        center = points[i];
-        r = 0.0;
-        for j in 0..i {
-            if in_disc(center, r, points[j]) {
-                continue;
-            }
-            let (cc, rr) = circle_two(points[i], points[j]);
-            center = cc;
-            r = rr;
-            for k in 0..j {
-                if in_disc(center, r, points[k]) {
-                    continue;
-                }
-                let (cc, rr) = circle_three(points[i], points[j], points[k]);
-                center = cc;
-                r = rr;
-            }
-        }
-    }
-    Some((center, r))
-}
-
 /// `(min_x, min_y, max_x, max_y)` of a non-empty point set.
 fn bounds(points: &[Coord]) -> (Precision, Precision, Precision, Precision) {
     let mut min_x = points[0].x;
@@ -146,15 +61,22 @@ fn fits(points: &[Coord], margin: Precision) -> bool {
     if (max_x - min_x).powi(2) + (max_y - min_y).powi(2) > 4.0 {
         return false;
     }
-    match smallest_enclosing_circle(points) {
-        Some((_, r)) => r <= 1.0 - margin,
-        None => true,
-    }
+    mec(points).radius <= 1.0 - margin
+}
+
+/// The shared deterministic-Welzl MEC over `Coord` slices (trivial
+/// `Coord` <-> `[Precision; 2]` map). Replaces a third private MEC copy that
+/// was algorithmically identical to (and less numerically robust than)
+/// `clustering::geometry`'s.
+fn mec(points: &[Coord]) -> super::geometry::Circle {
+    let pts: Vec<[Precision; 2]> = points.iter().map(|p| [p.x, p.y]).collect();
+    super::geometry::smallest_enclosing_circle(&pts)
 }
 
 /// Place the disc center at the minimum-enclosing-circle center (assumes non-empty).
 fn place(points: &[Coord]) -> Coord {
-    smallest_enclosing_circle(points).unwrap().0
+    let c = mec(points).center;
+    Coord { x: c[0], y: c[1] }
 }
 
 /// The eight grid neighbours of a cell.
@@ -367,16 +289,34 @@ mod tests {
         })
     }
 
+    /// Test adapter over the shared MEC: `(center, radius)` in `Coord` terms.
+    fn mec_cr(pts: &[Coord]) -> (Coord, Precision) {
+        let c = mec(pts);
+        (
+            Coord {
+                x: c.center[0],
+                y: c.center[1],
+            },
+            c.radius,
+        )
+    }
+
+    fn dist2(a: Coord, b: Coord) -> Precision {
+        let dx = a.x - b.x;
+        let dy = a.y - b.y;
+        dx * dx + dy * dy
+    }
+
     #[test]
     fn mec_single_point_is_zero_radius_at_point() {
-        let (center, r) = smallest_enclosing_circle(&[c(3.0, -2.0)]).unwrap();
+        let (center, r) = mec_cr(&[c(3.0, -2.0)]);
         assert!((center.x - 3.0).abs() < 1e-9 && (center.y + 2.0).abs() < 1e-9);
         assert!(r < 1e-9, "single-point radius should be ~0, got {r}");
     }
 
     #[test]
     fn mec_two_points_is_diameter_circle() {
-        let (center, r) = smallest_enclosing_circle(&[c(0.0, 0.0), c(2.0, 0.0)]).unwrap();
+        let (center, r) = mec_cr(&[c(0.0, 0.0), c(2.0, 0.0)]);
         assert!((center.x - 1.0).abs() < 1e-9 && center.y.abs() < 1e-9);
         assert!((r - 1.0).abs() < 1e-9, "radius should be 1.0, got {r}");
     }
@@ -390,7 +330,7 @@ mod tests {
             c(1.0, 1.0),
             c(0.5, 0.5),
         ];
-        let (center, r) = smallest_enclosing_circle(&pts).unwrap();
+        let (center, r) = mec_cr(&pts);
         assert!(covers(center, r, &pts), "MEC must enclose every point");
         // tightest enclosing circle of the unit square has r = sqrt(2)/2
         assert!(
@@ -402,7 +342,7 @@ mod tests {
     #[test]
     fn mec_collinear_points_use_extreme_pair() {
         let pts = [c(-3.0, 0.0), c(0.0, 0.0), c(5.0, 0.0)];
-        let (center, r) = smallest_enclosing_circle(&pts).unwrap();
+        let (center, r) = mec_cr(&pts);
         assert!(covers(center, r, &pts), "collinear MEC must enclose all");
         assert!(
             (r - 4.0).abs() < 1e-6,
@@ -411,16 +351,10 @@ mod tests {
     }
 
     #[test]
-    fn mec_empty_is_none() {
-        assert!(smallest_enclosing_circle(&[]).is_none());
-    }
-
-    #[test]
     fn mec_right_triangle_is_circumcircle() {
         // Exercises circle_three: the circumcircle of (0,0),(4,0),(0,3) is centered at the
         // hypotenuse midpoint (2, 1.5) with radius 2.5. Locks the circumcenter formula.
-        let (center, r) =
-            smallest_enclosing_circle(&[c(0.0, 0.0), c(4.0, 0.0), c(0.0, 3.0)]).unwrap();
+        let (center, r) = mec_cr(&[c(0.0, 0.0), c(4.0, 0.0), c(0.0, 3.0)]);
         assert!(
             (center.x - 2.0).abs() < 1e-9 && (center.y - 1.5).abs() < 1e-9,
             "circumcenter wrong: {center:?}"

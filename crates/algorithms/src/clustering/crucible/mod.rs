@@ -14,7 +14,7 @@
 mod components;
 mod exact;
 mod frame;
-mod geometry;
+use super::geometry;
 mod refine;
 mod solve;
 
