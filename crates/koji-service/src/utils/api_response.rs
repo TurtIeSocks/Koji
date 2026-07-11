@@ -79,10 +79,6 @@ impl<T: Serialize> ApiResponse<T> {
     }
 
     /// `200 OK` success carrying `data` plus a pagination `meta` block.
-    ///
-    /// Consumed by the P2 list handlers (regenerated typed CRUD); unused in the
-    /// Phase 0 non-test build, hence the scoped allow.
-    #[allow(dead_code)]
     pub(crate) fn success_paginated(data: T, meta: Meta) -> HttpResponse {
         HttpResponse::build(StatusCode::OK).json(ApiResponse::Ok {
             data,
@@ -96,11 +92,6 @@ impl ApiResponse<()> {
     /// one derived from the HTTP status. The legacy `data` context arg is ignored
     /// (the v2 error shape has no `data`).
     ///
-    /// P1 migrated the v2 jobs handlers to typed `ServiceError` variants (which
-    /// own the status→error mapping), removing this constructor's last callers;
-    /// kept for the handlers still on the explicit-status error path (and P2+),
-    /// hence the scoped allow.
-    #[allow(dead_code)]
     pub(crate) fn error(
         status: StatusCode,
         message: impl Into<String>,

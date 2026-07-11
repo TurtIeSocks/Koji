@@ -25,14 +25,6 @@ pub fn resource_topic(name: &str) -> String {
 pub fn record_topic(name: &str, id: impl std::fmt::Display) -> String {
     format!("resource/{name}/{id}")
 }
-#[allow(dead_code)]
-pub fn lock_topic(name: &str) -> String {
-    format!("lock/{name}")
-}
-#[allow(dead_code)]
-pub fn lock_record_topic(name: &str, id: impl std::fmt::Display) -> String {
-    format!("lock/{name}/{id}")
-}
 pub fn jobs_topic() -> &'static str {
     "jobs"
 }
@@ -86,8 +78,6 @@ mod tests {
     fn topic_strings_match_contract() {
         assert_eq!(resource_topic("geofence"), "resource/geofence");
         assert_eq!(record_topic("geofence", 7), "resource/geofence/7");
-        assert_eq!(lock_topic("route"), "lock/route");
-        assert_eq!(lock_record_topic("route", 3), "lock/route/3");
         assert_eq!(jobs_topic(), "jobs");
         assert_eq!(job_topic("01J..."), "jobs/01J...");
     }

@@ -4,13 +4,6 @@
 //! `{ "status": "error", "error": { code, message, field? } }` at the right HTTP
 //! status. Replaces the scattered
 //! `.map_err(actix_web::error::ErrorInternalServerError)` calls.
-//!
-//! Phase 0 lands this type ahead of its consumers: the v2 handlers that return
-//! `Result<HttpResponse, ServiceError>` (and the db-layer `NotFound` signal that
-//! maps to a 404) are wired in P1/P2. Until then `ServiceError` is constructed
-//! only by the unit tests below, so the non-test build sees it as dead —
-//! silenced crate-wide for this module rather than item-by-item.
-#![allow(dead_code)]
 // `ServiceError` carries sea-orm's `DbErr` and koji-db's `ModelError` by value
 // (≥200 bytes) so handlers get ergonomic `?` and exhaustive `match` on the
 // typed variants — the deliberate design here. Boxing those to satisfy
@@ -42,8 +35,6 @@ pub(crate) enum ServiceError {
         field: Option<String>,
         message: String,
     },
-    #[error("{0}")]
-    Conflict(String),
     #[error(transparent)]
     Db(#[from] DbErr),
     #[error(transparent)]
@@ -94,7 +85,6 @@ impl ServiceError {
                 field.clone(),
                 message.clone(),
             ),
-            ServiceError::Conflict(message) => (StatusCode::CONFLICT, None, message.clone()),
             ServiceError::Db(e) => {
                 log::error!("service db error: {e}");
                 (
@@ -180,14 +170,6 @@ mod tests {
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
         assert_eq!(err.code, "unprocessable");
         assert_eq!(err.field.as_deref(), Some("dragonite_area_id"));
-    }
-
-    #[test]
-    fn conflict_maps_to_409() {
-        let (status, err) = ServiceError::Conflict("already canceled".into()).to_api_error();
-        assert_eq!(status, StatusCode::CONFLICT);
-        assert_eq!(err.code, "conflict");
-        assert!(err.field.is_none());
     }
 
     #[test]

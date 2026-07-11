@@ -5,11 +5,6 @@
 //! `components(schemas(...))` lists below. Served at `GET /api/v2/openapi.yaml`
 //! by [`crate::openapi_spec`] — it replaces (and can't drift from) the
 //! hand-maintained `openapi.yaml` that used to live beside the crate.
-//!
-//! `ApiDoc` is only referenced by `openapi_spec` (and the test below), so the
-//! non-test build sees its associated items as dead — silenced crate-wide for
-//! this module rather than item-by-item.
-#![allow(dead_code)]
 
 use utoipa::OpenApi;
 

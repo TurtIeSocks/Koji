@@ -5,13 +5,6 @@
 //! The wire is **1-based** (`?page=1` is the first page) — chosen to match
 //! koji-db's existing `Query::paginate` / `AdminReqParsed` page-shaped surface
 //! and keep the whole v2 list API consistent.
-//!
-//! Phase 0 builds these primitives ahead of their consumers: the v2 list
-//! handlers that extract `Pagination` and call `Meta::build` /
-//! `success_paginated` are regenerated in P2 (typed CRUD). Until then every item
-//! here is exercised only by the unit tests below, so the non-test build sees it
-//! as dead — silenced crate-wide for this module rather than item-by-item.
-#![allow(dead_code)]
 
 use serde::Deserialize;
 

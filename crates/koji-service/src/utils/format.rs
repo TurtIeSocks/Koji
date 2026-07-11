@@ -2,12 +2,6 @@
 //! shapes ride inside the v2 envelope; the explicit export formats are returned
 //! raw (no envelope) so they stay drop-in compatible with golbat tooling.
 //! Serialization itself is delegated to [`response_body`].
-//!
-//! Phase 0 builds `respond_geo` ahead of its consumers: the geometry-read
-//! handlers that call it are wired in P1/P3. Until then it is exercised only by
-//! the unit tests below, so the non-test build sees it as dead — silenced
-//! crate-wide for this module rather than item-by-item.
-#![allow(dead_code)]
 
 use actix_web::{HttpResponse, http::StatusCode};
 use koji_core::KojiGeometryCollection;
