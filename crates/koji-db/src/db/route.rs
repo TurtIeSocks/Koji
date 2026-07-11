@@ -8,10 +8,7 @@ use geojson::{self, GeoJson};
 use sea_orm::{FromQueryResult, Order, QueryOrder, QuerySelect, entity::prelude::*};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::collections::HashMap;
 use std::str::FromStr;
-
-use koji_core::{KojiGeometry, KojiGeometryCollection};
 
 use crate::query_args::AdminReqParsed;
 
@@ -67,52 +64,6 @@ pub struct RouteNoGeometry {
     pub points: u32,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
-}
-
-/// Route name: the legacy `__name`/`name` passthrough in `meta.extra` wins (so
-/// existing producers keep working), else the typed `meta.name`.
-fn route_name(item: &KojiGeometry) -> Option<String> {
-    item.meta
-        .extra
-        .get("__name")
-        .or_else(|| item.meta.extra.get("name"))
-        .and_then(|v| v.as_str())
-        .map(str::to_string)
-        .or_else(|| item.meta.name.clone())
-}
-
-/// Route mode as the storage [`Mode`]: prefer any original `__mode`/`mode`
-/// string carried in `meta.extra` (a legacy 12-value OR a canonical 4-value
-/// string — both collapse correctly via `Mode::from_legacy`), else fall back to
-/// the typed `meta.mode`. The column is now the 4-value `Mode`, so this is a
-/// direct bridge — no representative-`Type` dance.
-fn route_mode(item: &KojiGeometry) -> Mode {
-    let core_mode = item
-        .meta
-        .extra
-        .get("__mode")
-        .or_else(|| item.meta.extra.get("mode"))
-        .and_then(|v| v.as_str())
-        .map(koji_core::Mode::from_legacy)
-        .unwrap_or(item.meta.mode);
-    core_mode.into()
-}
-
-/// Optional geofence-id passthrough (`geofence_id`/`__geofence_id`) from
-/// `meta.extra`; `None` triggers the geofence-by-name fallback.
-fn route_geofence_id(item: &KojiGeometry) -> Option<u64> {
-    item.meta
-        .extra
-        .get("geofence_id")
-        .or_else(|| item.meta.extra.get("__geofence_id"))
-        .and_then(|v| v.as_u64())
-}
-
-/// The stored geojson geometry Json for a route row — the reverse of
-/// `to_koji_geometry`'s parse (`geo` → geojson → Json object).
-fn route_geometry_json(item: &KojiGeometry) -> Json {
-    let gj = geojson::Geometry::new(geojson::GeometryValue::from(&item.geometry));
-    serde_json::to_value(GeoJson::Geometry(gj)).expect("geojson serializes")
 }
 
 impl Model {
@@ -388,104 +339,6 @@ impl Query {
         Ok(json!(result))
     }
 
-    /// Resolve the geofence id for a route item. Prefer the explicit
-    /// `geofence_id`/`__geofence_id` passthrough in `meta.extra`; otherwise fall
-    /// back to the geofence whose name matches the route name (the legacy
-    /// behavior of the deleted `upsert_feature`).
-    async fn resolve_geofence_id(
-        conn: &DatabaseConnection,
-        item: &KojiGeometry,
-        name: &str,
-    ) -> Result<Option<u32>, DbErr> {
-        if let Some(fence_id) = route_geofence_id(item) {
-            return Ok(Some(fence_id as u32));
-        }
-        let geofence = geofence::Entity::find()
-            .filter(geofence::Column::Name.eq(Value::String(Some(Box::new(name.to_string())))))
-            .one(conn)
-            .await?;
-        Ok(geofence.map(|g| g.id))
-    }
-
-    /// Persist one route directly from a `KojiGeometry` (no geojson `Feature`
-    /// round-trip). `existing` keys `name_mode` to the current row so a matching
-    /// route is updated rather than re-inserted. Returns whether the row was an
-    /// update (`true`) or an insert (`false`).
-    async fn upsert_koji_item(
-        conn: &DatabaseConnection,
-        item: &KojiGeometry,
-        existing: &HashMap<String, RouteNoGeometry>,
-    ) -> Result<bool, DbErr> {
-        let Some(name) = route_name(item) else {
-            let error = format!(
-                "[ROUTE_SAVE] name property not found for {:?}",
-                item.meta.id
-            );
-            log::warn!("{error}");
-            return Err(DbErr::Custom(error));
-        };
-        let mode = route_mode(item);
-        let Some(fence_id) = Query::resolve_geofence_id(conn, item, &name).await? else {
-            let error = format!("[ROUTE_SAVE] could not resolve geofence_id for {name}");
-            log::warn!("{error}");
-            return Err(DbErr::Custom(error));
-        };
-        let geometry = route_geometry_json(item);
-
-        let is_update = existing.get(&format!("{}_{}", name, mode.to_value()));
-        let mut active_model = if let Some(entry) = is_update {
-            Entity::find_by_id(entry.id)
-                .one(conn)
-                .await?
-                .unwrap()
-                .into()
-        } else {
-            ActiveModel {
-                ..Default::default()
-            }
-        };
-        active_model.geofence_id = Set(fence_id);
-        active_model.geometry = Set(geometry);
-        active_model.mode = Set(mode);
-        active_model.updated_at = Set(Utc::now());
-        if is_update.is_some() {
-            active_model.update(conn).await?;
-            Ok(true)
-        } else {
-            active_model.name = Set(name);
-            active_model.created_at = Set(Utc::now());
-            active_model.insert(conn).await?;
-            Ok(false)
-        }
-    }
-
-    pub async fn upsert_from_geometry(
-        conn: &DatabaseConnection,
-        area: &KojiGeometryCollection,
-    ) -> Result<(usize, usize), DbErr> {
-        let existing: HashMap<String, RouteNoGeometry> = Query::get_all_no_fences(conn)
-            .await?
-            .into_iter()
-            .map(|model| (format!("{}_{}", model.name, model.mode.to_value()), model))
-            .collect();
-
-        let mut inserts = 0;
-        let mut updates = 0;
-
-        for item in &area.items {
-            // Persist directly from the Koji item — name/mode/geofence_id come
-            // from `KojiMeta` (with `__`-prefixed `extra` passthrough for legacy
-            // producers); no geojson `Feature` round-trip.
-            if Query::upsert_koji_item(conn, item, &existing).await? {
-                updates += 1;
-            } else {
-                inserts += 1;
-            }
-        }
-
-        Ok((inserts, updates))
-    }
-
     pub async fn search(db: &DatabaseConnection, search: String) -> Result<Vec<Json>, DbErr> {
         Entity::find()
             .filter(Column::Name.like(format!("%{}%", search).as_str()))
@@ -501,7 +354,7 @@ mod to_koji_tests {
     // use); the storage enum is aliased `DbMode` for the `Model` fixtures and the
     // `route_mode` helper (which returns the sea-orm `Mode`).
     use super::{Mode as DbMode, *};
-    use koji_core::{KojiMeta, Mode};
+    use koji_core::{KojiGeometryCollection, Mode};
 
     #[cfg(test)]
     fn test_model_defaults() -> Model {
@@ -541,80 +394,6 @@ mod to_koji_tests {
         // Routes have no parent hierarchy.
         assert_eq!(kg.meta.parent_id, None);
         assert!(kg.meta.ancestors.is_empty());
-    }
-
-    /// Build a route `KojiGeometry` the way the v2 Koji-native path would: typed
-    /// `meta.name`/`meta.mode`, a MultiPoint geometry, an explicit `geofence_id`
-    /// passthrough in `extra`.
-    fn koji_route_item() -> KojiGeometry {
-        use geo::{Geometry, MultiPoint, Point};
-        let mut extra = serde_json::Map::new();
-        extra.insert("geofence_id".to_string(), serde_json::json!(7));
-        KojiGeometry {
-            geometry: Geometry::MultiPoint(MultiPoint::from(vec![
-                Point::new(2.0, 1.0),
-                Point::new(4.0, 3.0),
-            ])),
-            meta: KojiMeta {
-                name: Some("r1".to_string()),
-                mode: Mode::Fort,
-                extra,
-                ..Default::default()
-            },
-        }
-    }
-
-    #[test]
-    fn route_persistence_inputs_from_typed_meta() {
-        let item = koji_route_item();
-        // name comes straight from the typed field.
-        assert_eq!(route_name(&item).as_deref(), Some("r1"));
-        // Fort with no original `__mode` string bridges the typed meta.mode.
-        assert_eq!(route_mode(&item), DbMode::Fort);
-        // geofence_id passthrough is read from `extra`.
-        assert_eq!(route_geofence_id(&item), Some(7));
-        // geometry serializes back to a MultiPoint geojson object.
-        let gj = route_geometry_json(&item);
-        assert_eq!(gj["type"], "MultiPoint");
-        assert_eq!(
-            gj["coordinates"],
-            serde_json::json!([[2.0, 1.0], [4.0, 3.0]])
-        );
-    }
-
-    #[test]
-    fn route_persistence_inputs_honor_legacy_underscore_props() {
-        // The legacy producer path (bootstrap / v1 calculate) leaves the original
-        // values under `__name`/`__mode`/`__geofence_id` in `extra`, with the
-        // typed fields at their defaults. Those must still win.
-        use geo::{Geometry, MultiPoint, Point};
-        let mut extra = serde_json::Map::new();
-        extra.insert("__name".to_string(), serde_json::json!("legacy_route"));
-        extra.insert("__mode".to_string(), serde_json::json!("circle_pokemon"));
-        extra.insert("__geofence_id".to_string(), serde_json::json!(99));
-        let item = KojiGeometry {
-            geometry: Geometry::MultiPoint(MultiPoint::from(vec![Point::new(2.0, 1.0)])),
-            meta: KojiMeta {
-                extra,
-                ..Default::default()
-            },
-        };
-        assert_eq!(route_name(&item).as_deref(), Some("legacy_route"));
-        // The legacy 12-value `__mode` string collapses to the canonical Mode.
-        assert_eq!(route_mode(&item), DbMode::Pokemon);
-        assert_eq!(route_geofence_id(&item), Some(99));
-    }
-
-    #[test]
-    fn route_mode_default_maps_to_unset() {
-        use geo::{Geometry, Point};
-        let item = KojiGeometry {
-            geometry: Geometry::Point(Point::new(0.0, 0.0)),
-            meta: KojiMeta::default(),
-        };
-        assert_eq!(route_mode(&item), DbMode::Unset);
-        assert_eq!(route_name(&item), None);
-        assert_eq!(route_geofence_id(&item), None);
     }
 
     fn route_row_for_feature() -> Model {
