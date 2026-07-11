@@ -30,359 +30,240 @@ pub trait JsonToModel {
     fn to_webhook(&self) -> Result<webhook::ActiveModel, ModelError>;
 }
 
+/// The JSON object behind `v`, or the module's standard "not an object" error
+/// wrapped in the caller's entity variant.
+#[allow(clippy::result_large_err)]
+fn as_obj(
+    v: &Value,
+    err: impl FnOnce(String) -> ModelError,
+) -> Result<&serde_json::Map<String, Value>, ModelError> {
+    v.as_object()
+        .ok_or_else(|| err(format!("model is not an object: {v:?}")))
+}
+
+/// A required string property, or the standard "does not have X" error.
+#[allow(clippy::result_large_err)]
+fn req_str<'a>(
+    v: &'a Value,
+    key: &str,
+    err: impl FnOnce(String) -> ModelError,
+) -> Result<&'a str, ModelError> {
+    v.get(key)
+        .and_then(|x| x.as_str())
+        .ok_or_else(|| err(format!("model does not have a {key} property: {v:?}")))
+}
+
+/// Validate the `geometry` member as geojson and re-serialize it to the stored
+/// `GeoJson::Geometry` wrapper form.
+#[allow(clippy::result_large_err)]
+fn parse_geometry(v: &Value, err: impl Fn(String) -> ModelError) -> Result<Value, ModelError> {
+    let geometry = v
+        .get("geometry")
+        .ok_or_else(|| err(format!("model does not have a geometry object: {v:?}")))?;
+    let geometry = serde_json::from_value::<geojson::Geometry>(geometry.to_owned())
+        .map_err(|e| err(format!("geometry is invalid: {e:?}")))?;
+    Ok(serde_json::to_value(GeoJson::Geometry(geometry)).expect("geojson serializes"))
+}
+
 impl JsonToModel for Value {
     fn to_geofence(&self) -> Result<geofence::ActiveModel, ModelError> {
-        if let Some(incoming) = self.as_object() {
-            let name = incoming.get("name").and_then(|v| v.as_str());
-            if let Some(name) = name {
-                if let Some(geometry) = incoming.get("geometry") {
-                    match serde_json::from_value::<geojson::Geometry>(geometry.to_owned()) {
-                        Ok(geometry) => {
-                            let value = serde_json::to_value(GeoJson::Geometry(geometry))
-                                .expect("geojson serializes");
-                            let mode = incoming
-                                .get("mode")
-                                .map(|mode| mode.as_str().unwrap_or("unset").to_string());
-                            let parent = incoming
-                                .get("parent")
-                                .and_then(|v| v.as_u64())
-                                .map(|parent| parent as u32);
-                            let mode = get_enum(mode);
-                            Ok(geofence::ActiveModel {
-                                name: Set(name.to_string()),
-                                geometry: Set(value),
-                                parent: Set(parent),
-                                mode: Set(mode),
-                                ..Default::default()
-                            })
-                        }
-                        Err(err) => Err(ModelError::Geofence(format!(
-                            "geometry is invalid: {:?}",
-                            err
-                        ))),
-                    }
-                } else {
-                    Err(ModelError::Geofence(format!(
-                        "model does not have a geometry object: {:?}",
-                        self
-                    )))
-                }
-            } else {
-                Err(ModelError::Geofence(format!(
-                    "model does not have a name property: {:?}",
-                    self
-                )))
-            }
-        } else {
-            Err(ModelError::Geofence(format!(
-                "model is not an object: {:?}",
-                self
-            )))
-        }
+        let incoming = as_obj(self, ModelError::Geofence)?;
+        let name = req_str(self, "name", ModelError::Geofence)?;
+        let value = parse_geometry(self, ModelError::Geofence)?;
+        let mode = get_enum(
+            incoming
+                .get("mode")
+                .map(|mode| mode.as_str().unwrap_or("unset").to_string()),
+        );
+        let parent = incoming
+            .get("parent")
+            .and_then(|v| v.as_u64())
+            .map(|parent| parent as u32);
+        Ok(geofence::ActiveModel {
+            name: Set(name.to_string()),
+            geometry: Set(value),
+            parent: Set(parent),
+            mode: Set(mode),
+            ..Default::default()
+        })
     }
 
     fn to_geofence_property(
         &self,
         geofence_id: Option<u32>,
     ) -> Result<geofence_property::ActiveModel, ModelError> {
-        if let Some(object) = self.as_object() {
-            let geofence_id = if let Some(geofence_id) = geofence_id {
-                Some(geofence_id as u64)
-            } else {
-                self.get("geofence_id").and_then(|v| v.as_u64())
-            };
-            if let Some(geofence_id) = geofence_id {
-                let property_id = self.get("property_id").and_then(|v| v.as_u64());
-                if let Some(property_id) = property_id {
-                    let value = if let Some(value) = self.get("value") {
-                        if let Some(value) = value.as_str() {
-                            if !value.is_empty() {
-                                Some(value.to_string())
-                            } else {
-                                None
-                            }
-                        } else if value == &Value::Null {
-                            None
-                        } else {
-                            Some(value.to_string())
-                        }
-                    } else {
-                        None
-                    };
-                    Ok(geofence_property::ActiveModel {
-                        property_id: Set(property_id as u32),
-                        geofence_id: Set(geofence_id as u32),
-                        value: Set(value),
-                        ..Default::default()
-                    })
-                } else {
-                    Err(ModelError::GeofenceProperty(format!(
-                        "property_id not found: {:?}",
-                        object
-                    )))
-                }
-            } else {
-                Err(ModelError::GeofenceProperty(format!(
-                    "geofence_id not found: {:?}",
-                    object
-                )))
-            }
-        } else {
-            Err(ModelError::GeofenceProperty(format!(
-                "invalid object {:?}",
-                self
-            )))
-        }
+        let object = as_obj(self, |_| {
+            ModelError::GeofenceProperty(format!("invalid object {self:?}"))
+        })?;
+        let geofence_id = match geofence_id {
+            Some(geofence_id) => Some(geofence_id as u64),
+            None => self.get("geofence_id").and_then(|v| v.as_u64()),
+        };
+        let Some(geofence_id) = geofence_id else {
+            return Err(ModelError::GeofenceProperty(format!(
+                "geofence_id not found: {object:?}"
+            )));
+        };
+        let Some(property_id) = self.get("property_id").and_then(|v| v.as_u64()) else {
+            return Err(ModelError::GeofenceProperty(format!(
+                "property_id not found: {object:?}"
+            )));
+        };
+        let value = match self.get("value") {
+            Some(value) => match value.as_str() {
+                Some(s) if !s.is_empty() => Some(s.to_string()),
+                Some(_) => None,
+                None if value == &Value::Null => None,
+                None => Some(value.to_string()),
+            },
+            None => None,
+        };
+        Ok(geofence_property::ActiveModel {
+            property_id: Set(property_id as u32),
+            geofence_id: Set(geofence_id as u32),
+            value: Set(value),
+            ..Default::default()
+        })
     }
 
     fn to_project(&self) -> Result<project::ActiveModel, ModelError> {
-        if let Some(incoming) = self.as_object() {
-            let name = incoming.get("name").and_then(|v| v.as_str());
-            if let Some(name) = name {
-                let description = incoming
-                    .get("description")
-                    .and_then(|v| v.as_str())
-                    .map(|description| description.to_string());
-                Ok(project::ActiveModel {
-                    name: Set(name.to_string()),
-                    description: Set(description),
-                    ..Default::default()
-                })
-            } else {
-                Err(ModelError::Project(format!(
-                    "model does not have a name property: {:?}",
-                    self
-                )))
-            }
-        } else {
-            Err(ModelError::Project(format!(
-                "model is not an object: {:?}",
-                self
-            )))
-        }
+        let incoming = as_obj(self, ModelError::Project)?;
+        let name = req_str(self, "name", ModelError::Project)?;
+        let description = incoming
+            .get("description")
+            .and_then(|v| v.as_str())
+            .map(|description| description.to_string());
+        Ok(project::ActiveModel {
+            name: Set(name.to_string()),
+            description: Set(description),
+            ..Default::default()
+        })
     }
 
     fn to_property(&self) -> Result<property::ActiveModel, ModelError> {
-        if let Some(incoming) = self.as_object() {
-            let name = incoming.get("name").and_then(|v| v.as_str());
-            let category = incoming
-                .get("category")
-                .and_then(|v| v.as_str())
-                .map(|category| get_category_enum(category.to_string()));
-            let mut default_value = if let Some(default_value) = incoming.get("default_value") {
-                if let Some(default_value) = default_value.as_str() {
-                    Some(default_value.to_string())
-                } else {
-                    Some(default_value.to_string())
-                }
-            } else {
-                None
-            };
-            if let Some(value_check) = default_value.as_ref()
-                && value_check == "null"
-            {
-                default_value = None;
-            }
-            if let Some(name) = name {
-                if let Some(category) = category {
-                    Ok(property::ActiveModel {
-                        name: Set(name.to_string()),
-                        category: Set(category),
-                        default_value: Set(default_value),
-                        ..Default::default()
-                    })
-                } else {
-                    Err(ModelError::Property(format!(
-                        "model does not have a category property: {:?}",
-                        self
-                    )))
-                }
-            } else {
-                Err(ModelError::Property(format!(
-                    "model does not have a name property: {:?}",
-                    self
-                )))
-            }
-        } else {
-            Err(ModelError::Property(format!(
-                "model is not an object: {:?}",
-                self
-            )))
-        }
+        let incoming = as_obj(self, ModelError::Property)?;
+        let name = req_str(self, "name", ModelError::Property)?;
+        let category = incoming
+            .get("category")
+            .and_then(|v| v.as_str())
+            .map(|category| get_category_enum(category.to_string()))
+            .ok_or_else(|| {
+                ModelError::Property(format!(
+                    "model does not have a category property: {self:?}"
+                ))
+            })?;
+        let default_value = incoming
+            .get("default_value")
+            .map(|default_value| match default_value.as_str() {
+                Some(s) => s.to_string(),
+                None => default_value.to_string(),
+            })
+            .filter(|v| v != "null");
+        Ok(property::ActiveModel {
+            name: Set(name.to_string()),
+            category: Set(category),
+            default_value: Set(default_value),
+            ..Default::default()
+        })
     }
 
     fn to_route(&self) -> Result<route::ActiveModel, ModelError> {
-        if let Some(incoming) = self.as_object() {
-            let name = incoming.get("name").and_then(|v| v.as_str());
-            let geofence_id = incoming.get("geofence_id").and_then(|v| v.as_u64());
-            if let Some(name) = name {
-                if let Some(geofence_id) = geofence_id {
-                    if let Some(geometry) = incoming.get("geometry") {
-                        match serde_json::from_value::<geojson::Geometry>(geometry.to_owned()) {
-                            Ok(geometry) => {
-                                let value = serde_json::to_value(GeoJson::Geometry(geometry))
-                                    .expect("geojson serializes");
-                                let mode = incoming
-                                    .get("mode")
-                                    .map(|mode| mode.as_str().unwrap_or("unset").to_string());
-                                let mode = get_enum(mode);
-                                let description = incoming
-                                    .get("description")
-                                    .and_then(|v| v.as_str())
-                                    .map(|description| description.to_string());
-                                Ok(route::ActiveModel {
-                                    name: Set(name.to_string()),
-                                    geometry: Set(value),
-                                    mode: Set(mode),
-                                    geofence_id: Set(geofence_id as u32),
-                                    description: Set(description),
-                                    ..Default::default()
-                                })
-                            }
-                            Err(err) => {
-                                Err(ModelError::Route(format!("geometry is invalid: {:?}", err)))
-                            }
-                        }
-                    } else {
-                        Err(ModelError::Route(format!(
-                            "model does not have a geometry object: {:?}",
-                            self
-                        )))
-                    }
-                } else {
-                    Err(ModelError::Route(format!(
-                        "model does not have a geofence_id property: {:?}",
-                        self
-                    )))
-                }
-            } else {
-                Err(ModelError::Route(format!(
-                    "model does not have a name property: {:?}",
-                    self
-                )))
-            }
-        } else {
-            Err(ModelError::Route(format!(
-                "model is not an object: {:?}",
-                self
-            )))
-        }
+        let incoming = as_obj(self, ModelError::Route)?;
+        let name = req_str(self, "name", ModelError::Route)?;
+        let Some(geofence_id) = incoming.get("geofence_id").and_then(|v| v.as_u64()) else {
+            return Err(ModelError::Route(format!(
+                "model does not have a geofence_id property: {self:?}"
+            )));
+        };
+        let value = parse_geometry(self, ModelError::Route)?;
+        let mode = get_enum(
+            incoming
+                .get("mode")
+                .map(|mode| mode.as_str().unwrap_or("unset").to_string()),
+        );
+        let description = incoming
+            .get("description")
+            .and_then(|v| v.as_str())
+            .map(|description| description.to_string());
+        Ok(route::ActiveModel {
+            name: Set(name.to_string()),
+            geometry: Set(value),
+            mode: Set(mode),
+            geofence_id: Set(geofence_id as u32),
+            description: Set(description),
+            ..Default::default()
+        })
     }
 
     fn to_webhook(&self) -> Result<webhook::ActiveModel, ModelError> {
-        if let Some(incoming) = self.as_object() {
-            let name = incoming.get("name").and_then(|v| v.as_str());
-            let url = incoming.get("url").and_then(|v| v.as_str());
-            if let Some(name) = name {
-                if let Some(url) = url {
-                    let secret = incoming
-                        .get("secret")
-                        .and_then(|v| v.as_str())
-                        .map(|secret| secret.to_string());
-                    // Absent OR explicit JSON `null` both mean "no topics" (empty
-                    // array = fires on all events). The distinction matters because
-                    // `koji_resource!`'s generated `CreateWebhook` DTO has no
-                    // `skip_serializing_if` (only its `Patch…` twin does), so an
-                    // omitted `topics` in a POST body round-trips through
-                    // `Option<Value>::None` back out as an explicit `"topics":
-                    // null` — mirrors `headers`' None-or-Null handling below.
-                    let topics = match incoming.get("topics") {
-                        None | Some(Value::Null) => Value::Array(vec![]),
-                        Some(value) => value.clone(),
-                    };
-                    let active = incoming
-                        .get("active")
-                        .and_then(|v| v.as_bool())
-                        .unwrap_or(true);
-                    let project_id = incoming
-                        .get("project_id")
-                        .and_then(|v| v.as_u64())
-                        .map(|project_id| project_id as u32);
-                    let mode = if let Some(mode) = incoming.get("mode") {
-                        serde_json::from_value::<WebhookMode>(mode.clone()).map_err(|err| {
-                            ModelError::Custom(format!("mode is invalid: {:?}", err))
-                        })?
-                    } else {
-                        WebhookMode::Event
-                    };
-                    let method = if let Some(method) = incoming.get("method") {
-                        serde_json::from_value::<WebhookMethod>(method.clone()).map_err(|err| {
-                            ModelError::Custom(format!("method is invalid: {:?}", err))
-                        })?
-                    } else {
-                        WebhookMethod::Get
-                    };
-                    let headers = match incoming.get("headers") {
-                        None | Some(Value::Null) => None,
-                        Some(value) if value.is_object() => Some(value.clone()),
-                        Some(value) => {
-                            return Err(ModelError::Custom(format!(
-                                "headers must be an object: {:?}",
-                                value
-                            )));
-                        }
-                    };
-                    Ok(webhook::ActiveModel {
-                        name: Set(name.to_string()),
-                        url: Set(url.to_string()),
-                        secret: Set(secret),
-                        topics: Set(topics),
-                        active: Set(active),
-                        project_id: Set(project_id),
-                        mode: Set(mode),
-                        method: Set(method),
-                        headers: Set(headers),
-                        ..Default::default()
-                    })
-                } else {
-                    Err(ModelError::Custom(format!(
-                        "model does not have a url property: {:?}",
-                        self
-                    )))
-                }
-            } else {
-                Err(ModelError::Custom(format!(
-                    "model does not have a name property: {:?}",
-                    self
-                )))
+        let incoming = as_obj(self, ModelError::Custom)?;
+        let name = req_str(self, "name", ModelError::Custom)?;
+        let url = req_str(self, "url", ModelError::Custom)?;
+        let secret = incoming
+            .get("secret")
+            .and_then(|v| v.as_str())
+            .map(|secret| secret.to_string());
+        // Absent OR explicit JSON `null` both mean "no topics" (empty array =
+        // fires on all events). The distinction matters because
+        // `koji_resource!`'s generated `CreateWebhook` DTO has no
+        // `skip_serializing_if` (only its `Patch…` twin does), so an omitted
+        // `topics` in a POST body round-trips through `Option<Value>::None`
+        // back out as an explicit `"topics": null` — mirrors `headers`'
+        // None-or-Null handling below.
+        let topics = match incoming.get("topics") {
+            None | Some(Value::Null) => Value::Array(vec![]),
+            Some(value) => value.clone(),
+        };
+        let active = incoming
+            .get("active")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+        let project_id = incoming
+            .get("project_id")
+            .and_then(|v| v.as_u64())
+            .map(|project_id| project_id as u32);
+        let mode = match incoming.get("mode") {
+            Some(mode) => serde_json::from_value::<WebhookMode>(mode.clone())
+                .map_err(|err| ModelError::Custom(format!("mode is invalid: {err:?}")))?,
+            None => WebhookMode::Event,
+        };
+        let method = match incoming.get("method") {
+            Some(method) => serde_json::from_value::<WebhookMethod>(method.clone())
+                .map_err(|err| ModelError::Custom(format!("method is invalid: {err:?}")))?,
+            None => WebhookMethod::Get,
+        };
+        let headers = match incoming.get("headers") {
+            None | Some(Value::Null) => None,
+            Some(value) if value.is_object() => Some(value.clone()),
+            Some(value) => {
+                return Err(ModelError::Custom(format!(
+                    "headers must be an object: {value:?}"
+                )));
             }
-        } else {
-            Err(ModelError::Custom(format!(
-                "model is not an object: {:?}",
-                self
-            )))
-        }
+        };
+        Ok(webhook::ActiveModel {
+            name: Set(name.to_string()),
+            url: Set(url.to_string()),
+            secret: Set(secret),
+            topics: Set(topics),
+            active: Set(active),
+            project_id: Set(project_id),
+            mode: Set(mode),
+            method: Set(method),
+            headers: Set(headers),
+            ..Default::default()
+        })
     }
 
     fn to_tileserver(&self) -> Result<tile_server::ActiveModel, ModelError> {
-        if let Some(incoming) = self.as_object() {
-            let name = incoming.get("name").and_then(|v| v.as_str());
-            let url = incoming.get("url").and_then(|v| v.as_str());
-            if let Some(name) = name {
-                if let Some(url) = url {
-                    Ok(tile_server::ActiveModel {
-                        name: Set(name.to_string()),
-                        url: Set(url.to_string()),
-                        ..Default::default()
-                    })
-                } else {
-                    Err(ModelError::TileServer(format!(
-                        "model does not have a url property: {:?}",
-                        self
-                    )))
-                }
-            } else {
-                Err(ModelError::TileServer(format!(
-                    "model does not have a name property: {:?}",
-                    self
-                )))
-            }
-        } else {
-            Err(ModelError::TileServer(format!(
-                "model is not an object: {:?}",
-                self
-            )))
-        }
+        as_obj(self, ModelError::TileServer)?;
+        let name = req_str(self, "name", ModelError::TileServer)?;
+        let url = req_str(self, "url", ModelError::TileServer)?;
+        Ok(tile_server::ActiveModel {
+            name: Set(name.to_string()),
+            url: Set(url.to_string()),
+            ..Default::default()
+        })
     }
 }
 
