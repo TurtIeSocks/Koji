@@ -42,13 +42,16 @@ pub use crucible::Crucible;
 /// reps at weight 1 per distinct cell (multiplicity-blind), so [`main`]'s
 /// point-weighted selector owns the cap (crucible runs unbounded here).
 ///
+/// `quick` splits the two quality tiers: Better runs the single-variant
+/// crucible (a fraction of the cost, most of the quality), Best runs the full
+/// restart portfolio + recombination. Both use this same cap-aware wrapper.
+///
 /// A CLEARLY binding cap (cheap greedy count > 5/4 · cap) resolves the cap
 /// right here as a two-arm race instead of handing an unbounded pool to
 /// [`main`]'s selector: a binding cap changes the objective to max-k-cover,
 /// which the capped selector solves from the full arrangement space, so
-/// crucible's multi-variant construction is worth neither its cost nor its
-/// guarantees there — a quick single-variant crucible only seeds refined
-/// multi-point centers into one arm's pool.
+/// crucible construction only seeds refined multi-point centers into one
+/// arm's pool (at the tier's own cost: quick for Better, full for Best).
 ///
 /// The two arms: greedy-only pool (bit-identical to what capped Balanced
 /// produces) and greedy ∪ quick-crucible. Keeping whichever covers more makes
@@ -67,12 +70,16 @@ pub use crucible::Crucible;
 /// selector real choices. A finite but NON-binding cap must stay a no-op —
 /// unioning unconditionally shipped the raw doubled pool when nothing pruned
 /// it (caught by adversarial review: +39% mygod_score on a generous cap).
-fn crucible_with_capped_pool(data_points: &SingleVec, cfg: &ClusteringConfig) -> SingleVec {
-    let mut crucible = crucible::Crucible {
+fn crucible_with_capped_pool(
+    data_points: &SingleVec,
+    cfg: &ClusteringConfig,
+    quick: bool,
+) -> SingleVec {
+    let crucible = crucible::Crucible {
         radius: cfg.radius,
         min_points: cfg.min_points,
         max_clusters: usize::MAX,
-        quick: false,
+        quick,
     };
     if cfg.max_clusters == usize::MAX {
         return crucible.run(data_points);
@@ -85,11 +92,10 @@ fn crucible_with_capped_pool(data_points: &SingleVec, cfg: &ClusteringConfig) ->
     let extra = greedy.run(data_points);
     if extra.len() > cfg.max_clusters.saturating_mul(5) / 4 {
         log::info!(
-            "crucible: cap {} clearly binds ({} greedy centers) — quick construction, two-arm capped race",
+            "crucible: cap {} clearly binds ({} greedy centers) — two-arm capped race (quick: {quick})",
             cfg.max_clusters,
             extra.len()
         );
-        crucible.quick = true;
         let mut union_pool = crucible.run(data_points);
         union_pool.extend(extra.iter().copied());
         let arm_union =
@@ -159,8 +165,11 @@ pub fn main(
             .collect(),
         _ => match cfg.mode.clone() {
             ClusterMode::Fastest => fastest::main(data_points, cfg.radius, cfg.min_points),
-            // ponytail: Better|Best intentionally share the crucible arm (Best is a future-algo slot).
-            ClusterMode::Better | ClusterMode::Best => crucible_with_capped_pool(data_points, cfg),
+            // The quality tiers share the cap-aware crucible wrapper and differ
+            // only in construction depth: Better = quick single-variant, Best =
+            // full restart portfolio + recombination.
+            ClusterMode::Better => crucible_with_capped_pool(data_points, cfg, true),
+            ClusterMode::Best => crucible_with_capped_pool(data_points, cfg, false),
             ClusterMode::Honeycomb | ClusterMode::Fast | ClusterMode::Balanced => {
                 let mut greedy = Greedy::default();
                 greedy
@@ -196,7 +205,9 @@ pub fn main(
                 log::warn!(
                     "custom clustering plugins are unavailable in wasm; using the crucible algorithm"
                 );
-                crucible_with_capped_pool(data_points, cfg)
+                // Full-depth construction: the fallback replaces an unknown
+                // plugin, so err toward the Best tier's quality.
+                crucible_with_capped_pool(data_points, cfg, false)
             }
         },
     };

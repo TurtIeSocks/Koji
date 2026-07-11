@@ -52,10 +52,9 @@ pub struct Crucible {
     pub radius: Precision,
     pub min_points: usize,
     pub max_clusters: usize,
-    /// Single-variant construction (no restart portfolio, no recombination).
-    /// Used when a binding `max_clusters` follows: the capped selector only
-    /// consumes the centers as pool candidates, and one refined variant buys
-    /// nearly all of the pool's selection value at ~1/5 the construction cost.
+    /// Single-variant construction (no restart portfolio, no recombination) —
+    /// one refined variant buys most of the quality at ~1/5 the cost. This is
+    /// the Better tier; Best runs the full portfolio (`quick: false`).
     pub quick: bool,
 }
 
