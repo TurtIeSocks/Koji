@@ -113,7 +113,13 @@ impl<'a> BootstrapRadius<'a> {
     fn generate_circles(&self, geometry: &Geometry) -> Vec<Point> {
         let mut rows: Vec<Vec<Point>> = vec![];
 
-        let polygon = Polygon::<Precision>::try_from(geometry).unwrap();
+        // Non-Polygon features (Point/LineString/…) reach here via flatten_circles'
+        // `_` arm straight from the public jobs API — skip them instead of panicking,
+        // mirroring BootstrapS2::build_polygons.
+        let Ok(polygon) = Polygon::<Precision>::try_from(geometry) else {
+            log::warn!("[bootstrap] skipping non-polygon geometry: {:?}", geometry.value.type_name());
+            return vec![];
+        };
         let external_points = polygon.exterior().points().collect::<Vec<Point>>();
         let internal_points: Vec<_> = polygon
             .interiors()
@@ -127,7 +133,10 @@ impl<'a> BootstrapRadius<'a> {
         // leaving thin uncovered slivers between every trio of circles.)
         let y_mod = 0.5625_f64.sqrt();
 
-        let extremes = polygon.extremes().unwrap();
+        // Extremes are None for an empty exterior ring — degenerate input, no circles.
+        let Some(extremes) = polygon.extremes() else {
+            return vec![];
+        };
         let max = Point::new(extremes.x_max.coord.x, extremes.y_max.coord.y);
         let min = Point::new(extremes.x_min.coord.x, extremes.y_min.coord.y);
 
@@ -296,6 +305,40 @@ mod tests {
     }
 
     // ── BootstrapRadius: basic coverage ───────────────────────────────────────
+
+    #[test]
+    fn non_polygon_geometry_returns_empty_instead_of_panicking() {
+        // Point features reach generate_circles via flatten_circles' `_` arm
+        // straight from the public jobs API — regression for the old
+        // Polygon::try_from(..).unwrap() panic.
+        let feature = Feature {
+            bbox: None,
+            geometry: Some(Geometry::new(GeometryValue::Point {
+                coordinates: geojson::Position::from([-74.0, 40.0]),
+            })),
+            id: None,
+            properties: None,
+            foreign_members: None,
+        };
+        let br = BootstrapRadius::new(&feature, 70.0);
+        assert!(br.result().is_empty());
+    }
+
+    #[test]
+    fn empty_ring_polygon_returns_empty_instead_of_panicking() {
+        // Empty exterior ring → extremes() is None; regression for unwrap panic.
+        let feature = Feature {
+            bbox: None,
+            geometry: Some(Geometry::new(GeometryValue::Polygon {
+                coordinates: vec![],
+            })),
+            id: None,
+            properties: None,
+            foreign_members: None,
+        };
+        let br = BootstrapRadius::new(&feature, 70.0);
+        assert!(br.result().is_empty());
+    }
 
     #[test]
     fn small_rect_at_70m_produces_circles() {
