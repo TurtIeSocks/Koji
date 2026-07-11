@@ -482,11 +482,10 @@ async fn worker_handler_receives_cancel_signal_via_ctx() {
             _payload: serde_json::Value,
             ctx: &JobCtx,
         ) -> Result<serde_json::Value, JobError> {
-            // The in-process cancel token is always a fresh CancelToken::new() at
-            // claim time (the worker creates it in run_claimed_job). The DB-based
-            // cancel (phase='canceling') is not wired to this token automatically
-            // — that's a handler's responsibility. So here we just record the
-            // initial state and succeed; the test validates the handler ran.
+            // Record the token's initial state and succeed; the test validates
+            // the handler ran with a fresh, un-cancelled token. (The live wiring
+            // — queue.cancel() flipping the registered token mid-run — is
+            // exercised by cancel_running_job_flips_token_and_persists_canceled.)
             self.saw_cancel
                 .store(ctx.cancel.is_cancelled(), Ordering::SeqCst);
             Ok(serde_json::json!({ "cancel_flag": ctx.cancel.is_cancelled() }))
@@ -532,5 +531,91 @@ async fn worker_handler_receives_cancel_signal_via_ctx() {
     assert!(
         !saw_cancel.load(Ordering::SeqCst),
         "cancel token must start false"
+    );
+}
+
+/// Live cancel wiring: a job that is RUNNING when `cancel()` is called must see
+/// its ctx token flip (via the queue's running-token registry), bail with the
+/// "canceled" code, and be persisted as `canceled` — regression for the era
+/// when cancel() only wrote phase='canceling' and nothing flipped the token.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cancel_running_job_flips_token_and_persists_canceled() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard().await;
+
+    // Handler that loops until its cancel token flips (bounded so a regression
+    // fails fast instead of hanging the suite).
+    struct LoopUntilCanceled {
+        started: Arc<AtomicBool>,
+    }
+    impl koji_jobs::JobHandler for LoopUntilCanceled {
+        fn kind(&self) -> &'static str {
+            "test-cancel-midrun"
+        }
+        fn run(
+            &self,
+            _payload: serde_json::Value,
+            ctx: &JobCtx,
+        ) -> Result<serde_json::Value, JobError> {
+            self.started.store(true, Ordering::SeqCst);
+            for _ in 0..200 {
+                if ctx.cancel.is_cancelled() {
+                    return Err(JobError::custom("canceled", "canceled mid-run"));
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            Ok(serde_json::json!({ "finished": "without cancel" }))
+        }
+    }
+
+    let started = Arc::new(AtomicBool::new(false));
+    let registry = HandlerRegistry::new().register(LoopUntilCanceled {
+        started: Arc::clone(&started),
+    });
+
+    let static_kind = "test-cancel-midrun";
+    let q = Arc::new(JobQueue::new(db.clone(), "test-worker-cancel-midrun"));
+    let id = q
+        .enqueue_or_attach(static_kind, None, &serde_json::json!({}), i16::MAX)
+        .await
+        .expect("enqueue");
+
+    let workers = Arc::clone(&q).spawn_workers(1, registry);
+
+    // Wait for the handler to actually start, then cancel.
+    for _ in 0..100 {
+        if started.load(Ordering::SeqCst) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert!(started.load(Ordering::SeqCst), "handler never started");
+    q.cancel(id.clone()).await.expect("cancel");
+
+    let outcome = q.await_result(id.clone(), Duration::from_secs(10)).await;
+    workers.shutdown().await;
+
+    // Read the persisted status before cleanup.
+    let status = q.get(id).await.expect("get").status;
+
+    let _ = db
+        .execute(Statement::from_sql_and_values(
+            DbBackend::MySql,
+            "DELETE FROM `job` WHERE `kind` = ?",
+            [Value::from(static_kind)],
+        ))
+        .await;
+
+    assert_eq!(
+        outcome.expect("await_result"),
+        JobOutcome::Canceled,
+        "a canceled running job must resolve waiters with Canceled"
+    );
+    assert_eq!(
+        status,
+        JobStatus::Canceled,
+        "a canceled running job must persist status=canceled"
     );
 }

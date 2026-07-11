@@ -78,6 +78,12 @@ pub struct JobQueue {
     /// job's outcome. Never persisted; cross-process waiters poll instead
     /// (spec §4/§7).
     pub waiters: Arc<DashMap<String, Vec<oneshot::Sender<JobOutcome>>>>,
+    /// Running-job cancel tokens: `public_id` → the token handed to that job's
+    /// handler ctx. The worker registers on claim and removes on completion;
+    /// `cancel` flips the token so same-process handlers see the signal
+    /// immediately (cross-process workers pick up `phase='canceling'` via their
+    /// heartbeat).
+    pub running_tokens: Arc<DashMap<String, crate::types::CancelToken>>,
     /// This process/worker-pool identity, written to `locked_by` on claim.
     pub worker_id: String,
     /// Optional realtime event sink. When set, the worker emits status + progress
@@ -94,6 +100,7 @@ impl JobQueue {
             db,
             notify: Arc::new(Notify::new()),
             waiters: Arc::new(DashMap::new()),
+            running_tokens: Arc::new(DashMap::new()),
             worker_id: worker_id.into(),
             event_sink: None,
         }
@@ -362,33 +369,49 @@ impl JobQueue {
     /// boundary).
     ///
     /// A still-`queued` job is transitioned straight to `canceled` (it will
-    /// never be claimed). A `running` job is *flagged* by writing
-    /// `phase='canceling'`; the worker's [`crate::types::CancelToken`] for that
-    /// job carries the in-process signal, and the handler bails at its next
-    /// phase check. Terminal jobs are left untouched.
+    /// never be claimed) with the event sink + local waiters notified, since no
+    /// worker will ever do it. A `running` job is flagged by writing
+    /// `phase='canceling'` AND flipping its registered
+    /// [`crate::types::CancelToken`] (same-process signal; a worker in another
+    /// process picks the phase flag up via its heartbeat). Terminal jobs are
+    /// left untouched.
     pub async fn cancel(&self, id: JobId) -> Result<(), AwaitError> {
+        let public_id = id.as_string();
         let res = self
             .db
             .execute(Statement::from_sql_and_values(
                 DbBackend::MySql,
                 "UPDATE `job` SET `status` = 'canceled', `finished_at` = NOW() \
                  WHERE `public_id` = ? AND `status` = 'queued'",
-                [Value::from(id.as_string())],
+                [Value::from(public_id.clone())],
             ))
             .await?;
 
-        if res.rows_affected() == 0 {
-            // Not queued: either running (flag it for cooperative cancel) or
-            // already terminal (no-op). Setting the phase marker is observable
-            // via `get` and signals intent; the worker honors its CancelToken.
-            self.db
-                .execute(Statement::from_sql_and_values(
-                    DbBackend::MySql,
-                    "UPDATE `job` SET `phase` = 'canceling' \
-                     WHERE `public_id` = ? AND `status` = 'running'",
-                    [Value::from(id.as_string())],
-                ))
-                .await?;
+        if res.rows_affected() > 0 {
+            // Terminal transition performed outside the worker: honor the
+            // JobEventSink contract + wake local awaiters ourselves.
+            if let Some(s) = &self.event_sink {
+                s.on_job_status(&public_id, "canceled", 0.0, None);
+            }
+            self.notify_local_waiters(&public_id, JobOutcome::Canceled);
+            return Ok(());
+        }
+
+        // Not queued: either running (flag it for cooperative cancel) or
+        // already terminal (no-op). Setting the phase marker is observable
+        // via `get` and signals intent; the worker honors its CancelToken.
+        self.db
+            .execute(Statement::from_sql_and_values(
+                DbBackend::MySql,
+                "UPDATE `job` SET `phase` = 'canceling' \
+                 WHERE `public_id` = ? AND `status` = 'running'",
+                [Value::from(public_id.clone())],
+            ))
+            .await?;
+        // Flip the in-process token so a handler running in THIS process sees
+        // the signal at its next `ctx.cancel.is_cancelled()` check.
+        if let Some(tok) = self.running_tokens.get(&public_id) {
+            tok.cancel();
         }
         Ok(())
     }

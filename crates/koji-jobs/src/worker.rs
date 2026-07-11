@@ -221,8 +221,13 @@ async fn run_claimed_job(
         return;
     };
 
-    // Per-job cancellation flag + progress sink.
+    // Per-job cancellation flag + progress sink. The token is registered on the
+    // queue so `cancel()` can flip it for same-process signals; the heartbeat
+    // additionally polls `phase='canceling'` for cross-process cancels.
     let cancel = CancelToken::new();
+    queue
+        .running_tokens
+        .insert(public_id.clone(), cancel.clone());
     let progress = ProgressHandle::new(
         queue.db.clone(),
         claimed.id,
@@ -235,7 +240,12 @@ async fn run_claimed_job(
     // reclaim this job mid-run (spec §5). Stopped via its own Notify once the
     // handler returns.
     let stop_heartbeat = Arc::new(Notify::new());
-    let heartbeat = spawn_heartbeat(Arc::clone(queue), claimed.id, Arc::clone(&stop_heartbeat));
+    let heartbeat = spawn_heartbeat(
+        Arc::clone(queue),
+        claimed.id,
+        Arc::clone(&stop_heartbeat),
+        cancel.clone(),
+    );
 
     // Run the (synchronous, CPU-bound) handler off the async runtime so it never
     // blocks other tasks / the heartbeat (spec §5).
@@ -255,11 +265,16 @@ async fn run_claimed_job(
     if let Err(e) = heartbeat.await {
         log::warn!("[koji-jobs] worker {worker_idx} heartbeat join error: {e}");
     }
+    queue.running_tokens.remove(&public_id);
 
     // Map the run result to an outcome. A panic in the blocking task becomes an
     // internal failure (the job is not left dangling in `running`).
     let outcome = match run_result {
         Ok(Ok(result)) => JobOutcome::Succeeded(result),
+        // A handler that bailed at a cancel check reports the dedicated
+        // "canceled" code — a canceled run must persist as canceled, not be
+        // overwritten to failed.
+        Ok(Err(job_err)) if job_err.code() == "canceled" => JobOutcome::Canceled,
         Ok(Err(job_err)) => JobOutcome::Failed {
             error: job_err.to_string(),
             code: job_err.code().to_owned(),
@@ -293,7 +308,12 @@ async fn run_claimed_job(
 
 /// Spawn the heartbeat task for a running job: every [`HEARTBEAT_SECS`], extend
 /// `lease_expires` to `NOW() + LEASE_SECS`. Exits when `stop` is signaled.
-fn spawn_heartbeat(queue: Arc<JobQueue>, job_id: u64, stop: Arc<Notify>) -> JoinHandle<()> {
+fn spawn_heartbeat(
+    queue: Arc<JobQueue>,
+    job_id: u64,
+    stop: Arc<Notify>,
+    cancel: CancelToken,
+) -> JoinHandle<()> {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(HEARTBEAT_SECS));
         // Skip the immediate first tick: the claim already set a fresh lease.
@@ -312,6 +332,29 @@ fn spawn_heartbeat(queue: Arc<JobQueue>, job_id: u64, stop: Arc<Notify>) -> Join
                         // A failed renew isn't fatal on its own; if it keeps
                         // failing the lease lapses and another worker reclaims.
                         log::warn!("[koji-jobs] heartbeat renew failed for job id={job_id}: {e}");
+                    }
+                    // Cross-process cancel pickup: a `cancel()` in another process
+                    // can only write `phase='canceling'` — relay it into this
+                    // job's in-process token on each renew.
+                    if !cancel.is_cancelled() {
+                        let phase_q = Statement::from_sql_and_values(
+                            DbBackend::MySql,
+                            "SELECT `phase` FROM `job` WHERE `id` = ?",
+                            [Value::from(job_id)],
+                        );
+                        match queue.db.query_one(phase_q).await {
+                            Ok(Some(row)) => {
+                                if row.try_get::<Option<String>>("", "phase").ok().flatten().as_deref()
+                                    == Some("canceling")
+                                {
+                                    cancel.cancel();
+                                }
+                            }
+                            Ok(None) => {}
+                            Err(e) => log::warn!(
+                                "[koji-jobs] heartbeat phase check failed for job id={job_id}: {e}"
+                            ),
+                        }
                     }
                 }
             }
