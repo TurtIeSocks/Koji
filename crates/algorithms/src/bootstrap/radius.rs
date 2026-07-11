@@ -157,10 +157,10 @@ impl<'a> BootstrapRadius<'a> {
                 || (bearing == 90. && current.x() < start.x())
             {
                 if polygon.contains(&current)
-                    || point_line_distance(&external_points, &current) <= self.radius
+                    || point_near_ring(&external_points, &current, self.radius)
                     || internal_points
                         .par_iter()
-                        .any(|internal| point_line_distance(internal, &current) <= self.radius)
+                        .any(|internal| point_near_ring(internal, &current, self.radius))
                 {
                     current_row.push(current);
                 }
@@ -205,17 +205,21 @@ fn distance_to_segment(p: &Point, a: &Point, b: &Point) -> Precision {
     Haversine.distance(*p, pb)
 }
 
-fn point_line_distance(input: &[Point], point: &Point) -> Precision {
-    let mut distance = Precision::MAX;
-    for (i, line) in input.iter().enumerate() {
+/// Is `point` within `radius` of ANY segment of the ring? Boolean-equivalent
+/// to the old exact-min `point_line_distance(..) <= radius` but early-exits on
+/// the first hit —
+/// the lattice loop asks this per grid sample, and near-boundary samples (the
+/// common case for the band this test exists to keep) match in O(1)-ish
+/// instead of scanning the whole ring.
+fn point_near_ring(input: &[Point], point: &Point, radius: Precision) -> bool {
+    input.iter().enumerate().any(|(i, line)| {
         let next = if i == input.len() - 1 {
             input[0]
         } else {
             input[i + 1]
         };
-        distance = distance.min(distance_to_segment(point, line, &next));
-    }
-    distance
+        distance_to_segment(point, line, &next) <= radius
+    })
 }
 
 /// Squared planar distance in lon/lat degrees. Only used for *local* nearest-end
