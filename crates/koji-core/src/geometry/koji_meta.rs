@@ -23,15 +23,41 @@ where
     Ok(Mode::from_legacy(&s))
 }
 
+/// Lenient deserializer for `id`/`parent_id`. The wire demonstrably carries
+/// string ids; a strict `Option<u32>` made one string id fail the WHOLE
+/// `KojiMeta` deserialize, and the caller's `unwrap_or_default()` then silently
+/// discarded every sibling property (same S5c data-loss class the lenient
+/// `mode` deserializer exists for). Accept integers and numeric strings;
+/// anything else degrades to `None` instead of poisoning the struct.
+fn deserialize_u32_lenient<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let v = serde_json::Value::deserialize(deserializer)?;
+    Ok(match &v {
+        serde_json::Value::Number(n) => n.as_u64().and_then(|n| u32::try_from(n).ok()),
+        serde_json::Value::String(s) => s.parse::<u32>().ok(),
+        _ => None,
+    })
+}
+
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct KojiMeta {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_u32_lenient",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub id: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     #[serde(default, deserialize_with = "deserialize_mode_lenient")]
     pub mode: Mode,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_u32_lenient",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub parent_id: Option<u32>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ancestors: Vec<String>,
@@ -69,6 +95,35 @@ mod tests {
     fn empty_meta_omits_optional_keys() {
         let v = serde_json::to_value(KojiMeta::default()).unwrap();
         assert_eq!(v, serde_json::json!({ "mode": "unset" }));
+    }
+
+    /// String ids must not poison the struct: `{"id": "5"}` parses as `Some(5)`
+    /// and — critically — every sibling property survives. (Regression: a strict
+    /// `Option<u32>` failed the whole deserialize; the `unwrap_or_default()`
+    /// caller then nuked name/parent_id/extra.)
+    #[test]
+    fn string_and_garbage_ids_do_not_drop_sibling_props() {
+        let meta: KojiMeta = serde_json::from_value(serde_json::json!({
+            "id": "5", "name": "Denver", "color": "#f00"
+        }))
+        .unwrap();
+        assert_eq!(meta.id, Some(5));
+        assert_eq!(meta.name.as_deref(), Some("Denver"));
+        assert_eq!(meta.extra.get("color").unwrap(), "#f00");
+
+        // Non-numeric id degrades to None; siblings still survive.
+        let meta: KojiMeta = serde_json::from_value(serde_json::json!({
+            "id": "not-a-number", "parent_id": -3, "name": "x"
+        }))
+        .unwrap();
+        assert_eq!(meta.id, None);
+        assert_eq!(meta.parent_id, None);
+        assert_eq!(meta.name.as_deref(), Some("x"));
+
+        // Numeric string parent_id parses too.
+        let meta: KojiMeta =
+            serde_json::from_value(serde_json::json!({ "parent_id": "12" })).unwrap();
+        assert_eq!(meta.parent_id, Some(12));
     }
 
     /// Inbound geojson `properties` may carry a legacy 12-value RDM mode string
