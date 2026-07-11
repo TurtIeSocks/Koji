@@ -5,7 +5,7 @@
 //! Run with: `set -a; source ./.env.test; set +a && cargo test -p koji-db --test geofence_deep_db -- --nocapture`
 
 use koji_core::Precision;
-use koji_core::{KojiGeometry, KojiGeometryCollection, KojiMeta, Mode, UnknownId};
+use koji_core::{KojiGeometry, UnknownId};
 use koji_db::db::geofence::{Anchor, HierarchySpec};
 use koji_db::db::{geofence, project};
 use koji_db::query_args::ApiQueryArgs;
@@ -432,85 +432,5 @@ async fn geofence_unique_parents_includes_used_parent() {
     assert!(
         parents.iter().any(|p| p["name"] == json!(parent_name)),
         "parent_name appears in unique_parents result"
-    );
-}
-
-// ── upsert_from_geometry ──────────────────────────────────────────────────────
-
-#[tokio::test]
-async fn geofence_upsert_from_geometry_inserts_and_associates_parent() {
-    let Some(db) = test_db().await else { return };
-    let _g = serial_guard().await;
-
-    use geo::{Geometry, LineString, Polygon, coord};
-
-    let parent_name = unique_name("gf-ufg-par");
-    let child_name = unique_name("gf-ufg-ch");
-
-    let make_polygon = || {
-        Geometry::Polygon(Polygon::new(
-            LineString::new(vec![
-                coord! { x: 0.0, y: 0.0 },
-                coord! { x: 1.0, y: 0.0 },
-                coord! { x: 1.0, y: 1.0 },
-                coord! { x: 0.0, y: 1.0 },
-                coord! { x: 0.0, y: 0.0 },
-            ]),
-            vec![],
-        ))
-    };
-
-    // Parent item: name via typed KojiMeta
-    let parent_item = KojiGeometry {
-        geometry: make_polygon(),
-        meta: KojiMeta {
-            name: Some(parent_name.clone()),
-            mode: Mode::Unset,
-            ..Default::default()
-        },
-    };
-
-    // Child item: parent reference in extra
-    let mut extra = serde_json::Map::new();
-    extra.insert("parent".to_string(), json!(parent_name.clone()));
-    let child_item = KojiGeometry {
-        geometry: make_polygon(),
-        meta: KojiMeta {
-            name: Some(child_name.clone()),
-            mode: Mode::Pokemon,
-            extra,
-            ..Default::default()
-        },
-    };
-
-    let coll = KojiGeometryCollection::new(vec![parent_item, child_item]);
-
-    geofence::Query::upsert_from_geometry(&db, &coll)
-        .await
-        .expect("upsert_from_geometry");
-
-    // Verify both rows exist
-    let parent_model = geofence::Query::get_one(&db, parent_name.clone())
-        .await
-        .expect("parent exists");
-    let child_model = geofence::Query::get_one(&db, child_name.clone())
-        .await
-        .expect("child exists");
-
-    // cleanup
-    geofence::Query::delete(&db, child_model.id)
-        .await
-        .expect("del child");
-    geofence::Query::delete(&db, parent_model.id)
-        .await
-        .expect("del parent");
-
-    assert_eq!(parent_model.name, parent_name);
-    assert_eq!(child_model.name, child_name);
-    // child should be linked to parent
-    assert_eq!(
-        child_model.parent,
-        Some(parent_model.id),
-        "child's parent column points to parent row"
     );
 }

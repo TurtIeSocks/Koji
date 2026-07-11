@@ -1,11 +1,7 @@
 //! Write paths for the geofence entity (upserts, deletes, related
-//! property/project/route mutations, `KojiGeometry`-driven persistence, and the
-//! column `assign`). Split out of the former `geofence.rs` god-file as a **pure
-//! relocation** — `impl super::Query`, no logic change.
-
-use std::collections::HashMap;
-
-use koji_core::{KojiGeometry, KojiGeometryCollection, UnknownId};
+//! property/project/route mutations, and the column `assign`). Split out of the
+//! former `geofence.rs` god-file as a **pure relocation** — `impl super::Query`,
+//! no logic change.
 
 use crate::error::ModelError;
 
@@ -145,70 +141,6 @@ impl Query {
     pub async fn delete(db: &DatabaseConnection, id: u32) -> Result<DeleteResult, DbErr> {
         let record = Entity::delete_by_id(id).exec(db).await?;
         Ok(record)
-    }
-
-    /// Persist one geofence directly from a `KojiGeometry` (no geojson `Feature`
-    /// round-trip). Reads name/mode/projects/parent/id from the legacy
-    /// `__`-prefixed `meta.extra` passthrough (the admin-panel internal
-    /// round-trip), falling back to the plain key and then the typed `KojiMeta`
-    /// field. Any remaining non-`__` `extra` entry becomes a custom property —
-    /// byte-identical to the deleted `Feature`-based path, which filtered on the
-    /// `__` prefix. Delegates to the property-aware [`Query::upsert`] so parent
-    /// association, projects, and property categories are unchanged.
-    async fn upsert_koji_item(
-        conn: &DatabaseConnection,
-        item: &KojiGeometry,
-        parent_map: &mut HashMap<String, UnknownId>,
-    ) -> Result<Model, ModelError> {
-        let GeofenceUpsertInputs {
-            id,
-            name,
-            new_map,
-            parent,
-        } = build_geofence_upsert_map(item)?;
-        if let Some(parent) = parent {
-            parent_map.insert(name, parent);
-        }
-        Query::upsert(conn, id, new_map).await
-    }
-
-    pub async fn upsert_from_geometry(
-        conn: &DatabaseConnection,
-        area: &KojiGeometryCollection,
-    ) -> Result<(), ModelError> {
-        let mut parent_map = HashMap::<String, UnknownId>::new();
-        for item in &area.items {
-            // Persist directly from the Koji item — name/mode/parent/projects
-            // come from `KojiMeta` (with `__`-prefixed `extra` passthrough for
-            // the admin internal round-trip); no geojson `Feature` round-trip.
-            Query::upsert_koji_item(conn, item, &mut parent_map).await?;
-        }
-        if !parent_map.is_empty() {
-            // ensures it exists before running the try_join_all
-            property::Query::get_or_create_db_prop(conn, "parent").await?;
-            future::try_join_all(
-                parent_map
-                    .into_iter()
-                    .map(|(name, parent)| Query::associate_parent(conn, name, parent)),
-            )
-            .await?;
-        }
-
-        Ok(())
-    }
-
-    async fn associate_parent(
-        db: &DatabaseConnection,
-        name: String,
-        parent: UnknownId,
-    ) -> Result<(), ModelError> {
-        let model = Query::get_one(db, name).await?;
-        let parent_model = Query::get_one(db, parent.to_string()).await?;
-        let mut new_model: ActiveModel = model.into();
-        new_model.parent = Set(Some(parent_model.id));
-        let model = new_model.update(db).await?;
-        geofence_property::Query::add_db_property(db, model.id, "parent").await?;
-        Ok(())
     }
 
     pub async fn assign<C: ConnectionTrait>(
