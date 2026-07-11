@@ -28,6 +28,7 @@ struct Args {
     n: usize,
     mode: String,
     min_points: usize,
+    max_clusters: usize,
     radius: Precision,
     seed: u64,
     legacy: bool,
@@ -47,6 +48,7 @@ fn parse_args() -> Args {
         n: 10_000,
         mode: "balanced".to_string(),
         min_points: 1,
+        max_clusters: usize::MAX,
         radius: 70.0,
         seed: 42,
         legacy: false,
@@ -74,6 +76,8 @@ fn parse_args() -> Args {
             args.mode = v;
         } else if let Some(v) = take("--min-points") {
             args.min_points = v.parse().expect("--min-points must be an integer");
+        } else if let Some(v) = take("--max-clusters") {
+            args.max_clusters = v.parse().expect("--max-clusters must be an integer");
         } else if let Some(v) = take("--radius") {
             args.radius = v.parse().expect("--radius must be a float");
         } else if let Some(v) = take("--seed") {
@@ -261,7 +265,7 @@ fn main() {
         mode,
         radius: args.radius,
         min_points: args.min_points,
-        max_clusters: usize::MAX,
+        max_clusters: args.max_clusters,
         calculation_mode: CalculationMode::Radius,
         s2: S2Config { level: 15, size: 1 },
         center_clusters: false,
