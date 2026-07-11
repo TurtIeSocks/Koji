@@ -16,7 +16,7 @@ mod inputs;
 mod ops;
 pub(crate) mod resolve;
 
-pub use config::{DataFilter, DevConfig, OutputConfig, ReturnTypeArg, get_return_type};
+pub use config::{DataFilter, DevConfig, OutputConfig, ReturnTypeArg, get_return_type, negotiate_return_type};
 pub use groups::*;
 pub use inputs::*;
 pub use ops::*;

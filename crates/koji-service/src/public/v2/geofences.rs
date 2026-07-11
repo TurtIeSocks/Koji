@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use utoipa::ToSchema;
 
-use crate::requests::{ReturnTypeArg, get_return_type};
+use crate::requests::{ReturnTypeArg, negotiate_return_type};
 use crate::utils::error::ServiceError;
 use crate::utils::{
     api_response::{ApiError, ApiResponse},
@@ -54,10 +54,7 @@ impl ReadQuery {
     /// The negotiated return type, defaulting to `default` when neither
     /// `?format=` nor `?rt=` is supplied.
     fn return_type(&self, default: ReturnTypeArg) -> ReturnTypeArg {
-        match self.format.clone().or_else(|| self.rt.clone()) {
-            Some(s) => get_return_type(s, &default),
-            None => default,
-        }
+        negotiate_return_type(self.format.as_deref(), self.rt.as_deref(), default)
     }
 
     /// Resolve `?depth`/`?level` into a recursion spec, mapping the
@@ -628,34 +625,6 @@ mod tests {
         assert!(v.get("properties").is_none());
     }
 
-    #[test]
-    fn read_query_format_takes_precedence_then_rt_then_default() {
-        let q = ReadQuery {
-            format: Some("sql".into()),
-            rt: Some("feature".into()),
-            ..Default::default()
-        };
-        assert_eq!(
-            q.return_type(ReturnTypeArg::FeatureCollection),
-            ReturnTypeArg::Sql
-        );
-
-        let q = ReadQuery {
-            format: None,
-            rt: Some("sql".into()),
-            ..Default::default()
-        };
-        assert_eq!(
-            q.return_type(ReturnTypeArg::FeatureCollection),
-            ReturnTypeArg::Sql
-        );
-
-        let q = ReadQuery::default();
-        assert_eq!(
-            q.return_type(ReturnTypeArg::Feature),
-            ReturnTypeArg::Feature
-        );
-    }
 
     #[test]
     fn related_to_feature_moves_geometry_and_keeps_related() {

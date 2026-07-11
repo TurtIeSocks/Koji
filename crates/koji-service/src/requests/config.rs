@@ -27,7 +27,7 @@ pub struct DevConfig {
     pub benchmark_mode: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, ToSchema)]
 pub enum ReturnTypeArg {
     AltText,
     Text,
@@ -42,7 +42,7 @@ pub enum ReturnTypeArg {
     Sql,
 }
 
-pub fn get_return_type(return_type: String, default_return_type: &ReturnTypeArg) -> ReturnTypeArg {
+pub fn get_return_type(return_type: &str, default_return_type: &ReturnTypeArg) -> ReturnTypeArg {
     match return_type.to_lowercase().replace("-", "_").as_str() {
         "alttext" | "alt_text" => ReturnTypeArg::AltText,
         "text" => ReturnTypeArg::Text,
@@ -74,21 +74,57 @@ pub fn get_return_type(return_type: String, default_return_type: &ReturnTypeArg)
     }
 }
 
+/// Negotiate the return type from the `?format=`/`?rt=` query pair (format
+/// wins; `rt` is the legacy spelling), defaulting when neither is supplied.
+/// Shared by the geofence/route/geometry read handlers, which previously each
+/// carried their own copy of this precedence logic.
+pub fn negotiate_return_type(
+    format: Option<&str>,
+    rt: Option<&str>,
+    default: ReturnTypeArg,
+) -> ReturnTypeArg {
+    match format.or(rt) {
+        Some(s) => get_return_type(s, &default),
+        None => default,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
     fn get_return_type_maps_aliases_and_falls_back() {
         use super::{ReturnTypeArg, get_return_type};
         assert_eq!(
-            get_return_type("feature_collection".into(), &ReturnTypeArg::SingleArray),
+            get_return_type("feature_collection", &ReturnTypeArg::SingleArray),
             ReturnTypeArg::FeatureCollection
         );
         assert_eq!(
-            get_return_type("alt-text".into(), &ReturnTypeArg::SingleArray),
+            get_return_type("alt-text", &ReturnTypeArg::SingleArray),
             ReturnTypeArg::AltText
         );
         assert_eq!(
-            get_return_type("nonsense".into(), &ReturnTypeArg::Feature),
+            get_return_type("nonsense", &ReturnTypeArg::Feature),
+            ReturnTypeArg::Feature
+        );
+    }
+}
+
+#[cfg(test)]
+mod negotiate_tests {
+    use super::{ReturnTypeArg, negotiate_return_type};
+
+    #[test]
+    fn format_takes_precedence_then_rt_then_default() {
+        assert_eq!(
+            negotiate_return_type(Some("sql"), Some("feature"), ReturnTypeArg::FeatureCollection),
+            ReturnTypeArg::Sql
+        );
+        assert_eq!(
+            negotiate_return_type(None, Some("sql"), ReturnTypeArg::FeatureCollection),
+            ReturnTypeArg::Sql
+        );
+        assert_eq!(
+            negotiate_return_type(None, None, ReturnTypeArg::Feature),
             ReturnTypeArg::Feature
         );
     }

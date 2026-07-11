@@ -16,7 +16,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::requests::{
-    ConvertReq, MergePointsReq, ReturnTypeArg, SimplifyReq, area_collection, get_return_type,
+    ConvertReq, MergePointsReq, ReturnTypeArg, SimplifyReq, area_collection, negotiate_return_type,
 };
 use crate::utils::api_response::{ApiError, ApiResponse};
 use crate::utils::error::ServiceError;
@@ -33,10 +33,7 @@ impl FormatQuery {
     /// The negotiated return type: parse `?format=` against `default` when
     /// supplied, else the `default` (the body's `output.return_type`).
     fn return_type(&self, default: ReturnTypeArg) -> ReturnTypeArg {
-        match self.format.clone() {
-            Some(s) => get_return_type(s, &default),
-            None => default,
-        }
+        negotiate_return_type(self.format.as_deref(), None, default)
     }
 }
 

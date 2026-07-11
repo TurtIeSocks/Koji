@@ -141,7 +141,7 @@ pub struct OutputArgs {
 impl OutputArgs {
     pub fn resolve(self, default_return_type: ReturnTypeArg) -> OutputConfig {
         let return_type = if let Some(return_type) = self.return_type {
-            get_return_type(return_type, &default_return_type)
+            get_return_type(&return_type, &default_return_type)
         } else {
             default_return_type
         };
