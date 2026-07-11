@@ -127,7 +127,8 @@ pub(crate) fn cap_radius_clusters(
             v
         })
         .collect();
-    keep_indices(clusters, select_max_coverage(&cover, &weights, cap), cap)
+    let kept = improve_by_swap(select_max_coverage(&cover, &weights, cap), &cover, &weights);
+    keep_indices(clusters, kept, cap)
 }
 
 /// Keep the best ≤ `cap` S2-cell cluster centers. Items are the level-`level`
@@ -174,7 +175,87 @@ pub(crate) fn cap_s2_clusters(
             v
         })
         .collect();
-    keep_indices(clusters, select_max_coverage(&cover, &weights, cap), cap)
+    let kept = improve_by_swap(select_max_coverage(&cover, &weights, cap), &cover, &weights);
+    keep_indices(clusters, kept, cap)
+}
+
+/// Post-selection interchange: at FIXED size, repeatedly swap the kept
+/// candidate with the smallest exclusive contribution for the unkept candidate
+/// with the largest uncovered gain, when the exact delta is positive. Repairs
+/// greedy's early commits (it can't undo a pick); bounded passes, deterministic.
+pub(crate) fn improve_by_swap(
+    mut kept: Vec<usize>,
+    candidates: &[Vec<u32>],
+    item_weights: &[usize],
+) -> Vec<usize> {
+    if kept.is_empty() || kept.len() >= candidates.len() {
+        return kept;
+    }
+    // cover_count[j] = how many kept candidates cover item j.
+    let mut count = vec![0u32; item_weights.len()];
+    let mut is_kept = vec![false; candidates.len()];
+    for &k in &kept {
+        is_kept[k] = true;
+        for &j in &candidates[k] {
+            count[j as usize] += 1;
+        }
+    }
+    // A swap can enable further swaps; bound the loop so a cycle can't spin.
+    for _ in 0..kept.len().max(64) {
+        // Best inbound: max summed weight of currently-uncovered items.
+        let mut best_in: Option<(usize, usize)> = None; // (gain, candidate)
+        for (c, items) in candidates.iter().enumerate() {
+            if is_kept[c] {
+                continue;
+            }
+            let gain: usize = items
+                .iter()
+                .filter(|&&j| count[j as usize] == 0)
+                .map(|&j| item_weights[j as usize])
+                .sum();
+            if gain > 0 && best_in.is_none_or(|(g, bc)| gain > g || (gain == g && c < bc)) {
+                best_in = Some((gain, c));
+            }
+        }
+        let Some((_, c_in)) = best_in else { break };
+        // Cheapest outbound: min summed weight of items ONLY it covers —
+        // ignoring items the inbound candidate would re-cover (exact delta).
+        let mut in_covers = vec![false; item_weights.len()];
+        for &j in &candidates[c_in] {
+            in_covers[j as usize] = true;
+        }
+        let mut best_out: Option<(usize, usize)> = None; // (loss, kept idx position)
+        for (pos, &k) in kept.iter().enumerate() {
+            let loss: usize = candidates[k]
+                .iter()
+                .filter(|&&j| count[j as usize] == 1 && !in_covers[j as usize])
+                .map(|&j| item_weights[j as usize])
+                .sum();
+            if best_out.is_none_or(|(l, bp)| loss < l || (loss == l && kept[pos] < kept[bp])) {
+                best_out = Some((loss, pos));
+            }
+        }
+        let Some((loss, pos)) = best_out else { break };
+        let gain: usize = candidates[c_in]
+            .iter()
+            .filter(|&&j| count[j as usize] == 0)
+            .map(|&j| item_weights[j as usize])
+            .sum();
+        if gain <= loss {
+            break; // no improving swap remains for this (greedy) pair choice
+        }
+        let k_out = kept[pos];
+        for &j in &candidates[k_out] {
+            count[j as usize] -= 1;
+        }
+        for &j in &candidates[c_in] {
+            count[j as usize] += 1;
+        }
+        is_kept[k_out] = false;
+        is_kept[c_in] = true;
+        kept[pos] = c_in;
+    }
+    kept
 }
 
 /// Filter `clusters` down to the selected indices (input order preserved).
@@ -257,6 +338,22 @@ mod tests {
         let candidates = vec![vec![0], vec![1]];
         let weights = vec![1, 1];
         assert_eq!(select_max_coverage(&candidates, &weights, 5), vec![0, 1]);
+    }
+
+    #[test]
+    fn swap_replaces_dominated_pick() {
+        // kept = just B ({0}); C ({1,2,3}) gains 3 for a loss of 1 → swapped in.
+        let candidates = vec![vec![0, 1, 2], vec![0], vec![1, 2, 3]];
+        let weights = vec![1; 4];
+        assert_eq!(improve_by_swap(vec![1], &candidates, &weights), vec![2]);
+    }
+
+    #[test]
+    fn swap_leaves_optimal_selection_alone() {
+        // kept = A ({0,1}); B ({0}) has zero uncovered gain → no swap.
+        let candidates = vec![vec![0, 1], vec![0]];
+        let weights = vec![1; 2];
+        assert_eq!(improve_by_swap(vec![0], &candidates, &weights), vec![0]);
     }
 
     #[test]
