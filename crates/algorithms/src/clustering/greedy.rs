@@ -373,6 +373,10 @@ impl<'a> Greedy {
             clusters_of_interest.clear();
             clusters_of_interest.extend(clusters_with_data[current..].iter().flatten());
 
+            // Carry only (source candidate, surviving unique set) through the
+            // round; `all` is materialized at insertion time for the handful
+            // of winners. Cloning every survivor's full point list here was
+            // the dominant allocation, re-paid across the growing window.
             let mut local_clusters = clusters_of_interest
                 .par_iter()
                 .filter_map(|cluster| {
@@ -391,43 +395,42 @@ impl<'a> Greedy {
                         None
                     } else {
                         points.sort_dedupe();
-
-                        Some(Cluster {
-                            point: cluster.point,
-                            unique: points.into_iter().collect(),
-                            all: cluster.all.to_vec(),
-                        })
+                        Some((*cluster, points))
                     }
                 })
-                .collect::<Vec<Cluster>>();
+                .collect::<Vec<(&Cluster, Vec<&Point>)>>();
 
             if local_clusters.is_empty() {
                 current -= 1;
                 continue;
             }
 
-            local_clusters.par_sort_by(|a, b| {
-                if a.unique.len() == b.unique.len() {
-                    b.all.len().cmp(&a.all.len())
+            local_clusters.par_sort_by(|(a_src, a_unique), (b_src, b_unique)| {
+                if a_unique.len() == b_unique.len() {
+                    b_src.all.len().cmp(&a_src.all.len())
                 } else {
-                    b.unique.len().cmp(&a.unique.len())
+                    b_unique.len().cmp(&a_unique.len())
                 }
             });
 
-            'cluster: for cluster in local_clusters.into_iter() {
+            'cluster: for (source, unique) in local_clusters.into_iter() {
                 if new_clusters.len() >= self.max_clusters {
                     break 'greedy;
                 }
-                if cluster.unique.len() >= current {
-                    for point in cluster.unique.iter() {
+                if unique.len() >= current {
+                    for point in unique.iter() {
                         if blocked_points.contains(point) {
                             continue 'cluster;
                         }
                     }
-                    for point in cluster.unique.iter() {
+                    for point in unique.iter() {
                         blocked_points.insert(point);
                     }
-                    new_clusters.insert(cluster);
+                    new_clusters.insert(Cluster {
+                        point: source.point,
+                        unique,
+                        all: source.all.to_vec(),
+                    });
                 }
             }
 
