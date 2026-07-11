@@ -129,36 +129,22 @@ mod tests {
 
     /// Build a minimal JobCtx backed by a real CancelToken.
     ///
-    /// `ProgressHandle::new` is `pub(crate)`, so we can call it from inside
-    /// the crate. `DatabaseConnection` cannot be built without a live pool,
-    /// so we create the `ProgressHandle` via an unsafe read of a correctly-
-    /// aligned zeroed allocation and wrap the whole `JobCtx` in `ManuallyDrop`
-    /// to prevent Drop from running on the null Arc inside DatabaseConnection.
-    ///
-    /// SAFETY: no test handler calls `ctx.progress.set()`, so the null DB
-    /// connection is never dereferenced.
-    fn make_ctx() -> std::mem::ManuallyDrop<JobCtx> {
+    /// sea-orm's `DatabaseConnection::default()` is the `Disconnected` variant —
+    /// perfectly constructible without a live pool. (`set()` is never called by
+    /// these tests, so the disconnected handle is never used.)
+    fn make_ctx() -> JobCtx {
         use crate::types::{CancelToken, ProgressHandle};
 
-        let cancel = CancelToken::new();
-
-        // Allocate zeroed memory sized/aligned for ProgressHandle and read it
-        // out as the type. This is the only constructor available without a
-        // real DatabaseConnection; set() is never called in these tests so the
-        // null internal Arc is never touched.
-        let layout = std::alloc::Layout::new::<ProgressHandle>();
-        // SAFETY: layout is non-zero (ProgressHandle contains at least a u64).
-        let ptr = unsafe { std::alloc::alloc_zeroed(layout) };
-        // SAFETY: ptr points to ProgressHandle-sized zeroed memory.
-        let progress: ProgressHandle = unsafe { std::ptr::read(ptr as *const ProgressHandle) };
-        // Leak the raw allocation; progress owns the bytes now via ptr::read.
-        // We'll suppress its Drop below.
-
-        // Wrap in ManuallyDrop so neither `progress` nor the enclosing `JobCtx`
-        // run their destructors — the zeroed Arc<InnerConnection> inside
-        // DatabaseConnection would segfault on decrement.
-        let ctx = JobCtx { cancel, progress };
-        std::mem::ManuallyDrop::new(ctx)
+        let progress = ProgressHandle::new(
+            sea_orm::DatabaseConnection::default(),
+            0,
+            "test".to_string(),
+            None,
+        );
+        JobCtx {
+            cancel: CancelToken::new(),
+            progress,
+        }
     }
 
     // ── HandlerRegistry::new / default ────────────────────────────────────
