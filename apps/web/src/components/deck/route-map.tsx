@@ -68,6 +68,15 @@ export function RouteMap() {
 	);
 	// "Last seen after" filter (epoch seconds); 0 = show all.
 	const lastSeen = useLastSeen();
+
+	// Calc settings persist across route edits (shared global key, like last seen).
+	// Declared before the markers so the spawnpoint fetch can honor its tth.
+	const calc = useCalc(undefined, CALC_PERSIST_KEY);
+	// Separate instance so the loaded-route stats job never disturbs the main
+	// calc's result (which writes back into the route geometry). Not persisted —
+	// its params are throwaway (only radius/minPoints from `calc` feed stats).
+	const statsCalc = useCalc();
+
 	const showCats = routeModeMarkerCategories(routeMode);
 	const want = (c: MarkerCategory) => !!fenceFeature && showCats.includes(c);
 	const gyms = useMarkers(
@@ -84,12 +93,16 @@ export function RouteMap() {
 		lastSeen.epoch,
 		want("pokestop"),
 	);
+	// tth rides along so the spawnpoint preview AND the derived routeStats
+	// dataPoints honor the confirmed/unconfirmed filter — otherwise changing tth
+	// wouldn't refetch and the stats would go stale.
 	const spawns = useMarkers(
 		"spawnpoint",
 		markerArea,
 		markerBbox,
 		lastSeen.epoch,
 		want("spawnpoint"),
+		calc.params.tth,
 	);
 	const stations = useMarkers(
 		"station",
@@ -98,13 +111,6 @@ export function RouteMap() {
 		lastSeen.epoch,
 		want("station"),
 	);
-
-	// Calc settings persist across route edits (shared global key, like last seen).
-	const calc = useCalc(undefined, CALC_PERSIST_KEY);
-	// Separate instance so the loaded-route stats job never disturbs the main
-	// calc's result (which writes back into the route geometry). Not persisted —
-	// its params are throwaway (only radius/minPoints from `calc` feed stats).
-	const statsCalc = useCalc();
 
 	// A succeeded calc result → the route's geometry (MultiPoint of ordered points).
 	useEffect(() => {

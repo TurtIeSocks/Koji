@@ -95,6 +95,11 @@ function PlaygroundBody() {
 	);
 	// "Last seen after" filter (epoch seconds); 0 = show all.
 	const lastSeen = useLastSeen();
+
+	// Calc settings persist across sessions (shared global key, like last seen).
+	// Declared before the markers so the spawnpoint fetch can honor its tth.
+	const calc = useCalc(undefined, CALC_PERSIST_KEY);
+
 	const showCats = routeModeMarkerCategories(mode);
 	const want = (c: MarkerCategory) => !!geometry && showCats.includes(c);
 	const gyms = useMarkers("gym", area, bbox, lastSeen.epoch, want("gym"));
@@ -105,12 +110,15 @@ function PlaygroundBody() {
 		lastSeen.epoch,
 		want("pokestop"),
 	);
+	// tth rides along so the spawnpoint preview honors the confirmed/unconfirmed
+	// filter (matches the calc, which already sends tth).
 	const spawns = useMarkers(
 		"spawnpoint",
 		area,
 		bbox,
 		lastSeen.epoch,
 		want("spawnpoint"),
+		calc.params.tth,
 	);
 	const stations = useMarkers(
 		"station",
@@ -119,9 +127,6 @@ function PlaygroundBody() {
 		lastSeen.epoch,
 		want("station"),
 	);
-
-	// Calc settings persist across sessions (shared global key, like last seen).
-	const calc = useCalc(undefined, CALC_PERSIST_KEY);
 
 	const onRun = () => {
 		if (!geometry) return;
