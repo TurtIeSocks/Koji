@@ -242,6 +242,15 @@ impl JobQueue {
         // without waiting for the next poll tick.
         let (tx, rx) = oneshot::channel::<JobOutcome>();
         self.waiters.entry(key.clone()).or_default().push(tx);
+        // Prune our sender on EVERY exit path. Only notify_local_waiters used
+        // to remove entries, so returns via the post-registration re-check,
+        // the DB-poll arm (job finished in another process), or the timeout
+        // left a dead sender in the map for the process lifetime — unbounded
+        // growth on long-running servers.
+        let _prune = WaiterPruneGuard {
+            waiters: &self.waiters,
+            key: key.clone(),
+        };
 
         // Re-check after registering: the job may have completed in the race
         // between the fast-path check and the waiter registration, in which case
@@ -478,8 +487,12 @@ impl JobQueue {
                 .await?;
                 txn.commit().await?;
 
-                // Notify any local waiters that this job failed.
+                // Terminal transition performed outside the worker: honor the
+                // JobEventSink contract + wake local waiters.
                 if let Some(public_id) = self.public_id_of(id).await? {
+                    if let Some(sink) = &self.event_sink {
+                        sink.on_job_status(&public_id, "failed", 0.0, None);
+                    }
                     self.notify_local_waiters(
                         &public_id,
                         JobOutcome::Failed {
@@ -652,4 +665,24 @@ fn canonical_json(value: &serde_json::Value) -> String {
     }
     // Serializing a BTreeMap-backed Value yields sorted-key output deterministically.
     serde_json::to_string(&canonicalize(value)).unwrap_or_default()
+}
+
+/// Drop guard that removes `await_result`'s own (now-closed) sender from the
+/// waiter registry, deleting the entry when it empties.
+struct WaiterPruneGuard<'a> {
+    waiters: &'a DashMap<String, Vec<oneshot::Sender<JobOutcome>>>,
+    key: String,
+}
+
+impl Drop for WaiterPruneGuard<'_> {
+    fn drop(&mut self) {
+        if let Some(mut entry) = self.waiters.get_mut(&self.key) {
+            entry.retain(|tx| !tx.is_closed());
+            let empty = entry.is_empty();
+            drop(entry);
+            if empty {
+                self.waiters.remove_if(&self.key, |_, v| v.is_empty());
+            }
+        }
+    }
 }
