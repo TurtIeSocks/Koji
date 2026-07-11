@@ -60,12 +60,20 @@ impl WebhookSubscriber {
         WebhookSubscriber { http, db }
     }
 
-    /// Build a subscriber with a default [`reqwest::Client`].
+    /// Build a subscriber with a default [`reqwest::Client`] carrying a total
+    /// request timeout. A timeout-less client let one endpoint that accepted
+    /// the connection but never responded hang `deliver_to` forever — and since
+    /// the dispatcher heartbeat keeps renewing the lease, the stuck event was
+    /// never reclaimed and the single dispatch loop stalled process-wide.
     pub fn with_default_client(db: DatabaseConnection) -> Self {
-        WebhookSubscriber {
-            http: reqwest::Client::new(),
-            db,
-        }
+        let http = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .build()
+            // Same failure semantics as reqwest::Client::new(), which panics on
+            // TLS-backend init failure.
+            .expect("failed to build default webhook HTTP client");
+        WebhookSubscriber { http, db }
     }
 
     /// Load every active subscription row. (Topic filtering happens in Rust —
