@@ -563,18 +563,28 @@ pub async fn start() -> io::Result<()> {
     let _workers = Arc::clone(&jobs).spawn_workers(concurrency, registry);
     log::info!("[koji] spawned {concurrency} job worker(s)");
 
+    // Build the nominatim client once, before the server: a malformed
+    // NOMINATIM_URL fails startup with a clear error instead of panicking
+    // repeatedly inside each worker factory. Client derives Clone.
+    let nominatim_url = env::var("NOMINATIM_URL")
+        .unwrap_or_else(|_| "https://nominatim.openstreetmap.org/".to_string());
+    let nominatim_client = nominatim::Client::new(
+        url::Url::parse(&nominatim_url).map_err(|e| {
+            io::Error::other(format!("invalid NOMINATIM_URL {nominatim_url:?}: {e}"))
+        })?,
+        "nominatim-rust/0.1.0 test-suite".to_string(),
+        None,
+    )
+    .map_err(|e| io::Error::other(format!("failed to build nominatim client: {e}")))?;
+
+    let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+    let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
+    let port: u16 = port
+        .parse()
+        .map_err(|e| io::Error::other(format!("invalid PORT {port:?}: {e}")))?;
+
     HttpServer::new(move || {
-        let client = nominatim::Client::new(
-            url::Url::parse(
-                env::var("NOMINATIM_URL")
-                    .unwrap_or("https://nominatim.openstreetmap.org/".to_string())
-                    .as_str(),
-            )
-            .unwrap(),
-            "nominatim-rust/0.1.0 test-suite".to_string(),
-            None,
-        )
-        .unwrap();
+        let client = nominatim_client.clone();
 
         App::new()
             .app_data(web::Data::new(databases.clone()))
@@ -666,13 +676,7 @@ pub async fn start() -> io::Result<()> {
             // don't claim; unknown paths fall back to index.html (SPA routing).
             .default_service(web::route().to(serve_web))
     })
-    .bind((
-        std::env::var("HOST").unwrap_or("0.0.0.0".to_string()),
-        std::env::var("PORT")
-            .unwrap_or("8080".to_string())
-            .parse::<u16>()
-            .unwrap(),
-    ))?
+    .bind((host, port))?
     .run()
     .await
 }
