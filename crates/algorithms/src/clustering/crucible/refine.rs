@@ -396,6 +396,99 @@ impl<'a> Refiner<'a> {
         }
     }
 
+    /// Snapshot of live centers for pass-local neighbor discovery:
+    /// `(live indices, rtree over their positions, S2-L20 cell → center-index
+    /// multimap)`. Staleness is handled by the passes' `live[]` re-checks.
+    /// Multi-map because two centers can share an S2 level-20 cell.
+    fn live_center_index(
+        &self,
+        radius: Precision,
+    ) -> (
+        Vec<usize>,
+        rstar::RTree<crate::rtree::point::Point>,
+        HashMap<u64, Vec<usize>>,
+    ) {
+        let live_idx: Vec<usize> = (0..self.pos.len()).filter(|&i| self.live[i]).collect();
+        let live_pos: SingleVec = live_idx.iter().map(|&i| self.pos[i]).collect();
+        let center_tree = rtree::spawn(radius, &live_pos);
+        let mut cell_to_centers: HashMap<u64, Vec<usize>> = HashMap::new();
+        for (k, &i) in live_idx.iter().enumerate() {
+            let id = CellID::from(LatLng::from_degrees(live_pos[k][0], live_pos[k][1])).parent(20);
+            cell_to_centers.entry(id.0).or_default().push(i);
+        }
+        (live_idx, center_tree, cell_to_centers)
+    }
+
+    /// Dirty-region gating: the candidates whose region changed since `seen`
+    /// last scanned them, plus the epoch snapshot to `mark_seen` afterwards.
+    fn dirty_snapshot(
+        &self,
+        seen: &HashMap<u64, u64>,
+        candidates: &[usize],
+    ) -> (Vec<usize>, Vec<(u64, u64)>) {
+        let dirty_idx: Vec<usize> = candidates
+            .iter()
+            .copied()
+            .filter(|&i| self.is_dirty(seen, self.pos[i]))
+            .collect();
+        let cells: HashMap<u64, u64> = dirty_idx
+            .iter()
+            .map(|&i| {
+                let cell = self.region_of(self.pos[i]);
+                let ep = self.region_epoch.get(&cell).copied().unwrap_or(1);
+                (cell, ep)
+            })
+            .collect();
+        (dirty_idx, cells.into_iter().collect())
+    }
+
+    /// `i`'s ≤ `k` nearest live neighbors via the pass-local center index,
+    /// nearest-first with index tiebreak. NOTE: the cell multi-map can yield
+    /// the same center index more than once (two centers sharing an S2 L20
+    /// cell each map the other's tree point back to the full cell bucket) —
+    /// this dedupes BEFORE truncating; a duplicated index would double-kill a
+    /// center and corrupt the coverage counts.
+    fn nearest_live_neighbors(
+        &self,
+        i: usize,
+        center_tree: &rstar::RTree<crate::rtree::point::Point>,
+        cell_to_centers: &HashMap<u64, Vec<usize>>,
+        k: usize,
+    ) -> Vec<usize> {
+        let mut neigh: Vec<(Precision, usize)> = center_tree
+            .locate_all_at_point(self.pos[i])
+            .filter_map(|pt| cell_to_centers.get(&pt.cell_id.0))
+            .flatten()
+            .copied()
+            .filter(|&j| j != i && self.live[j])
+            .map(|j| (haversine_m(self.pos[i], self.pos[j]), j))
+            .collect();
+        neigh.sort_by(|a, b| {
+            a.0.partial_cmp(&b.0)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then(a.1.cmp(&b.1))
+        });
+        neigh.dedup_by_key(|&mut (_, j)| j);
+        neigh.truncate(k);
+        neigh.into_iter().map(|(_, j)| j).collect()
+    }
+
+    /// Commit center `i`'s move to `cand` with coverage `new_cov`: swap the
+    /// per-point counts, update pos/covered, and bump both regions' epochs.
+    fn move_center(&mut self, i: usize, cand: PointArray, new_cov: Vec<u32>) {
+        for &r in &self.covered[i] {
+            self.count[r as usize] -= 1;
+        }
+        for &r in &new_cov {
+            self.count[r as usize] += 1;
+        }
+        let old_pos = self.pos[i];
+        self.pos[i] = cand;
+        self.covered[i] = new_cov;
+        self.bump_footprint(old_pos);
+        self.bump_footprint(cand);
+    }
+
     fn exclusive_of(&self, i: usize) -> Vec<u32> {
         self.covered[i]
             .iter()
@@ -446,20 +539,8 @@ impl<'a> Refiner<'a> {
     fn relocate_pass(&mut self) -> bool {
         // Dirty-region gating: only centers whose neighborhood changed since
         // this pass last scanned them are searched again.
-        let candidates: Vec<usize> = (0..self.pos.len())
-            .filter(|&i| self.live[i] && self.is_dirty(&self.relocate_seen, self.pos[i]))
-            .collect();
-        let snapshot: Vec<(u64, u64)> = {
-            let cells: HashMap<u64, u64> = candidates
-                .iter()
-                .map(|&i| {
-                    let cell = self.region_of(self.pos[i]);
-                    let ep = self.region_epoch.get(&cell).copied().unwrap_or(1);
-                    (cell, ep)
-                })
-                .collect();
-            cells.into_iter().collect()
-        };
+        let live: Vec<usize> = (0..self.pos.len()).filter(|&i| self.live[i]).collect();
+        let (candidates, snapshot) = self.dirty_snapshot(&self.relocate_seen, &live);
 
         // Propose in parallel against the current snapshot (the search is the
         // expensive part), then apply serially in index order with cheap
@@ -490,17 +571,7 @@ impl<'a> Refiner<'a> {
                 .filter(|&&r| self.count[r as usize] == 0)
                 .count();
             if captured > 0 || new_cov.len() > self.covered[i].len() {
-                for &r in &self.covered[i] {
-                    self.count[r as usize] -= 1;
-                }
-                for &r in &new_cov {
-                    self.count[r as usize] += 1;
-                }
-                let old_pos = self.pos[i];
-                self.pos[i] = cand;
-                self.covered[i] = new_cov;
-                self.bump_footprint(old_pos);
-                self.bump_footprint(cand);
+                self.move_center(i, cand, new_cov);
                 changed = true;
             }
         }
@@ -631,33 +702,11 @@ impl<'a> Refiner<'a> {
         // Snapshot of live centers for neighbor discovery; staleness handled
         // by live[] re-checks. Multi-map because two centers can share an
         // S2 level-20 cell.
-        let live_idx: Vec<usize> = (0..self.pos.len()).filter(|&i| self.live[i]).collect();
-        let live_pos: SingleVec = live_idx.iter().map(|&i| self.pos[i]).collect();
-        let center_tree = rtree::spawn(4.0 * radius, &live_pos);
-        let mut cell_to_centers: HashMap<u64, Vec<usize>> = HashMap::new();
-        for (k, &i) in live_idx.iter().enumerate() {
-            let id = CellID::from(LatLng::from_degrees(live_pos[k][0], live_pos[k][1])).parent(20);
-            cell_to_centers.entry(id.0).or_default().push(i);
-        }
+        let (live_idx, center_tree, cell_to_centers) = self.live_center_index(4.0 * radius);
 
         // Dirty-region gating: only centers in changed regions look for
         // partners (a viable partner's mutation bumps this center's region).
-        let dirty_idx: Vec<usize> = live_idx
-            .iter()
-            .copied()
-            .filter(|&i| self.is_dirty(&self.merge_seen, self.pos[i]))
-            .collect();
-        let snapshot: Vec<(u64, u64)> = {
-            let cells: HashMap<u64, u64> = dirty_idx
-                .iter()
-                .map(|&i| {
-                    let cell = self.region_of(self.pos[i]);
-                    let ep = self.region_epoch.get(&cell).copied().unwrap_or(1);
-                    (cell, ep)
-                })
-                .collect();
-            cells.into_iter().collect()
-        };
+        let (dirty_idx, snapshot) = self.dirty_snapshot(&self.merge_seen, &live_idx);
 
         // Parallel propose: each dirty center finds its first feasible merge
         // partner on the snapshot. Serial apply revalidates liveness and the
@@ -742,32 +791,10 @@ impl<'a> Refiner<'a> {
     /// Subsumes 3→2 swaps and adds 4→3 / 4→2 / mixed-abandonment moves.
     /// Groups are bounded, so the pass stays near-linear in centers.
     fn swap_group_pass(&mut self) -> bool {
-        let live_idx: Vec<usize> = (0..self.pos.len()).filter(|&i| self.live[i]).collect();
-        let live_pos: SingleVec = live_idx.iter().map(|&i| self.pos[i]).collect();
-        let center_tree = rtree::spawn(4.0 * self.r_eff, &live_pos);
-        let mut cell_to_centers: HashMap<u64, Vec<usize>> = HashMap::new();
-        for (k, &i) in live_idx.iter().enumerate() {
-            let id = CellID::from(LatLng::from_degrees(live_pos[k][0], live_pos[k][1])).parent(20);
-            cell_to_centers.entry(id.0).or_default().push(i);
-        }
+        let (live_idx, center_tree, cell_to_centers) = self.live_center_index(4.0 * self.r_eff);
 
         // Dirty-region gating, as in merge_pass.
-        let dirty_idx: Vec<usize> = live_idx
-            .iter()
-            .copied()
-            .filter(|&i| self.is_dirty(&self.swap_seen, self.pos[i]))
-            .collect();
-        let snapshot: Vec<(u64, u64)> = {
-            let cells: HashMap<u64, u64> = dirty_idx
-                .iter()
-                .map(|&i| {
-                    let cell = self.region_of(self.pos[i]);
-                    let ep = self.region_epoch.get(&cell).copied().unwrap_or(1);
-                    (cell, ep)
-                })
-                .collect();
-            cells.into_iter().collect()
-        };
+        let (dirty_idx, snapshot) = self.dirty_snapshot(&self.swap_seen, &live_idx);
 
         // Parallel propose: each dirty center forms a group with its ≤3
         // nearest neighbors and re-solves the group's required points with
@@ -779,31 +806,12 @@ impl<'a> Refiner<'a> {
         let proposals: Vec<(Vec<usize>, Vec<PointArray>)> = dirty_idx
             .par_iter()
             .filter_map(|&i| {
-                // NOTE: the cell multi-map can yield the same center index
-                // more than once (two centers sharing an S2 L20 cell each map
-                // the other's tree point back to the full cell bucket).
-                // Dedupe before forming groups — a duplicated index would
-                // double-kill a center and corrupt the coverage counts.
-                let mut neigh: Vec<(Precision, usize)> = center_tree
-                    .locate_all_at_point(this.pos[i])
-                    .filter_map(|pt| cell_to_centers.get(&pt.cell_id.0))
-                    .flatten()
-                    .copied()
-                    .filter(|&j| j != i && this.live[j])
-                    .map(|j| (haversine_m(this.pos[i], this.pos[j]), j))
-                    .collect();
-                neigh.sort_by(|a, b| {
-                    a.0.partial_cmp(&b.0)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                        .then(a.1.cmp(&b.1))
-                });
-                neigh.dedup_by_key(|&mut (_, j)| j);
-                neigh.truncate(3);
+                let neigh = this.nearest_live_neighbors(i, &center_tree, &cell_to_centers, 3);
                 if neigh.is_empty() {
                     return None;
                 }
                 let mut group = vec![i];
-                group.extend(neigh.iter().map(|&(_, j)| j));
+                group.extend(neigh.iter().copied());
 
                 let required = this.required_of_group(&group);
                 if required.is_empty() || required.len() > super::exact::MAX_EXACT_POINTS {
@@ -872,42 +880,17 @@ impl<'a> Refiner<'a> {
     /// points, which dense m=1 quads routinely exceed — this tier keeps those
     /// moves alive. Runs at stalls before the exact tier.
     fn swap32_pass(&mut self) -> bool {
-        let live_idx: Vec<usize> = (0..self.pos.len()).filter(|&i| self.live[i]).collect();
-        let live_pos: SingleVec = live_idx.iter().map(|&i| self.pos[i]).collect();
-        let center_tree = rtree::spawn(4.0 * self.r_eff, &live_pos);
-        let mut cell_to_centers: HashMap<u64, Vec<usize>> = HashMap::new();
-        for (k, &i) in live_idx.iter().enumerate() {
-            let id = CellID::from(LatLng::from_degrees(live_pos[k][0], live_pos[k][1])).parent(20);
-            cell_to_centers.entry(id.0).or_default().push(i);
-        }
-        let dirty_idx: Vec<usize> = live_idx
-            .iter()
-            .copied()
-            .filter(|&i| self.is_dirty(&self.swap_seen, self.pos[i]))
-            .collect();
+        let (live_idx, center_tree, cell_to_centers) = self.live_center_index(4.0 * self.r_eff);
+        let (dirty_idx, _snapshot) = self.dirty_snapshot(&self.swap_seen, &live_idx);
 
         let this = &*self;
         let proposals: Vec<(usize, usize, usize, PointArray, PointArray)> = dirty_idx
             .par_iter()
             .filter_map(|&i| {
-                let mut neigh: Vec<(Precision, usize)> = center_tree
-                    .locate_all_at_point(this.pos[i])
-                    .filter_map(|pt| cell_to_centers.get(&pt.cell_id.0))
-                    .flatten()
-                    .copied()
-                    .filter(|&j| j != i && this.live[j])
-                    .map(|j| (haversine_m(this.pos[i], this.pos[j]), j))
-                    .collect();
-                neigh.sort_by(|a, b| {
-                    a.0.partial_cmp(&b.0)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                        .then(a.1.cmp(&b.1))
-                });
-                neigh.dedup_by_key(|&mut (_, j)| j);
-                neigh.truncate(4);
+                let neigh = this.nearest_live_neighbors(i, &center_tree, &cell_to_centers, 4);
                 for a in 0..neigh.len() {
                     for b in (a + 1)..neigh.len() {
-                        let (j, k) = (neigh[a].1, neigh[b].1);
+                        let (j, k) = (neigh[a], neigh[b]);
                         if let Some((p1, p2)) = this.propose_swap32(i, j, k) {
                             return Some((i, j, k, p1, p2));
                         }
@@ -1533,17 +1516,7 @@ impl<'a> Refiner<'a> {
                 continue;
             }
             let new_cov = self.query_covered(cand);
-            for &r in &self.covered[i] {
-                self.count[r as usize] -= 1;
-            }
-            for &r in &new_cov {
-                self.count[r as usize] += 1;
-            }
-            let old_pos = self.pos[i];
-            self.pos[i] = cand;
-            self.covered[i] = new_cov;
-            self.bump_footprint(old_pos);
-            self.bump_footprint(cand);
+            self.move_center(i, cand, new_cov);
             changed = true;
         }
         changed
@@ -1634,17 +1607,7 @@ impl<'a> Refiner<'a> {
                 continue;
             }
             let new_cov = self.query_covered(cand);
-            for &r in &self.covered[i] {
-                self.count[r as usize] -= 1;
-            }
-            for &r in &new_cov {
-                self.count[r as usize] += 1;
-            }
-            let old_pos = self.pos[i];
-            self.pos[i] = cand;
-            self.covered[i] = new_cov;
-            self.bump_footprint(old_pos);
-            self.bump_footprint(cand);
+            self.move_center(i, cand, new_cov);
             changed = true;
         }
         changed
