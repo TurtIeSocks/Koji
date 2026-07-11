@@ -2712,8 +2712,6 @@ dependencies = [
 name = "koji"
 version = "1.5.4"
 dependencies = [
- "dotenv",
- "env_logger",
  "koji-service",
  "log",
  "tikv-jemallocator",
@@ -2724,8 +2722,6 @@ name = "koji-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "dotenv",
- "env_logger",
  "koji-db",
  "koji-jobs",
  "koji-service",
@@ -2858,6 +2854,8 @@ dependencies = [
  "algorithms",
  "async-trait",
  "awc",
+ "dotenv",
+ "env_logger",
  "futures-util",
  "geo",
  "geojson",

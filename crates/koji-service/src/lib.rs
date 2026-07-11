@@ -56,6 +56,20 @@ async fn serve_web(req: HttpRequest) -> HttpResponse {
         })
 }
 
+/// Process bootstrap shared by the server and CLI binaries: load `.env` (or
+/// the file named by `ENV`) and initialize `env_logger` from `LOG_LEVEL`
+/// (default `info`) to stdout. Was previously copy-pasted per binary, letting
+/// ENV/LOG_LEVEL semantics silently drift between them.
+pub fn init_env_and_logging() {
+    dotenv::from_filename(std::env::var("ENV").unwrap_or_else(|_| ".env".to_string())).ok();
+    let mut builder = env_logger::Builder::from_env(
+        env_logger::Env::new()
+            .default_filter_or(std::env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string())),
+    );
+    builder.target(env_logger::Target::Stdout);
+    builder.init();
+}
+
 /// The DB-backed `/api/v2` services (jobs + CRUD resources + webhooks +
 /// plugins) shared by prod `start()` and the DB-backed test apps — registered
 /// in exactly ONE place so a new resource can't land in prod and silently miss

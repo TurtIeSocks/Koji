@@ -63,27 +63,39 @@ pub async fn get_database_struct() -> KojiDb {
     };
     let enable_logging = log_level == LevelFilter::Trace || log_level == LevelFilter::Debug;
 
+    async fn connect(
+        url: String,
+        max_connections: u32,
+        log_level: LevelFilter,
+        enable_logging: bool,
+        label: &str,
+    ) -> DatabaseConnection {
+        let mut opt = ConnectOptions::new(url);
+        opt.max_connections(max_connections);
+        opt.sqlx_logging_level(log_level);
+        opt.sqlx_logging(enable_logging);
+        Database::connect(opt)
+            .await
+            .unwrap_or_else(|err| panic!("Cannot connect to {label} DB: {err}"))
+    }
+
     KojiDb {
-        golbat: {
-            let mut opt = ConnectOptions::new(golbat_db_url);
-            opt.max_connections(max_connections);
-            opt.sqlx_logging_level(log_level);
-            opt.sqlx_logging(enable_logging);
-            match Database::connect(opt).await {
-                Ok(db) => db,
-                Err(err) => panic!("Cannot connect to Golbat DB: {}", err),
-            }
-        },
-        koji: {
-            let mut opt = ConnectOptions::new(koji_db_url);
-            opt.max_connections(max_connections);
-            opt.sqlx_logging_level(log_level);
-            opt.sqlx_logging(enable_logging);
-            match Database::connect(opt).await {
-                Ok(db) => db,
-                Err(err) => panic!("Cannot connect to Kōji DB: {}", err),
-            }
-        },
+        golbat: connect(
+            golbat_db_url,
+            max_connections,
+            log_level,
+            enable_logging,
+            "Golbat",
+        )
+        .await,
+        koji: connect(
+            koji_db_url,
+            max_connections,
+            log_level,
+            enable_logging,
+            "Kōji",
+        )
+        .await,
     }
 }
 

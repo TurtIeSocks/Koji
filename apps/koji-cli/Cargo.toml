@@ -14,7 +14,5 @@ koji-jobs    = { workspace = true }
 koji-service = { workspace = true }
 clap         = { workspace = true }
 tokio        = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
-dotenv       = { workspace = true }
-env_logger   = { workspace = true }
 log          = { workspace = true }
 serde_json   = { workspace = true }
