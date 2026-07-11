@@ -20,11 +20,13 @@ import { geometryBounds } from "./bounds";
 import { CalcControls } from "./calc-controls";
 import { DeckGeoJsonInput } from "./deck-geojson-input";
 import { featuresToGeofence, geofenceToFeatures } from "./geofence-geometry";
+import { LastSeenPicker } from "./last-seen-picker";
 import { loadCamera, saveCamera } from "./map-camera-storage";
 import { routeModeMarkerCategories, routeModeToCategory } from "./route-mode";
 import { SaveDialog, type SavePayload } from "./save-dialog";
 import { useCalc } from "./use-calc";
 import { useGeometryHistory } from "./use-geometry-history";
+import { useLastSeen } from "./use-last-seen";
 
 const WORLD: Bounds = [-180, -85, 180, 85];
 const EMPTY_FC: GeoJSON.FeatureCollection = {
@@ -89,12 +91,14 @@ function PlaygroundBody() {
 		() => (geometry ? (geometryBounds(geometry) ?? WORLD) : WORLD),
 		[geometry],
 	);
+	// "Last seen after" filter (epoch seconds); 0 = show all.
+	const lastSeen = useLastSeen();
 	const showCats = routeModeMarkerCategories(mode);
 	const want = (c: MarkerCategory) => !!geometry && showCats.includes(c);
-	const gyms = useMarkers("gym", area, bbox, 0, want("gym"));
-	const stops = useMarkers("pokestop", area, bbox, 0, want("pokestop"));
-	const spawns = useMarkers("spawnpoint", area, bbox, 0, want("spawnpoint"));
-	const stations = useMarkers("station", area, bbox, 0, want("station"));
+	const gyms = useMarkers("gym", area, bbox, lastSeen.epoch, want("gym"));
+	const stops = useMarkers("pokestop", area, bbox, lastSeen.epoch, want("pokestop"));
+	const spawns = useMarkers("spawnpoint", area, bbox, lastSeen.epoch, want("spawnpoint"));
+	const stations = useMarkers("station", area, bbox, lastSeen.epoch, want("station"));
 
 	const calc = useCalc();
 
@@ -271,7 +275,7 @@ function PlaygroundBody() {
 					}
 				/>
 			</div>
-			<div className="absolute top-2 right-2 z-10 flex items-center gap-2">
+			<div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-2">
 				<div className="flex gap-1 rounded-md border bg-background/95 p-1 shadow-sm backdrop-blur">
 					{DATA_MODES.map((m) => (
 						<Button
@@ -285,6 +289,7 @@ function PlaygroundBody() {
 						</Button>
 					))}
 				</div>
+				<LastSeenPicker value={lastSeen.value} onChange={lastSeen.setValue} />
 			</div>
 		</>
 	);

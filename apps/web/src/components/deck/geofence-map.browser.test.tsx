@@ -30,4 +30,17 @@ describe("GeofenceMap", () => {
     // rides as `area`; bbox of poly = [0,0,2,2] is the fallback.
     expect(useMarkers).toHaveBeenCalledWith("gym", poly, [0, 0, 2, 2], expect.anything(), expect.anything());
   });
+
+  it("renders the last-seen date picker", async () => {
+    const screen = render(
+      <AdminContext dataProvider={testDataProvider()}>
+        <RecordContextProvider value={{ id: 1, geometry: poly }}>
+          <SimpleForm onSubmit={() => {}} record={{ id: 1, geometry: poly }}>
+            <GeofenceMap />
+          </SimpleForm>
+        </RecordContextProvider>
+      </AdminContext>,
+    );
+    await expect.element(screen.getByLabelText("Last seen after")).toBeInTheDocument();
+  });
 });

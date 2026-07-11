@@ -10,6 +10,8 @@ import { useStartCenter } from "@/lib/use-start-center";
 import { geometryBounds } from "./bounds";
 import { DeckGeoJsonInput } from "./deck-geojson-input";
 import { featuresToGeofence, geofenceToFeatures } from "./geofence-geometry";
+import { LastSeenPicker } from "./last-seen-picker";
+import { useLastSeen } from "./use-last-seen";
 
 const WORLD: Bounds = [-180, -85, 180, 85];
 
@@ -33,12 +35,15 @@ export function GeofenceMap() {
 		spawnpoints: false,
 		s2: false,
 	});
+	// "Last seen after" filter (epoch seconds) — only points updated since the
+	// picked datetime; 0 = show all.
+	const lastSeen = useLastSeen();
 	// Gate data fetches on having a geometry — on create there's no fence yet, so
 	// area/bbox would be the whole world (a catastrophic golbat query).
 	const hasGeom = !!geometry;
-	const gyms = useMarkers("gym", area, bbox, 0, show.gyms && hasGeom);
-	const stops = useMarkers("pokestop", area, bbox, 0, show.pokestops && hasGeom);
-	const spawns = useMarkers("spawnpoint", area, bbox, 0, show.spawnpoints && hasGeom);
+	const gyms = useMarkers("gym", area, bbox, lastSeen.epoch, show.gyms && hasGeom);
+	const stops = useMarkers("pokestop", area, bbox, lastSeen.epoch, show.pokestops && hasGeom);
+	const spawns = useMarkers("spawnpoint", area, bbox, lastSeen.epoch, show.spawnpoints && hasGeom);
 	const s2 = useS2Cells(15, bbox, show.s2 && hasGeom);
 
 	// Empty (create) start view: the server's configured center, not [0,0].
@@ -94,7 +99,7 @@ export function GeofenceMap() {
 
 	return (
 		<div className="flex flex-col gap-2">
-			<div className="flex flex-wrap gap-1">
+			<div className="flex flex-wrap items-center gap-1">
 				{(["gyms", "pokestops", "spawnpoints", "s2"] as const).map((k) => (
 					<Button
 						key={k}
@@ -107,6 +112,11 @@ export function GeofenceMap() {
 						{k}
 					</Button>
 				))}
+				<LastSeenPicker
+					value={lastSeen.value}
+					onChange={lastSeen.setValue}
+					className="ml-auto"
+				/>
 			</div>
 			<DeckGeoJsonInput
 				source="geometry"

@@ -80,6 +80,11 @@ describe("RouteMap", () => {
     });
   });
 
+  it("renders the last-seen date picker", async () => {
+    const { screen } = renderRouteMap();
+    await expect.element(screen.getByLabelText("Last seen after")).toBeInTheDocument();
+  });
+
   it("a succeeded calc result becomes the route geometry (MultiPoint, no transpose)", async () => {
     resetCalc({
       result: {
@@ -108,7 +113,7 @@ describe("RouteMap", () => {
     // fort shows gym + station + pokestop; each is fetched with the fence polygon
     // as the area and enabled once the fence loads.
     await vi.waitFor(() => {
-      expect(markersMock).toHaveBeenCalledWith("gym", fencePoly, expect.anything(), 0, true);
+      expect(markersMock).toHaveBeenCalledWith("gym", fencePoly, expect.anything(), expect.any(Number), true);
     });
   });
 

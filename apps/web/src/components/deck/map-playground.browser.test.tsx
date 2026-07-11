@@ -36,5 +36,7 @@ describe("MapPlayground", () => {
     await expect.element(screen.getByRole("button", { name: "Undo" })).toBeDisabled();
     // Admin back-link (now at the top of the calc sidebar)
     await expect.element(screen.getByRole("link", { name: /Admin/ })).toBeInTheDocument();
+    // last-seen date picker
+    await expect.element(screen.getByLabelText("Last seen after")).toBeInTheDocument();
   });
 });

@@ -11,6 +11,8 @@ import { DeckMap } from "./deck-map";
 import { geometryBounds } from "./bounds";
 import { useCalc } from "./use-calc";
 import { CalcControls } from "./calc-controls";
+import { LastSeenPicker } from "./last-seen-picker";
+import { useLastSeen } from "./use-last-seen";
 import { routeModeToCategory, routeModeMarkerCategories } from "./route-mode";
 
 const WORLD: Bounds = [-180, -85, 180, 85];
@@ -42,12 +44,14 @@ export function RouteMap() {
     () => (fenceFeature?.geometry ? (geometryBounds(fenceFeature.geometry) ?? WORLD) : WORLD),
     [fenceFeature],
   );
+  // "Last seen after" filter (epoch seconds); 0 = show all.
+  const lastSeen = useLastSeen();
   const showCats = routeModeMarkerCategories(routeMode);
   const want = (c: MarkerCategory) => !!fenceFeature && showCats.includes(c);
-  const gyms = useMarkers("gym", markerArea, markerBbox, 0, want("gym"));
-  const stops = useMarkers("pokestop", markerArea, markerBbox, 0, want("pokestop"));
-  const spawns = useMarkers("spawnpoint", markerArea, markerBbox, 0, want("spawnpoint"));
-  const stations = useMarkers("station", markerArea, markerBbox, 0, want("station"));
+  const gyms = useMarkers("gym", markerArea, markerBbox, lastSeen.epoch, want("gym"));
+  const stops = useMarkers("pokestop", markerArea, markerBbox, lastSeen.epoch, want("pokestop"));
+  const spawns = useMarkers("spawnpoint", markerArea, markerBbox, lastSeen.epoch, want("spawnpoint"));
+  const stations = useMarkers("station", markerArea, markerBbox, lastSeen.epoch, want("station"));
 
   const calc = useCalc();
 
@@ -111,6 +115,9 @@ export function RouteMap() {
         <div className="absolute inset-y-0 left-0 z-10">
           <CalcControls calc={calc} category={category} onRun={onRun} disabled={areaMissing}
             disabledReason={areaMissing ? "Select a geofence first." : undefined} />
+        </div>
+        <div className="absolute right-2 top-2 z-10">
+          <LastSeenPicker value={lastSeen.value} onChange={lastSeen.setValue} />
         </div>
       </DeckMap>
     </div>
