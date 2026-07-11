@@ -62,11 +62,12 @@ impl DragoniteClient {
         let bytes = resp.bytes().await?;
         match parse_v2_with_meta::<T>(&bytes) {
             Ok(ok) => Ok(ok),
-            Err(DragoniteError::Decode(_)) if !status.is_success() => Err(DragoniteError::Api {
-                code: Some(format!("http_{}", status.as_u16())),
-                message: String::from_utf8_lossy(&bytes).trim().to_string(),
-                field: None,
-            }),
+            Err(DragoniteError::Decode(_)) if !status.is_success() => {
+                Err(DragoniteError::HttpStatus {
+                    status: status.as_u16(),
+                    body: String::from_utf8_lossy(&bytes).trim().to_string(),
+                })
+            }
             Err(e) => Err(e),
         }
     }

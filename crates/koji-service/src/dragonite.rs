@@ -60,23 +60,14 @@ impl DragoniteSubscriber {
 }
 
 /// Map a [`DragoniteError`] onto the subscriber-side [`DeliverError`] so the
-/// dispatcher's backoff/dead-letter logic sees the right category. A
-/// `http_<code>` API error (a non-2xx that still carried no parseable envelope)
-/// is surfaced as a [`DeliverError::Status`]; everything else is `Other`.
+/// dispatcher's backoff/dead-letter logic sees the right category. A non-2xx
+/// without a parseable envelope surfaces its typed HTTP status as
+/// [`DeliverError::Status`]; everything else is `Other`.
 fn to_deliver_error(e: DragoniteError) -> DeliverError {
     match e {
         DragoniteError::Http(err) => DeliverError::Http(err.to_string()),
-        DragoniteError::Api { code, message, .. } => {
-            if let Some(status) = code
-                .as_deref()
-                .and_then(|c| c.strip_prefix("http_"))
-                .and_then(|n| n.parse::<u16>().ok())
-            {
-                DeliverError::Status { status }
-            } else {
-                DeliverError::Other(message)
-            }
-        }
+        DragoniteError::HttpStatus { status, .. } => DeliverError::Status { status },
+        DragoniteError::Api { message, .. } => DeliverError::Other(message),
         DragoniteError::Decode(m) => DeliverError::Other(format!("decode: {m}")),
     }
 }
@@ -146,11 +137,10 @@ mod tests {
     }
 
     #[test]
-    fn http_status_api_error_maps_to_status() {
-        let e = DragoniteError::Api {
-            code: Some("http_404".to_string()),
-            message: "not found".to_string(),
-            field: None,
+    fn http_status_error_maps_to_status() {
+        let e = DragoniteError::HttpStatus {
+            status: 404,
+            body: "not found".to_string(),
         };
         assert!(matches!(
             to_deliver_error(e),

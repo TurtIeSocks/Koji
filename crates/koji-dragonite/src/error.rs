@@ -12,9 +12,9 @@ pub enum DragoniteError {
     Http(#[from] reqwest::Error),
 
     /// Dragonite returned a V2 `error` envelope (`{"status":"error","error":{…}}`).
-    /// `code` is the stable machine-readable [`V2ErrorCode`](crate::envelope::V2ApiError)
-    /// string; `field` names the offending request field when the error is a
-    /// per-field validation failure.
+    /// `code` is the stable machine-readable error-code string from
+    /// [`V2ApiError`](crate::envelope::V2ApiError); `field` names the offending
+    /// request field when the error is a per-field validation failure.
     #[error("dragonite api error: {message}{}{}",
         .code.as_ref().map(|c| format!(" (code: {c})")).unwrap_or_default(),
         .field.as_ref().map(|f| format!(" [field: {f}]")).unwrap_or_default())]
@@ -23,6 +23,12 @@ pub enum DragoniteError {
         message: String,
         field: Option<String>,
     },
+
+    /// A non-2xx response that carried no parseable V2 envelope: the raw HTTP
+    /// status plus body. Typed (not a stringly `http_<code>` Api code) so the
+    /// dispatcher-side backoff mapping can match on it directly.
+    #[error("dragonite http {status}: {body}")]
+    HttpStatus { status: u16, body: String },
 
     /// A response body did not match the expected shape — not a valid V2
     /// envelope, an `ok` envelope missing its `data`, or a `data` payload that
