@@ -162,7 +162,7 @@ impl Query {
             .collect();
 
         if args.sort_by == "geofences" {
-            json_related_sort(&mut results, &args.sort_by, args.order);
+            json_related_sort(&mut results, &args.sort_by, &args.order);
         }
 
         Ok(PaginateResults {

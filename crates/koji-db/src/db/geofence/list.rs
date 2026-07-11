@@ -102,7 +102,7 @@ impl Query {
             json_related_sort(
                 &mut results,
                 &args.sort_by.replace(".length", ""),
-                args.order,
+                &args.order,
             );
         }
 
