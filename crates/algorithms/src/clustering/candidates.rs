@@ -1,15 +1,8 @@
-use std::cell::RefCell;
-
 use koji_core::{KojiBbox, Precision, SingleVec};
 use macros::time;
-use rand::{RngExt, SeedableRng, rngs::SmallRng};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::utils;
-
-thread_local! {
-    static TLS_RNG: RefCell<SmallRng> = RefCell::new(SmallRng::from_rng(&mut rand::rng()));
-}
 
 pub fn generate_clusters_from_points(
     points: &[[Precision; 2]],
@@ -58,20 +51,35 @@ pub fn generate_cluster_candidates_grid(
             let i = idx / grid_density;
             let j = idx % grid_density;
 
-            // Jitter within the cell [0, step)
-            let (dj_lat, dj_lon) = TLS_RNG.with(|cell| {
-                let mut rng = cell.borrow_mut();
-                (
-                    rng.random::<Precision>() * lat_step,
-                    rng.random::<Precision>() * lon_step,
-                )
-            });
+            // Jitter within the cell [0, step) — DETERMINISTIC, keyed on the
+            // cell index (splitmix64). The jitter's job is only to break grid
+            // alignment with the data; an OS-seeded RNG here made every greedy
+            // run produce different candidates → different clusters → the
+            // long-standing "~1% nondeterminism". Same request, same route.
+            let h = splitmix64(idx as u64);
+            let dj_lat = unit_f64(h) * lat_step;
+            let dj_lon = unit_f64(splitmix64(h)) * lon_step;
 
             let lat = bbox.min_lat + (i as Precision) * lat_step + dj_lat;
             let lon = bbox.min_lon + (j as Precision) * lon_step + dj_lon;
             [lat, lon]
         })
         .collect()
+}
+
+/// SplitMix64 — tiny, high-quality, stateless mixer for index-keyed jitter.
+#[inline]
+fn splitmix64(x: u64) -> u64 {
+    let mut z = x.wrapping_add(0x9E3779B97F4A7C15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
+    z ^ (z >> 31)
+}
+
+/// Map a u64 to [0, 1) with 53-bit precision.
+#[inline]
+fn unit_f64(h: u64) -> Precision {
+    (h >> 11) as Precision / (1u64 << 53) as Precision
 }
 
 /// Convert radius in meters to approximate degrees

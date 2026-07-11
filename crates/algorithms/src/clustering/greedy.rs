@@ -68,7 +68,13 @@ impl<'a> Greedy {
         log::info!("starting algorithm with {} data points", points.len());
         let return_set = self.setup(points);
         log::info!("finished in {:.2}s", time.elapsed().as_secs_f32());
-        return_set.into_iter().map(|p| p.center).collect()
+        let mut out: SingleVec = return_set.into_iter().map(|p| p.center).collect();
+        // The solution SET is deterministic but it accumulated in a HashSet —
+        // random iteration order made downstream index tie-breaks (e.g. the
+        // max_clusters selector) wobble run-to-run. Fix the order.
+        // total_cmp per axis: NaN coords must not panic.
+        out.sort_by(|a, b| a[0].total_cmp(&b[0]).then(a[1].total_cmp(&b[1])));
+        out
     }
 
     /// Add clusters centered on previously-uncovered points when a single cluster
