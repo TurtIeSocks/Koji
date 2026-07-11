@@ -109,10 +109,7 @@ pub(crate) async fn golbat_data(
         &vec![],
     )
     .await
-    .map_err(|_| ServiceError::NotFound {
-        field: "geofence",
-        message: format!("no geofence {instance}"),
-    })?;
+    .map_err(ServiceError::not_found_or_db("geofence", format!("no geofence {instance}")))?;
 
     let points = utils::points_from_area(&area, &category, &conn, last_seen, SpawnpointTth::All)
         .await

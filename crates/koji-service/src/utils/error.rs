@@ -61,6 +61,20 @@ impl ServiceError {
         ServiceError::Internal(e.to_string())
     }
 
+    /// `map_err` adapter for `get_one`-style lookups: a genuine DB failure
+    /// (connection loss, timeout) stays a 500, everything else (row missing)
+    /// becomes the given 404. A blanket `|_| NotFound` here would make an
+    /// outage read as "record deleted" to clients and as 404s to monitoring.
+    pub(crate) fn not_found_or_db(
+        field: &'static str,
+        message: String,
+    ) -> impl FnOnce(ModelError) -> Self {
+        move |e| match e {
+            ModelError::Database(_) => ServiceError::Model(e),
+            _ => ServiceError::NotFound { field, message },
+        }
+    }
+
     /// Pure mapping to `(status, error-object)`. Unit-tested directly; the
     /// `ResponseError` impl is a thin wrapper over this. Internal failures
     /// (`Db`/`Model`) are logged and surface a generic message — never leaking
@@ -196,6 +210,23 @@ mod tests {
         assert_eq!(err.code, "internal_error");
         assert_eq!(err.message, "internal error");
         assert!(!err.message.contains("secret"));
+    }
+
+    #[test]
+    fn not_found_or_db_keeps_db_failures_as_500() {
+        let map = ServiceError::not_found_or_db("geofence", "no geofence 7".into());
+        let e = map(ModelError::Database(DbErr::Custom("conn lost".into())));
+        let (status, _) = e.to_api_error();
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[test]
+    fn not_found_or_db_maps_missing_row_to_404() {
+        let map = ServiceError::not_found_or_db("geofence", "no geofence 7".into());
+        let e = map(ModelError::Geofence("Does not exist".into()));
+        let (status, err) = e.to_api_error();
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(err.field.as_deref(), Some("geofence"));
     }
 
     #[test]

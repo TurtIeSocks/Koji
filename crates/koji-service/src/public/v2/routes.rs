@@ -171,10 +171,7 @@ async fn get_one(
 
     let geometry = route::Query::get_one_koji(&conn.koji, id.clone())
         .await
-        .map_err(|_| ServiceError::NotFound {
-            field: "route",
-            message: format!("no route {id}"),
-        })?;
+        .map_err(ServiceError::not_found_or_db("route", format!("no route {id}")))?;
 
     Ok(respond_geo(
         koji_core::KojiGeometryCollection::new(vec![geometry]),
@@ -205,10 +202,7 @@ async fn update(
     // Fetch existing row — 404 on missing (also supplies the base for the merge).
     let existing = route::Query::get_one(&conn.koji, id.to_string())
         .await
-        .map_err(|_| ServiceError::NotFound {
-            field: "route",
-            message: format!("no route {id}"),
-        })?;
+        .map_err(ServiceError::not_found_or_db("route", format!("no route {id}")))?;
     // Build a full JSON from the existing model, then overlay only the fields
     // the PATCH body supplied (skip_serializing_if = "Option::is_none" ensures
     // absent fields are absent from the patch value).
@@ -321,10 +315,7 @@ async fn publish(
 
     let model = route::Query::get_one(&conn.koji, id.clone())
         .await
-        .map_err(|_| ServiceError::NotFound {
-            field: "route",
-            message: format!("no route {id}"),
-        })?;
+        .map_err(ServiceError::not_found_or_db("route", format!("no route {id}")))?;
 
     // Linkage flows through the route's geofence.
     let fence = geofence::Query::get_one(&conn.koji, model.geofence_id.to_string()).await?;
