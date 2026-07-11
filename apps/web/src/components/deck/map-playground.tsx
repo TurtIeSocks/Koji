@@ -26,7 +26,7 @@ import { loadCamera, saveCamera } from "./map-camera-storage";
 import { routeModeMarkerCategories, routeModeToCategory } from "./route-mode";
 import { RouteStatsPanel } from "./route-stats-panel";
 import { SaveDialog, type SavePayload } from "./save-dialog";
-import { useCalc } from "./use-calc";
+import { CALC_PERSIST_KEY, useCalc } from "./use-calc";
 import { useGeometryHistory } from "./use-geometry-history";
 import { useLastSeen } from "./use-last-seen";
 
@@ -120,7 +120,8 @@ function PlaygroundBody() {
 		want("station"),
 	);
 
-	const calc = useCalc();
+	// Calc settings persist across sessions (shared global key, like last seen).
+	const calc = useCalc(undefined, CALC_PERSIST_KEY);
 
 	const onRun = () => {
 		if (!geometry) return;

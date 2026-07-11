@@ -10,6 +10,11 @@ import {
 	type RouteStatsInputs,
 } from "@/map/lib/calc-request";
 
+/** Shared localStorage key for the persisted calc panel settings. One global
+ *  key (not per-route) so the settings stick across every route edit and the
+ *  `/map` playground — mirrors `useLastSeen`'s single-key behavior. */
+export const CALC_PERSIST_KEY = "koji.map.calc";
+
 interface Job {
 	id: string;
 	status: string;
@@ -35,6 +40,27 @@ const DEFAULTS: CalcParams = {
 	tth: "All",
 };
 
+/** Load persisted params from localStorage, merged over defaults + initial. A
+ *  missing/corrupt key just yields the defaults. Persistence mirrors
+ *  `useLastSeen` — a single global key sticks the calc settings across every
+ *  route edit, not per-route. */
+function loadParams(
+	persistKey: string | undefined,
+	initial: Partial<CalcParams> | undefined,
+): CalcParams {
+	const base = { ...DEFAULTS, ...initial };
+	if (!persistKey) return base;
+	try {
+		const raw = localStorage.getItem(persistKey);
+		if (!raw) return base;
+		// Spread stored over base so params added after a value was saved still get
+		// their default (forward-compatible).
+		return { ...base, ...(JSON.parse(raw) as Partial<CalcParams>) };
+	} catch {
+		return base;
+	}
+}
+
 export interface UseCalcReturn {
 	params: CalcParams;
 	setParams: (p: Partial<CalcParams>) => void;
@@ -54,11 +80,16 @@ export interface UseCalcReturn {
  *  result. Mirrors `map-calc-store` fields + `useCalcJob` terminal-resolution
  *  behavior, but as local state (no global store) so embedded maps don't
  *  fight over a single calc slot. */
-export function useCalc(initial?: Partial<CalcParams>): UseCalcReturn {
-	const [params, setParamsState] = useState<CalcParams>({
-		...DEFAULTS,
-		...initial,
-	});
+export function useCalc(
+	initial?: Partial<CalcParams>,
+	/** localStorage key. When set, params load from storage (merged over defaults)
+	 *  and persist on every change — like `useLastSeen`. Omit for throwaway
+	 *  instances (e.g. the route stats calc). */
+	persistKey?: string,
+): UseCalcReturn {
+	const [params, setParamsState] = useState<CalcParams>(() =>
+		loadParams(persistKey, initial),
+	);
 	const [job, setJob] = useState<Job | null>(null);
 	const [result, setResult] = useState<GeoJSON.FeatureCollection | null>(null);
 	const [stats, setStats] = useState<unknown>(null);
@@ -67,8 +98,19 @@ export function useCalc(initial?: Partial<CalcParams>): UseCalcReturn {
 	const resolvedRef = useRef<string | null>(null);
 
 	const setParams = useCallback(
-		(p: Partial<CalcParams>) => setParamsState((s) => ({ ...s, ...p })),
-		[],
+		(p: Partial<CalcParams>) =>
+			setParamsState((s) => {
+				const next = { ...s, ...p };
+				if (persistKey) {
+					try {
+						localStorage.setItem(persistKey, JSON.stringify(next));
+					} catch {
+						// storage unavailable → keep the in-memory value only
+					}
+				}
+				return next;
+			}),
+		[persistKey],
 	);
 
 	const resolveTerminal = useCallback(async (id: string) => {

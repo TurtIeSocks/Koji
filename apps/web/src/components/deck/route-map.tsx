@@ -14,7 +14,7 @@ import { DeckMap } from "./deck-map";
 import { LastSeenPicker } from "./last-seen-picker";
 import { routeModeMarkerCategories, routeModeToCategory } from "./route-mode";
 import { RouteStatsPanel } from "./route-stats-panel";
-import { useCalc } from "./use-calc";
+import { CALC_PERSIST_KEY, useCalc } from "./use-calc";
 import { useLastSeen } from "./use-last-seen";
 
 const WORLD: Bounds = [-180, -85, 180, 85];
@@ -99,9 +99,11 @@ export function RouteMap() {
 		want("station"),
 	);
 
-	const calc = useCalc();
+	// Calc settings persist across route edits (shared global key, like last seen).
+	const calc = useCalc(undefined, CALC_PERSIST_KEY);
 	// Separate instance so the loaded-route stats job never disturbs the main
-	// calc's result (which writes back into the route geometry).
+	// calc's result (which writes back into the route geometry). Not persisted —
+	// its params are throwaway (only radius/minPoints from `calc` feed stats).
 	const statsCalc = useCalc();
 
 	// A succeeded calc result → the route's geometry (MultiPoint of ordered points).
