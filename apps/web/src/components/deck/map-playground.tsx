@@ -100,6 +100,9 @@ function PlaygroundBody() {
 	// Declared before the markers so the spawnpoint fetch can honor its tth.
 	const calc = useCalc(undefined, CALC_PERSIST_KEY);
 
+	// Tth only applies to a spawnpoint cluster calc (bootstrap ignores it).
+	const showTth = calc.params.mode === "cluster" && category === "spawnpoint";
+
 	const showCats = routeModeMarkerCategories(mode);
 	const want = (c: MarkerCategory) => !!geometry && showCats.includes(c);
 	const gyms = useMarkers("gym", area, bbox, lastSeen.epoch, want("gym"));
@@ -118,7 +121,7 @@ function PlaygroundBody() {
 		bbox,
 		lastSeen.epoch,
 		want("spawnpoint"),
-		calc.params.tth,
+		showTth ? calc.params.tth : undefined,
 	);
 	const stations = useMarkers(
 		"station",
@@ -277,7 +280,6 @@ function PlaygroundBody() {
 			<div className="absolute bottom-11 left-0 top-0 z-10">
 				<CalcControls
 					calc={calc}
-					category={category}
 					onRun={onRun}
 					disabled={!geometry}
 					disabledReason={!geometry ? "Draw an area first" : undefined}
@@ -320,7 +322,12 @@ function PlaygroundBody() {
 						</Button>
 					))}
 				</div>
-				<LastSeenPicker value={lastSeen.value} onChange={lastSeen.setValue} />
+				<LastSeenPicker
+					value={lastSeen.value}
+					onChange={lastSeen.setValue}
+					tth={showTth ? calc.params.tth : undefined}
+					onTthChange={showTth ? (t) => calc.setParams({ tth: t }) : undefined}
+				/>
 			</div>
 			<RouteStatsPanel
 				stats={calc.stats}

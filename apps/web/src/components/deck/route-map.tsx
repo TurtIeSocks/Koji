@@ -77,6 +77,11 @@ export function RouteMap() {
 	// its params are throwaway (only radius/minPoints from `calc` feed stats).
 	const statsCalc = useCalc();
 
+	// Tth only applies to a spawnpoint cluster calc (bootstrap ignores it). Gates
+	// both the Tth dropdown and the spawnpoint preview filter so the preview
+	// matches what Calculate will do.
+	const showTth = calc.params.mode === "cluster" && category === "spawnpoint";
+
 	const showCats = routeModeMarkerCategories(routeMode);
 	const want = (c: MarkerCategory) => !!fenceFeature && showCats.includes(c);
 	const gyms = useMarkers(
@@ -102,7 +107,7 @@ export function RouteMap() {
 		markerBbox,
 		lastSeen.epoch,
 		want("spawnpoint"),
-		calc.params.tth,
+		showTth ? calc.params.tth : undefined,
 	);
 	const stations = useMarkers(
 		"station",
@@ -287,7 +292,6 @@ export function RouteMap() {
 				<div className="absolute inset-y-0 left-0 z-10">
 					<CalcControls
 						calc={calc}
-						category={category}
 						onRun={onRun}
 						disabled={areaMissing}
 						disabledReason={
@@ -296,7 +300,14 @@ export function RouteMap() {
 					/>
 				</div>
 				<div className="absolute right-2 top-2 z-10">
-					<LastSeenPicker value={lastSeen.value} onChange={lastSeen.setValue} />
+					<LastSeenPicker
+						value={lastSeen.value}
+						onChange={lastSeen.setValue}
+						tth={showTth ? calc.params.tth : undefined}
+						onTthChange={
+							showTth ? (t) => calc.setParams({ tth: t }) : undefined
+						}
+					/>
 				</div>
 				<RouteStatsPanel stats={panelStats} loading={panelLoading} />
 			</DeckMap>

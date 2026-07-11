@@ -53,7 +53,6 @@ function renderControls(
 				<div className="relative" style={{ height: 600, width: 320 }}>
 					<CalcControls
 						calc={calc}
-						category={props.category ?? "pokestop"}
 						onRun={onRun}
 						disabled={props.disabled}
 						disabledReason={props.disabledReason}

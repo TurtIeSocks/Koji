@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { getAlgorithms } from "@/map/data/calc-client";
-import type { CalcMode, CalcStrategy, TthFilter } from "@/map/lib/calc-request";
+import type { CalcMode, CalcStrategy } from "@/map/lib/calc-request";
 import type { UseCalcReturn } from "./use-calc";
 
 const MODES: { mode: CalcMode; label: string }[] = [
@@ -26,13 +26,9 @@ const STRATEGIES: { strategy: CalcStrategy; label: string }[] = [
 ];
 const S2_LEVELS = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 const S2_SIZES = [1, 3, 5, 7, 9];
-const TTHS: TthFilter[] = ["All", "Known", "Unknown"];
 
 export interface CalcControlsProps {
 	calc: UseCalcReturn;
-	/** Golbat category derived from the route's mode — shown read-only; drives
-	 *  whether the spawnpoint-only Tth control is offered. */
-	category: string;
 	onRun: () => void;
 	disabled?: boolean;
 	disabledReason?: string;
@@ -49,7 +45,6 @@ export interface CalcControlsProps {
  *  gating; this renders params/progress and calls `onRun`. */
 export function CalcControls({
 	calc,
-	category,
 	onRun,
 	disabled,
 	disabledReason,
@@ -68,7 +63,6 @@ export function CalcControls({
 		maxClusters,
 		centerClusters,
 		sortBy,
-		tth,
 	} = params;
 
 	// Algorithm option lists (GET /algorithms). If the endpoint is down the
@@ -86,7 +80,6 @@ export function CalcControls({
 	const showS2 = isS2;
 	const showClusterKnobs = isCluster && isRadius; // clusterMode / maxClusters / centerClusters
 	const showMaxClusters = showClusterKnobs && clusterMode !== "fastest";
-	const showTth = isCluster && category === "spawnpoint";
 	const blocked = !!disabled;
 
 	return (
@@ -124,31 +117,6 @@ export function CalcControls({
 					</SelectContent>
 				</Select>
 			</Field>
-
-			{/* <div className="flex flex-col gap-0.5">
-				<Label className="text-xs text-muted-foreground">Category (from route mode)</Label>
-				<span className="text-sm capitalize">{category}</span>
-			</div>
- */}
-			{showTth && (
-				<Field label="Tth">
-					<Select
-						value={tth}
-						onValueChange={(v) => setParams({ tth: v as TthFilter })}
-					>
-						<SelectTrigger aria-label="Tth" className="w-full">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{TTHS.map((t) => (
-								<SelectItem key={t} value={t}>
-									{t}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</Field>
-			)}
 
 			<Field label="Strategy">
 				<Select
