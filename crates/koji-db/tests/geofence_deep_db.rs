@@ -234,10 +234,10 @@ async fn geofence_descendants_depth_returns_full_subtree() {
     let child2_id = make_geofence(&db, &child2_name, 14.0).await;
 
     // Associate children to parent using assign on Column::Parent
-    geofence::Query::assign(&db, child1_id, "parent".to_string(), json!(parent_id))
+    geofence::Query::set_parent(&db, child1_id, Some(parent_id))
         .await
         .expect("assign child1 parent");
-    geofence::Query::assign(&db, child2_id, "parent".to_string(), json!(parent_id))
+    geofence::Query::set_parent(&db, child2_id, Some(parent_id))
         .await
         .expect("assign child2 parent");
 
@@ -302,10 +302,10 @@ async fn geofence_descendants_level1_returns_only_children() {
     let child1_id = make_geofence(&db, &child1_name, 22.0).await;
     let child2_id = make_geofence(&db, &child2_name, 24.0).await;
 
-    geofence::Query::assign(&db, child1_id, "parent".to_string(), json!(parent_id))
+    geofence::Query::set_parent(&db, child1_id, Some(parent_id))
         .await
         .expect("assign child1");
-    geofence::Query::assign(&db, child2_id, "parent".to_string(), json!(parent_id))
+    geofence::Query::set_parent(&db, child2_id, Some(parent_id))
         .await
         .expect("assign child2");
 
@@ -350,7 +350,7 @@ async fn geofence_by_parent_koji_returns_direct_children() {
     let parent_id = make_geofence(&db, &parent_name, 30.0).await;
     let child_id = make_geofence(&db, &child_name, 32.0).await;
 
-    geofence::Query::assign(&db, child_id, "parent".to_string(), json!(parent_id))
+    geofence::Query::set_parent(&db, child_id, Some(parent_id))
         .await
         .expect("assign parent");
 
@@ -410,7 +410,7 @@ async fn geofence_unique_parents_includes_used_parent() {
     let parent_id = make_geofence(&db, &parent_name, 40.0).await;
     let child_id = make_geofence(&db, &child_name, 42.0).await;
 
-    geofence::Query::assign(&db, child_id, "parent".to_string(), json!(parent_id))
+    geofence::Query::set_parent(&db, child_id, Some(parent_id))
         .await
         .expect("assign parent");
 

@@ -143,41 +143,21 @@ impl Query {
         Ok(record)
     }
 
-    pub async fn assign<C: ConnectionTrait>(
+    /// Set (or clear, with `None`) a geofence's parent. Replaces the old
+    /// stringly `assign(column_name, payload)`: every caller passed the literal
+    /// "parent", and any OTHER valid column name silently no-opped (fetch,
+    /// zero-field update, Ok).
+    pub async fn set_parent<C: ConnectionTrait>(
         db: &C,
         id: u32,
-        property: String,
-        payload: serde_json::Value,
+        parent: Option<u32>,
     ) -> Result<Model, ModelError> {
-        let column = Column::from_str(&property);
-
-        if let Ok(column) = column {
-            let model = Entity::find_by_id(id).one(db).await?;
-            if let Some(model) = model {
-                let mut model: ActiveModel = model.into();
-                if let Column::Parent = column {
-                    match payload.as_u64() {
-                        Some(id) => {
-                            if id == 0 {
-                                model.parent = Set(None);
-                            } else {
-                                model.parent = Set(Some(id as u32));
-                            }
-                        }
-                        None => {
-                            return Err(ModelError::Geofence(
-                                "No valid parent_id found".to_string(),
-                            ));
-                        }
-                    }
-                }
-                let model = model.update(db).await?;
-                Ok(model)
-            } else {
-                Err(ModelError::Geofence("Model not found".to_string()))
-            }
-        } else {
-            Err(ModelError::Geofence("Invalid property".to_string()))
-        }
+        let model = Entity::find_by_id(id).one(db).await?;
+        let Some(model) = model else {
+            return Err(ModelError::Geofence("Model not found".to_string()));
+        };
+        let mut model: ActiveModel = model.into();
+        model.parent = Set(parent);
+        Ok(model.update(db).await?)
     }
 }

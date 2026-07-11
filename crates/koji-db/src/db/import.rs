@@ -263,7 +263,7 @@ pub async fn import(
             ));
         };
         if let Err(e) =
-            geofence::Query::assign(&txn, child_id, "parent".to_string(), json!(parent_id)).await
+            geofence::Query::set_parent(&txn, child_id, Some(parent_id)).await
         {
             txn.rollback().await?;
             return Ok(fail_result(index, name, e.to_string()));

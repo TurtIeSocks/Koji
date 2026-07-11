@@ -59,3 +59,16 @@ impl<T> PaginateResults<T> {
     }
 }
 
+/// Parse a stored geometry `Json` column into a `geo::Geometry` — the shared
+/// body of `route::Model::to_koji_geometry` and
+/// `geofence::Model::to_koji_geometry` (previously duplicated verbatim).
+#[allow(clippy::result_large_err)]
+pub(crate) fn parse_geometry_json(
+    geometry: &serde_json::Value,
+) -> Result<geo::Geometry<koji_core::Precision>, crate::error::ModelError> {
+    let gj = serde_json::from_value::<geojson::Geometry>(geometry.clone())
+        .map_err(|e| crate::error::ModelError::Custom(format!("[GEOMETRY]: {e}")))?;
+    geo::Geometry::try_from(&gj)
+        .map_err(|e| crate::error::ModelError::Custom(format!("[GEOMETRY]: {e}")))
+}
+
