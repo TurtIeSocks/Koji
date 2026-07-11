@@ -102,13 +102,7 @@ impl Query {
             .paginate(db, args.per_page);
         let total = paginator.num_items_and_pages().await?;
 
-        let results: Vec<Model> = match paginator.fetch_page(args.page).await {
-            Ok(results) => results,
-            Err(err) => {
-                log::error!("[project] Error paginating, {:?}", err);
-                vec![]
-            }
-        };
+        let results: Vec<Model> = paginator.fetch_page(args.page).await?;
 
         // Batched replacement for the former per-row N+1 (one
         // `get_related_geofences().into_json().all()` per project). One join over

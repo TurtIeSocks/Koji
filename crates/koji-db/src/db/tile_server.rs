@@ -44,13 +44,7 @@ impl Query {
             .paginate(db, args.per_page);
         let total = paginator.num_items_and_pages().await?;
 
-        let results: Vec<Model> = match paginator.fetch_page(args.page).await {
-            Ok(results) => results,
-            Err(err) => {
-                log::error!("[project] Error paginating, {:?}", err);
-                vec![]
-            }
-        };
+        let results: Vec<Model> = paginator.fetch_page(args.page).await?;
 
         let results: Vec<Json> = results.into_iter().map(|model| json!(model)).collect();
 
