@@ -8,10 +8,7 @@
 //! Living in `koji-core` lets every downstream crate (algorithms, koji-service,
 //! koji-plugins) depend on these primitives without forming a cycle.
 
-use std::{
-    collections::{HashSet, VecDeque},
-    sync::{Arc, Mutex},
-};
+use std::collections::{HashSet, VecDeque};
 
 use geo::{Coord, Destination, Haversine, Intersects, LineString, Polygon};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
@@ -137,13 +134,7 @@ pub fn get_polygons(cell_ids: Vec<String>) -> Vec<S2Response> {
         .collect()
 }
 
-pub fn circle_coverage(
-    lat: Precision,
-    lon: Precision,
-    radius: Precision,
-    level: u8,
-) -> Arc<Mutex<Covered>> {
-    let mut covered = Arc::new(Mutex::new(HashSet::new()));
+pub fn circle_coverage(lat: Precision, lon: Precision, radius: Precision, level: u8) -> Covered {
     let point = geo::Point::new(lon, lat);
     let circle = geo::Polygon::<Precision>::new(
         geo::LineString::from(
@@ -153,81 +144,28 @@ pub fn circle_coverage(
         ),
         vec![],
     );
-    check_neighbors(lat, lon, level, &circle, &mut covered);
 
-    covered
-}
-
-fn check_neighbors(
-    lat: Precision,
-    lon: Precision,
-    level: u8,
-    circle: &geo::Polygon,
-    covered: &mut Arc<Mutex<Covered>>,
-) {
-    let center = s2::latlng::LatLng::from_degrees(lat, lon);
-    let center_cell = CellID::from(center).parent(level as u64);
-    match covered.lock() {
-        Ok(mut c) => {
-            c.insert(center_cell.0);
-        }
-        Err(e) => {
-            log::error!("[S2] Error locking `covered` to insert: {}", e)
-        }
-    };
-    let mut next_neighbors: Vec<(Precision, Precision)> = Vec::new();
-    let current_neighbors = center_cell.edge_neighbors();
-
-    current_neighbors.iter().for_each(|neighbor| {
-        let id = neighbor.0;
-        match covered.lock() {
-            Ok(c) => {
-                if c.contains(&id) {
-                    return;
-                }
+    // Iterative BFS flood fill (mirrors `s2_grid`). The old implementation
+    // recursively spawned one OS thread per newly-covered cell (unbounded,
+    // each cloning the 60-vertex circle) around an Arc<Mutex<HashSet>> whose
+    // poison errors were logged-and-swallowed — and leaked the mutex into the
+    // public API.
+    let start = CellID::from(s2::latlng::LatLng::from_degrees(lat, lon)).parent(level as u64);
+    let mut covered: Covered = HashSet::new();
+    covered.insert(start.0);
+    let mut queue = VecDeque::from([start]);
+    while let Some(cell) = queue.pop_front() {
+        for neighbor in cell.edge_neighbors() {
+            if covered.contains(&neighbor.0) {
+                continue;
             }
-            Err(e) => {
-                log::error!("[S2] Error locking `covered` to check: {}", e)
+            if neighbor.polygon().intersects(&circle) {
+                covered.insert(neighbor.0);
+                queue.push_back(neighbor);
             }
-        };
-
-        if neighbor.polygon().intersects(circle) {
-            let cell = Cell::from(neighbor);
-            match covered.lock() {
-                Ok(mut c) => {
-                    c.insert(id);
-                }
-                Err(e) => {
-                    log::error!("[S2] Error locking `covered` to insert: {}", e)
-                }
-            }
-            next_neighbors.push((
-                cell.center().latitude().deg(),
-                cell.center().longitude().deg(),
-            ));
-        }
-    });
-
-    if !next_neighbors.is_empty() {
-        let mut threads = vec![];
-
-        for neighbor in next_neighbors {
-            let mut covered = covered.clone();
-            let circle = circle.clone();
-            threads.push(std::thread::spawn(move || {
-                check_neighbors(neighbor.0, neighbor.1, level, &circle, &mut covered)
-            }));
-        }
-
-        for thread in threads {
-            match thread.join() {
-                Ok(_) => {}
-                Err(e) => {
-                    log::error!("[S2] Error joining thread: {:?}", e)
-                }
-            };
         }
     }
+    covered
 }
 
 /// Build the SIZE x SIZE set (SIZE^2) around `center` at `level` by expanding (SIZE-1)/2 rings
@@ -577,9 +515,8 @@ mod tests {
         let radius_m = 500.0; // 500 m
         let covered = circle_coverage(lat, lon, radius_m, level);
         let center_id = from_array_to_cell_id(&[lat, lon], level as u64);
-        let c = covered.lock().unwrap();
         assert!(
-            c.contains(&center_id.0),
+            covered.contains(&center_id.0),
             "circle coverage must contain the center cell"
         );
     }
@@ -590,14 +527,8 @@ mod tests {
         let lat = 48.8566;
         let lon = 2.3522;
         let level = 14u8;
-        let small = {
-            let arc = circle_coverage(lat, lon, 100.0, level);
-            arc.lock().unwrap().len()
-        };
-        let large = {
-            let arc = circle_coverage(lat, lon, 2000.0, level);
-            arc.lock().unwrap().len()
-        };
+        let small = circle_coverage(lat, lon, 100.0, level).len();
+        let large = circle_coverage(lat, lon, 2000.0, level).len();
         assert!(
             large >= small,
             "larger radius should cover ≥ cells: small={small}, large={large}"
