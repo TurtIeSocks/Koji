@@ -205,26 +205,16 @@ fn block_on<F: std::future::Future>(mut fut: F) -> F::Output {
 }
 
 #[test]
-fn fort_query_emits_all_four_methods_with_correct_shapes() {
-    // Compile-time proof the four async methods exist with the expected arity
-    // and signatures: coerce each to a fn pointer with its full type. If the
-    // macro dropped a method, mis-parsed `table`/`prefix`, or mis-rooted a
-    // `crate::` path, this file would not type-check.
+fn fort_query_emits_both_methods_with_correct_shapes() {
+    // Compile-time proof the generated async methods exist with the expected
+    // arity and signatures. If the macro dropped a method, mis-parsed
+    // `table`/`prefix`, or mis-rooted a `crate::` path, this file would not
+    // type-check. (The all/bound arms were deleted with the v1 bbox path.)
     let conn = sea_orm::DatabaseConnection;
     let area = geojson::FeatureCollection;
 
-    // `all` → Vec<GenericData>; empty stub result set, but the fort(prefix="g")
-    // call path is exercised and type-checked end to end.
-    let out: Vec<rows::GenericData> = block_on(Query::all(&conn, 0)).unwrap();
-    assert!(out.is_empty());
-
-    // `bound` takes &BoundsArg and returns Vec<GenericData>.
-    let bounds = koji_core::BoundsArg::default();
-    let out = block_on(Query::bound(&conn, &bounds)).unwrap();
-    assert!(out.is_empty());
-
     // `area` takes &FeatureCollection + last_seen, returns Vec<GenericData>.
-    let out = block_on(Query::area(&conn, &area, 0)).unwrap();
+    let out: Vec<rows::GenericData> = block_on(Query::area(&conn, &area, 0)).unwrap();
     assert!(out.is_empty());
 
     // `stats` returns a Total (via count_in_area over the stub rows → 0).

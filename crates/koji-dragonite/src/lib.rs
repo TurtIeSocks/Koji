@@ -27,7 +27,7 @@ pub mod patch;
 pub mod types;
 
 pub use client::DragoniteClient;
-pub use envelope::{V2ApiError, V2Envelope, V2Meta, parse_v2, parse_v2_with_meta};
+pub use envelope::{V2ApiError, V2Envelope, parse_v2};
 pub use error::DragoniteError;
 pub use mapping::{
     area_geofence_patch, area_route_patch, feature_to_geofence, route_to_api_locations,

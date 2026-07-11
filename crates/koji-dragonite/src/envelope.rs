@@ -11,9 +11,9 @@
 //! ```
 //!
 //! `status` is the string enum `"ok" | "error"`. Success responses omit `error`
-//! and carry `data` (plus `meta` on collection endpoints); error responses omit
+//! and carry `data` (unknown members like a list `meta` are ignored); error responses omit
 //! `data` and carry `error`. This module decodes that envelope and collapses it
-//! to a `Result`, surfacing the pagination [`V2Meta`] for list endpoints.
+//! to a `Result`.
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -31,9 +31,6 @@ pub struct V2Envelope<T> {
     /// Present on `error` responses.
     #[serde(default)]
     pub error: Option<V2ApiError>,
-    /// Present on `ok` collection responses (pagination block).
-    #[serde(default)]
-    pub meta: Option<V2Meta>,
 }
 
 /// The on-the-wire V2 error object (`error{code,message,field}`).
@@ -48,29 +45,21 @@ pub struct V2ApiError {
     pub field: Option<String>,
 }
 
-/// The pagination block emitted on V2 collection responses (`V2Meta`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct V2Meta {
-    pub total: i64,
-    /// Zero-based page index.
-    pub page: i64,
-    pub per_page: i64,
-    pub total_pages: i64,
-    pub has_next: bool,
-    pub has_prev: bool,
-}
-
 impl<T> V2Envelope<T> {
-    /// Collapse the envelope into `(data, meta)` or a [`DragoniteError::Api`].
+    /// Collapse the envelope into `data` or a [`DragoniteError::Api`].
     ///
-    /// - `status == "ok"` → `Ok((data, meta))`; a missing `data` is a decode
-    ///   error (an `ok` envelope must carry its payload).
+    /// - `status == "ok"` → `Ok(data)`; a missing `data` is a decode error
+    ///   (an `ok` envelope must carry its payload).
     /// - `status == "error"` → `Err(Api { code, message, field })`.
     /// - anything else → decode error (unknown status).
-    pub fn into_result(self) -> Result<(T, Option<V2Meta>), DragoniteError> {
+    ///
+    /// (The pagination `meta` half was deleted: the client's only method is
+    /// `patch_area` and every reader discarded it. Reintroduce alongside the
+    /// first real list endpoint.)
+    pub fn into_result(self) -> Result<T, DragoniteError> {
         match self.status.as_str() {
             "ok" => match self.data {
-                Some(data) => Ok((data, self.meta)),
+                Some(data) => Ok(data),
                 None => Err(DragoniteError::Decode(
                     "v2 `ok` envelope missing `data`".to_string(),
                 )),
@@ -94,20 +83,12 @@ impl<T> V2Envelope<T> {
     }
 }
 
-/// Decode a raw body into `V2Envelope<T>` and collapse it, keeping `meta`.
+/// Decode a raw body into `V2Envelope<T>` and collapse it.
 /// A body that is not a valid envelope maps to [`DragoniteError::Decode`].
-pub fn parse_v2_with_meta<T: DeserializeOwned>(
-    body: &[u8],
-) -> Result<(T, Option<V2Meta>), DragoniteError> {
+pub fn parse_v2<T: DeserializeOwned>(body: &[u8]) -> Result<T, DragoniteError> {
     let envelope: V2Envelope<T> =
         serde_json::from_slice(body).map_err(|e| DragoniteError::Decode(e.to_string()))?;
     envelope.into_result()
-}
-
-/// Like [`parse_v2_with_meta`] but discards the pagination `meta` — for the
-/// single-resource endpoints where there is none.
-pub fn parse_v2<T: DeserializeOwned>(body: &[u8]) -> Result<T, DragoniteError> {
-    parse_v2_with_meta(body).map(|(data, _meta)| data)
 }
 
 #[cfg(test)]
@@ -133,20 +114,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn ok_list_envelope_surfaces_meta() {
-        // Shape mirrors V2OkList: data array + meta block.
-        let body = br#"{"status":"ok","data":[{"id":1,"name":"a"}],
-            "meta":{"total":1,"page":0,"per_page":50,"total_pages":1,"has_next":false,"has_prev":false}}"#;
-        let (got, meta): (Vec<Payload>, _) =
-            parse_v2_with_meta(body).expect("ok list should parse");
-        assert_eq!(got.len(), 1);
-        let meta = meta.expect("list response must carry meta");
-        assert_eq!(meta.total, 1);
-        assert_eq!(meta.page, 0);
-        assert_eq!(meta.per_page, 50);
-        assert!(!meta.has_next);
-    }
 
     #[test]
     fn error_envelope_maps_to_api_error_with_code_and_field() {

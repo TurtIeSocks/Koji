@@ -8,7 +8,7 @@
 use reqwest::header::USER_AGENT;
 use serde::de::DeserializeOwned;
 
-use crate::envelope::{V2Meta, parse_v2_with_meta};
+use crate::envelope::parse_v2;
 use crate::error::DragoniteError;
 use crate::types::ApiArea;
 
@@ -46,13 +46,14 @@ impl DragoniteClient {
     }
 
     /// Execute a prepared request: attach auth + UA headers, send, then decode
-    /// the [`V2Envelope`](crate::envelope) to `(data, meta)`. A non-2xx response
-    /// without a decodable envelope surfaces the HTTP status + raw body as an
-    /// [`Api`](DragoniteError::Api) error rather than an opaque decode failure.
+    /// the [`V2Envelope`](crate::envelope) to its `data`. A non-2xx response
+    /// without a decodable envelope surfaces the typed
+    /// [`HttpStatus`](DragoniteError::HttpStatus) error rather than an opaque
+    /// decode failure.
     async fn exec<T: DeserializeOwned>(
         &self,
         req: reqwest::RequestBuilder,
-    ) -> Result<(T, Option<V2Meta>), DragoniteError> {
+    ) -> Result<T, DragoniteError> {
         let resp = req
             .bearer_auth(&self.bearer)
             .header(USER_AGENT, &self.user_agent)
@@ -60,7 +61,7 @@ impl DragoniteClient {
             .await?;
         let status = resp.status();
         let bytes = resp.bytes().await?;
-        match parse_v2_with_meta::<T>(&bytes) {
+        match parse_v2::<T>(&bytes) {
             Ok(ok) => Ok(ok),
             Err(DragoniteError::Decode(_)) if !status.is_success() => {
                 Err(DragoniteError::HttpStatus {
@@ -72,13 +73,6 @@ impl DragoniteClient {
         }
     }
 
-    /// `exec` discarding the pagination `meta` (single-resource endpoints).
-    async fn exec_data<T: DeserializeOwned>(
-        &self,
-        req: reqwest::RequestBuilder,
-    ) -> Result<T, DragoniteError> {
-        self.exec(req).await.map(|(data, _)| data)
-    }
 
     /// PATCH an area, sending only the fields present in `patch` (omitted fields
     /// are left unchanged; a `geofence: Tri::Null` clears that fence). Returns
@@ -94,14 +88,14 @@ impl DragoniteClient {
             .http
             .patch(self.url(&format!("/v2/areas/{dragonite_area_id}")))
             .json(patch);
-        self.exec_data(req).await
+        self.exec(req).await
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::envelope::{parse_v2, parse_v2_with_meta};
+    use crate::envelope::parse_v2;
     use crate::types::{ApiArea, ApiLocation};
 
     // ── construction / config ────────────────────────────────────────────────
@@ -208,56 +202,23 @@ mod tests {
     }
 
     #[test]
-    fn parse_v2_area_list_with_meta() {
+    fn parse_v2_list_with_meta_block_ignores_meta() {
+        // A list body carrying the (now-unread) meta block still parses; the
+        // pagination machinery was deleted with no list endpoint shipped.
         let body = br#"{"status":"ok","data":[
             {"id":1,"name":"a"},{"id":2,"name":"b"}
         ],"meta":{"total":2,"page":0,"per_page":100,"total_pages":1,"has_next":false,"has_prev":false}}"#;
-        let (areas, meta) = parse_v2_with_meta::<Vec<ApiArea>>(body).expect("list should parse");
+        let areas = parse_v2::<Vec<ApiArea>>(body).expect("list should parse");
         assert_eq!(areas.len(), 2);
         assert_eq!(areas[0].id, Some(1));
-        assert_eq!(areas[1].id, Some(2));
-        let meta = meta.expect("meta must be present on list response");
-        assert_eq!(meta.total, 2);
-        assert_eq!(meta.page, 0);
-        assert_eq!(meta.per_page, 100);
-        assert!(!meta.has_next);
-        assert!(!meta.has_prev);
-    }
-
-    #[test]
-    fn parse_v2_area_list_multipage_meta() {
-        let body = br#"{"status":"ok","data":[
-            {"id":101,"name":"x"}
-        ],"meta":{"total":50,"page":2,"per_page":20,"total_pages":3,"has_next":false,"has_prev":true}}"#;
-        let (areas, meta) = parse_v2_with_meta::<Vec<ApiArea>>(body).expect("should parse");
-        assert_eq!(areas.len(), 1);
-        let meta = meta.expect("meta must be present");
-        assert_eq!(meta.page, 2);
-        assert_eq!(meta.per_page, 20);
-        assert_eq!(meta.total_pages, 3);
-        assert!(!meta.has_next);
-        assert!(meta.has_prev);
-    }
-
-    #[test]
-    fn parse_v2_area_list_has_next_true() {
-        // has_next = true is surfaced through the envelope meta block.
-        let body = br#"{"status":"ok","data":[{"id":1,"name":"a"}],
-            "meta":{"total":5,"page":0,"per_page":1,"total_pages":5,"has_next":true,"has_prev":false}}"#;
-        let (_, meta) = parse_v2_with_meta::<Vec<ApiArea>>(body).expect("should parse");
-        assert!(meta.expect("meta present").has_next);
     }
 
     #[test]
     fn parse_v2_empty_list_ok() {
-        // Empty data array is valid — no areas.
         let body = br#"{"status":"ok","data":[],
             "meta":{"total":0,"page":0,"per_page":1000,"total_pages":0,"has_next":false,"has_prev":false}}"#;
-        let (areas, meta) = parse_v2_with_meta::<Vec<ApiArea>>(body).expect("empty list ok");
+        let areas = parse_v2::<Vec<ApiArea>>(body).expect("empty list ok");
         assert!(areas.is_empty());
-        let meta = meta.expect("meta present");
-        assert_eq!(meta.total, 0);
-        assert!(!meta.has_next);
     }
 
     #[test]
