@@ -49,14 +49,16 @@ fn bounds(points: &[Coord]) -> (Precision, Precision, Precision, Precision) {
     (min_x, min_y, max_x, max_y)
 }
 
-/// Does `points` fit inside a single radius-1 disc (allowing `margin` of safety)?
-/// Tested via the minimum enclosing circle: the group fits iff its MEC radius ≤ 1 − margin.
-/// (Placement was benchmarked across MEC / centroid / bbox-center; MEC won — see design doc.)
+/// Reference fit criterion — does `points` fit one radius-1 disc (allowing
+/// `margin` of safety)? The MEC threshold was benchmarked against centroid /
+/// bbox-center placement and won (see design doc). The production absorb loop
+/// applies this same criterion incrementally (covering-circle fast path +
+/// merged-bbox reject + MEC recompute); the tests pin the criterion itself.
+#[cfg(test)]
 fn fits(points: &[Coord], margin: Precision) -> bool {
     if points.is_empty() {
         return true;
     }
-    // Cheap necessary pre-check: a radius-1 cover implies the bounding-box diagonal is ≤ 2.
     let (min_x, min_y, max_x, max_y) = bounds(points);
     if (max_x - min_x).powi(2) + (max_y - min_y).powi(2) > 4.0 {
         return false;
@@ -119,6 +121,13 @@ fn cluster(points: Vec<Coord>, min_points: usize, margin: Precision) -> Vec<(Coo
         let mut group_cells: BTreeSet<CellKey> = BTreeSet::from([seed]);
         let mut group_points: Vec<Coord> = seed_points.clone();
 
+        // Incrementally-maintained group state: a known covering circle (the
+        // exact MEC after every slow-path recompute; possibly non-minimal but
+        // still covering after fast-path absorbs) and the exact point bbox.
+        let fit_r = 1.0 - margin;
+        let mut circle = mec(&group_points);
+        let (mut min_x, mut min_y, mut max_x, mut max_y) = bounds(&group_points);
+
         loop {
             // Sorted set of unclaimed, occupied neighbours of the current group.
             let mut candidates: BTreeSet<CellKey> = BTreeSet::new();
@@ -131,15 +140,56 @@ fn cluster(points: Vec<Coord>, min_points: usize, margin: Precision) -> Vec<(Coo
             }
 
             // Absorb the first (sorted) candidate that keeps the group
-            // disc-coverable. Trial-extend in place and truncate on rejection —
-            // cloning the whole accumulated group per rejected candidate was
-            // O(group² × candidates) copying in the tier whose selling point
-            // is speed.
+            // disc-coverable (MEC radius ≤ 1 − margin), layered cheapest-first:
+            //  1. every candidate point inside the current covering circle
+            //     (radius ≤ fit_r) → the union's MEC can't exceed it; accept
+            //     without touching the group — O(candidate) instead of
+            //     O(group);
+            //  2. merged bbox diagonal > 2 → a radius-1 cover is impossible;
+            //     reject without extending;
+            //  3. full MEC recompute on the trial-extended group (truncate on
+            //     rejection).
             let mut absorbed = None;
             for cand in &candidates {
+                let cand_pts = cells[cand].as_slice();
+
+                let r2 = circle.radius * circle.radius;
+                if circle.radius <= fit_r
+                    && cand_pts.iter().all(|p| {
+                        let dx = p.x - circle.center[0];
+                        let dy = p.y - circle.center[1];
+                        dx * dx + dy * dy <= r2
+                    })
+                {
+                    for p in cand_pts {
+                        min_x = min_x.min(p.x);
+                        min_y = min_y.min(p.y);
+                        max_x = max_x.max(p.x);
+                        max_y = max_y.max(p.y);
+                    }
+                    group_points.extend_from_slice(cand_pts);
+                    absorbed = Some(*cand);
+                    break;
+                }
+
+                let (mut t_min_x, mut t_min_y, mut t_max_x, mut t_max_y) =
+                    (min_x, min_y, max_x, max_y);
+                for p in cand_pts {
+                    t_min_x = t_min_x.min(p.x);
+                    t_min_y = t_min_y.min(p.y);
+                    t_max_x = t_max_x.max(p.x);
+                    t_max_y = t_max_y.max(p.y);
+                }
+                if (t_max_x - t_min_x).powi(2) + (t_max_y - t_min_y).powi(2) > 4.0 {
+                    continue;
+                }
+
                 let before = group_points.len();
-                group_points.extend_from_slice(&cells[cand]);
-                if fits(&group_points, margin) {
+                group_points.extend_from_slice(cand_pts);
+                let c = mec(&group_points);
+                if c.radius <= fit_r {
+                    circle = c;
+                    (min_x, min_y, max_x, max_y) = (t_min_x, t_min_y, t_max_x, t_max_y);
                     absorbed = Some(*cand);
                     break;
                 }
