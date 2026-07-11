@@ -8,7 +8,7 @@ use serde_json::Value;
 use crate::{
     WebhookMethod, WebhookMode,
     db::{
-        geofence, geofence_project, geofence_property, project, property, route,
+        geofence, geofence_property, project, property, route,
         sea_orm_active_enums::Category, tile_server, webhook,
     },
     error::ModelError,
@@ -24,7 +24,6 @@ pub trait JsonToModel {
         &self,
         geofence_id: Option<u32>,
     ) -> Result<geofence_property::ActiveModel, ModelError>;
-    fn to_geofence_project(&self) -> Result<geofence_project::ActiveModel, ModelError>;
     fn to_property(&self) -> Result<property::ActiveModel, ModelError>;
     fn to_route(&self) -> Result<route::ActiveModel, ModelError>;
     fn to_tileserver(&self) -> Result<tile_server::ActiveModel, ModelError>;
@@ -77,37 +76,6 @@ impl JsonToModel for Value {
         } else {
             Err(ModelError::Geofence(format!(
                 "model is not an object: {:?}",
-                self
-            )))
-        }
-    }
-
-    fn to_geofence_project(&self) -> Result<geofence_project::ActiveModel, ModelError> {
-        if let Some(object) = self.as_object() {
-            let geofence_id = self.get("geofence_id").and_then(|v| v.as_u64());
-            if let Some(geofence_id) = geofence_id {
-                let project_id = self.get("project_id").and_then(|v| v.as_u64());
-                if let Some(project_id) = project_id {
-                    Ok(geofence_project::ActiveModel {
-                        project_id: Set(project_id as u32),
-                        geofence_id: Set(geofence_id as u32),
-                        ..Default::default()
-                    })
-                } else {
-                    Err(ModelError::GeofenceProject(format!(
-                        "project_id not found: {:?}",
-                        object
-                    )))
-                }
-            } else {
-                Err(ModelError::GeofenceProject(format!(
-                    "geofence_id not found: {:?}",
-                    object
-                )))
-            }
-        } else {
-            Err(ModelError::GeofenceProject(format!(
-                "invalid object {:?}",
                 self
             )))
         }
@@ -980,34 +948,6 @@ mod tests {
     fn to_tileserver_not_object_is_err() {
         let v = json!([]);
         assert!(v.to_tileserver().is_err());
-    }
-
-    // ── JsonToModel — to_geofence_project ───────────────────────────────────────
-
-    #[test]
-    fn to_geofence_project_ok() {
-        let v = json!({ "geofence_id": 3, "project_id": 7 });
-        let model = v.to_geofence_project().unwrap();
-        assert_eq!(model.geofence_id.unwrap(), 3u32);
-        assert_eq!(model.project_id.unwrap(), 7u32);
-    }
-
-    #[test]
-    fn to_geofence_project_missing_geofence_id_is_err() {
-        let v = json!({ "project_id": 7 });
-        assert!(v.to_geofence_project().is_err());
-    }
-
-    #[test]
-    fn to_geofence_project_missing_project_id_is_err() {
-        let v = json!({ "geofence_id": 3 });
-        assert!(v.to_geofence_project().is_err());
-    }
-
-    #[test]
-    fn to_geofence_project_not_object_is_err() {
-        let v = json!(null);
-        assert!(v.to_geofence_project().is_err());
     }
 
     // ── JsonToModel — to_geofence_property ──────────────────────────────────────
