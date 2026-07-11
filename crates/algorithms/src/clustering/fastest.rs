@@ -64,13 +64,10 @@ fn fits(points: &[Coord], margin: Precision) -> bool {
     mec(points).radius <= 1.0 - margin
 }
 
-/// The shared deterministic-Welzl MEC over `Coord` slices (trivial
-/// `Coord` <-> `[Precision; 2]` map). Replaces a third private MEC copy that
-/// was algorithmically identical to (and less numerically robust than)
-/// `clustering::geometry`'s.
+/// The shared deterministic-Welzl MEC, called directly on `Coord` slices (the
+/// generic impl converts per access — no adapter Vec per fit trial).
 fn mec(points: &[Coord]) -> super::geometry::Circle {
-    let pts: Vec<[Precision; 2]> = points.iter().map(|p| [p.x, p.y]).collect();
-    super::geometry::smallest_enclosing_circle(&pts)
+    super::geometry::smallest_enclosing_circle(points)
 }
 
 /// Place the disc center at the minimum-enclosing-circle center (assumes non-empty).
@@ -133,20 +130,24 @@ fn cluster(points: Vec<Coord>, min_points: usize, margin: Precision) -> Vec<(Coo
                 }
             }
 
-            // Absorb the first (sorted) candidate that keeps the group disc-coverable.
+            // Absorb the first (sorted) candidate that keeps the group
+            // disc-coverable. Trial-extend in place and truncate on rejection —
+            // cloning the whole accumulated group per rejected candidate was
+            // O(group² × candidates) copying in the tier whose selling point
+            // is speed.
             let mut absorbed = None;
             for cand in &candidates {
-                let mut trial = group_points.clone();
-                trial.extend_from_slice(&cells[cand]);
-                if fits(&trial, margin) {
+                let before = group_points.len();
+                group_points.extend_from_slice(&cells[cand]);
+                if fits(&group_points, margin) {
                     absorbed = Some(*cand);
                     break;
                 }
+                group_points.truncate(before);
             }
 
             match absorbed {
                 Some(cand) => {
-                    group_points.extend_from_slice(&cells[&cand]);
                     group_cells.insert(cand);
                     claimed.insert(cand);
                 }

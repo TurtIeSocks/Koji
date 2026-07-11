@@ -151,10 +151,11 @@ impl Plane {
         log::debug!("Average scaling: {}", sum / input.len() as Precision);
         log::debug!("Disc scaling: {}", self.adjusted_radius / self.radius);
 
-        ouput.sort_by(|a, b| {
-            geohash::encode(Coord { x: a[1], y: a[0] }, 9)
-                .unwrap()
-                .cmp(&geohash::encode(Coord { x: b[1], y: b[0] }, 9).unwrap())
+        // One encode per point (sort_by encoded BOTH keys per comparison —
+        // 2·n·log n allocating encodes) and no panic on degenerate reprojected
+        // coords: unencodable points sort first on an empty key.
+        ouput.sort_by_cached_key(|p| {
+            geohash::encode(Coord { x: p[1], y: p[0] }, 9).unwrap_or_default()
         });
 
         ouput

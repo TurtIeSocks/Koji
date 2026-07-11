@@ -58,12 +58,17 @@ fn circle_from_three(a: [Precision; 2], b: [Precision; 2], c: [Precision; 2]) ->
 /// Smallest enclosing circle, deterministic incremental construction
 /// (Welzl-style move-to-front without randomization; the point sets fed in here
 /// are small — required/exclusive sets of one or two clusters).
-pub fn smallest_enclosing_circle(pts: &[[Precision; 2]]) -> Circle {
+///
+/// Generic over the point representation (`[Precision; 2]`, `geo::Coord`, …)
+/// so hot callers like `fastest`'s per-trial fit test don't have to copy their
+/// whole set into an adapter Vec per call — the `Into` is a 16-byte memcpy.
+pub fn smallest_enclosing_circle<P: Copy + Into<[Precision; 2]>>(pts: &[P]) -> Circle {
     let mut c = Circle {
-        center: pts.first().copied().unwrap_or([0.0, 0.0]),
+        center: pts.first().copied().map(Into::into).unwrap_or([0.0, 0.0]),
         radius: 0.0,
     };
-    for (i, &p) in pts.iter().enumerate() {
+    for i in 0..pts.len() {
+        let p: [Precision; 2] = pts[i].into();
         if i == 0 || contains(&c, p) {
             continue;
         }
@@ -72,13 +77,15 @@ pub fn smallest_enclosing_circle(pts: &[[Precision; 2]]) -> Circle {
             center: p,
             radius: 0.0,
         };
-        for (j, &q) in pts.iter().enumerate().take(i) {
+        for j in 0..i {
+            let q: [Precision; 2] = pts[j].into();
             if contains(&c, q) {
                 continue;
             }
             // p and q on the boundary.
             c = circle_from_two(p, q);
-            for &s in pts.iter().take(j) {
+            for k in 0..j {
+                let s: [Precision; 2] = pts[k].into();
                 if contains(&c, s) {
                     continue;
                 }
