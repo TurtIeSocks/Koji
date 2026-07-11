@@ -85,6 +85,23 @@ fn covered_with(mode: ClusterMode, pts: &SingleVec, cap: usize) -> (usize, usize
 }
 
 #[test]
+fn non_binding_finite_cap_is_a_no_op_for_better() {
+    // Regression (adversarial review): the greedy union was gated on the cap
+    // being FINITE, not BINDING — so any explicit-but-generous max_clusters
+    // (exactly how the UI's number input is used) shipped the raw un-pruned
+    // crucible∪greedy pool: ~2× the clusters, 39% worse score. A finite cap
+    // above crucible's natural output must change nothing.
+    let pts = heavy_tailed_city();
+    let (unc_cov, unc_n) = covered_with(ClusterMode::Better, &pts, usize::MAX);
+    let (cap_cov, cap_n) = covered_with(ClusterMode::Better, &pts, unc_n + 500);
+    assert_eq!(
+        (cap_cov, cap_n),
+        (unc_cov, unc_n),
+        "a non-binding cap must be a no-op: uncapped {unc_n} clusters/{unc_cov} covered, generous cap gave {cap_n}/{cap_cov}"
+    );
+}
+
+#[test]
 fn better_beats_balanced_under_binding_cap() {
     let pts = heavy_tailed_city();
     // Uncapped this workload wants ~245 clusters; cap 150 forces real

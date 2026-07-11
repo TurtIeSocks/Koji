@@ -38,6 +38,43 @@ pub use config::{ClusteringConfig, S2Config};
 /// Warm-start entry point for incremental re-clustering (`Crucible::run_seeded`).
 pub use crucible::Crucible;
 
+/// Crucible for the quality modes, cap-aware: crucible's internal enforce ranks
+/// reps at weight 1 per distinct cell (multiplicity-blind), so [`main`]'s
+/// point-weighted selector owns the cap (crucible runs unbounded here).
+///
+/// When crucible's own output exceeds the cap — i.e. selection WILL prune —
+/// greedy's dense-first solution is unioned into the pool: crucible optimizes
+/// full-coverage-minimal-count, so its minimal tiling has no slack and capping
+/// it drops whole neighborhoods; the union gives the selector real choices and
+/// makes the quality mode's pool strictly contain Balanced's. A finite but
+/// NON-binding cap must stay a no-op — unioning unconditionally shipped the raw
+/// doubled pool when nothing pruned it (caught by adversarial review: +39%
+/// mygod_score on a generous cap).
+fn crucible_with_capped_pool(data_points: &SingleVec, cfg: &ClusteringConfig) -> SingleVec {
+    let crucible = crucible::Crucible {
+        radius: cfg.radius,
+        min_points: cfg.min_points,
+        max_clusters: usize::MAX,
+    };
+    let mut centers = crucible.run(data_points);
+    if centers.len() > cfg.max_clusters {
+        let mut greedy = Greedy::default();
+        greedy
+            .set_cluster_mode(ClusterMode::Balanced)
+            .set_min_points(cfg.min_points)
+            .set_radius(cfg.radius);
+        let extra = greedy.run(data_points);
+        log::info!(
+            "crucible: cap {} binds ({} centers) — unioning {} greedy centers into the selection pool",
+            cfg.max_clusters,
+            centers.len(),
+            extra.len()
+        );
+        centers.extend(extra);
+    }
+    centers
+}
+
 pub fn main(
     data_points: &SingleVec,
     cfg: &ClusteringConfig,
@@ -64,31 +101,7 @@ pub fn main(
         _ => match cfg.mode.clone() {
             ClusterMode::Fastest => fastest::main(data_points, cfg.radius, cfg.min_points),
             // ponytail: Better|Best intentionally share the crucible arm (Best is a future-algo slot).
-            ClusterMode::Better | ClusterMode::Best => {
-                // Cap enforcement is main()'s (point-weighted selection below) —
-                // crucible's internal enforce ranks reps at weight 1 per distinct
-                // cell (multiplicity-blind) and would pre-empt it.
-                let crucible = crucible::Crucible {
-                    radius: cfg.radius,
-                    min_points: cfg.min_points,
-                    max_clusters: usize::MAX,
-                };
-                let mut centers = crucible.run(data_points);
-                // With a BINDING cap the selection is only as good as its pool:
-                // crucible optimizes full-coverage-minimal-count, so its pool has
-                // no slack — capping a minimal tiling drops whole neighborhoods.
-                // Union in greedy's dense-first solution so the selector can mix
-                // both; Better's pool then strictly contains Balanced's.
-                if cfg.max_clusters != usize::MAX {
-                    let mut greedy = Greedy::default();
-                    greedy
-                        .set_cluster_mode(ClusterMode::Balanced)
-                        .set_min_points(cfg.min_points)
-                        .set_radius(cfg.radius);
-                    centers.extend(greedy.run(data_points));
-                }
-                centers
-            }
+            ClusterMode::Better | ClusterMode::Best => crucible_with_capped_pool(data_points, cfg),
             ClusterMode::Honeycomb | ClusterMode::Fast | ClusterMode::Balanced => {
                 let mut greedy = Greedy::default();
                 greedy
@@ -124,13 +137,7 @@ pub fn main(
                 log::warn!(
                     "custom clustering plugins are unavailable in wasm; using the crucible algorithm"
                 );
-                // Same as the Better arm: main()'s weighted selection owns the cap.
-                let crucible = crucible::Crucible {
-                    radius: cfg.radius,
-                    min_points: cfg.min_points,
-                    max_clusters: usize::MAX,
-                };
-                crucible.run(data_points)
+                crucible_with_capped_pool(data_points, cfg)
             }
         },
     };
