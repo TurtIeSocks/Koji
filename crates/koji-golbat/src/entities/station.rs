@@ -95,13 +95,16 @@ impl Query {
         Ok(fort(items, "s"))
     }
 
-    pub async fn area(
+    /// The shared raw-SQL fetch for active stations in `area` — `area` and
+    /// `stats` previously duplicated this verbatim (mirrors spawnpoint.rs's
+    /// `query_area` helper).
+    async fn query_area(
         conn: &DatabaseConnection,
         area: &FeatureCollection,
         last_seen: u32,
-    ) -> Result<Vec<GenericData>, DbErr> {
+    ) -> Result<Vec<LatLonRow>, DbErr> {
         let now = now_secs();
-        let items = Entity::find()
+        Entity::find()
             .from_raw_sql(Statement::from_sql_and_values(
                 DbBackend::MySql,
                 format!("SELECT lat, lon FROM station WHERE is_inactive = 0 AND updated > {} AND end_time > {} AND ({})", last_seen, now, crate::sql_raw_bbox(area)).as_str(),
@@ -109,7 +112,15 @@ impl Query {
             ))
             .into_model::<LatLonRow>()
             .all(conn)
-            .await?;
+            .await
+    }
+
+    pub async fn area(
+        conn: &DatabaseConnection,
+        area: &FeatureCollection,
+        last_seen: u32,
+    ) -> Result<Vec<GenericData>, DbErr> {
+        let items = Self::query_area(conn, area, last_seen).await?;
         Ok(fort_filtered(items, area, "s"))
     }
 
@@ -118,16 +129,7 @@ impl Query {
         area: &FeatureCollection,
         last_seen: u32,
     ) -> Result<Total, DbErr> {
-        let now = now_secs();
-        let items = Entity::find()
-            .from_raw_sql(Statement::from_sql_and_values(
-                DbBackend::MySql,
-                format!("SELECT lat, lon FROM station WHERE is_inactive = 0 AND updated > {} AND end_time > {} AND ({})", last_seen, now, crate::sql_raw_bbox(area)).as_str(),
-                vec![],
-            ))
-            .into_model::<LatLonRow>()
-            .all(conn)
-            .await?;
+        let items = Self::query_area(conn, area, last_seen).await?;
         let total = crate::count_in_area(&items, area);
         Ok(Total { total })
     }
