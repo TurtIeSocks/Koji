@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::rtree::{self, cluster::Cluster, cluster_info, point};
 
-const WIDTH: &str = "=======================================================================";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClusterStats {
@@ -93,6 +92,10 @@ pub struct Stats {
     // isn't `Deserialize` anyway, so `skip` (not `skip_serializing`) is required.
     #[serde(skip)]
     stats_start_time: Option<Instant>,
+    // Write-only since the box-drawing pretty printer was deleted; kept because
+    // ~15 call sites across 4 crates name their Stats and it's cheap identity
+    // for future debug output.
+    #[allow(dead_code)]
     #[serde(skip)]
     label: String,
     #[serde(skip)]
@@ -170,99 +173,6 @@ impl Stats {
             score_lambda("KOJI_SCORE_LAMBDA_OVERLAP"),
         );
         self.stop_timer();
-    }
-
-    pub fn log(&self, area: Option<String>) {
-        let get_row = |text: String, replace: bool| {
-            let safe_text: String = if text.len() > WIDTH.len() - 4 {
-                text[..(WIDTH.len() - 4)].to_string()
-            } else {
-                text
-            };
-            format!(
-                "  {}{}{}\n",
-                safe_text,
-                WIDTH[..(WIDTH.len() - safe_text.len())]
-                    .replace("=", if replace { " " } else { "=" }),
-                if replace { "||" } else { "==" }
-            )
-        };
-        log::info!(
-            "\n{}{}{}{}{}{}{}{}{}  {}==\n",
-            get_row("[STATS] ".to_string(), false),
-            if let Some(area) = area {
-                if area.is_empty() {
-                    "".to_string()
-                } else {
-                    get_row(format!("|| [AREA] {} | {}", area, self.label), true)
-                }
-            } else {
-                "".to_string()
-            },
-            get_row(
-                format!(
-                    "|| [POINTS] Total: {} | Covered: {}",
-                    self.total_points, self.points_covered,
-                ),
-                true
-            ),
-            get_row(
-                format!(
-                    "|| [CLUSTERS] Total: {} | Avg Points: {}",
-                    self.total_clusters,
-                    self.points_covered
-                        .checked_div(self.total_clusters)
-                        .unwrap_or(0),
-                ),
-                true
-            ),
-            get_row(
-                format!(
-                    "|| [COVERAGE] Best: {} ({}) | Worst: {} ({})",
-                    self.best_cluster_point_count,
-                    self.best_clusters.len(),
-                    self.worst_cluster_point_count,
-                    self.worst_cluster_count,
-                ),
-                true
-            ),
-            get_row(
-                format!(
-                    "|| [DISTANCE] Total: {}m | Longest: {}m | Avg: {}m",
-                    self.total_distance as u32,
-                    self.longest_distance as u32,
-                    if self.total_clusters > 0 {
-                        (self.total_distance / self.total_clusters as Precision) as u32
-                    } else {
-                        0
-                    },
-                ),
-                true
-            ),
-            get_row(
-                format!(
-                    "|| [TIMES] Clustering: {:.2}s | Routing: {:.2}s | Stats: {:.2}s",
-                    self.cluster_time, self.route_time, self.stats_time,
-                ),
-                true
-            ),
-            get_row(format!("|| [MYGOD_SCORE] {}", self.mygod_score,), true),
-            get_row(
-                format!(
-                    "|| [SCORE_V2] {} | Rt: {:.0}m/{:.0}s | Knife: {} | Overlap: {}/{} | LB: {} ({:.0}%)",
-                    self.score_v2,
-                    self.score_components.route_est_m,
-                    self.score_components.route_est_s,
-                    self.score_components.knife_edge,
-                    self.score_components.multi_covered,
-                    self.score_components.overlap_excess,
-                    self.score_components.lb,
-                    self.score_components.quality * 100.0,
-                ),
-                true
-            ),
-            WIDTH,
-        )
     }
 
     pub fn distance_stats(&mut self, clusters: &SingleVec) {

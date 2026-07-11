@@ -223,44 +223,6 @@ fn cell_center_latlng(id: CellID) -> LatLng {
     LatLng::from(&p)
 }
 
-pub fn cells_to_nearest_face_edges(id: CellID) -> (i32, i32) {
-    // S2 constants
-    const MAX_SIZE: i32 = 1 << MAX_LEVEL; // leaf resolution per axis on a face
-
-    let level = id.level();
-    let size: i32 = 1 << (MAX_LEVEL - level); // “width” of this cell in leaf-ij units
-
-    // Get face-ij for the cell center at leaf resolution.
-    // Most Rust ports expose something like `to_face_ij_orientation()`.
-    // Signature usually: (face: i32, i: i32, j: i32, orientation: u8)
-    let (_face, i_leaf, j_leaf, _o) = id.face_ij_orientation();
-
-    // Snap to this cell’s lower-left corner (origin) at its level.
-    // Equivalent to: i0 = floor(i_leaf / size) * size
-    let i0 = i_leaf & !(size - 1);
-    let j0 = j_leaf & !(size - 1);
-
-    // Count whole cells to each face edge (same level).
-    // Left (i=0) vs right (i = MAX_SIZE - size)
-    let to_west = i0 / size;
-    let to_east = (MAX_SIZE - size - i0) / size;
-
-    // Bottom (j=0) vs top (j = MAX_SIZE - size)
-    let to_south = j0 / size;
-    let to_north = (MAX_SIZE - size - j0) / size;
-
-    // Nearest side per axis
-    let i_cells = if to_west <= to_east { to_west } else { to_east };
-
-    let j_cells = if to_south <= to_north {
-        to_south
-    } else {
-        to_north
-    };
-
-    (i_cells, j_cells)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -351,24 +313,6 @@ mod tests {
         );
     }
 
-    // ── cells_to_nearest_face_edges ───────────────────────────────────────────
-
-    #[test]
-    fn cells_to_nearest_face_edges_nonneg() {
-        // Pick a level-10 cell and verify offsets are non-negative.
-        let cell = CellID::from(LatLng::from_degrees(40.0, -74.0)).parent(10);
-        let (i, j) = cells_to_nearest_face_edges(cell);
-        assert!(i >= 0, "i offset must be non-negative, got {i}");
-        assert!(j >= 0, "j offset must be non-negative, got {j}");
-    }
-
-    #[test]
-    fn cells_to_nearest_face_edges_finite() {
-        // Edge-of-face cell (should not panic).
-        let cell = CellID::from(LatLng::from_degrees(0.0, 0.0)).parent(12);
-        let (i, j) = cells_to_nearest_face_edges(cell);
-        assert!(i >= 0 && j >= 0);
-    }
 
     // ── block_center_cell with size=1 ─────────────────────────────────────────
 
@@ -441,30 +385,6 @@ mod tests {
                 assert!(lon.abs() <= 180.0, "bad lon {lon} for size {size}");
             }
         }
-    }
-
-    // ── cells_to_nearest_face_edges: various levels ───────────────────────────
-
-    #[test]
-    fn cells_to_nearest_face_edges_level1_nonneg() {
-        let cell = CellID::from(LatLng::from_degrees(0.0, 0.0)).parent(1);
-        let (i, j) = cells_to_nearest_face_edges(cell);
-        assert!(i >= 0 && j >= 0, "i={i}, j={j}");
-    }
-
-    #[test]
-    fn cells_to_nearest_face_edges_level30_nonneg() {
-        let cell = CellID::from(LatLng::from_degrees(51.5, -0.1)).parent(20);
-        let (i, j) = cells_to_nearest_face_edges(cell);
-        assert!(i >= 0 && j >= 0, "i={i}, j={j}");
-    }
-
-    #[test]
-    fn cells_to_nearest_face_edges_polar_nonneg() {
-        // Near the north pole (high lat, can be on any face).
-        let cell = CellID::from(LatLng::from_degrees(89.0, 45.0)).parent(10);
-        let (i, j) = cells_to_nearest_face_edges(cell);
-        assert!(i >= 0 && j >= 0, "i={i}, j={j} for polar cell");
     }
 
     // ── BootstrapS2::feature() propagates name and id properties ─────────────
