@@ -36,8 +36,8 @@ pub(crate) async fn list_rows(
     conn: web::Data<KojiDb>,
     query: web::Query<RowQuery>,
 ) -> Result<HttpResponse, ServiceError> {
-    let page = query.page.unwrap_or(1).max(1);
-    let per_page = query.per_page.unwrap_or(50).clamp(1, 500);
+    let paging = crate::utils::pagination::Pagination::from_parts(query.page, query.per_page);
+    let (page, per_page) = (paging.page(), paging.per_page());
     let args = AdminReqParsed {
         page: (page - 1) as u64,
         per_page: per_page as u64,
@@ -90,21 +90,14 @@ pub(crate) async fn list_rows(
         })
         .collect();
 
-    let total_pages = if per_page > 0 {
-        ((total as i64) + per_page - 1) / per_page
-    } else {
-        0
-    };
-
+    // Meta::build owns the ceiling math; the DB paginator's has_next/has_prev
+    // are authoritative, so they override the derived flags.
     Ok(ApiResponse::success_paginated(
         data,
         Meta {
-            total: total as i64,
-            page,
-            per_page,
-            total_pages,
             has_next,
             has_prev,
+            ..Meta::build(total as i64, page, per_page)
         },
     ))
 }
