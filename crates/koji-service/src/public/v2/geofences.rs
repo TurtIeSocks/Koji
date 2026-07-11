@@ -173,10 +173,7 @@ pub(crate) async fn create(
     let value = serde_json::to_value(body.into_inner()).map_err(ServiceError::internal)?;
     let projects = value.get("projects").cloned();
     let record = geofence::Query::upsert_json_return(&conn.koji, 0, value).await?;
-    let id = record
-        .get("id")
-        .and_then(serde_json::Value::as_u64)
-        .unwrap_or(0);
+    let id = super::crud::record_id(&record)?;
     for (t, ev) in crate::internal::realtime::topics::created("geofence", id as i64) {
         hub.publish(&t, ev);
     }
@@ -186,12 +183,7 @@ pub(crate) async fn create(
     if projects.is_some() {
         emit_geofence_membership_diff(&conn.koji, id as u32, &[]).await;
     }
-    Ok(HttpResponse::build(StatusCode::CREATED)
-        .insert_header(("Location", format!("/api/v2/geofences/{id}")))
-        .json(ApiResponse::Ok {
-            data: record,
-            meta: None,
-        }))
+    Ok(super::crud::created_response("/api/v2/geofences", id, record))
 }
 
 /// `GET /api/v2/geofences/{id}` — one geofence (by id or name) as a feature,
@@ -275,11 +267,7 @@ async fn update(
     let mut merged = serde_json::to_value(&existing).map_err(ServiceError::internal)?;
     let patch_value = serde_json::to_value(body.into_inner()).map_err(ServiceError::internal)?;
     let carries_projects = patch_value.get("projects").is_some();
-    if let (Some(base), Some(patch)) = (merged.as_object_mut(), patch_value.as_object()) {
-        for (k, v) in patch {
-            base.insert(k.clone(), v.clone());
-        }
-    }
+    super::crud::merge_patch(&mut merged, &patch_value);
     // Snapshot pre-mutation project links (only needed when the PATCH body
     // carries `projects` — otherwise membership isn't touched at all).
     let before_pids = if carries_projects {
@@ -378,12 +366,7 @@ async fn remove(
 ) -> Result<HttpResponse, ServiceError> {
     let id = path.into_inner();
     let result = geofence::Query::delete(&conn.koji, id).await?;
-    if result.rows_affected == 0 {
-        return Err(ServiceError::NotFound {
-            field: "geofence",
-            message: "does not exist".to_string(),
-        });
-    }
+    super::crud::delete_or_404(result.rows_affected, "geofence")?;
     for (t, ev) in crate::internal::realtime::topics::deleted("geofence", id as i64) {
         hub.publish(&t, ev);
     }

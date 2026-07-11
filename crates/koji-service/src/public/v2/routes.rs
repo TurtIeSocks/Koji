@@ -130,20 +130,12 @@ pub(crate) async fn create(
 ) -> Result<HttpResponse, ServiceError> {
     let value = serde_json::to_value(body.into_inner()).map_err(ServiceError::internal)?;
     let record = route::Query::upsert_json_return(&conn.koji, 0, value).await?;
-    let id = record
-        .get("id")
-        .and_then(serde_json::Value::as_u64)
-        .unwrap_or(0);
+    let id = super::crud::record_id(&record)?;
     for (t, ev) in crate::internal::realtime::topics::created("route", id as i64) {
         hub.publish(&t, ev);
     }
     emit_route_updated(&conn.koji, id, &record).await;
-    Ok(HttpResponse::build(StatusCode::CREATED)
-        .insert_header(("Location", format!("/api/v2/routes/{id}")))
-        .json(ApiResponse::Ok {
-            data: record,
-            meta: None,
-        }))
+    Ok(super::crud::created_response("/api/v2/routes", id, record))
 }
 
 /// `GET /api/v2/routes/{id}` — one route (by id or name) as a feature, honoring
@@ -208,11 +200,7 @@ async fn update(
     // absent fields are absent from the patch value).
     let mut merged = serde_json::to_value(&existing).map_err(ServiceError::internal)?;
     let patch_value = serde_json::to_value(body.into_inner()).map_err(ServiceError::internal)?;
-    if let (Some(base), Some(patch)) = (merged.as_object_mut(), patch_value.as_object()) {
-        for (k, v) in patch {
-            base.insert(k.clone(), v.clone());
-        }
-    }
+    super::crud::merge_patch(&mut merged, &patch_value);
     let record = route::Query::upsert_json_return(&conn.koji, id, merged).await?;
     for (t, ev) in crate::internal::realtime::topics::updated("route", id as i64, record.clone()) {
         hub.publish(&t, ev);
@@ -266,12 +254,7 @@ async fn remove(
 ) -> Result<HttpResponse, ServiceError> {
     let id = path.into_inner();
     let result = route::Query::delete(&conn.koji, id).await?;
-    if result.rows_affected == 0 {
-        return Err(ServiceError::NotFound {
-            field: "route",
-            message: "does not exist".to_string(),
-        });
-    }
+    super::crud::delete_or_404(result.rows_affected, "route")?;
     for (t, ev) in crate::internal::realtime::topics::deleted("route", id as i64) {
         hub.publish(&t, ev);
     }
