@@ -1,19 +1,11 @@
 use sea_orm_migration::prelude::*;
-use sea_orm_migration::sea_orm::{ConnectionTrait, Statement};
+use sea_orm_migration::sea_orm::ConnectionTrait;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-async fn has_column(manager: &SchemaManager<'_>, col: &str) -> Result<bool, DbErr> {
-    let conn = manager.get_connection();
-    let stmt = Statement::from_sql_and_values(
-        conn.get_database_backend(),
-        "SELECT COLUMN_NAME FROM information_schema.COLUMNS \
-         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'project' AND COLUMN_NAME = ? LIMIT 1",
-        [col.into()],
-    );
-    Ok(conn.query_one(stmt).await?.is_some())
-}
+use crate::helpers::has_column;
+
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
@@ -22,7 +14,7 @@ impl MigrationTrait for Migration {
     /// dead. `golbat` was vestigial in v2 (read-only golbat crate, zero callers).
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         for col in ["api_endpoint", "api_key", "golbat"] {
-            if has_column(manager, col).await? {
+            if has_column(manager, "project", col).await? {
                 log::info!("[MIGRATION] dropping project.{col}");
                 manager
                     .get_connection()
@@ -41,7 +33,7 @@ impl MigrationTrait for Migration {
     /// migration's `CHANGE COLUMN ... TINYINT(1) NOT NULL DEFAULT 0`). Push
     /// config itself is not un-migrated — it lives in `webhook_subscription`.
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        if !has_column(manager, "api_endpoint").await? {
+        if !has_column(manager, "project", "api_endpoint").await? {
             manager
                 .get_connection()
                 .execute_unprepared(

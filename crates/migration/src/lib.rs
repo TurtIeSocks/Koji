@@ -1,5 +1,7 @@
 pub use sea_orm_migration::prelude::*;
 
+mod helpers;
+
 mod m20221207_120629_create_geofence;
 mod m20221207_122452_create_project;
 mod m20221207_122501_create_geofence_project;

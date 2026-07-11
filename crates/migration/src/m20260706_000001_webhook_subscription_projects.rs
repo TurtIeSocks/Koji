@@ -75,17 +75,8 @@ mod tests {
     }
 }
 
-/// True if `table` has a column named exactly `col`.
-async fn has_column(manager: &SchemaManager<'_>, table: &str, col: &str) -> Result<bool, DbErr> {
-    let conn = manager.get_connection();
-    let stmt = Statement::from_sql_and_values(
-        conn.get_database_backend(),
-        "SELECT COLUMN_NAME FROM information_schema.COLUMNS \
-         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1",
-        [table.into(), col.into()],
-    );
-    Ok(conn.query_one(stmt).await?.is_some())
-}
+use crate::helpers::has_column;
+
 
 /// A v1 project row carrying push config, read before the drop in migration B.
 #[derive(Debug, FromQueryResult)]
