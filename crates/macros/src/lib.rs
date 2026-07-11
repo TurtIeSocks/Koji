@@ -82,6 +82,8 @@ pub fn derive_str_enum(input: TokenStream) -> TokenStream {
     // Canonical (unit) variants.
     let mut as_str_arms = Vec::new();
     let mut from_arms = Vec::new();
+    // Every literal + alias across variants; duplicates are compile errors.
+    let mut seen_literals = std::collections::HashSet::new();
     // The single optional `#[str(default)]` catch-all newtype variant.
     let mut default_ident: Option<syn::Ident> = None;
 
@@ -189,10 +191,47 @@ pub fn derive_str_enum(input: TokenStream) -> TokenStream {
                     .into();
             }
         };
+        // Matching lowercases the input first, so a non-lowercase literal could
+        // NEVER match: serialize would emit "Alpha" while deserialize of "Alpha"
+        // errors (or falls into the default) — a silent roundtrip break. Reject
+        // at expansion time. Same for duplicate literals, which would produce a
+        // dead (unreachable) match arm.
+        if lit.value() != lit.value().to_lowercase() {
+            return syn::Error::new_spanned(
+                &lit,
+                "#[str] literal must be lowercase (from_str_opt lowercases input before matching)",
+            )
+            .to_compile_error()
+            .into();
+        }
+        if !seen_literals.insert(lit.value()) {
+            return syn::Error::new_spanned(
+                &lit,
+                format!("duplicate #[str] literal \"{}\" — this arm would be unreachable", lit.value()),
+            )
+            .to_compile_error()
+            .into();
+        }
         as_str_arms.push(quote! { #name::#vident => #lit });
         // Canonical literal plus any aliases all map to this variant.
         from_arms.push(quote! { #lit => ::core::option::Option::Some(#name::#vident) });
         for a in &aliases {
+            if a.value() != a.value().to_lowercase() {
+                return syn::Error::new_spanned(
+                    a,
+                    "#[str] alias must be lowercase (from_str_opt lowercases input before matching)",
+                )
+                .to_compile_error()
+                .into();
+            }
+            if !seen_literals.insert(a.value()) {
+                return syn::Error::new_spanned(
+                    a,
+                    format!("duplicate #[str] literal \"{}\" — this arm would be unreachable", a.value()),
+                )
+                .to_compile_error()
+                .into();
+            }
             from_arms.push(quote! { #a => ::core::option::Option::Some(#name::#vident) });
         }
     }
