@@ -88,12 +88,12 @@ test("buildLayers appends an editable layer only when a draw mode is active", ()
     markerRadius: 30, onClick: vi.fn(),
     draft: { mode: "none", features: EMPTY, selectedIndexes: [], onEdit: vi.fn() },
   });
-  expect(draftOff.find((l) => l.id === "edit")).toBeUndefined();
+  expect(draftOff.find((l) => l.id.startsWith("edit"))).toBeUndefined();
 
   const draftOn = buildLayers({
     visibility: vis(), markerSets: [], geofences: EMPTY, routes: EMPTY, s2Cells: [],
     markerRadius: 30, onClick: vi.fn(),
     draft: { mode: "drawPolygon", features: EMPTY, selectedIndexes: [], onEdit: vi.fn() },
   });
-  expect(draftOn.find((l) => l.id === "edit")).toBeDefined();
+  expect(draftOn.find((l) => l.id.startsWith("edit"))).toBeDefined();
 });

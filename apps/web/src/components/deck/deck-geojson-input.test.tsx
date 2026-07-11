@@ -67,7 +67,11 @@ describe("DeckGeoJsonInput", () => {
   it("auto-enters modify (editable layer) when a geometry is already present", () => {
     // An existing shape is editable on load without clicking a toolbar button.
     mounted = renderWithForm({ geometry: poly });
-    expect(capturedLayers.current.some((l) => l.id === "edit")).toBe(true);
+    expect(
+      capturedLayers.current.some(
+        (l) => l.id.startsWith("edit-") && l.id !== "edit-static",
+      ),
+    ).toBe(true);
     expect(capturedLayers.current.some((l) => l.id === "edit-static")).toBe(false);
   });
 
