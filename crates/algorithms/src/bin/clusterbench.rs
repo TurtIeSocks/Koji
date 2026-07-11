@@ -365,6 +365,7 @@ fn main() {
             radius: args.radius,
             min_points: args.min_points,
             max_clusters: usize::MAX,
+            quick: false,
         };
         let mut stats_w = Stats::new("bench-warm-churn".to_string(), args.min_points);
         let wall_w = Instant::now();

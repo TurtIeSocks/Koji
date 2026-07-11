@@ -42,28 +42,74 @@ pub use crucible::Crucible;
 /// reps at weight 1 per distinct cell (multiplicity-blind), so [`main`]'s
 /// point-weighted selector owns the cap (crucible runs unbounded here).
 ///
-/// When crucible's own output exceeds the cap — i.e. selection WILL prune —
-/// greedy's dense-first solution is unioned into the pool: crucible optimizes
-/// full-coverage-minimal-count, so its minimal tiling has no slack and capping
-/// it drops whole neighborhoods; the union gives the selector real choices and
-/// makes the quality mode's pool strictly contain Balanced's. A finite but
-/// NON-binding cap must stay a no-op — unioning unconditionally shipped the raw
-/// doubled pool when nothing pruned it (caught by adversarial review: +39%
-/// mygod_score on a generous cap).
+/// A CLEARLY binding cap (cheap greedy count > 5/4 · cap) resolves the cap
+/// right here as a two-arm race instead of handing an unbounded pool to
+/// [`main`]'s selector: a binding cap changes the objective to max-k-cover,
+/// which the capped selector solves from the full arrangement space, so
+/// crucible's multi-variant construction is worth neither its cost nor its
+/// guarantees there — a quick single-variant crucible only seeds refined
+/// multi-point centers into one arm's pool.
+///
+/// The two arms: greedy-only pool (bit-identical to what capped Balanced
+/// produces) and greedy ∪ quick-crucible. Keeping whichever covers more makes
+/// capped Better ≥ capped Balanced BY CONSTRUCTION — greedy max-coverage is
+/// not monotonic in its candidate pool (extra pool centers can bait an early
+/// commit that ends worse; observed on the urban synthetic: the unioned pool
+/// covered 5 fewer than Balanced's), so the superset pool alone guarantees
+/// nothing. Returning an already-capped solution means [`main`]'s cap step
+/// sees len ≤ cap and is a no-op.
+///
+/// In the boundary band (greedy count ≤ 5/4 · cap) the full crucible runs —
+/// its unbounded solution may genuinely fit the cap and then IS the result.
+/// When it exceeds the cap instead, greedy is unioned into the selection
+/// pool: crucible optimizes full-coverage-minimal-count, so its minimal tiling
+/// has no slack and capping it drops whole neighborhoods; the union gives the
+/// selector real choices. A finite but NON-binding cap must stay a no-op —
+/// unioning unconditionally shipped the raw doubled pool when nothing pruned
+/// it (caught by adversarial review: +39% mygod_score on a generous cap).
 fn crucible_with_capped_pool(data_points: &SingleVec, cfg: &ClusteringConfig) -> SingleVec {
-    let crucible = crucible::Crucible {
+    let mut crucible = crucible::Crucible {
         radius: cfg.radius,
         min_points: cfg.min_points,
         max_clusters: usize::MAX,
+        quick: false,
     };
+    if cfg.max_clusters == usize::MAX {
+        return crucible.run(data_points);
+    }
+    let mut greedy = Greedy::default();
+    greedy
+        .set_cluster_mode(ClusterMode::Balanced)
+        .set_min_points(cfg.min_points)
+        .set_radius(cfg.radius);
+    let extra = greedy.run(data_points);
+    if extra.len() > cfg.max_clusters.saturating_mul(5) / 4 {
+        log::info!(
+            "crucible: cap {} clearly binds ({} greedy centers) — quick construction, two-arm capped race",
+            cfg.max_clusters,
+            extra.len()
+        );
+        crucible.quick = true;
+        let mut union_pool = crucible.run(data_points);
+        union_pool.extend(extra.iter().copied());
+        let arm_union =
+            select::cap_radius_clusters(union_pool, data_points, cfg.radius, cfg.max_clusters);
+        let arm_greedy =
+            select::cap_radius_clusters(extra, data_points, cfg.radius, cfg.max_clusters);
+        let cover_u = coverage_count(&arm_union, data_points, cfg.radius);
+        let cover_g = coverage_count(&arm_greedy, data_points, cfg.radius);
+        log::info!(
+            "crucible: capped race — union pool covers {cover_u}, greedy pool covers {cover_g}"
+        );
+        // Prefer the union arm on ties (it carries crucible's refined centers).
+        return if cover_g > cover_u {
+            arm_greedy
+        } else {
+            arm_union
+        };
+    }
     let mut centers = crucible.run(data_points);
     if centers.len() > cfg.max_clusters {
-        let mut greedy = Greedy::default();
-        greedy
-            .set_cluster_mode(ClusterMode::Balanced)
-            .set_min_points(cfg.min_points)
-            .set_radius(cfg.radius);
-        let extra = greedy.run(data_points);
         log::info!(
             "crucible: cap {} binds ({} centers) — unioning {} greedy centers into the selection pool",
             cfg.max_clusters,
@@ -73,6 +119,19 @@ fn crucible_with_capped_pool(data_points: &SingleVec, cfg: &ClusteringConfig) ->
         centers.extend(extra);
     }
     centers
+}
+
+/// Coverage as the scoreboard counts it, for judging the two-arm capped race:
+/// distinct S2 L20 cells with at least one point within `radius` of a center
+/// (`Stats::cluster_stats` collects covered points into a set keyed by the
+/// L20 cell id, so `points_covered` is cell-granular).
+fn coverage_count(centers: &SingleVec, points: &SingleVec, radius: koji_core::Precision) -> usize {
+    let tree = rtree::spawn(radius, points);
+    let mut covered: hashbrown::HashSet<u64> = hashbrown::HashSet::new();
+    for c in centers {
+        covered.extend(tree.locate_all_at_point(*c).map(|p| p.cell_id.0));
+    }
+    covered.len()
 }
 
 pub fn main(

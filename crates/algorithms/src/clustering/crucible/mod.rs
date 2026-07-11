@@ -52,6 +52,11 @@ pub struct Crucible {
     pub radius: Precision,
     pub min_points: usize,
     pub max_clusters: usize,
+    /// Single-variant construction (no restart portfolio, no recombination).
+    /// Used when a binding `max_clusters` follows: the capped selector only
+    /// consumes the centers as pool candidates, and one refined variant buys
+    /// nearly all of the pool's selection value at ~1/5 the construction cost.
+    pub quick: bool,
 }
 
 impl Default for Crucible {
@@ -60,6 +65,7 @@ impl Default for Crucible {
             radius: 70.0,
             min_points: 1,
             max_clusters: usize::MAX,
+            quick: false,
         }
     }
 }
@@ -207,7 +213,9 @@ impl Crucible {
         // Small inputs are cheap: take the best of several deterministic
         // greedy orderings (the greedy is order-sensitive on packing-style
         // instances, especially for min_points ≥ 2).
-        let variants: &[u8] = if reps.len() <= RESTART_MAX_CELLS {
+        let variants: &[u8] = if self.quick {
+            &[0]
+        } else if reps.len() <= RESTART_MAX_CELLS {
             &[0, 1, 2, 3, 4]
         } else if reps.len() <= RESTART_PAIR_MAX_CELLS {
             // Natural + lattice orderings are the most structurally diverse
@@ -504,6 +512,7 @@ mod tests {
             radius: 70.0,
             min_points: 1,
             max_clusters: usize::MAX,
+            quick: false,
         };
         let pts = vec![[40.0, -74.0]];
         let out = crucible.run(&pts);
@@ -527,6 +536,7 @@ mod tests {
             radius: 70.0,
             min_points: 1,
             max_clusters: usize::MAX,
+            quick: false,
         };
         let centers = crucible.run(&pts);
         for p in &pts {
@@ -553,6 +563,7 @@ mod tests {
             radius: 70.0,
             min_points: 1,
             max_clusters: usize::MAX,
+            quick: false,
         };
         let centers = crucible.run(&pts);
         assert_eq!(centers.len(), 10, "one disk per pair");
@@ -569,6 +580,7 @@ mod tests {
             radius: 70.0,
             min_points: 1,
             max_clusters: 5,
+            quick: false,
         };
         let centers = crucible.run(&pts);
         assert!(centers.len() <= 5);
@@ -599,6 +611,7 @@ mod tests {
             radius: 70.0,
             min_points: 3,
             max_clusters: usize::MAX,
+            quick: false,
         };
         let a_centers = crucible.run(&pts);
         let mut greedy = Greedy::default();
@@ -665,6 +678,7 @@ mod tests {
             radius: 70.0,
             min_points: 1,
             max_clusters: usize::MAX,
+            quick: false,
         };
         assert_eq!(crucible.run(&pts), crucible.run(&pts));
     }
