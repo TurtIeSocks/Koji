@@ -163,7 +163,12 @@ impl Plugin {
                 })?;
                 output.points
             }
-            PluginProtocol::Latlng => decode_latlng(&raw),
+            PluginProtocol::Latlng => decode_latlng(&raw).map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("plugin `{}` returned unparseable output ({e})", self.name),
+                )
+            })?,
         };
 
         log::info!(

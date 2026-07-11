@@ -52,12 +52,25 @@ pub fn encode_latlng(points: &SingleVec) -> String {
 }
 
 /// Parse legacy `lat,lng` whitespace-separated tokens from plugin stdout into a
-/// [`SingleVec`]. Malformed tokens are skipped.
-pub fn decode_latlng(raw: &str) -> SingleVec {
+/// [`SingleVec`].
+///
+/// Strict: any unparseable token is an error, matching the JSON protocol's
+/// unparseable-output behavior. (Silently skipping meant a plugin printing
+/// diagnostics to stdout "succeeded" with dropped or zero points, and the
+/// routing/clustering Custom arms then replaced the real result with that
+/// truncated one — silent data loss.)
+pub fn decode_latlng(raw: &str) -> std::io::Result<SingleVec> {
     raw.split_whitespace()
-        .filter_map(|tok| {
-            let (lat, lon) = tok.split_once(',')?;
-            Some([lat.trim().parse().ok()?, lon.trim().parse().ok()?])
+        .map(|tok| {
+            let parsed = tok
+                .split_once(',')
+                .and_then(|(lat, lon)| Some([lat.trim().parse().ok()?, lon.trim().parse().ok()?]));
+            parsed.ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("unparseable lat,lng token in plugin output: {tok:?}"),
+                )
+            })
         })
         .collect()
 }
@@ -114,6 +127,22 @@ pub struct PluginOutput {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn decode_latlng_parses_valid_tokens() {
+        let pts = decode_latlng("1.5,2.5  3.0,-4.25\n5,6").unwrap();
+        assert_eq!(pts, vec![[1.5, 2.5], [3.0, -4.25], [5.0, 6.0]]);
+        assert_eq!(decode_latlng("").unwrap(), Vec::<[f64; 2]>::new());
+    }
+
+    #[test]
+    fn decode_latlng_errors_on_malformed_token() {
+        // Regression: skipping malformed tokens let a plugin printing
+        // diagnostics to stdout "succeed" with dropped/zero points.
+        assert!(decode_latlng("1.0,2.0 DEBUG:starting 3.0,4.0").is_err());
+        assert!(decode_latlng("no-points-here").is_err());
+        assert!(decode_latlng("1.0,abc").is_err());
+    }
 
     #[test]
     fn input_round_trips() {
