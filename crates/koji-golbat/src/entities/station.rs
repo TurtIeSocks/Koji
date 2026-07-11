@@ -5,10 +5,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use geojson::FeatureCollection;
 use sea_orm::entity::prelude::*;
-use sea_orm::{DbBackend, QueryFilter, QuerySelect, Statement};
+use sea_orm::{DbBackend, Statement};
 use serde::{Deserialize, Serialize};
 
-use crate::normalize::{fort, fort_filtered};
+use crate::normalize::fort_filtered;
 use crate::rows::{GenericData, LatLonRow, Total};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
@@ -58,43 +58,6 @@ fn now_secs() -> u32 {
 pub struct Query;
 
 impl Query {
-    pub async fn all(conn: &DatabaseConnection, last_seen: u32) -> Result<Vec<GenericData>, DbErr> {
-        let now = now_secs();
-        let items = Entity::find()
-            .select_only()
-            .column(Column::Lat)
-            .column(Column::Lon)
-            .filter(Column::Updated.gt(last_seen))
-            .filter(Column::IsInactive.eq(false))
-            .filter(Column::EndTime.gt(now))
-            .limit(2_000_000)
-            .into_model::<LatLonRow>()
-            .all(conn)
-            .await?;
-        Ok(fort(items, "s"))
-    }
-
-    pub async fn bound(
-        conn: &DatabaseConnection,
-        payload: &koji_core::BoundsArg,
-    ) -> Result<Vec<GenericData>, DbErr> {
-        let now = now_secs();
-        let items = Entity::find()
-            .select_only()
-            .column(Column::Lat)
-            .column(Column::Lon)
-            .filter(Column::Lat.between(payload.bbox.min_lat, payload.bbox.max_lat))
-            .filter(Column::Lon.between(payload.bbox.min_lon, payload.bbox.max_lon))
-            .filter(Column::Updated.gt(payload.last_seen.unwrap_or(0)))
-            .filter(Column::IsInactive.eq(false))
-            .filter(Column::EndTime.gt(now))
-            .limit(2_000_000)
-            .into_model::<LatLonRow>()
-            .all(conn)
-            .await?;
-        Ok(fort(items, "s"))
-    }
-
     /// The shared raw-SQL fetch for active stations in `area` — `area` and
     /// `stats` previously duplicated this verbatim (mirrors spawnpoint.rs's
     /// `query_area` helper).

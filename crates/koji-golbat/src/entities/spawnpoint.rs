@@ -4,10 +4,10 @@ use geojson::FeatureCollection;
 use koji_core::Precision;
 use koji_core::SpawnpointTth;
 use sea_orm::entity::prelude::*;
-use sea_orm::{DbBackend, QueryFilter, QuerySelect, Statement};
+use sea_orm::{DbBackend, Statement};
 use serde::{Deserialize, Serialize};
 
-use crate::normalize::{spawnpoint, spawnpoint_filtered};
+use crate::normalize::spawnpoint_filtered;
 use crate::rows::{GenericData, Spawnpoint, Total};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
@@ -30,53 +30,6 @@ impl ActiveModelBehavior for ActiveModel {}
 pub struct Query;
 
 impl Query {
-    pub async fn all(
-        conn: &DatabaseConnection,
-        last_seen: u32,
-        tth: SpawnpointTth,
-    ) -> Result<Vec<GenericData>, DbErr> {
-        let items = Entity::find()
-            .select_only()
-            .column(Column::Lat)
-            .column(Column::Lon)
-            .column(Column::DespawnSec)
-            .limit(2_000_000)
-            .filter(Column::LastSeen.gt(last_seen))
-            .filter(match tth {
-                SpawnpointTth::All => Column::Id.is_not_null(),
-                SpawnpointTth::Known => Column::DespawnSec.is_not_null(),
-                SpawnpointTth::Unknown => Column::DespawnSec.is_null(),
-            })
-            .into_model::<Spawnpoint>()
-            .all(conn)
-            .await?;
-        Ok(spawnpoint(items))
-    }
-
-    pub async fn bound(
-        conn: &DatabaseConnection,
-        payload: &koji_core::BoundsArg,
-    ) -> Result<Vec<GenericData>, DbErr> {
-        let items = Entity::find()
-            .select_only()
-            .column(Column::Lat)
-            .column(Column::Lon)
-            .column(Column::DespawnSec)
-            .filter(Column::Lat.between(payload.bbox.min_lat, payload.bbox.max_lat))
-            .filter(Column::Lon.between(payload.bbox.min_lon, payload.bbox.max_lon))
-            .filter(Column::LastSeen.gt(payload.last_seen.unwrap_or(0)))
-            .filter(match payload.tth.as_ref().unwrap_or(&SpawnpointTth::All) {
-                SpawnpointTth::All => Column::Id.is_not_null(),
-                SpawnpointTth::Known => Column::DespawnSec.is_not_null(),
-                SpawnpointTth::Unknown => Column::DespawnSec.is_null(),
-            })
-            .limit(2_000_000)
-            .into_model::<Spawnpoint>()
-            .all(conn)
-            .await?;
-        Ok(spawnpoint(items))
-    }
-
     async fn query_area(
         conn: &DatabaseConnection,
         area: &FeatureCollection,

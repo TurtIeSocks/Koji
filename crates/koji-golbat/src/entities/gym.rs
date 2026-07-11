@@ -4,7 +4,6 @@ use koji_core::Precision;
 use sea_orm::entity::prelude::*;
 // Kept in scope: the `fort_query` macro's generated query-builder chain relies
 // on these sea_orm extension traits resolving at this call site.
-use sea_orm::{QueryFilter, QuerySelect};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]

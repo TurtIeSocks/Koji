@@ -457,44 +457,6 @@ pub fn fort_query(attr: TokenStream, item: TokenStream) -> TokenStream {
         #item
 
         impl Query {
-            pub async fn all(
-                conn: &sea_orm::DatabaseConnection,
-                last_seen: u32,
-            ) -> Result<Vec<crate::rows::GenericData>, sea_orm::DbErr> {
-                let items = Entity::find()
-                    .select_only()
-                    .column(Column::Lat)
-                    .column(Column::Lon)
-                    .filter(Column::Updated.gt(last_seen))
-                    .filter(Column::Deleted.eq(false))
-                    .filter(Column::Enabled.eq(true))
-                    .limit(2_000_000)
-                    .into_model::<crate::rows::LatLonRow>()
-                    .all(conn)
-                    .await?;
-                Ok(crate::normalize::fort(items, #prefix))
-            }
-
-            pub async fn bound(
-                conn: &sea_orm::DatabaseConnection,
-                payload: &koji_core::BoundsArg,
-            ) -> Result<Vec<crate::rows::GenericData>, sea_orm::DbErr> {
-                let items = Entity::find()
-                    .select_only()
-                    .column(Column::Lat)
-                    .column(Column::Lon)
-                    .filter(Column::Lat.between(payload.bbox.min_lat, payload.bbox.max_lat))
-                    .filter(Column::Lon.between(payload.bbox.min_lon, payload.bbox.max_lon))
-                    .filter(Column::Updated.gt(payload.last_seen.unwrap_or_default()))
-                    .filter(Column::Deleted.eq(false))
-                    .filter(Column::Enabled.eq(true))
-                    .limit(2_000_000)
-                    .into_model::<crate::rows::LatLonRow>()
-                    .all(conn)
-                    .await?;
-                Ok(crate::normalize::fort(items, #prefix))
-            }
-
             pub async fn area(
                 conn: &sea_orm::DatabaseConnection,
                 area: &geojson::FeatureCollection,
