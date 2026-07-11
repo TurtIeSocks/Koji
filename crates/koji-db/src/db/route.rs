@@ -3,8 +3,7 @@
 use super::*;
 use koji_core::Precision;
 
-use chrono::Utc;
-use geojson::{self, GeoJson};
+use geojson::{self};
 use sea_orm::{FromQueryResult, Order, QueryOrder, QuerySelect, entity::prelude::*};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -171,11 +170,6 @@ impl Query {
         })
     }
 
-    /// Returns all Geofence models in the db
-    pub async fn get_all(db: &DatabaseConnection) -> Result<Vec<Model>, DbErr> {
-        Entity::find().all(db).await
-    }
-
     pub async fn get_json_cache(db: &DatabaseConnection) -> Result<Vec<sea_orm::JsonValue>, DbErr> {
         let results = Query::get_all_no_fences(db)
             .await?
@@ -207,34 +201,6 @@ impl Query {
             .await
     }
 
-    /// Creates a new Geofence model, only used from admin panel when creating a single geofence.
-    /// Does not try to remove internal props since they do not exist yet
-    pub async fn create(db: &DatabaseConnection, incoming: Model) -> Result<Model, DbErr> {
-        let new_fence = serde_json::from_value::<geojson::Geometry>(incoming.geometry);
-        match new_fence {
-            Ok(new_feature) => {
-                let value = serde_json::to_value(GeoJson::Geometry(new_feature))
-                    .expect("geojson serializes");
-                ActiveModel {
-                    name: Set(incoming.name.to_owned()),
-                    geofence_id: Set(incoming.geofence_id),
-                    geometry: Set(value),
-                    mode: Set(incoming.mode),
-                    description: Set(incoming.description),
-                    created_at: Set(Utc::now()),
-                    updated_at: Set(Utc::now()),
-                    ..Default::default()
-                }
-                .insert(db)
-                .await
-            }
-            Err(err) => Err(DbErr::Custom(format!(
-                "New area did not have valid geometry {:?}",
-                err
-            ))),
-        }
-    }
-
     pub async fn get_one(db: &DatabaseConnection, id: String) -> Result<Model, ModelError> {
         let record = match id.parse::<u32>() {
             Ok(id) => Entity::find_by_id(id).one(db).await?,
@@ -251,30 +217,6 @@ impl Query {
         match Query::get_one(db, id).await {
             Ok(record) => Ok(json!(record)),
             Err(err) => Err(err),
-        }
-    }
-
-    pub async fn update(
-        db: &DatabaseConnection,
-        id: u32,
-        new_model: Model,
-    ) -> Result<Model, DbErr> {
-        let old_model: Option<Model> = Entity::find_by_id(id).one(db).await?;
-        let new_geometry = serde_json::from_value::<geojson::Geometry>(new_model.geometry);
-        if let Ok(new_geometry) = new_geometry {
-            let value =
-                serde_json::to_value(GeoJson::Geometry(new_geometry)).expect("geojson serializes");
-
-            let mut old_model: ActiveModel = old_model.unwrap().into();
-            old_model.name = Set(new_model.name.to_owned());
-            old_model.description = Set(new_model.description.to_owned());
-            old_model.geofence_id = Set(new_model.geofence_id);
-            old_model.geometry = Set(value);
-            old_model.mode = Set(new_model.mode);
-            old_model.updated_at = Set(Utc::now());
-            old_model.update(db).await
-        } else {
-            Err(DbErr::Custom("New geometry was not valid".to_string()))
         }
     }
 
@@ -359,7 +301,7 @@ mod to_koji_tests {
     #[cfg(test)]
     fn test_model_defaults() -> Model {
         use chrono::Utc;
-        Model {
+                Model {
             id: 0,
             geofence_id: 0,
             name: String::new(),
