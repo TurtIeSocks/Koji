@@ -34,7 +34,6 @@ impl ClusterRequest {
             calculation_mode,
             s2: S2Config::default(),
             center_clusters: self.center_clusters,
-            genetic_post_processing: false,
             plugin_args: String::new(),
         };
         Ok((self.points, cfg))

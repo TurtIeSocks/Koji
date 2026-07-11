@@ -166,7 +166,6 @@ mod tests {
             calculation_mode: CalculationMode::Radius,
             s2: S2Config::default(),
             center_clusters: false,
-            genetic_post_processing: false,
             plugin_args: String::new(),
         }
     }

@@ -121,7 +121,6 @@ fn main() {
         calculation_mode: CalculationMode::Radius,
         s2: S2Config::default(),
         center_clusters: false,
-        genetic_post_processing: false,
         plugin_args: String::new(),
     };
     let mut stats = Stats::new("tsp_route".to_string(), 1);

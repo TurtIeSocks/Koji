@@ -21,6 +21,5 @@ pub struct ClusteringConfig {
     pub calculation_mode: CalculationMode,
     pub s2: S2Config,
     pub center_clusters: bool,
-    pub genetic_post_processing: bool,
     pub plugin_args: String,
 }

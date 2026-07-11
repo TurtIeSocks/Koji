@@ -34,7 +34,6 @@ pub struct ClusteringArgs {
     pub s2_level: Option<u8>,
     pub s2_size: Option<u8>,
     pub center_clusters: Option<bool>,
-    pub genetic_post_processing: Option<bool>,
     pub plugin_args: Option<String>,
 }
 
@@ -54,7 +53,6 @@ impl ClusteringArgs {
                 size: self.s2_size.unwrap_or(DEFAULT_S2_SIZE),
             },
             center_clusters: self.center_clusters.unwrap_or(false),
-            genetic_post_processing: self.genetic_post_processing.unwrap_or(false),
             plugin_args: clustering_plugin_args(self.plugin_args, radius, min_points, max_clusters),
         }
     }
@@ -224,20 +222,18 @@ mod tests {
     }
 
     #[test]
-    fn clustering_args_center_clusters_and_genetic_default_false() {
+    fn clustering_args_center_clusters_default_false() {
         let cfg = ClusteringArgs::default().resolve();
         assert!(!cfg.center_clusters);
-        assert!(!cfg.genetic_post_processing);
     }
 
     #[test]
     fn clustering_args_center_clusters_explicit_true() {
         let g: ClusteringArgs =
-            serde_json::from_str(r#"{"centerClusters":true,"geneticPostProcessing":true}"#)
+            serde_json::from_str(r#"{"centerClusters":true}"#)
                 .unwrap();
         let cfg = g.resolve();
         assert!(cfg.center_clusters);
-        assert!(cfg.genetic_post_processing);
     }
 
     #[test]

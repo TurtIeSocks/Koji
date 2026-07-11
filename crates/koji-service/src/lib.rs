@@ -271,7 +271,6 @@ pub async fn start() -> io::Result<()> {
             io::Error::other(format!("invalid NOMINATIM_URL {nominatim_url:?}: {e}"))
         })?,
         "nominatim-rust/0.1.0 test-suite".to_string(),
-        None,
     )
     .map_err(|e| io::Error::other(format!("failed to build nominatim client: {e}")))?;
 
