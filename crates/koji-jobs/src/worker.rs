@@ -184,7 +184,7 @@ async fn run_claimed_job(
     worker_idx: usize,
     queue: &Arc<JobQueue>,
     registry: &HandlerRegistry,
-    claimed: ClaimedJob,
+    mut claimed: ClaimedJob,
 ) {
     let public_id = claimed.public_id.as_string();
     log::debug!(
@@ -249,7 +249,9 @@ async fn run_claimed_job(
 
     // Run the (synchronous, CPU-bound) handler off the async runtime so it never
     // blocks other tasks / the heartbeat (spec §5).
-    let payload = claimed.payload.clone();
+    // Move the payload out (calc payloads can embed large data_points JSON);
+    // only claimed.id is read after this point.
+    let payload = std::mem::take(&mut claimed.payload);
     let handler = Arc::clone(&handler);
     let run_result = tokio::task::spawn_blocking(move || handler.run(payload, &ctx)).await;
 

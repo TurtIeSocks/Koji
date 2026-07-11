@@ -117,7 +117,7 @@ impl JobHandler for CalculateHandler {
         // Single-path typed dispatch. The handler decodes the enqueued tagged
         // `CalcRequest` and resolves each op's arg-groups into the koji-core
         // configs.
-        let req: CalcRequest = serde_json::from_value(payload.request.clone())
+        let req: CalcRequest = serde_json::from_value(payload.request)
             .map_err(|e| JobError::validation(format!("invalid calc request: {e}")))?;
         let (benchmark_mode, collection, stats): (bool, KojiGeometryCollection, Stats) = match req {
             // `Cluster` and `Route` share `ClusterReq`; only `Route` applies the

@@ -636,9 +636,10 @@ pub fn dedup_key(kind: &str, fields: &serde_json::Value) -> String {
     hasher.update(canonical_json(fields).as_bytes());
     let digest = hasher.finalize();
     // Hex-encode to 64 chars to fit `dedup_key CHAR(64)`.
+    use std::fmt::Write;
     let mut out = String::with_capacity(64);
     for byte in digest {
-        out.push_str(&format!("{byte:02x}"));
+        let _ = write!(out, "{byte:02x}");
     }
     out
 }

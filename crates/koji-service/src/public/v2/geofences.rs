@@ -168,7 +168,7 @@ pub(crate) async fn create(
     body: web::Json<CreateGeofence>,
 ) -> Result<HttpResponse, ServiceError> {
     let value = serde_json::to_value(body.into_inner()).map_err(ServiceError::internal)?;
-    let projects = value.get("projects").cloned();
+    let carries_projects = value.get("projects").is_some();
     let record = geofence::Query::upsert_json_return(&conn.koji, 0, value).await?;
     let id = super::crud::record_id(&record)?;
     for (t, ev) in crate::internal::realtime::topics::created("geofence", id as i64) {
@@ -177,7 +177,7 @@ pub(crate) async fn create(
     emit_geofence_updated(&conn.koji, id, &record).await;
     // Membership diff only when the body carried `projects` (create starts
     // from an empty `before`, since the fence didn't exist a moment ago).
-    if projects.is_some() {
+    if carries_projects {
         emit_geofence_membership_diff(&conn.koji, id as u32, &[]).await;
     }
     Ok(super::crud::created_response(

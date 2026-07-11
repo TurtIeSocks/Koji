@@ -133,11 +133,11 @@ async fn s2_cells(
     payload: web::Json<BoundsArg>,
     url: web::Path<u8>,
 ) -> Result<HttpResponse, ServiceError> {
-    let bounds = payload.into_inner();
+    let mut bounds = payload.into_inner();
     let all = bounds.ids.is_none();
     let ids = bounds
         .ids
-        .clone()
+        .take()
         .map(|ids| ids.into_iter().collect::<HashSet<String>>())
         .unwrap_or_default();
 
