@@ -1,8 +1,8 @@
-//! sea-orm entities for the koji-events tables (`event_outbox`,
-//! `webhook_subscription`).
+//! sea-orm entities for the koji-events tables.
 //!
-//! These back the typed reads + the source-of-truth column/enum names; the hot
-//! claim/backoff updates use raw `Statement` SQL (see `dispatcher.rs`).
+//! Only `webhook_subscription` is read through a typed entity
+//! (`active_subscriptions` + koji-service). Every `event_outbox` read/write —
+//! publish, claim, backoff, dead-letter — uses raw `Statement` SQL in
+//! `dispatcher.rs`; its schema source of truth is the migration.
 
-pub mod event_outbox;
 pub mod webhook_subscription;
