@@ -238,13 +238,11 @@ async fn geofence_project_upsert_related_by_project_id() {
         .await
         .expect("upsert by project_id");
 
-    // Verify via the all() list
-    let all = geofence_project::Query::get_all(&db)
+    // Verify via the live id-listing helper
+    let ids = geofence_project::Query::project_ids_for_geofence(&db, fence_id)
         .await
-        .expect("get_all");
-    let found = all
-        .iter()
-        .any(|r| r.geofence_id == fence_id && r.project_id == proj_id);
+        .expect("project_ids_for_geofence");
+    let found = ids.contains(&proj_id);
 
     // Unlink
     geofence_project::Query::upsert_related_by_project_id(&db, &[], proj_id)
@@ -260,53 +258,6 @@ async fn geofence_project_upsert_related_by_project_id() {
         .expect("delete project");
 
     assert!(found, "join row exists after upsert_related_by_project_id");
-}
-
-// ── geofence_project — delete ────────────────────────────────────────────────
-
-#[tokio::test]
-async fn geofence_project_delete_removes_link() {
-    let Some(db) = test_db().await else { return };
-    let _g = serial_guard().await;
-
-    let fence_name = unique_name("gf-del-link");
-    let proj_name = unique_name("proj-del-link");
-
-    let fence_id = make_geofence(&db, &fence_name).await;
-    let proj_id = make_project(&db, &proj_name).await;
-
-    // create link
-    geofence_project::Query::create(
-        &db,
-        geofence_project::Model {
-            id: 0,
-            geofence_id: fence_id,
-            project_id: proj_id,
-        },
-    )
-    .await
-    .expect("create link");
-
-    // delete just the link (not the fence or project)
-    let del = geofence_project::Query::delete(&db, Some(fence_id), Some(proj_id)).await;
-
-    // cleanup
-    geofence::Query::delete(&db, fence_id)
-        .await
-        .expect("delete fence");
-    project::Query::delete(&db, proj_id)
-        .await
-        .expect("delete project");
-
-    del.expect("delete link ok");
-}
-
-#[tokio::test]
-async fn geofence_project_delete_both_none_is_err() {
-    let Some(db) = test_db().await else { return };
-    let _g = serial_guard().await;
-    let result = geofence_project::Query::delete(&db, None, None).await;
-    assert!(result.is_err(), "delete with both None should error");
 }
 
 // ── plugin_config — insert, upsert (update), get_one, all, delete ────────────

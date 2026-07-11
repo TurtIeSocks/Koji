@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use super::*;
 
-use sea_orm::{InsertResult, entity::prelude::*};
+use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "geofence_project")]
@@ -52,125 +52,6 @@ impl ActiveModelBehavior for ActiveModel {}
 pub struct Query;
 
 impl Query {
-    pub async fn get_all(db: &DatabaseConnection) -> Result<Vec<Model>, DbErr> {
-        geofence_project::Entity::find().all(db).await
-    }
-
-    pub async fn create(db: &DatabaseConnection, new_model: Model) -> Result<Model, DbErr> {
-        if let Some(existing) = geofence_project::Entity::find()
-            .filter(geofence_project::Column::GeofenceId.eq(new_model.geofence_id))
-            .filter(geofence_project::Column::ProjectId.eq(new_model.project_id))
-            .one(db)
-            .await?
-        {
-            let mut active_model: ActiveModel = existing.into();
-            active_model.geofence_id = Set(new_model.geofence_id);
-            active_model.project_id = Set(new_model.project_id);
-            active_model.update(db).await
-        } else {
-            ActiveModel {
-                geofence_id: Set(new_model.geofence_id),
-                project_id: Set(new_model.project_id),
-                ..Default::default()
-            }
-            .insert(db)
-            .await
-        }
-    }
-
-    pub async fn update(
-        db: &DatabaseConnection,
-        geofence_id: Option<u32>,
-        project_id: Option<u32>,
-    ) -> Result<Model, DbErr> {
-        let old_model = geofence_project::Entity::find()
-            .filter(geofence_project::Column::GeofenceId.eq(geofence_id))
-            .filter(geofence_project::Column::ProjectId.eq(project_id))
-            .one(db)
-            .await?;
-        if let Some(old_model) = old_model {
-            let mut old_model: ActiveModel = old_model.into();
-            if let Some(geofence_id) = geofence_id {
-                old_model.geofence_id = Set(geofence_id);
-            }
-            if let Some(project_id) = project_id {
-                old_model.project_id = Set(project_id);
-            }
-            old_model.update(db).await
-        } else {
-            Err(DbErr::Custom("Relation not found".to_string()))
-        }
-    }
-
-    pub async fn update_by_id(
-        db: &DatabaseConnection,
-        id: u32,
-        table: String,
-        related_ids: Vec<u32>,
-    ) -> Result<InsertResult<ActiveModel>, DbErr> {
-        geofence_project::Entity::delete_many()
-            .filter(
-                if table == "geofence" {
-                    geofence_project::Column::GeofenceId
-                } else {
-                    geofence_project::Column::ProjectId
-                }
-                .eq(id),
-            )
-            .exec(db)
-            .await?;
-
-        let new_models: Vec<ActiveModel> = related_ids
-            .into_iter()
-            .map(|related_id| ActiveModel {
-                geofence_id: Set(if table == "geofence" { id } else { related_id }),
-                project_id: Set(if table == "geofence" { related_id } else { id }),
-                ..Default::default()
-            })
-            .collect();
-        if !new_models.is_empty() {
-            geofence_project::Entity::insert_many(new_models)
-                .exec(db)
-                .await
-        } else {
-            Ok(InsertResult { last_insert_id: 0 })
-        }
-    }
-
-    pub async fn delete(
-        db: &DatabaseConnection,
-        geofence_id: Option<u32>,
-        project_id: Option<u32>,
-    ) -> Result<DeleteResult, DbErr> {
-        if let (Some(geofence_id), Some(project_id)) = (geofence_id, project_id) {
-            let existing = geofence_project::Entity::find()
-                .filter(geofence_project::Column::GeofenceId.eq(geofence_id))
-                .filter(geofence_project::Column::ProjectId.eq(project_id))
-                .one(db)
-                .await?;
-
-            if let Some(existing) = existing {
-                existing.delete(db).await
-            } else {
-                Err(DbErr::Custom("Relation not found".to_string()))
-            }
-        } else if let Some(geofence_id) = geofence_id {
-            geofence_project::Entity::delete_many()
-                .filter(geofence_project::Column::GeofenceId.eq(geofence_id))
-                .exec(db)
-                .await
-        } else if let Some(project_id) = project_id {
-            geofence_project::Entity::delete_many()
-                .filter(geofence_project::Column::ProjectId.eq(project_id))
-                .exec(db)
-                .await
-        } else {
-            Err(DbErr::Custom(
-                "Both geofence_id and project_id are missing".to_string(),
-            ))
-        }
-    }
-
     /// Reconcile the join rows for one fixed side against a desired id set on
     /// the other side: insert missing pairs, leave matches, delete stale rows.
     ///
