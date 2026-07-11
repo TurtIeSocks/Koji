@@ -2,8 +2,6 @@ use std::collections::VecDeque;
 
 #[cfg(feature = "native")]
 use colored::Colorize;
-use geo::Coord;
-use geohash::encode;
 use hashbrown::HashSet;
 use koji_core::Precision;
 use koji_core::{PointArray, SingleVec};
@@ -50,21 +48,18 @@ pub fn info_log(file_name: &str, message: String) -> String {
 pub fn rotate_to_best(clusters: SingleVec, stats: &Stats) -> SingleVec {
     let mut final_clusters = VecDeque::<PointArray>::new();
 
-    // Unencodable coords (NaN / out-of-range from a plugin or solver) are skipped
-    // rather than panicking the whole routing call — matches sort_geohash.
+    // Bit-exact coordinate keys: best_clusters are drawn from this same
+    // cluster list, so `to_bits` equality is the honest match — and it drops
+    // the per-cluster allocating geohash-12 encode (plus its NaN panic/skip
+    // handling and 3.7 cm bucket-collision fuzz) entirely.
     let best_cluster_set = stats
         .best_clusters
         .iter()
-        .filter_map(|x| encode(Coord { x: x[1], y: x[0] }, 12).ok())
-        .collect::<HashSet<String>>();
+        .map(|p| (p[0].to_bits(), p[1].to_bits()))
+        .collect::<HashSet<(u64, u64)>>();
     let mut rotate_count = 0;
     for (i, [lat, lon]) in clusters.into_iter().enumerate() {
-        let Ok(hash) = encode(Coord { x: lon, y: lat }, 12) else {
-            log::warn!("rotate_to_best: skipping unencodable point [{lat}, {lon}]");
-            final_clusters.push_back([lat, lon]);
-            continue;
-        };
-        if best_cluster_set.contains(&hash) {
+        if best_cluster_set.contains(&(lat.to_bits(), lon.to_bits())) {
             rotate_count = i;
             log::debug!("Found Best! {}, {} - {}", lat, lon, i);
         }
