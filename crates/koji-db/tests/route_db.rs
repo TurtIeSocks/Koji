@@ -85,7 +85,6 @@ async fn route_crud_round_trip() {
 
     // gather observations
     let got = route::Query::get_one_json(&db, id.to_string()).await;
-    let cache = route::Query::get_json_cache(&db).await;
     let search_hits = route::Query::search(&db, route_name.clone()).await;
 
     // cleanup
@@ -100,12 +99,6 @@ async fn route_crud_round_trip() {
     let got = got.expect("get_one_json finds the route");
     assert_eq!(got["name"], json!(route_name));
     assert_eq!(got["geofence_id"], json!(fence_id));
-
-    let cache = cache.expect("get_json_cache ok");
-    assert!(
-        cache.iter().any(|r| r["name"] == json!(route_name)),
-        "cache contains new route"
-    );
 
     let search_hits = search_hits.expect("search ok");
     assert!(

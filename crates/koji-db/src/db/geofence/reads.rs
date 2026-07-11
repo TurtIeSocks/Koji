@@ -136,16 +136,6 @@ impl Query {
     }
 
     /// Returns all Geofence models in the db
-    pub async fn get_all_json(db: &DatabaseConnection) -> Result<Vec<Json>, DbErr> {
-        Ok(Query::get_all(db).await?.to_json())
-    }
-
-    /// Fetch all geofence rows and map each `Model` to a `KojiGeometry`,
-    /// collecting into a `KojiGeometryCollection`. Returns `ModelError` to match
-    /// `to_koji_geometry` and the sibling `get_one` methods. The property/name
-    /// helper maps are not needed here — `to_koji_geometry` reads only the model's
-    /// own columns.
-    #[allow(clippy::result_large_err)]
     pub async fn get_all_koji(
         db: &DatabaseConnection,
     ) -> Result<koji_core::KojiGeometryCollection, ModelError> {
@@ -165,23 +155,6 @@ impl Query {
     ) -> Result<koji_core::KojiGeometry, ModelError> {
         let result = Query::get_one(db, id).await?;
         result.to_koji_geometry()
-    }
-
-    /// Returns all Geofence models in the db without their features
-    pub async fn get_all_no_fences(
-        db: &DatabaseConnection,
-    ) -> Result<Vec<GeofenceNoGeometry>, DbErr> {
-        Entity::find()
-            .select_only()
-            .column(Column::Id)
-            .column(Column::Name)
-            .column(Column::Mode)
-            .column(Column::GeoType)
-            .column(Column::Parent)
-            .order_by(Column::Name, Order::Asc)
-            .into_model::<GeofenceNoGeometry>()
-            .all(db)
-            .await
     }
 
     pub async fn search(db: &DatabaseConnection, search: String) -> Result<Vec<Json>, DbErr> {

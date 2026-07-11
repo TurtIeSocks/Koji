@@ -60,15 +60,6 @@ impl Query {
         Entity::find().all(db).await
     }
 
-    pub async fn get_json_cache(db: &DatabaseConnection) -> Result<Vec<sea_orm::JsonValue>, DbErr> {
-        let results = Entity::find()
-            .order_by(Column::Name, Order::Asc)
-            .all(db)
-            .await?;
-
-        Ok(results.into_iter().map(|model| json!(model)).collect())
-    }
-
     pub async fn upsert(
         db: &DatabaseConnection,
         id: u32,

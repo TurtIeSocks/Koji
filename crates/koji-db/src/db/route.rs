@@ -170,37 +170,6 @@ impl Query {
         })
     }
 
-    pub async fn get_json_cache(db: &DatabaseConnection) -> Result<Vec<sea_orm::JsonValue>, DbErr> {
-        let results = Query::get_all_no_fences(db)
-            .await?
-            .into_iter()
-            .map(|record| {
-                let mut json = json!(record);
-                json["geo_type"] = Json::String("MultiPoint".to_string());
-                json
-            })
-            .collect();
-        Ok(results)
-    }
-
-    /// Returns all Geofence models in the db without their features
-    pub async fn get_all_no_fences(db: &DatabaseConnection) -> Result<Vec<RouteNoGeometry>, DbErr> {
-        Entity::find()
-            .select_only()
-            .column(Column::Id)
-            .column(Column::GeofenceId)
-            .column(Column::Name)
-            .column(Column::Description)
-            .column(Column::Mode)
-            .column(Column::Points)
-            .column(Column::CreatedAt)
-            .column(Column::UpdatedAt)
-            .order_by(Column::Name, Order::Asc)
-            .into_model::<RouteNoGeometry>()
-            .all(db)
-            .await
-    }
-
     pub async fn get_one(db: &DatabaseConnection, id: String) -> Result<Model, ModelError> {
         let record = match id.parse::<u32>() {
             Ok(id) => Entity::find_by_id(id).one(db).await?,

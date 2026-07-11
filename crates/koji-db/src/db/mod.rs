@@ -35,16 +35,6 @@ pub struct PaginateResults<T> {
     has_prev: bool,
 }
 
-impl Default for PaginateResults<()> {
-    fn default() -> Self {
-        PaginateResults {
-            results: (),
-            total: 0,
-            has_next: false,
-            has_prev: false,
-        }
-    }
-}
 
 impl<T> PaginateResults<T> {
     /// Decompose into `(results, total, has_next, has_prev)`. The fields are
@@ -57,6 +47,3 @@ impl<T> PaginateResults<T> {
     }
 }
 
-pub(crate) trait VecToJson {
-    fn to_json(self) -> Vec<serde_json::Value>;
-}

@@ -11,11 +11,6 @@ use futures::future;
 use serde_json::json;
 
 impl Query {
-    pub async fn get_json_cache(db: &DatabaseConnection) -> Result<Vec<sea_orm::JsonValue>, DbErr> {
-        Ok(Query::get_all_no_fences(db).await?.to_json())
-    }
-
-    /// Returns paginated Geofence models
     pub async fn paginate(
         db: &DatabaseConnection,
         args: AdminReqParsed,

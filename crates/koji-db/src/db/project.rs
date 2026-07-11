@@ -5,7 +5,6 @@ use crate::query_args::AdminReqParsed;
 use crate::utils::{json::JsonToModel, json_related_sort, parse_order};
 
 use super::*;
-use futures::future;
 use sea_orm::entity::prelude::*;
 use serde_json::json;
 use std::str::FromStr;
@@ -177,37 +176,6 @@ impl Query {
         project::Entity::find().all(db).await
     }
 
-    pub async fn get_json_cache(db: &DatabaseConnection) -> Result<Vec<sea_orm::JsonValue>, DbErr> {
-        let results = Entity::find()
-            .order_by(Column::Name, Order::Asc)
-            .all(db)
-            .await?;
-        let geofences = future::try_join_all(results.iter().map(|result| {
-            result
-                .get_related_geofences()
-                .into_model::<NameId>()
-                .all(db)
-        }))
-        .await?;
-
-        Ok(results
-            .into_iter()
-            .enumerate()
-            .map(|(i, model)| {
-                json!({
-                    "id": model.id,
-                    "name": model.name,
-                    "geofences": geofences[i].iter().map(|r| r.id).collect::<Vec<u32>>()
-                })
-            })
-            .collect())
-    }
-
-    // ponytail: project PATCH "geofences" bulk-assign emits no membership
-    // events yet — wire when E9.1 builds the reverse-assign UI (snapshot
-    // before/after around Query::upsert in a thin unsealed wrapper or macro
-    // hook). koji-db must not write outbox itself, and the project PATCH
-    // macro handler is sealed, so there is no clean hook here today.
     pub async fn upsert_related_geofences(
         db: &DatabaseConnection,
         json: &serde_json::Value,

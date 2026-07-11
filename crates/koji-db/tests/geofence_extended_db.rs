@@ -121,32 +121,6 @@ async fn geofence_search_no_match_returns_empty() {
     assert!(hits.is_empty());
 }
 
-// ── geofence — get_all_no_fences (json_cache) ───────────────────────────────
-
-#[tokio::test]
-async fn geofence_json_cache_contains_new_geofence() {
-    let Some(db) = test_db().await else { return };
-    let _g = serial_guard().await;
-
-    let name = unique_name("gf-cache");
-    let fence_id = make_geofence(&db, &name).await;
-
-    let cache = geofence::Query::get_json_cache(&db).await.expect("cache");
-
-    geofence::Query::delete(&db, fence_id)
-        .await
-        .expect("delete");
-
-    assert!(
-        cache.iter().any(|r| r["name"] == json!(name)),
-        "json_cache contains the new geofence"
-    );
-    // Geometry column is NOT present in the no_fences projection.
-    for r in &cache {
-        assert!(r.get("geometry").is_none(), "cache entry has no geometry");
-    }
-}
-
 // ── geofence — upsert (update path) ─────────────────────────────────────────
 
 #[tokio::test]

@@ -14,11 +14,11 @@
 //! ```
 //!
 //! ## Coverage
-//! create → read (`get_one_json`) → list (`get_json_cache`) → delete →
+//! create → read (`get_one_json`) → list (`search`) → delete →
 //! read-errors, for: **project**, **tile_server**, **property**, and
 //! **geofence** (with a small valid GeoJSON polygon). `paginate` is exercised
 //! indirectly elsewhere; its `PaginateResults` fields are private, so the list
-//! assertion here uses the public `get_json_cache` cache path instead.
+//! assertion here uses the public `search` path instead.
 //!
 //! ## Isolation
 //! Names are suffixed with a nanosecond timestamp so parallel + repeat runs
@@ -77,7 +77,7 @@ async fn project_crud_round_trip() {
     // Gather every observation FIRST, then delete, then assert — so a failing
     // assertion can never leak the row (`#[tokio::test]` has no teardown hook).
     let got = project::Query::get_one_json(&db, id.to_string()).await;
-    let cache = project::Query::get_json_cache(&db).await;
+    let listed = project::Query::search(&db, name.clone()).await;
 
     project::Query::delete(&db, id).await.expect("delete");
     let after = project::Query::get_one(&db, id.to_string()).await;
@@ -87,11 +87,11 @@ async fn project_crud_round_trip() {
     assert_eq!(got["name"], json!(name), "name round-trips through get_one");
     assert_eq!(got["description"], json!("integration test"));
 
-    // list (get_json_cache contains it)
-    let cache = cache.expect("get_json_cache");
+    // list (search finds it)
+    let listed = listed.expect("search");
     assert!(
-        cache.iter().any(|p| p["name"] == json!(name)),
-        "get_json_cache should contain the new project"
+        listed.iter().any(|p| p["name"] == json!(name)),
+        "search should find the new project"
     );
 
     // read after delete now errors (NotFound-shaped)
@@ -119,7 +119,7 @@ async fn tile_server_crud_round_trip() {
 
     // Gather, then delete, then assert (panic-safe cleanup — see project test).
     let got = tile_server::Query::get_one_json(&db, id.to_string()).await;
-    let cache = tile_server::Query::get_json_cache(&db).await;
+    let listed = tile_server::Query::search(&db, name.clone()).await;
 
     tile_server::Query::delete(&db, id).await.expect("delete");
     let after = tile_server::Query::get_one(&db, id.to_string()).await;
@@ -131,10 +131,10 @@ async fn tile_server_crud_round_trip() {
         json!("https://tiles.example.com/{z}/{x}/{y}.png")
     );
 
-    let cache = cache.expect("get_json_cache");
+    let listed = listed.expect("search");
     assert!(
-        cache.iter().any(|t| t["name"] == json!(name)),
-        "get_json_cache should contain the new tile_server"
+        listed.iter().any(|t| t["name"] == json!(name)),
+        "search should find the new tile_server"
     );
 
     assert!(after.is_err(), "get_one after delete should error");
@@ -157,7 +157,7 @@ async fn property_crud_round_trip() {
 
     // Gather, then delete, then assert (panic-safe cleanup — see project test).
     let got = property::Query::get_one_json(&db, id.to_string()).await;
-    let cache = property::Query::get_json_cache(&db).await;
+    let listed = property::Query::search(&db, name.clone()).await;
 
     property::Query::delete(&db, id).await.expect("delete");
     let after = property::Query::get_one(&db, id.to_string()).await;
@@ -166,10 +166,10 @@ async fn property_crud_round_trip() {
     assert_eq!(got["name"], json!(name));
     assert_eq!(got["category"], json!("string"), "category round-trips");
 
-    let cache = cache.expect("get_json_cache");
+    let listed = listed.expect("search");
     assert!(
-        cache.iter().any(|p| p["name"] == json!(name)),
-        "get_json_cache should contain the new property"
+        listed.iter().any(|p| p["name"] == json!(name)),
+        "search should find the new property"
     );
 
     assert!(after.is_err(), "get_one after delete should error");

@@ -112,13 +112,6 @@ pub(crate) struct OnlyParent {
     pub parent: Option<u32>,
 }
 
-impl GeofenceNoGeometry {
-    #[allow(clippy::wrong_self_convention)]
-    fn to_json(self) -> Json {
-        json!(self)
-    }
-}
-
 /// Pure inputs for a geofence upsert, derived from a `KojiGeometry`. Split out
 /// from the DB write so the property/parent extraction can be unit-tested
 /// without a live connection.
@@ -413,17 +406,6 @@ impl Model {
     }
 }
 
-impl VecToJson for Vec<Model> {
-    fn to_json(self) -> Vec<Json> {
-        self.into_iter().map(|model| model.to_json()).collect()
-    }
-}
-
-impl VecToJson for Vec<GeofenceNoGeometry> {
-    fn to_json(self) -> Vec<Json> {
-        self.into_iter().map(|model| model.to_json()).collect()
-    }
-}
 
 mod hierarchy;
 mod list;
