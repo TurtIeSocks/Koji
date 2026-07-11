@@ -11,7 +11,7 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use koji_core::{EnsurePoints, KojiGeometry, KojiGeometryCollection};
+use koji_core::{KojiGeometry, KojiGeometryCollection};
 
 use crate::query_args::AdminReqParsed;
 
@@ -153,51 +153,6 @@ impl Model {
     }
 }
 
-impl Model {
-    #[allow(clippy::result_large_err)]
-    pub fn to_feature(self, internal: bool) -> Result<Feature, ModelError> {
-        let Self {
-            geometry,
-            name,
-            geofence_id,
-            id,
-            mode,
-            ..
-        } = self;
-
-        // Routes store their geometry as a self-describing geojson MultiPoint, so
-        // we use it directly — same as `geofence::Model::to_feature`. (Previously
-        // this routed through the old conversion matrix's CirclePokemon inference,
-        // which only reshaped the already-MultiPoint coordinates back to themselves
-        // and injected a `bbox` the downstream `KojiGeometryCollection::try_from`
-        // discards — see the golden test `route_to_feature_matrix_free_golden`.)
-        let geometry = serde_json::from_value::<geojson::Geometry>(geometry)?;
-        let mut feature = Feature {
-            geometry: Some(geometry),
-            ..Feature::default()
-        };
-
-        if internal {
-            feature.id = Some(geojson::feature::Id::String(format!(
-                "{}__{}__KOJI",
-                id,
-                mode.to_value(),
-            )));
-        }
-        feature.set_property(if internal { "__name" } else { "name" }, name.clone());
-        feature.set_property(if internal { "__id" } else { "id" }, id);
-        feature.set_property(if internal { "__mode" } else { "mode" }, mode.to_value());
-        feature.set_property(
-            if internal {
-                "__geofence_id"
-            } else {
-                "geofence_id"
-            },
-            geofence_id,
-        );
-        Ok(feature)
-    }
-}
 pub struct Query;
 
 impl Query {
@@ -531,103 +486,6 @@ impl Query {
         Ok((inserts, updates))
     }
 
-    pub async fn by_geofence(
-        db: &DatabaseConnection,
-        geofence: String,
-    ) -> Result<Vec<Json>, DbErr> {
-        match geofence.parse::<u32>() {
-            Ok(id) => {
-                Entity::find()
-                    .order_by(Column::Name, Order::Asc)
-                    .filter(Column::GeofenceId.eq(id))
-                    .select_only()
-                    .column(Column::Id)
-                    .column(Column::Name)
-                    .column(Column::Mode)
-                    .into_json()
-                    .all(db)
-                    .await
-            }
-            Err(_) => {
-                Entity::find()
-                    .order_by(Column::Name, Order::Asc)
-                    .left_join(geofence::Entity)
-                    .filter(geofence::Column::Name.eq(geofence))
-                    .select_only()
-                    .column(Column::Id)
-                    .column(Column::Name)
-                    .column(Column::Mode)
-                    .into_json()
-                    .all(db)
-                    .await
-            }
-        }
-    }
-
-    pub async fn by_geofence_feature(
-        db: &DatabaseConnection,
-        geofence_name: String,
-        internal: bool,
-    ) -> Result<Vec<Feature>, DbErr> {
-        let items = match geofence_name.parse::<u32>() {
-            Ok(id) => {
-                Entity::find()
-                    .order_by(Column::Name, Order::Asc)
-                    .filter(Column::GeofenceId.eq(id))
-                    .all(db)
-                    .await?
-            }
-            Err(_) => {
-                Entity::find()
-                    .order_by(Column::Name, Order::Asc)
-                    .left_join(geofence::Entity)
-                    .filter(geofence::Column::Name.eq(geofence_name))
-                    .all(db)
-                    .await?
-            }
-        };
-
-        let items: Vec<Feature> = items
-            .into_iter()
-            .filter_map(|item| item.to_feature(internal).ok())
-            .collect();
-        Ok(items)
-    }
-
-    /// Additive Phase 2 counterpart to `by_geofence_feature`: fetch the SAME
-    /// route rows and return them as a `KojiGeometryCollection`, byte-identical to
-    /// what the v1 endpoint produced pre-S5b.1. The route `to_feature` injects
-    /// `geofence_id` (which the bare `to_koji_geometry` has no field for) plus the
-    /// legacy 12-value `mode` string and the `internal` `__`-prefix / `feature.id`
-    /// shaping — so we go through the per-row `Feature`s + Phase 1 `TryFrom`
-    /// (the exact path the endpoint used) rather than `to_koji_geometry`. Polygon
-    /// rings are closed via `EnsurePoints` as the old `to_collection` did.
-    ///
-    /// NOTE: on the NON-internal path the emitted `mode` property is the legacy
-    /// 12-value string. As of S5c, `KojiMeta`'s `mode` field deserializes
-    /// leniently (mapping the legacy value to the canonical `Mode` via
-    /// `Mode::from_legacy`), so the `TryFrom` no longer fails and the sibling
-    /// properties (id/name/geofence_id) are preserved. Does not replace
-    /// `by_geofence_feature` (deleted in a later section).
-    #[allow(clippy::result_large_err)]
-    pub async fn by_geofence_koji(
-        db: &DatabaseConnection,
-        geofence_name: String,
-        internal: bool,
-    ) -> Result<KojiGeometryCollection, ModelError> {
-        let features = Query::by_geofence_feature(db, geofence_name, internal).await?;
-        let fc = geojson::FeatureCollection {
-            bbox: None,
-            features: features
-                .into_iter()
-                .map(EnsurePoints::ensure_first_last)
-                .collect(),
-            foreign_members: None,
-        };
-        KojiGeometryCollection::try_from(fc)
-            .map_err(|e| ModelError::Custom(format!("[GEOMETRY]: {e}")))
-    }
-
     pub async fn search(db: &DatabaseConnection, search: String) -> Result<Vec<Json>, DbErr> {
         Entity::find()
             .filter(Column::Name.like(format!("%{}%", search).as_str()))
@@ -759,33 +617,6 @@ mod to_koji_tests {
         assert_eq!(route_geofence_id(&item), None);
     }
 
-    /// `by_geofence_koji` returns the property-rich `to_feature` output as a
-    /// `KojiGeometryCollection` (NOT the bare `to_koji_geometry`), byte-identical
-    /// to what the v1 endpoint produced pre-S5b.1 (the same geojson
-    /// `FeatureCollection` + Phase 1 `TryFrom` round-trip, now inside the DB
-    /// method). These tests pin that exact transform over the per-row
-    /// `Vec<Feature>` (the live `by_geofence_feature` half needs a DB and is
-    /// exercised by integration).
-    ///
-    /// NOTE — legacy-`mode` handling: the route `to_feature` ALWAYS emits a
-    /// non-internal `mode` property equal to the legacy 12-value string (e.g.
-    /// `"circle_pokemon"`). As of S5c, `KojiMeta.mode` deserializes leniently —
-    /// `serde_json::from_value::<KojiMeta>` maps the legacy value to the canonical
-    /// `Mode` via `Mode::from_legacy` rather than rejecting it, so the `TryFrom`
-    /// preserves the full properties object (`id`/`name`/`geofence_id`).
-    /// See `by_geofence_koji_legacy_mode_preserved_with_props` below.
-    fn koji_collection_from_features(features: Vec<Feature>) -> KojiGeometryCollection {
-        let fc = geojson::FeatureCollection {
-            bbox: None,
-            features: features
-                .into_iter()
-                .map(EnsurePoints::ensure_first_last)
-                .collect(),
-            foreign_members: None,
-        };
-        KojiGeometryCollection::try_from(fc).unwrap()
-    }
-
     fn route_row_for_feature() -> Model {
         Model {
             id: 3,
@@ -798,64 +629,6 @@ mod to_koji_tests {
             mode: DbMode::Pokemon, // canonical 4-value mode
             ..test_model_defaults()
         }
-    }
-
-    /// Internal (`__`-prefixed) path: none of `__id`/`__name`/`__mode`/
-    /// `__geofence_id` collide with a typed `KojiMeta` field, so all survive
-    /// losslessly in `extra` (no deserialize poisoning). This is the high-fidelity
-    /// path and proves the route-only `geofence_id` + the canonical 4-value `mode`
-    /// string are both carried through unchanged.
-    #[test]
-    fn by_geofence_koji_transform_honors_internal_underscore_props() {
-        let feature = route_row_for_feature().to_feature(true).unwrap();
-        let coll = koji_collection_from_features(vec![feature]);
-
-        assert_eq!(coll.items.len(), 1);
-        let meta = &coll.items[0].meta;
-        assert_eq!(
-            meta.extra.get("__geofence_id").and_then(|v| v.as_u64()),
-            Some(88)
-        );
-        assert_eq!(
-            meta.extra.get("__name").and_then(|v| v.as_str()),
-            Some("patrol")
-        );
-        // The canonical 4-value mode string is carried verbatim.
-        assert_eq!(
-            meta.extra.get("__mode").and_then(|v| v.as_str()),
-            Some("pokemon")
-        );
-    }
-
-    /// NON-internal path: the route feature's `mode = "pokemon"` is the canonical
-    /// 4-value string; `KojiMeta`'s `mode` deserialize maps it to `Mode::Pokemon`.
-    /// The sibling properties (`name`, the route-only `geofence_id`) survive.
-    /// `by_geofence_koji` reproduces the live endpoint exactly, so this pins the
-    /// high-fidelity behavior.
-    #[test]
-    fn by_geofence_koji_mode_preserved_with_props() {
-        let feature = route_row_for_feature().to_feature(false).unwrap();
-        // Sanity: the feature carries the canonical 4-value string + sibling props.
-        assert_eq!(
-            feature.property("mode").and_then(|v| v.as_str()),
-            Some("pokemon")
-        );
-        assert_eq!(
-            feature.property("name").and_then(|v| v.as_str()),
-            Some("patrol")
-        );
-
-        let coll = koji_collection_from_features(vec![feature]);
-        assert_eq!(coll.items.len(), 1);
-        let meta = &coll.items[0].meta;
-        // Canonical mode string maps to Mode; siblings preserved.
-        assert_eq!(meta.mode, Mode::Pokemon);
-        assert_eq!(meta.id, Some(3));
-        assert_eq!(meta.name.as_deref(), Some("patrol"));
-        assert_eq!(
-            meta.extra.get("geofence_id").and_then(|v| v.as_u64()),
-            Some(88)
-        );
     }
 
     /// S8 route-publish payload golden: the `RouteUpdated.route` `SingleVec` the
@@ -884,52 +657,4 @@ mod to_koji_tests {
         );
     }
 
-    /// S5d-1 golden: `route::Model::to_feature` rebuilds its Feature geometry
-    /// directly from the stored geojson (`geojson::Geometry::from_json_value`)
-    /// instead of routing through the old `To*` matrix inference. The stored route
-    /// geometry is ALREADY a MultiPoint in `[lon, lat]` order; the prior inference
-    /// round-tripped that shape (swap to `[lat, lon]`, map back to `[lon, lat]`) so
-    /// the coordinates were unchanged — its ONLY effect was a `bbox` it injected on
-    /// the Feature/Geometry, which every LIVE consumer (`by_geofence_feature` →
-    /// `by_geofence_koji`) discards in `KojiGeometryCollection::try_from`.
-    ///
-    /// These goldens were captured from the matrix oracle while it was still alive
-    /// (the parity was asserted byte-for-byte at the time of the swap); they pin
-    /// the rebuilt output as a permanent regression guard after the oracle dies.
-    /// (1) the raw MultiPoint geometry payload, and (2) the `by_geofence_koji`-
-    /// equivalent serialized collection.
-    #[test]
-    fn route_to_feature_matrix_free_golden() {
-        let model = route_row_for_feature();
-
-        // The production `to_feature` (matrix-free, direct construction).
-        let new_feature = model.clone().to_feature(false).unwrap();
-
-        // (1) Raw MultiPoint payload golden — the load-bearing coordinates, no bbox.
-        let geom_golden =
-            serde_json::json!({"type":"MultiPoint","coordinates":[[1.0,2.0],[3.0,4.0]]});
-        assert_eq!(
-            serde_json::to_value(new_feature.geometry.as_ref().unwrap()).unwrap(),
-            geom_golden,
-            "route to_feature geometry payload diverged from the captured matrix golden"
-        );
-
-        // (2) The actual wire output: the `by_geofence_koji` transform, serialized
-        // via its geojson `FeatureCollection` wire form.
-        let coll = koji_collection_from_features(vec![new_feature]);
-        let coll_golden = serde_json::json!({
-            "type": "FeatureCollection",
-            "features": [{
-                "type": "Feature",
-                "geometry": {"type": "MultiPoint", "coordinates": [[1.0, 2.0], [3.0, 4.0]]},
-                "properties": {"geofence_id": 88, "id": 3, "mode": "pokemon", "name": "patrol"},
-                "id": 3
-            }]
-        });
-        assert_eq!(
-            serde_json::to_value(geojson::FeatureCollection::from(&coll)).unwrap(),
-            coll_golden,
-            "by_geofence_koji collection output diverged from the captured matrix golden"
-        );
-    }
 }
