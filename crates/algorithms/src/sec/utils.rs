@@ -2,7 +2,7 @@ use geo::{Centroid, Distance, Haversine, Point};
 use koji_core::Precision;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
-pub fn is_missing_points(points: Vec<Point>, center: Point, radius: Precision) -> bool {
+pub fn is_missing_points(points: &[Point], center: Point, radius: Precision) -> bool {
     points
         .par_iter()
         .any(|p| Haversine.distance(center, *p) > radius)
@@ -60,7 +60,7 @@ mod tests {
         // Center at (0,0), points at ~50 m — well within 100 m radius.
         let center = pt(0.0, 0.0);
         let points = vec![pt(0.0001, 0.0), pt(-0.0001, 0.0), pt(0.0, 0.0001)];
-        assert!(!is_missing_points(points, center, 100.0));
+        assert!(!is_missing_points(&points, center, 100.0));
     }
 
     #[test]
@@ -68,7 +68,7 @@ mod tests {
         let center = pt(0.0, 0.0);
         // ~111 km away — definitely outside 100 m radius.
         let far = pt(1.0, 0.0);
-        assert!(is_missing_points(vec![far], center, 100.0));
+        assert!(is_missing_points(&[far], center, 100.0));
     }
 
     #[test]

@@ -20,18 +20,25 @@ pub fn multi_attempt<I: Iterator<Item = Point>>(
     let mut circle = Circle::None;
     let mut attempt = 0;
     let mut rng = rand::rng();
+    // One reusable working buffer: the old per-attempt double clone (shuffle
+    // copy + a second copy consumed by the solver) dominated allocation at
+    // max_attempts=100 per cluster.
+    let mut working = Vec::with_capacity(points.len());
+    let mut valid = false;
 
     for i in 0..max_attempts {
         attempt = i;
 
-        let mut points = points.clone();
-        points.shuffle(&mut rng);
-        circle = smallest_enclosing_circle(points.clone(), radius);
+        working.clear();
+        working.extend_from_slice(&points);
+        working.shuffle(&mut rng);
+        circle = smallest_enclosing_circle(&mut working, radius);
 
         if let Some(center) = circle.center()
-            && !utils::is_missing_points(points, center, radius)
             && circle.radius() <= radius
+            && !utils::is_missing_points(&points, center, radius)
         {
+            valid = true;
             break;
         }
     }
@@ -39,11 +46,10 @@ pub fn multi_attempt<I: Iterator<Item = Point>>(
     if attempt > 0 {
         log::debug!("Attempt: {}", attempt);
     }
-    eval_result(points, circle, radius)
+    eval_result(&points, circle, radius, valid)
 }
 
-fn smallest_enclosing_circle(points: Vec<Point>, radius: Precision) -> Circle {
-    let mut p = points;
+fn smallest_enclosing_circle(p: &mut Vec<Point>, radius: Precision) -> Circle {
     let mut circle = Circle::None;
     let mut r = Vec::new();
     let mut stack = Vec::from([State::S0]);
@@ -82,9 +88,18 @@ fn smallest_enclosing_circle(points: Vec<Point>, radius: Precision) -> Circle {
     circle
 }
 
-fn eval_result(points: Vec<Point>, circle: Circle, radius: Precision) -> SmallestEnclosingCircle {
+fn eval_result(
+    points: &[Point],
+    circle: Circle,
+    radius: Precision,
+    known_valid: bool,
+) -> SmallestEnclosingCircle {
     if let Some(center) = circle.center() {
-        if circle.radius() > radius {
+        if known_valid {
+            // The successful attempt already verified radius + coverage —
+            // don't re-run the parallel distance scan.
+            SmallestEnclosingCircle::Centered(center)
+        } else if circle.radius() > radius {
             SmallestEnclosingCircle::RadiusTooBig
         } else if utils::is_missing_points(points, center, radius) {
             SmallestEnclosingCircle::MissingPoints
