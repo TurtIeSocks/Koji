@@ -11,6 +11,17 @@
 //! coverage shortfall after capping can be inherent to the heuristic rather
 //! than a bug elsewhere.
 //!
+//! The RADIUS arm does not select from the algorithm's own centers alone: a
+//! binding cap changes the objective from "cover everything minimally" to
+//! "cover the most with k disks", and the best k disks are generally NOT a
+//! subset of any full-coverage tiling. It therefore widens the candidate pool
+//! with the complete single-disk arrangement space — every distinct coord
+//! plus the pairwise circle-intersection vertices of nearby coords — so each
+//! greedy step can pick the true max-gain disk, then polishes with a bounded
+//! interchange + relocate loop. The S2 arm keeps pool-only selection (its
+//! centers are cell-quantized; there is no continuous placement to
+//! synthesize).
+//!
 //! One shared implementation, applied once in [`super::main`] so EVERY mode
 //! (greedy, crucible, fastest, s2, plugins) gets identical cap semantics.
 
@@ -19,9 +30,39 @@ use std::collections::BinaryHeap;
 
 use hashbrown::HashMap;
 use hashbrown::hash_map::Entry;
-use koji_core::{Precision, SingleVec};
+use koji_core::{PointArray, Precision, SingleVec};
+use rayon::prelude::*;
 
+use super::geometry::circle_intersections;
 use crate::rtree::{self, point::Point};
+
+/// Same margin as the crucible solver/refiner: synthesized centers are placed
+/// with r_eff = r·(1−1e-3) so the full-radius scorer can only agree or do
+/// better on the points they were constructed to cover.
+const MARGIN: Precision = 1.0 - 1e-3;
+
+/// Global budget for synthesized pair-intersection candidates (each pair
+/// yields TWO vertices). Per-rep partner fan-out is derived from it so dense
+/// inputs can't blow memory; within budget the pair space is complete (every
+/// lens vertex of two nearby coords is a candidate).
+const PAIR_BUDGET: usize = 3_000_000;
+/// Upper bound on partners per rep even when the budget allows more (beyond
+/// ~2r there are no partners; this caps pathological local density).
+const PER_REP_PARTNER_MAX: usize = 128;
+/// Above this many distinct coords, skip vertex synthesis entirely: even the
+/// clamped fan-out floor would multiply candidates (and the relocate pass's
+/// candidate rtree) into hundreds of MB. Point-anchored candidates + the
+/// algorithm pool remain — still a far richer space than pool-only selection.
+const SYNTH_MAX_REPS: usize = 200_000;
+
+/// Interchange works on materialized cover lists, so it runs over a thinned
+/// pool: the kept centers plus this many runners-up per kept slot, ranked by
+/// RESIDUAL gain (weight over points the kept set leaves uncovered) — the
+/// candidates that can actually buy coverage in a swap.
+const SWAP_POOL_PER_SLOT: usize = 3;
+/// Outer polish rounds: each re-ranks the runner pool against the current
+/// residual and re-runs the interchange; stops early at a fixpoint.
+const SWAP_ROUNDS: usize = 4;
 
 /// Greedy weighted max-coverage: pick ≤ `cap` candidates maximizing the summed
 /// weight of covered items. `candidates[i]` lists the dense item indices
@@ -85,9 +126,19 @@ pub(crate) fn select_max_coverage(
 }
 
 /// Keep the best ≤ `cap` cluster centers for RADIUS-disk coverage of `points`.
-/// Items are the distinct level-20 cells of `points`, weighted by how many
-/// input points share the cell (so duplicated locations count once per point).
-/// Preserves the input order of the kept centers.
+/// Items are the input points themselves (exact-duplicate coords share one
+/// coverage lookup but each carries its own unit weight), so gain accounting
+/// is exact — the previous cell-level items counted a whole L20 cell as
+/// covered when only some of its points were inside the disk, which overpaid
+/// candidates right at the disk boundary.
+///
+/// The candidate pool is `clusters` PLUS the synthesized arrangement space
+/// over the distinct coords (see the module doc): a binding cap means the
+/// algorithm's own full-coverage centers are the wrong shape for max-k-cover,
+/// and pool-only selection leaves real coverage on the table. Greedy runs
+/// lazily against the point rtree (no materialized cover matrix over the
+/// large synthesized pool), then a bounded interchange polishes the pick over
+/// the kept centers + strongest runners-up. Deterministic throughout.
 pub(crate) fn cap_radius_clusters(
     mut clusters: SingleVec,
     points: &SingleVec,
@@ -103,32 +154,375 @@ pub(crate) fn cap_radius_clusters(
         return clusters;
     }
     let tree = rtree::spawn(radius, points);
-    let mut cell_idx: HashMap<u64, u32> = HashMap::new();
-    let mut weights: Vec<usize> = Vec::new();
-    for p in points {
-        let id = Point::new(radius, 20, *p).cell_id.0;
-        match cell_idx.entry(id) {
-            Entry::Occupied(e) => weights[*e.get() as usize] += 1,
+    // Exact-coord dedupe: duplicates share one candidate/query slot but expand
+    // back to every point index for gain accounting.
+    let mut coord_idx: HashMap<[u64; 2], Vec<u32>> = HashMap::new();
+    let mut uniq_coords: SingleVec = Vec::new();
+    for (i, p) in points.iter().enumerate() {
+        match coord_idx.entry([p[0].to_bits(), p[1].to_bits()]) {
+            Entry::Occupied(mut e) => e.get_mut().push(i as u32),
             Entry::Vacant(e) => {
-                e.insert(weights.len() as u32);
-                weights.push(1);
+                e.insert(vec![i as u32]);
+                uniq_coords.push(*p);
             }
         }
     }
-    let cover: Vec<Vec<u32>> = clusters
-        .iter()
-        .map(|c| {
-            let mut v: Vec<u32> = tree
-                .locate_all_at_point(*c)
-                .filter_map(|p| cell_idx.get(&p.cell_id.0).copied())
-                .collect();
-            v.sort_unstable();
-            v.dedup();
-            v
+    let weights = vec![1usize; points.len()];
+
+    // Candidate pool: the algorithm's own centers first (ties in the greedy
+    // break toward lower indices, favoring refined positions), then the
+    // synthesized arrangement space. No cell-grid dedupe: near-identical
+    // vertices can differ by <1 m and that difference decides coverage right
+    // at the disk boundary (a coarser-cell dedupe measurably lost coverage).
+    let mut cands = clusters.clone();
+    cands.extend(arrangement_candidates(&uniq_coords, radius));
+
+    let cover_of = |c: &PointArray| -> Vec<u32> {
+        let mut v: Vec<u32> = tree
+            .locate_all_at_point(*c)
+            .filter_map(|p| coord_idx.get(&[p.center[0].to_bits(), p.center[1].to_bits()]))
+            .flatten()
+            .copied()
+            .collect();
+        v.sort_unstable();
+        v.dedup();
+        v
+    };
+
+    let mut kept_idx = select_max_coverage_lazy(&cands, &cover_of, &weights, cap);
+    if kept_idx.is_empty() {
+        clusters.truncate(cap);
+        return clusters;
+    }
+
+    // Spatial index over ALL candidates for the relocate pass: which
+    // candidates sit within 3r of a kept center (a paired remove-reinsert
+    // rarely pays beyond that; far moves are the interchange's job). Tree
+    // points carry no candidate index, so hits map back through their exact
+    // coords; coincident candidates resolve to the lowest index.
+    let cand_tree = rtree::spawn(3.0 * radius, &cands);
+    let mut cand_of_coord: HashMap<[u64; 2], u32> = HashMap::with_capacity(cands.len());
+    for (i, c) in cands.iter().enumerate() {
+        cand_of_coord
+            .entry([c[0].to_bits(), c[1].to_bits()])
+            .or_insert(i as u32);
+    }
+
+    // Polish rounds: rank the runners-up by RESIDUAL gain against the current
+    // kept set (absolute weight ranks dense-area duplicates; residual ranks
+    // the candidates that can actually add coverage), materialize cover lists
+    // for that small pool, interchange, then relocate (the interchange's blind
+    // spot: an inbound that only pays AFTER a specific outbound leaves — its
+    // residual gain is ~0 while the outbound still sits there, so no
+    // residual-ranked pool ever proposes it). Repeat until nothing moves.
+    for _ in 0..SWAP_ROUNDS {
+        let mut covered = vec![false; weights.len()];
+        let mut is_kept = vec![false; cands.len()];
+        for &i in &kept_idx {
+            is_kept[i] = true;
+            for j in cover_of(&cands[i]) {
+                covered[j as usize] = true;
+            }
+        }
+        let mut runners: Vec<(usize, usize)> = cands
+            .par_iter()
+            .enumerate()
+            .filter(|(i, _)| !is_kept[*i])
+            .map(|(i, c)| {
+                let residual: usize = cover_of(c)
+                    .into_iter()
+                    .filter(|&j| !covered[j as usize])
+                    .map(|j| weights[j as usize])
+                    .sum();
+                (residual, i)
+            })
+            .filter(|&(residual, _)| residual > 0)
+            .collect();
+        runners.sort_unstable_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+        let mut pool_idx = kept_idx.clone();
+        pool_idx.extend(
+            runners
+                .into_iter()
+                .take(cap.saturating_mul(SWAP_POOL_PER_SLOT))
+                .map(|(_, i)| i),
+        );
+        let pool_cover: Vec<Vec<u32>> = pool_idx.par_iter().map(|&i| cover_of(&cands[i])).collect();
+        // The kept centers occupy the first `kept_idx.len()` pool slots.
+        let kept = improve_by_swap((0..kept_idx.len()).collect(), &pool_cover, &weights);
+        let new_kept: Vec<usize> = kept.into_iter().map(|i| pool_idx[i]).collect();
+        let swapped = new_kept != kept_idx;
+        kept_idx = new_kept;
+        let relocated = relocate_capped(
+            &mut kept_idx,
+            &cands,
+            &cand_tree,
+            &cand_of_coord,
+            &cover_of,
+            &weights,
+        );
+        if !swapped && !relocated {
+            break;
+        }
+    }
+    kept_idx.into_iter().map(|i| cands[i]).collect()
+}
+
+/// Paired remove-reinsert at fixed size: for each kept center, the best
+/// replacement among the candidates within 3r of it, valued EXACTLY as "items
+/// this candidate covers that would go uncovered without the center" (items
+/// nothing covers, plus items only that center covers). Replaces the center
+/// when the replacement's value beats the center's exclusive weight. Proposes
+/// in parallel against a snapshot, applies serially in kept order with exact
+/// revalidation (interacting proposals re-price honestly). Returns whether
+/// anything moved.
+fn relocate_capped(
+    kept: &mut [usize],
+    cands: &SingleVec,
+    cand_tree: &rstar::RTree<Point>,
+    cand_of_coord: &HashMap<[u64; 2], u32>,
+    cover_of: &(dyn Fn(&PointArray) -> Vec<u32> + Sync),
+    item_weights: &[usize],
+) -> bool {
+    let mut count = vec![0u32; item_weights.len()];
+    let kept_cover: Vec<Vec<u32>> = kept.par_iter().map(|&i| cover_of(&cands[i])).collect();
+    for cov in &kept_cover {
+        for &j in cov {
+            count[j as usize] += 1;
+        }
+    }
+    let mut is_kept = vec![false; cands.len()];
+    for &i in kept.iter() {
+        is_kept[i] = true;
+    }
+
+    // Value of a replacement's cover, given the slot's cover leaves first.
+    let value_for = |cov_c: &[u32], cov_i: &[u32], count: &[u32]| -> usize {
+        cov_c
+            .iter()
+            .filter(|&&j| match count[j as usize] {
+                0 => true,
+                1 => cov_i.binary_search(&j).is_ok(),
+                _ => false,
+            })
+            .map(|&j| item_weights[j as usize])
+            .sum()
+    };
+    let exclusive_w = |cov_i: &[u32], count: &[u32]| -> usize {
+        cov_i
+            .iter()
+            .filter(|&&j| count[j as usize] == 1)
+            .map(|&j| item_weights[j as usize])
+            .sum()
+    };
+
+    // Parallel propose against the snapshot (deterministic: best is tracked by
+    // explicit (value desc, index asc) comparison, independent of tree order).
+    let count_ref = &count;
+    let is_kept_ref = &is_kept;
+    let proposals: Vec<(usize, u32)> = kept
+        .par_iter()
+        .enumerate()
+        .filter_map(|(pos, &i)| {
+            let cov_i = &kept_cover[pos];
+            let excl = exclusive_w(cov_i, count_ref);
+            let mut best: Option<(usize, u32)> = None; // (value, cand idx)
+            for q in cand_tree.locate_all_at_point(cands[i]) {
+                let Some(&c_idx) =
+                    cand_of_coord.get(&[q.center[0].to_bits(), q.center[1].to_bits()])
+                else {
+                    continue;
+                };
+                if is_kept_ref[c_idx as usize] {
+                    continue;
+                }
+                let val = value_for(&cover_of(&cands[c_idx as usize]), cov_i, count_ref);
+                if val > excl && best.is_none_or(|(bv, bc)| val > bv || (val == bv && c_idx < bc)) {
+                    best = Some((val, c_idx));
+                }
+            }
+            best.map(|(_, c_idx)| (pos, c_idx))
         })
         .collect();
-    let kept = improve_by_swap(select_max_coverage(&cover, &weights, cap), &cover, &weights);
-    keep_indices(clusters, kept, cap)
+
+    // Serial apply in kept order, revalidating against the live state.
+    let mut changed = false;
+    for (pos, c_idx) in proposals {
+        let c_idx = c_idx as usize;
+        if is_kept[c_idx] {
+            continue;
+        }
+        let i = kept[pos];
+        let cov_i = cover_of(&cands[i]);
+        let cov_c = cover_of(&cands[c_idx]);
+        if value_for(&cov_c, &cov_i, &count) <= exclusive_w(&cov_i, &count) {
+            continue;
+        }
+        for &j in &cov_i {
+            count[j as usize] -= 1;
+        }
+        for &j in &cov_c {
+            count[j as usize] += 1;
+        }
+        is_kept[i] = false;
+        is_kept[c_idx] = true;
+        kept[pos] = c_idx;
+        changed = true;
+    }
+    changed
+}
+
+/// The complete single-disk candidate space over the distinct coords: every
+/// coord itself plus the two radius-r_eff circle-intersection vertices of
+/// every nearby coord pair. A disk maximizing covered weight can always be
+/// moved so it either sits on a point or has two points on its boundary, so
+/// within the pair budget this space contains a true per-step optimum.
+fn arrangement_candidates(reps: &SingleVec, radius: Precision) -> SingleVec {
+    let r_eff = radius * MARGIN;
+    let mut out: SingleVec = reps.clone();
+    if reps.len() < 2 || reps.len() > SYNTH_MAX_REPS {
+        return out;
+    }
+    // Neighbor discovery via a 2·r_eff "coverage" tree: locate_all_at_point
+    // returns exactly the reps within 2·r_eff (exact Haversine contains).
+    let pair_tree = rtree::spawn(2.0 * r_eff, reps);
+    let idx_of: HashMap<[u64; 2], u32> = reps
+        .iter()
+        .enumerate()
+        .map(|(i, p)| ([p[0].to_bits(), p[1].to_bits()], i as u32))
+        .collect();
+    // Derived per-rep fan-out keeps the global candidate count bounded
+    // (÷2 because every pair emits two intersection vertices).
+    let per_rep_cap = (PAIR_BUDGET / 2 / reps.len()).clamp(4, PER_REP_PARTNER_MAX);
+
+    let pairs: Vec<[PointArray; 2]> = reps
+        .par_iter()
+        .enumerate()
+        .flat_map_iter(|(i, p)| {
+            let mut partners: Vec<u32> = pair_tree
+                .locate_all_at_point(*p)
+                .filter_map(|q| {
+                    idx_of
+                        .get(&[q.center[0].to_bits(), q.center[1].to_bits()])
+                        .copied()
+                })
+                .filter(|&j| j as usize > i)
+                .collect();
+            partners.sort_unstable();
+            partners.dedup();
+            // Deterministic thinning: closest partners first, index tiebreak.
+            if partners.len() > per_rep_cap {
+                let frame = LocalFrame::new(*p);
+                let xy0 = frame.to_xy(*p);
+                partners.sort_unstable_by(|&a, &b| {
+                    let da = dist2_planar(xy0, frame.to_xy(reps[a as usize]));
+                    let db = dist2_planar(xy0, frame.to_xy(reps[b as usize]));
+                    da.total_cmp(&db).then(a.cmp(&b))
+                });
+                partners.truncate(per_rep_cap);
+            }
+            let p = *p;
+            partners
+                .into_iter()
+                .map(move |j| [p, reps[j as usize]])
+                .collect::<Vec<_>>()
+        })
+        .collect();
+
+    let vertices: Vec<PointArray> = pairs
+        .par_iter()
+        .flat_map_iter(|[a, b]| {
+            let frame = LocalFrame::new(*a);
+            circle_intersections(frame.to_xy(*a), frame.to_xy(*b), r_eff)
+                .map(|[v1, v2]| vec![frame.to_latlng(v1), frame.to_latlng(v2)])
+                .unwrap_or_default()
+        })
+        .collect();
+    out.extend(vertices);
+    out
+}
+
+/// Lazy weighted greedy max-coverage over candidate COORDS: cover lists are
+/// computed on demand through `cover_of` instead of materialized for the whole
+/// (large) synthesized pool. Same semantics as [`select_max_coverage`]:
+/// marginal gain, lower-index tiebreak, stop at zero gain.
+fn select_max_coverage_lazy(
+    cands: &SingleVec,
+    cover_of: &(dyn Fn(&PointArray) -> Vec<u32> + Sync),
+    item_weights: &[usize],
+    cap: usize,
+) -> Vec<usize> {
+    let bounds: Vec<usize> = cands
+        .par_iter()
+        .map(|c| cover_of(c).iter().map(|&j| item_weights[j as usize]).sum())
+        .collect();
+    let mut covered = vec![false; item_weights.len()];
+    let mut heap: BinaryHeap<(usize, Reverse<usize>)> = bounds
+        .iter()
+        .enumerate()
+        .map(|(i, &b)| (b, Reverse(i)))
+        .collect();
+    let mut kept = Vec::with_capacity(cap.min(1024));
+    while kept.len() < cap {
+        let Some((bound, Reverse(i))) = heap.pop() else {
+            break;
+        };
+        if bound == 0 {
+            break;
+        }
+        let fresh: usize = cover_of(&cands[i])
+            .into_iter()
+            .filter(|&j| !covered[j as usize])
+            .map(|j| item_weights[j as usize])
+            .sum();
+        if fresh == 0 {
+            continue;
+        }
+        if fresh < bound {
+            heap.push((fresh, Reverse(i)));
+            continue;
+        }
+        for j in cover_of(&cands[i]) {
+            covered[j as usize] = true;
+        }
+        kept.push(i);
+    }
+    kept
+}
+
+/// Local equirectangular frame for pair-vertex synthesis (meters), accurate to
+/// ~1e-8 relative over the ≤ ~300 m extents involved.
+struct LocalFrame {
+    origin: PointArray,
+    m_per_deg_lon: Precision,
+}
+
+const M_PER_DEG_LAT: Precision = 111_132.0;
+
+impl LocalFrame {
+    fn new(origin: PointArray) -> Self {
+        LocalFrame {
+            origin,
+            m_per_deg_lon: 111_320.0 * origin[0].to_radians().cos().abs().max(1e-9),
+        }
+    }
+    fn to_xy(&self, p: PointArray) -> [Precision; 2] {
+        [
+            (p[1] - self.origin[1]) * self.m_per_deg_lon,
+            (p[0] - self.origin[0]) * M_PER_DEG_LAT,
+        ]
+    }
+    fn to_latlng(&self, xy: [Precision; 2]) -> PointArray {
+        [
+            self.origin[0] + xy[1] / M_PER_DEG_LAT,
+            self.origin[1] + xy[0] / self.m_per_deg_lon,
+        ]
+    }
+}
+
+fn dist2_planar(a: [Precision; 2], b: [Precision; 2]) -> Precision {
+    let dx = a[0] - b[0];
+    let dy = a[1] - b[1];
+    dx * dx + dy * dy
 }
 
 /// Keep the best ≤ `cap` S2-cell cluster centers. Items are the level-`level`
@@ -179,10 +573,13 @@ pub(crate) fn cap_s2_clusters(
     keep_indices(clusters, kept, cap)
 }
 
-/// Post-selection interchange: at FIXED size, repeatedly swap the kept
-/// candidate with the smallest exclusive contribution for the unkept candidate
-/// with the largest uncovered gain, when the exact delta is positive. Repairs
-/// greedy's early commits (it can't undo a pick); bounded passes, deterministic.
+/// Post-selection interchange: at FIXED size, repeatedly swap a kept candidate
+/// with small exclusive contribution for an unkept candidate with large
+/// uncovered gain, when the exact delta is positive. Repairs greedy's early
+/// commits (it can't undo a pick). Each iteration tries the top few inbound
+/// candidates by gain — pairing only the single best inbound with the single
+/// cheapest outbound stalls on instances where that one pairing loses but the
+/// runner-up inbound wins. Bounded passes, deterministic.
 pub(crate) fn improve_by_swap(
     mut kept: Vec<usize>,
     candidates: &[Vec<u32>],
@@ -191,6 +588,8 @@ pub(crate) fn improve_by_swap(
     if kept.is_empty() || kept.len() >= candidates.len() {
         return kept;
     }
+    /// Inbound candidates to try per iteration before concluding no swap helps.
+    const TRY_INBOUND: usize = 8;
     // cover_count[j] = how many kept candidates cover item j.
     let mut count = vec![0u32; item_weights.len()];
     let mut is_kept = vec![false; candidates.len()];
@@ -200,60 +599,65 @@ pub(crate) fn improve_by_swap(
             count[j as usize] += 1;
         }
     }
+    let mut in_covers = vec![false; item_weights.len()];
     // A swap can enable further swaps; bound the loop so a cycle can't spin.
-    for _ in 0..kept.len().max(64) {
-        // Best inbound: max summed weight of currently-uncovered items.
-        let mut best_in: Option<(usize, usize)> = None; // (gain, candidate)
-        for (c, items) in candidates.iter().enumerate() {
-            if is_kept[c] {
-                continue;
-            }
-            let gain: usize = items
-                .iter()
-                .filter(|&&j| count[j as usize] == 0)
-                .map(|&j| item_weights[j as usize])
-                .sum();
-            if gain > 0 && best_in.is_none_or(|(g, bc)| gain > g || (gain == g && c < bc)) {
-                best_in = Some((gain, c));
-            }
-        }
-        let Some((_, c_in)) = best_in else { break };
-        // Cheapest outbound: min summed weight of items ONLY it covers —
-        // ignoring items the inbound candidate would re-cover (exact delta).
-        let mut in_covers = vec![false; item_weights.len()];
-        for &j in &candidates[c_in] {
-            in_covers[j as usize] = true;
-        }
-        let mut best_out: Option<(usize, usize)> = None; // (loss, kept idx position)
-        for (pos, &k) in kept.iter().enumerate() {
-            let loss: usize = candidates[k]
-                .iter()
-                .filter(|&&j| count[j as usize] == 1 && !in_covers[j as usize])
-                .map(|&j| item_weights[j as usize])
-                .sum();
-            if best_out.is_none_or(|(l, bp)| loss < l || (loss == l && kept[pos] < kept[bp])) {
-                best_out = Some((loss, pos));
-            }
-        }
-        let Some((loss, pos)) = best_out else { break };
-        let gain: usize = candidates[c_in]
+    'outer: for _ in 0..kept.len().max(64) {
+        // Inbound candidates by uncovered gain, best first (index tiebreak).
+        let mut inbound: Vec<(usize, usize)> = candidates
             .iter()
-            .filter(|&&j| count[j as usize] == 0)
-            .map(|&j| item_weights[j as usize])
-            .sum();
-        if gain <= loss {
-            break; // no improving swap remains for this (greedy) pair choice
+            .enumerate()
+            .filter(|(c, _)| !is_kept[*c])
+            .map(|(c, items)| {
+                let gain: usize = items
+                    .iter()
+                    .filter(|&&j| count[j as usize] == 0)
+                    .map(|&j| item_weights[j as usize])
+                    .sum();
+                (gain, c)
+            })
+            .filter(|&(gain, _)| gain > 0)
+            .collect();
+        inbound.sort_unstable_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+
+        for &(gain, c_in) in inbound.iter().take(TRY_INBOUND) {
+            // Cheapest outbound: min summed weight of items ONLY it covers —
+            // ignoring items the inbound candidate would re-cover (exact delta).
+            for &j in &candidates[c_in] {
+                in_covers[j as usize] = true;
+            }
+            let mut best_out: Option<(usize, usize)> = None; // (loss, kept idx position)
+            for (pos, &k) in kept.iter().enumerate() {
+                let loss: usize = candidates[k]
+                    .iter()
+                    .filter(|&&j| count[j as usize] == 1 && !in_covers[j as usize])
+                    .map(|&j| item_weights[j as usize])
+                    .sum();
+                if best_out.is_none_or(|(l, bp)| loss < l || (loss == l && kept[pos] < kept[bp])) {
+                    best_out = Some((loss, pos));
+                }
+            }
+            for &j in &candidates[c_in] {
+                in_covers[j as usize] = false;
+            }
+            let Some((loss, pos)) = best_out else {
+                continue;
+            };
+            if gain <= loss {
+                continue; // this inbound can't pay for any outbound — try next
+            }
+            let k_out = kept[pos];
+            for &j in &candidates[k_out] {
+                count[j as usize] -= 1;
+            }
+            for &j in &candidates[c_in] {
+                count[j as usize] += 1;
+            }
+            is_kept[k_out] = false;
+            is_kept[c_in] = true;
+            kept[pos] = c_in;
+            continue 'outer;
         }
-        let k_out = kept[pos];
-        for &j in &candidates[k_out] {
-            count[j as usize] -= 1;
-        }
-        for &j in &candidates[c_in] {
-            count[j as usize] += 1;
-        }
-        is_kept[k_out] = false;
-        is_kept[c_in] = true;
-        kept[pos] = c_in;
+        break; // none of the top inbound candidates has a profitable pairing
     }
     kept
 }
@@ -356,11 +760,26 @@ mod tests {
         assert_eq!(improve_by_swap(vec![0], &candidates, &weights), vec![0]);
     }
 
+    /// Count points within `radius` m of any center (Haversine).
+    fn covered_count(centers: &SingleVec, points: &SingleVec, radius: Precision) -> usize {
+        use geo::{Distance, Haversine};
+        points
+            .iter()
+            .filter(|p| {
+                centers.iter().any(|c| {
+                    Haversine.distance(geo::Point::new(c[1], c[0]), geo::Point::new(p[1], p[0]))
+                        <= radius
+                })
+            })
+            .count()
+    }
+
     #[test]
     fn cap_radius_keeps_dense_disjoint_centers() {
         // Dense clump (5 pts) + sparse clump (2 pts) + a duplicate center over
-        // the dense clump. cap=2 → the dense center + the sparse one; the
-        // duplicate (zero marginal) is dropped.
+        // the dense clump. cap=2 → both clumps fully covered; the duplicate
+        // (zero marginal) never eats the second slot. Exact coords are the
+        // selector's business now that it can synthesize better centers.
         let mut points: SingleVec = Vec::new();
         for j in 0..5 {
             points.push([40.0 + j as Precision * 0.0001, -74.0]); // ~11 m apart
@@ -373,7 +792,75 @@ mod tests {
             [41.00005, -74.0], // sparse center
         ];
         let kept = cap_radius_clusters(clusters, &points, 70.0, 2);
-        assert_eq!(kept, vec![[40.0002, -74.0], [41.00005, -74.0]]);
+        assert_eq!(kept.len(), 2);
+        assert_eq!(covered_count(&kept, &points, 70.0), 7);
+    }
+
+    #[test]
+    fn cap_radius_synthesizes_better_centers_than_the_pool() {
+        // Three points in a row, 60 m apart: a disk at the MIDDLE point covers
+        // all three, but the pool only offers centers on the two OUTER points
+        // (2 covered each). cap=1 must find the middle placement — pool-only
+        // selection cannot (this was the capped-quality gap vs main's greedy).
+        let step = 0.00054; // ~60 m of latitude
+        let points: SingleVec = vec![
+            [40.0, -74.0],
+            [40.0 + step, -74.0],
+            [40.0 + 2.0 * step, -74.0],
+        ];
+        let clusters: SingleVec = vec![points[0], points[2]];
+        let kept = cap_radius_clusters(clusters, &points, 70.0, 1);
+        assert_eq!(kept.len(), 1);
+        assert_eq!(
+            covered_count(&kept, &points, 70.0),
+            3,
+            "cap=1 must place the disk where it covers all three points, got {kept:?}"
+        );
+    }
+
+    #[test]
+    fn cap_radius_pair_vertices_beat_point_anchored_disks() {
+        // Two tight clumps ~110 m apart: no single POINT-anchored disk covers
+        // both clumps, but a disk at the circle-intersection vertex between
+        // them does. cap=1 must cover all 4 points via a synthesized vertex.
+        let d = 0.00099; // ~110 m of latitude
+        let points: SingleVec = vec![
+            [40.0, -74.0],
+            [40.00001, -74.0],
+            [40.0 + d, -74.0],
+            [40.0 + d + 0.00001, -74.0],
+        ];
+        let clusters: SingleVec = vec![points[0], points[2]];
+        let kept = cap_radius_clusters(clusters, &points, 70.0, 1);
+        assert_eq!(kept.len(), 1);
+        assert_eq!(
+            covered_count(&kept, &points, 70.0),
+            4,
+            "cap=1 must use a pair-intersection vertex, got {kept:?}"
+        );
+    }
+
+    #[test]
+    fn cap_radius_is_deterministic() {
+        // Pseudo-random 200-point cloud, cap 5 — two runs must agree exactly.
+        let mut pts: SingleVec = Vec::new();
+        let mut x: u64 = 99;
+        for _ in 0..200 {
+            x = x
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            let a = 40.0 + ((x >> 11) as Precision / (1u64 << 53) as Precision) * 0.01;
+            x = x
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            let b = -74.0 + ((x >> 11) as Precision / (1u64 << 53) as Precision) * 0.01;
+            pts.push([a, b]);
+        }
+        let clusters: SingleVec = pts.iter().step_by(20).copied().collect();
+        let a = cap_radius_clusters(clusters.clone(), &pts, 70.0, 5);
+        let b = cap_radius_clusters(clusters, &pts, 70.0, 5);
+        assert_eq!(a, b);
+        assert_eq!(a.len(), 5);
     }
 
     #[test]
