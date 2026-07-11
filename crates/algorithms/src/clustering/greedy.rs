@@ -95,6 +95,15 @@ impl<'a> Greedy {
             return solution;
         }
 
+        // Respect `max_clusters`: the greedy pass already capped the solution, so
+        // gap-fill may only add up to the remaining budget (else the cap has no
+        // effect — every uncovered clump gets a cluster regardless of the ceiling).
+        // Mirrors the cap `check_missing` applies to its own recovery pass.
+        let budget = self.max_clusters.saturating_sub(solution.len());
+        if budget == 0 {
+            return solution;
+        }
+
         // Build a tree of current cluster centers so we can ask "is point p
         // already covered?" (within radius of some cluster center).
         let center_coords: SingleVec = solution.iter().map(|c| c.point.center).collect();
@@ -149,6 +158,10 @@ impl<'a> Greedy {
                     still_uncovered.remove(&q.cell_id);
                 }
                 additions.push(Cluster::new(new_pt, all_vec, vec![]));
+                // Stop once the cap's remaining budget is spent.
+                if additions.len() >= budget {
+                    break;
+                }
             }
         }
 
@@ -515,6 +528,37 @@ mod tests {
         let greedy = Greedy::default(); // min_points = 1
         let empty: Vec<Vec<Cluster>> = vec![vec![]];
         assert!(greedy.cluster(&empty).is_empty());
+    }
+
+    #[test]
+    fn run_respects_max_clusters_with_gap_fill() {
+        // 6 dense clumps (5 pts each within ~44 m), ~1.1 km apart, so each clump
+        // needs its own cluster. With min_points=3 the greedy pass caps at
+        // max_clusters, but the gap-fill pass (which runs for min_points>1) must
+        // ALSO respect the ceiling — otherwise it adds the remaining clumps back.
+        // Regression: the cap was enforced in cluster() but ignored by
+        // fill_coverage_gaps, so max_clusters had no effect for the default
+        // (Balanced / min_points=3) path.
+        let mut pts: SingleVec = Vec::new();
+        for clump in 0..6 {
+            let base_lat = 40.0 + clump as Precision * 0.01; // ~1.1 km between clumps
+            for j in 0..5 {
+                pts.push([base_lat + j as Precision * 0.0001, -74.0]); // ~11 m within
+            }
+        }
+        let mut greedy = Greedy::default();
+        greedy
+            .set_cluster_mode(crate::clustering::ClusterMode::Balanced)
+            .set_min_points(3)
+            .set_radius(70.0)
+            .set_max_clusters(3);
+        let result = greedy.run(&pts);
+        assert!(
+            result.len() <= 3,
+            "max_clusters=3 must cap the final solution (gap-fill included), got {}",
+            result.len()
+        );
+        assert!(!result.is_empty(), "the cap should bind, not zero the output");
     }
 
     #[test]
