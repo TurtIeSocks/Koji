@@ -71,6 +71,66 @@ struct Job {
     owned: Vec<u32>,
 }
 
+/// A job with its variant-independent work done once: halo-extended index set
+/// projected into the chunk-local planar frame.
+struct PreparedJob {
+    cell: Option<CellID>,
+    frame: Frame,
+    planar: Vec<[Precision; 2]>,
+}
+
+/// Small/compact components solve whole; large ones split into S2 cells with
+/// halo.
+fn build_jobs(reps: &SingleVec, comps: &[Vec<u32>]) -> Vec<(u32, Job)> {
+    let mut jobs: Vec<(u32, Job)> = Vec::new();
+    for (ci, comp) in comps.iter().enumerate() {
+        if comp.len() <= CHUNK_BUDGET && component_extent_m(reps, comp) <= SINGLE_CHUNK_EXTENT_M {
+            jobs.push((
+                ci as u32,
+                Job {
+                    cell: None,
+                    owned: comp.clone(),
+                },
+            ));
+        } else {
+            for job in split_component(reps, comp) {
+                jobs.push((ci as u32, job));
+            }
+        }
+    }
+    jobs
+}
+
+/// One restart variant over every prepared job: planar solve, unproject,
+/// boundary-filter to the owning cell.
+fn solve_variant(prepared: &[PreparedJob], variant: u8, m: usize, k_cap: usize) -> Vec<PointArray> {
+    prepared
+        .par_iter()
+        .flat_map(|job| {
+            // (Per-job variant selection by pre-refine score was tried and
+            // mispredicts the post-refine outcome; variant choice only pays
+            // when scored after refinement.)
+            let centers_planar = solve_chunk(
+                &job.planar,
+                &SolveParams {
+                    m,
+                    k_cap,
+                    variant,
+                    pre_covered: &[],
+                },
+            );
+            centers_planar
+                .into_iter()
+                .map(|xy| job.frame.unproject(xy))
+                .filter(|c| match job.cell {
+                    Some(cell) => contains_latlng(cell, *c),
+                    None => true,
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
 impl Crucible {
     pub fn run(&self, points: &SingleVec) -> SingleVec {
         if points.is_empty() {
@@ -107,27 +167,40 @@ impl Crucible {
             })
             .collect();
 
-        // Build jobs: small/compact components solve whole; large ones split
-        // into S2 cells with halo.
-        let mut jobs: Vec<(u32, Job)> = Vec::new();
-        for (ci, comp) in comps.iter().enumerate() {
-            if comp.len() <= CHUNK_BUDGET
-                && component_extent_m(&reps, comp) <= SINGLE_CHUNK_EXTENT_M
-            {
-                jobs.push((
-                    ci as u32,
-                    Job {
-                        cell: None,
-                        owned: comp.clone(),
-                    },
-                ));
-            } else {
-                for job in split_component(&reps, comp) {
-                    jobs.push((ci as u32, job));
-                }
-            }
-        }
+        let jobs = build_jobs(&reps, &comps);
         log::info!("crucible: {} solve jobs", jobs.len());
+
+        // Prepare each job ONCE: halo gathering + planar projection are
+        // variant-independent, so hoisting them out of the variant loop avoids
+        // re-paying the rtree queries + O(n) trig up to 5x on small inputs.
+        let prepared: Vec<PreparedJob> = jobs
+            .par_iter()
+            .map(|(ci, job)| {
+                let mut idxs: Vec<u32> = job.owned.clone();
+                if let Some(cell) = job.cell {
+                    // Halo: nearby points (same component) that this job can
+                    // cover but never owns.
+                    let halo = gather_halo(cell, &global_tree, 2.0 * self.radius);
+                    for p in halo {
+                        if let Some(&r) = id_to_idx.get(&p.cell_id.0)
+                            && comp_of[r as usize] == *ci
+                            && !contains_latlng(cell, p.center)
+                        {
+                            idxs.push(r);
+                        }
+                    }
+                    idxs.sort_unstable();
+                    idxs.dedup();
+                }
+                let coords: SingleVec = idxs.iter().map(|&r| reps[r as usize]).collect();
+                let (frame, planar) = Frame::project(&coords, self.radius);
+                PreparedJob {
+                    cell: job.cell,
+                    frame,
+                    planar,
+                }
+            })
+            .collect();
 
         let k_cap = if reps.len() <= 100_000 { 14 } else { 10 };
 
@@ -148,54 +221,12 @@ impl Crucible {
         // Centers from every variant's refined solution, for recombination.
         let mut pool: Vec<PointArray> = Vec::new();
         for &variant in variants {
-            let centers: Vec<PointArray> = jobs
-                .par_iter()
-                .flat_map(|(ci, job)| {
-                    let mut idxs: Vec<u32> = job.owned.clone();
-                    if let Some(cell) = job.cell {
-                        // Halo: nearby points (same component) that this job
-                        // can cover but never owns.
-                        let halo = gather_halo(cell, &global_tree, 2.0 * self.radius);
-                        for p in halo {
-                            if let Some(&r) = id_to_idx.get(&p.cell_id.0)
-                                && comp_of[r as usize] == *ci
-                                && !contains_latlng(cell, p.center)
-                            {
-                                idxs.push(r);
-                            }
-                        }
-                        idxs.sort_unstable();
-                        idxs.dedup();
-                    }
-                    let coords: SingleVec = idxs.iter().map(|&r| reps[r as usize]).collect();
-                    let (frame, planar) = Frame::project(&coords, self.radius);
-                    // (Per-job variant selection by pre-refine score was
-                    // tried and mispredicts the post-refine outcome; variant
-                    // choice only pays when scored after refinement.)
-                    let centers_planar = solve_chunk(
-                        &planar,
-                        &SolveParams {
-                            m,
-                            k_cap,
-                            variant,
-                            pre_covered: &[],
-                        },
-                    );
-                    centers_planar
-                        .into_iter()
-                        .map(|xy| frame.unproject(xy))
-                        .filter(|c| match job.cell {
-                            Some(cell) => contains_latlng(cell, *c),
-                            None => true,
-                        })
-                        .collect::<Vec<_>>()
-                })
-                .collect();
+            let centers = solve_variant(&prepared, variant, m, k_cap);
             log::info!("crucible[v{variant}]: {} centers pre-refine", centers.len());
 
             let refined =
                 Refiner::new(centers, &reps, self.radius, m).run(self.radius, REFINE_ROUNDS);
-            let score = self.internal_score(&refined, &reps, &global_tree, m);
+            let score = self.internal_score(&refined, &global_tree, &id_to_idx, reps.len(), m);
             log::info!(
                 "crucible[v{variant}]: {} centers post-refine, internal score {score}",
                 refined.len()
@@ -214,34 +245,50 @@ impl Crucible {
         // Pool every variant's centers, greedily re-select a cover from the
         // pool, refine that, and keep it when it beats the best single
         // variant.
-        if !pool.is_empty() {
-            let mut keyed: Vec<(u64, PointArray)> = pool
-                .iter()
-                .map(|p| {
-                    let id = CellID::from(LatLng::from_degrees(p[0], p[1])).parent(20);
-                    (id.0, *p)
-                })
-                .collect();
-            keyed.sort_unstable_by_key(|a| a.0);
-            keyed.dedup_by_key(|(id, _)| *id);
-            let pool_pts: SingleVec = keyed.into_iter().map(|(_, p)| p).collect();
-            let selected = refine::select_from_pool(&pool_pts, &reps, self.radius, m);
-            if !selected.is_empty() {
-                let recombined =
-                    Refiner::new(selected, &reps, self.radius, m).run(self.radius, REFINE_ROUNDS);
-                let score = self.internal_score(&recombined, &reps, &global_tree, m);
-                log::info!(
-                    "crucible[recombine]: pool {} → {} centers, internal score {score} (best variant {best_score})",
-                    pool_pts.len(),
-                    recombined.len()
-                );
-                if score < best_score {
-                    refined = recombined;
-                }
+        if !pool.is_empty()
+            && let Some((score, recombined)) =
+                self.recombine(&pool, &reps, &global_tree, &id_to_idx, m)
+        {
+            log::info!(
+                "crucible[recombine]: {} centers, internal score {score} (best variant {best_score})",
+                recombined.len()
+            );
+            if score < best_score {
+                refined = recombined;
             }
         }
 
         self.finish(refined, &reps, m)
+    }
+
+    /// Pool → greedy re-selection → refine → score. `None` when the pool
+    /// selects down to nothing.
+    fn recombine(
+        &self,
+        pool: &[PointArray],
+        reps: &SingleVec,
+        global_tree: &rstar::RTree<crate::rtree::point::Point>,
+        id_to_idx: &HashMap<u64, u32>,
+        m: usize,
+    ) -> Option<(usize, SingleVec)> {
+        let mut keyed: Vec<(u64, PointArray)> = pool
+            .iter()
+            .map(|p| {
+                let id = CellID::from(LatLng::from_degrees(p[0], p[1])).parent(20);
+                (id.0, *p)
+            })
+            .collect();
+        keyed.sort_unstable_by_key(|a| a.0);
+        keyed.dedup_by_key(|(id, _)| *id);
+        let pool_pts: SingleVec = keyed.into_iter().map(|(_, p)| p).collect();
+        let selected = refine::select_from_pool(&pool_pts, reps, self.radius, m);
+        if selected.is_empty() {
+            return None;
+        }
+        let recombined =
+            Refiner::new(selected, reps, self.radius, m).run(self.radius, REFINE_ROUNDS);
+        let score = self.internal_score(&recombined, global_tree, id_to_idx, reps.len(), m);
+        Some((score, recombined))
     }
 
     /// Warm-start: refine a previous solution against the current points
@@ -331,19 +378,12 @@ impl Crucible {
     fn internal_score(
         &self,
         centers: &SingleVec,
-        reps: &SingleVec,
         tree: &rstar::RTree<crate::rtree::point::Point>,
+        id_to_idx: &HashMap<u64, u32>,
+        n_reps: usize,
         m: usize,
     ) -> usize {
-        let mut covered = vec![false; reps.len()];
-        let id_to_idx: HashMap<u64, u32> = reps
-            .iter()
-            .enumerate()
-            .map(|(i, p)| {
-                let id = CellID::from(LatLng::from_degrees(p[0], p[1])).parent(20);
-                (id.0, i as u32)
-            })
-            .collect();
+        let mut covered = vec![false; n_reps];
         for c in centers {
             for pt in tree.locate_all_at_point(*c) {
                 if let Some(&r) = id_to_idx.get(&pt.cell_id.0) {
