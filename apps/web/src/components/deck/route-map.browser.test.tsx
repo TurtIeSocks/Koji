@@ -22,7 +22,7 @@ const { calcMock, useCalcSpy } = vi.hoisted(() => {
   };
   return { calcMock, useCalcSpy: vi.fn(() => calcMock) };
 });
-vi.mock("./use-calc", () => ({ useCalc: useCalcSpy }));
+vi.mock("./use-calc", () => ({ useCalc: useCalcSpy, CALC_PERSIST_KEY: "koji.map.calc" }));
 vi.mock("@/map/data/use-markers", () => ({ useMarkers: vi.fn(() => ({ data: [] })) }));
 
 import { useMarkers } from "@/map/data/use-markers";
