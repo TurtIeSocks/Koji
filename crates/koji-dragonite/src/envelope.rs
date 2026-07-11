@@ -114,7 +114,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn error_envelope_maps_to_api_error_with_code_and_field() {
         let body =

@@ -189,7 +189,11 @@ mod tests {
         let closed = g.ensure_first_last();
         if let GeometryValue::Polygon { coordinates: rings } = &closed.value {
             let ring = &rings[0];
-            assert_eq!(ring.len(), 5, "open axis-aligned ring must gain a closing point");
+            assert_eq!(
+                ring.len(),
+                5,
+                "open axis-aligned ring must gain a closing point"
+            );
             assert_eq!(ring[0], ring[ring.len() - 1]);
         } else {
             panic!("expected Polygon");

@@ -15,7 +15,9 @@ impl MigrationTrait for Migration {
     /// column as `golbat` already. Rename only when the legacy column is present
     /// and the new one is absent, so this is a no-op on fresh DBs and idempotent.
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        if has_column(manager, "project", "scanner").await? && !has_column(manager, "project", "golbat").await? {
+        if has_column(manager, "project", "scanner").await?
+            && !has_column(manager, "project", "golbat").await?
+        {
             log::info!("[MIGRATION] project: renaming legacy column `scanner` -> `golbat`");
             manager
                 .get_connection()
@@ -32,7 +34,9 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        if has_column(manager, "project", "golbat").await? && !has_column(manager, "project", "scanner").await? {
+        if has_column(manager, "project", "golbat").await?
+            && !has_column(manager, "project", "scanner").await?
+        {
             manager
                 .get_connection()
                 .execute_unprepared(

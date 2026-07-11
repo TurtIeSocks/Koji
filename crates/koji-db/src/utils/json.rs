@@ -8,8 +8,8 @@ use serde_json::Value;
 use crate::{
     WebhookMethod, WebhookMode,
     db::{
-        geofence, geofence_property, project, property, route,
-        sea_orm_active_enums::Category, tile_server, webhook,
+        geofence, geofence_property, project, property, route, sea_orm_active_enums::Category,
+        tile_server, webhook,
     },
     error::ModelError,
 };
@@ -148,9 +148,7 @@ impl JsonToModel for Value {
             .and_then(|v| v.as_str())
             .map(|category| get_category_enum(category.to_string()))
             .ok_or_else(|| {
-                ModelError::Property(format!(
-                    "model does not have a category property: {self:?}"
-                ))
+                ModelError::Property(format!("model does not have a category property: {self:?}"))
             })?;
         let default_value = incoming
             .get("default_value")

@@ -262,9 +262,7 @@ pub async fn import(
                 format!("parent `{parent_name}` not found"),
             ));
         };
-        if let Err(e) =
-            geofence::Query::set_parent(&txn, child_id, Some(parent_id)).await
-        {
+        if let Err(e) = geofence::Query::set_parent(&txn, child_id, Some(parent_id)).await {
             txn.rollback().await?;
             return Ok(fail_result(index, name, e.to_string()));
         }

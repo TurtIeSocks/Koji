@@ -17,15 +17,15 @@ use super::*;
 use geojson::FeatureCollection;
 use koji_core::SingleVec;
 
-/// Shared planar-geometry primitives (deterministic Welzl MEC, circle
-/// intersections) used by both the crucible and fastest clusterers.
-pub(crate) mod geometry;
 mod calc_mode;
 mod candidates;
 mod cluster_mode;
 mod config;
 mod crucible;
 mod fastest;
+/// Shared planar-geometry primitives (deterministic Welzl MEC, circle
+/// intersections) used by both the crucible and fastest clusterers.
+pub(crate) mod geometry;
 mod greedy;
 mod partition;
 mod s2;

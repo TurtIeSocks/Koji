@@ -313,7 +313,6 @@ mod tests {
         );
     }
 
-
     // ── block_center_cell with size=1 ─────────────────────────────────────────
 
     #[test]

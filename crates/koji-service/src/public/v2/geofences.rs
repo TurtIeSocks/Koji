@@ -180,7 +180,11 @@ pub(crate) async fn create(
     if projects.is_some() {
         emit_geofence_membership_diff(&conn.koji, id as u32, &[]).await;
     }
-    Ok(super::crud::created_response("/api/v2/geofences", id, record))
+    Ok(super::crud::created_response(
+        "/api/v2/geofences",
+        id,
+        record,
+    ))
 }
 
 /// `GET /api/v2/geofences/{id}` — one geofence (by id or name) as a feature,
@@ -226,7 +230,10 @@ async fn get_one(
         None => {
             let geometry = geofence::Query::get_one_koji(&conn.koji, id.clone())
                 .await
-                .map_err(ServiceError::not_found_or_db("geofence", format!("no geofence {id}")))?;
+                .map_err(ServiceError::not_found_or_db(
+                    "geofence",
+                    format!("no geofence {id}"),
+                ))?;
             koji_core::KojiGeometryCollection::new(vec![geometry])
         }
     };
@@ -257,7 +264,10 @@ async fn update(
     // Fetch existing row — 404 on missing (also supplies the base for the merge).
     let existing = geofence::Query::get_one(&conn.koji, id.to_string())
         .await
-        .map_err(ServiceError::not_found_or_db("geofence", format!("no geofence {id}")))?;
+        .map_err(ServiceError::not_found_or_db(
+            "geofence",
+            format!("no geofence {id}"),
+        ))?;
     // Build a full JSON from the existing model, then overlay only the fields
     // the PATCH body supplied (skip_serializing_if = "Option::is_none" ensures
     // absent fields are absent from the patch value).
@@ -402,7 +412,10 @@ async fn publish(
     // Resolve the geofence (by id or name) — 404 if it doesn't exist.
     let model = geofence::Query::get_one(&conn.koji, id.clone())
         .await
-        .map_err(ServiceError::not_found_or_db("geofence", format!("no geofence {id}")))?;
+        .map_err(ServiceError::not_found_or_db(
+            "geofence",
+            format!("no geofence {id}"),
+        ))?;
 
     // Linkage gate: only linked geofences can be pushed.
     let Some(dragonite_area_id) = model.dragonite_area_id else {
@@ -474,7 +487,10 @@ pub(crate) async fn internal_get_one(
     let id = path.into_inner();
     let related = geofence::Query::get_one_json_with_related(&conn.koji, id.to_string())
         .await
-        .map_err(ServiceError::not_found_or_db("geofence", format!("no geofence {id}")))?;
+        .map_err(ServiceError::not_found_or_db(
+            "geofence",
+            format!("no geofence {id}"),
+        ))?;
     Ok(ApiResponse::success(related_to_feature(related)))
 }
 
@@ -624,7 +640,6 @@ mod tests {
         assert!(v.get("projects").is_none());
         assert!(v.get("properties").is_none());
     }
-
 
     #[test]
     fn related_to_feature_moves_geometry_and_keeps_related() {

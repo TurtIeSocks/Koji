@@ -73,7 +73,6 @@ impl DragoniteClient {
         }
     }
 
-
     /// PATCH an area, sending only the fields present in `patch` (omitted fields
     /// are left unchanged; a `geofence: Tri::Null` clears that fence). Returns
     /// the updated area. Build `patch` with the

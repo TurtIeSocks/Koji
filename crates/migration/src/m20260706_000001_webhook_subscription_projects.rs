@@ -77,7 +77,6 @@ mod tests {
 
 use crate::helpers::has_column;
 
-
 /// A v1 project row carrying push config, read before the drop in migration B.
 #[derive(Debug, FromQueryResult)]
 struct PushProject {

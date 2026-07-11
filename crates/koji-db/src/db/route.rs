@@ -229,7 +229,7 @@ mod to_koji_tests {
     #[cfg(test)]
     fn test_model_defaults() -> Model {
         use chrono::Utc;
-                Model {
+        Model {
             id: 0,
             geofence_id: 0,
             name: String::new(),
@@ -305,5 +305,4 @@ mod to_koji_tests {
             "route publish SingleVec diverged from the captured matrix golden"
         );
     }
-
 }

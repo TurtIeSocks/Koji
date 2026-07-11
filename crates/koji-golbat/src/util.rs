@@ -274,7 +274,10 @@ mod tests {
         }));
         let sql = sql_raw_bbox(&area);
         assert!(!sql.trim_start().starts_with("OR"), "leading OR: {sql}");
-        assert!(sql.starts_with(" (lon"), "expected clause without separator: {sql}");
+        assert!(
+            sql.starts_with(" (lon"),
+            "expected clause without separator: {sql}"
+        );
     }
 
     #[test]

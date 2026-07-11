@@ -116,7 +116,11 @@ mod negotiate_tests {
     #[test]
     fn format_takes_precedence_then_rt_then_default() {
         assert_eq!(
-            negotiate_return_type(Some("sql"), Some("feature"), ReturnTypeArg::FeatureCollection),
+            negotiate_return_type(
+                Some("sql"),
+                Some("feature"),
+                ReturnTypeArg::FeatureCollection
+            ),
             ReturnTypeArg::Sql
         );
         assert_eq!(

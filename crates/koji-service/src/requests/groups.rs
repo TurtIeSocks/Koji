@@ -229,9 +229,7 @@ mod tests {
 
     #[test]
     fn clustering_args_center_clusters_explicit_true() {
-        let g: ClusteringArgs =
-            serde_json::from_str(r#"{"centerClusters":true}"#)
-                .unwrap();
+        let g: ClusteringArgs = serde_json::from_str(r#"{"centerClusters":true}"#).unwrap();
         let cfg = g.resolve();
         assert!(cfg.center_clusters);
     }

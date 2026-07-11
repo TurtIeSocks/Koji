@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::rtree::{self, cluster::Cluster, cluster_info, point};
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClusterStats {
     unique: HashMap<usize, usize>,

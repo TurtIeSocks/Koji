@@ -207,7 +207,10 @@ pub fn derive_str_enum(input: TokenStream) -> TokenStream {
         if !seen_literals.insert(lit.value()) {
             return syn::Error::new_spanned(
                 &lit,
-                format!("duplicate #[str] literal \"{}\" — this arm would be unreachable", lit.value()),
+                format!(
+                    "duplicate #[str] literal \"{}\" — this arm would be unreachable",
+                    lit.value()
+                ),
             )
             .to_compile_error()
             .into();
@@ -227,7 +230,10 @@ pub fn derive_str_enum(input: TokenStream) -> TokenStream {
             if !seen_literals.insert(a.value()) {
                 return syn::Error::new_spanned(
                     a,
-                    format!("duplicate #[str] literal \"{}\" — this arm would be unreachable", a.value()),
+                    format!(
+                        "duplicate #[str] literal \"{}\" — this arm would be unreachable",
+                        a.value()
+                    ),
                 )
                 .to_compile_error()
                 .into();

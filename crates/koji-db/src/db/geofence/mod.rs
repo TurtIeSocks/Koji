@@ -8,10 +8,7 @@ use crate::query_args::{AdminReqParsed, ApiQueryArgs, FeatureRenderSpec};
 
 use crate::{
     error::ModelError,
-    utils::{
-        json::JsonToModel,
-        json_related_sort, parse_order,
-    },
+    utils::{json::JsonToModel, json_related_sort, parse_order},
 };
 
 use super::{
@@ -299,7 +296,6 @@ impl Model {
         Ok(koji_core::KojiGeometry { geometry, meta })
     }
 }
-
 
 mod hierarchy;
 mod list;

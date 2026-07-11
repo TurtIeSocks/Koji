@@ -117,7 +117,10 @@ impl<'a> BootstrapRadius<'a> {
         // `_` arm straight from the public jobs API — skip them instead of panicking,
         // mirroring BootstrapS2::build_polygons.
         let Ok(polygon) = Polygon::<Precision>::try_from(geometry) else {
-            log::warn!("[bootstrap] skipping non-polygon geometry: {:?}", geometry.value.type_name());
+            log::warn!(
+                "[bootstrap] skipping non-polygon geometry: {:?}",
+                geometry.value.type_name()
+            );
             return vec![];
         };
         let external_points = polygon.exterior().points().collect::<Vec<Point>>();

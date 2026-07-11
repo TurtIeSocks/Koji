@@ -6,7 +6,6 @@ pub struct Migration;
 
 use crate::helpers::has_column;
 
-
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     /// Projects-v2 (spec 2026-07-06): push config now lives in

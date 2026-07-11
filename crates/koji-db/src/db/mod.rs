@@ -35,7 +35,6 @@ pub struct PaginateResults<T> {
     has_prev: bool,
 }
 
-
 impl<T> PaginateResults<T> {
     /// Assemble a page from fetched results + sea-orm's totals. The
     /// has_prev/has_next formula lives here ONLY — it was previously
@@ -71,4 +70,3 @@ pub(crate) fn parse_geometry_json(
     geo::Geometry::try_from(&gj)
         .map_err(|e| crate::error::ModelError::Custom(format!("[GEOMETRY]: {e}")))
 }
-

@@ -300,4 +300,3 @@ pub fn test_db_app_with_internal(
         .service(web::scope("/api/v2").configure(v2_db_services))
         .service(internal::scope())
 }
-
