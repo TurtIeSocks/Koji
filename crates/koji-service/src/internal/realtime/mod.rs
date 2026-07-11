@@ -133,8 +133,15 @@ pub async fn realtime_ws(
         let mut topics: HashSet<String> = HashSet::new();
         loop {
             tokio::select! {
-                // inbound client frames
-                Some(Ok(msg)) = msg_stream.next() => {
+                // inbound client frames. Bind the raw poll result: a `Some(Ok(msg)) =`
+                // pattern would silently DISABLE this branch on stream end/error,
+                // leaking the task + broadcast receiver until an outbound send fails
+                // (never, for a client subscribed to a quiet topic).
+                msg = msg_stream.next() => {
+                    let msg = match msg {
+                        Some(Ok(msg)) => msg,
+                        Some(Err(_)) | None => break,
+                    };
                     match msg {
                         actix_ws::Message::Text(txt) => {
                             if let Ok(frame) = serde_json::from_str::<ClientFrame>(&txt) {
