@@ -110,9 +110,11 @@ impl<'a> BootstrapS2<'a> {
     pub fn centers_for_polygon(&self, poly: &Polygon<Precision>) -> Vec<[Precision; 2]> {
         let time = Instant::now();
         // 1) Bounding box and S2 Rect (note: simple case, no antimeridian split).
-        let bbox = poly
-            .bounding_rect()
-            .expect("Polygon has no bounding box (empty geometry)?");
+        // An empty-ring polygon has no bbox — degenerate user input via the
+        // public jobs API, not a panic (mirrors BootstrapRadius's guard).
+        let Some(bbox) = poly.bounding_rect() else {
+            return vec![];
+        };
         let lat_lo = bbox.min().y;
         let lat_hi = bbox.max().y;
         let lng_lo = bbox.min().x;
@@ -226,6 +228,7 @@ fn cell_center_latlng(id: CellID) -> LatLng {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use geojson::{Feature, Geometry, GeometryValue};
     use s2::{
         cellid::{CellID, MAX_LEVEL},
@@ -456,5 +459,14 @@ mod tests {
         assert!(ll.lng.deg().is_finite());
         assert!(ll.lat.deg().abs() <= 90.0);
         assert!(ll.lng.deg().abs() <= 180.0);
+    }
+    #[test]
+    fn empty_ring_polygon_returns_no_centers_instead_of_panicking() {
+        // Regression: bounding_rect() is None for an empty exterior ring and
+        // the old .expect() panicked on user-submitted degenerate geofences.
+        let feature = rect_feature(-74.003, 39.997, -73.997, 40.003);
+        let bs = BootstrapS2::new(&feature, 13, 1);
+        let empty = Polygon::new(geo::LineString(vec![]), vec![]);
+        assert!(bs.centers_for_polygon(&empty).is_empty());
     }
 }
