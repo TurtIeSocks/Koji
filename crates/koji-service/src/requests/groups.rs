@@ -28,6 +28,7 @@ pub struct ClusteringArgs {
     pub min_points: Option<usize>,
     pub max_clusters: Option<usize>,
     #[schema(value_type = Option<String>)]
+    #[serde(alias = "clusterMode", alias = "cluster_mode")]
     pub mode: Option<ClusterMode>,
     #[schema(value_type = Option<String>)]
     pub calculation_mode: Option<CalculationMode>,
@@ -197,6 +198,16 @@ mod tests {
         let cfg = g.resolve();
         assert_eq!(cfg.radius, 50.0);
         assert_eq!(cfg.min_points, 3);
+    }
+
+    #[test]
+    fn clustering_args_mode_accepts_cluster_mode_aliases() {
+        // v1 wire name and its camelCase form both land on `mode` instead of
+        // being silently dropped (which would default to Balanced).
+        let g: ClusteringArgs = serde_json::from_str(r#"{"clusterMode":"best"}"#).unwrap();
+        assert_eq!(g.resolve().mode, ClusterMode::Best);
+        let g: ClusteringArgs = serde_json::from_str(r#"{"cluster_mode":"better"}"#).unwrap();
+        assert_eq!(g.resolve().mode, ClusterMode::Better);
     }
 
     #[test]
