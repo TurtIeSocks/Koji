@@ -1,11 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useStore } from "shadmin-core";
 
-import {
-  ThemeProviderContext,
-  type ResolvedTheme,
-  type Theme,
-} from "@/lib/theme-context";
+import { ThemeProviderContext, resolveMode, type Theme } from "@/lib/theme-context";
 
 interface ThemeProviderProps {
   children: React.ReactNode;
@@ -16,16 +12,6 @@ interface ThemeProviderProps {
    */
   defaultTheme?: Theme;
   storageKey?: string;
-}
-
-function resolveMode(mode: Theme): ResolvedTheme {
-  if (mode === "system") {
-    if (typeof window === "undefined") return "light";
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
-  }
-  return mode;
 }
 
 /**
