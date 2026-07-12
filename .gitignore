@@ -40,3 +40,4 @@ bench-results/
 *.csv
 *.txt
 /koji
+.benchmarks
