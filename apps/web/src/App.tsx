@@ -1,9 +1,10 @@
-import { MapIcon } from 'lucide-react'
+import { FileTextIcon, MapIcon } from 'lucide-react'
 import { Route } from 'react-router'
 import { Authenticated, CustomRoutes } from 'shadmin-core'
 import { authProvider } from '@/auth-provider'
 import { Admin, Layout, Menu, Resource } from '@/components/admin'
 import { MapPlayground } from '@/components/deck'
+import { ApiDocs } from '@/components/docs/api-docs'
 import { PasswordLoginPage } from '@/components/login/password-login-page'
 import { Dashboard } from '@/dashboard/dashboard'
 import { dataProvider } from '@/data-provider'
@@ -26,6 +27,11 @@ function KojiMenu() {
         <SidebarGroupContent>
           <SidebarMenu>
             <Menu.Item to="/map" primaryText="Map" leftIcon={<MapIcon className="size-4" />} />
+            <Menu.Item
+              to="/docs"
+              primaryText="API Docs"
+              leftIcon={<FileTextIcon className="size-4" />}
+            />
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
@@ -61,6 +67,18 @@ function App() {
       <Resource {...webhook} group="Config" />
       <CustomRoutes>
         <Route element={<ImportWizard />} path="/import" />
+      </CustomRoutes>
+      {/* API docs render full-bleed (Scalar owns the whole viewport), so noLayout
+          like /map. Same public-by-default caveat → gate with <Authenticated>. */}
+      <CustomRoutes noLayout>
+        <Route
+          element={
+            <Authenticated>
+              <ApiDocs />
+            </Authenticated>
+          }
+          path="/docs"
+        />
       </CustomRoutes>
       {/* Map is full-bleed (no admin sidebar/appbar chrome) — its own viewport.
           noLayout routes are PUBLIC by default (requireAuth doesn't cover them),
