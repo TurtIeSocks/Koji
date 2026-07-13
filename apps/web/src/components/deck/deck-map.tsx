@@ -1,8 +1,10 @@
 import type { Layer } from "@deck.gl/core";
 import { WebMercatorViewport } from "@deck.gl/core";
 import DeckGL from "@deck.gl/react";
+import { Maximize2, Minimize2 } from "lucide-react";
 import {
 	type ReactNode,
+	useEffect,
 	useLayoutEffect,
 	useMemo,
 	useRef,
@@ -10,7 +12,9 @@ import {
 } from "react";
 import { Map as MapLibre } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { Button } from "@/components/ui/button";
 import { DEFAULT_TILE_URL } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import { rasterStyle } from "@/map/lib/map-style";
 import type { Bounds } from "@/map/stores/types";
 import { boundsToViewState, geometryBounds } from "./bounds";
@@ -47,6 +51,9 @@ export interface DeckMapProps {
 	controller?: object | boolean;
 	getCursor?: (s: { isDragging: boolean }) => string;
 	children?: ReactNode;
+	/** Opt in to a top-right button that expands the map to a fixed,
+	 *  viewport-filling overlay (Esc or the button collapses it back). */
+	expandable?: boolean;
 }
 
 export function DeckMap({
@@ -59,8 +66,19 @@ export function DeckMap({
 	controller = true,
 	getCursor = ({ isDragging }) => (isDragging ? "grabbing" : "grab"),
 	children,
+	expandable = false,
 }: DeckMapProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
+	const [expanded, setExpanded] = useState(false);
+
+	useEffect(() => {
+		if (!expanded) return;
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") setExpanded(false);
+		};
+		window.addEventListener("keydown", onKeyDown);
+		return () => window.removeEventListener("keydown", onKeyDown);
+	}, [expanded]);
 	// Live container dimensions — fitBounds and onViewStateChange bounds must use
 	// the map's OWN rendered size (an embedded 400px field is not window-sized).
 	const sizeRef = useRef<{ w: number; h: number }>({ w: 800, h: 600 });
@@ -113,9 +131,24 @@ export function DeckMap({
 		<div
 			ref={containerRef}
 			data-testid="deck-map"
-			className="relative overflow-hidden rounded-md border w-full"
-			style={{ height }}
+			className={cn(
+				"relative overflow-hidden rounded-md border w-full",
+				expanded && "fixed inset-0 z-50 rounded-none",
+			)}
+			style={{ height: expanded ? "100%" : height }}
 		>
+			{expandable ? (
+				<Button
+					type="button"
+					size="icon-sm"
+					variant="outline"
+					aria-label={expanded ? "Collapse map" : "Expand map"}
+					className="absolute right-2 top-2 z-20 bg-background/95"
+					onClick={() => setExpanded((e) => !e)}
+				>
+					{expanded ? <Minimize2 /> : <Maximize2 />}
+				</Button>
+			) : null}
 			{initial ? (
 				<DeckGL
 					initialViewState={initial}
