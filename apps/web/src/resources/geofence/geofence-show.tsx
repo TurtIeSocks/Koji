@@ -25,6 +25,21 @@ const NewRouteButton = () => {
   );
 };
 
+// `useRecordContext` only resolves inside `<ShowLive>`'s provider — this tiny
+// wrapper reads the fence's own mode/geometry to drive DeckGeoJsonField's
+// mode-based marker toggle, mirroring RouteShowMap's record read.
+const FenceMapField = () => {
+  const record = useRecordContext();
+  return (
+    <DeckGeoJsonField
+      source="geometry"
+      markerMode={record?.mode}
+      markerArea={record?.geometry as GeoJSON.Geometry | undefined}
+      expandable
+    />
+  );
+};
+
 export const GeofenceShow = (props: Pick<ShowProps, "id">) => (
   <ShowLive {...props}>
     <div className="flex flex-col gap-4 p-4">
@@ -39,7 +54,7 @@ export const GeofenceShow = (props: Pick<ShowProps, "id">) => (
           </SingleFieldList>
         </ReferenceArrayField>
       </div>
-      <DeckGeoJsonField source="geometry" height={400} />
+      <FenceMapField />
       <ReferenceManyField reference="route" target="geofence_id" label="Routes">
         <div className="flex flex-col gap-2">
           <div className="flex justify-end">

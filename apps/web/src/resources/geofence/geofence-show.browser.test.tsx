@@ -1,9 +1,21 @@
-import { describe, expect, it } from "vitest";
+// Tailwind's utility classes (position/z-index) are only compiled into a real
+// stylesheet when this global CSS entrypoint is imported — the marker toggle
+// button's `.click()` wouldn't land over the deck.gl canvas without it
+// (established in deck-geojson-field.browser.test.tsx).
+import "@/index.css";
+import { describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { AdminContext } from "@/components/admin";
 import { ResourceContextProvider, testDataProvider } from "shadmin-core";
 import type { AuthProvider } from "shadmin-core";
 import { GeofenceShow } from "@/resources/geofence/geofence-show";
+
+// Real network fetch is disabled anyway (the toggle starts OFF, so
+// useMarkerOverlay's `wantFetch` is false) — mocked regardless so no test in
+// this file can accidentally hit the real golbat-data endpoint.
+vi.mock("@/map/data/use-markers", () => ({
+  useMarkers: vi.fn(() => ({ data: undefined })),
+}));
 
 const record = {
   id: 1,
@@ -86,5 +98,37 @@ describe("GeofenceShow", () => {
     // data-provider.ts getManyReference TARGET_TO_PARAM override).
     expect(captured?.target).toBe("geofence_id");
     expect(captured?.id).toBe(1);
+  });
+
+  it("shows a mode-driven marker toggle + expand button on the map", async () => {
+    const questRecord = { ...record, mode: "quest" };
+    const questDataProvider = {
+      ...testDataProvider({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getOne: async () => ({ data: questRecord as any }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getList: async () => ({ data: [] as any, total: 0 }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getMany: async () => ({ data: [] as any }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getManyReference: async () => ({ data: [] as any, total: 0 }),
+      }),
+      subscribe: () => () => undefined,
+    };
+
+    const screen = render(
+      <AdminContext dataProvider={questDataProvider} authProvider={stubAuthProvider}>
+        <ResourceContextProvider value="geofence">
+          <GeofenceShow id={1} />
+        </ResourceContextProvider>
+      </AdminContext>,
+    );
+
+    await expect
+      .element(screen.getByRole("button", { name: "Show Pokestops" }))
+      .toBeInTheDocument();
+    await expect
+      .element(screen.getByRole("button", { name: /expand/i }))
+      .toBeInTheDocument();
   });
 });
