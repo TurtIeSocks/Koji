@@ -8,6 +8,7 @@ export * from "./map-playground";
 export * from "./map-camera-storage";
 export * from "./route-map";
 export * from "./route-mode";
+export * from "./route-show-map";
 export * from "./route-stats-panel";
 export * from "./save-dialog";
 export * from "./use-geometry-history";
