@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { render } from "vitest-browser-react";
 import { FormProvider, useForm } from "react-hook-form";
+import { testDataProvider } from "shadmin-core";
+import { AdminContext } from "@/components/admin";
 import { MapNameStep } from "./map-name-step";
 
 interface Feature {
@@ -15,12 +17,18 @@ const makeFeature = (props: Record<string, unknown>): Feature => ({
   properties: props,
 });
 
+// DeckGeoJsonField now calls useMarkerOverlay unconditionally (even with no
+// markerMode), which always calls useMarkers -> react-query's useQuery — so
+// this harness needs a QueryClientProvider in its tree just like production
+// (App.tsx renders MapNameStep's ImportWizard inside <Admin>).
 const Harness = ({ features }: { features: Feature[] }) => {
   const methods = useForm({ defaultValues: { features: features as unknown[] } });
   return (
-    <FormProvider {...methods}>
-      <MapNameStep />
-    </FormProvider>
+    <AdminContext dataProvider={testDataProvider()}>
+      <FormProvider {...methods}>
+        <MapNameStep />
+      </FormProvider>
+    </AdminContext>
   );
 };
 
