@@ -79,6 +79,14 @@ describe("DeckGeoJsonField", () => {
     await expect.element(screen.getByRole("button", { name: /show/i })).not.toBeInTheDocument();
   });
 
+  it("hides the marker toggle for an unset mode (no categories to show)", async () => {
+    const screen = renderField({ markerMode: "unset", markerArea: poly });
+    await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
+    await expect
+      .element(screen.getByRole("button", { name: /show/i }))
+      .not.toBeInTheDocument();
+  });
+
   it("defaults height to 640 when height is omitted", async () => {
     const screen = renderField();
     const el = screen.getByTestId("deck-map").element() as HTMLElement;

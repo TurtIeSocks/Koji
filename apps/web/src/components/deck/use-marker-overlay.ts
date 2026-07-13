@@ -43,6 +43,10 @@ export interface UseMarkerOverlayOpts {
 export interface UseMarkerOverlayResult {
 	on: boolean;
 	setOn: (v: boolean) => void;
+	/** True when `mode` maps to at least one golbat category — i.e. there is
+	 *  something to show. False for `unset`/unknown modes; consumers hide the
+	 *  toggle button entirely rather than offer a control that fetches nothing. */
+	available: boolean;
 	/** Human label for the toggle button, e.g. "Spawnpoints" / "Forts". */
 	label: string;
 	/** Built only while `on` — spread into the consumer's layer array. */
@@ -144,5 +148,5 @@ export function useMarkerOverlay(
 
 	const label = LABELS[mode ?? ""] ?? "Markers";
 
-	return { on, setOn, label, markerLayers, data };
+	return { on, setOn, available: cats.length > 0, label, markerLayers, data };
 }

@@ -182,15 +182,17 @@ export function RouteShowMap() {
 			expandable
 			controller={{ doubleClickZoom: true }}
 		>
-			<Button
-				type="button"
-				size="sm"
-				variant="outline"
-				className="absolute left-2 top-2 z-10 bg-background/95"
-				onClick={() => overlay.setOn(!overlay.on)}
-			>
-				{overlay.on ? `Hide ${overlay.label}` : `Show ${overlay.label}`}
-			</Button>
+			{overlay.available ? (
+				<Button
+					type="button"
+					size="sm"
+					variant="outline"
+					className="absolute left-2 top-2 z-10 bg-background/95"
+					onClick={() => overlay.setOn(!overlay.on)}
+				>
+					{overlay.on ? `Hide ${overlay.label}` : `Show ${overlay.label}`}
+				</Button>
+			) : null}
 			<RouteStatsPanel stats={statsCalc.stats} loading={panelLoading} />
 		</DeckMap>
 	);

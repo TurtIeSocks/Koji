@@ -90,7 +90,7 @@ export function DeckGeoJsonField({
       controller={{ doubleClickZoom: true }}
       expandable={expandable}
     >
-      {markerMode ? (
+      {markerMode && overlay.available ? (
         <Button
           type="button"
           size="sm"

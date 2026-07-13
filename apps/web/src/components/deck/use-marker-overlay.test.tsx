@@ -132,6 +132,27 @@ describe("useMarkerOverlay", () => {
 		expect(other.result.current.label).toBe("Markers");
 	});
 
+	it("`available` is true for a mode with categories, false for unset/unknown", () => {
+		const pokemon = renderHook(() => useMarkerOverlay("pokemon", poly));
+		mounted = pokemon;
+		expect(pokemon.result.current.available).toBe(true);
+		pokemon.unmount();
+
+		const fort = renderHook(() => useMarkerOverlay("fort", poly));
+		mounted = fort;
+		expect(fort.result.current.available).toBe(true);
+		fort.unmount();
+
+		const unset = renderHook(() => useMarkerOverlay("unset", poly));
+		mounted = unset;
+		expect(unset.result.current.available).toBe(false);
+		unset.unmount();
+
+		const undef = renderHook(() => useMarkerOverlay(undefined, poly));
+		mounted = undef;
+		expect(undef.result.current.available).toBe(false);
+	});
+
 	it("null/undefined area still renders (fixed hook order) with everything off", () => {
 		const rendered = renderHook(() => useMarkerOverlay("pokemon", null));
 		mounted = rendered;
