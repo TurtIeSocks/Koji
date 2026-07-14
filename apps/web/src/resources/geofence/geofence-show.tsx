@@ -10,6 +10,8 @@ import {
 } from "@/components/admin";
 import { ShowLive } from "@/components/realtime";
 import { DeckGeoJsonField } from "@/components/deck";
+import { useNeighborOverlay } from "@/components/deck/use-neighbor-overlay";
+import { Button } from "@/components/ui/button";
 import type { ShowProps } from "@/components/admin/views/show";
 import { useRecordContext } from "ra-core";
 
@@ -30,12 +32,26 @@ const NewRouteButton = () => {
 // mode-based marker toggle, mirroring RouteShowMap's record read.
 const FenceMapField = () => {
   const record = useRecordContext();
+  const nb = useNeighborOverlay(record?.geometry as GeoJSON.Geometry | undefined, record?.id);
   return (
     <DeckGeoJsonField
       source="geometry"
       markerMode={record?.mode}
       markerArea={record?.geometry as GeoJSON.Geometry | undefined}
       expandable
+      extraLayers={nb.layers}
+      getTooltip={nb.getTooltip}
+      extraControls={
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="bg-background/95"
+          onClick={() => nb.setOn(!nb.on)}
+        >
+          {nb.on ? "Hide Neighbors" : "Show Neighbors"}
+        </Button>
+      }
     />
   );
 };

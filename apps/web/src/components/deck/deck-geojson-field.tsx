@@ -1,7 +1,7 @@
 import { type ReactNode, useMemo } from "react";
 import { useRecordContext } from "shadmin-core";
 import { GeoJsonLayer, LineLayer } from "@deck.gl/layers";
-import type { Layer } from "@deck.gl/core";
+import type { Layer, PickingInfo } from "@deck.gl/core";
 import { Button } from "@/components/ui/button";
 import { routeCoords, routeSegments, segmentColors, type RouteSegment } from "@/map/lib/calc-overlay";
 import { DeckMap } from "./deck-map";
@@ -29,6 +29,15 @@ export interface DeckGeoJsonFieldProps {
   markerArea?: GeoJSON.Geometry | null;
   /** Opt in to DeckMap's expand-to-fullscreen button. */
   expandable?: boolean;
+  /** Extra layers appended after the field's own geometry/route layers and
+   *  the marker overlay's layers (e.g. a "Show Neighbors" ghost-fence
+   *  overlay driven by `useNeighborOverlay`). Optional/back-compat. */
+  extraLayers?: Layer[];
+  /** Passed straight through to `DeckMap`'s `getTooltip`. Optional/back-compat. */
+  getTooltip?: (info: PickingInfo) => { text: string } | null;
+  /** Extra control(s) rendered as a `DeckMap` child, stacked below the
+   *  existing marker toggle button. Optional — renders nothing when unset. */
+  extraControls?: ReactNode;
 }
 
 const DEFAULT_FILL: [number, number, number, number] = [255, 140, 0, 40];
@@ -37,7 +46,7 @@ const DEFAULT_LINE: [number, number, number, number] = [255, 140, 0, 220];
 export function DeckGeoJsonField({
   source, height = 640, tileUrl, fitBounds = true, emptyText = "No geometry available",
   variant = "geometry", fillColor = DEFAULT_FILL, lineColor = DEFAULT_LINE,
-  markerMode, markerArea, expandable,
+  markerMode, markerArea, expandable, extraLayers, getTooltip, extraControls,
 }: DeckGeoJsonFieldProps) {
   const record = useRecordContext();
   // GeoJSON.GeoJSON (the full union), not GeoJsonObject — matches DeckMap's
@@ -80,7 +89,11 @@ export function DeckGeoJsonField({
       </div>
     );
   }
-  const allLayers = markerMode ? [...layers, ...overlay.markerLayers] : layers;
+  const allLayers = [
+    ...layers,
+    ...(markerMode ? overlay.markerLayers : []),
+    ...(extraLayers ?? []),
+  ];
   return (
     <DeckMap
       layers={allLayers}
@@ -89,17 +102,23 @@ export function DeckGeoJsonField({
       tileUrl={tileUrl}
       controller={{ doubleClickZoom: true }}
       expandable={expandable}
+      getTooltip={getTooltip}
     >
-      {markerMode && overlay.available ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="absolute left-2 top-2 z-10 bg-background/95"
-          onClick={() => overlay.setOn(!overlay.on)}
-        >
-          {overlay.on ? `Hide ${overlay.label}` : `Show ${overlay.label}`}
-        </Button>
+      {(markerMode && overlay.available) || extraControls ? (
+        <div className="absolute left-2 top-2 z-10 flex flex-col items-start gap-1">
+          {markerMode && overlay.available ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="bg-background/95"
+              onClick={() => overlay.setOn(!overlay.on)}
+            >
+              {overlay.on ? `Hide ${overlay.label}` : `Show ${overlay.label}`}
+            </Button>
+          ) : null}
+          {extraControls}
+        </div>
       ) : null}
     </DeckMap>
   );

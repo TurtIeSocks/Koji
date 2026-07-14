@@ -17,6 +17,18 @@ vi.mock("@/map/data/use-markers", () => ({
   useMarkers: vi.fn(() => ({ data: undefined })),
 }));
 
+// Hoisted so both the vi.mock factory and the test can see the same spy.
+const { setOnMock } = vi.hoisted(() => ({ setOnMock: vi.fn() }));
+vi.mock("@/components/deck/use-neighbor-overlay", () => ({
+  useNeighborOverlay: vi.fn(() => ({
+    on: false,
+    setOn: setOnMock,
+    layers: [],
+    getTooltip: () => null,
+    label: "Neighbors",
+  })),
+}));
+
 const record = {
   id: 1,
   name: "Alpha",
@@ -130,5 +142,36 @@ describe("GeofenceShow", () => {
     await expect
       .element(screen.getByRole("button", { name: /expand/i }))
       .toBeInTheDocument();
+  });
+
+  it("shows a Show Neighbors toggle wired to useNeighborOverlay, and clicking it calls setOn", async () => {
+    const questRecord = { ...record, mode: "quest" };
+    const questDataProvider = {
+      ...testDataProvider({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getOne: async () => ({ data: questRecord as any }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getList: async () => ({ data: [] as any, total: 0 }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getMany: async () => ({ data: [] as any }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getManyReference: async () => ({ data: [] as any, total: 0 }),
+      }),
+      subscribe: () => () => undefined,
+    };
+
+    const screen = render(
+      <AdminContext dataProvider={questDataProvider} authProvider={stubAuthProvider}>
+        <ResourceContextProvider value="geofence">
+          <GeofenceShow id={1} />
+        </ResourceContextProvider>
+      </AdminContext>,
+    );
+
+    const toggle = screen.getByRole("button", { name: "Show Neighbors" });
+    await expect.element(toggle).toBeInTheDocument();
+
+    await toggle.click();
+    expect(setOnMock).toHaveBeenCalledWith(true);
   });
 });

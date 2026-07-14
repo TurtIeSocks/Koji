@@ -7,6 +7,7 @@ import "@/index.css";
 import { describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { RecordContextProvider, testDataProvider } from "shadmin-core";
+import { GeoJsonLayer } from "@deck.gl/layers";
 import { AdminContext } from "@/components/admin";
 import { DeckGeoJsonField } from "./deck-geojson-field";
 
@@ -91,5 +92,28 @@ describe("DeckGeoJsonField", () => {
     const screen = renderField();
     const el = screen.getByTestId("deck-map").element() as HTMLElement;
     expect(el.style.height).toBe("640px");
+  });
+
+  it("renders extraControls (and accepts extraLayers) when provided", async () => {
+    const extra = new GeoJsonLayer({
+      id: "extra",
+      data: { type: "Feature", properties: {}, geometry: poly } satisfies GeoJSON.Feature,
+    });
+    const screen = renderField({
+      extraLayers: [extra],
+      extraControls: <button type="button">Show Neighbors</button>,
+    });
+    await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
+    await expect
+      .element(screen.getByRole("button", { name: "Show Neighbors" }))
+      .toBeInTheDocument();
+  });
+
+  it("renders no extraControls when omitted (back-compat)", async () => {
+    const screen = renderField();
+    await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
+    await expect
+      .element(screen.getByRole("button", { name: "Show Neighbors" }))
+      .not.toBeInTheDocument();
   });
 });
