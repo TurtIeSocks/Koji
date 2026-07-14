@@ -26,6 +26,11 @@ test("geofenceOverlayLayer excludes the given id from data", () => {
   expect(layer.props.data).toEqual([B]);
 });
 
+test("geofenceOverlayLayer excludes a numeric-id feature when excludeId arrives as a string", () => {
+  const layer = geofenceOverlayLayer({ features: [A, B], ghost: true, excludeId: "1" });
+  expect(layer.props.data).toEqual([B]);
+});
+
 test("geofenceOverlayLayer keeps all features when excludeId is omitted", () => {
   const layer = geofenceOverlayLayer({ features: [A, B], ghost: false });
   expect(layer.props.data).toEqual([A, B]);

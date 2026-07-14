@@ -14,9 +14,11 @@ export function geofenceOverlayLayer(opts: {
 }): Layer {
   const { features, ghost, excludeId, id } = opts;
   const data =
-    excludeId != null
-      ? features.filter((f) => (f.id ?? (f.properties as { id?: number | string } | null)?.id) !== excludeId)
-      : features;
+    excludeId == null
+      ? features
+      : features.filter(
+          (f) => String(f.id ?? (f.properties as { id?: number | string } | null)?.id) !== String(excludeId),
+        );
   const fill = ghost ? EDITING_FILL : GEOFENCE_FILL;
   const line = ghost ? EDITING_LINE : GEOFENCE_LINE;
 
