@@ -15,7 +15,8 @@
 //! beyond the plain-JSON [`koji_resource!`](macros::koji_resource) shape.
 
 use actix_web::{HttpResponse, http::StatusCode, web};
-use geojson::{Feature, Geometry};
+use geo::BoundingRect;
+use geojson::{Feature, FeatureCollection, Geometry};
 use koji_db::{
     KojiDb,
     db::geofence::{self, Anchor, HierarchySpec},
@@ -48,6 +49,11 @@ struct ReadQuery {
     depth: Option<u32>,
     /// Exactly the geofences `level` levels below the anchor.
     level: Option<u32>,
+    /// Comma-separated geofence ids — scope the list to only these (`list` only).
+    ids: Option<String>,
+    /// `minLng,minLat,maxLng,maxLat` — scope the list to fences whose bbox
+    /// overlaps this box (`list` only).
+    bbox: Option<String>,
 }
 
 impl ReadQuery {
@@ -67,6 +73,86 @@ impl ReadQuery {
             field: Some("hierarchy".to_string()),
             message: "depth and level are mutually exclusive".to_string(),
         })
+    }
+
+    /// Parse `?ids=1,2,3` into distinct u32 ids: split on `,`, trim, skip blank
+    /// segments. A non-numeric segment is a client error (400); an id with no
+    /// matching row is not (silently omitted downstream).
+    #[allow(clippy::result_large_err)]
+    fn ids(&self) -> Result<Option<Vec<u32>>, ServiceError> {
+        let Some(raw) = &self.ids else {
+            return Ok(None);
+        };
+        let ids = raw
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| {
+                s.parse::<u32>().map_err(|_| ServiceError::Invalid {
+                    field: Some("ids".to_string()),
+                    message: format!("invalid geofence id: {s:?}"),
+                })
+            })
+            .collect::<Result<Vec<u32>, ServiceError>>()?;
+        Ok(Some(ids))
+    }
+
+    /// Parse `?bbox=minLng,minLat,maxLng,maxLat` (the geojson bbox-member
+    /// order). Anything other than exactly 4 parseable numbers is a client
+    /// error (400).
+    #[allow(clippy::result_large_err)]
+    fn bbox(&self) -> Result<Option<[f64; 4]>, ServiceError> {
+        let Some(raw) = &self.bbox else {
+            return Ok(None);
+        };
+        let invalid = || ServiceError::Invalid {
+            field: Some("bbox".to_string()),
+            message: "bbox must be minLng,minLat,maxLng,maxLat".to_string(),
+        };
+        let parts: Vec<&str> = raw.split(',').map(str::trim).collect();
+        if parts.len() != 4 {
+            return Err(invalid());
+        }
+        let mut out = [0.0_f64; 4];
+        for (slot, part) in out.iter_mut().zip(parts.iter()) {
+            *slot = part.parse::<f64>().map_err(|_| invalid())?;
+        }
+        Ok(Some(out))
+    }
+}
+
+/// A feature's own bbox (`[minLng, minLat, maxLng, maxLat]`), via the same
+/// geojson->geo conversion `koji_core::KojiGeometry::bbox()` is built on —
+/// `None` for a feature with no geometry or one that fails the conversion
+/// (such a feature is dropped by [`features_intersecting_bbox`] rather than
+/// surfacing an error).
+fn feature_bbox(f: &Feature) -> Option<[f64; 4]> {
+    let geom = f.geometry.as_ref()?;
+    let g = geo::Geometry::<koji_core::Precision>::try_from(geom).ok()?;
+    let rect = g.bounding_rect()?;
+    Some([rect.min().x, rect.min().y, rect.max().x, rect.max().y])
+}
+
+/// Standard AABB overlap test (`a`/`b` both `[minX, minY, maxX, maxY]`);
+/// touching counts as overlapping, so a bbox that only straddles the boundary
+/// still intersects.
+fn bbox_overlaps(a: [f64; 4], b: [f64; 4]) -> bool {
+    !(a[2] < b[0] || a[0] > b[2] || a[3] < b[1] || a[1] > b[3])
+}
+
+/// Keep only the features whose own bbox overlaps `bbox`
+/// (`[minLng, minLat, maxLng, maxLat]`). Pure — no DB, no network — so it unit
+/// tests without a database; `list`'s `?bbox=` path is the only caller.
+fn features_intersecting_bbox(fc: FeatureCollection, bbox: [f64; 4]) -> FeatureCollection {
+    let features = fc
+        .features
+        .into_iter()
+        .filter(|f| feature_bbox(f).is_some_and(|fb| bbox_overlaps(fb, bbox)))
+        .collect();
+    FeatureCollection {
+        bbox: fc.bbox,
+        features,
+        foreign_members: fc.foreign_members,
     }
 }
 
@@ -118,23 +204,32 @@ pub(crate) struct PatchGeofence {
 /// `GET /api/v2/geofences` — list all geofences as a `FeatureCollection`,
 /// honoring `?format=` (defaults to `featurecollection`).
 ///
-/// With `?depth=N` or `?level=N` this becomes a recursive forest walk
-/// (anchor = every `parent IS NULL` root): `depth=N` is the cumulative subtree
-/// through level N, `level=N` is only the geofences exactly N levels down. The
-/// two are mutually exclusive (both → 400). Omitted → the existing
-/// non-recursive listing.
+/// `?ids=1,2,3` scopes the read to only those geofences (a single indexed
+/// `WHERE id IN (...)` query — no full-table read). `?bbox=minLng,minLat,
+/// maxLng,maxLat` scopes it to fences whose geometry bbox overlaps the box
+/// (all rows are still read, then filtered in memory). The two are mutually
+/// exclusive with each other and with `?depth`/`?level` — `ids` wins if both
+/// are present, `bbox` is next, `?depth`/`?level` otherwise.
+///
+/// With `?depth=N` or `?level=N` (and no `ids`/`bbox`) this becomes a
+/// recursive forest walk (anchor = every `parent IS NULL` root): `depth=N` is
+/// the cumulative subtree through level N, `level=N` is only the geofences
+/// exactly N levels down. The two are mutually exclusive (both → 400).
+/// Omitted → the existing non-recursive listing.
 #[utoipa::path(
     get,
     path = "/api/v2/geofences",
     tag = "geofences",
     params(
         ("format" = Option<String>, Query, description = "Return type (default `featurecollection`)"),
+        ("ids" = Option<String>, Query, description = "Comma-separated geofence ids — only those fences"),
+        ("bbox" = Option<String>, Query, description = "minLng,minLat,maxLng,maxLat — only fences whose bbox overlaps"),
         ("depth" = Option<u32>, Query, description = "Cumulative subtree through N levels (mutually exclusive with `level`)"),
         ("level" = Option<u32>, Query, description = "Exactly N levels below the anchor"),
     ),
     responses(
         (status = 200, description = "Geofences (GeoJSON in the envelope, or a raw export format)", body = Object),
-        (status = 400, description = "`depth` and `level` are mutually exclusive", body = ApiError),
+        (status = 400, description = "`depth` and `level` are mutually exclusive, or `ids`/`bbox` malformed", body = ApiError),
     ),
 )]
 async fn list(
@@ -142,6 +237,19 @@ async fn list(
     query: web::Query<ReadQuery>,
 ) -> Result<HttpResponse, ServiceError> {
     let return_type = query.return_type(ReturnTypeArg::FeatureCollection);
+
+    if let Some(ids) = query.ids()? {
+        let coll = geofence::Query::get_koji_by_ids(&conn.koji, &ids).await?;
+        return Ok(respond_geo(coll, return_type));
+    }
+
+    if let Some(bbox) = query.bbox()? {
+        let coll = geofence::Query::get_all_koji(&conn.koji).await?;
+        // ponytail: in-memory bbox filter; DB bbox columns + index if fence counts grow (follow-up chip)
+        let fc = features_intersecting_bbox(FeatureCollection::from(&coll), bbox);
+        let coll = koji_core::KojiGeometryCollection::try_from(fc).map_err(ServiceError::internal)?;
+        return Ok(respond_geo(coll, return_type));
+    }
 
     let coll = match query.hierarchy()? {
         Some(spec) => geofence::Query::descendants(&conn.koji, Anchor::Forest, spec).await?,
@@ -674,5 +782,175 @@ mod tests {
         };
         let err = q.hierarchy().unwrap_err();
         assert!(matches!(err, ServiceError::Invalid { .. }));
+    }
+
+    // ── ids/bbox query parsing ────────────────────────────────────────────
+
+    #[test]
+    fn read_query_ids_none_when_absent() {
+        let q = ReadQuery::default();
+        assert_eq!(q.ids().unwrap(), None);
+    }
+
+    #[test]
+    fn read_query_ids_splits_trims_and_ignores_blanks() {
+        let q = ReadQuery {
+            ids: Some(" 1, 2 ,,3".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(q.ids().unwrap(), Some(vec![1, 2, 3]));
+    }
+
+    #[test]
+    fn read_query_ids_non_numeric_segment_is_400() {
+        let q = ReadQuery {
+            ids: Some("1,foo".to_string()),
+            ..Default::default()
+        };
+        let err = q.ids().unwrap_err();
+        assert!(matches!(err, ServiceError::Invalid { field, .. } if field.as_deref() == Some("ids")));
+    }
+
+    #[test]
+    fn read_query_bbox_none_when_absent() {
+        let q = ReadQuery::default();
+        assert_eq!(q.bbox().unwrap(), None);
+    }
+
+    #[test]
+    fn read_query_bbox_parses_four_numbers() {
+        let q = ReadQuery {
+            bbox: Some("-1.5,2,3,4.25".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(q.bbox().unwrap(), Some([-1.5, 2.0, 3.0, 4.25]));
+    }
+
+    #[test]
+    fn read_query_bbox_wrong_count_is_400() {
+        let q = ReadQuery {
+            bbox: Some("1,2,3".to_string()),
+            ..Default::default()
+        };
+        let err = q.bbox().unwrap_err();
+        assert!(matches!(err, ServiceError::Invalid { field, .. } if field.as_deref() == Some("bbox")));
+    }
+
+    #[test]
+    fn read_query_bbox_non_numeric_is_400() {
+        let q = ReadQuery {
+            bbox: Some("1,2,3,nope".to_string()),
+            ..Default::default()
+        };
+        let err = q.bbox().unwrap_err();
+        assert!(matches!(err, ServiceError::Invalid { field, .. } if field.as_deref() == Some("bbox")));
+    }
+
+    // ── features_intersecting_bbox (pure — no DB) ───────────────────────────
+
+    /// A `Point` feature at `(lon, lat)`, id set so tests can tell which
+    /// features survived the filter.
+    fn point_feature(id: u64, lon: f64, lat: f64) -> Feature {
+        Feature {
+            bbox: None,
+            geometry: Some(Geometry::new(geojson::GeometryValue::Point {
+                coordinates: geojson::Position::from([lon, lat]),
+            })),
+            id: Some(geojson::feature::Id::Number(id.into())),
+            properties: None,
+            foreign_members: None,
+        }
+    }
+
+    /// A `Polygon` feature whose bbox is exactly `[min_lon, min_lat, max_lon,
+    /// max_lat]` (an axis-aligned rectangle ring).
+    fn rect_feature(id: u64, min_lon: f64, min_lat: f64, max_lon: f64, max_lat: f64) -> Feature {
+        let ring = vec![
+            geojson::Position::from([min_lon, min_lat]),
+            geojson::Position::from([max_lon, min_lat]),
+            geojson::Position::from([max_lon, max_lat]),
+            geojson::Position::from([min_lon, max_lat]),
+            geojson::Position::from([min_lon, min_lat]),
+        ];
+        Feature {
+            bbox: None,
+            geometry: Some(Geometry::new(geojson::GeometryValue::Polygon {
+                coordinates: vec![ring],
+            })),
+            id: Some(geojson::feature::Id::Number(id.into())),
+            properties: None,
+            foreign_members: None,
+        }
+    }
+
+    fn feature_ids(fc: &FeatureCollection) -> Vec<u64> {
+        fc.features
+            .iter()
+            .map(|f| match &f.id {
+                Some(geojson::feature::Id::Number(n)) => n.as_u64().unwrap(),
+                _ => panic!("expected numeric id"),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn features_intersecting_bbox_keeps_only_the_overlapping_feature() {
+        let inside = rect_feature(1, 2.0, 2.0, 3.0, 3.0); // fully within the box
+        let far_outside = rect_feature(2, 100.0, 100.0, 101.0, 101.0);
+        let fc = FeatureCollection {
+            bbox: None,
+            features: vec![inside, far_outside],
+            foreign_members: None,
+        };
+
+        let filtered = features_intersecting_bbox(fc, [0.0, 0.0, 10.0, 10.0]);
+
+        assert_eq!(feature_ids(&filtered), vec![1]);
+    }
+
+    #[test]
+    fn features_intersecting_bbox_keeps_boundary_straddling_feature() {
+        // A point sitting exactly on the query box's corner: not "inside" by
+        // any margin, but AABB overlap must still count it (non-strict `<`/`>`).
+        let on_the_corner = point_feature(1, 10.0, 10.0);
+        let fc = FeatureCollection {
+            bbox: None,
+            features: vec![on_the_corner],
+            foreign_members: None,
+        };
+
+        let filtered = features_intersecting_bbox(fc, [0.0, 0.0, 10.0, 10.0]);
+
+        assert_eq!(feature_ids(&filtered), vec![1]);
+    }
+
+    #[test]
+    fn features_intersecting_bbox_drops_feature_with_no_geometry() {
+        let no_geom = Feature {
+            bbox: None,
+            geometry: None,
+            id: Some(geojson::feature::Id::Number(1.into())),
+            properties: None,
+            foreign_members: None,
+        };
+        let fc = FeatureCollection {
+            bbox: None,
+            features: vec![no_geom],
+            foreign_members: None,
+        };
+
+        let filtered = features_intersecting_bbox(fc, [0.0, 0.0, 10.0, 10.0]);
+
+        assert!(filtered.features.is_empty());
+    }
+
+    #[test]
+    fn bbox_overlaps_matches_standard_aabb_rules() {
+        // Fully separated on the x axis.
+        assert!(!bbox_overlaps([0.0, 0.0, 1.0, 1.0], [2.0, 0.0, 3.0, 1.0]));
+        // Touching at a single edge counts as overlap.
+        assert!(bbox_overlaps([0.0, 0.0, 1.0, 1.0], [1.0, 0.0, 2.0, 1.0]));
+        // Fully contained.
+        assert!(bbox_overlaps([0.0, 0.0, 10.0, 10.0], [2.0, 2.0, 3.0, 3.0]));
     }
 }

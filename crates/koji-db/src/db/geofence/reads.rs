@@ -146,6 +146,24 @@ impl Query {
             .collect::<Result<koji_core::KojiGeometryCollection, ModelError>>()
     }
 
+    /// Fetch only the requested geofence ids and map each to Koji-native
+    /// geometry, mirroring `get_all_koji` but scoped to `ids` — a 600-fence org
+    /// shouldn't pay to read every row when the caller only wants a handful.
+    /// An id with no matching row is silently omitted (not an error).
+    pub async fn get_koji_by_ids(
+        db: &DatabaseConnection,
+        ids: &[u32],
+    ) -> Result<koji_core::KojiGeometryCollection, ModelError> {
+        let results = Entity::find()
+            .filter(Column::Id.is_in(ids.iter().copied()))
+            .all(db)
+            .await?;
+        results
+            .iter()
+            .map(|result| result.to_koji_geometry())
+            .collect::<Result<koji_core::KojiGeometryCollection, ModelError>>()
+    }
+
     /// Fetch one geofence row by id and map it via `to_koji_geometry`. Returns
     /// `ModelError` to match the sibling Koji read methods.
     #[allow(clippy::result_large_err)]

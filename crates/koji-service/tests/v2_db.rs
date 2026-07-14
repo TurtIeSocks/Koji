@@ -117,6 +117,25 @@ fn route_geometry() -> serde_json::Value {
     })
 }
 
+/// A triangle far from `triangle_geometry()` (bbox `[50,50]-[51,51]`) — used to
+/// prove a `?bbox=` filter drops geographically distant fences.
+fn far_triangle_geometry() -> serde_json::Value {
+    serde_json::json!({
+        "type": "Polygon",
+        "coordinates": [[[50.0,50.0],[51.0,50.0],[51.0,51.0],[50.0,50.0]]]
+    })
+}
+
+/// `properties.name` of every feature in a FeatureCollection envelope response.
+fn feature_names(v: &serde_json::Value) -> Vec<String> {
+    v["data"]["features"]
+        .as_array()
+        .expect("data.features must be an array")
+        .iter()
+        .map(|f| f["properties"]["name"].as_str().unwrap().to_string())
+        .collect()
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // GEOFENCES — create → get → list → delete lifecycle
 // ═══════════════════════════════════════════════════════════════════════════
@@ -265,6 +284,127 @@ async fn geofences_depth_and_level_mutually_exclusive_returns_400() {
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 400, "depth+level together must be 400");
+    let v = body_json(resp).await;
+    assert_eq!(v["status"], "error");
+    assert_eq!(v["error"]["code"], "invalid_request");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GEOFENCES — `?ids=` and `?bbox=` scoped list (Task 1)
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[actix_web::test]
+async fn geofences_ids_and_bbox_filters_scope_the_list() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let near_name = unique_name("fence-near");
+    let far_name = unique_name("fence-far");
+
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    // Seed two geofences: one near the origin, one far away.
+    let req = test::TestRequest::post()
+        .uri("/api/v2/geofences")
+        .set_json(serde_json::json!({
+            "name": near_name, "mode": "pokemon", "geometry": triangle_geometry()
+        }))
+        .to_request();
+    let near_id = body_json(test::call_service(&app, req).await).await["data"]["id"]
+        .as_u64()
+        .expect("near fence id");
+
+    let req = test::TestRequest::post()
+        .uri("/api/v2/geofences")
+        .set_json(serde_json::json!({
+            "name": far_name, "mode": "pokemon", "geometry": far_triangle_geometry()
+        }))
+        .to_request();
+    let far_id = body_json(test::call_service(&app, req).await).await["data"]["id"]
+        .as_u64()
+        .expect("far fence id");
+
+    // ── ?ids=<near> → exactly that one feature ──────────────────────────
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/v2/geofences?ids={near_id}"))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200, "?ids= must return 200");
+    let body = body_json(resp).await;
+    assert_eq!(
+        feature_names(&body),
+        vec![near_name.clone()],
+        "?ids=<near> must return exactly that fence"
+    );
+
+    // ── ?bbox= around the near fence → only the near fence, not the far one ─
+    let req = test::TestRequest::get()
+        .uri("/api/v2/geofences?bbox=-5,-5,5,5")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200, "?bbox= must return 200");
+    let body = body_json(resp).await;
+    let names = feature_names(&body);
+    assert!(
+        names.contains(&near_name),
+        "?bbox= around the near fence must include it: {names:?}"
+    );
+    assert!(
+        !names.contains(&far_name),
+        "?bbox= around the near fence must exclude the far one: {names:?}"
+    );
+
+    // ── no params → both fences present (back-compat, unchanged behavior) ──
+    let req = test::TestRequest::get()
+        .uri("/api/v2/geofences")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body = body_json(resp).await;
+    let names = feature_names(&body);
+
+    // Cleanup before asserting so a panic doesn't strand the rows.
+    cleanup_geofence(&db, near_id).await;
+    cleanup_geofence(&db, far_id).await;
+
+    assert!(
+        names.contains(&near_name) && names.contains(&far_name),
+        "no params must still return every fence (back-compat): {names:?}"
+    );
+}
+
+#[actix_web::test]
+async fn geofences_ids_malformed_segment_returns_400() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    let req = test::TestRequest::get()
+        .uri("/api/v2/geofences?ids=1,not-a-number")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400, "a non-numeric id segment must be 400");
+    let v = body_json(resp).await;
+    assert_eq!(v["status"], "error");
+    assert_eq!(v["error"]["code"], "invalid_request");
+}
+
+#[actix_web::test]
+async fn geofences_bbox_wrong_arity_returns_400() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    let req = test::TestRequest::get()
+        .uri("/api/v2/geofences?bbox=1,2,3")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400, "a 3-number bbox must be 400");
     let v = body_json(resp).await;
     assert_eq!(v["status"], "error");
     assert_eq!(v["error"]["code"], "invalid_request");
