@@ -1,13 +1,18 @@
-import { SimpleForm } from "@/components/admin";
+import { TabbedForm } from "@/components/admin";
 import { EditLive } from "@/components/realtime";
-import { RouteFormFields } from "./route-create";
+import { RouteMap } from "@/components/deck";
+import { RouteMetaFields } from "./route-create";
 import type { EditProps } from "@/components/admin/views/edit";
 
 export const RouteEdit = (props: Pick<EditProps, "id">) => (
   <EditLive {...props}>
-    {/* Wider than the default max-w-lg — the calc workbench map needs the room. */}
-    <SimpleForm className="max-w-4xl">
-      <RouteFormFields />
-    </SimpleForm>
+    <TabbedForm>
+      <TabbedForm.Tab label="Details">
+        <RouteMetaFields />
+      </TabbedForm.Tab>
+      <TabbedForm.Tab label="Map" contentClassName="p-0">
+        <RouteMap height="calc(100dvh - 16rem)" />
+      </TabbedForm.Tab>
+    </TabbedForm>
   </EditLive>
 );

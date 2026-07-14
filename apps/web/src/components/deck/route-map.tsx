@@ -22,9 +22,10 @@ const WORLD: Bounds = [-180, -85, 180, 85];
 /** Route-edit calc workbench: reactively loads the parent geofence's area
  *  (`geofence_id`), runs a cluster/bootstrap calc over it, and writes the
  *  ordered result into the route's `geometry`. The golbat category comes from
- *  the route's `mode` (not a panel dropdown). No props — reads/writes the
- *  surrounding route form via react-hook-form context. */
-export function RouteMap() {
+ *  the route's `mode` (not a panel dropdown). Reads/writes the surrounding
+ *  route form via react-hook-form context; `height` threads to its DeckMap
+ *  (defaults to the original hardcoded 640 so bare usages are unchanged). */
+export function RouteMap({ height = 640 }: { height?: number | string }) {
 	const form = useFormContext();
 	const geofenceId = useWatch({ name: "geofence_id" }) as
 		| number
@@ -286,7 +287,7 @@ export function RouteMap() {
 				key={fitKey}
 				layers={layers}
 				fitBounds={fit}
-				height={640}
+				height={height}
 				controller={{ doubleClickZoom: true }}
 			>
 				<div className="absolute inset-y-0 left-0 z-10">
