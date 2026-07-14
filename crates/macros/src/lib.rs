@@ -321,7 +321,9 @@ pub fn derive_str_enum(input: TokenStream) -> TokenStream {
 
 /// Generates the verbatim-identical `impl Query { get_one, get_one_json,
 /// delete, search }` CRUD block shared by the admin-CRUD entities (property,
-/// project, tile_server), which differ in nothing but their entity module.
+/// tile_server), which differ in nothing but their entity module. (project
+/// dropped this attribute — its `get_one_json` hand-hydrates `geofences`, which
+/// the bare `json!(model)` this macro emits cannot include.)
 /// Place on `pub struct Query;`:
 ///
 /// ```ignore
