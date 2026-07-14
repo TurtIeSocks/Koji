@@ -382,7 +382,7 @@ async fn geofences_ids_and_bbox_filters_scope_the_list() {
 /// Parity test (Task B): `?bbox=` now filters at the DB via the persisted
 /// `min_lat`/`min_lng`/`max_lat`/`max_lng` columns
 /// (`geofence::Query::get_koji_by_bbox`) instead of the in-memory
-/// `features_intersecting_bbox` scan. Seeds three geofences with known,
+/// `features_intersecting_bbox` scan. Seeds four geofences with known,
 /// separated geometries against query box `[0,0,10,10]`:
 /// - `inside`   — bbox `[2,2]-[3,3]`, fully inside the box.
 /// - `touching` — a `Point` sitting exactly on the box's `(10,10)` corner;
@@ -391,10 +391,20 @@ async fn geofences_ids_and_bbox_filters_scope_the_list() {
 ///   `features_intersecting_bbox_keeps_boundary_straddling_feature` unit test
 ///   this mirrors).
 /// - `outside`  — bbox `[20,20]-[21,21]`, fully outside the box.
+/// - `asymmetric_axis` — bbox lng ∈ `[2,3]` / lat ∈ `[20,21]`: overlaps the
+///   query box on the **lng** axis but not the **lat** axis, so it must be
+///   excluded. Every other fixture here sits on the lat==lng diagonal (e.g.
+///   `inside`'s bbox has `min_lat == min_lng == 2`), which means a predicate
+///   bug that reads the wrong column — `Column::MinLng` where
+///   `Column::MinLat` belongs, or vice versa — would silently compute the
+///   *same* number for those rows and slip past undetected. This fixture's
+///   lat and lng ranges differ, so such a column swap changes the outcome
+///   (wrongly *includes* it) instead of being numerically invisible.
 ///
 /// Asserts the exact expected subset comes back: `inside` and `touching`
-/// present, `outside` absent — i.e. the DB filter agrees with the in-memory
-/// overlap semantics it replaced.
+/// present, `outside` and `asymmetric_axis` absent — i.e. the DB filter
+/// agrees with the in-memory overlap semantics it replaced, on axes as well
+/// as on inclusion/exclusion.
 #[actix_web::test]
 async fn geofences_bbox_db_filter_matches_overlap_semantics_parity() {
     let Some(db) = test_db().await else { return };
@@ -402,6 +412,7 @@ async fn geofences_bbox_db_filter_matches_overlap_semantics_parity() {
     let inside_name = unique_name("fence-bbox-inside");
     let touching_name = unique_name("fence-bbox-touching");
     let outside_name = unique_name("fence-bbox-outside");
+    let asymmetric_name = unique_name("fence-bbox-asymmetric-axis");
 
     let koji_db = build_test_koji_db(db.clone()).await;
     let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
@@ -421,12 +432,21 @@ async fn geofences_bbox_db_filter_matches_overlap_semantics_parity() {
         "type": "Polygon",
         "coordinates": [[[20.0,20.0],[21.0,20.0],[21.0,21.0],[20.0,20.0]]]
     });
+    // lng ∈ [2,3] overlaps the query box; lat ∈ [20,21] does not — an
+    // axis-swapped predicate could wrongly include this one. See the doc
+    // comment above for why the other (lat==lng diagonal) fixtures can't
+    // catch that class of bug.
+    let asymmetric_geometry = serde_json::json!({
+        "type": "Polygon",
+        "coordinates": [[[2.0,20.0],[3.0,20.0],[3.0,21.0],[2.0,20.0]]]
+    });
 
     let mut seeded_ids = Vec::new();
     for (name, geometry) in [
         (&inside_name, inside_geometry),
         (&touching_name, touching_geometry),
         (&outside_name, outside_geometry),
+        (&asymmetric_name, asymmetric_geometry),
     ] {
         let req = test::TestRequest::post()
             .uri("/api/v2/geofences")
@@ -453,19 +473,21 @@ async fn geofences_bbox_db_filter_matches_overlap_semantics_parity() {
     }
 
     assert_eq!(bbox_status, 200, "?bbox= must return 200");
-    // Scope the response down to just this test's three known fence names, so
+    // Scope the response down to just this test's four known fence names, so
     // the assertion is exact regardless of whatever else lives in the shared
     // test DB (mirrors the contains/!contains pattern the sibling test above
     // uses for the same reason).
     let bbox_names: std::collections::BTreeSet<String> = feature_names(&bbox_body)
         .into_iter()
-        .filter(|n| [&inside_name, &touching_name, &outside_name].contains(&n))
+        .filter(|n| {
+            [&inside_name, &touching_name, &outside_name, &asymmetric_name].contains(&n)
+        })
         .collect();
     let expected: std::collections::BTreeSet<String> =
         [inside_name.clone(), touching_name.clone()].into_iter().collect();
     assert_eq!(
         bbox_names, expected,
-        "?bbox=0,0,10,10 must return exactly {{inside, touching}} and exclude {{outside}}"
+        "?bbox=0,0,10,10 must return exactly {{inside, touching}} and exclude {{outside, asymmetric_axis}}"
     );
 }
 
