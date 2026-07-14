@@ -1,4 +1,4 @@
-import type { Layer } from "@deck.gl/core";
+import type { Layer, PickingInfo } from "@deck.gl/core";
 import { WebMercatorViewport } from "@deck.gl/core";
 import DeckGL from "@deck.gl/react";
 import { Maximize2, Minimize2 } from "lucide-react";
@@ -50,6 +50,7 @@ export interface DeckMapProps {
 	onViewStateChange?: (vs: ViewState, bounds: Bounds) => void;
 	controller?: object | boolean;
 	getCursor?: (s: { isDragging: boolean }) => string;
+	getTooltip?: (info: PickingInfo) => { text: string } | null;
 	children?: ReactNode;
 	/** Opt in to a top-right button that expands the map to a fixed,
 	 *  viewport-filling overlay (Esc or the button collapses it back). */
@@ -65,6 +66,7 @@ export function DeckMap({
 	onViewStateChange,
 	controller = true,
 	getCursor = ({ isDragging }) => (isDragging ? "grabbing" : "grab"),
+	getTooltip,
 	children,
 	expandable = false,
 }: DeckMapProps) {
@@ -155,6 +157,7 @@ export function DeckMap({
 					controller={controller}
 					layers={layers}
 					getCursor={getCursor}
+					getTooltip={getTooltip}
 					onViewStateChange={(p) => {
 						const vs = p.viewState as unknown as ViewState;
 						if (!onViewStateChange) return;

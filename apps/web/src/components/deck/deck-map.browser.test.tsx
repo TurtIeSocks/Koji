@@ -5,9 +5,32 @@
 // clicks through real CSS stacking (button above the deck.gl canvas), so it
 // needs the real rules loaded, not just the class names present on the DOM.
 import "@/index.css";
-import { describe, expect, it } from "vitest";
+import type { ComponentProps } from "react";
+import { describe, expect, it, vi } from "vitest";
 import { userEvent } from "@vitest/browser/context";
 import { render } from "vitest-browser-react";
+import type DeckGL from "@deck.gl/react";
+
+// `getTooltip` only paints DOM (`.deck-tooltip`) on a real pointer hover,
+// which isn't reliable to trigger in the harness — so assert the wiring
+// instead: mock `@deck.gl/react`'s default export to capture the props
+// DeckMap passes it, mirroring how deck-geojson-input.test.tsx stubs
+// "./deck-map" itself to capture the `layers` prop it's given.
+const { capturedProps } = vi.hoisted(() => ({
+  capturedProps: { current: {} as ComponentProps<typeof DeckGL> },
+}));
+vi.mock("@deck.gl/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@deck.gl/react")>();
+  return {
+    ...actual,
+    default: (props: ComponentProps<typeof DeckGL>) => {
+      capturedProps.current = props;
+      const Real = actual.default;
+      return <Real {...props} />;
+    },
+  };
+});
+
 import { DeckMap } from "./deck-map";
 
 describe("DeckMap", () => {
@@ -38,5 +61,20 @@ describe("DeckMap", () => {
 
     await userEvent.keyboard("{Escape}");
     await expect.element(container).not.toHaveClass(/fixed/);
+  });
+
+  it("forwards a provided getTooltip straight through to DeckGL", async () => {
+    const getTooltip = () => ({ text: "hello" });
+    const screen = render(
+      <DeckMap layers={[]} height={300} getTooltip={getTooltip} />,
+    );
+    await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
+    expect(capturedProps.current.getTooltip).toBe(getTooltip);
+  });
+
+  it("leaves getTooltip undefined on DeckGL when the prop is omitted", async () => {
+    const screen = render(<DeckMap layers={[]} height={300} />);
+    await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
+    expect(capturedProps.current.getTooltip).toBeUndefined();
   });
 });
