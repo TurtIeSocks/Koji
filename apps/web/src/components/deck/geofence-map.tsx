@@ -18,7 +18,7 @@ import { useNeighborOverlay } from "./use-neighbor-overlay";
 
 const WORLD: Bounds = [-180, -85, 180, 85];
 
-export function GeofenceMap() {
+export function GeofenceMap({ height = 480 }: { height?: number | string }) {
 	// Live geometry from the form drives the marker query as the fence is edited.
 	// Markers use the actual polygon `area` (so a MultiPolygon returns points
 	// inside its parts, not the whole bbox); S2 cells stay bbox-based (a grid).
@@ -139,7 +139,7 @@ export function GeofenceMap() {
 			<DeckGeoJsonInput
 				source="geometry"
 				label="Geometry"
-				height={480}
+				height={height}
 				contextLayers={contextLayers}
 				getTooltip={nb.getTooltip}
 				toFeatures={geofenceToFeatures}

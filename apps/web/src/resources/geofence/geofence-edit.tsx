@@ -1,5 +1,5 @@
 import {
-  SimpleForm,
+  TabbedForm,
   ReferenceArrayInput,
   AutocompleteArrayInput,
 } from "@/components/admin";
@@ -11,7 +11,6 @@ import { GeofenceFormFields } from "./geofence-create";
 const GeofenceEditFields = () => (
   <>
     <GeofenceFormFields />
-    <GeofenceMap />
     <ReferenceArrayInput source="projects" reference="project">
       <AutocompleteArrayInput />
     </ReferenceArrayInput>
@@ -20,8 +19,13 @@ const GeofenceEditFields = () => (
 
 export const GeofenceEdit = (props: Pick<EditProps, "id">) => (
   <EditLive {...props}>
-    <SimpleForm>
-      <GeofenceEditFields />
-    </SimpleForm>
+    <TabbedForm>
+      <TabbedForm.Tab label="Details">
+        <GeofenceEditFields />
+      </TabbedForm.Tab>
+      <TabbedForm.Tab label="Map" contentClassName="p-0">
+        <GeofenceMap height="calc(100dvh - 16rem)" />
+      </TabbedForm.Tab>
+    </TabbedForm>
   </EditLive>
 );

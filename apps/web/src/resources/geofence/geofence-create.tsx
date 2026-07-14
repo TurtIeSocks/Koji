@@ -1,6 +1,6 @@
 import {
   Create,
-  SimpleForm,
+  TabbedForm,
   TextInput,
   SelectInput,
   ReferenceInput,
@@ -24,9 +24,13 @@ export const GeofenceFormFields = () => (
 
 export const GeofenceCreate = () => (
   <Create>
-    <SimpleForm>
-      <GeofenceFormFields />
-      <GeofenceMap />
-    </SimpleForm>
+    <TabbedForm>
+      <TabbedForm.Tab label="Details">
+        <GeofenceFormFields />
+      </TabbedForm.Tab>
+      <TabbedForm.Tab label="Map" contentClassName="p-0">
+        <GeofenceMap height="calc(100dvh - 16rem)" />
+      </TabbedForm.Tab>
+    </TabbedForm>
   </Create>
 );
