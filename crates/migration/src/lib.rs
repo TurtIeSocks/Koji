@@ -31,6 +31,7 @@ mod m20260620_000001_rename_project_scanner_to_golbat;
 mod m20260706_000001_webhook_subscription_projects;
 mod m20260706_000002_drop_project_push_columns;
 mod m20260714_000001_geofence_bbox_columns;
+mod m20260714_000002_restore_geofence_project_fks;
 
 pub struct Migrator;
 
@@ -67,6 +68,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260706_000001_webhook_subscription_projects::Migration),
             Box::new(m20260706_000002_drop_project_push_columns::Migration),
             Box::new(m20260714_000001_geofence_bbox_columns::Migration),
+            Box::new(m20260714_000002_restore_geofence_project_fks::Migration),
         ]
     }
 }

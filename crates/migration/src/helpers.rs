@@ -39,3 +39,23 @@ pub(crate) async fn has_index(
     );
     Ok(conn.query_one(stmt).await?.is_some())
 }
+
+/// True if `table` has a FOREIGN KEY constraint named exactly `name`
+/// (current database). Sibling of [`has_column`]/[`has_index`] — same
+/// idempotency-guard purpose, for `ADD CONSTRAINT`/`DROP FOREIGN KEY` (MySQL
+/// has no `IF [NOT] EXISTS` clause for either).
+pub(crate) async fn has_foreign_key(
+    manager: &SchemaManager<'_>,
+    table: &str,
+    name: &str,
+) -> Result<bool, DbErr> {
+    let conn = manager.get_connection();
+    let stmt = Statement::from_sql_and_values(
+        conn.get_database_backend(),
+        "SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS \
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_NAME = ? \
+         AND CONSTRAINT_TYPE = 'FOREIGN KEY' LIMIT 1",
+        [table.into(), name.into()],
+    );
+    Ok(conn.query_one(stmt).await?.is_some())
+}
