@@ -85,21 +85,15 @@ export function DeckMap({
 	// the map's OWN rendered size (an embedded 400px field is not window-sized).
 	const sizeRef = useRef<{ w: number; h: number }>({ w: 800, h: 600 });
 
-	// Fit once on mount — a stable initial camera. Live camera stays transient.
-	// Synchronous path: explicit initialViewState, or no fitBounds → default. A
-	// fitBounds needs the container's real size, so it resolves in the layout
-	// effect below (`null` until then → DeckGL renders on the next commit, before
-	// paint, so no flicker).
-	const [initial, setInitial] = useState<ViewState | null>(() => {
-		if (initialViewState) return { ...DEFAULT_VS, ...initialViewState };
-		const b =
-			fitBounds == null
-				? null
-				: isBounds(fitBounds)
-					? fitBounds
-					: geometryBounds(fitBounds);
-		return b ? null : DEFAULT_VS;
-	});
+	// Resolve the initial camera exactly once, in the layout effect below, and
+	// ONLY once the container has a real (non-zero) size. `initial` stays null
+	// until then → `{initial ? <DeckGL/> : null}` renders nothing, so the WebGL
+	// map is never initialized at 0x0 (e.g. inside an inactive `display:none`
+	// TabbedForm tab — it would otherwise mount blank/mis-sized). For a normally
+	// visible map the effect runs before first paint, so there is no flicker.
+	// This covers every camera source uniformly (initialViewState, fitBounds, and
+	// the no-bounds default) — see `fit()`.
+	const [initial, setInitial] = useState<ViewState | null>(null);
 
 	useLayoutEffect(() => {
 		const el = containerRef.current;
@@ -119,6 +113,7 @@ export function DeckMap({
 		const fit = () => {
 			setInitial((prev) => {
 				if (prev) return prev;
+				if (initialViewState) return { ...DEFAULT_VS, ...initialViewState };
 				const b =
 					fitBounds == null
 						? null
@@ -141,7 +136,7 @@ export function DeckMap({
 		});
 		ro.observe(el);
 		return () => ro.disconnect();
-	}, [fitBounds]);
+	}, [fitBounds, initialViewState]);
 
 	const mapStyle = useMemo(() => rasterStyle(tileUrl), [tileUrl]);
 

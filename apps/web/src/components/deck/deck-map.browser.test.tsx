@@ -138,6 +138,24 @@ describe("DeckMap deferred fit (hidden containers)", () => {
     });
   });
 
+  it("also defers a no-bounds initialViewState map until the hidden container is shown", async () => {
+    // The CREATE-form path: DeckGeoJsonInput passes initialViewState (no fitBounds),
+    // so without deferral the WebGL map would init at 0x0 inside the hidden tab.
+    const screen = render(
+      <div data-testid="iv-wrapper" style={{ display: "none" }}>
+        <DeckMap layers={[]} initialViewState={{ longitude: 5, latitude: 52, zoom: 10 }} />
+      </div>,
+    );
+    const wrapper = screen.getByTestId("iv-wrapper");
+    await expect.element(wrapper).toBeInTheDocument();
+    expect(capturedProps.current.initialViewState).toBeUndefined();
+
+    (wrapper.element() as HTMLElement).style.display = "block";
+    await vi.waitFor(() => {
+      expect(capturedProps.current.initialViewState).toBeDefined();
+    });
+  });
+
   it("still fits immediately for a DeckMap that is visible at mount", async () => {
     const screen = render(<DeckMap layers={[]} fitBounds={fenceWithBounds} />);
     await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
