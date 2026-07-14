@@ -15,25 +15,38 @@ export function ProjectGeofencesMap({ ids }: { ids: (number | string)[] }) {
   );
 
   if (ids.length === 0) {
-    return (
-      <div
-        style={{ height: 640, width: "100%" }}
-        className="flex items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground"
-        data-slot="project-geofences-map-empty"
-      >
-        No geofences
-      </div>
-    );
+    return <ProjectGeofencesMapPlaceholder text="No geofences" />;
+  }
+
+  // `useGeofencesByIds` returns `data: undefined` on first render (and again
+  // transiently whenever the id list changes, clearing the previous query's
+  // cache entry). `DeckMap` latches its camera once at mount, so mounting it
+  // with `fitBounds={null}` here would pin the camera at [0,0]/zoom 2 and
+  // never re-fit once the real bounds arrive. Wait for data before mounting.
+  if (!q.data) {
+    return <ProjectGeofencesMapPlaceholder text="Loading…" />;
   }
 
   return (
     <DeckMap
       layers={layers}
-      fitBounds={q.data ?? null}
+      fitBounds={q.data}
       height={640}
       expandable
       getTooltip={overlayTooltip}
       controller={{ doubleClickZoom: true }}
     />
+  );
+}
+
+function ProjectGeofencesMapPlaceholder({ text }: { text: string }) {
+  return (
+    <div
+      style={{ height: 640, width: "100%" }}
+      className="flex items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground"
+      data-slot="project-geofences-map-empty"
+    >
+      {text}
+    </div>
   );
 }

@@ -65,4 +65,13 @@ describe("ProjectGeofencesMap", () => {
 		await expect.element(screen.getByText("No geofences")).toBeInTheDocument();
 		expect(screen.getByTestId("deck-map").elements()).toHaveLength(0);
 	});
+
+	it("renders a loading placeholder (no deck-map) while the query is still pending, so DeckMap never latches its camera on null bounds", async () => {
+		useGeofencesByIdsMock.mockReturnValue({ data: undefined });
+
+		const screen = renderMap([1, 2]);
+
+		expect(screen.getByTestId("deck-map").elements()).toHaveLength(0);
+		await expect.element(screen.getByText(/loading/i)).toBeInTheDocument();
+	});
 });
