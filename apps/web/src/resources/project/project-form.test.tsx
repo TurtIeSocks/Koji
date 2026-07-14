@@ -12,12 +12,20 @@ import type { AuthProvider } from "shadmin-core";
 // (`ProjectFormMap`) lives in project-create.tsx itself (not in this mocked
 // module), so it stays exercised for real.
 vi.mock("@/components/deck/project-geofences-map", () => ({
-  ProjectGeofencesMap: ({ ids }: { ids: (number | string)[] }) => (
-    <div data-testid="pmap">{ids.join(",")}</div>
+  ProjectGeofencesMap: ({
+    ids,
+    height,
+  }: {
+    ids: (number | string)[];
+    height?: number | string;
+  }) => (
+    <div data-testid="pmap" data-height={height}>
+      {ids.join(",")}
+    </div>
   ),
 }));
 
-import { ProjectFormFields } from "@/resources/project/project-create";
+import { ProjectFormMap } from "@/resources/project/project-create";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -41,11 +49,14 @@ const stubAuthProvider: AuthProvider = {
 };
 
 // Hand-rolled render (see project-show.test.tsx for why): mounts
-// `ProjectFormFields` inside a real RHF `FormProvider` + `AdminContext` (the
-// `ReferenceArrayInput`/`AutocompleteArrayInput` geofences field needs a
-// dataProvider + resource context to resolve). Captures the live `form` API
-// so tests can drive field changes and assert `ProjectFormMap` reactivity.
-function renderProjectFormFields(defaultValues: Record<string, unknown>) {
+// `ProjectFormMap` inside a real RHF `FormProvider` + `AdminContext`.
+// `ProjectFormMap` now lives on the "Map" TabbedForm.Tab (a sibling of
+// `ProjectMetaFields`'s "Details" tab, split out in the TabbedForm
+// conversion) — render it standalone here so this test stays a fast jsdom
+// unit test, not the browser provider TabbedForm needs (router-dependent).
+// Captures the live `form` API so tests can drive field changes and assert
+// `ProjectFormMap`'s `useWatch` reactivity.
+function renderProjectFormMap(defaultValues: Record<string, unknown>) {
   const container = document.createElement("div");
   document.body.appendChild(container);
   let root: Root;
@@ -58,7 +69,7 @@ function renderProjectFormFields(defaultValues: Record<string, unknown>) {
       <AdminContext dataProvider={stubDataProvider} authProvider={stubAuthProvider}>
         <ResourceContextProvider value="project">
           <FormProvider {...form}>
-            <ProjectFormFields />
+            <ProjectFormMap height="calc(100dvh - 16rem)" />
           </FormProvider>
         </ResourceContextProvider>
       </AdminContext>
@@ -80,7 +91,7 @@ function renderProjectFormFields(defaultValues: Record<string, unknown>) {
   };
 }
 
-let mounted: ReturnType<typeof renderProjectFormFields> | null = null;
+let mounted: ReturnType<typeof renderProjectFormMap> | null = null;
 afterEach(() => {
   mounted?.unmount();
   mounted = null;
@@ -92,20 +103,33 @@ async function waitFor(assertion: () => void) {
   });
 }
 
-function pmapText(container: HTMLElement) {
-  return container.querySelector('[data-testid="pmap"]')?.textContent;
+function pmapEl(container: HTMLElement) {
+  return container.querySelector('[data-testid="pmap"]');
 }
 
-describe("ProjectFormFields map", () => {
-  it("renders ProjectFormMap fed by the geofences field's initial value", async () => {
-    mounted = renderProjectFormFields({ geofences: [5] });
+function pmapText(container: HTMLElement) {
+  return pmapEl(container)?.textContent;
+}
+
+describe("ProjectFormMap", () => {
+  it("renders fed by the geofences field's initial value", async () => {
+    mounted = renderProjectFormMap({ geofences: [5] });
     await waitFor(() => expect(pmapText(mounted!.container)).toBe("5"));
   });
 
   it("updates reactively when the geofences field value changes", async () => {
-    mounted = renderProjectFormFields({ geofences: [5] });
+    mounted = renderProjectFormMap({ geofences: [5] });
     await waitFor(() => expect(pmapText(mounted!.container)).toBe("5"));
     mounted.setGeofences([7, 8]);
     await waitFor(() => expect(pmapText(mounted!.container)).toBe("7,8"));
+  });
+
+  it("forwards the height prop through to ProjectGeofencesMap", async () => {
+    mounted = renderProjectFormMap({ geofences: [5] });
+    await waitFor(() =>
+      expect(pmapEl(mounted!.container)?.getAttribute("data-height")).toBe(
+        "calc(100dvh - 16rem)",
+      ),
+    );
   });
 });

@@ -39,10 +39,10 @@ vi.mock("@/map/data/use-geo-features", () => ({
 
 import { ProjectGeofencesMap } from "./project-geofences-map";
 
-function renderMap(ids: (number | string)[]) {
+function renderMap(ids: (number | string)[], height?: number | string) {
 	return render(
 		<AdminContext dataProvider={testDataProvider()}>
-			<ProjectGeofencesMap ids={ids} />
+			<ProjectGeofencesMap ids={ids} height={height} />
 		</AdminContext>,
 	);
 }
@@ -73,5 +73,42 @@ describe("ProjectGeofencesMap", () => {
 
 		expect(screen.getByTestId("deck-map").elements()).toHaveLength(0);
 		await expect.element(screen.getByText(/loading/i)).toBeInTheDocument();
+	});
+
+	it("defaults to a height of 640 on both DeckMap and the empty placeholder", async () => {
+		useGeofencesByIdsMock.mockReturnValue({ data: TWO_FEATURE_FC });
+		const mapScreen = renderMap([1, 2]);
+		await expect.element(mapScreen.getByTestId("deck-map")).toBeInTheDocument();
+		expect((mapScreen.getByTestId("deck-map").element() as HTMLElement).style.height).toBe(
+			"640px",
+		);
+
+		useGeofencesByIdsMock.mockReturnValue({ data: undefined });
+		const placeholderScreen = renderMap([]);
+		await expect.element(placeholderScreen.getByText("No geofences")).toBeInTheDocument();
+		expect(
+			(placeholderScreen.getByText("No geofences").element() as HTMLElement).style.height,
+		).toBe("640px");
+	});
+
+	it("threads a custom height to DeckMap when ids are given", async () => {
+		useGeofencesByIdsMock.mockReturnValue({ data: TWO_FEATURE_FC });
+		const screen = renderMap([1, 2], "calc(100dvh - 16rem)");
+		await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
+		// Chromium re-serializes calc() term order (`100dvh - 16rem` ->
+		// `-16rem + 100dvh`) — assert on the normalized terms, not exact string
+		// equality, so this doesn't flake on the browser's own CSSOM rewrite.
+		const height = (screen.getByTestId("deck-map").element() as HTMLElement).style.height;
+		expect(height).toContain("100dvh");
+		expect(height).toContain("16rem");
+	});
+
+	it("threads a custom height to the empty placeholder", async () => {
+		useGeofencesByIdsMock.mockReturnValue({ data: undefined });
+		const screen = renderMap([], 300);
+		await expect.element(screen.getByText("No geofences")).toBeInTheDocument();
+		expect((screen.getByText("No geofences").element() as HTMLElement).style.height).toBe(
+			"300px",
+		);
 	});
 });

@@ -1,6 +1,6 @@
 import {
   Create,
-  SimpleForm,
+  TabbedForm,
   TextInput,
   ReferenceArrayInput,
   AutocompleteArrayInput,
@@ -14,26 +14,33 @@ import { ProjectGeofencesMap } from "@/components/deck/project-geofences-map";
  *  AutocompleteArrayInput selection above it. Lives here (not in
  *  project-geofences-map.tsx) so tests can mock `ProjectGeofencesMap` alone
  *  while exercising this wiring for real. */
-const ProjectFormMap = () => {
+export const ProjectFormMap = ({ height }: { height?: number | string }) => {
   const ids = (useWatch({ name: "geofences" }) as (number | string)[] | undefined) ?? [];
-  return <ProjectGeofencesMap ids={ids} />;
+  return <ProjectGeofencesMap ids={ids} height={height} />;
 };
 
-export const ProjectFormFields = () => (
+/** Metadata fields shared by Create + Edit. The member map (`<ProjectFormMap>`)
+ *  is a sibling element in both — it gets its own full-width tab, so it stays
+ *  out of this component. */
+export const ProjectMetaFields = () => (
   <>
     <TextInput source="name" validate={required()} />
     <TextInput source="description" label="Description" multiline />
     <ReferenceArrayInput source="geofences" reference="geofence">
       <AutocompleteArrayInput />
     </ReferenceArrayInput>
-    <ProjectFormMap />
   </>
 );
 
 export const ProjectCreate = () => (
   <Create>
-    <SimpleForm>
-      <ProjectFormFields />
-    </SimpleForm>
+    <TabbedForm>
+      <TabbedForm.Tab label="Details">
+        <ProjectMetaFields />
+      </TabbedForm.Tab>
+      <TabbedForm.Tab label="Map" contentClassName="p-0">
+        <ProjectFormMap height="calc(100dvh - 16rem)" />
+      </TabbedForm.Tab>
+    </TabbedForm>
   </Create>
 );
