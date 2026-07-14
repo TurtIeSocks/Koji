@@ -104,25 +104,41 @@ export function DeckMap({
 	useLayoutEffect(() => {
 		const el = containerRef.current;
 		if (!el) return;
+		// Only trust a real, non-zero rect — a `display:none` ancestor (e.g. an
+		// inactive TabbedForm tab) reports 0x0, and writing that into sizeRef
+		// would let the fit-once guard below lock in a wrong camera forever.
 		const measure = () => {
 			const r = el.getBoundingClientRect();
-			sizeRef.current = { w: r.width || 800, h: r.height || 600 };
-			return sizeRef.current;
+			const w = r.width;
+			const h = r.height;
+			if (w > 0 && h > 0) sizeRef.current = { w, h };
+			return { w, h };
 		};
-		const { w, h } = measure();
 		// Compute the fit-to-bounds initial view exactly once, now that we know the
 		// real dims. Guard on `prev` so a later fitBounds change never fights a user pan.
-		setInitial((prev) => {
-			if (prev) return prev;
-			const b =
-				fitBounds == null
-					? null
-					: isBounds(fitBounds)
-						? fitBounds
-						: geometryBounds(fitBounds);
-			return b ? { ...DEFAULT_VS, ...boundsToViewState(b, w, h) } : DEFAULT_VS;
+		const fit = () => {
+			setInitial((prev) => {
+				if (prev) return prev;
+				const b =
+					fitBounds == null
+						? null
+						: isBounds(fitBounds)
+							? fitBounds
+							: geometryBounds(fitBounds);
+				return b
+					? {
+							...DEFAULT_VS,
+							...boundsToViewState(b, sizeRef.current.w, sizeRef.current.h),
+						}
+					: DEFAULT_VS;
+			});
+		};
+		const { w, h } = measure();
+		if (w > 0 && h > 0) fit();
+		const ro = new ResizeObserver(() => {
+			const s = measure();
+			if (s.w > 0 && s.h > 0) fit();
 		});
-		const ro = new ResizeObserver(measure);
 		ro.observe(el);
 		return () => ro.disconnect();
 	}, [fitBounds]);

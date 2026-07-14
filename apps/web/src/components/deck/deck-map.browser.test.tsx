@@ -6,7 +6,7 @@
 // needs the real rules loaded, not just the class names present on the DOM.
 import "@/index.css";
 import type { ComponentProps } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { userEvent } from "@vitest/browser/context";
 import { render } from "vitest-browser-react";
 import type DeckGL from "@deck.gl/react";
@@ -76,5 +76,73 @@ describe("DeckMap", () => {
     const screen = render(<DeckMap layers={[]} height={300} />);
     await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
     expect(capturedProps.current.getTooltip).toBeUndefined();
+  });
+});
+
+// A map that mounts inside a `display:none` (0x0) container — e.g. a
+// TabbedForm tab that isn't active yet — must not fit at a fallback size.
+// It defers the fit until the container first reports a real, non-zero
+// rect (via ResizeObserver), which for a hidden container is whenever it
+// actually becomes visible.
+describe("DeckMap deferred fit (hidden containers)", () => {
+  const fenceWithBounds: GeoJSON.Polygon = {
+    type: "Polygon",
+    coordinates: [
+      [
+        [-10, -10],
+        [10, -10],
+        [10, 10],
+        [-10, 10],
+        [-10, -10],
+      ],
+    ],
+  };
+
+  beforeEach(() => {
+    // Reset the capture between tests — otherwise a hidden map that never
+    // re-renders would read a stale `initialViewState` left over from a
+    // previous test's render.
+    capturedProps.current = {} as ComponentProps<typeof DeckGL>;
+  });
+
+  it("does not render DeckGL while the container is hidden", async () => {
+    const screen = render(
+      <div data-testid="visibility-wrapper" style={{ display: "none" }}>
+        <DeckMap layers={[]} fitBounds={fenceWithBounds} />
+      </div>,
+    );
+    await expect
+      .element(screen.getByTestId("visibility-wrapper"))
+      .toBeInTheDocument();
+    // Give a (buggy) synchronous fallback-size fit a moment to happen, then
+    // assert it didn't — the fit stays deferred, so DeckGL never mounts and
+    // `capturedProps` is never written.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(capturedProps.current.initialViewState).toBeUndefined();
+  });
+
+  it("fits and renders DeckGL once the hidden container becomes visible", async () => {
+    const screen = render(
+      <div data-testid="visibility-wrapper" style={{ display: "none" }}>
+        <DeckMap layers={[]} fitBounds={fenceWithBounds} />
+      </div>,
+    );
+    const wrapper = screen.getByTestId("visibility-wrapper");
+    await expect.element(wrapper).toBeInTheDocument();
+    expect(capturedProps.current.initialViewState).toBeUndefined();
+
+    (wrapper.element() as HTMLElement).style.display = "block";
+
+    await vi.waitFor(() => {
+      expect(capturedProps.current.initialViewState).toBeDefined();
+    });
+  });
+
+  it("still fits immediately for a DeckMap that is visible at mount", async () => {
+    const screen = render(<DeckMap layers={[]} fitBounds={fenceWithBounds} />);
+    await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
+    await vi.waitFor(() => {
+      expect(capturedProps.current.initialViewState).toBeDefined();
+    });
   });
 });
