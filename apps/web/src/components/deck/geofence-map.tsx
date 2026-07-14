@@ -1,6 +1,7 @@
 import type { Layer } from "@deck.gl/core";
 import { useMemo, useState } from "react";
 import { useWatch } from "react-hook-form";
+import { useRecordContext } from "shadmin-core";
 import { Button } from "@/components/ui/button";
 import { useMarkers } from "@/map/data/use-markers";
 import { useS2Cells } from "@/map/data/use-s2-cells";
@@ -13,6 +14,7 @@ import { DeckGeoJsonInput } from "./deck-geojson-input";
 import { featuresToGeofence, geofenceToFeatures } from "./geofence-geometry";
 import { LastSeenPicker } from "./last-seen-picker";
 import { useLastSeen } from "./use-last-seen";
+import { useNeighborOverlay } from "./use-neighbor-overlay";
 
 const WORLD: Bounds = [-180, -85, 180, 85];
 
@@ -29,6 +31,11 @@ export function GeofenceMap() {
 		() => (geometry ? (geometryBounds(geometry) ?? WORLD) : WORLD),
 		[geometry],
 	);
+
+	// On edit, exclude the fence being edited from its own "Show Neighbors"
+	// overlay; on create there's no id yet, so nothing is excluded.
+	const editingId = useRecordContext()?.id;
+	const nb = useNeighborOverlay(geometry, editingId);
 
 	const [show, setShow] = useState({
 		gyms: false,
@@ -51,8 +58,8 @@ export function GeofenceMap() {
 	const [startLat, startLon] = useStartCenter();
 
 	const contextLayers = useMemo<Layer[]>(
-		() =>
-			buildBaseLayers({
+		() => [
+			...buildBaseLayers({
 				visibility: {
 					gyms: show.gyms,
 					pokestops: show.pokestops,
@@ -95,7 +102,9 @@ export function GeofenceMap() {
 				onClick: () => {},
 				pickable: false,
 			}),
-		[show, gyms.data, stops.data, spawns.data, s2.data],
+			...nb.layers,
+		],
+		[show, gyms.data, stops.data, spawns.data, s2.data, nb.layers],
 	);
 
 	return (
@@ -113,6 +122,14 @@ export function GeofenceMap() {
 						{k}
 					</Button>
 				))}
+				<Button
+					type="button"
+					size="sm"
+					variant={nb.on ? "default" : "secondary"}
+					onClick={() => nb.setOn(!nb.on)}
+				>
+					{nb.on ? "Hide Neighbors" : "Show Neighbors"}
+				</Button>
 				<LastSeenPicker
 					value={lastSeen.value}
 					onChange={lastSeen.setValue}
@@ -124,6 +141,7 @@ export function GeofenceMap() {
 				label="Geometry"
 				height={480}
 				contextLayers={contextLayers}
+				getTooltip={nb.getTooltip}
 				toFeatures={geofenceToFeatures}
 				fromFeatures={featuresToGeofence}
 				defaultViewState={{ longitude: startLon, latitude: startLat, zoom: 10 }}

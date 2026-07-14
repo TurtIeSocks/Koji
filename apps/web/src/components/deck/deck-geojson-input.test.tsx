@@ -8,10 +8,20 @@ import type { Layer } from "@deck.gl/core";
 // jsdom. Stub it to capture the `layers` prop instead, mirroring the
 // hand-rolled renderHook approach in use-deck-edit-rhf.test.tsx (this
 // project has no @testing-library/react dependency).
-const { capturedLayers } = vi.hoisted(() => ({ capturedLayers: { current: [] as Layer[] } }));
+const { capturedLayers, capturedGetTooltip } = vi.hoisted(() => ({
+  capturedLayers: { current: [] as Layer[] },
+  // biome-ignore lint/suspicious/noExplicitAny: test-local capture of an arbitrary getTooltip prop
+  capturedGetTooltip: { current: undefined as any },
+}));
 vi.mock("./deck-map", () => ({
-  DeckMap: (props: { layers: Layer[]; children?: ReactNode }) => {
+  DeckMap: (props: {
+    layers: Layer[];
+    children?: ReactNode;
+    // biome-ignore lint/suspicious/noExplicitAny: test-local capture of an arbitrary getTooltip prop
+    getTooltip?: any;
+  }) => {
     capturedLayers.current = props.layers;
+    capturedGetTooltip.current = props.getTooltip;
     return props.children ?? null;
   },
 }));
@@ -40,7 +50,11 @@ function wrapper(defaultValues: Record<string, unknown>) {
   };
 }
 
-function renderWithForm(defaultValues: Record<string, unknown>, props: { disabled?: boolean } = {}) {
+function renderWithForm(
+  defaultValues: Record<string, unknown>,
+  // biome-ignore lint/suspicious/noExplicitAny: test-local passthrough of arbitrary DeckGeoJsonInput props
+  props: { disabled?: boolean; getTooltip?: any } = {},
+) {
   const container = document.createElement("div");
   document.body.appendChild(container);
   let root: Root;
@@ -61,6 +75,7 @@ afterEach(() => {
   mounted?.unmount();
   mounted = null;
   capturedLayers.current = [];
+  capturedGetTooltip.current = undefined;
 });
 
 describe("DeckGeoJsonInput", () => {
@@ -85,5 +100,16 @@ describe("DeckGeoJsonInput", () => {
   it("renders nothing extra when there is no existing value", () => {
     mounted = renderWithForm({ geometry: null });
     expect(capturedLayers.current).toHaveLength(0);
+  });
+
+  it("forwards getTooltip straight through to the inner DeckMap", () => {
+    const getTooltip = () => ({ text: "hello" });
+    mounted = renderWithForm({ geometry: poly }, { getTooltip });
+    expect(capturedGetTooltip.current).toBe(getTooltip);
+  });
+
+  it("leaves getTooltip undefined on DeckMap when the prop is omitted", () => {
+    mounted = renderWithForm({ geometry: poly });
+    expect(capturedGetTooltip.current).toBeUndefined();
   });
 });

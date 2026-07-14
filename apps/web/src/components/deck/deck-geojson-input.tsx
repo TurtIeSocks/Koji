@@ -188,6 +188,9 @@ export interface DeckGeoJsonInputProps extends UseDeckEditRHFOptions {
 	history?: HistoryControls;
 	/** Observe camera pan/zoom (e.g. to persist it). Forwarded to `<DeckMap>`. */
 	onViewStateChange?: DeckMapProps["onViewStateChange"];
+	/** Forwarded straight through to `<DeckMap>` (e.g. a "Show Neighbors"
+	 *  ghost-fence overlay's tooltip). Optional/back-compat. */
+	getTooltip?: DeckMapProps["getTooltip"];
 }
 
 export function DeckGeoJsonInput({
@@ -201,6 +204,7 @@ export function DeckGeoJsonInput({
 	overlay,
 	history,
 	onViewStateChange,
+	getTooltip,
 	...editOpts
 }: DeckGeoJsonInputProps) {
 	const {
@@ -276,6 +280,7 @@ export function DeckGeoJsonInput({
 					tileUrl={tileUrl}
 					controller={{ doubleClickZoom: false }}
 					onViewStateChange={onViewStateChange}
+					getTooltip={getTooltip}
 					getCursor={({ isDragging }) =>
 						mode !== "none" ? "crosshair" : isDragging ? "grabbing" : "grab"
 					}
