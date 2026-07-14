@@ -143,7 +143,10 @@ describe("useNeighborOverlay", () => {
 		const rendered = renderHook(() => useNeighborOverlay(poly, CURRENT_ID));
 		mounted = rendered;
 
+		// overlayTooltip gates on the overlay layer id (hardened in 617a9472), so the
+		// picked info must carry layer.id === "geofence-overlay".
 		const tip = rendered.result.current.getTooltip({
+			layer: { id: "geofence-overlay" },
 			object: { properties: { name: "neighbor" } },
 		} as never);
 		expect(tip).toEqual({ text: "neighbor" });
