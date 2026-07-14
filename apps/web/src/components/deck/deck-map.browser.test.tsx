@@ -141,8 +141,9 @@ describe("DeckMap deferred fit (hidden containers)", () => {
   it("still fits immediately for a DeckMap that is visible at mount", async () => {
     const screen = render(<DeckMap layers={[]} fitBounds={fenceWithBounds} />);
     await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
-    await vi.waitFor(() => {
-      expect(capturedProps.current.initialViewState).toBeDefined();
-    });
+    // Synchronous (not vi.waitFor): the mount-time `fit()` must set the camera in
+    // the same commit as the layout effect. A poll here would be satisfied by the
+    // ResizeObserver's async first-fire even if the explicit mount fit regressed.
+    expect(capturedProps.current.initialViewState).toBeDefined();
   });
 });
