@@ -98,8 +98,10 @@ impl ReadQuery {
     }
 
     /// Parse `?bbox=minLng,minLat,maxLng,maxLat` (the geojson bbox-member
-    /// order). Anything other than exactly 4 parseable numbers is a client
-    /// error (400).
+    /// order). Anything other than exactly 4 parseable, finite numbers is a
+    /// client error (400) — `nan`/`inf` parse fine as `f64` but would make the
+    /// AABB overlap test always false, silently disabling the filter instead
+    /// of erroring.
     #[allow(clippy::result_large_err)]
     fn bbox(&self) -> Result<Option<[f64; 4]>, ServiceError> {
         let Some(raw) = &self.bbox else {
@@ -115,7 +117,11 @@ impl ReadQuery {
         }
         let mut out = [0.0_f64; 4];
         for (slot, part) in out.iter_mut().zip(parts.iter()) {
-            *slot = part.parse::<f64>().map_err(|_| invalid())?;
+            let v = part.parse::<f64>().map_err(|_| invalid())?;
+            if !v.is_finite() {
+                return Err(invalid());
+            }
+            *slot = v;
         }
         Ok(Some(out))
     }
@@ -846,6 +852,29 @@ mod tests {
         assert!(matches!(err, ServiceError::Invalid { field, .. } if field.as_deref() == Some("bbox")));
     }
 
+    #[test]
+    fn read_query_bbox_non_finite_is_400() {
+        // `nan`/`inf` parse fine as f64, but would make bbox_overlaps always
+        // false — silently disabling the filter instead of erroring. Every
+        // non-finite slot (not just the first) must be rejected.
+        for raw in [
+            "nan,nan,nan,nan",
+            "0,0,10,inf",
+            "-inf,0,10,10",
+            "0,NaN,10,10",
+        ] {
+            let q = ReadQuery {
+                bbox: Some(raw.to_string()),
+                ..Default::default()
+            };
+            let err = q.bbox().unwrap_err();
+            assert!(
+                matches!(err, ServiceError::Invalid { field, .. } if field.as_deref() == Some("bbox")),
+                "bbox={raw:?} must be rejected as Invalid"
+            );
+        }
+    }
+
     // ── features_intersecting_bbox (pure — no DB) ───────────────────────────
 
     /// A `Point` feature at `(lon, lat)`, id set so tests can tell which
@@ -916,6 +945,25 @@ mod tests {
         let fc = FeatureCollection {
             bbox: None,
             features: vec![on_the_corner],
+            foreign_members: None,
+        };
+
+        let filtered = features_intersecting_bbox(fc, [0.0, 0.0, 10.0, 10.0]);
+
+        assert_eq!(feature_ids(&filtered), vec![1]);
+    }
+
+    #[test]
+    fn features_intersecting_bbox_keeps_straddling_polygon() {
+        // A real (non-degenerate) polygon whose bbox is partially inside and
+        // partially outside the query box — most of it sits outside [0,0,10,10],
+        // but it overlaps the box's right edge. It must survive the filter, and
+        // a polygon fully outside must not.
+        let straddler = rect_feature(1, 8.0, 8.0, 20.0, 20.0);
+        let fully_outside = rect_feature(2, 11.0, 11.0, 20.0, 20.0);
+        let fc = FeatureCollection {
+            bbox: None,
+            features: vec![straddler, fully_outside],
             foreign_members: None,
         };
 

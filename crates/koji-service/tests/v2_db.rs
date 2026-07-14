@@ -330,47 +330,52 @@ async fn geofences_ids_and_bbox_filters_scope_the_list() {
         .uri(&format!("/api/v2/geofences?ids={near_id}"))
         .to_request();
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 200, "?ids= must return 200");
-    let body = body_json(resp).await;
-    assert_eq!(
-        feature_names(&body),
-        vec![near_name.clone()],
-        "?ids=<near> must return exactly that fence"
-    );
+    let ids_status = resp.status();
+    let ids_body = body_json(resp).await;
 
     // ── ?bbox= around the near fence → only the near fence, not the far one ─
     let req = test::TestRequest::get()
         .uri("/api/v2/geofences?bbox=-5,-5,5,5")
         .to_request();
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 200, "?bbox= must return 200");
-    let body = body_json(resp).await;
-    let names = feature_names(&body);
-    assert!(
-        names.contains(&near_name),
-        "?bbox= around the near fence must include it: {names:?}"
-    );
-    assert!(
-        !names.contains(&far_name),
-        "?bbox= around the near fence must exclude the far one: {names:?}"
-    );
+    let bbox_status = resp.status();
+    let bbox_body = body_json(resp).await;
 
     // ── no params → both fences present (back-compat, unchanged behavior) ──
     let req = test::TestRequest::get()
         .uri("/api/v2/geofences")
         .to_request();
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 200);
-    let body = body_json(resp).await;
-    let names = feature_names(&body);
+    let list_status = resp.status();
+    let list_body = body_json(resp).await;
 
-    // Cleanup before asserting so a panic doesn't strand the rows.
+    // Cleanup before asserting so a failing assert doesn't strand the rows.
     cleanup_geofence(&db, near_id).await;
     cleanup_geofence(&db, far_id).await;
 
+    assert_eq!(ids_status, 200, "?ids= must return 200");
+    assert_eq!(
+        feature_names(&ids_body),
+        vec![near_name.clone()],
+        "?ids=<near> must return exactly that fence"
+    );
+
+    assert_eq!(bbox_status, 200, "?bbox= must return 200");
+    let bbox_names = feature_names(&bbox_body);
     assert!(
-        names.contains(&near_name) && names.contains(&far_name),
-        "no params must still return every fence (back-compat): {names:?}"
+        bbox_names.contains(&near_name),
+        "?bbox= around the near fence must include it: {bbox_names:?}"
+    );
+    assert!(
+        !bbox_names.contains(&far_name),
+        "?bbox= around the near fence must exclude the far one: {bbox_names:?}"
+    );
+
+    assert_eq!(list_status, 200);
+    let list_names = feature_names(&list_body);
+    assert!(
+        list_names.contains(&near_name) && list_names.contains(&far_name),
+        "no params must still return every fence (back-compat): {list_names:?}"
     );
 }
 
