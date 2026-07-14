@@ -254,10 +254,17 @@ export function DeckGeoJsonInput({
 			}),
 		];
 	}, [mode, draft, selectedIndexes, onEdit, onSelect, disabled, version]);
-	const layers = useMemo(
-		() => [...(contextLayers ?? []), ...editLayers],
-		[contextLayers, editLayers],
-	);
+	// Neighbors (contextLayers) are only clickable when the draw tool is idle —
+	// while a mode is active, force them non-pickable so a click meant to draw
+	// (or a hover mid-drag) can't collide with the neighbor overlay's own
+	// onClick/tooltip picking.
+	const layers = useMemo(() => {
+		const ctx =
+			mode === "none"
+				? (contextLayers ?? [])
+				: (contextLayers ?? []).map((l) => l.clone({ pickable: false }));
+		return [...ctx, ...editLayers];
+	}, [contextLayers, editLayers, mode]);
 	// Frame the map on the whole stored geometry. Read it from the FORM VALUE
 	// (available synchronously at mount) rather than `draft` — the draft hydrates
 	// in a post-mount effect, so it's empty when DeckMap locks its initial camera,

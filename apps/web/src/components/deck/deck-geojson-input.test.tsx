@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FormProvider, useForm } from "react-hook-form";
 import type { Layer } from "@deck.gl/core";
+import { GeoJsonLayer } from "@deck.gl/layers";
 
 // `DeckMap` mounts a real DeckGL/MapLibre WebGL canvas — not viable under
 // jsdom. Stub it to capture the `layers` prop instead, mirroring the
@@ -53,7 +54,7 @@ function wrapper(defaultValues: Record<string, unknown>) {
 function renderWithForm(
   defaultValues: Record<string, unknown>,
   // biome-ignore lint/suspicious/noExplicitAny: test-local passthrough of arbitrary DeckGeoJsonInput props
-  props: { disabled?: boolean; getTooltip?: any } = {},
+  props: { disabled?: boolean; getTooltip?: any; contextLayers?: Layer[] } = {},
 ) {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -111,5 +112,22 @@ describe("DeckGeoJsonInput", () => {
   it("leaves getTooltip undefined on DeckMap when the prop is omitted", () => {
     mounted = renderWithForm({ geometry: poly });
     expect(capturedGetTooltip.current).toBeUndefined();
+  });
+
+  it("makes contextLayers non-pickable while a draw mode is active, so neighbor clicks can't collide with drawing", () => {
+    // Existing geometry auto-enters "modify" (see the auto-modify test above) —
+    // mode !== "none" here.
+    const ctx = [new GeoJsonLayer({ id: "ctx", data: [], pickable: true })];
+    mounted = renderWithForm({ geometry: poly }, { contextLayers: ctx });
+    const found = capturedLayers.current.find((l) => l.id === "ctx");
+    expect(found?.props.pickable).toBe(false);
+  });
+
+  it("keeps contextLayers pickable when the draw tool is idle (mode === none)", () => {
+    // No geometry yet → mode stays "none".
+    const ctx = [new GeoJsonLayer({ id: "ctx", data: [], pickable: true })];
+    mounted = renderWithForm({ geometry: null }, { contextLayers: ctx });
+    const found = capturedLayers.current.find((l) => l.id === "ctx");
+    expect(found?.props.pickable).toBe(true);
   });
 });
