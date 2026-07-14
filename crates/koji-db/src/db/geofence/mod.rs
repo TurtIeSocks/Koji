@@ -22,7 +22,9 @@ use sea_orm::{DbBackend, Statement, UpdateResult, Value, entity::prelude::*};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
+// `Eq` dropped: the new `Option<f64>` bbox columns aren't `Eq` (f64 is only
+// `PartialEq`).
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "geofence")]
 pub struct Model {
     #[sea_orm(primary_key)]
@@ -39,6 +41,14 @@ pub struct Model {
     /// `None` until the geofence is bound to a Dragonite area; publishing is
     /// gated on this being set (architecture §7/§9).
     pub dragonite_area_id: Option<u32>,
+    /// Persisted lng/lat bbox (migration `m20260714_000001_geofence_bbox_columns`),
+    /// kept in sync with `geometry` by `Query::upsert` via
+    /// [`geometry_bbox_lnglat`]. `None` when the geometry is empty/unparseable.
+    /// Lets `?bbox=` filter at the DB instead of loading every row (follow-up).
+    pub min_lat: Option<f64>,
+    pub min_lng: Option<f64>,
+    pub max_lat: Option<f64>,
+    pub max_lng: Option<f64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -297,6 +307,19 @@ impl Model {
     }
 }
 
+/// A geofence geometry's lng/lat bounding box (`[minLng, minLat, maxLng,
+/// maxLat]`) — the same shape and order `koji_core::KojiGeometry::bbox`
+/// produces and `features_intersecting_bbox` (koji-service `/v2/geofences`)
+/// filters against, so the persisted `min_lat`/`min_lng`/`max_lat`/`max_lng`
+/// columns (migration `m20260714_000001_geofence_bbox_columns`) match the
+/// in-memory `?bbox=` filter exactly. `None` for empty/unparseable geometry —
+/// callers should leave the bbox columns `NULL` rather than store a bogus box.
+pub fn geometry_bbox_lnglat(geometry: &Json) -> Option<[f64; 4]> {
+    let geo_geometry = super::parse_geometry_json(geometry).ok()?;
+    let rect = koji_core::KojiGeometry::new(geo_geometry).bbox()?;
+    Some([rect.min().x, rect.min().y, rect.max().x, rect.max().y])
+}
+
 mod hierarchy;
 mod list;
 mod project_view;
@@ -333,6 +356,10 @@ mod to_koji_tests {
             geometry: serde_json::json!(null),
             geo_type: String::new(),
             dragonite_area_id: None,
+            min_lat: None,
+            min_lng: None,
+            max_lat: None,
+            max_lng: None,
         }
     }
 
@@ -449,5 +476,49 @@ mod to_koji_tests {
         assert_eq!(meta.mode, Mode::Pokemon);
         assert_eq!(meta.id, Some(9));
         assert_eq!(meta.name.as_deref(), Some("Aurora"));
+    }
+
+    // ── geometry_bbox_lnglat (pure — no DB) ─────────────────────────────────
+
+    /// A polygon's bbox comes back `[minLng, minLat, maxLng, maxLat]` — the
+    /// same order `features_intersecting_bbox` (koji-service `/v2/geofences`)
+    /// filters against, so the persisted columns line up with the in-memory
+    /// filter this task is meant to eventually replace.
+    #[test]
+    fn geometry_bbox_lnglat_polygon_returns_min_max() {
+        let geometry = serde_json::json!({
+            "type": "Polygon",
+            "coordinates": [[[-1.0, 2.0], [3.0, 2.0], [3.0, 5.0], [-1.0, 5.0], [-1.0, 2.0]]]
+        });
+        assert_eq!(
+            super::geometry_bbox_lnglat(&geometry),
+            Some([-1.0, 2.0, 3.0, 5.0])
+        );
+    }
+
+    /// A single point is a degenerate (zero-area) bbox: min == max, not None —
+    /// `KojiGeometry::bbox` is `bounding_rect`, which is defined for points.
+    #[test]
+    fn geometry_bbox_lnglat_point_is_degenerate_min_equals_max() {
+        let geometry = serde_json::json!({ "type": "Point", "coordinates": [10.5, -20.25] });
+        assert_eq!(
+            super::geometry_bbox_lnglat(&geometry),
+            Some([10.5, -20.25, 10.5, -20.25])
+        );
+    }
+
+    /// Unparseable geometry (e.g. `null`, the `test_model_defaults` sentinel)
+    /// yields `None` rather than a bogus box — callers persist `NULL`.
+    #[test]
+    fn geometry_bbox_lnglat_null_geometry_is_none() {
+        assert_eq!(super::geometry_bbox_lnglat(&serde_json::json!(null)), None);
+    }
+
+    /// A geometry that parses as valid geojson but is structurally empty
+    /// (`MultiPolygon` with zero polygons) has no bounding rect either.
+    #[test]
+    fn geometry_bbox_lnglat_empty_multipolygon_is_none() {
+        let geometry = serde_json::json!({ "type": "MultiPolygon", "coordinates": [] });
+        assert_eq!(super::geometry_bbox_lnglat(&geometry), None);
     }
 }

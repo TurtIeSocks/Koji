@@ -50,6 +50,13 @@ impl Query {
                     geometry: row.geometry,
                     geo_type: row.geo_type,
                     dragonite_area_id: row.dragonite_area_id,
+                    // Not selected by the descendants CTE (`build_descendants_sql`)
+                    // and not needed here — this `Model` only feeds
+                    // `to_koji_geometry()`, which reads `geometry` directly.
+                    min_lat: None,
+                    min_lng: None,
+                    max_lat: None,
+                    max_lng: None,
                 };
                 let mut kg = model.to_koji_geometry()?;
                 kg.meta.ancestors = ancestors_from_ancestry(&row.ancestry);

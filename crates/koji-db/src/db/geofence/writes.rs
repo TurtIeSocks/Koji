@@ -94,6 +94,23 @@ impl Query {
 
         let mut new_model = json.to_geofence()?;
 
+        // Keep the persisted bbox columns (migration
+        // `m20260714_000001_geofence_bbox_columns`) fresh on every create/update —
+        // `to_geofence` always sets `geometry`, so `try_as_ref` is never `None`
+        // here, but the `if let` avoids a panic if that ever changes.
+        if let Some(geometry) = new_model.geometry.try_as_ref() {
+            let bbox = geometry_bbox_lnglat(geometry);
+            let [min_lng, min_lat, max_lng, max_lat] = bbox
+                .map(|[min_lng, min_lat, max_lng, max_lat]| {
+                    [Some(min_lng), Some(min_lat), Some(max_lng), Some(max_lat)]
+                })
+                .unwrap_or([None, None, None, None]);
+            new_model.min_lng = Set(min_lng);
+            new_model.min_lat = Set(min_lat);
+            new_model.max_lng = Set(max_lng);
+            new_model.max_lat = Set(max_lat);
+        }
+
         let old_model = if id == 0 {
             Query::get_one(db, new_model.name.clone().unwrap())
                 .await

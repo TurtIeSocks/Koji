@@ -11,6 +11,7 @@ path = "src/lib.rs"
 [dependencies]
 async-std         = { workspace = true }
 geojson           = { workspace = true }
+koji-db           = { workspace = true }
 log               = { workspace = true }
 serde_json        = { workspace = true }
 sea-orm-migration = { workspace = true }

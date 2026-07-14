@@ -3,7 +3,7 @@
 //! Run with: `set -a; source ./.env.test; set +a && cargo test -p koji-db --test geofence_extended_db -- --nocapture`
 
 use koji_db::db::{geofence, geofence_project, plugin_config, project};
-use sea_orm::{Database, DatabaseConnection};
+use sea_orm::{Database, DatabaseConnection, EntityTrait};
 use serde_json::json;
 use tokio::sync::{Mutex, MutexGuard};
 
@@ -151,6 +151,85 @@ async fn geofence_upsert_update_changes_mode() {
 
     assert_eq!(updated["id"], json!(fence_id), "same row id");
     assert_eq!(got["mode"], json!("fort"), "mode updated");
+}
+
+// ── geofence — upsert persists bbox columns ─────────────────────────────────
+
+/// `Query::upsert` keeps the persisted `min_lat`/`min_lng`/`max_lat`/`max_lng`
+/// columns (migration `m20260714_000001_geofence_bbox_columns`) in sync with
+/// the geometry's bbox on create — same `[minLng, minLat, maxLng, maxLat]`
+/// shape `geometry_bbox_lnglat` computes and `features_intersecting_bbox`
+/// (koji-service `/v2/geofences`) filters against.
+#[tokio::test]
+async fn geofence_upsert_persists_bbox_columns() {
+    let Some(db) = test_db().await else { return };
+    let _g = serial_guard().await;
+
+    let name = unique_name("gf-bbox");
+    let geometry = polygon_geometry();
+    let expected = geofence::geometry_bbox_lnglat(&geometry).expect("polygon has a bbox");
+
+    let created = geofence::Query::upsert_json_return(
+        &db,
+        0,
+        json!({ "name": name, "mode": "unset", "geometry": geometry }),
+    )
+    .await
+    .expect("upsert create");
+    let fence_id = created["id"].as_u64().expect("has id") as u32;
+
+    let row = geofence::Entity::find_by_id(fence_id)
+        .one(&db)
+        .await
+        .expect("find_by_id ok");
+
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("delete");
+
+    let row = row.expect("row exists");
+    assert_eq!(row.min_lng, Some(expected[0]), "min_lng persisted");
+    assert_eq!(row.min_lat, Some(expected[1]), "min_lat persisted");
+    assert_eq!(row.max_lng, Some(expected[2]), "max_lng persisted");
+    assert_eq!(row.max_lat, Some(expected[3]), "max_lat persisted");
+}
+
+/// Updating an existing geofence's geometry recomputes the bbox columns (not
+/// just on create) — the write path sets them on every `upsert` call.
+#[tokio::test]
+async fn geofence_upsert_update_recomputes_bbox_columns() {
+    let Some(db) = test_db().await else { return };
+    let _g = serial_guard().await;
+
+    let name = unique_name("gf-bbox-upd");
+    let fence_id = make_geofence(&db, &name).await; // polygon_geometry() bbox = [0,0,1,1]
+
+    let moved_geometry = json!({
+        "type": "Polygon",
+        "coordinates": [[[10.0,10.0],[12.0,10.0],[12.0,12.0],[10.0,12.0],[10.0,10.0]]]
+    });
+    geofence::Query::upsert_json_return(
+        &db,
+        fence_id,
+        json!({ "name": name, "mode": "unset", "geometry": moved_geometry }),
+    )
+    .await
+    .expect("upsert update");
+
+    let row = geofence::Entity::find_by_id(fence_id)
+        .one(&db)
+        .await
+        .expect("find_by_id ok");
+
+    geofence::Query::delete(&db, fence_id)
+        .await
+        .expect("delete");
+
+    let row = row.expect("row exists");
+    assert_eq!(row.min_lng, Some(10.0), "min_lng recomputed");
+    assert_eq!(row.min_lat, Some(10.0), "min_lat recomputed");
+    assert_eq!(row.max_lng, Some(12.0), "max_lng recomputed");
+    assert_eq!(row.max_lat, Some(12.0), "max_lat recomputed");
 }
 
 // ── geofence — not found ─────────────────────────────────────────────────────
