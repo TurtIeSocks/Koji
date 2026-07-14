@@ -80,6 +80,15 @@ async fn rollback_after_begin_leaves_nothing_written() {
     };
     let name = "itest-rollback-mid-tx";
 
+    // A prior failed run (e.g. before the geofence_project FKs were restored)
+    // may have stranded this fixture name from an earlier version of this
+    // test that didn't roll back. Clear it so a leftover row doesn't turn
+    // this run's import into a name collision (OnCollision::Skip) instead of
+    // exercising the rollback path this test is actually about.
+    if let Ok(existing) = geofence::Query::get_one(&db, name.to_string()).await {
+        geofence::Query::delete(&db, existing.id).await.unwrap();
+    }
+
     // Validation passes (project ids are not pre-checked), but committing a
     // geofence_project row for a non-existent project violates the FK AFTER
     // db.begin() — exercising the post-begin rollback path (the route-parent
