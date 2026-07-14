@@ -379,6 +379,96 @@ async fn geofences_ids_and_bbox_filters_scope_the_list() {
     );
 }
 
+/// Parity test (Task B): `?bbox=` now filters at the DB via the persisted
+/// `min_lat`/`min_lng`/`max_lat`/`max_lng` columns
+/// (`geofence::Query::get_koji_by_bbox`) instead of the in-memory
+/// `features_intersecting_bbox` scan. Seeds three geofences with known,
+/// separated geometries against query box `[0,0,10,10]`:
+/// - `inside`   — bbox `[2,2]-[3,3]`, fully inside the box.
+/// - `touching` — a `Point` sitting exactly on the box's `(10,10)` corner;
+///   the AABB overlap test is non-strict (`<=`/`>=`), so a boundary-straddling
+///   geometry still counts as overlapping (pinned in the pure
+///   `features_intersecting_bbox_keeps_boundary_straddling_feature` unit test
+///   this mirrors).
+/// - `outside`  — bbox `[20,20]-[21,21]`, fully outside the box.
+///
+/// Asserts the exact expected subset comes back: `inside` and `touching`
+/// present, `outside` absent — i.e. the DB filter agrees with the in-memory
+/// overlap semantics it replaced.
+#[actix_web::test]
+async fn geofences_bbox_db_filter_matches_overlap_semantics_parity() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let inside_name = unique_name("fence-bbox-inside");
+    let touching_name = unique_name("fence-bbox-touching");
+    let outside_name = unique_name("fence-bbox-outside");
+
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    let inside_geometry = serde_json::json!({
+        "type": "Polygon",
+        "coordinates": [[[2.0,2.0],[3.0,2.0],[3.0,3.0],[2.0,2.0]]]
+    });
+    // A single point exactly on the query box's top-right corner — boundary
+    // straddling, not "inside" by any margin.
+    let touching_geometry = serde_json::json!({
+        "type": "Point",
+        "coordinates": [10.0, 10.0]
+    });
+    let outside_geometry = serde_json::json!({
+        "type": "Polygon",
+        "coordinates": [[[20.0,20.0],[21.0,20.0],[21.0,21.0],[20.0,20.0]]]
+    });
+
+    let mut seeded_ids = Vec::new();
+    for (name, geometry) in [
+        (&inside_name, inside_geometry),
+        (&touching_name, touching_geometry),
+        (&outside_name, outside_geometry),
+    ] {
+        let req = test::TestRequest::post()
+            .uri("/api/v2/geofences")
+            .set_json(serde_json::json!({
+                "name": name, "mode": "pokemon", "geometry": geometry
+            }))
+            .to_request();
+        let id = body_json(test::call_service(&app, req).await).await["data"]["id"]
+            .as_u64()
+            .expect("seeded fence id");
+        seeded_ids.push(id);
+    }
+
+    let req = test::TestRequest::get()
+        .uri("/api/v2/geofences?bbox=0,0,10,10")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    let bbox_status = resp.status();
+    let bbox_body = body_json(resp).await;
+
+    // Cleanup before asserting so a failing assert doesn't strand the rows.
+    for id in seeded_ids {
+        cleanup_geofence(&db, id).await;
+    }
+
+    assert_eq!(bbox_status, 200, "?bbox= must return 200");
+    // Scope the response down to just this test's three known fence names, so
+    // the assertion is exact regardless of whatever else lives in the shared
+    // test DB (mirrors the contains/!contains pattern the sibling test above
+    // uses for the same reason).
+    let bbox_names: std::collections::BTreeSet<String> = feature_names(&bbox_body)
+        .into_iter()
+        .filter(|n| [&inside_name, &touching_name, &outside_name].contains(&n))
+        .collect();
+    let expected: std::collections::BTreeSet<String> =
+        [inside_name.clone(), touching_name.clone()].into_iter().collect();
+    assert_eq!(
+        bbox_names, expected,
+        "?bbox=0,0,10,10 must return exactly {{inside, touching}} and exclude {{outside}}"
+    );
+}
+
 #[actix_web::test]
 async fn geofences_ids_malformed_segment_returns_400() {
     let Some(db) = test_db().await else { return };

@@ -132,6 +132,7 @@ impl ReadQuery {
 /// `None` for a feature with no geometry or one that fails the conversion
 /// (such a feature is dropped by [`features_intersecting_bbox`] rather than
 /// surfacing an error).
+#[allow(dead_code)] // kept as the reference/fallback impl below `features_intersecting_bbox`
 fn feature_bbox(f: &Feature) -> Option<[f64; 4]> {
     let geom = f.geometry.as_ref()?;
     let g = geo::Geometry::<koji_core::Precision>::try_from(geom).ok()?;
@@ -141,14 +142,22 @@ fn feature_bbox(f: &Feature) -> Option<[f64; 4]> {
 
 /// Standard AABB overlap test (`a`/`b` both `[minX, minY, maxX, maxY]`);
 /// touching counts as overlapping, so a bbox that only straddles the boundary
-/// still intersects.
+/// still intersects. This is the semantics `geofence::Query::get_koji_by_bbox`
+/// (koji-db) mirrors with `<=`/`>=` column comparisons — kept here (with its
+/// unit tests below) as the pinned, pure reference for that DB predicate.
+#[allow(dead_code)] // reference/pinning only now — see `features_intersecting_bbox` below
 fn bbox_overlaps(a: [f64; 4], b: [f64; 4]) -> bool {
     !(a[2] < b[0] || a[0] > b[2] || a[3] < b[1] || a[1] > b[3])
 }
 
 /// Keep only the features whose own bbox overlaps `bbox`
 /// (`[minLng, minLat, maxLng, maxLat]`). Pure — no DB, no network — so it unit
-/// tests without a database; `list`'s `?bbox=` path is the only caller.
+/// tests without a database. `list`'s `?bbox=` path now calls the DB-level
+/// `geofence::Query::get_koji_by_bbox` instead (indexed columns beat an
+/// in-memory scan of every row); this helper is kept, unused in the request
+/// path, purely as the pinned reference for that predicate's semantics and as
+/// a manual fallback if the DB path is ever bypassed.
+#[allow(dead_code)] // superseded by geofence::Query::get_koji_by_bbox; kept as reference/fallback
 fn features_intersecting_bbox(fc: FeatureCollection, bbox: [f64; 4]) -> FeatureCollection {
     let features = fc
         .features
@@ -212,10 +221,12 @@ pub(crate) struct PatchGeofence {
 ///
 /// `?ids=1,2,3` scopes the read to only those geofences (a single indexed
 /// `WHERE id IN (...)` query — no full-table read). `?bbox=minLng,minLat,
-/// maxLng,maxLat` scopes it to fences whose geometry bbox overlaps the box
-/// (all rows are still read, then filtered in memory). The two are mutually
-/// exclusive with each other and with `?depth`/`?level` — `ids` wins if both
-/// are present, `bbox` is next, `?depth`/`?level` otherwise.
+/// maxLng,maxLat` scopes it to fences whose persisted bbox columns
+/// (`min_lat`/`min_lng`/`max_lat`/`max_lng`) overlap the box — a DB-level
+/// `WHERE` (see [`geofence::Query::get_koji_by_bbox`]), no full-table read
+/// either. The two are mutually exclusive with each other and with
+/// `?depth`/`?level` — `ids` wins if both are present, `bbox` is next,
+/// `?depth`/`?level` otherwise.
 ///
 /// With `?depth=N` or `?level=N` (and no `ids`/`bbox`) this becomes a
 /// recursive forest walk (anchor = every `parent IS NULL` root): `depth=N` is
@@ -250,10 +261,7 @@ async fn list(
     }
 
     if let Some(bbox) = query.bbox()? {
-        let coll = geofence::Query::get_all_koji(&conn.koji).await?;
-        // ponytail: in-memory bbox filter; DB bbox columns + index if fence counts grow (follow-up chip)
-        let fc = features_intersecting_bbox(FeatureCollection::from(&coll), bbox);
-        let coll = koji_core::KojiGeometryCollection::try_from(fc).map_err(ServiceError::internal)?;
+        let coll = geofence::Query::get_koji_by_bbox(&conn.koji, bbox).await?;
         return Ok(respond_geo(coll, return_type));
     }
 

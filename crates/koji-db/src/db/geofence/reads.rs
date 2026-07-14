@@ -171,6 +171,39 @@ impl Query {
             .collect::<Result<koji_core::KojiGeometryCollection, ModelError>>()
     }
 
+    /// Fetch only the geofences whose persisted bbox (`min_lat`/`min_lng`/
+    /// `max_lat`/`max_lng`, kept in sync with `geometry` by `Query::upsert`)
+    /// overlaps the query box, and map each to Koji-native geometry — the
+    /// DB-level sibling of [`Query::get_koji_by_ids`], scoping `?bbox=` to an
+    /// indexed `WHERE` instead of an in-memory filter over every row.
+    ///
+    /// `bbox` is `[minLng, minLat, maxLng, maxLat]` (the geojson bbox-member
+    /// order, matching [`super::geometry_bbox_lnglat`]). The overlap predicate
+    /// is the standard AABB test — `min_lng <= qMaxLng AND max_lng >= qMinLng
+    /// AND min_lat <= qMaxLat AND max_lat >= qMinLat` — logically identical to
+    /// `bbox_overlaps` in koji-service's `/v2/geofences` handler (touching
+    /// counts as overlap, via non-strict `<=`/`>=`), so the DB and the pure
+    /// in-memory path agree. A row with a `NULL` bbox column (geometry-less or
+    /// unparseable geometry) never satisfies these comparisons in SQL and is
+    /// correctly excluded — it has no spatial extent to overlap with.
+    pub async fn get_koji_by_bbox<C: ConnectionTrait>(
+        db: &C,
+        bbox: [f64; 4],
+    ) -> Result<koji_core::KojiGeometryCollection, ModelError> {
+        let [query_min_lng, query_min_lat, query_max_lng, query_max_lat] = bbox;
+        let results = Entity::find()
+            .filter(Column::MinLng.lte(query_max_lng))
+            .filter(Column::MaxLng.gte(query_min_lng))
+            .filter(Column::MinLat.lte(query_max_lat))
+            .filter(Column::MaxLat.gte(query_min_lat))
+            .all(db)
+            .await?;
+        results
+            .iter()
+            .map(|result| result.to_koji_geometry())
+            .collect::<Result<koji_core::KojiGeometryCollection, ModelError>>()
+    }
+
     /// Fetch one geofence row by id and map it via `to_koji_geometry`. Returns
     /// `ModelError` to match the sibling Koji read methods.
     #[allow(clippy::result_large_err)]
