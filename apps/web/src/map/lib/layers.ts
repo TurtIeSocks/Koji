@@ -54,10 +54,10 @@ export interface BaseLayersInput {
   editingGeofenceId?: string | null;
 }
 
-const GEOFENCE_FILL: [number, number, number, number] = [...COLOR.geofence, 40];
-const GEOFENCE_LINE: [number, number, number, number] = [...COLOR.geofence, 220];
-const EDITING_FILL: [number, number, number, number] = [130, 130, 130, 25];
-const EDITING_LINE: [number, number, number, number] = [130, 130, 130, 140];
+export const GEOFENCE_FILL: [number, number, number, number] = [...COLOR.geofence, 40];
+export const GEOFENCE_LINE: [number, number, number, number] = [...COLOR.geofence, 220];
+export const EDITING_FILL: [number, number, number, number] = [130, 130, 130, 25];
+export const EDITING_LINE: [number, number, number, number] = [130, 130, 130, 140];
 
 /** Is this geofence feature the one currently open in the editor? (id lives at the
  *  geojson top-level `feature.id`; fall back to properties.id.) */
