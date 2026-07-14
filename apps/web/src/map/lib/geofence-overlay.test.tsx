@@ -102,15 +102,36 @@ test("geofenceOverlayLayer onClick falls back to properties.id, and no-ops witho
   vi.unstubAllGlobals();
 });
 
-test("overlayTooltip returns the feature name for a named pick", () => {
-  expect(overlayTooltip({ object: { properties: { name: "X" } } } as unknown as PickingInfo)).toEqual({ text: "X" });
+test("overlayTooltip returns the feature name for a named pick on the overlay layer", () => {
+  expect(
+    overlayTooltip({
+      layer: { id: "geofence-overlay" },
+      object: { properties: { name: "X" } },
+    } as unknown as PickingInfo),
+  ).toEqual({ text: "X" });
+});
+
+test("overlayTooltip returns null for a named pick on a DIFFERENT layer (over-broad tooltip gate)", () => {
+  expect(
+    overlayTooltip({
+      layer: { id: "some-other-layer" },
+      object: { properties: { name: "X" } },
+    } as unknown as PickingInfo),
+  ).toBeNull();
 });
 
 test("overlayTooltip returns null for a pick without a name", () => {
-  expect(overlayTooltip({ object: { properties: {} } } as unknown as PickingInfo)).toBeNull();
+  expect(
+    overlayTooltip({
+      layer: { id: "geofence-overlay" },
+      object: { properties: {} },
+    } as unknown as PickingInfo),
+  ).toBeNull();
 });
 
 test("overlayTooltip returns null when there is no picked object", () => {
-  expect(overlayTooltip({ object: null } as unknown as PickingInfo)).toBeNull();
+  expect(
+    overlayTooltip({ layer: { id: "geofence-overlay" }, object: null } as unknown as PickingInfo),
+  ).toBeNull();
   expect(overlayTooltip({} as unknown as PickingInfo)).toBeNull();
 });

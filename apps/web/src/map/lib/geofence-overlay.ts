@@ -38,9 +38,11 @@ export function geofenceOverlayLayer(opts: {
   });
 }
 
-/** Hover tooltip for the overlay: geofence name, or nothing for non-geofence /
- *  nameless picks. */
+/** Hover tooltip for the overlay: geofence name, or nothing for picks outside
+ *  the overlay layer itself (e.g. a marker/S2 context layer sharing the same
+ *  `getTooltip`) or nameless picks. */
 export function overlayTooltip(info: PickingInfo): { text: string } | null {
+  if (info.layer?.id !== "geofence-overlay") return null;
   const name = info.object?.properties?.name;
   return name != null ? { text: String(name) } : null;
 }
