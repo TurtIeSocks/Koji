@@ -27,7 +27,7 @@
 //! `Query::delete` (geofence children cascade), then asserts — so even a failing
 //! assertion can't leak a row. `koji_test` stays clean and re-runnable.
 
-use koji_db::db::{geofence, project, property, tile_server};
+use koji_db::db::{geofence, geofence_project, project, property, tile_server};
 use sea_orm::{Database, DatabaseConnection};
 use serde_json::json;
 
@@ -98,6 +98,119 @@ async fn project_crud_round_trip() {
     assert!(
         after.is_err(),
         "get_one after delete should error (does not exist)"
+    );
+}
+
+/// Regression for the project show/edit bug: the list page counted
+/// `record.geofences.length` off `paginate`'s hand-built `"geofences"` array,
+/// but `get_one_json` (show/edit's GET) returned the bare `project::Model`
+/// with no `geofences` key at all, so show/edit rendered nothing. Verifies
+/// `get_one_json` AND `upsert_json_return` both carry the linked geofence ids
+/// (the array-of-ids shape `ReferenceArrayInput`/`ReferenceArrayField`
+/// expect — not `paginate`'s `[{id,name}]` object shape).
+#[tokio::test]
+async fn project_get_one_json_includes_linked_geofences() {
+    let Some(db) = test_db().await else { return };
+    let project_name = unique_name("project-geofences");
+    let fence1_name = unique_name("fence-a");
+    let fence2_name = unique_name("fence-b");
+
+    let geometry = json!({
+        "type": "Polygon",
+        "coordinates": [[
+            [0.0, 0.0],
+            [0.0, 1.0],
+            [1.0, 1.0],
+            [1.0, 0.0],
+            [0.0, 0.0]
+        ]]
+    });
+
+    let created_project =
+        project::Query::upsert_json_return(&db, 0, json!({ "name": project_name }))
+            .await
+            .expect("project upsert should insert");
+    let project_id = created_project["id"]
+        .as_u64()
+        .expect("created project has an id") as u32;
+
+    let created_fence1 = geofence::Query::upsert_json_return(
+        &db,
+        0,
+        json!({ "name": fence1_name, "mode": "unset", "geometry": geometry }),
+    )
+    .await
+    .expect("geofence 1 upsert should insert");
+    let fence1_id = created_fence1["id"]
+        .as_u64()
+        .expect("created geofence 1 has an id") as u32;
+
+    let created_fence2 = geofence::Query::upsert_json_return(
+        &db,
+        0,
+        json!({ "name": fence2_name, "mode": "unset", "geometry": geometry }),
+    )
+    .await
+    .expect("geofence 2 upsert should insert");
+    let fence2_id = created_fence2["id"]
+        .as_u64()
+        .expect("created geofence 2 has an id") as u32;
+
+    geofence_project::Query::upsert_related_by_project_id(
+        &db,
+        &[json!(fence1_id), json!(fence2_id)],
+        project_id,
+    )
+    .await
+    .expect("link geofences to project");
+
+    // Gather every observation FIRST, then delete, then assert (panic-safe
+    // cleanup — see project_crud_round_trip above). `upsert_json_return` is
+    // re-run with no `geofences` key in the body, mirroring what a PATCH that
+    // only touches `name`/`description` sends — `upsert_related_geofences`
+    // no-ops when the key is absent, so the pre-existing links must survive
+    // AND the return value must still carry them.
+    let got = project::Query::get_one_json(&db, project_id.to_string()).await;
+    let upserted_again =
+        project::Query::upsert_json_return(&db, project_id, json!({ "name": project_name })).await;
+
+    // Cleanup: geofences first (their delete cascades the geofence_project
+    // link rows via the FK restored in m20260714_000002), then the project.
+    geofence::Query::delete(&db, fence1_id)
+        .await
+        .expect("delete fence1");
+    geofence::Query::delete(&db, fence2_id)
+        .await
+        .expect("delete fence2");
+    project::Query::delete(&db, project_id)
+        .await
+        .expect("delete project");
+
+    let got = got.expect("get_one_json should succeed");
+    let ids: std::collections::HashSet<u64> = got["geofences"]
+        .as_array()
+        .expect("get_one_json should carry a geofences array")
+        .iter()
+        .filter_map(|v| v.as_u64())
+        .collect();
+    assert_eq!(
+        ids,
+        std::collections::HashSet::from([fence1_id as u64, fence2_id as u64]),
+        "get_one_json geofences should be exactly the 2 linked ids, got {:?}",
+        got["geofences"]
+    );
+
+    let upserted_again = upserted_again.expect("upsert_json_return should succeed");
+    let ids2: std::collections::HashSet<u64> = upserted_again["geofences"]
+        .as_array()
+        .expect("upsert_json_return should carry a geofences array")
+        .iter()
+        .filter_map(|v| v.as_u64())
+        .collect();
+    assert_eq!(
+        ids2, ids,
+        "upsert_json_return geofences should match get_one_json's, got {:?}",
+        upserted_again["geofences"]
     );
 }
 

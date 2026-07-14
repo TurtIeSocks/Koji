@@ -48,10 +48,61 @@ struct GeofenceForProject {
     name: String,
 }
 
-#[macros::crud_query]
 pub struct Query;
 
 impl Query {
+    /// Verbatim from `#[macros::crud_query]` (see `crates/macros/src/lib.rs`,
+    /// `crud_query`) — hand-written here because `get_one_json` below needs to
+    /// hydrate the `"geofences"` key the macro-generated version omits (see
+    /// that fn's doc comment for the bug this fixes).
+    pub async fn get_one<C: ConnectionTrait>(db: &C, id: String) -> Result<Model, ModelError> {
+        let record = match id.parse::<u32>() {
+            Ok(id) => Entity::find_by_id(id).one(db).await?,
+            Err(_) => Entity::find().filter(Column::Name.eq(id)).one(db).await?,
+        };
+        if let Some(record) = record {
+            Ok(record)
+        } else {
+            Err(ModelError::Geofence("Does not exist".to_string()))
+        }
+    }
+
+    /// The project SHOW/EDIT read path (`GET /internal/projects/{id}` →
+    /// `/api/v2/projects/{id}`, via the `koji_resource!`-generated `get_one`
+    /// handler). Was `serde_json::json!(model)` off the bare
+    /// `#[macros::crud_query]`-generated method — `project::Model` (this
+    /// file, ~line 14) has no `geofences` field, so show/edit read
+    /// `record.geofences` as `undefined` and rendered nothing, even though
+    /// the LIST page (`paginate`, above) hand-builds a `"geofences"` array
+    /// and its count showed correctly. Mirrors geofence's
+    /// `get_one_json_with_related` (`crates/koji-db/src/db/geofence/reads.rs`):
+    /// hydrate the id array the frontend's `ReferenceArrayInput`/
+    /// `ReferenceArrayField source="geofences"` expect, via the same
+    /// `geofence_project` junction `paginate` already joins through.
+    pub async fn get_one_json(db: &DatabaseConnection, id: String) -> Result<Json, ModelError> {
+        let record = Self::get_one(db, id).await?;
+        let mut json = json!(record);
+        json.as_object_mut().unwrap().insert(
+            "geofences".to_string(),
+            json!(geofence_project::Query::geofence_ids_for_project(db, record.id).await?),
+        );
+        Ok(json)
+    }
+
+    /// Verbatim from `#[macros::crud_query]`.
+    pub async fn delete(db: &DatabaseConnection, id: u32) -> Result<DeleteResult, DbErr> {
+        Entity::delete_by_id(id).exec(db).await
+    }
+
+    /// Verbatim from `#[macros::crud_query]`.
+    pub async fn search(db: &DatabaseConnection, search: String) -> Result<Vec<Json>, DbErr> {
+        Entity::find()
+            .filter(Column::Name.like(format!("%{}%", search).as_str()))
+            .into_json()
+            .all(db)
+            .await
+    }
+
     pub async fn paginate(
         db: &DatabaseConnection,
         args: AdminReqParsed,
@@ -164,12 +215,22 @@ impl Query {
         Ok(model)
     }
 
+    /// Same hydration as [`get_one_json`](Self::get_one_json) — this is the
+    /// value handed straight back to the frontend after a create/PATCH
+    /// (`koji_resource!`'s `create`/`update` handlers), so a save must also
+    /// carry `"geofences"` or the just-saved record would render empty until
+    /// a manual refetch.
     pub async fn upsert_json_return(
         db: &DatabaseConnection,
         id: u32,
         json: Json,
     ) -> Result<Json, ModelError> {
         let result = Query::upsert(db, id, json).await?;
-        Ok(json!(result))
+        let mut out = json!(result);
+        out.as_object_mut().unwrap().insert(
+            "geofences".to_string(),
+            json!(geofence_project::Query::geofence_ids_for_project(db, result.id).await?),
+        );
+        Ok(out)
     }
 }
