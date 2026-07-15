@@ -195,7 +195,13 @@ So project filtering needs backend work regardless. Do both server-side for cons
 
 **UI:** mode + project selects beside "Show Neighbors", reusing `GEOFENCE_MODES` (`constants.ts:13-18`) and `ReferenceArrayInput`.
 
-**Defaults:** pre-filter to the mode and projects currently set on the Details tab, overridable. This makes §4.3 pay off twice — being able to set Project at create time is what lets the neighbour filter default sensibly. ([Assumption A3](#assumptions) — the one place I'm knowingly being clever.)
+**Defaults (decided — D4):** pre-filter to the mode **and** projects currently set on the Details tab, overridable in the toolbar. Drawing a mon fence for project X → you see mon fences in project X.
+
+This makes §4.3 pay off twice: being able to set Project at create time is precisely what lets the neighbour filter default sensibly. The two changes are coupled — §4.3 must land first, or the project default has nothing to read on a Create page.
+
+Reactivity: the filter follows the Details tab live, so changing mode there re-filters the overlay. Both selects show their active value so the filtering is never invisible — the failure mode to avoid is a tester wondering why a fence they *know* exists isn't showing.
+
+Empty is not a filter: with mode `unset` or no projects chosen (the Create default until they pick), that axis stays unfiltered rather than matching nothing.
 
 ### Phase 4 — Draw & edit UX
 
@@ -252,13 +258,13 @@ Removing the tool outright was considered and rejected for now — it's reversib
 - **D1 — Editable step 2, not a `/map` hand-off (§4.5).** Confirmed. Serves the intent, keeps assignments.
 - **D2 — Move/Transform: leave in, note the suspicion (§4.11).** Deferred; no code change, `ponytail:` comment only.
 - **D3 — Phase 4 ships §4.8–4.10, then re-test with the tester (§9).** The auto-close fill may itself *be* the perceived lag; fixing it may dissolve #12 for free.
+- **D4 — Neighbour filter defaults from the form (§4.7).** Pre-filter to the mode *and* projects set on the Details tab, overridable.
 
 ### Assumptions still standing
 
 Judgement calls made on your behalf — push back on any.
 
 - **A2 — Auto-load beats a Load button (§4.6).** They suggested a "Load Neighbors" button; I'm auto-loading on camera idle with a zoom floor. Same result, one less click.
-- **A3 — Neighbour filter default (§4.7).** **Open — see Q3.**
 - **A4 — Text import → Polygon only (§4.4).** Their case is an area. Route-from-points is out.
 - **A5 — Jobs need docs, not UI (§4.1).** Read as a question, not a feature request. `GET /api/v2/jobs` already lists jobs.
 - **A6 — Sequential stays.** Not raising `KOJI_WORKER_CONCURRENCY`; rayon already saturates cores.
@@ -267,8 +273,10 @@ Judgement calls made on your behalf — push back on any.
 
 ## 6. Open questions
 
-- **Q3 — Neighbour filter default (§4.7):** from the form, unfiltered, or mode-only?
-  The tester describes relevance by **mode** (*"a mon fence"* vs *"quest fences"*) but explicitly asks for **project** (*"allow to specify for which project to show neighbors"*). Both axes are real: `quest` is a mode, while "drago" (Dragonite) and "poracle" are projects — which is why they note poracle and quest fences are *"often the same"* geometry. The spec builds both filters; only the default is undecided.
+None outstanding — all four resolved (D1–D4). Two things to re-check *with the tester* rather than decide here:
+
+- Whether the Phase-4 draw fixes dissolve the perceived lag (#12), per D3.
+- Whether "drago"/"poracle" are projects in their setup as assumed (§4.7). If they're modelled some other way, the project filter still works — only the *default* would misfire.
 
 ## 7. Testing
 
@@ -296,7 +304,7 @@ Each phase is independently shippable.
 
 1. **Quick wins** — §4.1 docs, §4.2 `w-full`, §4.3 projects-on-create. Hours.
 2. **Import** — §4.4 text parser, §4.5 editable step 2. Largest item is 4.5.
-3. **Neighbours** — §4.6 camera bbox, §4.7 filters (only phase touching Rust).
+3. **Neighbours** — §4.6 camera bbox, §4.7 filters (only phase touching Rust). **Depends on §4.3** (D4's project default needs a project on the Create form).
 4. **Draw UX** — §4.8–4.10 (Done/Cancel, open-line preview, dedupe, modify affordance) + §4.11's code comment. **Then re-test with the tester** before touching #11/#12 (per D3).
 
 ---
