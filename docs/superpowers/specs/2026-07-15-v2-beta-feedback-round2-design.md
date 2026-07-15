@@ -29,7 +29,7 @@ Every symptom below was traced to a cited mechanism in the code. **Two of the te
 | 8 | Fence auto-closes from 3rd point; no way out | `DrawPolygonMode` fills from 3 vertices; **no Done/Cancel** exists | Subclass + buttons |
 | 9 | Duplicate points on fast clicks | mjolnir fires 2 × `click` before `dblclick` | Dedupe in subclass |
 | 10 | "Modify does nothing" | `ModifyMode` renders zero handles with empty selection, no hint | Auto-select + hint |
-| 11 | "Move makes my fence disappear" | **Unconfirmed.** Plausible: geodesic translate off-screen, no re-fit | **Question for you** |
+| 11 | "Move makes my fence disappear" | **Unconfirmed.** Plausible: geodesic translate off-screen, no re-fit | **Deferred** — leave in, note it |
 | 12 | "Point appears slowly" | **Root cause refuted — see §2.2** | Profile before fixing |
 
 ---
@@ -77,6 +77,7 @@ v1 rendered strictly from its in-memory `useShapes` store; existing fences appea
 - Chasing #12 before a profile (see §2.2).
 - Route-from-point-list import. The tester's case is an *area*; text import produces a Polygon.
 - Job-queue retry/`max_attempts` rework (see §4.1).
+- Fixing (or removing) Move/Transform — deferred by decision; a code comment records the suspicion (§4.11).
 
 ---
 
@@ -230,23 +231,34 @@ Fix:
 - Entering modify with exactly one feature → auto-select it (the overwhelmingly common geofence case).
 - Modify active + nothing selected → on-canvas hint: *"Click a shape to edit its points."*
 
-#### 4.11 Move / Transform — decision required
+#### 4.11 Move / Transform — deferred (decided)
 
 *"selecting the move button and my fence disappears? Unrelated but why would I ever want to move a fence?"*
 
-**I could not confirm the disappearance**, and I won't design a fix around a mechanism I haven't reproduced. What the code shows: `renderLayers()` draws `props.data` unconditionally, so switching mode **cannot** blank the shape. The plausible mechanism is that `TranslateMode` moves by real-world geodesic distance with no clamping, and `DeckMap`'s camera is **fit-once** (`deck-map.tsx:98-139`, `if (prev) return prev`) — so a fast drag can fling the fence out of view with no feedback. Consistent with "disappears", unproven.
+**Decision: leave Move in, unchanged, and record the suspicion. No code change this round.**
 
-Their second question is the better one. **My recommendation: remove Move from the geofence toolbar.** No stated use case, it's a confirmed footgun, and deleting it is a negative diff. Scale/rotate ride along in `TransformMode`, but nobody asked for those either. If you want it kept, the fix is selection-gating + a post-drag re-fit — strictly more work than deletion. **[Question Q1](#open-questions).**
+**I could not confirm the disappearance**, and won't design a fix around an unreproduced mechanism. What the code shows: `renderLayers()` draws `props.data` unconditionally, so switching mode **cannot** blank the shape. The plausible mechanism: `TranslateMode` moves by real-world geodesic distance with no clamping, and `DeckMap`'s camera is **fit-once** (`deck-map.tsx:98-139`, `if (prev) return prev`) — so a fast drag can fling the fence out of view with no feedback. Consistent with "disappears", unproven.
+
+**Deliverable:** a `ponytail:` comment on the `transform` entry in `edit-modes.ts` recording the suspected off-screen-translate bug, the unproven status, and the upgrade path (selection-gating + post-drag re-fit). This keeps the knowledge next to the code instead of only in this spec, where the next reader won't find it.
+
+Removing the tool outright was considered and rejected for now — it's reversible, and nobody has evidence it's actually broken. Revisit if a repro lands.
 
 ---
 
-## 5. Assumptions
+## 5. Decisions & assumptions
 
-Every judgement call made on your behalf. This is your checkpoint — push back on any of them.
+### Decided (2026-07-15)
 
-- **A1 — "Send to map" reinterpreted (§4.5).** The tester asked for a button in step 1; I'm proposing an editable map in step 2 instead. Intent (*"adjust before saving"*) is served, cost is far lower, and per-feature assignments survive. **If they specifically want hand-off to `/map`, this is wrong and I should know now.**
+- **D1 — Editable step 2, not a `/map` hand-off (§4.5).** Confirmed. Serves the intent, keeps assignments.
+- **D2 — Move/Transform: leave in, note the suspicion (§4.11).** Deferred; no code change, `ponytail:` comment only.
+- **D3 — Phase 4 ships §4.8–4.10, then re-test with the tester (§9).** The auto-close fill may itself *be* the perceived lag; fixing it may dissolve #12 for free.
+
+### Assumptions still standing
+
+Judgement calls made on your behalf — push back on any.
+
 - **A2 — Auto-load beats a Load button (§4.6).** They suggested a "Load Neighbors" button; I'm auto-loading on camera idle with a zoom floor. Same result, one less click.
-- **A3 — Neighbour filter defaults from the form (§4.7).** Defaulting to the fence's own mode/projects directly answers the Amsterdam complaint, at the cost of a little magic. Unfiltered-by-default is the boring alternative.
+- **A3 — Neighbour filter default (§4.7).** **Open — see Q3.**
 - **A4 — Text import → Polygon only (§4.4).** Their case is an area. Route-from-points is out.
 - **A5 — Jobs need docs, not UI (§4.1).** Read as a question, not a feature request. `GET /api/v2/jobs` already lists jobs.
 - **A6 — Sequential stays.** Not raising `KOJI_WORKER_CONCURRENCY`; rayon already saturates cores.
@@ -255,10 +267,8 @@ Every judgement call made on your behalf. This is your checkpoint — push back 
 
 ## 6. Open questions
 
-- **Q1 — Move/Transform: remove, or keep and fix?** (§4.11) Recommend remove.
-- **Q2 — A1: is an editable step 2 acceptable, or do you specifically want `/map` hand-off?** (§4.5)
-- **Q3 — A3: smart-default the neighbour filter from the form, or default to unfiltered?** (§4.7)
-- **Q4 — Phase 4 depth.** Ship #8–#10 now and re-test lag with the tester, or hold the phase until we've reproduced #11/#12 live?
+- **Q3 — Neighbour filter default (§4.7):** from the form, unfiltered, or mode-only?
+  The tester describes relevance by **mode** (*"a mon fence"* vs *"quest fences"*) but explicitly asks for **project** (*"allow to specify for which project to show neighbors"*). Both axes are real: `quest` is a mode, while "drago" (Dragonite) and "poracle" are projects — which is why they note poracle and quest fences are *"often the same"* geometry. The spec builds both filters; only the default is undecided.
 
 ## 7. Testing
 
@@ -287,7 +297,7 @@ Each phase is independently shippable.
 1. **Quick wins** — §4.1 docs, §4.2 `w-full`, §4.3 projects-on-create. Hours.
 2. **Import** — §4.4 text parser, §4.5 editable step 2. Largest item is 4.5.
 3. **Neighbours** — §4.6 camera bbox, §4.7 filters (only phase touching Rust).
-4. **Draw UX** — §4.8–4.10, plus Q1's outcome for §4.11.
+4. **Draw UX** — §4.8–4.10 (Done/Cancel, open-line preview, dedupe, modify affordance) + §4.11's code comment. **Then re-test with the tester** before touching #11/#12 (per D3).
 
 ---
 
