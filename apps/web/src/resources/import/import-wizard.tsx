@@ -57,7 +57,7 @@ function ImportWizard() {
   return (
     <ResourceContextProvider value="geofence">
       <FormProvider {...methods}>
-        <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
           <h1 className="text-xl font-semibold">Import</h1>
           <Stepper steps={[...IMPORT_STEPS]} active={active} />
           <div className="min-h-[40vh]">
