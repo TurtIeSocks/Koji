@@ -479,3 +479,118 @@ async fn geofence_bbox_mode_and_id_scope_filters() {
         "id_scope=Some(vec![]) must return zero rows, not fall back to unfiltered"
     );
 }
+
+/// `geofence_ids_for_projects` (Task 7): the ANY-of union across multiple
+/// projects, deduped when a fence is linked to more than one of them, and
+/// empty for an empty input slice. Three fences + two projects:
+/// fence1→projectA, fence2→projectB, fence3→nothing. All observations are
+/// scoped to the fixture ids created here (never a whole-table count), so
+/// leaked rows from other runs of this shared DB can't flake the assertions.
+#[tokio::test]
+async fn geofence_ids_for_projects_unions_and_dedupes() {
+    let Some(db) = test_db().await else { return };
+    let project_a_name = unique_name("ids4p-project-a");
+    let project_b_name = unique_name("ids4p-project-b");
+    let fence1_name = unique_name("ids4p-fence-1");
+    let fence2_name = unique_name("ids4p-fence-2");
+    let fence3_name = unique_name("ids4p-fence-3");
+
+    let geometry = json!({
+        "type": "Polygon",
+        "coordinates": [[
+            [0.0, 0.0],
+            [0.0, 1.0],
+            [1.0, 1.0],
+            [1.0, 0.0],
+            [0.0, 0.0]
+        ]]
+    });
+
+    let project_a = project::Query::upsert_json_return(&db, 0, json!({ "name": project_a_name }))
+        .await
+        .expect("project A upsert should insert");
+    let project_a_id = project_a["id"].as_u64().expect("project A id") as u32;
+    let project_b = project::Query::upsert_json_return(&db, 0, json!({ "name": project_b_name }))
+        .await
+        .expect("project B upsert should insert");
+    let project_b_id = project_b["id"].as_u64().expect("project B id") as u32;
+
+    let mut fence_ids = Vec::with_capacity(3);
+    for name in [&fence1_name, &fence2_name, &fence3_name] {
+        let created = geofence::Query::upsert_json_return(
+            &db,
+            0,
+            json!({ "name": name, "mode": "unset", "geometry": geometry }),
+        )
+        .await
+        .expect("geofence upsert should insert");
+        fence_ids.push(created["id"].as_u64().expect("created geofence has an id") as u32);
+    }
+    let [fence1_id, fence2_id, fence3_id]: [u32; 3] =
+        fence_ids.clone().try_into().expect("3 fence ids");
+
+    // fence1→A, fence2→B, fence3→nothing.
+    geofence_project::Query::upsert_related_by_project_id(&db, &[json!(fence1_id)], project_a_id)
+        .await
+        .expect("link fence1 to project A");
+    geofence_project::Query::upsert_related_by_project_id(&db, &[json!(fence2_id)], project_b_id)
+        .await
+        .expect("link fence2 to project B");
+
+    // Gather every observation FIRST, then delete, then assert (panic-safe
+    // cleanup — see geofence_crud_round_trip above).
+    let union_ab =
+        geofence_project::Query::geofence_ids_for_projects(&db, &[project_a_id, project_b_id])
+            .await;
+
+    // Now link fence1 to BOTH projects (B's desired set becomes
+    // {fence1, fence2}) — the union must dedupe fence1 to a single entry.
+    let relink = geofence_project::Query::upsert_related_by_project_id(
+        &db,
+        &[json!(fence1_id), json!(fence2_id)],
+        project_b_id,
+    )
+    .await;
+    let union_ab_after_double_link =
+        geofence_project::Query::geofence_ids_for_projects(&db, &[project_a_id, project_b_id])
+            .await;
+
+    let union_empty = geofence_project::Query::geofence_ids_for_projects(&db, &[]).await;
+
+    for fence_id in fence_ids {
+        geofence::Query::delete(&db, fence_id)
+            .await
+            .expect("delete fence");
+    }
+    project::Query::delete(&db, project_a_id)
+        .await
+        .expect("delete project A");
+    project::Query::delete(&db, project_b_id)
+        .await
+        .expect("delete project B");
+
+    // ANY-of union: fence1 (via A) + fence2 (via B); fence3 never appears.
+    let union_ab = union_ab.expect("geofence_ids_for_projects([A, B]) should succeed");
+    let mut expected = vec![fence1_id, fence2_id];
+    expected.sort_unstable();
+    assert_eq!(
+        union_ab, expected,
+        "union over [A, B] must be exactly {{fence1, fence2}} (sorted), never fence3 ({fence3_id})"
+    );
+
+    // Dedupe: fence1 linked to BOTH projects still appears exactly once.
+    relink.expect("re-link fence1 to project B should succeed");
+    let union_ab_after_double_link = union_ab_after_double_link
+        .expect("geofence_ids_for_projects([A, B]) after double-link should succeed");
+    assert_eq!(
+        union_ab_after_double_link, expected,
+        "fence1 linked to both projects must be deduped to a single entry"
+    );
+
+    // Empty input → empty output (no projects means no fences, not all fences).
+    let union_empty = union_empty.expect("geofence_ids_for_projects([]) should succeed");
+    assert!(
+        union_empty.is_empty(),
+        "an empty project slice must yield an empty id list, got {union_empty:?}"
+    );
+}

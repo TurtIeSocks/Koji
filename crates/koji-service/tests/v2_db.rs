@@ -77,6 +77,17 @@ async fn cleanup_geofence(db: &DatabaseConnection, id: u64) {
         .await;
 }
 
+/// Delete a `project` row by id (best-effort cleanup).
+async fn cleanup_project(db: &DatabaseConnection, id: u64) {
+    let _ = db
+        .execute(Statement::from_sql_and_values(
+            DbBackend::MySql,
+            "DELETE FROM `project` WHERE `id` = ?",
+            [Value::from(id)],
+        ))
+        .await;
+}
+
 /// Delete a `route` row by id (best-effort cleanup).
 async fn cleanup_route(db: &DatabaseConnection, id: u64) {
     let _ = db
@@ -532,6 +543,213 @@ async fn geofences_bbox_wrong_arity_returns_400() {
     let v = body_json(resp).await;
     assert_eq!(v["status"], "error");
     assert_eq!(v["error"]["code"], "invalid_request");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GEOFENCES — `?mode=`/`?projects=` bbox refinements (Task 7)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// `?ids=` + `?bbox=` together is now an explicit 400. Before Task 7 the
+/// handler checked `ids` first and silently ignored `bbox` (200, ids wins) —
+/// this pins the deliberate reorder to fail-loud instead.
+#[actix_web::test]
+async fn geofences_ids_plus_bbox_returns_400() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    let req = test::TestRequest::get()
+        .uri("/api/v2/geofences?ids=1&bbox=0,0,10,10")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400, "ids+bbox together must be 400");
+    let v = body_json(resp).await;
+    assert_eq!(v["status"], "error");
+    assert_eq!(v["error"]["code"], "invalid_request");
+    assert_eq!(v["error"]["field"], "bbox");
+}
+
+/// `?mode=`/`?projects=` are bbox refinements — either one without `?bbox=`
+/// is a 400, not a silent no-op. Before Task 7 these params didn't exist and
+/// were silently ignored (200, full unfiltered list).
+#[actix_web::test]
+async fn geofences_mode_or_projects_without_bbox_returns_400() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    let req = test::TestRequest::get()
+        .uri("/api/v2/geofences?mode=pokemon")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400, "mode without bbox must be 400");
+    let v = body_json(resp).await;
+    assert_eq!(v["status"], "error");
+    assert_eq!(v["error"]["code"], "invalid_request");
+    assert_eq!(v["error"]["field"], "mode");
+
+    let req = test::TestRequest::get()
+        .uri("/api/v2/geofences?projects=1")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400, "projects without bbox must be 400");
+    let v = body_json(resp).await;
+    assert_eq!(v["status"], "error");
+    assert_eq!(v["error"]["code"], "invalid_request");
+}
+
+/// An unknown `?mode=` string (with a valid bbox) is a 400 from the
+/// `mode_filter()` parser, not an empty 200.
+#[actix_web::test]
+async fn geofences_bbox_unknown_mode_returns_400() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    let req = test::TestRequest::get()
+        .uri("/api/v2/geofences?bbox=0,0,10,10&mode=raid")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400, "unknown mode must be 400");
+    let v = body_json(resp).await;
+    assert_eq!(v["status"], "error");
+    assert_eq!(v["error"]["code"], "invalid_request");
+    assert_eq!(v["error"]["field"], "mode");
+}
+
+/// A non-numeric `?projects=` segment is a 400 from the `project_ids()`
+/// parser (mirrors the `?ids=` malformed-segment behavior).
+#[actix_web::test]
+async fn geofences_projects_malformed_segment_returns_400() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    let req = test::TestRequest::get()
+        .uri("/api/v2/geofences?bbox=0,0,10,10&projects=1,x")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(
+        resp.status(),
+        400,
+        "a non-numeric project segment must be 400"
+    );
+    let v = body_json(resp).await;
+    assert_eq!(v["status"], "error");
+    assert_eq!(v["error"]["code"], "invalid_request");
+    assert_eq!(v["error"]["field"], "projects");
+}
+
+/// Happy path for the combined filters: `?bbox&mode&projects=` returns
+/// exactly the fence that satisfies ALL three. Three fences inside one bbox:
+/// pokemon+linked (the match), fort+linked (killed by `mode`), and
+/// pokemon+unlinked (killed by `projects`) — so each filter is individually
+/// load-bearing, not just along for the ride. Fixtures sit at a remote
+/// corner of the map (`[150,70]`-ish) and the assertion filters response
+/// names down to this test's own fixtures, so leaked rows from other runs of
+/// the shared DB can't flake it.
+#[actix_web::test]
+async fn geofences_bbox_mode_projects_happy_path_returns_only_the_match() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let match_name = unique_name("fence-refine-match");
+    let wrong_mode_name = unique_name("fence-refine-wrong-mode");
+    let unlinked_name = unique_name("fence-refine-unlinked");
+    let project_name = unique_name("proj-refine");
+
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    // Remote triangles, all inside the [149,69,153,73] query bbox below.
+    let tri = |lng: f64, lat: f64| {
+        serde_json::json!({
+            "type": "Polygon",
+            "coordinates": [[[lng,lat],[lng+1.0,lat],[lng+1.0,lat+1.0],[lng,lat]]]
+        })
+    };
+
+    // Project to scope against.
+    let req = test::TestRequest::post()
+        .uri("/api/v2/projects")
+        .set_json(serde_json::json!({ "name": project_name }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 201, "project create must return 201");
+    let project_id = body_json(resp).await["data"]["id"]
+        .as_u64()
+        .expect("project id");
+
+    // pokemon + linked → the one expected match.
+    let req = test::TestRequest::post()
+        .uri("/api/v2/geofences")
+        .set_json(serde_json::json!({
+            "name": match_name, "mode": "pokemon", "geometry": tri(150.0, 70.0),
+            "projects": [project_id]
+        }))
+        .to_request();
+    let match_id = body_json(test::call_service(&app, req).await).await["data"]["id"]
+        .as_u64()
+        .expect("match fence id");
+
+    // fort + linked → excluded by `mode`.
+    let req = test::TestRequest::post()
+        .uri("/api/v2/geofences")
+        .set_json(serde_json::json!({
+            "name": wrong_mode_name, "mode": "fort", "geometry": tri(151.5, 70.0),
+            "projects": [project_id]
+        }))
+        .to_request();
+    let wrong_mode_id = body_json(test::call_service(&app, req).await).await["data"]["id"]
+        .as_u64()
+        .expect("wrong-mode fence id");
+
+    // pokemon + NOT linked → excluded by `projects`.
+    let req = test::TestRequest::post()
+        .uri("/api/v2/geofences")
+        .set_json(serde_json::json!({
+            "name": unlinked_name, "mode": "pokemon", "geometry": tri(150.0, 71.5)
+        }))
+        .to_request();
+    let unlinked_id = body_json(test::call_service(&app, req).await).await["data"]["id"]
+        .as_u64()
+        .expect("unlinked fence id");
+
+    // ── the combined filter request ─────────────────────────────────────
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v2/geofences?bbox=149,69,153,73&mode=pokemon&projects={project_id}"
+        ))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    let status = resp.status();
+    let body = body_json(resp).await;
+
+    // Cleanup before asserting so a failing assert doesn't strand the rows
+    // (fence deletes cascade their geofence_project links).
+    cleanup_geofence(&db, match_id).await;
+    cleanup_geofence(&db, wrong_mode_id).await;
+    cleanup_geofence(&db, unlinked_id).await;
+    cleanup_project(&db, project_id).await;
+
+    assert_eq!(status, 200, "bbox+mode+projects must return 200");
+    let names: std::collections::BTreeSet<String> = feature_names(&body)
+        .into_iter()
+        .filter(|n| [&match_name, &wrong_mode_name, &unlinked_name].contains(&n))
+        .collect();
+    let expected: std::collections::BTreeSet<String> = [match_name.clone()].into_iter().collect();
+    assert_eq!(
+        names, expected,
+        "bbox+mode=pokemon+projects={project_id} must return exactly the pokemon+linked fence"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
