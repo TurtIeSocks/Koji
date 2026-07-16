@@ -18,6 +18,7 @@ vi.mock("@/map/data/use-geo-features", () => ({
 	useGeofencesByBbox: useGeofencesByBboxMock,
 }));
 
+import type { Bounds } from "@/map/stores/types";
 import { padBbox, useNeighborOverlay } from "./use-neighbor-overlay";
 
 // `@testing-library/react` isn't a dependency of this project — hand-roll the
@@ -54,6 +55,10 @@ const poly: GeoJSON.Polygon = {
 		],
 	],
 };
+
+// Previously `padBbox(geometryBounds(poly), 0.2)` — now passed directly by
+// the caller, since the hook no longer derives the bbox itself.
+const bbox: Bounds = [-0.2, -0.2, 1.2, 1.2];
 
 const CURRENT_ID = 42;
 
@@ -94,7 +99,7 @@ describe("useNeighborOverlay", () => {
 	});
 
 	it("defaults off: no layers, label is Neighbors", () => {
-		const rendered = renderHook(() => useNeighborOverlay(poly, CURRENT_ID));
+		const rendered = renderHook(() => useNeighborOverlay(bbox, CURRENT_ID));
 		mounted = rendered;
 
 		expect(rendered.result.current.on).toBe(false);
@@ -102,8 +107,8 @@ describe("useNeighborOverlay", () => {
 		expect(rendered.result.current.label).toBe("Neighbors");
 	});
 
-	it("setOn(true) with a non-null geometry builds one layer excluding currentId", () => {
-		const rendered = renderHook(() => useNeighborOverlay(poly, CURRENT_ID));
+	it("setOn(true) with a non-null bbox builds one layer excluding currentId", () => {
+		const rendered = renderHook(() => useNeighborOverlay(bbox, CURRENT_ID));
 		mounted = rendered;
 
 		act(() => {
@@ -117,7 +122,7 @@ describe("useNeighborOverlay", () => {
 		expect(layerData.some((f) => String(f.id) === String(CURRENT_ID))).toBe(false);
 	});
 
-	it("null geometry: setOn(true) still yields no layers (no bbox → no fetch)", () => {
+	it("null bbox: setOn(true) still yields no layers (no bbox → no fetch)", () => {
 		const rendered = renderHook(() => useNeighborOverlay(null, CURRENT_ID));
 		mounted = rendered;
 
@@ -128,19 +133,8 @@ describe("useNeighborOverlay", () => {
 		expect(rendered.result.current.layers).toHaveLength(0);
 	});
 
-	it("undefined geometry: setOn(true) still yields no layers", () => {
-		const rendered = renderHook(() => useNeighborOverlay(undefined, CURRENT_ID));
-		mounted = rendered;
-
-		act(() => {
-			rendered.result.current.setOn(true);
-		});
-
-		expect(rendered.result.current.layers).toHaveLength(0);
-	});
-
 	it("getTooltip resolves a feature's name", () => {
-		const rendered = renderHook(() => useNeighborOverlay(poly, CURRENT_ID));
+		const rendered = renderHook(() => useNeighborOverlay(bbox, CURRENT_ID));
 		mounted = rendered;
 
 		// overlayTooltip gates on the overlay layer id (hardened in 617a9472), so the
@@ -150,6 +144,34 @@ describe("useNeighborOverlay", () => {
 			object: { properties: { name: "neighbor" } },
 		} as never);
 		expect(tip).toEqual({ text: "neighbor" });
+	});
+
+	it("threads filters into the fetch URL", async () => {
+		// Follow this file's existing fetch-stub pattern: useGeofencesByBboxMock
+		// is a mock of the whole hook (not the underlying fetch), so assert on
+		// what it was CALLED with rather than a URL string — this still proves
+		// bbox/filters flow through unmangled to the wire-building hook, whose
+		// own URL-building is covered by use-geo-features.test.tsx.
+		useGeofencesByBboxMock.mockImplementation(
+			(_bbox: unknown, enabled: boolean, filters?: { mode?: string; projects?: number[] }) => ({
+				data: enabled ? FC : undefined,
+				_filters: filters,
+			}),
+		);
+
+		const rendered = renderHook(() =>
+			useNeighborOverlay(bbox, CURRENT_ID, { mode: "pokemon", projects: [1, 2] }),
+		);
+		mounted = rendered;
+
+		act(() => {
+			rendered.result.current.setOn(true);
+		});
+
+		expect(useGeofencesByBboxMock).toHaveBeenCalledWith(bbox, true, {
+			mode: "pokemon",
+			projects: [1, 2],
+		});
 	});
 });
 

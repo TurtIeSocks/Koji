@@ -1,9 +1,9 @@
 import type { Layer, PickingInfo } from "@deck.gl/core";
 import { useMemo, useState } from "react";
+import type { NeighborFilters } from "@/map/data/use-geo-features";
 import { useGeofencesByBbox } from "@/map/data/use-geo-features";
 import { geofenceOverlayLayer, overlayTooltip } from "@/map/lib/geofence-overlay";
 import type { Bounds } from "@/map/stores/types";
-import { geometryBounds } from "./bounds";
 
 export interface UseNeighborOverlayResult {
 	on: boolean;
@@ -24,22 +24,22 @@ export function padBbox(b: Bounds | null | undefined, frac: number): Bounds | nu
 	return [minX - dx, minY - dy, maxX + dx, maxY + dy];
 }
 
-/** "Show Neighbors" toggle for a geofence show/edit/create page — reveals
- *  dimmed ghost fences near `geometry` (a padded-bbox scoped fetch) for
- *  overlap visualization. Mirrors `useMarkerOverlay`'s toggle+layer pattern.
- *  Default OFF.
+/** "Show Neighbors" toggle — reveals dimmed ghost fences inside `bbox` for
+ *  overlap visualization. The CALLER derives the bbox: camera viewport on
+ *  create/edit (so it works before anything is drawn — beta feedback
+ *  2026-07-15), padded record-geometry on the show page. Default OFF.
  *
  *  Calls `useGeofencesByBbox` UNCONDITIONALLY every render (fixed hook order
  *  per the rules of hooks) — the fetch itself is gated via its own `enabled`
- *  arg (`on && !!geometry`) instead of being skipped. */
+ *  arg (`on && !!bbox`) instead of being skipped. */
 export function useNeighborOverlay(
-	geometry: GeoJSON.Geometry | null | undefined,
+	bbox: Bounds | null,
 	currentId?: number | string | null,
+	filters?: NeighborFilters,
 ): UseNeighborOverlayResult {
 	const [on, setOn] = useState(false);
 
-	const bbox = geometry ? padBbox(geometryBounds(geometry), 0.2) : null;
-	const q = useGeofencesByBbox(bbox, on && !!geometry);
+	const q = useGeofencesByBbox(bbox, on && !!bbox, filters);
 
 	const layers = useMemo<Layer[]>(
 		() =>

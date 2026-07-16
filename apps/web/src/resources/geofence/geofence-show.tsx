@@ -10,7 +10,8 @@ import {
 } from "@/components/admin";
 import { ShowLive } from "@/components/realtime";
 import { DeckGeoJsonField } from "@/components/deck";
-import { useNeighborOverlay } from "@/components/deck/use-neighbor-overlay";
+import { geometryBounds } from "@/components/deck/bounds";
+import { padBbox, useNeighborOverlay } from "@/components/deck/use-neighbor-overlay";
 import { Button } from "@/components/ui/button";
 import type { ShowProps } from "@/components/admin/views/show";
 import { useRecordContext } from "ra-core";
@@ -32,7 +33,10 @@ const NewRouteButton = () => {
 // mode-based marker toggle, mirroring RouteShowMap's record read.
 const FenceMapField = () => {
   const record = useRecordContext();
-  const nb = useNeighborOverlay(record?.geometry as GeoJSON.Geometry | undefined, record?.id);
+  const nb = useNeighborOverlay(
+    record?.geometry ? padBbox(geometryBounds(record.geometry as GeoJSON.Geometry), 0.2) : null,
+    record?.id,
+  );
   return (
     <DeckGeoJsonField
       source="geometry"

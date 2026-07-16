@@ -19,15 +19,22 @@ vi.mock("@/map/data/use-markers", () => ({
 
 // Hoisted so both the vi.mock factory and the test can see the same spy.
 const { setOnMock } = vi.hoisted(() => ({ setOnMock: vi.fn() }));
-vi.mock("@/components/deck/use-neighbor-overlay", () => ({
-  useNeighborOverlay: vi.fn(() => ({
-    on: false,
-    setOn: setOnMock,
-    layers: [],
-    getTooltip: () => null,
-    label: "Neighbors",
-  })),
-}));
+// Partial mock: keep the real `padBbox` (geofence-show.tsx now calls it
+// directly to build the hook's bbox arg) while replacing `useNeighborOverlay`
+// itself so the toggle/layers stay test-driven.
+vi.mock("@/components/deck/use-neighbor-overlay", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/components/deck/use-neighbor-overlay")>();
+  return {
+    ...actual,
+    useNeighborOverlay: vi.fn(() => ({
+      on: false,
+      setOn: setOnMock,
+      layers: [],
+      getTooltip: () => null,
+      label: "Neighbors",
+    })),
+  };
+});
 
 const record = {
   id: 1,

@@ -14,7 +14,7 @@ import { DeckGeoJsonInput } from "./deck-geojson-input";
 import { featuresToGeofence, geofenceToFeatures } from "./geofence-geometry";
 import { LastSeenPicker } from "./last-seen-picker";
 import { useLastSeen } from "./use-last-seen";
-import { useNeighborOverlay } from "./use-neighbor-overlay";
+import { padBbox, useNeighborOverlay } from "./use-neighbor-overlay";
 
 const WORLD: Bounds = [-180, -85, 180, 85];
 
@@ -35,7 +35,10 @@ export function GeofenceMap({ height = 480 }: { height?: number | string }) {
 	// On edit, exclude the fence being edited from its own "Show Neighbors"
 	// overlay; on create there's no id yet, so nothing is excluded.
 	const editingId = useRecordContext()?.id;
-	const nb = useNeighborOverlay(geometry, editingId);
+	const nb = useNeighborOverlay(
+		geometry ? padBbox(geometryBounds(geometry), 0.2) : null,
+		editingId,
+	);
 
 	const [show, setShow] = useState({
 		gyms: false,

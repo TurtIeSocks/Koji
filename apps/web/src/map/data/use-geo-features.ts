@@ -45,13 +45,28 @@ export function useGeofencesByIds(ids: (number | string)[], enabled?: boolean) {
   });
 }
 
+export interface NeighborFilters {
+  mode?: string;
+  projects?: number[];
+}
+
 /** Scoped geofence-geometry fetch by viewport bbox — same never-fetch-all
- *  rationale as `useGeofencesByIds`. */
-export function useGeofencesByBbox(bbox: Bounds | null, enabled: boolean) {
+ *  rationale as `useGeofencesByIds`. Optional mode/projects filters are
+ *  server-side bbox refinements (see /v2/geofences ReadQuery). */
+export function useGeofencesByBbox(
+  bbox: Bounds | null,
+  enabled: boolean,
+  filters?: NeighborFilters,
+) {
+  const mode = filters?.mode;
+  const projects = filters?.projects?.length ? [...filters.projects].sort() : undefined;
   return useQuery({
-    queryKey: ["geo", "geofences", "bbox", bbox],
+    queryKey: ["geo", "geofences", "bbox", bbox, mode ?? null, projects ?? null],
     queryFn: async () => {
-      const res = await apiV2Fetch(`/geofences?format=featurecollection&bbox=${bbox!.join(",")}`);
+      let url = `/geofences?format=featurecollection&bbox=${bbox!.join(",")}`;
+      if (mode) url += `&mode=${encodeURIComponent(mode)}`;
+      if (projects) url += `&projects=${projects.join(",")}`;
+      const res = await apiV2Fetch(url);
       return unwrapFc(res);
     },
     enabled: enabled && !!bbox,

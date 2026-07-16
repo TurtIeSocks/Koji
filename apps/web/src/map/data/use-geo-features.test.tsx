@@ -80,8 +80,12 @@ const twoFeatureFc: GeoJSON.FeatureCollection = {
 };
 
 function stubFetchOk(fc: GeoJSON.FeatureCollection) {
-  const fetchMock = vi.fn().mockResolvedValue(
-    new Response(JSON.stringify({ status: "ok", data: fc }), { status: 200 }),
+  // A fresh `Response` per call — a `Response`'s body can only be read
+  // (`.text()`/`.json()`) once, so a shared `mockResolvedValue` instance
+  // breaks the moment a test drives more than one fetch (e.g. two hooks with
+  // distinct query keys, both resolving off the same stub).
+  const fetchMock = vi.fn().mockImplementation(
+    async () => new Response(JSON.stringify({ status: "ok", data: fc }), { status: 200 }),
   );
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
@@ -156,5 +160,68 @@ describe("useGeofencesByBbox", () => {
 
     await act(async () => {});
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fetches by bbox with mode/projects filters in the URL", async () => {
+    const fetchMock = stubFetchOk(twoFeatureFc);
+    const bbox: Bounds = [0, 0, 1, 1];
+
+    const rendered = renderHook(() =>
+      useGeofencesByBbox(bbox, true, { mode: "pokemon", projects: [1, 2] }),
+    );
+    mounted = rendered;
+    const { result } = rendered;
+
+    await act(async () => {
+      await vi.waitFor(() => expect(result.current.isSuccess).toBe(true));
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "/api/v2/geofences?format=featurecollection&bbox=0,0,1,1&mode=pokemon&projects=1,2",
+    );
+  });
+
+  it("uses a distinct query key from the unfiltered call — same bbox, same cache, two fetches", async () => {
+    const fetchMock = stubFetchOk(twoFeatureFc);
+    const bbox: Bounds = [0, 0, 1, 1];
+
+    // One shared QueryClient (unlike the default `renderHook` helper, which
+    // mints a fresh client per call) — proves the filtered/unfiltered pair
+    // land in distinct cache entries rather than one hook's result reusing
+    // the other's, which is what "distinct query key" actually buys us.
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const result: {
+      current: {
+        unfiltered: ReturnType<typeof useGeofencesByBbox>;
+        filtered: ReturnType<typeof useGeofencesByBbox>;
+      };
+    } = { current: undefined as never };
+    function Probe() {
+      result.current = {
+        unfiltered: useGeofencesByBbox(bbox, true),
+        filtered: useGeofencesByBbox(bbox, true, { mode: "pokemon", projects: [1, 2] }),
+      };
+      return null;
+    }
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    let root: Root;
+    act(() => {
+      root = createRoot(container);
+      root.render(
+        <QueryClientProvider client={qc}>
+          <Probe />
+        </QueryClientProvider>,
+      );
+    });
+    mounted = { unmount: () => act(() => root.unmount()) };
+
+    await act(async () => {
+      await vi.waitFor(() => expect(result.current.filtered.isSuccess).toBe(true));
+      await vi.waitFor(() => expect(result.current.unfiltered.isSuccess).toBe(true));
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

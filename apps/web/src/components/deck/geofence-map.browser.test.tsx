@@ -13,9 +13,13 @@ const { useNeighborOverlayMock, setOnMock } = vi.hoisted(() => ({
   useNeighborOverlayMock: vi.fn(),
   setOnMock: vi.fn(),
 }));
-vi.mock("./use-neighbor-overlay", () => ({
-  useNeighborOverlay: useNeighborOverlayMock,
-}));
+// Partial mock: keep the real `padBbox` (geofence-map.tsx now calls it
+// directly to build the hook's bbox arg) while replacing `useNeighborOverlay`
+// itself so the toggle/layers stay test-driven.
+vi.mock("./use-neighbor-overlay", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./use-neighbor-overlay")>();
+  return { ...actual, useNeighborOverlay: useNeighborOverlayMock };
+});
 
 import { render } from "vitest-browser-react";
 import { AdminContext, SimpleForm } from "@/components/admin";
