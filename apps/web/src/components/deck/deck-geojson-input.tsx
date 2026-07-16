@@ -13,7 +13,7 @@ import {
 	Trash2,
 	Undo2,
 } from "lucide-react";
-import React, { type ReactNode, useMemo } from "react";
+import React, { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { createModeInstance, type DrawMode, requiresPriorSelection } from "@/map/lib/edit-modes";
@@ -69,6 +69,7 @@ function DeckDrawToolbar({
 	history,
 	onDelete,
 	allowedModes,
+	drawing,
 }: {
 	mode: DrawMode;
 	setMode: (m: DrawMode) => void;
@@ -78,6 +79,8 @@ function DeckDrawToolbar({
 	/** Delete the selected shape(s). Gated on `hasSelection`. */
 	onDelete: () => void;
 	allowedModes?: DrawMode[];
+	/** In-progress polygon draw (drawPolygon only) — Done/Cancel buttons. */
+	drawing?: { canFinish: boolean; onDone: () => void; onCancel: () => void } | null;
 }) {
 	const groups = allowedModes
 		? DRAW_GROUPS.map((g) => ({
@@ -175,6 +178,29 @@ function DeckDrawToolbar({
 					{hasSelection ? "Delete selected shape" : "Select a shape first"}
 				</TooltipContent>
 			</Tooltip>
+			{drawing ? (
+				<ButtonGroup>
+					<Button
+						type="button"
+						size="sm"
+						variant="default"
+						disabled={!drawing.canFinish}
+						aria-label="Finish drawing"
+						onClick={drawing.onDone}
+					>
+						Done
+					</Button>
+					<Button
+						type="button"
+						size="sm"
+						variant="ghost"
+						aria-label="Cancel drawing"
+						onClick={drawing.onCancel}
+					>
+						Cancel
+					</Button>
+				</ButtonGroup>
+			) : null}
 		</div>
 	);
 }
@@ -232,6 +258,28 @@ export function DeckGeoJsonInput({
 		version,
 	} = useDeckEditRHF(editOpts);
 
+	// Live vertex count for the in-progress polygon (Done enables at 3). The
+	// mode's internal clickSequence isn't reactive — count its
+	// addTentativePosition edits instead; any real edit or cancel resets.
+	const [tentativeCount, setTentativeCount] = useState(0);
+	const tentativeCountRef = useRef(0);
+	tentativeCountRef.current = tentativeCount;
+	const onEditWrapped = useCallback(
+		(e: Parameters<typeof onEdit>[0]) => {
+			if (e.editType === "addTentativePosition") setTentativeCount((c) => c + 1);
+			else if (e.editType !== "updateTentativeFeature") setTentativeCount(0);
+			onEdit(e);
+		},
+		[onEdit],
+	);
+	const setModeReset = useCallback(
+		(m: DrawMode) => {
+			setTentativeCount(0);
+			setMode(m);
+		},
+		[setMode],
+	);
+
 	// A fresh mode INSTANCE per mode switch (not the class) — editable-geojson-layer
 	// only re-instantiates its internal mode when this prop's identity changes, so
 	// the memoized instance (and its in-progress click sequence) survives editLayers
@@ -252,7 +300,7 @@ export function DeckGeoJsonInput({
 				mode,
 				features: draft,
 				selectedIndexes,
-				onEdit,
+				onEdit: onEditWrapped,
 				onSelect,
 				version,
 				modeInstance,
@@ -273,7 +321,7 @@ export function DeckGeoJsonInput({
 				pointRadiusUnits: "pixels",
 			}),
 		];
-	}, [mode, draft, selectedIndexes, onEdit, onSelect, disabled, version, modeInstance]);
+	}, [mode, draft, selectedIndexes, onEditWrapped, onSelect, disabled, version, modeInstance]);
 	// Neighbors (contextLayers) are only clickable when the draw tool is idle —
 	// while drawing is actually active, force them non-pickable so a click meant
 	// to draw (or a hover mid-drag) can't collide with the neighbor overlay's own
@@ -297,6 +345,23 @@ export function DeckGeoJsonInput({
 		return g ? geometryBounds(g) : null;
 	}, [value]);
 
+	// Escape cancels an in-progress polygon draw. Registered on the CAPTURE
+	// phase + stopPropagation so it wins over DeckMap's own window-keydown
+	// Escape listener (fullscreen-collapse, deck-map.tsx:76-83) while vertices
+	// are down; with none down, the event passes through untouched so
+	// fullscreen-collapse still works.
+	useEffect(() => {
+		if (mode !== "drawPolygon" || disabled) return;
+		const h = (e: KeyboardEvent) => {
+			if (e.key !== "Escape" || tentativeCountRef.current === 0) return;
+			e.stopPropagation(); // beat DeckMap's fullscreen-collapse listener
+			(modeInstance as { cancel?: () => void }).cancel?.();
+			setTentativeCount(0);
+		};
+		window.addEventListener("keydown", h, true);
+		return () => window.removeEventListener("keydown", h, true);
+	}, [mode, disabled, modeInstance]);
+
 	return (
 		<div className="flex flex-col gap-1" data-slot="deck-geojson-input">
 			{label ? <span className="text-sm font-medium">{label}</span> : null}
@@ -317,11 +382,26 @@ export function DeckGeoJsonInput({
 					{!disabled ? (
 						<DeckDrawToolbar
 							mode={mode}
-							setMode={setMode}
+							setMode={setModeReset}
 							hasSelection={selectedIndexes.length > 0}
 							history={history}
 							onDelete={deleteSelected}
 							allowedModes={allowedModes}
+							drawing={
+								mode === "drawPolygon"
+									? {
+											canFinish: tentativeCount >= 3,
+											onDone: () => {
+												(modeInstance as { finish?: () => void }).finish?.();
+												setTentativeCount(0);
+											},
+											onCancel: () => {
+												(modeInstance as { cancel?: () => void }).cancel?.();
+												setTentativeCount(0);
+											},
+										}
+									: null
+							}
 						/>
 					) : null}
 					{overlay}

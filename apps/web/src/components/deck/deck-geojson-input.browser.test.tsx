@@ -1,3 +1,9 @@
+// Tailwind's utility classes (position/z-index) are only compiled into a real
+// stylesheet when this global CSS entrypoint is imported — the "browser"
+// vitest project has no shared setupFiles, so a toolbar button's `.click()`
+// wouldn't land over the deck.gl canvas without it (established in the
+// DeckMap expand-button test).
+import "@/index.css";
 import { describe, expect, it } from "vitest";
 import { render } from "vitest-browser-react";
 import { AdminContext, SimpleForm } from "@/components/admin";
@@ -50,6 +56,26 @@ describe("DeckGeoJsonInput", () => {
     await expect
       .element(screen.getByRole("button", { name: /polygon/i }))
       .toHaveAttribute("type", "button");
+  });
+
+  it("shows Done/Cancel while drawing a polygon; Done disabled with <3 vertices", async () => {
+    const screen = render(
+      <AdminContext dataProvider={testDataProvider()}>
+        <SimpleForm onSubmit={() => {}}>
+          <DeckGeoJsonInput source="geometry" />
+        </SimpleForm>
+      </AdminContext>,
+    );
+    // Not drawing → no Done button.
+    expect(screen.container.querySelector('[aria-label="Finish drawing"]')).toBeNull();
+    await screen.getByRole("button", { name: "Polygon" }).click();
+    await expect
+      .element(screen.getByRole("button", { name: "Finish drawing" }))
+      .toBeInTheDocument();
+    await expect.element(screen.getByRole("button", { name: "Finish drawing" })).toBeDisabled();
+    await expect
+      .element(screen.getByRole("button", { name: "Cancel drawing" }))
+      .toBeInTheDocument();
   });
 
   it("allowedModes restricts the toolbar buttons", async () => {
