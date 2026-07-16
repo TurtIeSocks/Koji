@@ -57,7 +57,9 @@ describe("Geofence form", () => {
   it("renders name and mode inputs", async () => {
     const screen = render(wrap(<GeofenceCreate />));
     await expect.element(screen.getByLabelText(/name/i)).toBeVisible();
-    await expect.element(screen.getByLabelText(/mode/i)).toBeVisible();
+    // Exact — the Map tab's TabbedForm-co-mounted GeofenceMap toolbar also has a
+    // "Neighbor mode filter" control, which a loose /mode/i match picks up too.
+    await expect.element(screen.getByLabelText("Mode", { exact: true })).toBeVisible();
   });
 
   it("renders the deck geometry map (NOT Leaflet) in the create form", async () => {
@@ -82,15 +84,18 @@ describe("Geofence form", () => {
   // for/id association getByLabelText needs, so match the label text directly.
   // Split into two single-render tests — rendering two <AdminContext> + leaflet
   // forms in one test double-mounts the query client and the first never settles.
+  // Exact — the Map tab's TabbedForm-co-mounted GeofenceMap toolbar also has a
+  // "My projects only" button (visible text "My projects"), which a substring
+  // match on "Projects" picks up too.
   it("renders the projects autocomplete in Edit", async () => {
     const screen = render(wrap(<GeofenceEdit id={1} />));
-    await expect.element(screen.getByText("Projects")).toBeVisible();
+    await expect.element(screen.getByText("Projects", { exact: true })).toBeVisible();
   });
 
   it("renders the projects autocomplete in Create", async () => {
     const screen = render(wrap(<GeofenceCreate />));
     await expect.element(screen.getByLabelText(/name/i)).toBeVisible();
-    await expect.element(screen.getByText("Projects")).toBeVisible();
+    await expect.element(screen.getByText("Projects", { exact: true })).toBeVisible();
   });
 
   it("renders the properties array input in the geofence form", async () => {
