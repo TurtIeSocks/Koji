@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { useWatch, useFormContext } from "react-hook-form";
-import { RecordContextProvider } from "shadmin-core";
-import { DeckGeoJsonField } from "@/components/deck";
-import { cn } from "@/lib/utils";
+import { DeckGeoJsonInput } from "@/components/deck";
+import { importToFeatures, importFromFeatures } from "../import-features";
 
 interface Feature {
   type: "Feature";
@@ -40,30 +39,10 @@ function MapNameStep() {
   for (const n of resolvedNames) seen.set(n, (seen.get(n) ?? 0) + 1);
   const duplicates = [...seen.entries()].filter(([, c]) => c > 1).map(([n]) => n);
 
-  const fc = { type: "FeatureCollection" as const, features };
-
   return (
-    <div className="flex flex-col gap-6 sm:flex-row">
-      {/* Left: map preview */}
-      <div className="flex-1">
-        {features.length === 0 ? (
-          <div
-            className={cn(
-              "flex items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground",
-            )}
-            style={{ height: 300 }}
-          >
-            Load features first
-          </div>
-        ) : (
-          <RecordContextProvider value={{ _preview_fc: fc }}>
-            <DeckGeoJsonField source="_preview_fc" height={300} />
-          </RecordContextProvider>
-        )}
-      </div>
-
-      {/* Right: naming controls */}
-      <div className="flex w-full flex-col gap-4 sm:w-72">
+    <div className="flex flex-col gap-6">
+      {/* Naming controls — a row above the full-width map. */}
+      <div className="flex flex-wrap items-end gap-4">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="name-prop-select" className="text-sm font-medium">
             Name property
@@ -101,12 +80,9 @@ function MapNameStep() {
           </p>
         </div>
 
-        {/* Warnings */}
         {(emptyCount > 0 || duplicates.length > 0) && (
           <div role="alert" className="flex flex-col gap-1 text-sm text-destructive">
-            {emptyCount > 0 && (
-              <span>{emptyCount} feature(s) have an empty name</span>
-            )}
+            {emptyCount > 0 && <span>{emptyCount} feature(s) have an empty name</span>}
             {duplicates.length > 0 && (
               <span>
                 {duplicates.length} duplicate name(s): {duplicates.join(", ")}
@@ -115,6 +91,28 @@ function MapNameStep() {
           </div>
         )}
       </div>
+
+      {/* Full-width editable map: adjust the imported shapes before saving —
+          this replaces v1's "send to map for further editing" (spec D1).
+          transform/split/cutHole are excluded: they'd change feature count
+          or identity out from under the per-row assignments. */}
+      {features.length === 0 ? (
+        <div
+          className="flex items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground"
+          style={{ height: 640 }}
+        >
+          Load features first
+        </div>
+      ) : (
+        <DeckGeoJsonInput
+          source="features"
+          label="Preview & adjust"
+          height={640}
+          toFeatures={importToFeatures}
+          fromFeatures={importFromFeatures}
+          allowedModes={["drawPolygon", "drawRectangle", "drawCircle", "modify"]}
+        />
+      )}
     </div>
   );
 }
