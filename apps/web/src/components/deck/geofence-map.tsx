@@ -1,8 +1,9 @@
 import type { Layer } from "@deck.gl/core";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWatch } from "react-hook-form";
 import { useRecordContext } from "shadmin-core";
 import { Button } from "@/components/ui/button";
+import { GEOFENCE_MODES } from "@/lib/constants";
 import { useMarkers } from "@/map/data/use-markers";
 import { useS2Cells } from "@/map/data/use-s2-cells";
 import { buildBaseLayers } from "@/map/lib/layers";
@@ -18,6 +19,18 @@ import { padBbox, useNeighborOverlay } from "./use-neighbor-overlay";
 
 const WORLD: Bounds = [-180, -85, 180, 85];
 
+const NEIGHBOR_MIN_ZOOM = 9;
+
+/** Round to 4dp (~11m) so pan jitter doesn't produce endless new query keys. */
+function roundBbox(b: Bounds): Bounds {
+	return b.map((n) => Math.round(n * 10_000) / 10_000) as unknown as Bounds;
+}
+
+/** Fixed-size fallback box around a point (used before the first camera event). */
+function centerBbox(lon: number, lat: number): Bounds {
+	return [lon - 0.15, lat - 0.1, lon + 0.15, lat + 0.1];
+}
+
 export function GeofenceMap({ height = 480 }: { height?: number | string }) {
 	// Live geometry from the form drives the marker query as the fence is edited.
 	// Markers use the actual polygon `area` (so a MultiPolygon returns points
@@ -32,13 +45,46 @@ export function GeofenceMap({ height = 480 }: { height?: number | string }) {
 		[geometry],
 	);
 
+	// Empty (create) start view: the server's configured center, not [0,0].
+	// Moved above the neighbour block below — it's the pre-interaction fallback
+	// center, not just the initial camera.
+	const [startLat, startLon] = useStartCenter();
+
+	// --- Neighbour overlay: camera-driven bbox (spec §4.6) ------------------
+	// deck fires onViewStateChange only on interaction, so `view` is null until
+	// the user pans/zooms; the fallback keeps the toggle from being a no-op.
+	const [view, setView] = useState<{ bounds: Bounds; zoom: number } | null>(null);
+	const viewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const onViewStateChange = useCallback((vs: { zoom: number }, bounds: Bounds) => {
+		if (viewTimer.current) clearTimeout(viewTimer.current);
+		viewTimer.current = setTimeout(
+			() => setView({ bounds: roundBbox(bounds), zoom: vs.zoom }),
+			400,
+		);
+	}, []);
+	useEffect(() => () => { if (viewTimer.current) clearTimeout(viewTimer.current); }, []);
+
+	const fallbackBbox = geometry
+		? padBbox(geometryBounds(geometry), 0.2)
+		: centerBbox(startLon, startLat);
+	const zoomedOut = view != null && view.zoom < NEIGHBOR_MIN_ZOOM;
+	const nbBbox = view ? (zoomedOut ? null : view.bounds) : fallbackBbox;
+
+	// --- Neighbour filters (D4): follow the form until the user overrides ---
+	const formMode = useWatch({ name: "mode" }) as string | undefined;
+	const formProjects = (useWatch({ name: "projects" }) as number[] | undefined) ?? [];
+	const [modeOverride, setModeOverride] = useState<string | null>(null); // null = follow form
+	const [onlyMyProjects, setOnlyMyProjects] = useState(true);
+	const effectiveMode = modeOverride ?? (formMode && formMode !== "unset" ? formMode : "all");
+	const nbFilters = {
+		mode: effectiveMode === "all" ? undefined : effectiveMode,
+		projects: onlyMyProjects && formProjects.length > 0 ? formProjects : undefined,
+	};
+
 	// On edit, exclude the fence being edited from its own "Show Neighbors"
 	// overlay; on create there's no id yet, so nothing is excluded.
 	const editingId = useRecordContext()?.id;
-	const nb = useNeighborOverlay(
-		geometry ? padBbox(geometryBounds(geometry), 0.2) : null,
-		editingId,
-	);
+	const nb = useNeighborOverlay(nbBbox, editingId, nbFilters);
 
 	const [show, setShow] = useState({
 		gyms: false,
@@ -56,9 +102,6 @@ export function GeofenceMap({ height = 480 }: { height?: number | string }) {
 	const stops = useMarkers("pokestop", area, bbox, lastSeen.epoch, show.pokestops && hasGeom);
 	const spawns = useMarkers("spawnpoint", area, bbox, lastSeen.epoch, show.spawnpoints && hasGeom);
 	const s2 = useS2Cells(15, bbox, show.s2 && hasGeom);
-
-	// Empty (create) start view: the server's configured center, not [0,0].
-	const [startLat, startLon] = useStartCenter();
 
 	const contextLayers = useMemo<Layer[]>(
 		() => [
@@ -133,6 +176,43 @@ export function GeofenceMap({ height = 480 }: { height?: number | string }) {
 				>
 					{nb.on ? "Hide Neighbors" : "Show Neighbors"}
 				</Button>
+				{/* Filter controls stay visible (not gated on nb.on) so the user can
+				    dial in mode/project scope before ever flipping the toggle on —
+				    matches how effectiveMode/nbFilters are already computed every
+				    render regardless of `on`. Only the zoom hint is contextual. */}
+				<select
+					aria-label="Neighbor mode filter"
+					value={effectiveMode}
+					onChange={(e) => setModeOverride(e.target.value)}
+					className="rounded-md border bg-background px-2 py-1 text-sm"
+				>
+					<option value="all">All modes</option>
+					{GEOFENCE_MODES.map((m) => (
+						<option key={m.id} value={m.id}>
+							{m.name}
+						</option>
+					))}
+				</select>
+				<Button
+					type="button"
+					size="sm"
+					aria-label="My projects only"
+					variant={onlyMyProjects && formProjects.length > 0 ? "default" : "secondary"}
+					disabled={formProjects.length === 0}
+					title={
+						formProjects.length === 0
+							? "Set projects on the Details tab to scope neighbors"
+							: undefined
+					}
+					onClick={() => setOnlyMyProjects((v) => !v)}
+				>
+					My projects
+				</Button>
+				{nb.on && zoomedOut ? (
+					<span className="text-xs text-muted-foreground">
+						Zoom in to load neighbors
+					</span>
+				) : null}
 				<LastSeenPicker
 					value={lastSeen.value}
 					onChange={lastSeen.setValue}
@@ -148,6 +228,7 @@ export function GeofenceMap({ height = 480 }: { height?: number | string }) {
 				toFeatures={geofenceToFeatures}
 				fromFeatures={featuresToGeofence}
 				defaultViewState={{ longitude: startLon, latitude: startLat, zoom: 10 }}
+				onViewStateChange={onViewStateChange}
 			/>
 		</div>
 	);
