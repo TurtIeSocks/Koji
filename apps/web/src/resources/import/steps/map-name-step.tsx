@@ -17,6 +17,11 @@ function resolveName(f: Feature, i: number, nameProp: string, template: string):
 
 function MapNameStep() {
   const features = (useWatch({ name: "features" }) as Feature[]) ?? [];
+  // Set by the Source step on a successful load. Distinguishes "never loaded
+  // anything" (show the empty-state box) from "loaded, then deleted every
+  // shape on the map" (keep the editor mounted so a replacement can be drawn
+  // without navigating back to Source).
+  const sourceLoaded = (useWatch({ name: "_source_loaded" }) as boolean) ?? false;
   const { setValue } = useFormContext();
 
   const propKeys = Array.from(
@@ -96,7 +101,7 @@ function MapNameStep() {
           this replaces v1's "send to map for further editing" (spec D1).
           transform/split/cutHole are excluded: they'd change feature count
           or identity out from under the per-row assignments. */}
-      {features.length === 0 ? (
+      {features.length === 0 && !sourceLoaded ? (
         <div
           className="flex items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground"
           style={{ height: 640 }}

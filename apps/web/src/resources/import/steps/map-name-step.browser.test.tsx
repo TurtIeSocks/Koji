@@ -21,8 +21,16 @@ const makeFeature = (props: Record<string, unknown>): Feature => ({
 // markerMode), which always calls useMarkers -> react-query's useQuery — so
 // this harness needs a QueryClientProvider in its tree just like production
 // (App.tsx renders MapNameStep's ImportWizard inside <Admin>).
-const Harness = ({ features }: { features: Feature[] }) => {
-  const methods = useForm({ defaultValues: { features: features as unknown[] } });
+const Harness = ({
+  features,
+  sourceLoaded,
+}: {
+  features: Feature[];
+  sourceLoaded?: boolean;
+}) => {
+  const methods = useForm({
+    defaultValues: { features: features as unknown[], _source_loaded: sourceLoaded ?? false },
+  });
   return (
     <AdminContext dataProvider={testDataProvider()}>
       <FormProvider {...methods}>
@@ -49,6 +57,21 @@ describe("MapNameStep", () => {
     const screen = render(<Harness features={features} />);
     // The select should have an option for the "title" property
     await expect.element(screen.getByRole("option", { name: "title" })).toBeInTheDocument();
+  });
+
+  it("shows the empty-state box before any source was loaded", async () => {
+    const screen = render(<Harness features={[]} />);
+    await expect.element(screen.getByText("Load features first")).toBeVisible();
+    expect(screen.container.querySelector('[data-testid="deck-map"]')).toBeNull();
+  });
+
+  it("keeps the editable map mounted after deleting the last shape (regression)", async () => {
+    // _source_loaded=true + empty features = the user loaded a source, then
+    // deleted every shape on the map. The editor must stay mounted so they can
+    // draw a replacement without navigating back to Source.
+    const screen = render(<Harness features={[]} sourceLoaded />);
+    await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
+    expect(screen.container.textContent).not.toContain("Load features first");
   });
 
   it("shows a duplicate-name warning when two features resolve to the same name", async () => {

@@ -27,6 +27,9 @@ function SourceStep({ onLoaded }: { onLoaded: () => void }) {
     try {
       const converted = await postConvert(parsed.features);
       setValue("features", converted, { shouldDirty: true });
+      // Latch for step 2: once a source loaded, the map stays mounted even if
+      // the user deletes every shape (see MapNameStep's empty-state gate).
+      setValue("_source_loaded", true);
       setCount(converted.length);
       onLoaded();
     } catch (e) {
