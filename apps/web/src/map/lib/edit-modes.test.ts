@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import { modeSpecFor } from "@/map/lib/edit-modes";
+import { KojiDrawPolygonMode } from "@/map/lib/koji-draw-polygon-mode";
 import {
   DrawPolygonMode,
   DrawRectangleMode,
@@ -12,7 +13,9 @@ import {
 
 test("modeSpecFor maps each DrawMode to its editable-layers class", () => {
   expect(modeSpecFor("none").ModeClass).toBe(ViewMode);
-  expect(modeSpecFor("drawPolygon").ModeClass).toBe(DrawPolygonMode);
+  // drawPolygon uses Koji's subclass (open-line preview + dbl-click dedupe +
+  // finish/cancel) — cutHole below deliberately KEEPS the stock class.
+  expect(modeSpecFor("drawPolygon").ModeClass).toBe(KojiDrawPolygonMode);
   expect(modeSpecFor("drawRectangle").ModeClass).toBe(DrawRectangleMode);
   expect(modeSpecFor("drawCircle").ModeClass).toBe(DrawCircleFromCenterMode);
   expect(modeSpecFor("modify").ModeClass).toBe(ModifyMode);

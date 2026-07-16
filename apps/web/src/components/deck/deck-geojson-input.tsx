@@ -16,7 +16,7 @@ import {
 import React, { type ReactNode, useMemo } from "react";
 import { useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
-import { type DrawMode, requiresPriorSelection } from "@/map/lib/edit-modes";
+import { createModeInstance, type DrawMode, requiresPriorSelection } from "@/map/lib/edit-modes";
 import { buildEditLayer } from "@/map/lib/layers";
 import { ButtonGroup, ButtonGroupSeparator } from "../ui/button-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
@@ -232,6 +232,11 @@ export function DeckGeoJsonInput({
 		version,
 	} = useDeckEditRHF(editOpts);
 
+	// A fresh mode INSTANCE per mode switch (not the class) — editable-geojson-layer
+	// only re-instantiates its internal mode when this prop's identity changes, so
+	// the memoized instance (and its in-progress click sequence) survives editLayers
+	// rebuilds triggered by every other draft change (selection, onEdit, version…).
+	const modeInstance = useMemo(() => createModeInstance(mode), [mode]);
 	// buildEditLayer takes a single DraftInput (not separate args — the plan's
 	// snippet used a spread signature that doesn't match apps/web/src/map/lib/layers.ts).
 	// buildEditLayer short-circuits to [] whenever mode === "none" (the default,
@@ -250,6 +255,7 @@ export function DeckGeoJsonInput({
 				onEdit,
 				onSelect,
 				version,
+				modeInstance,
 			});
 		}
 		if (draft.features.length === 0) return [];
@@ -267,7 +273,7 @@ export function DeckGeoJsonInput({
 				pointRadiusUnits: "pixels",
 			}),
 		];
-	}, [mode, draft, selectedIndexes, onEdit, onSelect, disabled, version]);
+	}, [mode, draft, selectedIndexes, onEdit, onSelect, disabled, version, modeInstance]);
 	// Neighbors (contextLayers) are only clickable when the draw tool is idle —
 	// while drawing is actually active, force them non-pickable so a click meant
 	// to draw (or a hover mid-drag) can't collide with the neighbor overlay's own

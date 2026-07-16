@@ -7,6 +7,7 @@ import {
   TransformMode,
   SplitPolygonMode,
 } from "@deck.gl-community/editable-layers";
+import { KojiDrawPolygonMode } from "./koji-draw-polygon-mode";
 
 export type DrawMode =
   | "none"
@@ -34,13 +35,21 @@ export interface ModeSpec {
 
 const SPECS: Record<DrawMode, ModeSpec> = {
   none: { ModeClass: ViewMode, clickToSelect: false, needsSelection: false },
-  drawPolygon: { ModeClass: DrawPolygonMode, clickToSelect: false, needsSelection: false },
+  drawPolygon: { ModeClass: KojiDrawPolygonMode, clickToSelect: false, needsSelection: false },
   drawRectangle: { ModeClass: DrawRectangleMode, clickToSelect: false, needsSelection: false },
   drawCircle: { ModeClass: DrawCircleFromCenterMode, clickToSelect: false, needsSelection: false },
   modify: { ModeClass: ModifyMode, clickToSelect: true, needsSelection: true },
+  // ponytail: tester reports "Move makes my fence disappear" (2026-07-15) —
+  // unreproduced; suspected mechanism is TranslateMode's unclamped geodesic
+  // drag + DeckMap's fit-once camera (deck-map.tsx) flinging the shape
+  // off-screen. Left in deliberately. Upgrade path if a repro lands:
+  // selection-gate the button + re-fit the camera after a transform drag.
   transform: { ModeClass: TransformMode, clickToSelect: true, needsSelection: true },
   split: { ModeClass: SplitPolygonMode, clickToSelect: false, needsSelection: true },
   cutHole: {
+    // KEEPS the stock DrawPolygonMode — the hole preview needs the polygon
+    // fill (KojiDrawPolygonMode.createTentativeFeature defers to it anyway
+    // when isDrawingHole, but there's no reason to route through it here).
     ModeClass: DrawPolygonMode,
     modeConfig: { booleanOperation: "difference" },
     clickToSelect: false,
@@ -57,4 +66,14 @@ export function modeSpecFor(mode: DrawMode): ModeSpec {
 export function requiresPriorSelection(mode: DrawMode): boolean {
   const s = SPECS[mode];
   return s.needsSelection && !s.clickToSelect;
+}
+
+/** A fresh mode instance for the layer. Passing an INSTANCE (not the class)
+ *  lets the toolbar hold a handle to it (Done/Cancel call finish()/cancel());
+ *  the layer only re-instantiates when the mode prop's identity changes, so
+ *  the instance — and its in-progress click sequence — survives layer
+ *  rebuilds. Memoize per mode switch (deck-geojson-input.tsx). */
+export function createModeInstance(mode: DrawMode): unknown {
+  const Cls = SPECS[mode].ModeClass as new () => unknown;
+  return new Cls();
 }

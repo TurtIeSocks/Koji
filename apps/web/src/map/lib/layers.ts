@@ -24,6 +24,8 @@ export interface DraftInput {
    *  deck mounts a fresh EditableGeoJsonLayer — it otherwise caches its internal
    *  FeatureCollection and won't reflect an external delete until a pointer event. */
   version?: number;
+  /** Pre-built mode instance (createModeInstance). Falls back to the class. */
+  modeInstance?: unknown;
 }
 
 /** The data layers (markers/geofences/routes/s2). Kept separate from the edit
@@ -194,7 +196,7 @@ export function buildEditLayer(draft: DraftInput | undefined): Layer[] {
     new EditableGeoJsonLayer({
       id: `edit-${draft.version ?? 0}`,
       data: draft.features,
-      mode: spec.ModeClass,
+      mode: (draft.modeInstance ?? spec.ModeClass) as never,
       // Boolean op (e.g. cut-hole = 'difference') applied against the selection.
       modeConfig: spec.modeConfig,
       selectedFeatureIndexes: draft.selectedIndexes,
