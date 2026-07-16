@@ -2,12 +2,13 @@ import { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { parseGeoJsonText } from "@/lib/geojson-source";
+import { parseSourceText } from "@/lib/geojson-source";
 import { postConvert } from "@/lib/import-api";
 
-/** Source step: ingest GeoJSON by paste or file, normalize it server-side via
- *  /internal/geometry/convert, and load the resulting features into the form.
- *  Malformed input is surfaced as an error — never silently dropped. */
+/** Source step: ingest GeoJSON or lat,lon lists by paste or file, normalize
+ *  them server-side via /internal/geometry/convert, and load the resulting
+ *  features into the form. Malformed input is surfaced as an error — never
+ *  silently dropped. */
 function SourceStep({ onLoaded }: { onLoaded: () => void }) {
   const { setValue } = useFormContext();
   const [text, setText] = useState("");
@@ -17,7 +18,7 @@ function SourceStep({ onLoaded }: { onLoaded: () => void }) {
 
   const load = async () => {
     setError(null);
-    const parsed = parseGeoJsonText(text);
+    const parsed = parseSourceText(text);
     if ("error" in parsed) {
       setError(parsed.error);
       return;
@@ -43,21 +44,21 @@ function SourceStep({ onLoaded }: { onLoaded: () => void }) {
       </TabsList>
       <TabsContent value="paste" className="flex flex-col gap-3">
         <label htmlFor="paste-geojson" className="text-sm font-medium">
-          Paste GeoJSON
+          Paste GeoJSON or a lat,lon list
         </label>
         <textarea
           id="paste-geojson"
           className="min-h-48 rounded-md border bg-background p-2 font-mono text-sm"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder='{ "type": "FeatureCollection", "features": [...] }'
+          placeholder='{ "type": "FeatureCollection", ... }  —  or one lat,lon per line'
         />
       </TabsContent>
       <TabsContent value="file" className="flex flex-col gap-3">
         <input
           type="file"
-          aria-label="GeoJSON file"
-          accept=".json,.geojson,application/geo+json,application/json"
+          aria-label="GeoJSON or lat,lon file"
+          accept=".json,.geojson,.txt,.csv,application/geo+json,application/json,text/plain,text/csv"
           onChange={async (e) => {
             const file = e.target.files?.[0];
             if (file) setText(await file.text());
