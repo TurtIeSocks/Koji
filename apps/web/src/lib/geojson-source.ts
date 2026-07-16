@@ -57,6 +57,9 @@ export function parseLatLonText(text: string): ParseOk | ParseErr {
     const parts = spacePairs ? chunk.trim().split(/\s+/) : chunk.split(",");
     if (parts.join("").trim() === "") continue; // tolerate blank lines/segments
     if (parts.length < 2) return { error: `Not a lat,lon pair: "${chunk.trim()}"` };
+    // Tokens beyond the first two are deliberately dropped: lat,lon,alt is a
+    // common scanner-export shape (dragonite/poracle), and v1 read only the
+    // first two fields as well.
     const pair = parsePair(parts[0], parts[1]);
     if (!pair) return { error: `Not a valid lat,lon pair: "${chunk.trim()}"` };
     ring.push(pair);

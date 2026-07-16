@@ -92,6 +92,17 @@ describe("parseLatLonText", () => {
     expect(parseLatLonText("52.37,4.89\n52.38,4.90\n52.37,4.89")).toHaveProperty("error");
   });
 
+  it("accepts and drops tokens beyond lat,lon (alt columns in scanner exports)", () => {
+    // lat,lon,alt is a common export shape (dragonite/poracle). Extra tokens
+    // are deliberately ignored — v1 read only the first two fields too.
+    const nl = parseLatLonText("52.37,4.89,120.5\n52.38,4.90,121\n52.36,4.91,119");
+    if ("error" in nl) throw new Error(nl.error);
+    expect((nl.features[0].geometry as GeoJSON.Polygon).coordinates[0][0]).toEqual([4.89, 52.37]);
+    const sp = parseLatLonText("52.37 4.89 120.5, 52.38 4.90 121, 52.36 4.91 119");
+    if ("error" in sp) throw new Error(sp.error);
+    expect((sp.features[0].geometry as GeoJSON.Polygon).coordinates[0][0]).toEqual([4.89, 52.37]);
+  });
+
   it("rejects out-of-range and garbage pairs with a readable error", () => {
     const bad = parseLatLonText("52.37,4.89\n999,4.90\n52.36,4.91");
     expect(bad).toHaveProperty("error");
