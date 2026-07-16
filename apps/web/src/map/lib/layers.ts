@@ -4,6 +4,7 @@ import type { LayerId, S2Cell } from "@/map/stores/types";
 import { packMarkers } from "@/map/lib/coords";
 import { EditableGeoJsonLayer } from "@deck.gl-community/editable-layers";
 import { modeSpecFor, type DrawMode } from "@/map/lib/edit-modes";
+import { KojiDrawPolygonMode } from "@/map/lib/koji-draw-polygon-mode";
 import { routeCoords, routeSegments, segmentColors, type RouteSegment } from "@/map/lib/calc-overlay";
 import { COLOR } from "@/map/lib/map-colors";
 
@@ -192,6 +193,16 @@ function calcResultLayers(fc: GeoJSON.FeatureCollection, isRoute: boolean, radiu
 export function buildEditLayer(draft: DraftInput | undefined): Layer[] {
   if (!draft || draft.mode === "none") return [];
   const spec = modeSpecFor(draft.mode);
+  // The mode instance's own click-driven stash otherwise only refreshes on a
+  // canvas pointer event — a toolbar action (undo/redo/delete) rebuilds the
+  // draft without one, so refresh it here on every rebuild instead. Update-only
+  // inside syncDraft: a never-clicked instance is a no-op.
+  if (draft.modeInstance instanceof KojiDrawPolygonMode) {
+    // onEdit's DraftInput signature and the lib's ModeProps["onEdit"] don't
+    // line up cleanly (see koji-draw-polygon-mode.ts's top-of-file note) —
+    // cast at this boundary like the ModeClass cast below.
+    draft.modeInstance.syncDraft(draft.features, draft.onEdit as never);
+  }
   return [
     new EditableGeoJsonLayer({
       id: `edit-${draft.version ?? 0}`,

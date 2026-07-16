@@ -109,4 +109,14 @@ export class KojiDrawPolygonMode extends DrawPolygonMode {
     this.resetClickSequence();
     p?.onEdit({ updatedData: p.data, editType: "cancelFeature", editContext: {} });
   }
+
+  /** Refresh the stashed props' draft-coupled fields. The stash is otherwise
+   *  only updated by canvas pointer events — toolbar actions (undo/redo/
+   *  delete) rebuild the draft without one, and finish()/cancel() emitting
+   *  updatedData from a stale props.data would resurrect undone state.
+   *  Called by buildEditLayer on every rebuild. Update-only: a null stash
+   *  means no clicks have happened, so there is nothing to finish/cancel. */
+  syncDraft(data: GeoJSON.FeatureCollection, onEdit: ModePropsLike["onEdit"]): void {
+    if (this.lastProps) this.lastProps = { ...this.lastProps, data, onEdit };
+  }
 }

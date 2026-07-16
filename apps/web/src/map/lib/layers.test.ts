@@ -1,5 +1,6 @@
 import { expect, test, vi } from "vitest";
-import { buildLayers, routePathLayer } from "@/map/lib/layers";
+import { buildEditLayer, buildLayers, routePathLayer } from "@/map/lib/layers";
+import { KojiDrawPolygonMode } from "@/map/lib/koji-draw-polygon-mode";
 import type { LayerId } from "@/map/stores/types";
 
 const vis = (over: Partial<Record<LayerId, boolean>> = {}): Record<LayerId, boolean> => ({
@@ -96,4 +97,23 @@ test("buildLayers appends an editable layer only when a draw mode is active", ()
     draft: { mode: "drawPolygon", features: EMPTY, selectedIndexes: [], onEdit: vi.fn() },
   });
   expect(draftOn.find((l) => l.id.startsWith("edit"))).toBeDefined();
+});
+
+test("buildEditLayer refreshes a KojiDrawPolygonMode instance's stash on every rebuild", () => {
+  // The mode instance's own click-driven stash is otherwise only refreshed by
+  // canvas pointer events — a toolbar action (undo/redo/delete) rebuilds the
+  // draft without one. buildEditLayer must call syncDraft so finish()/cancel()
+  // never emit against a stale pre-undo FeatureCollection (Task 10 review finding).
+  const modeInstance = new KojiDrawPolygonMode();
+  const syncDraft = vi.spyOn(modeInstance, "syncDraft");
+  const onEdit = vi.fn();
+  const features: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+  buildEditLayer({ mode: "drawPolygon", features, selectedIndexes: [], onEdit, modeInstance });
+  expect(syncDraft).toHaveBeenCalledWith(features, onEdit);
+
+  // A non-KojiDrawPolygonMode instance (e.g. plain modify) has no syncDraft —
+  // buildEditLayer must not blow up reaching for it.
+  expect(() =>
+    buildEditLayer({ mode: "modify", features, selectedIndexes: [], onEdit, modeInstance: {} }),
+  ).not.toThrow();
 });

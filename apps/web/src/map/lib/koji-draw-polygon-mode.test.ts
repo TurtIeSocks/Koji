@@ -85,4 +85,58 @@ describe("KojiDrawPolygonMode", () => {
     );
     expect(types).not.toContain("addFeature");
   });
+
+  it("syncDraft keeps finish() from resurrecting a stale draft (toolbar undo without a canvas event)", () => {
+    // Reproduces the Task 10 review finding: draw shape A (committed) → start
+    // shape B (3 clicks, all against props whose `data` still has A) → Undo
+    // removes A from the RHF draft (no canvas event, so the mode's stash never
+    // sees it — buildEditLayer calls syncDraft on every rebuild instead) →
+    // without syncDraft, finish() would build updatedData from the STALE
+    // pre-undo `data` and resurrect A alongside the new polygon.
+    const m = new KojiDrawPolygonMode();
+    const fcV1: GeoJSON.FeatureCollection = {
+      type: "FeatureCollection",
+      features: [
+        { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [5, 5] } },
+      ],
+    };
+    // All three clicks via the SAME (stale, pre-undo) props object — that's
+    // the mode's real stash source; a 4th click with fresh post-undo props to
+    // "mimic returning to canvas" isn't needed, since syncDraft is what
+    // buildEditLayer actually calls on a toolbar-driven rebuild.
+    const p = props({ data: fcV1 });
+    m.handleClick(click([0, 0], [0, 0]), p);
+    m.handleClick(click([1, 0], [100, 0]), p);
+    m.handleClick(click([1, 1], [100, 100]), p);
+
+    // Toolbar Undo rebuilds the draft WITHOUT a canvas event.
+    const fcV2: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+    const onEdit2 = vi.fn();
+    m.syncDraft(fcV2, onEdit2);
+
+    m.finish();
+
+    // Emitted through the SYNCED onEdit, not the stale one from `p`.
+    expect(onEdit2).toHaveBeenCalled();
+    const pTypes = (p as { onEdit: ReturnType<typeof vi.fn> }).onEdit.mock.calls.map(
+      (c) => c[0].editType,
+    );
+    expect(pTypes).not.toContain("addFeature");
+    const addFeatureCall = onEdit2.mock.calls.find((c) => c[0].editType === "addFeature");
+    expect(addFeatureCall).toBeDefined();
+    const updated = addFeatureCall![0].updatedData as GeoJSON.FeatureCollection;
+    // Built against the synced (post-undo, empty) fcV2 + the new polygon — NOT
+    // fcV1's stale point feature.
+    expect(updated.features.some((f) => f.geometry.type === "Point")).toBe(false);
+    expect(updated.features.some((f) => f.geometry.type === "Polygon")).toBe(true);
+  });
+
+  it("syncDraft on a never-clicked instance is a no-op (no throw, finish() still no-ops)", () => {
+    const m = new KojiDrawPolygonMode();
+    const fc: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+    const onEdit = vi.fn();
+    expect(() => m.syncDraft(fc, onEdit)).not.toThrow();
+    m.finish();
+    expect(onEdit).not.toHaveBeenCalled();
+  });
 });
