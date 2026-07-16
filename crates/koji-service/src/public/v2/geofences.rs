@@ -20,6 +20,7 @@ use geojson::{Feature, FeatureCollection, Geometry};
 use koji_db::{
     KojiDb,
     db::geofence::{self, Anchor, HierarchySpec},
+    db::geofence_project,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -54,6 +55,11 @@ struct ReadQuery {
     /// `minLng,minLat,maxLng,maxLat` — scope the list to fences whose bbox
     /// overlaps this box (`list` only).
     bbox: Option<String>,
+    /// Only fences with this mode (`unset|pokemon|fort|quest`). Requires `bbox`.
+    mode: Option<String>,
+    /// Comma-separated project ids — only fences linked to ANY of these
+    /// projects. Requires `bbox`.
+    projects: Option<String>,
 }
 
 impl ReadQuery {
@@ -124,6 +130,46 @@ impl ReadQuery {
             *slot = v;
         }
         Ok(Some(out))
+    }
+
+    /// Parse `?mode=` into the storage enum. Unknown strings are a 400.
+    #[allow(clippy::result_large_err)]
+    fn mode_filter(&self) -> Result<Option<koji_db::db::sea_orm_active_enums::Mode>, ServiceError> {
+        use koji_db::db::sea_orm_active_enums::Mode;
+        let Some(raw) = &self.mode else {
+            return Ok(None);
+        };
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "unset" => Ok(Some(Mode::Unset)),
+            "pokemon" => Ok(Some(Mode::Pokemon)),
+            "fort" => Ok(Some(Mode::Fort)),
+            "quest" => Ok(Some(Mode::Quest)),
+            other => Err(ServiceError::Invalid {
+                field: Some("mode".to_string()),
+                message: format!("invalid mode: {other:?}"),
+            }),
+        }
+    }
+
+    /// Parse `?projects=1,2` exactly like `ids()` (trim, skip blanks, 400 on
+    /// a non-numeric segment).
+    #[allow(clippy::result_large_err)]
+    fn project_ids(&self) -> Result<Option<Vec<u32>>, ServiceError> {
+        let Some(raw) = &self.projects else {
+            return Ok(None);
+        };
+        let ids = raw
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| {
+                s.parse::<u32>().map_err(|_| ServiceError::Invalid {
+                    field: Some("projects".to_string()),
+                    message: format!("invalid project id: {s:?}"),
+                })
+            })
+            .collect::<Result<Vec<u32>, ServiceError>>()?;
+        Ok(Some(ids))
     }
 }
 
@@ -224,9 +270,17 @@ pub(crate) struct PatchGeofence {
 /// maxLng,maxLat` scopes it to fences whose persisted bbox columns
 /// (`min_lat`/`min_lng`/`max_lat`/`max_lng`) overlap the box — a DB-level
 /// `WHERE` (see [`geofence::Query::get_koji_by_bbox`]), no full-table read
-/// either. The two are mutually exclusive with each other and with
-/// `?depth`/`?level` — `ids` wins if both are present, `bbox` is next,
-/// `?depth`/`?level` otherwise.
+/// either. `bbox` is checked ahead of `ids` — supplying **both** is a `400`
+/// (not "ids silently wins"), a deliberate reorder from the earlier
+/// ids-then-bbox precedence: a silently-dropped filter reads as data loss.
+///
+/// `?mode=` and `?projects=1,2` are **bbox refinements**: only meaningful
+/// alongside `?bbox=`, so either one supplied without `bbox` is a `400`.
+/// `?mode=` (`unset|pokemon|fort|quest`) further restricts the bbox result to
+/// that exact mode. `?projects=` further restricts it to fences linked to ANY
+/// of the given project ids (resolved via [`geofence_project::Query::
+/// geofence_ids_for_projects`]) — a project with no linked fences is a real,
+/// empty filter (returns nothing), not treated the same as no filter at all.
 ///
 /// With `?depth=N` or `?level=N` (and no `ids`/`bbox`) this becomes a
 /// recursive forest walk (anchor = every `parent IS NULL` root): `depth=N` is
@@ -239,14 +293,16 @@ pub(crate) struct PatchGeofence {
     tag = "geofences",
     params(
         ("format" = Option<String>, Query, description = "Return type (default `featurecollection`)"),
-        ("ids" = Option<String>, Query, description = "Comma-separated geofence ids — only those fences"),
+        ("ids" = Option<String>, Query, description = "Comma-separated geofence ids — only those fences. 400 if combined with `bbox`"),
         ("bbox" = Option<String>, Query, description = "minLng,minLat,maxLng,maxLat — only fences whose bbox overlaps"),
+        ("mode" = Option<String>, Query, description = "unset|pokemon|fort|quest — bbox refinement, requires `bbox` (400 otherwise)"),
+        ("projects" = Option<String>, Query, description = "Comma-separated project ids — bbox refinement, requires `bbox` (400 otherwise)"),
         ("depth" = Option<u32>, Query, description = "Cumulative subtree through N levels (mutually exclusive with `level`)"),
         ("level" = Option<u32>, Query, description = "Exactly N levels below the anchor"),
     ),
     responses(
         (status = 200, description = "Geofences (GeoJSON in the envelope, or a raw export format)", body = Object),
-        (status = 400, description = "`depth` and `level` are mutually exclusive, or `ids`/`bbox` malformed", body = ApiError),
+        (status = 400, description = "`depth`/`level` mutually exclusive; `ids`+`bbox` together; `mode`/`projects` malformed or supplied without `bbox`", body = ApiError),
     ),
 )]
 async fn list(
@@ -254,14 +310,37 @@ async fn list(
     query: web::Query<ReadQuery>,
 ) -> Result<HttpResponse, ServiceError> {
     let return_type = query.return_type(ReturnTypeArg::FeatureCollection);
+    let mode = query.mode_filter()?;
+    let project_ids = query.project_ids()?;
 
-    if let Some(ids) = query.ids()? {
-        let coll = geofence::Query::get_koji_by_ids(&conn.koji, &ids).await?;
+    if let Some(bbox) = query.bbox()? {
+        if query.ids.is_some() {
+            return Err(ServiceError::Invalid {
+                field: Some("bbox".to_string()),
+                message: "ids and bbox are mutually exclusive".to_string(),
+            });
+        }
+        let id_scope = match project_ids {
+            Some(pids) => {
+                Some(geofence_project::Query::geofence_ids_for_projects(&conn.koji, &pids).await?)
+            }
+            None => None,
+        };
+        let coll = geofence::Query::get_koji_by_bbox(&conn.koji, bbox, mode, id_scope).await?;
         return Ok(respond_geo(coll, return_type));
     }
 
-    if let Some(bbox) = query.bbox()? {
-        let coll = geofence::Query::get_koji_by_bbox(&conn.koji, bbox).await?;
+    // mode/projects are bbox refinements — using them anywhere else is a 400,
+    // not a silent no-op (a silently-ignored filter looks like data loss).
+    if mode.is_some() || query.projects.is_some() {
+        return Err(ServiceError::Invalid {
+            field: Some("mode".to_string()),
+            message: "mode/projects filters require bbox".to_string(),
+        });
+    }
+
+    if let Some(ids) = query.ids()? {
+        let coll = geofence::Query::get_koji_by_ids(&conn.koji, &ids).await?;
         return Ok(respond_geo(coll, return_type));
     }
 
@@ -822,7 +901,9 @@ mod tests {
             ..Default::default()
         };
         let err = q.ids().unwrap_err();
-        assert!(matches!(err, ServiceError::Invalid { field, .. } if field.as_deref() == Some("ids")));
+        assert!(
+            matches!(err, ServiceError::Invalid { field, .. } if field.as_deref() == Some("ids"))
+        );
     }
 
     #[test]
@@ -847,7 +928,9 @@ mod tests {
             ..Default::default()
         };
         let err = q.bbox().unwrap_err();
-        assert!(matches!(err, ServiceError::Invalid { field, .. } if field.as_deref() == Some("bbox")));
+        assert!(
+            matches!(err, ServiceError::Invalid { field, .. } if field.as_deref() == Some("bbox"))
+        );
     }
 
     #[test]
@@ -857,7 +940,42 @@ mod tests {
             ..Default::default()
         };
         let err = q.bbox().unwrap_err();
-        assert!(matches!(err, ServiceError::Invalid { field, .. } if field.as_deref() == Some("bbox")));
+        assert!(
+            matches!(err, ServiceError::Invalid { field, .. } if field.as_deref() == Some("bbox"))
+        );
+    }
+
+    #[test]
+    fn read_query_mode_filter_parses_and_rejects() {
+        let q = ReadQuery {
+            mode: Some("pokemon".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            q.mode_filter().unwrap(),
+            Some(koji_db::db::sea_orm_active_enums::Mode::Pokemon)
+        );
+        let none = ReadQuery::default();
+        assert_eq!(none.mode_filter().unwrap(), None);
+        let bad = ReadQuery {
+            mode: Some("raid".into()),
+            ..Default::default()
+        };
+        assert!(bad.mode_filter().is_err());
+    }
+
+    #[test]
+    fn read_query_projects_parses_csv_and_rejects_garbage() {
+        let q = ReadQuery {
+            projects: Some("1, 2,3".into()),
+            ..Default::default()
+        };
+        assert_eq!(q.project_ids().unwrap(), Some(vec![1, 2, 3]));
+        let bad = ReadQuery {
+            projects: Some("1,x".into()),
+            ..Default::default()
+        };
+        assert!(bad.project_ids().is_err());
     }
 
     #[test]

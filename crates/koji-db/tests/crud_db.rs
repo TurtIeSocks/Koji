@@ -348,3 +348,134 @@ async fn geofence_crud_round_trip() {
     // read after delete now errors
     assert!(after.is_err(), "get_one after delete should error");
 }
+
+/// `get_koji_by_bbox`'s `mode`/`id_scope` filters (Task 7): two fences with
+/// distinct modes, both inside one query bbox, one of them linked to a
+/// project. Covers the four call shapes the `/v2/geofences?bbox&mode&
+/// projects=` handler composes: no filters, `mode` alone, a populated
+/// `id_scope`, and — the easy-to-get-wrong case — an explicitly EMPTY
+/// `id_scope` (`Some(vec![])`), which must return zero rows (a project with
+/// no linked fences is a real filter, not "no filter").
+#[tokio::test]
+async fn geofence_bbox_mode_and_id_scope_filters() {
+    let Some(db) = test_db().await else { return };
+    let pokemon_name = unique_name("bbox-pokemon");
+    let fort_name = unique_name("bbox-fort");
+    let project_name = unique_name("bbox-project");
+
+    // Both geometries sit inside the query bbox used below. Deliberately far
+    // from the origin (unlike this file's other fixtures, which cluster
+    // around `[0,0]-[1,1]`) — this crate's tests share one live DB with no
+    // per-run isolation, so a query bbox anywhere near the origin risks
+    // picking up leaked rows from other test runs and making the exact-count
+    // assertions below flaky.
+    let pokemon_geometry = json!({
+        "type": "Polygon",
+        "coordinates": [[
+            [172.0, 82.0], [172.0, 83.0], [173.0, 83.0], [173.0, 82.0], [172.0, 82.0]
+        ]]
+    });
+    let fort_geometry = json!({
+        "type": "Polygon",
+        "coordinates": [[
+            [175.0, 82.0], [175.0, 83.0], [176.0, 83.0], [176.0, 82.0], [175.0, 82.0]
+        ]]
+    });
+    let bbox: [f64; 4] = [170.0, 80.0, 179.0, 85.0];
+
+    let created_project =
+        project::Query::upsert_json_return(&db, 0, json!({ "name": project_name }))
+            .await
+            .expect("project upsert should insert");
+    let project_id = created_project["id"]
+        .as_u64()
+        .expect("created project has an id") as u32;
+
+    let created_pokemon = geofence::Query::upsert_json_return(
+        &db,
+        0,
+        json!({ "name": pokemon_name, "mode": "pokemon", "geometry": pokemon_geometry }),
+    )
+    .await
+    .expect("pokemon geofence upsert should insert");
+    let pokemon_id = created_pokemon["id"]
+        .as_u64()
+        .expect("created pokemon geofence has an id") as u32;
+
+    let created_fort = geofence::Query::upsert_json_return(
+        &db,
+        0,
+        json!({ "name": fort_name, "mode": "fort", "geometry": fort_geometry }),
+    )
+    .await
+    .expect("fort geofence upsert should insert");
+    let fort_id = created_fort["id"]
+        .as_u64()
+        .expect("created fort geofence has an id") as u32;
+
+    // Link only the pokemon fence to the project.
+    geofence_project::Query::upsert_related_by_project_id(&db, &[json!(pokemon_id)], project_id)
+        .await
+        .expect("link pokemon fence to project");
+
+    // Gather every observation FIRST, then delete, then assert (panic-safe
+    // cleanup — see geofence_crud_round_trip above).
+    let no_filter = geofence::Query::get_koji_by_bbox(&db, bbox, None, None).await;
+    let mode_filtered = geofence::Query::get_koji_by_bbox(
+        &db,
+        bbox,
+        Some(koji_db::db::sea_orm_active_enums::Mode::Pokemon),
+        None,
+    )
+    .await;
+    let id_scope_filtered =
+        geofence::Query::get_koji_by_bbox(&db, bbox, None, Some(vec![pokemon_id])).await;
+    let empty_id_scope_filtered =
+        geofence::Query::get_koji_by_bbox(&db, bbox, None, Some(vec![])).await;
+
+    geofence::Query::delete(&db, pokemon_id)
+        .await
+        .expect("delete pokemon fence");
+    geofence::Query::delete(&db, fort_id)
+        .await
+        .expect("delete fort fence");
+    project::Query::delete(&db, project_id)
+        .await
+        .expect("delete project");
+
+    // (a) no filters — both fences.
+    let no_filter = no_filter.expect("get_koji_by_bbox(None, None) should succeed");
+    assert_eq!(
+        no_filter.items.len(),
+        2,
+        "no mode/id_scope filter should return both fences"
+    );
+
+    // (b) mode=Pokemon — exactly the pokemon fence.
+    let mode_filtered = mode_filtered.expect("get_koji_by_bbox(mode=Pokemon) should succeed");
+    assert_eq!(
+        mode_filtered.items.len(),
+        1,
+        "mode=Pokemon should return exactly 1 fence"
+    );
+    assert_eq!(mode_filtered.items[0].meta.id, Some(pokemon_id));
+
+    // (c) id_scope=Some([pokemon_id]) — exactly the pokemon fence.
+    let id_scope_filtered =
+        id_scope_filtered.expect("get_koji_by_bbox(id_scope=Some([pokemon_id])) should succeed");
+    assert_eq!(
+        id_scope_filtered.items.len(),
+        1,
+        "id_scope=Some([pokemon_id]) should return exactly 1 fence"
+    );
+    assert_eq!(id_scope_filtered.items[0].meta.id, Some(pokemon_id));
+
+    // (d) id_scope=Some([]) — a real, empty filter, distinct from None.
+    let empty_id_scope_filtered =
+        empty_id_scope_filtered.expect("get_koji_by_bbox(id_scope=Some(vec![])) should succeed");
+    assert_eq!(
+        empty_id_scope_filtered.items.len(),
+        0,
+        "id_scope=Some(vec![]) must return zero rows, not fall back to unfiltered"
+    );
+}

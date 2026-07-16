@@ -480,11 +480,18 @@ async fn geofences_bbox_db_filter_matches_overlap_semantics_parity() {
     let bbox_names: std::collections::BTreeSet<String> = feature_names(&bbox_body)
         .into_iter()
         .filter(|n| {
-            [&inside_name, &touching_name, &outside_name, &asymmetric_name].contains(&n)
+            [
+                &inside_name,
+                &touching_name,
+                &outside_name,
+                &asymmetric_name,
+            ]
+            .contains(&n)
         })
         .collect();
-    let expected: std::collections::BTreeSet<String> =
-        [inside_name.clone(), touching_name.clone()].into_iter().collect();
+    let expected: std::collections::BTreeSet<String> = [inside_name.clone(), touching_name.clone()]
+        .into_iter()
+        .collect();
     assert_eq!(
         bbox_names, expected,
         "?bbox=0,0,10,10 must return exactly {{inside, touching}} and exclude {{outside, asymmetric_axis}}"

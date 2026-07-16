@@ -186,18 +186,34 @@ impl Query {
     /// in-memory path agree. A row with a `NULL` bbox column (geometry-less or
     /// unparseable geometry) never satisfies these comparisons in SQL and is
     /// correctly excluded — it has no spatial extent to overlap with.
+    ///
+    /// `mode` further restricts to fences with that exact `Mode` when
+    /// `Some`. `id_scope` further restricts to the given ids when `Some` —
+    /// note an empty `Some(vec![])` is a REAL filter (yields nothing),
+    /// distinct from `None` (no id filter at all); the `/v2/geofences?bbox&
+    /// projects=` neighbour filter relies on this to correctly return zero
+    /// rows for a project with no linked fences.
     pub async fn get_koji_by_bbox<C: ConnectionTrait>(
         db: &C,
         bbox: [f64; 4],
+        mode: Option<Mode>,
+        id_scope: Option<Vec<u32>>,
     ) -> Result<koji_core::KojiGeometryCollection, ModelError> {
         let [query_min_lng, query_min_lat, query_max_lng, query_max_lat] = bbox;
-        let results = Entity::find()
+        let mut find = Entity::find()
             .filter(Column::MinLng.lte(query_max_lng))
             .filter(Column::MaxLng.gte(query_min_lng))
             .filter(Column::MinLat.lte(query_max_lat))
-            .filter(Column::MaxLat.gte(query_min_lat))
-            .all(db)
-            .await?;
+            .filter(Column::MaxLat.gte(query_min_lat));
+        if let Some(m) = mode {
+            find = find.filter(Column::Mode.eq(m));
+        }
+        // NB: an EMPTY id_scope is a real filter (project with no fences →
+        // no neighbours), distinct from None (no project filter).
+        if let Some(ids) = id_scope {
+            find = find.filter(Column::Id.is_in(ids));
+        }
+        let results = find.all(db).await?;
         results
             .iter()
             .map(|result| result.to_koji_geometry())

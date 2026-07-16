@@ -156,6 +156,25 @@ impl Query {
             .collect())
     }
 
+    /// The distinct geofence ids linked to ANY of `project_ids` — the plural
+    /// sibling of [`geofence_ids_for_project`](Self::geofence_ids_for_project),
+    /// used by the `/v2/geofences?bbox&projects=` neighbour filter.
+    pub async fn geofence_ids_for_projects(
+        db: &DatabaseConnection,
+        project_ids: &[u32],
+    ) -> Result<Vec<u32>, DbErr> {
+        let mut ids: Vec<u32> = Entity::find()
+            .filter(Column::ProjectId.is_in(project_ids.iter().copied()))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|m| m.geofence_id)
+            .collect();
+        ids.sort_unstable();
+        ids.dedup();
+        Ok(ids)
+    }
+
     pub async fn upsert_related_by_project_id(
         db: &DatabaseConnection,
         geofences: &[serde_json::Value],
