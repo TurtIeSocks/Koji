@@ -25,6 +25,18 @@ export function geometryBounds(geom: GeoJSON.GeoJSON): Bounds | null {
   }
 }
 
+/** Bounds of an arbitrary geometry-bearing form value: GeoJSON object, OR a
+ *  bare array of Features (the import wizard's `features` rows) — turf's
+ *  bbox() throws "Unknown Geometry Type" on a raw array, which left the
+ *  wizard's step-2 map locked at null island. Null when there's no extent. */
+export function valueBounds(value: unknown): Bounds | null {
+  if (value == null) return null;
+  const g = Array.isArray(value)
+    ? ({ type: "FeatureCollection", features: value } as GeoJSON.FeatureCollection)
+    : (value as GeoJSON.GeoJSON);
+  return geometryBounds(g);
+}
+
 /** Fit a viewport to bounds. deck has no fitBounds prop, so derive the
  *  initialViewState from a WebMercatorViewport. */
 export function boundsToViewState(

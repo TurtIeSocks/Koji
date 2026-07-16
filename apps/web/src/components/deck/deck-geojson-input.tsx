@@ -20,7 +20,7 @@ import { createModeInstance, type DrawMode, requiresPriorSelection } from "@/map
 import { buildEditLayer } from "@/map/lib/layers";
 import { ButtonGroup, ButtonGroupSeparator } from "../ui/button-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { geometryBounds } from "./bounds";
+import { valueBounds } from "./bounds";
 import { DeckMap, type DeckMapProps } from "./deck-map";
 import type { HistoryControls } from "./use-geometry-history";
 import {
@@ -340,10 +340,7 @@ export function DeckGeoJsonInput({
 	// in a post-mount effect, so it's empty when DeckMap locks its initial camera,
 	// which left the map stuck at [0,0].
 	const value = useWatch({ name: editOpts.source });
-	const fit = useMemo(() => {
-		const g = value as GeoJSON.GeoJSON | null | undefined;
-		return g ? geometryBounds(g) : null;
-	}, [value]);
+	const fit = useMemo(() => valueBounds(value), [value]);
 
 	// Escape cancels an in-progress polygon draw. Registered on the CAPTURE
 	// phase + stopPropagation so it wins over DeckMap's own window-keydown
