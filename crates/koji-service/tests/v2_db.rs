@@ -600,6 +600,8 @@ async fn geofences_mode_or_projects_without_bbox_returns_400() {
     let v = body_json(resp).await;
     assert_eq!(v["status"], "error");
     assert_eq!(v["error"]["code"], "invalid_request");
+    // The error names the param the caller actually sent (was hardcoded "mode").
+    assert_eq!(v["error"]["field"], "projects");
 }
 
 /// An unknown `?mode=` string (with a valid bbox) is a 400 from the

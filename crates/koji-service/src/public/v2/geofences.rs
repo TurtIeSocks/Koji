@@ -332,9 +332,12 @@ async fn list(
 
     // mode/projects are bbox refinements — using them anywhere else is a 400,
     // not a silent no-op (a silently-ignored filter looks like data loss).
+    // Attribute the error to a param the caller actually sent (both present →
+    // "mode", arbitrarily but deterministically).
     if mode.is_some() || query.projects.is_some() {
+        let field = if mode.is_some() { "mode" } else { "projects" };
         return Err(ServiceError::Invalid {
-            field: Some("mode".to_string()),
+            field: Some(field.to_string()),
             message: "mode/projects filters require bbox".to_string(),
         });
     }
