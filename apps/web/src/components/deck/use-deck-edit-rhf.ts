@@ -119,10 +119,28 @@ export function useDeckEditRHF({
     setVersion((v) => v + 1);
   }, [draft, selectedIndexes, commit]);
 
+  // Entering modify/transform with exactly ONE feature: select it. The
+  // hydrate-time auto-select (above) only covers pre-existing geometry — on
+  // create, a freshly drawn shape left "Modify does nothing" (zero edit
+  // handles render with an empty selection; ModifyMode.getGuides loops over
+  // selectedIndexes). One feature is the overwhelmingly common geofence case;
+  // with several, selection stays a deliberate click (ambiguous target).
+  const enterMode = useCallback(
+    (m: DrawMode) => {
+      setMode(m);
+      if (m === "modify" || m === "transform") {
+        setSelectedIndexes((sel) =>
+          sel.length === 0 && draft.features.length === 1 ? [0] : sel,
+        );
+      }
+    },
+    [draft.features.length],
+  );
+
   return {
     draft,
     mode,
-    setMode,
+    setMode: enterMode,
     selectedIndexes,
     onEdit,
     onSelect: setSelectedIndexes,

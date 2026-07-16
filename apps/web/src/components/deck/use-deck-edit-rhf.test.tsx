@@ -49,6 +49,24 @@ const poly: GeoJSON.Polygon = {
   ],
 };
 
+const POLY_FEATURE: GeoJSON.Feature = { type: "Feature", geometry: poly, properties: {} };
+const POLY_FEATURE_2: GeoJSON.Feature = {
+  type: "Feature",
+  geometry: {
+    type: "Polygon",
+    coordinates: [
+      [
+        [10, 10],
+        [11, 10],
+        [11, 11],
+        [10, 11],
+        [10, 10],
+      ],
+    ],
+  },
+  properties: {},
+};
+
 function wrapper(defaultValues: Record<string, unknown>) {
   return ({ children }: { children: ReactNode }) => {
     const form = useForm({ defaultValues });
@@ -159,5 +177,73 @@ describe("useDeckEditRHF", () => {
 
     // The only feature was removed → default fromFeatures([]) → null geometry.
     expect(spy).toHaveBeenCalledWith("geometry", null, expect.anything());
+  });
+
+  it("entering modify with exactly one feature auto-selects it (create-flow fix)", () => {
+    // Arrange: hydrate an EMPTY form, then draw one feature via a committed
+    // edit (editType addFeature) so autoInited's hydrate path (which only
+    // fires on hydrating existing geometry) is NOT what selects it.
+    const rendered = renderHook(() => useDeckEditRHF({ source: "geometry" }), {
+      wrapper: wrapper({ geometry: null }),
+    });
+    mounted = rendered;
+    const { result } = rendered;
+
+    act(() =>
+      result.current.onEdit({
+        updatedData: { type: "FeatureCollection", features: [POLY_FEATURE] },
+        editType: "addFeature",
+      }),
+    );
+    act(() => result.current.onSelect([])); // clear any selection
+    act(() => result.current.setMode("modify"));
+
+    expect(result.current.selectedIndexes).toEqual([0]);
+  });
+
+  it("entering modify with two features selects nothing (ambiguous target)", () => {
+    const rendered = renderHook(() => useDeckEditRHF({ source: "geometry" }), {
+      wrapper: wrapper({ geometry: null }),
+    });
+    mounted = rendered;
+    const { result } = rendered;
+
+    act(() =>
+      result.current.onEdit({
+        updatedData: {
+          type: "FeatureCollection",
+          features: [POLY_FEATURE, POLY_FEATURE_2],
+        },
+        editType: "addFeature",
+      }),
+    );
+    act(() => result.current.onSelect([]));
+    act(() => result.current.setMode("modify"));
+
+    expect(result.current.selectedIndexes).toEqual([]);
+  });
+
+  it("entering modify twice with one feature keeps it selected (idempotent)", () => {
+    // Regression: enterMode must not clobber an existing selection with [0]
+    // when re-entering modify (e.g. toggled off then back on).
+    const rendered = renderHook(() => useDeckEditRHF({ source: "geometry" }), {
+      wrapper: wrapper({ geometry: null }),
+    });
+    mounted = rendered;
+    const { result } = rendered;
+
+    act(() =>
+      result.current.onEdit({
+        updatedData: { type: "FeatureCollection", features: [POLY_FEATURE] },
+        editType: "addFeature",
+      }),
+    );
+    act(() => result.current.onSelect([]));
+    act(() => result.current.setMode("modify"));
+    expect(result.current.selectedIndexes).toEqual([0]);
+
+    act(() => result.current.setMode("none"));
+    act(() => result.current.setMode("modify"));
+    expect(result.current.selectedIndexes).toEqual([0]);
   });
 });

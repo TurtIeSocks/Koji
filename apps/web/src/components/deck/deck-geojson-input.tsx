@@ -404,6 +404,15 @@ export function DeckGeoJsonInput({
 							}
 						/>
 					) : null}
+					{(mode === "modify" || mode === "transform") &&
+					selectedIndexes.length === 0 &&
+					draft.features.length > 0 ? (
+						<div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center">
+							<span className="rounded-md bg-background/95 px-3 py-1 text-sm text-muted-foreground shadow">
+								Click a shape to edit its points
+							</span>
+						</div>
+					) : null}
 					{overlay}
 				</DeckMap>
 			</div>
