@@ -14,22 +14,11 @@ import { geometryBounds } from "./bounds";
 import { DeckGeoJsonInput } from "./deck-geojson-input";
 import { featuresToGeofence, geofenceToFeatures } from "./geofence-geometry";
 import { LastSeenPicker } from "./last-seen-picker";
+import { NEIGHBOR_MIN_ZOOM, neighborBbox, roundBbox } from "./neighbor-bbox";
 import { useLastSeen } from "./use-last-seen";
-import { padBbox, useNeighborOverlay } from "./use-neighbor-overlay";
+import { useNeighborOverlay } from "./use-neighbor-overlay";
 
 const WORLD: Bounds = [-180, -85, 180, 85];
-
-const NEIGHBOR_MIN_ZOOM = 9;
-
-/** Round to 4dp (~11m) so pan jitter doesn't produce endless new query keys. */
-function roundBbox(b: Bounds): Bounds {
-	return b.map((n) => Math.round(n * 10_000) / 10_000) as unknown as Bounds;
-}
-
-/** Fixed-size fallback box around a point (used before the first camera event). */
-function centerBbox(lon: number, lat: number): Bounds {
-	return [lon - 0.15, lat - 0.1, lon + 0.15, lat + 0.1];
-}
 
 export function GeofenceMap({ height = 480 }: { height?: number | string }) {
 	// Live geometry from the form drives the marker query as the fence is edited.
@@ -64,11 +53,8 @@ export function GeofenceMap({ height = 480 }: { height?: number | string }) {
 	}, []);
 	useEffect(() => () => { if (viewTimer.current) clearTimeout(viewTimer.current); }, []);
 
-	const fallbackBbox = geometry
-		? padBbox(geometryBounds(geometry), 0.2)
-		: centerBbox(startLon, startLat);
 	const zoomedOut = view != null && view.zoom < NEIGHBOR_MIN_ZOOM;
-	const nbBbox = view ? (zoomedOut ? null : view.bounds) : fallbackBbox;
+	const nbBbox = neighborBbox(view, geometry, startLon, startLat);
 
 	// --- Neighbour filters (D4): follow the form until the user overrides ---
 	const formMode = useWatch({ name: "mode" }) as string | undefined;
