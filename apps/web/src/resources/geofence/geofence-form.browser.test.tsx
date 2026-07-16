@@ -87,14 +87,10 @@ describe("Geofence form", () => {
     await expect.element(screen.getByText("Projects")).toBeVisible();
   });
 
-  it("does NOT render projects in Create", async () => {
+  it("renders the projects autocomplete in Create", async () => {
     const screen = render(wrap(<GeofenceCreate />));
     await expect.element(screen.getByLabelText(/name/i)).toBeVisible();
-    expect(
-      [...screen.container.querySelectorAll("label")].some((l) =>
-        /projects/i.test(l.textContent ?? ""),
-      ),
-    ).toBe(false);
+    await expect.element(screen.getByText("Projects")).toBeVisible();
   });
 
   it("renders the properties array input in the geofence form", async () => {
