@@ -1,3 +1,9 @@
+> **⚠️ PARTIALLY SUPERSEDED (2026-07-15):** §7 (sync bridge → 504) and §9
+> (per-kind retries / configurable `max_attempts`) were never built as
+> described. The implemented behavior — always-async 202, `?wait=` long-poll
+> that returns 200 (never 504), `max_attempts` fixed at 1 — is specced in
+> `2026-06-15-v2-api-redesign.md` §4.1 and documented in `docs/jobs-and-queue.md`.
+
 # Koji Job Queue + Sync-Bridge — Design Spec
 
 **Date:** 2026-05-28
