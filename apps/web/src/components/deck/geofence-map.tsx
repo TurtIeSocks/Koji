@@ -168,10 +168,22 @@ export function GeofenceMap({ height = 480 }: { height?: number | string }) {
 				    render regardless of `on`. Only the zoom hint is contextual. */}
 				<select
 					aria-label="Neighbor mode filter"
-					value={effectiveMode}
-					onChange={(e) => setModeOverride(e.target.value)}
+					// Value reflects the OVERRIDE state, not the resolved mode: "auto"
+					// (the default) follows the Details tab live; picking anything else
+					// freezes the filter until the user returns to Auto.
+					value={modeOverride ?? "auto"}
+					onChange={(e) =>
+						setModeOverride(e.target.value === "auto" ? null : e.target.value)
+					}
 					className="rounded-md border bg-background px-2 py-1 text-sm"
 				>
+					<option value="auto">
+						Auto (
+						{formMode && formMode !== "unset"
+							? (GEOFENCE_MODES.find((m) => m.id === formMode)?.name ?? formMode)
+							: "all"}
+						)
+					</option>
 					<option value="all">All modes</option>
 					{GEOFENCE_MODES.map((m) => (
 						<option key={m.id} value={m.id}>

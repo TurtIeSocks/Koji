@@ -134,6 +134,19 @@ describe("GeofenceMap", () => {
     await expect.element(screen.getByLabelText("My projects only")).toBeInTheDocument();
   });
 
+  it("mode filter defaults to Auto and an override can return to it", async () => {
+    const screen = render(wrap(<GeofenceMap />));
+    const select = screen.getByLabelText("Neighbor mode filter");
+    // Default = follow-form sentinel, surfaced as the Auto option.
+    await expect.element(select).toHaveValue("auto");
+    await select.selectOptions("pokemon");
+    await expect.element(select).toHaveValue("pokemon");
+    // The road back: picking Auto clears the override (regression — there was
+    // no way to return to follow-form once an explicit mode was chosen).
+    await select.selectOptions("auto");
+    await expect.element(select).toHaveValue("auto");
+  });
+
   it("neighbour fetch fires from the fallback bbox even with no geometry drawn", async () => {
     // Form has NO geometry (create page). Toggle on → a /geofences?…bbox=
     // request must still fire (start-center fallback) — regression for "Show
