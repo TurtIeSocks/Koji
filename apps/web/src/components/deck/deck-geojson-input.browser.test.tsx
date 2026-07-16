@@ -51,4 +51,18 @@ describe("DeckGeoJsonInput", () => {
       .element(screen.getByRole("button", { name: /polygon/i }))
       .toHaveAttribute("type", "button");
   });
+
+  it("allowedModes restricts the toolbar buttons", async () => {
+    const screen = render(
+      <AdminContext dataProvider={testDataProvider()}>
+        <SimpleForm onSubmit={() => {}}>
+          <DeckGeoJsonInput source="geometry" allowedModes={["drawPolygon", "modify"]} />
+        </SimpleForm>
+      </AdminContext>,
+    );
+    await expect.element(screen.getByRole("button", { name: /polygon/i })).toBeInTheDocument();
+    await expect.element(screen.getByRole("button", { name: /modify/i })).toBeInTheDocument();
+    expect(screen.container.querySelector('[aria-label="Move"]')).toBeNull();
+    expect(screen.container.querySelector('[aria-label="Split"]')).toBeNull();
+  });
 });

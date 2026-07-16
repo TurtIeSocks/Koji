@@ -68,6 +68,7 @@ function DeckDrawToolbar({
 	hasSelection,
 	history,
 	onDelete,
+	allowedModes,
 }: {
 	mode: DrawMode;
 	setMode: (m: DrawMode) => void;
@@ -76,7 +77,15 @@ function DeckDrawToolbar({
 	history?: HistoryControls;
 	/** Delete the selected shape(s). Gated on `hasSelection`. */
 	onDelete: () => void;
+	allowedModes?: DrawMode[];
 }) {
+	const groups = allowedModes
+		? DRAW_GROUPS.map((g) => ({
+				...g,
+				buttons: g.buttons.filter((b) => allowedModes.includes(b.mode)),
+			})).filter((g) => g.buttons.length > 0)
+		: DRAW_GROUPS;
+
 	return (
 		// Flush bottom dock — sits on the map's bottom edge (no gap to the sides or
 		// bottom), a top border rather than a shadow so it reads as a bar BELOW the
@@ -117,7 +126,7 @@ function DeckDrawToolbar({
 				</ButtonGroup>
 			) : null}
 			<ButtonGroup className="flex-1 justify-evenly">
-				{DRAW_GROUPS.map((group, gi) => (
+				{groups.map((group, gi) => (
 					<React.Fragment key={group.name}>
 						{gi > 0 ? <ButtonGroupSeparator /> : null}
 						{group.buttons.map((b) => {
@@ -191,6 +200,10 @@ export interface DeckGeoJsonInputProps extends UseDeckEditRHFOptions {
 	/** Forwarded straight through to `<DeckMap>` (e.g. a "Show Neighbors"
 	 *  ghost-fence overlay's tooltip). Optional/back-compat. */
 	getTooltip?: DeckMapProps["getTooltip"];
+	/** Restrict which draw/edit modes the toolbar offers (e.g. the import wizard
+	 *  hides transform/split/cutHole — they'd desync per-feature assignments).
+	 *  Omitted = all modes. */
+	allowedModes?: DrawMode[];
 }
 
 export function DeckGeoJsonInput({
@@ -205,6 +218,7 @@ export function DeckGeoJsonInput({
 	history,
 	onViewStateChange,
 	getTooltip,
+	allowedModes,
 	...editOpts
 }: DeckGeoJsonInputProps) {
 	const {
@@ -301,6 +315,7 @@ export function DeckGeoJsonInput({
 							hasSelection={selectedIndexes.length > 0}
 							history={history}
 							onDelete={deleteSelected}
+							allowedModes={allowedModes}
 						/>
 					) : null}
 					{overlay}
