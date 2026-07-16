@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-15
 **Branch:** `claude/v2`
-**Status:** awaiting approval
+**Status:** implemented (claude/v2 `508f4a94..fb037ed2`, 2026-07-16; plan + per-task reviews in `.superpowers/sdd/progress.md`)
 **Source:** beta-tester report ("morning v2 play"), verbatim text archived in [Appendix A](#appendix-a--verbatim-feedback).
 
 Prior round: [2026-07-13 route-view feedback](./2026-07-13-route-view-feedback-design.md).
@@ -150,6 +150,8 @@ fromFeatures: (feats, prev) => prev.map((row, i) => ({ ...row, geometry: feats[i
 
 This keeps index alignment between geometry and assignments — the thing a hand-off to `/map` would destroy. Swap `DeckGeoJsonField` → `DeckGeoJsonInput`.
 
+> **As built (2026-07-16):** the index-stamp design above had a review-caught bug (a stamp indexing into the *live* `prev` array goes stale after a delete, dropping assignments on the next edit). Shipped mechanism: a self-contained `_row` payload embedded in feature properties — no index into mutating state; regression test pins the edit-after-delete sequence.
+
 Step 2 today reads through a synthesized `RecordContextProvider value={{_preview_fc: fc}}` (`map-name-step.tsx:59-61`); an Input reads RHF form state instead, so it binds to `features` directly.
 
 **Bounding the risk:** split/cut-hole change feature *count* and would desync assignment rows. Add an `allowedModes` prop to `DeckDrawToolbar` and restrict the wizard to draw/modify/delete; delete removes the matching row.
@@ -236,6 +238,8 @@ Existing partial mitigation: `use-deck-edit-rhf.ts:68-76` auto-selects index 0 o
 Fix:
 - Entering modify with exactly one feature → auto-select it (the overwhelmingly common geofence case).
 - Modify active + nothing selected → on-canvas hint: *"Click a shape to edit its points."*
+
+> **As built (2026-07-16):** the auto-select also covers **transform** — a declared amendment to D2's "unchanged" (the Move button itself is untouched, but entering it now auto-selects a lone shape, same as modify; kills "Move does nothing" too). This changes the repro conditions for the unconfirmed #11 — ask the tester about Move explicitly on re-test.
 
 #### 4.11 Move / Transform — deferred (decided)
 
