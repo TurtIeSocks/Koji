@@ -5,6 +5,7 @@ import { SidebarToggleButton } from '@/components/admin/buttons/sidebar-toggle-b
 import { ThemeModeToggle } from '@/components/admin/layout/theme-mode-toggle'
 import { TitlePortal } from '@/components/admin/layout/title-portal'
 import { UserMenu } from '@/components/admin/layout/user-menu'
+import { DemoBadge } from '@/components/demo/demo-badge'
 import { cn } from '@/lib/utils'
 
 type AppBarProps = HTMLAttributes<HTMLElement> & {
@@ -73,6 +74,7 @@ function AppBar({
             toolbar
           ) : (
             <>
+              <DemoBadge />
               <LocalesMenuButton />
               <ThemeModeToggle />
               <RefreshButton />
