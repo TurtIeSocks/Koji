@@ -1,5 +1,6 @@
-//! Browser WASM build of Koji's clustering algorithm (demo/portfolio).
-//! Plugins, routing, bootstrap, DB and network are intentionally excluded.
+//! Browser WASM build of Koji's algorithms (demo/portfolio): clustering,
+//! routing, bootstrap, s2 cells, and geometry conversion via [`calc`].
+//! Plugins, DB and network are intentionally excluded.
 
 #[cfg(test)]
 use koji_core::Precision;
@@ -12,7 +13,8 @@ mod dto;
 pub use dto::{ClusterRequest, ClusterResponse, StatsSummary};
 
 /// Re-export the wasm-bindgen-rayon thread-pool initializer. The JS caller must
-/// `await initThreadPool(navigator.hardwareConcurrency)` before calling `cluster`.
+/// `await initThreadPool(navigator.hardwareConcurrency)` before calling
+/// `cluster` or `calc`.
 #[cfg(target_arch = "wasm32")]
 pub use wasm_bindgen_rayon::init_thread_pool;
 
