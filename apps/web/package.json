@@ -11,6 +11,7 @@
     "preview": "vite preview --port 4273",
     "test": "vitest run --project unit",
     "test:browser": "vitest run --project browser",
+    "test:demo": "vitest run --project demo-browser",
     "typecheck": "tsc -b --noEmit",
     "wasm:build": "bash ../../crates/koji-wasm/build-wasm.sh"
   },
