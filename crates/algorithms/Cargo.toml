@@ -40,3 +40,13 @@ native = ["dep:sysinfo", "dep:koji-plugins", "dep:colored", "tsp-geo/parallel"]
 # only, so native behavior is unchanged while wasm32 builds exclude it.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 s2 = { workspace = true, features = ["float_extras"] }
+
+# `rand`'s `sys_rng` feature (always on — see the `rand` dep above) pulls in
+# getrandom 0.4, which refuses to pick a wasm32-unknown-unknown backend unless
+# something in the graph turns on its `wasm_js` feature (see the workspace-level
+# `getrandom` entry's comment). `koji-wasm` already carries this via its own
+# target dep, but `algorithms` needs it too so it compiles standalone for wasm
+# (e.g. `cargo check -p algorithms --no-default-features --target
+# wasm32-unknown-unknown`), not only when pulled in through koji-wasm.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { workspace = true }

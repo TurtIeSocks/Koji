@@ -11,7 +11,7 @@
 //! Datasets: uniform | blobs | urban | csv:<path>
 //! Modes: fastest | honeycomb | fast | balanced | better | best
 
-use std::time::Instant;
+use web_time::Instant;
 
 use algorithms::clustering::{CalculationMode, ClusterMode, ClusteringConfig, S2Config};
 use algorithms::{clustering, stats::Stats};
