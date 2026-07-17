@@ -174,3 +174,28 @@ New/extended `koji-wasm` exports:
 3. Demo backend: db/seeds/endpoints + unit tests.
 4. Calc worker + job facade + COI wiring + browser smoke.
 5. Deploy workflow + Pages setup + live verification.
+
+## 10. As-Built Notes (implemented 2026-07-16/17, branch claude/v2)
+
+Deltas from the design, discovered during implementation:
+
+- **Shared crate = `koji-calc-api`** (chose the extraction path over fallback DTOs — §4.2 preferred). It carries a default-on `native` feature forwarding `algorithms/native`; `default-features = false` had to be set on the **workspace** dependency entry (Cargo silently ignores a member-level override on an inherited workspace dep), and koji-service re-adds `["schema","native"]`.
+- **Cores shared beyond the three named.** Plan named `run_cluster_route`/`run_bootstrap`/`resolve_cluster_route`; `run_reroute` + `run_route_stats` were also hoisted into `koji-calc-api::compute` so the wasm `routeStats`/`reroute` paths share the server's exact logic (zero drift). Server and wasm decode the identical `CalcJobRequest` type; the ~35-line per-variant dispatch match is the only remaining structural duplication (deliberate — a future full-match hoist could remove it).
+- **Algorithms wasm fixes (Task 2):** `bootstrap/mod.rs` → `web_time::Instant` + ungated `main`; `CalculationMode::Custom` plugin path gets a radius-algorithm fallback on wasm (mirrors clustering/routing); `getrandom` gains a wasm32 target dep with the `wasm_js` backend feature; `clusterbench.rs` bin swapped to `web_time::Instant` for wasm-check parity.
+- **Tile server seed = raster XYZ**, not the vector `style.json` §5.3 implied: `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png` (every tileserver consumer feeds `url` through `rasterStyle()`).
+- **Demo realtime = in-memory bus** (already amended §3.3): `useCalc` resolves via the `jobs/{id}` topic, so the facade publishes status/progress through the same singleton `createRealtimeTransport()` returns.
+- **Dev-only Vite `server.fs.allow`** widened to the repo root so the calc worker can fetch `crates/koji-wasm/pkg/*.wasm` (outside `apps/web`). Does NOT affect `build:demo` — the Pages bundle emits the wasm/worker/rayon chunks normally.
+- **`demo-browser` vitest project** (third project) injects COOP/COEP + `fs.allow` via a Vite plugin `config()` hook, because `@vitest/browser` wholesale-replaces the project's `server` field.
+- **`serializeGeofenceWrite`** extracted to `api/shared/` (both live + demo providers need it; it isn't part of `ApiSurface`).
+- **Live-bundle isolation verified:** no demo-logic symbols (`mulberry32`/`generateMarkers`/`resetDemoWorld`/`koji-demo-world`/"Seeding demo") in the live build. The vendored `public/coi-serviceworker.js` ships in every build's dist root but is registered only under `__DEMO__` (inert in live).
+- **Deploy:** the workflow triggers on push to `main`; this work lives on `claude/v2`, so the demo publishes only after that merges to main and is pushed. One-time manual repo setting required: Settings → Pages → Source = GitHub Actions.
+
+## 11. Known Follow-Ups (Minor, non-blocking)
+
+Carried from per-task reviews for a future pass:
+- Geofence import drops `item.parent` (always `parent: null`; live resolves parent-by-name). Within-batch duplicate names both classify as `create`.
+- `DemoBoot`: `ensureSeeded()` rejection → silent infinite splash (no error phase); no `demo-badge.test.tsx` for the reset flow.
+- `requests/mod.rs` re-export keeps the old surface `pub` (could tighten to `pub(crate)`); a couple of `@api` barrel-vs-direct import inconsistencies.
+- `smoke.test.ts` is sensitive to CPU contention (flaked once under a 4-way-parallel gate batch, green in isolation).
+- `INEFFECTIVE_DYNAMIC_IMPORT` build warnings (cosmetic — live-bundle cleanliness comes from `__DEMO__` dead-code elimination, not the dynamic import).
+- `demo-browser` COI plugin is coupled to `@vitest/browser` internals (version-fragile).
