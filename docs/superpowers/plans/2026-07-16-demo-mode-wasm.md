@@ -14,7 +14,7 @@
 
 - Package manager: **bun** (`bun install`, `bun run <script>`). Lockfile is text `bun.lock` — commit it when deps change.
 - Branch: `claude/v2`. Commit per task (conventional style). Commit freely without asking (project rule).
-- **NEVER mention the closed-source reference project (dragonite-admin) in any committed artifact** — code, comments, commits, docs. Describe patterns generically.
+- **NEVER name any closed-source reference project in a committed artifact** — code, comments, commits, docs. Describe borrowed patterns generically (e.g. "build-time adapter selection via a vite alias"), with zero attribution.
 - Rust: server crate's package name is `koji` (NOT `koji-server`); `cargo build -p koji`. Never pipe cargo through `| tail` (masks exit code).
 - wasm build needs **nightly** + `wasm32-unknown-unknown` target + `wasm-pack`; ONLY via `crates/koji-wasm/build-wasm.sh` (plain `cargo build --target wasm32-unknown-unknown` is a known false-failure TLS-link trap).
 - TypeScript: prefer `interface` over `type` for object shapes. React: non-component exports live in sibling `.ts` files (react-refresh lint).
