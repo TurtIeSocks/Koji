@@ -1,5 +1,4 @@
-#[cfg(feature = "native")]
-use std::time::Instant;
+use web_time::Instant;
 
 use geojson::{Feature, FeatureCollection};
 #[cfg(feature = "native")]
@@ -7,12 +6,11 @@ use koji_core::{KojiGeometry, KojiGeometryCollection};
 #[cfg(feature = "native")]
 use koji_plugins::PluginKind;
 
-#[cfg(feature = "native")]
 use crate::clustering::CalculationMode;
-#[cfg(feature = "native")]
 use crate::routing::RoutingConfig;
 #[cfg(feature = "native")]
-use crate::{plugins, stats::Stats};
+use crate::plugins;
+use crate::stats::Stats;
 
 mod config;
 pub mod radius;
@@ -20,7 +18,6 @@ pub mod s2;
 
 pub use config::BootstrapConfig;
 
-#[cfg(feature = "native")]
 pub fn main(
     area: FeatureCollection,
     cfg: &BootstrapConfig,
@@ -45,6 +42,7 @@ pub fn main(
                 *stats += &new_s2.stats;
                 features.push(new_s2.feature());
             }
+            #[cfg(feature = "native")]
             CalculationMode::Custom(plugin) => {
                 let time = Instant::now();
                 // Koji-native inbound: geojson Feature -> KojiGeometry (Phase 1
@@ -67,6 +65,25 @@ pub fn main(
                     features.push(koji_core::single_vec_to_polygon_feature(&sorted_clusters));
                     *stats += &plugin_stats;
                 }
+            }
+            // Plugin execution needs koji-plugins' process/dylib loading,
+            // unavailable on wasm — fall back to the radius algorithm (mirrors
+            // clustering::main's `ClusterMode::Custom` and routing::main's
+            // `SortBy::Custom` wasm fallbacks).
+            #[cfg(not(feature = "native"))]
+            CalculationMode::Custom(_plugin) => {
+                log::warn!(
+                    "custom bootstrap plugins are unavailable in wasm; using the radius algorithm"
+                );
+                let time = Instant::now();
+                let mut new_radius = radius::BootstrapRadius::new(&feature, cfg.radius);
+                new_radius.sort(routing);
+                *stats += &new_radius.stats;
+                features.push(new_radius.feature());
+                log::info!(
+                    "wasm bootstrap fallback took {:.4}s",
+                    time.elapsed().as_secs_f32()
+                );
             }
         }
     }
