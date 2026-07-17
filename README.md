@@ -9,6 +9,12 @@
 
 [![GitHub Release](https://img.shields.io/github/release/TurtIeSocks/Koji.svg)](https://github.com/TurtIeSocks/Koji/releases/) [![GitHub Contributors](https://img.shields.io/github/contributors/TurtIeSocks/Koji.svg)](https://github.com/TurtIeSocks/Koji/graphs/contributors/) [![Discord](https://img.shields.io/discord/907337201044582452.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/EYYsKPVawn)
 
+## Live demo
+
+Try Kōji in your browser: **[turtiesocks.github.io/Koji](https://turtiesocks.github.io/Koji/)**
+
+Clustering, routing, and bootstrap all run entirely client-side via WebAssembly — no backend required. The demo is seeded with synthetic, generated data (not real game data). See the [demo mode design doc](docs/superpowers/specs/2026-07-16-demo-mode-wasm-design.md) for how it's built.
+
 ## What is Kōji?
 
 - Automation tool to streamline the process of mapping new and existing areas as efficiently as possible
