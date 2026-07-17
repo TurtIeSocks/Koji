@@ -22,6 +22,10 @@
     "paths": {
       "@api": ["./src/api/index.live.ts"],
       "@/*": ["./src/*"],
+      // wasm-pack output (crates/koji-wasm/pkg) — the demo bundle imports it as
+      // `@koji-wasm` (matching vite.config.ts's alias); this mapping lets tsc
+      // resolve the module's generated types.
+      "@koji-wasm": ["../../crates/koji-wasm/pkg/koji_wasm.d.ts"],
       "shadmin-core": ["./node_modules/ra-core"],
       "shadmin-core/*": ["./node_modules/ra-core/*"]
     }

@@ -13,6 +13,10 @@ export default defineConfig({
     alias: {
       // The @api seam — keep in sync with vite.config.ts + tsconfig.app.json.
       "@api": path.resolve(__dirname, "./src/api/index.live.ts"),
+      // wasm-pack output — index.demo.ts's wasm loader imports it as
+      // `@koji-wasm`; aliased so vite can resolve the dynamic-import specifier
+      // when a demo module is loaded under test (it's never executed there).
+      "@koji-wasm": path.resolve(__dirname, "../../crates/koji-wasm/pkg"),
       "@": path.resolve(__dirname, "./src"),
       "shadmin-core": path.resolve(__dirname, "./node_modules/ra-core"),
     },
