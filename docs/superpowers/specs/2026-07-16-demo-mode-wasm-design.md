@@ -74,7 +74,9 @@ All ~10 network surfaces re-import from `@api`; function signatures unchanged, s
 | publish | `POST /internal/{res}/{id}/publish` | set flag + success toast (no downstream) |
 | webhook test | `POST /internal/webhooks/{id}/test` | canned success payload |
 | plugins list | `GET /internal/plugins` | empty list |
-| realtime | WS `/internal/realtime` | no-op transport (reports connected, emits nothing) |
+| realtime | WS `/internal/realtime` | in-memory pub/sub bus (reports connected; carries demo-internal events) |
+
+> **Amendment (plan-time discovery):** `useCalc` has no polling loop — job progress and terminal resolution arrive via the realtime `jobs/{id}` topic (plus a one-shot safety-net fetch when the job id first appears). A pure no-op transport would deadlock demo calc. The demo transport is therefore a tiny in-memory pub/sub bus implementing `RealtimeTransport`; the calc facade publishes `jobs/{id}` status/progress events through it. CRUD events are not emitted (YAGNI).
 
 The `index.html`-hash update-check poll is left as-is (works on Pages).
 
@@ -101,7 +103,8 @@ New/extended `koji-wasm` exports:
 
 - `wasm-bindgen-rayon` needs `SharedArrayBuffer` → COOP/COEP headers; Pages cannot set headers.
 - **COI service worker** (vendored shim, registered only in the demo `index.html`, copied verbatim to dist root for top-level scope) injects the headers; first visit triggers one instant reload.
-- Dev/preview/tests don't need the SW: vite `server.headers` sets real COOP/COEP locally.
+- Dev/preview/tests don't need the SW: vite `server.headers` sets real COOP/COEP locally (demo mode only — COEP must not leak into live dev).
+- **COEP × basemap tiles:** `COEP: require-corp` blocks cross-origin tile fetches unless the tile server is CORS-clean. Use `COEP: credentialless` (supported by the COI shim) and a CORS-enabled basemap (Carto) as the demo default tile server. Verified in the browser smoke; documented fallback if a tile host misbehaves: single-thread wasm build (drop atomics), no COI needed.
 - Atomics builds cannot instantiate without SAB → failure path (SW blocked, some private windows) shows a clear error banner, never a silent hang.
 
 ### 4.4 Job facade
