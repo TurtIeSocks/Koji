@@ -5,11 +5,14 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "vite --port 5273",
+    "dev:demo": "vite --mode demo --port 5273",
     "build": "tsc -b && vite build",
+    "build:demo": "tsc -b && vite build --mode demo",
     "preview": "vite preview --port 4273",
     "test": "vitest run --project unit",
     "test:browser": "vitest run --project browser",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "wasm:build": "bash ../../crates/koji-wasm/build-wasm.sh"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

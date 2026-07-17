@@ -6,6 +6,9 @@ import path from "node:path";
 export default defineConfig({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   plugins: [react(), tailwindcss()] as any,
+  // Unit tests always run against the live surface — __DEMO__ is `false` here
+  // regardless of what a real `vite --mode demo` build would set it to.
+  define: { __DEMO__: JSON.stringify(false) },
   resolve: {
     alias: {
       // The @api seam — keep in sync with vite.config.ts + tsconfig.app.json.

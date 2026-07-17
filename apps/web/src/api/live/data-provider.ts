@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { DataProvider, RaRecord } from "ra-core";
 import { internalFetch, unwrapResponse, type Meta } from "@/lib/http";
+import { serializeGeofenceWrite } from "../shared/serialize-geofence-write";
 
 interface ResourceDef {
   seg: string;
@@ -63,19 +64,9 @@ const getListImpl = async (resource: string, params: any): Promise<{ data: any[]
   return { data, total: meta?.total ?? data.length };
 };
 
-/** Strip a geofence's `properties` rows to the write wire shape
- *  `{ property_id, value }`, dropping read-only keys (id/name/category/...).
- *  Idempotent; returns data unchanged when there are no properties. */
-export const serializeGeofenceWrite = (data: any): any => {
-  if (!Array.isArray(data?.properties)) return data;
-  return {
-    ...data,
-    properties: data.properties.map((p: any) => ({
-      property_id: p.property_id,
-      value: p.value,
-    })),
-  };
-};
+// serializeGeofenceWrite lives in ../shared/serialize-geofence-write (pure,
+// mode-agnostic) and is re-exported below for index.live.ts's existing path.
+export { serializeGeofenceWrite };
 
 // ReferenceManyField target -> backend list filter param. Explicit map because
 // the strip-_id convention doesn't hold for routes (backend wants `geofenceid`,

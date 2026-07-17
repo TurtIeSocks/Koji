@@ -14,6 +14,11 @@
     "verbatimModuleSyntax": true,
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
+    // "@api" stays pointed at index.live.ts here even though vite.config.ts's
+    // alias is mode-aware (demo -> index.demo.ts). This path only drives
+    // editor/tsc resolution of `@api` imports across the app, and those all
+    // stay written against the live surface; type coverage of index.demo.ts
+    // itself comes from api-surface.test.ts importing it directly.
     "paths": {
       "@api": ["./src/api/index.live.ts"],
       "@/*": ["./src/*"],
