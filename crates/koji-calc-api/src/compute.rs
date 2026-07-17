@@ -4,16 +4,15 @@
 //! DB-free compute — the async inputs (area, data points) are resolved by the
 //! caller before these run.
 //!
-//! [`run_bootstrap`] is gated on the `native` feature (the bootstrap algorithm
-//! is native-only in `algorithms`); errors surface as plain `String`s so this
+//! [`run_bootstrap`] compiles on every target (`algorithms::bootstrap::main`
+//! now builds without the `native` feature — plugin-mode bootstrap falls back
+//! to the radius algorithm on wasm); errors surface as plain `String`s so this
 //! crate stays free of the server's job-error types.
 
-#[cfg(feature = "native")]
 use algorithms::bootstrap::{self, BootstrapConfig};
 use algorithms::clustering::{self, ClusteringConfig};
 use algorithms::routing::{self, RoutingConfig, SortBy};
 use algorithms::stats::Stats;
-#[cfg(feature = "native")]
 use geojson::Feature;
 use geojson::FeatureCollection;
 use koji_core::{KojiGeometry, KojiGeometryCollection, KojiMeta, SingleVec};
@@ -113,7 +112,6 @@ pub fn resolve_cluster_route(
 /// through the Phase 1 inbound `TryFrom<geojson::FeatureCollection>` rather than
 /// constructing a MultiPoint directly. The `__name` label is set on each feature
 /// *before* conversion so it round-trips into `KojiMeta.extra` via the inbound path.
-#[cfg(feature = "native")]
 pub fn run_bootstrap(
     area: FeatureCollection,
     bootstrap_config: &BootstrapConfig,

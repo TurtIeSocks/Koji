@@ -15,9 +15,11 @@
 //! Extracted from `koji-service` so the server and a wasm demo-mode consumer
 //! share identical calc request semantics. Feature gates:
 //! - `schema` (default): utoipa `ToSchema` derives for the server's OpenAPI doc.
-//! - `native` (default): forwards `algorithms/native`; gates [`compute::run_bootstrap`]
-//!   (the bootstrap algorithm is native-only). wasm consumers turn both off with
-//!   `default-features = false`.
+//! - `native` (default): forwards `algorithms/native` (custom plugin execution,
+//!   `sysinfo` memory probing). [`compute::run_bootstrap`] itself compiles and
+//!   runs without it — a `Custom` plugin calculation mode just falls back to
+//!   the radius algorithm on a non-native build. wasm consumers turn both off
+//!   with `default-features = false`.
 
 pub mod compute;
 pub mod config;
