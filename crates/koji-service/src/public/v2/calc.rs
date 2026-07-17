@@ -25,20 +25,18 @@
 //! `Stats`, serializes the collection to a geojson `FeatureCollection` at the wire
 //! boundary (Phase 1 outbound `From`), and returns `{ "data": <geojson>, "stats":
 //! <stats> }`. The pure compute fns themselves live in the shared
-//! [`koji_calc_api::compute`] module (so a wasm demo-mode consumer runs the exact
-//! same cores); this handler owns the job plumbing plus the reroute / route-stats
-//! wrappers around the pre-resolved cluster inputs. The legacy
+//! [`koji_calc_api::compute`] module — including the reroute / route-stats cores
+//! over the pre-resolved cluster inputs — so a wasm demo-mode consumer runs the
+//! exact same cores; this handler owns only the job plumbing. The legacy
 //! persistence side effects (`save_to_db` / `save_to_golbat`, the golbat reload
 //! call, the parent-name lookup) are **not** performed here — those are async DB
 //! writes and are deferred (the v2 calc job is pure compute; persistence /
 //! event-emission wire in a later phase). This is a deliberate P4 scoping
 //! decision, flagged for the maintainer.
 
-use algorithms::routing::{self, RoutingConfig};
 use algorithms::stats::Stats;
 use geojson::FeatureCollection;
-use koji_calc_api::compute::{centers_collection, resolve_cluster_route, run_bootstrap};
-use koji_core::Precision;
+use koji_calc_api::compute::{resolve_cluster_route, run_bootstrap, run_reroute, run_route_stats};
 use koji_core::{KojiGeometryCollection, SingleVec};
 use koji_jobs::{JobCtx, JobError, JobHandler};
 use serde::{Deserialize, Serialize};
@@ -170,45 +168,4 @@ impl JobHandler for CalculateHandler {
         };
         Ok(json!({ "data": data, "stats": stats }))
     }
-}
-
-/// Route an existing cluster set without clustering — the `reroute` mode (v1
-/// `/reroute`). Legacy compat: if `clusters` is empty, `data_points` are treated
-/// as the clusters to route.
-fn run_reroute(
-    clusters: SingleVec,
-    data_points: SingleVec,
-    radius: Precision,
-    routing_config: &RoutingConfig,
-    instance: &str,
-) -> (KojiGeometryCollection, Stats) {
-    let mut stats = Stats::new("Reroute".to_string(), 1);
-    let (clusters, data_points) = if clusters.is_empty() {
-        (data_points, vec![])
-    } else {
-        (clusters, data_points)
-    };
-    stats.total_clusters = clusters.len();
-    let clusters = routing::main(&data_points, clusters, radius, routing_config, &mut stats);
-    (centers_collection(&clusters, instance), stats)
-}
-
-/// Score an existing route — the `route-stats` mode (v1 `/route-stats[/...]`):
-/// compute distance + coverage stats over `clusters` (and `data_points` when
-/// present), returning the clusters as a labeled collection alongside the stats.
-/// No clustering or routing is performed.
-fn run_route_stats(
-    clusters: SingleVec,
-    data_points: SingleVec,
-    radius: Precision,
-    min_points: usize,
-    instance: &str,
-) -> (KojiGeometryCollection, Stats) {
-    let mut stats = Stats::new("Route Stats".to_string(), min_points);
-    stats.distance_stats(&clusters);
-    if !data_points.is_empty() {
-        stats.cluster_stats(radius, &data_points, &clusters);
-        stats.set_score();
-    }
-    (centers_collection(&clusters, instance), stats)
 }

@@ -15,7 +15,7 @@ use algorithms::routing::{self, RoutingConfig, SortBy};
 use algorithms::stats::Stats;
 use geojson::Feature;
 use geojson::FeatureCollection;
-use koji_core::{KojiGeometry, KojiGeometryCollection, KojiMeta, SingleVec};
+use koji_core::{KojiGeometry, KojiGeometryCollection, KojiMeta, Precision, SingleVec};
 
 use crate::ops::ClusterReq;
 
@@ -141,6 +141,49 @@ pub fn run_bootstrap(
     Ok((collection, stats))
 }
 
+/// Route an existing cluster set without clustering — the `reroute` mode (v1
+/// `/reroute`). Legacy compat: if `clusters` is empty, `data_points` are treated
+/// as the clusters to route. Shared by the server's calc job handler and the
+/// wasm `calc` export (hoisted out of `koji-service` so the two never drift).
+pub fn run_reroute(
+    clusters: SingleVec,
+    data_points: SingleVec,
+    radius: Precision,
+    routing_config: &RoutingConfig,
+    instance: &str,
+) -> (KojiGeometryCollection, Stats) {
+    let mut stats = Stats::new("Reroute".to_string(), 1);
+    let (clusters, data_points) = if clusters.is_empty() {
+        (data_points, vec![])
+    } else {
+        (clusters, data_points)
+    };
+    stats.total_clusters = clusters.len();
+    let clusters = routing::main(&data_points, clusters, radius, routing_config, &mut stats);
+    (centers_collection(&clusters, instance), stats)
+}
+
+/// Score an existing route — the `route-stats` mode (v1 `/route-stats[/...]`):
+/// compute distance + coverage stats over `clusters` (and `data_points` when
+/// present), returning the clusters as a labeled collection alongside the stats.
+/// No clustering or routing is performed. Shared by the server's calc job
+/// handler and the wasm `calc` export.
+pub fn run_route_stats(
+    clusters: SingleVec,
+    data_points: SingleVec,
+    radius: Precision,
+    min_points: usize,
+    instance: &str,
+) -> (KojiGeometryCollection, Stats) {
+    let mut stats = Stats::new("Route Stats".to_string(), min_points);
+    stats.distance_stats(&clusters);
+    if !data_points.is_empty() {
+        stats.cluster_stats(radius, &data_points, &clusters);
+        stats.set_score();
+    }
+    (centers_collection(&clusters, instance), stats)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -256,5 +299,52 @@ mod tests {
         let (coll, stats) = run_cluster_route(&pts, empty, &cfg, &routing, "t");
         assert!(stats.total_clusters >= 1);
         assert!(!coll.items.is_empty());
+    }
+
+    // ── run_reroute / run_route_stats (hoisted from koji-service) ────────────
+
+    /// Reroute routes the supplied clusters and reports their count.
+    #[test]
+    fn reroute_routes_supplied_clusters() {
+        let clusters: SingleVec = vec![[40.0, -74.0], [40.001, -74.0], [40.0005, -74.0]];
+        let routing = RoutingConfig {
+            sort_by: SortBy::Random,
+            plugin_args: String::new(),
+        };
+        let (coll, stats) = run_reroute(clusters, vec![], 70.0, &routing, "r");
+        assert_eq!(stats.total_clusters, 3);
+        assert!(!coll.items.is_empty());
+    }
+
+    /// Legacy compat: empty `clusters` means `data_points` ARE the clusters.
+    #[test]
+    fn reroute_empty_clusters_falls_back_to_data_points() {
+        let pts: SingleVec = vec![[40.0, -74.0], [40.001, -74.0]];
+        let routing = RoutingConfig {
+            sort_by: SortBy::Random,
+            plugin_args: String::new(),
+        };
+        let (_, stats) = run_reroute(vec![], pts, 70.0, &routing, "r");
+        assert_eq!(stats.total_clusters, 2);
+    }
+
+    /// Route-stats scores the clusters against the data points (coverage stats
+    /// only run when data points are present).
+    #[test]
+    fn route_stats_scores_clusters_against_points() {
+        let clusters: SingleVec = vec![[40.00005, -74.0]];
+        let pts: SingleVec = vec![[40.0, -74.0], [40.0001, -74.0]];
+        let (coll, stats) = run_route_stats(clusters, pts, 100.0, 1, "s");
+        assert_eq!(stats.total_points, 2);
+        assert!(!coll.items.is_empty());
+    }
+
+    /// Route-stats without data points still reports distance stats, skipping
+    /// the coverage pass.
+    #[test]
+    fn route_stats_no_data_points_skips_coverage() {
+        let clusters: SingleVec = vec![[40.0, -74.0], [40.001, -74.0]];
+        let (_, stats) = run_route_stats(clusters, vec![], 100.0, 1, "s");
+        assert_eq!(stats.total_points, 0);
     }
 }

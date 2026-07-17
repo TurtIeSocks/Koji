@@ -11,12 +11,11 @@
 //! `serde_wasm_bindgen`. Outbound JSON uses the `json_compatible()` serializer
 //! so `serde_json::Value` objects become plain JS objects, not ES Maps.
 
-use algorithms::routing::{self, RoutingConfig};
 use algorithms::stats::Stats;
-use koji_calc_api::compute::{centers_collection, resolve_cluster_route, run_bootstrap};
+use koji_calc_api::compute::{resolve_cluster_route, run_bootstrap, run_reroute, run_route_stats};
 use koji_calc_api::resolve::DEFAULT_RADIUS;
 use koji_calc_api::{CalcJobRequest, CalcRequest, GeoInput, area_collection};
-use koji_core::{KojiGeometryCollection, Precision, SingleVec};
+use koji_core::{KojiGeometryCollection, Precision};
 use serde::Serialize;
 use serde_json::json;
 use wasm_bindgen::prelude::*;
@@ -122,48 +121,6 @@ pub(crate) fn convert_impl(value: serde_json::Value) -> Result<serde_json::Value
         .map_err(|e| format!("geometry conversion failed: {e}"))?;
     let fc = geojson::FeatureCollection::from(&coll);
     serde_json::to_value(&fc).map_err(|e| format!("failed to serialize result: {e}"))
-}
-
-// ─── reroute / route-stats cores (mirrored from the server's calc.rs) ───────
-
-/// Route an existing cluster set without clustering — the `reroute` mode.
-/// Legacy compat: if `clusters` is empty, `data_points` are treated as the
-/// clusters to route. Verbatim mirror of the server's private `run_reroute`.
-fn run_reroute(
-    clusters: SingleVec,
-    data_points: SingleVec,
-    radius: Precision,
-    routing_config: &RoutingConfig,
-    instance: &str,
-) -> (KojiGeometryCollection, Stats) {
-    let mut stats = Stats::new("Reroute".to_string(), 1);
-    let (clusters, data_points) = if clusters.is_empty() {
-        (data_points, vec![])
-    } else {
-        (clusters, data_points)
-    };
-    stats.total_clusters = clusters.len();
-    let clusters = routing::main(&data_points, clusters, radius, routing_config, &mut stats);
-    (centers_collection(&clusters, instance), stats)
-}
-
-/// Score an existing route — the `route-stats` mode: distance + coverage stats
-/// over `clusters` (and `data_points` when present); no clustering or routing.
-/// Verbatim mirror of the server's private `run_route_stats`.
-fn run_route_stats(
-    clusters: SingleVec,
-    data_points: SingleVec,
-    radius: Precision,
-    min_points: usize,
-    instance: &str,
-) -> (KojiGeometryCollection, Stats) {
-    let mut stats = Stats::new("Route Stats".to_string(), min_points);
-    stats.distance_stats(&clusters);
-    if !data_points.is_empty() {
-        stats.cluster_stats(radius, &data_points, &clusters);
-        stats.set_score();
-    }
-    (centers_collection(&clusters, instance), stats)
 }
 
 // ─── wasm boundary ───────────────────────────────────────────────────────────
@@ -303,7 +260,7 @@ mod tests {
     }
 
     /// Reroute with no `dataPoints`: legacy compat treats `clusters` as the
-    /// route to sort (mirrors the server's `run_reroute` empty-clusters swap
+    /// route to sort (the shared `run_reroute` empty-clusters swap, exercised
     /// in the inverse direction — clusters supplied, points absent).
     #[test]
     fn calc_reroute_mode_routes_existing_clusters() {
