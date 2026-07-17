@@ -9,7 +9,7 @@ import { ensureSeeded } from "./seeds/seed";
 // generate it once per session and serve every query from the cached store.
 let storePromise: Promise<MarkerStore> | null = null;
 
-async function getMarkerStore(): Promise<MarkerStore> {
+export async function getMarkerStore(): Promise<MarkerStore> {
   if (!storePromise) {
     storePromise = (async () => {
       await ensureSeeded();

@@ -67,6 +67,13 @@ export default defineConfig(({ mode }) => {
     worker: { format: "es" as const },
     server: {
       port: 5273,
+      // The wasm asset (`koji_wasm_bg.wasm`) is fetched at runtime from
+      // ../../crates/koji-wasm/pkg — OUTSIDE the `apps/web` vite root — by both
+      // the main-thread loader and the calc worker. Vite's default fs.allow is
+      // just the project root, so serving it 403s ("outside of Vite serving
+      // allow list") and wasm compile fails. Allow the repo root so the pkg is
+      // served in dev (demo-only asset; live never fetches it).
+      fs: { allow: [path.resolve(__dirname, "../..")] },
       // demo dev needs cross-origin isolation for SharedArrayBuffer (rayon);
       // credentialless keeps cross-origin basemap tiles loadable. Live dev has
       // no backend proxy running that requires isolation, so it keeps the

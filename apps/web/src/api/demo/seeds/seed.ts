@@ -10,7 +10,7 @@
 // page or debug action calls directly.
 
 import { DEFAULT_TILE_URL } from "@/lib/constants";
-import type { GeofenceRow, ProjectRow, PropertyRow, TileServerRow, WebhookRow } from "../db";
+import type { GeofenceRow, ProjectRow, PropertyRow, RouteRow, TileServerRow, WebhookRow } from "../db";
 import { allRows, deleteRow, putRow, SEED_VERSION } from "../db";
 import { featureBbox } from "./geometry";
 import { DEMO_EPOCH_MS } from "./markers";
@@ -234,4 +234,110 @@ export async function resetDemoWorld(): Promise<void> {
   await wipeAllData();
   await seedAll();
   await putRow("meta", { k: "seedVersion", v: SEED_VERSION });
+}
+
+// ── Route seeding (needs the wasm calc engine) ────────────────────────────
+// Routes can't be built from static fixtures — they're the output of a real
+// clustering+routing calc. So this is a separate step the demo boot runs after
+// the base seed AND after the wasm worker is reachable (see main.tsx). The calc
+// runner (`submitCalc`) + job fetcher (`getJob`) are injected (the demo facade's)
+// so this stays testable with fakes and free of a circular facade↔markers import.
+
+/** A `submitCalc`-shaped calc runner. */
+type SeedSubmitCalc = (body: Record<string, unknown>) => Promise<string>;
+/** A `getJob`-shaped record fetcher (only the fields route seeding reads). */
+type SeedGetJob = (id: string) => Promise<{
+  status: string;
+  result?: { data?: unknown; stats?: unknown } | null;
+  error?: string | null;
+}>;
+
+/** Geofences to seed a demo route for (Downtown neighbourhoods 1 & 2). */
+const SEED_ROUTE_FENCE_IDS = [1, 2];
+
+/** Collect every `[lon, lat]` position out of a route FeatureCollection — walks
+ *  Point / MultiPoint / LineString / Polygon coordinate nestings down to the
+ *  innermost pairs. */
+function collectPositions(fc: GeoJSON.FeatureCollection | undefined): GeoJSON.Position[] {
+  if (!fc?.features) return [];
+  const out: GeoJSON.Position[] = [];
+  const walk = (coords: unknown): void => {
+    if (!Array.isArray(coords)) return;
+    if (typeof coords[0] === "number") {
+      out.push(coords as GeoJSON.Position);
+      return;
+    }
+    for (const c of coords) walk(c);
+  };
+  for (const feature of fc.features) {
+    const geometry = feature.geometry as { coordinates?: unknown } | null;
+    if (geometry?.coordinates) walk(geometry.coordinates);
+  }
+  return out;
+}
+
+/** Poll a job to a terminal state. Seed-time only — the app's `useCalc` resolves
+ *  via realtime, but the boot seed has no React subscription, so it polls the
+ *  same facade `getJob` the realtime path also updates. */
+async function waitForJob(
+  getJob: SeedGetJob,
+  id: string,
+  timeoutMs = 30_000,
+): Promise<Awaited<ReturnType<SeedGetJob>>> {
+  const start = Date.now();
+  for (;;) {
+    const rec = await getJob(id);
+    if (rec.status === "succeeded" || rec.status === "failed") return rec;
+    if (Date.now() - start > timeoutMs) throw new Error(`seedRoutes: job ${id} timed out`);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+/** Run a real `mode: "route"` calc (spawnpoint, radius 70, minPoints 3) on the
+ *  first two geofences and store each result as a route row (`"<Fence> Route"`,
+ *  mode `quest`, geometry = MultiPoint of the result coordinates). Idempotent
+ *  (only when the routes store is empty); skips with a `console.warn` when the
+ *  wasm calc is unavailable, so the demo is still usable without seed routes. */
+export async function seedRoutes(submitCalc: SeedSubmitCalc, getJob: SeedGetJob): Promise<void> {
+  if ((await allRows("routes")).length > 0) return; // idempotent
+  const fences = await allRows("geofences");
+  let nextRouteId = 1;
+  for (const fenceId of SEED_ROUTE_FENCE_IDS) {
+    const fence = fences.find((f) => f.id === fenceId);
+    if (!fence) continue;
+    try {
+      const id = await submitCalc({
+        mode: "route",
+        category: "spawnpoint",
+        area: {
+          type: "FeatureCollection",
+          features: [{ type: "Feature", properties: {}, geometry: fence.geometry }],
+        },
+        clustering: { calculationMode: "radius", radius: 70, minPoints: 3 },
+      });
+      const rec = await waitForJob(getJob, id);
+      if (rec.status !== "succeeded") {
+        console.warn(
+          `seedRoutes: calc for "${fence.name}" ${rec.status}${rec.error ? ` (${rec.error})` : ""}; skipping route`,
+        );
+        continue;
+      }
+      const positions = collectPositions(rec.result?.data as GeoJSON.FeatureCollection | undefined);
+      const geometry: GeoJSON.MultiPoint = { type: "MultiPoint", coordinates: positions };
+      const row: RouteRow = {
+        id: nextRouteId++,
+        geofence_id: fence.id,
+        name: `${fence.name} Route`,
+        description: null,
+        mode: "quest",
+        geometry,
+        points: positions.length,
+        created_at: FIXED_ISO,
+        updated_at: FIXED_ISO,
+      };
+      await putRow("routes", row);
+    } catch (err) {
+      console.warn(`seedRoutes: wasm calc unavailable for "${fence.name}"; skipping route seed`, err);
+    }
+  }
 }

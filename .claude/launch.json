@@ -12,6 +12,12 @@
       "runtimeExecutable": "bash",
       "runtimeArgs": ["-lc", "cd /Users/rin/GitHub/Koji/apps/web && exec bun run dev --port 5280"],
       "port": 5280
+    },
+    {
+      "name": "web-demo",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-lc", "cd /Users/rin/GitHub/Koji/apps/web && exec bun run dev:demo --port 5273"],
+      "port": 5273
     }
   ]
 }
