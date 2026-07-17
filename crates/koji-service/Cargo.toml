@@ -11,6 +11,7 @@ path = "src/lib.rs"
 [dependencies]
 dotenv     = { workspace = true }
 env_logger = { workspace = true }
+koji-calc-api      = { workspace = true }
 koji-core          = { workspace = true }
 koji-golbat        = { workspace = true }
 koji-db            = { workspace = true }

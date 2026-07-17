@@ -1,0 +1,28 @@
+# The shared calc API surface: the v2 calc request types (serde-tagged
+# `CalcRequest` + arg-groups) and the pure compute cores, extracted from
+# koji-service so the server and a wasm demo-mode consumer share identical
+# request semantics.
+#
+# wasm consumers depend with `default-features = false`:
+#   - `schema` (utoipa `ToSchema` derives) is server-only.
+#   - `native` forwards `algorithms/native` (bootstrap::main is native-only);
+#     off for wasm, which drops `run_bootstrap` but keeps the cluster/route cores.
+[package]
+name    = "koji-calc-api"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[features]
+default = ["schema", "native"]
+schema  = ["dep:utoipa"]
+native  = ["algorithms/native"]
+
+[dependencies]
+algorithms = { workspace = true }
+koji-core  = { workspace = true }
+geojson    = { workspace = true }
+log        = { workspace = true }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+utoipa     = { workspace = true, optional = true }

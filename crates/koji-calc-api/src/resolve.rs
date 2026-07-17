@@ -4,17 +4,17 @@
 //! the spec §2 defaults table). `resolve_data_points` is the single source of
 //! truth for the v2 arg-groups.
 
-use super::inputs::DataPointsArg;
+use crate::inputs::DataPointsArg;
 use koji_core::Precision;
 use koji_core::{KojiGeometry, KojiGeometryCollection};
 
-pub(crate) const DEFAULT_RADIUS: Precision = 70.0;
-pub(crate) const DEFAULT_S2_LEVEL: u8 = 15;
-pub(crate) const DEFAULT_S2_SIZE: u8 = 9;
-pub(crate) const DEFAULT_MIN_POINTS: usize = 1;
+pub const DEFAULT_RADIUS: Precision = 70.0;
+pub const DEFAULT_S2_LEVEL: u8 = 15;
+pub const DEFAULT_S2_SIZE: u8 = 9;
+pub const DEFAULT_MIN_POINTS: usize = 1;
 
 /// `None`/`0` → `usize::MAX`, else the value (parity with old `init()`).
-pub(crate) fn resolve_max_clusters(v: Option<usize>) -> usize {
+pub fn resolve_max_clusters(v: Option<usize>) -> usize {
     match v {
         Some(0) | None => usize::MAX,
         Some(n) => n,
@@ -22,7 +22,7 @@ pub(crate) fn resolve_max_clusters(v: Option<usize>) -> usize {
 }
 
 /// Appends the clustering plugin-arg tail exactly as the old `init()` did.
-pub(crate) fn clustering_plugin_args(
+pub fn clustering_plugin_args(
     base: Option<String>,
     radius: Precision,
     min_points: usize,
@@ -36,7 +36,7 @@ pub(crate) fn clustering_plugin_args(
 }
 
 /// Appends the bootstrap plugin-arg tail exactly as the old `init()` did.
-pub(crate) fn bootstrap_plugin_args(base: Option<String>, radius: Precision) -> String {
+pub fn bootstrap_plugin_args(base: Option<String>, radius: Precision) -> String {
     let mut s = base.unwrap_or_default();
     s += &format!(" --radius {radius}");
     s
@@ -46,7 +46,7 @@ pub(crate) fn bootstrap_plugin_args(base: Option<String>, radius: Precision) -> 
 /// with an unconvertible geometry yields no points (matches the old matrix's
 /// empty arm). Parity with old `init()`.
 // Consumed by the per-op request types (`ops.rs`).
-pub(crate) fn resolve_data_points(data_points: Option<DataPointsArg>) -> koji_core::SingleVec {
+pub fn resolve_data_points(data_points: Option<DataPointsArg>) -> koji_core::SingleVec {
     if let Some(data_points) = data_points {
         match data_points {
             // `Array` is already the `[lat, lon]` list. `Struct` is `PointStruct`s
@@ -75,7 +75,7 @@ pub(crate) fn resolve_data_points(data_points: Option<DataPointsArg>) -> koji_co
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::requests::inputs::DataPointsArg;
+    use crate::inputs::DataPointsArg;
     use koji_core::PointStruct;
 
     // ── resolve_max_clusters ─────────────────────────────────────────────────

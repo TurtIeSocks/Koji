@@ -12,6 +12,7 @@ members  = ["crates/*", "apps/koji-cli", "apps/koji-server"]
 # default-features off so koji-wasm can exclude the `native` feature; native
 # consumers (koji-service) re-add `features = ["native"]`.
 algorithms     = { path = "crates/algorithms", default-features = false }
+koji-calc-api  = { path = "crates/koji-calc-api" }
 koji-core      = { path = "crates/koji-core" }
 koji-db        = { path = "crates/koji-db" }
 koji-dragonite = { path = "crates/koji-dragonite" }

@@ -1,10 +1,9 @@
 //! Request/output-side configuration structs. The v2 arg-group wire DTOs
-//! ([`super::groups`]) `resolve()` into these; downstream ops + the response
+//! ([`crate::groups`]) `resolve()` into these; downstream ops + the response
 //! layer consume them. `DataFilter` carries a [`SpawnpointTth`] from `koji_core`.
 
 use koji_core::SpawnpointTth;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 
 #[derive(Debug, Clone)]
 pub struct DataFilter {
@@ -27,7 +26,8 @@ pub struct DevConfig {
     pub benchmark_mode: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub enum ReturnTypeArg {
     AltText,
     Text,

@@ -2718,6 +2718,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "koji-calc-api"
+version = "0.1.0"
+dependencies = [
+ "algorithms",
+ "geojson",
+ "koji-core",
+ "log",
+ "serde",
+ "serde_json",
+ "utoipa",
+]
+
+[[package]]
 name = "koji-cli"
 version = "0.1.0"
 dependencies = [
@@ -2859,6 +2872,7 @@ dependencies = [
  "futures-util",
  "geo",
  "geojson",
+ "koji-calc-api",
  "koji-core",
  "koji-db",
  "koji-dragonite",

@@ -3,7 +3,7 @@
 //! (spec §2 table) and produces the matching pure-domain config.
 //!
 //! koji-core configs stay serde-free; these wire structs carry the serde derives
-//! and funnel through the shared [`super::resolve`] helpers so the default + plugin-
+//! and funnel through the shared [`crate::resolve`] helpers so the default + plugin-
 //! arg-build logic is a single source of truth across v1 and v2.
 
 use algorithms::bootstrap::BootstrapConfig;
@@ -11,26 +11,26 @@ use algorithms::clustering::{CalculationMode, ClusterMode, ClusteringConfig, S2C
 use algorithms::routing::{RoutingConfig, SortBy};
 use koji_core::{Precision, SpawnpointTth};
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 
-use super::config::{DataFilter, DevConfig, OutputConfig, ReturnTypeArg, get_return_type};
-use super::resolve::{
+use crate::config::{DataFilter, DevConfig, OutputConfig, ReturnTypeArg, get_return_type};
+use crate::resolve::{
     DEFAULT_MIN_POINTS, DEFAULT_RADIUS, DEFAULT_S2_LEVEL, DEFAULT_S2_SIZE, bootstrap_plugin_args,
     clustering_plugin_args, resolve_max_clusters,
 };
 
 /// Clustering wire args → [`ClusteringConfig`].
-#[derive(Debug, Default, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Default, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase", default)]
 pub struct ClusteringArgs {
-    #[schema(value_type = Option<Precision>)]
+    #[cfg_attr(feature = "schema", schema(value_type = Option<Precision>))]
     pub radius: Option<Precision>,
     pub min_points: Option<usize>,
     pub max_clusters: Option<usize>,
-    #[schema(value_type = Option<String>)]
+    #[cfg_attr(feature = "schema", schema(value_type = Option<String>))]
     #[serde(alias = "clusterMode", alias = "cluster_mode")]
     pub mode: Option<ClusterMode>,
-    #[schema(value_type = Option<String>)]
+    #[cfg_attr(feature = "schema", schema(value_type = Option<String>))]
     pub calculation_mode: Option<CalculationMode>,
     pub s2_level: Option<u8>,
     pub s2_size: Option<u8>,
@@ -60,10 +60,11 @@ impl ClusteringArgs {
 }
 
 /// Routing wire args → [`RoutingConfig`].
-#[derive(Debug, Default, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Default, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase", default)]
 pub struct RoutingArgs {
-    #[schema(value_type = Option<String>)]
+    #[cfg_attr(feature = "schema", schema(value_type = Option<String>))]
     pub sort_by: Option<SortBy>,
     pub plugin_args: Option<String>,
 }
@@ -78,12 +79,13 @@ impl RoutingArgs {
 }
 
 /// Bootstrap wire args → [`BootstrapConfig`].
-#[derive(Debug, Default, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Default, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase", default)]
 pub struct BootstrapArgs {
-    #[schema(value_type = Option<String>)]
+    #[cfg_attr(feature = "schema", schema(value_type = Option<String>))]
     pub calculation_mode: Option<CalculationMode>,
-    #[schema(value_type = Option<Precision>)]
+    #[cfg_attr(feature = "schema", schema(value_type = Option<Precision>))]
     pub radius: Option<Precision>,
     pub s2_level: Option<u8>,
     pub s2_size: Option<u8>,
@@ -106,11 +108,12 @@ impl BootstrapArgs {
 }
 
 /// Data-filter wire args → [`DataFilter`].
-#[derive(Clone, Debug, Default, Deserialize, Serialize, ToSchema)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase", default)]
 pub struct DataFilterArgs {
     pub last_seen: Option<u32>,
-    #[schema(value_type = Option<String>)]
+    #[cfg_attr(feature = "schema", schema(value_type = Option<String>))]
     pub tth: Option<SpawnpointTth>,
 }
 
@@ -127,7 +130,8 @@ impl DataFilterArgs {
 /// `default_return_type` (derived from the inbound `area` container shape — see
 /// the per-op request layer); when `return_type` is `Some`, the wire string is
 /// parsed against that default via [`get_return_type`], else the default stands.
-#[derive(Debug, Default, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Default, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase", default)]
 pub struct OutputArgs {
     pub return_type: Option<String>,
@@ -155,7 +159,8 @@ impl OutputArgs {
 }
 
 /// Developer / experimental wire toggles → [`DevConfig`].
-#[derive(Debug, Default, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Default, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase", default)]
 pub struct DevArgs {
     pub benchmark_mode: Option<bool>,
@@ -332,7 +337,7 @@ mod tests {
 
     #[test]
     fn output_args_defaults_all_false_and_uses_provided_default_return_type() {
-        use crate::requests::config::ReturnTypeArg;
+        use crate::config::ReturnTypeArg;
         let cfg = OutputArgs::default().resolve(ReturnTypeArg::Feature);
         assert_eq!(cfg.return_type, ReturnTypeArg::Feature);
         assert!(!cfg.save_to_db);
@@ -343,7 +348,7 @@ mod tests {
 
     #[test]
     fn output_args_explicit_return_type_overrides_default() {
-        use crate::requests::config::ReturnTypeArg;
+        use crate::config::ReturnTypeArg;
         let g: OutputArgs = serde_json::from_str(r#"{"returnType":"featureCollection"}"#).unwrap();
         let cfg = g.resolve(ReturnTypeArg::Feature);
         assert_eq!(cfg.return_type, ReturnTypeArg::FeatureCollection);
@@ -351,7 +356,7 @@ mod tests {
 
     #[test]
     fn output_args_unknown_return_type_falls_back_to_default() {
-        use crate::requests::config::ReturnTypeArg;
+        use crate::config::ReturnTypeArg;
         let g: OutputArgs = serde_json::from_str(r#"{"returnType":"nonsense"}"#).unwrap();
         let cfg = g.resolve(ReturnTypeArg::SingleArray);
         assert_eq!(cfg.return_type, ReturnTypeArg::SingleArray);
@@ -363,7 +368,7 @@ mod tests {
             r#"{"saveToDb":true,"saveToGolbat":true,"saveToGolbatOnly":true,"simplify":true}"#,
         )
         .unwrap();
-        use crate::requests::config::ReturnTypeArg;
+        use crate::config::ReturnTypeArg;
         let cfg = g.resolve(ReturnTypeArg::SingleArray);
         assert!(cfg.save_to_db);
         assert!(cfg.save_to_golbat);
