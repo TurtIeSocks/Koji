@@ -18,11 +18,18 @@ const { submitMock, getJobMock } = vi.hoisted(() => ({
 // Real `useCalc` (x2) runs in this component — stub the network layer under it
 // so the auto-computed route-stats job resolves deterministically without
 // hitting the network (mirrors use-calc.test.tsx / map-playground.browser.test.tsx).
-vi.mock("@/map/data/calc-client", () => ({
+vi.mock("@/api/live/calc", async (importActual) => ({
+	...(await importActual<typeof import("@/api/live/calc")>()),
 	submitCalc: submitMock,
 	getJob: getJobMock,
 }));
-vi.mock("@/components/realtime", () => ({ useSubscribe: vi.fn() }));
+// Spread the real module so `@api`'s live realtime transport (and the other
+// realtime exports) stay resolvable in browser/ESM mode; only useSubscribe
+// is stubbed.
+vi.mock("@/components/realtime", async (importActual) => ({
+	...(await importActual<typeof import("@/components/realtime")>()),
+	useSubscribe: vi.fn(),
+}));
 
 const SPAWNPOINTS: [number, number][] = [
 	[4.905, 51.905],

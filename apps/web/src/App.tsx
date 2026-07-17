@@ -1,7 +1,7 @@
 import { FileTextIcon, MapIcon } from 'lucide-react'
 import { Route } from 'react-router'
 import { Authenticated, CustomRoutes } from 'shadmin-core'
-import { authProvider } from '@/auth-provider'
+import { authProvider } from '@api'
 import { Admin, Layout, Menu, Resource } from '@/components/admin'
 import { MapPlayground } from '@/components/deck'
 import { ApiDocs } from '@/components/docs/api-docs'

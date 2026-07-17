@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as http from "@/lib/http";
-import { postConvert, postImport } from "./import-api";
+import { postConvert, postImport } from "./import";
 
 describe("postImport", () => {
   beforeEach(() => vi.restoreAllMocks());

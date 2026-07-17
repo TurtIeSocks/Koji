@@ -1,4 +1,4 @@
-import type { ImportItem, ImportKind, OnCollision } from "@/lib/import-api";
+import type { ImportItem, ImportKind, OnCollision } from "@api";
 
 interface FormFeature {
   type?: string;

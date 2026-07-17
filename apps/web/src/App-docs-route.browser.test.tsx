@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router";
 
 // Authenticated gate calls authProvider.checkAuth() via a real HTTP fetch —
 // no backend in this test, so stub the whole provider to resolve as logged in.
-vi.mock("@/auth-provider", () => ({
+vi.mock("@/api/live/auth-provider", () => ({
   authProvider: {
     login: vi.fn(),
     logout: vi.fn(),

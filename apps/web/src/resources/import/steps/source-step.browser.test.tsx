@@ -6,7 +6,12 @@ import { SourceStep } from "./source-step";
 // Browser/ESM mode can't `vi.spyOn` a module export — mock the module with a
 // hoisted spy instead (the component imports `postConvert` from here).
 const { postConvertMock } = vi.hoisted(() => ({ postConvertMock: vi.fn() }));
-vi.mock("@/lib/import-api", () => ({ postConvert: postConvertMock }));
+// Spread the real module so `@api`'s other named re-export (postImport)
+// stays resolvable in browser/ESM mode; only postConvert is stubbed.
+vi.mock("@/api/live/import", async (importActual) => ({
+  ...(await importActual<typeof import("@/api/live/import")>()),
+  postConvert: postConvertMock,
+}));
 
 const Harness = ({ onLoaded = () => {} }: { onLoaded?: () => void }) => {
   const methods = useForm({ defaultValues: { features: [] as unknown[] } });

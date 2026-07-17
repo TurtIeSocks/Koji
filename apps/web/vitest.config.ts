@@ -8,6 +8,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss()] as any,
   resolve: {
     alias: {
+      // The @api seam — keep in sync with vite.config.ts + tsconfig.app.json.
+      "@api": path.resolve(__dirname, "./src/api/index.live.ts"),
       "@": path.resolve(__dirname, "./src"),
       "shadmin-core": path.resolve(__dirname, "./node_modules/ra-core"),
     },

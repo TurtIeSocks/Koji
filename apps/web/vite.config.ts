@@ -9,6 +9,10 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
+      // The @api seam: every network surface resolves through this one module,
+      // so a demo build can later swap in index.demo.ts without touching hooks.
+      // Keep in sync with tsconfig.app.json `paths` and vitest.config.ts.
+      "@api": path.resolve(__dirname, "./src/api/index.live.ts"),
       "@": path.resolve(__dirname, "./src"),
       "shadmin-core": path.resolve(__dirname, "./node_modules/ra-core"),
     },

@@ -7,7 +7,7 @@ import type { UseCalcReturn } from "./use-calc";
 
 // `useCalc` (Task 9) is exercised by its own unit tests — here we control its
 // return value directly to drive the "succeeded result -> geometry" effect
-// without needing a real calc-client round trip.
+// without needing a real @api calc round trip.
 const { calcMock, useCalcSpy } = vi.hoisted(() => {
   const calcMock: import("./use-calc").UseCalcReturn = {
     params: { mode: "cluster", strategy: "radius", radius: 70, s2Level: 15, s2Size: 9, minPoints: 3, clusterMode: null, maxClusters: null, centerClusters: false, sortBy: null, tth: "All" },

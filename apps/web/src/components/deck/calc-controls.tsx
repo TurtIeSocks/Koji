@@ -12,7 +12,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { getAlgorithms } from "@/map/data/calc-client";
+import { getAlgorithms } from "@api";
 import type { CalcMode, CalcStrategy } from "@/map/lib/calc-request";
 import type { UseCalcReturn } from "./use-calc";
 

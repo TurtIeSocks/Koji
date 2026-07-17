@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { fetchMarkers } from "@/map/data/use-markers";
+import { fetchMarkers } from "@/api/live/markers";
 import type { Bounds } from "@/map/stores/types";
 
 afterEach(() => vi.restoreAllMocks());

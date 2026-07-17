@@ -4,12 +4,18 @@ import { MemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 vi.mock("@/map/data/use-markers", () => ({ useMarkers: vi.fn(() => ({ data: [] })) }));
-vi.mock("@/map/data/calc-client", () => ({
+vi.mock("@/api/live/calc", async (importActual) => ({
+  ...(await importActual<typeof import("@/api/live/calc")>()),
   getAlgorithms: vi.fn().mockResolvedValue({ clustering: [], routing: [], bootstrap: [] }),
   submitCalc: vi.fn(),
   getJob: vi.fn(),
 }));
-vi.mock("@/components/realtime", () => ({ useSubscribe: vi.fn() }));
+// Spread-actual so `@api`'s live realtime transport stays resolvable in
+// browser/ESM mode; only useSubscribe is stubbed.
+vi.mock("@/components/realtime", async (importActual) => ({
+  ...(await importActual<typeof import("@/components/realtime")>()),
+  useSubscribe: vi.fn(),
+}));
 
 import { MapPlayground } from "./map-playground";
 

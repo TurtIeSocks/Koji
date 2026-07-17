@@ -1,20 +1,5 @@
 import { apiV2Fetch, unwrapResponse } from "@/lib/http";
-
-/** A job record as returned by GET /api/v2/jobs/{id} (koji-jobs JobRecord). */
-export interface JobRecord {
-  id: number | string;
-  status: string;
-  progress: number;
-  phase: string | null;
-  result?: { data?: unknown; stats?: unknown } | null;
-  error?: string | null;
-}
-
-export interface AlgorithmOptions {
-  clustering: string[];
-  routing: string[];
-  bootstrap: string[];
-}
+import type { AlgorithmOptions, JobRecord } from "../types";
 
 /** POST /api/v2/jobs → the new job's id (always async, 202). */
 export async function submitCalc(body: Record<string, unknown>): Promise<string> {

@@ -2,7 +2,8 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, test, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fetchFeatureCollection, useGeofencesByBbox, useGeofencesByIds } from "@/map/data/use-geo-features";
+import { fetchFeatureCollection } from "@/api/live/geo-features";
+import { useGeofencesByBbox, useGeofencesByIds } from "@/map/data/use-geo-features";
 import type { Bounds } from "@/map/stores/types";
 
 // Silence React's "not configured to support act(...)" warning — normally set

@@ -1,10 +1,5 @@
 import { useEffect, useState } from "react";
-import { internalFetch, unwrapResponse } from "@/lib/http";
-
-interface ConfigResponse {
-  start_lat?: number;
-  start_lon?: number;
-}
+import { loadConfig } from "@api";
 
 // Module-level cache: every map shares one /internal/config fetch, and once it
 // resolves new maps mount already-centered (no [0,0] flash on navigation).
@@ -14,8 +9,7 @@ let inflight: Promise<[number, number]> | null = null;
 function loadStartCenter(): Promise<[number, number]> {
   if (cached) return Promise.resolve(cached);
   if (!inflight) {
-    inflight = internalFetch("/config")
-      .then((res) => unwrapResponse<ConfigResponse>(res))
+    inflight = loadConfig()
       .then((c): [number, number] => {
         cached = [c.start_lat ?? 0, c.start_lon ?? 0];
         return cached;

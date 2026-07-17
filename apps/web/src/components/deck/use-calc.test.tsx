@@ -17,7 +17,7 @@ const { submitMock, getJobMock, subscribeMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/components/realtime", () => ({ useSubscribe: subscribeMock }));
-vi.mock("@/map/data/calc-client", () => ({
+vi.mock("@/api/live/calc", () => ({
 	submitCalc: submitMock,
 	getJob: getJobMock,
 }));

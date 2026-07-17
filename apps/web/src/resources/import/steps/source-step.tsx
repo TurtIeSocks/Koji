@@ -3,7 +3,7 @@ import { useFormContext } from "react-hook-form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { parseSourceText } from "@/lib/geojson-source";
-import { postConvert } from "@/lib/import-api";
+import { postConvert } from "@api";
 
 /** Source step: ingest GeoJSON or lat,lon lists by paste or file, normalize
  *  them server-side via /internal/geometry/convert, and load the resulting

@@ -1,13 +1,7 @@
 import { useState } from "react";
 import { useNotify, useRecordContext } from "ra-core";
 import { Button } from "@/components/ui/button";
-import { internalFetch, unwrapResponse } from "@/lib/http";
-
-interface TestResult {
-  delivered: boolean;
-  upstream_status: number | null;
-  error: string | null;
-}
+import { testWebhook } from "@api";
 
 export const WebhookTestButton = () => {
   const record = useRecordContext();
@@ -18,8 +12,7 @@ export const WebhookTestButton = () => {
     if (!record) return;
     setLoading(true);
     try {
-      const res = await internalFetch(`/webhooks/${record.id}/test`, { method: "POST" });
-      const data = unwrapResponse<TestResult>(res);
+      const data = await testWebhook(record.id);
       if (data.delivered) {
         notify(`Delivered ✓ (${data.upstream_status})`, { type: "success" });
       } else {

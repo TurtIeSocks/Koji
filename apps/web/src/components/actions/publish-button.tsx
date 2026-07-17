@@ -8,15 +8,7 @@ import {
   useUnselectAll,
 } from "shadmin-core";
 import { Button } from "@/components/ui/button";
-import { internalFetch } from "@/lib/http";
-
-/** Maps ra-core resource name → /internal path segment for publish. */
-const PUBLISH_SEG: Record<string, string> = {
-  geofence: "geofences",
-  route: "routes",
-};
-
-const segFor = (resource: string): string => PUBLISH_SEG[resource] ?? resource;
+import { publishRecord } from "@api";
 
 /**
  * Calls POST /internal/{seg}/{id}/publish for the current record.
@@ -36,22 +28,12 @@ export function PublishButton() {
     e.stopPropagation();
     if (!record) return;
     try {
-      const res = await internalFetch(
-        `/${segFor(resource ?? "")}/${record.id}/publish`,
-        { method: "POST" },
-      );
-      if (res.status === 422) {
-        const body = res.json as { error?: string } | null;
-        notify(body?.error ?? "Cannot publish: no linked Dragonite area", {
-          type: "warning",
-        });
+      const result = await publishRecord(resource ?? "", record.id);
+      if (!result.ok) {
+        notify(result.message, { type: result.warning ? "warning" : "error" });
         return;
       }
-      if (res.status < 200 || res.status >= 300) {
-        notify(`Publish failed (${res.status})`, { type: "error" });
-        return;
-      }
-      notify("Published", { type: "info" });
+      notify(result.message, { type: "info" });
       refresh();
     } catch (err) {
       notify(err instanceof Error ? err.message : "Publish failed", {
@@ -83,11 +65,8 @@ export function BulkPublishButton() {
 
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const seg = segFor(resource ?? "");
     const results = await Promise.allSettled(
-      selectedIds.map((id) =>
-        internalFetch(`/${seg}/${id}/publish`, { method: "POST" }),
-      ),
+      selectedIds.map((id) => publishRecord(resource ?? "", id)),
     );
 
     let succeeded = 0;
@@ -96,8 +75,8 @@ export function BulkPublishButton() {
 
     for (const r of results) {
       if (r.status === "fulfilled") {
-        if (r.value.status === 422) noArea++;
-        else if (r.value.status >= 200 && r.value.status < 300) succeeded++;
+        if (r.value.warning) noArea++;
+        else if (r.value.ok) succeeded++;
         else failed++;
       } else {
         failed++;

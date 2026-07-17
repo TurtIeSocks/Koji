@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Link } from "react-router";
-import { postImport, type ImportResult } from "@/lib/import-api";
+import { postImport, type ImportResult } from "@api";
 import { featuresToImportItems } from "../to-import-items";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

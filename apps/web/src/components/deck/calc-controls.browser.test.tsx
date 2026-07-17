@@ -7,7 +7,10 @@ import type { UseCalcReturn } from "./use-calc";
 const { getAlgorithmsMock } = vi.hoisted(() => ({
 	getAlgorithmsMock: vi.fn(),
 }));
-vi.mock("@/map/data/calc-client", () => ({
+// Spread the real module so `@api`'s named re-exports (submitCalc/getJob)
+// stay resolvable in browser/ESM mode; only getAlgorithms is stubbed.
+vi.mock("@/api/live/calc", async (importActual) => ({
+	...(await importActual<typeof import("@/api/live/calc")>()),
 	getAlgorithms: getAlgorithmsMock,
 }));
 

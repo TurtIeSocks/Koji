@@ -1,38 +1,5 @@
 import { internalFetch, unwrapResponse } from "@/lib/http";
-
-export type ImportKind = "geofence" | "route";
-export type OnCollision = "skip" | "overwrite";
-export type ImportAction = "create" | "update" | "skip" | "fail";
-
-export interface ImportItem {
-  kind: ImportKind;
-  name: string;
-  geometry: unknown; // GeoJSON geometry
-  mode?: string;
-  parent?: string | null;
-  projects: number[];
-  route_parent?: string | null;
-  on_collision: OnCollision;
-}
-
-export interface ImportRequest {
-  dry_run: boolean;
-  items: ImportItem[];
-}
-
-export interface ImportOutcome {
-  index: number;
-  name: string;
-  action: ImportAction;
-  id: number | null;
-  reason: string | null;
-}
-
-export interface ImportResult {
-  committed: boolean;
-  summary: { create: number; update: number; skip: number; fail: number };
-  results: ImportOutcome[];
-}
+import type { ImportRequest, ImportResult } from "../types";
 
 /** POST a bulk import (dry-run preview or real commit) to the atomic
  *  `/internal/import` endpoint and unwrap the `{status,data}` envelope. */

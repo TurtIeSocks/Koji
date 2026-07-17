@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSubscribe } from "@/components/realtime";
-import { getJob, submitCalc } from "@/map/data/calc-client";
+import { getJob, submitCalc } from "@api";
 import {
 	buildCalcBody,
 	buildRouteStatsBody,

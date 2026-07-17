@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { fetchS2Cells } from "@/map/data/use-s2-cells";
+import { fetchS2Cells } from "@/api/live/s2";
 import type { Bounds } from "@/map/stores/types";
 
 afterEach(() => vi.restoreAllMocks());

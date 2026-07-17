@@ -1,24 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiV2Fetch } from "@/lib/http";
+import {
+  fetchFeatureCollection,
+  fetchGeofencesByBbox,
+  fetchGeofencesByIds,
+} from "@api";
 import type { Bounds } from "@/map/stores/types";
 
-const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
-
-/** Unwrap an `apiV2Fetch` result into a `FeatureCollection`: accept either the
- *  enveloped `{data}` shape or a raw (non-enveloped) FeatureCollection; a
- *  non-2xx status or anything else unrecognized returns `EMPTY`. */
-function unwrapFc(res: { status: number; json: unknown }): GeoJSON.FeatureCollection {
-  if (res.status < 200 || res.status >= 300) return EMPTY;
-  const j = res.json as { data?: GeoJSON.FeatureCollection; type?: string };
-  return j?.data ?? (j?.type === "FeatureCollection" ? (j as GeoJSON.FeatureCollection) : EMPTY);
-}
-
-export async function fetchFeatureCollection(
-  resource: "geofences" | "routes",
-): Promise<GeoJSON.FeatureCollection> {
-  const res = await apiV2Fetch(`/${resource}?format=featurecollection`);
-  return unwrapFc(res);
-}
+// Historical home of this type — consumers still import it from here.
+export type { NeighborFilters } from "@/api/types";
+import type { NeighborFilters } from "@/api/types";
 
 export function useGeoFeatures(resource: "geofences" | "routes", enabled: boolean) {
   return useQuery({
@@ -36,18 +26,10 @@ export function useGeofencesByIds(ids: (number | string)[], enabled?: boolean) {
   const sortedIds = [...ids].map(String).sort();
   return useQuery({
     queryKey: ["geo", "geofences", "ids", sortedIds],
-    queryFn: async () => {
-      const res = await apiV2Fetch(`/geofences?format=featurecollection&ids=${ids.join(",")}`);
-      return unwrapFc(res);
-    },
+    queryFn: () => fetchGeofencesByIds(ids),
     enabled: (enabled ?? true) && ids.length > 0,
     staleTime: 60_000,
   });
-}
-
-export interface NeighborFilters {
-  mode?: string;
-  projects?: number[];
 }
 
 /** Scoped geofence-geometry fetch by viewport bbox — same never-fetch-all
@@ -62,13 +44,7 @@ export function useGeofencesByBbox(
   const projects = filters?.projects?.length ? [...filters.projects].sort() : undefined;
   return useQuery({
     queryKey: ["geo", "geofences", "bbox", bbox, mode ?? null, projects ?? null],
-    queryFn: async () => {
-      let url = `/geofences?format=featurecollection&bbox=${bbox!.join(",")}`;
-      if (mode) url += `&mode=${encodeURIComponent(mode)}`;
-      if (projects) url += `&projects=${projects.join(",")}`;
-      const res = await apiV2Fetch(url);
-      return unwrapFc(res);
-    },
+    queryFn: () => fetchGeofencesByBbox(bbox!, { mode, projects }),
     enabled: enabled && !!bbox,
     staleTime: 60_000,
   });

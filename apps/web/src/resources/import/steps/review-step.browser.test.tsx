@@ -7,7 +7,12 @@ import { ReviewStep } from "./review-step";
 // Browser/ESM mode can't `vi.spyOn` a module export — mock the module with a
 // hoisted spy instead (the component imports `postImport` from here).
 const { postImportMock } = vi.hoisted(() => ({ postImportMock: vi.fn() }));
-vi.mock("@/lib/import-api", () => ({ postImport: postImportMock }));
+// Spread the real module so `@api`'s other named re-export (postConvert)
+// stays resolvable in browser/ESM mode; only postImport is stubbed.
+vi.mock("@/api/live/import", async (importActual) => ({
+  ...(await importActual<typeof import("@/api/live/import")>()),
+  postImport: postImportMock,
+}));
 
 const FEATURES = [
   { geometry: { type: "Polygon" }, name: "A", projects: [], on_collision: "skip" },

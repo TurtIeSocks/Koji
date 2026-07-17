@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { submitCalc, getJob } from "@/map/data/calc-client";
+import { submitCalc, getJob } from "./calc";
 
 const { apiV2FetchMock } = vi.hoisted(() => ({ apiV2FetchMock: vi.fn() }));
 vi.mock("@/lib/http", async (importActual) => {

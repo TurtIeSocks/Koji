@@ -10,8 +10,11 @@ import {
 import type { AuthProvider } from "shadmin-core";
 import { PublishButton, BulkPublishButton } from "./publish-button";
 
-// Stub internalFetch — will be overridden per test
-vi.mock("@/lib/http", () => ({
+// Stub internalFetch — will be overridden per test. Spread the real module so
+// the rest of `@api`'s live modules (apiV2Fetch/unwrapResponse consumers) stay
+// resolvable in browser/ESM mode.
+vi.mock("@/lib/http", async (importActual) => ({
+  ...(await importActual<typeof import("@/lib/http")>()),
   internalFetch: vi
     .fn()
     .mockResolvedValue({ status: 200, json: { status: "ok", data: {} } }),

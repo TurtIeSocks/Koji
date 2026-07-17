@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router";
 
 // Authenticated gate calls authProvider.checkAuth() via a real HTTP fetch —
 // no backend in this test, so stub the whole provider to resolve as logged in.
-vi.mock("@/auth-provider", () => ({
+vi.mock("@/api/live/auth-provider", () => ({
   authProvider: {
     login: vi.fn(),
     logout: vi.fn(),
@@ -15,7 +15,7 @@ vi.mock("@/auth-provider", () => ({
   },
 }));
 
-// MapPlayground pulls in useMarkers/useCalc (real query + calc-client) — stub it,
+// MapPlayground pulls in useMarkers/useCalc (real query + @api calc) — stub it,
 // same precedent as the old test stubbing DeckCanvas/MapIndex. Other exports from
 // this barrel are used elsewhere in the import graph, so pass them through.
 vi.mock("@/components/deck", async (importOriginal) => {
