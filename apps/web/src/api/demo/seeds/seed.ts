@@ -180,7 +180,11 @@ function buildTileServerRows(): TileServerRow[] {
     {
       id: 1,
       name: "Carto Light",
-      url: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+      // Raster XYZ template, NOT the vector style.json — every tileserver
+      // consumer feeds `url` through `rasterStyle()` (map-style.ts), which
+      // expects an XYZ template and handles `{s}` (expanded to the a-d
+      // subdomains) and `{r}` (stripped). Same shape as DEFAULT_TILE_URL.
+      url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
       created_at: FIXED_ISO,
       updated_at: FIXED_ISO,
     },
