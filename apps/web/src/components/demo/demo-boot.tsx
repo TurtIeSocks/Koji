@@ -26,7 +26,7 @@ interface DemoBootProps {
   children: ReactNode;
 }
 
-type Phase = "seeding" | "ready";
+type Phase = "seeding" | "ready" | "error";
 
 /** Wraps `<App/>` in the demo build: registers the COI service worker, awaits
  *  `ensureSeeded()` behind a minimal centered splash so the admin lists/map
@@ -39,6 +39,7 @@ type Phase = "seeding" | "ready";
  *  immediately with none of the above. */
 function DemoBoot({ demo, children }: DemoBootProps) {
   const [phase, setPhase] = useState<Phase>(demo ? "seeding" : "ready");
+  const [seedError, setSeedError] = useState<string | null>(null);
   const [isolationWarning, setIsolationWarning] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const toastShown = useRef(false);
@@ -48,7 +49,17 @@ function DemoBoot({ demo, children }: DemoBootProps) {
     let cancelled = false;
     void (async () => {
       maybeRegisterCoi();
-      await ensureSeeded();
+      try {
+        await ensureSeeded();
+      } catch (e) {
+        // A rejecting IndexedDB (e.g. Safari private mode, where `indexedDB`
+        // exists but every transaction throws) would otherwise leave the splash
+        // spinning forever. Surface it instead of hanging.
+        if (cancelled) return;
+        setSeedError(e instanceof Error ? e.message : String(e));
+        setPhase("error");
+        return;
+      }
       if (cancelled) return;
       setIsolationWarning(isolationFailed());
       setPhase("ready");
@@ -72,6 +83,23 @@ function DemoBoot({ demo, children }: DemoBootProps) {
       <div className="flex h-svh w-full flex-col items-center justify-center gap-3">
         <Spinner className="size-6" />
         <p className="text-sm text-muted-foreground">Seeding demo world…</p>
+      </div>
+    );
+  }
+
+  if (phase === "error") {
+    return (
+      <div className="flex h-svh w-full flex-col items-center justify-center gap-3 p-6">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertTitle>Couldn't start the demo</AlertTitle>
+          <AlertDescription>
+            <span>
+              The demo needs browser storage (IndexedDB), which this browser blocked —
+              private-browsing windows in some browsers disable it. Try a normal window.
+              {seedError ? ` (${seedError})` : ""}
+            </span>
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }

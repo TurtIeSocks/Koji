@@ -138,4 +138,17 @@ describe("DemoBoot", () => {
 
     expect(toastWarning).not.toHaveBeenCalled();
   });
+
+  it("shows an error screen (not an endless splash) when seeding rejects", async () => {
+    ensureSeeded.mockRejectedValueOnce(new Error("idb blocked"));
+    mounted = renderDemoBoot(true, <div data-testid="child">app</div>);
+    await flush();
+
+    // No infinite spinner, no children — a readable error instead.
+    expect(mounted.container.textContent).not.toContain("Seeding demo world");
+    expect(mounted.container.querySelector('[data-testid="child"]')).toBeNull();
+    expect(mounted.container.textContent).toContain("Couldn't start the demo");
+    expect(mounted.container.textContent).toContain("idb blocked");
+    expect(seedRoutes).not.toHaveBeenCalled();
+  });
 });
