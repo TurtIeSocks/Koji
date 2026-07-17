@@ -9,6 +9,9 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 algorithms         = { workspace = true }
+# No `schema`/`native` (workspace entry is default-features = false): the shared
+# calc request types + compute cores, sans utoipa derives and plugin execution.
+koji-calc-api      = { workspace = true }
 koji-core          = { workspace = true }
 geojson            = { workspace = true }
 serde              = { workspace = true }

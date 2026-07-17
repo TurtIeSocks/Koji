@@ -7,9 +7,9 @@ use koji_core::{KojiGeometry, KojiGeometryCollection};
 use koji_plugins::PluginKind;
 
 use crate::clustering::CalculationMode;
-use crate::routing::RoutingConfig;
 #[cfg(feature = "native")]
 use crate::plugins;
+use crate::routing::RoutingConfig;
 use crate::stats::Stats;
 
 mod config;
@@ -95,7 +95,11 @@ pub fn bootstrap_plugins() -> Vec<String> {
     plugins::plugin_names(PluginKind::Bootstrap)
 }
 
-#[cfg(feature = "native")]
+#[cfg(not(feature = "native"))]
+pub fn bootstrap_plugins() -> Vec<String> {
+    vec![]
+}
+
 pub fn all_bootstrap_options() -> Vec<String> {
     let mut options = bootstrap_plugins();
     options.push("radius".to_string());

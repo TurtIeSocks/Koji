@@ -5,6 +5,7 @@
 use koji_core::Precision;
 use wasm_bindgen::prelude::*;
 
+pub mod calc;
 mod convert;
 mod dto;
 
