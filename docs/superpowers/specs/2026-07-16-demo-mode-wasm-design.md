@@ -194,7 +194,7 @@ Deltas from the design, discovered during implementation:
 
 Carried from per-task reviews for a future pass:
 - Geofence import drops `item.parent` (always `parent: null`; live resolves parent-by-name). Within-batch duplicate names both classify as `create`.
-- `DemoBoot`: `ensureSeeded()` rejection → silent infinite splash (no error phase); no `demo-badge.test.tsx` for the reset flow.
+- ~~`DemoBoot`: `ensureSeeded()` rejection → silent infinite splash~~ FIXED (error phase added, tested). Still open: no `demo-badge.test.tsx` for the reset flow.
 - `requests/mod.rs` re-export keeps the old surface `pub` (could tighten to `pub(crate)`); a couple of `@api` barrel-vs-direct import inconsistencies.
 - `smoke.test.ts` is sensitive to CPU contention (flaked once under a 4-way-parallel gate batch, green in isolation).
 - `INEFFECTIVE_DYNAMIC_IMPORT` build warnings (cosmetic — live-bundle cleanliness comes from `__DEMO__` dead-code elimination, not the dynamic import).
