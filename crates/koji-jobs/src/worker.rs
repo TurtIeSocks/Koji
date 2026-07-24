@@ -152,13 +152,24 @@ async fn worker_loop(
             break;
         }
 
+        // Hold the pause gate as a reader across this claim+run. The synchronous
+        // (queue-bypass) calc path takes the write guard, which — because the
+        // RwLock is write-preferring — blocks this acquire until any in-flight
+        // job finishes, so the pool is paused while the inline compute runs and
+        // the two rayon workloads never oversubscribe cores. Released before
+        // parking (below) so an idle worker never holds the gate against a
+        // waiting sync writer.
+        let pause_guard = Arc::clone(&queue.pause_gate).read_owned().await;
+
         // Try to claim a job. Claim errors are transient — back off and retry,
         // never fail a job because of them (spec §11).
         let claimed = match queue.claim().await {
             Ok(Some(job)) => job,
             Ok(None) => {
-                // Empty queue: wait for a local enqueue poke or a poll tick, or
-                // a shutdown signal — whichever comes first.
+                // Empty queue: drop the gate so a sync writer can proceed, then
+                // wait for a local enqueue poke or a poll tick, or a shutdown
+                // signal — whichever comes first.
+                drop(pause_guard);
                 tokio::select! {
                     _ = queue.notify.notified() => {}
                     _ = tokio::time::sleep(IDLE_POLL) => {}
@@ -167,6 +178,7 @@ async fn worker_loop(
                 continue;
             }
             Err(e) => {
+                drop(pause_guard);
                 log::error!("[koji-jobs] worker {worker_idx} claim error: {e}; backing off");
                 tokio::time::sleep(ERROR_BACKOFF).await;
                 continue;
@@ -174,6 +186,9 @@ async fn worker_loop(
         };
 
         run_claimed_job(worker_idx, &queue, &registry, claimed).await;
+        // Explicit drop: release the pause gate before the next iteration's
+        // acquire so a waiting sync writer isn't starved by a busy worker.
+        drop(pause_guard);
     }
 
     log::info!("[koji-jobs] worker {worker_idx} stopped");

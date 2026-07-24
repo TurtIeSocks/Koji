@@ -28,7 +28,7 @@ use sea_orm::{
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use tokio::sync::{Notify, oneshot};
+use tokio::sync::{Notify, OwnedRwLockWriteGuard, RwLock, oneshot};
 
 use crate::entity::{self, JobStatus};
 use crate::error::{AwaitError, EnqueueError};
@@ -90,6 +90,18 @@ pub struct JobQueue {
     /// events through it (transport-agnostic: the hub in koji-service implements
     /// it; koji-jobs has no direct dependency on the hub).
     pub(crate) event_sink: Option<Arc<dyn JobEventSink>>,
+    /// CPU-pause gate for the synchronous (queue-bypass) calc path. Each worker
+    /// holds a **read** guard across its claim+run (they share it freely); the
+    /// sync handler takes the **write** guard via [`Self::pause_exclusive`].
+    /// tokio's `RwLock` is write-preferring, so a pending sync writer blocks new
+    /// claims, waits for the in-flight job to finish, then runs the inline compute
+    /// exclusively — the two rayon workloads never oversubscribe cores.
+    ///
+    /// In-process only: a separate worker process (e.g. `koji-cli worker`) shares
+    /// the DB queue but not this in-memory gate, so it is *not* paused by it.
+    // ponytail: in-process pause. If cross-process pause is ever needed, add a DB
+    // `queue_control` flag that `claim()` consults and the sync path sets/clears.
+    pub(crate) pause_gate: Arc<RwLock<()>>,
 }
 
 impl JobQueue {
@@ -103,6 +115,7 @@ impl JobQueue {
             running_tokens: Arc::new(DashMap::new()),
             worker_id: worker_id.into(),
             event_sink: None,
+            pause_gate: Arc::new(RwLock::new(())),
         }
     }
 
@@ -115,6 +128,17 @@ impl JobQueue {
     pub fn with_event_sink(mut self, sink: Arc<dyn JobEventSink>) -> Self {
         self.event_sink = Some(sink);
         self
+    }
+
+    /// Acquire exclusive CPU access, **pausing the in-process worker pool** until
+    /// the returned guard is dropped (see [`Self::pause_gate`]).
+    ///
+    /// The synchronous calc path holds this guard for the whole inline compute —
+    /// and moves it **into** the blocking task, so a client that aborts mid-request
+    /// cannot drop the guard early and let a worker resume while the (detached,
+    /// un-cancelable) compute is still burning cores.
+    pub async fn pause_exclusive(&self) -> OwnedRwLockWriteGuard<()> {
+        self.pause_gate.clone().write_owned().await
     }
 
     // ---------------------------------------------------------------------
@@ -685,5 +709,48 @@ impl Drop for WaiterPruneGuard<'_> {
                 self.waiters.remove_if(&self.key, |_, v| v.is_empty());
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The pause gate is the mechanism behind the sync (queue-bypass) calc path:
+    /// while the sync handler holds the write guard, a worker's read-acquire
+    /// (taken before each claim) must NOT complete — that is what "pauses" the
+    /// pool. DB-free: the gate never touches the DB, so a disconnected handle is
+    /// fine (`JobQueue::new` does not connect).
+    #[tokio::test]
+    async fn pause_exclusive_blocks_worker_read_guard_until_released() {
+        let q = JobQueue::new(sea_orm::DatabaseConnection::default(), "test");
+
+        // Sync path takes exclusive CPU access.
+        let pause = q.pause_exclusive().await;
+
+        // A worker's pre-claim read-acquire must block while paused (write-preferring
+        // RwLock: a held writer keeps new readers out). Bounded so a regression that
+        // let the reader through fails fast instead of hanging.
+        let blocked = tokio::time::timeout(
+            Duration::from_millis(100),
+            q.pause_gate.clone().read_owned(),
+        )
+        .await;
+        assert!(
+            blocked.is_err(),
+            "worker read guard acquired while the sync writer holds the pause — pool NOT paused"
+        );
+
+        // Releasing the sync guard lets the worker acquire again → pool resumes.
+        drop(pause);
+        let resumed = tokio::time::timeout(
+            Duration::from_millis(100),
+            q.pause_gate.clone().read_owned(),
+        )
+        .await;
+        assert!(
+            resumed.is_ok(),
+            "worker read guard must acquire once the sync writer releases the pause"
+        );
     }
 }
