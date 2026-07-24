@@ -956,6 +956,68 @@ async fn jobs_algorithms_returns_ok_with_all_keys() {
     );
 }
 
+/// `POST /api/v2/jobs` with `sync: true` computes inline (bypassing the queue)
+/// and returns `200 { status:"ok", data:{ data:<geojson>, stats } }` in one call —
+/// no `202`, no `job_id`, no job row. Explicit `area` + `dataPoints` so the path
+/// needs neither golbat nor a parent lookup.
+#[actix_web::test]
+async fn jobs_create_sync_computes_inline_and_returns_200_with_result() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let koji_db = build_test_koji_db(db.clone()).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let app = test::init_service(koji_service::test_db_app(koji_db, jobs)).await;
+
+    // `cluster` (not `route`) so the test exercises the sync compute path without
+    // paying the TSP solver's ≥2s floor.
+    let body = serde_json::json!({
+        "mode": "cluster",
+        "category": "pokestop",
+        "sync": true,
+        "area": {
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "properties": {},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[[0.0, 0.0], [0.0, 0.02], [0.02, 0.02], [0.02, 0.0], [0.0, 0.0]]]
+                }
+            }]
+        },
+        "dataPoints": [[0.001, 0.001], [0.002, 0.002], [0.003, 0.003]],
+        "clustering": { "radius": 200 }
+    });
+    let req = test::TestRequest::post()
+        .uri("/api/v2/jobs")
+        .set_json(&body)
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    let status = resp.status().as_u16();
+    let v = body_json(resp).await;
+
+    // 200 (inline), NOT 202 (enqueued).
+    assert_eq!(
+        status, 200,
+        "sync calc must return 200 with the result, got {v}"
+    );
+    assert_eq!(v["status"], "ok");
+    // Bypass: the result is the calc output, not a job handle.
+    assert!(
+        v["data"]["job_id"].is_null(),
+        "sync response must carry the result, not a job_id: {v}"
+    );
+    // Result shape mirrors a finished job's `result`: { data: <geojson FC>, stats }.
+    assert_eq!(
+        v["data"]["data"]["type"], "FeatureCollection",
+        "sync data must be a geojson FeatureCollection: {v}"
+    );
+    assert!(
+        v["data"]["stats"].is_object(),
+        "sync result must include a stats object: {v}"
+    );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PLUGINS — list + get unknown returns ok/404
 // ═══════════════════════════════════════════════════════════════════════════

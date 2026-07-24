@@ -1,9 +1,13 @@
 //! v2 jobs API (`/api/v2/jobs`) + the algorithm-metadata endpoint.
 //!
-//! `POST /jobs` is the single typed, always-async calc entry point: it takes a
+//! `POST /jobs` is the single typed calc entry point: it takes a
 //! [`CalcJobRequest`] (the op `mode` + data `category` are body fields now, not
 //! URL path segments), resolves the area + data points, enqueues a HIGH-priority
 //! `calculate` job with content dedup, and returns `202` + a `Location` header.
+//! With `sync: true` it instead computes **inline** (pausing the worker pool so
+//! the two rayon workloads don't oversubscribe cores) and returns `200 { data,
+//! stats }` directly — no queue, no dedup, no job record. This is for callers
+//! that need the result in one round-trip.
 //! `GET /jobs/{id}` reads the job *record* (with `?wait=N` it long-polls up to N
 //! seconds for a terminal state, then returns the record regardless — never a
 //! 504; the job keeps running). `GET /jobs` lists jobs (paginated), `DELETE
@@ -16,11 +20,11 @@ use std::time::Duration;
 
 use actix_web::{HttpResponse, delete, get, http::StatusCode, post, web};
 use koji_db::KojiDb;
-use koji_jobs::{AwaitError, JobId, JobQueue, dedup_key};
+use koji_jobs::{AwaitError, JobError, JobId, JobQueue, dedup_key};
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::public::v2::calc::{CALC_KIND, CalcPayload};
+use crate::public::v2::calc::{CALC_KIND, CalcPayload, compute_calc};
 use crate::requests::{CalcJobRequest, area_collection};
 use crate::utils::error::ServiceError;
 use crate::utils::pagination::Pagination;
@@ -31,22 +35,38 @@ const PRIORITY_HIGH: i16 = 100;
 /// Max sync-bridge wait the `GET /jobs/{id}?wait=` long-poll honors.
 const MAX_WAIT_SECS: u64 = 290;
 
+/// Map a handler-side [`JobError`] to a [`ServiceError`] for the synchronous
+/// (`sync: true`) calc path, mirroring the status the async job path would
+/// surface: validation → 400, everything else → 500 (generic, detail not leaked).
+fn job_error_to_service(e: JobError) -> ServiceError {
+    match e.code() {
+        "validation_error" => ServiceError::Invalid {
+            field: None,
+            message: e.to_string(),
+        },
+        _ => ServiceError::internal(e),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // POST /jobs — typed, always-async
 // ---------------------------------------------------------------------------
 
-/// `POST /api/v2/jobs` — enqueue a calc job (always async) → `202 { job_id }` with
-/// a `Location` header. Resolves the area + data points, builds the `CalcPayload`,
-/// and enqueues HIGH with content dedup.
+/// `POST /api/v2/jobs` — run a calc. Default (`sync:false`): resolve the area +
+/// data points, build the `CalcPayload`, enqueue HIGH with content dedup →
+/// `202 { job_id }` + a `Location` header. With `sync:true`: compute inline
+/// (pausing the worker pool) and return `200 { data, stats }` directly — no
+/// queue, no dedup, no job record.
 #[utoipa::path(
     post,
     path = "/api/v2/jobs",
     tag = "jobs",
     request_body = CalcJobRequest,
     responses(
+        (status = 200, description = "Sync (`sync:true`): inline calc result `{ data, stats }`", body = Object),
         (status = 202, description = "Job enqueued; `Location` header points at the job record", body = Object),
         (status = 400, description = "No area/instance/dataPoints/parent provided", body = ApiError),
-        (status = 500, description = "Internal error (resolve/enqueue)", body = ApiError),
+        (status = 500, description = "Internal error (resolve/enqueue/compute)", body = ApiError),
     ),
 )]
 #[post("/jobs")]
@@ -56,6 +76,7 @@ async fn create_job(
     body: web::Json<CalcJobRequest>,
 ) -> Result<HttpResponse, ServiceError> {
     let body = body.into_inner();
+    let sync = body.sync;
     let op = body.op();
     let category = body.category;
     let calc_request = body.request;
@@ -112,6 +133,24 @@ async fn create_job(
         data_points,
         clusters: inputs.clusters,
     };
+
+    // Synchronous bypass (`sync: true`): compute inline and return the result
+    // directly, skipping the queue (no enqueue, no dedup, no job record). The
+    // worker pool is paused for the duration via `pause_exclusive` so the inline
+    // rayon compute doesn't oversubscribe cores. The pause guard is moved INTO the
+    // blocking task, so a client that aborts mid-request releases it only when the
+    // (detached, un-cancelable) compute actually finishes — never early.
+    if sync {
+        let pause = jobs.pause_exclusive().await;
+        let result = web::block(move || {
+            let _pause = pause;
+            compute_calc(calc_payload)
+        })
+        .await
+        .map_err(|e| ServiceError::internal(format!("calc task failed to run: {e}")))?
+        .map_err(job_error_to_service)?;
+        return Ok(ApiResponse::success(result));
+    }
 
     let key = dedup_key(
         CALC_KIND,

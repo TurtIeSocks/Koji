@@ -127,6 +127,14 @@ pub struct CalcJobRequest {
     /// pre-supplied (reroute / route-stats / explicit `dataPoints`).
     #[serde(default = "default_category")]
     pub category: String,
+    /// When true, `POST /api/v2/jobs` computes **inline** (bypassing the queue)
+    /// and returns the `{ data, stats }` result in the response body instead of
+    /// enqueuing + returning `202`. The in-process worker pool is paused for the
+    /// duration so the inline rayon compute doesn't oversubscribe cores. Defaults
+    /// to `false` (normal async enqueue). Intended for callers that need the
+    /// result in one round-trip; large areas should still use the async path.
+    #[serde(default)]
+    pub sync: bool,
 }
 
 fn default_category() -> String {
@@ -339,6 +347,22 @@ mod tests {
         let req: CalcJobRequest = serde_json::from_str(r#"{"mode":"bootstrap"}"#).unwrap();
         assert_eq!(req.category, "pokestop");
         assert_eq!(req.op(), "bootstrap");
+    }
+
+    #[test]
+    fn calc_job_request_sync_defaults_to_false() {
+        let req: CalcJobRequest = serde_json::from_str(r#"{"mode":"route"}"#).unwrap();
+        assert!(
+            !req.sync,
+            "sync must default to false (normal async enqueue)"
+        );
+    }
+
+    #[test]
+    fn calc_job_request_reads_sync_true() {
+        let req: CalcJobRequest = serde_json::from_str(r#"{"mode":"route","sync":true}"#).unwrap();
+        assert!(req.sync, "sync:true must deserialize as the bypass flag");
+        assert_eq!(req.op(), "route");
     }
 
     #[test]
