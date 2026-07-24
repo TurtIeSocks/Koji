@@ -24,8 +24,13 @@
       "@/*": ["./src/*"],
       // wasm-pack output (crates/koji-wasm/pkg) — the demo bundle imports it as
       // `@koji-wasm` (matching vite.config.ts's alias); this mapping lets tsc
-      // resolve the module's generated types.
-      "@koji-wasm": ["../../crates/koji-wasm/pkg/koji_wasm.d.ts"],
+      // resolve the module's generated types. `pkg/` is gitignored, so the
+      // second entry is a checked-in stub tsc falls back to when nobody has run
+      // `bun run wasm:build` — wasm stays optional for a plain `make build`.
+      "@koji-wasm": [
+        "../../crates/koji-wasm/pkg/koji_wasm.d.ts",
+        "./src/types/koji-wasm.d.ts"
+      ],
       "shadmin-core": ["./node_modules/ra-core"],
       "shadmin-core/*": ["./node_modules/ra-core/*"]
     }
