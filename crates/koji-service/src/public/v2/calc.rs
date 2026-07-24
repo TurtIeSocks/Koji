@@ -21,10 +21,12 @@
 //!
 //! ## Scope (P4)
 //!
-//! `run` is the **compute core**: it produces a `KojiGeometryCollection` +
-//! `Stats`, serializes the collection to a geojson `FeatureCollection` at the wire
-//! boundary (Phase 1 outbound `From`), and returns `{ "data": <geojson>, "stats":
-//! <stats> }`. The pure compute fns themselves live in the shared
+//! [`compute_calc`] is the **compute core**, shared by the async job handler
+//! ([`CalculateHandler::run`], run by a worker) and the synchronous queue-bypass
+//! path (`POST /jobs` with `sync: true`, run inline). It produces a
+//! `KojiGeometryCollection` + `Stats`, serializes the collection to a geojson
+//! `FeatureCollection` at the wire boundary (Phase 1 outbound `From`), and returns
+//! `{ "data": <geojson>, "stats": <stats> }`. The pure compute fns themselves live in the shared
 //! [`koji_calc_api::compute`] module — including the reroute / route-stats cores
 //! over the pre-resolved cluster inputs — so a wasm demo-mode consumer runs the
 //! exact same cores; this handler owns only the job plumbing. The legacy
@@ -96,6 +98,76 @@ impl CalculateHandler {
     }
 }
 
+/// The pure compute core: dispatch a fully-resolved [`CalcPayload`] to the right
+/// algorithm and return `{ "data": <geojson|null>, "stats": <stats> }`.
+///
+/// Shared by both calc paths so they can never drift:
+/// - the async job handler ([`CalculateHandler::run`]), run by a worker;
+/// - the synchronous queue-bypass path
+///   ([`crate::public::v2::jobs`] `POST /jobs` with `sync: true`), run inline in
+///   the request handler while the worker pool is paused.
+///
+/// Synchronous + CPU-bound (rayon): callers run it on a blocking thread
+/// (`spawn_blocking` / `web::block`), never on the async runtime.
+pub fn compute_calc(payload: CalcPayload) -> Result<serde_json::Value, JobError> {
+    let area = payload.area;
+    let data_points = payload.data_points;
+    let clusters = payload.clusters;
+
+    // Single-path typed dispatch. Decode the tagged `CalcRequest` and resolve
+    // each op's arg-groups into the koji-core configs.
+    let req: CalcRequest = serde_json::from_value(payload.request)
+        .map_err(|e| JobError::validation(format!("invalid calc request: {e}")))?;
+    let (benchmark_mode, collection, stats): (bool, KojiGeometryCollection, Stats) = match req {
+        // `Cluster` and `Route` share `ClusterReq`; only `Route` applies the
+        // `sort_by Unset -> Tsp` override (spec §2 table).
+        CalcRequest::Cluster(c) => resolve_cluster_route(c, false, &data_points, area),
+        CalcRequest::Route(c) => resolve_cluster_route(c, true, &data_points, area),
+        CalcRequest::Reroute(r) => {
+            let benchmark_mode = r.dev.resolve().benchmark_mode;
+            let routing_config = r.routing.resolve();
+            let radius = r.radius.unwrap_or(DEFAULT_RADIUS);
+            let instance = r.instance.unwrap_or_default();
+            let (collection, stats) =
+                run_reroute(clusters, data_points, radius, &routing_config, &instance);
+            (benchmark_mode, collection, stats)
+        }
+        CalcRequest::Bootstrap(b) => {
+            let benchmark_mode = b.dev.resolve().benchmark_mode;
+            let bootstrap_config = b.bootstrap.resolve();
+            let routing_config = b.routing.resolve();
+            let instance = b.instance.unwrap_or_default();
+            let (collection, stats) =
+                run_bootstrap(area, &bootstrap_config, &routing_config, &instance)
+                    .map_err(JobError::internal)?;
+            (benchmark_mode, collection, stats)
+        }
+        CalcRequest::RouteStats(s) => {
+            let benchmark_mode = s.dev.resolve().benchmark_mode;
+            let radius = s.radius.unwrap_or(DEFAULT_RADIUS);
+            let min_points = s.min_points.unwrap_or(1);
+            let instance = s.instance.unwrap_or_default();
+            let (collection, stats) =
+                run_route_stats(clusters, data_points, radius, min_points, &instance);
+            (benchmark_mode, collection, stats)
+        }
+    };
+
+    // Benchmark mode returns only the stats (the v1 contract); otherwise the
+    // result carries both the geojson and the stats. The external wire shape
+    // stays a geojson `FeatureCollection`: project the `KojiGeometryCollection`
+    // at the boundary via the Phase 1 outbound `From` (the v1/v2 consumers parse
+    // it straight back into a `KojiGeometryCollection`).
+    let data = if benchmark_mode {
+        serde_json::Value::Null
+    } else {
+        let fc = geojson::FeatureCollection::from(&collection);
+        serde_json::to_value(&fc)
+            .map_err(|e| JobError::internal(format!("failed to serialize result: {e}")))?
+    };
+    Ok(json!({ "data": data, "stats": stats }))
+}
+
 impl JobHandler for CalculateHandler {
     fn kind(&self) -> &'static str {
         CALC_KIND
@@ -110,62 +182,6 @@ impl JobHandler for CalculateHandler {
             return Err(JobError::custom("canceled", "job canceled before start"));
         }
 
-        let area = payload.area;
-        let data_points = payload.data_points;
-        let clusters = payload.clusters;
-
-        // Single-path typed dispatch. The handler decodes the enqueued tagged
-        // `CalcRequest` and resolves each op's arg-groups into the koji-core
-        // configs.
-        let req: CalcRequest = serde_json::from_value(payload.request)
-            .map_err(|e| JobError::validation(format!("invalid calc request: {e}")))?;
-        let (benchmark_mode, collection, stats): (bool, KojiGeometryCollection, Stats) = match req {
-            // `Cluster` and `Route` share `ClusterReq`; only `Route` applies the
-            // `sort_by Unset -> Tsp` override (spec §2 table).
-            CalcRequest::Cluster(c) => resolve_cluster_route(c, false, &data_points, area),
-            CalcRequest::Route(c) => resolve_cluster_route(c, true, &data_points, area),
-            CalcRequest::Reroute(r) => {
-                let benchmark_mode = r.dev.resolve().benchmark_mode;
-                let routing_config = r.routing.resolve();
-                let radius = r.radius.unwrap_or(DEFAULT_RADIUS);
-                let instance = r.instance.unwrap_or_default();
-                let (collection, stats) =
-                    run_reroute(clusters, data_points, radius, &routing_config, &instance);
-                (benchmark_mode, collection, stats)
-            }
-            CalcRequest::Bootstrap(b) => {
-                let benchmark_mode = b.dev.resolve().benchmark_mode;
-                let bootstrap_config = b.bootstrap.resolve();
-                let routing_config = b.routing.resolve();
-                let instance = b.instance.unwrap_or_default();
-                let (collection, stats) =
-                    run_bootstrap(area, &bootstrap_config, &routing_config, &instance)
-                        .map_err(JobError::internal)?;
-                (benchmark_mode, collection, stats)
-            }
-            CalcRequest::RouteStats(s) => {
-                let benchmark_mode = s.dev.resolve().benchmark_mode;
-                let radius = s.radius.unwrap_or(DEFAULT_RADIUS);
-                let min_points = s.min_points.unwrap_or(1);
-                let instance = s.instance.unwrap_or_default();
-                let (collection, stats) =
-                    run_route_stats(clusters, data_points, radius, min_points, &instance);
-                (benchmark_mode, collection, stats)
-            }
-        };
-
-        // Benchmark mode returns only the stats (the v1 contract); otherwise the
-        // result carries both the geojson and the stats. The external wire shape
-        // stays a geojson `FeatureCollection`: project the `KojiGeometryCollection`
-        // at the boundary via the Phase 1 outbound `From` (the v1/v2 consumers parse
-        // it straight back into a `KojiGeometryCollection`).
-        let data = if benchmark_mode {
-            serde_json::Value::Null
-        } else {
-            let fc = geojson::FeatureCollection::from(&collection);
-            serde_json::to_value(&fc)
-                .map_err(|e| JobError::internal(format!("failed to serialize result: {e}")))?
-        };
-        Ok(json!({ "data": data, "stats": stats }))
+        compute_calc(payload)
     }
 }
