@@ -7,6 +7,7 @@ import type { Config } from '@assets/types'
 import { usePersist } from '@hooks/usePersist'
 import { useStatic } from '@hooks/useStatic'
 import { fetchWrapper } from '@services/fetches'
+import { withCartoKey } from '@services/carto'
 
 import Home from '@pages/Home'
 import Map from '@pages/map'
@@ -85,6 +86,14 @@ export default function App() {
         setStatic('route_plugins', res.route_plugins || [])
         setStatic('clustering_plugins', res.clustering_plugins || [])
         setStatic('bootstrap_plugins', res.bootstrap_plugins || false)
+        setStatic('cartoApiKey', res.carto_api_key || '')
+        if (res.tile_server) {
+          setStore('tileServer', withCartoKey(res.tile_server, res.carto_api_key))
+        } else {
+          const { tileServer } = usePersist.getState()
+          const next = withCartoKey(tileServer, res.carto_api_key)
+          if (next !== tileServer) setStore('tileServer', next)
+        }
         if (!res.logged_in) {
           router.navigate('/login')
         }

@@ -2,12 +2,15 @@ import * as React from 'react'
 import Map from '@components/Map'
 import type { KojiTileServer } from '@assets/types'
 import { TileLayer } from 'react-leaflet'
+import { useStatic } from '@hooks/useStatic'
+import { withCartoKey } from '@services/carto'
 
 export default function TileServerMap({
   formData,
 }: {
   formData: KojiTileServer
 }) {
+  const cartoApiKey = useStatic((s) => s.cartoApiKey)
   try {
     return (
       <Map
@@ -16,10 +19,11 @@ export default function TileServerMap({
         style={{ width: '100%', height: '50vh' }}
       >
         <TileLayer
-          url={
+          url={withCartoKey(
             formData.url ||
-            'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png'
-          }
+              'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
+            cartoApiKey,
+          )}
         />
       </Map>
     )

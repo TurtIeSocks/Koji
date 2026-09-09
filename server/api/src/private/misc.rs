@@ -26,6 +26,7 @@ async fn config(conn: web::Data<KojiDb>, session: Session) -> Result<HttpRespons
         .unwrap();
 
     let tile_server = std::env::var("TILE_SERVER").unwrap_or("".to_string());
+    let carto_api_key = std::env::var("CARTO_API_KEY").unwrap_or("".to_string());
     let route_plugins = routing::routing_plugins();
     let clustering_plugins = clustering::clustering_plugins();
     let bootstrap_plugins = bootstrap::bootstrap_plugins();
@@ -34,6 +35,7 @@ async fn config(conn: web::Data<KojiDb>, session: Session) -> Result<HttpRespons
         start_lat,
         start_lon,
         tile_server,
+        carto_api_key,
         scanner_type,
         logged_in: if let Ok(logged_in) = session.get::<bool>("logged_in") {
             logged_in.unwrap_or(false)
