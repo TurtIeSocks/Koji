@@ -94,7 +94,13 @@ ENV=.env.production koji
       <Table.Td>`TILE_SERVER`</Table.Td>
       <Table.Td>No</Table.Td>
       <Table.Td>Empty</Table.Td>
-      <Table.Td>Optional default tile server value exposed via `/config`.</Table.Td>
+      <Table.Td>Optional default tile URL applied to the client map via `/config` (overrides the built-in Carto default).</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`CARTO_API_KEY`</Table.Td>
+      <Table.Td>No</Table.Td>
+      <Table.Td>Empty</Table.Td>
+      <Table.Td>Appended as `?key=` to Carto basemap (`basemaps.cartocdn.com`) tile URLs. Free key: https://carto.com/basemaps/apikey/</Table.Td>
     </Table.Tr>
     <Table.Tr>
       <Table.Td>`DANGEROUS`</Table.Td>
