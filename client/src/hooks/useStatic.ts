@@ -40,6 +40,7 @@ export interface UseStatic {
   scannerRoutes: { name: string; id: number; type: string }[]
   scannerType: Config['scanner_type']
   dangerous: boolean
+  cartoApiKey: string
   geojson: FeatureCollection
   layerEditing: {
     cutMode: boolean
@@ -109,6 +110,7 @@ export const useStatic = create<UseStatic>((set, get) => ({
   routes: [],
   scannerType: 'rdm',
   dangerous: false,
+  cartoApiKey: '',
   geojson: {
     type: 'FeatureCollection',
     features: [],
