@@ -1,7 +1,9 @@
 import * as React from 'react'
 import { usePersist } from '@hooks/usePersist'
+import { useStatic } from '@hooks/useStatic'
 import { MapContainer, TileLayer } from 'react-leaflet'
 import { ATTRIBUTION } from '@assets/constants'
+import { withCartoKey } from '@services/carto'
 
 interface Props {
   children?: React.ReactNode
@@ -26,6 +28,8 @@ const Map = React.forwardRef<L.Map, Props>(
   ) => {
     const { location, zoom } = usePersist.getState()
     const tileServer = usePersist((s) => s.tileServer)
+    const cartoApiKey = useStatic((s) => s.cartoApiKey)
+    const url = withCartoKey(tileServer, cartoApiKey)
 
     return (
       <MapContainer
@@ -41,11 +45,7 @@ const Map = React.forwardRef<L.Map, Props>(
         ]}
       >
         {!renderOwnTileLayer && (
-          <TileLayer
-            key={tileServer}
-            attribution={ATTRIBUTION}
-            url={tileServer}
-          />
+          <TileLayer key={url} attribution={ATTRIBUTION} url={url} />
         )}
         {children}
       </MapContainer>
