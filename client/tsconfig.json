@@ -1,53 +1,33 @@
 {
-	"compilerOptions": {
-		"noImplicitAny": true,
-		"noImplicitThis": true,
-		"strictNullChecks": true,
-		"esModuleInterop": true,
-		"module": "ESNext",
-		"moduleResolution": "node",
-		"removeComments": true,
-		"downlevelIteration": true,
-		"allowSyntheticDefaultImports": true,
-		"isolatedModules": true,
-		"baseUrl": "./src",
-		"rootDir": "./",
-		"outDir": "./dist",
-		"lib": [
-			"ESNext",
-			"dom"
-		],
-		"jsx": "react",
-		"strict": true,
-		"sourceMap": true,
-		"target": "ESNext",
-		"skipLibCheck": true,
-		"allowJs": true,
-		"paths": {
-			"@assets/*": [
-				"./assets/*"
-			],
-			"@components/*": [
-				"./components/*"
-			],
-			"@hooks/*": [
-				"./hooks/*"
-			],
-			"@pages/*": [
-				"./pages/*"
-			],
-			"@services/*": [
-				"./services/*"
-			],
-		},
-	},
-	"include": [
-		"src",
-		"vite.config.ts",
-	],
-	"exclude": [
-		"node_modules",
-		"dist",
-		"server"
-	],
+  "compilerOptions": {
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "strictNullChecks": true,
+    "esModuleInterop": true,
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "removeComments": true,
+    "downlevelIteration": true,
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": true,
+    "baseUrl": "./src",
+    "rootDir": "./",
+    "outDir": "./dist",
+    "lib": ["ESNext", "dom"],
+    "jsx": "react",
+    "strict": true,
+    "sourceMap": true,
+    "target": "ESNext",
+    "skipLibCheck": true,
+    "allowJs": true,
+    "paths": {
+      "@assets/*": ["./assets/*"],
+      "@components/*": ["./components/*"],
+      "@hooks/*": ["./hooks/*"],
+      "@pages/*": ["./pages/*"],
+      "@services/*": ["./services/*"]
+    }
+  },
+  "include": ["src", "vite.config.ts"],
+  "exclude": ["node_modules", "dist", "server"]
 }

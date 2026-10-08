@@ -110,8 +110,7 @@ export const usePersist = create(
         { distance: 1500, color: '#FEA71D' },
       ],
       scaleMarkers: false,
-      tileServer:
-        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png',
+      tileServer: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       tth: 'All',
       spawnpoint: false,
       gym: true,

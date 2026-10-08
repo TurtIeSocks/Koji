@@ -16,10 +16,7 @@ export default function TileServerMap({
         style={{ width: '100%', height: '50vh' }}
       >
         <TileLayer
-          url={
-            formData.url ||
-            'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png'
-          }
+          url={formData.url || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'}
         />
       </Map>
     )

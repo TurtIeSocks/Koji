@@ -196,7 +196,13 @@ export const VECTOR_COLORS = {
 
 export const MODES = ['cluster', 'bootstrap'] as const
 
-export const CATEGORIES = ['pokestop', 'gym', 'fort', 'spawnpoint', 'station'] as const
+export const CATEGORIES = [
+  'pokestop',
+  'gym',
+  'fort',
+  'spawnpoint',
+  'station',
+] as const
 
 export const TTH = ['All', 'Known', 'Unknown'] as const
 

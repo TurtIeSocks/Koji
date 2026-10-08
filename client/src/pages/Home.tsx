@@ -13,7 +13,7 @@ import { usePersist } from '@hooks/usePersist'
 import { ATTRIBUTION } from '@assets/constants'
 
 export default function Home() {
-  const [darkMode, location, zoom, tileServer] = usePersist(
+  const [location, zoom, tileServer] = usePersist(
     (s) => [s.darkMode, s.location, s.zoom, s.tileServer],
     shallow,
   )
@@ -33,13 +33,7 @@ export default function Home() {
       }}
     >
       <TileLayer
-        key={darkMode.toString()}
-        url={
-          darkMode
-            ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-            : tileServer ||
-              'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png'
-        }
+        url={tileServer || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'}
       />
       <Box sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}>
         <ThemeToggle />
