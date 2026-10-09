@@ -14,7 +14,7 @@ import { ATTRIBUTION } from '@assets/constants'
 
 export default function Home() {
   const [location, zoom, tileServer] = usePersist(
-    (s) => [s.darkMode, s.location, s.zoom, s.tileServer],
+    (s) => [s.location, s.zoom, s.tileServer],
     shallow,
   )
 
