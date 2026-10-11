@@ -638,17 +638,21 @@ impl Query {
             new_model.id = Set(old_model.id);
             new_model.update(db).await?
         } else {
-            let model = new_model.insert(db).await?;
-            let prop_name_model =
-                geofence_property::Query::add_db_property(db, model.id, "name").await?;
-            if let Some(properties) = json["properties"].as_array_mut() {
+            new_model.insert(db).await?
+        };
+        let prop_name_model =
+            geofence_property::Query::add_db_property(db, model.id, "name").await?;
+        if let Some(properties) = json["properties"].as_array_mut() {
+            if !properties.iter().any(|prop| {
+                prop.get("property_id").and_then(|v| v.as_u64())
+                    == Some(prop_name_model.property_id as u64)
+            }) {
                 properties.push(json!({
                     "property_id": prop_name_model.property_id,
                     "geofence_id": prop_name_model.geofence_id,
                 }))
             }
-            model
-        };
+        }
         Query::upsert_related_projects(db, &json, model.id).await?;
         Query::upsert_related_properties(db, &json, model.id).await?;
         Ok(model)
