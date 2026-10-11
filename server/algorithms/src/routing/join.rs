@@ -38,6 +38,11 @@ pub fn join(plugin: &Plugin, input: Vec<SingleVec>) -> SingleVec {
 
     let mut final_routes: SingleVec = vec![];
 
+    if clusters.is_empty() {
+        log::warn!("no split routes returned from routing plugin");
+        return final_routes;
+    }
+
     let last = clusters.len() - 1;
     for (i, current) in clusters.clone().iter_mut().enumerate() {
         let next: &SingleVec = if i == last {
