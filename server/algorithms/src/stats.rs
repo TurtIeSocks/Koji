@@ -327,3 +327,43 @@ impl<'a> AddAssign<&'a Self> for Stats {
         self.set_score();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn spawn_coverage_uses_seventy_meter_visibility() {
+        // Separate bearings keep these fixtures in distinct level-20 S2 cells,
+        // which Stats uses as point identities.
+        let points = vec![
+            [(69.999_f64 / 6_367_000.).to_degrees(), 0.],
+            [(-70_f64 / 6_367_000.).to_degrees(), 0.],
+            [0., (70.001_f64 / 6_367_000.).to_degrees()],
+        ];
+        let mut stats = Stats::new("Spawn coverage".to_string(), 1);
+        stats.cluster_stats(70., &points, &vec![[0., 0.]]);
+        assert_eq!(stats.total_points, 3);
+        assert_eq!(stats.total_clusters, 1);
+        assert_eq!(stats.points_covered, 2);
+        assert_eq!(stats.best_cluster_point_count, 2);
+        assert_eq!(stats.cluster_stats.all.get(&2), Some(&1));
+
+        let mut wider = Stats::new("Configured radius".to_string(), 1);
+        wider.cluster_stats(80., &points, &vec![[0., 0.]]);
+        assert_eq!(wider.points_covered, 3);
+    }
+
+    #[test]
+    fn spawn_coverage_crosses_antimeridian() {
+        let mut stats = Stats::new("Antimeridian".to_string(), 1);
+        stats.cluster_stats(
+            70.,
+            &vec![[0., 179.9998], [0., -179.9998], [0., -179.998]],
+            &vec![[0., 180.]],
+        );
+        assert_eq!(stats.points_covered, 2);
+        assert_eq!(stats.best_cluster_point_count, 2);
+        assert_eq!(stats.cluster_stats.unique.get(&2), Some(&1));
+    }
+}
