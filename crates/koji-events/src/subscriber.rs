@@ -17,6 +17,9 @@ use crate::types::Event;
 ///
 /// Implementors are shared as `Arc<dyn Subscriber>` across the dispatcher loop,
 /// hence the `Send + Sync + 'static` bound.
+// `async_trait` expands `async fn` into a `#[must_use]` fn returning a boxed
+// future, which `double_must_use` flags; the lint fires inside the expansion.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait Subscriber: Send + Sync + 'static {
     /// A short, stable name for logging (e.g. `"webhook"`).
