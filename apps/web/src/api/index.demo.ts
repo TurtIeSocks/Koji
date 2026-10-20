@@ -25,6 +25,7 @@ export {
 } from "./demo/geo-features";
 export { postConvert, postImport } from "./demo/import";
 export { publishRecord, resetDemo, testWebhook } from "./demo/misc";
+export { linkDragonite } from "./demo/webhook-link";
 
 // The in-memory realtime bus + the wasm-worker-backed calc facade. `useCalc`
 // subscribes to the bus's `jobs/{id}` topic and the facade publishes to that
