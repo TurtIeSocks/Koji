@@ -58,6 +58,7 @@ pub async fn test_public_validator(
 /// plugins}` scopes. Caller supplies a live `KojiDb` and a `JobQueue` already
 /// connected to the test database. The `EventDispatcher` is constructed with an
 /// empty subscriber list so outbox writes still work but nothing is delivered.
+/// No Dragonite client is configured (see [`test_db_app_with_dragonite`]).
 ///
 /// Auth is intentionally bypassed (no `HttpAuthentication` middleware) so the
 /// tests don't need a valid bearer token and can focus on CRUD behavior.
@@ -65,6 +66,42 @@ pub async fn test_public_validator(
 pub fn test_db_app(
     db: koji_db::KojiDb,
     jobs: std::sync::Arc<koji_jobs::JobQueue>,
+) -> actix_web::App<
+    impl actix_web::dev::ServiceFactory<
+        actix_web::dev::ServiceRequest,
+        Config = (),
+        Response = actix_web::dev::ServiceResponse,
+        Error = actix_web::Error,
+        InitError = (),
+    >,
+> {
+    db_app(db, jobs, None)
+}
+
+/// [`test_db_app`] with a Dragonite client configured, as `DRAGONITE_URL` and
+/// `DRAGONITE_BEARER` do in production. Point it at a local stand-in to test
+/// the routes that read Dragonite.
+#[doc(hidden)]
+pub fn test_db_app_with_dragonite(
+    db: koji_db::KojiDb,
+    jobs: std::sync::Arc<koji_jobs::JobQueue>,
+    dragonite: koji_dragonite::DragoniteClient,
+) -> actix_web::App<
+    impl actix_web::dev::ServiceFactory<
+        actix_web::dev::ServiceRequest,
+        Config = (),
+        Response = actix_web::dev::ServiceResponse,
+        Error = actix_web::Error,
+        InitError = (),
+    >,
+> {
+    db_app(db, jobs, Some(dragonite))
+}
+
+fn db_app(
+    db: koji_db::KojiDb,
+    jobs: std::sync::Arc<koji_jobs::JobQueue>,
+    dragonite: Option<koji_dragonite::DragoniteClient>,
 ) -> actix_web::App<
     impl actix_web::dev::ServiceFactory<
         actix_web::dev::ServiceRequest,
@@ -86,6 +123,7 @@ pub fn test_db_app(
         .app_data(web::Data::from(jobs))
         .app_data(web::Data::from(events))
         .app_data(web::Data::from(hub))
+        .app_data(web::Data::new(dragonite))
         .app_data(web::JsonConfig::default().limit(1024 * 1024 * 10))
         .wrap(test_session_middleware())
         .service(web::scope("/api/v2").configure(v2_db_services))

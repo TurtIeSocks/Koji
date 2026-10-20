@@ -9,6 +9,7 @@ pub(crate) mod auth;
 pub(crate) mod calc;
 pub(crate) mod config;
 pub(crate) mod crud;
+pub(crate) mod geofence_link;
 pub(crate) mod geofences;
 pub(crate) mod geometry;
 pub(crate) mod golbat_data;
