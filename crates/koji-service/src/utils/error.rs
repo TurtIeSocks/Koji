@@ -13,6 +13,7 @@
 
 use actix_web::{HttpResponse, ResponseError, http::StatusCode};
 use koji_db::ModelError;
+use koji_db::query_args::DescendantArgError;
 use migration::DbErr;
 use thiserror::Error;
 
@@ -67,6 +68,16 @@ impl From<ModelError> for ServiceError {
                 ServiceError::ambiguous_geofence(&name, &modes, false)
             }
             e => ServiceError::Model(e),
+        }
+    }
+}
+
+/// A refused `descendants`/`descendant_modes` is a 400 naming the param.
+impl From<DescendantArgError> for ServiceError {
+    fn from(e: DescendantArgError) -> Self {
+        ServiceError::Invalid {
+            field: Some(e.field().to_string()),
+            message: e.to_string(),
         }
     }
 }

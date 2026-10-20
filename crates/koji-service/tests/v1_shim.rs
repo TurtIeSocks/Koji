@@ -988,3 +988,223 @@ async fn id_mode_and_group_add_their_properties() {
     assert!(features[0]["properties"].get("group").is_none());
     assert_eq!(features[1]["properties"]["group"], "k8 Paris");
 }
+
+// ── descendants ──────────────────────────────────────────────────────────────
+//
+// Two projects of their own, so the squares above are not involved:
+//
+//   project {project}
+//     "k13 a root"      unset    member, no parent
+//       "k13 b fort"      fort     parent "k13 a root"
+//         "k13 d deep"      pokemon  parent "k13 b fort"
+//       "k13 c pokemon"   pokemon  member, parent "k13 a root"
+//     "k13 x elsewhere" unset    in no project, no parent
+//
+//   project {cycle}
+//     "k13 y one"       unset    member, parent "k13 z two"
+//       "k13 z two"       unset    parent "k13 y one"
+
+async fn make_fence_in(
+    db: &DatabaseConnection,
+    name: &str,
+    mode: &str,
+    lon: f64,
+    project_id: Option<u32>,
+) -> u32 {
+    let created = geofence::Query::upsert_json_return(
+        db,
+        0,
+        json!({
+            "name": name,
+            "mode": mode,
+            "geometry": square(lon, 48.0),
+            "projects": project_id.into_iter().collect::<Vec<_>>(),
+            "properties": [],
+        }),
+    )
+    .await
+    .expect("make_fence_in");
+    created["id"].as_u64().expect("fence id") as u32
+}
+
+/// Seed both projects, request every `uris` entry (`{project}` and `{cycle}` are
+/// filled in), clean up, and hand back `(status, body)` for each. `None` without
+/// a database.
+async fn descendants_seeded(uris: &[&str]) -> Option<Vec<(u16, Value)>> {
+    let db = test_db().await?;
+    let tag = koji_jobs::JobId::new().as_string();
+    let (project, cycle) = (format!("k13-{tag}"), format!("k13-cycle-{tag}"));
+    let mut project_ids = vec![];
+    for name in [&project, &cycle] {
+        let created = project::Query::upsert_json_return(&db, 0, json!({ "name": name }))
+            .await
+            .expect("make project");
+        project_ids.push(created["id"].as_u64().expect("project id") as u32);
+    }
+
+    let a = make_fence_in(&db, "k13 a root", "unset", 2.0, Some(project_ids[0])).await;
+    let b = make_fence_in(&db, "k13 b fort", "fort", 2.2, None).await;
+    let c = make_fence_in(&db, "k13 c pokemon", "pokemon", 2.4, Some(project_ids[0])).await;
+    let d = make_fence_in(&db, "k13 d deep", "pokemon", 2.6, None).await;
+    let x = make_fence_in(&db, "k13 x elsewhere", "unset", 2.8, None).await;
+    let y = make_fence_in(&db, "k13 y one", "unset", 3.0, Some(project_ids[1])).await;
+    let z = make_fence_in(&db, "k13 z two", "unset", 3.2, None).await;
+    for (child, parent) in [(b, a), (c, a), (d, b), (z, y), (y, z)] {
+        geofence::Query::set_parent(&db, child, Some(parent))
+            .await
+            .expect("set parent");
+    }
+
+    let url = std::env::var("KOJI_DB_URL").unwrap();
+    let golbat = Database::connect(&url).await.expect("golbat connect");
+    let koji = koji_db::KojiDb {
+        koji: db.clone(),
+        golbat,
+    };
+    let jobs = Arc::new(koji_jobs::JobQueue::new(db.clone(), "test"));
+    let app = test::init_service(koji_service::test_v1_shim_app(koji, jobs)).await;
+
+    let mut out = vec![];
+    for uri in uris {
+        let uri = uri
+            .replace("{project}", &project)
+            .replace("{cycle}", &cycle);
+        let req = test::TestRequest::get()
+            .uri(&uri)
+            .insert_header(("Authorization", format!("Bearer {TOKEN}")))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        let status = resp.status().as_u16();
+        let bytes = test::read_body(resp).await;
+        out.push((
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        ));
+    }
+
+    // The cycle has to be cut before its rows can go.
+    for id in [y, z] {
+        let _ = geofence::Query::set_parent(&db, id, None).await;
+    }
+    for id in [d, b, c, a, x, y, z] {
+        let _ = geofence::Query::delete(&db, id).await;
+    }
+    for id in project_ids {
+        let _ = project::Query::delete(&db, id).await;
+    }
+    Some(out)
+}
+
+const WITH_NAMES: &str = "feature-collection/{project}?name=true";
+
+#[actix_web::test]
+async fn descendants_default_to_none() {
+    let _s = Secret::set(TOKEN);
+    let Some(r) = descendants_seeded(&[
+        &format!("{GET}/{WITH_NAMES}"),
+        &format!("{GET}/{WITH_NAMES}&descendants=0"),
+    ])
+    .await
+    else {
+        return;
+    };
+    assert_geofence_envelope(r[0].0, &r[0].1);
+    assert_eq!(names(&r[0].1["data"]), ["k13 a root", "k13 c pokemon"]);
+    assert_eq!(r[1].1["data"], r[0].1["data"]);
+}
+
+#[actix_web::test]
+async fn descendants_add_the_children_then_theirs() {
+    let _s = Secret::set(TOKEN);
+    let Some(r) = descendants_seeded(&[
+        &format!("{GET}/{WITH_NAMES}&descendants=1"),
+        &format!("{GET}/{WITH_NAMES}&descendants=2"),
+        &format!("{GET}/{WITH_NAMES}&descendants=10"),
+    ])
+    .await
+    else {
+        return;
+    };
+    for (status, v) in &r {
+        assert_geofence_envelope(*status, v);
+    }
+    // "k13 c pokemon" is a member and a child of the root: it shows up once.
+    assert_eq!(
+        names(&r[0].1["data"]),
+        ["k13 a root", "k13 b fort", "k13 c pokemon"]
+    );
+    assert_eq!(
+        names(&r[1].1["data"]),
+        ["k13 a root", "k13 b fort", "k13 c pokemon", "k13 d deep"]
+    );
+    assert_eq!(r[2].1["data"], r[1].1["data"], "nothing lies deeper");
+}
+
+#[actix_web::test]
+async fn descendant_modes_limit_what_is_added() {
+    let _s = Secret::set(TOKEN);
+    let Some(r) = descendants_seeded(&[
+        &format!("{GET}/{WITH_NAMES}&descendants=1&descendant_modes=fort"),
+        &format!("{GET}/{WITH_NAMES}&descendants=1&descendant_modes=pokemon,quest"),
+        &format!("{GET}/{WITH_NAMES}&descendants=2&descendant_modes=pokemon"),
+        &format!("{GET}/{WITH_NAMES}&descendants=2&descendant_modes=unset"),
+    ])
+    .await
+    else {
+        return;
+    };
+    assert_eq!(
+        names(&r[0].1["data"]),
+        ["k13 a root", "k13 b fort", "k13 c pokemon"]
+    );
+    // The fort in between is not added, but the pokemon fence below it is.
+    assert_eq!(
+        names(&r[2].1["data"]),
+        ["k13 a root", "k13 c pokemon", "k13 d deep"]
+    );
+    assert_eq!(names(&r[1].1["data"]), ["k13 a root", "k13 c pokemon"]);
+    assert_eq!(names(&r[3].1["data"]), ["k13 a root", "k13 c pokemon"]);
+}
+
+#[actix_web::test]
+async fn a_cycle_in_parents_ends() {
+    let _s = Secret::set(TOKEN);
+    let Some(r) = descendants_seeded(&[&format!(
+        "{GET}/feature-collection/{{cycle}}?name=true&descendants=10"
+    )])
+    .await
+    else {
+        return;
+    };
+    assert_geofence_envelope(r[0].0, &r[0].1);
+    assert_eq!(names(&r[0].1["data"]), ["k13 y one", "k13 z two"]);
+}
+
+/// The refused arguments are caught before the project is read.
+#[actix_web::test]
+async fn bad_descendant_args_are_a_400() {
+    let _s = Secret::set(TOKEN);
+    for (query, field) in [
+        ("descendants=11", "descendants"),
+        ("descendants=1&descendant_modes=raid", "descendant_modes"),
+        ("descendants=1&descendant_modes=", "descendant_modes"),
+        ("descendant_modes=pokemon", "descendant_modes"),
+    ] {
+        let uri = format!("{GET}/feature-collection/anything?{query}");
+        let app = test::init_service(app()).await;
+        let req = test::TestRequest::get()
+            .uri(&uri)
+            .insert_header(("Authorization", format!("Bearer {TOKEN}")))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status().as_u16(), 400, "{query}");
+        let v: Value = serde_json::from_slice(&test::read_body(resp).await).unwrap();
+        assert_eq!(v["status"], "error", "{query}");
+        assert_eq!(v["status_code"], 400, "{query}");
+        assert!(v["data"].is_null(), "{query}");
+        assert!(
+            v["message"].as_str().unwrap().contains(field),
+            "{query}: {v}"
+        );
+    }
+}

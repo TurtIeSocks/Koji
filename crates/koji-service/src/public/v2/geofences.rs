@@ -21,6 +21,7 @@ use koji_db::{
     KojiDb,
     db::geofence::{self, Anchor, HierarchySpec},
     db::geofence_project,
+    query_args::DescendantSpec,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -63,6 +64,12 @@ struct ReadQuery {
     /// Comma-separated project ids — only fences linked to ANY of these
     /// projects. Requires `bbox`.
     projects: Option<String>,
+    /// Levels of descendants to add below the fences `projects` selects (at
+    /// most 10). Requires `projects`.
+    descendants: Option<u32>,
+    /// Comma-separated modes limiting which descendants are added. Requires
+    /// `descendants`.
+    descendant_modes: Option<String>,
 }
 
 impl ReadQuery {
@@ -152,6 +159,15 @@ impl ReadQuery {
                 message: format!("invalid mode: {other:?}"),
             }),
         }
+    }
+
+    /// Resolve `?descendants`/`?descendant_modes`; a refused pair is a `400`.
+    #[allow(clippy::result_large_err)]
+    fn descendant_spec(&self) -> Result<Option<DescendantSpec>, ServiceError> {
+        Ok(DescendantSpec::from_args(
+            self.descendants,
+            self.descendant_modes.as_deref(),
+        )?)
     }
 
     /// Parse `?projects=1,2` exactly like `ids()` (trim, skip blanks, 400 on
@@ -289,6 +305,15 @@ pub(crate) struct LinkDragonite {
     pub dry_run: bool,
 }
 
+/// `?descendants` reads below the fences a project holds, so it needs the
+/// `projects` filter (and `bbox`, which `projects` needs).
+fn descendants_need_projects() -> ServiceError {
+    ServiceError::Invalid {
+        field: Some("descendants".to_string()),
+        message: "descendants needs the projects and bbox filters".to_string(),
+    }
+}
+
 /// `GET /api/v2/geofences` — list all geofences as a `FeatureCollection`,
 /// honoring `?format=` (defaults to `featurecollection`).
 ///
@@ -309,6 +334,12 @@ pub(crate) struct LinkDragonite {
 /// geofence_ids_for_projects`]) — a project with no linked fences is a real,
 /// empty filter (returns nothing), not treated the same as no filter at all.
 ///
+/// `?descendants=N` (at most 10, with `?projects=` and `?bbox=`) adds the
+/// children of the fences those filters select, then their children, N levels
+/// down, read from the whole table. `?descendant_modes=pokemon,fort` limits
+/// which modes are added (default every mode). A fence appears once, however
+/// it got in. `?mode=` and the bbox only choose the starting set.
+///
 /// With `?depth=N` or `?level=N` (and no `ids`/`bbox`) this becomes a
 /// recursive forest walk (anchor = every `parent IS NULL` root): `depth=N` is
 /// the cumulative subtree through level N, `level=N` is only the geofences
@@ -324,12 +355,14 @@ pub(crate) struct LinkDragonite {
         ("bbox" = Option<String>, Query, description = "minLng,minLat,maxLng,maxLat — only fences whose bbox overlaps"),
         ("mode" = Option<String>, Query, description = "unset|pokemon|fort|quest — bbox refinement, requires `bbox` (400 otherwise)"),
         ("projects" = Option<String>, Query, description = "Comma-separated project ids — bbox refinement, requires `bbox` (400 otherwise)"),
+        ("descendants" = Option<u32>, Query, description = "Levels of descendants (max 10) to add below the fences `projects` selects, read from the whole table. Requires `projects`"),
+        ("descendant_modes" = Option<String>, Query, description = "Comma-separated modes (`unset|pokemon|fort|quest`) limiting which descendants are added. Requires `descendants`"),
         ("depth" = Option<u32>, Query, description = "Cumulative subtree through N levels (mutually exclusive with `level`)"),
         ("level" = Option<u32>, Query, description = "Exactly N levels below the anchor"),
     ),
     responses(
         (status = 200, description = "Geofences (GeoJSON in the envelope, or a raw export format)", body = Object),
-        (status = 400, description = "`depth`/`level` mutually exclusive; `ids`+`bbox` together; `mode`/`projects` malformed or supplied without `bbox`", body = ApiError),
+        (status = 400, description = "`depth`/`level` mutually exclusive; `ids`+`bbox` together; `mode`/`projects` malformed or supplied without `bbox`; `descendants` above 10, without `projects`, or `descendant_modes` unknown or without `descendants`", body = ApiError),
     ),
 )]
 async fn list(
@@ -339,6 +372,7 @@ async fn list(
     let return_type = query.return_type(ReturnTypeArg::FeatureCollection);
     let mode = query.mode_filter()?;
     let project_ids = query.project_ids()?;
+    let descendants = query.descendant_spec()?;
 
     if let Some(bbox) = query.bbox()? {
         if query.ids.is_some() {
@@ -353,7 +387,22 @@ async fn list(
             }
             None => None,
         };
-        let coll = geofence::Query::get_koji_by_bbox(&conn.koji, bbox, mode, id_scope).await?;
+        if descendants.is_some() && id_scope.is_none() {
+            return Err(descendants_need_projects());
+        }
+        let mut coll = geofence::Query::get_koji_by_bbox(&conn.koji, bbox, mode, id_scope).await?;
+        // Descendants come from the whole table, whatever chose the starting set.
+        if let Some(spec) = descendants {
+            let members: Vec<u32> = coll.items.iter().filter_map(|item| item.meta.id).collect();
+            let added = geofence::Query::descendant_ids(&conn.koji, &members, &spec).await?;
+            if !added.is_empty() {
+                coll.items.extend(
+                    geofence::Query::get_koji_by_ids(&conn.koji, &added)
+                        .await?
+                        .items,
+                );
+            }
+        }
         return Ok(respond_geo(coll, return_type));
     }
 
@@ -367,6 +416,10 @@ async fn list(
             field: Some(field.to_string()),
             message: "mode/projects filters require bbox".to_string(),
         });
+    }
+
+    if descendants.is_some() {
+        return Err(descendants_need_projects());
     }
 
     if let Some(ids) = query.ids()? {

@@ -351,6 +351,10 @@ fn with_bboxes(
 
 /// `GET /geofence/{return_type}/{project}`: a project's geofences, by project
 /// name or id. An unknown project is an empty result, not an error.
+///
+/// `descendants=N` adds the children of the project's geofences, then their
+/// children, N levels down, from the whole table. `descendant_modes` limits the
+/// modes added.
 #[get("/{return_type}/{project}")]
 async fn project_geofences(
     conn: web::Data<KojiDb>,
@@ -365,6 +369,7 @@ async fn project_geofences(
         }
         .into());
     };
+    args.descendant_spec().map_err(ServiceError::from)?;
     let features = geofence::Query::project_as_feature(&conn.koji, project, &args)
         .await
         .map_err(ServiceError::from)?;

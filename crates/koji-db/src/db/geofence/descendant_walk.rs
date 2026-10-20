@@ -42,7 +42,11 @@ pub(super) fn descendant_ids(seeds: &[u32], edges: &[Edge], spec: &DescendantSpe
             .filter(|edge| walked.insert(edge.id))
         {
             next.push(edge.id);
-            if spec.modes.as_ref().is_none_or(|modes| modes.contains(&edge.mode)) {
+            if spec
+                .modes
+                .as_ref()
+                .is_none_or(|modes| modes.contains(&edge.mode))
+            {
                 added.push(edge.id);
             }
         }
@@ -111,7 +115,10 @@ mod tests {
 
     #[test]
     fn depth_zero_adds_nothing() {
-        assert_eq!(descendant_ids(&[1], &tree(), &spec(0, None)), Vec::<u32>::new());
+        assert_eq!(
+            descendant_ids(&[1], &tree(), &spec(0, None)),
+            Vec::<u32>::new()
+        );
     }
 
     #[test]
@@ -171,6 +178,9 @@ mod tests {
     #[test]
     fn a_fence_that_is_its_own_parent_adds_nothing() {
         let edges = vec![edge(1, Some(1), Mode::Unset)];
-        assert_eq!(descendant_ids(&[1], &edges, &spec(10, None)), Vec::<u32>::new());
+        assert_eq!(
+            descendant_ids(&[1], &edges, &spec(10, None)),
+            Vec::<u32>::new()
+        );
     }
 }
