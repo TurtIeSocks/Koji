@@ -20,3 +20,4 @@ export { postConvert, postImport } from "./live/import";
 export { publishRecord } from "./live/publish";
 export { testWebhook } from "./live/webhook-test";
 export { listWebhookAreas } from "./live/webhook-areas";
+export { linkDragonite } from "./live/webhook-link";
