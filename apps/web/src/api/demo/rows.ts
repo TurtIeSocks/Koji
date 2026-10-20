@@ -87,9 +87,25 @@ export function buildGeofenceRow(
     ...bboxFields(geometry),
     projects: Array.isArray(merged.projects) ? (merged.projects as unknown[]).map(Number) : [],
     properties: Array.isArray(merged.properties) ? (merged.properties as unknown[]) : [],
+    dragonite_links: applyLinkChanges(existing?.dragonite_links, data.dragonite_links),
     created_at: existing?.created_at ?? now,
     updated_at: now,
   };
+}
+
+type DragoniteLink = NonNullable<GeofenceRow["dragonite_links"]>[number];
+
+/** The live PATCH semantics for `dragonite_links`: a change with an Area sets
+ *  that target's link, one with `null` removes it, and a target the changes
+ *  leave out keeps its link. */
+function applyLinkChanges(current: DragoniteLink[] | undefined, changes: unknown): DragoniteLink[] {
+  const links = new Map((current ?? []).map((l) => [l.webhook_id, l]));
+  if (!Array.isArray(changes)) return [...links.values()];
+  for (const change of changes as { webhook_id: number; dragonite_area_id: number | null }[]) {
+    if (change.dragonite_area_id == null) links.delete(change.webhook_id);
+    else links.set(change.webhook_id, { webhook_id: change.webhook_id, dragonite_area_id: change.dragonite_area_id });
+  }
+  return [...links.values()].sort((a, b) => a.webhook_id - b.webhook_id);
 }
 
 export function buildRouteRow(

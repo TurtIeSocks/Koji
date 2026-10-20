@@ -11,6 +11,7 @@ import { GeofenceMap } from "@/components/deck";
 import { GEOFENCE_MODES } from "@/lib/constants";
 import { required } from "ra-core";
 import { GeofencePropertiesInput } from "@/resources/geofence/geofence-properties-input";
+import { GeofenceDragoniteAreas } from "@/resources/geofence/geofence-dragonite-areas";
 
 // Metadata fields shared by Create + Edit. The geometry map (<GeofenceMap>) is a
 // sibling element in both. Both pages use the deck map; there is no Leaflet anywhere.
@@ -22,6 +23,7 @@ export const GeofenceFormFields = () => (
     <ReferenceArrayInput source="projects" reference="project">
       <AutocompleteArrayInput />
     </ReferenceArrayInput>
+    <GeofenceDragoniteAreas />
     <GeofencePropertiesInput />
   </>
 );
