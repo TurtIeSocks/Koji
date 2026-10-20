@@ -254,7 +254,11 @@ impl Model {
         if let Some(geofence_name) = feature.property("name")
             && let Some(geofence_name) = geofence_name.as_str()
         {
-            feature.set_property("name", spec.name_modifier.apply(geofence_name, parent_name.as_deref()));
+            feature.set_property(
+                "name",
+                spec.name_modifier
+                    .apply(geofence_name, parent_name.as_deref()),
+            );
         }
 
         if spec.output.tag_internal_id() {
