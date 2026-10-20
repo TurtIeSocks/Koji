@@ -25,8 +25,8 @@ async fn table_exists(db: &DatabaseConnection, table: &str) -> bool {
 
 async fn insert_fence(db: &DatabaseConnection, name: &str, mode: &str) -> Result<(), String> {
     db.execute_unprepared(&format!(
-        "INSERT INTO `geofence` (`name`, `mode`, `geometry`, `geo_type`) \
-         VALUES ('{name}', '{mode}', '{{}}', 'Polygon')"
+        "INSERT INTO `geofence` (`name`, `mode`, `geometry`) \
+         VALUES ('{name}', '{mode}', '{{\"type\":\"Polygon\",\"coordinates\":[]}}')"
     ))
     .await
     .map(|_| ())

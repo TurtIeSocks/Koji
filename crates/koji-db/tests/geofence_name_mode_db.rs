@@ -82,7 +82,6 @@ async fn same_name_saves_in_two_modes_and_a_repeat_pair_is_refused() {
             name: Set(name.clone()),
             mode: Set(mode),
             geometry: Set(polygon_geometry()),
-            geo_type: Set("Polygon".to_string()),
             ..Default::default()
         }
         .insert(&db)
