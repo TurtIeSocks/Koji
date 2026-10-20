@@ -65,17 +65,42 @@ impl Query {
             .collect::<Result<KojiGeometryCollection, ModelError>>()
     }
 
-    /// Returns a single Geofence model and it's related projects as tuple
+    /// Returns a single Geofence model. A numeric `id` is a primary key; anything
+    /// else is a name, which errors with [`ModelError::AmbiguousGeofence`] when
+    /// more than one mode shares it (see [`Query::get_one_in_mode`]).
     pub async fn get_one<C: ConnectionTrait>(db: &C, id: String) -> Result<Model, ModelError> {
-        let record = match id.parse::<u32>() {
-            Ok(id) => Entity::find_by_id(id).one(db).await?,
-            Err(_) => Entity::find().filter(Column::Name.eq(id)).one(db).await?,
-        };
-        if let Some(record) = record {
-            Ok(record)
-        } else {
-            Err(ModelError::Geofence("Does not exist".to_string()))
+        Query::get_one_in_mode(db, id, None).await
+    }
+
+    /// Like [`Query::get_one`], but a name is narrowed to `mode` when given. A
+    /// numeric `id` ignores `mode`.
+    pub async fn get_one_in_mode<C: ConnectionTrait>(
+        db: &C,
+        id: String,
+        mode: Option<Mode>,
+    ) -> Result<Model, ModelError> {
+        if let Ok(id) = id.parse::<u32>() {
+            return Entity::find_by_id(id)
+                .one(db)
+                .await?
+                .ok_or_else(|| ModelError::Geofence("Does not exist".to_string()));
         }
+        Query::get_by_name(db, id, mode).await
+    }
+
+    /// Resolve a geofence by name, optionally within one mode. Errors with
+    /// [`ModelError::AmbiguousGeofence`] when no mode is given and several
+    /// modes share the name.
+    pub async fn get_by_name<C: ConnectionTrait>(
+        db: &C,
+        name: String,
+        mode: Option<Mode>,
+    ) -> Result<Model, ModelError> {
+        let mut find = Entity::find().filter(Column::Name.eq(name.as_str()));
+        if let Some(mode) = mode {
+            find = find.filter(Column::Mode.eq(mode));
+        }
+        pick_by_name(&name, find.all(db).await?)
     }
 
     pub async fn get_one_json(db: &DatabaseConnection, id: String) -> Result<Json, ModelError> {
@@ -227,7 +252,17 @@ impl Query {
         db: &DatabaseConnection,
         id: String,
     ) -> Result<koji_core::KojiGeometry, ModelError> {
-        let result = Query::get_one(db, id).await?;
+        Query::get_one_koji_in_mode(db, id, None).await
+    }
+
+    /// [`Query::get_one_koji`] with a name narrowed to `mode` when given.
+    #[allow(clippy::result_large_err)]
+    pub async fn get_one_koji_in_mode(
+        db: &DatabaseConnection,
+        id: String,
+        mode: Option<Mode>,
+    ) -> Result<koji_core::KojiGeometry, ModelError> {
+        let result = Query::get_one_in_mode(db, id, mode).await?;
         result.to_koji_geometry()
     }
 
@@ -237,5 +272,79 @@ impl Query {
             .into_json()
             .all(db)
             .await
+    }
+}
+
+/// Pick the one geofence a name resolves to from every row carrying that name.
+/// Zero rows is "Does not exist"; two or more (necessarily distinct modes, as
+/// `(name, mode)` is unique) is [`ModelError::AmbiguousGeofence`] naming them.
+#[allow(clippy::result_large_err)]
+pub(super) fn pick_by_name(name: &str, mut rows: Vec<Model>) -> Result<Model, ModelError> {
+    match rows.len() {
+        0 => Err(ModelError::Geofence("Does not exist".to_string())),
+        1 => Ok(rows.remove(0)),
+        _ => {
+            let mut modes: Vec<String> = rows.iter().map(|m| m.mode.to_value()).collect();
+            modes.sort();
+            Err(ModelError::AmbiguousGeofence {
+                name: name.to_string(),
+                modes,
+            })
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row(id: u32, name: &str, mode: Mode) -> Model {
+        Model {
+            id,
+            name: name.to_string(),
+            parent: None,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            mode,
+            geometry: serde_json::json!(null),
+            geo_type: String::new(),
+            dragonite_area_id: None,
+            min_lat: None,
+            min_lng: None,
+            max_lat: None,
+            max_lng: None,
+        }
+    }
+
+    #[test]
+    fn pick_by_name_with_no_rows_does_not_exist() {
+        let err = pick_by_name("Boston", vec![]).unwrap_err();
+        assert!(matches!(err, ModelError::Geofence(m) if m == "Does not exist"));
+    }
+
+    #[test]
+    fn pick_by_name_with_one_row_returns_it() {
+        let got = pick_by_name("Boston", vec![row(3, "Boston", Mode::Pokemon)]).unwrap();
+        assert_eq!(got.id, 3);
+    }
+
+    #[test]
+    fn pick_by_name_with_two_modes_names_both_modes() {
+        let rows = vec![
+            row(1, "Boston", Mode::Unset),
+            row(2, "Boston", Mode::Pokemon),
+        ];
+        let err = pick_by_name("Boston", rows).unwrap_err();
+        match &err {
+            ModelError::AmbiguousGeofence { name, modes } => {
+                assert_eq!(name, "Boston");
+                assert_eq!(modes, &["pokemon", "unset"]);
+            }
+            other => panic!("expected AmbiguousGeofence, got {other:?}"),
+        }
+        assert_eq!(
+            err.to_string(),
+            "[GEOFENCE]: `Boston` is ambiguous, it exists in modes: pokemon, unset"
+        );
     }
 }

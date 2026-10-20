@@ -112,9 +112,12 @@ impl Query {
         }
 
         let old_model = if id == 0 {
-            Query::get_one(db, new_model.name.clone().unwrap())
-                .await
-                .ok()
+            // A new-or-existing fence is keyed by the (name, mode) pair.
+            Entity::find()
+                .filter(Column::Name.eq(new_model.name.as_ref().as_str()))
+                .filter(Column::Mode.eq(*new_model.mode.as_ref()))
+                .one(db)
+                .await?
         } else {
             Entity::find_by_id(id).one(db).await?
         };

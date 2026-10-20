@@ -398,13 +398,15 @@ pub(crate) async fn create(
 /// geofence: `depth=N` is the cumulative subtree through level N, `level=N` is
 /// only the geofences exactly N levels down. The two are mutually exclusive
 /// (both → 400). Omitted → the existing single-geofence response; a missing
-/// geofence → `404`.
+/// geofence → `404`. A name held by several modes needs `?mode=`, else `409`
+/// naming the modes.
 #[utoipa::path(
     get,
     path = "/api/v2/geofences/{id}",
     tag = "geofences",
     params(
         ("id" = String, Path, description = "Geofence id or name"),
+        ("mode" = Option<String>, Query, description = "Pick the geofence of this mode when `id` is a name shared by several modes (`unset|pokemon|fort|quest`)"),
         ("format" = Option<String>, Query, description = "Return type (default `feature`)"),
         ("depth" = Option<u32>, Query, description = "Cumulative subtree through N levels"),
         ("level" = Option<u32>, Query, description = "Exactly N levels below the anchor"),
@@ -413,6 +415,7 @@ pub(crate) async fn create(
         (status = 200, description = "The geofence (GeoJSON in the envelope, or a raw export format)", body = Object),
         (status = 400, description = "`depth` and `level` are mutually exclusive", body = ApiError),
         (status = 404, description = "No such geofence", body = ApiError),
+        (status = 409, description = "The name is shared by several modes and no `mode` was given; the message names them", body = ApiError),
     ),
 )]
 async fn get_one(
@@ -422,17 +425,27 @@ async fn get_one(
 ) -> Result<HttpResponse, ServiceError> {
     let id = path.into_inner();
     let return_type = query.return_type(ReturnTypeArg::Feature);
+    // Only a name is narrowed by `?mode=`; a numeric id already names one row.
+    let mode = query.mode_filter()?;
 
     let coll = match query.hierarchy()? {
         Some(spec) => {
-            let anchor = id
-                .parse::<u32>()
-                .map(Anchor::Id)
-                .unwrap_or_else(|_| Anchor::Name(id));
+            let anchor = match id.parse::<u32>() {
+                Ok(id) => Anchor::Id(id),
+                Err(_) => {
+                    let root = geofence::Query::get_by_name(&conn.koji, id.clone(), mode)
+                        .await
+                        .map_err(ServiceError::not_found_or_db(
+                            "geofence",
+                            format!("no geofence {id}"),
+                        ))?;
+                    Anchor::Id(root.id)
+                }
+            };
             geofence::Query::descendants(&conn.koji, anchor, spec).await?
         }
         None => {
-            let geometry = geofence::Query::get_one_koji(&conn.koji, id.clone())
+            let geometry = geofence::Query::get_one_koji_in_mode(&conn.koji, id.clone(), mode)
                 .await
                 .map_err(ServiceError::not_found_or_db(
                     "geofence",

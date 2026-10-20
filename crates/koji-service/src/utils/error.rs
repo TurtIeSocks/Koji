@@ -26,6 +26,11 @@ pub(crate) enum ServiceError {
         message: String,
     },
     #[error("{message}")]
+    Conflict {
+        field: &'static str,
+        message: String,
+    },
+    #[error("{message}")]
     Invalid {
         field: Option<String>,
         message: String,
@@ -62,6 +67,13 @@ impl ServiceError {
     ) -> impl FnOnce(ModelError) -> Self {
         move |e| match e {
             ModelError::Database(_) => ServiceError::Model(e),
+            ModelError::AmbiguousGeofence { name, modes } => ServiceError::Conflict {
+                field,
+                message: format!(
+                    "{field} `{name}` exists in modes: {}; pass ?mode= to pick one",
+                    modes.join(", ")
+                ),
+            },
             _ => ServiceError::NotFound { field, message },
         }
     }
@@ -74,6 +86,11 @@ impl ServiceError {
         let (status, field, message) = match self {
             ServiceError::NotFound { field, message } => (
                 StatusCode::NOT_FOUND,
+                Some((*field).to_string()),
+                message.clone(),
+            ),
+            ServiceError::Conflict { field, message } => (
+                StatusCode::CONFLICT,
                 Some((*field).to_string()),
                 message.clone(),
             ),
@@ -209,6 +226,33 @@ mod tests {
         let (status, err) = e.to_api_error();
         assert_eq!(status, StatusCode::NOT_FOUND);
         assert_eq!(err.field.as_deref(), Some("geofence"));
+    }
+
+    #[test]
+    fn conflict_maps_to_409() {
+        let (status, err) = ServiceError::Conflict {
+            field: "geofence",
+            message: "taken".into(),
+        }
+        .to_api_error();
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(err.code, "conflict");
+        assert_eq!(err.field.as_deref(), Some("geofence"));
+    }
+
+    #[test]
+    fn not_found_or_db_maps_an_ambiguous_name_to_409_naming_the_modes() {
+        let map = ServiceError::not_found_or_db("geofence", "no geofence Boston".into());
+        let e = map(ModelError::AmbiguousGeofence {
+            name: "Boston".into(),
+            modes: vec!["pokemon".into(), "unset".into()],
+        });
+        let (status, err) = e.to_api_error();
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(err.field.as_deref(), Some("geofence"));
+        assert!(err.message.contains("Boston"), "{}", err.message);
+        assert!(err.message.contains("pokemon, unset"), "{}", err.message);
+        assert!(err.message.contains("mode"), "{}", err.message);
     }
 
     #[test]
