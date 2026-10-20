@@ -77,9 +77,10 @@ impl DragoniteClient {
     /// Every area Dragonite has, read page by page from `GET /v2/areas/`
     /// (`per_page` at Dragonite's cap of [`AREAS_PER_PAGE`]). The page count
     /// comes from the `X-Total-Pages` header; a reply without it is one page.
+    /// Dragonite counts pages from 0, so the last is `X-Total-Pages - 1`.
     pub async fn list_areas(&self) -> Result<Vec<ApiArea>, DragoniteError> {
         let mut areas = Vec::new();
-        let mut page = 1u32;
+        let mut page = 0u32;
         loop {
             let req = self
                 .http
@@ -91,7 +92,7 @@ impl DragoniteClient {
                 .and_then(|v| v.trim().parse::<u32>().ok())
                 .unwrap_or(1);
             areas.extend(decode_reply::<Vec<ApiArea>>(status, &bytes)?);
-            if page >= total_pages {
+            if page + 1 >= total_pages {
                 return Ok(areas);
             }
             page += 1;
@@ -409,7 +410,8 @@ mod tests {
     }
 
     /// Serve `GET /v2/areas/` from `pages` (one JSON array body per page),
-    /// answering `X-Total-Pages` as Dragonite does. Returns the base URL and the
+    /// counting pages from 0 and answering `X-Page` and `X-Total-Pages` as
+    /// Dragonite does; a page past the last is an empty array. Returns the base URL and the
     /// request lines the client sent, in order.
     async fn serve_area_pages(
         pages: Vec<String>,
@@ -431,10 +433,10 @@ mod tests {
                     .split(['?', '&', ' '])
                     .find_map(|kv| kv.strip_prefix("page="))
                     .and_then(|v| v.parse::<usize>().ok())
-                    .unwrap_or(1);
-                let body = pages.get(page - 1).cloned().unwrap_or_else(|| "[]".into());
+                    .unwrap_or(0);
+                let body = pages.get(page).cloned().unwrap_or_else(|| "[]".into());
                 let reply = format!(
-                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\nx-total-pages: {}\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\nx-page: {page}\r\nx-total-pages: {}\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
                     pages.len(),
                     body.len()
                 );
@@ -450,20 +452,22 @@ mod tests {
         let (base, seen) = serve_area_pages(vec![
             r#"[{"id":1,"name":"Alpha"},{"id":2,"name":"Beta"}]"#.to_string(),
             r#"[{"id":3,"name":"Gamma"}]"#.to_string(),
+            r#"[{"id":4,"name":"Delta"}]"#.to_string(),
         ])
         .await;
         let client = DragoniteClient::new(base, "tok");
 
-        let areas = client.list_areas().await.expect("both pages decode");
+        let areas = client.list_areas().await.expect("every page decodes");
 
         let names: Vec<_> = areas.iter().map(|a| a.name.as_deref().unwrap()).collect();
-        assert_eq!(names, ["Alpha", "Beta", "Gamma"]);
+        assert_eq!(names, ["Alpha", "Beta", "Gamma", "Delta"]);
         let seen = seen.lock().unwrap();
-        assert_eq!(seen.len(), 2, "{seen:?}");
+        assert_eq!(seen.len(), 3, "{seen:?}");
         assert!(seen[0].starts_with("GET /v2/areas/?"), "{seen:?}");
-        assert!(seen[0].contains("page=1"), "{seen:?}");
+        assert!(seen[0].contains("page=0"), "{seen:?}");
         assert!(seen[0].contains("per_page=1000"), "{seen:?}");
-        assert!(seen[1].contains("page=2"), "{seen:?}");
+        assert!(seen[1].contains("page=1"), "{seen:?}");
+        assert!(seen[2].contains("page=2"), "{seen:?}");
     }
 
     #[tokio::test]

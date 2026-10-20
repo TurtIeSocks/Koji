@@ -69,7 +69,8 @@ fn triangle() -> Json {
 }
 
 /// Serve `GET /v2/areas/` from `pages`, one JSON array per page, answering
-/// `X-Total-Pages` as Dragonite does. Returns the base URL.
+/// `X-Page` and `X-Total-Pages` as Dragonite does, counting pages from 0.
+/// Returns the base URL.
 async fn dragonite_stand_in(pages: Vec<Json>) -> String {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}", listener.local_addr().unwrap());
@@ -84,14 +85,10 @@ async fn dragonite_stand_in(pages: Vec<Json>) -> String {
                 .split(['?', '&', ' '])
                 .find_map(|kv| kv.strip_prefix("page="))
                 .and_then(|v| v.parse::<usize>().ok())
-                .unwrap_or(1);
-            let body = pages
-                .get(page - 1)
-                .cloned()
-                .unwrap_or(json!([]))
-                .to_string();
+                .unwrap_or(0);
+            let body = pages.get(page).cloned().unwrap_or(json!([])).to_string();
             let reply = format!(
-                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\nx-total-pages: {}\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\nx-page: {page}\r\nx-total-pages: {}\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
                 pages.len(),
                 body.len()
             );
