@@ -856,3 +856,49 @@ async fn a_dry_run_lists_the_writes_and_the_skipped_fences_and_sends_nothing() {
     assert!(sent["data"]["writes"][0]["event_id"].is_string(), "{sent}");
     assert_eq!(queued_after_send, 1);
 }
+
+#[actix_web::test]
+async fn a_send_whose_approved_writes_went_stale_sends_nothing_and_answers_the_current_plan() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let app = app!(db);
+    let first = create_dragonite!(app, "http://127.0.0.1:1", Json::Null);
+    let second = create_dragonite!(app, "http://127.0.0.1:1", Json::Null);
+    let fence = create_fence!(app, &unique_name("stale"), "quest", json!([]));
+    let (linked, _) = patch!(
+        app,
+        "/api/v2/geofences",
+        fence,
+        json!({ "dragonite_links": [{ "webhook_id": first, "dragonite_area_id": 4 }] })
+    );
+    // What the admin was shown: one write, to `first`.
+    let approved = json!([{ "geofence": fence, "webhook_id": first, "dragonite_area_id": 4 }]);
+    // Then someone links the fence on `second` too.
+    let (relinked, _) = patch!(
+        app,
+        "/api/v2/geofences",
+        fence,
+        json!({ "dragonite_links": [{ "webhook_id": second, "dragonite_area_id": 9 }] })
+    );
+
+    let (stale_status, stale) = publish_many!(app, json!({ "ids": [fence], "writes": approved }));
+    let queued_after_stale = queued_events(&db, first).await + queued_events(&db, second).await;
+    let both = json!([
+        { "geofence": fence, "webhook_id": first, "dragonite_area_id": 4 },
+        { "geofence": fence, "webhook_id": second, "dragonite_area_id": 9 },
+    ]);
+    let (ok_status, sent) = publish_many!(app, json!({ "ids": [fence], "writes": both }));
+
+    forget_events(&db, &sent).await;
+    for hook in [first, second] {
+        cleanup(&db, "webhook_subscription", "id", Value::from(hook)).await;
+    }
+    cleanup(&db, "geofence", "id", Value::from(fence)).await;
+    assert_eq!((linked, relinked), (200, 200));
+    assert_eq!(stale_status, 409, "{stale}");
+    assert_eq!(stale["error"]["code"], "plan_changed");
+    assert_eq!(stale["plan"]["writes"].as_array().unwrap().len(), 2);
+    assert_eq!(queued_after_stale, 0);
+    assert_eq!(ok_status, 202, "{sent}");
+    assert_eq!(sent["data"]["writes"].as_array().unwrap().len(), 2);
+}

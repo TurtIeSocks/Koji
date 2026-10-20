@@ -127,13 +127,14 @@ pub(crate) fn no_link_message(name: &str, reaching: &[webhook::Model]) -> String
 
 /// Append `payload_for(target, link)` as one `topic` event per linked target and
 /// answer them as `[{ webhook_id, event_id, dragonite_area_id }]`.
-pub(crate) async fn publish_to<P, F>(
-    db: &DatabaseConnection,
+pub(crate) async fn publish_to<C, P, F>(
+    db: &C,
     topic: &str,
     targets: &[(webhook::Model, dragonite_link::Model)],
     payload_for: F,
 ) -> Result<serde_json::Value, ServiceError>
 where
+    C: ConnectionTrait,
     P: Serialize,
     F: Fn(&webhook::Model, &dragonite_link::Model) -> P,
 {

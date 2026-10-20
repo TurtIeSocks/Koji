@@ -128,7 +128,7 @@ impl EventDispatcher {
     /// whenever a loop next claims due rows. `next_attempt_at` is `NOW()`, so the
     /// row is immediately due.
     pub async fn publish(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         topic: &str,
         payload: &impl Serialize,
     ) -> Result<EventId, PublishError> {

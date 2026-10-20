@@ -226,7 +226,11 @@ describe("PublishButton", () => {
     await vi.waitFor(() =>
       expect(bodies(mockFetch)).toEqual([
         { ids: [7], dry_run: true },
-        { ids: [7], dry_run: false },
+        {
+          ids: [7],
+          dry_run: false,
+          writes: [{ geofence: 7, webhook_id: 1, dragonite_area_id: 21 }],
+        },
       ]),
     );
     await vi.waitFor(() =>
@@ -235,6 +239,44 @@ describe("PublishButton", () => {
         expect.objectContaining({ type: "info" }),
       ),
     );
+  });
+});
+
+describe("PublishDialog when the plan changes under it", () => {
+  it("sends nothing, shows the current plan and asks again", async () => {
+    const mockFetch = await serve({ writes: [write(7, 1, 21)] });
+    const current = {
+      dry_run: false,
+      writes: [write(7, 1, 21), write(7, 2, 9)],
+      skipped: [],
+    };
+    const dryRun = mockFetch.getMockImplementation()!;
+    mockFetch.mockImplementation(async (path, init) => {
+      const body = JSON.parse(String(init?.body));
+      if (body.dry_run) return dryRun(path, init);
+      return {
+        status: 409,
+        json: { status: "error", error: { code: "plan_changed" }, plan: current },
+      };
+    });
+    notifyMock.mockClear();
+    const screen = render(wrapSingle(<PublishButton />));
+    await screen.getByRole("button", { name: /publish/i }).click();
+    await expect.element(screen.getByText("Fence7")).toBeVisible();
+
+    await screen.getByRole("button", { name: "Confirm" }).click();
+
+    const dialog = screen.getByRole("dialog");
+    await expect.element(dialog.getByText("dragonite-2 (id 2)")).toBeVisible();
+    expect(notifyMock).toHaveBeenCalledWith(
+      "The plan changed. Review it and confirm again.",
+      expect.objectContaining({ type: "warning" }),
+    );
+    // Only the dry run and the refused send went out; no second send.
+    expect(bodies(mockFetch).map((b) => b.dry_run)).toEqual([true, false]);
+    await expect
+      .element(dialog.getByRole("button", { name: "Confirm" }))
+      .toBeEnabled();
   });
 });
 
@@ -277,7 +319,15 @@ describe("BulkPublishButton", () => {
     await vi.waitFor(() =>
       expect(bodies(mockFetch)).toEqual([
         { ids: [1, 2, 3], dry_run: true },
-        { ids: [1, 2], dry_run: false },
+        {
+          ids: [1, 2],
+          dry_run: false,
+          writes: [
+            { geofence: 1, webhook_id: 1, dragonite_area_id: 11 },
+            { geofence: 2, webhook_id: 1, dragonite_area_id: 12 },
+            { geofence: 2, webhook_id: 2, dragonite_area_id: 22 },
+          ],
+        },
       ]),
     );
   });

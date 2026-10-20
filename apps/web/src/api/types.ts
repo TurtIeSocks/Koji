@@ -141,10 +141,12 @@ export interface ApiSurface {
   postConvert: typeof import("./live/import").postConvert;
   publishRecord: (resource: string, id: string | number) => Promise<PublishResult>;
   /** Dry run: the writes and skipped geofences for `ids`, nothing sent.
-   *  Otherwise sends those writes and answers them with their event ids. */
+   *  Otherwise sends those writes and answers them with their event ids. With
+   *  `writes` (the ones shown) a send whose plan differs sends nothing and
+   *  throws `PlanChangedError` carrying the current plan. */
   publishGeofences: (
     ids: Array<string | number>,
-    opts: { dryRun: boolean },
+    opts: { dryRun: boolean; writes?: PublishWrite[] },
   ) => Promise<PublishPlan>;
   testWebhook: (id: string | number) => Promise<WebhookTestResult>;
   /** Demo only; no-op in live. */

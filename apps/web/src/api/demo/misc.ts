@@ -1,4 +1,4 @@
-import type { PublishPlan, PublishResult, WebhookTestResult } from "../types";
+import type { PublishPlan, PublishResult, PublishWrite, WebhookTestResult } from "../types";
 import { allRows } from "./db";
 import { resetDemoWorld } from "./seeds/seed";
 
@@ -16,7 +16,7 @@ export async function publishRecord(
  *  whether an active Dragonite webhook reaches it. */
 export async function publishGeofences(
   ids: Array<string | number>,
-  opts: { dryRun: boolean },
+  opts: { dryRun: boolean; writes?: PublishWrite[] },
 ): Promise<PublishPlan> {
   const [geofences, hooks] = await Promise.all([
     allRows("geofences"),

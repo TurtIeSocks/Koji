@@ -1,6 +1,7 @@
 import { internalFetch, unwrapResponse } from "@/lib/http";
 import { segFor } from "./data-provider";
-import type { PublishPlan, PublishResult } from "../types";
+import type { PublishPlan, PublishResult, PublishWrite } from "../types";
+import { PlanChangedError } from "../shared/plan-changed";
 
 /**
  * POST /internal/{seg}/{id}/publish for one record.
@@ -38,15 +39,31 @@ export async function publishRecord(
 /**
  * POST /internal/geofences/publish for `ids`. With `dryRun` the server answers
  * the writes and skipped geofences and sends nothing; without it, it sends
- * the same plan. Throws on a non-2xx.
+ * the same plan. Give the `writes` that were shown and a send only goes out if
+ * the server's plan still equals them: otherwise nothing is sent and this
+ * throws `PlanChangedError` with the current plan. Throws on any other non-2xx.
  */
 export async function publishGeofences(
   ids: Array<string | number>,
-  opts: { dryRun: boolean },
+  opts: { dryRun: boolean; writes?: PublishWrite[] },
 ): Promise<PublishPlan> {
   const res = await internalFetch("/geofences/publish", {
     method: "POST",
-    body: JSON.stringify({ ids: ids.map(Number), dry_run: opts.dryRun }),
+    body: JSON.stringify({
+      ids: ids.map(Number),
+      dry_run: opts.dryRun,
+      ...(opts.writes && {
+        writes: opts.writes.map((w) => ({
+          geofence: w.geofence,
+          webhook_id: w.webhook_id,
+          dragonite_area_id: w.dragonite_area_id,
+        })),
+      }),
+    }),
   });
+  if (res.status === 409) {
+    const plan = (res.json as { plan?: PublishPlan } | null)?.plan;
+    if (plan) throw new PlanChangedError(plan);
+  }
   return unwrapResponse<PublishPlan>(res);
 }

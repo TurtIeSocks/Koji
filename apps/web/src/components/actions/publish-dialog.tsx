@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { publishGeofences } from "@api";
+import { PlanChangedError } from "@/api/shared/plan-changed";
 import type { PublishPlan, PublishSkip, PublishWrite } from "@/api/types";
 
 /** Rows drawn per group before "Show more", so a 2,000-fence plan stays a few
@@ -162,7 +163,10 @@ export function PublishDialog({
   const confirm = async () => {
     setSending(true);
     try {
-      const sent = await publishGeofences(sendIds, { dryRun: false });
+      const sent = await publishGeofences(sendIds, {
+        dryRun: false,
+        writes: plan?.writes,
+      });
       notify(
         `${plural(sent.writes.length, "write")} queued for ${plural(
           new Set(sent.writes.map((w) => w.geofence)).size,
@@ -173,9 +177,17 @@ export function PublishDialog({
       onPublished?.();
       onClose();
     } catch (e) {
-      notify(e instanceof Error ? e.message : "Publish failed", {
-        type: "error",
-      });
+      if (e instanceof PlanChangedError) {
+        // Links changed since the plan was shown: show the new plan, send nothing.
+        setPlan(e.plan);
+        notify("The plan changed. Review it and confirm again.", {
+          type: "warning",
+        });
+      } else {
+        notify(e instanceof Error ? e.message : "Publish failed", {
+          type: "error",
+        });
+      }
       setSending(false);
     }
   };

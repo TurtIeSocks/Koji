@@ -341,6 +341,19 @@ pub(crate) struct PublishGeofences {
     /// Answer the writes and the skipped geofences without sending anything.
     #[serde(default)]
     pub dry_run: bool,
+    /// The writes the caller was shown and approved. When given on a send, they
+    /// must equal the writes planned now, else nothing is sent and the answer is
+    /// `409` with the current plan.
+    #[serde(default)]
+    pub writes: Option<Vec<ApprovedWrite>>,
+}
+
+/// One write the caller approved: a geofence to one Dragonite's Area.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, ToSchema)]
+pub(crate) struct ApprovedWrite {
+    pub geofence: u32,
+    pub webhook_id: u64,
+    pub dragonite_area_id: u32,
 }
 
 /// `?descendants` reads below the fences a project holds, so it needs the
@@ -857,6 +870,7 @@ pub(super) async fn dragonite_target(
     request_body = PublishGeofences,
     responses(
         (status = 200, description = "Dry run: `{ dry_run, writes, skipped }`, nothing sent", body = Object),
+        (status = 409, description = "`writes` differs from the current plan: nothing sent, the current plan in `plan`", body = Object),
         (status = 202, description = "Events enqueued: `{ dry_run, writes, skipped }`, each write with its `event_id`", body = Object),
     ),
 )]
@@ -865,31 +879,61 @@ pub(crate) async fn publish_many(
     body: web::Json<PublishGeofences>,
 ) -> Result<HttpResponse, ServiceError> {
     let ids = &body.ids;
-    let geofences = geofence::Query::summaries(&conn.koji, ids).await?;
-    let found = dragonite_link::Query::publish_targets_for(&conn.koji, ids).await?;
-    let mut plan = plan_publish(ids, &geofences, &found);
 
     if body.dry_run {
+        let (mut plan, found) = plan_for(&conn.koji, ids).await?;
         name_areas(&mut plan, &found).await;
         return Ok(publish_plan_response(StatusCode::OK, true, &plan));
     }
 
-    // Send exactly the planned writes, a batch of fences at a time so their
-    // geometries are not all held at once.
+    // Plan and send in one transaction: the plan is read from one snapshot, and
+    // a failure part way (a geometry that will not parse, an insert error)
+    // rolls back every event queued so far, so a retry never sends twice.
+    let txn = conn.koji.begin().await?;
+    let (mut plan, found) = plan_for(&txn, ids).await?;
+    if let Some(approved) = &body.writes {
+        let mut approved: Vec<ApprovedWrite> = approved.clone();
+        let mut planned: Vec<ApprovedWrite> = plan
+            .writes
+            .iter()
+            .map(|w| ApprovedWrite {
+                geofence: w.geofence,
+                webhook_id: w.webhook_id,
+                dragonite_area_id: w.dragonite_area_id,
+            })
+            .collect();
+        approved.sort();
+        planned.sort();
+        if approved != planned {
+            return Ok(plan_changed_response(&plan));
+        }
+    }
+
+    // A batch of fences at a time, so their geometries are not all held at once.
     let mut sendable: Vec<u32> = plan.writes.iter().map(|w| w.geofence).collect();
     sendable.dedup();
+    let mut write_at: std::collections::HashMap<(u32, u64), usize> = plan
+        .writes
+        .iter()
+        .enumerate()
+        .map(|(i, w)| ((w.geofence, w.webhook_id), i))
+        .collect();
     for batch in sendable.chunks(100) {
         let models = geofence::Entity::find()
             .filter(geofence::Column::Id.is_in(batch.iter().copied()))
-            .all(&conn.koji)
+            .all(&txn)
             .await?;
+        // A planned fence that is gone changes the plan: send nothing.
+        if models.len() != batch.len() {
+            return Ok(plan_changed_response(&plan));
+        }
         for model in models {
             let Some(targets) = found.get(&model.id) else {
-                continue;
+                return Ok(plan_changed_response(&plan));
             };
             let template = geofence_updated(&model).map_err(ServiceError::internal)?;
             let events = publish_to(
-                &conn.koji,
+                &txn,
                 TOPIC_GEOFENCE_UPDATED,
                 &targets.linked,
                 |target, link| GeofenceUpdated {
@@ -900,19 +944,47 @@ pub(crate) async fn publish_many(
             )
             .await?;
             for event in events.as_array().into_iter().flatten() {
-                let (webhook_id, event_id) =
-                    (event["webhook_id"].as_u64(), event["event_id"].as_str());
-                if let Some(write) = plan
-                    .writes
-                    .iter_mut()
-                    .find(|w| w.geofence == model.id && Some(w.webhook_id) == webhook_id)
-                {
-                    write.event_id = event_id.map(str::to_string);
+                let webhook_id = event["webhook_id"].as_u64().unwrap_or_default();
+                if let Some(i) = write_at.remove(&(model.id, webhook_id)) {
+                    plan.writes[i].event_id = event["event_id"].as_str().map(str::to_string);
                 }
             }
         }
     }
+    txn.commit().await?;
     Ok(publish_plan_response(StatusCode::ACCEPTED, false, &plan))
+}
+
+/// Plan publishing `ids` from the current geofences, links and webhooks, and
+/// the targets the plan was made from.
+async fn plan_for<C: sea_orm::ConnectionTrait>(
+    db: &C,
+    ids: &[u32],
+) -> Result<
+    (
+        super::publish_plan::PublishPlan,
+        std::collections::HashMap<u32, koji_db::db::dragonite_link::PublishTargets>,
+    ),
+    ServiceError,
+> {
+    let geofences = geofence::Query::summaries(db, ids).await?;
+    let found = dragonite_link::Query::publish_targets_for(db, ids).await?;
+    let plan = plan_publish(ids, &geofences, &found);
+    Ok((plan, found))
+}
+
+/// `409`: the writes differ from the ones approved. Nothing was sent; `plan`
+/// is what a send would write now, for the caller to show again.
+fn plan_changed_response(plan: &super::publish_plan::PublishPlan) -> HttpResponse {
+    HttpResponse::build(StatusCode::CONFLICT).json(json!({
+        "status": "error",
+        "error": {
+            "code": "plan_changed",
+            "message": "the publish plan changed since it was shown; nothing was sent",
+            "field": "writes",
+        },
+        "plan": { "dry_run": false, "writes": plan.writes, "skipped": plan.skipped },
+    }))
 }
 
 /// How long a dry run waits for one Dragonite to list its Areas.
