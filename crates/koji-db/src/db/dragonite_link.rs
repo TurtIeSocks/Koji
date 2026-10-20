@@ -107,6 +107,9 @@ fn can_reach(target: &webhook::Model) -> bool {
     target.active && target.mode == WebhookMode::Dragonite
 }
 
+/// Ids per `IN (...)` list, well under the placeholder limit.
+const ID_CHUNK: usize = 5_000;
+
 pub struct Query;
 
 impl Query {
@@ -157,32 +160,73 @@ impl Query {
         db: &C,
         geofence_id: u32,
     ) -> Result<PublishTargets, DbErr> {
-        let projects: Vec<u32> = geofence_project::Entity::find()
-            .filter(geofence_project::Column::GeofenceId.eq(geofence_id))
-            .all(db)
-            .await?
-            .into_iter()
-            .map(|row| row.project_id)
-            .collect();
-        let reaching: Vec<webhook::Model> = webhook::Entity::find()
+        let mut found = Self::publish_targets_for(db, &[geofence_id]).await?;
+        Ok(found
+            .remove(&geofence_id)
+            .unwrap_or_else(|| PublishTargets {
+                reaching: Vec::new(),
+                linked: Vec::new(),
+            }))
+    }
+
+    /// [`Query::publish_targets`] for many geofences in a fixed number of
+    /// queries, so a bulk publish does not read per geofence. Every id in
+    /// `geofence_ids` is a key of the answer, existing geofence or not.
+    pub async fn publish_targets_for<C: ConnectionTrait>(
+        db: &C,
+        geofence_ids: &[u32],
+    ) -> Result<HashMap<u32, PublishTargets>, DbErr> {
+        let mut projects: HashMap<u32, Vec<u32>> = HashMap::new();
+        let mut links: HashMap<(u64, u32), Model> = HashMap::new();
+        for chunk in geofence_ids.chunks(ID_CHUNK) {
+            for row in geofence_project::Entity::find()
+                .filter(geofence_project::Column::GeofenceId.is_in(chunk.iter().copied()))
+                .all(db)
+                .await?
+            {
+                projects
+                    .entry(row.geofence_id)
+                    .or_default()
+                    .push(row.project_id);
+            }
+            for link in Entity::find()
+                .filter(Column::GeofenceId.is_in(chunk.iter().copied()))
+                .all(db)
+                .await?
+            {
+                links.insert((link.webhook_id, link.geofence_id), link);
+            }
+        }
+        let active: Vec<webhook::Model> = webhook::Entity::find()
             .filter(webhook::Column::Mode.eq(WebhookMode::Dragonite))
             .filter(webhook::Column::Active.eq(true))
             .order_by_asc(webhook::Column::Id)
             .all(db)
-            .await?
-            .into_iter()
-            .filter(|target| target.project_id.is_none_or(|p| projects.contains(&p)))
-            .collect();
-        let mut links: HashMap<u64, Model> = Self::for_geofence(db, geofence_id)
-            .await?
-            .into_iter()
-            .map(|link| (link.webhook_id, link))
-            .collect();
-        let linked = reaching
+            .await?;
+        Ok(geofence_ids
             .iter()
-            .filter_map(|target| links.remove(&target.id).map(|link| (target.clone(), link)))
-            .collect();
-        Ok(PublishTargets { reaching, linked })
+            .map(|&geofence_id| {
+                let in_projects = projects.get(&geofence_id);
+                let reaching: Vec<webhook::Model> = active
+                    .iter()
+                    .filter(|target| {
+                        target
+                            .project_id
+                            .is_none_or(|p| in_projects.is_some_and(|ps| ps.contains(&p)))
+                    })
+                    .cloned()
+                    .collect();
+                let linked = reaching
+                    .iter()
+                    .filter_map(|target| {
+                        links
+                            .get(&(target.id, geofence_id))
+                            .map(|link| (target.clone(), link.clone()))
+                    })
+                    .collect();
+                (geofence_id, PublishTargets { reaching, linked })
+            })
+            .collect())
     }
 
     /// The target's geofences it reaches, each with the Area it is linked to on

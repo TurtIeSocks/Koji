@@ -884,3 +884,166 @@ async fn a_geofence_named_link_dragonite_is_still_fetched_by_name() {
     assert_eq!(status, 200, "{fetched}");
     assert_eq!(fetched["data"]["properties"]["name"], "link-dragonite");
 }
+
+/// `POST /geofences/publish` with `$body` as `(status, body)`.
+macro_rules! publish_many {
+    ($app:expr, $body:expr) => {{
+        let req = test::TestRequest::post()
+            .uri("/api/v2/geofences/publish")
+            .set_json($body)
+            .to_request();
+        let resp = test::call_service(&$app, req).await;
+        let status = resp.status();
+        (status.as_u16(), body_json(resp).await)
+    }};
+}
+
+/// Events queued for a Dragonite row.
+async fn queued_events(db: &DatabaseConnection, hook: u64) -> i64 {
+    let row = db
+        .query_one(Statement::from_sql_and_values(
+            DbBackend::MySql,
+            "SELECT COUNT(*) AS n FROM `event_outbox` WHERE JSON_EXTRACT(`payload`, '$.webhook_id') = ?",
+            [Value::from(hook)],
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    row.try_get::<i64>("", "n").unwrap()
+}
+
+#[actix_web::test]
+async fn a_dry_run_lists_the_writes_and_the_skipped_fences_and_sends_nothing() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let app = app!(db);
+    let project_a = create_project!(app);
+    let project_b = create_project!(app);
+    let dragonite = Stub::start("tok", vec![json!([{ "id": 21, "name": "Alpha" }])]).await;
+    let scoped = create_dragonite!(app, &dragonite.base, project_a);
+    let linked = create_fence!(
+        app,
+        &unique_name("plan-linked"),
+        "quest",
+        json!([project_a])
+    );
+    let unlinked = create_fence!(
+        app,
+        &unique_name("plan-unlinked"),
+        "pokemon",
+        json!([project_a])
+    );
+    let unreached = create_fence!(
+        app,
+        &unique_name("plan-unreached"),
+        "fort",
+        json!([project_b])
+    );
+    let (link_status, _) = patch!(
+        app,
+        "/api/v2/geofences",
+        linked,
+        json!({ "dragonite_links": [{ "webhook_id": scoped, "dragonite_area_id": 21 }] })
+    );
+    let ids = [linked, unlinked, unreached, u32::MAX as u64];
+
+    let (status, planned) = publish_many!(app, json!({ "ids": ids, "dry_run": true }));
+    let queued_after_dry_run = queued_events(&db, scoped).await;
+    let (sent_status, sent) = publish_many!(app, json!({ "ids": [linked, unlinked] }));
+    let queued_after_send = queued_events(&db, scoped).await;
+
+    forget_events(&db, &sent).await;
+    cleanup(&db, "webhook_subscription", "id", Value::from(scoped)).await;
+    for fence in [linked, unlinked, unreached] {
+        cleanup(&db, "geofence", "id", Value::from(fence)).await;
+    }
+    for project in [project_a, project_b] {
+        cleanup(&db, "project", "id", Value::from(project)).await;
+    }
+    assert_eq!((link_status, status), (200, 200), "{planned}");
+    let data = &planned["data"];
+    assert_eq!(data["dry_run"], true);
+    let writes = data["writes"].as_array().unwrap();
+    assert_eq!(writes.len(), 1, "{planned}");
+    assert_eq!(writes[0]["geofence"], linked);
+    assert_eq!(writes[0]["mode"], "quest");
+    assert_eq!(writes[0]["webhook_id"], scoped);
+    assert_eq!(writes[0]["dragonite_area_id"], 21);
+    assert_eq!(writes[0]["dragonite_area_name"], "Alpha");
+    assert!(
+        writes[0].get("event_id").is_none(),
+        "a dry run queues nothing"
+    );
+    let skipped: Vec<(u64, &str)> = data["skipped"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| {
+            (
+                s["geofence"].as_u64().unwrap(),
+                s["reason"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        skipped,
+        [
+            (unlinked, "no_link"),
+            (unreached, "no_target"),
+            (u32::MAX as u64, "not_found")
+        ]
+    );
+    assert_eq!(queued_after_dry_run, 0);
+    assert!(dragonite.patches().is_empty(), "a dry run PATCHes nothing");
+    // Without `dry_run` the same writes are sent, one event each.
+    assert_eq!(sent_status, 202, "{sent}");
+    assert_eq!(sent["data"]["writes"].as_array().unwrap().len(), 1);
+    assert!(sent["data"]["writes"][0]["event_id"].is_string(), "{sent}");
+    assert_eq!(queued_after_send, 1);
+}
+
+#[actix_web::test]
+async fn a_send_whose_approved_writes_went_stale_sends_nothing_and_answers_the_current_plan() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let app = app!(db);
+    let first = create_dragonite!(app, "http://127.0.0.1:1", Json::Null);
+    let second = create_dragonite!(app, "http://127.0.0.1:1", Json::Null);
+    let fence = create_fence!(app, &unique_name("stale"), "quest", json!([]));
+    let (linked, _) = patch!(
+        app,
+        "/api/v2/geofences",
+        fence,
+        json!({ "dragonite_links": [{ "webhook_id": first, "dragonite_area_id": 4 }] })
+    );
+    // What the admin was shown: one write, to `first`.
+    let approved = json!([{ "geofence": fence, "webhook_id": first, "dragonite_area_id": 4 }]);
+    // Then someone links the fence on `second` too.
+    let (relinked, _) = patch!(
+        app,
+        "/api/v2/geofences",
+        fence,
+        json!({ "dragonite_links": [{ "webhook_id": second, "dragonite_area_id": 9 }] })
+    );
+
+    let (stale_status, stale) = publish_many!(app, json!({ "ids": [fence], "writes": approved }));
+    let queued_after_stale = queued_events(&db, first).await + queued_events(&db, second).await;
+    let both = json!([
+        { "geofence": fence, "webhook_id": first, "dragonite_area_id": 4 },
+        { "geofence": fence, "webhook_id": second, "dragonite_area_id": 9 },
+    ]);
+    let (ok_status, sent) = publish_many!(app, json!({ "ids": [fence], "writes": both }));
+
+    forget_events(&db, &sent).await;
+    for hook in [first, second] {
+        cleanup(&db, "webhook_subscription", "id", Value::from(hook)).await;
+    }
+    cleanup(&db, "geofence", "id", Value::from(fence)).await;
+    assert_eq!((linked, relinked), (200, 200));
+    assert_eq!(stale_status, 409, "{stale}");
+    assert_eq!(stale["error"]["code"], "plan_changed");
+    assert_eq!(stale["plan"]["writes"].as_array().unwrap().len(), 2);
+    assert_eq!(queued_after_stale, 0);
+    assert_eq!(ok_status, 202, "{sent}");
+    assert_eq!(sent["data"]["writes"].as_array().unwrap().len(), 2);
+}

@@ -98,35 +98,43 @@ pub(crate) async fn linked_targets<C: ConnectionTrait>(
     if found.reaching.is_empty() {
         return Err(ServiceError::Unprocessable {
             field: Some("dragonite_webhook".to_string()),
-            message: format!("no active Dragonite webhook reaches geofence `{name}`"),
+            message: no_target_message(name),
         });
     }
     if found.linked.is_empty() {
-        let names = found
-            .reaching
-            .iter()
-            .map(|t| format!("`{}` (id {})", t.name, t.id))
-            .collect::<Vec<_>>()
-            .join(", ");
         return Err(ServiceError::Unprocessable {
             field: Some("dragonite_links".to_string()),
-            message: format!(
-                "geofence `{name}` has no Dragonite area link on the webhooks that reach it: {names}"
-            ),
+            message: no_link_message(name, &found.reaching),
         });
     }
     Ok(found.linked)
 }
 
+/// Why geofence `name` sends nothing when no Dragonite row reaches it.
+pub(crate) fn no_target_message(name: &str) -> String {
+    format!("no active Dragonite webhook reaches geofence `{name}`")
+}
+
+/// Why geofence `name` sends nothing when the rows `reaching` it hold no link.
+pub(crate) fn no_link_message(name: &str, reaching: &[webhook::Model]) -> String {
+    let names = reaching
+        .iter()
+        .map(|t| format!("`{}` (id {})", t.name, t.id))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("geofence `{name}` has no Dragonite area link on the webhooks that reach it: {names}")
+}
+
 /// Append `payload_for(target, link)` as one `topic` event per linked target and
 /// answer them as `[{ webhook_id, event_id, dragonite_area_id }]`.
-pub(crate) async fn publish_to<P, F>(
-    db: &DatabaseConnection,
+pub(crate) async fn publish_to<C, P, F>(
+    db: &C,
     topic: &str,
     targets: &[(webhook::Model, dragonite_link::Model)],
     payload_for: F,
 ) -> Result<serde_json::Value, ServiceError>
 where
+    C: ConnectionTrait,
     P: Serialize,
     F: Fn(&webhook::Model, &dragonite_link::Model) -> P,
 {

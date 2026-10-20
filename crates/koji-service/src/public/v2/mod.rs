@@ -17,6 +17,7 @@ pub(crate) mod import;
 pub(crate) mod jobs;
 pub(crate) mod nominatim;
 pub(crate) mod plugins;
+pub(crate) mod publish_plan;
 pub(crate) mod resources;
 pub(crate) mod routes;
 pub(crate) mod s2;

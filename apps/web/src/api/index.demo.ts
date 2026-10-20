@@ -24,7 +24,12 @@ export {
   fetchGeofencesByIds,
 } from "./demo/geo-features";
 export { postConvert, postImport } from "./demo/import";
-export { publishRecord, resetDemo, testWebhook } from "./demo/misc";
+export {
+  publishGeofences,
+  publishRecord,
+  resetDemo,
+  testWebhook,
+} from "./demo/misc";
 export { listWebhookAreas } from "./demo/webhook-areas";
 export { linkDragonite } from "./demo/webhook-link";
 
