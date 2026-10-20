@@ -336,6 +336,7 @@ pub fn geometry_bbox_lnglat(geometry: &Json) -> Option<[f64; 4]> {
     Some([rect.min().x, rect.min().y, rect.max().x, rect.max().y])
 }
 
+mod descendant_walk;
 mod hierarchy;
 mod list;
 mod project_view;
