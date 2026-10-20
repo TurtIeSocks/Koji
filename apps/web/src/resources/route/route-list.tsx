@@ -11,7 +11,7 @@ import {
 } from "@/components/admin";
 import { ListLive } from "@/components/realtime";
 import { ROUTE_MODES } from "@/lib/constants";
-import { BulkPublishButton } from "@/components/actions/publish-button";
+import { BulkRoutePublishButton } from "@/components/actions/publish-button";
 import { ImportButton } from "@/resources/import/import-button";
 
 const RouteListActions = () => (
@@ -35,7 +35,7 @@ const RouteFilters = () => (
 
 export const RouteBulkToolbar = () => (
   <BulkActionsToolbar>
-    <BulkPublishButton />
+    <BulkRoutePublishButton />
     <BulkDeleteButton />
   </BulkActionsToolbar>
 );

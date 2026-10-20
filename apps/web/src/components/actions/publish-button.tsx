@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Send } from "lucide-react";
 import {
   useNotify,
@@ -9,54 +10,93 @@ import {
 } from "shadmin-core";
 import { Button } from "@/components/ui/button";
 import { publishRecord } from "@api";
+import { PublishDialog } from "./publish-dialog";
 
 /**
- * Calls POST /internal/{seg}/{id}/publish for the current record.
- * - 2xx → info notification + refresh
- * - 422 → warning notification (no linked Dragonite area)
- * - other error → error notification
+ * Publish for the current geofence: opens a dialog listing where it goes
+ * (Dragonite target and Area) and sends only on Confirm.
  *
- * Reads record + resource from context. Drop into any record-scoped toolbar.
+ * Reads the record from context. Drop into any geofence record toolbar.
  */
 export function PublishButton() {
-  const resource = useResourceContext();
   const record = useRecordContext();
-  const notify = useNotify();
   const refresh = useRefresh();
-
-  const handleClick = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!record) return;
-    try {
-      const result = await publishRecord(resource ?? "", record.id);
-      if (!result.ok) {
-        notify(result.message, { type: result.warning ? "warning" : "error" });
-        return;
-      }
-      notify(result.message, { type: "info" });
-      refresh();
-    } catch (err) {
-      notify(err instanceof Error ? err.message : "Publish failed", {
-        type: "error",
-      });
-    }
-  };
+  const [open, setOpen] = useState(false);
 
   return (
-    <Button size="sm" variant="secondary" type="button" onClick={handleClick}>
-      <Send />
-      Publish
-    </Button>
+    <>
+      <Button
+        size="sm"
+        variant="secondary"
+        type="button"
+        disabled={!record}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(true);
+        }}
+      >
+        <Send />
+        Publish
+      </Button>
+      {open && record && (
+        <PublishDialog
+          ids={[record.id]}
+          onClose={() => setOpen(false)}
+          onPublished={refresh}
+        />
+      )}
+    </>
   );
 }
 
 /**
- * Bulk-action variant. Loops `Promise.allSettled` over selected ids, then
- * summarises how many succeeded and how many failed/422'd.
+ * Bulk Publish for the selected geofences: the same dialog, listing every
+ * write grouped by Dragonite target before anything is sent.
  *
  * Reads selectedIds + resource from list context.
  */
 export function BulkPublishButton() {
+  const resource = useResourceContext();
+  const { selectedIds } = useListContext();
+  const unselectAll = useUnselectAll(resource ?? "");
+  const refresh = useRefresh();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="secondary"
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(true);
+        }}
+      >
+        <Send />
+        Publish
+      </Button>
+      {open && (
+        <PublishDialog
+          ids={selectedIds}
+          onClose={() => setOpen(false)}
+          onPublished={() => {
+            unselectAll();
+            refresh();
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * Bulk publish for routes, which still send straight away. Loops `Promise.allSettled` over selected ids, then
+ * summarises how many succeeded and how many failed/422'd.
+ *
+ * Reads selectedIds + resource from list context.
+ */
+export function BulkRoutePublishButton() {
   const resource = useResourceContext();
   const { selectedIds } = useListContext();
   const unselectAll = useUnselectAll(resource ?? "");

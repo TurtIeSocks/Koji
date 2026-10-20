@@ -16,7 +16,7 @@ export async function publishRecord(
  *  whether an active Dragonite webhook reaches it. */
 export async function publishGeofences(
   ids: Array<string | number>,
-  _opts: { dryRun: boolean },
+  opts: { dryRun: boolean },
 ): Promise<PublishPlan> {
   const [geofences, hooks] = await Promise.all([
     allRows("geofences"),
@@ -57,7 +57,7 @@ export async function publishGeofences(
           },
     );
   }
-  return { dry_run: _opts.dryRun, writes: [], skipped };
+  return { dry_run: opts.dryRun, writes: [], skipped };
 }
 
 /** Webhook delivery is disabled in the serverless demo — report a non-delivery

@@ -91,6 +91,19 @@ describe("GeofenceShow", () => {
     await expect.element(screen.getByTestId("deck-map")).toBeInTheDocument();
   });
 
+  it("offers Publish for the fence", async () => {
+    const screen = render(
+      <AdminContext dataProvider={stubDataProvider} authProvider={stubAuthProvider}>
+        <ResourceContextProvider value="geofence">
+          <GeofenceShow id={1} />
+        </ResourceContextProvider>
+      </AdminContext>,
+    );
+    await expect
+      .element(screen.getByRole("button", { name: /publish/i }))
+      .toBeVisible();
+  });
+
   it("renders project chips in the projects field", async () => {
     const screen = render(
       <AdminContext dataProvider={stubDataProvider} authProvider={stubAuthProvider}>

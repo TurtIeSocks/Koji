@@ -42,6 +42,8 @@ export interface PublishWrite {
   webhook_id: number;
   webhook_name: string;
   dragonite_area_id: number;
+  /** The Area's name on that Dragonite; null when it could not be read. */
+  dragonite_area_name?: string | null;
   /** Set once the write is queued; absent on a dry run. */
   event_id?: string;
 }
