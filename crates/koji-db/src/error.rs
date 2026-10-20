@@ -15,6 +15,9 @@ pub enum ModelError {
     Property(String),
     #[error("[GEOFENCE]: {0}")]
     Geofence(String),
+    /// A geofence name that more than one mode shares, looked up without a mode.
+    #[error("[GEOFENCE]: `{name}` is ambiguous, it exists in modes: {}", .modes.join(", "))]
+    AmbiguousGeofence { name: String, modes: Vec<String> },
     #[error("[GEOFENCE_PROJECT]: {0}")]
     GeofenceProject(String),
     #[error("[GEOFENCE_PROPERTY]: {0}")]

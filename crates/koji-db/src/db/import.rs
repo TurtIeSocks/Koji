@@ -4,11 +4,13 @@
 
 use std::collections::{HashMap, HashSet};
 
-use sea_orm::{DatabaseConnection, EntityTrait, TransactionTrait};
+use sea_orm::{ActiveEnum, DatabaseConnection, EntityTrait, TransactionTrait};
 use serde_json::json;
 
+use crate::db::sea_orm_active_enums::Mode;
 use crate::db::{geofence, route};
 use crate::error::ModelError;
+use crate::utils::get_enum;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ImportKind {
@@ -66,54 +68,117 @@ pub struct ImportResult {
     pub results: Vec<ImportOutcome>,
 }
 
+/// A geofence is keyed by its name and mode together.
+type FenceKey = (String, Mode);
+
+/// The storage mode an item lands in (`unset` when it names none).
+fn item_mode(it: &ImportItem) -> Mode {
+    get_enum(it.mode.as_deref())
+}
+
+/// What a parent name points at among the known fences.
+#[derive(Debug, PartialEq, Eq)]
+enum ParentRef {
+    Found(FenceKey),
+    Missing,
+    /// Several modes share the name and none is the child's own.
+    Ambiguous(Vec<Mode>),
+}
+
+/// Resolve a parent given by name only. The fence in the child's own mode wins;
+/// otherwise a name held by a single mode is that fence; otherwise it is
+/// ambiguous.
+fn resolve_parent<'a>(
+    known: impl Iterator<Item = &'a FenceKey>,
+    name: &str,
+    child_mode: Mode,
+) -> ParentRef {
+    let mut modes: Vec<Mode> = known.filter(|(n, _)| n == name).map(|(_, m)| *m).collect();
+    if modes.contains(&child_mode) {
+        return ParentRef::Found((name.to_string(), child_mode));
+    }
+    match modes.len() {
+        0 => ParentRef::Missing,
+        1 => ParentRef::Found((name.to_string(), modes.remove(0))),
+        _ => ParentRef::Ambiguous(modes),
+    }
+}
+
+fn mode_list(modes: &[Mode]) -> String {
+    let mut modes: Vec<String> = modes.iter().map(|m| m.to_value()).collect();
+    modes.sort();
+    modes.join(", ")
+}
+
+/// Why a parent name cannot be used, or `None` when it resolves.
+fn parent_problem<'a>(
+    known: impl Iterator<Item = &'a FenceKey>,
+    name: &str,
+    child_mode: Mode,
+    label: &str,
+) -> Option<String> {
+    match resolve_parent(known, name, child_mode) {
+        ParentRef::Found(_) => None,
+        ParentRef::Missing => Some(format!("{label} `{name}` not found")),
+        ParentRef::Ambiguous(modes) => Some(format!(
+            "{label} `{name}` is ambiguous, it exists in modes: {}",
+            mode_list(&modes)
+        )),
+    }
+}
+
 /// Pure per-item validation. Returns `Some(reason)` for each item that cannot
-/// be imported, else `None`. `existing_names` = geofence names already in the DB.
-pub(crate) fn validate(
-    items: &[ImportItem],
-    existing_names: &HashSet<String>,
-) -> Vec<Option<String>> {
-    // Names of geofences that WILL exist after this batch (existing ∪ batch).
-    let mut batch_fences: HashSet<String> = HashSet::new();
-    let mut seen_fences: HashSet<String> = HashSet::new();
-    let mut dup_fences: HashSet<String> = HashSet::new();
+/// be imported, else `None`. `existing` = (name, mode) of geofences already in
+/// the DB.
+pub(crate) fn validate(items: &[ImportItem], existing: &HashSet<FenceKey>) -> Vec<Option<String>> {
+    // Fences that WILL exist after this batch (existing ∪ batch).
+    let mut known: HashSet<FenceKey> = existing.clone();
+    let mut seen_fences: HashSet<FenceKey> = HashSet::new();
+    let mut dup_fences: HashSet<FenceKey> = HashSet::new();
     for it in items {
         if it.kind == ImportKind::Geofence {
             let n = it.name.trim().to_string();
             if !n.is_empty() {
-                if !seen_fences.insert(n.clone()) {
-                    dup_fences.insert(n.clone());
+                let key = (n, item_mode(it));
+                if !seen_fences.insert(key.clone()) {
+                    dup_fences.insert(key.clone());
                 }
-                batch_fences.insert(n);
+                known.insert(key);
             }
         }
     }
-    let resolvable = |name: &str| existing_names.contains(name) || batch_fences.contains(name);
 
     items
         .iter()
         .map(|it| {
             let name = it.name.trim();
+            let mode = item_mode(it);
             if name.is_empty() {
                 return Some("empty name".to_string());
             }
             if it.geometry.get("type").and_then(|t| t.as_str()).is_none() {
                 return Some("geometry missing a `type`".to_string());
             }
-            if it.kind == ImportKind::Geofence && dup_fences.contains(name) {
-                return Some(format!("duplicate geofence name `{name}` in batch"));
+            if it.kind == ImportKind::Geofence && dup_fences.contains(&(name.to_string(), mode)) {
+                return Some(format!(
+                    "duplicate geofence `{name}` in mode `{}` in batch",
+                    mode.to_value()
+                ));
             }
             if let Some(p) = it.parent.as_deref()
-                && !resolvable(p)
+                && let Some(problem) = parent_problem(known.iter(), p, mode, "parent")
             {
-                return Some(format!("parent `{p}` not found"));
+                return Some(problem);
             }
             if it.kind == ImportKind::Route {
                 match it.route_parent.as_deref() {
-                    Some(p) if !resolvable(p) => {
-                        return Some(format!("route parent `{p}` not found"));
+                    Some(p) => {
+                        if let Some(problem) = parent_problem(known.iter(), p, mode, "route parent")
+                        {
+                            return Some(problem);
+                        }
                     }
                     None => return Some("route has no parent geofence".to_string()),
-                    _ => {}
                 }
             }
             None
@@ -121,18 +186,12 @@ pub(crate) fn validate(
         .collect()
 }
 
-/// Load the set of existing geofence names (for collision + parent resolution).
-async fn existing_geofence_names(db: &DatabaseConnection) -> Result<HashSet<String>, ModelError> {
-    let rows = geofence::Entity::find().all(db).await?;
-    Ok(rows.into_iter().map(|m| m.name).collect())
-}
-
-/// Map existing geofence name -> id (for parent resolution against the DB).
+/// Map existing geofence (name, mode) -> id (for collision + parent resolution).
 async fn existing_geofence_ids(
     db: &DatabaseConnection,
-) -> Result<HashMap<String, u32>, ModelError> {
+) -> Result<HashMap<FenceKey, u32>, ModelError> {
     let rows = geofence::Entity::find().all(db).await?;
-    Ok(rows.into_iter().map(|m| (m.name, m.id)).collect())
+    Ok(rows.into_iter().map(|m| ((m.name, m.mode), m.id)).collect())
 }
 
 pub async fn import(
@@ -140,8 +199,9 @@ pub async fn import(
     items: Vec<ImportItem>,
     dry_run: bool,
 ) -> Result<ImportResult, ModelError> {
-    let existing_names = existing_geofence_names(db).await?;
-    let reasons = validate(&items, &existing_names);
+    let mut name_to_id = existing_geofence_ids(db).await?;
+    let existing: HashSet<FenceKey> = name_to_id.keys().cloned().collect();
+    let reasons = validate(&items, &existing);
 
     // Predict actions for every item (used by both dry-run and the fail-fast guard).
     let predicted: Vec<ImportOutcome> = items
@@ -158,7 +218,8 @@ pub async fn import(
                     reason: Some(reason),
                 };
             }
-            if it.kind == ImportKind::Geofence && existing_names.contains(&name) {
+            if it.kind == ImportKind::Geofence && existing.contains(&(name.clone(), item_mode(it)))
+            {
                 let action = match it.on_collision {
                     OnCollision::Overwrite => ImportAction::Update,
                     OnCollision::Skip => ImportAction::Skip,
@@ -194,7 +255,6 @@ pub async fn import(
     }
 
     // --- Commit pass: one transaction. ---
-    let mut name_to_id = existing_geofence_ids(db).await?;
     let txn = db.begin().await?;
     let mut results = Vec::with_capacity(items.len());
 
@@ -223,7 +283,7 @@ pub async fn import(
         }
         match geofence::Query::upsert(&txn, 0, body).await {
             Ok(model) => {
-                name_to_id.insert(name.clone(), model.id);
+                name_to_id.insert((name.clone(), model.mode), model.id);
                 results.push(ImportOutcome {
                     index,
                     name,
@@ -251,10 +311,14 @@ pub async fn import(
             continue;
         };
         let name = it.name.trim().to_string();
-        let (Some(child_id), Some(parent_id)) = (
-            name_to_id.get(&name).copied(),
-            name_to_id.get(parent_name).copied(),
-        ) else {
+        let mode = item_mode(it);
+        let parent_id = match resolve_parent(name_to_id.keys(), parent_name, mode) {
+            ParentRef::Found(key) => name_to_id.get(&key).copied(),
+            _ => None,
+        };
+        let (Some(child_id), Some(parent_id)) =
+            (name_to_id.get(&(name.clone(), mode)).copied(), parent_id)
+        else {
             txn.rollback().await?;
             return Ok(fail_result(
                 index,
@@ -274,10 +338,12 @@ pub async fn import(
             continue;
         }
         let name = it.name.trim().to_string();
-        let parent_id = it
-            .route_parent
-            .as_deref()
-            .and_then(|p| name_to_id.get(p).copied());
+        let parent_id = it.route_parent.as_deref().and_then(|p| {
+            match resolve_parent(name_to_id.keys(), p, item_mode(it)) {
+                ParentRef::Found(key) => name_to_id.get(&key).copied(),
+                _ => None,
+            }
+        });
         let Some(parent_id) = parent_id else {
             txn.rollback().await?;
             return Ok(fail_result(
@@ -407,5 +473,78 @@ mod tests {
         g.geometry = serde_json::json!({ "coordinates": [] });
         let reasons = validate(&[g], &HashSet::new());
         assert!(reasons[0].as_deref().unwrap().contains("geometry"));
+    }
+
+    fn with_mode(mut it: ImportItem, mode: &str) -> ImportItem {
+        it.mode = Some(mode.to_string());
+        it
+    }
+
+    #[test]
+    fn same_name_in_two_modes_is_not_a_duplicate() {
+        let items = vec![
+            with_mode(item(ImportKind::Geofence, "Boston"), "unset"),
+            with_mode(item(ImportKind::Geofence, "Boston"), "pokemon"),
+        ];
+        let reasons = validate(&items, &HashSet::new());
+        assert_eq!(reasons, vec![None, None]);
+    }
+
+    #[test]
+    fn same_name_and_mode_twice_is_a_duplicate() {
+        let items = vec![
+            with_mode(item(ImportKind::Geofence, "Boston"), "pokemon"),
+            with_mode(item(ImportKind::Geofence, "Boston"), "pokemon"),
+        ];
+        let reasons = validate(&items, &HashSet::new());
+        assert!(
+            reasons
+                .iter()
+                .all(|r| r.as_deref().unwrap().contains("duplicate"))
+        );
+    }
+
+    #[test]
+    fn parent_prefers_the_childs_own_mode() {
+        let known: HashSet<FenceKey> = [
+            ("Boston".to_string(), Mode::Unset),
+            ("Boston".to_string(), Mode::Pokemon),
+        ]
+        .into();
+        assert_eq!(
+            resolve_parent(known.iter(), "Boston", Mode::Pokemon),
+            ParentRef::Found(("Boston".to_string(), Mode::Pokemon))
+        );
+    }
+
+    #[test]
+    fn parent_in_one_other_mode_still_resolves() {
+        let known: HashSet<FenceKey> = [("Boston".to_string(), Mode::Unset)].into();
+        assert_eq!(
+            resolve_parent(known.iter(), "Boston", Mode::Pokemon),
+            ParentRef::Found(("Boston".to_string(), Mode::Unset))
+        );
+    }
+
+    #[test]
+    fn parent_in_two_other_modes_is_ambiguous_and_named_so() {
+        let existing: HashSet<FenceKey> = [
+            ("Boston".to_string(), Mode::Unset),
+            ("Boston".to_string(), Mode::Pokemon),
+        ]
+        .into();
+        let mut child = with_mode(item(ImportKind::Geofence, "Fenway"), "fort");
+        child.parent = Some("Boston".to_string());
+        let reasons = validate(&[child], &existing);
+        let reason = reasons[0].as_deref().unwrap();
+        assert!(reason.contains("ambiguous"), "{reason}");
+        assert!(reason.contains("pokemon, unset"), "{reason}");
+    }
+
+    #[test]
+    fn existing_fence_in_another_mode_does_not_collide() {
+        let existing: HashSet<FenceKey> = [("Boston".to_string(), Mode::Unset)].into();
+        let items = vec![with_mode(item(ImportKind::Geofence, "Boston"), "pokemon")];
+        assert_eq!(validate(&items, &existing), vec![None]);
     }
 }

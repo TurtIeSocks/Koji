@@ -29,7 +29,8 @@ use serde_json::json;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: u32,
-    #[sea_orm(unique)]
+    /// Unique together with `mode` (migration
+    /// `m20260719_000001_geofence_name_mode_unique`), not on its own.
     pub name: String,
     pub parent: Option<u32>,
     pub created_at: DateTimeUtc,

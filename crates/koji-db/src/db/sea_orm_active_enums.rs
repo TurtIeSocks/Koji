@@ -35,7 +35,9 @@ pub enum Category {
 /// (`unset`/`pokemon`/`fort`/`quest`) — identical to both the `string_value`
 /// DB encoding and `koji_core::Mode`'s serde — so the `Model` JSON round-trips
 /// match the column values exactly.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter, DeriveActiveEnum, Serialize, Deserialize,
+)]
 #[serde(rename_all = "lowercase")]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mode")]
 pub enum Mode {

@@ -32,6 +32,7 @@ mod m20260706_000001_webhook_subscription_projects;
 mod m20260706_000002_drop_project_push_columns;
 mod m20260714_000001_geofence_bbox_columns;
 mod m20260714_000002_restore_geofence_project_fks;
+mod m20260719_000001_geofence_name_mode_unique;
 
 pub struct Migrator;
 
@@ -69,6 +70,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260706_000002_drop_project_push_columns::Migration),
             Box::new(m20260714_000001_geofence_bbox_columns::Migration),
             Box::new(m20260714_000002_restore_geofence_project_fks::Migration),
+            Box::new(m20260719_000001_geofence_name_mode_unique::Migration),
         ]
     }
 }

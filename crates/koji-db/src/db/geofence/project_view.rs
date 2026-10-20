@@ -167,7 +167,8 @@ impl Query {
     /// into a `KojiGeometryCollection`. Parent resolution: a numeric id is used
     /// directly; a name is looked up, and a missing name is
     /// `ModelError::Geofence("Parent not found")` (error-vs-empty behavior the
-    /// calculate pipeline relies on). Returns `ModelError` to match
+    /// calculate pipeline relies on). A name shared by several modes is
+    /// `ModelError::AmbiguousGeofence`; pass the parent's id to pick one. Returns `ModelError` to match
     /// `to_koji_geometry` and the sibling Koji read methods.
     #[allow(clippy::result_large_err)]
     pub async fn by_parent_koji(
@@ -176,14 +177,13 @@ impl Query {
     ) -> Result<KojiGeometryCollection, ModelError> {
         let parent_id = match parent {
             UnknownId::Number(id) => *id,
-            UnknownId::String(name) => {
-                let parent = Entity::find().filter(Column::Name.eq(name)).one(db).await?;
-                if let Some(parent) = parent {
-                    parent.id
-                } else {
+            UnknownId::String(name) => match Query::get_by_name(db, name.clone(), None).await {
+                Ok(parent) => parent.id,
+                Err(ModelError::Geofence(_)) => {
                     return Err(ModelError::Geofence("Parent not found".to_string()));
                 }
-            }
+                Err(e) => return Err(e),
+            },
         };
         let items = Entity::find()
             .filter(Column::Parent.eq(parent_id))
