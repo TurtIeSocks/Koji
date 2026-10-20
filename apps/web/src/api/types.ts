@@ -42,6 +42,56 @@ export interface WebhookTestResult {
   error: string | null;
 }
 
+export interface LinkedGeofence {
+  geofence: number;
+  name: string;
+  mode: string;
+  dragonite_area_id: number;
+}
+
+export interface LinkConflict {
+  geofence: number;
+  name: string;
+  mode: string;
+  /** The Area the geofence is linked to now; left as it is. */
+  dragonite_area_id: number;
+  /** The Area whose name the geofence carries. */
+  wanted_dragonite_area_id: number;
+}
+
+export interface AreaTaken {
+  geofence: number;
+  name: string;
+  mode: string;
+  dragonite_area_id: number;
+  /** The geofence that holds the Area. */
+  held_by: number;
+}
+
+export interface UnmatchedArea {
+  dragonite_area_id: number;
+  name: string;
+}
+
+export interface UnmatchedGeofence {
+  geofence: number;
+  name: string;
+  mode: string;
+}
+
+/** POST /internal/geofences/link-dragonite: what a link-by-name pass does (or,
+ *  on a dry run, would do). */
+export interface LinkDragonitePlan {
+  webhook_id: number;
+  dry_run: boolean;
+  linked: LinkedGeofence[];
+  already_linked: LinkedGeofence[];
+  conflicts: LinkConflict[];
+  area_taken: AreaTaken[];
+  areas_without_geofence: UnmatchedArea[];
+  geofences_without_area: UnmatchedGeofence[];
+}
+
 /** Spawnpoint tth filter accepted by the golbat-data markers endpoint. */
 export type TthFilter = "All" | "Known" | "Unknown";
 
@@ -108,6 +158,10 @@ export interface ApiSurface {
   postConvert: typeof import("./live/import").postConvert;
   publishRecord: (resource: string, id: string | number) => Promise<PublishResult>;
   testWebhook: (id: string | number) => Promise<WebhookTestResult>;
+  linkDragonite: (
+    webhookId: string | number,
+    options: { dryRun: boolean },
+  ) => Promise<LinkDragonitePlan>;
   /** Demo only; no-op in live. */
   resetDemo: () => Promise<void>;
 }
