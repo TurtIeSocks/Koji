@@ -186,8 +186,16 @@ const LinkByName = ({ webhookId }: { webhookId: string | number }) => {
       <Button type="button" variant="outline" onClick={open}>
         Link by name
       </Button>
-      <Dialog open={state.step !== "closed"} onOpenChange={(o) => !o && close()}>
-        <DialogContent className="sm:max-w-2xl">
+      {/* Closing while Apply runs would drop its answer after the server has
+          already linked, so the dialog stays until it lands. */}
+      <Dialog
+        open={state.step !== "closed"}
+        onOpenChange={(o) => !o && state.step !== "applying" && close()}
+      >
+        <DialogContent
+          className="sm:max-w-2xl"
+          showCloseButton={state.step !== "applying"}
+        >
           <DialogHeader>
             <DialogTitle>Link by name</DialogTitle>
             <DialogDescription>

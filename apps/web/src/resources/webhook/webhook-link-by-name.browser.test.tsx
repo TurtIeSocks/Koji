@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { userEvent } from "@vitest/browser/context";
 import { render } from "vitest-browser-react";
 import { AdminContext } from "@/components/admin";
 import { Notification } from "@/components/admin/feedback/notification";
@@ -135,6 +136,24 @@ describe("WebhookLinkByName", () => {
     await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
     expect(internalFetch).toHaveBeenCalledTimes(1);
     expect(bodyOf(0).dry_run).toBe(true);
+  });
+
+  it("stays open while Apply runs and then shows what was linked", async () => {
+    let finish!: (v: unknown) => void;
+    vi.mocked(internalFetch)
+      .mockResolvedValueOnce(answer(plan()) as never)
+      .mockReturnValueOnce(new Promise((resolve) => (finish = resolve)) as never);
+    const screen = renderButton();
+    await screen.getByRole("button", { name: /link by name/i }).click();
+    await screen.getByRole("button", { name: /^apply$/i }).click();
+    await expect.element(screen.getByRole("button", { name: /applying/i })).toBeVisible();
+
+    await userEvent.keyboard("{Escape}");
+    await expect.element(screen.getByRole("dialog")).toBeVisible();
+    await expect.element(screen.getByRole("button", { name: /^close$/i })).not.toBeInTheDocument();
+
+    finish(answer(plan({ dry_run: false })));
+    await expect.element(screen.getByText(/linked 2 geofences/i)).toBeVisible();
   });
 
   it("cannot apply a plan with nothing to link", async () => {
