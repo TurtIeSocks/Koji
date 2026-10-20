@@ -249,3 +249,48 @@ Not scheduled yet. Recorded here so they aren't lost.
   parents of the selected fences N levels up, with `ancestor_modes` if a
   consumer needs it. No consumer needs parent shapes yet; `parent_name`
   covers names.
+- Creating a `dragonite` webhook without `method` is a 500 ("method is
+  invalid: null"). The mode never uses `method`, so the create should
+  default it, as `ping` does.
+- The v1 shim answers `GET /api/v1/geofence/feature-collection/{project}`
+  but not the camelCase `featureCollection` spelling, which v1 also served
+  and some consumer configs still use. Until the alias exists, a consumer moving to
+  v2 changes its URL to the hyphenated form; the query options
+  (`lowercase`, `group`, `space`, `parentreplace`) already work there.
+
+## 13. Dragonite targets and project reads (2026-10-20)
+
+Landed as PRs #267 to #272 on `claude/v2`. This finishes the Dragonite half
+of §10's Epic 19 and extends §2:
+
+- D2 gains a third mode. A `dragonite` webhook row is one Dragonite: `url`
+  is its base URL, `secret` its bearer, and `project_id` scopes which
+  geofences it reaches (null reaches every geofence, an inactive row none).
+  The generic webhook subscriber skips these rows. `DRAGONITE_URL` and
+  `DRAGONITE_BEARER` are no longer read; a target is entered in the admin.
+- `geofence.dragonite_area_id` and the unused `area_fence` table are gone
+  (`m20261020_000001`). A link is a `dragonite_link` row: (webhook, geofence)
+  to a Dragonite Area id, so two Dragonites with overlapping Area ids can
+  share one Koji. A target's Area takes at most one geofence per mode. Old
+  links are not carried over.
+- Publish and route push emit one `area.*` event per Dragonite row that
+  reaches the geofence and holds a link for it, and the subscriber builds its
+  client from that row at delivery. With no reachable link, publish is a 422
+  naming what's missing. Writes go through Dragonite's `/v2/areas` API as
+  GeoJSON Features, so MultiPolygons and holes reach Dragonite intact.
+- Publish asks first: the server builds the plan (each write's geofence,
+  mode, target and Area, and the skipped geofences with a reason), the admin
+  shows it, and Confirm sends exactly that plan.
+- Linking: `POST /api/v2/geofences/link-dragonite` takes a target and links
+  by name inside its reach, with a dry run; a Dragonite webhook's page runs
+  it as Link by name with a preview. The geofence form has one Area picker
+  per reaching target, with the same-name Area suggested on top.
+  `/test` on a Dragonite row answers its Area count.
+- Project reads take `descendants=N` (0 to 10) and `descendant_modes=<list>`
+  on `GET /api/v2/geofences` with a project filter and on the v1 shim. They
+  add the selected fences' children N levels down, from the whole table,
+  each fence once. A border's Pokémon fence is its child, so a scanner reads
+  one project of borders with `descendants=1&descendant_modes=pokemon`.
+- v2 features carry `parent_name` beside `parent_id`, so a consumer that
+  reads one project can still name a parent outside it.
+- The admin map's default tiles are OpenStreetMap's, which need no key.
