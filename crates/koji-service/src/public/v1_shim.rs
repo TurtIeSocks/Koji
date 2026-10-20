@@ -7,21 +7,26 @@
 //! `sync: true`, no timeout of its own) and answers in v1's
 //! `{message,status,status_code,data,stats}` envelope.
 //!
+//! It also serves `GET /geofence/{return_type}/{project}`, which Golbat,
+//! ReactMap, Poracle and Fletchling read their fences from.
+//!
 //! A failed calculation is always a non-200 with `data: null`: Dragonite
 //! overwrites the stored route with an empty one on a 200 with null `data`.
 //!
 //! Persistence (`save_to_db`, ...) was not part of what Dragonite sends and is
 //! not offered here.
 
-use actix_web::{HttpRequest, HttpResponse, ResponseError, http::StatusCode, post, web};
+use actix_web::{HttpRequest, HttpResponse, ResponseError, get, http::StatusCode, post, web};
 use algorithms::clustering::{CalculationMode, ClusterMode};
 use algorithms::routing::SortBy;
 use geojson::FeatureCollection;
-use koji_core::{KojiGeometryCollection, Precision};
+use koji_core::{EnsurePoints, KojiGeometryCollection, Precision};
 use koji_db::KojiDb;
+use koji_db::db::geofence;
+use koji_db::query_args::ApiQueryArgs;
 use koji_jobs::JobQueue;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::public::v2::jobs::{compute_inline, resolve_calc_payload};
 use crate::requests::{
@@ -127,13 +132,13 @@ struct V1Response {
 }
 
 impl V1Response {
-    fn ok(data: Value, stats: Value) -> Self {
+    fn ok(data: Value, stats: Option<Value>) -> Self {
         V1Response {
             message: "Success".to_string(),
             status: "ok",
             status_code: 200,
             data: Some(data),
-            stats: Some(stats),
+            stats,
         }
     }
 }
@@ -192,7 +197,7 @@ fn envelope(
     }
     Ok(HttpResponse::Ok().json(V1Response::ok(
         response_body(&collection, return_type),
-        stats,
+        Some(stats),
     )))
 }
 
@@ -241,6 +246,140 @@ async fn route(
     run(&conn, &jobs, "route", category, body.into_inner()).await
 }
 
+/// The shapes `GET /geofence/{return_type}/{project}` can answer in.
+///
+/// The geometry-only ones are v2's `ReturnTypeArg`. The feature-shaped ones are
+/// built from the features as the db produced them: going through
+/// `KojiGeometryCollection` would add a `mode` property to every feature and
+/// drop its top-level id, which v1 never did. `geometry`, `geometry-vec` and
+/// `feature-vec` answer as v1 did (a bare list), which v2's renderer no longer
+/// has.
+enum GeofenceFormat {
+    Standard(ReturnTypeArg),
+    Geometry,
+    GeometryVec,
+    FeatureVec,
+}
+
+impl GeofenceFormat {
+    /// Kebab-case names only: v1's camelCase and snake_case spellings, and its
+    /// silent fallback to `feature-collection`, are gone.
+    fn parse(name: &str) -> Option<Self> {
+        use ReturnTypeArg::*;
+        Some(match name {
+            "alt-text" => Self::Standard(AltText),
+            "text" => Self::Standard(Text),
+            "array" | "single-array" => Self::Standard(SingleArray),
+            "multi-array" => Self::Standard(MultiArray),
+            "struct" | "single-struct" => Self::Standard(SingleStruct),
+            "multi-struct" => Self::Standard(MultiStruct),
+            "feature" => Self::Standard(Feature),
+            "feature-collection" => Self::Standard(FeatureCollection),
+            "poracle" => Self::Standard(Poracle),
+            "sql" => Self::Standard(Sql),
+            "geometry" => Self::Geometry,
+            "geometry-vec" | "geometries" => Self::GeometryVec,
+            "feature-vec" => Self::FeatureVec,
+            _ => return None,
+        })
+    }
+
+    fn render(&self, features: Vec<geojson::Feature>) -> Result<Value, ServiceError> {
+        let features: Vec<_> = features
+            .into_iter()
+            .map(EnsurePoints::ensure_first_last)
+            .collect();
+        let collection = KojiGeometryCollection::try_from(FeatureCollection {
+            bbox: None,
+            features: features.clone(),
+            foreign_members: None,
+        })
+        .map_err(ServiceError::internal)?;
+        Ok(match self {
+            Self::Standard(ReturnTypeArg::FeatureCollection) => {
+                json!(FeatureCollection {
+                    bbox: collection.bbox().map(bbox_of),
+                    features: with_bboxes(features, &collection),
+                    foreign_members: None,
+                })
+            }
+            Self::Standard(ReturnTypeArg::Feature) => {
+                let mut features = with_bboxes(features, &collection);
+                if features.len() == 1 {
+                    json!(features.remove(0))
+                } else {
+                    json!(features)
+                }
+            }
+            Self::FeatureVec => json!(with_bboxes(features, &collection)),
+            Self::Geometry | Self::GeometryVec => {
+                let mut geometries: Vec<_> = features
+                    .into_iter()
+                    .filter_map(|feature| feature.geometry)
+                    .collect();
+                if matches!(self, Self::Geometry) && geometries.len() == 1 {
+                    json!(geometries.remove(0))
+                } else {
+                    json!(geometries)
+                }
+            }
+            Self::Standard(return_type) => response_body(&collection, *return_type),
+        })
+    }
+}
+
+/// `[min_lon, min_lat, max_lon, max_lat]`, as v1 put on a collection and on each
+/// of its features.
+fn bbox_of(rect: geo::Rect<Precision>) -> Vec<Precision> {
+    vec![rect.min().x, rect.min().y, rect.max().x, rect.max().y]
+}
+
+/// Each feature with its bbox set, `collection` being the same features as geometries.
+fn with_bboxes(
+    features: Vec<geojson::Feature>,
+    collection: &KojiGeometryCollection,
+) -> Vec<geojson::Feature> {
+    features
+        .into_iter()
+        .zip(&collection.items)
+        .map(|(feature, item)| geojson::Feature {
+            bbox: item.bbox().map(bbox_of),
+            ..feature
+        })
+        .collect()
+}
+
+/// `GET /geofence/{return_type}/{project}`: a project's geofences, by project
+/// name or id. An unknown project is an empty result, not an error.
+#[get("/{return_type}/{project}")]
+async fn project_geofences(
+    conn: web::Data<KojiDb>,
+    path: web::Path<(String, String)>,
+    args: web::Query<ApiQueryArgs>,
+) -> Result<HttpResponse, V1Error> {
+    let (return_type, project) = path.into_inner();
+    let Some(format) = GeofenceFormat::parse(&return_type) else {
+        return Err(ServiceError::NotFound {
+            field: "return_type",
+            message: format!("unknown return type {return_type:?}"),
+        }
+        .into());
+    };
+    let features = geofence::Query::project_as_feature(&conn.koji, project, &args)
+        .await
+        .map_err(ServiceError::from)?;
+    Ok(HttpResponse::Ok().json(V1Response::ok(format.render(features)?, None)))
+}
+
+/// A malformed query string gets v1's envelope too.
+fn query_error(err: actix_web::error::QueryPayloadError, _req: &HttpRequest) -> actix_web::Error {
+    V1Error(ServiceError::Invalid {
+        field: None,
+        message: format!("invalid_request: {err}"),
+    })
+    .into()
+}
+
 /// Malformed JSON gets v1's envelope too.
 fn json_error(err: actix_web::error::JsonPayloadError, _req: &HttpRequest) -> actix_web::Error {
     V1Error(ServiceError::Invalid {
@@ -262,5 +401,249 @@ pub(crate) fn services(cfg: &mut web::ServiceConfig) {
                 )
                 .service(bootstrap)
                 .service(route),
+        )
+        .service(
+            web::scope("/geofence")
+                .app_data(web::QueryConfig::default().error_handler(query_error))
+                .service(project_geofences),
         );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The features `project_as_feature` hands back for a seeded project:
+    /// "Paris" and its child "Paris Centre", each a closed square.
+    fn features() -> Vec<geojson::Feature> {
+        let square = |lon: f64, lat: f64| {
+            json!({
+                "type": "Polygon",
+                "coordinates": [[
+                    [lon, lat], [lon + 0.1, lat], [lon + 0.1, lat + 0.1],
+                    [lon, lat + 0.1], [lon, lat]
+                ]]
+            })
+        };
+        serde_json::from_value(json!([
+            { "type": "Feature", "geometry": square(2.0, 48.0),
+              "properties": { "name": "Paris", "color": "red" } },
+            { "type": "Feature", "geometry": square(2.5, 48.5),
+              "properties": { "name": "Paris Centre", "parent": "Paris" } },
+        ]))
+        .unwrap()
+    }
+
+    fn render_of(return_type: &str, features: Vec<geojson::Feature>) -> Value {
+        GeofenceFormat::parse(return_type)
+            .unwrap_or_else(|| panic!("{return_type} is a return type"))
+            .render(features)
+            .unwrap()
+    }
+
+    fn render(return_type: &str) -> Value {
+        render_of(return_type, features())
+    }
+
+    fn first_only(return_type: &str) -> Value {
+        render_of(return_type, features().into_iter().take(1).collect())
+    }
+
+    #[test]
+    fn return_types_are_kebab_case_only() {
+        for known in [
+            "alt-text",
+            "text",
+            "array",
+            "single-array",
+            "multi-array",
+            "struct",
+            "single-struct",
+            "multi-struct",
+            "geometry",
+            "geometry-vec",
+            "geometries",
+            "feature",
+            "feature-vec",
+            "poracle",
+            "feature-collection",
+            "sql",
+        ] {
+            assert!(GeofenceFormat::parse(known).is_some(), "{known}");
+        }
+        for old in [
+            "featureCollection",
+            "featurecollection",
+            "feature_collection",
+            "FEATURE-COLLECTION",
+            "altText",
+            "alttext",
+            "single_array",
+            "nonsense",
+            "",
+        ] {
+            assert!(GeofenceFormat::parse(old).is_none(), "{old}");
+        }
+    }
+
+    #[test]
+    fn single_array_is_every_ring_flat_as_lat_lon() {
+        assert_eq!(
+            render("single-array"),
+            json!([
+                [48.0, 2.0],
+                [48.0, 2.1],
+                [48.1, 2.1],
+                [48.1, 2.0],
+                [48.0, 2.0],
+                [48.5, 2.5],
+                [48.5, 2.6],
+                [48.6, 2.6],
+                [48.6, 2.5],
+                [48.5, 2.5],
+            ])
+        );
+        assert_eq!(render("array"), render("single-array"));
+    }
+
+    #[test]
+    fn multi_array_is_one_ring_per_geofence() {
+        assert_eq!(
+            render("multi-array"),
+            json!([
+                [
+                    [48.0, 2.0],
+                    [48.0, 2.1],
+                    [48.1, 2.1],
+                    [48.1, 2.0],
+                    [48.0, 2.0]
+                ],
+                [
+                    [48.5, 2.5],
+                    [48.5, 2.6],
+                    [48.6, 2.6],
+                    [48.6, 2.5],
+                    [48.5, 2.5]
+                ],
+            ])
+        );
+    }
+
+    #[test]
+    fn struct_types_name_lat_and_lon() {
+        let first = json!({ "lat": 48.0, "lon": 2.0 });
+        assert_eq!(render("single-struct")[0], first);
+        // The flat list is closed back to its first point, as v1 did.
+        assert_eq!(render("single-struct").as_array().unwrap().len(), 11);
+        assert_eq!(render("struct"), render("single-struct"));
+        assert_eq!(render("multi-struct")[0][0], first);
+        assert_eq!(render("multi-struct").as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn text_types_are_strings() {
+        assert_eq!(
+            render("alt-text"),
+            json!("48 2,48 2.1,48.1 2.1,48.1 2,48 2,48.5 2.5,48.5 2.6,48.6 2.6,48.6 2.5,48.5 2.5")
+        );
+        let text = render("text");
+        let text = text.as_str().unwrap();
+        assert!(text.starts_with("[Geofence 1]\n48,2\n48,2.1\n"), "{text}");
+        assert!(text.contains("\n[Geofence 2]\n48.5,2.5\n"), "{text}");
+    }
+
+    #[test]
+    fn feature_collection_keeps_properties_as_the_db_made_them() {
+        let v = render("feature-collection");
+        assert_eq!(v["type"], "FeatureCollection");
+        let features = v["features"].as_array().unwrap();
+        assert_eq!(features.len(), 2);
+        assert_eq!(
+            features[0]["properties"],
+            json!({ "name": "Paris", "color": "red" }),
+            "no property is added or dropped"
+        );
+        assert_eq!(features[1]["properties"]["parent"], "Paris");
+        assert_eq!(features[0]["geometry"]["type"], "Polygon");
+    }
+
+    #[test]
+    fn feature_collection_and_features_carry_a_bbox() {
+        let v = render("feature-collection");
+        assert_eq!(v["bbox"], json!([2.0, 48.0, 2.6, 48.6]));
+        assert_eq!(v["features"][0]["bbox"], json!([2.0, 48.0, 2.1, 48.1]));
+        assert_eq!(v["features"][1]["bbox"], json!([2.5, 48.5, 2.6, 48.6]));
+    }
+
+    #[test]
+    fn a_features_own_id_survives() {
+        let mut features = features();
+        features[0].id = Some(geojson::feature::Id::String("1__unset__KOJI".to_string()));
+        let v = render_of("feature-collection", features);
+        assert_eq!(v["features"][0]["id"], "1__unset__KOJI");
+    }
+
+    #[test]
+    fn feature_is_a_bare_feature_for_one_and_a_list_for_many() {
+        let v = render("feature");
+        assert_eq!(v.as_array().unwrap().len(), 2);
+        assert_eq!(v[0]["type"], "Feature");
+        let one = first_only("feature");
+        assert_eq!(one["type"], "Feature");
+        assert_eq!(one["properties"]["name"], "Paris");
+    }
+
+    #[test]
+    fn feature_vec_is_always_a_list_of_features() {
+        let v = render("feature-vec");
+        assert_eq!(v.as_array().unwrap().len(), 2);
+        assert_eq!(v[1]["properties"]["name"], "Paris Centre");
+        assert_eq!(first_only("feature-vec").as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn geometry_is_a_list_of_geometries_unless_there_is_one() {
+        let v = render("geometry");
+        assert_eq!(v.as_array().unwrap().len(), 2);
+        assert_eq!(v[0]["type"], "Polygon");
+        assert_eq!(render("geometry-vec"), v);
+        assert_eq!(render("geometries"), v);
+        assert_eq!(first_only("geometry")["type"], "Polygon");
+        assert_eq!(first_only("geometry-vec").as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn poracle_takes_name_group_and_a_running_id() {
+        let v = render("poracle");
+        assert_eq!(v[0]["name"], "Paris");
+        assert_eq!(v[0]["id"], 1);
+        assert_eq!(v[1]["name"], "Paris Centre");
+        assert_eq!(v[1]["group"], "Paris");
+        assert_eq!(v[1]["id"], 2);
+        assert_eq!(v[0]["path"][0], json!([48.0, 2.0]));
+    }
+
+    #[test]
+    fn sql_filters_on_the_bounding_box_and_geometry() {
+        let v = render("sql");
+        let sql = v.as_str().unwrap();
+        assert!(sql.contains("ST_CONTAINS"), "{sql}");
+        assert!(sql.contains("\nOR"), "{sql}");
+    }
+
+    #[test]
+    fn an_empty_project_renders_empty() {
+        for rt in [
+            "single-array",
+            "multi-array",
+            "feature",
+            "feature-vec",
+            "geometry",
+            "poracle",
+        ] {
+            assert_eq!(render_of(rt, vec![]), json!([]), "{rt}");
+        }
+        let fc = render_of("feature-collection", vec![]);
+        assert_eq!(fc["features"], json!([]));
+    }
 }

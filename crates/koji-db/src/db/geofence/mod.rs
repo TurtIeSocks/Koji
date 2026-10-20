@@ -148,6 +148,7 @@ impl Model {
                 .iter()
                 .map(|prop| {
                     if prop.name == "parent"
+                        && !spec.ignore_manual_parent
                         && let Some(val) = prop.value.as_ref()
                     {
                         has_manual_parent = val.clone();
@@ -253,7 +254,11 @@ impl Model {
         if let Some(geofence_name) = feature.property("name")
             && let Some(geofence_name) = geofence_name.as_str()
         {
-            feature.set_property("name", spec.name_modifier.apply(geofence_name));
+            feature.set_property(
+                "name",
+                spec.name_modifier
+                    .apply(geofence_name, parent_name.as_deref()),
+            );
         }
 
         if spec.output.tag_internal_id() {
@@ -487,6 +492,76 @@ mod to_koji_tests {
         assert_eq!(meta.mode, Mode::Pokemon);
         assert_eq!(meta.id, Some(9));
         assert_eq!(meta.name.as_deref(), Some("Aurora"));
+    }
+
+    /// A geofence named "Paris Centre" whose parent geofence (id 3) is "Paris",
+    /// and which also carries a manual `parent` property "Manual".
+    fn child_with_manual_parent() -> (
+        Model,
+        HashMap<u32, Vec<FullPropertyModel>>,
+        HashMap<u32, String>,
+    ) {
+        let row = Model {
+            id: 9,
+            name: "Paris Centre".to_string(),
+            parent: Some(3),
+            geometry: serde_json::json!({
+                "type": "Polygon",
+                "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]]
+            }),
+            geo_type: "Polygon".to_string(),
+            ..test_model_defaults()
+        };
+        let props = HashMap::from([(
+            9,
+            vec![FullPropertyModel {
+                id: 1,
+                geofence_id: 9,
+                property_id: 1,
+                name: "parent".to_string(),
+                category: crate::db::sea_orm_active_enums::Category::String,
+                value: Some("Manual".to_string()),
+            }],
+        )]);
+        let names = HashMap::from([(3, "Paris".to_string())]);
+        (row, props, names)
+    }
+
+    fn render(args: serde_json::Value) -> Feature {
+        let args: ApiQueryArgs = serde_json::from_value(args).unwrap();
+        let (row, props, names) = child_with_manual_parent();
+        row.to_feature(&props, &names, &args.feature_render_spec())
+            .unwrap()
+    }
+
+    #[test]
+    fn manual_parent_property_wins_by_default() {
+        let f = render(serde_json::json!({ "parent": true }));
+        assert_eq!(f.property("parent").unwrap(), "Manual");
+    }
+
+    #[test]
+    fn ignoremanualparent_falls_back_to_the_parent_geofence() {
+        let f = render(serde_json::json!({ "parent": true, "ignoremanualparent": true }));
+        assert_eq!(f.property("parent").unwrap(), "Paris");
+    }
+
+    #[test]
+    fn parentstart_and_parentend_use_the_resolved_parent() {
+        let f = render(serde_json::json!({ "name": true, "parentstart": "-" }));
+        assert_eq!(f.property("name").unwrap(), "Manual-Paris Centre");
+        let f = render(serde_json::json!({
+            "name": true, "parentend": "-", "ignoremanualparent": true
+        }));
+        assert_eq!(f.property("name").unwrap(), "Paris Centre-Paris");
+    }
+
+    #[test]
+    fn parentreplace_swaps_the_resolved_parent_in_the_name() {
+        let f = render(serde_json::json!({
+            "name": true, "parentreplace": "City", "ignoremanualparent": true
+        }));
+        assert_eq!(f.property("name").unwrap(), "City Centre");
     }
 
     // ── geometry_bbox_lnglat (pure — no DB) ─────────────────────────────────

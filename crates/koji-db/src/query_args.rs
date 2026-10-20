@@ -70,6 +70,12 @@ pub struct ApiQueryArgs {
     pub capitalize: Option<String>,
     /// If true, the first character of the `name` property is capitalized
     pub capfirst: Option<bool>,
+    /// The `parent` name is added as a prefix to the `name`, separated by the provided string/character
+    pub parentstart: Option<String>,
+    /// The `parent` name is added as a suffix to the `name`, separated by the provided string/character
+    pub parentend: Option<String>,
+    /// If the `name` property has the `parent` name as part of its value, the first occurrence is replaced with the given string/character
+    pub parentreplace: Option<String>,
     /// Spaces in the `name` property are replaced with the given string/character
     pub space: Option<String>,
     /// Underscores in the `name` property are replaced with the given string/character
@@ -84,6 +90,9 @@ pub struct ApiQueryArgs {
     pub trimend: Option<usize>,
     /// If true, the polish characters are converted to ascii
     pub unpolish: Option<bool>,
+    /// If present, a geofence's manual `parent` property is ignored and the
+    /// parent geofence's name is used instead
+    pub ignoremanualparent: Option<bool>,
     /// If true, all non-alphanumeric characters are removed from the `name` property
     /// (excludes spaces, dashes, and underscores)
     pub alphanumeric: Option<bool>,
@@ -116,6 +125,9 @@ impl Default for ApiQueryArgs {
             uppercase: None,
             capitalize: None,
             capfirst: None,
+            parentstart: None,
+            parentend: None,
+            parentreplace: None,
             space: None,
             underscore: None,
             dash: None,
@@ -124,6 +136,7 @@ impl Default for ApiQueryArgs {
             trimstart: None,
             trimend: None,
             unpolish: None,
+            ignoremanualparent: None,
             alphanumeric: None,
             excludeproperties: None,
             excludeparents: None,
@@ -213,6 +226,9 @@ pub struct FeatureRenderSpec {
     pub filters: Filters,
     pub name_modifier: NameModifier,
     pub output: OutputSpec,
+    /// Presence-triggered like the legacy `args.ignoremanualparent.is_none()`
+    /// check: `Some(false)` still ignores the manual parent property.
+    pub ignore_manual_parent: bool,
 }
 
 impl ApiQueryArgs {
@@ -252,6 +268,7 @@ impl ApiQueryArgs {
             filters: self.filters(),
             name_modifier: NameModifier::from(self),
             output: self.output_spec(),
+            ignore_manual_parent: self.ignoremanualparent.is_some(),
         }
     }
 }
@@ -325,5 +342,14 @@ mod tests {
         let a: ApiQueryArgs = serde_json::from_value(serde_json::json!({ "id": true })).unwrap();
         let p = a.property_selection();
         assert!(p.id && !p.name && !p.mode && !p.parent && !p.group);
+    }
+
+    #[test]
+    fn ignore_manual_parent_is_presence_triggered() {
+        let absent: ApiQueryArgs = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert!(!absent.feature_render_spec().ignore_manual_parent);
+        let off: ApiQueryArgs =
+            serde_json::from_value(serde_json::json!({ "ignoremanualparent": false })).unwrap();
+        assert!(off.feature_render_spec().ignore_manual_parent);
     }
 }
