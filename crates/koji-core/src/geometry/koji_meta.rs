@@ -41,6 +41,19 @@ where
     })
 }
 
+/// Keeps an explicit `null` as `Some(None)`; an absent key stays `None` through
+/// `default`. Anything that is not a string or `null` degrades to `None`.
+fn deserialize_nullable<'de, D>(deserializer: D) -> Result<Option<Option<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(match serde_json::Value::deserialize(deserializer)? {
+        serde_json::Value::Null => Some(None),
+        serde_json::Value::String(s) => Some(Some(s)),
+        _ => None,
+    })
+}
+
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct KojiMeta {
     #[serde(
@@ -59,6 +72,15 @@ pub struct KojiMeta {
         skip_serializing_if = "Option::is_none"
     )]
     pub parent_id: Option<u32>,
+    /// The parent geofence's name. `None` when the source is not a geofence
+    /// (the key is left out); `Some(None)` is a geofence with no parent (written
+    /// as `null`).
+    #[serde(
+        default,
+        deserialize_with = "deserialize_nullable",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub parent_name: Option<Option<String>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ancestors: Vec<String>,
     /// Lossless passthrough for any property not promoted to a typed field.
@@ -161,6 +183,30 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&meta).unwrap(),
             serde_json::json!({ "mode": "fort" })
+        );
+    }
+
+    /// `parent_name` tells "no parent" (`null`) from "not a geofence" (absent),
+    /// and both survive a round trip.
+    #[test]
+    fn parent_name_keeps_null_apart_from_absent() {
+        let named: KojiMeta =
+            serde_json::from_value(serde_json::json!({ "parent_name": "Paris" })).unwrap();
+        assert_eq!(named.parent_name, Some(Some("Paris".to_string())));
+
+        let orphan: KojiMeta =
+            serde_json::from_value(serde_json::json!({ "parent_name": null })).unwrap();
+        assert_eq!(orphan.parent_name, Some(None));
+        assert_eq!(
+            serde_json::to_value(&orphan).unwrap(),
+            serde_json::json!({ "mode": "unset", "parent_name": null })
+        );
+
+        let absent: KojiMeta = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert_eq!(absent.parent_name, None);
+        assert_eq!(
+            serde_json::to_value(&absent).unwrap(),
+            serde_json::json!({ "mode": "unset" })
         );
     }
 }

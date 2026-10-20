@@ -90,15 +90,19 @@ impl Query {
         Ok((property_map, name_map))
     }
 
-    /// Returns all geofence models, as features, that are related to the specified project
+    /// Returns all geofence models, as features, that are related to the specified project,
+    /// plus the descendants `args.descendants` asks for
     pub async fn project_as_feature(
         db: &DatabaseConnection,
         project_name: String,
         args: &ApiQueryArgs,
     ) -> Result<Vec<Feature>, ModelError> {
         let time = Instant::now();
+        let descendants = args
+            .descendant_spec()
+            .map_err(|e| ModelError::Custom(e.to_string()))?;
 
-        let items = Entity::find()
+        let mut items = Entity::find()
             .order_by(Column::Name, Order::Asc)
             .filter(match project_name.parse::<u32>() {
                 Ok(id) => project::Column::Id.eq(id),
@@ -107,6 +111,21 @@ impl Query {
             .left_join(project::Entity)
             .all(db)
             .await?;
+
+        // The descendants come from the whole table, not just the project, so
+        // the members and what they add are read again together, in name order.
+        if let Some(spec) = descendants {
+            let mut ids: Vec<u32> = items.iter().map(|item| item.id).collect();
+            let added = Query::descendant_ids(db, &ids, &spec).await?;
+            if !added.is_empty() {
+                ids.extend(added);
+                items = Entity::find()
+                    .order_by(Column::Name, Order::Asc)
+                    .filter(Column::Id.is_in(ids))
+                    .all(db)
+                    .await?;
+            }
+        }
 
         let (property_map, name_map) = Query::get_helper_maps(db, &items.iter().collect()).await?;
 
@@ -190,10 +209,7 @@ impl Query {
             .all(db)
             .await?;
 
-        items
-            .iter()
-            .map(|item| item.to_koji_geometry())
-            .collect::<Result<KojiGeometryCollection, ModelError>>()
+        Query::koji_collection(db, items).await
     }
 
     pub async fn unique_parents(db: &DatabaseConnection) -> Result<Vec<Json>, ModelError> {
