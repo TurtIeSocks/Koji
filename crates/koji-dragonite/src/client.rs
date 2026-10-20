@@ -1,15 +1,14 @@
 //! Async HTTP client for Dragonite's `/v2/areas/*` API.
 //!
-//! Reconciled against the real contract (`routes/v2_areas.go`): single resource
-//! at `/v2/areas/{id}` patched via PATCH, decoded through the
-//! [`V2Envelope`](crate::envelope) response shape. Every request carries
+//! Single resource at `/v2/areas/{id}` patched via PATCH. Dragonite answers a
+//! success with the bare area and a failure with a problem document (checked
+//! against Dragonite 1.19.0), read by [`decode_reply`]. Every request carries
 //! `Authorization: Bearer` + `User-Agent`.
 
 use reqwest::header::USER_AGENT;
 use serde::de::DeserializeOwned;
 
-use crate::envelope::parse_v2;
-use crate::error::DragoniteError;
+use crate::error::{DragoniteError, ProblemDocument};
 use crate::types::ApiArea;
 
 /// Typed client over Dragonite's `/v2/areas` API.
@@ -45,11 +44,8 @@ impl DragoniteClient {
         format!("{}{}", self.base_url, path)
     }
 
-    /// Execute a prepared request: attach auth + UA headers, send, then decode
-    /// the [`V2Envelope`](crate::envelope) to its `data`. A non-2xx response
-    /// without a decodable envelope surfaces the typed
-    /// [`HttpStatus`](DragoniteError::HttpStatus) error rather than an opaque
-    /// decode failure.
+    /// Execute a prepared request: attach auth + UA headers, send, then read the
+    /// reply with [`decode_reply`].
     async fn exec<T: DeserializeOwned>(
         &self,
         req: reqwest::RequestBuilder,
@@ -61,16 +57,7 @@ impl DragoniteClient {
             .await?;
         let status = resp.status();
         let bytes = resp.bytes().await?;
-        match parse_v2::<T>(&bytes) {
-            Ok(ok) => Ok(ok),
-            Err(DragoniteError::Decode(_)) if !status.is_success() => {
-                Err(DragoniteError::HttpStatus {
-                    status: status.as_u16(),
-                    body: String::from_utf8_lossy(&bytes).trim().to_string(),
-                })
-            }
-            Err(e) => Err(e),
-        }
+        decode_reply(status.as_u16(), &bytes)
     }
 
     /// PATCH an area, sending only the fields present in `patch` (omitted fields
@@ -91,10 +78,29 @@ impl DragoniteClient {
     }
 }
 
+/// Read one Dragonite reply from its HTTP `status` and raw `body`.
+///
+/// - 2xx: the body is the bare payload (no envelope) and decodes straight into
+///   `T`; a body that does not is [`DragoniteError::Decode`].
+/// - anything else: [`DragoniteError::HttpStatus`] carrying `status`, the
+///   problem document's `detail` and `errors` when the body is one, and the raw
+///   text. An empty or non-JSON body still yields the typed error.
+fn decode_reply<T: DeserializeOwned>(status: u16, body: &[u8]) -> Result<T, DragoniteError> {
+    if (200..300).contains(&status) {
+        return serde_json::from_slice(body).map_err(|e| DragoniteError::Decode(e.to_string()));
+    }
+    let problem: ProblemDocument = serde_json::from_slice(body).unwrap_or_default();
+    Err(DragoniteError::HttpStatus {
+        status,
+        detail: problem.detail,
+        errors: problem.errors,
+        body: String::from_utf8_lossy(body).trim().to_string(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::envelope::parse_v2;
     use crate::types::{ApiArea, ApiLocation};
 
     // ── construction / config ────────────────────────────────────────────────
@@ -184,134 +190,199 @@ mod tests {
         );
     }
 
-    // ── response / error mapping (pure JSON → Result, no network) ────────────
+    // ── reply decoding (pure status + bytes → Result, no network) ────────────
+
+    /// A 200 from `PATCH /v2/areas/2`, as Dragonite 1.19.0 sends it.
+    const BARE_AREA: &[u8] = br#"{
+        "$schema":"https://dragonite.example/schemas/ApiAreaV2.json",
+        "id":2,"name":"CT Ansonia","enabled":false,
+        "pokemon_mode":{"workers":3,"route":[{"lat":35.1,"lon":139.7},{"lat":35.2,"lon":139.8}]},
+        "quest_mode":{},"fort_mode":{}
+    }"#;
+
+    /// A 422 from `PATCH /v2/areas/2 {"enabled":"x"}`: a problem document whose
+    /// `status` is a number.
+    const PROBLEM_422: &[u8] = br#"{
+        "$schema":"https://dragonite.example/schemas/ErrorModel.json",
+        "title":"Unprocessable Entity","status":422,"detail":"validation failed",
+        "errors":[{"message":"expected boolean","location":"body.enabled","value":"x"}]
+    }"#;
 
     #[test]
-    fn parse_v2_area_ok_response() {
-        // Verify ApiArea can be decoded through the envelope — exercises the
-        // decode path that exec() uses after receiving bytes.
-        let body = br#"{"status":"ok","data":{
-            "id":7,"name":"test-area","enabled":true,"enable_quests":false
-        }}"#;
-        let area: ApiArea = parse_v2(body).expect("area ok should parse");
-        assert_eq!(area.id, Some(7));
-        assert_eq!(area.name.as_deref(), Some("test-area"));
-        assert_eq!(area.enabled, Some(true));
-        assert_eq!(area.enable_quests, Some(false));
-    }
-
-    #[test]
-    fn parse_v2_list_with_meta_block_ignores_meta() {
-        // A list body carrying the (now-unread) meta block still parses; the
-        // pagination machinery was deleted with no list endpoint shipped.
-        let body = br#"{"status":"ok","data":[
-            {"id":1,"name":"a"},{"id":2,"name":"b"}
-        ],"meta":{"total":2,"page":0,"per_page":100,"total_pages":1,"has_next":false,"has_prev":false}}"#;
-        let areas = parse_v2::<Vec<ApiArea>>(body).expect("list should parse");
-        assert_eq!(areas.len(), 2);
-        assert_eq!(areas[0].id, Some(1));
-    }
-
-    #[test]
-    fn parse_v2_empty_list_ok() {
-        let body = br#"{"status":"ok","data":[],
-            "meta":{"total":0,"page":0,"per_page":1000,"total_pages":0,"has_next":false,"has_prev":false}}"#;
-        let areas = parse_v2::<Vec<ApiArea>>(body).expect("empty list ok");
-        assert!(areas.is_empty());
-    }
-
-    #[test]
-    fn parse_v2_not_found_error_maps_to_api_error() {
-        // This is the body exec() would receive on a 404 with a V2 error envelope.
-        let body = br#"{"status":"error","error":{"code":"not_found","message":"area not found"}}"#;
-        let err = parse_v2::<ApiArea>(body).expect_err("error envelope should fail");
-        match err {
-            DragoniteError::Api {
-                code,
-                message,
-                field,
-            } => {
-                assert_eq!(code.as_deref(), Some("not_found"));
-                assert_eq!(message, "area not found");
-                assert!(field.is_none());
-            }
-            other => panic!("expected Api, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parse_v2_validation_error_with_field() {
-        // Per-field validation error carries a field name.
-        let body =
-            br#"{"status":"error","error":{"code":"invalid","message":"bad name","field":"name"}}"#;
-        let err = parse_v2::<ApiArea>(body).expect_err("should fail");
-        match err {
-            DragoniteError::Api {
-                code,
-                message,
-                field,
-            } => {
-                assert_eq!(code.as_deref(), Some("invalid"));
-                assert_eq!(message, "bad name");
-                assert_eq!(field.as_deref(), Some("name"));
-            }
-            other => panic!("expected Api, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parse_v2_bad_json_is_decode_error() {
-        // Non-JSON body (e.g. nginx HTML error page) must surface as Decode.
-        let body = b"<html>502 Bad Gateway</html>";
-        let err = parse_v2::<ApiArea>(body).expect_err("bad json should fail");
-        assert!(matches!(err, DragoniteError::Decode(_)));
-    }
-
-    #[test]
-    fn parse_v2_wrong_shape_is_decode_error() {
-        // Valid JSON but not a V2 envelope.
-        let body = br#"{"error":"not found","code":404}"#;
-        let err = parse_v2::<ApiArea>(body).expect_err("wrong shape should fail");
-        // status field missing → decodes to "" which is unknown → Decode
-        assert!(matches!(err, DragoniteError::Decode(_)));
-    }
-
-    #[test]
-    fn parse_v2_area_with_route_in_pokemon_mode() {
-        // Verify that a full area response with nested mode data round-trips.
-        let body = br#"{"status":"ok","data":{
-            "id":55,"name":"pokearea","enabled":true,
-            "pokemon_mode":{
-                "workers":3,
-                "route":[{"lat":35.1,"lon":139.7},{"lat":35.2,"lon":139.8}]
-            }
-        }}"#;
-        let area: ApiArea = parse_v2(body).expect("should parse");
-        assert_eq!(area.id, Some(55));
+    fn decode_reply_bare_area_is_a_success() {
+        let area: ApiArea = decode_reply(200, BARE_AREA).expect("bare area decodes");
+        assert_eq!(area.id, Some(2));
+        assert_eq!(area.name.as_deref(), Some("CT Ansonia"));
+        assert_eq!(area.enabled, Some(false));
         let pm = area.pokemon_mode.expect("pokemon_mode present");
         assert_eq!(pm.workers, Some(3));
-        assert_eq!(pm.route.len(), 2);
         assert_eq!(
-            pm.route[0],
-            ApiLocation {
-                lat: 35.1,
-                lon: 139.7
-            }
-        );
-        assert_eq!(
-            pm.route[1],
-            ApiLocation {
-                lat: 35.2,
-                lon: 139.8
-            }
+            pm.route,
+            vec![
+                ApiLocation {
+                    lat: 35.1,
+                    lon: 139.7
+                },
+                ApiLocation {
+                    lat: 35.2,
+                    lon: 139.8
+                }
+            ]
         );
     }
 
     #[test]
-    fn parse_v2_ok_envelope_data_is_unit() {
-        // Verify an ok-shaped envelope with a JSON object decodes fine.
-        let body = br#"{"status":"ok","data":{}}"#;
-        let val: serde_json::Value = parse_v2(body).expect("ok data:{} should parse");
-        assert!(val.is_object());
+    fn decode_reply_422_problem_document_is_a_typed_error_with_its_detail() {
+        let err = decode_reply::<ApiArea>(422, PROBLEM_422).expect_err("422 is an error");
+        match err {
+            DragoniteError::HttpStatus {
+                status,
+                detail,
+                errors,
+                ..
+            } => {
+                assert_eq!(status, 422);
+                assert_eq!(detail.as_deref(), Some("validation failed"));
+                assert_eq!(errors.len(), 1);
+                assert_eq!(errors[0].message.as_deref(), Some("expected boolean"));
+                assert_eq!(errors[0].location.as_deref(), Some("body.enabled"));
+                assert_eq!(errors[0].value, Some(serde_json::json!("x")));
+            }
+            other => panic!("expected HttpStatus, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn decode_reply_empty_500_is_a_typed_error() {
+        let err = decode_reply::<ApiArea>(500, b"").expect_err("500 is an error");
+        match err {
+            DragoniteError::HttpStatus {
+                status,
+                detail,
+                errors,
+                body,
+            } => {
+                assert_eq!(status, 500);
+                assert_eq!(detail, None);
+                assert!(errors.is_empty());
+                assert_eq!(body, "");
+            }
+            other => panic!("expected HttpStatus, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn decode_reply_non_json_error_body_keeps_the_text() {
+        let err = decode_reply::<ApiArea>(502, b"<html>502 Bad Gateway</html>\n")
+            .expect_err("502 is an error");
+        match err {
+            DragoniteError::HttpStatus {
+                status,
+                detail,
+                body,
+                ..
+            } => {
+                assert_eq!(status, 502);
+                assert_eq!(detail, None);
+                assert_eq!(body, "<html>502 Bad Gateway</html>");
+            }
+            other => panic!("expected HttpStatus, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn decode_reply_2xx_with_a_body_that_is_not_an_area_is_a_decode_error() {
+        let err = decode_reply::<ApiArea>(200, b"<html>hi</html>").expect_err("not JSON");
+        assert!(matches!(err, DragoniteError::Decode(_)));
+    }
+
+    // ── patch_area against a local HTTP stand-in ─────────────────────────────
+
+    /// Serve one canned reply on a loopback port. Returns the base URL and a
+    /// handle yielding the raw request (head and body) the client sent.
+    async fn serve_once(
+        status_line: &'static str,
+        body: &'static [u8],
+    ) -> (String, tokio::task::JoinHandle<String>) {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let handle = tokio::spawn(async move {
+            let (mut sock, _) = listener.accept().await.unwrap();
+            let mut req = Vec::new();
+            let mut buf = [0u8; 4096];
+            loop {
+                let n = sock.read(&mut buf).await.unwrap();
+                req.extend_from_slice(&buf[..n]);
+                let text = String::from_utf8_lossy(&req).to_string();
+                if let Some(head_end) = text.find("\r\n\r\n") {
+                    let want = text[..head_end]
+                        .lines()
+                        .find_map(|l| {
+                            l.to_ascii_lowercase()
+                                .strip_prefix("content-length:")
+                                .and_then(|v| v.trim().parse::<usize>().ok())
+                        })
+                        .unwrap_or(0);
+                    if req.len() >= head_end + 4 + want || n == 0 {
+                        break;
+                    }
+                } else if n == 0 {
+                    break;
+                }
+            }
+            let head = format!(
+                "HTTP/1.1 {status_line}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n",
+                body.len()
+            );
+            sock.write_all(head.as_bytes()).await.unwrap();
+            sock.write_all(body).await.unwrap();
+            sock.shutdown().await.unwrap();
+            String::from_utf8_lossy(&req).to_string()
+        });
+        (base, handle)
+    }
+
+    #[tokio::test]
+    async fn patch_area_returns_the_bare_area_dragonite_answers_with() {
+        let (base, request) = serve_once("200 OK", BARE_AREA).await;
+        let client = DragoniteClient::new(base, "tok");
+        let patch = ApiArea {
+            enabled: Some(false),
+            ..ApiArea::default()
+        };
+
+        let area = client
+            .patch_area(2, &patch)
+            .await
+            .expect("200 is a success");
+
+        assert_eq!(area.id, Some(2));
+        assert_eq!(area.name.as_deref(), Some("CT Ansonia"));
+        let request = request.await.unwrap();
+        assert!(request.starts_with("PATCH /v2/areas/2 "), "{request}");
+        assert!(
+            request
+                .to_ascii_lowercase()
+                .contains("authorization: bearer tok"),
+            "{request}"
+        );
+        assert!(request.contains(r#"{"enabled":false}"#), "{request}");
+    }
+
+    #[tokio::test]
+    async fn patch_area_422_surfaces_the_problem_documents_detail() {
+        let (base, _request) = serve_once("422 Unprocessable Entity", PROBLEM_422).await;
+        let client = DragoniteClient::new(base, "tok");
+
+        let err = client
+            .patch_area(2, &ApiArea::default())
+            .await
+            .expect_err("422 is an error");
+
+        assert!(
+            matches!(&err, DragoniteError::HttpStatus { status: 422, detail: Some(d), .. } if d == "validation failed"),
+            "{err:?}"
+        );
     }
 }

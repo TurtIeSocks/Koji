@@ -46,7 +46,7 @@ utoipa             = { workspace = true }
 [dev-dependencies]
 actix-test = { workspace = true }
 awc        = { workspace = true }
-tokio   = { workspace = true, features = ["macros", "rt"] }
+tokio   = { workspace = true, features = ["macros", "rt", "net", "io-util", "time"] }
 # Used by `tests/v2_db.rs` for raw SQL cleanup (DELETE) and direct DB connection.
 sea-orm = { workspace = true, features = [
   "sqlx-mysql",

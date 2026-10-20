@@ -75,13 +75,12 @@ impl DragoniteSubscriber {
 
 /// Map a [`DragoniteError`] onto the subscriber-side [`DeliverError`] so the
 /// dispatcher's backoff/dead-letter logic sees the right category. A non-2xx
-/// without a parseable envelope surfaces its typed HTTP status as
-/// [`DeliverError::Status`]; everything else is `Other`.
+/// surfaces its typed HTTP status as [`DeliverError::Status`]; everything else
+/// is `Other`.
 fn to_deliver_error(e: DragoniteError) -> DeliverError {
     match e {
         DragoniteError::Http(err) => DeliverError::Http(err.to_string()),
         DragoniteError::HttpStatus { status, .. } => DeliverError::Status { status },
-        DragoniteError::Api { message, .. } => DeliverError::Other(message),
         DragoniteError::Decode(m) => DeliverError::Other(format!("decode: {m}")),
     }
 }
@@ -154,6 +153,8 @@ mod tests {
     fn http_status_error_maps_to_status() {
         let e = DragoniteError::HttpStatus {
             status: 404,
+            detail: None,
+            errors: Vec::new(),
             body: "not found".to_string(),
         };
         assert!(matches!(
@@ -163,12 +164,8 @@ mod tests {
     }
 
     #[test]
-    fn non_http_api_error_maps_to_other() {
-        let e = DragoniteError::Api {
-            code: Some("invalid_json".to_string()),
-            message: "bad body".to_string(),
-            field: None,
-        };
+    fn decode_error_maps_to_other() {
+        let e = DragoniteError::Decode("bad body".to_string());
         assert!(matches!(to_deliver_error(e), DeliverError::Other(_)));
     }
 
@@ -178,5 +175,147 @@ mod tests {
         assert!(s.interested_in(TOPIC_ROUTE_UPDATED));
         assert!(s.interested_in(TOPIC_GEOFENCE_UPDATED));
         assert!(!s.interested_in("webhook.test"));
+    }
+
+    // ── outbox delivery against a Dragonite stand-in ─────────────────────────
+
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Duration;
+
+    use koji_events::EventDispatcher;
+    use sea_orm::{ConnectionTrait, Database, DbBackend, Statement, Value};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    /// What Dragonite 1.19.0 answers a `PATCH /v2/areas/2` with: the bare area.
+    const BARE_AREA: &str = r#"{"$schema":"https://dragonite.example/schemas/ApiAreaV2.json","id":2,"name":"CT Ansonia","enabled":false,"pokemon_mode":{},"quest_mode":{},"fort_mode":{}}"#;
+
+    /// Answer every request on a loopback port with `200` and the bare area,
+    /// counting them. Returns the base URL and the request counter.
+    async fn dragonite_stand_in() -> (String, Arc<AtomicUsize>) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let hits = Arc::new(AtomicUsize::new(0));
+        let counter = Arc::clone(&hits);
+        tokio::spawn(async move {
+            loop {
+                let (mut sock, _) = listener.accept().await.unwrap();
+                let counter = Arc::clone(&counter);
+                tokio::spawn(async move {
+                    let mut req = Vec::new();
+                    let mut buf = [0u8; 4096];
+                    // Read to the end of the head, then the declared body.
+                    loop {
+                        let n = sock.read(&mut buf).await.unwrap_or(0);
+                        req.extend_from_slice(&buf[..n]);
+                        let text = String::from_utf8_lossy(&req).to_ascii_lowercase();
+                        if let Some(head_end) = text.find("\r\n\r\n") {
+                            let want = text[..head_end]
+                                .lines()
+                                .find_map(|l| l.strip_prefix("content-length:"))
+                                .and_then(|v| v.trim().parse::<usize>().ok())
+                                .unwrap_or(0);
+                            if req.len() >= head_end + 4 + want {
+                                break;
+                            }
+                        }
+                        if n == 0 {
+                            break;
+                        }
+                    }
+                    counter.fetch_add(1, Ordering::SeqCst);
+                    let reply = format!(
+                        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{BARE_AREA}",
+                        BARE_AREA.len()
+                    );
+                    let _ = sock.write_all(reply.as_bytes()).await;
+                    let _ = sock.shutdown().await;
+                });
+            }
+        });
+        (base, hits)
+    }
+
+    /// A geofence publish whose PATCH gets the bare area is delivered on the
+    /// first attempt: one PATCH, `delivered`, no retry, no recorded error.
+    /// Gated on `KOJI_DB_URL` like the other DB tests (skips when unset).
+    #[tokio::test]
+    async fn geofence_publish_answered_with_the_bare_area_is_delivered_first_try() {
+        let Ok(url) = std::env::var("KOJI_DB_URL") else {
+            eprintln!("skip: KOJI_DB_URL unset");
+            return;
+        };
+        let Ok(db) = Database::connect(&url).await else {
+            eprintln!("skip: could not connect to KOJI_DB_URL");
+            return;
+        };
+        let (base, hits) = dragonite_stand_in().await;
+
+        let payload = GeofenceUpdated {
+            dragonite_area_id: 2,
+            mode: AreaMode::Pokemon,
+            geofence: Feature {
+                bbox: None,
+                geometry: Some(
+                    serde_json::from_value(serde_json::json!({
+                        "type": "Polygon",
+                        "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]]
+                    }))
+                    .unwrap(),
+                ),
+                id: None,
+                properties: None,
+                foreign_members: None,
+            },
+        };
+        let event_id = EventDispatcher::publish(&db, TOPIC_GEOFENCE_UPDATED, &payload)
+            .await
+            .expect("append to the outbox");
+
+        let dispatcher = Arc::new(EventDispatcher::new(
+            db.clone(),
+            vec![Arc::new(DragoniteSubscriber::new(DragoniteClient::new(
+                base, "tok",
+            )))],
+            "dragonite-test",
+        ));
+        let handle = dispatcher.spawn();
+
+        let read_row = || async {
+            let row = db
+                .query_one(Statement::from_sql_and_values(
+                    DbBackend::MySql,
+                    "SELECT `status`, `attempts`, `last_error` FROM `event_outbox` \
+                     WHERE `public_id` = ?",
+                    [Value::from(event_id.as_string())],
+                ))
+                .await
+                .unwrap()
+                .expect("outbox row");
+            (
+                row.try_get::<String>("", "status").unwrap(),
+                row.try_get::<i32>("", "attempts").unwrap(),
+                row.try_get::<Option<String>>("", "last_error").unwrap(),
+            )
+        };
+        let mut seen = read_row().await;
+        for _ in 0..100 {
+            if seen.0 != "pending" && seen.0 != "delivering" {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            seen = read_row().await;
+        }
+        handle.shutdown().await;
+        let _ = db
+            .execute(Statement::from_sql_and_values(
+                DbBackend::MySql,
+                "DELETE FROM `event_outbox` WHERE `public_id` = ?",
+                [Value::from(event_id.as_string())],
+            ))
+            .await;
+
+        assert_eq!(seen, ("delivered".to_string(), 0, None));
+        assert_eq!(hits.load(Ordering::SeqCst), 1, "one PATCH, no retry");
     }
 }
