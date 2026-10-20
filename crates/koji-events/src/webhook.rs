@@ -154,6 +154,18 @@ fn topics_match(topics: &serde_json::Value, topic: &str) -> bool {
     }
 }
 
+/// The `mode` of a Dragonite target. The Dragonite subscriber in the service
+/// crate delivers to those rows; this subscriber never does.
+const DRAGONITE_MODE: &str = "dragonite";
+
+/// Whether this subscriber delivers `event` to `sub`: not a Dragonite row, and
+/// the topic and project scope match.
+fn takes_event(sub: &webhook_subscription::Model, event: &Event) -> bool {
+    sub.mode != DRAGONITE_MODE
+        && topics_match(&sub.topics, &event.topic)
+        && project_matches(sub.project_id, &event.payload)
+}
+
 /// Whether a subscription's project scope matches the event payload.
 ///
 /// `None` = global subscription → always true. `Some(pid)` matches when the
@@ -199,9 +211,7 @@ impl Subscriber for WebhookSubscriber {
 
     async fn deliver(&self, event: &Event) -> Result<(), DeliverError> {
         let subs = self.active_subscriptions().await?;
-        let matching = subs.iter().filter(|s| {
-            topics_match(&s.topics, &event.topic) && project_matches(s.project_id, &event.payload)
-        });
+        let matching = subs.iter().filter(|s| takes_event(s, event));
         let mut delivered = 0usize;
         for sub in matching {
             delivered += 1;
@@ -363,6 +373,42 @@ mod tests {
     fn header_name_constants() {
         assert_eq!(SIGNATURE_HEADER, "X-Koji-Signature");
         assert_eq!(EVENT_ID_HEADER, "X-Koji-Event-Id");
+    }
+
+    // ---- takes_event --------------------------------------------------------
+
+    fn subscription(mode: &str) -> webhook_subscription::Model {
+        let now = chrono::NaiveDateTime::default();
+        webhook_subscription::Model {
+            id: 1,
+            url: "http://example.test".into(),
+            secret: None,
+            topics: json!([]),
+            active: true,
+            name: "t".into(),
+            project_id: None,
+            mode: mode.into(),
+            method: "POST".into(),
+            headers: None,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    fn event(topic: &str) -> Event {
+        Event {
+            id: "01HZQ".into(),
+            topic: topic.into(),
+            payload: json!({}),
+        }
+    }
+
+    #[test]
+    fn takes_event_skips_dragonite_rows() {
+        let event = event("area.geofence_updated");
+        assert!(takes_event(&subscription("event"), &event));
+        assert!(takes_event(&subscription("ping"), &event));
+        assert!(!takes_event(&subscription("dragonite"), &event));
     }
 
     // ---- project_matches ----------------------------------------------------

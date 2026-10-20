@@ -38,10 +38,6 @@ pub struct Model {
     pub mode: Mode,
     pub geometry: Json,
     pub geo_type: String,
-    /// Dragonite area linkage (migration `m20260529_000003_dragonite_linkage`).
-    /// `None` until the geofence is bound to a Dragonite area; publishing is
-    /// gated on this being set (architecture §7/§9).
-    pub dragonite_area_id: Option<u32>,
     /// Persisted lng/lat bbox (migration `m20260714_000001_geofence_bbox_columns`),
     /// kept in sync with `geometry` by `Query::upsert` via
     /// [`geometry_bbox_lnglat`]. `None` when the geometry is empty/unparseable.
@@ -112,8 +108,9 @@ pub struct GeofenceNoGeometry {
     // pub updated_at: DateTimeUtc,
 }
 
-/// A geofence's identity and Dragonite link, without its geometry: what the
-/// bulk link-by-name pass reads (see `Query::link_rows`).
+/// A geofence's identity and its link on one Dragonite target, without its
+/// geometry: what the bulk link-by-name pass reads (see
+/// `dragonite_link::Query::link_rows`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, FromQueryResult)]
 pub struct GeofenceLinkRow {
     pub id: u32,
@@ -371,7 +368,6 @@ mod to_koji_tests {
             mode: DbMode::Unset,
             geometry: serde_json::json!(null),
             geo_type: String::new(),
-            dragonite_area_id: None,
             min_lat: None,
             min_lng: None,
             max_lat: None,
