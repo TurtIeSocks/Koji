@@ -263,7 +263,7 @@ describe("Geofence Dragonite Area picker on create", () => {
     await expect
       .element(screen.getByRole("combobox", { name: "Dragonite Area: West" }))
       .not.toBeInTheDocument();
-    await screen.getByLabelText("Name").fill("Fresh fence");
+    await screen.getByLabelText(/name/i).fill("Fresh fence");
     await screen.getByRole("button", { name: "Save" }).click();
 
     await vi.waitFor(() => expect(create).toHaveBeenCalled());
