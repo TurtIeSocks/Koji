@@ -13,16 +13,25 @@ import { HeadersInput } from "./headers-input";
 
 export const WebhookFormFields = () => {
   const mode = useWatch({ name: "mode" }) ?? "event";
+  const dragonite = mode === "dragonite";
   return (
     <>
       <TextInput source="name" validate={required()} />
-      <TextInput source="url" validate={required()} />
+      <TextInput
+        source="url"
+        label={dragonite ? "Dragonite base URL" : undefined}
+        validate={required()}
+      />
       <SelectInput source="mode" choices={[...WEBHOOK_MODES]} defaultValue="event" validate={required()} />
       <BooleanInput source="active" defaultValue={true} />
       <ReferenceInput source="project_id" reference="project">
         <AutocompleteInput
           label="Project"
-          helperText="Leave empty for a global subscription"
+          helperText={
+            dragonite
+              ? "Leave empty to reach every geofence"
+              : "Leave empty for a global subscription"
+          }
         />
       </ReferenceInput>
       {mode === "ping" && (
@@ -38,7 +47,15 @@ export const WebhookFormFields = () => {
           />
         </>
       )}
-      <HeadersInput />
+      {dragonite && (
+        <TextInput
+          source="secret"
+          label="Bearer"
+          helperText="Sent to Dragonite as its bearer token"
+          validate={required()}
+        />
+      )}
+      {!dragonite && <HeadersInput />}
     </>
   );
 };

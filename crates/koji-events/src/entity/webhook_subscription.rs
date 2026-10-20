@@ -11,7 +11,9 @@
 //! - `active` TINYINT(1) → `bool`
 //! - `name` VARCHAR(255) → `String` (admin-UI label)
 //! - `project_id` INT UNSIGNED NULL → `Option<u32>` (FK → project; NULL = global)
-//! - `mode` ENUM('event','ping') → `String` ("event" = signed JSON POST, "ping" = legacy reload)
+//! - `mode` ENUM('event','ping','dragonite') → `String` ("event" = signed JSON POST,
+//!   "ping" = legacy reload, "dragonite" = a Dragonite target: `url` is its base
+//!   URL and `secret` its bearer; the generic subscriber skips it)
 //! - `method` ENUM('GET','POST') → `String` (ping mode only)
 //! - `headers` JSON NULL → `Option<Json>` (custom header map, both modes)
 //! - `created_at` / `updated_at` DATETIME → sea-orm `DateTime`.

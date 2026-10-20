@@ -72,7 +72,6 @@ pub(super) struct DescendantRow {
     pub(super) mode: Mode,
     pub(super) geometry: Json,
     pub(super) geo_type: String,
-    pub(super) dragonite_area_id: Option<u32>,
     pub(super) ancestry: String,
 }
 
@@ -132,19 +131,19 @@ pub(super) fn build_descendants_sql(anchor: &Anchor, spec: &HierarchySpec) -> (S
 
     let sql = format!(
         "WITH RECURSIVE descendants AS (
-  SELECT g.id, g.name, g.parent, g.created_at, g.updated_at, g.mode, g.geometry, g.geo_type, g.dragonite_area_id,
+  SELECT g.id, g.name, g.parent, g.created_at, g.updated_at, g.mode, g.geometry, g.geo_type,
          CAST(0 AS SIGNED) AS depth,
          CAST(g.name AS CHAR(4096)) AS ancestry
   FROM geofence g
   WHERE {anchor_where}
   UNION ALL
-  SELECT g.id, g.name, g.parent, g.created_at, g.updated_at, g.mode, g.geometry, g.geo_type, g.dragonite_area_id,
+  SELECT g.id, g.name, g.parent, g.created_at, g.updated_at, g.mode, g.geometry, g.geo_type,
          d.depth + 1,
          CONCAT(d.ancestry, CHAR(31 USING utf8mb4), g.name)
   FROM geofence g JOIN descendants d ON g.parent = d.id
   WHERE d.depth < ?
 )
-SELECT id, name, parent, created_at, updated_at, mode, geometry, geo_type, dragonite_area_id, ancestry
+SELECT id, name, parent, created_at, updated_at, mode, geometry, geo_type, ancestry
 FROM descendants{outer_where};"
     );
 

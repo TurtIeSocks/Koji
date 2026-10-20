@@ -7,6 +7,7 @@ use sea_orm::{
     prelude::DateTimeUtc, sea_query::Expr,
 };
 
+pub mod dragonite_link;
 mod enum_bridge;
 pub mod geofence;
 pub mod geofence_project;

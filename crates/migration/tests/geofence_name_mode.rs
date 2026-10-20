@@ -60,7 +60,11 @@ async fn name_mode_migration_runs_up_and_down_with_area_fence_present() {
         let db = Database::connect(&scratch_url(&base, &scratch))
             .await
             .unwrap();
-        let before_ours = Migrator::migrations().len() as u32 - 1;
+        let ours = Migrator::migrations()
+            .iter()
+            .position(|m| m.name() == "m20260719_000001_geofence_name_mode_unique")
+            .expect("the migration is registered");
+        let before_ours = ours as u32;
 
         // Everything but this migration: `area_fence` exists, `name` alone is unique.
         Migrator::up(&db, Some(before_ours)).await.unwrap();

@@ -780,6 +780,20 @@ mod tests {
     }
 
     #[test]
+    fn to_webhook_dragonite_row_keeps_its_url_bearer_and_project() {
+        let m = json!({
+            "name": "dragonite east", "url": "https://dragonite.example", "secret": "bearer",
+            "mode": "dragonite", "project_id": 3
+        })
+        .to_webhook()
+        .unwrap();
+        assert_eq!(m.mode.unwrap(), crate::WebhookMode::Dragonite);
+        assert_eq!(m.url.unwrap(), "https://dragonite.example");
+        assert_eq!(m.secret.unwrap(), Some("bearer".to_string()));
+        assert_eq!(m.project_id.unwrap(), Some(3));
+    }
+
+    #[test]
     fn to_webhook_non_object_headers_is_err() {
         let v = json!({"name": "n", "url": "http://x", "headers": "not-an-object"});
         assert!(v.to_webhook().is_err());

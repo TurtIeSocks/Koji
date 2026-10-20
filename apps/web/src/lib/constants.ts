@@ -43,6 +43,7 @@ export const ROUTE_MODES = GEOFENCE_MODES;
 export const WEBHOOK_MODES = [
   { id: "event", name: "Event (signed POST)" },
   { id: "ping", name: "Ping (legacy reload)" },
+  { id: "dragonite", name: "Dragonite (area push)" },
 ] as const;
 
 export const WEBHOOK_METHODS = [

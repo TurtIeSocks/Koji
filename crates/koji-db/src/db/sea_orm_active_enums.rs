@@ -54,7 +54,9 @@ pub enum Mode {
 crate::enum_bridge!(Mode, koji_core::Mode, [Unset, Pokemon, Fort, Quest]);
 
 /// `webhook_subscription.mode` — "event" (signed JSON POST of the outbox
-/// payload) vs "ping" (legacy reload GET/POST, no signing). No domain-type
+/// payload), "ping" (legacy reload GET/POST, no signing) or "dragonite" (a
+/// Dragonite the `area.*` events are PATCHed to; `url` is its base URL and
+/// `secret` its bearer). No domain-type
 /// bridge: unlike `Category`/`Mode`, webhooks have no pre-existing domain enum
 /// to reconcile with, so the active enum IS the wire type (YAGNI per Task 3
 /// brief).
@@ -66,6 +68,8 @@ pub enum WebhookMode {
     Event,
     #[sea_orm(string_value = "ping")]
     Ping,
+    #[sea_orm(string_value = "dragonite")]
+    Dragonite,
 }
 
 /// `webhook_subscription.method` — HTTP method used for `ping`-mode delivery.
@@ -93,6 +97,10 @@ mod webhook_enum_tests {
             serde_json::to_string(&WebhookMode::Ping).unwrap(),
             "\"ping\""
         );
+        assert_eq!(
+            serde_json::to_string(&WebhookMode::Dragonite).unwrap(),
+            "\"dragonite\""
+        );
     }
 
     #[test]
@@ -111,6 +119,7 @@ mod webhook_enum_tests {
     fn db_string_values_match_wire() {
         use sea_orm::ActiveEnum;
         assert_eq!(WebhookMode::Event.to_value(), "event");
+        assert_eq!(WebhookMode::Dragonite.to_value(), "dragonite");
         assert_eq!(WebhookMethod::Post.to_value(), "POST");
     }
 }

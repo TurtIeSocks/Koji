@@ -1,8 +1,8 @@
-//! Link Geofences to Dragonite Areas by name.
+//! Link Geofences to a Dragonite target's Areas by name.
 //!
-//! [`plan_links`] is the pure core: given Dragonite's Areas and Koji's
-//! Geofences it decides which Geofences get linked to which Area, and reports
-//! everything else. The `POST /geofences/link-dragonite` handler in
+//! [`plan_links`] is the pure core: given one target's Areas and the Geofences
+//! that target reaches it decides which Geofences get linked to which Area, and
+//! reports everything else. The `POST /geofences/link-dragonite` handler in
 //! [`super::geofences`] reads both sides, plans, and writes the plan unless
 //! `dry_run`.
 
@@ -33,6 +33,18 @@ pub(crate) struct LinkConflict {
     pub wanted_dragonite_area_id: u32,
 }
 
+/// A Geofence whose name's Area is already held by another Geofence of the
+/// same mode on this target; left unlinked.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub(crate) struct AreaTaken {
+    pub geofence: u32,
+    pub name: String,
+    pub mode: Mode,
+    pub dragonite_area_id: u32,
+    /// The Geofence that holds the Area.
+    pub held_by: u32,
+}
+
 /// A Dragonite Area no Geofence carries the name of.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub(crate) struct UnmatchedArea {
@@ -54,13 +66,20 @@ pub(crate) struct LinkPlan {
     pub linked: Vec<LinkedGeofence>,
     pub already_linked: Vec<LinkedGeofence>,
     pub conflicts: Vec<LinkConflict>,
+    pub area_taken: Vec<AreaTaken>,
     pub areas_without_geofence: Vec<UnmatchedArea>,
     pub geofences_without_area: Vec<UnmatchedGeofence>,
 }
 
 /// Match each Area to the Geofences with exactly its name, in every mode.
 ///
-/// - an unlinked Geofence is linked ([`LinkPlan::linked`])
+/// `geofences` are the ones the target reaches, with their link on it. `taken`
+/// is every `(area, mode)` the target holds, with the Geofence holding it, in
+/// reach or not.
+///
+/// - an unlinked Geofence is linked ([`LinkPlan::linked`]), unless another
+///   Geofence of its mode holds that Area on this target
+///   ([`LinkPlan::area_taken`]); this holds within a pass too
 /// - one already linked to that Area is reported, not touched
 ///   ([`LinkPlan::already_linked`])
 /// - one linked to another Area is a conflict and keeps its link; this holds
@@ -69,7 +88,11 @@ pub(crate) struct LinkPlan {
 ///   named after, are listed
 ///
 /// An Area without a name or with an id Koji cannot store is skipped.
-pub(crate) fn plan_links(areas: &[ApiArea], geofences: &[GeofenceLinkRow]) -> LinkPlan {
+pub(crate) fn plan_links(
+    areas: &[ApiArea],
+    geofences: &[GeofenceLinkRow],
+    taken: &HashMap<(u32, Mode), u32>,
+) -> LinkPlan {
     let mut by_name: HashMap<&str, Vec<usize>> = HashMap::new();
     for (i, geofence) in geofences.iter().enumerate() {
         by_name.entry(geofence.name.as_str()).or_default().push(i);
@@ -77,6 +100,7 @@ pub(crate) fn plan_links(areas: &[ApiArea], geofences: &[GeofenceLinkRow]) -> Li
     // Each Geofence's link as the plan leaves it, so a pass never hands one
     // Geofence to two Areas.
     let mut links: Vec<Option<u32>> = geofences.iter().map(|g| g.dragonite_area_id).collect();
+    let mut taken = taken.clone();
     let mut named_by_an_area: HashSet<&str> = HashSet::new();
     let mut plan = LinkPlan::default();
 
@@ -104,10 +128,20 @@ pub(crate) fn plan_links(areas: &[ApiArea], geofences: &[GeofenceLinkRow]) -> Li
                 dragonite_area_id,
             };
             match links[i] {
-                None => {
-                    links[i] = Some(id);
-                    plan.linked.push(linked(id));
-                }
+                None => match taken.get(&(id, geofence.mode)) {
+                    Some(&held_by) => plan.area_taken.push(AreaTaken {
+                        geofence: geofence.id,
+                        name: geofence.name.clone(),
+                        mode: geofence.mode,
+                        dragonite_area_id: id,
+                        held_by,
+                    }),
+                    None => {
+                        links[i] = Some(id);
+                        taken.insert((id, geofence.mode), geofence.id);
+                        plan.linked.push(linked(id));
+                    }
+                },
                 Some(current) if current == id => plan.already_linked.push(linked(id)),
                 Some(current) => plan.conflicts.push(LinkConflict {
                     geofence: geofence.id,
@@ -153,6 +187,10 @@ mod tests {
         }
     }
 
+    fn plan(areas: &[ApiArea], geofences: &[GeofenceLinkRow]) -> LinkPlan {
+        plan_links(areas, geofences, &HashMap::new())
+    }
+
     fn linked(geofence: u32, name: &str, mode: Mode, area: u32) -> LinkedGeofence {
         LinkedGeofence {
             geofence,
@@ -164,7 +202,7 @@ mod tests {
 
     #[test]
     fn every_mode_of_a_name_is_linked_to_its_area() {
-        let plan = plan_links(
+        let plan = plan(
             &[area(7, "Denver")],
             &[
                 fence(1, "Denver", Mode::Pokemon, None),
@@ -186,7 +224,7 @@ mod tests {
 
     #[test]
     fn a_geofence_already_on_that_area_is_reported_not_relinked() {
-        let plan = plan_links(
+        let plan = plan(
             &[area(7, "Denver")],
             &[fence(1, "Denver", Mode::Pokemon, Some(7))],
         );
@@ -202,7 +240,7 @@ mod tests {
 
     #[test]
     fn a_geofence_on_a_different_area_is_a_conflict_and_keeps_its_link() {
-        let plan = plan_links(
+        let plan = plan(
             &[area(7, "Denver")],
             &[fence(1, "Denver", Mode::Pokemon, Some(3))],
         );
@@ -222,7 +260,7 @@ mod tests {
 
     #[test]
     fn unmatched_areas_and_unlinked_geofences_are_listed() {
-        let plan = plan_links(
+        let plan = plan(
             &[area(7, "Denver"), area(8, "Boulder")],
             &[
                 fence(1, "Denver", Mode::Fort, None),
@@ -251,7 +289,7 @@ mod tests {
 
     #[test]
     fn names_match_exactly() {
-        let plan = plan_links(
+        let plan = plan(
             &[area(7, "Denver")],
             &[fence(1, "denver", Mode::Fort, None)],
         );
@@ -263,7 +301,7 @@ mod tests {
 
     #[test]
     fn two_areas_sharing_a_name_do_not_both_claim_a_geofence() {
-        let plan = plan_links(
+        let plan = plan(
             &[area(7, "Denver"), area(9, "Denver")],
             &[fence(1, "Denver", Mode::Fort, None)],
         );
@@ -280,12 +318,55 @@ mod tests {
             id: Some(5),
             ..ApiArea::default()
         };
-        let plan = plan_links(
+        let plan = plan(
             &[nameless, area(-1, "Denver"), area(i64::MAX, "Denver")],
             &[fence(1, "Denver", Mode::Fort, None)],
         );
 
         assert!(plan.linked.is_empty());
         assert_eq!(plan.geofences_without_area.len(), 1);
+    }
+
+    #[test]
+    fn an_area_held_by_another_geofence_of_the_mode_is_not_linked() {
+        // Geofence 9 (out of reach) already holds Area 7 in fort mode.
+        let taken = HashMap::from([((7, Mode::Fort), 9)]);
+        let plan = plan_links(
+            &[area(7, "Denver")],
+            &[
+                fence(1, "Denver", Mode::Fort, None),
+                fence(2, "Denver", Mode::Quest, None),
+            ],
+            &taken,
+        );
+
+        assert_eq!(plan.linked, vec![linked(2, "Denver", Mode::Quest, 7)]);
+        assert_eq!(
+            plan.area_taken,
+            vec![AreaTaken {
+                geofence: 1,
+                name: "Denver".into(),
+                mode: Mode::Fort,
+                dragonite_area_id: 7,
+                held_by: 9,
+            }]
+        );
+        assert!(plan.geofences_without_area.is_empty());
+    }
+
+    #[test]
+    fn two_geofences_of_one_name_and_mode_do_not_share_an_area_in_a_pass() {
+        let plan = plan(
+            &[area(7, "Denver")],
+            &[
+                fence(1, "Denver", Mode::Fort, None),
+                fence(2, "Denver", Mode::Fort, None),
+            ],
+        );
+
+        assert_eq!(plan.linked, vec![linked(1, "Denver", Mode::Fort, 7)]);
+        assert_eq!(plan.area_taken.len(), 1);
+        assert_eq!(plan.area_taken[0].geofence, 2);
+        assert_eq!(plan.area_taken[0].held_by, 1);
     }
 }

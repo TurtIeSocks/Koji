@@ -72,6 +72,29 @@ impl From<ModelError> for ServiceError {
     }
 }
 
+/// A refused Dragonite link write: an unknown geofence is a 404, a bad target
+/// the body named is a 422, an Area another geofence of the mode holds is a 409.
+impl From<koji_db::db::dragonite_link::LinkError> for ServiceError {
+    fn from(e: koji_db::db::dragonite_link::LinkError) -> Self {
+        use koji_db::db::dragonite_link::LinkError;
+        match e {
+            LinkError::NoGeofence(_) => ServiceError::NotFound {
+                field: "geofence",
+                message: e.to_string(),
+            },
+            LinkError::NoTarget(_) | LinkError::NotDragonite(_) => ServiceError::Unprocessable {
+                field: Some("dragonite_links".to_string()),
+                message: e.to_string(),
+            },
+            LinkError::AreaTaken { .. } => ServiceError::Conflict {
+                field: "dragonite_links",
+                message: e.to_string(),
+            },
+            LinkError::Db(e) => ServiceError::Db(e),
+        }
+    }
+}
+
 /// A refused `descendants`/`descendant_modes` is a 400 naming the param.
 impl From<DescendantArgError> for ServiceError {
     fn from(e: DescendantArgError) -> Self {

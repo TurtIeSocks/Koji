@@ -13,7 +13,9 @@ export const WebhookTestButton = () => {
     setLoading(true);
     try {
       const data = await testWebhook(record.id);
-      if (data.delivered) {
+      if (data.delivered && typeof data.area_count === "number") {
+        notify(`Dragonite answered ✓ (${data.area_count} areas)`, { type: "success" });
+      } else if (data.delivered) {
         notify(`Delivered ✓ (${data.upstream_status})`, { type: "success" });
       } else {
         notify(`Delivery failed: ${data.error ?? "unknown"}`, { type: "warning" });

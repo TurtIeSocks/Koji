@@ -30,9 +30,10 @@ use crate::utils::{
     api_response::{ApiError, ApiResponse},
     format::respond_geo,
 };
-use koji_events::EventDispatcher;
 
-use crate::dragonite::{RouteUpdated, TOPIC_ROUTE_UPDATED, area_mode_for};
+use crate::dragonite::{
+    RouteUpdated, TOPIC_ROUTE_UPDATED, area_mode_for, linked_targets, publish_to,
+};
 
 /// Query args for the geometry reads: the `?format=` return-type selector (with
 /// `?rt=` kept as a one-release back-compat alias). Deliberately omits the legacy
@@ -263,21 +264,23 @@ async fn remove(
     Ok(HttpResponse::build(StatusCode::NO_CONTENT).finish())
 }
 
-/// `POST /api/v2/routes/{id}/publish` — push a stored route to its linked
-/// Dragonite area (the `area.route_updated` producer, symmetric with the
-/// geofence publish). Resolves the route → its geofence → `dragonite_area_id`,
-/// maps the route mode to an [`AreaMode`], and emits the event for the
-/// `DragoniteSubscriber` to PATCH `/v2/areas/{id}`. Gated on linkage (an
-/// unlinked geofence → `422`); an unknown route → `404`.
+/// `POST /api/v2/routes/{id}/publish` — push a stored route to its geofence's
+/// Dragonite areas (the `area.route_updated` producer, symmetric with the
+/// geofence publish). Resolves the route → its geofence → the active Dragonite
+/// webhooks that reach it and hold a link for it, maps the route mode to an
+/// [`AreaMode`], and emits one event per webhook for the `DragoniteSubscriber`
+/// to PATCH that Dragonite's `/v2/areas/{id}`. A geofence no webhook reaches, or
+/// reached by webhooks that hold no link for it → `422` saying which; an
+/// unknown route → `404`.
 #[utoipa::path(
     post,
     path = "/api/v2/routes/{id}/publish",
     tag = "routes",
     params(("id" = String, Path, description = "Route id or name")),
     responses(
-        (status = 202, description = "Publish event enqueued: `{ event_id }`", body = Object),
+        (status = 202, description = "Publish events enqueued: `{ events: [{ webhook_id, event_id, dragonite_area_id }] }`", body = Object),
         (status = 404, description = "No such route", body = ApiError),
-        (status = 422, description = "Route's geofence is not linked to a Dragonite area", body = ApiError),
+        (status = 422, description = "No active Dragonite webhook reaches the route's geofence, or none that does holds a link for it", body = ApiError),
     ),
 )]
 async fn publish(
@@ -295,12 +298,7 @@ async fn publish(
 
     // Linkage flows through the route's geofence.
     let fence = geofence::Query::get_one(&conn.koji, model.geofence_id.to_string()).await?;
-    let Some(dragonite_area_id) = fence.dragonite_area_id else {
-        return Err(ServiceError::Unprocessable {
-            field: Some("dragonite_area_id".to_string()),
-            message: "route's geofence is not linked to a Dragonite area".to_string(),
-        });
-    };
+    let targets = linked_targets(&conn.koji, fence.id, &fence.name).await?;
 
     // Route points as a Koji `SingleVec` (`[lat, lon]`). Fetch the route as a
     // `KojiGeometry`, wrap it in a one-item collection, and flatten via the
@@ -311,23 +309,23 @@ async fn publish(
     let route_points = koji_core::KojiGeometryCollection::new(vec![geometry]).to_single_vec();
     let mode = area_mode_for(&model.mode);
 
-    let payload = RouteUpdated {
-        dragonite_area_id: dragonite_area_id as i64,
-        mode,
-        route: route_points,
-    };
-    let event_id = EventDispatcher::publish(&conn.koji, TOPIC_ROUTE_UPDATED, &payload)
-        .await
-        .map_err(ServiceError::internal)?;
+    let events = publish_to(&conn.koji, TOPIC_ROUTE_UPDATED, &targets, |target, link| {
+        RouteUpdated {
+            webhook_id: target.id,
+            dragonite_area_id: link.dragonite_area_id as i64,
+            mode,
+            route: route_points.clone(),
+        }
+    })
+    .await?;
 
     Ok(ApiResponse::success_with_status(
         StatusCode::ACCEPTED,
         json!({
             "route": model.id,
-            "event_id": event_id.to_string(),
             "topic": TOPIC_ROUTE_UPDATED,
-            "dragonite_area_id": dragonite_area_id,
             "mode": mode,
+            "events": events,
         }),
     ))
 }

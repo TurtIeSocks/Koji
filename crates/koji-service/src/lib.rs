@@ -5,7 +5,6 @@ use actix_web::{App, HttpRequest, HttpResponse, HttpServer, middleware, web};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use geojson::{Feature, FeatureCollection};
 
-use koji_dragonite::DragoniteClient;
 use koji_events::{EventDispatcher, Subscriber, WebhookSubscriber};
 use koji_jobs::{HandlerRegistry, JobQueue};
 use migration::{DbErr, Migrator, MigratorTrait};
@@ -192,7 +191,7 @@ pub async fn start() -> io::Result<()> {
         .await
         .ok();
 
-    // ---- V2 infra: job queue + event dispatcher + optional Dragonite client --
+    // ---- V2 infra: job queue + event dispatcher --
     //
     // The queue runs against the Koji DB (MySQL 8+/MariaDB 10.6+ for SKIP
     // LOCKED). `worker_id` identifies this process in `job.locked_by`.
@@ -215,31 +214,17 @@ pub async fn start() -> io::Result<()> {
             .with_event_sink(hub.clone() as Arc<dyn koji_jobs::JobEventSink>),
     );
 
-    // Optional Dragonite client, configured purely from env. `None` until both
-    // the URL and bearer are set; when present it backs the `DragoniteSubscriber`
-    // (and is shared into `AppState` for future direct use).
-    let dragonite: Option<DragoniteClient> = match (
-        env::var("DRAGONITE_URL").ok(),
-        env::var("DRAGONITE_BEARER").ok(),
-    ) {
-        (Some(url), Some(bearer)) if !url.is_empty() => {
-            log::info!("[koji] Dragonite client configured for {url}");
-            Some(DragoniteClient::new(url, bearer))
-        }
-        _ => None,
-    };
-
-    // Event dispatcher subscribers (P5): the generic webhook pusher (topic-
-    // filtered from `webhook_subscription`) always, plus the Dragonite area
-    // pusher when a client is configured. The dispatcher loop is spawned below
-    // so `area.*` events emitted by producers are delivered durably.
-    let mut subscribers: Vec<Arc<dyn Subscriber>> = vec![Arc::new(
-        WebhookSubscriber::with_default_client(databases.koji.clone()),
-    )];
-    if let Some(client) = &dragonite {
-        subscribers.push(Arc::new(DragoniteSubscriber::new(client.clone())));
-        log::info!("[koji] Dragonite event subscriber registered");
-    }
+    // Event dispatcher subscribers: the generic webhook pusher (topic-filtered
+    // from `webhook_subscription`, skipping Dragonite rows) and the Dragonite
+    // area pusher, which builds its client from the row each `area.*` event
+    // names. The dispatcher loop is spawned below so events emitted by
+    // producers are delivered durably.
+    let subscribers: Vec<Arc<dyn Subscriber>> = vec![
+        Arc::new(WebhookSubscriber::with_default_client(
+            databases.koji.clone(),
+        )),
+        Arc::new(DragoniteSubscriber::new(databases.koji.clone())),
+    ];
     let events = Arc::new(EventDispatcher::new(
         databases.koji.clone(),
         subscribers,
@@ -290,7 +275,6 @@ pub async fn start() -> io::Result<()> {
             // handlers keep their `web::Data<KojiDb>` signatures untouched.
             .app_data(web::Data::from(jobs.clone()))
             .app_data(web::Data::from(events.clone()))
-            .app_data(web::Data::new(dragonite.clone()))
             .app_data(web::Data::from(hub.clone()))
             // increase max payload size to 50MB
             .app_data(web::JsonConfig::default().limit(1024 * 1024 * 50))
