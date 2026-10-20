@@ -84,6 +84,15 @@ pub enum LinkError {
     Db(#[from] DbErr),
 }
 
+/// A geofence holding an Area on a target.
+#[derive(Debug, Clone, PartialEq, Eq, FromQueryResult)]
+pub struct AreaHolder {
+    pub dragonite_area_id: u32,
+    pub geofence_id: u32,
+    pub name: String,
+    pub mode: Mode,
+}
+
 /// The Dragonite targets that reach a geofence, and which of them hold a link.
 #[derive(Debug, Clone)]
 pub struct PublishTargets {
@@ -226,6 +235,23 @@ impl Query {
             .into_iter()
             .map(|h| ((h.dragonite_area_id, h.mode), h.geofence_id))
             .collect())
+    }
+
+    /// Every geofence holding an Area on the target, with the name and mode it
+    /// holds it in, by geofence id. Counts every geofence, in reach or not.
+    pub async fn holders<C: ConnectionTrait>(
+        db: &C,
+        webhook_id: u64,
+    ) -> Result<Vec<AreaHolder>, DbErr> {
+        AreaHolder::find_by_statement(Statement::from_sql_and_values(
+            DbBackend::MySql,
+            "SELECT l.dragonite_area_id, l.geofence_id, g.name, g.mode \
+             FROM dragonite_link l JOIN geofence g ON g.id = l.geofence_id \
+             WHERE l.webhook_id = ? ORDER BY l.geofence_id",
+            [webhook_id.into()],
+        ))
+        .all(db)
+        .await
     }
 
     /// The target row, read `FOR UPDATE` so link writes to it run one at a time.

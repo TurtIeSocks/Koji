@@ -59,6 +59,7 @@ use utoipa::OpenApi;
         crate::public::v2::resources::webhook::update,
         crate::public::v2::resources::webhook::remove,
         crate::public::v2::webhooks_test::test_fire,
+        crate::public::v2::webhook_areas::list_areas,
         // geometry
         crate::public::v2::geometry::convert,
         crate::public::v2::geometry::simplify,

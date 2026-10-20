@@ -20,6 +20,7 @@ use actix_web::web;
 ///   `*    /internal/properties/**`         → forwarded `property::scope()`
 ///   `*    /internal/tile-servers/**`       → forwarded `tile_server::scope()`
 ///   `POST /internal/webhooks/{id}/test`    → forwarded `webhooks_test::test_fire`
+///   `GET  /internal/webhooks/{id}/areas`   → forwarded `webhook_areas::list_areas`
 ///   `*    /internal/webhooks/**`           → forwarded `webhook::scope()`
 ///   `*    /internal/plugins/**`            → forwarded `plugins::scope()`
 ///   `GET  /internal/config`                → forwarded `config::config`
@@ -56,6 +57,10 @@ pub(crate) fn scope() -> actix_web::Scope {
         .service(
             web::resource("/webhooks/{id}/test")
                 .route(web::post().to(v2::webhooks_test::test_fire)),
+        )
+        .service(
+            web::resource("/webhooks/{id}/areas")
+                .route(web::get().to(v2::webhook_areas::list_areas)),
         )
         .service(v2::resources::webhook::scope())
         // Plugin overlay CRUD.

@@ -261,6 +261,12 @@ pub(crate) struct CreateGeofence {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[schema(value_type = Vec<Object>)]
     pub properties: Vec<serde_json::Value>,
+    /// Dragonite Areas this geofence publishes to, one per Dragonite webhook; an
+    /// Area another geofence of the same mode holds on that webhook is a `409`
+    /// and the geofence is not created.
+    #[serde(default, skip_serializing)]
+    #[schema(value_type = Vec<DragoniteLinkChange>)]
+    pub dragonite_links: Vec<DragoniteLinkChange>,
 }
 
 /// Lightly-typed patch body: every field optional, omitted fields dropped from
@@ -478,10 +484,28 @@ pub(crate) async fn create(
     hub: web::Data<crate::internal::realtime::RealtimeHub>,
     body: web::Json<CreateGeofence>,
 ) -> Result<HttpResponse, ServiceError> {
+    let link_changes: Vec<LinkChange> = body
+        .dragonite_links
+        .iter()
+        .map(|change| (*change).into())
+        .collect();
     let value = serde_json::to_value(body.into_inner()).map_err(ServiceError::internal)?;
     let carries_projects = value.get("projects").is_some();
-    let record = geofence::Query::upsert_json_return(&conn.koji, 0, value).await?;
+    let mode = merged_mode(&value);
+    let mut record = geofence::Query::upsert_json_return(&conn.koji, 0, value).await?;
     let id = super::crud::record_id(&record)?;
+    // The geofence has to exist for its links to be checked, so a refused link
+    // takes the geofence back out rather than leave it half-made.
+    if !link_changes.is_empty() {
+        if let Err(e) =
+            dragonite_link::Query::set_links(&conn.koji, id as u32, mode, &link_changes).await
+        {
+            let _ = geofence::Query::delete(&conn.koji, id as u32).await;
+            return Err(e.into());
+        }
+        record["dragonite_links"] =
+            dragonite_link::Query::json_for_geofence(&conn.koji, id as u32).await?;
+    }
     for (t, ev) in crate::internal::realtime::topics::created("geofence", id as i64) {
         hub.publish(&t, ev);
     }
@@ -1188,6 +1212,7 @@ mod tests {
             parent: None,
             projects: vec![],
             properties: vec![],
+            dragonite_links: vec![],
         };
         let v = serde_json::to_value(&dto).unwrap();
         assert_eq!(v["name"], "n");

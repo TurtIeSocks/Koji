@@ -313,6 +313,50 @@ async fn patch_sets_changes_and_clears_links_one_per_target() {
 }
 
 #[actix_web::test]
+async fn create_stores_its_links_and_a_refused_link_leaves_no_geofence_behind() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let app = app!(db);
+    let hook = create_dragonite!(app, "http://127.0.0.1:1", Json::Null);
+    let post = |name: &str, hook: u64| {
+        test::TestRequest::post()
+            .uri("/api/v2/geofences")
+            .set_json(json!({
+                "name": name, "mode": "pokemon", "geometry": triangle(),
+                "dragonite_links": [{ "webhook_id": hook, "dragonite_area_id": 5 }],
+            }))
+            .to_request()
+    };
+    let first_name = unique_name("link-create");
+    let second_name = unique_name("link-create-2");
+
+    let first = test::call_service(&app, post(&first_name, hook)).await;
+    let first_status = first.status();
+    let first = body_json(first).await;
+    // The same Area in the same mode is held now.
+    let second = test::call_service(&app, post(&second_name, hook)).await;
+    let second_status = second.status();
+    let second = body_json(second).await;
+    let leftover = test::call_service(
+        &app,
+        test::TestRequest::get()
+            .uri(&format!("/api/v2/geofences/{second_name}"))
+            .to_request(),
+    )
+    .await
+    .status();
+
+    if let Some(id) = first["data"]["id"].as_u64() {
+        cleanup(&db, "geofence", "id", Value::from(id)).await;
+    }
+    cleanup(&db, "webhook_subscription", "id", Value::from(hook)).await;
+    assert_eq!(first_status, 201, "{first}");
+    assert_eq!(links(&first), [(hook, 5)]);
+    assert_eq!(second_status, 409, "{second}");
+    assert_eq!(leftover, 404);
+}
+
+#[actix_web::test]
 async fn patch_refuses_a_missing_or_non_dragonite_target_and_a_taken_area() {
     let Some(db) = test_db().await else { return };
     let _serial = serial_guard();
@@ -719,6 +763,107 @@ async fn test_on_a_dragonite_row_answers_the_area_count_or_the_upstream_error() 
             .contains("bad bearer"),
         "{refused}"
     );
+}
+
+#[actix_web::test]
+async fn areas_lists_every_page_with_the_geofences_holding_each() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    // Two pages, as Dragonite pages its list; one Area without a name is left out.
+    let stub = Stub::start(
+        "tok",
+        vec![
+            json!([{ "id": 1, "name": "Denver" }, { "id": 2, "name": "Boulder" }]),
+            json!([{ "id": 3, "name": "Aspen" }, { "id": 4 }]),
+        ],
+    )
+    .await;
+    let app = app!(db);
+    let hook = create_dragonite!(app, &stub.base, Json::Null);
+    let holder_name = unique_name("areas-holder");
+    let holder = create_fence!(app, &holder_name, "quest", json!([]));
+    let (status, _) = patch!(
+        app,
+        "/api/v2/geofences",
+        holder,
+        json!({ "dragonite_links": [{ "webhook_id": hook, "dragonite_area_id": 2 }] })
+    );
+    assert_eq!(status, 200);
+    let get = |hook: u64| {
+        test::TestRequest::get()
+            .uri(&format!("/api/v2/webhooks/{hook}/areas"))
+            .to_request()
+    };
+
+    let listed = test::call_service(&app, get(hook)).await;
+    let listed_status = listed.status();
+    let listed = body_json(listed).await;
+    let jobs = Arc::new(JobQueue::new(db.clone(), "test-worker"));
+    let internal_app = test::init_service(koji_service::test_db_app_with_internal(
+        koji_db(db.clone()).await,
+        jobs,
+    ))
+    .await;
+    let internal = test::call_service(
+        &internal_app,
+        test::TestRequest::get()
+            .uri(&format!("/internal/webhooks/{hook}/areas"))
+            .to_request(),
+    )
+    .await
+    .status();
+
+    cleanup(&db, "geofence", "id", Value::from(holder)).await;
+    cleanup(&db, "webhook_subscription", "id", Value::from(hook)).await;
+    assert_eq!(listed_status, 200, "{listed}");
+    assert_eq!(internal, 200);
+    assert_eq!(
+        listed["data"],
+        json!([
+            { "id": 1, "name": "Denver", "held_by": [] },
+            {
+                "id": 2, "name": "Boulder",
+                "held_by": [{ "geofence": holder, "name": holder_name, "mode": "quest" }],
+            },
+            { "id": 3, "name": "Aspen", "held_by": [] },
+        ])
+    );
+}
+
+#[actix_web::test]
+async fn areas_refuses_a_missing_or_non_dragonite_row_and_reports_a_failed_read() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let stub = Stub::start("right", vec![json!([])]).await;
+    let app = app!(db);
+    let ping = create_hook!(app, "ping", "http://127.0.0.1:1", Json::Null, true);
+    // Same Dragonite, wrong bearer: its `401` is an upstream failure.
+    let wrong = create_dragonite!(app, &stub.base, Json::Null);
+    let status = |hook: u64| {
+        let app = &app;
+        async move {
+            test::call_service(
+                app,
+                test::TestRequest::get()
+                    .uri(&format!("/api/v2/webhooks/{hook}/areas"))
+                    .to_request(),
+            )
+            .await
+            .status()
+            .as_u16()
+        }
+    };
+
+    let not_dragonite = status(ping).await;
+    let missing = status(u64::MAX / 2).await;
+    let unreadable = status(wrong).await;
+
+    for hook in [ping, wrong] {
+        cleanup(&db, "webhook_subscription", "id", Value::from(hook)).await;
+    }
+    assert_eq!(not_dragonite, 422);
+    assert_eq!(missing, 404);
+    assert_eq!(unreadable, 502);
 }
 
 #[actix_web::test]
