@@ -1,38 +1,25 @@
 import { useEffect, useState } from "react";
-import { loadConfig } from "@api";
+import { getCachedAppConfig, loadAppConfig } from "@/lib/app-config";
 
-// Module-level cache: every map shares one /internal/config fetch, and once it
-// resolves new maps mount already-centered (no [0,0] flash on navigation).
-let cached: [number, number] | null = null;
-let inflight: Promise<[number, number]> | null = null;
+type Center = [number, number];
 
-function loadStartCenter(): Promise<[number, number]> {
-  if (cached) return Promise.resolve(cached);
-  if (!inflight) {
-    inflight = loadConfig()
-      .then((c): [number, number] => {
-        cached = [c.start_lat ?? 0, c.start_lon ?? 0];
-        return cached;
-      })
-      .catch((): [number, number] => [0, 0]); // unauth / offline → world center
-  }
-  return inflight;
-}
-
-// Warm the cache at import so the first map after login mounts centered.
-void loadStartCenter();
+// unauth / offline → world center
+const centerOf = (c: { start_lat?: number; start_lon?: number } | null): Center => [
+  c?.start_lat ?? 0,
+  c?.start_lon ?? 0,
+];
 
 /**
  * The map start center from server config (`START_LAT`/`START_LON`). Returns
  * `[0, 0]` until the config fetch resolves (or if it fails). Maps that show a
  * geometry still fit to it; this only sets the *empty* / pre-fit center.
  */
-export function useStartCenter(): [number, number] {
-  const [center, setCenter] = useState<[number, number]>(cached ?? [0, 0]);
+export function useStartCenter(): Center {
+  const [center, setCenter] = useState<Center>(() => centerOf(getCachedAppConfig()));
   useEffect(() => {
     let alive = true;
-    void loadStartCenter().then((c) => {
-      if (alive) setCenter(c);
+    void loadAppConfig().then((c) => {
+      if (alive) setCenter(centerOf(c));
     });
     return () => {
       alive = false;

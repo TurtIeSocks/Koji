@@ -1,7 +1,8 @@
 export const INTERNAL_BASE = "/internal";
 
 // OpenStreetMap standard tiles: the one public basemap that needs no API key.
-// A tile server set in Koji's config or the tile server resource overrides it.
+// `useTileUrl` prefers a tile server set in Koji's config (`TILE_SERVER`) or
+// passed by the tile server resource, and falls back to this.
 export const DEFAULT_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 
 // OSM's tile usage policy requires this credit on the map.
