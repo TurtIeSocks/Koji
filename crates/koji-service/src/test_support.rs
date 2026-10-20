@@ -300,3 +300,32 @@ pub fn test_db_app_with_internal(
         .service(web::scope("/api/v2").configure(v2_db_services))
         .service(internal::scope())
 }
+
+/// Test surface: the `/api/v1` calc shim behind the real `public_validator`
+/// bearer check, mounted exactly as `start()` does. Takes a (possibly
+/// disconnected) `KojiDb` + `JobQueue`; requests that supply their own area and
+/// data points never touch either.
+#[doc(hidden)]
+pub fn test_v1_shim_app(
+    db: koji_db::KojiDb,
+    jobs: std::sync::Arc<koji_jobs::JobQueue>,
+) -> actix_web::App<
+    impl actix_web::dev::ServiceFactory<
+        actix_web::dev::ServiceRequest,
+        Config = (),
+        Response = actix_web::dev::ServiceResponse,
+        Error = actix_web::Error,
+        InitError = (),
+    >,
+> {
+    App::new()
+        .app_data(web::Data::new(db))
+        .app_data(web::Data::from(jobs))
+        .app_data(web::JsonConfig::default().limit(1024 * 1024 * 50))
+        .wrap(test_session_middleware())
+        .service(
+            web::scope("/api/v1")
+                .wrap(HttpAuthentication::with_fn(auth::public_validator))
+                .configure(public::v1_shim::services),
+        )
+}
