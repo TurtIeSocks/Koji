@@ -34,6 +34,10 @@ use crate::utils::{
 };
 use koji_events::EventDispatcher;
 
+use koji_dragonite::DragoniteClient;
+use sea_orm::TransactionTrait;
+
+use super::geofence_link::plan_links;
 use crate::dragonite::{GeofenceUpdated, TOPIC_GEOFENCE_UPDATED, area_mode_for};
 
 /// Query args for the geometry reads: the `?format=` return-type selector (with
@@ -259,6 +263,30 @@ pub(crate) struct PatchGeofence {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(value_type = Option<Vec<Object>>)]
     pub properties: Option<Vec<serde_json::Value>>,
+    /// Dragonite Area this geofence publishes to: a number links, `null`
+    /// unlinks, omitted leaves the link as it is.
+    #[serde(deserialize_with = "present_or_null")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(value_type = Option<u32>)]
+    pub dragonite_area_id: Option<Option<u32>>,
+}
+
+/// Tell an explicit `null` from an omitted field: a present value (`null`
+/// included) becomes `Some(..)`, an omitted field stays `None` via `default`.
+fn present_or_null<'de, D, T>(de: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(de).map(Some)
+}
+
+/// Body of `POST /api/v2/geofences/link-dragonite`.
+#[derive(Debug, Default, Deserialize, ToSchema)]
+#[serde(default)]
+pub(crate) struct LinkDragonite {
+    /// Answer what would be linked without writing anything.
+    pub dry_run: bool,
 }
 
 /// `GET /api/v2/geofences` — list all geofences as a `FeatureCollection`,
@@ -458,7 +486,8 @@ async fn get_one(
 }
 
 /// `PATCH /api/v2/geofences/{id}` — update a geofence by id → `200` envelope;
-/// `404` on a missing id.
+/// `404` on a missing id. `dragonite_area_id` links the geofence to a Dragonite
+/// Area (a number) or unlinks it (`null`).
 #[utoipa::path(
     patch,
     path = "/api/v2/geofences/{id}",
@@ -477,6 +506,7 @@ async fn update(
     body: web::Json<PatchGeofence>,
 ) -> Result<HttpResponse, ServiceError> {
     let id = path.into_inner();
+    let dragonite_area_id = body.dragonite_area_id;
     // Fetch existing row — 404 on missing (also supplies the base for the merge).
     let existing = geofence::Query::get_one(&conn.koji, id.to_string())
         .await
@@ -500,7 +530,12 @@ async fn update(
     } else {
         vec![]
     };
-    let record = geofence::Query::upsert_json_return(&conn.koji, id, merged).await?;
+    let mut record = geofence::Query::upsert_json_return(&conn.koji, id, merged).await?;
+    // The upsert leaves the Dragonite link alone; a link in the body is its own write.
+    if let Some(link) = dragonite_area_id {
+        geofence::Query::set_dragonite_area_id(&conn.koji, id, link).await?;
+        record["dragonite_area_id"] = json!(link);
+    }
     for (t, ev) in crate::internal::realtime::topics::updated("geofence", id as i64, record.clone())
     {
         hub.publish(&t, ev);
@@ -594,6 +629,67 @@ async fn remove(
         hub.publish(&t, ev);
     }
     Ok(HttpResponse::build(StatusCode::NO_CONTENT).finish())
+}
+
+/// `POST /api/v2/geofences/link-dragonite` — link geofences to Dragonite Areas
+/// by name.
+///
+/// Reads every Area from Dragonite and links each to the geofences with exactly
+/// its name, in every mode. A geofence already linked to a different Area keeps
+/// its link and is reported as a conflict. The answer lists what was linked,
+/// what already was, the conflicts, the Areas no geofence is named after and the
+/// unlinked geofences no Area is named after. `dry_run` writes nothing and
+/// answers the same lists.
+#[utoipa::path(
+    post,
+    path = "/api/v2/geofences/link-dragonite",
+    tag = "geofences",
+    request_body = LinkDragonite,
+    responses(
+        (status = 200, description = "The link plan: `linked`, `already_linked`, `conflicts`, `areas_without_geofence`, `geofences_without_area`", body = Object),
+        (status = 422, description = "Dragonite is not configured", body = ApiError),
+        (status = 502, description = "Dragonite could not be read", body = ApiError),
+    ),
+)]
+async fn link_dragonite(
+    conn: web::Data<KojiDb>,
+    dragonite: web::Data<Option<DragoniteClient>>,
+    body: web::Json<LinkDragonite>,
+) -> Result<HttpResponse, ServiceError> {
+    let Some(client) = dragonite.get_ref() else {
+        return Err(ServiceError::Unprocessable {
+            field: Some("dragonite".to_string()),
+            message: "Dragonite is not configured (DRAGONITE_URL and DRAGONITE_BEARER)".to_string(),
+        });
+    };
+    let areas = client
+        .list_areas()
+        .await
+        .map_err(|e| ServiceError::Upstream {
+            field: "dragonite",
+            message: format!("could not read Dragonite areas: {e}"),
+        })?;
+    let rows = geofence::Query::link_rows(&conn.koji).await?;
+    let plan = plan_links(&areas, &rows);
+
+    if !body.dry_run {
+        let mut by_area: std::collections::BTreeMap<u32, Vec<u32>> = Default::default();
+        for linked in &plan.linked {
+            by_area
+                .entry(linked.dragonite_area_id)
+                .or_default()
+                .push(linked.geofence);
+        }
+        let txn = conn.koji.begin().await?;
+        for (area_id, geofence_ids) in &by_area {
+            geofence::Query::link_unlinked_to_area(&txn, *area_id, geofence_ids).await?;
+        }
+        txn.commit().await?;
+    }
+
+    let mut answer = serde_json::to_value(&plan).map_err(ServiceError::internal)?;
+    answer["dry_run"] = json!(body.dry_run);
+    Ok(ApiResponse::success(answer))
 }
 
 /// `POST /api/v2/geofences/{id}/publish` — publish a geofence's fence to its
@@ -726,6 +822,7 @@ pub(crate) async fn internal_get_one(
 /// caller's parent scope (`/internal`) contributes the full path prefix.
 pub(crate) fn internal_item_scope() -> actix_web::Scope {
     web::scope("/geofences")
+        .service(web::resource("/link-dragonite").route(web::post().to(link_dragonite)))
         .service(web::resource("/{id}/publish").route(web::post().to(publish)))
         .service(
             web::resource("/{id}/golbat-data")
@@ -750,6 +847,7 @@ pub(crate) fn scope() -> actix_web::Scope {
                 .route(web::get().to(list))
                 .route(web::post().to(create)),
         )
+        .service(web::resource("/link-dragonite").route(web::post().to(link_dragonite)))
         .service(web::resource("/{id}/publish").route(web::post().to(publish)))
         // golbat-data as a geofence sub-resource (architecture §4.5): the
         // category's golbat points within the path `{id}` geofence. The handler
@@ -947,6 +1045,22 @@ mod tests {
         assert!(dto.parent.is_none());
         assert!(dto.projects.is_none());
         assert!(dto.properties.is_none());
+        assert_eq!(dto.dragonite_area_id, None);
+    }
+
+    #[test]
+    fn patch_geofence_tells_a_link_from_an_unlink_from_no_change() {
+        let link = |v: serde_json::Value| {
+            serde_json::from_value::<PatchGeofence>(v)
+                .unwrap()
+                .dragonite_area_id
+        };
+        assert_eq!(link(json!({ "dragonite_area_id": 12 })), Some(Some(12)));
+        assert_eq!(link(json!({ "dragonite_area_id": null })), Some(None));
+        assert_eq!(link(json!({ "name": "x" })), None);
+        assert!(
+            serde_json::from_value::<PatchGeofence>(json!({ "dragonite_area_id": -1 })).is_err()
+        );
     }
 
     #[test]

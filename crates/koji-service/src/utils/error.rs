@@ -40,6 +40,13 @@ pub(crate) enum ServiceError {
         field: Option<String>,
         message: String,
     },
+    /// A call to an upstream service (Dragonite) failed: 502, with the upstream
+    /// detail in the message.
+    #[error("{message}")]
+    Upstream {
+        field: &'static str,
+        message: String,
+    },
     #[error(transparent)]
     Db(#[from] DbErr),
     #[error(transparent)]
@@ -145,6 +152,11 @@ impl ServiceError {
                 field.clone(),
                 message.clone(),
             ),
+            ServiceError::Upstream { field, message } => (
+                StatusCode::BAD_GATEWAY,
+                Some((*field).to_string()),
+                message.clone(),
+            ),
             ServiceError::Db(e) => {
                 log::error!("service db error: {e}");
                 (
@@ -206,6 +218,18 @@ mod tests {
         assert_eq!(err.code, "not_found");
         assert_eq!(err.field.as_deref(), Some("geofence"));
         assert_eq!(err.message, "no geofence 7");
+    }
+
+    #[test]
+    fn upstream_maps_to_502_with_its_detail() {
+        let (status, err) = ServiceError::Upstream {
+            field: "dragonite",
+            message: "Dragonite answered 401: bad token".into(),
+        }
+        .to_api_error();
+        assert_eq!(status, StatusCode::BAD_GATEWAY);
+        assert_eq!(err.field.as_deref(), Some("dragonite"));
+        assert_eq!(err.message, "Dragonite answered 401: bad token");
     }
 
     #[test]

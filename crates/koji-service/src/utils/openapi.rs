@@ -29,6 +29,7 @@ use utoipa::OpenApi;
         crate::public::v2::geofences::update,
         crate::public::v2::geofences::remove,
         crate::public::v2::geofences::publish,
+        crate::public::v2::geofences::link_dragonite,
         // routes
         crate::public::v2::routes::list,
         crate::public::v2::routes::create,
@@ -109,6 +110,7 @@ use utoipa::OpenApi;
         // geofences / routes DTOs
         crate::public::v2::geofences::CreateGeofence,
         crate::public::v2::geofences::PatchGeofence,
+        crate::public::v2::geofences::LinkDragonite,
         crate::public::v2::routes::CreateRoute,
         crate::public::v2::routes::PatchRoute,
         // typed CRUD resource DTOs (macro-generated)
@@ -173,6 +175,7 @@ mod tests {
             "/api/v2/algorithms",
             "/api/v2/geofences",
             "/api/v2/geofences/{id}",
+            "/api/v2/geofences/link-dragonite",
             "/api/v2/routes",
             "/api/v2/projects",
             "/api/v2/geometry/convert",
