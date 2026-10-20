@@ -91,6 +91,7 @@ impl Model {
             name: Some(self.name.clone()),
             mode: self.mode.into(),
             parent_id: None,
+            parent_name: None,
             ancestors: Vec::new(),
             extra,
         };

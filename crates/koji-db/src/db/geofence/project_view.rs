@@ -190,10 +190,7 @@ impl Query {
             .all(db)
             .await?;
 
-        items
-            .iter()
-            .map(|item| item.to_koji_geometry())
-            .collect::<Result<KojiGeometryCollection, ModelError>>()
+        Query::koji_collection(db, items).await
     }
 
     pub async fn unique_parents(db: &DatabaseConnection) -> Result<Vec<Json>, ModelError> {
