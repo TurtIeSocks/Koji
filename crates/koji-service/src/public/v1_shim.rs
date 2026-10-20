@@ -161,7 +161,16 @@ impl ResponseError for V1Error {
 }
 
 /// Render a `{ data, stats }` compute result as v1's success envelope.
-fn envelope(result: Value, return_type: ReturnTypeArg) -> Result<HttpResponse, ServiceError> {
+///
+/// A bootstrap that yields no points means the area had nothing to fill (no
+/// polygon), not that the area is empty: reporting that as a 200 would have
+/// Dragonite replace its route with an empty one. A route over an area with no
+/// points is a legitimate empty result and stays a 200.
+fn envelope(
+    result: Value,
+    op: &str,
+    return_type: ReturnTypeArg,
+) -> Result<HttpResponse, ServiceError> {
     let Value::Object(mut result) = result else {
         return Err(ServiceError::internal("calc result is not an object"));
     };
@@ -170,9 +179,21 @@ fn envelope(result: Value, return_type: ReturnTypeArg) -> Result<HttpResponse, S
     if data.is_null() {
         return Err(ServiceError::internal("calc produced no data"));
     }
-    let collection: FeatureCollection = serde_json::from_value(data).map_err(ServiceError::internal)?;
-    let collection = KojiGeometryCollection::try_from(collection).map_err(ServiceError::internal)?;
-    Ok(HttpResponse::Ok().json(V1Response::ok(response_body(&collection, return_type), stats)))
+    let collection: FeatureCollection =
+        serde_json::from_value(data).map_err(ServiceError::internal)?;
+    let collection =
+        KojiGeometryCollection::try_from(collection).map_err(ServiceError::internal)?;
+    if op == "bootstrap" && collection.to_single_vec().is_empty() {
+        return Err(ServiceError::Unprocessable {
+            field: Some("area".to_string()),
+            message: "bootstrap produced no points; the area needs a Polygon or MultiPolygon"
+                .to_string(),
+        });
+    }
+    Ok(HttpResponse::Ok().json(V1Response::ok(
+        response_body(&collection, return_type),
+        stats,
+    )))
 }
 
 async fn run(
@@ -190,7 +211,7 @@ async fn run(
     };
     let payload = resolve_calc_payload(conn, op, category, &request).await?;
     let result = compute_inline(jobs, payload).await?;
-    Ok(envelope(result, return_type)?)
+    Ok(envelope(result, op, return_type)?)
 }
 
 #[post("/bootstrap")]

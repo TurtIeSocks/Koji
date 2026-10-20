@@ -87,7 +87,10 @@ async fn post(uri: &str, token: &str, body: &Value) -> (u16, Value) {
     let resp = test::call_service(&app, req).await;
     let status = resp.status().as_u16();
     let bytes = test::read_body(resp).await;
-    (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
 }
 
 fn assert_lat_lon_pairs(data: &Value) {
@@ -143,4 +146,160 @@ async fn bootstrap_returns_v1_envelope_with_lat_lon_pairs() {
     let (status, v) = post("/api/v1/calc/bootstrap", TOKEN, &body).await;
     assert_envelope(status, &v);
     assert_lat_lon_pairs(&v["data"]);
+}
+
+/// A grid of points inside `area()`, as `[[lat, lon], ...]`.
+fn data_points() -> Value {
+    let mut pts = vec![];
+    for i in 0..5 {
+        for j in 0..5 {
+            pts.push(json!([
+                51.501 + i as f64 * 0.002,
+                -0.004 + j as f64 * 0.002
+            ]));
+        }
+    }
+    Value::Array(pts)
+}
+
+fn route_body() -> Value {
+    json!({
+        "instance": "london",
+        "radius": 70,
+        "min_points": 1,
+        "data_points": data_points(),
+        "area": area(),
+        "return_type": "single_array",
+        "calculation_mode": "radius",
+        "s2_level": 15,
+        "s2_size": 9,
+        "cluster_mode": "fast",
+        "center_clusters": false,
+        "sort_by": "tsp"
+    })
+}
+
+#[actix_web::test]
+async fn route_pokestop_returns_v1_envelope_with_lat_lon_pairs() {
+    let _s = Secret::set(TOKEN);
+    let (status, v) = post("/api/v1/calc/route/pokestop", TOKEN, &route_body()).await;
+    assert_envelope(status, &v);
+    assert_lat_lon_pairs(&v["data"]);
+    assert_eq!(v["stats"]["total_points"], 25);
+}
+
+#[actix_web::test]
+async fn route_spawnpoint_returns_v1_envelope_with_lat_lon_pairs() {
+    let _s = Secret::set(TOKEN);
+    let (status, v) = post("/api/v1/calc/route/spawnpoint", TOKEN, &route_body()).await;
+    assert_envelope(status, &v);
+    assert_lat_lon_pairs(&v["data"]);
+}
+
+#[actix_web::test]
+async fn route_fort_returns_v1_envelope_with_lat_lon_pairs() {
+    let _s = Secret::set(TOKEN);
+    let (status, v) = post("/api/v1/calc/route/fort", TOKEN, &route_body()).await;
+    assert_envelope(status, &v);
+    assert_lat_lon_pairs(&v["data"]);
+}
+
+#[actix_web::test]
+async fn health_is_200_with_a_valid_token() {
+    let _s = Secret::set(TOKEN);
+    let app = test::init_service(app()).await;
+    let req = test::TestRequest::get()
+        .uri("/api/v1/health")
+        .insert_header(("Authorization", format!("Bearer {TOKEN}")))
+        .to_request();
+    assert_eq!(test::call_service(&app, req).await.status(), 200);
+}
+
+#[actix_web::test]
+async fn bad_token_is_401_on_every_route() {
+    let _s = Secret::set(TOKEN);
+    let app = test::init_service(app()).await;
+    for (method, uri) in [
+        ("GET", "/api/v1/health"),
+        ("POST", "/api/v1/calc/bootstrap"),
+        ("POST", "/api/v1/calc/route/pokestop"),
+    ] {
+        let req = match method {
+            "GET" => test::TestRequest::get(),
+            _ => test::TestRequest::post().set_json(route_body()),
+        }
+        .uri(uri)
+        .insert_header(("Authorization", "Bearer wrong"))
+        .to_request();
+        assert_eq!(test::call_service(&app, req).await.status(), 401, "{uri}");
+    }
+}
+
+#[actix_web::test]
+async fn missing_token_is_401() {
+    let _s = Secret::set(TOKEN);
+    let app = test::init_service(app()).await;
+    let req = test::TestRequest::post()
+        .uri("/api/v1/calc/route/pokestop")
+        .set_json(route_body())
+        .to_request();
+    assert_eq!(test::call_service(&app, req).await.status(), 401);
+}
+
+/// Dragonite overwrites the route on a 200 with null `data`, so a failure must be
+/// a non-200 carrying v1's error envelope.
+fn assert_failure(status: u16, v: &Value) {
+    assert!(status >= 400, "failure must be non-200, got {status}: {v}");
+    assert_eq!(v["status"], "error");
+    assert_eq!(v["status_code"], status);
+    assert!(v["data"].is_null());
+    assert!(v["message"].as_str().is_some_and(|m| !m.is_empty()));
+}
+
+#[actix_web::test]
+async fn no_area_instance_or_points_is_a_400_not_a_200() {
+    let _s = Secret::set(TOKEN);
+    let (status, v) = post("/api/v1/calc/route/pokestop", TOKEN, &json!({"radius": 70})).await;
+    assert_eq!(status, 400);
+    assert_failure(status, &v);
+}
+
+#[actix_web::test]
+async fn failed_bootstrap_calc_is_non_200() {
+    let _s = Secret::set(TOKEN);
+    // A point is not a bootstrappable area.
+    let body = json!({
+        "radius": 70,
+        "area": {"type": "FeatureCollection", "features": [{
+            "type": "Feature", "properties": {},
+            "geometry": {"type": "Point", "coordinates": [0.0, 51.5]}
+        }]}
+    });
+    let (status, v) = post("/api/v1/calc/bootstrap", TOKEN, &body).await;
+    assert_failure(status, &v);
+}
+
+#[actix_web::test]
+async fn malformed_body_is_a_400_in_the_v1_envelope() {
+    let _s = Secret::set(TOKEN);
+    let app = test::init_service(app()).await;
+    let req = test::TestRequest::post()
+        .uri("/api/v1/calc/route/pokestop")
+        .insert_header(("Authorization", format!("Bearer {TOKEN}")))
+        .insert_header(("content-type", "application/json"))
+        .set_payload("{not json")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    let status = resp.status().as_u16();
+    let v: Value = serde_json::from_slice(&test::read_body(resp).await).unwrap();
+    assert_eq!(status, 400);
+    assert_failure(status, &v);
+}
+
+#[actix_web::test]
+async fn unknown_category_is_a_400() {
+    let _s = Secret::set(TOKEN);
+    let (status, v) = post("/api/v1/calc/route/bogus", TOKEN, &route_body()).await;
+    assert_eq!(status, 400);
+    assert_failure(status, &v);
 }
