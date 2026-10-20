@@ -14,7 +14,9 @@ import { geometryBounds } from "@/components/deck/bounds";
 import { padBbox, useNeighborOverlay } from "@/components/deck/use-neighbor-overlay";
 import { Button } from "@/components/ui/button";
 import type { ShowProps } from "@/components/admin/views/show";
-import { useRecordContext } from "ra-core";
+import { EditButton } from "@/components/admin/buttons/edit-button";
+import { PublishButton } from "@/components/actions/publish-button";
+import { useRecordContext, useResourceDefinition } from "ra-core";
 
 const NewRouteButton = () => {
   const record = useRecordContext();
@@ -25,6 +27,17 @@ const NewRouteButton = () => {
       label="New route"
       state={{ record: { geofence_id: record.id } }}
     />
+  );
+};
+
+// The default show actions (Edit) plus Publish, which asks before it sends.
+const GeofenceShowActions = () => {
+  const { hasEdit } = useResourceDefinition();
+  return (
+    <div className="flex justify-end items-center gap-2">
+      <PublishButton />
+      {hasEdit ? <EditButton /> : null}
+    </div>
   );
 };
 
@@ -61,7 +74,7 @@ const FenceMapField = () => {
 };
 
 export const GeofenceShow = (props: Pick<ShowProps, "id">) => (
-  <ShowLive {...props}>
+  <ShowLive {...props} actions={<GeofenceShowActions />}>
     <div className="flex flex-col gap-4 p-4">
       <div className="flex flex-col gap-2">
         <TextField source="name" />
