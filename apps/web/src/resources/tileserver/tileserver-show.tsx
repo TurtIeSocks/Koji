@@ -4,11 +4,10 @@ import { DeckMap } from "@/components/deck";
 import { useStartCenter } from "@/lib/use-start-center";
 import type { ShowProps } from "@/components/admin/views/show";
 import { useRecordContext } from "shadmin-core";
-import { DEFAULT_TILE_URL } from "@/lib/constants";
 
 function TileserverMapPreview() {
   const record = useRecordContext<{ url?: string }>();
-  const tileUrl = record?.url ?? DEFAULT_TILE_URL;
+  const tileUrl = record?.url;
   const [lat, lon] = useStartCenter();
   return (
     <DeckMap

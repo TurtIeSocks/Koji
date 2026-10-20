@@ -234,3 +234,18 @@ not introduced by this work) — deferred to CI's `@stable` rustfmt.
 Follow-on (UI + docs) is a separate plan: the admin `webhooks` resource page,
 project-show webhooks section, project-form field removal, and the
 `apps/web-docs` integrations rewrite (§7–8) are not in this backend branch.
+
+## 12. Open todos (2026-10-20)
+
+Not scheduled yet. Recorded here so they aren't lost.
+
+- Project PATCH carrying `geofences` emits `project.geofences_changed`
+  (the deferral in §11), so reload pings fire on a bulk assign from the
+  project page.
+- The `apps/web-docs` integrations rewrite (§8): webhook recipes for each
+  scanner and map consumer replace the
+  `api_endpoint`/`api_key` ones.
+- `ancestors=N` on project reads, the mirror of `descendants=N`: add the
+  parents of the selected fences N levels up, with `ancestor_modes` if a
+  consumer needs it. No consumer needs parent shapes yet; `parent_name`
+  covers names.
