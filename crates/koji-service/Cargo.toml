@@ -27,7 +27,7 @@ actix-session      = { workspace = true }
 actix-web-httpauth = { workspace = true }
 actix-ws           = { workspace = true }
 futures-util       = { workspace = true }
-tokio              = { workspace = true, features = ["sync"] }
+tokio              = { workspace = true, features = ["sync", "time"] }
 algorithms         = { workspace = true, features = ["native"] }
 async-trait        = { workspace = true }
 geo                = { workspace = true }

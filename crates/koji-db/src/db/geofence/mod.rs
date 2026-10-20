@@ -119,6 +119,15 @@ pub struct GeofenceLinkRow {
     pub dragonite_area_id: Option<u32>,
 }
 
+/// A geofence's id, name and mode: what a publish plan lists, read without the
+/// geometry.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, FromQueryResult)]
+pub struct GeofenceSummary {
+    pub id: u32,
+    pub name: String,
+    pub mode: Mode,
+}
+
 #[derive(Serialize, Deserialize, FromQueryResult)]
 pub(crate) struct OnlyParent {
     pub parent: Option<u32>,

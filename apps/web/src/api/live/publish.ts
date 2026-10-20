@@ -1,6 +1,6 @@
-import { internalFetch } from "@/lib/http";
+import { internalFetch, unwrapResponse } from "@/lib/http";
 import { segFor } from "./data-provider";
-import type { PublishResult } from "../types";
+import type { PublishPlan, PublishResult } from "../types";
 
 /**
  * POST /internal/{seg}/{id}/publish for one record.
@@ -33,4 +33,20 @@ export async function publishRecord(
     return { ok: false, warning: false, message: `Publish failed (${res.status})` };
   }
   return { ok: true, warning: false, message: "Published" };
+}
+
+/**
+ * POST /internal/geofences/publish for `ids`. With `dryRun` the server answers
+ * the writes and skipped geofences and sends nothing; without it, it sends
+ * the same plan. Throws on a non-2xx.
+ */
+export async function publishGeofences(
+  ids: Array<string | number>,
+  opts: { dryRun: boolean },
+): Promise<PublishPlan> {
+  const res = await internalFetch("/geofences/publish", {
+    method: "POST",
+    body: JSON.stringify({ ids: ids.map(Number), dry_run: opts.dryRun }),
+  });
+  return unwrapResponse<PublishPlan>(res);
 }

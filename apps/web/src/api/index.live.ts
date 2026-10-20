@@ -17,5 +17,5 @@ export {
   fetchGeofencesByIds,
 } from "./live/geo-features";
 export { postConvert, postImport } from "./live/import";
-export { publishRecord } from "./live/publish";
+export { publishGeofences, publishRecord } from "./live/publish";
 export { testWebhook } from "./live/webhook-test";

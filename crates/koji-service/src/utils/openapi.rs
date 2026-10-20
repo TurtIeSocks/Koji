@@ -29,6 +29,7 @@ use utoipa::OpenApi;
         crate::public::v2::geofences::update,
         crate::public::v2::geofences::remove,
         crate::public::v2::geofences::publish,
+        crate::public::v2::geofences::publish_many,
         crate::public::v2::geofences::link_dragonite,
         // routes
         crate::public::v2::routes::list,
@@ -112,6 +113,7 @@ use utoipa::OpenApi;
         crate::public::v2::geofences::PatchGeofence,
         crate::public::v2::geofences::DragoniteLinkChange,
         crate::public::v2::geofences::LinkDragonite,
+        crate::public::v2::geofences::PublishGeofences,
         crate::public::v2::routes::CreateRoute,
         crate::public::v2::routes::PatchRoute,
         // typed CRUD resource DTOs (macro-generated)

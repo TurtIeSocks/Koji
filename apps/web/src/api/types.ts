@@ -34,6 +34,37 @@ export interface PublishResult {
   message: string;
 }
 
+/** One geofence going to one Dragonite Area (POST /geofences/publish). */
+export interface PublishWrite {
+  geofence: number;
+  name: string;
+  mode: string;
+  webhook_id: number;
+  webhook_name: string;
+  dragonite_area_id: number;
+  /** Set once the write is queued; absent on a dry run. */
+  event_id?: string;
+}
+
+export type PublishSkipReason = "not_found" | "no_target" | "no_link";
+
+/** A geofence a publish sends nothing for. */
+export interface PublishSkip {
+  geofence: number;
+  /** Null for an id with no geofence. */
+  name: string | null;
+  mode: string | null;
+  reason: PublishSkipReason;
+  message: string;
+}
+
+/** What POST /geofences/publish writes (or, on a dry run, would write). */
+export interface PublishPlan {
+  dry_run: boolean;
+  writes: PublishWrite[];
+  skipped: PublishSkip[];
+}
+
 export interface WebhookTestResult {
   delivered: boolean;
   upstream_status: number | null;
@@ -107,6 +138,12 @@ export interface ApiSurface {
   postImport: typeof import("./live/import").postImport;
   postConvert: typeof import("./live/import").postConvert;
   publishRecord: (resource: string, id: string | number) => Promise<PublishResult>;
+  /** Dry run: the writes and skipped geofences for `ids`, nothing sent.
+   *  Otherwise sends those writes and answers them with their event ids. */
+  publishGeofences: (
+    ids: Array<string | number>,
+    opts: { dryRun: boolean },
+  ) => Promise<PublishPlan>;
   testWebhook: (id: string | number) => Promise<WebhookTestResult>;
   /** Demo only; no-op in live. */
   resetDemo: () => Promise<void>;

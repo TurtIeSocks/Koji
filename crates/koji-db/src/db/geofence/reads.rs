@@ -13,6 +13,28 @@ use super::*;
 use serde_json::json;
 
 impl Query {
+    /// The id, name and mode of each geofence in `ids` that exists, by id.
+    /// Ids with no row are left out.
+    pub async fn summaries<C: ConnectionTrait>(
+        db: &C,
+        ids: &[u32],
+    ) -> Result<Vec<GeofenceSummary>, DbErr> {
+        let mut found = Vec::with_capacity(ids.len());
+        for chunk in ids.chunks(5_000) {
+            found.extend(
+                Entity::find()
+                    .select_only()
+                    .columns([Column::Id, Column::Name, Column::Mode])
+                    .filter(Column::Id.is_in(chunk.iter().copied()))
+                    .order_by_asc(Column::Id)
+                    .into_model::<GeofenceSummary>()
+                    .all(db)
+                    .await?,
+            );
+        }
+        Ok(found)
+    }
+
     /// Recursive descendants walk (Phase 2 §7): from `anchor` (a single root by
     /// id/name, or the whole forest = `parent IS NULL`), return a flat
     /// [`KojiGeometryCollection`] of geofences per `spec` — either the cumulative

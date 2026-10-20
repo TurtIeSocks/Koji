@@ -38,9 +38,10 @@ use koji_db::db::{
     sea_orm_active_enums::Mode,
     webhook,
 };
-use sea_orm::{EntityTrait, TransactionTrait};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, TransactionTrait};
 
 use super::geofence_link::plan_links;
+use super::publish_plan::plan_publish;
 use crate::dragonite::{
     GeofenceUpdated, TOPIC_GEOFENCE_UPDATED, area_mode_for, client_for, linked_targets, publish_to,
 };
@@ -328,6 +329,16 @@ pub(crate) struct LinkDragonite {
     /// considered.
     pub webhook_id: u64,
     /// Answer what would be linked without writing anything.
+    #[serde(default)]
+    pub dry_run: bool,
+}
+
+/// Body of `POST /api/v2/geofences/publish`.
+#[derive(Debug, Deserialize, ToSchema)]
+pub(crate) struct PublishGeofences {
+    /// The geofences to publish, by id.
+    pub ids: Vec<u32>,
+    /// Answer the writes and the skipped geofences without sending anything.
     #[serde(default)]
     pub dry_run: bool,
 }
@@ -829,6 +840,135 @@ pub(super) async fn dragonite_target(
     Ok(target)
 }
 
+/// `POST /api/v2/geofences/publish` — publish several geofences, or preview it.
+///
+/// Plans first: each geofence in `ids` is written to every active Dragonite
+/// webhook that reaches it and holds a link for it ([`plan_publish`]), and a
+/// geofence that sends nothing is listed in `skipped` with the reason (`not_found`,
+/// `no_target`: no webhook reaches it, `no_link`: the ones that do hold no link).
+/// `dry_run` answers `200 { dry_run, writes, skipped }` and sends nothing. Without
+/// it the same plan is sent, one [`area.geofence_updated`](TOPIC_GEOFENCE_UPDATED)
+/// event per write, and the answer is `202` with the same lists, each write
+/// carrying its `event_id`. Skipped geofences are not an error.
+#[utoipa::path(
+    post,
+    path = "/api/v2/geofences/publish",
+    tag = "geofences",
+    request_body = PublishGeofences,
+    responses(
+        (status = 200, description = "Dry run: `{ dry_run, writes, skipped }`, nothing sent", body = Object),
+        (status = 202, description = "Events enqueued: `{ dry_run, writes, skipped }`, each write with its `event_id`", body = Object),
+    ),
+)]
+pub(crate) async fn publish_many(
+    conn: web::Data<KojiDb>,
+    body: web::Json<PublishGeofences>,
+) -> Result<HttpResponse, ServiceError> {
+    let ids = &body.ids;
+    let geofences = geofence::Query::summaries(&conn.koji, ids).await?;
+    let found = dragonite_link::Query::publish_targets_for(&conn.koji, ids).await?;
+    let mut plan = plan_publish(ids, &geofences, &found);
+
+    if body.dry_run {
+        name_areas(&mut plan, &found).await;
+        return Ok(publish_plan_response(StatusCode::OK, true, &plan));
+    }
+
+    // Send exactly the planned writes, a batch of fences at a time so their
+    // geometries are not all held at once.
+    let mut sendable: Vec<u32> = plan.writes.iter().map(|w| w.geofence).collect();
+    sendable.dedup();
+    for batch in sendable.chunks(100) {
+        let models = geofence::Entity::find()
+            .filter(geofence::Column::Id.is_in(batch.iter().copied()))
+            .all(&conn.koji)
+            .await?;
+        for model in models {
+            let Some(targets) = found.get(&model.id) else {
+                continue;
+            };
+            let template = geofence_updated(&model).map_err(ServiceError::internal)?;
+            let events = publish_to(
+                &conn.koji,
+                TOPIC_GEOFENCE_UPDATED,
+                &targets.linked,
+                |target, link| GeofenceUpdated {
+                    webhook_id: target.id,
+                    dragonite_area_id: link.dragonite_area_id as i64,
+                    ..template.clone()
+                },
+            )
+            .await?;
+            for event in events.as_array().into_iter().flatten() {
+                let (webhook_id, event_id) =
+                    (event["webhook_id"].as_u64(), event["event_id"].as_str());
+                if let Some(write) = plan
+                    .writes
+                    .iter_mut()
+                    .find(|w| w.geofence == model.id && Some(w.webhook_id) == webhook_id)
+                {
+                    write.event_id = event_id.map(str::to_string);
+                }
+            }
+        }
+    }
+    Ok(publish_plan_response(StatusCode::ACCEPTED, false, &plan))
+}
+
+/// How long a dry run waits for one Dragonite to list its Areas.
+const AREA_NAMES_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// Fill each write's `dragonite_area_name` from the Areas its Dragonite lists.
+/// Best effort: a Dragonite that errors or is slow leaves its names `None`, so
+/// a preview never fails on an unreachable Dragonite.
+async fn name_areas(
+    plan: &mut super::publish_plan::PublishPlan,
+    found: &std::collections::HashMap<u32, koji_db::db::dragonite_link::PublishTargets>,
+) {
+    let mut targets: std::collections::BTreeMap<u64, &webhook::Model> = Default::default();
+    for write in &plan.writes {
+        if let Some(target) = found
+            .get(&write.geofence)
+            .and_then(|t| t.linked.iter().find(|(t, _)| t.id == write.webhook_id))
+        {
+            targets.entry(write.webhook_id).or_insert(&target.0);
+        }
+    }
+    let listed = futures_util::future::join_all(targets.values().map(|target| async move {
+        let areas = tokio::time::timeout(AREA_NAMES_TIMEOUT, client_for(target).list_areas())
+            .await
+            .ok()
+            .and_then(Result::ok)
+            .unwrap_or_default();
+        (target.id, areas)
+    }))
+    .await;
+    let names: std::collections::HashMap<(u64, i64), String> = listed
+        .into_iter()
+        .flat_map(|(webhook_id, areas)| {
+            areas
+                .into_iter()
+                .filter_map(move |a| Some(((webhook_id, a.id?), a.name?)))
+        })
+        .collect();
+    for write in &mut plan.writes {
+        write.dragonite_area_name = names
+            .get(&(write.webhook_id, i64::from(write.dragonite_area_id)))
+            .cloned();
+    }
+}
+
+fn publish_plan_response(
+    status: StatusCode,
+    dry_run: bool,
+    plan: &super::publish_plan::PublishPlan,
+) -> HttpResponse {
+    ApiResponse::success_with_status(
+        status,
+        json!({ "dry_run": dry_run, "writes": plan.writes, "skipped": plan.skipped }),
+    )
+}
+
 /// `POST /api/v2/geofences/{id}/publish` — publish a geofence's fence to its
 /// linked Dragonite areas.
 ///
@@ -970,6 +1110,13 @@ pub(crate) fn internal_item_scope() -> actix_web::Scope {
                 .guard(actix_web::guard::Post())
                 .route(web::post().to(link_dragonite)),
         )
+        // Guarded to POST so other methods fall through to `/{id}`: a geofence
+        // named "publish" stays reachable by name.
+        .service(
+            web::resource("/publish")
+                .guard(actix_web::guard::Post())
+                .route(web::post().to(publish_many)),
+        )
         .service(web::resource("/{id}/publish").route(web::post().to(publish)))
         .service(
             web::resource("/{id}/golbat-data")
@@ -1000,6 +1147,13 @@ pub(crate) fn scope() -> actix_web::Scope {
             web::resource("/link-dragonite")
                 .guard(actix_web::guard::Post())
                 .route(web::post().to(link_dragonite)),
+        )
+        // Guarded to POST so other methods fall through to `/{id}`: a geofence
+        // named "publish" stays reachable by name.
+        .service(
+            web::resource("/publish")
+                .guard(actix_web::guard::Post())
+                .route(web::post().to(publish_many)),
         )
         .service(web::resource("/{id}/publish").route(web::post().to(publish)))
         // golbat-data as a geofence sub-resource (architecture §4.5): the
