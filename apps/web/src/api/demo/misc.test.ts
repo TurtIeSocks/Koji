@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { publishGeofences } from "./misc";
-import { allRows, putRow } from "./db";
+import { allRows, deleteRow, putRow } from "./db";
 import { resetDemoWorld } from "./seeds/seed";
 
 const dragonite = async (id: number, projectId: number | null, active = true) =>
@@ -24,6 +24,8 @@ describe("demo publishGeofences", () => {
 
   it("skips a geofence no Dragonite reaches, a missing id, and writes nothing", async () => {
     const [fence] = await allRows("geofences");
+    // The seed's "Demo Dragonite" (id 2) covers every geofence.
+    await deleteRow("webhooks", 2);
     const plan = await publishGeofences([fence.id, 999_999], { dryRun: true });
 
     expect(plan.dry_run).toBe(true);

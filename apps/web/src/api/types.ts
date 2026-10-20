@@ -125,6 +125,21 @@ export interface LinkDragonitePlan {
   geofences_without_area: UnmatchedGeofence[];
 }
 
+/** A geofence holding a Dragonite Area on one target. */
+export interface WebhookAreaHolder {
+  geofence: number;
+  name: string;
+  mode: string;
+}
+
+/** One Area of a Dragonite target (`GET /webhooks/{id}/areas`), with the
+ *  geofences linked to it on that target, whatever their mode. */
+export interface WebhookArea {
+  id: number;
+  name: string;
+  held_by: WebhookAreaHolder[];
+}
+
 /** Spawnpoint tth filter accepted by the golbat-data markers endpoint. */
 export type TthFilter = "All" | "Known" | "Unknown";
 
@@ -199,6 +214,7 @@ export interface ApiSurface {
     opts: { dryRun: boolean; writes?: PublishWrite[] },
   ) => Promise<PublishPlan>;
   testWebhook: (id: string | number) => Promise<WebhookTestResult>;
+  listWebhookAreas: (id: string | number) => Promise<WebhookArea[]>;
   linkDragonite: (
     webhookId: string | number,
     options: { dryRun: boolean },

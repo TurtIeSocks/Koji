@@ -30,6 +30,7 @@ export {
   resetDemo,
   testWebhook,
 } from "./demo/misc";
+export { listWebhookAreas } from "./demo/webhook-areas";
 export { linkDragonite } from "./demo/webhook-link";
 
 // The in-memory realtime bus + the wasm-worker-backed calc facade. `useCalc`

@@ -172,6 +172,20 @@ function buildWebhookRows(): WebhookRow[] {
       created_at: FIXED_ISO,
       updated_at: FIXED_ISO,
     },
+    {
+      id: 2,
+      name: "Demo Dragonite",
+      url: "https://dragonite.example",
+      secret: null,
+      topics: [],
+      active: true,
+      project_id: null,
+      mode: "dragonite",
+      method: "POST",
+      headers: null,
+      created_at: FIXED_ISO,
+      updated_at: FIXED_ISO,
+    },
   ];
 }
 

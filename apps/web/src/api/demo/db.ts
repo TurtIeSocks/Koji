@@ -11,7 +11,7 @@
 
 /** Bump to force every demo session to wipe + reseed (e.g. after a fixture
  *  shape change) — see seeds/seed.ts's `ensureSeeded`. */
-export const SEED_VERSION = 1;
+export const SEED_VERSION = 2;
 
 export type StoreName = "geofences" | "routes" | "projects" | "properties" | "webhooks" | "tileservers" | "meta";
 
@@ -40,6 +40,9 @@ export interface GeofenceRow {
   max_lng: number | null;
   projects: number[];
   properties: unknown[];
+  /** The geofence's Dragonite Area on each target, as the live record carries
+   *  it. Absent on rows seeded before links existed. */
+  dragonite_links?: { webhook_id: number; dragonite_area_id: number }[];
   created_at: string;
   updated_at: string;
 }

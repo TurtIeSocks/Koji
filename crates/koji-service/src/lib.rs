@@ -92,6 +92,10 @@ fn v2_db_services(cfg: &mut web::ServiceConfig) {
             web::resource("/webhooks/{id}/test")
                 .route(web::post().to(public::v2::webhooks_test::test_fire)),
         )
+        .service(
+            web::resource("/webhooks/{id}/areas")
+                .route(web::get().to(public::v2::webhook_areas::list_areas)),
+        )
         .service(public::v2::resources::webhook::scope())
         // Plugin management overlay (DB-managed plugin config).
         .service(public::v2::plugins::scope());

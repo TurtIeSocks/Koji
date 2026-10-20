@@ -21,4 +21,5 @@ pub(crate) mod publish_plan;
 pub(crate) mod resources;
 pub(crate) mod routes;
 pub(crate) mod s2;
+pub(crate) mod webhook_areas;
 pub(crate) mod webhooks_test;

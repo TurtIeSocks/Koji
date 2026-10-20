@@ -4,7 +4,7 @@ import { EditLive } from "@/components/realtime";
 import { GeofenceMap } from "@/components/deck";
 import { GeofenceFormFields } from "./geofence-create";
 
-export const GeofenceEdit = (props: Pick<EditProps, "id">) => (
+export const GeofenceEdit = (props: Pick<EditProps, "id" | "mutationMode">) => (
   <EditLive {...props}>
     <TabbedForm>
       <TabbedForm.Tab label="Details">
