@@ -435,7 +435,7 @@ async fn get_one(
                 Err(_) => {
                     let root = geofence::Query::get_by_name(&conn.koji, id.clone(), mode)
                         .await
-                        .map_err(ServiceError::not_found_or_db(
+                        .map_err(ServiceError::not_found_or_db_pick_mode(
                             "geofence",
                             format!("no geofence {id}"),
                         ))?;
@@ -447,7 +447,7 @@ async fn get_one(
         None => {
             let geometry = geofence::Query::get_one_koji_in_mode(&conn.koji, id.clone(), mode)
                 .await
-                .map_err(ServiceError::not_found_or_db(
+                .map_err(ServiceError::not_found_or_db_pick_mode(
                     "geofence",
                     format!("no geofence {id}"),
                 ))?;

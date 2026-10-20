@@ -43,7 +43,7 @@ pub(crate) enum ServiceError {
     #[error(transparent)]
     Db(#[from] DbErr),
     #[error(transparent)]
-    Model(#[from] ModelError),
+    Model(ModelError),
     /// An internal failure carrying a context string. Logged; the client sees a
     /// generic 500 (detail not leaked). Funnels plumbing errors (enqueue,
     /// serialize, non-NotFound await) that have no meaningful client-facing code.
@@ -51,7 +51,37 @@ pub(crate) enum ServiceError {
     Internal(String),
 }
 
+/// An ambiguous geofence name is the caller's to resolve, not an internal
+/// failure: 409 naming the modes, whichever handler's `?` it surfaces in.
+impl From<ModelError> for ServiceError {
+    fn from(e: ModelError) -> Self {
+        match e {
+            ModelError::AmbiguousGeofence { name, modes } => {
+                ServiceError::ambiguous_geofence(&name, &modes, false)
+            }
+            e => ServiceError::Model(e),
+        }
+    }
+}
+
 impl ServiceError {
+    /// The 409 for a geofence name held by several modes. `accepts_mode` is
+    /// whether the endpoint reads `?mode=`; if not, the way out is the id.
+    fn ambiguous_geofence(name: &str, modes: &[String], accepts_mode: bool) -> Self {
+        let advice = if accepts_mode {
+            "pass ?mode= or use its id to pick one"
+        } else {
+            "use its id to pick one"
+        };
+        ServiceError::Conflict {
+            field: "geofence",
+            message: format!(
+                "geofence `{name}` exists in modes: {}; {advice}",
+                modes.join(", ")
+            ),
+        }
+    }
+
     /// Build an `Internal` error from any displayable error.
     pub(crate) fn internal(e: impl std::fmt::Display) -> Self {
         ServiceError::Internal(e.to_string())
@@ -65,15 +95,28 @@ impl ServiceError {
         field: &'static str,
         message: String,
     ) -> impl FnOnce(ModelError) -> Self {
+        Self::lookup_error(field, message, false)
+    }
+
+    /// [`ServiceError::not_found_or_db`] for an endpoint that reads `?mode=`, so
+    /// the 409 for a shared geofence name can point at it.
+    pub(crate) fn not_found_or_db_pick_mode(
+        field: &'static str,
+        message: String,
+    ) -> impl FnOnce(ModelError) -> Self {
+        Self::lookup_error(field, message, true)
+    }
+
+    fn lookup_error(
+        field: &'static str,
+        message: String,
+        accepts_mode: bool,
+    ) -> impl FnOnce(ModelError) -> Self {
         move |e| match e {
             ModelError::Database(_) => ServiceError::Model(e),
-            ModelError::AmbiguousGeofence { name, modes } => ServiceError::Conflict {
-                field,
-                message: format!(
-                    "{field} `{name}` exists in modes: {}; pass ?mode= to pick one",
-                    modes.join(", ")
-                ),
-            },
+            ModelError::AmbiguousGeofence { name, modes } => {
+                ServiceError::ambiguous_geofence(&name, &modes, accepts_mode)
+            }
             _ => ServiceError::NotFound { field, message },
         }
     }
@@ -252,7 +295,38 @@ mod tests {
         assert_eq!(err.field.as_deref(), Some("geofence"));
         assert!(err.message.contains("Boston"), "{}", err.message);
         assert!(err.message.contains("pokemon, unset"), "{}", err.message);
-        assert!(err.message.contains("mode"), "{}", err.message);
+        // This adapter's endpoints take no `?mode=`; the advice must be one that works.
+        assert!(err.message.contains("id"), "{}", err.message);
+        assert!(!err.message.contains("?mode="), "{}", err.message);
+    }
+
+    #[test]
+    fn not_found_or_db_pick_mode_points_at_the_mode_param() {
+        let map = ServiceError::not_found_or_db_pick_mode("geofence", "no geofence Boston".into());
+        let e = map(ModelError::AmbiguousGeofence {
+            name: "Boston".into(),
+            modes: vec!["pokemon".into(), "unset".into()],
+        });
+        let (status, err) = e.to_api_error();
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert!(err.message.contains("pokemon, unset"), "{}", err.message);
+        assert!(err.message.contains("?mode="), "{}", err.message);
+    }
+
+    #[test]
+    fn an_ambiguous_geofence_through_question_mark_is_409_not_500() {
+        fn lookup() -> Result<(), ServiceError> {
+            Err(ModelError::AmbiguousGeofence {
+                name: "Boston".into(),
+                modes: vec!["pokemon".into(), "unset".into()],
+            })?;
+            Ok(())
+        }
+        let (status, err) = lookup().unwrap_err().to_api_error();
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(err.field.as_deref(), Some("geofence"));
+        assert!(err.message.contains("Boston"), "{}", err.message);
+        assert!(err.message.contains("pokemon, unset"), "{}", err.message);
     }
 
     #[test]
