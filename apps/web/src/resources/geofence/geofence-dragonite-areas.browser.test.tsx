@@ -247,4 +247,28 @@ describe("Geofence Dragonite Area picker on create", () => {
       .element(screen.getByRole("combobox", { name: "Dragonite Area: West" }))
       .toBeVisible();
   });
+
+  it("drops a project-scoped target's link when its project is removed", async () => {
+    const screen = render(wrap(<GeofenceCreate />));
+    await screen.getByLabelText("Projects", { exact: true }).click();
+    await screen.getByRole("option", { name: "ProjectAlpha" }).click();
+    await screen.getByRole("combobox", { name: "Dragonite Area: West" }).click();
+    await screen.getByRole("option", { name: "Vail" }).click();
+    await expect
+      .element(screen.getByRole("combobox", { name: "Dragonite Area: West" }))
+      .toHaveTextContent("Vail");
+
+    await screen.getByLabelText("Projects", { exact: true }).click();
+    await screen.getByRole("option", { name: "ProjectAlpha" }).click();
+    await expect
+      .element(screen.getByRole("combobox", { name: "Dragonite Area: West" }))
+      .not.toBeInTheDocument();
+    await screen.getByLabelText("Name").fill("Fresh fence");
+    await screen.getByRole("button", { name: "Save" }).click();
+
+    await vi.waitFor(() => expect(create).toHaveBeenCalled());
+    const links = (create.mock.calls[0][1].data as { dragonite_links?: unknown[] })
+      .dragonite_links;
+    expect(links ?? []).not.toContainEqual(expect.objectContaining({ webhook_id: 2 }));
+  });
 });

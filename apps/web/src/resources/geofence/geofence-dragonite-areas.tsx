@@ -184,6 +184,25 @@ export function GeofenceDragoniteAreas() {
   });
   const projects = ((useWatch({ name: "projects" }) ?? []) as unknown[]).map(Number);
   const reaching = (targets ?? []).filter((t) => reaches(t, projects));
+  const { getValues, setValue } = useFormContext();
+  const links = (useWatch({ name: "dragonite_links" }) ?? []) as DragoniteLink[];
+
+  // A picker that stops reaching the geofence (its project was removed) takes
+  // its link out of the form, so save does not send a link the user can no
+  // longer see or clear.
+  const stale = targets
+    ? links.filter((l) => !reaching.some((t) => Number(t.id) === Number(l.webhook_id)))
+    : [];
+  useEffect(() => {
+    if (stale.length === 0) return;
+    const gone = new Set(stale.map((l) => Number(l.webhook_id)));
+    const kept = ((getValues("dragonite_links") ?? []) as DragoniteLink[]).filter(
+      (l) => !gone.has(Number(l.webhook_id)),
+    );
+    setValue("dragonite_links", kept);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stale.map((l) => l.webhook_id).join(",")]);
+
   if (reaching.length === 0) return null;
   return (
     <>
