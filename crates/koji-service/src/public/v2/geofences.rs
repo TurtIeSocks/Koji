@@ -32,10 +32,9 @@ use crate::utils::{
     api_response::{ApiError, ApiResponse},
     format::respond_geo,
 };
-use koji_dragonite::AreaMode;
 use koji_events::EventDispatcher;
 
-use crate::dragonite::{GeofenceUpdated, TOPIC_GEOFENCE_UPDATED};
+use crate::dragonite::{GeofenceUpdated, TOPIC_GEOFENCE_UPDATED, area_mode_for};
 
 /// Query args for the geometry reads: the `?format=` return-type selector (with
 /// `?rt=` kept as a one-release back-compat alias) plus the `?depth`/`?level`
@@ -642,30 +641,7 @@ async fn publish(
         });
     };
 
-    // Carry the fence geometry as a GeoJSON Feature (Dragonite accepts a Feature
-    // wrapping the Polygon/MultiPolygon). This builds a property-less,
-    // id-less Feature straight off the stored geometry — deliberately NOT the
-    // Phase 1 `Feature::from(&KojiGeometry)`, which would attach KojiMeta
-    // (`id`/`name`/`mode`/...) as `properties`. `area_geofence_patch` ships the
-    // whole `Feature` (`feature_to_geofence` clones it verbatim) to Dragonite, so
-    // adding those props would change the external PATCH payload; the
-    // `GeofenceUpdated.geofence` shape is locked, so it stays property-less. This
-    // path already touches no `To*` matrix method, so it needs no rewire.
-    let geometry = serde_json::from_value::<Geometry>(model.geometry.clone())
-        .map_err(ServiceError::internal)?;
-    let feature = Feature {
-        bbox: None,
-        geometry: Some(geometry),
-        id: None,
-        properties: None,
-        foreign_members: None,
-    };
-
-    let payload = GeofenceUpdated {
-        dragonite_area_id: dragonite_area_id as i64,
-        mode: AreaMode::Base,
-        geofence: feature,
-    };
+    let payload = geofence_updated(&model, dragonite_area_id).map_err(ServiceError::internal)?;
     let event_id = EventDispatcher::publish(&conn.koji, TOPIC_GEOFENCE_UPDATED, &payload)
         .await
         .map_err(ServiceError::internal)?;
@@ -677,8 +653,38 @@ async fn publish(
             "event_id": event_id.to_string(),
             "topic": TOPIC_GEOFENCE_UPDATED,
             "dragonite_area_id": dragonite_area_id,
+            "mode": payload.mode,
         }),
     ))
+}
+
+/// Build the [`GeofenceUpdated`] payload for a linked geofence. It targets the
+/// fence's own mode (`area_mode_for`), so each mode's fence lands in its own
+/// Dragonite column and leaves the others untouched.
+///
+/// The fence geometry travels as a property-less, id-less GeoJSON Feature
+/// (Dragonite accepts a Feature wrapping the Polygon/MultiPolygon). This is
+/// deliberately NOT the Phase 1 `Feature::from(&KojiGeometry)`, which would
+/// attach KojiMeta (`id`/`name`/`mode`/...) as `properties`:
+/// `area_geofence_patch` ships the whole `Feature` to Dragonite verbatim, so
+/// adding those props would change the external PATCH payload, and the
+/// `GeofenceUpdated.geofence` shape is locked.
+fn geofence_updated(
+    model: &geofence::Model,
+    dragonite_area_id: u32,
+) -> Result<GeofenceUpdated, serde_json::Error> {
+    let geometry = serde_json::from_value::<Geometry>(model.geometry.clone())?;
+    Ok(GeofenceUpdated {
+        dragonite_area_id: dragonite_area_id as i64,
+        mode: area_mode_for(&model.mode),
+        geofence: Feature {
+            bbox: None,
+            geometry: Some(geometry),
+            id: None,
+            properties: None,
+            foreign_members: None,
+        },
+    })
 }
 
 /// Reshape the related-read JSON (`{geometry, name, mode, parent, projects,
@@ -763,6 +769,8 @@ pub(crate) fn scope() -> actix_web::Scope {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use koji_db::db::sea_orm_active_enums::Mode;
+    use koji_dragonite::AreaMode;
     use serde_json::json;
 
     fn sample_geometry() -> serde_json::Value {
@@ -770,6 +778,103 @@ mod tests {
             "type": "Polygon",
             "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]]
         })
+    }
+
+    fn model_with_mode(mode: Mode) -> geofence::Model {
+        geofence::Model {
+            id: 1,
+            name: "Denver".to_string(),
+            parent: None,
+            created_at: Default::default(),
+            updated_at: Default::default(),
+            mode,
+            geometry: sample_geometry(),
+            geo_type: "Polygon".to_string(),
+            dragonite_area_id: Some(9),
+            min_lat: None,
+            min_lng: None,
+            max_lat: None,
+            max_lng: None,
+        }
+    }
+
+    /// The Dragonite PATCH body a published `mode` fence produces.
+    fn published_patch(mode: Mode) -> (AreaMode, serde_json::Value) {
+        let payload = geofence_updated(&model_with_mode(mode), 9).unwrap();
+        let patch = koji_dragonite::area_geofence_patch(payload.mode, &payload.geofence);
+        (payload.mode, serde_json::to_value(&patch).unwrap())
+    }
+
+    #[test]
+    fn publish_unset_fence_sets_only_the_base_geofence() {
+        let (mode, patch) = published_patch(Mode::Unset);
+        assert_eq!(mode, AreaMode::Base);
+        assert_eq!(patch["geofence"]["geometry"]["type"], "Polygon");
+        assert_eq!(
+            patch.as_object().unwrap().len(),
+            1,
+            "only `geofence`: {patch}"
+        );
+    }
+
+    #[test]
+    fn publish_pokemon_fence_sets_only_pokemon_mode_fence() {
+        let (mode, patch) = published_patch(Mode::Pokemon);
+        assert_eq!(mode, AreaMode::Pokemon);
+        assert_eq!(
+            patch["pokemon_mode"]["geofence"]["geometry"]["type"],
+            "Polygon"
+        );
+        assert_eq!(
+            patch.as_object().unwrap().len(),
+            1,
+            "only `pokemon_mode`: {patch}"
+        );
+        assert!(
+            patch.get("geofence").is_none(),
+            "base fence untouched: {patch}"
+        );
+    }
+
+    #[test]
+    fn publish_quest_fence_sets_only_quest_mode_fence() {
+        let (mode, patch) = published_patch(Mode::Quest);
+        assert_eq!(mode, AreaMode::Quest);
+        assert_eq!(
+            patch["quest_mode"]["geofence"]["geometry"]["type"],
+            "Polygon"
+        );
+        assert_eq!(
+            patch.as_object().unwrap().len(),
+            1,
+            "only `quest_mode`: {patch}"
+        );
+    }
+
+    #[test]
+    fn publish_fort_fence_sets_only_fort_mode_fence() {
+        let (mode, patch) = published_patch(Mode::Fort);
+        assert_eq!(mode, AreaMode::Fort);
+        assert_eq!(
+            patch["fort_mode"]["geofence"]["geometry"]["type"],
+            "Polygon"
+        );
+        assert_eq!(
+            patch.as_object().unwrap().len(),
+            1,
+            "only `fort_mode`: {patch}"
+        );
+    }
+
+    #[test]
+    fn fences_of_different_modes_on_one_area_patch_disjoint_columns() {
+        let (_, base) = published_patch(Mode::Unset);
+        let (_, pokemon) = published_patch(Mode::Pokemon);
+        let columns = |v: &serde_json::Value| -> Vec<String> {
+            v.as_object().unwrap().keys().cloned().collect()
+        };
+        assert_eq!(columns(&base), ["geofence"]);
+        assert_eq!(columns(&pokemon), ["pokemon_mode"]);
     }
 
     #[test]

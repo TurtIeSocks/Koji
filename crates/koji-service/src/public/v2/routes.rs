@@ -18,7 +18,7 @@
 use actix_web::{HttpResponse, http::StatusCode, web};
 use koji_db::{
     KojiDb,
-    db::{geofence, route, sea_orm_active_enums::Mode},
+    db::{geofence, route},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -30,10 +30,9 @@ use crate::utils::{
     api_response::{ApiError, ApiResponse},
     format::respond_geo,
 };
-use koji_dragonite::AreaMode;
 use koji_events::EventDispatcher;
 
-use crate::dragonite::{RouteUpdated, TOPIC_ROUTE_UPDATED};
+use crate::dragonite::{RouteUpdated, TOPIC_ROUTE_UPDATED, area_mode_for};
 
 /// Query args for the geometry reads: the `?format=` return-type selector (with
 /// `?rt=` kept as a one-release back-compat alias). Deliberately omits the legacy
@@ -262,18 +261,6 @@ async fn remove(
         hub.publish(&t, ev);
     }
     Ok(HttpResponse::build(StatusCode::NO_CONTENT).finish())
-}
-
-/// Map a Koji route/geofence [`Mode`] to the Dragonite [`AreaMode`] its route
-/// feeds. The 12→4 collapse already folded the historical variants, so this is
-/// now a direct 1:1 mapping (`unset` → `Base`).
-fn area_mode_for(mode: &Mode) -> AreaMode {
-    match mode {
-        Mode::Quest => AreaMode::Quest,
-        Mode::Pokemon => AreaMode::Pokemon,
-        Mode::Fort => AreaMode::Fort,
-        Mode::Unset => AreaMode::Base,
-    }
 }
 
 /// `POST /api/v2/routes/{id}/publish` — push a stored route to its linked
