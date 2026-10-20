@@ -11,6 +11,7 @@ use serde::Deserialize;
 
 use koji_core::separate_by_comma;
 
+use crate::db::sea_orm_active_enums::Mode;
 use crate::name_modifier::NameModifier;
 
 #[derive(Debug, Deserialize)]
@@ -59,6 +60,16 @@ pub struct ApiQueryArgs {
     /// Exactly the geofences `level` levels below the anchor. `level=0` returns
     /// the anchor(s) themselves.
     pub level: Option<u32>,
+
+    // -------------------------------------------------------------------------
+    // Descendants (project reads only)
+    /// Adds the children of the selected fences, then their children, this many
+    /// levels down (at most 10). Default 0.
+    pub descendants: Option<u32>,
+    /// Comma list of modes (`unset`, `pokemon`, `fort`, `quest`) limiting which
+    /// descendants are added. Default every mode. Needs `descendants`.
+    #[serde(rename = "descendant_modes")]
+    pub descendant_modes: Option<String>,
 
     // -------------------------------------------------------------------------
     // Name Property Manipulation
@@ -121,6 +132,8 @@ impl Default for ApiQueryArgs {
             fullcoords: None,
             depth: None,
             level: None,
+            descendants: None,
+            descendant_modes: None,
             lowercase: None,
             uppercase: None,
             capitalize: None,
@@ -241,6 +254,11 @@ impl ApiQueryArgs {
         }
     }
 
+    /// Resolve `descendants`/`descendant_modes`; `Err` is a client error.
+    pub fn descendant_spec(&self) -> Result<Option<DescendantSpec>, DescendantArgError> {
+        DescendantSpec::from_args(self.descendants, self.descendant_modes.as_deref())
+    }
+
     /// Resolve the boolean property toggles (`geofence_id` excluded by design).
     pub fn property_selection(&self) -> PropertySelection {
         PropertySelection {
@@ -270,6 +288,76 @@ impl ApiQueryArgs {
             output: self.output_spec(),
             ignore_manual_parent: self.ignoremanualparent.is_some(),
         }
+    }
+}
+
+/// The deepest `descendants=N` a request may ask for.
+pub const MAX_DESCENDANT_DEPTH: u32 = 10;
+
+/// `descendants=N&descendant_modes=...` resolved: how far below the selected
+/// fences to read, and which modes of descendant to add.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DescendantSpec {
+    /// Levels of children to add: 1 is the selected fences' children, 2 adds
+    /// their children, and so on. 0 adds nothing.
+    pub depth: u32,
+    /// Only descendants in one of these modes are added; `None` is every mode.
+    /// A descendant of another mode is still walked through, it is just not
+    /// added.
+    pub modes: Option<Vec<Mode>>,
+}
+
+/// A `descendants`/`descendant_modes` pair that is refused (HTTP 400).
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum DescendantArgError {
+    #[error("descendants is at most {MAX_DESCENDANT_DEPTH}, got {0}")]
+    TooDeep(u32),
+    #[error("unknown mode in descendant_modes: {0:?}")]
+    UnknownMode(String),
+    #[error("descendant_modes needs descendants")]
+    ModesWithoutDescendants,
+}
+
+impl DescendantArgError {
+    /// The query param the error is about.
+    pub fn field(&self) -> &'static str {
+        match self {
+            Self::TooDeep(_) => "descendants",
+            Self::UnknownMode(_) | Self::ModesWithoutDescendants => "descendant_modes",
+        }
+    }
+}
+
+impl DescendantSpec {
+    /// Resolve the raw query args. No `descendants` is `Ok(None)`, the plain
+    /// read; `descendants=0` is a spec that adds nothing.
+    pub fn from_args(
+        descendants: Option<u32>,
+        modes: Option<&str>,
+    ) -> Result<Option<Self>, DescendantArgError> {
+        let Some(depth) = descendants else {
+            return match modes {
+                Some(_) => Err(DescendantArgError::ModesWithoutDescendants),
+                None => Ok(None),
+            };
+        };
+        if depth > MAX_DESCENDANT_DEPTH {
+            return Err(DescendantArgError::TooDeep(depth));
+        }
+        let modes = modes
+            .map(|raw| {
+                raw.split(',')
+                    .map(|mode| match mode.trim().to_ascii_lowercase().as_str() {
+                        "unset" => Ok(Mode::Unset),
+                        "pokemon" => Ok(Mode::Pokemon),
+                        "fort" => Ok(Mode::Fort),
+                        "quest" => Ok(Mode::Quest),
+                        other => Err(DescendantArgError::UnknownMode(other.to_string())),
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .transpose()?;
+        Ok(Some(DescendantSpec { depth, modes }))
     }
 }
 
@@ -351,5 +439,83 @@ mod tests {
         let off: ApiQueryArgs =
             serde_json::from_value(serde_json::json!({ "ignoremanualparent": false })).unwrap();
         assert!(off.feature_render_spec().ignore_manual_parent);
+    }
+
+    #[test]
+    fn descendants_absent_is_no_spec() {
+        assert_eq!(DescendantSpec::from_args(None, None), Ok(None));
+    }
+
+    #[test]
+    fn descendants_default_to_every_mode() {
+        assert_eq!(
+            DescendantSpec::from_args(Some(2), None),
+            Ok(Some(DescendantSpec {
+                depth: 2,
+                modes: None
+            }))
+        );
+    }
+
+    #[test]
+    fn descendant_modes_is_a_comma_list() {
+        assert_eq!(
+            DescendantSpec::from_args(Some(1), Some("pokemon, Fort")),
+            Ok(Some(DescendantSpec {
+                depth: 1,
+                modes: Some(vec![Mode::Pokemon, Mode::Fort])
+            }))
+        );
+        assert_eq!(
+            DescendantSpec::from_args(Some(1), Some("unset")),
+            Ok(Some(DescendantSpec {
+                depth: 1,
+                modes: Some(vec![Mode::Unset])
+            }))
+        );
+    }
+
+    #[test]
+    fn descendants_past_ten_levels_are_refused() {
+        assert!(DescendantSpec::from_args(Some(10), None).is_ok());
+        assert_eq!(
+            DescendantSpec::from_args(Some(11), None),
+            Err(DescendantArgError::TooDeep(11))
+        );
+    }
+
+    #[test]
+    fn an_unknown_or_blank_mode_is_refused() {
+        assert_eq!(
+            DescendantSpec::from_args(Some(1), Some("pokemon,raid")),
+            Err(DescendantArgError::UnknownMode("raid".to_string()))
+        );
+        assert_eq!(
+            DescendantSpec::from_args(Some(1), Some("")),
+            Err(DescendantArgError::UnknownMode(String::new()))
+        );
+    }
+
+    #[test]
+    fn descendant_modes_need_descendants() {
+        assert_eq!(
+            DescendantSpec::from_args(None, Some("pokemon")),
+            Err(DescendantArgError::ModesWithoutDescendants)
+        );
+    }
+
+    #[test]
+    fn descendant_args_deserialize_from_the_query_string() {
+        let args: ApiQueryArgs = serde_json::from_value(
+            serde_json::json!({ "descendants": 2, "descendant_modes": "fort" }),
+        )
+        .unwrap();
+        assert_eq!(
+            args.descendant_spec(),
+            Ok(Some(DescendantSpec {
+                depth: 2,
+                modes: Some(vec![Mode::Fort])
+            }))
+        );
     }
 }

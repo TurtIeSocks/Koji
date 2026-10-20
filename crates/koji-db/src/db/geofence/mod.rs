@@ -303,9 +303,13 @@ impl Model {
     /// Map this row to a `KojiGeometry` (the universal boundary type). The
     /// geometry JSON is parsed to geo-types and the `mode` column (now the
     /// canonical 4-value `Mode`) bridges directly to `koji_core::Mode` via the
-    /// `enum_bridge!` `From` impl.
+    /// `enum_bridge!` `From` impl. `parent_name` is the name of the row's
+    /// `parent` geofence; it is `null` on the wire when the row has no parent.
     #[allow(clippy::result_large_err)]
-    pub fn to_koji_geometry(&self) -> Result<koji_core::KojiGeometry, ModelError> {
+    pub fn to_koji_geometry(
+        &self,
+        parent_name: Option<&str>,
+    ) -> Result<koji_core::KojiGeometry, ModelError> {
         let geometry = super::parse_geometry_json(&self.geometry)?;
 
         let meta = koji_core::KojiMeta {
@@ -313,6 +317,7 @@ impl Model {
             name: Some(self.name.clone()),
             mode: self.mode.into(),
             parent_id: self.parent,
+            parent_name: Some(parent_name.map(str::to_string)),
             ancestors: Vec::new(),
             extra: serde_json::Map::new(),
         };
@@ -333,6 +338,7 @@ pub fn geometry_bbox_lnglat(geometry: &Json) -> Option<[f64; 4]> {
     Some([rect.min().x, rect.min().y, rect.max().x, rect.max().y])
 }
 
+mod descendant_walk;
 mod hierarchy;
 mod list;
 mod project_view;
@@ -376,6 +382,21 @@ mod to_koji_tests {
     }
 
     #[test]
+    fn a_geofence_without_a_parent_has_a_null_parent_name() {
+        let model = Model {
+            geometry: serde_json::json!({ "type": "Point", "coordinates": [1.0, 2.0] }),
+            ..test_model_defaults()
+        };
+        let kg = model.to_koji_geometry(None).unwrap();
+        assert_eq!(kg.meta.parent_name, Some(None));
+        let feature = geojson::Feature::from(&kg);
+        assert_eq!(
+            feature.property("parent_name"),
+            Some(&serde_json::Value::Null)
+        );
+    }
+
+    #[test]
     fn model_maps_to_kojigeometry() {
         let model = Model {
             id: 42,
@@ -387,11 +408,12 @@ mod to_koji_tests {
             ..test_model_defaults()
         };
 
-        let kg = model.to_koji_geometry().unwrap();
+        let kg = model.to_koji_geometry(Some("Colorado")).unwrap();
         assert!(matches!(kg.geometry, geo::Geometry::Point(_)));
         assert_eq!(kg.meta.id, Some(42));
         assert_eq!(kg.meta.name.as_deref(), Some("Boulder"));
         assert_eq!(kg.meta.parent_id, Some(7));
+        assert_eq!(kg.meta.parent_name, Some(Some("Colorado".to_string())));
         assert_eq!(kg.meta.mode, Mode::Fort); // mode bridges Model.mode -> koji_core::Mode
     }
 

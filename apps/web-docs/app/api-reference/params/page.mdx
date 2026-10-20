@@ -288,7 +288,7 @@ Walk the geofence parent/child tree (`GET /api/v2/geofences` anchors on every
 top-level geofence; `GET /api/v2/geofences/{id_or_name}` anchors on the named
 one). `depth` and `level` are **mutually exclusive** — supplying both returns
 `400`. The response is a flat collection; each item carries an ordered root→parent
-`ancestors[]` (excluding its own name) plus its `parent_id`.
+`ancestors[]` (excluding its own name) plus its `parent_id` and `parent_name` (`null` when there is no parent).
 
 <Table>
   <thead>
@@ -308,6 +308,37 @@ one). `depth` and `level` are **mutually exclusive** — supplying both returns
       <Table.Td>`level`</Table.Td>
       <Table.Td>integer</Table.Td>
       <Table.Td>Only the geofences exactly N levels below the anchor. `level=0` returns the anchor(s) themselves.</Table.Td>
+    </Table.Tr>
+  </tbody>
+</Table>
+
+### Descendants
+
+Add the children of a project's geofences to a project read: the v1 shim's
+`GET /api/v1/geofence/{return_type}/{project}`, and `GET /api/v2/geofences` with
+`projects` (and `bbox`). Descendants are read from the whole table, whatever
+other filters chose the starting set, and each geofence appears once, even when
+it is both a member and a descendant. `descendant_modes` without `descendants`,
+an unknown mode, and `descendants` above 10 return `400`.
+
+<Table>
+  <thead>
+    <Table.Tr>
+      <Table.Th>Param</Table.Th>
+      <Table.Th>Type</Table.Th>
+      <Table.Th>Purpose</Table.Th>
+    </Table.Tr>
+  </thead>
+  <tbody>
+    <Table.Tr>
+      <Table.Td>`descendants`</Table.Td>
+      <Table.Td>integer</Table.Td>
+      <Table.Td>Adds the children of the selected geofences, then their children, N levels down. Default `0`, at most `10`.</Table.Td>
+    </Table.Tr>
+    <Table.Tr>
+      <Table.Td>`descendant_modes`</Table.Td>
+      <Table.Td>string</Table.Td>
+      <Table.Td>Comma-separated modes (`unset`, `pokemon`, `fort`, `quest`) limiting which descendants are added. Default every mode. A descendant of another mode is still walked through, it is just not added. `/states?descendants=1&descendant_modes=unset` gives every geofence directly under the states.</Table.Td>
     </Table.Tr>
   </tbody>
 </Table>

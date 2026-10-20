@@ -2,6 +2,8 @@
 //! descendants walk, and `search`). Split out of the former `geofence.rs`
 //! god-file as a **pure relocation** — `impl super::Query`, no logic change.
 
+use std::collections::{HashMap, HashSet};
+
 use koji_core::KojiGeometryCollection;
 
 use crate::error::ModelError;
@@ -38,7 +40,8 @@ impl Query {
             .all(db)
             .await?;
 
-        rows.into_iter()
+        let rows: Vec<(Model, String)> = rows
+            .into_iter()
             .map(|row| {
                 let model = Model {
                     id: row.id,
@@ -57,11 +60,63 @@ impl Query {
                     max_lat: None,
                     max_lng: None,
                 };
-                let mut kg = model.to_koji_geometry()?;
-                kg.meta.ancestors = ancestors_from_ancestry(&row.ancestry);
+                (model, row.ancestry)
+            })
+            .collect();
+
+        let models: Vec<Model> = rows.iter().map(|(model, _)| model.clone()).collect();
+        let parent_names = Query::parent_names(db, &models).await?;
+        rows.into_iter()
+            .map(|(model, ancestry)| {
+                let mut kg = model.to_koji_geometry(parent_name_of(&model, &parent_names))?;
+                kg.meta.ancestors = ancestors_from_ancestry(&ancestry);
                 Ok(kg)
             })
             .collect::<Result<KojiGeometryCollection, ModelError>>()
+    }
+
+    /// The names of the parents of `models`, by id. One query for the parents
+    /// that are not themselves in `models`.
+    pub(super) async fn parent_names<C: ConnectionTrait>(
+        db: &C,
+        models: &[Model],
+    ) -> Result<HashMap<u32, String>, DbErr> {
+        let mut names: HashMap<u32, String> = models
+            .iter()
+            .map(|model| (model.id, model.name.clone()))
+            .collect();
+        let missing: Vec<u32> = models
+            .iter()
+            .filter_map(|model| model.parent)
+            .filter(|parent| !names.contains_key(parent))
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
+        if !missing.is_empty() {
+            let found = Entity::find()
+                .filter(Column::Id.is_in(missing))
+                .select_only()
+                .column(Column::Id)
+                .column(Column::Name)
+                .into_model::<NameId>()
+                .all(db)
+                .await?;
+            names.extend(found.into_iter().map(|row| (row.id, row.name)));
+        }
+        Ok(names)
+    }
+
+    /// `models` as Koji-native geometry, each carrying its parent's name.
+    #[allow(clippy::result_large_err)]
+    pub(super) async fn koji_collection<C: ConnectionTrait>(
+        db: &C,
+        models: Vec<Model>,
+    ) -> Result<KojiGeometryCollection, ModelError> {
+        let parent_names = Query::parent_names(db, &models).await?;
+        models
+            .iter()
+            .map(|model| model.to_koji_geometry(parent_name_of(model, &parent_names)))
+            .collect()
     }
 
     /// Returns a single Geofence model. A numeric `id` is a primary key; anything
@@ -175,10 +230,7 @@ impl Query {
         db: &DatabaseConnection,
     ) -> Result<koji_core::KojiGeometryCollection, ModelError> {
         let results = Query::get_all(db).await?;
-        results
-            .iter()
-            .map(|result| result.to_koji_geometry())
-            .collect::<Result<koji_core::KojiGeometryCollection, ModelError>>()
+        Query::koji_collection(db, results).await
     }
 
     /// Fetch only the requested geofence ids and map each to Koji-native
@@ -193,10 +245,7 @@ impl Query {
             .filter(Column::Id.is_in(ids.iter().copied()))
             .all(db)
             .await?;
-        results
-            .iter()
-            .map(|result| result.to_koji_geometry())
-            .collect::<Result<koji_core::KojiGeometryCollection, ModelError>>()
+        Query::koji_collection(db, results).await
     }
 
     /// Fetch only the geofences whose persisted bbox (`min_lat`/`min_lng`/
@@ -242,10 +291,7 @@ impl Query {
             find = find.filter(Column::Id.is_in(ids));
         }
         let results = find.all(db).await?;
-        results
-            .iter()
-            .map(|result| result.to_koji_geometry())
-            .collect::<Result<koji_core::KojiGeometryCollection, ModelError>>()
+        Query::koji_collection(db, results).await
     }
 
     /// Fetch one geofence row by id and map it via `to_koji_geometry`. Returns
@@ -266,7 +312,8 @@ impl Query {
         mode: Option<Mode>,
     ) -> Result<koji_core::KojiGeometry, ModelError> {
         let result = Query::get_one_in_mode(db, id, mode).await?;
-        result.to_koji_geometry()
+        let parent_names = Query::parent_names(db, std::slice::from_ref(&result)).await?;
+        result.to_koji_geometry(parent_name_of(&result, &parent_names))
     }
 
     pub async fn search(db: &DatabaseConnection, search: String) -> Result<Vec<Json>, DbErr> {
@@ -295,6 +342,14 @@ pub(super) fn pick_by_name(name: &str, mut rows: Vec<Model>) -> Result<Model, Mo
             })
         }
     }
+}
+
+/// The name of `model`'s parent, when it has one and `names` knows it.
+fn parent_name_of<'a>(model: &Model, names: &'a HashMap<u32, String>) -> Option<&'a str> {
+    model
+        .parent
+        .and_then(|parent| names.get(&parent))
+        .map(String::as_str)
 }
 
 #[cfg(test)]
