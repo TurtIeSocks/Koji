@@ -18,6 +18,7 @@
 use async_trait::async_trait;
 use geojson::Feature;
 use koji_core::SingleVec;
+use koji_db::db::sea_orm_active_enums::Mode;
 use koji_dragonite::{
     AreaMode, DragoniteClient, DragoniteError, area_geofence_patch, area_route_patch,
 };
@@ -28,6 +29,19 @@ use serde::{Deserialize, Serialize};
 pub(crate) const TOPIC_ROUTE_UPDATED: &str = "area.route_updated";
 /// Topic for "a mode's geofence was published/updated" — payload [`GeofenceUpdated`].
 pub(crate) const TOPIC_GEOFENCE_UPDATED: &str = "area.geofence_updated";
+
+/// Map a Koji route/geofence [`Mode`] to the Dragonite [`AreaMode`] it
+/// publishes to. Shared by route and geofence publish. The 12→4 collapse
+/// already folded the historical variants, so this is a direct 1:1 mapping
+/// (`unset` → `Base`, the area-root `geofence` column).
+pub(crate) fn area_mode_for(mode: &Mode) -> AreaMode {
+    match mode {
+        Mode::Quest => AreaMode::Quest,
+        Mode::Pokemon => AreaMode::Pokemon,
+        Mode::Fort => AreaMode::Fort,
+        Mode::Unset => AreaMode::Base,
+    }
+}
 
 /// Payload for [`TOPIC_ROUTE_UPDATED`]. `route` is a Koji [`SingleVec`]
 /// (`[lat, lon]` points). `Base` has no route slot, so the subscriber drops it.
