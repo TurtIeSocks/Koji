@@ -2,6 +2,7 @@ import { TextField, BooleanField, ReferenceField } from "@/components/admin";
 import { ShowLive } from "@/components/realtime";
 import type { ShowProps } from "@/components/admin/views/show";
 import { useRecordContext } from "ra-core";
+import { WebhookLinkByName } from "./webhook-link-by-name";
 import { WebhookTestButton } from "./webhook-test-button";
 
 const ProjectOrGlobal = () => {
@@ -23,7 +24,10 @@ export const WebhookShow = (props: Pick<ShowProps, "id">) => (
       <TextField source="method" />
       <BooleanField source="active" />
       <ProjectOrGlobal />
-      <WebhookTestButton />
+      <div className="flex gap-2">
+        <WebhookTestButton />
+        <WebhookLinkByName />
+      </div>
     </div>
   </ShowLive>
 );
