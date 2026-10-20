@@ -37,7 +37,7 @@ use koji_db::db::{
     sea_orm_active_enums::Mode,
     webhook,
 };
-use sea_orm::{ActiveEnum, EntityTrait, TransactionTrait};
+use sea_orm::{EntityTrait, TransactionTrait};
 
 use super::geofence_link::plan_links;
 use crate::dragonite::{
@@ -553,7 +553,6 @@ async fn update(
     // the PATCH body supplied (skip_serializing_if = "Option::is_none" ensures
     // absent fields are absent from the patch value).
     let mut merged = serde_json::to_value(&existing).map_err(ServiceError::internal)?;
-    let body_mode = body.mode.clone();
     let body_links_given = body.dragonite_links.is_some();
     let patch_value = serde_json::to_value(body.into_inner()).map_err(ServiceError::internal)?;
     let carries_projects = patch_value.get("projects").is_some();
@@ -561,9 +560,7 @@ async fn update(
     // Links are checked against the mode the geofence ends up in, before
     // anything is written: a mode change alone can make two geofences share an
     // Area on a webhook.
-    let mode = body_mode
-        .and_then(|m| Mode::try_from_value(&m).ok())
-        .unwrap_or(existing.mode);
+    let mode = merged_mode(&merged);
     let touches_links = body_links_given || mode != existing.mode;
     if touches_links {
         dragonite_link::Query::validate_links(&conn.koji, id, mode, &link_changes).await?;
@@ -592,6 +589,17 @@ async fn update(
         emit_geofence_membership_diff(&conn.koji, id, &before_pids).await;
     }
     Ok(ApiResponse::success(record))
+}
+
+/// The mode the upsert will store for a merged geofence value. It parses the
+/// field the way `to_geofence` does (legacy aliases accepted, anything else
+/// `Unset`), so the link check and the write agree on the mode.
+fn merged_mode(merged: &serde_json::Value) -> Mode {
+    koji_db::utils::get_enum(
+        merged
+            .get("mode")
+            .map(|mode| mode.as_str().unwrap_or("unset")),
+    )
 }
 
 /// Diff a single geofence's project membership before vs after a
@@ -962,6 +970,17 @@ mod tests {
     use koji_db::db::sea_orm_active_enums::Mode;
     use koji_dragonite::AreaMode;
     use serde_json::json;
+
+    #[test]
+    fn merged_mode_reads_legacy_aliases_and_unknown_strings_as_the_upsert_does() {
+        assert_eq!(
+            merged_mode(&json!({"mode": "circle_pokemon"})),
+            Mode::Pokemon
+        );
+        assert_eq!(merged_mode(&json!({"mode": "auto_quest"})), Mode::Quest);
+        assert_eq!(merged_mode(&json!({"mode": "nonsense"})), Mode::Unset);
+        assert_eq!(merged_mode(&json!({"mode": "fort"})), Mode::Fort);
+    }
 
     fn sample_geometry() -> serde_json::Value {
         json!({

@@ -331,6 +331,8 @@ async fn patch_refuses_a_missing_or_non_dragonite_target_and_a_taken_area() {
     let (quest_ok, _) = patch!(app, uri, other_mode, link(dragonite, 7));
     // A mode change that would make two fences share the Area is refused too.
     let (mode_clash, _) = patch!(app, uri, other_mode, json!({ "mode": "pokemon" }));
+    // A legacy alias is stored as the mode it maps to, so it clashes the same way.
+    let (alias_clash, _) = patch!(app, uri, other_mode, json!({ "mode": "circle_pokemon" }));
     let (not_dragonite, _) = patch!(app, uri, first, link(ping, 1));
     let (missing, _) = patch!(app, uri, first, link(u64::MAX / 2, 1));
 
@@ -344,6 +346,7 @@ async fn patch_refuses_a_missing_or_non_dragonite_target_and_a_taken_area() {
     assert_eq!(taken, 409, "{taken_body}");
     assert_eq!(quest_ok, 200, "the Area is free in another mode");
     assert_eq!(mode_clash, 409);
+    assert_eq!(alias_clash, 409);
     assert_eq!(not_dragonite, 422);
     assert_eq!(missing, 422);
 }
