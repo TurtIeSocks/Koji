@@ -5,8 +5,9 @@ import type { PublishResult } from "../types";
 /**
  * POST /internal/{seg}/{id}/publish for one record.
  * - 2xx → `{ ok: true }`
- * - 422 → `{ ok: false, warning: true }` (no linked Dragonite area); the
- *   message is the server's `error` string when present.
+ * - 422 → `{ ok: false, warning: true }` (no Dragonite webhook reaches the
+ *   record, or none that does links it); the message is the server's error
+ *   message, which says which, when present.
  * - other → `{ ok: false, warning: false }`
  * Network failures still throw (callers keep their catch).
  */
@@ -18,11 +19,14 @@ export async function publishRecord(
     method: "POST",
   });
   if (res.status === 422) {
-    const body = res.json as { error?: string } | null;
+    const body = res.json as { error?: string | { message?: string } } | null;
+    const error = body?.error;
     return {
       ok: false,
       warning: true,
-      message: body?.error ?? "Cannot publish: no linked Dragonite area",
+      message:
+        (typeof error === "string" ? error : error?.message) ??
+        "Cannot publish: no linked Dragonite area",
     };
   }
   if (res.status < 200 || res.status >= 300) {

@@ -52,4 +52,26 @@ describe("WebhookTestButton", () => {
     expect(internalFetch).toHaveBeenCalledWith("/webhooks/7/test", { method: "POST" });
     await expect.element(screen.getByText(/Delivered/i)).toBeVisible();
   });
+
+  it("toasts the Area count a Dragonite row answers with", async () => {
+    vi.mocked(internalFetch).mockResolvedValueOnce({
+      status: 200,
+      json: {
+        status: "ok",
+        data: { delivered: true, upstream_status: 200, area_count: 4, error: null },
+      },
+    } as never);
+    const screen = render(
+      <AdminContext dataProvider={stubDataProvider} authProvider={stubAuthProvider}>
+        <ResourceContextProvider value="webhook">
+          <RecordContextProvider value={{ id: 8, name: "dragonite", mode: "dragonite" }}>
+            <WebhookTestButton />
+          </RecordContextProvider>
+        </ResourceContextProvider>
+        <Notification />
+      </AdminContext>,
+    );
+    await screen.getByRole("button", { name: /test/i }).click();
+    await expect.element(screen.getByText(/4 areas/i)).toBeVisible();
+  });
 });

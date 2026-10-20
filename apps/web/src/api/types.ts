@@ -37,6 +37,8 @@ export interface PublishResult {
 export interface WebhookTestResult {
   delivered: boolean;
   upstream_status: number | null;
+  /** Dragonite rows only: how many Areas the Dragonite answered with. */
+  area_count?: number | null;
   error: string | null;
 }
 

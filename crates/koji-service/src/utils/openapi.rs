@@ -110,6 +110,7 @@ use utoipa::OpenApi;
         // geofences / routes DTOs
         crate::public::v2::geofences::CreateGeofence,
         crate::public::v2::geofences::PatchGeofence,
+        crate::public::v2::geofences::DragoniteLinkChange,
         crate::public::v2::geofences::LinkDragonite,
         crate::public::v2::routes::CreateRoute,
         crate::public::v2::routes::PatchRoute,

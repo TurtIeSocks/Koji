@@ -48,4 +48,25 @@ describe("WebhookCreate mode-conditional fields", () => {
     await expect.element(screen.getByLabelText(/secret/i)).toBeVisible();
     await expect.element(screen.getByLabelText(/method/i)).not.toBeInTheDocument();
   });
+
+  it("shows URL, project and bearer for dragonite, and hides method, headers and topics", async () => {
+    const screen = render(
+      <AdminContext dataProvider={stubDataProvider} authProvider={stubAuthProvider}>
+        <ResourceContextProvider value="webhook">
+          <WebhookCreate />
+        </ResourceContextProvider>
+      </AdminContext>,
+    );
+    await screen.getByLabelText(/mode/i).click();
+    await screen.getByRole("option", { name: "Dragonite (area push)" }).click();
+
+    await expect.element(screen.getByLabelText(/dragonite base url/i)).toBeVisible();
+    await expect.element(screen.getByLabelText(/project/i)).toBeVisible();
+    await expect.element(screen.getByLabelText(/bearer/i)).toBeVisible();
+    // The HMAC secret, topics, method and headers are not Dragonite settings.
+    await expect.element(screen.getByLabelText(/secret/i)).not.toBeInTheDocument();
+    await expect.element(screen.getByLabelText(/topics/i)).not.toBeInTheDocument();
+    await expect.element(screen.getByLabelText(/method/i)).not.toBeInTheDocument();
+    await expect.element(screen.getByText(/headers/i)).not.toBeInTheDocument();
+  });
 });
