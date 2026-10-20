@@ -190,7 +190,7 @@ function buildTileServerRows(): TileServerRow[] {
     },
     {
       id: 2,
-      name: "CartoDB Voyager",
+      name: "OpenStreetMap",
       url: DEFAULT_TILE_URL,
       created_at: FIXED_ISO,
       updated_at: FIXED_ISO,

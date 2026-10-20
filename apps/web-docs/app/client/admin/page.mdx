@@ -37,7 +37,7 @@ import { Callout } from 'nextra/components'
 
 ## Tileservers
 
-These are completely optional. By default we will use `CartoCDN`.
+These are completely optional. By default we will use the standard OpenStreetMap tiles, which need no API key.
 
 - Create, edit, and delete your various tileservers
 - Tileservers are used for selecting different map tiles from the Kōji client
@@ -47,7 +47,7 @@ These are completely optional. By default we will use `CartoCDN`.
 Example URIs:
 
 ```
-https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png (default)
+https://tile.openstreetmap.org/{z}/{x}/{y}.png (default)
 https://your_custom_tileserver/tile/pogo_day/{z}/{x}/{y}/2/png
 https://your_custom_tileserver/tile/pogo_day/{z}/{x}/{y}/2/png
 https://your_custom_tileserver/tile/pogo_night/{z}/{x}/{y}/2/png

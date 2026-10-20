@@ -13,7 +13,7 @@ import {
 import { Map as MapLibre } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Button } from "@/components/ui/button";
-import { DEFAULT_TILE_URL } from "@/lib/constants";
+import { useTileUrl } from "@/lib/use-tile-url";
 import { cn } from "@/lib/utils";
 import { rasterStyle } from "@/map/lib/map-style";
 import type { Bounds } from "@/map/stores/types";
@@ -62,7 +62,7 @@ export function DeckMap({
 	fitBounds,
 	initialViewState,
 	height = 400,
-	tileUrl = DEFAULT_TILE_URL,
+	tileUrl: tileUrlOverride,
 	onViewStateChange,
 	controller = true,
 	getCursor = ({ isDragging }) => (isDragging ? "grabbing" : "grab"),
@@ -138,6 +138,7 @@ export function DeckMap({
 		return () => ro.disconnect();
 	}, [fitBounds, initialViewState]);
 
+	const tileUrl = useTileUrl(tileUrlOverride);
 	const mapStyle = useMemo(() => rasterStyle(tileUrl), [tileUrl]);
 
 	return (
