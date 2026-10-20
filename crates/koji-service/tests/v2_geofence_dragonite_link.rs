@@ -774,7 +774,8 @@ async fn a_dry_run_lists_the_writes_and_the_skipped_fences_and_sends_nothing() {
     let app = app!(db);
     let project_a = create_project!(app);
     let project_b = create_project!(app);
-    let scoped = create_dragonite!(app, "http://127.0.0.1:1", project_a);
+    let dragonite = Stub::start("tok", vec![json!([{ "id": 21, "name": "Alpha" }])]).await;
+    let scoped = create_dragonite!(app, &dragonite.base, project_a);
     let linked = create_fence!(
         app,
         &unique_name("plan-linked"),
