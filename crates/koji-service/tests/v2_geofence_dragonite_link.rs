@@ -300,3 +300,22 @@ async fn publish_works_on_a_geofence_linked_by_name() {
     assert_eq!(published["data"]["dragonite_area_id"], 104);
     assert_eq!(published["data"]["mode"], "quest");
 }
+
+#[actix_web::test]
+async fn a_geofence_named_link_dragonite_is_still_fetched_by_name() {
+    let Some(db) = test_db().await else { return };
+    let _serial = serial_guard();
+    let app = app!(db, "http://127.0.0.1:1");
+    let id = create_fence!(app, "link-dragonite", "fort");
+
+    let get = test::TestRequest::get()
+        .uri("/api/v2/geofences/link-dragonite?mode=fort")
+        .to_request();
+    let resp = test::call_service(&app, get).await;
+    let status = resp.status();
+    let fetched = body_json(resp).await;
+
+    cleanup(&db, "geofence", "id", Value::from(id)).await;
+    assert_eq!(status, 200, "{fetched}");
+    assert_eq!(fetched["data"]["properties"]["name"], "link-dragonite");
+}

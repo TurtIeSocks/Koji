@@ -669,10 +669,16 @@ async fn link_dragonite(
             field: "dragonite",
             message: format!("could not read Dragonite areas: {e}"),
         })?;
-    let rows = geofence::Query::link_rows(&conn.koji).await?;
-    let plan = plan_links(&areas, &rows);
-
-    if !body.dry_run {
+    // A write pass reads the rows locked inside its transaction, so a
+    // concurrent PATCH cannot change a link between the plan and the write and
+    // leave `linked` naming a link that was never stored.
+    let plan = if body.dry_run {
+        let rows = geofence::Query::link_rows(&conn.koji).await?;
+        plan_links(&areas, &rows)
+    } else {
+        let txn = conn.koji.begin().await?;
+        let rows = geofence::Query::link_rows_locked(&txn).await?;
+        let plan = plan_links(&areas, &rows);
         let mut by_area: std::collections::BTreeMap<u32, Vec<u32>> = Default::default();
         for linked in &plan.linked {
             by_area
@@ -680,12 +686,12 @@ async fn link_dragonite(
                 .or_default()
                 .push(linked.geofence);
         }
-        let txn = conn.koji.begin().await?;
         for (area_id, geofence_ids) in &by_area {
             geofence::Query::link_unlinked_to_area(&txn, *area_id, geofence_ids).await?;
         }
         txn.commit().await?;
-    }
+        plan
+    };
 
     let mut answer = serde_json::to_value(&plan).map_err(ServiceError::internal)?;
     answer["dry_run"] = json!(body.dry_run);
@@ -822,7 +828,13 @@ pub(crate) async fn internal_get_one(
 /// caller's parent scope (`/internal`) contributes the full path prefix.
 pub(crate) fn internal_item_scope() -> actix_web::Scope {
     web::scope("/geofences")
-        .service(web::resource("/link-dragonite").route(web::post().to(link_dragonite)))
+        // Guarded to POST so other methods fall through to `/{id}`: a geofence
+        // named "link-dragonite" stays reachable by name.
+        .service(
+            web::resource("/link-dragonite")
+                .guard(actix_web::guard::Post())
+                .route(web::post().to(link_dragonite)),
+        )
         .service(web::resource("/{id}/publish").route(web::post().to(publish)))
         .service(
             web::resource("/{id}/golbat-data")
@@ -847,7 +859,13 @@ pub(crate) fn scope() -> actix_web::Scope {
                 .route(web::get().to(list))
                 .route(web::post().to(create)),
         )
-        .service(web::resource("/link-dragonite").route(web::post().to(link_dragonite)))
+        // Guarded to POST so other methods fall through to `/{id}`: a geofence
+        // named "link-dragonite" stays reachable by name.
+        .service(
+            web::resource("/link-dragonite")
+                .guard(actix_web::guard::Post())
+                .route(web::post().to(link_dragonite)),
+        )
         .service(web::resource("/{id}/publish").route(web::post().to(publish)))
         // golbat-data as a geofence sub-resource (architecture §4.5): the
         // category's golbat points within the path `{id}` geofence. The handler
