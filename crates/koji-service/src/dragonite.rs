@@ -75,12 +75,12 @@ impl DragoniteSubscriber {
 
 /// Map a [`DragoniteError`] onto the subscriber-side [`DeliverError`] so the
 /// dispatcher's backoff/dead-letter logic sees the right category. A non-2xx
-/// surfaces its typed HTTP status as [`DeliverError::Status`]; everything else
-/// is `Other`.
+/// carries its status, `detail` and `errors` in the message, which the
+/// dispatcher records as the outbox row's `last_error`.
 fn to_deliver_error(e: DragoniteError) -> DeliverError {
     match e {
         DragoniteError::Http(err) => DeliverError::Http(err.to_string()),
-        DragoniteError::HttpStatus { status, .. } => DeliverError::Status { status },
+        e @ DragoniteError::HttpStatus { .. } => DeliverError::Other(e.to_string()),
         DragoniteError::Decode(m) => DeliverError::Other(format!("decode: {m}")),
     }
 }
@@ -150,17 +150,41 @@ mod tests {
     }
 
     #[test]
-    fn http_status_error_maps_to_status() {
+    fn http_status_error_keeps_status_detail_and_errors_in_the_message() {
+        let e = DragoniteError::HttpStatus {
+            status: 422,
+            detail: Some("validation failed".to_string()),
+            errors: vec![koji_dragonite::ProblemError {
+                message: Some("expected boolean".to_string()),
+                location: Some("body.enabled".to_string()),
+                value: Some(serde_json::json!("x")),
+            }],
+            body: String::new(),
+        };
+        let DeliverError::Other(message) = to_deliver_error(e) else {
+            panic!("expected Other");
+        };
+        assert!(message.contains("422"), "{message}");
+        assert!(message.contains("validation failed"), "{message}");
+        assert!(
+            message.contains("body.enabled: expected boolean"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn http_status_error_without_a_problem_document_keeps_the_body() {
         let e = DragoniteError::HttpStatus {
             status: 404,
             detail: None,
             errors: Vec::new(),
             body: "not found".to_string(),
         };
-        assert!(matches!(
-            to_deliver_error(e),
-            DeliverError::Status { status: 404 }
-        ));
+        let DeliverError::Other(message) = to_deliver_error(e) else {
+            panic!("expected Other");
+        };
+        assert!(message.contains("404"), "{message}");
+        assert!(message.contains("not found"), "{message}");
     }
 
     #[test]
