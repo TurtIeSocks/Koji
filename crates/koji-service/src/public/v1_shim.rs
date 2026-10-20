@@ -20,7 +20,7 @@ use actix_web::{HttpRequest, HttpResponse, ResponseError, get, http::StatusCode,
 use algorithms::clustering::{CalculationMode, ClusterMode};
 use algorithms::routing::SortBy;
 use geojson::FeatureCollection;
-use koji_core::{KojiGeometryCollection, Precision};
+use koji_core::{EnsurePoints, KojiGeometryCollection, Precision};
 use koji_db::KojiDb;
 use koji_db::db::geofence;
 use koji_db::query_args::ApiQueryArgs;
@@ -248,9 +248,12 @@ async fn route(
 
 /// The shapes `GET /geofence/{return_type}/{project}` can answer in.
 ///
-/// Most are v2's `ReturnTypeArg`. `geometry`, `geometry-vec` and `feature-vec`
-/// answer as v1 did (a bare list of geometries or features), which v2's own
-/// renderer no longer has.
+/// The geometry-only ones are v2's `ReturnTypeArg`. The feature-shaped ones are
+/// built from the features as the db produced them: going through
+/// `KojiGeometryCollection` would add a `mode` property to every feature and
+/// drop its top-level id, which v1 never did. `geometry`, `geometry-vec` and
+/// `feature-vec` answer as v1 did (a bare list), which v2's renderer no longer
+/// has.
 enum GeofenceFormat {
     Standard(ReturnTypeArg),
     Geometry,
@@ -281,13 +284,36 @@ impl GeofenceFormat {
         })
     }
 
-    fn render(&self, collection: &KojiGeometryCollection) -> Value {
-        match self {
-            Self::Standard(return_type) => response_body(collection, *return_type),
-            Self::FeatureVec => json!(FeatureCollection::from(collection).features),
+    fn render(&self, features: Vec<geojson::Feature>) -> Result<Value, ServiceError> {
+        let features: Vec<_> = features
+            .into_iter()
+            .map(EnsurePoints::ensure_first_last)
+            .collect();
+        let collection = KojiGeometryCollection::try_from(FeatureCollection {
+            bbox: None,
+            features: features.clone(),
+            foreign_members: None,
+        })
+        .map_err(ServiceError::internal)?;
+        Ok(match self {
+            Self::Standard(ReturnTypeArg::FeatureCollection) => {
+                json!(FeatureCollection {
+                    bbox: collection.bbox().map(bbox_of),
+                    features: with_bboxes(features, &collection),
+                    foreign_members: None,
+                })
+            }
+            Self::Standard(ReturnTypeArg::Feature) => {
+                let mut features = with_bboxes(features, &collection);
+                if features.len() == 1 {
+                    json!(features.remove(0))
+                } else {
+                    json!(features)
+                }
+            }
+            Self::FeatureVec => json!(with_bboxes(features, &collection)),
             Self::Geometry | Self::GeometryVec => {
-                let mut geometries: Vec<_> = FeatureCollection::from(collection)
-                    .features
+                let mut geometries: Vec<_> = features
                     .into_iter()
                     .filter_map(|feature| feature.geometry)
                     .collect();
@@ -297,8 +323,30 @@ impl GeofenceFormat {
                     json!(geometries)
                 }
             }
-        }
+            Self::Standard(return_type) => response_body(&collection, *return_type),
+        })
     }
+}
+
+/// `[min_lon, min_lat, max_lon, max_lat]`, as v1 put on a collection and on each
+/// of its features.
+fn bbox_of(rect: geo::Rect<Precision>) -> Vec<Precision> {
+    vec![rect.min().x, rect.min().y, rect.max().x, rect.max().y]
+}
+
+/// Each feature with its bbox set, `collection` being the same features as geometries.
+fn with_bboxes(
+    features: Vec<geojson::Feature>,
+    collection: &KojiGeometryCollection,
+) -> Vec<geojson::Feature> {
+    features
+        .into_iter()
+        .zip(&collection.items)
+        .map(|(feature, item)| geojson::Feature {
+            bbox: item.bbox().map(bbox_of),
+            ..feature
+        })
+        .collect()
 }
 
 /// `GET /geofence/{return_type}/{project}`: a project's geofences, by project
@@ -317,10 +365,10 @@ async fn project_geofences(
         }
         .into());
     };
-    let collection = geofence::Query::project_as_koji(&conn.koji, project, &args)
+    let features = geofence::Query::project_as_feature(&conn.koji, project, &args)
         .await
         .map_err(ServiceError::from)?;
-    Ok(HttpResponse::Ok().json(V1Response::ok(format.render(&collection), None)))
+    Ok(HttpResponse::Ok().json(V1Response::ok(format.render(features)?, None)))
 }
 
 /// A malformed query string gets v1's envelope too.
@@ -365,9 +413,9 @@ pub(crate) fn services(cfg: &mut web::ServiceConfig) {
 mod tests {
     use super::*;
 
-    /// The two features `project_as_feature` hands back for a seeded project:
+    /// The features `project_as_feature` hands back for a seeded project:
     /// "Paris" and its child "Paris Centre", each a closed square.
-    fn collection() -> KojiGeometryCollection {
+    fn features() -> Vec<geojson::Feature> {
         let square = |lon: f64, lat: f64| {
             json!({
                 "type": "Polygon",
@@ -377,33 +425,28 @@ mod tests {
                 ]]
             })
         };
-        let fc: FeatureCollection = serde_json::from_value(json!({
-            "type": "FeatureCollection",
-            "features": [
-                { "type": "Feature", "geometry": square(2.0, 48.0),
-                  "properties": { "name": "Paris", "color": "red" } },
-                { "type": "Feature", "geometry": square(2.5, 48.5),
-                  "properties": { "name": "Paris Centre", "parent": "Paris" } },
-            ]
-        }))
-        .unwrap();
-        KojiGeometryCollection::try_from(fc).unwrap()
-    }
-
-    /// Just the first of `collection()`'s geofences.
-    fn first_only() -> KojiGeometryCollection {
-        let fc = FeatureCollection::from(&collection());
-        KojiGeometryCollection::try_from(FeatureCollection {
-            features: fc.features.into_iter().take(1).collect(),
-            ..fc
-        })
+        serde_json::from_value(json!([
+            { "type": "Feature", "geometry": square(2.0, 48.0),
+              "properties": { "name": "Paris", "color": "red" } },
+            { "type": "Feature", "geometry": square(2.5, 48.5),
+              "properties": { "name": "Paris Centre", "parent": "Paris" } },
+        ]))
         .unwrap()
     }
 
-    fn render(return_type: &str) -> Value {
+    fn render_of(return_type: &str, features: Vec<geojson::Feature>) -> Value {
         GeofenceFormat::parse(return_type)
             .unwrap_or_else(|| panic!("{return_type} is a return type"))
-            .render(&collection())
+            .render(features)
+            .unwrap()
+    }
+
+    fn render(return_type: &str) -> Value {
+        render_of(return_type, features())
+    }
+
+    fn first_only(return_type: &str) -> Value {
+        render_of(return_type, features().into_iter().take(1).collect())
     }
 
     #[test]
@@ -510,15 +553,34 @@ mod tests {
     }
 
     #[test]
-    fn feature_collection_keeps_properties() {
+    fn feature_collection_keeps_properties_as_the_db_made_them() {
         let v = render("feature-collection");
         assert_eq!(v["type"], "FeatureCollection");
         let features = v["features"].as_array().unwrap();
         assert_eq!(features.len(), 2);
-        assert_eq!(features[0]["properties"]["name"], "Paris");
-        assert_eq!(features[0]["properties"]["color"], "red");
+        assert_eq!(
+            features[0]["properties"],
+            json!({ "name": "Paris", "color": "red" }),
+            "no property is added or dropped"
+        );
         assert_eq!(features[1]["properties"]["parent"], "Paris");
         assert_eq!(features[0]["geometry"]["type"], "Polygon");
+    }
+
+    #[test]
+    fn feature_collection_and_features_carry_a_bbox() {
+        let v = render("feature-collection");
+        assert_eq!(v["bbox"], json!([2.0, 48.0, 2.6, 48.6]));
+        assert_eq!(v["features"][0]["bbox"], json!([2.0, 48.0, 2.1, 48.1]));
+        assert_eq!(v["features"][1]["bbox"], json!([2.5, 48.5, 2.6, 48.6]));
+    }
+
+    #[test]
+    fn a_features_own_id_survives() {
+        let mut features = features();
+        features[0].id = Some(geojson::feature::Id::String("1__unset__KOJI".to_string()));
+        let v = render_of("feature-collection", features);
+        assert_eq!(v["features"][0]["id"], "1__unset__KOJI");
     }
 
     #[test]
@@ -526,9 +588,7 @@ mod tests {
         let v = render("feature");
         assert_eq!(v.as_array().unwrap().len(), 2);
         assert_eq!(v[0]["type"], "Feature");
-        let one = GeofenceFormat::parse("feature")
-            .unwrap()
-            .render(&first_only());
+        let one = first_only("feature");
         assert_eq!(one["type"], "Feature");
         assert_eq!(one["properties"]["name"], "Paris");
     }
@@ -538,6 +598,7 @@ mod tests {
         let v = render("feature-vec");
         assert_eq!(v.as_array().unwrap().len(), 2);
         assert_eq!(v[1]["properties"]["name"], "Paris Centre");
+        assert_eq!(first_only("feature-vec").as_array().unwrap().len(), 1);
     }
 
     #[test]
@@ -547,14 +608,8 @@ mod tests {
         assert_eq!(v[0]["type"], "Polygon");
         assert_eq!(render("geometry-vec"), v);
         assert_eq!(render("geometries"), v);
-        let one = GeofenceFormat::parse("geometry")
-            .unwrap()
-            .render(&first_only());
-        assert_eq!(one["type"], "Polygon");
-        let one_vec = GeofenceFormat::parse("geometry-vec")
-            .unwrap()
-            .render(&first_only());
-        assert_eq!(one_vec.as_array().unwrap().len(), 1);
+        assert_eq!(first_only("geometry")["type"], "Polygon");
+        assert_eq!(first_only("geometry-vec").as_array().unwrap().len(), 1);
     }
 
     #[test]
@@ -578,29 +633,17 @@ mod tests {
 
     #[test]
     fn an_empty_project_renders_empty() {
-        let empty = KojiGeometryCollection::try_from(FeatureCollection {
-            bbox: None,
-            features: vec![],
-            foreign_members: None,
-        })
-        .unwrap();
-        for (rt, expected) in [
-            ("single-array", json!([])),
-            ("multi-array", json!([])),
-            ("feature", json!([])),
-            ("feature-vec", json!([])),
-            ("geometry", json!([])),
-            ("poracle", json!([])),
+        for rt in [
+            "single-array",
+            "multi-array",
+            "feature",
+            "feature-vec",
+            "geometry",
+            "poracle",
         ] {
-            assert_eq!(
-                GeofenceFormat::parse(rt).unwrap().render(&empty),
-                expected,
-                "{rt}"
-            );
+            assert_eq!(render_of(rt, vec![]), json!([]), "{rt}");
         }
-        let fc = GeofenceFormat::parse("feature-collection")
-            .unwrap()
-            .render(&empty);
+        let fc = render_of("feature-collection", vec![]);
         assert_eq!(fc["features"], json!([]));
     }
 }
