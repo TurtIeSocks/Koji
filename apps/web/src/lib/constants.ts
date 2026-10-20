@@ -1,9 +1,12 @@
 export const INTERNAL_BASE = "/internal";
 
-// CartoDB Voyager — Koji's default tile server today. A later spec reads
-// /internal tile-servers; hardcoded for the foundation.
-export const DEFAULT_TILE_URL =
-  "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+// OpenStreetMap standard tiles: the one public basemap that needs no API key.
+// A tile server set in Koji's config or the tile server resource overrides it.
+export const DEFAULT_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+// OSM's tile usage policy requires this credit on the map.
+export const DEFAULT_TILE_ATTRIBUTION =
+  '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 /**
  * Canonical geofence mode set. v1's 12 RDM/Unown modes
