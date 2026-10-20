@@ -7,10 +7,13 @@
 //! claims `area.*` events and PATCHes the linked Dragonite area.
 //!
 //! ## Payload contract
-//! Producers (the `POST /geofences/:id/publish` endpoint and calc persist=push)
-//! resolve the Dragonite linkage (`dragonite_area_id` + the target
-//! [`AreaMode`]) and emit a self-contained payload. The subscriber is therefore
-//! stateless — it never reads the DB — and just maps the payload onto a PATCH:
+//! A Dragonite is a `webhook_subscription` row in `dragonite` mode. Producers
+//! (the `POST /geofences/:id/publish` and route publish endpoints) emit one
+//! event per such row that reaches the geofence and holds a link for it. The
+//! payload names the row (`webhook_id`), that row's Area (`dragonite_area_id`)
+//! and the target [`AreaMode`]. The subscriber reads the row at delivery, so a
+//! changed URL or bearer applies to events already queued, builds its client
+//! from it, and maps the payload onto a PATCH:
 //!
 //! - [`TOPIC_ROUTE_UPDATED`] → [`RouteUpdated`] → `area_route_patch`
 //! - [`TOPIC_GEOFENCE_UPDATED`] → [`GeofenceUpdated`] → `area_geofence_patch`
@@ -19,11 +22,16 @@ use async_trait::async_trait;
 use geojson::Feature;
 use koji_core::SingleVec;
 use koji_db::db::sea_orm_active_enums::Mode;
+use koji_db::db::{dragonite_link, sea_orm_active_enums::WebhookMode, webhook};
 use koji_dragonite::{
     AreaMode, DragoniteClient, DragoniteError, area_geofence_patch, area_route_patch,
 };
-use koji_events::{DeliverError, Event, Subscriber};
+use koji_events::{DeliverError, Event, EventDispatcher, Subscriber};
+use sea_orm::{ConnectionTrait, DatabaseConnection, EntityTrait};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
+
+use crate::utils::error::ServiceError;
 
 /// Topic for "a mode's route was (re)calculated" — payload [`RouteUpdated`].
 pub(crate) const TOPIC_ROUTE_UPDATED: &str = "area.route_updated";
@@ -47,6 +55,8 @@ pub(crate) fn area_mode_for(mode: &Mode) -> AreaMode {
 /// (`[lat, lon]` points). `Base` has no route slot, so the subscriber drops it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct RouteUpdated {
+    /// The Dragonite row this event is for.
+    pub webhook_id: u64,
     pub dragonite_area_id: i64,
     pub mode: AreaMode,
     pub route: SingleVec,
@@ -56,20 +66,106 @@ pub(crate) struct RouteUpdated {
 /// to set on `mode`'s fence (`Base` → the area-root fence).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct GeofenceUpdated {
+    /// The Dragonite row this event is for.
+    pub webhook_id: u64,
     pub dragonite_area_id: i64,
     pub mode: AreaMode,
     pub geofence: Feature,
 }
 
-/// Pushes Koji's calculated routes/geofences to Dragonite's `/v2/areas/{id}`.
+/// The client for a Dragonite row: `url` is the base URL, `secret` the bearer
+/// (none is sent as an empty bearer, which Dragonite refuses).
+pub(crate) fn client_for(target: &webhook::Model) -> DragoniteClient {
+    client_from(&target.url, target.secret.as_deref())
+}
+
+/// [`client_for`] over a row's `url` and `secret`.
+pub(crate) fn client_from(url: &str, secret: Option<&str>) -> DragoniteClient {
+    DragoniteClient::new(url, secret.unwrap_or_default())
+}
+
+/// The Dragonite rows to publish `geofence_id` (called `name`) to, each with its
+/// link: the active rows that reach the geofence and hold a link for it.
+///
+/// `422` when there are none, saying which of the two is missing: no Dragonite
+/// row reaches the geofence, or the rows that do hold no link for it.
+pub(crate) async fn linked_targets<C: ConnectionTrait>(
+    db: &C,
+    geofence_id: u32,
+    name: &str,
+) -> Result<Vec<(webhook::Model, dragonite_link::Model)>, ServiceError> {
+    let found = dragonite_link::Query::publish_targets(db, geofence_id).await?;
+    if found.reaching.is_empty() {
+        return Err(ServiceError::Unprocessable {
+            field: Some("dragonite_webhook".to_string()),
+            message: format!("no active Dragonite webhook reaches geofence `{name}`"),
+        });
+    }
+    if found.linked.is_empty() {
+        let names = found
+            .reaching
+            .iter()
+            .map(|t| format!("`{}` (id {})", t.name, t.id))
+            .collect::<Vec<_>>()
+            .join(", ");
+        return Err(ServiceError::Unprocessable {
+            field: Some("dragonite_links".to_string()),
+            message: format!(
+                "geofence `{name}` has no Dragonite area link on the webhooks that reach it: {names}"
+            ),
+        });
+    }
+    Ok(found.linked)
+}
+
+/// Append `payload_for(target, link)` as one `topic` event per linked target and
+/// answer them as `[{ webhook_id, event_id, dragonite_area_id }]`.
+pub(crate) async fn publish_to<P, F>(
+    db: &DatabaseConnection,
+    topic: &str,
+    targets: &[(webhook::Model, dragonite_link::Model)],
+    payload_for: F,
+) -> Result<serde_json::Value, ServiceError>
+where
+    P: Serialize,
+    F: Fn(&webhook::Model, &dragonite_link::Model) -> P,
+{
+    let mut events = Vec::with_capacity(targets.len());
+    for (target, link) in targets {
+        let event_id = EventDispatcher::publish(db, topic, &payload_for(target, link))
+            .await
+            .map_err(ServiceError::internal)?;
+        events.push(json!({
+            "webhook_id": target.id,
+            "event_id": event_id.to_string(),
+            "dragonite_area_id": link.dragonite_area_id,
+        }));
+    }
+    Ok(json!(events))
+}
+
+/// Pushes Koji's calculated routes/geofences to the Dragonite each event names,
+/// at its `/v2/areas/{id}`.
 pub(crate) struct DragoniteSubscriber {
-    client: DragoniteClient,
+    db: DatabaseConnection,
 }
 
 impl DragoniteSubscriber {
-    /// Build the subscriber over a configured Dragonite client.
-    pub(crate) fn new(client: DragoniteClient) -> Self {
-        Self { client }
+    pub(crate) fn new(db: DatabaseConnection) -> Self {
+        Self { db }
+    }
+
+    /// The client for the row `webhook_id`, or `None` when the row is gone, no
+    /// longer a Dragonite, or inactive: an inactive row reaches nothing, so its
+    /// queued events are dropped, not retried.
+    async fn client(&self, webhook_id: u64) -> Result<Option<DragoniteClient>, DeliverError> {
+        let target = webhook::Entity::find_by_id(webhook_id)
+            .one(&self.db)
+            .await
+            .map_err(|e| DeliverError::Other(format!("loading webhook {webhook_id}: {e}")))?;
+        Ok(target
+            .filter(|t| t.active && t.mode == WebhookMode::Dragonite)
+            .map(|t| client_for(&t)))
     }
 }
 
@@ -102,8 +198,15 @@ impl Subscriber for DragoniteSubscriber {
                     serde_json::from_value(event.payload.clone()).map_err(|e| {
                         DeliverError::Other(format!("invalid {TOPIC_ROUTE_UPDATED} payload: {e}"))
                     })?;
+                let Some(client) = self.client(p.webhook_id).await? else {
+                    log::info!(
+                        "[koji] dropping {TOPIC_ROUTE_UPDATED} for webhook {}: not an active Dragonite",
+                        p.webhook_id
+                    );
+                    return Ok(());
+                };
                 let patch = area_route_patch(p.mode, &p.route);
-                self.client
+                client
                     .patch_area(p.dragonite_area_id, &patch)
                     .await
                     .map_err(to_deliver_error)?;
@@ -116,8 +219,15 @@ impl Subscriber for DragoniteSubscriber {
                             "invalid {TOPIC_GEOFENCE_UPDATED} payload: {e}"
                         ))
                     })?;
+                let Some(client) = self.client(p.webhook_id).await? else {
+                    log::info!(
+                        "[koji] dropping {TOPIC_GEOFENCE_UPDATED} for webhook {}: not an active Dragonite",
+                        p.webhook_id
+                    );
+                    return Ok(());
+                };
                 let patch = area_geofence_patch(p.mode, &p.geofence);
-                self.client
+                client
                     .patch_area(p.dragonite_area_id, &patch)
                     .await
                     .map_err(to_deliver_error)?;
@@ -137,16 +247,19 @@ mod tests {
     #[test]
     fn route_payload_round_trips() {
         let p = RouteUpdated {
+            webhook_id: 3,
             dragonite_area_id: 42,
             mode: AreaMode::Quest,
             route: vec![[40.1, -75.2], [40.3, -75.4]],
         };
         let v = serde_json::to_value(&p).unwrap();
+        assert_eq!(v["webhook_id"], 3);
         assert_eq!(v["dragonite_area_id"], 42);
         assert_eq!(v["mode"], "quest");
         let back: RouteUpdated = serde_json::from_value(v).unwrap();
         assert_eq!(back.route.len(), 2);
         assert_eq!(back.dragonite_area_id, 42);
+        assert_eq!(back.webhook_id, 3);
     }
 
     #[test]
@@ -195,7 +308,7 @@ mod tests {
 
     #[test]
     fn interested_only_in_area_topics() {
-        let s = DragoniteSubscriber::new(DragoniteClient::new("http://x", "t"));
+        let s = DragoniteSubscriber::new(DatabaseConnection::Disconnected);
         assert!(s.interested_in(TOPIC_ROUTE_UPDATED));
         assert!(s.interested_in(TOPIC_GEOFENCE_UPDATED));
         assert!(!s.interested_in("webhook.test"));
@@ -208,7 +321,7 @@ mod tests {
     use std::time::Duration;
 
     use koji_events::EventDispatcher;
-    use sea_orm::{ConnectionTrait, Database, DbBackend, Statement, Value};
+    use sea_orm::{ActiveModelTrait, ConnectionTrait, Database, DbBackend, Set, Statement, Value};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     /// What Dragonite 1.19.0 answers a `PATCH /v2/areas/2` with: the bare area.
@@ -275,7 +388,24 @@ mod tests {
         };
         let (base, hits) = dragonite_stand_in().await;
 
+        let target = webhook::ActiveModel {
+            name: Set("dragonite stub".into()),
+            url: Set(base),
+            secret: Set(Some("tok".into())),
+            topics: Set(serde_json::json!([])),
+            active: Set(true),
+            mode: Set(WebhookMode::Dragonite),
+            method: Set(koji_db::db::sea_orm_active_enums::WebhookMethod::Post),
+            created_at: Set(Default::default()),
+            updated_at: Set(Default::default()),
+            ..Default::default()
+        }
+        .insert(&db)
+        .await
+        .expect("insert the Dragonite row");
+
         let payload = GeofenceUpdated {
+            webhook_id: target.id,
             dragonite_area_id: 2,
             mode: AreaMode::Pokemon,
             geofence: Feature {
@@ -298,9 +428,7 @@ mod tests {
 
         let dispatcher = Arc::new(EventDispatcher::new(
             db.clone(),
-            vec![Arc::new(DragoniteSubscriber::new(DragoniteClient::new(
-                base, "tok",
-            )))],
+            vec![Arc::new(DragoniteSubscriber::new(db.clone()))],
             "dragonite-test",
         ));
         let handle = dispatcher.spawn();
@@ -331,6 +459,7 @@ mod tests {
             seen = read_row().await;
         }
         handle.shutdown().await;
+        let _ = webhook::Entity::delete_by_id(target.id).exec(&db).await;
         let _ = db
             .execute(Statement::from_sql_and_values(
                 DbBackend::MySql,

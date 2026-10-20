@@ -245,27 +245,23 @@ impl Query {
         Ok(target)
     }
 
-    /// Apply `changes` to a geofence's links, with the geofence in `mode`:
-    /// an Area sets that target's link (replacing it), `None` clears it. Every
-    /// link the geofence ends up with is checked against the target's other
-    /// geofences of `mode`, so a mode change that makes two geofences share an
-    /// Area is refused too. All or nothing.
-    pub async fn set_links(
-        db: &impl TransactionTrait,
+    /// Check what [`Self::set_links`] would check, writing nothing, so a caller
+    /// can refuse a request before it changes anything else.
+    pub async fn validate_links<C: ConnectionTrait>(
+        db: &C,
         geofence_id: u32,
         mode: Mode,
         changes: &[LinkChange],
     ) -> Result<(), LinkError> {
-        let txn = db.begin().await?;
         if geofence::Entity::find_by_id(geofence_id)
-            .one(&txn)
+            .one(db)
             .await?
             .is_none()
         {
             return Err(LinkError::NoGeofence(geofence_id));
         }
         let mut wanted: std::collections::BTreeMap<u64, Option<u32>> =
-            Self::for_geofence(&txn, geofence_id)
+            Self::for_geofence(db, geofence_id)
                 .await?
                 .into_iter()
                 .map(|link| (link.webhook_id, Some(link.dragonite_area_id)))
@@ -278,7 +274,7 @@ impl Query {
         // when untouched: its Area is re-checked against `mode`.
         for (&webhook_id, area) in &wanted {
             let touched = changes.iter().any(|c| c.webhook_id == webhook_id);
-            match Self::lock_target(&txn, webhook_id).await {
+            match Self::lock_target(db, webhook_id).await {
                 Ok(_) => {}
                 // A kept link on a row since switched to another mode is not
                 // re-checked; one in the request must name a Dragonite row.
@@ -286,7 +282,7 @@ impl Query {
                 Err(e) => return Err(e),
             }
             let Some(area) = *area else { continue };
-            if let Some(held_by) = Self::holder(&txn, webhook_id, area, mode, geofence_id).await? {
+            if let Some(held_by) = Self::holder(db, webhook_id, area, mode, geofence_id).await? {
                 return Err(LinkError::AreaTaken {
                     webhook_id,
                     dragonite_area_id: area,
@@ -295,6 +291,22 @@ impl Query {
                 });
             }
         }
+        Ok(())
+    }
+
+    /// Apply `changes` to a geofence's links, with the geofence in `mode`:
+    /// an Area sets that target's link (replacing it), `None` clears it. Every
+    /// link the geofence ends up with is checked against the target's other
+    /// geofences of `mode`, so a mode change that makes two geofences share an
+    /// Area is refused too. All or nothing.
+    pub async fn set_links(
+        db: &impl TransactionTrait,
+        geofence_id: u32,
+        mode: Mode,
+        changes: &[LinkChange],
+    ) -> Result<(), LinkError> {
+        let txn = db.begin().await?;
+        Self::validate_links(&txn, geofence_id, mode, changes).await?;
         let now = Utc::now().naive_utc();
         for change in changes {
             match change.dragonite_area_id {

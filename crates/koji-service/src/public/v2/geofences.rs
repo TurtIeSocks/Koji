@@ -32,13 +32,17 @@ use crate::utils::{
     api_response::{ApiError, ApiResponse},
     format::respond_geo,
 };
-use koji_events::EventDispatcher;
-
-use koji_dragonite::DragoniteClient;
-use sea_orm::TransactionTrait;
+use koji_db::db::{
+    dragonite_link::{self, LinkChange},
+    sea_orm_active_enums::Mode,
+    webhook,
+};
+use sea_orm::{ActiveEnum, EntityTrait, TransactionTrait};
 
 use super::geofence_link::plan_links;
-use crate::dragonite::{GeofenceUpdated, TOPIC_GEOFENCE_UPDATED, area_mode_for};
+use crate::dragonite::{
+    GeofenceUpdated, TOPIC_GEOFENCE_UPDATED, area_mode_for, client_for, linked_targets, publish_to,
+};
 
 /// Query args for the geometry reads: the `?format=` return-type selector (with
 /// `?rt=` kept as a one-release back-compat alias) plus the `?depth`/`?level`
@@ -263,29 +267,52 @@ pub(crate) struct PatchGeofence {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(value_type = Option<Vec<Object>>)]
     pub properties: Option<Vec<serde_json::Value>>,
-    /// Dragonite Area this geofence publishes to: a number links, `null`
-    /// unlinks, omitted leaves the link as it is.
-    #[serde(deserialize_with = "present_or_null")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[schema(value_type = Option<u32>)]
-    pub dragonite_area_id: Option<Option<u32>>,
+    /// Dragonite Areas this geofence publishes to, one change per Dragonite
+    /// webhook: a number links it to that Area on that webhook, `null` unlinks
+    /// it. A webhook the list leaves out keeps its link.
+    #[serde(skip_serializing)]
+    #[schema(value_type = Option<Vec<DragoniteLinkChange>>)]
+    pub dragonite_links: Option<Vec<DragoniteLinkChange>>,
 }
 
-/// Tell an explicit `null` from an omitted field: a present value (`null`
-/// included) becomes `Some(..)`, an omitted field stays `None` via `default`.
-fn present_or_null<'de, D, T>(de: D) -> Result<Option<Option<T>>, D::Error>
+/// One change to a geofence's links: its Area on one Dragonite webhook.
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, ToSchema)]
+pub(crate) struct DragoniteLinkChange {
+    /// The Dragonite webhook (a `webhook_subscription` row in `dragonite` mode).
+    pub webhook_id: u64,
+    /// The Area id on that Dragonite; `null` removes the link. Required, so a
+    /// misspelled key cannot unlink by omission.
+    #[serde(deserialize_with = "required_nullable")]
+    #[schema(value_type = Option<u32>)]
+    pub dragonite_area_id: Option<u32>,
+}
+
+impl From<DragoniteLinkChange> for LinkChange {
+    fn from(change: DragoniteLinkChange) -> Self {
+        LinkChange {
+            webhook_id: change.webhook_id,
+            dragonite_area_id: change.dragonite_area_id,
+        }
+    }
+}
+
+/// A field that must be present but may be `null`.
+fn required_nullable<'de, D, T>(de: D) -> Result<Option<T>, D::Error>
 where
     D: serde::Deserializer<'de>,
     T: Deserialize<'de>,
 {
-    Option::<T>::deserialize(de).map(Some)
+    Option::<T>::deserialize(de)
 }
 
 /// Body of `POST /api/v2/geofences/link-dragonite`.
-#[derive(Debug, Default, Deserialize, ToSchema)]
-#[serde(default)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub(crate) struct LinkDragonite {
+    /// The Dragonite webhook to link on. Only the geofences it reaches are
+    /// considered.
+    pub webhook_id: u64,
     /// Answer what would be linked without writing anything.
+    #[serde(default)]
     pub dry_run: bool,
 }
 
@@ -486,8 +513,9 @@ async fn get_one(
 }
 
 /// `PATCH /api/v2/geofences/{id}` — update a geofence by id → `200` envelope;
-/// `404` on a missing id. `dragonite_area_id` links the geofence to a Dragonite
-/// Area (a number) or unlinks it (`null`).
+/// `404` on a missing id. `dragonite_links` sets or clears the geofence's Area on
+/// each named Dragonite webhook; an Area another geofence of the same mode holds
+/// on that webhook is a `409`, and a webhook that is not a Dragonite is a `422`.
 #[utoipa::path(
     patch,
     path = "/api/v2/geofences/{id}",
@@ -497,6 +525,8 @@ async fn get_one(
     responses(
         (status = 200, description = "Updated geofence record", body = Object),
         (status = 404, description = "No such geofence", body = ApiError),
+        (status = 409, description = "A Dragonite Area is held by another geofence of the same mode", body = ApiError),
+        (status = 422, description = "`dragonite_links` names a webhook that is missing or not a Dragonite", body = ApiError),
     ),
 )]
 async fn update(
@@ -506,7 +536,12 @@ async fn update(
     body: web::Json<PatchGeofence>,
 ) -> Result<HttpResponse, ServiceError> {
     let id = path.into_inner();
-    let dragonite_area_id = body.dragonite_area_id;
+    let link_changes: Vec<LinkChange> = body
+        .dragonite_links
+        .iter()
+        .flatten()
+        .map(|change| (*change).into())
+        .collect();
     // Fetch existing row — 404 on missing (also supplies the base for the merge).
     let existing = geofence::Query::get_one(&conn.koji, id.to_string())
         .await
@@ -518,9 +553,21 @@ async fn update(
     // the PATCH body supplied (skip_serializing_if = "Option::is_none" ensures
     // absent fields are absent from the patch value).
     let mut merged = serde_json::to_value(&existing).map_err(ServiceError::internal)?;
+    let body_mode = body.mode.clone();
+    let body_links_given = body.dragonite_links.is_some();
     let patch_value = serde_json::to_value(body.into_inner()).map_err(ServiceError::internal)?;
     let carries_projects = patch_value.get("projects").is_some();
     super::crud::merge_patch(&mut merged, &patch_value);
+    // Links are checked against the mode the geofence ends up in, before
+    // anything is written: a mode change alone can make two geofences share an
+    // Area on a webhook.
+    let mode = body_mode
+        .and_then(|m| Mode::try_from_value(&m).ok())
+        .unwrap_or(existing.mode);
+    let touches_links = body_links_given || mode != existing.mode;
+    if touches_links {
+        dragonite_link::Query::validate_links(&conn.koji, id, mode, &link_changes).await?;
+    }
     // Snapshot pre-mutation project links (only needed when the PATCH body
     // carries `projects` — otherwise membership isn't touched at all).
     let before_pids = if carries_projects {
@@ -531,11 +578,11 @@ async fn update(
         vec![]
     };
     let mut record = geofence::Query::upsert_json_return(&conn.koji, id, merged).await?;
-    // The upsert leaves the Dragonite link alone; a link in the body is its own write.
-    if let Some(link) = dragonite_area_id {
-        geofence::Query::set_dragonite_area_id(&conn.koji, id, link).await?;
-        record["dragonite_area_id"] = json!(link);
+    // The upsert leaves the Dragonite links alone; the body's links are their own write.
+    if touches_links {
+        dragonite_link::Query::set_links(&conn.koji, id, mode, &link_changes).await?;
     }
+    record["dragonite_links"] = dragonite_link::Query::json_for_geofence(&conn.koji, id).await?;
     for (t, ev) in crate::internal::realtime::topics::updated("geofence", id as i64, record.clone())
     {
         hub.publish(&t, ev);
@@ -631,94 +678,120 @@ async fn remove(
     Ok(HttpResponse::build(StatusCode::NO_CONTENT).finish())
 }
 
-/// `POST /api/v2/geofences/link-dragonite` — link geofences to Dragonite Areas
-/// by name.
+/// `POST /api/v2/geofences/link-dragonite` — link geofences to a Dragonite
+/// webhook's Areas by name.
 ///
-/// Reads every Area from Dragonite and links each to the geofences with exactly
-/// its name, in every mode. A geofence already linked to a different Area keeps
-/// its link and is reported as a conflict. The answer lists what was linked,
-/// what already was, the conflicts, the Areas no geofence is named after and the
-/// unlinked geofences no Area is named after. `dry_run` writes nothing and
-/// answers the same lists.
+/// Reads every Area from the Dragonite the `webhook_id` row names and links each
+/// to the geofences with exactly its name, in every mode, but only among the
+/// geofences that row reaches: all of them for a global row, the project's for a
+/// scoped one, none for an inactive one. A geofence already linked to a
+/// different Area on this webhook keeps its link and is reported as a conflict;
+/// one whose Area is already held by another geofence of its mode on this
+/// webhook stays unlinked and is reported as `area_taken`. The answer lists what
+/// was linked, what already was, those two, the Areas no geofence is named after
+/// and the unlinked geofences no Area is named after. `dry_run` writes nothing
+/// and answers the same lists.
 #[utoipa::path(
     post,
     path = "/api/v2/geofences/link-dragonite",
     tag = "geofences",
     request_body = LinkDragonite,
     responses(
-        (status = 200, description = "The link plan: `linked`, `already_linked`, `conflicts`, `areas_without_geofence`, `geofences_without_area`", body = Object),
-        (status = 422, description = "Dragonite is not configured", body = ApiError),
+        (status = 200, description = "The link plan: `linked`, `already_linked`, `conflicts`, `area_taken`, `areas_without_geofence`, `geofences_without_area`", body = Object),
+        (status = 404, description = "No such webhook", body = ApiError),
+        (status = 422, description = "The webhook is not a Dragonite", body = ApiError),
         (status = 502, description = "Dragonite could not be read", body = ApiError),
     ),
 )]
 async fn link_dragonite(
     conn: web::Data<KojiDb>,
-    dragonite: web::Data<Option<DragoniteClient>>,
     body: web::Json<LinkDragonite>,
 ) -> Result<HttpResponse, ServiceError> {
-    let Some(client) = dragonite.get_ref() else {
-        return Err(ServiceError::Unprocessable {
-            field: Some("dragonite".to_string()),
-            message: "Dragonite is not configured (DRAGONITE_URL and DRAGONITE_BEARER)".to_string(),
-        });
-    };
-    let areas = client
+    let target = dragonite_target(&conn.koji, body.webhook_id).await?;
+    let areas = client_for(&target)
         .list_areas()
         .await
         .map_err(|e| ServiceError::Upstream {
             field: "dragonite",
             message: format!("could not read Dragonite areas: {e}"),
         })?;
-    // A write pass reads the rows locked inside its transaction, so a
-    // concurrent PATCH cannot change a link between the plan and the write and
+    // A write pass reads under a lock on the target row, so a concurrent PATCH
+    // or link pass cannot change a link between the plan and the write and
     // leave `linked` naming a link that was never stored.
     let plan = if body.dry_run {
-        let rows = geofence::Query::link_rows(&conn.koji).await?;
-        plan_links(&areas, &rows)
+        let rows = dragonite_link::Query::link_rows(&conn.koji, &target).await?;
+        let taken = dragonite_link::Query::taken_areas(&conn.koji, target.id).await?;
+        plan_links(&areas, &rows, &taken)
     } else {
         let txn = conn.koji.begin().await?;
-        let rows = geofence::Query::link_rows_locked(&txn).await?;
-        let plan = plan_links(&areas, &rows);
-        let mut by_area: std::collections::BTreeMap<u32, Vec<u32>> = Default::default();
-        for linked in &plan.linked {
-            by_area
-                .entry(linked.dragonite_area_id)
-                .or_default()
-                .push(linked.geofence);
-        }
-        for (area_id, geofence_ids) in &by_area {
-            geofence::Query::link_unlinked_to_area(&txn, *area_id, geofence_ids).await?;
-        }
+        // Re-read the row locked: a webhook edited or deactivated since the
+        // Areas were read reaches what it reaches now.
+        let target = dragonite_link::Query::lock_target(&txn, target.id).await?;
+        let rows = dragonite_link::Query::link_rows(&txn, &target).await?;
+        let taken = dragonite_link::Query::taken_areas(&txn, target.id).await?;
+        let plan = plan_links(&areas, &rows, &taken);
+        let links: Vec<(u32, u32)> = plan
+            .linked
+            .iter()
+            .map(|l| (l.geofence, l.dragonite_area_id))
+            .collect();
+        dragonite_link::Query::link_unlinked(&txn, target.id, &links).await?;
         txn.commit().await?;
         plan
     };
 
     let mut answer = serde_json::to_value(&plan).map_err(ServiceError::internal)?;
+    answer["webhook_id"] = json!(target.id);
     answer["dry_run"] = json!(body.dry_run);
     Ok(ApiResponse::success(answer))
 }
 
+/// The Dragonite row `webhook_id`: `404` when there is none, `422` when the row
+/// is another mode.
+pub(super) async fn dragonite_target(
+    db: &sea_orm::DatabaseConnection,
+    webhook_id: u64,
+) -> Result<webhook::Model, ServiceError> {
+    let target = webhook::Entity::find_by_id(webhook_id)
+        .one(db)
+        .await?
+        .ok_or_else(|| ServiceError::NotFound {
+            field: "webhook",
+            message: format!("no webhook {webhook_id}"),
+        })?;
+    if target.mode != koji_db::db::sea_orm_active_enums::WebhookMode::Dragonite {
+        return Err(ServiceError::Unprocessable {
+            field: Some("webhook_id".to_string()),
+            message: format!("webhook {webhook_id} is not a Dragonite"),
+        });
+    }
+    Ok(target)
+}
+
 /// `POST /api/v2/geofences/{id}/publish` — publish a geofence's fence to its
-/// linked Dragonite area.
+/// linked Dragonite areas.
 ///
 /// Replaces the v1 GET-that-mutates `/geofence/push/{id}` and the old direct
 /// controller-DB write (P5, architecture §7): instead of writing the golbat DB
-/// inline, it appends an [`area.geofence_updated`](TOPIC_GEOFENCE_UPDATED) event
-/// to the outbox, which the dispatcher delivers to the `DragoniteSubscriber`
-/// (PATCH `/v2/areas/{id}`). Returns `202 { event_id }`.
+/// inline, it appends one [`area.geofence_updated`](TOPIC_GEOFENCE_UPDATED)
+/// event per active Dragonite webhook that reaches the geofence and holds a link
+/// for it. The dispatcher delivers each to the `DragoniteSubscriber`, which
+/// builds its client from the webhook the event names (PATCH `/v2/areas/{id}` on
+/// that Dragonite). Returns `202 { events: [{ webhook_id, event_id,
+/// dragonite_area_id }] }`.
 ///
-/// Gated on linkage: a geofence with no `dragonite_area_id` yields `422` (it is
-/// not bound to a Dragonite area, so there is nothing to push to); an unknown
-/// geofence yields `404`.
+/// Gated on linkage: `422` saying which is missing, no Dragonite webhook that
+/// reaches the geofence or no link on the ones that do; an unknown geofence
+/// yields `404`.
 #[utoipa::path(
     post,
     path = "/api/v2/geofences/{id}/publish",
     tag = "geofences",
     params(("id" = String, Path, description = "Geofence id or name")),
     responses(
-        (status = 202, description = "Publish event enqueued: `{ event_id }`", body = Object),
+        (status = 202, description = "Publish events enqueued: `{ events: [{ webhook_id, event_id, dragonite_area_id }] }`", body = Object),
         (status = 404, description = "No such geofence", body = ApiError),
-        (status = 422, description = "Geofence is not linked to a Dragonite area", body = ApiError),
+        (status = 422, description = "No active Dragonite webhook reaches the geofence, or none that does holds a link for it", body = ApiError),
     ),
 )]
 async fn publish(
@@ -735,32 +808,35 @@ async fn publish(
             format!("no geofence {id}"),
         ))?;
 
-    // Linkage gate: only linked geofences can be pushed.
-    let Some(dragonite_area_id) = model.dragonite_area_id else {
-        return Err(ServiceError::Unprocessable {
-            field: Some("dragonite_area_id".to_string()),
-            message: "geofence is not linked to a Dragonite area".to_string(),
-        });
-    };
+    // Linkage gate: only a geofence a Dragonite row reaches and links can be pushed.
+    let targets = linked_targets(&conn.koji, model.id, &model.name).await?;
 
-    let payload = geofence_updated(&model, dragonite_area_id).map_err(ServiceError::internal)?;
-    let event_id = EventDispatcher::publish(&conn.koji, TOPIC_GEOFENCE_UPDATED, &payload)
-        .await
-        .map_err(ServiceError::internal)?;
+    let template = geofence_updated(&model).map_err(ServiceError::internal)?;
+    let events = publish_to(
+        &conn.koji,
+        TOPIC_GEOFENCE_UPDATED,
+        &targets,
+        |target, link| GeofenceUpdated {
+            webhook_id: target.id,
+            dragonite_area_id: link.dragonite_area_id as i64,
+            ..template.clone()
+        },
+    )
+    .await?;
 
     Ok(ApiResponse::success_with_status(
         StatusCode::ACCEPTED,
         json!({
             "geofence": model.id,
-            "event_id": event_id.to_string(),
             "topic": TOPIC_GEOFENCE_UPDATED,
-            "dragonite_area_id": dragonite_area_id,
-            "mode": payload.mode,
+            "mode": template.mode,
+            "events": events,
         }),
     ))
 }
 
-/// Build the [`GeofenceUpdated`] payload for a linked geofence. It targets the
+/// Build the [`GeofenceUpdated`] payload for a geofence, with `webhook_id` and
+/// `dragonite_area_id` left for the caller to set per target. It targets the
 /// fence's own mode (`area_mode_for`), so each mode's fence lands in its own
 /// Dragonite column and leaves the others untouched.
 ///
@@ -771,13 +847,11 @@ async fn publish(
 /// `area_geofence_patch` ships the whole `Feature` to Dragonite verbatim, so
 /// adding those props would change the external PATCH payload, and the
 /// `GeofenceUpdated.geofence` shape is locked.
-fn geofence_updated(
-    model: &geofence::Model,
-    dragonite_area_id: u32,
-) -> Result<GeofenceUpdated, serde_json::Error> {
+fn geofence_updated(model: &geofence::Model) -> Result<GeofenceUpdated, serde_json::Error> {
     let geometry = serde_json::from_value::<Geometry>(model.geometry.clone())?;
     Ok(GeofenceUpdated {
-        dragonite_area_id: dragonite_area_id as i64,
+        webhook_id: 0,
+        dragonite_area_id: 0,
         mode: area_mode_for(&model.mode),
         geofence: Feature {
             bbox: None,
@@ -906,7 +980,6 @@ mod tests {
             mode,
             geometry: sample_geometry(),
             geo_type: "Polygon".to_string(),
-            dragonite_area_id: Some(9),
             min_lat: None,
             min_lng: None,
             max_lat: None,
@@ -916,7 +989,7 @@ mod tests {
 
     /// The Dragonite PATCH body a published `mode` fence produces.
     fn published_patch(mode: Mode) -> (AreaMode, serde_json::Value) {
-        let payload = geofence_updated(&model_with_mode(mode), 9).unwrap();
+        let payload = geofence_updated(&model_with_mode(mode)).unwrap();
         let patch = koji_dragonite::area_geofence_patch(payload.mode, &payload.geofence);
         (payload.mode, serde_json::to_value(&patch).unwrap())
     }
@@ -1063,21 +1136,55 @@ mod tests {
         assert!(dto.parent.is_none());
         assert!(dto.projects.is_none());
         assert!(dto.properties.is_none());
-        assert_eq!(dto.dragonite_area_id, None);
+        assert!(dto.dragonite_links.is_none());
     }
 
     #[test]
     fn patch_geofence_tells_a_link_from_an_unlink_from_no_change() {
-        let link = |v: serde_json::Value| {
+        let links = |v: serde_json::Value| {
             serde_json::from_value::<PatchGeofence>(v)
                 .unwrap()
-                .dragonite_area_id
+                .dragonite_links
+                .map(|l| {
+                    l.into_iter()
+                        .map(|c| (c.webhook_id, c.dragonite_area_id))
+                        .collect::<Vec<_>>()
+                })
         };
-        assert_eq!(link(json!({ "dragonite_area_id": 12 })), Some(Some(12)));
-        assert_eq!(link(json!({ "dragonite_area_id": null })), Some(None));
-        assert_eq!(link(json!({ "name": "x" })), None);
+        assert_eq!(
+            links(json!({ "dragonite_links": [
+                { "webhook_id": 3, "dragonite_area_id": 12 },
+                { "webhook_id": 4, "dragonite_area_id": null },
+            ] })),
+            Some(vec![(3, Some(12)), (4, None)])
+        );
+        assert_eq!(links(json!({ "dragonite_links": [] })), Some(vec![]));
+        assert_eq!(links(json!({ "name": "x" })), None);
+    }
+
+    #[test]
+    fn a_link_change_must_name_its_area_or_null() {
+        let parse = |v: serde_json::Value| serde_json::from_value::<PatchGeofence>(v);
+        // A missing key is not a silent unlink.
+        assert!(parse(json!({ "dragonite_links": [{ "webhook_id": 3 }] })).is_err());
         assert!(
-            serde_json::from_value::<PatchGeofence>(json!({ "dragonite_area_id": -1 })).is_err()
+            parse(json!({ "dragonite_links": [{ "webhook_id": 3, "dragonite_area_id": -1 }] }))
+                .is_err()
+        );
+        assert!(parse(json!({ "dragonite_links": [{ "dragonite_area_id": 1 }] })).is_err());
+    }
+
+    #[test]
+    fn patch_geofence_never_serializes_links_into_the_upsert_value() {
+        let dto: PatchGeofence = serde_json::from_value(json!({
+            "dragonite_links": [{ "webhook_id": 3, "dragonite_area_id": 12 }]
+        }))
+        .unwrap();
+        assert!(
+            serde_json::to_value(&dto)
+                .unwrap()
+                .get("dragonite_links")
+                .is_none()
         );
     }
 
