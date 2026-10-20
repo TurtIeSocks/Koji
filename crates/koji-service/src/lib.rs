@@ -310,6 +310,14 @@ pub async fn start() -> io::Result<()> {
             // public api
             .service(
                 web::scope("/api")
+                    // v1 calc shim: the four routes an unchanged Dragonite calls
+                    // (`/health`, `/calc/bootstrap`, `/calc/route/{category}`),
+                    // answered from the v2 calc in v1's envelope.
+                    .service(
+                        web::scope("/v1")
+                            .wrap(HttpAuthentication::with_fn(auth::public_validator))
+                            .configure(public::v1_shim::services),
+                    )
                     // v2: clean, best-practices surface over the job queue. Auth is
                     // applied per-scope.
                     .service(

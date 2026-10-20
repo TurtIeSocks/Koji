@@ -25,7 +25,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::public::v2::calc::{CALC_KIND, CalcPayload, compute_calc};
-use crate::requests::{CalcJobRequest, area_collection};
+use crate::requests::{CalcJobRequest, CalcRequest, area_collection};
 use crate::utils::error::ServiceError;
 use crate::utils::pagination::Pagination;
 use crate::utils::{self, api_response::ApiError, api_response::ApiResponse};
@@ -46,6 +46,86 @@ fn job_error_to_service(e: JobError) -> ServiceError {
         },
         _ => ServiceError::internal(e),
     }
+}
+
+/// Resolve a calc request's async inputs (area, then the data points within it)
+/// into a ready-to-run [`CalcPayload`]. Shared by `POST /jobs` and the v1 shim so
+/// both resolve identically.
+pub(crate) async fn resolve_calc_payload(
+    conn: &KojiDb,
+    op: &str,
+    category: String,
+    calc_request: &CalcRequest,
+) -> Result<CalcPayload, ServiceError> {
+    let inputs = calc_request.enqueue_inputs();
+    let area = area_collection(&inputs.area);
+
+    if area.features.is_empty()
+        && inputs.instance.is_empty()
+        && inputs.data_points.is_empty()
+        && inputs.parent.is_none()
+    {
+        return Err(ServiceError::Invalid {
+            field: Some("area".to_string()),
+            message: "no area, instance, dataPoints, or parent provided".to_string(),
+        });
+    }
+
+    // (async) resolve the area, then the data points within it.
+    let area = utils::create_or_find_collection(
+        &inputs.instance,
+        conn,
+        area,
+        &inputs.parent,
+        &inputs.data_points,
+    )
+    .await?;
+
+    let data_points = if op == "bootstrap" {
+        vec![]
+    } else if op == "reroute" {
+        inputs.data_points
+    } else if inputs.data_points.is_empty() {
+        use koji_golbat::GenericDataToVec;
+        utils::points_from_area(
+            &area,
+            &category,
+            conn,
+            inputs.data_filter.last_seen,
+            inputs.data_filter.tth,
+        )
+        .await?
+        .to_single_vec()
+    } else {
+        inputs.data_points
+    };
+
+    let request = serde_json::to_value(calc_request).map_err(ServiceError::internal)?;
+    Ok(CalcPayload {
+        mode: op.to_string(),
+        category,
+        request,
+        area,
+        data_points,
+        clusters: inputs.clusters,
+    })
+}
+
+/// Compute a payload inline on a blocking thread, with the worker pool paused so
+/// the rayon compute doesn't oversubscribe cores. No timeout: it runs to
+/// completion. Returns `{ data, stats }`.
+pub(crate) async fn compute_inline(
+    jobs: &JobQueue,
+    payload: CalcPayload,
+) -> Result<serde_json::Value, ServiceError> {
+    let pause = jobs.pause_exclusive().await;
+    web::block(move || {
+        let _pause = pause;
+        compute_calc(payload)
+    })
+    .await
+    .map_err(|e| ServiceError::internal(format!("calc task failed to run: {e}")))?
+    .map_err(job_error_to_service)
 }
 
 // ---------------------------------------------------------------------------
@@ -81,58 +161,7 @@ async fn create_job(
     let category = body.category;
     let calc_request = body.request;
 
-    let inputs = calc_request.enqueue_inputs();
-    let area = area_collection(&inputs.area);
-
-    if area.features.is_empty()
-        && inputs.instance.is_empty()
-        && inputs.data_points.is_empty()
-        && inputs.parent.is_none()
-    {
-        return Err(ServiceError::Invalid {
-            field: Some("area".to_string()),
-            message: "no area, instance, dataPoints, or parent provided".to_string(),
-        });
-    }
-
-    // (async) resolve the area, then the data points within it.
-    let area = utils::create_or_find_collection(
-        &inputs.instance,
-        &conn,
-        area,
-        &inputs.parent,
-        &inputs.data_points,
-    )
-    .await?;
-
-    let data_points = if op == "bootstrap" {
-        vec![]
-    } else if op == "reroute" {
-        inputs.data_points
-    } else if inputs.data_points.is_empty() {
-        use koji_golbat::GenericDataToVec;
-        utils::points_from_area(
-            &area,
-            &category,
-            &conn,
-            inputs.data_filter.last_seen,
-            inputs.data_filter.tth,
-        )
-        .await?
-        .to_single_vec()
-    } else {
-        inputs.data_points
-    };
-
-    let request = serde_json::to_value(&calc_request).map_err(ServiceError::internal)?;
-    let calc_payload = CalcPayload {
-        mode: op.to_string(),
-        category,
-        request,
-        area,
-        data_points,
-        clusters: inputs.clusters,
-    };
+    let calc_payload = resolve_calc_payload(&conn, op, category, &calc_request).await?;
 
     // Synchronous bypass (`sync: true`): compute inline and return the result
     // directly, skipping the queue (no enqueue, no dedup, no job record). The
@@ -141,15 +170,9 @@ async fn create_job(
     // blocking task, so a client that aborts mid-request releases it only when the
     // (detached, un-cancelable) compute actually finishes — never early.
     if sync {
-        let pause = jobs.pause_exclusive().await;
-        let result = web::block(move || {
-            let _pause = pause;
-            compute_calc(calc_payload)
-        })
-        .await
-        .map_err(|e| ServiceError::internal(format!("calc task failed to run: {e}")))?
-        .map_err(job_error_to_service)?;
-        return Ok(ApiResponse::success(result));
+        return Ok(ApiResponse::success(
+            compute_inline(&jobs, calc_payload).await?,
+        ));
     }
 
     let key = dedup_key(
