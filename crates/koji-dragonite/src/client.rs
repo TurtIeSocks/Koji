@@ -1,6 +1,7 @@
 //! Async HTTP client for Dragonite's `/v2/areas/*` API.
 //!
-//! Single resource at `/v2/areas/{id}` patched via PATCH. Dragonite answers a
+//! Collection at `/v2/areas/` listed via GET; single resource at
+//! `/v2/areas/{id}` patched via PATCH. Dragonite answers a
 //! success with the bare area and a failure with a problem document (checked
 //! against Dragonite 1.19.0), read by [`decode_reply`]. Every request carries
 //! `Authorization: Bearer` + `User-Agent`.
@@ -10,6 +11,9 @@ use serde::de::DeserializeOwned;
 
 use crate::error::{DragoniteError, ProblemDocument};
 use crate::types::ApiArea;
+
+/// Largest `per_page` Dragonite accepts on `GET /v2/areas/`.
+const AREAS_PER_PAGE: u32 = 1000;
 
 /// Typed client over Dragonite's `/v2/areas` API.
 ///
@@ -44,20 +48,54 @@ impl DragoniteClient {
         format!("{}{}", self.base_url, path)
     }
 
-    /// Execute a prepared request: attach auth + UA headers, send, then read the
-    /// reply with [`decode_reply`].
-    async fn exec<T: DeserializeOwned>(
+    /// Send a prepared request with auth + UA headers attached, returning the
+    /// raw status, headers and body.
+    async fn send(
         &self,
         req: reqwest::RequestBuilder,
-    ) -> Result<T, DragoniteError> {
+    ) -> Result<(u16, reqwest::header::HeaderMap, Vec<u8>), DragoniteError> {
         let resp = req
             .bearer_auth(&self.bearer)
             .header(USER_AGENT, &self.user_agent)
             .send()
             .await?;
-        let status = resp.status();
+        let status = resp.status().as_u16();
+        let headers = resp.headers().clone();
         let bytes = resp.bytes().await?;
-        decode_reply(status.as_u16(), &bytes)
+        Ok((status, headers, bytes.to_vec()))
+    }
+
+    /// Execute a prepared request, then read the reply with [`decode_reply`].
+    async fn exec<T: DeserializeOwned>(
+        &self,
+        req: reqwest::RequestBuilder,
+    ) -> Result<T, DragoniteError> {
+        let (status, _, bytes) = self.send(req).await?;
+        decode_reply(status, &bytes)
+    }
+
+    /// Every area Dragonite has, read page by page from `GET /v2/areas/`
+    /// (`per_page` at Dragonite's cap of [`AREAS_PER_PAGE`]). The page count
+    /// comes from the `X-Total-Pages` header; a reply without it is one page.
+    pub async fn list_areas(&self) -> Result<Vec<ApiArea>, DragoniteError> {
+        let mut areas = Vec::new();
+        let mut page = 1u32;
+        loop {
+            let req = self
+                .http
+                .get(self.url(&format!("/v2/areas/?page={page}&per_page={AREAS_PER_PAGE}")));
+            let (status, headers, bytes) = self.send(req).await?;
+            let total_pages = headers
+                .get("x-total-pages")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| v.trim().parse::<u32>().ok())
+                .unwrap_or(1);
+            areas.extend(decode_reply::<Vec<ApiArea>>(status, &bytes)?);
+            if page >= total_pages {
+                return Ok(areas);
+            }
+            page += 1;
+        }
     }
 
     /// PATCH an area, sending only the fields present in `patch` (omitted fields
@@ -368,6 +406,91 @@ mod tests {
             "{request}"
         );
         assert!(request.contains(r#"{"enabled":false}"#), "{request}");
+    }
+
+    /// Serve `GET /v2/areas/` from `pages` (one JSON array body per page),
+    /// answering `X-Total-Pages` as Dragonite does. Returns the base URL and the
+    /// request lines the client sent, in order.
+    async fn serve_area_pages(
+        pages: Vec<String>,
+    ) -> (String, std::sync::Arc<std::sync::Mutex<Vec<String>>>) {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let log = std::sync::Arc::clone(&seen);
+        tokio::spawn(async move {
+            loop {
+                let (mut sock, _) = listener.accept().await.unwrap();
+                let mut buf = [0u8; 4096];
+                let n = sock.read(&mut buf).await.unwrap_or(0);
+                let head = String::from_utf8_lossy(&buf[..n]).to_string();
+                let line = head.lines().next().unwrap_or_default().to_string();
+                log.lock().unwrap().push(line.clone());
+                let page = line
+                    .split(['?', '&', ' '])
+                    .find_map(|kv| kv.strip_prefix("page="))
+                    .and_then(|v| v.parse::<usize>().ok())
+                    .unwrap_or(1);
+                let body = pages.get(page - 1).cloned().unwrap_or_else(|| "[]".into());
+                let reply = format!(
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\nx-total-pages: {}\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                    pages.len(),
+                    body.len()
+                );
+                let _ = sock.write_all(reply.as_bytes()).await;
+                let _ = sock.shutdown().await;
+            }
+        });
+        (base, seen)
+    }
+
+    #[tokio::test]
+    async fn list_areas_reads_every_page_dragonite_reports() {
+        let (base, seen) = serve_area_pages(vec![
+            r#"[{"id":1,"name":"Alpha"},{"id":2,"name":"Beta"}]"#.to_string(),
+            r#"[{"id":3,"name":"Gamma"}]"#.to_string(),
+        ])
+        .await;
+        let client = DragoniteClient::new(base, "tok");
+
+        let areas = client.list_areas().await.expect("both pages decode");
+
+        let names: Vec<_> = areas.iter().map(|a| a.name.as_deref().unwrap()).collect();
+        assert_eq!(names, ["Alpha", "Beta", "Gamma"]);
+        let seen = seen.lock().unwrap();
+        assert_eq!(seen.len(), 2, "{seen:?}");
+        assert!(seen[0].starts_with("GET /v2/areas/?"), "{seen:?}");
+        assert!(seen[0].contains("page=1"), "{seen:?}");
+        assert!(seen[0].contains("per_page=1000"), "{seen:?}");
+        assert!(seen[1].contains("page=2"), "{seen:?}");
+    }
+
+    #[tokio::test]
+    async fn list_areas_without_a_total_pages_header_is_one_page() {
+        let (base, _request) = serve_once("200 OK", br#"[{"id":1,"name":"Alpha"}]"#).await;
+        let client = DragoniteClient::new(base, "tok");
+
+        let areas = client.list_areas().await.expect("one page decodes");
+
+        assert_eq!(areas.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn list_areas_error_surfaces_the_problem_documents_detail() {
+        let (base, _request) = serve_once(
+            "401 Unauthorized",
+            br#"{"status":401,"detail":"bad token"}"#,
+        )
+        .await;
+        let client = DragoniteClient::new(base, "tok");
+
+        let err = client.list_areas().await.expect_err("401 is an error");
+
+        assert!(
+            matches!(&err, DragoniteError::HttpStatus { status: 401, detail: Some(d), .. } if d == "bad token"),
+            "{err:?}"
+        );
     }
 
     #[tokio::test]
