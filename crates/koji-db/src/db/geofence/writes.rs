@@ -180,4 +180,39 @@ impl Query {
         model.parent = Set(parent);
         Ok(model.update(db).await?)
     }
+
+    /// Link a geofence to a Dragonite area, or unlink it with `None`. The row
+    /// is read back so the caller sees the stored link.
+    pub async fn set_dragonite_area_id<C: ConnectionTrait>(
+        db: &C,
+        id: u32,
+        dragonite_area_id: Option<u32>,
+    ) -> Result<Model, ModelError> {
+        let Some(model) = Entity::find_by_id(id).one(db).await? else {
+            return Err(ModelError::Geofence("Model not found".to_string()));
+        };
+        let mut model: ActiveModel = model.into();
+        model.dragonite_area_id = Set(dragonite_area_id);
+        Ok(model.update(db).await?)
+    }
+
+    /// Link the given geofences to `dragonite_area_id`, skipping any that
+    /// already have a link (a link is never replaced here). Returns the number
+    /// of rows linked.
+    pub async fn link_unlinked_to_area<C: ConnectionTrait>(
+        db: &C,
+        dragonite_area_id: u32,
+        geofence_ids: &[u32],
+    ) -> Result<u64, DbErr> {
+        if geofence_ids.is_empty() {
+            return Ok(0);
+        }
+        let result = Entity::update_many()
+            .col_expr(Column::DragoniteAreaId, Expr::value(dragonite_area_id))
+            .filter(Column::Id.is_in(geofence_ids.iter().copied()))
+            .filter(Column::DragoniteAreaId.is_null())
+            .exec(db)
+            .await?;
+        Ok(result.rows_affected)
+    }
 }

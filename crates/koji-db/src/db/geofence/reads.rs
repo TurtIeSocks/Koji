@@ -11,6 +11,20 @@ use super::*;
 use serde_json::json;
 
 impl Query {
+    /// Every geofence's id, name, mode and Dragonite link, without geometry.
+    pub async fn link_rows<C: ConnectionTrait>(db: &C) -> Result<Vec<GeofenceLinkRow>, DbErr> {
+        Entity::find()
+            .select_only()
+            .column(Column::Id)
+            .column(Column::Name)
+            .column(Column::Mode)
+            .column(Column::DragoniteAreaId)
+            .order_by_asc(Column::Id)
+            .into_model::<GeofenceLinkRow>()
+            .all(db)
+            .await
+    }
+
     /// Recursive descendants walk (Phase 2 §7): from `anchor` (a single root by
     /// id/name, or the whole forest = `parent IS NULL`), return a flat
     /// [`KojiGeometryCollection`] of geofences per `spec` — either the cumulative

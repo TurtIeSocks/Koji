@@ -112,6 +112,16 @@ pub struct GeofenceNoGeometry {
     // pub updated_at: DateTimeUtc,
 }
 
+/// A geofence's identity and Dragonite link, without its geometry: what the
+/// bulk link-by-name pass reads (see `Query::link_rows`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, FromQueryResult)]
+pub struct GeofenceLinkRow {
+    pub id: u32,
+    pub name: String,
+    pub mode: Mode,
+    pub dragonite_area_id: Option<u32>,
+}
+
 #[derive(Serialize, Deserialize, FromQueryResult)]
 pub(crate) struct OnlyParent {
     pub parent: Option<u32>,
