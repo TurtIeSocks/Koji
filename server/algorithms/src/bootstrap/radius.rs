@@ -59,7 +59,11 @@ impl<'a> BootstrapRadius<'a> {
         if let Some(name) = self.feature.property("__name") {
             new_feature.set_property("__name", name.clone());
         }
-        if let Some(geofence_id) = self.feature.property("__id") {
+        if let Some(geofence_id) = self
+            .feature
+            .property("__geofence_id")
+            .or_else(|| self.feature.property("__id"))
+        {
             new_feature.set_property("__geofence_id", geofence_id.clone());
         }
         new_feature.set_property("__mode", "CirclePokemon");

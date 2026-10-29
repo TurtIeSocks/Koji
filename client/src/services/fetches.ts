@@ -16,6 +16,7 @@ import { UseShapes, useShapes } from '@hooks/useShapes'
 import { UseDbCache, useDbCache } from '@hooks/useDbCache'
 
 import { fromSnakeCase, getMapBounds, getRouteType } from './utils'
+import { getKojiGeofenceId } from './geofence'
 
 export async function fetchWrapper<T>(
   url: string,
@@ -141,7 +142,7 @@ export async function clusteringRouting({
   } = usePersist.getState()
   const { geojson, setStatic, bounds } = useStatic.getState()
   const { add, activeRoute } = useShapes.getState().setters
-  const { getFromKojiKey, getRouteByCategory } = useDbCache.getState()
+  const { getFromKojiKey, getRouteByCategory, geofence } = useDbCache.getState()
 
   const areas = ((feature ? [feature] : geojson?.features) || []).filter(
     (x) =>
@@ -201,6 +202,12 @@ export async function clusteringRouting({
     areas.map(async (area) => {
       const fenceRef = getFromKojiKey(area.id as string)
       const routeRef = getRouteByCategory(category, fenceRef?.name)
+      const geofenceId = getKojiGeofenceId(
+        area.id,
+        fenceRef,
+        routeRef,
+        geofence,
+      )
       const startTime = Date.now()
 
       const res = await fetch(
@@ -227,7 +234,7 @@ export async function clusteringRouting({
                   properties: {
                     __id: routeRef?.id,
                     __name: fenceRef?.name,
-                    __geofence_id: fenceRef?.id,
+                    __geofence_id: geofenceId,
                     __mode: fenceRef?.mode,
                   },
                 },
@@ -301,7 +308,7 @@ export async function clusteringRouting({
         ...json.data,
         properties: {
           ...json.data.properties,
-          __geofence_id: fenceRef?.id || undefined,
+          __geofence_id: json.data.properties?.__geofence_id ?? geofenceId,
         },
       }
     }),
